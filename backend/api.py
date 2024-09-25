@@ -85,7 +85,7 @@ def sort_data(valid_subjects: list):
         for person, subject in pws.items():
             merge_dict[person].append(subject)
     # 根据出现次数排序
-    sorted_dict = dict(sorted(merge_dict.items(), key=lambda item: len(item[1]), reverse=True))
+    sorted_dict = list(sorted(merge_dict.items(), key=lambda item: len(item[1]), reverse=True))
     return sorted_dict
 
 # 找出对应的职位
@@ -115,8 +115,9 @@ def extract_position(data_dict: dict, position: str):
 
 async def generate_ranked_lists(user_id, position):
     async with httpx.AsyncClient(headers=headers, limits=httpx.Limits(max_connections=30)) as http_client:
+        extracted_sorted_data = None
         all_datas = await fetch_user_collections(http_client, user_id)
-        extracted_data = extract_position(all_datas, position)
-        sorted_data = sort_data(extracted_data['valid_subjects'])
-        
+        extracted_sorted_data = extract_position(all_datas, position)
+        print(extracted_sorted_data['valid_subjects'])
+        return extracted_sorted_data
 
