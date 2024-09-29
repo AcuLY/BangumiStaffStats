@@ -5,24 +5,37 @@ export default createStore({
         isLoading: false,
         validSubjects: [],
         invalidSubjects: [],
-        noInfoSubjects: []
+        totalNumber: 0,
     },
 
     mutations: {
         updateLoadingStatus(state) {
             state.isLoading = !state.isLoading;
+            console.log(state.isLoading);
         },
 
         clearLists(state) {
             state.validSubjects = [];
             state.invalidSubjects = [];
-            state.noInfoSubjects = [];
         },
 
-        updateLists(state, { validSubjects, invalidSubjects, noInfoSubjects }) {
+        updateLists(state, { validSubjects, invalidSubjects, totalNumber }) {
             state.validSubjects = validSubjects;
             state.invalidSubjects = invalidSubjects;
-            state.noInfoSubjects = noInfoSubjects;
+            state.totalNumber = totalNumber;
+            // 在末尾插入一个元素, 防止滚动条无法滚动到底
+            state.validSubjects.push({
+                person_name: '',
+                subject_ids: [''],
+                subject_names: [''],
+                number: '',
+                rates: [''],
+                average_rate: 0
+            });
+            state.invalidSubjects.push({
+                subject_ids: [''],
+                subject_names: [''],
+            })
         },
 
         updateValidSubjects(state, { personName, subjectId, subjectName, rate }) {
@@ -55,10 +68,6 @@ export default createStore({
         removeInvalidSubjects(state, { subjectId }) {
             state.invalidSubjects = state.invalidSubjects.filter(subject => subject.subject_id !== subjectId);
         },
-
-        removeNoInfoSubjects(state, { subjectId }) {
-            state.noInfoSubjects = state.noInfoSubjects.filter(subject => subject.subject_id !== subjectId);
-        }
     },
 
     actions: {
@@ -82,8 +91,5 @@ export default createStore({
             commit('removeInvalidSubjects', subjectId);
         },
 
-        deleteNoInfoSubject({ commit }, subjectId) {
-            commit('removeNoInfoSubjects', subjectId);
-        },
     }
 });

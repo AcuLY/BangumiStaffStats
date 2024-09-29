@@ -1,8 +1,8 @@
 <template>
     <!-- 输入条目的弹窗 -->
-    <n-modal v-model:show="showInput">
+    <n-modal v-model:show="showInput" style="font-weight: bold;">
         <n-card
-        style="width: 600px"
+        class="input-window"
         title="请输入条目信息"
         :bordered="false"
         size="medium"
@@ -20,12 +20,12 @@
                 <n-input
                 v-model:value="subjectNameInput"
                 placeholder="请输入条目名称"
-                :disabled="!isInvalid"
+                :disabled="!isSubjectNameNull"
                 />
                 人员名称
                 <n-input
                 v-model:value="personNameInput"
-                placeholder="请输入演职人员的名称（请保证与 Bangumi 上的字符一致）"
+                placeholder="请输入演职人员的名称（建议复制粘贴）"
                 />
                 <div style="display: block; width: 100%;">
                     您给本条目的分数（不打分则留空）
@@ -44,42 +44,78 @@
             </n-flex>
         </n-card>
     </n-modal>
-    <div>
-        <n-spin :show="isLoading">
-            <n-data-table 
-            :columns="validSubjectColumns" 
-            :data="validSubjects" 
-            :single-line="false" 
-            :max-height="500" 
-            virtual-scroll
-            striped 
-            />
-        </n-spin>
-    </div>
-    <div>
-        <n-spin :show="isLoading">
-            <n-data-table 
-            :columns="invalidSubjectColulmns"
-            :data="invalidSubjects"
-            :single-line="false" 
-            :max-height="200" 
-            virtual-scroll
-            striped 
-            />
-        </n-spin>
-    </div>
-    <div>
-        <n-spin :show="isLoading">
-            <n-data-table 
-            :columns="noInfoSubjectColulmns"
-            :data="noInfoSubjects"
-            :single-line="false" 
-            :max-height="200" 
-            virtual-scroll
-            striped 
-            />
-        </n-spin>
-    </div>
+    <!-- 表格部分 -->
+    <n-flex class="data-tables" justify="center" >
+        <div class="valid-subjects">
+            <n-spin :show="isLoading">
+                <div :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }">
+                    <div v-show="isValidSubjectsNotNull" style="margin-left: 10px;">
+                        <h2>
+                            统计到 <span style="color: #ff2075;">{{ validSubjects.length - 1 }}</span> 个人物，
+                            <span style="color: #ff2075;">{{ totalNumber - invalidSubjects.length + 1 }}</span> 个条目
+                        </h2>
+                    </div>
+                    <n-data-table 
+                    :columns="validSubjectColumns" 
+                    :data="validSubjects" 
+                    :single-line="false" 
+                    :max-height="500" 
+                    :scroll-x="1200"
+                    virtual-scroll
+                    striped 
+                    />
+                    <p style="color: gray;">
+                        注：<br>① “作品均分” 为用户评分的平均分 <br>
+                        ② 由于 Bangumi 提供的 api 对职位的分类有点混乱
+                        (至少有一些分类我没太看懂)，部分统计可能不准确
+                    </p>
+                </div>
+                <template #description>
+                    <div class="loading-text">
+                        <h2 style="margin: 0;">查询中</h2>
+                        <p style="margin: 0;">查询可能需要 10 ~ 60 秒</p>
+                        <p style="margin: 0;">具体时长取决于用户收藏的条目数量</p> 
+                    </div>
+                </template>
+            </n-spin>
+        </div>
+        <!-- 统计失败的数据 -->
+        <div class="invalid-subjects" v-show="isInvalidSubjectsNotNull">
+            <n-divider style="margin-bottom: 0px; margin-top: -10px;"></n-divider>
+            <n-spin :show="isLoading">
+                <div :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }">
+                    <div v-show="isInvalidSubjectsNotNull" style="margin-left: 10px;">
+                        <h2>以下 <span style="color: #ff2075;">{{ invalidSubjects.length - 1 }}</span> 个条目未统计</h2>
+                    </div>
+                    <n-data-table 
+                    :columns="invalidSubjectColumns"
+                    :data="invalidSubjects"
+                    :single-line="false" 
+                    :max-height="300"
+                    :min-row-height="10"
+                    virtual-scroll
+                    striped
+                    :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }" 
+                    />
+                    <p style="color: gray;">
+                        注：条目未被统计的原因主要为：<br>
+                        ① 该条目没有对应职位的人员（能正常显示条目名）<br>
+                        ② Bangumi 数据库中的数据缺失（能正常显示条目名）<br>
+                        ③ 该条目为被隐藏<span class="blurred-text">（R-18）</span>的条目（只显示条目 ID）<br>
+                        您可以点击 “手动添加条目” 按钮手动添加
+                    </p>
+                </div>
+                <template #description>
+                    <div class="loading-text">
+                        <h2 style="margin: 0;">查询中</h2>
+                        <p style="margin: 0;">查询可能需要 10 ~ 60 秒</p>
+                        <p style="margin: 0;">具体时长取决于用户收藏的条目数量</p> 
+                    </div>
+                </template>
+            </n-spin>
+        </div>
+    </n-flex>
+    
 </template>
 
 <script setup>
@@ -93,10 +129,13 @@ const notify = useNotification();
 
 const isLoading = computed(() => store.state.isLoading);    // 加载状态
 
+// 以下两个列表的末尾为一个属性全空的字典, 用于填充 data-table 最后一行, 防止滚轮滚不到低
 const validSubjects = computed(() => store.state.validSubjects);
-// const validSubjects = ref([{ 'person_name': '京都アニメーション', 'number': 18, 'subject_ids': [283643, 386195, 13557, 117777, 216372, 276, 3375, 1606, 12426, 216371, 152091, 115908, 1424, 3774, 37874, 37873, 51, 876], 'subject_names': ['響け！ユーフォニアム３', '特別編 響け！ユーフォニ アム～アンサンブルコンテスト～', 'らき☆すた OVA', '聲の 形', '劇場版 響け！ユーフォニアム～誓いのフィナーレ～', 'らき☆すた', '涼宮ハルヒの消失', '涼宮ハルヒの憂鬱', '映画けいおん！', 'リズと青い鳥', '響け！ユーフォニアム2', '響け！ユーフォニアム', 'けいおん！', 'けいおん！！', 'CLANNAD 〜AFTER STORY〜もうひとつの世界 杏編', 'CLANNAD  もうひとつの世界 智代編', 'CLANNAD -クラナド-', 'CLANNAD 〜AFTER STORY〜'], 'rates': [6, 8, 0, 6, 7, 8, 8, 7, 8, 9, 9, 8, 8, 8, 0, 0, 8, 10], 'average_rate': 7.86 }, { 'person_name': 'A-1 Pictures', 'number': 17, 'subject_ids': [425211, 37785, 375817, 364450, 11577, 317613, 331887, 137722, 100403, 132734, 302189, 10440, 148099, 92382, 23686, 248175, 293049], 'subject_names': ['かぐや様は告らせたい-ファーストキッスは終わらない-', '新世界より', 'Engage Kiss', 'リコリス・リコイル', 'THE IDOLM@STER', 'か ぐや様は告らせたい-ウルトラロマンティック-', '86―エイテ ィシックス― 第2クール', '僕だけがいない街', '冴えない彼 女の育てかた', '冴えない彼女の育てかた ♭', '86―エイティ シックス―', 'あの日見た花の名前を僕達はまだ知らない。', '劇場版 ソードアート・オンライン -オーディナル・スケール-', 'ソードアート・オンラインII', 'ソードアート・オンラ イン', 'かぐや様は告らせたい～天才たちの恋愛頭脳戦～', 'かぐや様は告らせたい？～天才たちの恋愛頭脳戦～'], 'rates': [8, 8, 7, 5, 7, 9, 8, 6, 7, 7, 6, 7, 6, 7, 7, 8, 7], 'average_rate': 7.05 }, { 'person_name': 'サンライズ', 'number': 14, 'subject_ids': [471926, 408883, 403238, 401960, 349441, 391706, 354146, 335579, 165553, 296659, 75989, 49294, 306742, 107199], 'subject_names': ['にじよん あにめーしょん 2', 'ラブライブ！虹ヶ咲学園スクールアイドル同好会 NEXT SKY', '機動戦士ガンダム 水星の魔女 Season2', 'にじよん あにめーしょん', '機動戦士ガンダム 水星の魔女', '機動戦士ガンダム 水星の魔女 PROLOGUE', 'ラブライブ！スーパースター!! 2期', 'ラブライブ！虹ヶ咲学園スクールアイドル同好会 2期', 'ラブライブ! サンシャイン!!', 'ラブライブ！虹ヶ咲学園スクールアイドル同好会', 'ラブライブ! 第2期', 'ラブライブ!', 'ラブライブ！スーパースター!!', 'ラブライブ! The School Idol Movie'], 'rates': [7, 7, 5, 7, 7, 0, 4, 8, 6, 7, 7, 7, 6, 7], 'average_rate': 6.53 }, { 'person_name': 'CloverWorks', 'number': 13, 'subject_ids': [411428, 331935, 316607, 411427, 331480, 373267, 328609, 329906, 231497, 243916, 316957, 260680, 240038], 'subject_names': ['劇場版 SPY×FAMILY CODE: White', 'ワンダ ーエッグ・プライオリティ 特別編', 'ワンダーエッグ・プラ イオリティ', 'SPY×FAMILY Season 2', '明日ちゃんのセーラ ー服', 'SPY×FAMILY 第2クール', 'ぼっち・ざ・ろっく！', 'SPY×FAMILY', '冴えない彼女の育てかた Fine', '約束のネバ ーランド', 'シャドーハウス', '青春ブタ野郎はゆめみる少女の夢を見ない', '青春ブタ野郎はバニーガール先輩の夢を見ない'], 'rates': [7, 4, 7, 7, 7, 7, 8, 7, 8, 8, 6, 0, 7], 'average_rate': 6.91 }, { 'person_name': 'WIT STUDIO', 'number': 12, 'subject_ids': [484761, 411428, 411427, 373267, 329906, 221781, 263750, 217300, 118335, 55770, 110049, 325286], 'subject_names': ['しかのこのこのここしたんたん', '劇場版 SPY×FAMILY CODE: White', 'SPY×FAMILY Season 2', 'SPY×FAMILY 第2クール', 'SPY×FAMILY', '進撃の巨人 LOST GIRLS', '進撃の巨人 Season 3 Part.2', '進撃の巨人 Season 3', '進撃の巨人 Season 2', '進撃の巨人', '進撃の巨 人 悔いなき選択 OAD', "Vivy -Fluorite Eye's Song-"], 'rates': [5, 7, 7, 7, 7, 0, 0, 0, 8, 8, 0, 8], 'average_rate': 7.12 }, { 'person_name': 'P.A.WORKS', 'number': 11, 'subject_ids': [503976, 477207, 464561, 389450, 244761, 356756, 110467, 212003, 1851, 306429, 120925], 'subject_names': ['「真夜中ぱんチ」メンバーのソロ企画', '真夜中ぱんチ', '菜なれ花なれ', 'アキバ冥途戦争', '劇場版 SHIROBAKO', 'パリピ孔明', 'SHIROBAKO', 'ウマ娘 プリティーダービー', 'Angel Beats!', '神様になった日', 'Charlotte'], 'rates': [7, 8, 4, 0, 8, 7, 9, 7, 7, 3, 6], 'average_rate': 6.6 }]);
 const invalidSubjects = computed(() => store.state.invalidSubjects);
-const noInfoSubjects = computed(() => store.state.noInfoSubjects);
+const totalNumber = computed(() => store.state.totalNumber) // 总条目数
+
+const isValidSubjectsNotNull = computed(() => validSubjects.value.length > 0);  // 是否有数据
+const isInvalidSubjectsNotNull = computed(() => invalidSubjects.value.length > 0);
 
 
 const showInput = ref(false);
@@ -104,8 +143,7 @@ const subjectNameInput = ref('');
 const subjectIdInput = ref('');
 const personNameInput = ref('');
 const rateInput = ref(0);
-
-let isInvalid = true;   // 要删除的条目是 invalid 还是 noInfo
+let isSubjectNameNull = true;   // 是否有条目名, 有则禁止用户输入
 
 const updateRate = (rate) => {
     rateInput.value = rate;
@@ -118,14 +156,14 @@ const clearRateInput = () => {
 // 最终提交条目信息
 const submitSubject = () => {
     // 信息不能留空
-    if (subjectNameInput.value.trim().length === 0) {
+    if (!subjectNameInput.value.trim()) {
         notify.error({
             title: "请输入条目名",
             duration: 3000
         });
         return;
     }
-    if (personNameInput.value.trim().length === 0) {
+    if (!personNameInput.value.trim()) {
         notify.error({
             title: "请输入人名",
             duration: 3000
@@ -141,11 +179,7 @@ const submitSubject = () => {
         rate: rateInput.value
     });
     // 从列表中删除已提交的条目
-    if (isInvalid) {
-        store.dispatch('deleteInvalidSubject', { subjectId: Number(subjectIdInput.value) });
-    } else {
-        store.dispatch('deleteNoInfoSubject', { subjectId: Number(subjectIdInput.value) });
-    }
+    store.dispatch('deleteInvalidSubject', { subjectId: Number(subjectIdInput.value) });
     // 提示
     notify.success({
         title: "添加成功",
@@ -160,41 +194,80 @@ const addSubject = (row) => {
     subjectNameInput.value = '';
     subjectIdInput.value = '';
     rateInput.value = 0;
-    // 判断是无信息还是非法条目, 并补充已有信息
-    if (row.subject_name === undefined) {
-        isInvalid = true;
-        subjectIdInput.value = row.subject_id.toString();
+
+    subjectIdInput.value = row.subject_id.toString();
+    if (row.subject_name !== undefined) {
+        isSubjectNameNull = false;
+        subjectNameInput.value = row.subject_name;  
     } else {
-        isInvalid = false;
-        subjectNameInput.value = row.subject_name;
-        subjectIdInput.value = row.subject_id.toString();
+        isSubjectNameNull = true;
     }
-    // 显示弹窗
+    // 显示弹窗 
     showInput.value = true;
 }
 
 const validSubjectColumns = [
     {
-        title: '人名',
-        key: 'person_name',
-        width: 120,
-        resizable: true,
+        title: '',  // 序号
+        width: 42,
         align: 'center',
+        render(row, index) {
+            let color = '#000000';
+            if (index === 0) {
+                color = '#FFC731';
+            } else if (index === 1) {
+                color = '#A8A8A8';
+            } else if (index === 2) {
+                color = '#C96031'
+            }
+            return h(
+                'p',
+                {
+                    style: { color : color }
+                },
+                index + 1
+            );
+        }
     },
     {
-        title: '作品数量',
-        key: 'number',
-        width: 100,
+        title: '人名',
+        key: 'person_name',
+        width: 96,
+        resizable: true,
         align: 'center',
+        render(row) {
+            return h(
+                'a',
+                {
+                    href: `https://bgm.tv/person/${row.person_id}`,
+                    title: `https://bgm.tv/person/${row.person_id}`,
+                    target: '_blank',
+                    style: { color: '#FF1493' }
+                },
+                row.person_name
+            );
+        }
+    },
+    {
+        title: '作品数',
+        key: 'number',
+        width: 86,
+        align: 'center',
+        resizable: true,
         sorter: 'default'
     },
     {
-        title: '作品均分',
+        title: '均分',
         key: 'average_rate',
-        width: 100,
+        width: 76,
         align: 'center',
+        resizable: true,
         sorter: 'default',
-        render(row) {
+        render(row, index) {
+            // 最后一个元素占位
+            if (index === validSubjects.value.length - 1) {
+                return null;
+            }
             return h('div',
                 row.average_rate !== 0
                     ? [h('span', row.average_rate), h('span', ' '), h('img', { src: '/star.png', width: 10 })]
@@ -206,7 +279,12 @@ const validSubjectColumns = [
         title: '作品',
         key: 'subject_names',
         titleAlign: 'center',
-        render(row) {
+        resizable: true,
+        render(row, index) {
+            // 最后一个元素占位
+            if (index === validSubjects.value.length - 1) {
+                return null;
+            }
             return h(
                 'div',
                 row.subject_names.map((subject_name, index) =>
@@ -214,8 +292,8 @@ const validSubjectColumns = [
                         h(
                             'a',
                             {
-                                title: `转到 ${subject_name}`,
                                 href: `https://bgm.tv/subject/${row.subject_ids[index]}`,
+                                title: `https://bgm.tv/subject/${row.subject_ids[index]}`,
                                 target: '_blank',
                                 style: { color: '#FF1493' }
                             },
@@ -237,46 +315,17 @@ const validSubjectColumns = [
     }
 ];
 
-const noInfoSubjectColulmns = [
+const invalidSubjectColumns = [
     {
-        title: '条目',
-        key: 'subject_name',
+        title: '',
         align: 'center',
-        titleAlign: 'center',
-        render(row) {
-            return h(
-                'a',
-                {
-                    title: `转到 ${row.subject_name}`,
-                    href: `https://bgm.tv/subject/${row.subject_id}`,
-                    target: '_blank',
-                    style: { color: '#FF1493' }
-                },
-                row.subject_name
-            )
+        width: 50,
+        render(row, index) {
+            return h('p', index + 1);
         }
     },
     {
-        title: '操作',
-        key: 'actions',
-        align: 'center',
-        titleAlign: 'center',
-        render(row) {
-            return h(
-                NButton,
-                {
-                    size: 'small',
-                    onClick: () => addSubject(row)
-                },
-                { default: () => '手动添加条目' }
-                )
-        }
-    }
-];
-
-const invalidSubjectColulmns = [
-    {
-        title: '条目编号',
+        title: '条目',
         key: 'subject_id',
         align: 'center',
         titleAlign: 'center',
@@ -284,28 +333,33 @@ const invalidSubjectColulmns = [
             return h(
                 'a',
                 {
-                    title: `转到 ${row.subject_id}`,
                     href: `https://bgm.tv/subject/${row.subject_id}`,
+                    title: `https://bgm.tv/subject/${row.subject_id}`,
                     target: '_blank',
                     style: { color: '#FF1493' }
                 },
-                row.subject_id
+                row.subject_name === undefined ? row.subject_id : row.subject_name
             )
         }
     },
     {
         title: '操作',
         key: 'actions',
+        width: 110,
         align: 'center',
         titleAlign: 'center',
-        render(row) {
+        render(row, index) {
+            if (index === invalidSubjects.value.length - 1) {
+                // 最后一个元素为占位元素, 不渲染按钮, 返回一个空元素
+                return null;
+            }
             return h(
                 NButton,
                 {
                     size: 'small',
                     onClick: () => addSubject(row)
                 },
-                { default: () => '手动添加条目' }
+                { default: () => '添加条目' }
                 )
         }
     }
@@ -316,4 +370,46 @@ const invalidSubjectColulmns = [
 
 
 
-<style></style>
+<style>
+
+.input-window {
+    width: 600px;
+}
+
+.data-tables {
+    margin-top: -10px;
+}
+
+.valid-subjects {
+    width: 90vw;
+}
+
+.invalid-subjects {
+    width: 90vw;
+}
+
+@media (max-width: 600px) {
+    .input-window {
+        width: 80vw;
+    }
+}
+
+.blurred-text {
+    filter: blur(3px);
+}
+
+.blurred-text:hover {
+    filter: blur(0px);
+}
+
+.loading-text {
+    display: flex; 
+    justify-content: center; 
+    flex-direction: column; 
+    align-items: center; 
+    width: 100vw; 
+    color: rgb(45, 45, 45);
+    text-shadow: 0px 0px 10px rgba(85, 85, 85, 0.6);;
+}
+
+</style>
