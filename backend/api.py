@@ -42,9 +42,9 @@ async def fetch_subject(http_client, user_id, subject_id):
         subject_url = f'https://api.bgm.tv/v0/users/{user_id}/collections/{subject_id}'
         persons_url = f'https://api.bgm.tv/v0/subjects/{subject_id}/persons'
         subject_response = await http_client.get(subject_url)
-        person_response = await http_client.get(persons_url)
         # 检查是否是被隐藏的条目
         if subject_response.status_code == 200:
+            person_response = await http_client.get(persons_url)
             data_dict['subject'] = subject_response.json()
             data_dict['persons'] = person_response.json()
             data_dict['invalid_subject'] = False
@@ -76,13 +76,44 @@ async def fetch_user_collections(http_client: httpx.AsyncClient, user_id, subjec
         # 分页值加 100
         offset += 100
         
-    return all_datas
+    return all_datas, max_offset
+
+# 找出对应的职位
+def extract_position(data_dict: dict, position: str):
+    valid_subjects = []   # 包含字典: {'人名': ('人物编号', '条目编号','条目名', '用户评分')}, 用于临时存放数据传递给 sort_data
+    invalid_subjects = []    # 包含条目编号
+    no_info_subjects = []   # 包含元组: '条目编号', '条目名'
+    for data in data_dict:
+        if not data:
+            continue
+        if data['invalid_subject']:
+            invalid_subjects.append({'subject_id': data['subject_id']})
+        else:
+            founded = False # 是否找到至少一个满足条件的人物
+            for person in data['persons']:
+                if person.get('relation') == position:
+                    # 对条目名的索引方法详见 https://bangumi.github.io/api/#/%E6%94%B6%E8%97%8F/getUserCollection
+                    valid_subjects.append({person['name']: (
+                        person['id'],
+                        data['subject_id'], 
+                        data['subject']['subject']['name'],
+                        data['subject']['rate']
+                    )})
+                    founded = True
+            if not founded:
+                no_info_subjects.append({'subject_id': data['subject_id'], 'subject_name': data['subject']['subject']['name']})
+            
+    return {
+        'valid_subjects': sort_data(valid_subjects),    # 对有人物的字典进行排序
+        'invalid_subjects': no_info_subjects + invalid_subjects
+    }
 
 # 整理有效数据
 def sort_data(valid_subjects: list):
     # 最终返回一个列表, 包含的元素为字典, 形式为 {
-    #     'person_name': 人名, 
-    #     'number': 数量, 
+    #     'person_name': 人名,
+    #     'person_id': 人物编号 
+    #     'number': 作品数量,
     #     'subject_names': 条目名
     #     'subject_ids': 条目编号
     #     'rate': 条目的用户评分
@@ -98,12 +129,13 @@ def sort_data(valid_subjects: list):
     result = [
         {
             'person_name': person,
+            'person_id': subject[0],
             'number': len(subjects),
-            'subject_ids': [subject[0] for subject in subjects],
-            'subject_names': [subject[1] for subject in subjects],
-            'rates': [subject[2] for subject in subjects],
+            'subject_ids': [subject[1] for subject in subjects],
+            'subject_names': [subject[2] for subject in subjects],
+            'rates': [subject[3] for subject in subjects],
             # 计算均分并保留两位小数
-            'average_rate': math.floor((sum(s[2] for s in subjects if s[2]) / len([s[2] for s in subjects if s[2]])) * 100) / 100 if len([s[2] for s in subjects if s[2]]) else 0
+            'average_rate': math.floor((sum(s[3] for s in subjects if s[3]) / len([s[3] for s in subjects if s[3]])) * 100) / 100 if len([s[3] for s in subjects if s[3]]) else 0
         }
         for person, subjects in merge_dict.items()
     ]
@@ -111,41 +143,12 @@ def sort_data(valid_subjects: list):
     sorted_result = sorted(result, key=lambda item: item['number'], reverse=True)
     return sorted_result
 
-# 找出对应的职位
-def extract_position(data_dict: dict, position: str):
-    valid_subjects = []   # 包含字典: {'人名': ('条目编号','条目名', '用户评分')}, 用于临时存放数据传递给 sort_data
-    invalid_subjects = []    # 包含条目编号
-    no_info_subjects = []   # 包含元组: '条目编号', '条目名'
-    for data in data_dict:
-        if not data:
-            continue
-        if data['invalid_subject']:
-            invalid_subjects.append({'subject_id': data['subject_id']})
-        else:
-            founded = False # 是否找到至少一个满足条件的人物
-            for person in data['persons']:
-                if person.get('relation') == position:
-                    # 对条目名的索引方法详见 https://bangumi.github.io/api/#/%E6%94%B6%E8%97%8F/getUserCollection
-                    valid_subjects.append({person['name']: (
-                        data['subject_id'], 
-                        data['subject']['subject']['name'],
-                        data['subject']['rate']
-                    )})
-                    founded = True
-            if not founded:
-                no_info_subjects.append({'subject_id': data['subject_id'], 'subject_name': data['subject']['subject']['name']})
-                
-    return {
-        'valid_subjects': sort_data(valid_subjects),    # 对有人物的字典进行排序
-        'invalid_subjects': invalid_subjects,
-        'no_info_subjects': no_info_subjects
-    }
-
 async def generate_ranked_lists(user_id, position):
     async with httpx.AsyncClient(headers=headers, limits=httpx.Limits(max_connections=30)) as http_client:
         extracted_sorted_data = None
-        all_datas = await fetch_user_collections(http_client, user_id)
+        all_datas, total_number = await fetch_user_collections(http_client, user_id)
         extracted_sorted_data = extract_position(all_datas, position)
+        extracted_sorted_data['total_number'] = total_number  # 总条目数
         print(extracted_sorted_data)
         return extracted_sorted_data
 
