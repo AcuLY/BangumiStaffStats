@@ -5,7 +5,7 @@ import math
 from collections import defaultdict
 
 headers = {
-    'User-Agent': 'your-name/your-project/1.0 (platform) (http://your-project-url)'
+    'User-Agent': 'AcuL/BangumiStaffStatistics/1.0 (Web) (http://bgmss.fun)'
 }
 
 # 通过设置一个很大的 offset 时产生的报错来获取用户条目数
@@ -29,9 +29,8 @@ async def fetch_user_collection_number(http_client: httpx.AsyncClient, user_id, 
 
 
 # 获取单个条目
-semaphore = asyncio.Semaphore(50)  # 设置并发限制为 50
 
-async def fetch_subject(http_client, user_id, subject_id):
+async def fetch_subject(http_client, semaphore, user_id, subject_id):
     async with semaphore:
         data_dict = {    # 返回字典
             'subject_id': subject_id,
@@ -51,7 +50,7 @@ async def fetch_subject(http_client, user_id, subject_id):
         return data_dict
 
 # 获取用户的全部条目
-async def fetch_user_collections(http_client: httpx.AsyncClient, user_id, subject_type=2, collection_type=2):
+async def fetch_user_collections(http_client: httpx.AsyncClient, semaphore, user_id, subject_type=2, collection_type=2):
     url = f'https://api.bgm.tv/v0/users/{user_id}/collections'
     offset = 0  # 初始偏移量
     max_offset = await fetch_user_collection_number(http_client, user_id, subject_type, collection_type)    # 总条目数
@@ -68,7 +67,7 @@ async def fetch_user_collections(http_client: httpx.AsyncClient, user_id, subjec
         if response.status_code == 200:
             json_data = response.json()
             subject_ids = [subject['subject_id'] for subject in json_data['data']]
-            tasks = [fetch_subject(http_client, user_id, subject_id) for subject_id in subject_ids]
+            tasks = [fetch_subject(http_client, semaphore, user_id, subject_id) for subject_id in subject_ids]
             datas = await asyncio.gather(*tasks)
             all_datas.extend(datas)
         else:
@@ -146,7 +145,8 @@ def sort_data(valid_subjects: list):
 async def generate_ranked_lists(user_id, position):
     async with httpx.AsyncClient(headers=headers, limits=httpx.Limits(max_connections=30)) as http_client:
         extracted_sorted_data = None
-        all_datas, total_number = await fetch_user_collections(http_client, user_id)
+        semaphore = asyncio.Semaphore(50)  # 设置并发限制为 50
+        all_datas, total_number = await fetch_user_collections(http_client, semaphore, user_id)
         extracted_sorted_data = extract_position(all_datas, position)
         extracted_sorted_data['total_number'] = total_number  # 总条目数
         print(extracted_sorted_data)

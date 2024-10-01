@@ -22,4 +22,4 @@ async def get_statistics():
         return jsonify({"error": "fail to fetch information"})
 
 if __name__ == '__main__':
-    asyncio.run(app.run())
+    app.run()
