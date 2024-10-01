@@ -5,7 +5,7 @@
         <n-layout-header class="header">
           <n-flex justify="space-between">
             <n-flex>
-              <img src="/bssIcon.png" alt="" style="width: 40px; height: 40px; transform: translateY(-5px);">
+              <img src="/bssIcon.png" id="bss-icon">
               <div>Bangumi Staff Statistics</div>
             </n-flex>
             <n-flex justify="end">
@@ -60,12 +60,18 @@ const pinkTheme = {
   padding: 15px 20px 15px 20px;
   background-color: #1e1717;
   border-style: solid none none none;
-  border-color: #ff2075;
+  border-color: #ff5b9a;
   border-width: 5px;
   font-size: 24px;
   font-weight: bold;
   color: rgb(255, 255, 255);
   user-select: none;
+}
+
+#bss-icon {
+  width: 40px; 
+  height: 40px;
+  transform: translateY(-5px);
 }
 
 .header-items {
@@ -82,6 +88,11 @@ const pinkTheme = {
   .header {
     padding: 10px 10px 10px 10px;
     font-size: 16px;
+  }
+  #bss-icon {
+    width: 24px; 
+    height: 24px;
+    transform: translateY(-2px);
   }
   .header-items img {
     width: 30px;

@@ -49,8 +49,8 @@
         <div class="valid-subjects">
             <n-spin :show="isLoading">
                 <div :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }">
-                    <div v-show="isValidSubjectsNotNull" style="margin-left: 10px;">
-                        <h2>
+                    <div v-show="isValidSubjectsNotNull" class="result-text">
+                        <h2 style="margin-top: -10px;">
                             统计到 <span style="color: #ff2075;">{{ validSubjects.length - 1 }}</span> 个人物，
                             <span style="color: #ff2075;">{{ totalNumber - invalidSubjects.length + 1 }}</span> 个条目
                         </h2>
@@ -75,6 +75,7 @@
                         <h2 style="margin: 0;">查询中</h2>
                         <p style="margin: 0;">查询可能需要 10 ~ 60 秒</p>
                         <p style="margin: 0;">具体时长取决于用户收藏的条目数量</p> 
+                        <p style="margin: 0;">如果你看过的动画太多可能要等很久（</p> 
                     </div>
                 </template>
             </n-spin>
@@ -84,7 +85,7 @@
             <n-divider style="margin-bottom: 0px; margin-top: -10px;"></n-divider>
             <n-spin :show="isLoading">
                 <div :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }">
-                    <div v-show="isInvalidSubjectsNotNull" style="margin-left: 10px;">
+                    <div v-show="isInvalidSubjectsNotNull" class="result-text">
                         <h2>以下 <span style="color: #ff2075;">{{ invalidSubjects.length - 1 }}</span> 个条目未统计</h2>
                     </div>
                     <n-data-table 
@@ -92,7 +93,6 @@
                     :data="invalidSubjects"
                     :single-line="false" 
                     :max-height="300"
-                    :min-row-height="10"
                     virtual-scroll
                     striped
                     :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }" 
@@ -109,7 +109,8 @@
                     <div class="loading-text">
                         <h2 style="margin: 0;">查询中</h2>
                         <p style="margin: 0;">查询可能需要 10 ~ 60 秒</p>
-                        <p style="margin: 0;">具体时长取决于用户收藏的条目数量</p> 
+                        <p style="margin: 0;">具体时长取决于用户收藏的条目数量</p>
+                        <p style="margin: 0;">如果你看过的动画太多可能要等很久（</p> 
                     </div>
                 </template>
             </n-spin>
@@ -209,9 +210,12 @@ const addSubject = (row) => {
 const validSubjectColumns = [
     {
         title: '',  // 序号
-        width: 42,
+        width: 50,
         align: 'center',
         render(row, index) {
+            if (index === validSubjects.value.length - 1) {
+                return null;
+            }
             let color = '#000000';
             if (index === 0) {
                 color = '#FFC731';
@@ -271,7 +275,7 @@ const validSubjectColumns = [
             return h('div',
                 row.average_rate !== 0
                     ? [h('span', row.average_rate), h('span', ' '), h('img', { src: '/star.png', width: 10 })]
-                    : h('span', '用户无评分')
+                    : h('span', '无评分')
             );
         }
     },
@@ -321,6 +325,9 @@ const invalidSubjectColumns = [
         align: 'center',
         width: 50,
         render(row, index) {
+            if (index === invalidSubjects.value.length - 1) {
+                return null;
+            }
             return h('p', index + 1);
         }
     },
@@ -391,6 +398,10 @@ const invalidSubjectColumns = [
 @media (max-width: 600px) {
     .input-window {
         width: 80vw;
+    }
+    .result-text {
+        display: flex;
+        justify-content: center;
     }
 }
 

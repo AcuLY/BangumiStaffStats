@@ -1,38 +1,43 @@
 <template>
     <div class="input-wrapper">
         <n-flex class="input" justify="center">
-            <n-flex vertical :size="5">
-                <h3 style="margin: 0; transform: translateX(10px);">用户 ID</h3>
-                <n-input 
-                id="user-name" 
-                v-model:value="userId" 
-                type="text" 
-                placeholder="请输入用户 ID" 
-                />
-            </n-flex>
+            <n-flex justify="center">
+                <n-flex vertical :size="5">
+                    <h3 style="margin: 0; transform: translateX(10px);">Bangumi 用户 ID</h3>
+                    <n-input 
+                    id="user-name" 
+                    v-model:value="userId" 
+                    type="text" 
+                    placeholder="请输入用户 ID" 
+                    />
+                </n-flex>
 
-            <n-flex vertical :size="5">
-                <h3 style="margin: 0; transform: translateX(10px);">职位</h3>
-                <n-select 
-                id="position" 
-                v-model:value="position" 
-                :options="options" 
-                placeholder="请选择职位"
-                clearable
-                />
+                <n-flex vertical :size="5">
+                    <h3 style="margin: 0; transform: translateX(10px);">职位</h3>
+                    <n-select 
+                    id="position" 
+                    v-model:value="position" 
+                    :options="options" 
+                    placeholder="请选择职位"
+                    clearable
+                    />
+                </n-flex>
             </n-flex>
-            <n-button id="fetch-button" @click="fetch_statistics" type="primary" :disabled="isLoading">
+            
+            <n-flex>
+                <n-button id="fetch-button" @click="fetch_statistics" type="primary" :disabled="isLoading">
                 查询
-            </n-button>
-            <n-button id="fetch-button" @click="cancelRequest" strong secondary type="primary" :disabled="!isLoading">
-                取消查询
-            </n-button>
+                </n-button>
+                <n-button id="fetch-button" @click="cancelRequest" strong secondary type="primary" :disabled="!isLoading">
+                    取消查询
+                </n-button>
+            </n-flex>
         </n-flex>
     </div>
     
     <n-divider class="divider">
-        <h2 class="divider-text">当前查询用户：<span style="color: #FF1493;">{{ userIdSave }}</span></h2>
-        <h2 class="divider-text">当前查询职位：<span style="color: #FF1493;">{{ positionLabel }}</span></h2>
+        <h2 class="divider-text" v-show="userIdSave !== ''">当前查询用户：<span style="color: #FF1493;">{{ userIdSave }}</span></h2>
+        <h2 class="divider-text" v-show="positionSave !== null">当前查询职位：<span style="color: #FF1493;">{{ positionLabel }}</span></h2>
     </n-divider>
 </template>
 
@@ -51,7 +56,7 @@ const notify = useNotification();   // 用于发送通知
 const abortController = ref(null);  // 终止请求
 
 // 用户 id 和要查询的职位
-const userId = ref('lucay126');
+const userId = ref(`${import.meta.env.VITE_API_USERID}`);
 const position = ref(null);
 
 const userIdSave = ref('');     // 上一次查询的值
@@ -187,7 +192,7 @@ const fetch_statistics = async () => {
         return;
     }
 
-    const url = 'http://127.0.0.1:5000/statistics';
+    const url = `${import.meta.env.VITE_API_URL}/statistics`;
     const params = {
         user_id: userId.value,
         position: position.value
@@ -263,22 +268,18 @@ const cancelRequest = () => {
     transform: translateY(15px);
 }
 
-.divider {
-    margin-top: -10px;
-    margin-bottom: -10px;
-}
-
 .divider-text {
-    margin: 20px;
+    margin: 0px 20px 0px 20px;
     font-size: 24px;
 }
 
 @media (max-width: 600px) {
-    .divider {
-        margin-top: 10px;
+    .title {
+        font-size: 24px;
     }
     .divider-text {
         font-size: 12px;
+        margin: 0px 10px 0px 10px;
     }
 }
 

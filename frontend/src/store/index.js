@@ -11,7 +11,6 @@ export default createStore({
     mutations: {
         updateLoadingStatus(state) {
             state.isLoading = !state.isLoading;
-            console.log(state.isLoading);
         },
 
         clearLists(state) {
