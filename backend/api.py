@@ -70,8 +70,6 @@ async def fetch_user_collections(http_client: httpx.AsyncClient, semaphore, user
             tasks = [fetch_subject(http_client, semaphore, user_id, subject_id) for subject_id in subject_ids]
             datas = await asyncio.gather(*tasks)
             all_datas.extend(datas)
-        else:
-            print(f'获取用户收藏失败: {response.status_code} - {response.text}')
         # 分页值加 100
         offset += 100
         
@@ -101,7 +99,6 @@ def extract_position(data_dict: dict, position: str):
                     founded = True
             if not founded:
                 no_info_subjects.append({'subject_id': data['subject_id'], 'subject_name': data['subject']['subject']['name']})
-            
     return {
         'valid_subjects': sort_data(valid_subjects),    # 对有人物的字典进行排序
         'invalid_subjects': no_info_subjects + invalid_subjects
@@ -128,7 +125,7 @@ def sort_data(valid_subjects: list):
     result = [
         {
             'person_name': person,
-            'person_id': subject[0],
+            'person_id': subjects[0][0],
             'number': len(subjects),
             'subject_ids': [subject[1] for subject in subjects],
             'subject_names': [subject[2] for subject in subjects],
@@ -149,6 +146,5 @@ async def generate_ranked_lists(user_id, position):
         all_datas, total_number = await fetch_user_collections(http_client, semaphore, user_id)
         extracted_sorted_data = extract_position(all_datas, position)
         extracted_sorted_data['total_number'] = total_number  # 总条目数
-        print(extracted_sorted_data)
         return extracted_sorted_data
 

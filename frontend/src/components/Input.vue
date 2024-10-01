@@ -85,6 +85,10 @@ const options = [
         value: '制片人'
     },
     {
+        label: '动画制片人',
+        value: '动画制片人'
+    },
+    {
         label: '系列构成',
         value: '系列构成'
     },

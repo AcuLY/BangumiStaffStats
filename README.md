@@ -9,10 +9,10 @@ http://124.220.66.56/
 
 >注：用户 ID 指的是下图中 @ 后面的那一串，不是昵称
 
-<img src="https://pic.imgdb.cn/item/66fbf284f21886ccc00a69bb.jpg" style="width:300px;"/>
+<img src="/user_name.jpg" style="width:300px;"/>
 
 > **如果 ID 输入正确还是提示输入失败应该是网络问题，请等一会再试试**
 
 ## 效果预览
 
-![](https://pic.imgdb.cn/item/66fbee6ef21886ccc00649f5.png)
+![](/preview.png)
