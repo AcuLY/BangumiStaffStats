@@ -5,7 +5,7 @@ export default createStore({
         isLoading: false,
         validSubjects: [],
         invalidSubjects: [],
-        totalNumber: 0,
+        collectionNumber: 0,
     },
 
     mutations: {
@@ -18,10 +18,10 @@ export default createStore({
             state.invalidSubjects = [];
         },
 
-        updateLists(state, { validSubjects, invalidSubjects, totalNumber }) {
+        updateLists(state, { validSubjects, invalidSubjects, collectionNumber }) {
             state.validSubjects = validSubjects;
             state.invalidSubjects = invalidSubjects;
-            state.totalNumber = totalNumber;
+            state.collectionNumber = collectionNumber;
             // 在末尾插入一个元素, 防止滚动条无法滚动到底
             state.validSubjects.push({
                 person_name: '',

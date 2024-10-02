@@ -49,10 +49,14 @@
         <div class="valid-subjects">
             <n-spin :show="isLoading">
                 <div :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }">
+                    <div class="switch-chinese">
+                        <span style="font-weight: bold; font-size: 20px; margin: 0 10px 0 0;">显示中文</span>
+                        <n-switch v-model:value="showChinese" size="medium" id="switch" />
+                    </div>
                     <div v-show="isValidSubjectsNotNull" class="result-text">
                         <h2 style="margin-top: -10px;">
                             统计到 <span style="color: #ff2075;">{{ validSubjects.length - 1 }}</span> 个人物，
-                            <span style="color: #ff2075;">{{ totalNumber - invalidSubjects.length + 1 }}</span> 个条目
+                            <span style="color: #ff2075;">{{ collectionNumber - invalidSubjects.length + 1 }}</span> 个条目
                         </h2>
                     </div>
                     <n-data-table 
@@ -73,9 +77,8 @@
                 <template #description>
                     <div class="loading-text">
                         <h2 style="margin: 0;">查询中</h2>
-                        <p style="margin: 0;">查询可能需要 10 ~ 60 秒</p>
-                        <p style="margin: 0;">具体时长取决于用户收藏的条目数量</p> 
-                        <p style="margin: 0;">如果你看过的动画太多可能要等很久（</p> 
+                        <p style="margin: 0;">具体时长取决于用户收藏的条目数量以及 Bangumi 的数据库</p> 
+                        <p style="margin: 0;">部分职位由于数据缺失可能要等待比较长的时间</p> 
                     </div>
                 </template>
             </n-spin>
@@ -108,9 +111,8 @@
                 <template #description>
                     <div class="loading-text">
                         <h2 style="margin: 0;">查询中</h2>
-                        <p style="margin: 0;">查询可能需要 10 ~ 60 秒</p>
-                        <p style="margin: 0;">具体时长取决于用户收藏的条目数量</p>
-                        <p style="margin: 0;">如果你看过的动画太多可能要等很久（</p> 
+                        <p style="margin: 0;">具体时长取决于用户收藏的条目数量以及 Bangumi 的数据库</p> 
+                        <p style="margin: 0;">部分职位由于数据缺失可能要等待比较长的时间</p> 
                     </div>
                 </template>
             </n-spin>
@@ -133,7 +135,7 @@ const isLoading = computed(() => store.state.isLoading);    // 加载状态
 // 以下两个列表的末尾为一个属性全空的字典, 用于填充 data-table 最后一行, 防止滚轮滚不到低
 const validSubjects = computed(() => store.state.validSubjects);
 const invalidSubjects = computed(() => store.state.invalidSubjects);
-const totalNumber = computed(() => store.state.totalNumber) // 总条目数
+const collectionNumber = computed(() => store.state.collectionNumber) // 总条目数
 
 const isValidSubjectsNotNull = computed(() => validSubjects.value.length > 0);  // 是否有数据
 const isInvalidSubjectsNotNull = computed(() => invalidSubjects.value.length > 0);
@@ -145,6 +147,7 @@ const subjectIdInput = ref('');
 const personNameInput = ref('');
 const rateInput = ref(0);
 let isSubjectNameNull = true;   // 是否有条目名, 有则禁止用户输入
+const showChinese = ref(false);
 
 const updateRate = (rate) => {
     rateInput.value = rate;
@@ -153,6 +156,7 @@ const updateRate = (rate) => {
 const clearRateInput = () => {
     rateInput.value = 0;
 }
+
 
 // 最终提交条目信息
 const submitSubject = () => {
@@ -210,7 +214,9 @@ const addSubject = (row) => {
 const validSubjectColumns = [
     {
         title: '',  // 序号
+        key: 'number',
         width: 50,
+        resizable: true,
         align: 'center',
         render(row, index) {
             if (index === validSubjects.value.length - 1) {
@@ -240,6 +246,10 @@ const validSubjectColumns = [
         resizable: true,
         align: 'center',
         render(row) {
+            let personName = row.person_name;
+            if (showChinese.value && row.person_name_cn !== '|别名={') {    // 临时修补
+                personName = row.person_name_cn
+            }
             return h(
                 'a',
                 {
@@ -248,7 +258,7 @@ const validSubjectColumns = [
                     target: '_blank',
                     style: { color: '#FF1493' }
                 },
-                row.person_name
+                personName
             );
         }
     },
@@ -301,7 +311,7 @@ const validSubjectColumns = [
                                 target: '_blank',
                                 style: { color: '#FF1493' }
                             },
-                            subject_name
+                            showChinese.value ? row.subject_names_cn[index] : subject_name
                         ),
                         row.rates[index] !== 0
                             ? h('span', [h('span', ' '), h('span', row.rates[index]), h('span', ' '), h('img', { src: '/star.png', width: 10 }), h('span', ' ')])
@@ -337,6 +347,10 @@ const invalidSubjectColumns = [
         align: 'center',
         titleAlign: 'center',
         render(row) {
+            let subjectName = row.subject_name === undefined ? row.subject_id : row.subject_name;
+            if (showChinese.value && row.subject_name_cn) {
+                subjectName = row.subject_name_cn;
+            }
             return h(
                 'a',
                 {
@@ -345,7 +359,7 @@ const invalidSubjectColumns = [
                     target: '_blank',
                     style: { color: '#FF1493' }
                 },
-                row.subject_name === undefined ? row.subject_id : row.subject_name
+                subjectName
             )
         }
     },
@@ -383,6 +397,15 @@ const invalidSubjectColumns = [
     width: 600px;
 }
 
+.switch-chinese {
+    margin-bottom: 20px;
+    width: 90vw;
+}
+
+#switch {
+    transform: translateY(-2px);
+}
+
 .data-tables {
     margin-top: -10px;
 }
@@ -398,6 +421,13 @@ const invalidSubjectColumns = [
 @media (max-width: 600px) {
     .input-window {
         width: 80vw;
+    }
+    .switch-chinese {
+        display: flex;
+        justify-content: center;
+    }
+    #switch {
+        transform: translateY(6px);
     }
     .result-text {
         display: flex;

@@ -73,20 +73,12 @@ const options = [
         value: '导演'
     },
     {
-        label: '副监督',
-        value: '副导演'
-    },
-    {
         label: '制作公司',
         value: '动画制作'
     },
     {
         label: '制片人',
         value: '制片人'
-    },
-    {
-        label: '动画制片人',
-        value: '动画制片人'
     },
     {
         label: '系列构成',
@@ -176,7 +168,18 @@ const options = [
         label: '特效',
         value: '特效'
     },
-
+    {
+        label: '总监督',
+        value: '总导演'
+    },
+    {
+        label: '副监督',
+        value: '副导演'
+    },
+    {
+        label: '动画制片人',
+        value: '动画制片人'
+    },
 ];
 // 抓取数据并更新到 store
 const fetch_statistics = async () => {
@@ -211,7 +214,7 @@ const fetch_statistics = async () => {
         store.dispatch('setLists', {
             validSubjects: response.data['valid_subjects'],
             invalidSubjects: response.data['invalid_subjects'],
-            totalNumber: response.data['total_number']
+            collectionNumber: response.data['collection_number']
         });
         store.dispatch('setLoadingStatus');
     } catch (error) {
@@ -233,6 +236,7 @@ const fetch_statistics = async () => {
 };
 
 const cancelRequest = () => {
+    store.dispatch('setLoadingStatus');
     if (abortController.value) {
         abortController.value.abort();
     }
