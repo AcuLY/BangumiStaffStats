@@ -73,12 +73,24 @@ const options = [
         value: '导演'
     },
     {
+        label: '总监督',
+        value: '总导演'
+    },
+    {
+        label: '副监督',
+        value: '副导演'
+    },
+    {
         label: '制作公司',
         value: '动画制作'
     },
     {
         label: '制片人',
         value: '制片人'
+    },
+    {
+        label: '动画制片人',
+        value: '动画制片人'
     },
     {
         label: '系列构成',
@@ -168,18 +180,7 @@ const options = [
         label: '特效',
         value: '特效'
     },
-    {
-        label: '总监督',
-        value: '总导演'
-    },
-    {
-        label: '副监督',
-        value: '副导演'
-    },
-    {
-        label: '动画制片人',
-        value: '动画制片人'
-    },
+    
 ];
 // 抓取数据并更新到 store
 const fetch_statistics = async () => {
@@ -228,8 +229,8 @@ const fetch_statistics = async () => {
         } else {
             store.dispatch('setListsToNull');
             notify.error({
-                title: "查询失败，请确认用户 ID 输入正确并重试",
-                duration: 3000
+                title: "查询失败，请确认用户 ID 输入正确且用户看过的条目不为 0，如果多次失败可能是服务器未开启",
+                duration: 8000
             });
         }
     }

@@ -102,9 +102,9 @@
                     />
                     <p style="color: gray;">
                         注：条目未被统计的原因主要为：<br>
-                        ① 该条目没有对应职位的人员（能正常显示条目名）<br>
-                        ② Bangumi 数据库中的数据缺失（能正常显示条目名）<br>
-                        ③ 该条目为被隐藏<span class="blurred-text">（R-18）</span>的条目（只显示条目 ID）<br>
+                        ① 该条目没有对应职位的人员<br>
+                        ② Bangumi 数据库中的数据缺失<br>
+                        ③ 该条目为被隐藏<span class="blurred-text">（R-18）</span>的条目 <br>
                         您可以点击 “手动添加条目” 按钮手动添加
                     </p>
                 </div>
@@ -112,7 +112,7 @@
                     <div class="loading-text">
                         <h2 style="margin: 0;">查询中</h2>
                         <p style="margin: 0;">具体时长取决于用户收藏的条目数量以及 Bangumi 的数据库</p> 
-                        <p style="margin: 0;">部分职位由于数据缺失可能要等待比较长的时间</p> 
+                        <p style="margin: 0;">通常时间为 1 ~ 10 秒</p> 
                     </div>
                 </template>
             </n-spin>

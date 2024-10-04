@@ -1,13 +1,28 @@
 from quart import Quart, jsonify, request
 from quart_cors import cors
-from api import fetch_user_data
+from api import fetch_user_data, transmit_data
 import datetime
 import time
 import math
+import ujson
 
 app = Quart(__name__)
 
 app = cors(app, allow_origin="*")
+
+# 预加载数据
+async def load_data():
+    with open('./data/subject-persons.json', 'r', encoding='utf-8') as f:
+        subject_persons = ujson.load(f)
+    with open('./data/person.json', 'r', encoding='utf-8') as f:
+        person = ujson.load(f)
+    return subject_persons, person
+    
+@app.before_serving
+async def start_up():
+    data = await load_data()
+    transmit_data(data)
+
 
 @app.post('/statistics')
 async def get_statistics():
