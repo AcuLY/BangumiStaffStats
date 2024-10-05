@@ -22,6 +22,18 @@
                     clearable
                     />
                 </n-flex>
+
+                <n-flex vertical :size="5">
+                    <h3 style="margin: 0; transform: translateX(10px);">收藏类型</h3>
+                    <n-checkbox-group v-model:value="collectionTypes" id="collection-type">
+                        <n-space item-style="display: flex;">
+                            <n-checkbox :value="2" label="看过" size="large"/>
+                            <n-checkbox :value="3" label="在看" size="large"/>
+                            <n-checkbox :value="4" label="搁置" size="large"/>
+                            <n-checkbox :value="5" label="抛弃" size="large"/>
+                        </n-space>
+                    </n-checkbox-group>
+                </n-flex>
             </n-flex>
             
             <n-flex>
@@ -66,6 +78,9 @@ const positionLabel = computed(() => {
         return selectedOption ? selectedOption.label : '';
     });
 
+// 收藏状态
+const collectionTypes = ref([2]);
+
 // 职位表
 const options = [
     {
@@ -91,6 +106,10 @@ const options = [
     {
         label: '动画制片人',
         value: '动画制片人'
+    },
+    {
+        label: '原作',
+        value: '原作'
     },
     {
         label: '系列构成',
@@ -199,11 +218,19 @@ const fetch_statistics = async () => {
         });
         return;
     }
+    if (collectionTypes.value.length === 0) {
+        notify.error({
+            title: "请选择至少一种收藏类型",
+            duration: 3000
+        });
+        return;
+    }
 
     const url = `${import.meta.env.VITE_API_URL}/statistics`;
     const params = {
         user_id: userId.value,
-        position: position.value
+        position: position.value,
+        collection_types: collectionTypes.value
     }
     abortController.value = new AbortController();
     try {
@@ -229,7 +256,7 @@ const fetch_statistics = async () => {
         } else {
             store.dispatch('setListsToNull');
             notify.error({
-                title: "查询失败，请确认用户 ID 输入正确且用户看过的条目不为 0，如果多次失败可能是服务器未开启",
+                title: "查询失败：请确认用户 ID 输入正确且用户收藏的条目不为 0，如果多次秒失败可能是服务器未开启",
                 duration: 8000
             });
         }
@@ -272,9 +299,17 @@ const cancelRequest = () => {
     margin-right: 10px;
 }
 
+#collection-type {
+    width: 300px;
+    height: 35px;
+    margin-left: 10px;
+    margin-right: 10px;
+    transform: translateY(4px);
+}
+
 #fetch-button {
     width: 100px;
-    transform: translateY(15px);
+    transform: translateY(8px);
 }
 
 .divider-text {

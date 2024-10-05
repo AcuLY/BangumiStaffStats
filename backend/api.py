@@ -19,62 +19,64 @@ def transmit_data(data):
     global subject_persons_dict, person_dict
     subject_persons_dict, person_dict = data
 
-async def fetch_user_collection_number(http_client: httpx.AsyncClient, user_id, subject_type=2, collection_type=2):
+async def fetch_user_collection_number(http_client: httpx.AsyncClient, user_id, collection_types: list, subject_type=2):
     """通过设置一个很大的 offset 时产生的报错来获取用户条目的数量
 
     参数:
         http_client (httpx.AsyncClient): 异步客户端
         user_id (string): 用户 id
-        subject_type (int, optional): 条目类型, 见 https://bangumi.github.io/api 最后
-        collection_type (int, optional): 收藏类型, 见 https://bangumi.github.io/api 最后
+        collection_types (list(int), optional): 收藏类型, 见 https://bangumi.github.io/api 最后
 
     返回值:
-        collection_number(int): 用户的收藏数量
+        collection_numbers(dict): 类型对应的用户的收藏数量
     """
-    url = f'https://api.bgm.tv/v0/users/{user_id}/collections'
-    params = {
-        'subject_type': subject_type,
-        'type': collection_type,
-        'offset': 99999
-    }
-    try:
-        response = await http_client.get(url, params=params)
-    except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.RequestError) as exc:
-        print(f"\033[1;31m{datetime.datetime.now()} 请求条目数失败: {exc}\033[0m")
-    except Exception as e:
-        print(f"\033[1;31m{datetime.datetime.now()} 未知错误: {e}\033[0m")
-    else:
-        error_message = response.json()
-        description = error_message.get('description', '')
-        if description == "user doesn't exist or has been removed":
-            print(datetime.datetime.now(), '用户不存在:', user_id)
-            return 0
-        match = re.search(r'offset should be less than or equal to (\d+)', description)
-        if match:
-            collection_number = int(match.group(1))
-            if collection_number == 0:
-                print(datetime.datetime.now(), '用户没有收藏')
-            return collection_number
-    return 0
+    collection_numbers = {} # 类型到数量的映射
+    async def fetch_type_collection_number(collection_type):
+        url = f'https://api.bgm.tv/v0/users/{user_id}/collections'
+        params = {
+            'subject_type': subject_type,
+            'type': collection_type,
+            'offset': 99999
+        }
+        try:
+            response = await http_client.get(url, params=params)
+        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.RequestError) as exc:
+            print(f"\033[1;31m{datetime.datetime.now()} 请求条目数失败: {exc}\033[0m")
+        else:
+            error_message = response.json()
+            description = error_message.get('description', '')
+            if description == "user doesn't exist or has been removed":
+                print(datetime.datetime.now(), '用户不存在:', user_id)
+                return 0
+            match = re.search(r'offset should be less than or equal to (\d+)', description)
+            if match:
+                collection_number = int(match.group(1))
+                if collection_number == 0:
+                    print(datetime.datetime.now(), '用户没有收藏')
+                return collection_number
+        return 0
+    
+    tasks = [fetch_type_collection_number(collection_type) for collection_type in collection_types]
+    results = await asyncio.gather(*tasks)
+    for index, collection_type in enumerate(collection_types):
+        collection_numbers[collection_type] = results[index]
+    return collection_numbers
 
 
-async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_number, subject_type=2, collection_type=2):
+async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_numbers: dict, subject_type=2):
     """获取用户的全部条目
 
     参数:
         http_client (httpx.AsyncClient): 异步客户端
         user_id (string): 用户 id
-        collection_number(int): 用户收藏数量
-        subject_type (int, optional): 条目类型, 见 https://bangumi.github.io/api 最后
-        collection_type (int, optional): 收藏类型, 见 https://bangumi.github.io/api 最后
+        collection_numbers(dict): 收藏类型到用户收藏数量的映射
 
     返回值:
         all_subjects(list(subject)): 全部条目
     """
     url = f'https://api.bgm.tv/v0/users/{user_id}/collections'
-    offset = 0  # 初始偏移量
     # 获取 100 个条目
-    async def fetch_100_subjects(offset):
+    async def fetch_100_subjects(offset, collection_type):
         params = {  # GET 参数
                     'limit': 100,
                     'subject_type': subject_type,
@@ -100,9 +102,11 @@ async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_num
         return []
     
     tasks = []
-    while offset <= collection_number:
-        tasks.append(fetch_100_subjects(offset))
-        offset += 100
+    for c_type, c_number in collection_numbers.items():
+        offset = 0  # 初始偏移量
+        while offset < c_number:
+            tasks.append(fetch_100_subjects(offset, c_type))
+            offset += 100
 
     results = await asyncio.gather(*tasks)
     all_subjects = []
@@ -233,15 +237,15 @@ def analyse_data(person_subjects_map: dict):
     final_list = sorted(final_list, key=lambda item: item['number'], reverse=True)
     return final_list
 
-async def fetch_user_data(user_id, position):
+async def fetch_user_data(user_id, position, collection_types):
     async with httpx.AsyncClient(headers=headers, limits=httpx.Limits(max_connections=30)) as http_client:
-        collection_number = await fetch_user_collection_number(http_client, user_id)
-        all_subjects = await fetch_subjects(http_client, user_id, collection_number)
+        collection_numbers = await fetch_user_collection_number(http_client, user_id, collection_types)
+        all_subjects = await fetch_subjects(http_client, user_id, collection_numbers)
         person_subjects_map, unlinked_subjects = await create_person_subjects_map(http_client, all_subjects, position)
         valid_subjects = analyse_data(person_subjects_map)
         invalid_subjects = [{'subject_name': subject.name, 'subject_id': subject.id, 'subject_name_cn': subject.name_cn} for subject in unlinked_subjects]
         return {
             'valid_subjects': valid_subjects,
             'invalid_subjects': invalid_subjects,
-            'collection_number': collection_number
+            'collection_number': sum(collection_numbers.values())
         }

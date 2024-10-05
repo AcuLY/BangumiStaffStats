@@ -29,9 +29,10 @@ async def get_statistics():
     json_data = await request.json
     user_id = json_data.get('user_id')
     position = json_data.get('position')
+    collection_types = json_data.get('collection_types')
     start_time = time.time()
     print(f"\033[1;34m{datetime.datetime.now()} 开始抓取数据: {user_id}, {position}\033[0m")
-    user_data = await fetch_user_data(user_id, position)
+    user_data = await fetch_user_data(user_id, position, collection_types)
     if user_data['valid_subjects'] or user_data['invalid_subjects']:
         print(f"\033[1;32m{datetime.datetime.now()} 抓取数据成功: {user_id}, {position}, 得到{len(user_data['valid_subjects'])}个数据, 用时{math.floor(time.time() - start_time)}秒\033[0m")
         return user_data
