@@ -43,7 +43,7 @@
 
 <script setup>
 import { darkTheme } from 'naive-ui';
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import Input from './components/Input.vue';
 import Rank from './components/Rank.vue';
 
@@ -65,6 +65,13 @@ const switchMode = () => {
   darkMode.value = !darkMode.value;
 }
 
+// 检测系统主题并同步切换
+const matchMedia = window.matchMedia('(prefers-color-scheme: dark)');
+
+const updateThemeBasedOnSystem = () => {
+  darkMode.value = matchMedia.matches;
+}
+
 watch(darkMode, (newValue) => {
   if (newValue) {
     currentTheme.value = darkTheme;
@@ -73,7 +80,16 @@ watch(darkMode, (newValue) => {
     currentTheme.value = null;
     currentThemeOverride.value = pinkTheme;
   }
-})
+});
+
+onMounted(() => {
+  updateThemeBasedOnSystem();
+  matchMedia.addEventListener('change', updateThemeBasedOnSystem);
+});
+
+onBeforeUnmount(() => {
+  matchMedia.removeEventListener('change', updateThemeBasedOnSystem);
+});
 </script>
 
 <style scoped>

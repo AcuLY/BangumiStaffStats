@@ -49,10 +49,12 @@
         <div class="valid-subjects">
             <n-spin :show="isLoading">
                 <div :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }">
-                    <div class="switch-chinese">
-                        <span style="font-weight: bold; font-size: 20px; margin: 0 10px 0 0;">显示中文</span>
-                        <n-switch v-model:value="showChinese" size="medium" id="switch" />
-                    </div>
+                    <n-flex class="visual-options" :justify="isMobile ? 'center' : 'flex-start'" :size="isMobile ? 'small' : 'medium'">
+                        <span>显示中文</span>
+                        <n-switch v-model:value="showChinese" :size="isMobile ? 'small' : 'medium'" id="switch" />
+                        <span>伸长列表</span>
+                        <n-switch v-model:value="longerTable" :size="isMobile ? 'small' : 'medium'" id="switch" />
+                    </n-flex>
                     <div v-show="isValidSubjectsNotNull" class="result-text">
                         <h2 style="margin-top: -10px;">
                             统计到 <span style="color: #ff2075;">{{ validSubjects.length - 1 }}</span> 个人物，
@@ -63,7 +65,7 @@
                     :columns="validSubjectColumns" 
                     :data="validSubjects" 
                     :single-line="false" 
-                    :max-height="500" 
+                    :max-height="longerTable ? 1000 : 500" 
                     :scroll-x="1200"
                     virtual-scroll
                     striped 
@@ -95,7 +97,7 @@
                     :columns="invalidSubjectColumns"
                     :data="invalidSubjects"
                     :single-line="false" 
-                    :max-height="300"
+                    :max-height="longerTable ? 600 : 300"
                     virtual-scroll
                     striped
                     :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }" 
@@ -137,18 +139,26 @@ const validSubjects = computed(() => store.state.validSubjects);
 const invalidSubjects = computed(() => store.state.invalidSubjects);
 const collectionNumber = computed(() => store.state.collectionNumber) // 总条目数
 
-const isValidSubjectsNotNull = computed(() => validSubjects.value.length > 0);  // 是否有数据
+// 是否有数据
+const isValidSubjectsNotNull = computed(() => validSubjects.value.length > 0);  
 const isInvalidSubjectsNotNull = computed(() => invalidSubjects.value.length > 0);
 
-
+// 手动输入数据窗口
 const showInput = ref(false);
 const subjectNameInput = ref('');
 const subjectIdInput = ref('');
 const personNameInput = ref('');
 const rateInput = ref(0);
 let isSubjectNameNull = true;   // 是否有条目名, 有则禁止用户输入
-const showChinese = ref(false);
 
+// 窗口类型
+const isMobile = computed(() => { return window.innerWidth <= 600 });
+// 显示中文
+const showChinese = ref(false); 
+// 伸长列表
+const longerTable = ref(false);
+
+// 手动输入分数
 const updateRate = (rate) => {
     rateInput.value = rate;
 }
@@ -386,7 +396,6 @@ const invalidSubjectColumns = [
     }
 ];
 
-
 </script>
 
 
@@ -397,13 +406,15 @@ const invalidSubjectColumns = [
     width: 600px;
 }
 
-.switch-chinese {
+.visual-options {
     margin-bottom: 20px;
     width: 90vw;
+    font-weight: bold; 
+    font-size: 20px;
 }
 
 #switch {
-    transform: translateY(-2px);
+    transform: translateY(6px);
 }
 
 .data-tables {
@@ -422,16 +433,15 @@ const invalidSubjectColumns = [
     .input-window {
         width: 80vw;
     }
-    .switch-chinese {
-        display: flex;
-        justify-content: center;
-    }
-    #switch {
-        transform: translateY(6px);
-    }
     .result-text {
         display: flex;
         justify-content: center;
+    }
+    .visual-options {
+        font-size: 16px;
+    }
+    #switch {
+        transform: translateY(4px);
     }
 }
 

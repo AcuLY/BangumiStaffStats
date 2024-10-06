@@ -2,7 +2,6 @@ import httpx
 import asyncio
 import re
 import math
-import ujson
 from collections import defaultdict
 from utils import Subject, Person, position_ids, extract_name_cn
 import datetime
@@ -26,7 +25,7 @@ async def fetch_user_collection_number(http_client: httpx.AsyncClient, user_id, 
         http_client (httpx.AsyncClient): 异步客户端
         user_id (string): 用户 id
         collection_types (list(int), optional): 收藏类型, 见 https://bangumi.github.io/api 最后
-
+        subject_type(int): 条目类型
     返回值:
         collection_numbers(dict): 类型对应的用户的收藏数量
     """
@@ -70,7 +69,7 @@ async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_num
         http_client (httpx.AsyncClient): 异步客户端
         user_id (string): 用户 id
         collection_numbers(dict): 收藏类型到用户收藏数量的映射
-
+        subject_type(int): 条目类型
     返回值:
         all_subjects(list(subject)): 全部条目
     """
@@ -115,14 +114,14 @@ async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_num
     return all_subjects
 
 
-async def create_person_subjects_map(http_client: httpx.AsyncClient, subjects: list, position: str):
+async def create_person_subjects_map(http_client: httpx.AsyncClient, subjects: list, position: str, subject_type):
     """创建一个 Person 到 [Subject] 的映射
 
     参数:
         http_client (httpx.AsyncClient): 见上
         subjects (list(Subjects)): 用户收藏的条目
         position (str): 要查询的职位
-    
+        subject_type(int): 条目类型
     返回值:
         person_subjects_map(dict): Person 到 [Subject] 的映射
         unlinked_subjects(list): 找不到人的 subjects
@@ -139,7 +138,7 @@ async def create_person_subjects_map(http_client: httpx.AsyncClient, subjects: l
                 person_id = relation[0]
                 position_id = relation[1]
                 # 匹配职位
-                if position_id in position_ids[position]:
+                if position_id in position_ids[subject_type][position]:
                     person = await fetch_person_infos(http_client, person_id)
                     person_subjects_map[person].append(subject)
                     subjects_linked.add(subject)
@@ -204,6 +203,9 @@ async def fetch_person_infos(http_client: httpx.AsyncClient, person_id):
                 person_name_cn = extract_name_cn(infobox)
             else:
                 person_name_cn = person_name
+            # 简体中文名可能为空
+            if len(person_name_cn.strip()) == 0:
+                person_name_cn = person_name
             return Person(person_name, person_id, person_name_cn)
     return Person('', 0, '')
 
@@ -237,11 +239,11 @@ def analyse_data(person_subjects_map: dict):
     final_list = sorted(final_list, key=lambda item: item['number'], reverse=True)
     return final_list
 
-async def fetch_user_data(user_id, position, collection_types):
+async def fetch_user_data(user_id, position, collection_types, subject_type):
     async with httpx.AsyncClient(headers=headers, limits=httpx.Limits(max_connections=30)) as http_client:
-        collection_numbers = await fetch_user_collection_number(http_client, user_id, collection_types)
-        all_subjects = await fetch_subjects(http_client, user_id, collection_numbers)
-        person_subjects_map, unlinked_subjects = await create_person_subjects_map(http_client, all_subjects, position)
+        collection_numbers = await fetch_user_collection_number(http_client, user_id, collection_types, subject_type)
+        all_subjects = await fetch_subjects(http_client, user_id, collection_numbers, subject_type)
+        person_subjects_map, unlinked_subjects = await create_person_subjects_map(http_client, all_subjects, position, subject_type)
         valid_subjects = analyse_data(person_subjects_map)
         invalid_subjects = [{'subject_name': subject.name, 'subject_id': subject.id, 'subject_name_cn': subject.name_cn} for subject in unlinked_subjects]
         return {
