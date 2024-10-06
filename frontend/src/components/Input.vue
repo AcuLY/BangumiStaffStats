@@ -69,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import axios from 'axios';
 import { useStore } from 'vuex';
 import { useNotification } from 'naive-ui';
@@ -82,6 +82,7 @@ const isLoading = computed(() => store.state.isLoading);    // 加载状态
 const notify = useNotification();   // 用于发送通知
 
 const abortController = ref(null);  // 终止请求
+
 
 // 用户 id , 条目类型, 查询的职位, 收藏类型
 const userId = ref(`${import.meta.env.VITE_API_USERID}`);
@@ -97,6 +98,11 @@ const actionName = computed(() => {
     }
     return '看';
 })
+
+// 换条目类型时清空职位
+watch(subjectType, () => {
+    position.value = null;
+});
 
 // 上一次查询的值
 const userIdSave = ref('');
@@ -224,7 +230,7 @@ const cancelRequest = () => {
     if (abortController.value) {
         abortController.value.abort();
     }
-}
+};
 
 </script>
 

@@ -96,7 +96,8 @@ async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_num
                     subject_name_cn = collection['subject']['name_cn'] if collection['subject']['name_cn'] else collection['subject']['name']
                     subject_id = collection['subject_id']
                     subject_rate = collection['rate']
-                    subjects_100.append(Subject(subject_name, subject_id, subject_rate, subject_name_cn))
+                    subject_image = collection['subject']['images']['grid']
+                    subjects_100.append(Subject(subject_name, subject_id, subject_rate, subject_name_cn, subject_image))
                 return subjects_100
         return []
     
@@ -233,6 +234,7 @@ def analyse_data(person_subjects_map: dict):
             'subject_ids': [subject.id for subject in subjects],
             'subject_names_cn': [subject.name_cn for subject in subjects],
             'rates': [subject.rate for subject in subjects],
+            'subject_images': [subject.image for subject in subjects],
             'average_rate': average_rate,
             'number': len(subjects)
         })

@@ -52,6 +52,8 @@
                     <n-flex class="visual-options" :justify="isMobile ? 'center' : 'flex-start'" :size="isMobile ? 'small' : 'medium'">
                         <span>显示中文</span>
                         <n-switch v-model:value="showChinese" :size="isMobile ? 'small' : 'medium'" id="switch" />
+                        <span>显示图片</span>
+                        <n-switch v-model:value="showImage" :size="isMobile ? 'small' : 'medium'" id="switch" />
                         <span>伸长列表</span>
                         <n-switch v-model:value="longerTable" :size="isMobile ? 'small' : 'medium'" id="switch" />
                     </n-flex>
@@ -155,6 +157,8 @@ let isSubjectNameNull = true;   // 是否有条目名, 有则禁止用户输入
 const isMobile = computed(() => { return window.innerWidth <= 600 });
 // 显示中文
 const showChinese = ref(false); 
+// 显示图片
+const showImage = ref(false);
 // 伸长列表
 const longerTable = ref(false);
 
@@ -224,10 +228,11 @@ const addSubject = (row) => {
 const validSubjectColumns = [
     {
         title: '',  // 序号
-        key: 'number',
+        key: '',
         width: 50,
         resizable: true,
         align: 'center',
+        fixed: 'left',
         render(row, index) {
             if (index === validSubjects.value.length - 1) {
                 return null;
@@ -257,7 +262,7 @@ const validSubjectColumns = [
         align: 'center',
         render(row) {
             let personName = row.person_name;
-            if (showChinese.value && row.person_name_cn !== '|别名={') {    // 临时修补
+            if (showChinese.value) {
                 personName = row.person_name_cn
             }
             return h(
@@ -309,6 +314,31 @@ const validSubjectColumns = [
             if (index === validSubjects.value.length - 1) {
                 return null;
             }
+            // 显示图片
+            if (showImage.value) {
+                return h(
+                        'div',
+                        row.subject_images.map((img, imgIndex) => 
+                                h(
+                                    'a',
+                                    {
+                                        href: `https://bgm.tv/subject/${row.subject_ids[imgIndex]}`,
+                                        title: row.subject_names[imgIndex],
+                                        target: '_blank',
+                                        style: { color: '#FF1493' }
+                                    },
+                                    h(
+                                        'img',
+                                        {
+                                            src: img,
+                                            alt: row.subject_names[imgIndex],
+                                            style: { width: '50px', height: '70.6px', margin: '2px 5px 2px 0px', borderRadius: '5px' }
+                                        }
+                                    )
+                                )
+                        )
+                )
+            }
             return h(
                 'div',
                 row.subject_names.map((subject_name, index) =>
@@ -317,7 +347,7 @@ const validSubjectColumns = [
                             'a',
                             {
                                 href: `https://bgm.tv/subject/${row.subject_ids[index]}`,
-                                title: `https://bgm.tv/subject/${row.subject_ids[index]}`,
+                                title: subject_name,
                                 target: '_blank',
                                 style: { color: '#FF1493' }
                             },

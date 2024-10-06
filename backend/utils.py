@@ -137,25 +137,27 @@ def extract_name_cn(infobox):
     return infobox[start:end].strip()
 
 class Subject:
-    def __init__(self, subject_name, subject_id, subject_rate, subject_name_cn):
+    def __init__(self, subject_name, subject_id, subject_rate, subject_name_cn, subject_image):
         self.name = subject_name
         self.id = subject_id
         self.rate = subject_rate
         self.name_cn = subject_name_cn
+        self.image = subject_image
     
     def __repr__(self):
-        return f'Subject(name={self.name}, id={self.id}, rate={self.rate}, name_cn={self.name_cn})'
+        return f'Subject(name={self.name}, id={self.id}, rate={self.rate}, name_cn={self.name_cn}, image={self.image})'
     
     def __eq__(self, other):
         if isinstance(other, Subject):
             return (self.name == other.name and 
                     self.id == other.id and 
                     self.rate == other.rate and 
-                    self.name_cn == other.name_cn)
+                    self.name_cn == other.name_cn and
+                    self.image == other.image)
         return False
 
     def __hash__(self):
-        return hash((self.name, self.id, self.rate, self.name_cn))
+        return hash((self.name, self.id, self.rate, self.name_cn, self.image))
 
 class Person:
     def __init__(self, person_name, person_id, person_name_cn):
