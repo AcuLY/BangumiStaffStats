@@ -59,7 +59,7 @@
     </div>
     
     <n-divider style="margin-bottom: 14px;">
-        <n-flex justify="center" style="width: 90vw;" v-show="userIdSave !== ''">
+        <n-flex justify="center" style="width: 65vw;" v-show="userIdSave !== ''">
             <h2 class="divider-text" v-show="userIdSave !== ''">当前用户：<span style="color: #FF1493;">{{ userIdSave }}</span></h2>
             <h2 class="divider-text" v-show="subjectTypeLabel !== ''">条目类型：<span style="color: #FF1493;">{{ subjectTypeLabel }}</span></h2>
             <h2 class="divider-text" v-show="positionSave !== null">当前职位：<span style="color: #FF1493;">{{ positionLabel }}</span></h2>
@@ -69,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import axios from 'axios';
 import { useStore } from 'vuex';
 import { useNotification } from 'naive-ui';
@@ -98,6 +98,23 @@ const actionName = computed(() => {
     }
     return '看';
 })
+
+// 如果是从主页跳转则提取 userId
+onMounted(() => {
+    const currentUrl = window.location.pathname;
+    if (currentUrl !== '/' && currentUrl.split('/').length > 1) {
+        window.history.replaceState({}, '', '/');
+    }
+
+    const urlUserId = new URLSearchParams(window.location.search).get('user');
+    if (urlUserId) {
+        userId.value = urlUserId;
+    }
+    // 移除查询参数的操作
+    const url = new URL(window.location);
+    url.search = '';
+    window.history.replaceState({}, '', url);
+});
 
 // 换条目类型时清空职位
 watch(subjectType, () => {
@@ -281,8 +298,8 @@ const cancelRequest = () => {
 }
 
 .divider-text {
-    margin: 0px 20px 0px 20px;
-    font-size: 24px;
+    margin: 0px 10px 0px 10px;
+    font-size: 20px;
 }
 
 @media (max-width: 600px) {

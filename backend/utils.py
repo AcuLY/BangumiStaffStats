@@ -54,7 +54,9 @@ position_ids = [
         '总导演' : [74],
         '摄影' : [82],
         '3DCG' : [75, 86],
-        '动画制片人' : [87]
+        '动画制片人' : [87],
+        '声优（仅主役）': [101],
+        '声优': [101, 102, 103]
     },
     # 3 音乐
     {
@@ -177,4 +179,22 @@ class Person:
 
     def __hash__(self):
         return hash((self.name, self.id, self.name_cn))
+
+
+class Character:
+    def __init__(self, character_id, character_name, character_name_cn, character_image):
+        self.id = character_id
+        self.name = character_name
+        self.name_cn = character_name_cn
+        self.image = character_image
+    
+    def __eq__(self, other):
+        if isinstance(other, Character):
+            return (self.name == other.name and 
+                    self.id == other.id and 
+                    self.name_cn == other.name_cn and
+                    self.image == other.image)
+    
+    def __hash__(self):
+        return hash((self.name, self.id, self.name_cn, self.image))
 

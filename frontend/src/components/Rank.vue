@@ -48,7 +48,7 @@
     <n-flex class="data-tables" justify="center" >
         <div class="valid-subjects">
             <n-spin :show="isLoading">
-                <div :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }">
+                <div :style="{ filter: isLoading ? 'blur(8px)' : 'blur(0px)' }">
                     <n-flex class="visual-options" :justify="isMobile ? 'center' : 'flex-start'" :size="isMobile ? 'small' : 'medium'">
                         <span>显示中文</span>
                         <n-switch v-model:value="showChinese" :size="isMobile ? 'small' : 'medium'" id="switch" />
@@ -69,7 +69,6 @@
                     :single-line="false" 
                     :max-height="longerTable ? 1000 : 500" 
                     :scroll-x="1200"
-                    virtual-scroll
                     striped 
                     />
                     <p style="color: gray;">
@@ -91,7 +90,7 @@
         <div class="invalid-subjects" v-show="isInvalidSubjectsNotNull">
             <n-divider style="margin-bottom: 0px; margin-top: -10px;"></n-divider>
             <n-spin :show="isLoading">
-                <div :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }">
+                <div :style="{ filter: isLoading ? 'blur(8px)' : 'blur(0px)' }">
                     <div v-show="isInvalidSubjectsNotNull" class="result-text">
                         <h2>以下 <span style="color: #ff2075;">{{ invalidSubjects.length - 1 }}</span> 个条目未统计</h2>
                     </div>
@@ -100,7 +99,6 @@
                     :data="invalidSubjects"
                     :single-line="false" 
                     :max-height="longerTable ? 600 : 300"
-                    virtual-scroll
                     striped
                     :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }" 
                     />
@@ -115,8 +113,8 @@
                 <template #description>
                     <div class="loading-text">
                         <h2 style="margin: 0;">查询中</h2>
-                        <p style="margin: 0;">具体时长取决于用户收藏的条目数量以及 Bangumi 的数据库</p> 
-                        <p style="margin: 0;">通常时间为 1 ~ 10 秒</p> 
+                        <p style="margin: 0;">具体时长取决于条目数量以及 Bangumi 的数据库</p> 
+                        <p style="margin: 0;">通常需要约 1 ~ 10 秒</p> 
                     </div>
                 </template>
             </n-spin>
@@ -232,7 +230,6 @@ const validSubjectColumns = [
         width: 50,
         resizable: true,
         align: 'center',
-        fixed: 'left',
         render(row, index) {
             if (index === validSubjects.value.length - 1) {
                 return null;
@@ -260,6 +257,7 @@ const validSubjectColumns = [
         width: 96,
         resizable: true,
         align: 'center',
+        fixed: 'left',
         render(row) {
             let personName = row.person_name;
             if (showChinese.value) {

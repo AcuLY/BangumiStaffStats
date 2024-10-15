@@ -23,7 +23,9 @@ export const positionOptions = [
         { "label": "原作", "value": "原作" },
     ],
     // 2 动画
-    [
+    [   
+        { "label": "声优（仅主役）", "value": "声优（仅主役）" },
+        { "label": "声优", "value": "声优" },
         { "label": "监督", "value": "导演" },
         { "label": "总监督", "value": "总导演" },
         { "label": "副监督", "value": "副导演" },

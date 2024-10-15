@@ -34,7 +34,12 @@
             <Rank />
           </n-flex>
         </n-layout-content>
-
+        
+        <n-layout-footer>
+          <n-flex justify="center" style="padding: 10px; width: 100vw; position: static; bottom: 0px; background-color: #f8f8f8;">
+            <a href="https://beian.miit.gov.cn/" target="_blank" style="color: grey;text-decoration: none;" >粤ICP备2024321317号</a>
+          </n-flex>
+        </n-layout-footer>
       </n-layout>
     </n-notification-provider>
 

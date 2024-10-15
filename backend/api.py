@@ -143,9 +143,12 @@ async def create_person_subjects_map(http_client: httpx.AsyncClient, subjects: l
                     person = await fetch_person_infos(http_client, person_id)
                     person_subjects_map[person].append(subject)
                     subjects_linked.add(subject)
+    # 如果一个声优在一部作品配了多个角色, 需要去除重复的 subject
+    if '声优' in position:
+        for person, subjects in person_subjects_map.items():
+            person_subjects_map[person] = list(set(subjects))
     # 本地数据中没有的 subject_id
     async def fetch_subject_persons(subject):
-        nonlocal person_subjects_map
         url = f'https://api.bgm.tv/v0/subjects/{subject.id}/persons'
         try:
             persons_response = await http_client.get(url)
@@ -211,6 +214,12 @@ async def fetch_person_infos(http_client: httpx.AsyncClient, person_id):
     return Person('', 0, '')
 
 
+async def create_person_characters_map(person_subjects_map: dict):
+    person_characters_map = {}
+    for person, subjects in person_subjects_map.items():
+        person_id = person.id
+
+
 def analyse_data(person_subjects_map: dict):
     """计算均分, 并将最终转换数据
 
@@ -246,6 +255,7 @@ async def fetch_user_data(user_id, position, collection_types, subject_type):
         collection_numbers = await fetch_user_collection_number(http_client, user_id, collection_types, subject_type)
         all_subjects = await fetch_subjects(http_client, user_id, collection_numbers, subject_type)
         person_subjects_map, unlinked_subjects = await create_person_subjects_map(http_client, all_subjects, position, subject_type)
+        
         valid_subjects = analyse_data(person_subjects_map)
         invalid_subjects = [{'subject_name': subject.name, 'subject_id': subject.id, 'subject_name_cn': subject.name_cn} for subject in unlinked_subjects]
         return {
