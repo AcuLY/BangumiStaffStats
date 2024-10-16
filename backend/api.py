@@ -3,7 +3,7 @@ import asyncio
 import re
 import math
 from collections import defaultdict
-from utils import Subject, Person, position_ids, extract_name_cn
+from utils import Subject, Person, Character, position_ids, extract_name_cn
 import datetime
 
 headers = {
@@ -13,10 +13,11 @@ headers = {
 # 预加载数据
 subject_persons_dict = None
 person_dict = None
+person_characters_dict = None
 
 def transmit_data(data):
-    global subject_persons_dict, person_dict
-    subject_persons_dict, person_dict = data
+    global subject_persons_dict, person_dict, person_characters_dict
+    subject_persons_dict, person_dict, person_characters_dict = data
 
 async def fetch_user_collection_number(http_client: httpx.AsyncClient, user_id, collection_types: list, subject_type=2):
     """通过设置一个很大的 offset 时产生的报错来获取用户条目的数量
@@ -214,27 +215,47 @@ async def fetch_person_infos(http_client: httpx.AsyncClient, person_id):
     return Person('', 0, '')
 
 
-async def create_person_characters_map(person_subjects_map: dict):
-    person_characters_map = {}
+def create_person_characters_map(person_subjects_map: dict):
+    """创建 Person 到 Characters 的映射
+
+    参数:
+        person_subjects_map (dict): Person -> [Subject]
+
+    返回:
+        person_characters_map (dict): Person -> [Character]
+    """
+    person_characters_map = defaultdict(list)
     for person, subjects in person_subjects_map.items():
-        person_id = person.id
+        subject_ids = set([subject.id for subject in subjects])
+        for relation in person_characters_dict[str(person.id)]:
+            if relation['subject_id'] in subject_ids:
+                subject = next(iter([subject for subject in subjects if subject.id == relation['subject_id']]))
+                character = Character(relation['character_id'], relation['character_name'], relation['character_name_cn'], relation['character_image'], subject)
+                if character not in person_characters_map[person]:
+                    person_characters_map[person].append(character)
+    return person_characters_map
 
 
-def analyse_data(person_subjects_map: dict):
+def analyse_data(person_subjects_map: dict, person_characters_map: dict):
     """计算均分, 并将最终转换数据
 
     参数:
         person_subjects_map (dict): Person 到 [Subject] 的映射
+        person_characters_map (dict): Person -> [Character]
 
     返回值:
         final_list(list): 如下
     """
     final_list = []
     for person, subjects in person_subjects_map.items():
+        # 如果是声优提取角色
+        characters = []
+        if person_characters_map:
+            characters = person_characters_map[person]
+        # 计算均分
         valid_rates = [subject.rate for subject in subjects if subject.rate]
         average_rate = math.floor(sum(valid_rates) / len(valid_rates) * 100) / 100 if valid_rates else 0
-        if isinstance(person, int):
-            print(person)
+
         final_list.append({
             'person_name': person.name,
             'person_id': person.id,
@@ -245,9 +266,16 @@ def analyse_data(person_subjects_map: dict):
             'rates': [subject.rate for subject in subjects],
             'subject_images': [subject.image for subject in subjects],
             'average_rate': average_rate,
-            'number': len(subjects)
+            'subjects_number': len(subjects),
+            'character_ids': [character.id for character in characters],
+            'character_names':[character.name for character in characters],
+            'character_names_cn': [character.name_cn for character in characters],
+            'character_images': [character.image for character in characters],
+            'character_subject_names': [character.subject.name for character in characters],
+            'character_subject_names_cn': [character.subject.name_cn for character in characters],
+            'characters_number': len(characters)
         })
-    final_list = sorted(final_list, key=lambda item: item['number'], reverse=True)
+    final_list = sorted(final_list, key=lambda item: item['subjects_number'], reverse=True)
     return final_list
 
 async def fetch_user_data(user_id, position, collection_types, subject_type):
@@ -255,8 +283,11 @@ async def fetch_user_data(user_id, position, collection_types, subject_type):
         collection_numbers = await fetch_user_collection_number(http_client, user_id, collection_types, subject_type)
         all_subjects = await fetch_subjects(http_client, user_id, collection_numbers, subject_type)
         person_subjects_map, unlinked_subjects = await create_person_subjects_map(http_client, all_subjects, position, subject_type)
-        
-        valid_subjects = analyse_data(person_subjects_map)
+        if '声优' in position:
+            person_characters_map = create_person_characters_map(person_subjects_map)
+            valid_subjects = analyse_data(person_subjects_map, person_characters_map)
+        else:
+            valid_subjects = analyse_data(person_subjects_map, None)
         invalid_subjects = [{'subject_name': subject.name, 'subject_id': subject.id, 'subject_name_cn': subject.name_cn} for subject in unlinked_subjects]
         return {
             'valid_subjects': valid_subjects,

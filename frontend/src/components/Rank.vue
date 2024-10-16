@@ -50,12 +50,38 @@
             <n-spin :show="isLoading">
                 <div :style="{ filter: isLoading ? 'blur(8px)' : 'blur(0px)' }">
                     <n-flex class="visual-options" :justify="isMobile ? 'center' : 'flex-start'" :size="isMobile ? 'small' : 'medium'">
-                        <span>显示中文</span>
-                        <n-switch v-model:value="showChinese" :size="isMobile ? 'small' : 'medium'" id="switch" />
-                        <span>显示图片</span>
-                        <n-switch v-model:value="showImage" :size="isMobile ? 'small' : 'medium'" id="switch" />
-                        <span>伸长列表</span>
-                        <n-switch v-model:value="longerTable" :size="isMobile ? 'small' : 'medium'" id="switch" />
+                        <n-switch v-model:value="showChinese" :size="isMobile ? 'medium' : 'large'" class="switch">
+                            <template #checked>
+                                <span class="visual-options-text-checked">显示中文</span>
+                            </template>
+                            <template #unchecked>
+                                <span class="visual-options-text-unchecked">显示中文</span>
+                            </template>
+                        </n-switch>
+                        <n-switch v-model:value="showImage" :size="isMobile ? 'medium' : 'large'" class="switch">
+                            <template #checked>
+                                <span class="visual-options-text-checked">显示图片</span>
+                            </template>
+                            <template #unchecked>
+                                <span class="visual-options-text-unchecked">显示图片</span>
+                            </template>
+                        </n-switch>
+                        <n-switch v-model:value="longerTable" :size="isMobile ? 'medium' : 'large'" class="switch">
+                            <template #checked>
+                                <span class="visual-options-text-checked">伸长列表</span>
+                            </template>
+                            <template #unchecked>
+                                <span class="visual-options-text-unchecked">伸长列表</span>
+                            </template>
+                        </n-switch>
+                        <n-switch v-model:value="showCharacters" v-show="isCV" :size="isMobile ? 'medium' : 'large'" class="switch">
+                            <template #checked>
+                                <span class="visual-options-text-checked">显示角色</span>
+                            </template>
+                            <template #unchecked>
+                                <span class="visual-options-text-unchecked">显示角色</span>
+                            </template>
+                        </n-switch>
                     </n-flex>
                     <div v-show="isValidSubjectsNotNull" class="result-text">
                         <h2 style="margin-top: -10px;">
@@ -64,24 +90,25 @@
                         </h2>
                     </div>
                     <n-data-table 
-                    :columns="validSubjectColumns" 
-                    :data="validSubjects" 
-                    :single-line="false" 
-                    :max-height="longerTable ? 1000 : 500" 
-                    :scroll-x="1200"
-                    striped 
+                        :columns="validSubjectColumns" 
+                        :data="validSubjects" 
+                        :single-line="false" 
+                        :max-height="longerTable ? 1000 : 500" 
+                        :scroll-x="1200"
+                        striped 
                     />
                     <p style="color: gray;">
                         注：<br>① “作品均分” 为用户评分的平均分 <br>
-                        ② 由于 Bangumi 提供的 api 对职位的分类有点混乱
-                        (至少有一些分类我没太看懂)，部分统计可能不准确
+                        ② 由于部分 Bangumi 提供的 api 对职位的分类有点混乱
+                        ，统计可能不准确，另外比较新的条目和人物可能会缺失 <br>
+                        ③ 当查询声优开启显示角色时，后面标注的作品可能是续作或者客串出场的作品，我也还没太想好怎么处理这个问题
                     </p>
                 </div>
                 <template #description>
                     <div class="loading-text">
                         <h2 style="margin: 0;">查询中</h2>
-                        <p style="margin: 0;">具体时长取决于用户收藏的条目数量以及 Bangumi 的数据库</p> 
-                        <p style="margin: 0;">部分职位由于数据缺失可能要等待比较长的时间</p> 
+                        <p style="margin: 0;">具体时长取决于条目数量以及 Bangumi 的数据库</p> 
+                        <p style="margin: 0;">通常需要约 1 ~ 10 秒</p> 
                     </div>
                 </template>
             </n-spin>
@@ -124,7 +151,7 @@
 </template>
 
 <script setup>
-import { ref, computed, h } from 'vue';
+import { ref, computed, h, render, watch, reactive } from 'vue';
 import { useStore } from 'vuex';
 import { NButton, useNotification } from 'naive-ui';
 
@@ -159,6 +186,21 @@ const showChinese = ref(false);
 const showImage = ref(false);
 // 伸长列表
 const longerTable = ref(false);
+// 是否查询声优
+const isCV = computed(() => {
+    if (validSubjects.value[0] && validSubjects.value[0]['character_ids'].length >= 1) {
+        return true;
+    }
+    return false;
+});
+// 查询声优时显示角色
+const showCharacters = ref(false);
+
+watch(isCV, (newValue) => {
+    if (!newValue) {
+        showCharacters.value = false;
+    }
+});
 
 // 手动输入分数
 const updateRate = (rate) => {
@@ -223,7 +265,9 @@ const addSubject = (row) => {
     showInput.value = true;
 }
 
-const validSubjectColumns = [
+
+// 表格数据
+const validSubjectColumns = computed(() => [
     {
         title: '',  // 序号
         key: '',
@@ -269,19 +313,26 @@ const validSubjectColumns = [
                     href: `https://bgm.tv/person/${row.person_id}`,
                     title: `https://bgm.tv/person/${row.person_id}`,
                     target: '_blank',
-                    style: { color: '#FF1493' }
+                    style: { color: '#FF1493', textDecoration:'none' }
                 },
                 personName
             );
         }
     },
     {
-        title: '作品数',
-        key: 'number',
+        title: showCharacters.value ? '角色数' : '作品数',
+        key: showCharacters.value ? 'characters_number' : 'subjects_number',
         width: 86,
         align: 'center',
         resizable: true,
-        sorter: 'default'
+        sorter: 'default',
+        render(row, index) {
+            // 最后一个元素占位
+            if (index === validSubjects.value.length - 1) {
+                return null;
+            }
+            return h('span', showCharacters.value ? row.characters_number : row.subjects_number)
+        }
     },
     {
         title: '均分',
@@ -303,7 +354,7 @@ const validSubjectColumns = [
         }
     },
     {
-        title: '作品',
+        title: showCharacters.value ? '角色': '作品',
         key: 'subject_names',
         titleAlign: 'center',
         resizable: true,
@@ -312,52 +363,175 @@ const validSubjectColumns = [
             if (index === validSubjects.value.length - 1) {
                 return null;
             }
-            // 显示图片
-            if (showImage.value) {
-                return h(
-                        'div',
-                        row.subject_images.map((img, imgIndex) => 
-                                h(
+            if (showCharacters.value) {
+                // 显示角色图片
+                if (showImage.value) {
+                    return h(
+                            'div',
+                            row.character_images.map((img, imgIndex) => {
+                                return h(
                                     'a',
                                     {
-                                        href: `https://bgm.tv/subject/${row.subject_ids[imgIndex]}`,
-                                        title: row.subject_names[imgIndex],
+                                        href: `https://bgm.tv/character/${row.character_ids[imgIndex]}`,
+                                        title: row.character_names[imgIndex],
                                         target: '_blank',
-                                        style: { color: '#FF1493' }
+                                        style: { color: '#FF1493', transition: 'all 0.1s'  }
                                     },
                                     h(
                                         'img',
                                         {
                                             src: img,
-                                            alt: row.subject_names[imgIndex],
-                                            style: { width: '50px', height: '70.6px', margin: '2px 5px 2px 0px', borderRadius: '5px' }
+                                            alt: row.character_names[imgIndex],
+                                            style: { width: '48px', height: '48px', margin: '2px 5px 2px 0px', borderRadius: '5px', transition: 'all 0.1s' },
+                                            loading: 'lazy',
+                                            onerror(event) {
+                                                event.currentTarget.src = '/character_failed.png';
+                                            },
+                                            onMouseover(event) {
+                                                event.currentTarget.style.boxShadow = '0px 0px 5px #FF1493'
+                                            },
+                                            onMouseout(event) {
+                                                event.currentTarget.style.boxShadow = '0px 0px 0px'
+                                            }
                                         }
                                     )
                                 )
-                        )
+                            })
+                    )
+                }
+                // 显示角色名字
+                return h(
+                        'span',
+                        row.character_names.map((character_name, index) =>
+                            h(
+                                'a',
+                                {
+                                    href: `https://bgm.tv/character/${row.character_ids[index]}`,
+                                    title: character_name,
+                                    target: '_blank',
+                                    style: { 
+                                        color: '#FF1493', 
+                                        textDecoration:'none', 
+                                        padding: '1px 4px 1px 4px', 
+                                        border: 'solid thin', 
+                                        borderRadius: '8px', 
+                                        whiteSpace: 'nowrap', 
+                                        lineHeight: '2',
+                                        transition: 'all 0.1s' 
+                                    },
+                                    onMouseover(event) {
+                                        event.currentTarget.style.backgroundColor = '#EC468C';
+                                        event.currentTarget.style.borderColor = '#EC468C';
+                                        event.currentTarget.style.color = '#ffffff';
+                                        event.currentTarget.style.boxShadow = '0px 0px 5px grey';
+                                        event.currentTarget.querySelector(`#subject-name`).style.color = '#FFD0F4';
+                                    },
+                                    onMouseout(event) {
+                                        event.currentTarget.style.backgroundColor = 'transparent';
+                                        event.currentTarget.style.color = '#FF1493';
+                                        event.currentTarget.style.boxShadow = '0px 0px 0px';
+                                        event.currentTarget.querySelector(`#subject-name`).style.color = '#C3809A';
+                                    }
+                                },
+                                showChinese.value 
+                                    ? [
+                                        row.character_names_cn[index],
+                                        h('span', { id: 'subject-name', style: { color: '#C3809A' } }, `【${row.character_subject_names_cn[index]}】`)
+                                    ]
+                                    : [
+                                        row.character_names[index],
+                                        h('span', { id: 'subject-name', style: { color: '#C3809A' } }, `【${row.character_subject_names[index]}】`)
+
+                                    ],
+                            )
+                        ).reduce((acc, link, idx) => {  // 插入顿号分隔
+                            if (idx !== 0) {
+                                acc.push(h('span', '\u00A0\u00A0'));
+                            }
+                            acc.push(link);
+                            return acc;
+                        }, []),
+                    )
+            }
+            // 显示作品图片
+            if (showImage.value) {
+                return h(
+                        'div',
+                        row.subject_images.map((img, imgIndex) => {
+                            return h(
+                                'a',
+                                {
+                                    href: `https://bgm.tv/subject/${row.subject_ids[imgIndex]}`,
+                                    title: row.subject_names[imgIndex],
+                                    target: '_blank',
+                                    style: { color: '#FF1493', transition: 'all 0.1s'  }
+                                },
+                                h(
+                                    'img',
+                                    {
+                                        src: img,
+                                        alt: row.subject_names[imgIndex],
+                                        style: { width: '50px', height: '70.6px', margin: '2px 5px 2px 0px', borderRadius: '5px', transition: 'all 0.1s' },
+                                        loading: 'lazy',
+                                        onerror(event) {
+                                            event.currentTarget.src = '/subject_failed.png';
+                                        },
+                                        onMouseover(event) {
+                                            event.currentTarget.style.boxShadow = '0px 0px 5px #FF1493'
+                                        },
+                                        onMouseout(event) {
+                                            event.currentTarget.style.boxShadow = '0px 0px 0px'
+                                        }
+                                    },
+                                )
+                            )
+                        })
                 )
             }
+            // 显示作品名字
             return h(
                 'div',
                 row.subject_names.map((subject_name, index) =>
-                    h('span', [
-                        h(
-                            'a',
-                            {
-                                href: `https://bgm.tv/subject/${row.subject_ids[index]}`,
-                                title: subject_name,
-                                target: '_blank',
-                                style: { color: '#FF1493' }
+                    h(
+                        'a',
+                        {   
+                            href: `https://bgm.tv/subject/${row.subject_ids[index]}`,
+                            title: subject_name,
+                            target: '_blank',
+                            style: { 
+                                color: '#FF1493', 
+                                textDecoration:'none', 
+                                padding: '1px 4px 1px 4px', 
+                                border: 'solid thin', 
+                                borderRadius: '8px', 
+                                whiteSpace: 'nowrap', 
+                                lineHeight: '2',
+                                transition: 'all 0.1s' 
                             },
-                            showChinese.value ? row.subject_names_cn[index] : subject_name
-                        ),
-                        row.rates[index] !== 0
-                            ? h('span', [h('span', ' '), h('span', row.rates[index]), h('span', ' '), h('img', { src: '/star.png', width: 10 }), h('span', ' ')])
-                            : h('span', [h('span', ' '), h('img', { src: '/star_unrated.png', width: 10 })])
+                            onMouseover(event) {
+                                event.currentTarget.style.backgroundColor = '#EC468C';
+                                event.currentTarget.style.borderColor = '#EC468C';
+                                event.currentTarget.style.color = '#ffffff';
+                                event.currentTarget.style.boxShadow = '0px 0px 5px grey'
+                            },
+                            onMouseout(event) {
+                                event.currentTarget.style.backgroundColor = 'transparent';
+                                event.currentTarget.style.color = '#FF1493';
+                                event.currentTarget.style.boxShadow = '0px 0px 0px'
+                            }
+                        }, 
+                        [
+                            h(
+                                'span',
+                                showChinese.value ? row.subject_names_cn[index] : subject_name
+                            ),
+                            row.rates[index] !== 0
+                                ? h('span', [h('span', ' '), h('span', row.rates[index]), h('span', ' '), h('img', { src: '/star.png', width: 10 }), h('span', ' ')])
+                                : h('span', [h('span', ' '), h('img', { src: '/star_unrated.png', width: 10 }), h('span', ' ')])
                     ])
-                ).reduce((acc, link, idx) => {  // 插入顿号分隔
+                ).reduce((acc, link, idx) => {  // 空格分隔
                     if (idx !== 0) {
-                        acc.push(h('span', '、'));
+                        acc.push(h('span', '\u00A0\u00A0'));
                     }
                     acc.push(link);
                     return acc;
@@ -365,7 +539,7 @@ const validSubjectColumns = [
             )
         }
     }
-];
+]);
 
 const invalidSubjectColumns = [
     {
@@ -438,11 +612,20 @@ const invalidSubjectColumns = [
     margin-bottom: 20px;
     width: 90vw;
     font-weight: bold; 
-    font-size: 20px;
 }
 
-#switch {
-    transform: translateY(6px);
+.visual-options-text-unchecked {
+    color: #777777;
+    font-size: 18px;
+}
+
+.visual-options-text-checked {
+    color: #ffffff;
+    font-size: 18px;
+}
+
+.switch {
+    margin: 5px 0px 5px 0px;
 }
 
 .data-tables {
@@ -466,7 +649,13 @@ const invalidSubjectColumns = [
         justify-content: center;
     }
     .visual-options {
-        font-size: 16px;
+        width: 90vw;
+    }
+    .visual-options-text-checked {
+        font-size: 14px;
+    }
+    .visual-options-text-unchecked {
+        font-size: 14px;
     }
     #switch {
         transform: translateY(4px);

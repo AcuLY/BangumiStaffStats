@@ -27,9 +27,17 @@ export default createStore({
                 person_name: '',
                 subject_ids: [''],
                 subject_names: [''],
-                number: '',
+                subjects_number: '',
+                subject_images: [''],
                 rates: [''],
-                average_rate: 0
+                average_rate: 0,
+                character_ids: [''],
+                character_names:[''],
+                character_names_cn: [''],
+                character_images: [''],
+                character_subject_names: [''],
+                character_subject_names_cn: [''],
+                characters_number: ''
             });
             state.invalidSubjects.push({
                 subject_ids: [''],
@@ -46,10 +54,10 @@ export default createStore({
                 existingSubject.subject_names.push(subjectName);
                 existingSubject.rates.push(rate);
                 // 重新计算和条目数均分
-                existingSubject.number += 1;
+                existingSubject.subjects_number += 1;
                 if (rate != 0) {
                     existingSubject.average_rate = (
-                        existingSubject.rates.reduce((sum, rate) => sum + rate, 0) / existingSubject.number
+                        existingSubject.rates.reduce((sum, rate) => sum + rate, 0) / existingSubject.subjects_number
                     ).toFixed(2);
                 }
             } else {
@@ -57,7 +65,7 @@ export default createStore({
                     person_name: personName,
                     subject_ids: [subjectId],
                     subject_names: [subjectName],
-                    number: 1,
+                    subjects_number: 1,
                     rates: [rate],
                     average_rate: rate
                 });

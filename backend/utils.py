@@ -182,19 +182,19 @@ class Person:
 
 
 class Character:
-    def __init__(self, character_id, character_name, character_name_cn, character_image):
+    def __init__(self, character_id, character_name, character_name_cn, character_image, subject: Subject):
         self.id = character_id
         self.name = character_name
         self.name_cn = character_name_cn
         self.image = character_image
+        self.subject = subject
     
     def __eq__(self, other):
         if isinstance(other, Character):
             return (self.name == other.name and 
                     self.id == other.id and 
-                    self.name_cn == other.name_cn and
-                    self.image == other.image)
+                    self.name_cn == other.name_cn)
     
     def __hash__(self):
-        return hash((self.name, self.id, self.name_cn, self.image))
+        return hash((self.name, self.id, self.name_cn))
 

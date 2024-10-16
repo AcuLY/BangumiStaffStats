@@ -16,7 +16,9 @@ async def load_data():
         subject_persons = ujson.load(f)
     with open('./data/person.json', 'r', encoding='utf-8') as f:
         person = ujson.load(f)
-    return subject_persons, person
+    with open('./data/person-characters.json', 'r', encoding='utf-8') as f:
+        person_characters = ujson.load(f)
+    return subject_persons, person, person_characters
     
 @app.before_serving
 async def start_up():
