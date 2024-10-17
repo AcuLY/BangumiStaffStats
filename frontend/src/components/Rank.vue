@@ -49,7 +49,7 @@
         <div class="valid-subjects">
             <n-spin :show="isLoading">
                 <div :style="{ filter: isLoading ? 'blur(8px)' : 'blur(0px)' }">
-                    <n-flex class="visual-options" :justify="isMobile ? 'center' : 'flex-start'" :size="isMobile ? 'small' : 'medium'">
+                    <n-flex class="visual-options" justify="center" :size="isMobile ? 'small' : 'medium'">
                         <n-switch v-model:value="showChinese" :size="isMobile ? 'medium' : 'large'" class="switch">
                             <template #checked>
                                 <span class="visual-options-text-checked">显示中文</span>
@@ -64,6 +64,14 @@
                             </template>
                             <template #unchecked>
                                 <span class="visual-options-text-unchecked">显示图片</span>
+                            </template>
+                        </n-switch>
+                        <n-switch v-model:value="mergeSequels" v-show="subjectType == 2" :size="isMobile ? 'medium' : 'large'" class="switch">
+                            <template #checked>
+                                <span class="visual-options-text-checked">合并续作</span>
+                            </template>
+                            <template #unchecked>
+                                <span class="visual-options-text-unchecked">合并续作</span>
                             </template>
                         </n-switch>
                         <n-switch v-model:value="longerTable" :size="isMobile ? 'medium' : 'large'" class="switch">
@@ -85,13 +93,18 @@
                     </n-flex>
                     <div v-show="isValidSubjectsNotNull" class="result-text">
                         <h2 style="margin-top: -10px;">
-                            统计到 <span style="color: #ff2075;">{{ validSubjects.length - 1 }}</span> 个人物，
-                            <span style="color: #ff2075;">{{ collectionNumber - invalidSubjects.length + 1 }}</span> 个条目
+                            统计到 <span style="color: #ff2075;">{{ validSubjects.length }}</span> 个人物，
+                            <span v-show="!mergeSequels" >
+                                <span style="color: #ff2075;">{{ collectionNumber - invalidSubjects.length }}</span> 个条目
+                            </span>
+                            <span v-show="mergeSequels" >
+                                <span style="color: #ff2075;">{{ seriesNumber }}</span> 个系列
+                            </span>
                         </h2>
                     </div>
                     <n-data-table 
                         :columns="validSubjectColumns" 
-                        :data="validSubjects" 
+                        :data="validSubjectRows" 
                         :single-line="false" 
                         :max-height="longerTable ? 1000 : 500" 
                         :scroll-x="1200"
@@ -99,9 +112,10 @@
                     />
                     <p style="color: gray;">
                         注：<br>① “作品均分” 为用户评分的平均分 <br>
-                        ② 由于部分 Bangumi 提供的 api 对职位的分类有点混乱
+                        ② 如果条目数量过多（几千个）开启显示图片可能会导致页面崩溃 <br>
+                        ③ 由于部分 Bangumi 提供的 api 对职位的分类有点混乱
                         ，统计可能不准确，另外比较新的条目和人物可能会缺失 <br>
-                        ③ 当查询声优开启显示角色时，后面标注的作品可能是续作或者客串出场的作品，我也还没太想好怎么处理这个问题
+                        ④ 合并续作后作品的分数是该人物参与制作的该系列作品的均分，现在对续作的判断方式问题比较多，很可能会不准确
                     </p>
                 </div>
                 <template #description>
@@ -119,7 +133,7 @@
             <n-spin :show="isLoading">
                 <div :style="{ filter: isLoading ? 'blur(8px)' : 'blur(0px)' }">
                     <div v-show="isInvalidSubjectsNotNull" class="result-text">
-                        <h2>以下 <span style="color: #ff2075;">{{ invalidSubjects.length - 1 }}</span> 个条目未统计</h2>
+                        <h2>以下 <span style="color: #ff2075;">{{ invalidSubjects.length }}</span> 个条目未统计</h2>
                     </div>
                     <n-data-table 
                     :columns="invalidSubjectColumns"
@@ -151,7 +165,7 @@
 </template>
 
 <script setup>
-import { ref, computed, h, render, watch, reactive } from 'vue';
+import { ref, computed, h, render, watch } from 'vue';
 import { useStore } from 'vuex';
 import { NButton, useNotification } from 'naive-ui';
 
@@ -165,6 +179,8 @@ const isLoading = computed(() => store.state.isLoading);    // 加载状态
 const validSubjects = computed(() => store.state.validSubjects);
 const invalidSubjects = computed(() => store.state.invalidSubjects);
 const collectionNumber = computed(() => store.state.collectionNumber) // 总条目数
+const seriesNumber = computed(() => store.state.seriesNumber);   // 总系列数
+const subjectType = computed(() => store.state.subjectType);
 
 // 是否有数据
 const isValidSubjectsNotNull = computed(() => validSubjects.value.length > 0);  
@@ -184,6 +200,8 @@ const isMobile = computed(() => { return window.innerWidth <= 600 });
 const showChinese = ref(false); 
 // 显示图片
 const showImage = ref(false);
+// 合并续作
+const mergeSequels = ref(false);
 // 伸长列表
 const longerTable = ref(false);
 // 是否查询声优
@@ -267,6 +285,50 @@ const addSubject = (row) => {
 
 
 // 表格数据
+const validSubjectRows = computed(() => {
+    if (!validSubjects.value) {
+        return [];
+    }
+    return validSubjects.value.map(row => {
+        const commonData = {
+            person_name: row.person_name,
+            person_name_cn: row.person_name_cn,
+            person_id: row.person_id,
+            character_ids: row.character_ids,
+            character_names: row.character_names,
+            character_names_cn: row.character_names_cn,
+            character_images: row.character_images,
+            character_subject_names: row.character_subject_names,
+            character_subject_names_cn: row.character_subject_names_cn,
+            characters_number: row.characters_number,
+        };
+        // 根据 mergeSequels 的值来决定返回的 subject 数据
+        if (mergeSequels.value) {
+            return {
+                ...commonData,
+                subject_names: row.series_subject_names,
+                subject_ids: row.series_subject_ids,
+                subject_names_cn: row.series_subject_names_cn,
+                rates: row.series_rates,
+                subject_images: row.series_subject_images,
+                average_rate: row.series_average_rate,
+                subjects_number: row.series_subjects_number,
+            };
+        } else {
+            return {
+                ...commonData,
+                subject_names: row.subject_names,
+                subject_ids: row.subject_ids,
+                subject_names_cn: row.subject_names_cn,
+                rates: row.rates,
+                subject_images: row.subject_images,
+                average_rate: row.average_rate,
+                subjects_number: row.subjects_number,
+            };
+        }
+    });
+});
+
 const validSubjectColumns = computed(() => [
     {
         title: '',  // 序号
@@ -275,10 +337,7 @@ const validSubjectColumns = computed(() => [
         resizable: true,
         align: 'center',
         render(row, index) {
-            if (index === validSubjects.value.length - 1) {
-                return null;
-            }
-            let color = '#000000';
+            let color = 'inherit';
             if (index === 0) {
                 color = '#FFC731';
             } else if (index === 1) {
@@ -320,17 +379,13 @@ const validSubjectColumns = computed(() => [
         }
     },
     {
-        title: showCharacters.value ? '角色数' : '作品数',
+        title: showCharacters.value ? '角色数' : (mergeSequels.value ? '系列数' : '作品数'),
         key: showCharacters.value ? 'characters_number' : 'subjects_number',
         width: 86,
         align: 'center',
         resizable: true,
         sorter: 'default',
-        render(row, index) {
-            // 最后一个元素占位
-            if (index === validSubjects.value.length - 1) {
-                return null;
-            }
+        render(row) {
             return h('span', showCharacters.value ? row.characters_number : row.subjects_number)
         }
     },
@@ -341,14 +396,10 @@ const validSubjectColumns = computed(() => [
         align: 'center',
         resizable: true,
         sorter: 'default',
-        render(row, index) {
-            // 最后一个元素占位
-            if (index === validSubjects.value.length - 1) {
-                return null;
-            }
+        render(row) {
             return h('div',
                 row.average_rate !== 0
-                    ? [h('span', row.average_rate), h('span', ' '), h('img', { src: '/star.png', width: 10 })]
+                    ? [h('img', { src: '/star.png', width: 10 }), h('span', ' '), h('span', row.average_rate)]
                     : h('span', '无评分')
             );
         }
@@ -358,11 +409,7 @@ const validSubjectColumns = computed(() => [
         key: 'subject_names',
         titleAlign: 'center',
         resizable: true,
-        render(row, index) {
-            // 最后一个元素占位
-            if (index === validSubjects.value.length - 1) {
-                return null;
-            }
+        render(row) {
             if (showCharacters.value) {
                 // 显示角色图片
                 if (showImage.value) {
@@ -423,7 +470,7 @@ const validSubjectColumns = computed(() => [
                                         event.currentTarget.style.backgroundColor = '#EC468C';
                                         event.currentTarget.style.borderColor = '#EC468C';
                                         event.currentTarget.style.color = '#ffffff';
-                                        event.currentTarget.style.boxShadow = '0px 0px 5px grey';
+                                        event.currentTarget.style.boxShadow = '0px 0px 5px #FF1493';
                                         event.currentTarget.querySelector(`#subject-name`).style.color = '#FFD0F4';
                                     },
                                     onMouseout(event) {
@@ -512,7 +559,7 @@ const validSubjectColumns = computed(() => [
                                 event.currentTarget.style.backgroundColor = '#EC468C';
                                 event.currentTarget.style.borderColor = '#EC468C';
                                 event.currentTarget.style.color = '#ffffff';
-                                event.currentTarget.style.boxShadow = '0px 0px 5px grey'
+                                event.currentTarget.style.boxShadow = '0px 0px 5px #FF1493'
                             },
                             onMouseout(event) {
                                 event.currentTarget.style.backgroundColor = 'transparent';
@@ -526,7 +573,7 @@ const validSubjectColumns = computed(() => [
                                 showChinese.value ? row.subject_names_cn[index] : subject_name
                             ),
                             row.rates[index] !== 0
-                                ? h('span', [h('span', ' '), h('span', row.rates[index]), h('span', ' '), h('img', { src: '/star.png', width: 10 }), h('span', ' ')])
+                                ? h('span', [h('span', ' '), h('img', { src: '/star.png', width: 10 }), h('span', ' '), h('span', row.rates[index]), h('span', ' ')])
                                 : h('span', [h('span', ' '), h('img', { src: '/star_unrated.png', width: 10 }), h('span', ' ')])
                     ])
                 ).reduce((acc, link, idx) => {  // 空格分隔
@@ -547,9 +594,6 @@ const invalidSubjectColumns = [
         align: 'center',
         width: 50,
         render(row, index) {
-            if (index === invalidSubjects.value.length - 1) {
-                return null;
-            }
             return h('p', index + 1);
         }
     },
@@ -581,11 +625,7 @@ const invalidSubjectColumns = [
         width: 110,
         align: 'center',
         titleAlign: 'center',
-        render(row, index) {
-            if (index === invalidSubjects.value.length - 1) {
-                // 最后一个元素为占位元素, 不渲染按钮, 返回一个空元素
-                return null;
-            }
+        render(row) {
             return h(
                 NButton,
                 {
@@ -616,12 +656,14 @@ const invalidSubjectColumns = [
 
 .visual-options-text-unchecked {
     color: #777777;
-    font-size: 18px;
+    font-size: 16px;
+    font-weight: 600;
 }
 
 .visual-options-text-checked {
     color: #ffffff;
-    font-size: 18px;
+    font-size: 16px;
+    font-weight: 600;
 }
 
 .switch {

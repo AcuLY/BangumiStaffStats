@@ -16,7 +16,7 @@ position_ids = [
     # 2 动画
     {
         '原作' : [1],
-        '导演' : [2],
+        '导演' : [2, 72, 74],
         '脚本' : [3],
         '分镜' : [4],
         '演出' : [5],
@@ -145,9 +145,11 @@ class Subject:
         self.rate = subject_rate
         self.name_cn = subject_name_cn
         self.image = subject_image
+        self.series_subject = None
+        self.series_rate = 0
     
     def __repr__(self):
-        return f'Subject(name={self.name}, id={self.id}, rate={self.rate}, name_cn={self.name_cn}, image={self.image})'
+        return f'Subject(name={self.name}, id={self.id}, rate={self.rate}, name_cn={self.name_cn}, image={self.image}, series_rate={self.series_rate})'
     
     def __eq__(self, other):
         if isinstance(other, Subject):

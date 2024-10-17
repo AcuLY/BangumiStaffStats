@@ -6,6 +6,8 @@ export default createStore({
         validSubjects: [],
         invalidSubjects: [],
         collectionNumber: 0,
+        seriesNumber: 0,
+        subjectType: 0,
     },
 
     mutations: {
@@ -18,31 +20,12 @@ export default createStore({
             state.invalidSubjects = [];
         },
 
-        updateLists(state, { validSubjects, invalidSubjects, collectionNumber }) {
+        updateLists(state, { validSubjects, invalidSubjects, collectionNumber, seriesNumber, subjectType }) {
             state.validSubjects = validSubjects;
             state.invalidSubjects = invalidSubjects;
             state.collectionNumber = collectionNumber;
-            // 在末尾插入一个元素, 防止滚动条无法滚动到底
-            state.validSubjects.push({
-                person_name: '',
-                subject_ids: [''],
-                subject_names: [''],
-                subjects_number: '',
-                subject_images: [''],
-                rates: [''],
-                average_rate: 0,
-                character_ids: [''],
-                character_names:[''],
-                character_names_cn: [''],
-                character_images: [''],
-                character_subject_names: [''],
-                character_subject_names_cn: [''],
-                characters_number: ''
-            });
-            state.invalidSubjects.push({
-                subject_ids: [''],
-                subject_names: [''],
-            })
+            state.seriesNumber = seriesNumber;
+            state.subjectType = subjectType;
         },
 
         updateValidSubjects(state, { personName, subjectId, subjectName, rate }) {

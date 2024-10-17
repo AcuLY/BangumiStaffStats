@@ -14,10 +14,12 @@ headers = {
 subject_persons_dict = None
 person_dict = None
 person_characters_dict = None
+subject_relations = None
 
 def transmit_data(data):
-    global subject_persons_dict, person_dict, person_characters_dict
-    subject_persons_dict, person_dict, person_characters_dict = data
+    global subject_persons_dict, person_dict, person_characters_dict, subject_relations
+    subject_persons_dict, person_dict, person_characters_dict, subject_relations = data
+
 
 async def fetch_user_collection_number(http_client: httpx.AsyncClient, user_id, collection_types: list, subject_type=2):
     """通过设置一个很大的 offset 时产生的报错来获取用户条目的数量
@@ -30,7 +32,7 @@ async def fetch_user_collection_number(http_client: httpx.AsyncClient, user_id, 
     返回值:
         collection_numbers(dict): 类型对应的用户的收藏数量
     """
-    collection_numbers = {} # 类型到数量的映射
+    collection_numbers = {} # 收藏类型到数量的映射
     async def fetch_type_collection_number(collection_type):
         url = f'https://api.bgm.tv/v0/users/{user_id}/collections'
         params = {
@@ -114,6 +116,35 @@ async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_num
     for ls in results:
         all_subjects.extend(ls)
     return all_subjects
+
+
+def mark_sequels(all_subjects: list):
+    """标注每个条目所在系列的主条目
+
+    参数:
+        all_subjects (list): 全部条目
+    返回值:
+        int: 系列的数量
+    """
+    # 按“最第一季”到最“续作 / 番外”的顺序记录记录一个系列的条目
+    series_subjects = defaultdict(list)  # series_id -> [Subject, order]
+    for subject in all_subjects:
+        series_id = subject_relations[str(subject.id)][0]    # 系列的编号，一个系列的条目共用一个编号
+        order = subject_relations[str(subject.id)][1]        # 当前条目在该系列里的顺位，越小越接近第一季
+        series_subjects[series_id].append((subject, order))
+
+    for order_list in series_subjects.values():
+        order_list.sort(key=lambda tp: tp[1])
+        order_list = [tp[0] for tp in order_list]
+        main_subject = order_list[0]
+        # 计算系列的均分
+        valid_rates = [subject.rate for subject in order_list if subject.rate]
+        average_rate = math.floor(sum(valid_rates) / len(valid_rates) * 100) / 100 if valid_rates else 0
+        for subject in order_list:
+            subject.series_subject = main_subject
+            subject.series_rate = average_rate
+    
+    return len(series_subjects)
 
 
 async def create_person_subjects_map(http_client: httpx.AsyncClient, subjects: list, position: str, subject_type):
@@ -215,21 +246,24 @@ async def fetch_person_infos(http_client: httpx.AsyncClient, person_id):
     return Person('', 0, '')
 
 
-def create_person_characters_map(person_subjects_map: dict):
+def create_person_characters_map(person_subjects_map: dict, position: str, subject_type: int):
     """创建 Person 到 Characters 的映射
 
     参数:
         person_subjects_map (dict): Person -> [Subject]
+        position (str)
+        subject_type (int)
+        subject_id -> [subject_id], 按 “最第一季” 的顺序排序
 
     返回:
         person_characters_map (dict): Person -> [Character]
     """
     person_characters_map = defaultdict(list)
     for person, subjects in person_subjects_map.items():
-        subject_ids = set([subject.id for subject in subjects])
+        id_to_subject = {subject.id: subject for subject in subjects}
         for relation in person_characters_dict[str(person.id)]:
-            if relation['subject_id'] in subject_ids:
-                subject = next(iter([subject for subject in subjects if subject.id == relation['subject_id']]))
+            if relation['subject_id'] in id_to_subject.keys() and relation['role'] in position_ids[subject_type][position]:
+                subject = id_to_subject[relation['subject_id']].series_subject  # 找到对应的作品系列
                 character = Character(relation['character_id'], relation['character_name'], relation['character_name_cn'], relation['character_image'], subject)
                 if character not in person_characters_map[person]:
                     person_characters_map[person].append(character)
@@ -255,6 +289,18 @@ def analyse_data(person_subjects_map: dict, person_characters_map: dict):
         # 计算均分
         valid_rates = [subject.rate for subject in subjects if subject.rate]
         average_rate = math.floor(sum(valid_rates) / len(valid_rates) * 100) / 100 if valid_rates else 0
+        # 计算人物的系列均分的均分
+        series = set()
+        series_subjects = [subject.series_subject for subject in subjects if subject.series_subject not in series and not series.add(subject.series_subject)]
+        series_valid_rates = []
+        for series_subject in series_subjects:
+            acc, cnt = 0, 0
+            for subject in subjects:
+                if subject.rate and subject.series_subject == series_subject:
+                    acc += subject.rate
+                    cnt += 1
+            series_valid_rates.append(math.floor(acc / cnt * 100) / 100 if cnt else 0)
+        series_average_rate = math.floor(sum(series_valid_rates) / len(series_valid_rates) * 100) / 100 if series_valid_rates else 0
 
         final_list.append({
             'person_name': person.name,
@@ -267,30 +313,49 @@ def analyse_data(person_subjects_map: dict, person_characters_map: dict):
             'subject_images': [subject.image for subject in subjects],
             'average_rate': average_rate,
             'subjects_number': len(subjects),
+            # 角色
             'character_ids': [character.id for character in characters],
             'character_names':[character.name for character in characters],
             'character_names_cn': [character.name_cn for character in characters],
             'character_images': [character.image for character in characters],
             'character_subject_names': [character.subject.name for character in characters],
             'character_subject_names_cn': [character.subject.name_cn for character in characters],
-            'characters_number': len(characters)
+            'characters_number': len(characters),
+            # 非续作条目
+            'series_subject_names': [subject.name for subject in series_subjects],
+            'series_subject_ids': [subject.id for subject in series_subjects],
+            'series_subject_names_cn': [subject.name_cn for subject in series_subjects],
+            'series_rates': series_valid_rates,
+            'series_subject_images': [subject.image for subject in series_subjects],
+            'series_average_rate': series_average_rate,
+            'series_subjects_number': len(series_subjects),
         })
     final_list = sorted(final_list, key=lambda item: item['subjects_number'], reverse=True)
     return final_list
 
+
 async def fetch_user_data(user_id, position, collection_types, subject_type):
     async with httpx.AsyncClient(headers=headers, limits=httpx.Limits(max_connections=30)) as http_client:
+        
         collection_numbers = await fetch_user_collection_number(http_client, user_id, collection_types, subject_type)
+        
         all_subjects = await fetch_subjects(http_client, user_id, collection_numbers, subject_type)
+        
+        series_number = mark_sequels(all_subjects)
+        
         person_subjects_map, unlinked_subjects = await create_person_subjects_map(http_client, all_subjects, position, subject_type)
+        
         if '声优' in position:
-            person_characters_map = create_person_characters_map(person_subjects_map)
+            person_characters_map = create_person_characters_map(person_subjects_map, position, subject_type)
             valid_subjects = analyse_data(person_subjects_map, person_characters_map)
         else:
             valid_subjects = analyse_data(person_subjects_map, None)
+        
         invalid_subjects = [{'subject_name': subject.name, 'subject_id': subject.id, 'subject_name_cn': subject.name_cn} for subject in unlinked_subjects]
+        
         return {
             'valid_subjects': valid_subjects,
             'invalid_subjects': invalid_subjects,
-            'collection_number': sum(collection_numbers.values())
+            'collection_number': len(all_subjects),
+            'series_number': series_number
         }

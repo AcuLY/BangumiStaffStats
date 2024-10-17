@@ -59,7 +59,7 @@
     </div>
     
     <n-divider style="margin-bottom: 14px;">
-        <n-flex justify="center" style="width: 65vw;" v-show="userIdSave !== ''">
+        <n-flex justify="center" style="width: 70vw;" v-show="userIdSave !== ''">
             <h2 class="divider-text" v-show="userIdSave !== ''">当前用户：<span style="color: #FF1493;">{{ userIdSave }}</span></h2>
             <h2 class="divider-text" v-show="subjectTypeLabel !== ''">条目类型：<span style="color: #FF1493;">{{ subjectTypeLabel }}</span></h2>
             <h2 class="divider-text" v-show="positionSave !== null">当前职位：<span style="color: #FF1493;">{{ positionLabel }}</span></h2>
@@ -221,7 +221,9 @@ const fetch_statistics = async () => {
         store.dispatch('setLists', {
             validSubjects: response.data['valid_subjects'],
             invalidSubjects: response.data['invalid_subjects'],
-            collectionNumber: response.data['collection_number']
+            collectionNumber: response.data['collection_number'],
+            seriesNumber: response.data['series_number'],
+            subjectType: subjectTypeSave
         });
         store.dispatch('setLoadingStatus');
     } catch (error) {

@@ -18,7 +18,9 @@ async def load_data():
         person = ujson.load(f)
     with open('./data/person-characters.json', 'r', encoding='utf-8') as f:
         person_characters = ujson.load(f)
-    return subject_persons, person, person_characters
+    with open('./data/subject-relations.json', 'r', encoding='utf-8') as f:
+        subject_relations = ujson.load(f)
+    return subject_persons, person, person_characters, subject_relations
     
 @app.before_serving
 async def start_up():
@@ -35,7 +37,7 @@ async def get_statistics():
     collection_types = json_data.get('collection_types')
     
     start_time = time.time()
-    print(f"\033[1;34m{datetime.datetime.now()} 开始抓取数据: {user_id}, {subject_type}, {position}, {collection_types},\033[0m")
+    print(f"\033[1;34m{datetime.datetime.now()} 开始抓取数据: {user_id}, 条目类型{subject_type}, {position}, 收藏类型{collection_types},\033[0m")
     
     user_data = await fetch_user_data(user_id, position, collection_types, subject_type)
     if user_data['valid_subjects'] or user_data['invalid_subjects']:
