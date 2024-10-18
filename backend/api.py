@@ -129,8 +129,8 @@ def mark_sequels(all_subjects: list):
     # 按“最第一季”到最“续作 / 番外”的顺序记录记录一个系列的条目
     series_subjects = defaultdict(list)  # series_id -> [Subject, order]
     for subject in all_subjects:
-        series_id = subject_relations[str(subject.id)][0]    # 系列的编号，一个系列的条目共用一个编号
-        order = subject_relations[str(subject.id)][1]        # 当前条目在该系列里的顺位，越小越接近第一季
+        series_id = subject_relations[subject.id][0]    # 系列的编号，一个系列的条目共用一个编号
+        order = subject_relations[subject.id][1]        # 当前条目在该系列里的顺位，越小越接近第一季
         series_subjects[series_id].append((subject, order))
 
     for order_list in series_subjects.values():
@@ -261,7 +261,7 @@ def create_person_characters_map(person_subjects_map: dict, position: str, subje
     person_characters_map = defaultdict(list)
     for person, subjects in person_subjects_map.items():
         id_to_subject = {subject.id: subject for subject in subjects}
-        for relation in person_characters_dict[str(person.id)]:
+        for relation in person_characters_dict[person.id]:
             if relation['subject_id'] in id_to_subject.keys() and relation['role'] in position_ids[subject_type][position]:
                 subject = id_to_subject[relation['subject_id']].series_subject  # 找到对应的作品系列
                 character = Character(relation['character_id'], relation['character_name'], relation['character_name_cn'], relation['character_image'], subject)

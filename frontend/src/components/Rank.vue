@@ -250,8 +250,8 @@ const showImage = ref(false);
 // 合并续作
 const mergeSequels = ref(false);
 // 伸长列表
-const tableWidth = ref(600);
-const tableHeight = ref(600);
+const tableWidth = ref(1200);
+const tableHeight = ref(1200);
 // 是否查询声优
 const isCV = computed(() => {
     if (validSubjects.value[0] && validSubjects.value[0]['character_ids'].length >= 1) {
