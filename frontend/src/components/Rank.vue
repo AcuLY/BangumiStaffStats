@@ -49,48 +49,58 @@
         <div class="valid-subjects">
             <n-spin :show="isLoading">
                 <div :style="{ filter: isLoading ? 'blur(8px)' : 'blur(0px)' }">
-                    <n-flex class="visual-options" justify="center" :size="isMobile ? 'small' : 'medium'">
-                        <n-switch v-model:value="showChinese" :size="isMobile ? 'medium' : 'large'" class="switch">
-                            <template #checked>
-                                <span class="visual-options-text-checked">显示中文</span>
+                    <n-collapse style="margin: 10px 0px 20px 0px;">
+                        <n-collapse-item >
+                            <template #header>
+                                <n-text style="font-size: large; font-weight: bold; color: #666666;">
+                                显示设置
+                                </n-text>
                             </template>
-                            <template #unchecked>
-                                <span class="visual-options-text-unchecked">显示中文</span>
-                            </template>
-                        </n-switch>
-                        <n-switch v-model:value="showImage" :size="isMobile ? 'medium' : 'large'" class="switch">
-                            <template #checked>
-                                <span class="visual-options-text-checked">显示图片</span>
-                            </template>
-                            <template #unchecked>
-                                <span class="visual-options-text-unchecked">显示图片</span>
-                            </template>
-                        </n-switch>
-                        <n-switch v-model:value="mergeSequels" v-show="subjectType == 2" :size="isMobile ? 'medium' : 'large'" class="switch">
-                            <template #checked>
-                                <span class="visual-options-text-checked">合并续作</span>
-                            </template>
-                            <template #unchecked>
-                                <span class="visual-options-text-unchecked">合并续作</span>
-                            </template>
-                        </n-switch>
-                        <n-switch v-model:value="longerTable" :size="isMobile ? 'medium' : 'large'" class="switch">
-                            <template #checked>
-                                <span class="visual-options-text-checked">伸长列表</span>
-                            </template>
-                            <template #unchecked>
-                                <span class="visual-options-text-unchecked">伸长列表</span>
-                            </template>
-                        </n-switch>
-                        <n-switch v-model:value="showCharacters" v-show="isCV" :size="isMobile ? 'medium' : 'large'" class="switch">
-                            <template #checked>
-                                <span class="visual-options-text-checked">显示角色</span>
-                            </template>
-                            <template #unchecked>
-                                <span class="visual-options-text-unchecked">显示角色</span>
-                            </template>
-                        </n-switch>
-                    </n-flex>
+                            <n-flex class="visual-options" justify="flex-start" :size="isMobile ? 'small' : 'medium'">
+                                <n-switch v-model:value="showChinese" :size="isMobile ? 'medium' : 'large'" class="switch">
+                                    <template #checked>
+                                        <span class="visual-options-text-checked">显示中文</span>
+                                    </template>
+                                    <template #unchecked>
+                                        <span class="visual-options-text-unchecked">显示中文</span>
+                                    </template>
+                                </n-switch>
+                                <n-switch v-model:value="showImage" :size="isMobile ? 'medium' : 'large'" class="switch">
+                                    <template #checked>
+                                        <span class="visual-options-text-checked">显示图片</span>
+                                    </template>
+                                    <template #unchecked>
+                                        <span class="visual-options-text-unchecked">显示图片</span>
+                                    </template>
+                                </n-switch>
+                                <n-switch v-model:value="mergeSequels" v-show="subjectType == 2" :size="isMobile ? 'medium' : 'large'" class="switch">
+                                    <template #checked>
+                                        <span class="visual-options-text-checked">合并续作</span>
+                                    </template>
+                                    <template #unchecked>
+                                        <span class="visual-options-text-unchecked">合并续作</span>
+                                    </template>
+                                </n-switch>
+                                <n-switch v-model:value="showCharacters" v-show="isCV" :size="isMobile ? 'medium' : 'large'" class="switch">
+                                    <template #checked>
+                                        <span class="visual-options-text-checked">显示角色</span>
+                                    </template>
+                                    <template #unchecked>
+                                        <span class="visual-options-text-unchecked">显示角色</span>
+                                    </template>
+                                </n-switch>
+
+                                <n-flex vertical style="width: 90vw; color: #666666; font-size: larger;">
+                                    列表最大宽度
+                                    <n-slider v-model:value="tableWidth" :max="3000" :min="600" :step="20" style="max-width: 480px"/>
+                                    列表最大高度
+                                    <n-slider v-model:value="tableHeight" :max="3000" :min="600" :step="20" style="max-width: 480px"/>
+                                </n-flex>
+                            </n-flex>
+                        </n-collapse-item>
+                    </n-collapse>
+                    
+
                     <div v-show="isValidSubjectsNotNull" class="result-text">
                         <h2 style="margin-top: -10px;">
                             统计到 <span style="color: #ff2075;">{{ validSubjects.length }}</span> 个人物，
@@ -102,17 +112,36 @@
                             </span>
                         </h2>
                     </div>
+                    <n-pagination
+                        v-model:page="paginationValidSubjects.page"
+                        v-model:page-size="paginationValidSubjects.pageSize"
+                        :item-count="validSubjects.length"
+                        :page-sizes="paginationValidSubjects.pageSizes"
+                        :show-size-picker="paginationValidSubjects.showSizePicker"
+                        :page-slot="paginationValidSubjects.pageSlot"
+                        :size="paginationValidSubjects.size"
+                        @update:page="paginationValidSubjects.onChange"
+                        @update:page-size="paginationValidSubjects.onUpdatePageSize"
+                        class="pagination"
+                        show-quick-jumper
+                    >
+                        <template #goto>
+                            <span style="font-size: larger;">按回车跳至</span>
+                        </template>
+                    </n-pagination>
                     <n-data-table 
                         :columns="validSubjectColumns" 
                         :data="validSubjectRows" 
                         :single-line="false" 
-                        :max-height="longerTable ? 1000 : 500" 
-                        :scroll-x="1200"
+                        :max-height="tableHeight" 
+                        :scroll-x="tableWidth"
                         striped 
+                        :pagination="paginationValidSubjects"
+                        :total="validSubjects.length"
                     />
                     <p style="color: gray;">
                         注：<br>① “作品均分” 为用户评分的平均分 <br>
-                        ② 如果条目数量过多（几千个）开启显示图片可能会导致页面崩溃 <br>
+                        ② 如果条目数量过多（几千个）开启显示图片时请勿设置过大的分页值，否则可能会崩溃 <br>
                         ③ 由于部分 Bangumi 提供的 api 对职位的分类有点混乱
                         ，统计可能不准确，另外比较新的条目和人物可能会缺失 <br>
                         ④ 合并续作后作品的分数是该人物参与制作的该系列作品的均分，现在对续作的判断方式问题比较多，很可能会不准确
@@ -121,7 +150,7 @@
                 <template #description>
                     <div class="loading-text">
                         <h2 style="margin: 0;">查询中</h2>
-                        <p style="margin: 0;">具体时长取决于条目数量以及 Bangumi 的数据库</p> 
+                        <p style="margin: 0;">条目越多所需要的时间可能就越长</p> 
                         <p style="margin: 0;">通常需要约 1 ~ 10 秒</p> 
                     </div>
                 </template>
@@ -135,12 +164,30 @@
                     <div v-show="isInvalidSubjectsNotNull" class="result-text">
                         <h2>以下 <span style="color: #ff2075;">{{ invalidSubjects.length }}</span> 个条目未统计</h2>
                     </div>
+                    <n-pagination
+                        v-model:page="paginationInvalidSubjects.page"
+                        v-model:page-size="paginationInvalidSubjects.pageSize"
+                        :item-count="invalidSubjects.length"
+                        :page-sizes="paginationInvalidSubjects.pageSizes"
+                        :show-size-picker="paginationInvalidSubjects.showSizePicker"
+                        :page-slot="paginationInvalidSubjects.pageSlot"
+                        :size="paginationValidSubjects.size"
+                        @update:page="paginationInvalidSubjects.onChange"
+                        @update:page-size="paginationInvalidSubjects.onUpdatePageSize"
+                        class="pagination"
+                        show-quick-jumper
+                    >
+                        <template #goto>
+                            <span style="font-size: larger;">按回车跳至</span>
+                        </template>
+                    </n-pagination>
                     <n-data-table 
                     :columns="invalidSubjectColumns"
                     :data="invalidSubjects"
                     :single-line="false" 
-                    :max-height="longerTable ? 600 : 300"
+                    :max-height="tableHeight"
                     striped
+                    :pagination="paginationInvalidSubjects"
                     :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }" 
                     />
                     <p style="color: gray;">
@@ -165,7 +212,7 @@
 </template>
 
 <script setup>
-import { ref, computed, h, render, watch } from 'vue';
+import { ref, computed, h, render, watch, reactive } from 'vue';
 import { useStore } from 'vuex';
 import { NButton, useNotification } from 'naive-ui';
 
@@ -203,7 +250,8 @@ const showImage = ref(false);
 // 合并续作
 const mergeSequels = ref(false);
 // 伸长列表
-const longerTable = ref(false);
+const tableWidth = ref(600);
+const tableHeight = ref(600);
 // 是否查询声优
 const isCV = computed(() => {
     if (validSubjects.value[0] && validSubjects.value[0]['character_ids'].length >= 1) {
@@ -329,20 +377,80 @@ const validSubjectRows = computed(() => {
     });
 });
 
+// 分页参数
+const paginationValidSubjects = reactive({
+    page: 1,
+    pageSize: 10,
+    showSizePicker: true,
+    pageSizes: [
+        {
+            label: '每页 10 人',
+            value: 10
+        },
+        {
+            label: '每页 20 人',
+            value: 20
+        },
+        {
+            label: '每页 50 人',
+            value: 50
+        },
+    ],
+    pageSlot: 7,
+    size: isMobile.value ? 'small' : 'medium',
+    onChange: (page) => {
+    paginationValidSubjects.page = page
+    },
+    onUpdatePageSize: (pageSize) => {
+    paginationValidSubjects.pageSize = pageSize
+    paginationValidSubjects.page = 1
+    }
+});
+
+const paginationInvalidSubjects = reactive({
+    page: 1,
+    pageSize: 10,
+    showSizePicker: true,
+    pageSizes: [
+        {
+            label: '每页 10 人',
+            value: 10
+        },
+        {
+            label: '每页 20 人',
+            value: 20
+        },
+        {
+            label: '每页 50 人',
+            value: 50
+        },
+    ],
+    pageSlot: 7,
+    size: isMobile.value ? 'small' : 'medium',
+    onChange: (page) => {
+    paginationInvalidSubjects.page = page
+    },
+    onUpdatePageSize: (pageSize) => {
+    paginationInvalidSubjects.pageSize = pageSize
+    paginationInvalidSubjects.page = 1
+    }
+});
+
 const validSubjectColumns = computed(() => [
     {
         title: '',  // 序号
         key: '',
-        width: 50,
-        resizable: true,
+        width: isMobile.value ? 30 : 50,
+        resizable: isMobile.value ? false : true,
         align: 'center',
         render(row, index) {
+            const exactIndex = index + (paginationValidSubjects.page - 1) * paginationValidSubjects.pageSize;
             let color = 'inherit';
-            if (index === 0) {
+            if (exactIndex === 0) {
                 color = '#FFC731';
-            } else if (index === 1) {
+            } else if (exactIndex === 1) {
                 color = '#A8A8A8';
-            } else if (index === 2) {
+            } else if (exactIndex === 2) {
                 color = '#C96031'
             }
             return h(
@@ -350,15 +458,15 @@ const validSubjectColumns = computed(() => [
                 {
                     style: { color : color }
                 },
-                index + 1
+                exactIndex + 1
             );
         }
     },
     {
         title: '人名',
         key: 'person_name',
-        width: 96,
-        resizable: true,
+        width: isMobile.value ? 36 : 96,
+        resizable: isMobile.value ? false : true,
         align: 'center',
         fixed: 'left',
         render(row) {
@@ -381,9 +489,9 @@ const validSubjectColumns = computed(() => [
     {
         title: showCharacters.value ? '角色数' : (mergeSequels.value ? '系列数' : '作品数'),
         key: showCharacters.value ? 'characters_number' : 'subjects_number',
-        width: 86,
+        width: isMobile.value ? 48 : 86,
         align: 'center',
-        resizable: true,
+        resizable: isMobile.value ? false : true,
         sorter: 'default',
         render(row) {
             return h('span', showCharacters.value ? row.characters_number : row.subjects_number)
@@ -392,14 +500,14 @@ const validSubjectColumns = computed(() => [
     {
         title: '均分',
         key: 'average_rate',
-        width: 76,
+        width: isMobile.value ? 48 : 76,
         align: 'center',
-        resizable: true,
+        resizable: isMobile.value ? false : true,
         sorter: 'default',
         render(row) {
             return h('div',
                 row.average_rate !== 0
-                    ? [h('img', { src: '/star.png', width: 10 }), h('span', ' '), h('span', row.average_rate)]
+                    ? [h('img', { src: '/star.png', width: 10 }), h('span', ' '), h('span', isMobile.value ? row.average_rate.toFixed(1) : row.average_rate)]
                     : h('span', '无评分')
             );
         }
@@ -408,7 +516,7 @@ const validSubjectColumns = computed(() => [
         title: showCharacters.value ? '角色': '作品',
         key: 'subject_names',
         titleAlign: 'center',
-        resizable: true,
+        resizable: isMobile.value ? false : true,
         render(row) {
             if (showCharacters.value) {
                 // 显示角色图片
@@ -594,7 +702,7 @@ const invalidSubjectColumns = [
         align: 'center',
         width: 50,
         render(row, index) {
-            return h('p', index + 1);
+            return h('p', index + (paginationInvalidSubjects.page - 1) * paginationInvalidSubjects.pageSize + 1);
         }
     },
     {
@@ -649,7 +757,6 @@ const invalidSubjectColumns = [
 }
 
 .visual-options {
-    margin-bottom: 20px;
     width: 90vw;
     font-weight: bold; 
 }
@@ -667,7 +774,15 @@ const invalidSubjectColumns = [
 }
 
 .switch {
-    margin: 5px 0px 5px 0px;
+    margin: 0px 0px 5px 0px;
+}
+
+.pagination {
+    justify-content: start; 
+    margin-bottom: 12px; 
+    flex-wrap: wrap;
+    display: flex;
+    gap: 10px 0px
 }
 
 .data-tables {

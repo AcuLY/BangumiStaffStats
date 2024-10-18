@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme="currentTheme" :theme-overrides="currentThemeOverride">
+  <n-config-provider :theme="currentTheme" :theme-overrides="currentThemeOverride" :locale="zhCN">
     <n-notification-provider>
       <n-layout style="height: 100vh;">
         <n-layout-header class="header">
@@ -47,7 +47,7 @@
 </template>
 
 <script setup>
-import { darkTheme } from 'naive-ui';
+import { darkTheme, zhCN } from 'naive-ui';
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import Input from './components/Input.vue';
 import Rank from './components/Rank.vue';
