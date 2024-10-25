@@ -49,6 +49,6 @@ https://github.com/bangumi/Archive
 
 ## 讨论 & 反馈
 
-https://bgm.tv/group/topic/407756
+https://bgm.tv/group/topic/407903
 
 ~~https://bgm.tv/group/topic/406478~~（测试时的帖子）

@@ -49,8 +49,8 @@
         <div class="valid-subjects">
             <n-spin :show="isLoading">
                 <div :style="{ filter: isLoading ? 'blur(8px)' : 'blur(0px)' }">
-                    <n-collapse style="margin: 10px 0px 20px 0px;">
-                        <n-collapse-item >
+                    <n-collapse style="margin: 10px 0px 20px 0px;" :default-expanded-names="['setting']">
+                        <n-collapse-item name="setting">
                             <template #header>
                                 <n-text style="font-size: large; font-weight: bold; color: #666666;">
                                 显示设置
@@ -92,9 +92,9 @@
 
                                 <n-flex vertical style="width: 90vw; color: #666666; font-size: larger;">
                                     列表最大宽度
-                                    <n-slider v-model:value="tableWidth" :max="3000" :min="600" :step="20" style="max-width: 480px"/>
+                                    <n-slider v-model:value="tableWidth" :max="3000" :min="400" :step="20" style="max-width: 480px"/>
                                     列表最大高度
-                                    <n-slider v-model:value="tableHeight" :max="3000" :min="600" :step="20" style="max-width: 480px"/>
+                                    <n-slider v-model:value="tableHeight" :max="3000" :min="400" :step="20" style="max-width: 480px"/>
                                 </n-flex>
                             </n-flex>
                         </n-collapse-item>
@@ -489,7 +489,7 @@ const validSubjectColumns = computed(() => [
     {
         title: showCharacters.value ? '角色数' : (mergeSequels.value ? '系列数' : '作品数'),
         key: showCharacters.value ? 'characters_number' : 'subjects_number',
-        width: isMobile.value ? 48 : 86,
+        width: isMobile.value ? 52 : 86,
         align: 'center',
         resizable: isMobile.value ? false : true,
         sorter: 'default',
@@ -500,7 +500,7 @@ const validSubjectColumns = computed(() => [
     {
         title: '均分',
         key: 'average_rate',
-        width: isMobile.value ? 48 : 76,
+        width: isMobile.value ? 52 : 76,
         align: 'center',
         resizable: isMobile.value ? false : true,
         sorter: 'default',
