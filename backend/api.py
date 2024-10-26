@@ -5,6 +5,7 @@ import math
 from collections import defaultdict
 from utils import Subject, Person, Character, position_ids, extract_name_cn
 import datetime
+import ujson
 
 headers = {
     'User-Agent': 'AcuL/BangumiStaffStatistics/1.0 (Web) (https://github.com/AcuLY/BangumiStaffStats)'
@@ -115,6 +116,24 @@ async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_num
     all_subjects = []
     for ls in results:
         all_subjects.extend(ls)
+    return all_subjects
+
+
+def fetch_global_subjects(subject_type):
+    """统计全站数据
+
+    同上
+    """
+    all_subjects = []
+    with open('./data/subject.jsonlines', mode='r', encoding='utf-8') as f:
+        for line in f:
+            d = ujson.loads(line)
+            if d['watched'] > 100 and d['type'] == subject_type:
+                id = d['id']
+                name = d['name']
+                name_cn = d['name_cn']
+                rate = d['rate']
+                all_subjects.append(Subject(name, id, rate, name_cn, ''))
     return all_subjects
 
 
@@ -260,7 +279,7 @@ def create_person_characters_map(person_subjects_map: dict, position: str, subje
     person_characters_map = defaultdict(list)
     for person, subjects in person_subjects_map.items():
         id_to_subject = {subject.id: subject for subject in subjects}
-        for relation in person_characters_dict[person.id]:
+        for relation in person_characters_dict[str(person.id)]:
             if relation['subject_id'] in id_to_subject.keys() and relation['role'] in position_ids[subject_type][position]:
                 subject = id_to_subject[relation['subject_id']].series_subject  # 找到对应的作品系列
                 character = Character(relation['character_id'], relation['character_name'], relation['character_name_cn'], relation['character_image'], subject)
@@ -335,10 +354,11 @@ def analyse_data(person_subjects_map: dict, person_characters_map: dict):
 
 async def fetch_user_data(user_id, position, collection_types, subject_type):
     async with httpx.AsyncClient(headers=headers, limits=httpx.Limits(max_connections=30)) as http_client:
-        
-        collection_numbers = await fetch_user_collection_number(http_client, user_id, collection_types, subject_type)
-        
-        all_subjects = await fetch_subjects(http_client, user_id, collection_numbers, subject_type)
+        if user_id != '0':
+            collection_numbers = await fetch_user_collection_number(http_client, user_id, collection_types, subject_type)
+            all_subjects = await fetch_subjects(http_client, user_id, collection_numbers, subject_type)
+        else:
+            all_subjects = fetch_global_subjects(subject_type)
         
         series_number = mark_sequels(all_subjects)
         

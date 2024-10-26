@@ -52,7 +52,7 @@
                     <n-collapse style="margin: 10px 0px 20px 0px;" :default-expanded-names="['setting']">
                         <n-collapse-item name="setting">
                             <template #header>
-                                <n-text style="font-size: large; font-weight: bold; color: #666666;">
+                                <n-text style="font-size: large; font-weight: bold; color: #666666; user-select: none;">
                                 显示设置
                                 </n-text>
                             </template>
@@ -65,7 +65,7 @@
                                         <span class="visual-options-text-unchecked">显示中文</span>
                                     </template>
                                 </n-switch>
-                                <n-switch v-model:value="showImage" :size="isMobile ? 'medium' : 'large'" class="switch">
+                                <n-switch v-model:value="showImage" v-show="!isGlobalStats" :size="isMobile ? 'medium' : 'large'" class="switch">
                                     <template #checked>
                                         <span class="visual-options-text-checked">显示图片</span>
                                     </template>
@@ -92,7 +92,7 @@
 
                                 <n-flex vertical style="width: 90vw; color: #666666; font-size: larger;">
                                     列表最大宽度
-                                    <n-slider v-model:value="tableWidth" :max="3000" :min="400" :step="20" style="max-width: 480px"/>
+                                    <n-slider v-model:value="tableWidth" :max="6000" :min="400" :step="20" style="max-width: 480px"/>
                                     列表最大高度
                                     <n-slider v-model:value="tableHeight" :max="3000" :min="400" :step="20" style="max-width: 480px"/>
                                 </n-flex>
@@ -228,6 +228,7 @@ const invalidSubjects = computed(() => store.state.invalidSubjects);
 const collectionNumber = computed(() => store.state.collectionNumber) // 总条目数
 const seriesNumber = computed(() => store.state.seriesNumber);   // 总系列数
 const subjectType = computed(() => store.state.subjectType);
+const isGlobalStats = computed(() => store.state.isGlobalStats);    // 是否查全站
 
 // 是否有数据
 const isValidSubjectsNotNull = computed(() => validSubjects.value.length > 0);  

@@ -9,7 +9,29 @@
                     v-model:value="userId" 
                     type="text" 
                     placeholder="请输入用户 ID" 
+                    :disabled="isGlobalStats"
                     />
+                </n-flex>
+
+                <n-flex vertical :size="5">
+                    <div style="display: flex; align-items: center;">
+                        <h3 style="margin: 0; transform: translateX(10px);">数据范围</h3>
+                        <n-tooltip trigger="hover">
+                            <template #trigger>
+                            <img src="/info.png" style="width: 20px;" :style="{marginLeft: '14px'}">
+                            </template>
+                            查询全站使用 Bangumi 全站的条目和分数，<br>
+                            而非个人收藏条目与评分<br>
+                            （仅统计在看+看过+搁置+抛弃 >100 的条目）
+                        </n-tooltip>
+                    </div>
+                    <n-radio-group v-model:value="isGlobalStats" size="large" style="width: 300px; margin-left: 10px; margin-right: 10px;">
+                        <n-space justify="space-between"> 
+                        <n-radio v-for="src in statsSources" :key="src.value" :value="src.value" id="stats-source">
+                            {{ src.label }}
+                        </n-radio>
+                        </n-space>
+                    </n-radio-group>
                 </n-flex>
 
                 <n-flex vertical :size="5">
@@ -36,7 +58,7 @@
 
                 <n-flex vertical :size="5">
                     <h3 style="margin: 0; transform: translateX(10px);">收藏类型</h3>
-                    <n-checkbox-group v-model:value="collectionTypes" id="collection-type">
+                    <n-checkbox-group v-model:value="collectionTypes" id="collection-type" :disabled="isGlobalStats">
                         <n-space item-style="display: flex;">
                             <n-checkbox :value="2" :label="actionName + '过'" size="large"/>
                             <n-checkbox :value="3" :label="'在' + actionName" size="large"/>
@@ -45,6 +67,7 @@
                         </n-space>
                     </n-checkbox-group>
                 </n-flex>
+            
             </n-flex>
             
             <n-flex>
@@ -63,7 +86,7 @@
             <h2 class="divider-text" v-show="userIdSave !== ''">当前用户：<span style="color: #FF1493;">{{ userIdSave }}</span></h2>
             <h2 class="divider-text" v-show="subjectTypeLabel !== ''">条目类型：<span style="color: #FF1493;">{{ subjectTypeLabel }}</span></h2>
             <h2 class="divider-text" v-show="positionSave !== null">当前职位：<span style="color: #FF1493;">{{ positionLabel }}</span></h2>
-            <h2 class="divider-text" v-show="collectionTypesSave !== null">收藏类型：<span style="color: #FF1493;">{{ collectionTypesLabels }}</span></h2>
+            <h2 class="divider-text" v-show="collectionTypesSave !== null && userIdSave !== '全站数据'">收藏类型：<span style="color: #FF1493;">{{ collectionTypesLabels }}</span></h2>
         </n-flex>
     </n-divider>
 </template>
@@ -98,6 +121,9 @@ const actionName = computed(() => {
     }
     return '看';
 })
+// 是否查全站数据
+const isGlobalStats = ref(false);
+const statsSources = [{label: '当前用户', value: false}, {label: 'Bangumi 全站', value: true}]
 
 // 如果是从主页跳转则提取 userId
 onMounted(() => {
@@ -201,7 +227,7 @@ const fetch_statistics = async () => {
     // 参数
     const url = `${import.meta.env.VITE_API_URL}/statistics`;
     const params = {
-        user_id: userId.value,
+        user_id: isGlobalStats.value ? '0' : userId.value,    // 查全站时把 id 设为 0
         subject_type: subjectType.value,
         position: position.value,
         collection_types: collectionTypes.value
@@ -210,7 +236,7 @@ const fetch_statistics = async () => {
     abortController.value = new AbortController();
     try {
         // 记录上次查询
-        userIdSave.value = userId.value;
+        userIdSave.value = isGlobalStats.value ? '全站数据' : userId.value;
         subjectTypeSave.value = subjectType.value;
         positionSave.value = position.value;
         collectionTypesSave.value = collectionTypes.value;
@@ -223,7 +249,8 @@ const fetch_statistics = async () => {
             invalidSubjects: response.data['invalid_subjects'],
             collectionNumber: response.data['collection_number'],
             seriesNumber: response.data['series_number'],
-            subjectType: subjectTypeSave
+            subjectType: subjectTypeSave,
+            isGlobalStats: isGlobalStats.value
         });
         store.dispatch('setLoadingStatus');
     } catch (error) {
@@ -291,6 +318,10 @@ const cancelRequest = () => {
     height: 35px;
     margin-left: 10px;
     margin-right: 10px;
+    transform: translateY(4px);
+}
+
+#stats-source {
     transform: translateY(4px);
 }
 

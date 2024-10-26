@@ -8,6 +8,7 @@ export default createStore({
         collectionNumber: 0,
         seriesNumber: 0,
         subjectType: 0,
+        isGlobalStats: false
     },
 
     mutations: {
@@ -20,12 +21,13 @@ export default createStore({
             state.invalidSubjects = [];
         },
 
-        updateLists(state, { validSubjects, invalidSubjects, collectionNumber, seriesNumber, subjectType }) {
+        updateLists(state, { validSubjects, invalidSubjects, collectionNumber, seriesNumber, subjectType, isGlobalStats }) {
             state.validSubjects = validSubjects;
             state.invalidSubjects = invalidSubjects;
             state.collectionNumber = collectionNumber;
             state.seriesNumber = seriesNumber;
             state.subjectType = subjectType;
+            state.isGlobalStats = isGlobalStats
         },
 
         updateValidSubjects(state, { personName, subjectId, subjectName, rate }) {
