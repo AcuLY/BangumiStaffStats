@@ -149,7 +149,7 @@
                 </div>
                 <template #description>
                     <div class="loading-text">
-                        <h2 style="margin: 0;">查询中</h2>
+                        <h2 style="margin: 0;">查询/加载中</h2>
                         <p style="margin: 0;">条目越多所需要的时间可能就越长</p> 
                         <p style="margin: 0;">通常需要约 1 ~ 10 秒</p> 
                     </div>
@@ -200,8 +200,8 @@
                 </div>
                 <template #description>
                     <div class="loading-text">
-                        <h2 style="margin: 0;">查询中</h2>
-                        <p style="margin: 0;">具体时长取决于条目数量以及 Bangumi 的数据库</p> 
+                        <h2 style="margin: 0;">查询/加载中</h2>
+                        <p style="margin: 0;">条目越多所需要的时间可能就越长</p> 
                         <p style="margin: 0;">通常需要约 1 ~ 10 秒</p> 
                     </div>
                 </template>
@@ -385,6 +385,10 @@ const paginationValidSubjects = reactive({
     showSizePicker: true,
     pageSizes: [
         {
+            label: '每页 5 人',
+            value: 5
+        },
+        {
             label: '每页 10 人',
             value: 10
         },
@@ -413,6 +417,10 @@ const paginationInvalidSubjects = reactive({
     pageSize: 10,
     showSizePicker: true,
     pageSizes: [
+        {
+            label: '每页 5 人',
+            value: 5
+        },
         {
             label: '每页 10 人',
             value: 10

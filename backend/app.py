@@ -1,10 +1,12 @@
-from quart import Quart, jsonify, request
+from quart import Quart, jsonify, request, make_response
 from quart_cors import cors
 from api import fetch_user_data, transmit_data
 import datetime
 import time
 import math
 import ujson
+import gzip
+from io import BytesIO
 
 app = Quart(__name__)
 
@@ -20,7 +22,9 @@ async def load_data():
         person_characters = ujson.load(f)
     with open('./data/subject-relations.json', 'r', encoding='utf-8') as f:
         subject_relations = ujson.load(f)
-    return subject_persons, person, person_characters, subject_relations
+    with open('./data/subject.json', 'r', encoding='utf-8') as f:
+        subject = ujson.load(f)
+    return subject_persons, person, person_characters, subject_relations, subject
     
 @app.before_serving
 async def start_up():
@@ -42,7 +46,16 @@ async def get_statistics():
     user_data = await fetch_user_data(user_id, position, collection_types, subject_type)
     if user_data['valid_subjects'] or user_data['invalid_subjects']:
         print(f"\033[1;32m{datetime.datetime.now()} 抓取数据成功: {user_id}, {subject_type}, {position}, {collection_types}, 得到{len(user_data['valid_subjects'])}个数据, 用时{math.floor(time.time() - start_time)}秒\033[0m")
-        return user_data
+        # 压缩数据
+        dumped_data = ujson.dumps(user_data)
+        compressed_data = BytesIO()
+        with gzip.GzipFile(fileobj=compressed_data, mode='w') as f:
+            f.write(dumped_data.encode('utf-8'))
+        response = await make_response(compressed_data.getvalue())
+        response.headers['Content-Encoding'] = 'gzip'
+        response.headers['Content-Length'] = compressed_data.tell()
+        response.headers['Content-Type'] = 'application/json'
+        return response
     else:
         return jsonify({"error": "fail to fetch information"})
 

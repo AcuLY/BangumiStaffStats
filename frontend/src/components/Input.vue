@@ -196,7 +196,7 @@ const collectionTypesLabels = computed(() => {
 // 抓取数据并更新到 store
 const fetch_statistics = async () => {
     // 输入不能为空
-    if (!userId.value.trim()) {
+    if (!userId.value.trim() && !isGlobalStats.value) {
         notify.error({
             title: "请输入用户 ID",
             duration: 3000
@@ -217,7 +217,7 @@ const fetch_statistics = async () => {
         });
         return;
     }
-    if (collectionTypes.value.length === 0) {
+    if (collectionTypes.value.length === 0 && !isGlobalStats.value) {
         notify.error({
             title: "请选择至少一种收藏类型",
             duration: 3000

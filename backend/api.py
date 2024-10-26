@@ -16,10 +16,11 @@ subject_persons_dict = None
 person_dict = None
 person_characters_dict = None
 subject_relations = None
+subject_dict = None
 
 def transmit_data(data):
-    global subject_persons_dict, person_dict, person_characters_dict, subject_relations
-    subject_persons_dict, person_dict, person_characters_dict, subject_relations = data
+    global subject_persons_dict, person_dict, person_characters_dict, subject_relations, subject_dict
+    subject_persons_dict, person_dict, person_characters_dict, subject_relations, subject_dict = data
 
 
 async def fetch_user_collection_number(http_client: httpx.AsyncClient, user_id, collection_types: list, subject_type=2):
@@ -125,15 +126,13 @@ def fetch_global_subjects(subject_type):
     同上
     """
     all_subjects = []
-    with open('./data/subject.jsonlines', mode='r', encoding='utf-8') as f:
-        for line in f:
-            d = ujson.loads(line)
-            if d['watched'] > 100 and d['type'] == subject_type:
-                id = d['id']
-                name = d['name']
-                name_cn = d['name_cn']
-                rate = d['rate']
-                all_subjects.append(Subject(name, id, rate, name_cn, ''))
+    for d in subject_dict:
+        if d['watched'] > 100 and d['type'] == subject_type:
+            id = d['id']
+            name = d['name']
+            name_cn = d['name_cn']
+            rate = d['rate']
+            all_subjects.append(Subject(name, id, rate, name_cn, ''))
     return all_subjects
 
 
