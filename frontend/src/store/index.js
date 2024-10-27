@@ -44,6 +44,9 @@ export default createStore({
                     existingSubject.average_rate = (
                         existingSubject.rates.reduce((sum, rate) => sum + rate, 0) / existingSubject.subjects_number
                     ).toFixed(2);
+                    existingSubject.overall_rate = (
+                        existingSubject.subjects_number / (existingSubject.subjects_number + 5) * existingSubject.average_rate + 5 / (existingSubject.subjects_number + 5) * 5
+                    ).toFixed(2);
                 }
             } else {
                 state.validSubjects.push({
@@ -52,7 +55,8 @@ export default createStore({
                     subject_names: [subjectName],
                     subjects_number: 1,
                     rates: [rate],
-                    average_rate: rate
+                    average_rate: rate,
+                    overall_rate: 1.0 / 6 * rate + 5.0 / 6 * 5
                 });
             }
         },

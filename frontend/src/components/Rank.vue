@@ -92,9 +92,9 @@
 
                                 <n-flex vertical style="width: 90vw; color: #666666; font-size: larger;">
                                     列表最大宽度
-                                    <n-slider v-model:value="tableWidth" :max="6000" :min="400" :step="20" style="max-width: 480px"/>
+                                    <n-slider v-model:value="tableWidth" :max="12000" :min="400" :step="20" style="max-width: 480px"/>
                                     列表最大高度
-                                    <n-slider v-model:value="tableHeight" :max="3000" :min="400" :step="20" style="max-width: 480px"/>
+                                    <n-slider v-model:value="tableHeight" :max="6000" :min="400" :step="20" style="max-width: 480px"/>
                                 </n-flex>
                             </n-flex>
                         </n-collapse-item>
@@ -212,7 +212,7 @@
 </template>
 
 <script setup>
-import { ref, computed, h, render, watch, reactive } from 'vue';
+import { ref, computed, h, watch, reactive } from 'vue';
 import { useStore } from 'vuex';
 import { NButton, useNotification } from 'naive-ui';
 
@@ -362,6 +362,7 @@ const validSubjectRows = computed(() => {
                 subject_images: row.series_subject_images,
                 average_rate: row.series_average_rate,
                 subjects_number: row.series_subjects_number,
+                overall_rate: row.series_overall_rate
             };
         } else {
             return {
@@ -373,6 +374,7 @@ const validSubjectRows = computed(() => {
                 subject_images: row.subject_images,
                 average_rate: row.average_rate,
                 subjects_number: row.subjects_number,
+                overall_rate: row.overall_rate
             };
         }
     });
@@ -518,6 +520,21 @@ const validSubjectColumns = computed(() => [
                 row.average_rate !== 0
                     ? [h('img', { src: '/star.png', width: 10 }), h('span', ' '), h('span', isMobile.value ? row.average_rate.toFixed(1) : row.average_rate)]
                     : h('span', '无评分')
+            );
+        }
+    },
+    {
+        title: '加权综合',
+        key: 'overall_rate',
+        width: isMobile.value ? 52 : 76,
+        align: 'center',
+        resizable: isMobile.value ? false : true,
+        sorter: 'default',
+        render(row) {
+            return h('div',
+                row.overall_rate !== 0
+                    ? h('span', { style: {color: '#FF1493'} }, isMobile.value ? row.overall_rate.toFixed(1) : row.overall_rate)
+                    : h('span', '无') 
             );
         }
     },

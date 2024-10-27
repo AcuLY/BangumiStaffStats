@@ -3,7 +3,7 @@
         <n-flex class="input" justify="center">
             <n-flex justify="center">
                 <n-flex vertical :size="5">
-                    <h3 style="margin: 0; transform: translateX(10px);">Bangumi 用户 ID</h3>
+                    <h3 style="margin: 0; transform: translateX(10px);">Bangumi 用户 ID <span style="color: #FF1493; opacity: 0.6; margin-left: 0px;">(不是昵称!)</span></h3>
                     <n-input 
                     id="user-name" 
                     v-model:value="userId" 

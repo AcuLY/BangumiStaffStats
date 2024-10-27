@@ -297,6 +297,16 @@ def analyse_data(person_subjects_map: dict, person_characters_map: dict):
     返回值:
         final_list(list): 如下
     """
+    
+    # 计算综合加权分
+    def calculate_overall_rate(score, number):
+        if score == 0:
+            return 0
+        const = 5
+        avg_score = 5
+        overall_score = number / (number + const) * score + const / (number + const) * avg_score
+        return round(overall_score, 2)
+    
     final_list = []
     for person, subjects in person_subjects_map.items():
         # 如果是声优提取角色
@@ -330,6 +340,7 @@ def analyse_data(person_subjects_map: dict, person_characters_map: dict):
             'subject_images': [subject.image for subject in subjects],
             'average_rate': average_rate,
             'subjects_number': len(subjects),
+            'overall_rate': calculate_overall_rate(average_rate, len(subjects)),
             # 角色
             'character_ids': [character.id for character in characters],
             'character_names':[character.name for character in characters],
@@ -346,6 +357,7 @@ def analyse_data(person_subjects_map: dict, person_characters_map: dict):
             'series_subject_images': [subject.image for subject in series_subjects],
             'series_average_rate': series_average_rate,
             'series_subjects_number': len(series_subjects),
+            'series_overall_rate': calculate_overall_rate(series_average_rate, len(series_subjects))
         })
     final_list = sorted(final_list, key=lambda item: item['subjects_number'], reverse=True)
     return final_list
