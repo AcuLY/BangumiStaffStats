@@ -39,25 +39,30 @@ async def get_statistics():
     subject_type = json_data.get('subject_type')
     position = json_data.get('position')
     collection_types = json_data.get('collection_types')
+    tags = json_data.get('tags')
     
     start_time = time.time()
-    print(f"\033[1;34m{datetime.datetime.now()} 开始抓取数据: {user_id}, 条目类型{subject_type}, {position}, 收藏类型{collection_types},\033[0m")
+    print(f"\033[1;34m{datetime.datetime.now()} 开始抓取数据: {user_id}, 条目类型{subject_type}, {position}, 收藏类型{collection_types}, 标签{tags}\033[0m")
     
-    user_data = await fetch_user_data(user_id, position, collection_types, subject_type)
-    if user_data['valid_subjects'] or user_data['invalid_subjects']:
-        print(f"\033[1;32m{datetime.datetime.now()} 抓取数据成功: {user_id}, {subject_type}, {position}, {collection_types}, 得到{len(user_data['valid_subjects'])}个数据, 用时{math.floor(time.time() - start_time)}秒\033[0m")
-        # 压缩数据
-        dumped_data = ujson.dumps(user_data)
-        compressed_data = BytesIO()
-        with gzip.GzipFile(fileobj=compressed_data, mode='w') as f:
-            f.write(dumped_data.encode('utf-8'))
-        response = await make_response(compressed_data.getvalue())
-        response.headers['Content-Encoding'] = 'gzip'
-        response.headers['Content-Length'] = compressed_data.tell()
-        response.headers['Content-Type'] = 'application/json'
-        return response
-    else:
-        return jsonify({"error": "fail to fetch information"})
+    user_data = await fetch_user_data(user_id, position, collection_types, subject_type, tags)
+    
+    if user_data == 'invalid userid':
+        return jsonify({"error": "invalid userid"}), 400
+    
+    if user_data == 'no information':
+        return jsonify({"error": "no information"}), 400
+    
+    print(f"\033[1;32m{datetime.datetime.now()} 抓取数据成功: {user_id}, {subject_type}, {position}, {collection_types}, {tags}, 得到{len(user_data['valid_subjects'])}个数据, 用时{math.floor(time.time() - start_time)}秒\033[0m")
+    # 压缩数据
+    dumped_data = ujson.dumps(user_data)
+    compressed_data = BytesIO()
+    with gzip.GzipFile(fileobj=compressed_data, mode='w') as f:
+        f.write(dumped_data.encode('utf-8'))
+    response = await make_response(compressed_data.getvalue())
+    response.headers['Content-Encoding'] = 'gzip'
+    response.headers['Content-Length'] = compressed_data.tell()
+    response.headers['Content-Type'] = 'application/json'
+    return response
 
 if __name__ == '__main__':
     app.run()

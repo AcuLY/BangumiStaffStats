@@ -67,6 +67,23 @@
                         </n-space>
                     </n-checkbox-group>
                 </n-flex>
+
+                <n-flex vertical :size="5">
+                    <div style="display: flex; align-items: center;">
+                        <h3 style="margin: 0; transform: translateX(10px);">条目标签</h3>
+                        <n-tooltip trigger="hover">
+                            <template #trigger>
+                            <img src="/info.png" style="width: 20px;" :style="{marginLeft: '14px'}">
+                            </template>
+                            在单个标签里添加 "/" 可以表示“或”，<br>
+                            在年份间添加 "-" 可以表示时间范围，<br>
+                            即"2022-2024"与"2022/2023/2024"等价。<br>
+                            例：2022-2024, 原创, 百合 <br>
+                            以上三个标签表示“最近三年的原创百合作品”。
+                        </n-tooltip>
+                    </div>
+                    <n-dynamic-tags v-model:value="tags" id="tags" round :color="{borderColor: '#FF1493', textColor: '#FF1493'}"/>
+                </n-flex>
             
             </n-flex>
             
@@ -87,6 +104,7 @@
             <h2 class="divider-text" v-show="subjectTypeLabel !== ''">条目类型：<span style="color: #FF1493;">{{ subjectTypeLabel }}</span></h2>
             <h2 class="divider-text" v-show="positionSave !== null">当前职位：<span style="color: #FF1493;">{{ positionLabel }}</span></h2>
             <h2 class="divider-text" v-show="collectionTypesSave !== null && userIdSave !== '全站数据'">收藏类型：<span style="color: #FF1493;">{{ collectionTypesLabels }}</span></h2>
+            <h2 class="divider-text" v-show="tagsSave.length !== 0">当前标签：<span style="color: #FF1493;">{{ tagsSave.join('、') }}</span></h2>
         </n-flex>
     </n-divider>
 </template>
@@ -112,6 +130,7 @@ const userId = ref(`${import.meta.env.VITE_API_USERID}`);
 const subjectType = ref(2)
 const position = ref(null);
 const collectionTypes = ref([2]);
+const tags = ref([])
 const actionName = computed(() => {
     if (subjectType.value == 3) {
         return '听';
@@ -190,7 +209,7 @@ const collectionTypesLabels = computed(() => {
     }
     return results;
 });
-
+const tagsSave = ref([]);
 
 
 // 抓取数据并更新到 store
@@ -230,45 +249,61 @@ const fetch_statistics = async () => {
         user_id: isGlobalStats.value ? '0' : userId.value,    // 查全站时把 id 设为 0
         subject_type: subjectType.value,
         position: position.value,
-        collection_types: collectionTypes.value
+        collection_types: collectionTypes.value,
+        tags: tags.value
     }
     // 终止查询
     abortController.value = new AbortController();
-    try {
-        // 记录上次查询
-        userIdSave.value = isGlobalStats.value ? '全站数据' : userId.value;
-        subjectTypeSave.value = subjectType.value;
-        positionSave.value = position.value;
-        collectionTypesSave.value = collectionTypes.value;
-        // 开始加载
-        store.dispatch('setLoadingStatus');
-        // 调用并接受返回值
-        const response = await axios.post(url, params, { signal: abortController.value.signal });
-        store.dispatch('setLists', {
-            validSubjects: response.data['valid_subjects'],
-            invalidSubjects: response.data['invalid_subjects'],
-            collectionNumber: response.data['collection_number'],
-            seriesNumber: response.data['series_number'],
-            subjectType: subjectTypeSave,
-            isGlobalStats: isGlobalStats.value
-        });
-        store.dispatch('setLoadingStatus');
-    } catch (error) {
-        store.dispatch('setLoadingStatus');
-        if (axios.isCancel(error)) {
+    // 记录上次查询
+    userIdSave.value = isGlobalStats.value ? '全站数据' : userId.value;
+    subjectTypeSave.value = subjectType.value;
+    positionSave.value = position.value;
+    collectionTypesSave.value = collectionTypes.value;
+    tagsSave.value = tags.value; 
+    // 开始加载
+    store.dispatch('setLoadingStatus');
+    // 调用并接受返回值
+    axios.post(url, params, { signal: abortController.value.signal })
+        .then(response => {
+            store.dispatch('setLists', {
+                validSubjects: response.data['valid_subjects'],
+                invalidSubjects: response.data['invalid_subjects'],
+                collectionNumber: response.data['collection_number'],
+                seriesNumber: response.data['series_number'],
+                subjectType: subjectTypeSave,
+                isGlobalStats: isGlobalStats.value
+            });
             store.dispatch('setLoadingStatus');
-            notify.warning({
-                title: "查询取消",
-                duration: 3000
-            });
-        } else {
-            store.dispatch('setListsToNull');
-            notify.error({
-                title: "查询失败：请确认用户 ID 输入正确且用户收藏的条目不为 0，如果多次秒失败可能是服务器未开启",
-                duration: 8000
-            });
-        }
-    }
+        })
+        .catch(error => {
+            store.dispatch('setLoadingStatus');
+            const message = error.response?.data?.error;
+            if (axios.isCancel(error)) {
+                store.dispatch('setLoadingStatus');
+                notify.warning({
+                    title: "查询取消",
+                    duration: 3000
+                });
+            } else if (message === 'invalid userid') {
+                store.dispatch('setListsToNull');
+                notify.error({
+                    title: "ID 错误：请输入正确的用户 ID，注意不是用户昵称",
+                    duration: 5000
+                });
+            } else if (message === 'no information') {
+                store.dispatch('setListsToNull');
+                notify.error({
+                    title: "找不到条目",
+                    duration: 5000
+                });
+            } else {
+                store.dispatch('setListsToNull');
+                notify.error({
+                    title: "查询失败，请检查网络，如果多次秒失败可能是服务器未开启",
+                    duration: 8000
+                });
+            }
+        })
 };
 
 const cancelRequest = () => {
@@ -319,6 +354,12 @@ const cancelRequest = () => {
     margin-left: 10px;
     margin-right: 10px;
     transform: translateY(4px);
+}
+
+#tags {
+    width: 300px;  
+    margin-left: 10px;
+    margin-right: 10px;
 }
 
 #stats-source {

@@ -36,6 +36,7 @@ async def fetch_user_collection_number(http_client: httpx.AsyncClient, user_id, 
     """
     collection_numbers = {} # 收藏类型到数量的映射
     async def fetch_type_collection_number(collection_type):
+        # 返回该收藏类型的数量
         url = f'https://api.bgm.tv/v0/users/{user_id}/collections'
         params = {
             'subject_type': subject_type,
@@ -51,23 +52,27 @@ async def fetch_user_collection_number(http_client: httpx.AsyncClient, user_id, 
             description = error_message.get('description', '')
             if description == "user doesn't exist or has been removed":
                 print(datetime.datetime.now(), '用户不存在:', user_id)
-                return 0
+                return -1
             match = re.search(r'offset should be less than or equal to (\d+)', description)
             if match:
                 collection_number = int(match.group(1))
                 if collection_number == 0:
                     print(datetime.datetime.now(), '用户没有收藏')
+                    return 0
                 return collection_number
         return 0
     
     tasks = [fetch_type_collection_number(collection_type) for collection_type in collection_types]
     results = await asyncio.gather(*tasks)
     for index, collection_type in enumerate(collection_types):
+        # 判断用户是否不存在
+        if results[index] == -1:
+            return {}
         collection_numbers[collection_type] = results[index]
     return collection_numbers
 
 
-async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_numbers: dict, subject_type=2):
+async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_numbers: dict, subject_type, tags):
     """获取用户的全部条目
 
     参数:
@@ -75,6 +80,7 @@ async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_num
         user_id (string): 用户 id
         collection_numbers(dict): 收藏类型到用户收藏数量的映射
         subject_type(int): 条目类型
+        tags(list(list)): 标签, 形如 [[2022, 2023, 2024], [原创], [百合]], 一个列表内的为析取, 总的为合取
     返回值:
         all_subjects(list(subject)): 全部条目
     """
@@ -97,6 +103,13 @@ async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_num
         else:
             if response.status_code == 200:
                 for collection in response.json()['data']:
+                    # 匹配标签, 一个 tagls 里面的 tag 至少要有一个出现在当前 subject 的 tags 里面, 每个 tagls 都要满足上述要求
+                    if subject_dict[str(collection['subject_id'])]['tgs']:
+                        tag_list = subject_dict[str(collection['subject_id'])]['tgs']
+                    else:
+                        tag_list = [tag['name'] for tag in collection['subject']['tags']]
+                    if not all(any(tag in tag_list for tag in tagls) for tagls in tags):
+                        continue
                     subject_name = collection['subject']['name']
                     subject_name_cn = collection['subject']['name_cn'] if collection['subject']['name_cn'] else collection['subject']['name']
                     subject_id = collection['subject_id']
@@ -120,18 +133,18 @@ async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_num
     return all_subjects
 
 
-def fetch_global_subjects(subject_type):
+def fetch_global_subjects(subject_type, tags):
     """统计全站数据
 
     同上
     """
     all_subjects = []
-    for d in subject_dict:
-        if d['watched'] > 100 and d['type'] == subject_type:
-            id = d['id']
-            name = d['name']
-            name_cn = d['name_cn']
-            rate = d['rate']
+    for i, d in subject_dict.items():
+        if d['w'] > 100 and d['tp'] == subject_type and all(any(tag in set(d['tgs']) for tag in tagls) for tagls in tags):
+            id = int(i)
+            name = d['n']
+            name_cn = d['ncn']
+            rate = d['rt']
             all_subjects.append(Subject(name, id, rate, name_cn, ''))
     return all_subjects
 
@@ -279,9 +292,9 @@ def create_person_characters_map(person_subjects_map: dict, position: str, subje
     for person, subjects in person_subjects_map.items():
         id_to_subject = {subject.id: subject for subject in subjects}
         for relation in person_characters_dict[str(person.id)]:
-            if relation['subject_id'] in id_to_subject.keys() and relation['role'] in position_ids[subject_type][position]:
-                subject = id_to_subject[relation['subject_id']].series_subject  # 找到对应的作品系列
-                character = Character(relation['character_id'], relation['character_name'], relation['character_name_cn'], relation['character_image'], subject)
+            if relation['sid'] in id_to_subject.keys() and relation['r'] in position_ids[subject_type][position]:
+                subject = id_to_subject[relation['sid']].series_subject  # 找到对应的作品系列
+                character = Character(relation['id'], relation['n'], relation['ncn'], relation['img'], subject)
                 if character not in person_characters_map[person]:
                     person_characters_map[person].append(character)
     return person_characters_map
@@ -363,13 +376,31 @@ def analyse_data(person_subjects_map: dict, person_characters_map: dict):
     return final_list
 
 
-async def fetch_user_data(user_id, position, collection_types, subject_type):
+async def fetch_user_data(user_id, position, collection_types, subject_type, tags):
+    # 分割标签
+    tags = [tag.split('/') for tag in tags]
+    for tagls in tags:
+        for tag in tagls:
+            if '-' in str(tag):
+                try:
+                    start_year, end_year = map(int, tag.split("-"))
+                    years = list(str(i) for i in range(start_year, end_year + 1))
+                    tagls.remove(tag)
+                    tagls.extend(years)
+                except:
+                    pass
+    
     async with httpx.AsyncClient(headers=headers, limits=httpx.Limits(max_connections=30)) as http_client:
         if user_id != '0':
             collection_numbers = await fetch_user_collection_number(http_client, user_id, collection_types, subject_type)
-            all_subjects = await fetch_subjects(http_client, user_id, collection_numbers, subject_type)
+            if collection_numbers == {}:    # 用户名不存在
+                return 'invalid userid'
+            all_subjects = await fetch_subjects(http_client, user_id, collection_numbers, subject_type, tags)
         else:
-            all_subjects = fetch_global_subjects(subject_type)
+            all_subjects = fetch_global_subjects(subject_type, tags)
+        # 找不到条目
+        if not all_subjects:
+            return 'no information'
         
         series_number = mark_sequels(all_subjects)
         
