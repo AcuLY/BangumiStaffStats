@@ -103,13 +103,15 @@ async def fetch_subjects(http_client: httpx.AsyncClient, user_id, collection_num
         else:
             if response.status_code == 200:
                 for collection in response.json()['data']:
-                    # 匹配标签, 一个 tagls 里面的 tag 至少要有一个出现在当前 subject 的 tags 里面, 每个 tagls 都要满足上述要求
-                    if subject_dict[str(collection['subject_id'])]['tgs']:
+                    # 如果本地数据里有 tag 信息就用本地的, 否则使用 api 的返回值
+                    if str(collection['subject_id']) in subject_dict.keys() and subject_dict[str(collection['subject_id'])]['tgs']:
                         tag_list = subject_dict[str(collection['subject_id'])]['tgs']
                     else:
                         tag_list = [tag['name'] for tag in collection['subject']['tags']]
+                    # 匹配标签, 一个 tagls 里面的 tag 至少要有一个出现在当前 subject 的 tags 里面, 每个 tagls 都要满足上述要求
                     if not all(any(tag in tag_list for tag in tagls) for tagls in tags):
                         continue
+
                     subject_name = collection['subject']['name']
                     subject_name_cn = collection['subject']['name_cn'] if collection['subject']['name_cn'] else collection['subject']['name']
                     subject_id = collection['subject_id']
