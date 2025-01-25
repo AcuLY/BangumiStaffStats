@@ -87,6 +87,8 @@ export const positionOptions = [
     ],
     // 4 游戏
     [
+        { "label": "声优（仅主役）", "value": "声优（仅主役）" },
+        { "label": "声优", "value": "声优" },
         { "label": "开发", "value": "开发" },
         { "label": "发行", "value": "发行" },
         { "label": "游戏设计师", "value": "游戏设计师" },
