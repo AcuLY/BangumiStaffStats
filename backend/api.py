@@ -378,7 +378,7 @@ def analyse_data(person_subjects_map: dict, person_characters_map: dict):
     return final_list
 
 
-async def fetch_user_data(user_id, position, collection_types, subject_type, tags):
+async def fetch_user_data(user_id: str, position: str, collection_types: list, subject_type: int, tags: list):
     # 分割标签
     tags = [tag.split('/') for tag in tags]
     for tagls in tags:
@@ -403,6 +403,10 @@ async def fetch_user_data(user_id, position, collection_types, subject_type, tag
         # 找不到条目
         if not all_subjects:
             return 'no information'
+        
+        # 不查 staff 数据
+        if position == '':
+            return { 'all_subjects': [subject.to_dict() for subject in all_subjects] }
         
         series_number = mark_sequels(all_subjects)
         

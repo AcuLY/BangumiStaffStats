@@ -162,6 +162,9 @@ class Subject:
 
     def __hash__(self):
         return hash((self.name, self.id, self.rate, self.name_cn, self.image))
+    
+    def to_dict(self):
+        return self.__dict__
 
 class Person:
     def __init__(self, person_name, person_id, person_name_cn):

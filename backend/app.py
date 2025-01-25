@@ -52,7 +52,11 @@ async def get_statistics():
     if user_data == 'no information':
         return jsonify({"error": "no information"}), 400
     
-    print(f"\033[1;32m{datetime.datetime.now()} 抓取数据成功: {user_id}, {subject_type}, {position}, {collection_types}, {tags}, 得到{len(user_data['valid_subjects'])}个数据, 用时{math.floor(time.time() - start_time)}秒\033[0m")
+    if position == '':
+        print(f"\033[1;32m{datetime.datetime.now()} 抓取数据成功: {user_id}, {subject_type}, {collection_types}, {tags}, 得到{len(user_data['all_subjects'])}个数据, 用时{math.floor(time.time() - start_time)}秒\033[0m")
+    else:
+        print(f"\033[1;32m{datetime.datetime.now()} 抓取数据成功: {user_id}, {subject_type}, {position}, {collection_types}, {tags}, 得到{len(user_data['valid_subjects'])}个数据, 用时{math.floor(time.time() - start_time)}秒\033[0m")
+    
     # 压缩数据
     dumped_data = ujson.dumps(user_data)
     compressed_data = BytesIO()
