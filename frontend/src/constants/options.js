@@ -23,7 +23,7 @@ export const positionOptions = [
         { "label": "原作", "value": "原作" },
     ],
     // 2 动画
-    [   
+    [
         { "label": "声优（仅主役）", "value": "声优（仅主役）" },
         { "label": "声优", "value": "声优" },
         { "label": "监督", "value": "导演" },
@@ -55,6 +55,7 @@ export const positionOptions = [
         { "label": "原画", "value": "原画" },
         { "label": "第二原画", "value": "第二原画" },
         { "label": "中割", "value": "补间动画" },
+        { "label": "动画检查", "value": "动画检查" },
         { "label": "色彩设计", "value": "色彩设计" },
         { "label": "色指定", "value": "色彩指定" },
         { "label": "CG 导演", "value": "CG 导演" },
@@ -66,6 +67,33 @@ export const positionOptions = [
         { "label": "监修", "value": "监修" },
         { "label": "剪辑", "value": "剪辑" },
         { "label": "制作进行", "value": "制作管理" },
+        { "label": "设定制作", "value": "设定制作" },
+        { "label": "动作作画监督", "value": "动作作画监督" },
+        { "label": "机械作画监督", "value": "机械作画监督" },
+        { "label": "特效作画监督", "value": "特效作画监督" },
+        { "label": "主演出", "value": "主演出" },
+        { "label": "主动画师", "value": "主动画师" },
+        { "label": "OP·ED 分镜", "value": "OP·ED 分镜" },
+        { "label": "音乐制作人", "value": "音乐制作人" },
+        { "label": "主题歌编曲", "value": "主题歌编曲" },
+        { "label": "主题歌作曲", "value": "主题歌作曲" },
+        { "label": "主题歌作词", "value": "主题歌作词" },
+        { "label": "主题歌演出", "value": "主题歌演出" },
+        { "label": "插入歌演出", "value": "插入歌演出" },
+        { "label": "企划", "value": "企划" },
+        { "label": "企划制作人", "value": "企划制作人" },
+        { "label": "宣传", "value": "宣传" },
+        { "label": "联合导演", "value": "联合导演" },
+        { "label": "数码绘图", "value": "数码绘图" },
+        { "label": "联合制片人", "value": "联合制片人" },
+        { "label": "制作协调", "value": "制作协调" },
+        { "label": "监制", "value": "监制" },
+        { "label": "厂牌", "value": "厂牌" },
+        { "label": "助理制片人", "value": "助理制片人" },
+        { "label": "制作助理", "value": "制作助理" },
+        { "label": "作画监督助理", "value": "作画监督助理" },
+        { "label": "演出助理", "value": "演出助理" },
+        { "label": "录音助理", "value": "录音助理" }
     ],
     // 3 音乐
     [
@@ -128,5 +156,5 @@ export const positionOptions = [
         { "label": "制作", "value": "制作" },
         { "label": "出品", "value": "出品" }
     ],
-    
+
 ];
