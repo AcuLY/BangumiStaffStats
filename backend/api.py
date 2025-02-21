@@ -5,7 +5,6 @@ import math
 from collections import defaultdict
 from utils import Subject, Person, Character, position_ids, extract_name_cn
 import datetime
-import ujson
 
 headers = {
     'User-Agent': 'AcuL/BangumiStaffStatistics/1.0 (Web) (https://github.com/AcuLY/BangumiStaffStats)'
@@ -291,12 +290,15 @@ def create_person_characters_map(person_subjects_map: dict, position: str, subje
         person_characters_map (dict): Person -> [Character]
     """
     person_characters_map = defaultdict(list)
+    
     for person, subjects in person_subjects_map.items():
         id_to_subject = {subject.id: subject for subject in subjects}
+        # 遍历一个人物的角色，找到出现在当前作品中的角色
         for relation in person_characters_dict[str(person.id)]:
-            if relation['sid'] in id_to_subject.keys() and relation['r'] in position_ids[subject_type][position]:
+            if relation['sid'] in id_to_subject.keys() and relation['r'] in position_ids[subject_type][position]:   # 作品和职位匹配
                 subject = id_to_subject[relation['sid']].series_subject  # 找到对应的作品系列
                 character = Character(relation['id'], relation['n'], relation['ncn'], relation['img'], subject)
+                
                 if character not in person_characters_map[person]:
                     person_characters_map[person].append(character)
     return person_characters_map
@@ -411,7 +413,7 @@ async def fetch_user_data(user_id: str, position: str, collection_types: list, s
         series_number = mark_sequels(all_subjects)
         
         person_subjects_map, unlinked_subjects = await create_person_subjects_map(http_client, all_subjects, position, subject_type)
-        
+
         if '声优' in position:
             person_characters_map = create_person_characters_map(person_subjects_map, position, subject_type)
             valid_subjects = analyse_data(person_subjects_map, person_characters_map)
