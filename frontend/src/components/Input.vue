@@ -284,22 +284,16 @@ const fetch_statistics = async () => {
                     title: "查询取消",
                     duration: 3000
                 });
-            } else if (message === 'invalid userid') {
+            } else if (!error.response) {
                 store.dispatch('setListsToNull');
                 notify.error({
-                    title: "ID 错误：请输入正确的用户 ID，注意不是用户昵称",
-                    duration: 5000
-                });
-            } else if (message === 'no information') {
-                store.dispatch('setListsToNull');
-                notify.error({
-                    title: "找不到条目",
-                    duration: 5000
+                    title: "服务暂未启动或无法连接，请过一段时间再来",
+                    duration: 8000
                 });
             } else {
                 store.dispatch('setListsToNull');
                 notify.error({
-                    title: "查询失败，请检查网络，如果多次秒失败可能是服务器未开启",
+                    title: "查询失败：" + message,
                     duration: 8000
                 });
             }

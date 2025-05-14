@@ -247,6 +247,11 @@ const isMobile = computed(() => { return window.innerWidth <= 600 });
 const showChinese = ref(false); 
 // 显示图片
 const showImage = ref(false);
+watch(isGlobalStats, (newValue) => {
+    if (newValue == true) {
+        showImage.value = false
+    }
+})
 // 合并续作
 const mergeSequels = ref(false);
 // 伸长列表
