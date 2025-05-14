@@ -4,15 +4,15 @@ import (
 	"context"
 	"sync"
 
-	repository "github.com/AcuLY/BangumiStaffStats/internal/repository/person"
-	"github.com/AcuLY/BangumiStaffStats/pkg/model"
+	repository "github.com/AcuLY/BangumiStaffStats/backend/internal/repository/person"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 	"golang.org/x/sync/errgroup"
 )
 
 // CreatePersonSubjectsMap 创建一个人物到其参与的作品列表的映射
 func CreatePersonSubjectsMap(ctx context.Context, subjects []*model.Subject, positionIDs []int) (map[*model.Person][]*model.Subject, error) {
 	peronIDToSubjects := make(map[int][]*model.Subject)
-	idToPerson := make(map[int]*model.Person)	
+	idToPerson := make(map[int]*model.Person)
 
 	g := new(errgroup.Group)
 	var mu sync.Mutex
@@ -44,7 +44,7 @@ func CreatePersonSubjectsMap(ctx context.Context, subjects []*model.Subject, pos
 		person := idToPerson[id]
 		personSubjects[person] = subjects
 	}
-	
+
 	return personSubjects, nil
 }
 

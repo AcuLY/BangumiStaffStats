@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/AcuLY/BangumiStaffStats/pkg/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 )
 
 // ParseTags 解析输入的标签。
@@ -52,8 +52,8 @@ func ParseTags(tags []string) [][]string {
 
 // matchTags 根据判断条目是否符合标签要求。
 //
-// - [[2022, 2023, 2024], [原创, 漫画改], [百合]] 表示该条目应该为
-//   2022 至 2024 年播出的 原创或漫画改的 百合作品。
+//   - [[2022, 2023, 2024], [原创, 漫画改], [百合]] 表示该条目应该为
+//     2022 至 2024 年播出的 原创或漫画改的 百合作品。
 func matchTags(s *model.Subject, conjunctionTags [][]string) bool {
 	subjectTags := make(map[string]struct{}, len(s.Tags))
 	for _, tag := range s.Tags {
@@ -69,7 +69,7 @@ func matchTags(s *model.Subject, conjunctionTags [][]string) bool {
 				break
 			}
 		}
-		
+
 		if !match {
 			return false
 		}
@@ -80,12 +80,12 @@ func matchTags(s *model.Subject, conjunctionTags [][]string) bool {
 
 // FilterSubjectsByTags 根据标签过滤条目。
 //
-// - 若 tags 为 [[2022, 2023, 2024], [原创, 漫画改], [百合]]，
-//   则目标条目应该为 2022 至 2024 年播出的原创或漫画改的百合作品。
+//   - 若 tags 为 [[2022, 2023, 2024], [原创, 漫画改], [百合]]，
+//     则目标条目应该为 2022 至 2024 年播出的原创或漫画改的百合作品。
 func FilterSubjectsByTags(subjects *[]*model.Subject, tags [][]string) {
 	subjectsSlice := *subjects
 	count := 0
-	
+
 	for _, s := range subjectsSlice {
 		if matchTags(s, tags) {
 			subjectsSlice[count] = s

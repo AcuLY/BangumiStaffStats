@@ -3,10 +3,10 @@ package person
 import (
 	"context"
 
-	cache "github.com/AcuLY/BangumiStaffStats/internal/cache/person"
-	"github.com/AcuLY/BangumiStaffStats/internal/repository"
-	"github.com/AcuLY/BangumiStaffStats/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/pkg/model"
+	cache "github.com/AcuLY/BangumiStaffStats/backend/internal/cache/person"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/repository"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 	"github.com/redis/go-redis/v9"
 )
 

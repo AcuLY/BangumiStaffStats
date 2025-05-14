@@ -1,11 +1,8 @@
 module github.com/AcuLY/BangumiStaffStats/backend
 
-replace github.com/AcuLY/BangumiStaffStats => ../backend
-
 go 1.24.0
 
 require (
-	github.com/AcuLY/BangumiStaffStats v0.0.0-00010101000000-000000000000
 	github.com/gin-gonic/gin v1.10.0
 	golang.org/x/time v0.11.0
 )
@@ -16,7 +13,6 @@ require (
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 )
 

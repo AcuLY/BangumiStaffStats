@@ -5,11 +5,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/AcuLY/BangumiStaffStats/internal/service"
-	"github.com/AcuLY/BangumiStaffStats/pkg/bangumi"
-	"github.com/AcuLY/BangumiStaffStats/pkg/httpclient"
-	"github.com/AcuLY/BangumiStaffStats/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/pkg/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/service"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/bangumi"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/httpclient"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 	"github.com/gin-gonic/gin"
 )
 
@@ -33,10 +33,8 @@ func GetStatistics(c *gin.Context) {
 			logger.Info("Invalid UserID.", logger.Field("request", req))
 		case errors.Is(err, httpclient.ErrNetworkFailed):
 			c.JSON(500, gin.H{"error": "网络错误，请稍后再试"})
-			logger.Warn("Network Error.")
 		default:
 			c.JSON(500, gin.H{"error": "未知服务器错误：" + err.Error()})
-			logger.Error("Unexpected Error.", logger.Field("error", err.Error()))
 		}
 		return
 	}

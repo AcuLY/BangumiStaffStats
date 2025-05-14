@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/AcuLY/BangumiStaffStats/config"
-	"github.com/AcuLY/BangumiStaffStats/pkg/logger"
+	"github.com/AcuLY/BangumiStaffStats/backend/config"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
@@ -31,18 +31,18 @@ func Init() error {
 		config.Mysql.Port,
 		config.Mysql.DatabaseName,
 	)
-	
+
 	var err error
 	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: gormlogger.New(
 			log.New(&logger.TimeSlicingWriter{LogPath: config.Log.GormLogPath}, "[GORM] ", log.LstdFlags),
 			gormlogger.Config{
 				SlowThreshold: time.Second,
-				LogLevel: gormlogger.Info,
+				LogLevel:      gormlogger.Warn,
 			},
 		),
 	})
-	
+
 	if err != nil {
 		return err
 	}

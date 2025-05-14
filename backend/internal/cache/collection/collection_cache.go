@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/AcuLY/BangumiStaffStats/config"
-	"github.com/AcuLY/BangumiStaffStats/internal/cache"
-	"github.com/AcuLY/BangumiStaffStats/pkg/bangumi"
-	"github.com/AcuLY/BangumiStaffStats/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/pkg/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/config"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/cache"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/bangumi"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -32,7 +32,7 @@ func parseCollectionValue(v string) (*model.Subject, error) {
 
 	userRate := float32(rate)
 	subject := &model.Subject{
-		ID:   id,
+		ID:       id,
 		UserRate: &userRate,
 	}
 	return subject, nil

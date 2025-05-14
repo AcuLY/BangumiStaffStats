@@ -3,10 +3,10 @@ package subject
 import (
 	"context"
 
-	cache "github.com/AcuLY/BangumiStaffStats/internal/cache/subject"
-	"github.com/AcuLY/BangumiStaffStats/internal/repository"
-	"github.com/AcuLY/BangumiStaffStats/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/pkg/model"
+	cache "github.com/AcuLY/BangumiStaffStats/backend/internal/cache/subject"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/repository"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -22,13 +22,12 @@ func FindSubject(ctx context.Context, s *model.Subject) error {
 	defer func() { <-repository.Semaphore }()
 
 	if err := repository.DB.WithContext(ctx).Table("subjects").Where("subject_id = ?", s.ID).First(s).Error; err != nil {
-		logger.Warn("Subject not found.", logger.Field("subject_id", s.ID))
 		return nil
 	}
 
 	go func() {
 		if err := cache.SetSubject(context.Background(), s); err != nil {
-			logger.Warn("Failed to set user collection cache: "+err.Error())
+			logger.Warn("Failed to set user collection cache: " + err.Error())
 		}
 	}()
 

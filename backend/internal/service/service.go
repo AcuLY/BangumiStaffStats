@@ -7,18 +7,18 @@ import (
 	"strings"
 	"time"
 
-	charactersvc "github.com/AcuLY/BangumiStaffStats/internal/service/character"
-	collectionsvc "github.com/AcuLY/BangumiStaffStats/internal/service/collection"
-	personsvc "github.com/AcuLY/BangumiStaffStats/internal/service/person"
-	subjectsvc "github.com/AcuLY/BangumiStaffStats/internal/service/subject"
-	"github.com/AcuLY/BangumiStaffStats/pkg/constants"
-	"github.com/AcuLY/BangumiStaffStats/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/pkg/model"
-	"github.com/AcuLY/BangumiStaffStats/pkg/tagutil"
+	charactersvc "github.com/AcuLY/BangumiStaffStats/backend/internal/service/character"
+	collectionsvc "github.com/AcuLY/BangumiStaffStats/backend/internal/service/collection"
+	personsvc "github.com/AcuLY/BangumiStaffStats/backend/internal/service/person"
+	subjectsvc "github.com/AcuLY/BangumiStaffStats/backend/internal/service/subject"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/constants"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/tagutil"
 )
 
 // 完整逻辑的超时时间
-var timeout time.Duration = time.Second * 30
+var timeout time.Duration = time.Second * 60
 
 func Statistics(ctx context.Context, r *model.Request) (*model.Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -39,7 +39,7 @@ func Statistics(ctx context.Context, r *model.Request) (*model.Response, error) 
 	}
 
 	// 加载条目完整信息
-	err = subjectsvc.LoadSubjects(ctx, subjects)
+	err = subjectsvc.LoadSubjects(ctx, &subjects)
 	if err != nil {
 		logger.Error("Failed to load subject: " + err.Error())
 		return nil, err
@@ -61,7 +61,7 @@ func Statistics(ctx context.Context, r *model.Request) (*model.Response, error) 
 	if err != nil {
 		logger.Error("Failed to get position IDs: " + err.Error())
 		return nil, err
-	}	
+	}
 
 	// 创建人物到条目的映射
 	personSubjects, err := personsvc.CreatePersonSubjectsMap(ctx, subjects, positionIDs)

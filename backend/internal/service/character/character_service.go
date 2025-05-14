@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	repository "github.com/AcuLY/BangumiStaffStats/internal/repository/character"
-	"github.com/AcuLY/BangumiStaffStats/pkg/model"
+	repository "github.com/AcuLY/BangumiStaffStats/backend/internal/repository/character"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -21,14 +21,14 @@ func getCharactersByPerson(ctx context.Context, p *model.Person, subjects []*mod
 			if err != nil {
 				return err
 			}
-			
+
 			mu.Lock()
 			for _, c := range charactersBySubject {
 				if _, ok := characterSubject[c]; !ok {
 					characterSubject[c] = s
 					continue
 				}
-				
+
 				if s.SeriesOrder < characterSubject[c].SeriesOrder {
 					characterSubject[c] = s
 				}
@@ -85,7 +85,7 @@ func LoadCharacters(ctx context.Context, personCharacters map[*model.Person][]*m
 	g := new(errgroup.Group)
 
 	for _, characters := range personCharacters {
-		for _, c := range characters {	
+		for _, c := range characters {
 			g.Go(func() error {
 				return repository.FindCharacter(ctx, c)
 			})

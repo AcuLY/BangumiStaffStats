@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AcuLY/BangumiStaffStats/config"
+	"github.com/AcuLY/BangumiStaffStats/backend/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -76,7 +76,7 @@ func Init() error {
 		LogPath: config.Log.AppLogPath,
 	}
 	fileCore := zapcore.NewCore(fileEnc, zapcore.AddSync(writer), zap.InfoLevel)
-	fileLogger = zap.New(fileCore, zap.AddCaller())
+	fileLogger = zap.New(fileCore)
 
 	encCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	consoleEnc := zapcore.NewConsoleEncoder(encCfg)

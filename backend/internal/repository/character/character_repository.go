@@ -3,10 +3,10 @@ package character
 import (
 	"context"
 
-	cache "github.com/AcuLY/BangumiStaffStats/internal/cache/character"
-	"github.com/AcuLY/BangumiStaffStats/internal/repository"
-	"github.com/AcuLY/BangumiStaffStats/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/pkg/model"
+	cache "github.com/AcuLY/BangumiStaffStats/backend/internal/cache/character"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/repository"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -28,7 +28,7 @@ func FindCharactersByPersonAndSubject(ctx context.Context, p *model.Person, s *m
 		logger.Warn("Character not found.", logger.Field("subject_id", s.ID), logger.Field("person_id", p.ID))
 		return nil, nil
 	}
-	
+
 	characters = make([]model.Character, 0, len(ids))
 	for _, id := range ids {
 		character := model.Character{ID: id}

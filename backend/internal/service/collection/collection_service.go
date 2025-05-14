@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
-	cache "github.com/AcuLY/BangumiStaffStats/internal/cache/collection"
-	"github.com/AcuLY/BangumiStaffStats/pkg/bangumi"
-	"github.com/AcuLY/BangumiStaffStats/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/pkg/model"
+	cache "github.com/AcuLY/BangumiStaffStats/backend/internal/cache/collection"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/bangumi"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 )
@@ -27,7 +27,7 @@ func GetUserCollections(ctx context.Context, userID string, subjectType int, col
 			CollectionType: collectionType,
 		}
 
-		g.Go(func() error {	
+		g.Go(func() error {
 			subjectsByPage, err := getUserCollectionsByType(ctx, cq)
 			if err != nil {
 				return err
@@ -79,7 +79,7 @@ func getUserCollectionsByType(ctx context.Context, cq bangumi.CollectionQuery) (
 	}()
 
 	return subjects, err
-} 
+}
 
 // parseBangumiResponse 将 Bangumi API 的响应体解析为 Subject 列表
 func parseBangumiResponse(collections []*bangumi.Collection) ([]*model.Subject, error) {

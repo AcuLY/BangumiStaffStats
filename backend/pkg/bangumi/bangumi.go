@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AcuLY/BangumiStaffStats/pkg/httpclient"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/httpclient"
 	"golang.org/x/sync/errgroup"
 )
 

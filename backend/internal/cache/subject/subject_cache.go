@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/AcuLY/BangumiStaffStats/config"
-	"github.com/AcuLY/BangumiStaffStats/internal/cache"
-	"github.com/AcuLY/BangumiStaffStats/pkg/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/config"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/cache"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 )
 
 // subjectKey 创建 Subject 对应的 Redis Key
@@ -18,7 +18,7 @@ func subjectKey(s *model.Subject) string {
 // GetSubject 从缓存填入 Subject 的完整信息
 func GetSubject(ctx context.Context, s *model.Subject) error {
 	key := subjectKey(s)
-	raw, err := cache.RDB.Get(ctx, key).Result()	
+	raw, err := cache.RDB.Get(ctx, key).Result()
 	if err != nil {
 		return err
 	}
@@ -26,7 +26,7 @@ func GetSubject(ctx context.Context, s *model.Subject) error {
 	if err = json.Unmarshal([]byte(raw), s); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 

@@ -9,12 +9,12 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/AcuLY/BangumiStaffStats/config"
+	"github.com/AcuLY/BangumiStaffStats/backend/config"
 )
 
 var (
-	limiter *rate.Limiter
-	client  *http.Client
+	limiter          *rate.Limiter
+	client           *http.Client
 	ErrNetworkFailed error = errors.New("network failed")
 )
 
@@ -49,7 +49,7 @@ func HTTPGet(ctx context.Context, baseURL string, params map[string][]string) (*
 		resp, err = client.Do(req)
 
 		// 等待并重试
-		if err != nil { 
+		if err != nil {
 			waitTime := config.HTTP.RetryWaitTime * (i + 1)
 			select {
 			case <-ctx.Done():

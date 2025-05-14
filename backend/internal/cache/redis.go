@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/AcuLY/BangumiStaffStats/config"
+	"github.com/AcuLY/BangumiStaffStats/backend/config"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -18,9 +18,9 @@ func Init() error {
 	}
 
 	RDB = redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf("%s:%d", config.Redis.Host, config.Redis.Port),
+		Addr:     fmt.Sprintf("%s:%d", config.Redis.Host, config.Redis.Port),
 		Password: config.Redis.Password,
-		DB: config.Redis.Db,
+		DB:       config.Redis.Db,
 	})
 
 	return nil

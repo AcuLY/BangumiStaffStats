@@ -1,0 +1,67 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bgmss-backend
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      - TZ=Asia/Shanghai
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=${MYSQL_PORT}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DB=${MYSQL_DATABASE}
+      - REDIS_ADDR=redis:${REDIS_PORT}
+    networks:
+      - bgmss
+    volumes:
+      - ./logs:/app/logs
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init-sql:/docker-entrypoint-initdb.d
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    ports:
+      - "${MYSQL_PORT}:3306"
+    networks:
+      - bgmss
+
+  redis:
+    image: redis:7.2
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 1024mb --maxmemory-policy allkeys-lru
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - redis-data:/data
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    ports:
+      - "${REDIS_PORT}:6379"
+    networks:
+      - bgmss
+
+volumes:
+  mysql-data:
+  redis-data:
+
+networks:
+  bgmss:

@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/AcuLY/BangumiStaffStats/config"
-	"github.com/AcuLY/BangumiStaffStats/internal/cache"
-	"github.com/AcuLY/BangumiStaffStats/pkg/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/config"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/cache"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 )
 
 // characterKey 创建 Character 对应的 Redis Key

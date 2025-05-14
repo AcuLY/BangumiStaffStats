@@ -6,9 +6,8 @@ import (
 	"sort"
 	"sync"
 
-	repository "github.com/AcuLY/BangumiStaffStats/internal/repository/subject"
-	"github.com/AcuLY/BangumiStaffStats/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/pkg/model"
+	repository "github.com/AcuLY/BangumiStaffStats/backend/internal/repository/subject"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -20,14 +19,16 @@ func GetGlobalSubjects(ctx context.Context, subjectType int) ([]*model.Subject, 
 }
 
 // LoadSubjects 加载给定条目的完整信息
-func LoadSubjects(ctx context.Context, subjects []*model.Subject) error {
+//
+// 由于某些条目已被删除，需要传入切片指针以过滤被删除的条目
+func LoadSubjects(ctx context.Context, subjects *[]*model.Subject) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 
 	g := new(errgroup.Group)
 
-	for _, subject := range subjects {
+	for _, subject := range *subjects {
 		g.Go(func() error {
 			if err := repository.FindSubject(ctx, subject); err != nil {
 				return nil
@@ -40,6 +41,16 @@ func LoadSubjects(ctx context.Context, subjects []*model.Subject) error {
 	if err := g.Wait(); err != nil {
 		return err
 	}
+
+	// 过滤掉已被删除的条目
+	validCount := 0
+	for _, s := range *subjects {
+		if s.Name != "" {
+			(*subjects)[validCount] = s
+			validCount++
+		}
+	}
+	*subjects = (*subjects)[:validCount]
 
 	return nil
 }
@@ -59,7 +70,6 @@ func getSeries(ctx context.Context, subjects []*model.Subject) (map[int][]*model
 		g.Go(func() error {
 			so, err := repository.FindSequelOrder(ctx, s)
 			if err != nil || so == nil {
-				logger.Warn("Sequel order not found.", logger.Field("subject_id", s.ID))
 				return nil
 			}
 
