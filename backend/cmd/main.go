@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"strings"
+	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/config"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/cache"
@@ -16,6 +17,12 @@ import (
 )
 
 func main() {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		log.Fatal("Failed to set local time: " + err.Error())
+	}
+	time.Local = loc
+	
 	if err := config.Init("./config.toml"); err != nil {
 		log.Fatal("Failed to init config: " + err.Error())
 	}

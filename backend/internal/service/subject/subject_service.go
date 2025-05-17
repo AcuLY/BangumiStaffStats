@@ -12,10 +12,8 @@ import (
 )
 
 // GetGlobalSubjects 获取指定类型的所有条目
-//
-// 目前仅返回收藏人数大于 50 的条目
-func GetGlobalSubjects(ctx context.Context, subjectType int) ([]*model.Subject, error) {
-	return repository.FindGlobalSubjectsByType(ctx, subjectType)
+func GetGlobalSubjects(ctx context.Context, subjectType int, favoriteRange []int) ([]*model.Subject, error) {
+	return repository.FindGlobalSubjectsByType(ctx, subjectType, favoriteRange)
 }
 
 // LoadSubjects 加载给定条目的完整信息

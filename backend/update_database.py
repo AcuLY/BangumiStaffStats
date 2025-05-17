@@ -6,7 +6,13 @@ import argparse
 import toml
 
 
-JSONLINES_FILE_PATH = "../backend/jsonlines/"
+JSONLINES_FILE_PATH = "./jsonlines/"
+
+
+def chunked(iterable, size):
+        """生成器：将列表按 batch_size 分批"""
+        for i in range(0, len(iterable), size):
+            yield iterable[i : i + size]
 
 
 def load_subjects(cursor, batch_size=1000):
@@ -15,11 +21,6 @@ def load_subjects(cursor, batch_size=1000):
     # 加载并解析全部 JSON 数据
     with open(JSONLINES_FILE_PATH + "subject.jsonlines", "r", encoding="utf-8") as f:
         lines = [json.loads(line) for line in f if line.strip()]
-
-    def chunked(iterable, size):
-        """生成器：将列表按 batch_size 分批"""
-        for i in range(0, len(iterable), size):
-            yield iterable[i : i + size]
 
     total = len(lines)
     print(f"共需导入 {total} 条记录，批大小：{batch_size}")
@@ -106,10 +107,6 @@ def load_people(cursor, batch_size=1000):
     with open(JSONLINES_FILE_PATH + "person.jsonlines", "r", encoding="utf-8") as f:
         lines = [json.loads(line) for line in f if line.strip()]
 
-    def chunked(iterable, size):
-        for i in range(0, len(iterable), size):
-            yield iterable[i : i + size]
-
     total = len(lines)
     print(f"共需导入 {total} 条 people，批大小：{batch_size}")
 
@@ -137,10 +134,6 @@ def load_characters(cursor, batch_size=1000):
 
     with open(JSONLINES_FILE_PATH + "character.jsonlines", "r", encoding="utf-8") as f:
         lines = [json.loads(line) for line in f if line.strip()]
-
-    def chunked(iterable, size):
-        for i in range(0, len(iterable), size):
-            yield iterable[i : i + size]
 
     total = len(lines)
     print(f"共需导入 {total} 条 characters，批大小：{batch_size}")
@@ -231,10 +224,6 @@ def load_subject_person(cursor, batch_size=1000):
         for pid, position in person_list
     ]
 
-    def chunked(iterable, size):
-        for i in range(0, len(iterable), size):
-            yield iterable[i : i + size]
-
     total = len(data)
     print(f"共需导入 {total} 条 subject-person 关系，批大小：{batch_size}")
 
@@ -292,10 +281,6 @@ def load_person_character(cursor, batch_size=1000):
 
         role = subject_character_to_role[key]
         data.append((item["person_id"], item["subject_id"], item["character_id"], role))
-
-    def chunked(iterable, size):
-        for i in range(0, len(iterable), size):
-            yield iterable[i : i + size]
 
     total = len(data)
     print(f"共需导入 {total} 条 person-character 数据，批大小：{batch_size}")
@@ -464,10 +449,6 @@ def load_sequel_orders(cursor, batch_size=1000):
         for subject_id, (series_id, order) in enumerate(sequel_orders)
         if subject_id in subject_types_and_dates
     ]
-
-    def chunked(iterable, size):
-        for i in range(0, len(iterable), size):
-            yield iterable[i:i + size]
 
     total = len(data)
     print(f"共需导入 {total} 条 sequel_orders 数据，批大小：{batch_size}")

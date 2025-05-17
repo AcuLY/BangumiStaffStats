@@ -15,8 +15,8 @@ import (
 // timeSliceWriter 可以按月份对日志进行分片。
 type TimeSlicingWriter struct {
 	mu sync.Mutex
-	// 正在写入的月份
-	month string
+	// 正在写入的日期
+	date string
 	// 文件对象指针
 	file *os.File
 	// 日志文件路径
@@ -28,20 +28,20 @@ func (w *TimeSlicingWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	currentMonth := time.Now().Format("2006-01")
-	if w.file == nil || currentMonth != w.month {
+	currentDate := time.Now().Format("2006-01-02")
+	if w.file == nil || currentDate != w.date {
 		if w.file != nil {
 			w.file.Close()
 		}
 
-		filePath := w.LogPath + currentMonth + ".log"
+		filePath := w.LogPath + currentDate + ".log"
 		file, err := os.OpenFile(filePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			fmt.Println("log write error: " + err.Error())
 			return 0, err
 		}
 		w.file = file
-		w.month = currentMonth
+		w.date = currentDate
 	}
 
 	return w.file.Write(p)

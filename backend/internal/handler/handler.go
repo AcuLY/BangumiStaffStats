@@ -39,7 +39,13 @@ func GetStatistics(c *gin.Context) {
 		return
 	}
 
-	logger.Info("Success.", logger.Field("request", req), logger.Field("time cost", time.Since(begin)), logger.Field("summary count", len(resp.PeopleSummary)))
+	logger.Info(
+		"Success.", 
+		logger.Field("request", req), 
+		logger.Field("time cost", time.Since(begin)), 
+		logger.Field("summary count", len(resp.PeopleSummary)), 
+		logger.Field("subject count", resp.SubjectCount),
+	)
 
 	c.JSON(200, resp)
 }

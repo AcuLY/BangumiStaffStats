@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: bgmss-backend
+    image: bgmss-backend:latest
     restart: unless-stopped
     ports:
       - "${APP_PORT}:${APP_PORT}"
@@ -22,6 +22,7 @@ services:
       - bgmss
     volumes:
       - ./logs:/app/logs
+      - ./config.toml:/app/config.toml
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
 

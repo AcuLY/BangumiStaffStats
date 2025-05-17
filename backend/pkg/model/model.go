@@ -47,6 +47,8 @@ type Subject struct {
 	GlobalRate float32 `gorm:"column:subject_rate"` // 不应该直接访问
 	// 用户对该条目的评分
 	UserRate *float32 `gorm:"-" json:"-"`
+	// 条目的收藏量
+	Favorite int `gorm:"column:subject_favorite"`
 	// 条目的标签
 	Tags StringSlice `gorm:"column:subject_tags"`
 	// 条目封面的 URL
@@ -147,6 +149,10 @@ type Request struct {
 	CollectionTypes []int `json:"collection_types" binding:"required"`
 	// 限定标签
 	Tags []string `json:"tags"`
+	// 分数范围
+	RateRange []float32 `json:"rate_range" binding:"required"`
+	// 收藏人数范围
+	FavoriteRange []int `json:"favorite_range" binding:"required"`
 }
 
 // Response 封装应用的响应字段

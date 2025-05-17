@@ -62,14 +62,12 @@ func FindSequelOrder(ctx context.Context, s *model.Subject) (*model.SequelOrder,
 }
 
 // FindGlobalSubjectsByType 从数据库获取所有指定类型的条目
-//
-// 仅返回收藏人数大于 50 的条目
-func FindGlobalSubjectsByType(ctx context.Context, subjectType int) ([]*model.Subject, error) {
+func FindGlobalSubjectsByType(ctx context.Context, subjectType int, favoriteRange []int) ([]*model.Subject, error) {
 	repository.Semaphore <- struct{}{}
 	defer func() { <-repository.Semaphore }()
 
 	var subjects []*model.Subject
-	err := repository.DB.WithContext(ctx).Where("subject_type = ? AND subject_favorite > 50", subjectType).Find(&subjects).Error
+	err := repository.DB.WithContext(ctx).Where("subject_type = ? AND subject_favorite >= ? AND subject_favorite <= ?", subjectType, favoriteRange[0], favoriteRange[1]).Find(&subjects).Error
 	if err != nil {
 		return nil, err
 	}

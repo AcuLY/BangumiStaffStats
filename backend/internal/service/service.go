@@ -14,6 +14,7 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/constants"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/rateutil"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/tagutil"
 )
 
@@ -29,7 +30,7 @@ func Statistics(ctx context.Context, r *model.Request) (*model.Response, error) 
 
 	// 获取条目 ID 列表
 	if r.UserID == "0" { // 查询全站数据
-		subjects, err = subjectsvc.GetGlobalSubjects(ctx, r.SubjectType)
+		subjects, err = subjectsvc.GetGlobalSubjects(ctx, r.SubjectType, r.FavoriteRange)
 	} else { // 查询用户收藏
 		subjects, err = collectionsvc.GetUserCollections(ctx, r.UserID, r.SubjectType, r.CollectionTypes)
 	}
@@ -48,6 +49,19 @@ func Statistics(ctx context.Context, r *model.Request) (*model.Response, error) 
 	// 根据标签筛选条目
 	tags := tagutil.ParseTags(r.Tags)
 	tagutil.FilterSubjectsByTags(&subjects, tags)
+
+	// 根据分数范围筛选条目
+	if err := rateutil.FilterSubjectsByRates(&subjects, r.RateRange); err != nil {
+		return nil, err
+	}
+
+	// 根据人数范围筛选条目
+	if r.FavoriteRange[1] == 20000 {
+		r.FavoriteRange[1] = 100000 	// 上限设为 20000 时包含大于 20000 的条目
+	}
+	if err := rateutil.FilterSubjectsByPopularity(&subjects, r.FavoriteRange); err != nil {
+		return nil, err
+	}
 
 	// 标注条目的续作信息
 	err = subjectsvc.MarkSequelOrders(ctx, subjects)
