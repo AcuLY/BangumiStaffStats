@@ -1,0 +1,7 @@
+jsonlines/
+.venv/
+.rubbish/
+logs/
+*.tar
+.git
+db.sql
