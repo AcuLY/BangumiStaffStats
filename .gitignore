@@ -1,0 +1,7 @@
+/backend/.env
+/backend/config.toml
+/backend/logs
+/backend/__pycache__
+/backend/static
+/frontend/node_modules
+TODO

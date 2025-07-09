@@ -8,8 +8,10 @@ services:
     ports:
       - "${APP_PORT}:${APP_PORT}"
     depends_on:
-      - mysql
-      - redis
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - TZ=Asia/Shanghai
       - MYSQL_HOST=mysql
@@ -26,6 +28,21 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
 
+  loader:
+    build:
+      context: .
+      dockerfile: Dockerfile.loader
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+    volumes:
+      - ./static:/static
+    networks:
+      - bgmss
+
   mysql:
     image: mysql:8.0
     restart: unless-stopped
@@ -35,6 +52,11 @@ services:
       - MYSQL_DATABASE=${MYSQL_DATABASE}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "mysql --user=$$MYSQL_USER --password=$$MYSQL_PASSWORD --database=$$MYSQL_DATABASE -e 'SELECT 1;'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     volumes:
       - mysql-data:/var/lib/mysql
       - ./init-sql:/docker-entrypoint-initdb.d
@@ -49,6 +71,11 @@ services:
     image: redis:7.2
     restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory 1024mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     environment:
       - TZ=Asia/Shanghai
     volumes:
@@ -65,4 +92,4 @@ volumes:
   redis-data:
 
 networks:
-  bgmss:
+  bgmss: {}

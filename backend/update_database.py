@@ -1,43 +1,49 @@
 from collections import defaultdict
 import json
 import pymysql
-from tqdm import tqdm
+from tqdm_loggable.auto import tqdm 
 import argparse
 import toml
+import time
+from more_itertools import chunked
 
 
-JSONLINES_FILE_PATH = "./jsonlines/"
-
-
-def chunked(iterable, size):
-        """生成器：将列表按 batch_size 分批"""
-        for i in range(0, len(iterable), size):
-            yield iterable[i : i + size]
+JSONLINES_FILE_PATH = "./static/"
 
 
 def load_subjects(cursor, batch_size=1000):
     print("开始加载 subjects")
 
-    # 加载并解析全部 JSON 数据
-    with open(JSONLINES_FILE_PATH + "subject.jsonlines", "r", encoding="utf-8") as f:
-        lines = [json.loads(line) for line in f if line.strip()]
+    def generate_lines():
+        with open(JSONLINES_FILE_PATH + "subject.jsonlines", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    yield json.loads(line)
 
-    total = len(lines)
+    total = sum(1 for _ in open(JSONLINES_FILE_PATH + "subject.jsonlines", "r", encoding="utf-8"))
     print(f"共需导入 {total} 条记录，批大小：{batch_size}")
+    
+    cursor.execute("SELECT COUNT(*) FROM subjects")
+    existing_count = cursor.fetchone()[0]
+    print(f"subjects 表中已有 {existing_count} 条记录")
 
-    for _, batch in enumerate(
-        tqdm(
-            chunked(lines, batch_size),
-            total=(total + batch_size - 1) // batch_size,
-            desc="写入 subjects",
-            ncols=80,
-        )
+    if existing_count == total:
+        print("subjects 数据已是最新，无需更新")
+        return
+
+    # 分批写入
+    for batch in tqdm(
+        chunked(generate_lines(), batch_size),
+        total=(total + batch_size - 1) // batch_size,
+        desc="写入 subjects",
+        ncols=80,
     ):
         values = []
         for item in batch:
             subject_id = str(item["id"])
             tags_json = json.dumps(
-                [tag["name"] for tag in item["tags"]], ensure_ascii=False
+                [tag["name"] for tag in item["tags"]],
+                ensure_ascii=False,
             )
             image = f"https://api.bgm.tv/v0/subjects/{subject_id}/image?type=grid"
 
@@ -50,14 +56,15 @@ def load_subjects(cursor, batch_size=1000):
                     item["type"],
                     sum(item["favorite"].values()),
                     tags_json,
+                    item["date"] if item["date"] else None,
                     image,
                 )
             )
 
         cursor.executemany(
             "INSERT INTO subjects "
-            "(subject_id, subject_name, subject_name_cn, subject_rate, subject_type, subject_favorite, subject_tags, subject_image) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
+            "(subject_id, subject_name, subject_name_cn, subject_rate, subject_type, subject_favorite, subject_tags, subject_date, subject_image) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON DUPLICATE KEY UPDATE "
             "subject_name=VALUES(subject_name), "
             "subject_name_cn=VALUES(subject_name_cn), "
@@ -65,6 +72,7 @@ def load_subjects(cursor, batch_size=1000):
             "subject_type=VALUES(subject_type), "
             "subject_favorite=VALUES(subject_favorite), "
             "subject_tags=VALUES(subject_tags), "
+            "subject_date=VALUES(subject_date), "
             "subject_image=VALUES(subject_image)",
             values,
         )
@@ -109,7 +117,15 @@ def load_people(cursor, batch_size=1000):
 
     total = len(lines)
     print(f"共需导入 {total} 条 people，批大小：{batch_size}")
-
+    
+    cursor.execute("SELECT COUNT(*) FROM people")
+    existing_count = cursor.fetchone()[0]
+    print(f'people 表中已有 {existing_count} 条记录')
+    
+    if existing_count == total:
+        print("people 数据已是最新，无需更新")
+        return
+    
     for batch in tqdm(
         chunked(lines, batch_size),
         total=(total + batch_size - 1) // batch_size,
@@ -137,6 +153,14 @@ def load_characters(cursor, batch_size=1000):
 
     total = len(lines)
     print(f"共需导入 {total} 条 characters，批大小：{batch_size}")
+    
+    cursor.execute("SELECT COUNT(*) FROM characters")
+    existing_count = cursor.fetchone()[0]
+    print(f'characters 表中已有 {existing_count} 条记录')
+    
+    if existing_count == total:
+        print("characters 数据已是最新，无需更新")
+        return
 
     for batch in tqdm(
         chunked(lines, batch_size),
@@ -226,6 +250,14 @@ def load_subject_person(cursor, batch_size=1000):
 
     total = len(data)
     print(f"共需导入 {total} 条 subject-person 关系，批大小：{batch_size}")
+    
+    cursor.execute("SELECT COUNT(*) FROM subject_person")
+    existing_count = cursor.fetchone()[0]
+    print(f'subject_person 表中已有 {existing_count} 条记录')
+    
+    if existing_count == total:
+        print("subject_person 数据已是最新，无需更新")
+        return
 
     for batch in tqdm(
         chunked(data, batch_size),
@@ -284,6 +316,15 @@ def load_person_character(cursor, batch_size=1000):
 
     total = len(data)
     print(f"共需导入 {total} 条 person-character 数据，批大小：{batch_size}")
+    
+    cursor.execute("SELECT COUNT(*) FROM person_character")
+    existing_count = cursor.fetchone()[0]
+    print(f'person_character 表中已有 {existing_count} 条记录')
+    
+    if existing_count == total:
+        print("person-character 数据已是最新，无需更新")
+        return
+    
 
     for batch in tqdm(
         chunked(data, batch_size),
@@ -452,6 +493,14 @@ def load_sequel_orders(cursor, batch_size=1000):
 
     total = len(data)
     print(f"共需导入 {total} 条 sequel_orders 数据，批大小：{batch_size}")
+    
+    cursor.execute("SELECT COUNT(*) FROM sequel_orders")
+    existing_count = cursor.fetchone()[0]
+    print(f'sequel_orders 表中已有 {existing_count} 条记录')
+    
+    if existing_count == total:
+        print("sequel_orders 数据已是最新，无需更新")
+        return
 
     for batch in tqdm(chunked(data, batch_size), total=(total + batch_size - 1) // batch_size, desc="写入 sequel_orders", ncols=80):
         cursor.executemany(
@@ -465,7 +514,19 @@ def load_sequel_orders(cursor, batch_size=1000):
     print("加载 sequel_orders 完毕")
 
 
+def need_update(cursor):
+    """ 用 person.jsonlines （体积较小且逻辑简单）中的条目数来判断是否需要更新数据库 """
+    cursor.execute("SELECT COUNT(*) FROM people")
+    existing_count = cursor.fetchone()[0]
+    with open(JSONLINES_FILE_PATH + "person.jsonlines", "r", encoding="utf-8") as f:
+        total_count = sum(1 for _ in f if _.strip())
+    print(f"数据库中 people 条目数：{existing_count}, jsonlines 中 people 条目数：{total_count}")
+    return existing_count != total_count
+
+
 def main():
+    print("开始更新数据库")
+    
     parser = argparse.ArgumentParser(description="Bangumi 数据导入脚本")
     parser.add_argument("--subject", action="store_true")
     parser.add_argument("--person", action="store_true")
@@ -485,7 +546,20 @@ def main():
         "db": raw_db_cfg["databaseName"],
         "charset": "utf8mb4",
     }
-    conn = pymysql.connect(**db_config)
+    
+    for i in range(10):
+        try:
+            conn = pymysql.connect(**db_config)
+            break
+        except pymysql.OperationalError as e:
+            if i < 9:
+                print(f"连接数据库失败，重试 {i + 1}/10")
+                time.sleep(3)
+            else:
+                print("连接数据库失败，请检查配置")
+                raise e
+
+    print("连接数据库成功")
     cursor = conn.cursor()
 
     raw_http_config = toml.load("./config.toml")["http"]
@@ -494,6 +568,14 @@ def main():
         "User-Agent": raw_http_config["userAgent"],
         "Authorization": f"Bearer {raw_http_config['accessToken']}",
     }
+    
+    if not need_update(cursor):
+        print("数据库已是最新，无需更新")
+        cursor.close()
+        conn.close()
+        return
+    else:
+        print("检测到数据库需要更新")
 
     try:
         if args.all or args.subject:

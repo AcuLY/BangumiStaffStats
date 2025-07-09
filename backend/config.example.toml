@@ -13,7 +13,7 @@ rateLimit = 5
 burst = 10 
 
 [mysql]
-host = "localhost"
+host = "mysql"
 port = 3306
 user = "bgmss"
 password = "YOUR_PASSWORD"
@@ -21,7 +21,7 @@ databaseName = "bgmss"
 maxConnection = 10
 
 [redis]
-host = "localhost"
+host = "redis"
 port = 6379
 password = ""
 db = 0
