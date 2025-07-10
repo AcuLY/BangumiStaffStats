@@ -2,7 +2,7 @@
     <div class="input-wrapper">
         <n-flex class="input" justify="center">
             <n-flex justify="center">
-                <n-flex vertical :size="5">
+                <n-flex class="option" vertical :size="5">
                     <h3 style="margin: 0; transform: translateX(10px);">Bangumi 用户 ID
                         <n-tooltip>
                             <template #trigger>
@@ -21,39 +21,19 @@
                         :disabled="isGlobalStats" />
                 </n-flex>
 
-                <n-flex vertical :size="5">
-                    <div style="display: flex; align-items: center;">
-                        <h3 style="margin: 0; transform: translateX(10px);">数据来源</h3>
-                        <n-tooltip trigger="hover">
-                            <template #trigger>
-                                <img src="/info.png" style="width: 20px;" :style="{ marginLeft: '14px' }">
-                            </template>
-                            查询全站使用 Bangumi 全站的条目和分数
-                        </n-tooltip>
-                    </div>
-                    <n-radio-group v-model:value="isGlobalStats" size="large"
-                        style="width: 300px; margin-left: 10px; margin-right: 10px;">
-                        <n-space justify="space-between">
-                            <n-radio v-for="src in statsSources" :key="src.value" :value="src.value" id="stats-source">
-                                {{ src.label }}
-                            </n-radio>
-                        </n-space>
-                    </n-radio-group>
-                </n-flex>
-
-                <n-flex vertical :size="5">
+                <n-flex class="option" vertical :size="5">
                     <h3 style="margin: 0; transform: translateX(10px);">条目类型</h3>
                     <n-select id="subject-type" v-model:value="subjectType" :options="subjectTypeOptions"
                         placeholder="请选择条目类型" clearable />
                 </n-flex>
 
-                <n-flex vertical :size="5">
+                <n-flex class="option" vertical :size="5">
                     <h3 style="margin: 0; transform: translateX(10px);">职位</h3>
                     <n-select id="position" v-model:value="position" :options="positionOptions[subjectType]"
                         placeholder="请选择职位" clearable />
                 </n-flex>
 
-                <n-flex vertical :size="5">
+                <n-flex class="option" vertical :size="5">
                     <h3 style="margin: 0; transform: translateX(10px);">收藏类型</h3>
                     <n-checkbox-group v-model:value="collectionTypes" id="collection-type" :disabled="isGlobalStats">
                         <n-space item-style="display: flex;">
@@ -65,43 +45,93 @@
                     </n-checkbox-group>
                 </n-flex>
 
-                <n-flex vertical :size="5">
+                <n-flex class="option" vertical :size="5" v-show="enableIsGlobalStats">
                     <div style="display: flex; align-items: center;">
-                        <h3 style="margin: 0; transform: translateX(10px);">条目标签</h3>
+                        <h3 style="margin: 0; transform: translateX(10px);">数据来源</h3>
+                        <n-tooltip trigger="hover">
+                            <template #trigger>
+                                <img src="/info.png" style="width: 20px;" :style="{ marginLeft: '14px' }">
+                            </template>
+                            查询全站使用 Bangumi 全站的条目和分数
+                        </n-tooltip>
+                    </div>
+                    <n-radio-group v-model:value="isGlobalStats" size="large"
+                        style="width: 300px; margin-left: 10px; margin-right: 10px; ">
+                        <n-space justify="space-between">
+                            <n-radio v-for="src in statsSources" :key="src.value" :value="src.value" id="stats-source">
+                                {{ src.label }}
+                            </n-radio>
+                        </n-space>
+                    </n-radio-group>
+                </n-flex>
+
+                <n-flex class="option" vertical :size="5" v-show="enableDateRange">
+                    <div style="display: flex; align-items: center;">
+                        <h3 style="margin: 0; transform: translateX(10px);">日期范围</h3>
+                    </div>
+                    <n-date-picker class="date-picker" v-model:value="dateRange" update-value-on-close type="monthrange"
+                        clearable :actions="null" />
+                </n-flex>
+
+                <n-flex class="option" vertical :size="5" v-show="enableRateRange">
+                    <n-flex justify="space-between">
+                        <h3 style="margin: 0; transform: translateX(10px);">分数范围</h3>
+                    </n-flex>
+                    <n-flex class="input-number-wrapper" justify="space-between">
+                        <n-input-number class="input-number" v-model:value="minRate" :step="0.5" :max="10" :min="0"
+                            button-placement="both" />
+                        <span style="font-size: large;">~</span>
+                        <n-input-number class="input-number" v-model:value="maxRate" :step="0.5" :max="10" :min="0"
+                            button-placement="both" />
+                    </n-flex>
+                </n-flex>
+
+                <n-flex class="option" vertical :size="5" v-show="enableFavoriteRange">
+                    <div style="display: flex; align-items: center;">
+                        <h3 style="margin: 0; transform: translateX(10px);">收藏人数范围</h3>
+                    </div>
+                    <n-flex class="input-number-wrapper" justify="space-between">
+                        <n-input-number class="input-number" v-model:value="minFavorite" :step="100" :min="0"
+                            button-placement="both" />
+                        <span style="font-size: large;">~</span>
+                        <n-input-number class="input-number" v-model:value="maxFavorite" :step="100" :min="0"
+                            button-placement="both" />
+                    </n-flex>
+                </n-flex>
+
+                <n-flex class="option" vertical :size="5" v-show="enablePositiveTags">
+                    <div style="display: flex; align-items: center;">
+                        <h3 style="margin: 0; transform: translateX(10px);">正向标签</h3>
                         <n-tooltip trigger="hover">
                             <template #trigger>
                                 <img src="/info.png" style="width: 20px;" :style="{ marginLeft: '14px' }">
                             </template>
                             在单个标签里添加 "/" 可以表示“或”，<br>
-                            在年份间添加 "-" 可以表示时间范围，<br>
-                            即"2022-2024"与"2022/2023/2024"等价。<br>
-                            例：2023-2025, 原创/漫画改, 百合 <br>
-                            以上三个标签表示“最近三年的原创或漫画改的百合作品”。
+                            例："原创/漫画改, 百合" <br>
+                            以上两个标签表示“有百合标签的原创或漫画改作品”。
                         </n-tooltip>
                     </div>
-                    <n-dynamic-tags v-model:value="tags" id="tags" round
+                    <n-dynamic-tags v-model:value="positiveTags" id="tags" round
                         :color="{ borderColor: '#FF1493', textColor: '#FF1493' }" />
                 </n-flex>
 
-                <n-flex vertical :size="5">
-                    <n-flex justify="space-between">
-                        <h3 style="margin: 0; transform: translateX(10px);">分数范围</h3>
-                    </n-flex>
-                    <n-slider class="slider" v-model:value="rateRange" range :step="isGlobalStats ? 0.1 : 1" :max="10"
-                        :min="0" />
+                <n-flex class="option" vertical :size="5" v-show="enableNegativeTags">
+                    <div style="display: flex; align-items: center;">
+                        <h3 style="margin: 0; transform: translateX(10px);">反向标签</h3>
+                    </div>
+                    <n-dynamic-tags v-model:value="negativeTags" id="tags" round
+                        :color="{ borderColor: '#FF1493', textColor: '#FF1493' }" />
                 </n-flex>
 
-                <n-flex vertical :size="5">
-                    <div style="display: flex; align-items: center;">
-                        <h3 style="margin: 0; transform: translateX(10px);">收藏人数范围</h3>
-                        <n-tooltip trigger="hover">
-                            <template #trigger>
-                                <img src="/info.png" style="width: 20px;" :style="{ marginLeft: '14px' }">
-                            </template>
-                            上限设为 20000 时包含大于 20000 的条目
-                        </n-tooltip>
-                    </div>
-                    <n-slider class="slider" v-model:value="favoriteRange" range :step="100" :max="20000" :min="0" />
+                <n-flex class="option" style="height: 84px; border: dashed 1px #ff149173;" vertical :size="5" justify="center">
+                    <n-flex id="option-setting">
+                        <n-checkbox v-model:checked="enableIsGlobalStats">数据来源</n-checkbox>
+                        <n-checkbox v-model:checked="enableDateRange">日期范围</n-checkbox>
+                        <n-checkbox v-model:checked="enableRateRange">分数范围</n-checkbox>
+                        <n-checkbox v-model:checked="enableFavoriteRange">收藏人数</n-checkbox>
+                        <n-checkbox v-model:checked="enablePositiveTags">正向标签</n-checkbox>
+                        <n-checkbox v-model:checked="enableNegativeTags">反向标签</n-checkbox>
+                    </n-flex>
                 </n-flex>
 
             </n-flex>
@@ -121,17 +151,25 @@
     <n-divider style="margin-bottom: 14px;">
         <n-flex justify="center" style="width: 70vw;" v-show="userIdSave !== ''">
             <h2 class="divider-text" v-show="userIdSave !== ''">当前用户：<span style="color: #FF1493;">{{ userIdSave
-                    }}</span>
+            }}</span>
             </h2>
             <h2 class="divider-text" v-show="subjectTypeLabel !== ''">条目类型：<span style="color: #FF1493;">{{
                 subjectTypeLabel
                     }}</span></h2>
             <h2 class="divider-text" v-show="positionSave !== null">当前职位：<span style="color: #FF1493;">{{ positionLabel
-                    }}</span></h2>
+            }}</span></h2>
             <h2 class="divider-text" v-show="collectionTypesSave !== null && userIdSave !== '全站数据'">收藏类型：<span
                     style="color: #FF1493;">{{ collectionTypesLabels }}</span></h2>
-            <h2 class="divider-text" v-show="tagsSave.length !== 0">当前标签：<span style="color: #FF1493;">{{
-                tagsSave.join('、')
+            <h2 class="divider-text" v-show="dateRangeLabel">日期范围：<span style="color: #FF1493;">{{ dateRangeLabel
+            }}</span></h2>
+            <h2 class="divider-text" v-show="rateRangeLabel">分数范围：<span style="color: #FF1493;">{{ rateRangeLabel
+            }}</span></h2>
+            <h2 class="divider-text" v-show="favoriteRangeLabel">收藏人数范围：<span style="color: #FF1493;">{{
+                favoriteRangeLabel
+                    }}</span></h2>
+            <h2 class="divider-text" v-show="positiveTagsLabel">正向标签：<span style="color: #FF1493;">{{ positiveTagsLabel
+                    }}</span></h2>
+            <h2 class="divider-text" v-show="negativeTagsLabel">反向标签：<span style="color: #FF1493;">{{ negativeTagsLabel
                     }}</span></h2>
         </n-flex>
     </n-divider>
@@ -141,7 +179,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import axios from 'axios';
 import { useStore } from 'vuex';
-import { useNotification } from 'naive-ui';
+import { timePickerDark, useNotification } from 'naive-ui';
 import { subjectTypeOptions, positionOptions } from '@/constants/options.js';
 
 const store = useStore();
@@ -158,9 +196,23 @@ const userId = ref(`${import.meta.env.VITE_API_USERID}`);
 const subjectType = ref(2)
 const position = ref(null);
 const collectionTypes = ref([2]);
-const tags = ref([])
-const rateRange = ref([0, 10])
-const favoriteRange = ref([0, 60000])
+const isGlobalStats = ref(false);
+const statsSources = [{ label: '当前用户', value: false }, { label: 'Bangumi 全站', value: true }]
+const positiveTags = ref([])
+const negativeTags = ref(["R18"])
+const dateRange = ref(null)
+const minRate = ref(null)
+const maxRate = ref(null)
+const minFavorite = ref(null)
+const maxFavorite = ref(null)
+
+// 开启选项
+const enableIsGlobalStats = ref(false);
+const enableDateRange = ref(false);
+const enableRateRange = ref(false);
+const enableFavoriteRange = ref(false);
+const enablePositiveTags = ref(false);
+const enableNegativeTags = ref(false);
 
 const actionName = computed(() => {
     if (subjectType.value == 3) {
@@ -171,9 +223,6 @@ const actionName = computed(() => {
     }
     return '看';
 })
-// 是否查全站数据
-const isGlobalStats = ref(false);
-const statsSources = [{ label: '当前用户', value: false }, { label: 'Bangumi 全站', value: true }]
 
 // 如果是从主页跳转则提取 userId
 onMounted(() => {
@@ -240,7 +289,90 @@ const collectionTypesLabels = computed(() => {
     }
     return results;
 });
-const tagsSave = ref([]);
+
+const timestampToMonth = (timestamp) => {
+    const date = new Date(timestamp);
+    return `${date.getFullYear()} 年 ${String(date.getMonth() + 1).padStart(2, '0')} 月`;
+};
+const timestampToIsoString = (timestamp) => {
+    const date = new Date(timestamp);
+    return date.toISOString();
+};
+const DEFAULT_DATE_RANGE = [-631180800000, new Date()];
+const calcDateRangeValue = () => {
+    if (!enableDateRange.value || !dateRange.value) {
+        return [];
+    }
+    const begin = dateRange.value[0] ? dateRange.value[0] : DEFAULT_DATE_RANGE[0];
+    const end = dateRange.value[1] ? dateRange.value[1] : DEFAULT_DATE_RANGE[1];
+    return [timestampToIsoString(begin), timestampToIsoString(end)];
+}
+const calcDateRangeLabel = () => {
+    if (!enableDateRange.value) {
+        return '';
+    }
+    if (!dateRange.value || dateRange.value.length === 0) {
+        return timestampToMonth(DEFAULT_DATE_RANGE[0]) + ' ~ ' + timestampToMonth(DEFAULT_DATE_RANGE[1]);
+    }
+    const start = dateRange.value[0] ? timestampToMonth(dateRange.value[0]) : timestampToMonth(DEFAULT_DATE_RANGE[0]);
+    const end = dateRange.value[1] ? timestampToMonth(dateRange.value[1]) : timestampToMonth(DEFAULT_DATE_RANGE[1]);
+    return `${start} ~ ${end}`;
+};
+const dateRangeLabel = ref('');
+
+const calcRateRangeValue = () => {
+    if (!enableRateRange.value) {
+        return [];
+    }
+    const min = minRate.value ? minRate.value : 0;
+    const max = maxRate.value ? maxRate.value : 10;
+    return [min, max];
+};
+const calcRateRangeLabel = () => {
+    if (!enableRateRange.value) {
+        return '';
+    }
+    const min = minRate.value ? minRate.value : 0;
+    const max = maxRate.value ? maxRate.value : 10;
+    return `${min} ~ ${max}`;
+};
+const rateRangeLabel = ref('');
+
+const calcFavoriteRangeValue = () => {
+    if (!enableFavoriteRange.value) {
+        return [];
+    }
+    const min = minFavorite.value ? minFavorite.value : 0;
+    const max = maxFavorite.value ? maxFavorite.value : 100000;
+    return [min, max];
+};
+const calcFavoriteRangeLabel = () => {
+    if (!enableFavoriteRange.value) {
+        return '';
+    }
+    const min = minFavorite.value ? minFavorite.value : 0;
+    const max = maxFavorite.value ? maxFavorite.value : 100000;
+    return `${min} ~ ${max}`;
+};
+const favoriteRangeLabel = ref('');
+
+const calcPositiveTagsValue = () => { return enablePositiveTags.value ? positiveTags.value : [] };
+const calcPositiveTagsLabel = () => {
+    if (!enablePositiveTags.value) {
+        return ''
+    }
+    return positiveTags.value.join('、');
+};
+const positiveTagsLabel = ref('');
+
+const calcNegativeTagsValue = () => { return enableNegativeTags.value ? negativeTags.value : [] };
+const calcNegativeTagsLabel = () => {
+    if (!enableNegativeTags.value) {
+        return ''
+    }
+    return negativeTags.value.join('、');
+};
+const negativeTagsLabel = ref('');
 
 
 // 抓取数据并更新到 store
@@ -281,9 +413,11 @@ const fetch_statistics = async () => {
         subject_type: subjectType.value,
         position: position.value,
         collection_types: collectionTypes.value,
-        tags: tags.value,
-        rate_range: rateRange.value,
-        favorite_range: favoriteRange.value
+        date_range: calcDateRangeValue(),
+        rate_range: calcRateRangeValue(),
+        favorite_range: calcFavoriteRangeValue(),
+        positive_tags: calcPositiveTagsValue(),
+        negative_tags: calcNegativeTagsValue()
     }
     // 终止查询
     abortController.value = new AbortController();
@@ -292,7 +426,11 @@ const fetch_statistics = async () => {
     subjectTypeSave.value = subjectType.value;
     positionSave.value = position.value;
     collectionTypesSave.value = collectionTypes.value;
-    tagsSave.value = tags.value;
+    dateRangeLabel.value = calcDateRangeLabel();
+    rateRangeLabel.value = calcRateRangeLabel();
+    favoriteRangeLabel.value = calcFavoriteRangeLabel();
+    positiveTagsLabel.value = calcPositiveTagsLabel();
+    negativeTagsLabel.value = calcNegativeTagsLabel();
     // 开始加载
     store.dispatch('setLoadingStatus');
     // 调用并接受返回值
@@ -355,6 +493,13 @@ const cancelRequest = () => {
     width: 90vw;
 }
 
+.option {
+    border: solid 1px #ff149173;
+    border-radius: 8px;
+    padding: 6px 0 12px 0;
+    box-sizing: border-box;
+}
+
 #user-name {
     width: 300px;
     height: 35px;
@@ -392,7 +537,23 @@ const cancelRequest = () => {
     transform: translateY(4px);
 }
 
-.slider {
+.date-picker {
+    width: 300px;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.input-number-wrapper {
+    width: 300px;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.input-number {
+    width: 120px;
+}
+
+#option-setting {
     width: 300px;
     margin-left: 10px;
     margin-right: 10px;

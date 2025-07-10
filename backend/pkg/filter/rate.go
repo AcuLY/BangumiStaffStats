@@ -1,7 +1,6 @@
-package rateutil
+package filter
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
@@ -9,7 +8,7 @@ import (
 
 func FilterSubjectsByRates(subjects *[]*model.Subject, rateRange []float32) error {
 	if len(rateRange) != 2 {
-		return errors.New(fmt.Sprintf("invalid rate range size: %d", len(rateRange)))
+		return fmt.Errorf("invalid rate range size: %d", len(rateRange))
 	}
 
 	subjectsSlice := *subjects
@@ -28,7 +27,7 @@ func FilterSubjectsByRates(subjects *[]*model.Subject, rateRange []float32) erro
 
 func FilterSubjectsByPopularity(subjects *[]*model.Subject, favoriteRange []int) error {
 	if len(favoriteRange) != 2 {
-		return errors.New(fmt.Sprintf("invalid rate range size: %d", len(favoriteRange)))
+		return fmt.Errorf("invalid rate range size: %d", len(favoriteRange))
 	}
 
 	subjectsSlice := *subjects

@@ -25,7 +25,7 @@ func FindPeopleBySubjectAndPosition(ctx context.Context, s *model.Subject, posit
 	defer func() { <-repository.Semaphore }()
 
 	var ids []int
-	err = repository.DB.WithContext(ctx).Raw("SELECT person_id FROM subject_person WHERE subject_id = ? AND position in (?)", s.ID, positionIDs).Scan(&ids).Error
+	err = repository.DB.WithContext(ctx).Raw("SELECT DISTINCT person_id FROM subject_person WHERE subject_id = ? AND position in (?)", s.ID, positionIDs).Scan(&ids).Error
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package tagutil
+package filter
 
 import (
 	"strconv"
@@ -7,10 +7,10 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 )
 
-// ParseTags 解析输入的标签。
+// parseTags 解析输入的标签。
 //
 // 例：[2022-2024, 原创/漫画改, 百合] 将被解析为 [[2022, 2023, 2024], [原创, 漫画改], [百合]]。
-func ParseTags(tags []string) [][]string {
+func parseTags(tags []string) [][]string {
 	conjunction := make([][]string, 0)
 	for _, tag := range tags {
 		conjunction = append(conjunction, strings.Split(tag, "/"))
@@ -50,11 +50,15 @@ func ParseTags(tags []string) [][]string {
 	return conjunction
 }
 
-// matchTags 根据判断条目是否符合标签要求。
+// matchPositiveTags 根据总合取范式判断条目是否符合正向标签要求。
 //
 //   - [[2022, 2023, 2024], [原创, 漫画改], [百合]] 表示该条目应该为
 //     2022 至 2024 年播出的 原创或漫画改的 百合作品。
-func matchTags(s *model.Subject, conjunctionTags [][]string) bool {
+func matchPositiveTags(s *model.Subject, conjunctionTags [][]string) bool {
+	if len(conjunctionTags) == 0 {
+		return true
+	}
+
 	subjectTags := make(map[string]struct{}, len(s.Tags))
 	for _, tag := range s.Tags {
 		subjectTags[tag] = struct{}{}
@@ -78,19 +82,45 @@ func matchTags(s *model.Subject, conjunctionTags [][]string) bool {
 	return true
 }
 
+// matchNegativeTags 根据总析取范式判断条目是否符合反向标签要求。
+func matchNegativeTags(s *model.Subject, conjunctionTags [][]string) bool {
+	if len(conjunctionTags) == 0 {
+		return false
+	}
+
+	subjectTags := make(map[string]struct{}, len(s.Tags))
+	for _, tag := range s.Tags {
+		subjectTags[tag] = struct{}{}
+	}
+
+	for _, disjunction := range conjunctionTags {
+		for _, tag := range disjunction {
+			if _, exists := subjectTags[tag]; exists {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 // FilterSubjectsByTags 根据标签过滤条目。
 //
 //   - 若 tags 为 [[2022, 2023, 2024], [原创, 漫画改], [百合]]，
 //     则目标条目应该为 2022 至 2024 年播出的原创或漫画改的百合作品。
-func FilterSubjectsByTags(subjects *[]*model.Subject, tags [][]string) {
+func FilterSubjectsByTags(subjects *[]*model.Subject, PositiveTags []string, Negativetags []string) {
+	parsedPositiveTags := parseTags(PositiveTags)
+	parsedNegativeTags := parseTags(Negativetags)
+
 	subjectsSlice := *subjects
 	count := 0
 
 	for _, s := range subjectsSlice {
-		if matchTags(s, tags) {
+		if matchPositiveTags(s, parsedPositiveTags) && !matchNegativeTags(s, parsedNegativeTags) {
 			subjectsSlice[count] = s
 			count++
 		}
 	}
+
 	*subjects = subjectsSlice[:count]
 }

@@ -14,8 +14,7 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/constants"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/rateutil"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/tagutil"
+	"github.com/AcuLY/BangumiStaffStats/backend/pkg/filter"
 )
 
 // 完整逻辑的超时时间
@@ -47,20 +46,27 @@ func Statistics(ctx context.Context, r *model.Request) (*model.Response, error) 
 	}
 
 	// 根据标签筛选条目
-	tags := tagutil.ParseTags(r.Tags)
-	tagutil.FilterSubjectsByTags(&subjects, tags)
+	filter.FilterSubjectsByTags(&subjects, r.PositiveTags, r.NegativeTags)
 
 	// 根据分数范围筛选条目
-	if err := rateutil.FilterSubjectsByRates(&subjects, r.RateRange); err != nil {
-		return nil, err
+	if len(r.RateRange) >= 2 {
+		if err := filter.FilterSubjectsByRates(&subjects, r.RateRange); err != nil {
+			return nil, err
+		}
 	}
 
 	// 根据人数范围筛选条目
-	if r.FavoriteRange[1] == 20000 {
-		r.FavoriteRange[1] = 100000 	// 上限设为 20000 时包含大于 20000 的条目
+	if len(r.FavoriteRange) >= 2 {
+		if err := filter.FilterSubjectsByPopularity(&subjects, r.FavoriteRange); err != nil {
+			return nil, err
+		}
 	}
-	if err := rateutil.FilterSubjectsByPopularity(&subjects, r.FavoriteRange); err != nil {
-		return nil, err
+
+	// 根据日期范围筛选条目
+	if len(r.DateRange) >= 2 {
+		if err := filter.FilterSubjectsByDate(&subjects, r.DateRange); err != nil {
+			return nil, err
+		}
 	}
 
 	// 标注条目的续作信息
@@ -136,6 +142,20 @@ func createSummaries(ps map[*model.Person][]*model.Subject, pc map[*model.Person
 		averageRate := calcAverageRate(subjects, false)
 		seriesAverageRate := calcAverageRate(seriesSubjects, true)
 
+		scoredSubjectCount := 0
+		for _, s := range subjects {
+			if s.Rate() > 0 {
+				scoredSubjectCount++
+			}
+		}
+		scoredSeries := make(map[*model.Subject]struct{})
+		for _, s := range seriesSubjects {
+			if s.SeriesRate > 0 {
+				scoredSeries[s] = struct{}{}
+			}
+		}
+		scoredSeriesCount := len(scoredSeries)
+
 		summary := &model.PersonSummary{
 			PersonID:     p.ID,
 			PersonName:   p.Name,
@@ -147,7 +167,7 @@ func createSummaries(ps map[*model.Person][]*model.Subject, pc map[*model.Person
 			SubjectImages:  extractImages(subjects),
 			Rates:          extractRates(subjects, false),
 			AverageRate:    averageRate,
-			OverallRate:    calcOverallRate(averageRate, len(subjects)),
+			OverallRate:    calcOverallRate(averageRate, scoredSubjectCount),
 			SubjectsNumber: len(subjects),
 
 			CharacterIDs:            extractIDs(characters),
@@ -164,7 +184,7 @@ func createSummaries(ps map[*model.Person][]*model.Subject, pc map[*model.Person
 			SeriesSubjectImages:  extractImages(seriesSubjects),
 			SeriesRates:          extractRates(seriesSubjects, true),
 			SeriesAverageRate:    seriesAverageRate,
-			SeriesOverallRate:    calcOverallRate(seriesAverageRate, len(seriesSubjects)),
+			SeriesOverallRate:    calcOverallRate(seriesAverageRate, scoredSeriesCount),
 			SeriesSubjectsNumber: len(seriesSubjects),
 		}
 

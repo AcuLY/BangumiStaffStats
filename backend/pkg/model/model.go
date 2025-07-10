@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 // Item 为含有 ID、名字等共有属性的结构
@@ -51,6 +52,8 @@ type Subject struct {
 	Favorite int `gorm:"column:subject_favorite"`
 	// 条目的标签
 	Tags StringSlice `gorm:"column:subject_tags"`
+	// 条目的播出或发售日期
+	Date time.Time `gorm:"column:subject_date"`
 	// 条目封面的 URL
 	Image string `gorm:"column:subject_image"`
 	// 该条目在系列中的顺位
@@ -147,12 +150,16 @@ type Request struct {
 	SubjectType int `json:"subject_type" binding:"required"`
 	// 所有收藏类型
 	CollectionTypes []int `json:"collection_types" binding:"required"`
-	// 限定标签
-	Tags []string `json:"tags"`
+	// 正向标签
+	PositiveTags []string `json:"positive_tags"`
+	// 反向标签
+	NegativeTags []string `json:"negative_tags"`
 	// 分数范围
-	RateRange []float32 `json:"rate_range" binding:"required"`
+	RateRange []float32 `json:"rate_range"`
 	// 收藏人数范围
-	FavoriteRange []int `json:"favorite_range" binding:"required"`
+	FavoriteRange []int `json:"favorite_range"`
+	// 时间范围
+	DateRange []time.Time `json:"date_range"`
 }
 
 // Response 封装应用的响应字段

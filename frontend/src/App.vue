@@ -103,7 +103,7 @@ onBeforeUnmount(() => {
   padding: 15px 20px 15px 20px;
   background-color: #191919;
   border-style: solid none none none;
-  border-color: #ff5b9a;
+  border-color: #f34fbc;
   border-width: 5px;
   font-size: 24px;
   font-weight: bold;

@@ -13,6 +13,9 @@ import (
 
 // GetGlobalSubjects 获取指定类型的所有条目
 func GetGlobalSubjects(ctx context.Context, subjectType int, favoriteRange []int) ([]*model.Subject, error) {
+	if len(favoriteRange) < 2 {
+		favoriteRange = []int{50, 100000} // 默认范围
+	}
 	return repository.FindGlobalSubjectsByType(ctx, subjectType, favoriteRange)
 }
 
