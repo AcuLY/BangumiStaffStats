@@ -1,7 +1,6 @@
 package filter
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
@@ -9,45 +8,19 @@ import (
 
 // parseTags 解析输入的标签。
 //
-// 例：[2022-2024, 原创/漫画改, 百合] 将被解析为 [[2022, 2023, 2024], [原创, 漫画改], [百合]]。
-func parseTags(tags []string) [][]string {
-	conjunction := make([][]string, 0)
+// 例：[原创/漫画改, 百合] 将被解析为 [[原创, 漫画改], [百合]]。
+func parseTags(tags []string, isPositive bool) [][]string {
+	parsedTags := make([][]string, 0)
+
 	for _, tag := range tags {
-		conjunction = append(conjunction, strings.Split(tag, "/"))
-	}
-
-	for i, disjunction := range conjunction {
-		newDisjunction := make([]string, 0, len(disjunction))
-
-		for _, tag := range disjunction {
-			if !strings.Contains(tag, "-") {
-				newDisjunction = append(newDisjunction, tag)
-				continue
-			}
-
-			beginAndEnd := strings.Split(tag, "-")
-			if len(beginAndEnd) > 2 {
-				newDisjunction = append(newDisjunction, tag)
-				continue
-			}
-
-			begin, err1 := strconv.Atoi(beginAndEnd[0])
-			end, err2 := strconv.Atoi(beginAndEnd[1])
-			if err1 != nil || err2 != nil {
-				newDisjunction = append(newDisjunction, tag)
-				continue
-			}
-
-			for year := begin; year <= end; year++ {
-				newDisjunction = append(newDisjunction, strconv.Itoa(year))
-			}
-
+		if isPositive {
+			parsedTags = append(parsedTags, strings.Split(tag, "/"))
+		} else {
+			parsedTags = append(parsedTags, strings.Split(tag, "+"))
 		}
-
-		conjunction[i] = newDisjunction
 	}
 
-	return conjunction
+	return parsedTags
 }
 
 // matchPositiveTags 根据总合取范式判断条目是否符合正向标签要求。
@@ -83,8 +56,8 @@ func matchPositiveTags(s *model.Subject, conjunctionTags [][]string) bool {
 }
 
 // matchNegativeTags 根据总析取范式判断条目是否符合反向标签要求。
-func matchNegativeTags(s *model.Subject, conjunctionTags [][]string) bool {
-	if len(conjunctionTags) == 0 {
+func matchNegativeTags(s *model.Subject, disjunctionTags [][]string) bool {
+	if len(disjunctionTags) == 0 {
 		return false
 	}
 
@@ -93,11 +66,18 @@ func matchNegativeTags(s *model.Subject, conjunctionTags [][]string) bool {
 		subjectTags[tag] = struct{}{}
 	}
 
-	for _, disjunction := range conjunctionTags {
-		for _, tag := range disjunction {
-			if _, exists := subjectTags[tag]; exists {
-				return true
+	for _, conjunction := range disjunctionTags {
+		allMatch := true
+
+		for _, tag := range conjunction {
+			if _, exists := subjectTags[tag]; !exists {
+				allMatch = false
+				break
 			}
+		}
+
+		if allMatch {
+			return true
 		}
 	}
 
@@ -106,11 +86,11 @@ func matchNegativeTags(s *model.Subject, conjunctionTags [][]string) bool {
 
 // FilterSubjectsByTags 根据标签过滤条目。
 //
-//   - 若 tags 为 [[2022, 2023, 2024], [原创, 漫画改], [百合]]，
-//     则目标条目应该为 2022 至 2024 年播出的原创或漫画改的百合作品。
+//   - 若 tags 为 [[原创, 漫画改], [百合]]，
+//     则目标条目应该为原创或漫画改的百合作品。
 func FilterSubjectsByTags(subjects *[]*model.Subject, PositiveTags []string, Negativetags []string) {
-	parsedPositiveTags := parseTags(PositiveTags)
-	parsedNegativeTags := parseTags(Negativetags)
+	parsedPositiveTags := parseTags(PositiveTags, true)
+	parsedNegativeTags := parseTags(Negativetags, false)
 
 	subjectsSlice := *subjects
 	count := 0

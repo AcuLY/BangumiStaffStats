@@ -16,7 +16,7 @@ func FilterSubjectsByDate(subjects *[]*model.Subject, dateRange []time.Time) err
 	count := 0
 
 	for _, s := range subjectsSlice {
-		if s.Date.After(dateRange[0]) && s.Date.Before(dateRange[1]) {
+		if !s.Date.Before(dateRange[0]) && !s.Date.After(dateRange[1]) {	// Before 是严格小于，用反向逻辑可以包含 range 的边界值
 			subjectsSlice[count] = s
 			count++
 		}

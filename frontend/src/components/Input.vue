@@ -118,6 +118,14 @@
                 <n-flex class="option" vertical :size="5" v-show="enableNegativeTags">
                     <div style="display: flex; align-items: center;">
                         <h3 style="margin: 0; transform: translateX(10px);">反向标签</h3>
+                        <n-tooltip trigger="hover">
+                            <template #trigger>
+                                <img src="/info.png" style="width: 20px;" :style="{ marginLeft: '14px' }">
+                            </template>
+                            在单个标签里添加 "+" 可以表示“与”，<br>
+                            例："原创, 百合+后宫" <br>
+                            以上两个标签表示“排除所有原创作品，然后排除所有同时有百合和后宫标签的作品”。
+                        </n-tooltip>
                     </div>
                     <n-dynamic-tags v-model:value="negativeTags" id="tags" round
                         :color="{ borderColor: '#FF1493', textColor: '#FF1493' }" />
@@ -304,7 +312,14 @@ const calcDateRangeValue = () => {
         return [];
     }
     const begin = dateRange.value[0] ? dateRange.value[0] : DEFAULT_DATE_RANGE[0];
-    const end = dateRange.value[1] ? dateRange.value[1] : DEFAULT_DATE_RANGE[1];
+    let end = dateRange.value[1] ? dateRange.value[1] : DEFAULT_DATE_RANGE[1];
+
+    // 确保结束日期是当月的最后一天
+    const endDate = new Date(end);
+    endDate.setMonth(endDate.getMonth() + 1);
+    endDate.setDate(0); // 设置为上个月的最后一天
+    end = endDate.getTime();
+
     return [timestampToIsoString(begin), timestampToIsoString(end)];
 }
 const calcDateRangeLabel = () => {

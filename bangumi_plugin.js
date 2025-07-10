@@ -1,3 +1,4 @@
+// 超合金组件脚本
 let isUserPage = window.location.href.match(/\/user\/(.*)$/i);
 if (isUserPage) {
     let userId = isUserPage[1];
