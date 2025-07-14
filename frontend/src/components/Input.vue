@@ -24,13 +24,13 @@
                 <n-flex class="option" vertical :size="5">
                     <h3 style="margin: 0; transform: translateX(10px);">条目类型</h3>
                     <n-select id="subject-type" v-model:value="subjectType" :options="subjectTypeOptions"
-                        placeholder="请选择条目类型" clearable />
+                        placeholder="请选择条目类型" clearable filterable />
                 </n-flex>
 
                 <n-flex class="option" vertical :size="5">
                     <h3 style="margin: 0; transform: translateX(10px);">职位</h3>
                     <n-select id="position" v-model:value="position" :options="positionOptions[subjectType]"
-                        placeholder="请选择职位" clearable />
+                        placeholder="请选择职位" clearable filterable />
                 </n-flex>
 
                 <n-flex class="option" vertical :size="5">
