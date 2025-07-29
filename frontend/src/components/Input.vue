@@ -124,7 +124,8 @@
                             </template>
                             在单个标签里添加 "+" 可以表示“与”，<br>
                             例："原创, 百合+后宫" <br>
-                            以上两个标签表示“排除所有原创作品，然后排除所有同时有百合和后宫标签的作品”。
+                            以上两个标签表示“排除所有原创作品，然后排除所有同时有百合和后宫标签的作品”。<br>
+                            nsfw 标签会屏蔽所有 r18、里番类的条目
                         </n-tooltip>
                     </div>
                     <n-dynamic-tags v-model:value="negativeTags" id="tags" round
@@ -207,7 +208,7 @@ const collectionTypes = ref([2]);
 const isGlobalStats = ref(false);
 const statsSources = [{ label: '当前用户', value: false }, { label: 'Bangumi 全站', value: true }]
 const positiveTags = ref([])
-const negativeTags = ref(["R18"])
+const negativeTags = ref(["nsfw"])
 const dateRange = ref(null)
 const minRate = ref(null)
 const maxRate = ref(null)
@@ -389,6 +390,8 @@ const calcNegativeTagsLabel = () => {
 };
 const negativeTagsLabel = ref('');
 
+const calcShowNSFWValue = () => { return !enableNegativeTags.value || !negativeTags.value.includes("nsfw") };
+
 
 // 抓取数据并更新到 store
 const fetch_statistics = async () => {
@@ -432,7 +435,8 @@ const fetch_statistics = async () => {
         rate_range: calcRateRangeValue(),
         favorite_range: calcFavoriteRangeValue(),
         positive_tags: calcPositiveTagsValue(),
-        negative_tags: calcNegativeTagsValue()
+        negative_tags: calcNegativeTagsValue(),
+        show_nsfw: calcShowNSFWValue(),
     }
     // 终止查询
     abortController.value = new AbortController();

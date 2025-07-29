@@ -20,13 +20,9 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DB=${MYSQL_DATABASE}
       - REDIS_ADDR=redis:${REDIS_PORT}
-    networks:
-      - bgmss
     volumes:
       - ./logs:/app/logs
       - ./config.toml:/app/config.toml
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
 
   loader:
     build:
@@ -40,8 +36,6 @@ services:
       - MYSQL_DATABASE=${MYSQL_DATABASE}
     volumes:
       - ./static:/static
-    networks:
-      - bgmss
 
   mysql:
     image: mysql:8.0
@@ -58,14 +52,10 @@ services:
       timeout: 5s
       retries: 10
     volumes:
-      - mysql-data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
       - ./init-sql:/docker-entrypoint-initdb.d
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
     ports:
       - "${MYSQL_PORT}:3306"
-    networks:
-      - bgmss
 
   redis:
     image: redis:7.2
@@ -79,17 +69,10 @@ services:
     environment:
       - TZ=Asia/Shanghai
     volumes:
-      - redis-data:/data
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
+      - redis_data:/data
     ports:
       - "${REDIS_PORT}:6379"
-    networks:
-      - bgmss
 
 volumes:
-  mysql-data:
-  redis-data:
-
-networks:
-  bgmss: {}
+  mysql_data:
+  redis_data:

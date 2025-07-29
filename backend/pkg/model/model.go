@@ -62,6 +62,8 @@ type Subject struct {
 	SeriesMainSubject *Subject `gorm:"-"`
 	// 该系列的均分
 	SeriesRate float32 `gorm:"-"`
+	// 是否为 nsfw 条目
+	NSFW bool `gorm:"column:subject_nsfw"`
 }
 
 func (s *Subject) GetID() int {
@@ -137,7 +139,7 @@ type SequelOrder struct {
 	// 系列 ID
 	SeriesID int `gorm:"column:series_id"`
 	// 系列内的顺位，越小越可能是第一季
-	Order int `gorm:"column:order"`
+	Order int `gorm:"column:sequel_order"`
 }
 
 // Request 封装应用的请求字段
@@ -160,6 +162,8 @@ type Request struct {
 	FavoriteRange []int `json:"favorite_range"`
 	// 时间范围
 	DateRange []time.Time `json:"date_range"`
+	// NSFW
+	ShowNSFW bool `json:"show_nsfw"`
 }
 
 // Response 封装应用的响应字段

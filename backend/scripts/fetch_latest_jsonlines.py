@@ -9,7 +9,7 @@ PROXY_URL = "https://ghfast.top/"
 LATEST_JSON_URL = "https://raw.githubusercontent.com/bangumi/Archive/master/aux/latest.json"
 TARGET_DAY = 2  # 周三
 TARGET_TIME = dt_time(hour=19, minute=0)
-TARGET_DIR = "./static"
+TARGET_DIR = "../static"
 MAX_RETRIES = 3
 RETRY_DELAY = 10
 REQUIRED_JSONLINES = [

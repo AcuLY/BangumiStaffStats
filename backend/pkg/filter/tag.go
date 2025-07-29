@@ -104,3 +104,17 @@ func FilterSubjectsByTags(subjects *[]*model.Subject, PositiveTags []string, Neg
 
 	*subjects = subjectsSlice[:count]
 }
+
+// FilterNSFWSubjects 过滤 nsfw 条目
+func FilterNSFWSubjects(subjects *[]*model.Subject) {
+	count := 0
+
+	for _, s := range *subjects {
+		if !s.NSFW {
+			(*subjects)[count] = s
+			count++
+		}
+	}
+
+	*subjects = (*subjects)[:count]
+}

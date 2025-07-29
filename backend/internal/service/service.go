@@ -45,6 +45,11 @@ func Statistics(ctx context.Context, r *model.Request) (*model.Response, error) 
 		return nil, err
 	}
 
+	// 过滤 NSFW
+	if !r.ShowNSFW {
+		filter.FilterNSFWSubjects(&subjects)
+	}
+
 	// 根据标签筛选条目
 	filter.FilterSubjectsByTags(&subjects, r.PositiveTags, r.NegativeTags)
 

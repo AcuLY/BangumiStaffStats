@@ -8,7 +8,9 @@ import time
 from more_itertools import chunked
 
 
-JSONLINES_FILE_PATH = "./static/"
+JSONLINES_FILE_PATH = "../static/"
+CONFIG_PATH = "../config.toml"
+check_need_update = True    # 是否比较 jsonlines 和数据库表的记录数量来判断需不需要更新数据库
 
 
 def load_subjects(cursor, batch_size=1000):
@@ -27,7 +29,7 @@ def load_subjects(cursor, batch_size=1000):
     existing_count = cursor.fetchone()[0]
     print(f"subjects 表中已有 {existing_count} 条记录")
 
-    if existing_count == total:
+    if existing_count == total and check_need_update:
         print("subjects 数据已是最新，无需更新")
         return
 
@@ -58,13 +60,14 @@ def load_subjects(cursor, batch_size=1000):
                     tags_json,
                     item["date"] if item["date"] else None,
                     image,
+                    item["nsfw"]
                 )
             )
 
         cursor.executemany(
             "INSERT INTO subjects "
-            "(subject_id, subject_name, subject_name_cn, subject_rate, subject_type, subject_favorite, subject_tags, subject_date, subject_image) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "(subject_id, subject_name, subject_name_cn, subject_rate, subject_type, subject_favorite, subject_tags, subject_date, subject_image, subject_nsfw) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON DUPLICATE KEY UPDATE "
             "subject_name=VALUES(subject_name), "
             "subject_name_cn=VALUES(subject_name_cn), "
@@ -73,7 +76,8 @@ def load_subjects(cursor, batch_size=1000):
             "subject_favorite=VALUES(subject_favorite), "
             "subject_tags=VALUES(subject_tags), "
             "subject_date=VALUES(subject_date), "
-            "subject_image=VALUES(subject_image)",
+            "subject_image=VALUES(subject_image), "
+            "subject_nsfw=VALUES(subject_nsfw)",
             values,
         )
 
@@ -122,7 +126,7 @@ def load_people(cursor, batch_size=1000):
     existing_count = cursor.fetchone()[0]
     print(f'people 表中已有 {existing_count} 条记录')
     
-    if existing_count == total:
+    if existing_count == total and check_need_update:
         print("people 数据已是最新，无需更新")
         return
     
@@ -158,7 +162,7 @@ def load_characters(cursor, batch_size=1000):
     existing_count = cursor.fetchone()[0]
     print(f'characters 表中已有 {existing_count} 条记录')
     
-    if existing_count == total:
+    if existing_count == total and check_need_update:
         print("characters 数据已是最新，无需更新")
         return
 
@@ -255,7 +259,7 @@ def load_subject_person(cursor, batch_size=1000):
     existing_count = cursor.fetchone()[0]
     print(f'subject_person 表中已有 {existing_count} 条记录')
     
-    if existing_count == total:
+    if existing_count == total and check_need_update:
         print("subject_person 数据已是最新，无需更新")
         return
 
@@ -321,7 +325,7 @@ def load_person_character(cursor, batch_size=1000):
     existing_count = cursor.fetchone()[0]
     print(f'person_character 表中已有 {existing_count} 条记录')
     
-    if existing_count == total:
+    if existing_count == total and check_need_update:
         print("person-character 数据已是最新，无需更新")
         return
     
@@ -368,141 +372,146 @@ class UnionFind:
 def load_sequel_orders(cursor, batch_size=1000):
     print("开始加载 sequel_orders")
 
-    # 定义relation_type范围
-    relevant_relations = set([2, 3, 4, 5, 6, 9, 10, 11, 12])  # 属于一个系列的关系
-    related_relations = set(
-        [1, 3, 4, 6, 7, 8, 9, 10, 11, 14, 1099]
-    )  # 此集合内的关系越多，越可能是第一季
-    minus_relations = set([2, 12])  # 此集合内的关系越多，越不可能是第一季
-
     print("加载所有条目的类型和日期中")
-    subject_types_and_dates = defaultdict()
+    valid_subject_ids = set()
+    subject_dates = {}
+    subject_types = {}
     with open(
         JSONLINES_FILE_PATH + "subject.jsonlines", mode="r", encoding="utf-8"
     ) as f:
         for line in f:
-            data = json.loads(line)
-            subject_types_and_dates[data["id"]] = (data["type"], data["date"])
+            final_data = json.loads(line)
+            valid_subject_ids.add(final_data["id"])
+            subject_dates[final_data["id"]] = final_data["date"] if final_data["date"] else "9999-99-99"
+            subject_types[final_data["id"]] = final_data["type"]
 
-    # 初始化并查集
-    SUBJECT_NUM = max([int(key) for key in subject_types_and_dates.keys()])
-    uf = UnionFind(600000)
+    # 条目关系详见 github.com/bangumi/server/pkg/vars/relations.go.json
 
-    # 存储每个条目与其关联的条目数
-    subject_relation_count = defaultdict(int)
+    # 1 改编   2 前传   3 续集   4 总集篇   5 全集   6 番外篇   7 角色出演
+    # 8 相同世界观   9 不同世界观   10 不同演绎   11 衍生   12 主线故事
+    # 14 联动   99 其他
 
-    # 遍历所有条目，构建有关条目之间的关系
+    # 1002 系列   1003 单行本   1004 画集   1005 前传   1006 续集   1007 番外篇
+    # 1008 主线故事   1010 不同版本   1011 角色出演   1012 相同世界观
+    # 1013 不同世界观   1014 联动   1015 不同演绎   1099 其他
+
+    # 3001 原声集   3002 角色歌   3003 片头曲   3004 片尾曲
+    # 3005 插入歌   3006 印象曲   3007 广播剧   3099 其他
+
+    # 4002 前传   4003 续集   4006 外传   4007 角色出演
+    # 4008 相同世界观   4009 不同世界观   4010 不同演绎
+    # 4012 主线故事   4014 联动   4015 扩展包   4016 不同版本
+    # 4017 主版本   4018 合集   4019 收录作品   4099 其他
+
+    # 属于一个系列的关系
+    same_series_relations = set([
+        2, 3, 4, 5, 6, 9, 10, 11, 12, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1010, 1013,
+        1015, 4002, 4003, 4006, 4009, 4010, 4012, 4015, 4016, 4017, 4018
+    ])
+    # 此集合内的关系越多，subject 越可能是主条目，related_subject 越不可能是主条目
+    main_series_positive_relations = set([
+        1, 3, 4, 6, 11, 1003, 1006, 1007, 4003, 4006, 4015, 4018, 4019
+    ])
+    # 中性关联，双方都可能是主条目
+    main_series_neutral_relations = set([
+        7, 8, 9, 10, 14, 99, 1004, 1010, 1011, 1012, 1013, 1014, 1015, 1099, 3001, 3002, 3003,
+        3004, 3005, 3006, 3007, 3099, 4007, 4008, 4009, 4010, 4014, 4016, 4099
+    ])
+    # 此集合内的关系越多，subject 越不可能是主条目，related_subject 越可能是主条目
+    main_series_negative_relations = set([
+        2, 5, 12, 1002, 1005, 1008, 4002, 4012, 4017
+    ])
+
+    MAX_SUBJECT_ID = max(valid_subject_ids)
+    uf = UnionFind(1000000)
+
+    main_series_possibility_score = defaultdict(int)    # 是主条目的可能性得分
+
     print("构建所有条目之间的关系中")
     with open(JSONLINES_FILE_PATH + "subject-relations.jsonlines", mode="r") as f:
         for line in f:
-            data = json.loads(line)
-            subject_id = data["subject_id"]
-            relation_type = data["relation_type"]
-            related_subject_id = data["related_subject_id"]
+            final_data = json.loads(line)
+            subject_id = final_data["subject_id"]
+            relation_type = final_data["relation_type"]
+            related_subject_id = final_data["related_subject_id"]
+            
+            if subject_id not in valid_subject_ids or related_subject_id not in valid_subject_ids:
+                continue
 
-            # 如果条目与给定范围的条目有关，则合并它们
-            if (
-                relation_type in relevant_relations
-                and subject_id in subject_types_and_dates
-                and related_subject_id in subject_types_and_dates
-                and subject_types_and_dates[subject_id][0]
-                == subject_types_and_dates[related_subject_id][0]
-            ):
+            is_same_type = subject_types[subject_id] == subject_types[related_subject_id]
+
+            # 仅合并同类的条目
+            if relation_type in same_series_relations and is_same_type:
                 uf.union(subject_id, related_subject_id)
 
-            # 统计关联条目数
-            if relation_type in related_relations:
-                subject_relation_count[subject_id] += 1
+            # 正向关系仅作用于同类的条目
+            if relation_type in main_series_positive_relations and is_same_type:
+                main_series_possibility_score[subject_id] += 5
+                main_series_possibility_score[related_subject_id] -= 5
+            
+            # 负向关系仅作用于同类的条目
+            if relation_type in main_series_negative_relations and is_same_type:
+                main_series_possibility_score[subject_id] -= 5
+                main_series_possibility_score[related_subject_id] += 5
+            
+            # 中性关系不受类型影响
+            if relation_type in main_series_neutral_relations:
+                main_series_possibility_score[subject_id] += 1
+                main_series_possibility_score[related_subject_id] += 1
 
+    # 将并查集转为 root_id -> list[id] 的字典，便于按 score 排序
+    uf_list = defaultdict(list)
+
+    for subject_id in range(MAX_SUBJECT_ID):
+        if subject_id not in valid_subject_ids:
+            continue
+        root_id = uf.find(subject_id)
+        uf_list[root_id].append(subject_id)
+
+    sequel_orders = {}  # subject_id -> series_id, order
+    series_id = 1  # 用来给每个集合分配唯一编号
+
+    for root_id, subject_ids in uf_list.items():
+        # 按关联条目数降序排序，日期升序排序
+        subject_ids.sort(
+            key=lambda subject_id: (
+                -main_series_possibility_score[subject_id],
+                subject_dates[subject_id],
+            )
+        )
+
+        # 第一季、第二季可能都有较多的衍生作，若一个系列内前二的条目得分差距较小则以日期为准
+        if len(subject_ids) > 1:
+            first = subject_ids[0]
+            second = subject_ids[1]
             if (
-                relation_type in minus_relations
-                and subject_id in subject_types_and_dates
-                and related_subject_id in subject_types_and_dates
-                and subject_types_and_dates[subject_id][1]
-                > subject_types_and_dates[related_subject_id][1]
+                main_series_possibility_score[first] - main_series_possibility_score[second] < 15 and
+                subject_dates[first] > subject_dates[second]
             ):
-                subject_relation_count[subject_id] -= 2
+                subject_ids[0], subject_ids[1] = subject_ids[1], subject_ids[0]
 
-    # 找到每个集合中的最大条目，并进行额外判断
-    series_max = defaultdict(list)  # {series_id: [(subject_id, relation_count)]}
+        for order, subject_id in enumerate(subject_ids):
+            sequel_orders[subject_id] = (series_id, order)
 
-    for subject_id in range(SUBJECT_NUM):
-        root = uf.find(subject_id)
-        series_max[root].append((subject_id, subject_relation_count[subject_id]))
+        series_id += 1
 
-    # 对每个集合进行处理
-    subject_to_series_info = {}  # 用来存储最终每个subject的集合编号和内部序号
-
-    series_index = 1  # 用来给每个集合分配唯一编号
-
-    for root, subjects in series_max.items():
-        # 过滤掉不存在于subject_types中的条目
-        subjects = [
-            s
-            for s in subjects
-            if s[0] in subject_types_and_dates and subject_types_and_dates[s[0]][1]
-        ]  # 确保日期存在
-
-        if len(subjects) == 0:
-            continue  # 如果所有条目都被过滤掉了，跳过该集合
-
-        # 如果集合中的条目数大于5
-        if len(subjects) > 5:
-            # 按关联条目数降序排序，日期升序排序
-            subjects.sort(
-                key=lambda x: (
-                    -x[1],
-                    subject_types_and_dates.get(x[0], (None, "9999-99-99"))[1],
-                )
-            )  # 先按关联条目数排，再按日期排
-
-            # 遍历排序后的条目，检查关联数差距
-            top_subject = subjects[0]
-            second_subject = subjects[1]
-
-            # 如果关联条目数相差小于5，比较日期，选date早的
-            if abs(top_subject[1] - second_subject[1]) < 5:
-                if (
-                    subject_types_and_dates.get(top_subject[0], (None, "9999-99-99"))[1]
-                    > subject_types_and_dates.get(
-                        second_subject[0], (None, "9999-99-99")
-                    )[1]
-                ):
-                    # 如果 top_subject 日期较晚，交换顺序
-                    subjects[0], subjects[1] = subjects[1], subjects[0]
-
-        # 为当前集合中的每个条目按排序编号，并记录到subject_to_group_info
-        for index, (subject_id, _) in enumerate(subjects):
-            subject_to_series_info[subject_id] = (series_index, index)
-
-        series_index += 1
-
-    sequel_orders = [None] * SUBJECT_NUM
-    for i in range(SUBJECT_NUM):
-        if i in subject_to_series_info.keys():
-            sequel_orders[i] = subject_to_series_info[i]
-        else:
-            sequel_orders[i] = (series_index, 0)
-            series_index += 1
-
-    data = [
+    final_data = [
         (subject_id, series_id, order)
-        for subject_id, (series_id, order) in enumerate(sequel_orders)
-        if subject_id in subject_types_and_dates
+        for subject_id, (series_id, order) in sequel_orders.items()
     ]
 
-    total = len(data)
+    total = len(final_data)
     print(f"共需导入 {total} 条 sequel_orders 数据，批大小：{batch_size}")
     
     cursor.execute("SELECT COUNT(*) FROM sequel_orders")
     existing_count = cursor.fetchone()[0]
     print(f'sequel_orders 表中已有 {existing_count} 条记录')
     
-    if existing_count == total:
+    if existing_count == total and check_need_update:
         print("sequel_orders 数据已是最新，无需更新")
         return
 
-    for batch in tqdm(chunked(data, batch_size), total=(total + batch_size - 1) // batch_size, desc="写入 sequel_orders", ncols=80):
+    for batch in tqdm(chunked(final_data, batch_size), total=(total + batch_size - 1) // batch_size, desc="写入 sequel_orders", ncols=80):
         cursor.executemany(
             "INSERT INTO sequel_orders (subject_id, series_id, sequel_order) "
             "VALUES (%s, %s, %s) "
@@ -528,16 +537,25 @@ def main():
     print("开始更新数据库")
     
     parser = argparse.ArgumentParser(description="Bangumi 数据导入脚本")
-    parser.add_argument("--subject", action="store_true")
-    parser.add_argument("--person", action="store_true")
-    parser.add_argument("--character", action="store_true")
+    parser.add_argument("--subjects", action="store_true")
+    parser.add_argument("--people", action="store_true")
+    parser.add_argument("--characters", action="store_true")
     parser.add_argument("--subject-person", action="store_true")
     parser.add_argument("--person-character", action="store_true")
-    parser.add_argument("--sequel-order", action="store_true")
+    parser.add_argument("--sequel-orders", action="store_true")
     parser.add_argument("--all", action="store_true", help="执行所有操作")
+    parser.add_argument("--no-check", action="store_true", help="不检查是否需要更新")
     args = parser.parse_args()
 
-    raw_db_cfg = toml.load("./config.toml")["mysql"]
+    if not any(vars(args).values()):
+        print("未指定需要更新的表，如需更新全部请使用 --all")
+        return
+    
+    if args.no_check:
+        global check_need_update
+        check_need_update = False
+
+    raw_db_cfg = toml.load(CONFIG_PATH)["mysql"]
     db_config = {
         "host": raw_db_cfg.get("host", "localhost"),
         "port": raw_db_cfg.get("port", 3306),
@@ -562,33 +580,33 @@ def main():
     print("连接数据库成功")
     cursor = conn.cursor()
 
-    raw_http_config = toml.load("./config.toml")["http"]
+    raw_http_config = toml.load(CONFIG_PATH)["http"]
     global HEADERS
     HEADERS = {
         "User-Agent": raw_http_config["userAgent"],
         "Authorization": f"Bearer {raw_http_config['accessToken']}",
     }
     
-    if not need_update(cursor):
+    if check_need_update and not need_update(cursor):
         print("数据库已是最新，无需更新")
         cursor.close()
         conn.close()
         return
     else:
-        print("检测到数据库需要更新")
+        print("数据库需要更新")
 
     try:
-        if args.all or args.subject:
+        if args.all or args.subjects:
             load_subjects(cursor)
-        if args.all or args.person:
+        if args.all or args.people:
             load_people(cursor)
-        if args.all or args.character:
+        if args.all or args.characters:
             load_characters(cursor)
         if args.all or args.subject_person:
             load_subject_person(cursor)
         if args.all or args.person_character:
             load_person_character(cursor)
-        if args.all or args.sequel_order:
+        if args.all or args.sequel_orders:
             load_sequel_orders(cursor)
 
         conn.commit()
