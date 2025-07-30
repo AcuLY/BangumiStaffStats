@@ -18,7 +18,7 @@
                         </n-tooltip>
                     </h3>
                     <n-input id="user-name" v-model:value="userId" type="text" placeholder="请输入用户 ID"
-                        :disabled="isGlobalStats" />
+                        :disabled="isGlobalStats" :size="isMob" />
                 </n-flex>
 
                 <n-flex class="option" vertical :size="5">
@@ -188,7 +188,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import axios from 'axios';
 import { useStore } from 'vuex';
-import { timePickerDark, useNotification } from 'naive-ui';
+import { useNotification } from 'naive-ui';
 import { subjectTypeOptions, positionOptions } from '@/constants/options.js';
 
 const store = useStore();
@@ -199,11 +199,10 @@ const notify = useNotification();   // 用于发送通知
 
 const abortController = ref(null);  // 终止请求
 
-
 // 用户 id , 条目类型, 查询的职位, 收藏类型
 const userId = ref(`${import.meta.env.VITE_API_USERID}`);
 const subjectType = ref(2)
-const position = ref(null);
+const position = ref(`${import.meta.env.VITE_API_POSITION}`);
 const collectionTypes = ref([2]);
 const isGlobalStats = ref(false);
 const statsSources = [{ label: '当前用户', value: false }, { label: 'Bangumi 全站', value: true }]
@@ -457,7 +456,6 @@ const fetch_statistics = async () => {
         .then(response => {
             store.dispatch('setLists', {
                 validSubjects: response.data['valid_subjects'],
-                invalidSubjects: response.data['invalid_subjects'],
                 collectionNumber: response.data['collection_number'],
                 seriesNumber: response.data['series_number'],
                 subjectType: subjectTypeSave,
@@ -589,12 +587,16 @@ const cancelRequest = () => {
 }
 
 @media (max-width: 600px) {
+    .option {
+        font-size: 12px;
+    }
+
     .title {
         font-size: 24px;
     }
 
     .divider-text {
-        font-size: 12px;
+        font-size: 14px;
         margin: 0px 10px 0px 10px;
     }
 }

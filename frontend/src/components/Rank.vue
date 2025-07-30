@@ -1,50 +1,4 @@
 <template>
-    <!-- 输入条目的弹窗 -->
-    <n-modal v-model:show="showInput" style="font-weight: bold;">
-        <n-card
-        class="input-window"
-        title="请输入条目信息"
-        :bordered="false"
-        size="medium"
-        role="dialog"
-        aria-modal="true"
-        >
-            <n-flex>
-                条目 ID
-                <n-input
-                v-model:value="subjectIdInput"
-                placeholder="请输入条目 ID"
-                :disabled="true"
-                />
-                条目名称
-                <n-input
-                v-model:value="subjectNameInput"
-                placeholder="请输入条目名称"
-                :disabled="!isSubjectNameNull"
-                />
-                人员名称
-                <n-input
-                v-model:value="personNameInput"
-                placeholder="请输入演职人员的名称（建议复制粘贴）"
-                />
-                <div style="display: block; width: 100%;">
-                    您给本条目的分数（不打分则留空）
-                </div>
-                <n-rate
-                :count="10"
-                clearable
-                :on-update:value="updateRate"
-                :on-clear="clearRateInput"
-                />
-                <div style="display: block; width: 100%; margin: 20px 0 0 0">
-                    <n-button type="primary" @click="submitSubject">
-                        提交
-                    </n-button>
-                </div>
-            </n-flex>
-        </n-card>
-    </n-modal>
-    <!-- 表格部分 -->
     <n-flex class="data-tables" justify="center" >
         <div class="valid-subjects">
             <n-spin :show="isLoading">
@@ -52,7 +6,7 @@
                     <n-collapse style="margin: 10px 0px 20px 0px;" :default-expanded-names="['setting']">
                         <n-collapse-item name="setting">
                             <template #header>
-                                <n-text style="font-size: large; font-weight: bold; color: #666666; user-select: none;">
+                                <n-text :style="{fontSize: isMobile ? 'medium' : 'large', fontWeight: 'bold', color: '#666666', 'userSelect': 'none'}">
                                 显示设置
                                 </n-text>
                             </template>
@@ -90,7 +44,7 @@
                                     </template>
                                 </n-switch>
 
-                                <n-flex vertical style="width: 90vw; color: #666666; font-size: larger;">
+                                <n-flex vertical :style="{width: '90vw', color: '#666666', fontSize: isMobile ? '14px' : 'larger'}">
                                     列表最大宽度
                                     <n-slider v-model:value="tableWidth" :max="12000" :min="400" :step="20" style="max-width: 480px"/>
                                     列表最大高度
@@ -105,7 +59,7 @@
                         <h2 style="margin-top: -10px;">
                             统计到 <span style="color: #ff2075;">{{ validSubjects.length }}</span> 个人物，
                             <span v-show="!mergeSequels" >
-                                <span style="color: #ff2075;">{{ collectionNumber - invalidSubjects.length }}</span> 个条目
+                                <span style="color: #ff2075;">{{ collectionNumber }}</span> 个条目
                             </span>
                             <span v-show="mergeSequels" >
                                 <span style="color: #ff2075;">{{ seriesNumber }}</span> 个系列
@@ -156,57 +110,6 @@
                 </template>
             </n-spin>
         </div>
-        <!-- 统计失败的数据 -->
-        <div class="invalid-subjects" v-show="isInvalidSubjectsNotNull">
-            <n-divider style="margin-bottom: 0px; margin-top: -10px;"></n-divider>
-            <n-spin :show="isLoading">
-                <div :style="{ filter: isLoading ? 'blur(8px)' : 'blur(0px)' }">
-                    <div v-show="isInvalidSubjectsNotNull" class="result-text">
-                        <h2>以下 <span style="color: #ff2075;">{{ invalidSubjects.length }}</span> 个条目未统计</h2>
-                    </div>
-                    <n-pagination
-                        v-model:page="paginationInvalidSubjects.page"
-                        v-model:page-size="paginationInvalidSubjects.pageSize"
-                        :item-count="invalidSubjects.length"
-                        :page-sizes="paginationInvalidSubjects.pageSizes"
-                        :show-size-picker="paginationInvalidSubjects.showSizePicker"
-                        :page-slot="paginationInvalidSubjects.pageSlot"
-                        :size="paginationValidSubjects.size"
-                        @update:page="paginationInvalidSubjects.onChange"
-                        @update:page-size="paginationInvalidSubjects.onUpdatePageSize"
-                        class="pagination"
-                        show-quick-jumper
-                    >
-                        <template #goto>
-                            <span style="font-size: larger;">按回车跳至</span>
-                        </template>
-                    </n-pagination>
-                    <n-data-table 
-                    :columns="invalidSubjectColumns"
-                    :data="invalidSubjects"
-                    :single-line="false" 
-                    :max-height="tableHeight"
-                    striped
-                    :pagination="paginationInvalidSubjects"
-                    :style="{ filter: isLoading ? 'blur(3px)' : 'blur(0px)' }" 
-                    />
-                    <p style="color: gray;">
-                        注：条目未被统计的原因主要为：<br>
-                        ① 该条目没有对应职位的人员<br>
-                        ② Bangumi 数据库中的数据缺失<br>
-                        ③ 该条目为被隐藏<span class="blurred-text">（R-18）</span>的条目 <br>
-                        您可以点击 “手动添加条目” 按钮手动添加
-                    </p>
-                </div>
-                <template #description>
-                    <div class="loading-text">
-                        <h2 style="margin: 0;">查询/加载中</h2>
-                        <p style="margin: 0;">条目越多所需要的时间可能就越长</p> 
-                        <p style="margin: 0;">通常需要约 1 ~ 10 秒</p> 
-                    </div>
-                </template>
-            </n-spin>
-        </div>
     </n-flex>
     
 </template>
@@ -214,17 +117,13 @@
 <script setup>
 import { ref, computed, h, watch, reactive } from 'vue';
 import { useStore } from 'vuex';
-import { NButton, useNotification } from 'naive-ui';
 
 const store = useStore();
-
-const notify = useNotification();
 
 const isLoading = computed(() => store.state.isLoading);    // 加载状态
 
 // 以下两个列表的末尾为一个属性全空的字典, 用于填充 data-table 最后一行, 防止滚轮滚不到低
 const validSubjects = computed(() => store.state.validSubjects);
-const invalidSubjects = computed(() => store.state.invalidSubjects);
 const collectionNumber = computed(() => store.state.collectionNumber) // 总条目数
 const seriesNumber = computed(() => store.state.seriesNumber);   // 总系列数
 const subjectType = computed(() => store.state.subjectType);
@@ -232,16 +131,6 @@ const isGlobalStats = computed(() => store.state.isGlobalStats);    // 是否查
 
 // 是否有数据
 const isValidSubjectsNotNull = computed(() => validSubjects.value.length > 0);  
-const isInvalidSubjectsNotNull = computed(() => invalidSubjects.value.length > 0);
-
-// 手动输入数据窗口
-const showInput = ref(false);
-const subjectNameInput = ref('');
-const subjectIdInput = ref('');
-const personNameInput = ref('');
-const rateInput = ref(0);
-let isSubjectNameNull = true;   // 是否有条目名, 有则禁止用户输入
-
 // 窗口类型
 const isMobile = computed(() => { return window.innerWidth <= 600 });
 // 显示中文
@@ -274,69 +163,7 @@ watch(isCV, (newValue) => {
     }
 });
 
-// 手动输入分数
-const updateRate = (rate) => {
-    rateInput.value = rate;
-}
-
-const clearRateInput = () => {
-    rateInput.value = 0;
-}
-
-
-// 最终提交条目信息
-const submitSubject = () => {
-    // 信息不能留空
-    if (!subjectNameInput.value.trim()) {
-        notify.error({
-            title: "请输入条目名",
-            duration: 3000
-        });
-        return;
-    }
-    if (!personNameInput.value.trim()) {
-        notify.error({
-            title: "请输入人名",
-            duration: 3000
-        });
-        return;
-    }
-    // 关闭弹窗
-    showInput.value = false;
-    store.dispatch('addNewValidSubject', {
-        personName: personNameInput.value,
-        subjectId: subjectIdInput.value,
-        subjectName: subjectNameInput.value,
-        rate: rateInput.value
-    });
-    // 从列表中删除已提交的条目
-    store.dispatch('deleteInvalidSubject', { subjectId: Number(subjectIdInput.value) });
-    // 提示
-    notify.success({
-        title: "添加成功",
-        duration: 2000
-    });
-}
-
-// 弹出加条目窗口
-const addSubject = (row) => {
-    // 刷新信息
-    personNameInput.value = '';
-    subjectNameInput.value = '';
-    subjectIdInput.value = '';
-    rateInput.value = 0;
-
-    subjectIdInput.value = row.subject_id.toString();
-    if (row.subject_name !== undefined) {
-        isSubjectNameNull = false;
-        subjectNameInput.value = row.subject_name;  
-    } else {
-        isSubjectNameNull = true;
-    }
-    // 显示弹窗 
-    showInput.value = true;
-}
-
+const tableFontSizePX = computed(() => isMobile.value ? '10px' : '14px');
 
 // 表格数据
 const validSubjectRows = computed(() => {
@@ -344,7 +171,7 @@ const validSubjectRows = computed(() => {
         return [];
     }
     return validSubjects.value.map(row => {
-        const commonData = {
+        return {
             person_name: row.person_name,
             person_name_cn: row.person_name_cn,
             person_id: row.person_id,
@@ -355,32 +182,14 @@ const validSubjectRows = computed(() => {
             character_subject_names: row.character_subject_names,
             character_subject_names_cn: row.character_subject_names_cn,
             characters_number: row.characters_number,
-        };
-        // 根据 mergeSequels 的值来决定返回的 subject 数据
-        if (mergeSequels.value) {
-            return {
-                ...commonData,
-                subject_names: row.series_subject_names,
-                subject_ids: row.series_subject_ids,
-                subject_names_cn: row.series_subject_names_cn,
-                rates: row.series_rates,
-                subject_images: row.series_subject_images,
-                average_rate: row.series_average_rate,
-                subjects_number: row.series_subjects_number,
-                overall_rate: row.series_overall_rate
-            };
-        } else {
-            return {
-                ...commonData,
-                subject_names: row.subject_names,
-                subject_ids: row.subject_ids,
-                subject_names_cn: row.subject_names_cn,
-                rates: row.rates,
-                subject_images: row.subject_images,
-                average_rate: row.average_rate,
-                subjects_number: row.subjects_number,
-                overall_rate: row.overall_rate
-            };
+            subject_names: mergeSequels.value ? row.series_subject_names : row.subject_names,
+            subject_ids: mergeSequels.value ? row.series_subject_ids : row.subject_ids,
+            subject_names_cn: mergeSequels.value ? row.series_subject_names_cn : row.subject_names_cn,
+            rates: mergeSequels.value ? row.series_rates : row.rates,
+            subject_images: mergeSequels.value ? row.series_subject_images : row.subject_images,
+            average_rate: mergeSequels.value ? row.series_average_rate : row.average_rate,
+            subjects_number: mergeSequels.value ? row.series_subjects_number : row.subjects_number,
+            overall_rate: mergeSequels.value ? row.series_overall_rate : row.overall_rate,
         }
     });
 });
@@ -419,47 +228,14 @@ const paginationValidSubjects = reactive({
     }
 });
 
-const paginationInvalidSubjects = reactive({
-    page: 1,
-    pageSize: 10,
-    showSizePicker: true,
-    pageSizes: [
-        {
-            label: '每页 5 人',
-            value: 5
-        },
-        {
-            label: '每页 10 人',
-            value: 10
-        },
-        {
-            label: '每页 20 人',
-            value: 20
-        },
-        {
-            label: '每页 50 人',
-            value: 50
-        },
-    ],
-    pageSlot: 7,
-    size: isMobile.value ? 'small' : 'medium',
-    onChange: (page) => {
-    paginationInvalidSubjects.page = page
-    },
-    onUpdatePageSize: (pageSize) => {
-    paginationInvalidSubjects.pageSize = pageSize
-    paginationInvalidSubjects.page = 1
-    }
-});
-
 const validSubjectColumns = computed(() => [
     {
         title: '',  // 序号
         key: '',
-        width: isMobile.value ? 30 : 50,
+        width: isMobile.value ? 38 : 50,
         resizable: isMobile.value ? false : true,
         align: 'center',
-        render(row, index) {
+        render(_, index) {
             const exactIndex = index + (paginationValidSubjects.page - 1) * paginationValidSubjects.pageSize;
             let color = 'inherit';
             if (exactIndex === 0) {
@@ -472,79 +248,94 @@ const validSubjectColumns = computed(() => [
             return h(
                 'p',
                 {
-                    style: { color : color }
+                    style: { color : color, fontSize: tableFontSizePX.value }
                 },
                 exactIndex + 1
             );
         }
     },
     {
-        title: '人名',
+        title() { return h('span', { style: { fontSize: tableFontSizePX.value } }, '人名')},
         key: 'person_name',
-        width: isMobile.value ? 36 : 96,
+        width: isMobile.value ? 32 : 96,
         resizable: isMobile.value ? false : true,
         align: 'center',
         fixed: 'left',
         render(row) {
-            let personName = row.person_name;
-            if (showChinese.value) {
-                personName = row.person_name_cn
-            }
+            const personName = showChinese.value ? row.person_name_cn : row.person_name;
             return h(
                 'a',
                 {
                     href: `https://bgm.tv/person/${row.person_id}`,
                     title: `https://bgm.tv/person/${row.person_id}`,
                     target: '_blank',
-                    style: { color: '#FF1493', textDecoration:'none' }
+                    style: { color: '#FF1493', textDecoration:'none', fontSize: tableFontSizePX.value, lineHeight: '1.4', display: 'inline-block' }
                 },
                 personName
             );
         }
     },
     {
-        title: showCharacters.value ? '角色数' : (mergeSequels.value ? '系列数' : '作品数'),
+        title() { 
+            return h(
+                'span', 
+                { style: { fontSize: tableFontSizePX.value } }, 
+                showCharacters.value ? '角色数' : (mergeSequels.value ? '系列数' : '作品数')
+            )
+        },
         key: showCharacters.value ? 'characters_number' : 'subjects_number',
-        width: isMobile.value ? 52 : 86,
+        width: isMobile.value ? 50 : 86,
         align: 'center',
         resizable: isMobile.value ? false : true,
         sorter: 'default',
         render(row) {
-            return h('span', showCharacters.value ? row.characters_number : row.subjects_number)
+            return h(
+                'span',
+                { style: { fontSize: tableFontSizePX.value } },
+                showCharacters.value ? row.characters_number : row.subjects_number
+            )
         }
     },
     {
-        title: '均分',
+        title() { return h('span', { style: { fontSize: tableFontSizePX.value } }, '均分')},
         key: 'average_rate',
-        width: isMobile.value ? 52 : 76,
+        width: isMobile.value ? 50 : 76,
         align: 'center',
         resizable: isMobile.value ? false : true,
         sorter: 'default',
         render(row) {
             return h('div',
                 row.average_rate !== 0
-                    ? [h('img', { src: '/star.png', width: 10 }), h('span', ' '), h('span', isMobile.value ? row.average_rate.toFixed(1) : row.average_rate)]
-                    : h('span', '无评分')
+                    ? [
+                        h('img', { src: '/star.png', width: isMobile.value ? 8 : 10 }), 
+                        h('span', { style: { fontSize: tableFontSizePX.value } }, ' '), 
+                        h('span', { style: { fontSize: tableFontSizePX.value } }, isMobile.value ? row.average_rate.toFixed(1) : row.average_rate)
+                    ]
+                    : h('span', { style: { fontSize: tableFontSizePX.value } }, '无评分')
             );
         }
     },
     {
-        title: '加权综合',
+        title() { return h('span', { style: { fontSize: tableFontSizePX.value } }, '加权综合')},
         key: 'overall_rate',
-        width: isMobile.value ? 52 : 76,
+        width: isMobile.value ? 50 : 76,
         align: 'center',
         resizable: isMobile.value ? false : true,
         sorter: 'default',
         render(row) {
             return h('div',
                 row.overall_rate !== 0
-                    ? h('span', { style: {color: '#FF1493'} }, isMobile.value ? row.overall_rate.toFixed(1) : row.overall_rate)
-                    : h('span', '无') 
+                    ? h(
+                        'span', 
+                        { style: {color: '#FF1493', fontSize: tableFontSizePX.value} }, 
+                        isMobile.value ? row.overall_rate.toFixed(1) : row.overall_rate
+                    )
+                    : h('span', { style: { fontSize: tableFontSizePX.value } }, '无') 
             );
         }
     },
     {
-        title: showCharacters.value ? '角色': '作品',
+        title() { return h('span', { style: { fontSize: tableFontSizePX.value } }, showCharacters.value ? '角色' : '作品')},
         key: 'subject_names',
         titleAlign: 'center',
         resizable: isMobile.value ? false : true,
@@ -568,7 +359,9 @@ const validSubjectColumns = computed(() => [
                                         {
                                             src: img,
                                             alt: row.character_names[imgIndex],
-                                            style: { width: '48px', height: '48px', margin: '2px 5px 2px 0px', borderRadius: '5px', transition: 'all 0.1s' },
+                                            style: isMobile.value 
+                                                ? { width: '24px', height: '24px', margin: '1px 3px 1px 0px', borderRadius: '3px', transition: 'all 0.1s' }
+                                                : { width: '48px', height: '48px', margin: '2px 5px 2px 0px', borderRadius: '5px', transition: 'all 0.1s' },
                                             loading: 'lazy',
                                             onerror(event) {
                                                 event.currentTarget.src = '/character_failed.png';
@@ -603,7 +396,8 @@ const validSubjectColumns = computed(() => [
                                         borderRadius: '8px', 
                                         whiteSpace: 'nowrap', 
                                         lineHeight: '2',
-                                        transition: 'all 0.1s' 
+                                        transition: 'all 0.1s',
+                                        fontSize: tableFontSizePX.value,
                                     },
                                     onMouseover(event) {
                                         event.currentTarget.style.backgroundColor = '#EC468C';
@@ -622,11 +416,19 @@ const validSubjectColumns = computed(() => [
                                 showChinese.value 
                                     ? [
                                         row.character_names_cn[index],
-                                        h('span', { id: 'subject-name', style: { color: '#C3809A' } }, `【${row.character_subject_names_cn[index]}】`)
+                                        h(
+                                            'span', 
+                                            { id: 'subject-name', style: { color: '#C3809A', fontSize: tableFontSizePX.value } }, 
+                                            `【${row.character_subject_names_cn[index]}】`
+                                        )
                                     ]
                                     : [
                                         row.character_names[index],
-                                        h('span', { id: 'subject-name', style: { color: '#C3809A' } }, `【${row.character_subject_names[index]}】`)
+                                        h(
+                                            'span', 
+                                            { id: 'subject-name', style: { color: '#C3809A', fontSize: tableFontSizePX.value } }, 
+                                            `【${row.character_subject_names[index]}】`
+                                        )
 
                                     ],
                             )
@@ -657,7 +459,9 @@ const validSubjectColumns = computed(() => [
                                     {
                                         src: img,
                                         alt: row.subject_names[imgIndex],
-                                        style: { width: '50px', height: '70.6px', margin: '2px 5px 2px 0px', borderRadius: '5px', transition: 'all 0.1s' },
+                                        style: isMobile.value 
+                                            ? { width: '25px', height: '35.3px', margin: '1px 3px 1px 0px', borderRadius: '3px', transition: 'all 0.1s' }
+                                            : { width: '50px', height: '70.6px', margin: '2px 5px 2px 0px', borderRadius: '5px', transition: 'all 0.1s' },
                                         loading: 'lazy',
                                         onerror(event) {
                                             event.currentTarget.src = '/subject_failed.png';
@@ -692,7 +496,8 @@ const validSubjectColumns = computed(() => [
                                 borderRadius: '8px', 
                                 whiteSpace: 'nowrap', 
                                 lineHeight: '2',
-                                transition: 'all 0.1s' 
+                                transition: 'all 0.1s',
+                                fontSize: tableFontSizePX.value,
                             },
                             onMouseover(event) {
                                 event.currentTarget.style.backgroundColor = '#EC468C';
@@ -712,8 +517,18 @@ const validSubjectColumns = computed(() => [
                                 showChinese.value ? row.subject_names_cn[index] : subject_name
                             ),
                             row.rates[index] !== 0
-                                ? h('span', [h('span', ' '), h('img', { src: '/star.png', width: 10 }), h('span', ' '), h('span', row.rates[index]), h('span', ' ')])
-                                : h('span', [h('span', ' '), h('img', { src: '/star_unrated.png', width: 10 }), h('span', ' ')])
+                                ? h('span', [
+                                    h('span', ' '), 
+                                    h('img', { src: '/star.png', width: isMobile.value ? 8 : 10 }), 
+                                    h('span', ' '), 
+                                    h('span', { style: {fontWeight: 'bold', fontSize: tableFontSizePX.value} }, row.rates[index]), 
+                                    h('span', ' ')
+                                ])
+                                : h('span', [
+                                    h('span', ' '), 
+                                    h('img', { src: '/star_unrated.png', width: isMobile.value ? 8 : 10 }), 
+                                    h('span', ' ')
+                                ])
                     ])
                 ).reduce((acc, link, idx) => {  // 空格分隔
                     if (idx !== 0) {
@@ -726,67 +541,9 @@ const validSubjectColumns = computed(() => [
         }
     }
 ]);
-
-const invalidSubjectColumns = [
-    {
-        title: '',
-        align: 'center',
-        width: 50,
-        render(row, index) {
-            return h('p', index + (paginationInvalidSubjects.page - 1) * paginationInvalidSubjects.pageSize + 1);
-        }
-    },
-    {
-        title: '条目',
-        key: 'subject_id',
-        align: 'center',
-        titleAlign: 'center',
-        render(row) {
-            let subjectName = row.subject_name === undefined ? row.subject_id : row.subject_name;
-            if (showChinese.value && row.subject_name_cn) {
-                subjectName = row.subject_name_cn;
-            }
-            return h(
-                'a',
-                {
-                    href: `https://bgm.tv/subject/${row.subject_id}`,
-                    title: `https://bgm.tv/subject/${row.subject_id}`,
-                    target: '_blank',
-                    style: { color: '#FF1493' }
-                },
-                subjectName
-            )
-        }
-    },
-    {
-        title: '操作',
-        key: 'actions',
-        width: 110,
-        align: 'center',
-        titleAlign: 'center',
-        render(row) {
-            return h(
-                NButton,
-                {
-                    size: 'small',
-                    onClick: () => addSubject(row)
-                },
-                { default: () => '添加条目' }
-                )
-        }
-    }
-];
-
 </script>
 
-
-
 <style>
-
-.input-window {
-    width: 600px;
-}
-
 .visual-options {
     width: 90vw;
     font-weight: bold; 
@@ -824,29 +581,28 @@ const invalidSubjectColumns = [
     width: 90vw;
 }
 
-.invalid-subjects {
-    width: 90vw;
-}
-
 @media (max-width: 600px) {
-    .input-window {
-        width: 80vw;
-    }
     .result-text {
+        font-size: 12px;
         display: flex;
         justify-content: center;
     }
+
     .visual-options {
         width: 90vw;
+        font-size: 12px;
     }
+
     .visual-options-text-checked {
-        font-size: 14px;
+        font-size: 12px;
     }
+
     .visual-options-text-unchecked {
-        font-size: 14px;
+        font-size: 12px;
     }
-    #switch {
-        transform: translateY(4px);
+
+    .switch {
+        transform: translateY(-4px);
     }
 }
 
@@ -864,8 +620,5 @@ const invalidSubjectColumns = [
     flex-direction: column; 
     align-items: center; 
     width: 100vw; 
-    color: rgb(45, 45, 45);
-    text-shadow: 0px 0px 10px rgba(85, 85, 85, 0.6);;
 }
-
 </style>

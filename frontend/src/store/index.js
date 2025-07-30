@@ -4,7 +4,6 @@ export default createStore({
     state: {
         isLoading: false,
         validSubjects: [],
-        invalidSubjects: [],
         collectionNumber: 0,
         seriesNumber: 0,
         subjectType: 0,
@@ -18,12 +17,10 @@ export default createStore({
 
         clearLists(state) {
             state.validSubjects = [];
-            state.invalidSubjects = [];
         },
 
-        updateLists(state, { validSubjects, invalidSubjects, collectionNumber, seriesNumber, subjectType, isGlobalStats }) {
+        updateLists(state, { validSubjects, collectionNumber, seriesNumber, subjectType, isGlobalStats }) {
             state.validSubjects = validSubjects;
-            state.invalidSubjects = invalidSubjects;
             state.collectionNumber = collectionNumber;
             state.seriesNumber = seriesNumber;
             state.subjectType = subjectType;
@@ -60,10 +57,6 @@ export default createStore({
                 });
             }
         },
-
-        removeInvalidSubjects(state, { subjectId }) {
-            state.invalidSubjects = state.invalidSubjects.filter(subject => subject.subject_id !== subjectId);
-        },
     },
 
     actions: {
@@ -82,10 +75,5 @@ export default createStore({
         addNewValidSubject({ commit }, newSubject) {
             commit('updateValidSubjects', newSubject);
         },
-
-        deleteInvalidSubject({ commit }, subjectId) {
-            commit('removeInvalidSubjects', subjectId);
-        },
-
     }
 });
