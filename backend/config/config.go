@@ -38,28 +38,34 @@ type redisConfig struct {
 	TTL      redisTTLConfig `toml:"ttl"`
 }
 
-// 过期时间
-type ttl int
+type ttlHour int
 
-// ToHour 将小时数的原始值转为 time.Duration
-func (t ttl) ToHour() time.Duration {
+func (t ttlHour) ToDuration() time.Duration {
 	return time.Duration(t) * time.Hour
+}
+
+type ttlMinute int
+
+func (t ttlMinute) ToDuration() time.Duration {
+	return time.Duration(t) * time.Minute
 }
 
 type redisTTLConfig struct {
 	// 单位为小时
-	UserCollection  ttl `toml:"userCollection"`
-	Subject         ttl `toml:"subject"`
-	Sequel          ttl `toml:"sequel"`
-	Person          ttl `toml:"person"`
-	SubjectPerson   ttl `toml:"subjectPerson"`
-	Character       ttl `toml:"character"`
-	PersonCharacter ttl `toml:"personCharacter"`
+	UserCollection  ttlHour `toml:"userCollection"`
+	Subject         ttlHour `toml:"subject"`
+	Sequel          ttlHour `toml:"sequel"`
+	Person          ttlHour `toml:"person"`
+	SubjectPerson   ttlHour `toml:"subjectPerson"`
+	Character       ttlHour `toml:"character"`
+	PersonCharacter ttlHour `toml:"personCharacter"`
+	// 单位为分钟
+	Statistic ttlMinute `toml:"statistic"`
 }
 
 type logConfig struct {
-	AppLogPath string `toml:"appLogPath"`
-	GinLogPath string `toml:"ginLogPath"`
+	AppLogPath  string `toml:"appLogPath"`
+	GinLogPath  string `toml:"ginLogPath"`
 	GormLogPath string `toml:"gormLogPath"`
 }
 

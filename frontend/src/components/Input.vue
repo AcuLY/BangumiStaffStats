@@ -18,7 +18,7 @@
                         </n-tooltip>
                     </h3>
                     <n-input id="user-name" v-model:value="userId" type="text" placeholder="请输入用户 ID"
-                        :disabled="isGlobalStats" :size="isMob" />
+                        :disabled="isGlobalStats" />
                 </n-flex>
 
                 <n-flex class="option" vertical :size="5">
@@ -214,6 +214,12 @@ const maxRate = ref(null)
 const minFavorite = ref(null)
 const maxFavorite = ref(null)
 
+const page = computed(() => store.state.page);
+const pageSize = computed(() => store.state.pageSize);
+const statisticType = computed(() => store.state.statisticType);
+const sortBy = computed(() => store.state.sortBy);
+const ascending = computed(() => store.state.ascending);
+
 // 开启选项
 const enableIsGlobalStats = ref(false);
 const enableDateRange = ref(false);
@@ -391,6 +397,14 @@ const negativeTagsLabel = ref('');
 
 const calcShowNSFWValue = () => { return !enableNegativeTags.value || !negativeTags.value.includes("nsfw") };
 
+const isNewRequest = computed(() => {
+    return (
+        userId.value != userIdSave.value
+        || position.value != positionSave.value
+        || subjectType.value != subjectTypeSave.value
+        || String(collectionTypes.value) != String(collectionTypesSave.value)
+    );
+})
 
 // 抓取数据并更新到 store
 const fetch_statistics = async () => {
@@ -436,7 +450,18 @@ const fetch_statistics = async () => {
         positive_tags: calcPositiveTagsValue(),
         negative_tags: calcNegativeTagsValue(),
         show_nsfw: calcShowNSFWValue(),
+        page: isNewRequest.value ? 1 : page.value,
+        page_size: pageSize.value,
+        statistic_type: statisticType.value,
+        sort_by: sortBy.value,
+        ascending: ascending.value,
     }
+    // 开始加载
+    store.dispatch('setLoadingStatus');
+    store.dispatch('setIsCV', position.value.includes('声优'));
+    if (isNewRequest.value) {
+        store.dispatch('setPage', 1);
+    } 
     // 终止查询
     abortController.value = new AbortController();
     // 记录上次查询
@@ -449,17 +474,17 @@ const fetch_statistics = async () => {
     favoriteRangeLabel.value = calcFavoriteRangeLabel();
     positiveTagsLabel.value = calcPositiveTagsLabel();
     negativeTagsLabel.value = calcNegativeTagsLabel();
-    // 开始加载
-    store.dispatch('setLoadingStatus');
     // 调用并接受返回值
     axios.post(url, params, { signal: abortController.value.signal })
         .then(response => {
             store.dispatch('setLists', {
-                validSubjects: response.data['valid_subjects'],
-                collectionNumber: response.data['collection_number'],
-                seriesNumber: response.data['series_number'],
+                summaries: response.data['summaries'],
+                personCount: response.data['person_count'],
+                subjectCount: response.data['subject_count'],
+                seriesCount: response.data['series_count'],
+                characterCount: response.data['character_count'],
                 subjectType: subjectTypeSave,
-                isGlobalStats: isGlobalStats.value
+                isGlobalStats: isGlobalStats.value,
             });
             store.dispatch('setLoadingStatus');
         })
@@ -495,6 +520,9 @@ const cancelRequest = () => {
     }
 };
 
+watch([page, pageSize, statisticType, sortBy, ascending], () => {
+    fetch_statistics();
+});
 </script>
 
 <style scoped>

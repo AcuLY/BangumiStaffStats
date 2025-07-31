@@ -27,7 +27,7 @@
                                         <span class="visual-options-text-unchecked">显示图片</span>
                                     </template>
                                 </n-switch>
-                                <n-switch v-model:value="mergeSequels" v-show="subjectType == 2" :size="isMobile ? 'medium' : 'large'" class="switch">
+                                <n-switch v-model:value="mergeSequels" v-show="!showCharacters" :loading="isLoading" :size="isMobile ? 'medium' : 'large'" class="switch">
                                     <template #checked>
                                         <span class="visual-options-text-checked">合并续作</span>
                                     </template>
@@ -35,7 +35,7 @@
                                         <span class="visual-options-text-unchecked">合并续作</span>
                                     </template>
                                 </n-switch>
-                                <n-switch v-model:value="showCharacters" v-show="isCV" :size="isMobile ? 'medium' : 'large'" class="switch">
+                                <n-switch v-model:value="showCharacters" v-show="isCV" :loading="isLoading" :size="isMobile ? 'medium' : 'large'" class="switch">
                                     <template #checked>
                                         <span class="visual-options-text-checked">显示角色</span>
                                     </template>
@@ -57,26 +57,29 @@
 
                     <div v-show="isValidSubjectsNotNull" class="result-text">
                         <h2 style="margin-top: -10px;">
-                            统计到 <span style="color: #ff2075;">{{ validSubjects.length }}</span> 个人物，
-                            <span v-show="!mergeSequels" >
-                                <span style="color: #ff2075;">{{ collectionNumber }}</span> 个条目
+                            统计到 <span style="color: #ff2075;">{{ personCount }}</span> 个人物，
+                            <span>
+                                <span style="color: #ff2075;">{{ collectionNumber }}</span> 个条目，
                             </span>
-                            <span v-show="mergeSequels" >
+                            <span>
                                 <span style="color: #ff2075;">{{ seriesNumber }}</span> 个系列
+                            </span>
+                            <span v-show="characterNumber" >
+                                ，<span style="color: #ff2075;">{{ characterNumber }}</span> 个角色
                             </span>
                         </h2>
                     </div>
                     <n-pagination
-                        v-model:page="paginationValidSubjects.page"
-                        v-model:page-size="paginationValidSubjects.pageSize"
-                        :item-count="validSubjects.length"
+                        :page="paginationValidSubjects.page"
+                        :page-size="paginationValidSubjects.pageSize"
+                        :item-count="personCount"
                         :page-sizes="paginationValidSubjects.pageSizes"
                         :show-size-picker="paginationValidSubjects.showSizePicker"
                         :page-slot="paginationValidSubjects.pageSlot"
                         :size="paginationValidSubjects.size"
-                        @update:page="paginationValidSubjects.onChange"
-                        @update:page-size="paginationValidSubjects.onUpdatePageSize"
-                        class="pagination"
+                        @update:page="handlePageChange"
+                        @update:page-size="handlePageSizeChange"
+                        class="pagination-top"
                         show-quick-jumper
                     >
                         <template #goto>
@@ -84,15 +87,34 @@
                         </template>
                     </n-pagination>
                     <n-data-table 
-                        :columns="validSubjectColumns" 
+                        :columns="visibleColumns" 
                         :data="validSubjectRows" 
                         :single-line="false" 
                         :max-height="tableHeight" 
                         :scroll-x="tableWidth"
                         striped 
-                        :pagination="paginationValidSubjects"
-                        :total="validSubjects.length"
+                        @update:page=handlePageChange
+                        @update:page-size=handlePageSizeChange
+                        @update:sorter=handleSorterChange
                     />
+                    <n-pagination
+                        :page="paginationValidSubjects.page"
+                        :page-size="paginationValidSubjects.pageSize"
+                        :item-count="personCount"
+                        :page-sizes="paginationValidSubjects.pageSizes"
+                        :show-size-picker="paginationValidSubjects.showSizePicker"
+                        :page-slot="paginationValidSubjects.pageSlot"
+                        :size="paginationValidSubjects.size"
+                        @update:page="handlePageChange"
+                        @update:page-size="handlePageSizeChange"
+                        class="pagination-bottom"
+                        show-quick-jumper
+                        :display-order="['quick-jumper', 'pages', 'size-picker']"
+                    >
+                        <template #goto>
+                            <span style="font-size: larger;">按回车跳至</span>
+                        </template>
+                    </n-pagination>
                     <p style="color: gray;">
                         注：<br>① “作品均分” 为用户评分的平均分 <br>
                         ② 如果条目数量过多（几千个）开启显示图片时请勿设置过大的分页值，否则可能会崩溃 <br>
@@ -123,9 +145,11 @@ const store = useStore();
 const isLoading = computed(() => store.state.isLoading);    // 加载状态
 
 // 以下两个列表的末尾为一个属性全空的字典, 用于填充 data-table 最后一行, 防止滚轮滚不到低
-const validSubjects = computed(() => store.state.validSubjects);
-const collectionNumber = computed(() => store.state.collectionNumber) // 总条目数
-const seriesNumber = computed(() => store.state.seriesNumber);   // 总系列数
+const validSubjects = computed(() => store.state.summaries);
+const personCount = computed(() => store.state.personCount)
+const collectionNumber = computed(() => store.state.subjectCount) // 总条目数
+const seriesNumber = computed(() => store.state.seriesCount);   // 总系列数
+const characterNumber = computed(() => store.state.characterCount);
 const subjectType = computed(() => store.state.subjectType);
 const isGlobalStats = computed(() => store.state.isGlobalStats);    // 是否查全站
 
@@ -148,12 +172,7 @@ const mergeSequels = ref(false);
 const tableWidth = ref(1200);
 const tableHeight = ref(1200);
 // 是否查询声优
-const isCV = computed(() => {
-    if (validSubjects.value[0] && validSubjects.value[0]['character_ids'].length >= 1) {
-        return true;
-    }
-    return false;
-});
+const isCV = computed(() => store.state.isCV);
 // 查询声优时显示角色
 const showCharacters = ref(false);
 
@@ -175,58 +194,90 @@ const validSubjectRows = computed(() => {
             person_name: row.person_name,
             person_name_cn: row.person_name_cn,
             person_id: row.person_id,
+            subject_names: row.subject_names,
+            subject_ids: row.subject_ids,
+            subject_names_cn: row.subject_names_cn,
+            rates: row.rates,
+            subject_images: row.subject_images,
+            average_rate: row.average_rate,
+            subject_count: row.count,
+            overall_rate: row.overall_rate,
             character_ids: row.character_ids,
             character_names: row.character_names,
             character_names_cn: row.character_names_cn,
             character_images: row.character_images,
             character_subject_names: row.character_subject_names,
             character_subject_names_cn: row.character_subject_names_cn,
-            characters_number: row.characters_number,
-            subject_names: mergeSequels.value ? row.series_subject_names : row.subject_names,
-            subject_ids: mergeSequels.value ? row.series_subject_ids : row.subject_ids,
-            subject_names_cn: mergeSequels.value ? row.series_subject_names_cn : row.subject_names_cn,
-            rates: mergeSequels.value ? row.series_rates : row.rates,
-            subject_images: mergeSequels.value ? row.series_subject_images : row.subject_images,
-            average_rate: mergeSequels.value ? row.series_average_rate : row.average_rate,
-            subjects_number: mergeSequels.value ? row.series_subjects_number : row.subjects_number,
-            overall_rate: mergeSequels.value ? row.series_overall_rate : row.overall_rate,
+            character_count: row.character_count,
         }
     });
 });
 
 // 分页参数
 const paginationValidSubjects = reactive({
-    page: 1,
-    pageSize: 10,
+    page: store.state.page,
+    pageSize: store.state.pageSize,
     showSizePicker: true,
     pageSizes: [
-        {
-            label: '每页 5 人',
-            value: 5
-        },
-        {
-            label: '每页 10 人',
-            value: 10
-        },
-        {
-            label: '每页 20 人',
-            value: 20
-        },
-        {
-            label: '每页 50 人',
-            value: 50
-        },
+        { label: '每页 5 人', value: 5 },
+        { label: '每页 10 人', value: 10 },
+        { label: '每页 20 人', value: 20 },
+        { label: '每页 50 人', value: 50 },
     ],
     pageSlot: 7,
     size: isMobile.value ? 'small' : 'medium',
-    onChange: (page) => {
-    paginationValidSubjects.page = page
-    },
-    onUpdatePageSize: (pageSize) => {
-    paginationValidSubjects.pageSize = pageSize
-    paginationValidSubjects.page = 1
-    }
 });
+
+const handlePageChange = (newPage) => {
+    paginationValidSubjects.page = newPage;
+    store.dispatch('setPage', newPage);
+};
+
+const handlePageSizeChange = (newPageSize) => {
+    paginationValidSubjects.pageSize = newPageSize;
+    paginationValidSubjects.page = 1;
+    store.dispatch('setPageSize', newPageSize);
+};
+
+const handleSorterChange = (sorter) => {
+    if (sorter.order === 'ascend') {
+        paginationValidSubjects.sortBy = sorter.columnKey;
+        paginationValidSubjects.ascending = true;
+    } else if (sorter.order === 'descend') {
+        paginationValidSubjects.sortBy = sorter.columnKey;
+        paginationValidSubjects.ascending = false;
+    } else {
+        paginationValidSubjects.sortBy = "count";
+        paginationValidSubjects.ascending = false;
+    }
+    store.dispatch('setSorter', {
+        sortBy: paginationValidSubjects.sortBy,
+        ascending: paginationValidSubjects.ascending
+    });
+    paginationValidSubjects.page = 1;
+};
+
+watch(showCharacters, (newValue) => {
+    if (newValue) {
+        store.dispatch('setStatisticType', 'character');
+    } else {
+        store.dispatch('setStatisticType', mergeSequels.value ? 'series' : 'subject');
+    }
+    handlePageChange(1);
+})
+
+watch(mergeSequels, (newValue) => {
+    if (newValue) {
+        store.dispatch('setStatisticType', 'series');
+    } else {
+        store.dispatch('setStatisticType', 'subject');
+    }
+    handlePageChange(1);
+});
+
+watch(computed(() => store.state.page), (newValue) => {
+    paginationValidSubjects.page = newValue;
+})
 
 const validSubjectColumns = computed(() => [
     {
@@ -283,7 +334,7 @@ const validSubjectColumns = computed(() => [
                 showCharacters.value ? '角色数' : (mergeSequels.value ? '系列数' : '作品数')
             )
         },
-        key: showCharacters.value ? 'characters_number' : 'subjects_number',
+        key: 'count',
         width: isMobile.value ? 50 : 86,
         align: 'center',
         resizable: isMobile.value ? false : true,
@@ -292,13 +343,13 @@ const validSubjectColumns = computed(() => [
             return h(
                 'span',
                 { style: { fontSize: tableFontSizePX.value } },
-                showCharacters.value ? row.characters_number : row.subjects_number
+                showCharacters.value ? row.character_count : row.subject_count
             )
         }
     },
     {
         title() { return h('span', { style: { fontSize: tableFontSizePX.value } }, '均分')},
-        key: 'average_rate',
+        key: 'average',
         width: isMobile.value ? 50 : 76,
         align: 'center',
         resizable: isMobile.value ? false : true,
@@ -317,7 +368,7 @@ const validSubjectColumns = computed(() => [
     },
     {
         title() { return h('span', { style: { fontSize: tableFontSizePX.value } }, '加权综合')},
-        key: 'overall_rate',
+        key: 'overall',
         width: isMobile.value ? 50 : 76,
         align: 'center',
         resizable: isMobile.value ? false : true,
@@ -541,6 +592,15 @@ const validSubjectColumns = computed(() => [
         }
     }
 ]);
+
+const visibleColumns = computed(() => {
+    return validSubjectColumns.value.filter(col => {
+        if (showCharacters.value && (col.key == 'average' || col.key == 'overall')) {
+            return false;
+        }
+        return true;
+    })
+})
 </script>
 
 <style>
@@ -565,9 +625,17 @@ const validSubjectColumns = computed(() => [
     margin: 0px 0px 5px 0px;
 }
 
-.pagination {
+.pagination-top {
     justify-content: start; 
     margin-bottom: 12px; 
+    flex-wrap: wrap;
+    display: flex;
+    gap: 10px 0px
+}
+
+.pagination-bottom {
+    justify-content: end; 
+    margin-top: 12px; 
     flex-wrap: wrap;
     display: flex;
     gap: 10px 0px

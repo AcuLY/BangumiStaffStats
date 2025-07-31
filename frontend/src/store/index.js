@@ -3,11 +3,19 @@ import { createStore } from 'vuex';
 export default createStore({
     state: {
         isLoading: false,
-        validSubjects: [],
-        collectionNumber: 0,
-        seriesNumber: 0,
+        summaries: [],
+        personCount: 0,
+        subjectCount: 0,
+        seriesCount: 0,
         subjectType: 0,
-        isGlobalStats: false
+        isGlobalStats: false,
+        isCV: false,
+        characterCount: 0,
+        statisticType: 'subject',
+        page: 1,
+        pageSize: 10,
+        sortBy: 'count',
+        ascending: false,
     },
 
     mutations: {
@@ -16,46 +24,41 @@ export default createStore({
         },
 
         clearLists(state) {
-            state.validSubjects = [];
+            state.summaries = [];
         },
 
-        updateLists(state, { validSubjects, collectionNumber, seriesNumber, subjectType, isGlobalStats }) {
-            state.validSubjects = validSubjects;
-            state.collectionNumber = collectionNumber;
-            state.seriesNumber = seriesNumber;
+        updateIsCV(state, isCV) {
+            state.isCV = isCV;
+        },
+
+        updateLists(state, { summaries, personCount, subjectCount, seriesCount, characterCount, subjectType, isGlobalStats }) {
+            state.summaries = summaries;
+            state.personCount = personCount;
+            state.subjectCount = subjectCount;
+            state.seriesCount = seriesCount;
+            state.characterCount = characterCount
             state.subjectType = subjectType;
-            state.isGlobalStats = isGlobalStats
+            state.isGlobalStats = isGlobalStats;
         },
 
-        updateValidSubjects(state, { personName, subjectId, subjectName, rate }) {
-            // 判断是否是新人物
-            const existingSubject = state.validSubjects.find(subject => subject.person_name === personName);
-            // 如果是则新增, 否则融合
-            if (existingSubject) {
-                existingSubject.subject_ids.push(subjectId);
-                existingSubject.subject_names.push(subjectName);
-                existingSubject.rates.push(rate);
-                // 重新计算和条目数均分
-                existingSubject.subjects_number += 1;
-                if (rate != 0) {
-                    existingSubject.average_rate = (
-                        existingSubject.rates.reduce((sum, rate) => sum + rate, 0) / existingSubject.subjects_number
-                    ).toFixed(2);
-                    existingSubject.overall_rate = (
-                        existingSubject.subjects_number / (existingSubject.subjects_number + 5) * existingSubject.average_rate + 5 / (existingSubject.subjects_number + 5) * 5
-                    ).toFixed(2);
-                }
-            } else {
-                state.validSubjects.push({
-                    person_name: personName,
-                    subject_ids: [subjectId],
-                    subject_names: [subjectName],
-                    subjects_number: 1,
-                    rates: [rate],
-                    average_rate: rate,
-                    overall_rate: 1.0 / 6 * rate + 5.0 / 6 * 5
-                });
-            }
+        updateStatisticType(state, statisticType) {
+            state.statisticType = statisticType;
+        },
+
+        updatePage(state, page) {
+            state.page = page;
+        },
+
+        updatePageSize(state, pageSize) {
+            state.pageSize = pageSize;
+        },
+
+        updateSortBy(state, sortBy) {
+            state.sortBy = sortBy;
+        },
+
+        updateAscending(state, ascending) {
+            state.ascending = ascending;
         },
     },
 
@@ -68,12 +71,30 @@ export default createStore({
             commit('clearLists');
         },
 
+        setIsCV({ commit }, isCV) {
+            commit('updateIsCV', isCV);
+        },
+
         setLists({ commit }, lists) {
             commit('updateLists', lists);
         },
 
-        addNewValidSubject({ commit }, newSubject) {
-            commit('updateValidSubjects', newSubject);
+        setStatisticType({ commit }, statisticType) {
+            commit('updateStatisticType', statisticType);
         },
+
+        setPage({ commit }, page) {
+            commit('updatePage', page);
+        },
+
+        setPageSize({ commit }, pageSize) {
+            commit('updatePageSize', pageSize);
+            commit('updatePage', 1);
+        },
+
+        setSorter({ commit }, { sortBy, ascending }) {
+            commit('updateSortBy', sortBy);
+            commit('updateAscending', ascending);
+        }
     }
 });

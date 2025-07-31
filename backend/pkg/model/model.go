@@ -164,61 +164,90 @@ type Request struct {
 	DateRange []time.Time `json:"date_range"`
 	// NSFW
 	ShowNSFW bool `json:"show_nsfw"`
+	// 展示的数据（subject 条目 / series 系列 / character 角色）
+	StatisticType string `json:"statistic_type"`
+	// 分页偏移量
+	Page int `json:"page"`
+	// 页大小
+	PageSize int `json:"page_size"`
+	// 排序依据
+	SortBy string `json:"sort_by"`
+	// 升序或降序
+	Ascending *bool `json:"ascending"`
 }
 
-// Response 封装应用的响应字段
-type Response struct {
-	// 所有人物的记录
-	PeopleSummary []*PersonSummary `json:"valid_subjects"`
-	// 无效的条目，当前暂时不使用该字段
-	InvalidSubjects []*Subject `json:"invalid_subjects"`
-	// 查询到的条目数量
-	SubjectCount int `json:"collection_number"`
-	// 查询到的系列数量
-	SeriesCount int `json:"series_number"`
+// SubjectSummary 包括一个人物的全部条目
+type SubjectSummary struct {
+	IDs     []int     `json:"subject_ids"`
+	Names   []string  `json:"subject_names"`
+	NamesCN []string  `json:"subject_names_cn"`
+	Images  []string  `json:"subject_images"`
+	Rates   []float32 `json:"rates"`
+	Average float32   `json:"average_rate"`
+	// 综合加权分
+	Overall float32 `json:"overall_rate"`
+	// 条目数量
+	Count int `json:"count"`
 }
 
-// 一个人物的记录
+// CharacterSummary 包含一个人物的全部角色
+type CharacterSummary struct {
+	IDs     []int    `json:"character_ids"`
+	Names   []string `json:"character_names"`
+	NamesCN []string `json:"character_names_cn"`
+	Images  []string `json:"character_images"`
+	// 角色对应的条目
+	SubjectNames   []string `json:"character_subject_names"`
+	SubjectNamesCN []string `json:"character_subject_names_cn"`
+	// 角色数量
+	Count int `json:"character_count"`
+}
+
+// PersonSummary 一个人物的完整统计结果，用于暂存在服务端
 type PersonSummary struct {
+	PersonID     int
+	PersonName   string
+	PersonNameCN string
+
+	Subject   *SubjectSummary
+	Series    *SubjectSummary
+	Character *CharacterSummary
+}
+
+// PersonSummaryResp 一个人物的一种统计结果（subject / series / character），用于返回，有 character 时则无另外两个
+type PersonSummaryResp struct {
 	PersonID     int    `json:"person_id"`
 	PersonName   string `json:"person_name"`
 	PersonNameCN string `json:"person_name_cn"`
 
-	SubjectIDs     []int     `json:"subject_ids"`
-	SubjectNames   []string  `json:"subject_names"`
-	SubjectNamesCN []string  `json:"subject_names_cn"`
-	SubjectImages  []string  `json:"subject_images"`
-	Rates          []float32 `json:"rates"`
-	AverageRate    float32   `json:"average_rate"`
-	// 综合加权分
-	OverallRate float32 `json:"overall_rate"`
-	// 条目数量
-	SubjectsNumber int `json:"subjects_number"`
+	*SubjectSummary   `json:",omitempty"`
+	*CharacterSummary `json:",omitempty"`
+}
 
-	CharacterIDs     []int    `json:"character_ids"`
-	CharacterNames   []string `json:"character_names"`
-	CharacterNamesCN []string `json:"character_names_cn"`
-	CharacterImages  []string `json:"character_images"`
-	// 角色对应的条目
-	CharacterSubjectNames   []string `json:"character_subject_names"`
-	CharacterSubjectNamesCN []string `json:"character_subject_names_cn"`
-	// 角色数量
-	CharactersNumber int `json:"characters_number"`
+// Statistics 包含一次查询的完整结果，用于暂存在服务端
+type Statistics struct {
+	// 所有人物的记录
+	PeopleSummary []*PersonSummary
+	// 查询到的人物数量
+	PersonCount int
+	// 查询到的条目数量
+	SubjectCount int
+	// 查询到的系列数量
+	SeriesCount int
+	// 查询到的角色数量
+	CharacterCount int
+}
 
-	// 主条目 ID
-	SeriesSubjectIDs []int `json:"series_subject_ids"`
-	// 主条目名
-	SeriesSubjectNames []string `json:"series_subject_names"`
-	// 主条目中文名
-	SeriesSubjectNamesCN []string `json:"series_subject_names_cn"`
-	// 一个系列内的均分
-	SeriesRates []float32 `json:"series_rates"`
-	// 主条目图片
-	SeriesSubjectImages []string `json:"series_subject_images"`
-	// 全部系列的均分
-	SeriesAverageRate float32 `json:"series_average_rate"`
-	// 全部系列的加权分
-	SeriesOverallRate float32 `json:"series_overall_rate"`
-	// 系列数量
-	SeriesSubjectsNumber int `json:"series_subjects_number"`
+// StatisticsResp 表示响应字段，其中 PeopleSummaryResp 从 Statistic.PeopleSummary 根据分页切分得到
+type StatisticsResp struct {
+	// 所有人物的记录
+	PeopleSummaryResp []*PersonSummaryResp `json:"summaries"`
+	// 查询到的人物数量
+	PersonCount int `json:"person_count"`
+	// 查询到的条目数量
+	SubjectCount int `json:"subject_count"`
+	// 查询到的系列数量
+	SeriesCount int `json:"series_count"`
+	// 查询到的角色数量
+	CharacterCount int `json:"character_count"`
 }

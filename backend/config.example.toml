@@ -34,6 +34,7 @@ db = 0
     subjectPerson = 168
     character = 168
     personCharacter = 168
+    statistic = 10
 
 [log]
 appLogPath = "./logs/app/"
