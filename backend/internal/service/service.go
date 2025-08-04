@@ -6,11 +6,11 @@ import (
 	"slices"
 
 	cache "github.com/AcuLY/BangumiStaffStats/backend/internal/cache/statistic"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/constant"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/pkg/sorter"
 	srv "github.com/AcuLY/BangumiStaffStats/backend/internal/service/statistic"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/constants"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/sorter"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -20,7 +20,7 @@ var ErrInvalidPagination error = errors.New("invalid pagination")
 func Statistics(ctx context.Context, r *model.Request) (*model.StatisticsResp, error) {
 	full := new(model.Statistics)
 
-	if err := cache.GetStatistic(ctx, r, full); err != nil {
+	if err := cache.Find(ctx, r, full); err != nil {
 		if err != redis.Nil {
 			return nil, err
 		}
@@ -30,8 +30,8 @@ func Statistics(ctx context.Context, r *model.Request) (*model.StatisticsResp, e
 			return nil, err
 		}
 
-		if err := cache.SetStatistic(ctx, r, full); err != nil {
-			logger.Warn("Failed to set statistic cache: " + err.Error())
+		if err := cache.Save(ctx, r, full); err != nil {
+			logger.Warn("Failed to set statistic cache: "+err.Error())
 		}
 	}
 
@@ -40,16 +40,16 @@ func Statistics(ctx context.Context, r *model.Request) (*model.StatisticsResp, e
 		return nil, ErrNoResultFound
 	}
 
-	if r.StatisticType == constants.StatsTypeCharacter {
+	if r.StatisticType == constant.StatsTypeCharacter {
 		sorter.SortByCharacterCount(summaries)
 	} else {
-		isSeries := r.StatisticType == constants.StatsTypeSeries
+		isSeries := r.StatisticType == constant.StatsTypeSeries
 		switch r.SortBy {
-		case constants.SortByCount:
+		case constant.SortByCount:
 			sorter.SortByCount(summaries, isSeries)
-		case constants.SortByAverageRate:
+		case constant.SortByAverageRate:
 			sorter.SortByAverage(summaries, isSeries)
-		case constants.SortByOverallRate:
+		case constant.SortByOverallRate:
 			sorter.SortByOverall(summaries, isSeries)
 		}
 	}

@@ -4,29 +4,37 @@ import (
 	"context"
 
 	cache "github.com/AcuLY/BangumiStaffStats/backend/internal/cache/person"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/repository"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 	"github.com/redis/go-redis/v9"
 )
 
-// FindPeopleBySubjectAndPosition 根据 Subject 和 Position 获取所有的 Person
-func FindPeopleBySubjectAndPosition(ctx context.Context, s *model.Subject, positionIDs []int) ([]*model.Person, error) {
+// FindBySubjectAndPosition 根据 Subject 和 Position 获取所有的 Person
+func FindBySubjectAndPosition(ctx context.Context, s *model.Subject, positionIDs []int) ([]*model.Person, error) {
 	var people []*model.Person
 	var err error
-	people, err = cache.GetPeopleBySubjectAndPosition(ctx, s, positionIDs)
+	people, err = cache.FindBySubjectAndPosition(ctx, s, positionIDs)
 	if err == nil {
 		return people, nil
 	} else if err != redis.Nil {
 		return nil, err
 	}
 
-	repository.Semaphore <- struct{}{}
-	defer func() { <-repository.Semaphore }()
-
 	var ids []int
-	err = repository.DB.WithContext(ctx).Raw("SELECT DISTINCT person_id FROM subject_person WHERE subject_id = ? AND position in (?)", s.ID, positionIDs).Scan(&ids).Error
+
+	query := `
+		SELECT DISTINCT person_id 
+		FROM subject_person 
+		WHERE subject_id = ? AND position in (?)
+	`
+	err = repository.DB.
+		WithContext(ctx).
+		Raw(query, s.ID, positionIDs).
+		Scan(&ids).
+		Error
 	if err != nil {
+		logger.Warn("Failed to find person by subject and position: "+err.Error(), repository.DBStats())
 		return nil, err
 	}
 
@@ -36,7 +44,7 @@ func FindPeopleBySubjectAndPosition(ctx context.Context, s *model.Subject, posit
 	}
 
 	go func() {
-		if err := cache.SetPeopleBySubjectAndPosition(context.Background(), s, positionIDs, people); err != nil {
+		if err := cache.SaveBySubjectAndPosition(context.Background(), s, positionIDs, people); err != nil {
 			logger.Warn("Failed to set subject position cache: " + err.Error())
 		}
 	}()
@@ -44,24 +52,31 @@ func FindPeopleBySubjectAndPosition(ctx context.Context, s *model.Subject, posit
 	return people, nil
 }
 
-// FindPerson 填充 Person 的完整信息
-func FindPerson(ctx context.Context, p *model.Person) error {
-	if err := cache.GetPerson(ctx, p); err == nil {
+// Find 填充 Person 的完整信息
+func Find(ctx context.Context, p *model.Person) error {
+	if err := cache.Find(ctx, p); err == nil {
 		return nil
 	} else if err != redis.Nil {
 		return err
 	}
 
-	repository.Semaphore <- struct{}{}
-	defer func() { <-repository.Semaphore }()
-
-	if err := repository.DB.WithContext(ctx).Table("people").Where("person_id = ?", p.ID).First(p).Error; err != nil {
-		logger.Warn("Person not found.", logger.Field("person_id", p.ID))
+	err := repository.DB.
+		WithContext(ctx).
+		Table("people").
+		Where("person_id = ?", p.ID).
+		First(p).
+		Error
+	if err != nil {
+		logger.Warn(
+			"Failed to find person: "+err.Error(), 
+			logger.Field("person_id", p.ID),
+			repository.DBStats(),
+		)
 		return nil
 	}
 
 	go func() {
-		if err := cache.SetPerson(context.Background(), p); err != nil {
+		if err := cache.Save(context.Background(), p); err != nil {
 			logger.Warn("Failed to set person cache: " + err.Error())
 		}
 	}()

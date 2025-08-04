@@ -5,17 +5,17 @@ import (
 	"sync"
 
 	cache "github.com/AcuLY/BangumiStaffStats/backend/internal/cache/collection"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/bangumi"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 )
 
-// GetUserCollections 获取用户指定类型的全部收藏
+// Fetch 获取用户指定类型的全部收藏
 //
 // 返回的 Subject 对象只填充 ID 和 UserRate 字段
-func GetUserCollections(ctx context.Context, userID string, subjectType int, collectionTypes []int) ([]*model.Subject, error) {
+func Fetch(ctx context.Context, userID string, subjectType int, collectionTypes []int) ([]*model.Subject, error) {
 	subjects := make([]*model.Subject, 0)
 	g := new(errgroup.Group)
 	var mu sync.Mutex
@@ -28,7 +28,7 @@ func GetUserCollections(ctx context.Context, userID string, subjectType int, col
 		}
 
 		g.Go(func() error {
-			subjectsByPage, err := getUserCollectionsByType(ctx, cq)
+			subjectsByPage, err := fetchByType(ctx, cq)
 			if err != nil {
 				return err
 			}
@@ -48,10 +48,10 @@ func GetUserCollections(ctx context.Context, userID string, subjectType int, col
 	return subjects, nil
 }
 
-// getUserCollectionByType 获取用户一种类型的收藏，返回 Subject 列表
-func getUserCollectionsByType(ctx context.Context, cq bangumi.CollectionQuery) ([]*model.Subject, error) {
+// fetchByType 获取用户一种类型的收藏，返回 Subject 列表
+func fetchByType(ctx context.Context, cq bangumi.CollectionQuery) ([]*model.Subject, error) {
 	// 检查缓存
-	cached, err := cache.GetUserCollection(ctx, cq)
+	cached, err := cache.Find(ctx, cq)
 	if err != nil && err != redis.Nil {
 		return nil, err
 	} else if err == nil {
@@ -65,24 +65,24 @@ func getUserCollectionsByType(ctx context.Context, cq bangumi.CollectionQuery) (
 	}
 
 	// 将原始 JSON 解析为需要的 Subject
-	subjects, err := parseBangumiResponse(fetched)
+	subjects, err := parseBangumiResp(fetched)
 	if err != nil {
 		return nil, err
 	}
 
 	// 异步回写缓存
 	go func() {
-		err = cache.SetUserCollection(context.Background(), cq, subjects)
+		err = cache.Save(context.Background(), cq, subjects)
 		if err != nil {
-			logger.Warn("Failed to set user collection cache: " + err.Error())
+			logger.Warn("Failed to set user collection cache: "+err.Error())
 		}
 	}()
 
 	return subjects, err
 }
 
-// parseBangumiResponse 将 Bangumi API 的响应体解析为 Subject 列表
-func parseBangumiResponse(collections []*bangumi.Collection) ([]*model.Subject, error) {
+// parseBangumiResp 将 Bangumi API 的响应体解析为 Subject 列表
+func parseBangumiResp(collections []*bangumi.Collection) ([]*model.Subject, error) {
 	subjects := make([]*model.Subject, 0, len(collections))
 
 	for _, c := range collections {

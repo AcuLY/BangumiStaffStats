@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/config"
 	"github.com/redis/go-redis/v9"
@@ -21,7 +22,8 @@ func Init() error {
 		Addr:     fmt.Sprintf("%s:%d", config.Redis.Host, config.Redis.Port),
 		Password: config.Redis.Password,
 		DB:       config.Redis.Db,
+		PoolTimeout: time.Minute,
 	})
 
-	return nil
+	return RDB.Ping(Ctx).Err()
 }

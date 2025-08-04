@@ -6,6 +6,18 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+type ttlHour int
+
+func (t ttlHour) Duration() time.Duration {
+	return time.Duration(t) * time.Hour
+}
+
+type ttlMinute int
+
+func (t ttlMinute) Duration() time.Duration {
+	return time.Duration(t) * time.Minute
+}
+
 type mainConfig struct {
 	AppName string `toml:"appName"`
 	Host    string `toml:"host"`
@@ -22,12 +34,14 @@ type httpConfig struct {
 }
 
 type mysqlConfig struct {
-	Host          string `toml:"host"`
-	Port          int    `toml:"port"`
-	User          string `toml:"user"`
-	Password      string `toml:"password"`
-	DatabaseName  string `toml:"databaseName"`
-	MaxConnection int    `toml:"maxConnection"`
+	Host              string    `toml:"host"`
+	Port              int       `toml:"port"`
+	User              string    `toml:"user"`
+	Password          string    `toml:"password"`
+	DatabaseName      string    `toml:"databaseName"`
+	MaxOpenConnection int       `toml:"maxOpenConnection"`
+	MaxIdleConnection int       `toml:"maxIdleConnection"`
+	MaxLifetime       ttlMinute `toml:"maxLifetime"`
 }
 
 type redisConfig struct {
@@ -36,18 +50,6 @@ type redisConfig struct {
 	Password string         `toml:"password"`
 	Db       int            `toml:"db"`
 	TTL      redisTTLConfig `toml:"ttl"`
-}
-
-type ttlHour int
-
-func (t ttlHour) ToDuration() time.Duration {
-	return time.Duration(t) * time.Hour
-}
-
-type ttlMinute int
-
-func (t ttlMinute) ToDuration() time.Duration {
-	return time.Duration(t) * time.Minute
 }
 
 type redisTTLConfig struct {

@@ -3,7 +3,7 @@ package filter
 import (
 	"strings"
 
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 )
 
 // parseTags 解析输入的标签。
@@ -84,11 +84,11 @@ func matchNegativeTags(s *model.Subject, disjunctionTags [][]string) bool {
 	return false
 }
 
-// FilterSubjectsByTags 根据标签过滤条目。
+// FilterByTags 根据标签过滤条目。
 //
 //   - 若 tags 为 [[原创, 漫画改], [百合]]，
 //     则目标条目应该为原创或漫画改的百合作品。
-func FilterSubjectsByTags(subjects *[]*model.Subject, PositiveTags []string, Negativetags []string) {
+func FilterByTags(subjects *[]*model.Subject, PositiveTags []string, Negativetags []string) {
 	parsedPositiveTags := parseTags(PositiveTags, true)
 	parsedNegativeTags := parseTags(Negativetags, false)
 
@@ -105,8 +105,8 @@ func FilterSubjectsByTags(subjects *[]*model.Subject, PositiveTags []string, Neg
 	*subjects = subjectsSlice[:count]
 }
 
-// FilterNSFWSubjects 过滤 nsfw 条目
-func FilterNSFWSubjects(subjects *[]*model.Subject) {
+// FilterNSFW 过滤 nsfw 条目
+func FilterNSFW(subjects *[]*model.Subject) {
 	count := 0
 
 	for _, s := range *subjects {

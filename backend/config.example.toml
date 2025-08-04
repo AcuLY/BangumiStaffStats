@@ -18,7 +18,9 @@ port = 3306
 user = "bgmss"
 password = "YOUR_PASSWORD"
 databaseName = "bgmss"
-maxConnection = 10
+maxOpenConnection = 100
+maxIdleConnection = 20
+maxLifetime = 5
 
 [redis]
 host = "redis"

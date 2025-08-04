@@ -3,10 +3,10 @@ package filter
 import (
 	"fmt"
 
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 )
 
-func FilterSubjectsByRates(subjects *[]*model.Subject, rateRange []float32) error {
+func FilterByRates(subjects *[]*model.Subject, rateRange []float32) error {
 	if len(rateRange) != 2 {
 		return fmt.Errorf("invalid rate range size: %d", len(rateRange))
 	}
@@ -25,7 +25,7 @@ func FilterSubjectsByRates(subjects *[]*model.Subject, rateRange []float32) erro
 	return nil
 }
 
-func FilterSubjectsByPopularity(subjects *[]*model.Subject, favoriteRange []int) error {
+func FilterByPopularity(subjects *[]*model.Subject, favoriteRange []int) error {
 	if len(favoriteRange) != 2 {
 		return fmt.Errorf("invalid rate range size: %d", len(favoriteRange))
 	}

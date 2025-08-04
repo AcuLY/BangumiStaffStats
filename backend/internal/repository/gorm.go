@@ -8,20 +8,18 @@ import (
 
 	"github.com/AcuLY/BangumiStaffStats/backend/config"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
+	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
 
 var DB *gorm.DB
-var Semaphore chan struct{}
 
 func Init() error {
 	if config.Mysql == nil {
 		return errors.New("MySQL config not initialized")
 	}
-
-	Semaphore = make(chan struct{}, config.Mysql.MaxConnection)
 
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
@@ -34,6 +32,7 @@ func Init() error {
 
 	var err error
 	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+		PrepareStmt: true,
 		Logger: gormlogger.New(
 			log.New(&logger.TimeSlicingWriter{LogPath: config.Log.GormLogPath}, "[GORM] ", log.LstdFlags),
 			gormlogger.Config{
@@ -42,10 +41,25 @@ func Init() error {
 			},
 		),
 	})
-
 	if err != nil {
 		return err
 	}
 
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return err
+	}
+	sqlDB.SetMaxOpenConns(config.Mysql.MaxOpenConnection)
+	sqlDB.SetMaxIdleConns(config.Mysql.MaxIdleConnection)
+	sqlDB.SetConnMaxLifetime(config.Mysql.MaxLifetime.Duration())
+
 	return nil
+}
+
+func DBStats() zap.Field {
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return logger.Field("DB stats", "unable to connect db")
+	}
+	return logger.Field("DB stats", sqlDB.Stats())
 }

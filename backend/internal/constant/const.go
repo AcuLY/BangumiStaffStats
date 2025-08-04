@@ -1,20 +1,20 @@
-package constants
+package constant
 
-import "github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
+import "github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 
 const (
-	StatsTypeSubject = "subject"
-	StatsTypeSeries = "series"
+	StatsTypeSubject   = "subject"
+	StatsTypeSeries    = "series"
 	StatsTypeCharacter = "character"
-	StatsTypeDefault = StatsTypeSubject
+	StatsTypeDefault   = StatsTypeSubject
 
-	PageDefault = 1
+	PageDefault     = 1
 	PageSizeDefault = 10
 
-	SortByCount = "count"
+	SortByCount       = "count"
 	SortByAverageRate = "average"
 	SortByOverallRate = "overall"
-	SortByDefault = SortByCount
+	SortByDefault     = SortByCount
 )
 
 func FillInDefaults(r *model.Request) {

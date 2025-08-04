@@ -6,111 +6,135 @@ import (
 	"strings"
 	"time"
 
-	charactersvc "github.com/AcuLY/BangumiStaffStats/backend/internal/service/character"
-	collectionsvc "github.com/AcuLY/BangumiStaffStats/backend/internal/service/collection"
-	personsvc "github.com/AcuLY/BangumiStaffStats/backend/internal/service/person"
-	subjectsvc "github.com/AcuLY/BangumiStaffStats/backend/internal/service/subject"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/constants"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/filter"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/constant"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/pkg/filter"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/pkg/sorter"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/service/character"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/service/collection"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/service/person"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/service/series"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/service/subject"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/sorter"
 )
 
 // 完整逻辑的超时时间
-var timeout time.Duration = time.Second * 60
+const timeoutConst time.Duration = time.Second * 600
+
+func timeElapse(begin *time.Time, msg string) {
+	logger.Debug(msg, logger.Field("time cost", time.Since(*begin)))
+	*begin = time.Now()
+}
 
 func GetFullStatistics(ctx context.Context, r *model.Request) (*model.Statistics, error) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeoutConst)
 	defer cancel()
 
 	var subjects []*model.Subject
 	var err error
 
+	begin := time.Now()
+
 	// 获取条目 ID 列表
 	if r.UserID == "0" { // 查询全站数据
-		subjects, err = subjectsvc.GetGlobalSubjects(ctx, r.SubjectType, r.FavoriteRange)
+		subjects, err = subject.Global(ctx, r.SubjectType, r.FavoriteRange)
 	} else { // 查询用户收藏
-		subjects, err = collectionsvc.GetUserCollections(ctx, r.UserID, r.SubjectType, r.CollectionTypes)
+		subjects, err = collection.Fetch(ctx, r.UserID, r.SubjectType, r.CollectionTypes)
 	}
 	if err != nil {
 		logger.Warn("Failed to get collection: " + err.Error())
 		return nil, err
 	}
 
+	timeElapse(&begin, "获取全部条目")
+
 	// 加载条目完整信息
-	err = subjectsvc.LoadSubjects(ctx, &subjects)
+	err = subject.LoadInfos(ctx, &subjects)
 	if err != nil {
 		logger.Error("Failed to load subject: " + err.Error())
 		return nil, err
 	}
 
+	timeElapse(&begin, "加载条目信息")
+
 	// 过滤 NSFW
 	if !r.ShowNSFW {
-		filter.FilterNSFWSubjects(&subjects)
+		filter.FilterNSFW(&subjects)
 	}
 
 	// 根据标签筛选条目
-	filter.FilterSubjectsByTags(&subjects, r.PositiveTags, r.NegativeTags)
+	filter.FilterByTags(&subjects, r.PositiveTags, r.NegativeTags)
 
 	// 根据分数范围筛选条目
 	if len(r.RateRange) >= 2 {
-		if err := filter.FilterSubjectsByRates(&subjects, r.RateRange); err != nil {
+		if err := filter.FilterByRates(&subjects, r.RateRange); err != nil {
 			return nil, err
 		}
 	}
 
 	// 根据人数范围筛选条目
 	if len(r.FavoriteRange) >= 2 {
-		if err := filter.FilterSubjectsByPopularity(&subjects, r.FavoriteRange); err != nil {
+		if err := filter.FilterByPopularity(&subjects, r.FavoriteRange); err != nil {
 			return nil, err
 		}
 	}
 
 	// 根据日期范围筛选条目
 	if len(r.DateRange) >= 2 {
-		if err := filter.FilterSubjectsByDate(&subjects, r.DateRange); err != nil {
+		if err := filter.FilterByDate(&subjects, r.DateRange); err != nil {
 			return nil, err
 		}
 	}
 
+	timeElapse(&begin, "过滤")
+
 	// 标注条目的续作信息
-	err = subjectsvc.MarkSequelOrders(ctx, subjects)
+	err = series.MarkSequelOrders(ctx, subjects)
 	if err != nil {
 		logger.Error("Failed to mark sequel: " + err.Error())
 		return nil, err
 	}
 
+	timeElapse(&begin, "标注续作")
+
 	// 需要提前获取 positionIDs，以免 repository 层并发大量重复调用 PositionIDs 导致未知的并发读取 map 错误
-	positionIDs, err := constants.PositionIDs(r.SubjectType, r.Position)
+	positionIDs, err := constant.PositionIDs(r.SubjectType, r.Position)
 	if err != nil {
 		logger.Error("Failed to get position IDs: " + err.Error())
 		return nil, err
 	}
 
 	// 创建人物到条目的映射
-	personSubjects, err := personsvc.CreatePersonSubjectsMap(ctx, subjects, positionIDs)
+	personSubjects, err := person.PersonSubjectsMap(ctx, subjects, positionIDs)
 	if err != nil {
 		logger.Error("Failed to create person subject map: " + err.Error())
 		return nil, err
 	}
 
+	timeElapse(&begin, "人物 → 条目")
+
 	// 加载人物名
-	personsvc.LoadPeople(ctx, personSubjects)
+	person.LoadInfos(ctx, personSubjects)
+
+	timeElapse(&begin, "加载人物信息")
 
 	// 创建人物到角色的映射
 	var personCharacters map[*model.Person][]*model.Character
 	if strings.Contains(r.Position, "声优") {
-		personCharacters, err = charactersvc.CreatePersonCharactersMap(ctx, personSubjects)
+		personCharacters, err = character.PersonCharactersMap(ctx, personSubjects)
 		if err != nil {
 			logger.Error("Failed to create person character map: " + err.Error())
 			return nil, err
 		}
 
-		if err = charactersvc.LoadCharacters(ctx, personCharacters); err != nil {
+		timeElapse(&begin, "人物 → 角色")
+
+		if err = character.LoadInfos(ctx, personCharacters); err != nil {
 			logger.Error("Failed to load characters: " + err.Error())
 			return nil, err
 		}
+
+		timeElapse(&begin, "加载角色信息")
 	}
 
 	// 提取总结
@@ -125,6 +149,9 @@ func GetFullStatistics(ctx context.Context, r *model.Request) (*model.Statistics
 		SeriesCount:    len(extractMainSubjects(subjects)),
 		CharacterCount: countCharacters(personCharacters),
 	}
+
+	timeElapse(&begin, "提取总结")
+
 	return full, nil
 }
 

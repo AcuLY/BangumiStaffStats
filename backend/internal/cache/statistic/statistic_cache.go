@@ -9,8 +9,8 @@ import (
 
 	"github.com/AcuLY/BangumiStaffStats/backend/config"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/cache"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 )
 
 // statisticKey 生成一次查询结果的 redis key
@@ -19,7 +19,7 @@ func statisticKey(r *model.Request) string {
 
 	b, err := json.Marshal(pureReq)
 	if err != nil {
-		logger.Error("Failed to marshal request：" + err.Error())
+		logger.Error("Failed to marshal request："+err.Error())
 		return ""
 	}
 
@@ -28,8 +28,8 @@ func statisticKey(r *model.Request) string {
 	return fmt.Sprintf("statistic:%s", hex.EncodeToString(hash[:])[:16])
 }
 
-// GetStatistic 从缓存获取某次查询结果并填入传入的 full
-func GetStatistic(ctx context.Context, r *model.Request, full *model.Statistics) error {
+// Find 从缓存获取某次查询结果并填入传入的 full
+func Find(ctx context.Context, r *model.Request, full *model.Statistics) error {
 	key := statisticKey(r)
 
 	raw, err := cache.RDB.Get(ctx, key).Result()
@@ -44,10 +44,10 @@ func GetStatistic(ctx context.Context, r *model.Request, full *model.Statistics)
 	return nil
 }
 
-// SetStatistic 将某次查询结果存入缓存
-func SetStatistic(ctx context.Context, r *model.Request, full *model.Statistics) error {
+// Save 将某次查询结果存入缓存
+func Save(ctx context.Context, r *model.Request, full *model.Statistics) error {
 	key := statisticKey(r)
-	ttl := config.Redis.TTL.Statistic.ToDuration()
+	ttl := config.Redis.TTL.Statistic.Duration()
 
 	raw, err := json.Marshal(full)
 	if err != nil {

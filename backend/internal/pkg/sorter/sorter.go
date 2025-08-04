@@ -3,7 +3,7 @@ package sorter
 import (
 	"sort"
 
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 )
 
 func extractComparableValues(summary *model.PersonSummary, isSeries bool) (int, float32, float32) {

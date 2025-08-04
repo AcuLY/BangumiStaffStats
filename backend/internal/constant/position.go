@@ -1,4 +1,4 @@
-package constants
+package constant
 
 import (
 	"errors"
@@ -169,9 +169,17 @@ var positionIDs = []map[string][]int{
 	},
 }
 
+var validSubjectTypes = map[int]struct{} {
+	1: {},
+	2: {},
+	3: {},
+	4: {},
+	6: {},
+}
+
 // PositionIDs 根据条目类型和职位名获取职位的 ID
 func PositionIDs(subjectType int, position string) ([]int, error) {
-	if subjectType > 6 {
+	if _, exists := validSubjectTypes[subjectType]; !exists {
 		return nil, errors.New("invalid subject type: " + strconv.Itoa(subjectType))
 	}
 

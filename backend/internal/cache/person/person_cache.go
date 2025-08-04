@@ -8,17 +8,21 @@ import (
 
 	"github.com/AcuLY/BangumiStaffStats/backend/config"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/cache"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 )
 
 // subjectPeopleKey 创建 subject-person 对应的 Redis Key
 func subjectPeopleKey(s *model.Subject, positionIDs []int) string {
-	positionKey := strings.Trim(strings.Replace(fmt.Sprint(positionIDs), " ", "_", -1), "[]")
-	return fmt.Sprintf("subject:people:%d:position:%s", s.ID, positionKey)
+	str := make([]string, len(positionIDs))
+	for i, id := range positionIDs {
+		str[i] = fmt.Sprint(id)
+	}
+	key := strings.Join(str, "_")
+	return fmt.Sprintf("subject:people:%d:position:%s", s.ID, key)
 }
 
-// GetPeopleBySubjectAndPosition 从缓存根据 Subject 和 Position 获取所有的 Person
-func GetPeopleBySubjectAndPosition(ctx context.Context, s *model.Subject, positionIDs []int) ([]*model.Person, error) {
+// FindBySubjectAndPosition 从缓存根据 Subject 和 Position 获取所有的 Person
+func FindBySubjectAndPosition(ctx context.Context, s *model.Subject, positionIDs []int) ([]*model.Person, error) {
 	key := subjectPeopleKey(s, positionIDs)
 	val, err := cache.RDB.Get(ctx, key).Result()
 	if err != nil {
@@ -40,20 +44,22 @@ func GetPeopleBySubjectAndPosition(ctx context.Context, s *model.Subject, positi
 	return people, nil
 }
 
-// SetPeopleBySubjectAndPosition 将 Subject 和 Position 对应的所有 Person 存入缓存
-func SetPeopleBySubjectAndPosition(ctx context.Context, s *model.Subject, positionIDs []int, people []*model.Person) error {
+// SaveBySubjectAndPosition 将 Subject 和 Position 对应的所有 Person 存入缓存
+func SaveBySubjectAndPosition(ctx context.Context, s *model.Subject, positionIDs []int, people []*model.Person) error {
 	key := subjectPeopleKey(s, positionIDs)
-	ttl := config.Redis.TTL.SubjectPerson.ToHour()
+	ttl := config.Redis.TTL.SubjectPerson.Duration()
+
 	personIDs := make([]int, 0, len(people))
 	for _, p := range people {
 		personIDs = append(personIDs, p.ID)
 	}
-	jsonData, err := json.Marshal(personIDs)
+
+	raw, err := json.Marshal(personIDs)
 	if err != nil {
 		return err
 	}
 
-	return cache.RDB.SetEx(ctx, key, jsonData, ttl).Err()
+	return cache.RDB.SetEx(ctx, key, raw, ttl).Err()
 }
 
 // personKey 创建 Person 对应的 Redis Key
@@ -61,8 +67,8 @@ func personKey(p *model.Person) string {
 	return fmt.Sprintf("person:%d", p.ID)
 }
 
-// GetPerson 从缓存填充完整的 Person 信息
-func GetPerson(ctx context.Context, p *model.Person) error {
+// Find 从缓存填充完整的 Person 信息
+func Find(ctx context.Context, p *model.Person) error {
 	key := personKey(p)
 	raw, err := cache.RDB.Get(ctx, key).Result()
 	if err != nil {
@@ -76,14 +82,15 @@ func GetPerson(ctx context.Context, p *model.Person) error {
 	return nil
 }
 
-// SetPerson 将 Person 的完整信息存入缓存
-func SetPerson(ctx context.Context, p *model.Person) error {
+// Save 将 Person 的完整信息存入缓存
+func Save(ctx context.Context, p *model.Person) error {
 	key := personKey(p)
-	ttl := config.Redis.TTL.Person.ToHour()
-	jsonData, err := json.Marshal(p)
+	ttl := config.Redis.TTL.Person.Duration()
+
+	raw, err := json.Marshal(p)
 	if err != nil {
 		return err
 	}
 
-	return cache.RDB.SetEx(ctx, key, jsonData, ttl).Err()
+	return cache.RDB.SetEx(ctx, key, raw, ttl).Err()
 }
