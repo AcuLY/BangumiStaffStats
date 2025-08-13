@@ -6,14 +6,14 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 )
 
-func extractComparableValues(summary *model.PersonSummary, isSeries bool) (int, float32, float32) {
+func extractComparableValues(summary *model.PersonalSummary, isSeries bool) (int, float32, float32) {
 	if isSeries {
 		return summary.Series.Count, summary.Series.Average, summary.Series.Overall
 	}
 	return summary.Subject.Count, summary.Subject.Average, summary.Subject.Overall
 }
 
-func SortByCount(summaries []*model.PersonSummary, isSeries bool) {
+func SortByCount(summaries []*model.PersonalSummary, isSeries bool) {
 	sort.Slice(summaries, func(i int, j int) bool {
 		countI, averageRateI, overallRateI := extractComparableValues(summaries[i], isSeries)
 		countJ, averageRateJ, overallRateJ := extractComparableValues(summaries[j], isSeries)
@@ -27,7 +27,7 @@ func SortByCount(summaries []*model.PersonSummary, isSeries bool) {
 	})
 }
 
-func SortByAverage(summaries []*model.PersonSummary, isSeries bool) {
+func SortByAverage(summaries []*model.PersonalSummary, isSeries bool) {
 	sort.Slice(summaries, func(i int, j int) bool {
 		countI, averageRateI, overallRateI := extractComparableValues(summaries[i], isSeries)
 		countJ, averageRateJ, overallRateJ := extractComparableValues(summaries[j], isSeries)
@@ -42,7 +42,7 @@ func SortByAverage(summaries []*model.PersonSummary, isSeries bool) {
 	})
 }
 
-func SortByOverall(summaries []*model.PersonSummary, isSeries bool) {
+func SortByOverall(summaries []*model.PersonalSummary, isSeries bool) {
 	sort.Slice(summaries, func(i int, j int) bool {
 		countI, averageRateI, overallRateI := extractComparableValues(summaries[i], isSeries)
 		countJ, averageRateJ, overallRateJ := extractComparableValues(summaries[j], isSeries)
@@ -57,7 +57,7 @@ func SortByOverall(summaries []*model.PersonSummary, isSeries bool) {
 	})
 }
 
-func SortByCharacterCount(summaries []*model.PersonSummary) {
+func SortByCharacterCount(summaries []*model.PersonalSummary) {
 	sort.Slice(summaries, func(i int, j int) bool {
 		return summaries[i].Character.Count >= summaries[j].Character.Count
 	})

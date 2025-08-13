@@ -36,8 +36,9 @@ func GetFullStatistics(ctx context.Context, r *model.Request) (*model.Statistics
 	begin := time.Now()
 
 	// 获取条目 ID 列表
-	if r.UserID == "0" { // 查询全站数据
-		subjects, err = subject.Global(ctx, r.SubjectType, r.FavoriteRange)
+	if *r.IsGlobal { // 查询全站数据
+		favoriteRange := []int{*r.FavoriteRange[0], *r.FavoriteRange[1]}
+		subjects, err = subject.Global(ctx, r.SubjectType, favoriteRange)
 	} else { // 查询用户收藏
 		subjects, err = collection.Fetch(ctx, r.UserID, r.SubjectType, r.CollectionTypes)
 	}
@@ -58,7 +59,7 @@ func GetFullStatistics(ctx context.Context, r *model.Request) (*model.Statistics
 	timeElapse(&begin, "加载条目信息")
 
 	// 过滤 NSFW
-	if !r.ShowNSFW {
+	if !*r.ShowNSFW {
 		filter.FilterNSFW(&subjects)
 	}
 
@@ -66,24 +67,18 @@ func GetFullStatistics(ctx context.Context, r *model.Request) (*model.Statistics
 	filter.FilterByTags(&subjects, r.PositiveTags, r.NegativeTags)
 
 	// 根据分数范围筛选条目
-	if len(r.RateRange) >= 2 {
-		if err := filter.FilterByRates(&subjects, r.RateRange); err != nil {
-			return nil, err
-		}
+	if err := filter.FilterByRates(&subjects, r.RateRange); err != nil {
+		return nil, err
 	}
 
 	// 根据人数范围筛选条目
-	if len(r.FavoriteRange) >= 2 {
-		if err := filter.FilterByPopularity(&subjects, r.FavoriteRange); err != nil {
-			return nil, err
-		}
+	if err := filter.FilterByFavorite(&subjects, r.FavoriteRange); err != nil {
+		return nil, err
 	}
 
 	// 根据日期范围筛选条目
-	if len(r.DateRange) >= 2 {
-		if err := filter.FilterByDate(&subjects, r.DateRange); err != nil {
-			return nil, err
-		}
+	if err := filter.FilterByDate(&subjects, r.DateRange); err != nil {
+		return nil, err
 	}
 
 	timeElapse(&begin, "过滤")
@@ -156,8 +151,8 @@ func GetFullStatistics(ctx context.Context, r *model.Request) (*model.Statistics
 }
 
 // createSummaries 创建最终的响应内容
-func createSummaries(ps map[*model.Person][]*model.Subject, pc map[*model.Person][]*model.Character) []*model.PersonSummary {
-	summaries := make([]*model.PersonSummary, 0, len(ps))
+func createSummaries(ps map[*model.Person][]*model.Subject, pc map[*model.Person][]*model.Character) []*model.PersonalSummary {
+	summaries := make([]*model.PersonalSummary, 0, len(ps))
 
 	for p, subjects := range ps {
 		characters := pc[p]
@@ -182,7 +177,7 @@ func createSummaries(ps map[*model.Person][]*model.Subject, pc map[*model.Person
 		}
 		scoredSeriesCount := len(scoredSeries)
 
-		summary := &model.PersonSummary{
+		summary := &model.PersonalSummary{
 			PersonID:     p.ID,
 			PersonName:   p.Name,
 			PersonNameCN: p.NameCN,

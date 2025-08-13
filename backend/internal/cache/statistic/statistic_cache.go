@@ -19,7 +19,7 @@ func statisticKey(r *model.Request) string {
 
 	b, err := json.Marshal(pureReq)
 	if err != nil {
-		logger.Error("Failed to marshal request："+err.Error())
+		logger.Error("Failed to marshal request：" + err.Error())
 		return ""
 	}
 
@@ -69,6 +69,7 @@ func clearPaginationFields(r *model.Request) *model.Request {
 		RateRange:       r.RateRange,
 		FavoriteRange:   r.FavoriteRange,
 		DateRange:       r.DateRange,
+		IsGlobal:        r.IsGlobal,
 		ShowNSFW:        r.ShowNSFW,
 	}
 }

@@ -145,66 +145,69 @@ type SequelOrder struct {
 // Request 封装应用的请求字段
 type Request struct {
 	// 用户 ID
-	UserID string `json:"user_id" binding:"required"`
+	UserID string `json:"userID" binding:"required"`
 	// 职位名
 	Position string `json:"position" binding:"required"`
 	// 条目类型
-	SubjectType int `json:"subject_type" binding:"required"`
+	SubjectType int `json:"subjectType" binding:"required"`
 	// 所有收藏类型
-	CollectionTypes []int `json:"collection_types" binding:"required"`
+	CollectionTypes []int `json:"collectionTypes" binding:"required"`
 	// 正向标签
-	PositiveTags []string `json:"positive_tags"`
+	PositiveTags []string `json:"positiveTags"`
 	// 反向标签
-	NegativeTags []string `json:"negative_tags"`
+	NegativeTags []string `json:"negativeTags"`
 	// 分数范围
-	RateRange []float32 `json:"rate_range"`
+	RateRange []*float32 `json:"rateRange"`
 	// 收藏人数范围
-	FavoriteRange []int `json:"favorite_range"`
+	FavoriteRange []*int `json:"favoriteRange"`
 	// 时间范围
-	DateRange []time.Time `json:"date_range"`
+	DateRange []*int `json:"dateRange"`
+	// 查询全站
+	IsGlobal *bool `json:"isGlobal"`
 	// NSFW
-	ShowNSFW bool `json:"show_nsfw"`
-	// 展示的数据（subject 条目 / series 系列 / character 角色）
-	StatisticType string `json:"statistic_type"`
+	ShowNSFW *bool `json:"showNSFW"`
+	// 展示的数据（1 subject 条目 / 2 series 系列 / 3 character 角色）
+	StatisticType int `json:"statisticType"`
 	// 分页偏移量
 	Page int `json:"page"`
 	// 页大小
-	PageSize int `json:"page_size"`
-	// 排序依据
-	SortBy string `json:"sort_by"`
+	PageSize int `json:"pageSize"`
+	// 排序依据（1 count 数量 / 2 average 平均分 / 3 overall 加权综合分）
+	SortBy int `json:"sortBy"`
 	// 升序或降序
-	Ascending *bool `json:"ascending"`
+	Ascend *bool `json:"ascend"`
 }
 
 // SubjectSummary 包括一个人物的全部条目
 type SubjectSummary struct {
-	IDs     []int     `json:"subject_ids"`
-	Names   []string  `json:"subject_names"`
-	NamesCN []string  `json:"subject_names_cn"`
-	Images  []string  `json:"subject_images"`
+	IDs     []int     `json:"subjectIDs"`
+	Names   []string  `json:"subjectNames"`
+	NamesCN []string  `json:"subjectNamesCN"`
+	Images  []string  `json:"subjectImages"`
 	Rates   []float32 `json:"rates"`
-	Average float32   `json:"average_rate"`
-	// 综合加权分
-	Overall float32 `json:"overall_rate"`
 	// 条目数量
 	Count int `json:"count"`
+	// 条目平均分
+	Average float32 `json:"averageRate"`
+	// 综合加权分
+	Overall float32 `json:"overallRate"`
 }
 
 // CharacterSummary 包含一个人物的全部角色
 type CharacterSummary struct {
-	IDs     []int    `json:"character_ids"`
-	Names   []string `json:"character_names"`
-	NamesCN []string `json:"character_names_cn"`
-	Images  []string `json:"character_images"`
+	IDs     []int    `json:"characterIDs"`
+	Names   []string `json:"characterNames"`
+	NamesCN []string `json:"characterNamesCN"`
+	Images  []string `json:"characterImages"`
 	// 角色对应的条目
-	SubjectNames   []string `json:"character_subject_names"`
-	SubjectNamesCN []string `json:"character_subject_names_cn"`
+	SubjectNames   []string `json:"characterSubjectNames"`
+	SubjectNamesCN []string `json:"characterSubjectNamesCN"`
 	// 角色数量
-	Count int `json:"character_count"`
+	Count int `json:"characterCount"`
 }
 
-// PersonSummary 一个人物的完整统计结果，用于暂存在服务端
-type PersonSummary struct {
+// PersonalSummary 一个人物的完整统计结果，用于暂存在服务端
+type PersonalSummary struct {
 	PersonID     int
 	PersonName   string
 	PersonNameCN string
@@ -214,11 +217,15 @@ type PersonSummary struct {
 	Character *CharacterSummary
 }
 
-// PersonSummaryResp 一个人物的一种统计结果（subject / series / character），用于返回，有 character 时则无另外两个
-type PersonSummaryResp struct {
-	PersonID     int    `json:"person_id"`
-	PersonName   string `json:"person_name"`
-	PersonNameCN string `json:"person_name_cn"`
+// PersonalSummaryByType 一个人物的一种统计结果
+//  1. subject
+//  2. series
+//  3. character
+//// subject 和 series 都用 SubjectSummary 类型填充
+type PersonalSummaryByType struct {
+	PersonID     int    `json:"personID"`
+	PersonName   string `json:"personName"`
+	PersonNameCN string `json:"personNameCN"`
 
 	*SubjectSummary   `json:",omitempty"`
 	*CharacterSummary `json:",omitempty"`
@@ -227,7 +234,7 @@ type PersonSummaryResp struct {
 // Statistics 包含一次查询的完整结果，用于暂存在服务端
 type Statistics struct {
 	// 所有人物的记录
-	PeopleSummary []*PersonSummary
+	PeopleSummary []*PersonalSummary
 	// 查询到的人物数量
 	PersonCount int
 	// 查询到的条目数量
@@ -238,16 +245,12 @@ type Statistics struct {
 	CharacterCount int
 }
 
-// StatisticsResp 表示响应字段，其中 PeopleSummaryResp 从 Statistic.PeopleSummary 根据分页切分得到
-type StatisticsResp struct {
+// Response 表示响应字段，其中 Summaries 从 Statistic.PeopleSummary 根据分页切分得到
+type Response struct {
 	// 所有人物的记录
-	PeopleSummaryResp []*PersonSummaryResp `json:"summaries"`
+	Summaries []*PersonalSummaryByType `json:"summaries"`
 	// 查询到的人物数量
-	PersonCount int `json:"person_count"`
-	// 查询到的条目数量
-	SubjectCount int `json:"subject_count"`
-	// 查询到的系列数量
-	SeriesCount int `json:"series_count"`
-	// 查询到的角色数量
-	CharacterCount int `json:"character_count"`
+	PersonCount int `json:"personCount"`
+	// 查询到的 条目 / 系列 / 角色 数量
+	ItemCount int `json:"itemCount"`
 }

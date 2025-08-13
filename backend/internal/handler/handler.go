@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"errors"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/constant"
@@ -16,8 +15,8 @@ import (
 func GetStatistics(c *gin.Context) {
 	req := new(model.Request)
 	if err := c.ShouldBindJSON(req); err != nil {
-		logger.Warn("Failed to bind request: "+err.Error())
-		c.JSON(400, gin.H{"error": "非法请求"})
+		logger.Warn("Failed to bind request: " + err.Error())
+		c.JSON(400, gin.H{"error": "非法请求：" + err.Error()})
 		return
 	}
 
@@ -25,7 +24,7 @@ func GetStatistics(c *gin.Context) {
 
 	constant.FillInDefaults(req)
 
-	resp, err := service.Statistics(context.Background(), req)
+	resp, err := service.Statistics(c.Request.Context(), req)
 	if err != nil {
 		switch {
 		case errors.Is(err, bangumi.ErrInvalidUserID):
@@ -33,16 +32,16 @@ func GetStatistics(c *gin.Context) {
 			c.JSON(404, gin.H{"error": "找不到用户，请输入正确的 UID"})
 		case errors.Is(err, service.ErrNoResultFound):
 			logger.Info("No Result Found.", logger.Field("request", req))
-			c.JSON(404, gin.H{"error": "找不到相关的条目"})
+			c.JSON(404, gin.H{"error": "找不到符合条件的条目"})
 		case errors.Is(err, httpclient.ErrNetworkFailed):
 			logger.Error("Network Failed.", logger.Field("error", err.Error()))
-			c.JSON(500, gin.H{"error": "网络错误，请稍后再试"})
+			c.JSON(500, gin.H{"error": "服务器网络错误，请稍后再试"})
 		case errors.Is(err, service.ErrInvalidPagination):
 			logger.Info("Invalid Pagination", logger.Field("request", req))
 			c.JSON(404, gin.H{"error": "无效的分页"})
 		default:
 			logger.Error("Unknown Error.", logger.Field("error", err.Error()))
-			c.JSON(500, gin.H{"error": "未知服务器错误：" + err.Error()})
+			c.JSON(500, gin.H{"error": "未知内部错误：" + err.Error()})
 		}
 		return
 	}
@@ -51,7 +50,7 @@ func GetStatistics(c *gin.Context) {
 		logger.Info(
 			"Success.",
 			logger.Field("summary count", resp.PersonCount),
-			logger.Field("subject count", resp.SubjectCount),
+			logger.Field("item count", resp.ItemCount),
 		)
 	}
 

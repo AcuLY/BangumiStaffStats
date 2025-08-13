@@ -17,7 +17,7 @@ import (
 var ErrNoResultFound error = errors.New("no result found")
 var ErrInvalidPagination error = errors.New("invalid pagination")
 
-func Statistics(ctx context.Context, r *model.Request) (*model.StatisticsResp, error) {
+func Statistics(ctx context.Context, r *model.Request) (*model.Response, error) {
 	full := new(model.Statistics)
 
 	if err := cache.Find(ctx, r, full); err != nil {
@@ -31,7 +31,7 @@ func Statistics(ctx context.Context, r *model.Request) (*model.StatisticsResp, e
 		}
 
 		if err := cache.Save(ctx, r, full); err != nil {
-			logger.Warn("Failed to set statistic cache: "+err.Error())
+			logger.Warn("Failed to set statistic cache: " + err.Error())
 		}
 	}
 
@@ -54,7 +54,7 @@ func Statistics(ctx context.Context, r *model.Request) (*model.StatisticsResp, e
 		}
 	}
 
-	if *r.Ascending {
+	if *r.Ascend {
 		slices.Reverse(summaries)
 	}
 
@@ -64,31 +64,39 @@ func Statistics(ctx context.Context, r *model.Request) (*model.StatisticsResp, e
 	}
 	end := min(begin+r.PageSize, len(summaries))
 
-	curSummaries := make([]*model.PersonSummaryResp, min(r.PageSize, len(summaries)))
+	curSummaries := make([]*model.PersonalSummaryByType, min(r.PageSize, len(summaries)))
 	for i := begin; i < end; i++ {
 		curIdx := i - begin
 
-		curSummaries[curIdx] = new(model.PersonSummaryResp)
+		curSummaries[curIdx] = new(model.PersonalSummaryByType)
 		curSummaries[curIdx].PersonID = summaries[i].PersonID
 		curSummaries[curIdx].PersonName = summaries[i].PersonName
 		curSummaries[curIdx].PersonNameCN = summaries[i].PersonNameCN
 
 		switch r.StatisticType {
-		case "subject":
+		case constant.StatsTypeSubject:
 			curSummaries[curIdx].SubjectSummary = summaries[i].Subject
-		case "series":
+		case constant.StatsTypeSeries:
 			curSummaries[curIdx].SubjectSummary = summaries[i].Series
-		case "character":
+		case constant.StatsTypeCharacter:
 			curSummaries[curIdx].CharacterSummary = summaries[i].Character
 		}
 	}
 
-	resp := &model.StatisticsResp{
-		PeopleSummaryResp: curSummaries,
-		PersonCount:       full.PersonCount,
-		SubjectCount:      full.SubjectCount,
-		SeriesCount:       full.SeriesCount,
-		CharacterCount:    full.CharacterCount,
+	var count int
+	switch r.StatisticType {
+	case constant.StatsTypeSubject:
+		count = full.SubjectCount
+	case constant.StatsTypeSeries:
+		count = full.SeriesCount
+	case constant.StatsTypeCharacter:
+		count = full.CharacterCount
+	}
+
+	resp := &model.Response{
+		Summaries:   curSummaries,
+		PersonCount: full.PersonCount,
+		ItemCount:   count,
 	}
 	return resp, nil
 }
