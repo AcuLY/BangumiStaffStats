@@ -1,0 +1,11 @@
+.option {
+	width: 320px;
+}
+
+.n-card > .n-card-header {
+	padding: 8px 14px !important;
+}
+
+.title {
+    margin: 0;
+}	
