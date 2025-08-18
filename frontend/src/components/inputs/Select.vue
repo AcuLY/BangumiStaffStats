@@ -28,6 +28,10 @@ if (props.type == INPUT_TYPE.SUBJECT_TYPE) {
 	options = POSITION_OPTIONS[subjectType.value]
 	value = position
 }
+
+watch(subjectType, () => {
+	position.value = ''
+})
 </script>
 
 <template>

@@ -41,7 +41,12 @@ const baseURL = computed((): string =>
 
 <template>
 	<div class="image-wrapper" :style="{ maxHeight: `${displayStore.rowHeight}px` }">
-		<a v-for="(id, index) in props.ids" :href="`${baseURL}${id}`" target="_blank">
+		<a
+			v-for="(id, index) in props.ids"
+			:href="`${baseURL}${id}`"
+			target="_blank"
+			:data-link-id="id"
+		>
 			<n-tooltip
 				placement="top-end"
 				:content-style="{ maxWidth: globalStore.isMobile ? '200px' : '300px' }"

@@ -36,7 +36,7 @@ const CHARACTER_BASE_URL = 'https://bgm.tv/character/'
 					:content-style="{ maxWidth: globalStore.isMobile ? '250px' : '400px' }"
 				>
 					<template #trigger>
-						<a class="name" :href="`${CHARACTER_BASE_URL}${id}`" target="_blank">
+						<a class="name" :href="`${CHARACTER_BASE_URL}${id}`" target="_blank" :data-link-id="id">
 							<TableText :value="name(index)" />
 							<span class="subject-name">
 								【<TableText :value="characterSubjectName(index)" />】
@@ -54,7 +54,7 @@ const CHARACTER_BASE_URL = 'https://bgm.tv/character/'
 					:content-style="{ maxWidth: globalStore.isMobile ? '180px' : '300px' }"
 				>
 					<template #trigger>
-						<a class="name" :href="`${SUBJECT_BASE_URL}${id}`" target="_blank">
+						<a class="name" :href="`${SUBJECT_BASE_URL}${id}`" target="_blank" :data-link-id="id">
 							<TableText :value="rate(index)" bold />
 							<TableText :value="' '" />
 							<Star :unrated="rate(index) === 0" />

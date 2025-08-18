@@ -17,6 +17,12 @@ const handleButtonClick = (): void => {
 	updateAndFetch(true)
 }
 
+onMounted(() => {
+	const paramUser = new URLSearchParams(window.location.search).get('user')
+	if (paramUser) {
+		inputStore.input.userID = paramUser
+	}
+})
 </script>
 
 <template>

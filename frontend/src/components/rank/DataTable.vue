@@ -138,11 +138,50 @@ const handleSorterChange = (sorter: DataTableSortState) => {
 
 	updateAndFetch(false)
 }
+
+const dataTableRef = ref<ComponentPublicInstance | null>(null)
+let prevFocusID: number | null = null
+const onContainerClick = (event: MouseEvent): void => {
+	if (!globalStore.isMobile) {
+		return
+	}
+
+	const target = event.target as HTMLElement
+	if (!dataTableRef?.value?.$el.contains(target)) {
+		prevFocusID = null
+		return
+	}
+	
+	const link = target.closest('a[data-link-id]') as HTMLAnchorElement | null
+
+	if (!link) {
+		prevFocusID = null
+		return
+	}
+
+	const idAttr = link.getAttribute('data-link-id')
+	const id = Number(idAttr)
+
+	if (id != prevFocusID) {
+		prevFocusID = id
+		event.preventDefault()
+		return
+	}
+}
+
+onMounted(() => {
+	document.addEventListener('click', onContainerClick, true)
+})
+
+onBeforeUnmount(() => {
+	document.removeEventListener('click', onContainerClick, true)
+})
 </script>
 
 <template>
 	<n-data-table
 		class="data-table"
+		ref="dataTableRef"
 		:columns="visibleColumns"
 		:data="responseStore.response.summaries"
 		:single-line="false"
