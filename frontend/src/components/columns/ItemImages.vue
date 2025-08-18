@@ -41,17 +41,10 @@ const baseURL = computed((): string =>
 
 <template>
 	<div class="image-wrapper" :style="{ maxHeight: `${displayStore.rowHeight}px` }">
-		<a
-			v-for="(id, index) in props.ids"
-			:href="`${baseURL}${id}`"
-			target="_blank"
-			:data-link-id="id"
-		>
+		<a v-for="(id, index) in props.ids" :href="`${baseURL}${id}`" target="_blank">
 			<n-tooltip
-				:trigger="globalStore.isMobile ? 'click' : 'hover'"
-				:to="'.n-data-table-td--last-col'"
-				placement="left-start"
-				:content-style="{maxWidth: globalStore.isMobile ? '200px' : '300px'}"
+				placement="top-end"
+				:content-style="{ maxWidth: globalStore.isMobile ? '200px' : '300px' }"
 			>
 				<template #trigger>
 					<img
@@ -92,7 +85,7 @@ const baseURL = computed((): string =>
 }
 
 .image:hover {
-	box-shadow: 0 0 5px (--color-primary);
+	box-shadow: 0 0 12px var(--color-primary);
 }
 
 @media (max-width: 768px) {

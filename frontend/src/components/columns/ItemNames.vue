@@ -32,13 +32,11 @@ const CHARACTER_BASE_URL = 'https://bgm.tv/character/'
 		<n-list-item class="list-item" v-for="(id, index) in props.ids">
 			<template v-if="displayStore.showCharacter">
 				<n-tooltip
-					:trigger="globalStore.isMobile ? 'click' : 'hover'"
-					:to="'.n-data-table'"
 					placement="top-end"
-					:content-style="{maxWidth: globalStore.isMobile ? '250px' : '400px'}"
+					:content-style="{ maxWidth: globalStore.isMobile ? '250px' : '400px' }"
 				>
 					<template #trigger>
-						<a class="name" :href="`${CHARACTER_BASE_URL}${id}`" target="_blank" :data-link-id="id">
+						<a class="name" :href="`${CHARACTER_BASE_URL}${id}`" target="_blank">
 							<TableText :value="name(index)" />
 							<span class="subject-name">
 								【<TableText :value="characterSubjectName(index)" />】
@@ -52,13 +50,11 @@ const CHARACTER_BASE_URL = 'https://bgm.tv/character/'
 
 			<template v-else>
 				<n-tooltip
-					:trigger="globalStore.isMobile ? 'click' : 'hover'"
-					:to="'.n-data-table'"
 					placement="left"
-					:content-style="{maxWidth: globalStore.isMobile ? '200px' : '300px'}"
+					:content-style="{ maxWidth: globalStore.isMobile ? '180px' : '300px' }"
 				>
 					<template #trigger>
-						<a class="name" :href="`${SUBJECT_BASE_URL}${id}`" target="_blank" :data-link-id="id">
+						<a class="name" :href="`${SUBJECT_BASE_URL}${id}`" target="_blank">
 							<TableText :value="rate(index)" bold />
 							<TableText :value="' '" />
 							<Star :unrated="rate(index) === 0" />

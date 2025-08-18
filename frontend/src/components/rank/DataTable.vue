@@ -6,14 +6,13 @@ import { usePaginationStore } from '@/stores/pagination'
 import { useRequestStore } from '@/stores/request'
 import { useResponseStore } from '@/stores/response'
 import type { DataTableColumns, DataTableSortState } from 'naive-ui'
-import TableText from './columns/TableText.vue'
-import PersonName from './columns/PersonName.vue'
-import AverageRate from './columns/AverageRate.vue'
-import OverallRate from './columns/OverallRate.vue'
-import Item from './columns/Item.vue'
+import TableText from '@/components/columns/TableText.vue'
+import PersonName from '@/components/columns/PersonName.vue'
+import AverageRate from '@/components/columns/AverageRate.vue'
+import OverallRate from '@/components/columns/OverallRate.vue'
+import Item from '@/components/columns/Item.vue'
 import type { TableBaseColumn } from 'naive-ui/es/data-table/src/interface'
 import { SORT_TYPE } from '@/constants/types'
-import type { ComponentPublicInstance } from 'vue'
 
 const globalStore = useGlobalStore()
 
@@ -24,9 +23,6 @@ const displayStore = useDisplayStore()
 const paginationStore = usePaginationStore()
 
 const responseStore = useResponseStore()
-
-const dataTableRef = ref<ComponentPublicInstance | null>(null)
-provide('dataTableRef', dataTableRef)
 
 const colWidth = (mobile: number, pc: number) => {
 	return computed((): number => (globalStore.isMobile ? mobile : pc))
@@ -147,7 +143,6 @@ const handleSorterChange = (sorter: DataTableSortState) => {
 <template>
 	<n-data-table
 		class="data-table"
-		ref="dataTableRef"
 		:columns="visibleColumns"
 		:data="responseStore.response.summaries"
 		:single-line="false"
