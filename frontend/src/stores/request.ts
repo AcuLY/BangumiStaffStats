@@ -25,9 +25,9 @@ export const useRequestStore = defineStore('request', () => {
 	const updateRequestInput = (): void => {
 		const inputStore = useInputStore()
 
-		request.userID = inputStore.input.userID
-		request.subjectType = inputStore.input.subjectType
-		request.position = inputStore.input.position
+		request.userID = inputStore.input.userID ?? ''
+		request.subjectType = inputStore.input.subjectType ?? 0
+		request.position = inputStore.input.position ?? ''
 		request.collectionTypes = inputStore.input.collectionTypes.slice()
 		request.isGlobal = inputStore.input.isGlobal
 		request.showNSFW = inputStore.input.showNSFW

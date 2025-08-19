@@ -11,9 +11,9 @@ import {
 } from '@/constants/types'
 
 interface Input {
-	userID: string
-	subjectType: SubjectType
-	position: string
+	userID: string | null
+	subjectType: SubjectType | null
+	position: string | null
 	collectionTypes: CollectionType[]
 	positiveTags: string[]
 	negativeTags: string[]
@@ -25,9 +25,9 @@ interface Input {
 }
 
 const EmptyInput: Input = {
-	userID: import.meta.env.VITE_API_USERID,
+	userID: import.meta.env.VITE_API_USERID === '' ? null : import.meta.env.VITE_API_USERID,
 	subjectType: SUBJECT_TYPE.ANIME,
-	position: import.meta.env.VITE_API_POSITION,
+	position: import.meta.env.VITE_API_POSITION === '' ? null : import.meta.env.VITE_API_POSITION,
 	collectionTypes: [COLLECTION_TYPE.DOING, COLLECTION_TYPE.DONE],
 	positiveTags: [],
 	negativeTags: [],
@@ -52,12 +52,37 @@ const EmptyPagination: Pagination = {
 	ascend: false,
 }
 
-interface StatsRequest extends Input, Pagination {
+interface StatsRequest {
+	userID: string
+	subjectType: SubjectType
+	position: string
+	collectionTypes: CollectionType[]
+	positiveTags: string[]
+	negativeTags: string[]
+	rateRange: [number | null, number | null]
+	favoriteRange: [number | null, number | null]
+	dateRange: [number | null, number | null] // 时间戳
+	isGlobal: boolean
+	showNSFW: boolean
 	statisticType: StatisticType
+	page: number
+	pageSize: number
+	sortBy: SortType
+	ascend: boolean
 }
 
 const EmptyRequest: StatsRequest = {
-	...EmptyInput,
+	userID: import.meta.env.VITE_API_USERID,
+	subjectType: SUBJECT_TYPE.ANIME,
+	position: import.meta.env.VITE_API_POSITION,
+	collectionTypes: [COLLECTION_TYPE.DOING, COLLECTION_TYPE.DONE],
+	positiveTags: [],
+	negativeTags: [],
+	rateRange: [null, null],
+	favoriteRange: [null, null],
+	dateRange: [null, null],
+	isGlobal: false,
+	showNSFW: false,
 	statisticType: STATISTIC_TYPE.SUBJECT,
 	...EmptyPagination,
 }
@@ -88,7 +113,7 @@ interface PersonalSummary {
 interface StatsResponse {
 	summaries: PersonalSummary[]
 	personCount: number
-	itemCount: number	
+	itemCount: number
 }
 
 const EmptyResponse: StatsResponse = {
@@ -110,11 +135,5 @@ const fetchStatistics = async (data: StatsRequest): Promise<StatsResponse> => {
 	return resp.data
 }
 
-export {
-	fetchStatistics,
-	cancel,
-	EmptyInput,
-	EmptyRequest,
-	EmptyResponse,
-}
+export { fetchStatistics, cancel, EmptyInput, EmptyRequest, EmptyResponse }
 export type { Input, Pagination, PersonalSummary, StatsRequest, StatsResponse }

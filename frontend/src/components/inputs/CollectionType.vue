@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { COLLECTION_TYPE, INPUT_TYPE } from '@/constants/types'
+import { COLLECTION_TYPE, INPUT_TYPE, SUBJECT_TYPE } from '@/constants/types'
 import { useInputStore } from '@/stores/input'
 import { calcActionName } from '@/utils/utils'
 import { storeToRefs } from 'pinia'
@@ -8,7 +8,7 @@ const inputStore = useInputStore()
 const { input } = storeToRefs(inputStore)
 const { subjectType, collectionTypes, isGlobal } = toRefs(input.value)
 
-const actionName = computed<string>(() => calcActionName(subjectType.value))
+const actionName = computed<string>(() => calcActionName(subjectType.value ?? SUBJECT_TYPE.ANIME))
 </script>
 
 <template>

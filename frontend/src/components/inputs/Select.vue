@@ -25,12 +25,12 @@ if (props.type == INPUT_TYPE.SUBJECT_TYPE) {
 	value = subjectType
 } else if (props.type == INPUT_TYPE.POSITION) {
 	title = '职位'
-	options = POSITION_OPTIONS[subjectType.value]
+	options = subjectType.value ? POSITION_OPTIONS[subjectType.value] : []
 	value = position
 }
 
 watch(subjectType, () => {
-	position.value = ''
+	position.value = null
 })
 </script>
 
