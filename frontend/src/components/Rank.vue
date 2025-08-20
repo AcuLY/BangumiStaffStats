@@ -1,4 +1,6 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { SECONDARY_COLOR } from '@/constants/themes'
+</script>
 
 <template>
 	<DisplaySettings />
@@ -8,7 +10,7 @@
 	<Pagination bottom />
 	<p class="note">
 		注：<br />
-        ① “作品均分” 为用户评分的平均分 <br />
+        ① 如果使用时出现问题请到 <a :style="{ color: SECONDARY_COLOR }" href="https://bgm.tv/group/topic/407903">这里</a> 反馈 <br />
 		② 如果条目数量过多（几千个）开启显示图片时请勿设置过大的分页值，可能会崩溃 <br />
 		③ 加权综合分的公式：作品数/(作品数+5)*均分+25/(作品数+5)<br />
 		④

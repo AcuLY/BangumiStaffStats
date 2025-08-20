@@ -12,22 +12,15 @@ const inputStore = useInputStore()
 const { input } = storeToRefs(inputStore)
 const { subjectType, position } = toRefs(input.value)
 
-let title: string
-let options: {
-	label: string
-	value: string | number
-}[]
-let value: Ref<number | string | null>
-
-if (props.type == INPUT_TYPE.SUBJECT_TYPE) {
-	title = '条目类型'
-	options = SUBJECT_TYPE_OPTIONS
-	value = subjectType
-} else if (props.type == INPUT_TYPE.POSITION) {
-	title = '职位'
-	options = subjectType.value ? POSITION_OPTIONS[subjectType.value] : []
-	value = position
-}
+const title = props.type === INPUT_TYPE.SUBJECT_TYPE ? '条目类型' : '职位'
+const options = computed(() =>
+	props.type === INPUT_TYPE.SUBJECT_TYPE
+		? SUBJECT_TYPE_OPTIONS
+		: subjectType.value
+		? POSITION_OPTIONS[subjectType.value]
+		: []
+)
+const value = props.type === INPUT_TYPE.SUBJECT_TYPE ? subjectType : position
 
 watch(subjectType, () => {
 	position.value = null
