@@ -7,7 +7,7 @@ import { storeToRefs } from 'pinia'
 const globalStore = useGlobalStore()
 
 const requestStore = useRequestStore()
-const { isCV, updateAndFetch } = requestStore
+const { updateAndFetch } = requestStore
 
 const displayStore = useDisplayStore()
 const displayStoreRefs = storeToRefs(displayStore)
@@ -45,7 +45,7 @@ const handleClickMergeSeries = async (): Promise<void> => {
 					<Switch
 						v-model="displayStoreRefs.showCharacter.value"
 						label="显示角色"
-						v-show="isCV"
+						v-show="requestStore.isCV"
 						:callback="handleClickShowCharacter"
 					/>
 					<Switch
