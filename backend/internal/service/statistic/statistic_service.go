@@ -116,7 +116,7 @@ func GetFullStatistics(ctx context.Context, r *model.Request) (*model.Statistics
 	// 创建人物到角色的映射
 	var personCharacters map[*model.Person][]*model.Character
 	if strings.Contains(r.Position, "声优") {
-		personCharacters, err = character.PersonCharactersMap(ctx, personSubjects)
+		personCharacters, err = character.PersonCharactersMap(ctx, personSubjects, positionIDs)
 		if err != nil {
 			logger.Error("Failed to create person character map: " + err.Error())
 			return nil, err

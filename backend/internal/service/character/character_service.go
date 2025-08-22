@@ -10,14 +10,14 @@ import (
 )
 
 // findByPerson 获取人物在每个条目中出演的角色
-func findByPerson(ctx context.Context, p *model.Person, subjects []*model.Subject) ([]*model.Character, error) {
+func findByPerson(ctx context.Context, p *model.Person, subjects []*model.Subject, positionIDs []int) ([]*model.Character, error) {
 	characterSubject := make(map[model.Character]*model.Subject)
 	g := new(errgroup.Group)
 	var mu sync.Mutex
 
 	for _, s := range subjects {
 		g.Go(func() error {
-			charactersBySubject, err := repository.FindByPersonAndSubject(ctx, p, s)
+			charactersBySubject, err := repository.FindByPersonAndSubject(ctx, p, s, positionIDs)
 			if err != nil {
 				return err
 			}
@@ -53,14 +53,14 @@ func findByPerson(ctx context.Context, p *model.Person, subjects []*model.Subjec
 }
 
 // PersonCharactersMap 创建一个人物到其出演的角色列表的映射
-func PersonCharactersMap(ctx context.Context, personSubjects map[*model.Person][]*model.Subject) (map[*model.Person][]*model.Character, error) {
+func PersonCharactersMap(ctx context.Context, personSubjects map[*model.Person][]*model.Subject, positionIDs []int) (map[*model.Person][]*model.Character, error) {
 	personCharacters := make(map[*model.Person][]*model.Character)
 	g := new(errgroup.Group)
 	var mu sync.Mutex
 
 	for p, subjects := range personSubjects {
 		g.Go(func() error {
-			characters, err := findByPerson(ctx, p, subjects)
+			characters, err := findByPerson(ctx, p, subjects, positionIDs)
 			if err != nil {
 				return err
 			}

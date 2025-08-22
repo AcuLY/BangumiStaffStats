@@ -1,4 +1,4 @@
--- MySQL dump 10.13  Distrib 8.0.42, for Linux (x86_64)
+-- MySQL dump 10.13  Distrib 8.0.43, for Linux (x86_64)
 --
 -- Host: 127.0.0.1    Database: bgmss
 -- ------------------------------------------------------
@@ -57,7 +57,7 @@ CREATE TABLE `person_character` (
   `subject_id` mediumint NOT NULL,
   `person_id` mediumint NOT NULL,
   `character_id` mediumint NOT NULL,
-  `role` tinyint NOT NULL,
+  `position` smallint NOT NULL,
   PRIMARY KEY (`subject_id`,`person_id`,`character_id`),
   KEY `person_id` (`person_id`),
   KEY `character_id` (`character_id`),
@@ -136,4 +136,4 @@ CREATE TABLE `subjects` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-07-29 14:32:27
+-- Dump completed on 2025-08-22 11:08:51

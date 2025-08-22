@@ -11,7 +11,7 @@ import (
 )
 
 // FindByPersonAndSubject 根据传入的 Person 与 Subject 查找所有 Character，返回含 ID 的 Character 列表
-func FindByPersonAndSubject(ctx context.Context, p *model.Person, s *model.Subject) ([]model.Character, error) {
+func FindByPersonAndSubject(ctx context.Context, p *model.Person, s *model.Subject, positionIDs []int) ([]model.Character, error) {
 	characters, err := cache.FindByPersonAndSubject(ctx, p, s)
 	if err == nil {
 		return characters, nil
@@ -19,17 +19,20 @@ func FindByPersonAndSubject(ctx context.Context, p *model.Person, s *model.Subje
 		return nil, err
 	}
 
-	var ids []int
+	var characterAndPosition []struct {
+		CharacterID int
+		Position  int
+	}
 
 	query := `
-		SELECT character_id 
+		SELECT character_id, position 
 		FROM person_character 
 		WHERE subject_id = ? AND person_id = ?
 	`
 	err = repository.DB.
 		WithContext(ctx).
 		Raw(query, s.ID, p.ID).
-		Scan(&ids).
+		Scan(&characterAndPosition).
 		Error
 	if err != nil {
 		logger.Warn(
@@ -41,10 +44,14 @@ func FindByPersonAndSubject(ctx context.Context, p *model.Person, s *model.Subje
 		return nil, nil
 	}
 
-	characters = make([]model.Character, 0, len(ids))
-	for _, id := range ids {
-		character := model.Character{ID: id}
-		characters = append(characters, character)
+	characters = make([]model.Character, 0, len(characterAndPosition))
+	for _, item := range characterAndPosition {
+		for _, positionID := range positionIDs {
+			if positionID == item.Position {
+				character := model.Character{ID: item.CharacterID}
+				characters = append(characters, character)
+			}
+		}
 	}
 
 	go func() {
@@ -72,8 +79,8 @@ func Find(ctx context.Context, c *model.Character) error {
 		Error
 	if err != nil {
 		logger.Warn(
-			"Failed to find character: "+err.Error(), 
-			logger.Field("character_id", c.ID), 
+			"Failed to find character: "+err.Error(),
+			logger.Field("character_id", c.ID),
 			repository.DBStats(),
 		)
 		return nil

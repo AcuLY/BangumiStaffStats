@@ -196,9 +196,9 @@ def load_subject_person(cursor, batch_size=1000):
 
     # 加载 subject ids
     subject_ids = set()
+    subject_types = {}
     print("开始加载所有 subjects")
     with open(JSONLINES_FILE_PATH + "subject.jsonlines", "r", encoding="utf-8") as f:
-        subject_types = {}
         for line in f:
             item = json.loads(line)
             subject_ids.add(item["id"])
@@ -284,22 +284,29 @@ def load_person_character(cursor, batch_size=1000):
 
     print("加载所有条目 id 中")
     subject_ids = set()
+    subject_types = {}
     with open(JSONLINES_FILE_PATH + "subject.jsonlines", "r", encoding="utf-8") as f:
         for line in f:
             item = json.loads(line)
             subject_ids.add(item["id"])
+            if item["type"] in (2, 4):  # 2: 动画, 4: 游戏
+                subject_types[item["id"]] = item["type"]
     print("加载所有条目 id 完毕")
 
-    print("加载 subject-character-role 中")
-    subject_character_to_role = {}
+    print("加载 subject-character 中")
+    subject_character_to_position = {}
     with open(
         JSONLINES_FILE_PATH + "subject-characters.jsonlines", "r", encoding="utf-8"
     ) as f:
         for line in f:
             item = json.loads(line)
-            subject_character_to_role[(item["subject_id"], item["character_id"])] = (
-                item["type"]
-            )
+            sid = item["subject_id"]
+            cid = item["character_id"]
+            if sid not in subject_types:
+                continue
+            # 动画声优是 101 - 103，游戏声优是 1101 - 1103
+            offset = 100 if subject_types[sid] == 2 else 1100
+            subject_character_to_position[(sid, cid)] = item["type"] + offset
 
     with open(
         JSONLINES_FILE_PATH + "person-characters.jsonlines", "r", encoding="utf-8"
@@ -311,12 +318,12 @@ def load_person_character(cursor, batch_size=1000):
         key = (item["subject_id"], item["character_id"])
         if (
             item["subject_id"] not in subject_ids
-            or key not in subject_character_to_role
+            or key not in subject_character_to_position
         ):
             continue
 
-        role = subject_character_to_role[key]
-        data.append((item["person_id"], item["subject_id"], item["character_id"], role))
+        position = subject_character_to_position[key]
+        data.append((item["person_id"], item["subject_id"], item["character_id"], position))
 
     total = len(data)
     print(f"共需导入 {total} 条 person-character 数据，批大小：{batch_size}")
@@ -337,9 +344,9 @@ def load_person_character(cursor, batch_size=1000):
         ncols=80,
     ):
         cursor.executemany(
-            "INSERT INTO person_character (person_id, subject_id, character_id, role) "
+            "INSERT INTO person_character (person_id, subject_id, character_id, position) "
             "VALUES (%s, %s, %s, %s) "
-            "ON DUPLICATE KEY UPDATE role = VALUES(role)",
+            "ON DUPLICATE KEY UPDATE position = VALUES(position)",
             batch,
         )
 
