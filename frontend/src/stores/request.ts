@@ -1,4 +1,4 @@
-import { EmptyRequest, fetchStatistics, type StatsRequest } from '@/api/api'
+import { EmptyRequest, fetchStatistics, type StatsRequest, type StatsResponse } from '@/api/api'
 import { useDisplayStore } from '@/stores/display'
 import { useGlobalStore } from '@/stores/global'
 import { useInputStore } from '@/stores/input'
@@ -7,6 +7,8 @@ import { useResponseStore } from '@/stores/response'
 import axios, { isAxiosError } from 'axios'
 import { defineStore } from 'pinia'
 import { createDiscreteApi } from 'naive-ui'
+import isEqual from 'lodash/isEqual'
+import { omit } from 'lodash'
 
 class InvalidInputError extends Error {
 	constructor(message: string) {
@@ -17,6 +19,9 @@ class InvalidInputError extends Error {
 
 export const useRequestStore = defineStore('request', () => {
 	const request = reactive<StatsRequest>(EmptyRequest)
+
+	let prevRequest: StatsRequest = {} as StatsRequest
+	let cache: Record<number, StatsResponse> = {}
 
 	const isCV = computed<boolean>((): boolean => {
 		return request.position.includes('声优')
@@ -81,8 +86,6 @@ export const useRequestStore = defineStore('request', () => {
 		const responseStore = useResponseStore()
 		const { updateResponse, clearResponse } = responseStore
 
-		startLoading()
-
 		try {
 			if (isInput) {
 				validateInput()
@@ -96,11 +99,30 @@ export const useRequestStore = defineStore('request', () => {
 				updateRequestPagination()
 			}
 
+			const isPageDiff: boolean = isEqual(omit(request, 'page'), omit(prevRequest, 'page'))
+			const isCached: boolean = Object.keys(cache).includes(String(request.page))
+
+			if (isPageDiff) {
+				if (isCached) {
+					updateResponse(cache[request.page])
+					return
+				}
+			} else {
+				cache = {}
+			}
+
+			startLoading()
+
 			const resp = await fetchStatistics(request)
 			updateResponse(resp)
+
+			Object.assign(prevRequest, request)
+			cache[request.page] = resp
 		} catch (error) {
 			clearResponse()
-			
+			prevRequest = {} as StatsRequest
+			cache = {}
+
 			switch (true) {
 				case axios.isCancel(error):
 					notification.warning({
