@@ -3,6 +3,15 @@
 /backend/logs
 /backend/__pycache__
 /backend/static
+/backend/.rubbish
+/backend/.venv
+/backend/jsonlines
 /frontend/node_modules
 /frontend/dist
+.vscode/
+.venv/
+*.tar
+*_test.go
+old-backend/
+index.html
 TODO
