@@ -578,7 +578,7 @@ def main():
             break
         except pymysql.OperationalError as e:
             if i < 9:
-                print(f"连接数据库失败，重试 {i + 1}/10")
+                print(f"连接数据库失败: {str(e)}，重试 {i + 1}/10")
                 time.sleep(3)
             else:
                 print("连接数据库失败，请检查配置")
