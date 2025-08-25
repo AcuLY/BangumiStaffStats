@@ -9,19 +9,19 @@ import (
 
 	"github.com/AcuLY/BangumiStaffStats/backend/config"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/cache"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/bangumi"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 	"github.com/redis/go-redis/v9"
 )
 
-// collectionKey 创建 collection 对应的 Redis Key
-func collectionKey(cq bangumi.CollectionQuery) string {
-	return fmt.Sprintf("collection:%s:%d:%d", cq.UserID, cq.SubjectType, cq.CollectionType)
+// key 创建 collection 对应的 Redis Key
+func key(query bangumi.CollectionQuery) string {
+	return fmt.Sprintf("collection:%s:%d:%d", query.UserID, query.SubjectType, query.CollectionType)
 }
 
-// parseCollectionValue 将 Redis 中缓存的值解析为 Subject
-func parseCollectionValue(v string) (*model.Subject, error) {
+// parse 将 Redis 中缓存的值解析为 Subject
+func parse(v string) (*model.Subject, error) {
 	split := strings.Split(v, ":")
 
 	id, err1 := strconv.Atoi(split[0])
@@ -38,9 +38,9 @@ func parseCollectionValue(v string) (*model.Subject, error) {
 	return subject, nil
 }
 
-// GetUserCollection 查找 Redis 中的用户收藏数据。
-func GetUserCollection(ctx context.Context, cq bangumi.CollectionQuery) ([]*model.Subject, error) {
-	key := collectionKey(cq)
+// Find 查找 Redis 中的用户收藏数据。
+func Find(ctx context.Context, query bangumi.CollectionQuery) ([]*model.Subject, error) {
+	key := key(query)
 	result, err := cache.RDB.LRange(ctx, key, 0, -1).Result()
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func GetUserCollection(ctx context.Context, cq bangumi.CollectionQuery) ([]*mode
 			return nil, err
 		}
 
-		subject, err := parseCollectionValue(raw)
+		subject, err := parse(raw)
 		if err != nil {
 			logger.Warn("Invalid collection cache", logger.Field("cache string", raw))
 			continue
@@ -67,19 +67,19 @@ func GetUserCollection(ctx context.Context, cq bangumi.CollectionQuery) ([]*mode
 	return collections, nil
 }
 
-// SetUserCollection 将用户收藏数据存入 Redis。
+// Save 将用户收藏数据存入 Redis。
 //
 //   - Redis 键格式：collection:<userID>:<subjectType>:<collectionType>
 //
 //   - Redis 值为一个列表，元素格式为：<subjectID>:<subjectRate>
 //
 //   - 仅保留条目的 ID 和用户评分（subjectRate 为用户实际打分）
-func SetUserCollection(ctx context.Context, cq bangumi.CollectionQuery, collections []*model.Subject) error {
+func Save(ctx context.Context, query bangumi.CollectionQuery, collections []*model.Subject) error {
 	if len(collections) == 0 {
 		return nil
 	}
 
-	key := collectionKey(cq)
+	key := key(query)
 	pipe := cache.RDB.TxPipeline()
 
 	pipe.Del(ctx, key)
@@ -94,7 +94,7 @@ func SetUserCollection(ctx context.Context, cq bangumi.CollectionQuery, collecti
 	}
 	pipe.RPush(ctx, key, values...)
 
-	ttl := config.Redis.TTL.UserCollection.ToHour()
+	ttl := config.Redis.TTL.UserCollection.Duration()
 	pipe.Expire(ctx, key, ttl)
 
 	_, err := pipe.Exec(ctx)

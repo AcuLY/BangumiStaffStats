@@ -4,6 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
+	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -91,6 +94,20 @@ func Field(key string, value any) zap.Field {
 	return zap.Any(key, value)
 }
 
+// callerField 得到 logger.Debug 等方法的调用者的信息
+func callerField() zap.Field {
+	pc, file, line, ok := runtime.Caller(2)
+
+	if !ok {
+		return Field("caller", "unknown")
+	}
+
+	fileName := filepath.Base(file)
+	funcName := path.Base(runtime.FuncForPC(pc).Name())
+
+	return Field("caller", fmt.Sprintf("%s:%s:%d", funcName, fileName, line))
+}
+
 func Debug(msg string, fields ...zap.Field) {
 	consoleLogger.Debug(msg, fields...)
 	fileLogger.Debug(msg, fields...)
@@ -102,16 +119,22 @@ func Info(msg string, fields ...zap.Field) {
 }
 
 func Warn(msg string, fields ...zap.Field) {
+	fields = append(fields, callerField())
+
 	consoleLogger.Warn(msg, fields...)
 	fileLogger.Warn(msg, fields...)
 }
 
 func Error(msg string, fields ...zap.Field) {
+	fields = append(fields, callerField())
+
 	consoleLogger.Error(msg, fields...)
 	fileLogger.Error(msg, fields...)
 }
 
 func Fatal(msg string, fields ...zap.Field) {
+	fields = append(fields, callerField())
+
 	consoleLogger.Fatal(msg, fields...)
 	fileLogger.Fatal(msg, fields...)
 }

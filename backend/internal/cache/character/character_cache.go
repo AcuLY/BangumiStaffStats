@@ -7,7 +7,7 @@ import (
 
 	"github.com/AcuLY/BangumiStaffStats/backend/config"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/cache"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 )
 
 // characterKey 创建 Character 对应的 Redis Key
@@ -15,8 +15,8 @@ func characterKey(c *model.Character) string {
 	return fmt.Sprintf("character:%d", c.ID)
 }
 
-// GetCharacter 填充传入的 Character 的完整信息
-func GetCharacter(ctx context.Context, c *model.Character) error {
+// Find 填充传入的 Character 的完整信息
+func Find(ctx context.Context, c *model.Character) error {
 	key := characterKey(c)
 	raw, err := cache.RDB.Get(ctx, key).Result()
 	if err != nil {
@@ -30,16 +30,17 @@ func GetCharacter(ctx context.Context, c *model.Character) error {
 	return nil
 }
 
-// SetCharacter 缓存 Character 信息
-func SetCharacter(ctx context.Context, c *model.Character) error {
+// Save 缓存 Character 信息
+func Save(ctx context.Context, c *model.Character) error {
 	key := characterKey(c)
-	ttl := config.Redis.TTL.Character.ToHour()
-	jsonData, err := json.Marshal(c)
+	ttl := config.Redis.TTL.Character.Duration()
+
+	raw, err := json.Marshal(c)
 	if err != nil {
 		return err
 	}
 
-	return cache.RDB.SetEx(ctx, key, jsonData, ttl).Err()
+	return cache.RDB.SetEx(ctx, key, raw, ttl).Err()
 }
 
 // personCharacterKey 创建 person-character 对应的 Redis Key
@@ -47,8 +48,8 @@ func personCharacterKey(p *model.Person, s *model.Subject) string {
 	return fmt.Sprintf("character:person:%d:subject:%d", p.ID, s.ID)
 }
 
-// GetCharactersByPersonAndSubject 从缓存根据 Person 和 Subject 获得所有 Character
-func GetCharactersByPersonAndSubject(ctx context.Context, p *model.Person, s *model.Subject) ([]model.Character, error) {
+// FindByPersonAndSubject 从缓存根据 Person 和 Subject 获得所有 Character
+func FindByPersonAndSubject(ctx context.Context, p *model.Person, s *model.Subject) ([]model.Character, error) {
 	key := personCharacterKey(p, s)
 	raw, err := cache.RDB.Get(ctx, key).Result()
 	if err != nil {
@@ -69,18 +70,20 @@ func GetCharactersByPersonAndSubject(ctx context.Context, p *model.Person, s *mo
 	return characters, nil
 }
 
-// SetCharactersByPersonAndSubject 将 Person 和 Subject 对应的所有 Character 写入缓存
-func SetCharactersByPersonAndSubject(ctx context.Context, p *model.Person, s *model.Subject, characters []model.Character) error {
+// SaveByPersonAndSubject 将 Person 和 Subject 对应的所有 Character 写入缓存
+func SaveByPersonAndSubject(ctx context.Context, p *model.Person, s *model.Subject, characters []model.Character) error {
 	key := personCharacterKey(p, s)
-	ttl := config.Redis.TTL.PersonCharacter.ToHour()
-	characterIDs := make([]int, 0, len(characters))
+	ttl := config.Redis.TTL.PersonCharacter.Duration()
+
+	ids := make([]int, 0, len(characters))
 	for _, c := range characters {
-		characterIDs = append(characterIDs, c.ID)
+		ids = append(ids, c.ID)
 	}
-	jsonData, err := json.Marshal(characterIDs)
+
+	raw, err := json.Marshal(ids)
 	if err != nil {
 		return err
 	}
 
-	return cache.RDB.SetEx(ctx, key, jsonData, ttl).Err()
+	return cache.RDB.SetEx(ctx, key, raw, ttl).Err()
 }

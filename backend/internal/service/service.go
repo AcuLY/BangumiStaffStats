@@ -2,298 +2,101 @@ package service
 
 import (
 	"context"
-	"math"
-	"sort"
-	"strings"
-	"time"
+	"errors"
+	"slices"
 
-	charactersvc "github.com/AcuLY/BangumiStaffStats/backend/internal/service/character"
-	collectionsvc "github.com/AcuLY/BangumiStaffStats/backend/internal/service/collection"
-	personsvc "github.com/AcuLY/BangumiStaffStats/backend/internal/service/person"
-	subjectsvc "github.com/AcuLY/BangumiStaffStats/backend/internal/service/subject"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/constants"
+	cache "github.com/AcuLY/BangumiStaffStats/backend/internal/cache/statistic"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/constant"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/pkg/sorter"
+	srv "github.com/AcuLY/BangumiStaffStats/backend/internal/service/statistic"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/filter"
+	"github.com/redis/go-redis/v9"
 )
 
-// 完整逻辑的超时时间
-var timeout time.Duration = time.Second * 60
+var ErrNoResultFound error = errors.New("no result found")
+var ErrInvalidPagination error = errors.New("invalid pagination")
 
 func Statistics(ctx context.Context, r *model.Request) (*model.Response, error) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+	full := new(model.Statistics)
 
-	var subjects []*model.Subject
-	var err error
-
-	// 获取条目 ID 列表
-	if r.UserID == "0" { // 查询全站数据
-		subjects, err = subjectsvc.GetGlobalSubjects(ctx, r.SubjectType, r.FavoriteRange)
-	} else { // 查询用户收藏
-		subjects, err = collectionsvc.GetUserCollections(ctx, r.UserID, r.SubjectType, r.CollectionTypes)
-	}
-	if err != nil {
-		logger.Warn("Failed to get collection: " + err.Error())
-		return nil, err
-	}
-
-	// 加载条目完整信息
-	err = subjectsvc.LoadSubjects(ctx, &subjects)
-	if err != nil {
-		logger.Error("Failed to load subject: " + err.Error())
-		return nil, err
-	}
-
-	// 根据标签筛选条目
-	filter.FilterSubjectsByTags(&subjects, r.PositiveTags, r.NegativeTags)
-
-	// 根据分数范围筛选条目
-	if len(r.RateRange) >= 2 {
-		if err := filter.FilterSubjectsByRates(&subjects, r.RateRange); err != nil {
+	if err := cache.Find(ctx, r, full); err != nil {
+		if err != redis.Nil {
 			return nil, err
 		}
-	}
 
-	// 根据人数范围筛选条目
-	if len(r.FavoriteRange) >= 2 {
-		if err := filter.FilterSubjectsByPopularity(&subjects, r.FavoriteRange); err != nil {
-			return nil, err
-		}
-	}
-
-	// 根据日期范围筛选条目
-	if len(r.DateRange) >= 2 {
-		if err := filter.FilterSubjectsByDate(&subjects, r.DateRange); err != nil {
-			return nil, err
-		}
-	}
-
-	// 标注条目的续作信息
-	err = subjectsvc.MarkSequelOrders(ctx, subjects)
-	if err != nil {
-		logger.Error("Failed to mark sequel: " + err.Error())
-		return nil, err
-	}
-
-	// 需要提前获取 positionIDs，以免 repository 层并发大量重复调用 PositionIDs 导致未知的并发读取 map 错误
-	positionIDs, err := constants.PositionIDs(r.SubjectType, r.Position)
-	if err != nil {
-		logger.Error("Failed to get position IDs: " + err.Error())
-		return nil, err
-	}
-
-	// 创建人物到条目的映射
-	personSubjects, err := personsvc.CreatePersonSubjectsMap(ctx, subjects, positionIDs)
-	if err != nil {
-		logger.Error("Failed to create person subject map: " + err.Error())
-		return nil, err
-	}
-
-	// 加载人物名
-	personsvc.LoadPeople(ctx, personSubjects)
-
-	// 创建人物到角色的映射
-	var personCharacters map[*model.Person][]*model.Character
-	if strings.Contains(r.Position, "声优") {
-		personCharacters, err = charactersvc.CreatePersonCharactersMap(ctx, personSubjects)
+		full, err = srv.GetFullStatistics(ctx, r)
 		if err != nil {
-			logger.Error("Failed to create person character map: " + err.Error())
 			return nil, err
 		}
 
-		if err = charactersvc.LoadCharacters(ctx, personCharacters); err != nil {
-			logger.Error("Failed to load characters: " + err.Error())
-			return nil, err
+		if err := cache.Save(ctx, r, full); err != nil {
+			logger.Warn("Failed to set statistic cache: " + err.Error())
 		}
 	}
 
-	// 提取总结
-	summaries := createSummaries(personSubjects, personCharacters)
-	// 按照作品数、平均分降序排序
-	sort.Slice(summaries, func(i int, j int) bool {
-		if summaries[i].SubjectsNumber == summaries[j].SubjectsNumber {
-			return summaries[i].AverageRate >= summaries[j].AverageRate
-		}
-		return summaries[i].SubjectsNumber > summaries[j].SubjectsNumber
-	})
+	summaries := full.PeopleSummary
+	if len(summaries) == 0 {
+		return nil, ErrNoResultFound
+	}
 
-	invalid := make([]*model.Subject, 0) // 无效条目，暂时不需要
+	if r.StatisticType == constant.StatsTypeCharacter {
+		sorter.SortByCharacterCount(summaries)
+	} else {
+		isSeries := r.StatisticType == constant.StatsTypeSeries
+		switch r.SortBy {
+		case constant.SortByCount:
+			sorter.SortByCount(summaries, isSeries)
+		case constant.SortByAverageRate:
+			sorter.SortByAverage(summaries, isSeries)
+		case constant.SortByOverallRate:
+			sorter.SortByOverall(summaries, isSeries)
+		}
+	}
+
+	if *r.Ascend {
+		slices.Reverse(summaries)
+	}
+
+	begin := (r.Page - 1) * r.PageSize
+	if begin >= len(summaries) {
+		return nil, ErrInvalidPagination
+	}
+	end := min(begin+r.PageSize, len(summaries))
+
+	curSummaries := make([]*model.PersonalSummaryByType, min(r.PageSize, len(summaries)))
+	for i := begin; i < end; i++ {
+		curIdx := i - begin
+
+		curSummaries[curIdx] = new(model.PersonalSummaryByType)
+		curSummaries[curIdx].PersonID = summaries[i].PersonID
+		curSummaries[curIdx].PersonName = summaries[i].PersonName
+		curSummaries[curIdx].PersonNameCN = summaries[i].PersonNameCN
+
+		switch r.StatisticType {
+		case constant.StatsTypeSubject:
+			curSummaries[curIdx].SubjectSummary = summaries[i].Subject
+		case constant.StatsTypeSeries:
+			curSummaries[curIdx].SubjectSummary = summaries[i].Series
+		case constant.StatsTypeCharacter:
+			curSummaries[curIdx].CharacterSummary = summaries[i].Character
+		}
+	}
+
+	var count int
+	switch r.StatisticType {
+	case constant.StatsTypeSubject:
+		count = full.SubjectCount
+	case constant.StatsTypeSeries:
+		count = full.SeriesCount
+	case constant.StatsTypeCharacter:
+		count = full.CharacterCount
+	}
 
 	resp := &model.Response{
-		PeopleSummary:   summaries,
-		InvalidSubjects: invalid,
-		SubjectCount:    len(subjects),
-		SeriesCount:     len(extractSeriesSubjects(subjects)),
+		Summaries:   curSummaries,
+		PersonCount: full.PersonCount,
+		ItemCount:   count,
 	}
 	return resp, nil
-}
-
-// createSummaries 创建最终的响应内容
-func createSummaries(ps map[*model.Person][]*model.Subject, pc map[*model.Person][]*model.Character) []*model.PersonSummary {
-	summaries := make([]*model.PersonSummary, 0, len(ps))
-
-	for p, subjects := range ps {
-		characters := pc[p]
-
-		characterBelongingSubjects := extractCharacterSubjects(characters) // 每个角色属于的条目
-		seriesSubjects := extractSeriesSubjects(subjects)                  // 每个系列的主条目
-
-		averageRate := calcAverageRate(subjects, false)
-		seriesAverageRate := calcAverageRate(seriesSubjects, true)
-
-		scoredSubjectCount := 0
-		for _, s := range subjects {
-			if s.Rate() > 0 {
-				scoredSubjectCount++
-			}
-		}
-		scoredSeries := make(map[*model.Subject]struct{})
-		for _, s := range seriesSubjects {
-			if s.SeriesRate > 0 {
-				scoredSeries[s] = struct{}{}
-			}
-		}
-		scoredSeriesCount := len(scoredSeries)
-
-		summary := &model.PersonSummary{
-			PersonID:     p.ID,
-			PersonName:   p.Name,
-			PersonNameCN: p.NameCN,
-
-			SubjectIDs:     extractIDs(subjects),
-			SubjectNames:   extractNames(subjects),
-			SubjectNamesCN: extractNamesCN(subjects),
-			SubjectImages:  extractImages(subjects),
-			Rates:          extractRates(subjects, false),
-			AverageRate:    averageRate,
-			OverallRate:    calcOverallRate(averageRate, scoredSubjectCount),
-			SubjectsNumber: len(subjects),
-
-			CharacterIDs:            extractIDs(characters),
-			CharacterNames:          extractNames(characters),
-			CharacterNamesCN:        extractNamesCN(characters),
-			CharacterImages:         extractImages(characters),
-			CharacterSubjectNames:   extractNames(characterBelongingSubjects),
-			CharacterSubjectNamesCN: extractNamesCN(characterBelongingSubjects),
-			CharactersNumber:        len(characters),
-
-			SeriesSubjectIDs:     extractIDs(seriesSubjects),
-			SeriesSubjectNames:   extractNames(seriesSubjects),
-			SeriesSubjectNamesCN: extractNamesCN(seriesSubjects),
-			SeriesSubjectImages:  extractImages(seriesSubjects),
-			SeriesRates:          extractRates(seriesSubjects, true),
-			SeriesAverageRate:    seriesAverageRate,
-			SeriesOverallRate:    calcOverallRate(seriesAverageRate, scoredSeriesCount),
-			SeriesSubjectsNumber: len(seriesSubjects),
-		}
-
-		summaries = append(summaries, summary)
-	}
-
-	return summaries
-}
-
-func extractIDs[T model.Item](items []T) []int {
-	ids := make([]int, 0, len(items))
-	for _, item := range items {
-		ids = append(ids, item.GetID())
-	}
-	return ids
-}
-
-func extractNames[T model.Item](items []T) []string {
-	names := make([]string, 0, len(items))
-	for _, item := range items {
-		names = append(names, item.GetName())
-	}
-	return names
-}
-
-func extractNamesCN[T model.Item](items []T) []string {
-	namesCN := make([]string, 0, len(items))
-	for _, item := range items {
-		namesCN = append(namesCN, item.GetNameCN())
-	}
-	return namesCN
-}
-
-func extractImages[T model.Item](items []T) []string {
-	images := make([]string, 0, len(items))
-	for _, item := range items {
-		images = append(images, item.GetImage())
-	}
-	return images
-}
-
-func extractRates(subjects []*model.Subject, isSeries bool) []float32 {
-	rates := make([]float32, 0, len(subjects))
-	for _, s := range subjects {
-		if isSeries {
-			rates = append(rates, s.SeriesRate)
-		} else {
-			rates = append(rates, s.Rate())
-		}
-	}
-	return rates
-}
-
-// calcAverageRate 计算一个人物所有作品或系列的均分
-func calcAverageRate(subjects []*model.Subject, isSeries bool) float32 {
-	var sum float32
-	var validRateCount int
-	for _, s := range subjects {
-		if isSeries {
-			if s.SeriesRate == 0 {
-				continue
-			}
-			sum += s.SeriesRate
-		} else {
-			if s.Rate() == 0 {
-				continue
-			}
-			sum += s.Rate()
-		}
-		validRateCount += 1
-	}
-	if validRateCount == 0 {
-		return 0
-	}
-	avg := sum / float32(validRateCount)
-	return float32(math.Round(float64(avg)*100) / 100)
-}
-
-// calcOverallRate 计算综合加权分
-func calcOverallRate(averageRate float32, number int) float32 {
-	if averageRate == 0 {
-		return 0
-	}
-
-	constant := 5.0
-	middleRate := 5.0
-	n := float64(number)
-	ar := float64(averageRate)
-
-	overallRate := (n/(n+constant))*ar + (constant/(n+constant))*middleRate
-	return float32(math.Round(float64(overallRate)*100) / 100)
-}
-
-func extractCharacterSubjects(characters []*model.Character) []*model.Subject {
-	subjects := make([]*model.Subject, 0, len(characters))
-	for _, c := range characters {
-		subjects = append(subjects, c.BelongingSubject)
-	}
-	return subjects
-}
-
-func extractSeriesSubjects(subjects []*model.Subject) []*model.Subject {
-	addedSeries := make(map[*model.Subject]struct{})
-	seriesSubjects := make([]*model.Subject, 0, len(subjects))
-	for _, s := range subjects {
-		if _, ok := addedSeries[s.SeriesMainSubject]; !ok {
-			seriesSubjects = append(seriesSubjects, s.SeriesMainSubject)
-			addedSeries[s.SeriesMainSubject] = struct{}{}
-		}
-	}
-	return seriesSubjects
 }

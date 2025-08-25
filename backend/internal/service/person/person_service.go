@@ -4,13 +4,13 @@ import (
 	"context"
 	"sync"
 
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 	repository "github.com/AcuLY/BangumiStaffStats/backend/internal/repository/person"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/model"
 	"golang.org/x/sync/errgroup"
 )
 
-// CreatePersonSubjectsMap 创建一个人物到其参与的作品列表的映射
-func CreatePersonSubjectsMap(ctx context.Context, subjects []*model.Subject, positionIDs []int) (map[*model.Person][]*model.Subject, error) {
+// PersonSubjectsMap 创建一个人物到其参与的作品列表的映射
+func PersonSubjectsMap(ctx context.Context, subjects []*model.Subject, positionIDs []int) (map[*model.Person][]*model.Subject, error) {
 	peronIDToSubjects := make(map[int][]*model.Subject)
 	idToPerson := make(map[int]*model.Person)
 
@@ -19,7 +19,7 @@ func CreatePersonSubjectsMap(ctx context.Context, subjects []*model.Subject, pos
 
 	for _, s := range subjects {
 		g.Go(func() error {
-			people, err := repository.FindPeopleBySubjectAndPosition(ctx, s, positionIDs)
+			people, err := repository.FindBySubjectAndPosition(ctx, s, positionIDs)
 			if err != nil {
 				return err
 			}
@@ -48,13 +48,13 @@ func CreatePersonSubjectsMap(ctx context.Context, subjects []*model.Subject, pos
 	return personSubjects, nil
 }
 
-// LoadPeople 加载人物的完整信息
-func LoadPeople(ctx context.Context, personSubjects map[*model.Person][]*model.Subject) error {
+// LoadInfos 加载人物的完整信息
+func LoadInfos(ctx context.Context, personSubjects map[*model.Person][]*model.Subject) error {
 	g := new(errgroup.Group)
 
 	for p := range personSubjects {
 		g.Go(func() error {
-			return repository.FindPerson(ctx, p)
+			return repository.Find(ctx, p)
 		})
 	}
 

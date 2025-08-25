@@ -6,6 +6,18 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+type ttlHour int
+
+func (t ttlHour) Duration() time.Duration {
+	return time.Duration(t) * time.Hour
+}
+
+type ttlMinute int
+
+func (t ttlMinute) Duration() time.Duration {
+	return time.Duration(t) * time.Minute
+}
+
 type mainConfig struct {
 	AppName string `toml:"appName"`
 	Host    string `toml:"host"`
@@ -22,12 +34,14 @@ type httpConfig struct {
 }
 
 type mysqlConfig struct {
-	Host          string `toml:"host"`
-	Port          int    `toml:"port"`
-	User          string `toml:"user"`
-	Password      string `toml:"password"`
-	DatabaseName  string `toml:"databaseName"`
-	MaxConnection int    `toml:"maxConnection"`
+	Host              string    `toml:"host"`
+	Port              int       `toml:"port"`
+	User              string    `toml:"user"`
+	Password          string    `toml:"password"`
+	DatabaseName      string    `toml:"databaseName"`
+	MaxOpenConnection int       `toml:"maxOpenConnection"`
+	MaxIdleConnection int       `toml:"maxIdleConnection"`
+	MaxLifetime       ttlMinute `toml:"maxLifetime"`
 }
 
 type redisConfig struct {
@@ -38,28 +52,22 @@ type redisConfig struct {
 	TTL      redisTTLConfig `toml:"ttl"`
 }
 
-// 过期时间
-type ttl int
-
-// ToHour 将小时数的原始值转为 time.Duration
-func (t ttl) ToHour() time.Duration {
-	return time.Duration(t) * time.Hour
-}
-
 type redisTTLConfig struct {
 	// 单位为小时
-	UserCollection  ttl `toml:"userCollection"`
-	Subject         ttl `toml:"subject"`
-	Sequel          ttl `toml:"sequel"`
-	Person          ttl `toml:"person"`
-	SubjectPerson   ttl `toml:"subjectPerson"`
-	Character       ttl `toml:"character"`
-	PersonCharacter ttl `toml:"personCharacter"`
+	UserCollection  ttlHour `toml:"userCollection"`
+	Subject         ttlHour `toml:"subject"`
+	Sequel          ttlHour `toml:"sequel"`
+	Person          ttlHour `toml:"person"`
+	SubjectPerson   ttlHour `toml:"subjectPerson"`
+	Character       ttlHour `toml:"character"`
+	PersonCharacter ttlHour `toml:"personCharacter"`
+	// 单位为分钟
+	Statistic ttlMinute `toml:"statistic"`
 }
 
 type logConfig struct {
-	AppLogPath string `toml:"appLogPath"`
-	GinLogPath string `toml:"ginLogPath"`
+	AppLogPath  string `toml:"appLogPath"`
+	GinLogPath  string `toml:"ginLogPath"`
 	GormLogPath string `toml:"gormLogPath"`
 }
 

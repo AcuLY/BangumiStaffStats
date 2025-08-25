@@ -15,3 +15,5 @@
 old-backend/
 index.html
 TODO
+/.vscode
+/frontend-depreciated
