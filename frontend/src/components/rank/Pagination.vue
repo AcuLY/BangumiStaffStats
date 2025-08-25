@@ -48,6 +48,10 @@ const handlePageSizeChange = (newPageSize: number) => {
 	paginationStore.page = 1
 	updateAndFetch(false)
 }
+
+watch(() => paginationStore.page, (newPage) => {
+	page.value = newPage
+})
 </script>
 
 <template>
