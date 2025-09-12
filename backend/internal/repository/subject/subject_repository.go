@@ -7,37 +7,42 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/repository"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
-	"github.com/redis/go-redis/v9"
 )
 
 // Find 根据条目 ID 从缓存或数据库加载条目完整信息
-func Find(ctx context.Context, s *model.Subject) error {
-	if err := cache.Find(ctx, s); err == nil {
-		return nil
-	} else if err != redis.Nil {
+func Find(ctx context.Context, subjects *[]*model.Subject) error {
+	if err := cache.Load(ctx, *subjects); err != nil {
 		return err
 	}
 
+	hit := make([]*model.Subject, 0, len(*subjects))
+	missedIDs := make([]int, 0, len(*subjects))
+	for _, s := range *subjects {
+		if s.Name == "" {
+			missedIDs = append(missedIDs, s.ID)
+		} else {
+			hit = append(hit, s)
+		}
+	}
+
+	missed := make([]*model.Subject, 0, len(missedIDs))
 	err := repository.DB.
 		WithContext(ctx).
 		Table("subjects").
-		Where("subject_id = ?", s.ID).
-		First(s).
+		Where("subject_id in ?", missedIDs).
+		Scan(missed).
 		Error
 	if err != nil {
 		logger.Warn(
-			"Failed to find subject: "+err.Error(),
-			logger.Field("subject_id", s.ID),
+			"Failed to find subjects: "+err.Error(),
 			repository.DBStats(),
 		)
 		return nil
 	}
 
-	go func() {
-		if err := cache.Save(context.Background(), s); err != nil {
-			logger.Warn("Failed to set user collection cache: " + err.Error())
-		}
-	}()
+	cache.Save(ctx, missed)
+
+	*subjects = append(hit, missed...)
 
 	return nil
 }

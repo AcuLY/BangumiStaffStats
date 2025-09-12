@@ -97,8 +97,8 @@ CREATE TABLE `subject_person` (
   `person_id` mediumint NOT NULL,
   `position` smallint NOT NULL,
   PRIMARY KEY (`subject_id`,`person_id`,`position`),
+  UNIQUE KEY `idx_subject_position_person` (`subject_id`,`position`,`person_id`),
   KEY `person_id` (`person_id`),
-  KEY `idx_subject_position` (`subject_id`,`position`),
   CONSTRAINT `subject_person_ibfk_1` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`subject_id`),
   CONSTRAINT `subject_person_ibfk_2` FOREIGN KEY (`person_id`) REFERENCES `people` (`person_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -136,4 +136,4 @@ CREATE TABLE `subjects` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-08-22 11:08:51
+-- Dump completed on 2025-09-09 10:39:53

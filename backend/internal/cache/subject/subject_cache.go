@@ -15,30 +15,48 @@ func key(s *model.Subject) string {
 	return fmt.Sprintf("subject:%d", s.ID)
 }
 
-// Find 从缓存填入 Subject 的完整信息
-func Find(ctx context.Context, s *model.Subject) error {
-	key := key(s)
-	raw, err := cache.RDB.Get(ctx, key).Result()
+// Load 从缓存填入 Subjects 的完整信息，缓存缺失则无影响
+func Load(ctx context.Context, subjects []*model.Subject) error {
+	keys := make([]string, len(subjects))
+	for _, s := range subjects {
+		keys = append(keys, key(s))
+	}
+
+	raws, err := cache.RDB.MGet(ctx, keys...).Result()
 	if err != nil {
 		return err
 	}
 
-	if err = json.Unmarshal([]byte(raw), s); err != nil {
-		return err
+	for i, raw := range raws {
+		if raw == nil {
+			continue
+		}
+		
+		if err := json.Unmarshal([]byte(raw.(string)), subjects[i]); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-// Save 将 Subject 的完整信息写入缓存
-func Save(ctx context.Context, dbSubject *model.Subject) error {
-	key := key(dbSubject)
-	ttl := config.Redis.TTL.Subject.Duration()
+// Save 将 Subjects 的完整信息写入缓存
+func Save(ctx context.Context, subjects []*model.Subject) error {
+	pipe := cache.RDB.Pipeline()
 
-	raw, err := json.Marshal(dbSubject)
-	if err != nil {
-		return err
+	for _, s := range subjects {
+		key := key(s)
+		ttl := config.Redis.TTL.Subject.Duration()
+
+		raw, err := json.Marshal(s)
+		if err != nil {
+			return err
+		}
+
+		pipe.Set(ctx, key, raw, ttl)
 	}
 
-	return cache.RDB.Set(ctx, key, raw, ttl).Err()
+	_, err := pipe.Exec(ctx)
+
+	return err
 }

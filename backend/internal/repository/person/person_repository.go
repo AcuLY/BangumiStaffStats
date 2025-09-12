@@ -24,7 +24,7 @@ func FindBySubjectAndPosition(ctx context.Context, s *model.Subject, positionIDs
 	var ids []int
 
 	query := `
-		SELECT DISTINCT person_id 
+		SELECT person_id 
 		FROM subject_person 
 		WHERE subject_id = ? AND position in (?)
 	`
