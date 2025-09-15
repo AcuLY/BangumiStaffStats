@@ -19,7 +19,7 @@ import (
 var ErrInvalidUserID error = errors.New("invalid userID")
 
 // Bangumi API /v0/users/{username}/collections 的最大分页值（limit）
-const collectionPageSize = 50
+const pageSize = 50
 
 // CollectionQuery 定义调用 Bangumi API 的用户收藏时需要的参数。
 type CollectionQuery struct {
@@ -70,41 +70,47 @@ type Collection struct {
 	Private     bool `json:"private"`
 }
 
-// userCollectionURL 根据 userID 返回 Bangumi API 需要的 URL
-func userCollectionURL(userID string) string {
+// response 对应 Bangumi API collection 请求的响应字段
+type response struct {
+	Data  []*Collection `json:"data"`
+	Total int           `json:"total"`
+}
+
+// url 根据 userID 返回 Bangumi API 需要的 URL
+func url(userID string) string {
 	return fmt.Sprintf("https://api.bgm.tv/v0/users/%s/collections", userID)
 }
 
-// userCollectionParams 根据传入的参数返回一个 GET 请求所需的 map
-func userCollectionParams(cq CollectionQuery, limit int, offset int) map[string][]string {
+// params 创建 GET 请求所需的查询参数 map
+func params(q *CollectionQuery, limit int, offset int) map[string][]string {
 	return map[string][]string{
-		"subject_type": {strconv.Itoa(cq.SubjectType)},
-		"type":         {strconv.Itoa(cq.CollectionType)},
+		"subject_type": {strconv.Itoa(q.SubjectType)},
+		"type":         {strconv.Itoa(q.CollectionType)},
 		"limit":        {strconv.Itoa(limit)},
 		"offset":       {strconv.Itoa(offset)},
 	}
 }
 
-// FetchCollectionsByType 获取用户某一类型的所有收藏。
-func FetchCollectionsByType(ctx context.Context, cq CollectionQuery) ([]*Collection, error) {
-	collectionCount, err := fetchCollectionCountByType(ctx, cq)
+// FetchCollections 获取用户某一类型的所有收藏。
+func FetchCollections(ctx context.Context, q *CollectionQuery) ([]*Collection, error) {
+	count, err := fetchCount(ctx, q)
 	if err != nil {
 		return nil, err
 	}
 
-	collections := make([]*Collection, 0, collectionCount)
+	collections := make([]*Collection, 0, count)
 	g := new(errgroup.Group)
 	var mu sync.Mutex
 
-	for offset := 0; offset < int(collectionCount); offset += collectionPageSize {
+	for offset := 0; offset < int(count); offset += pageSize {
 		g.Go(func() error {
-			collectionByPage, err := fetchSinglePage(ctx, cq, offset)
+			page, err := fetchSinglePage(ctx, q, offset)
 			if err != nil {
 				return err
 			}
 
 			mu.Lock()
-			collections = append(collections, collectionByPage...)
+			collections = append(collections, page...)
 			mu.Unlock()
 
 			return nil
@@ -119,11 +125,11 @@ func FetchCollectionsByType(ctx context.Context, cq CollectionQuery) ([]*Collect
 }
 
 // fetchSinglePage 获取用户一页的某一类收藏
-func fetchSinglePage(ctx context.Context, cq CollectionQuery, offset int) ([]*Collection, error) {
-	baseURL := userCollectionURL(cq.UserID)
-	params := userCollectionParams(cq, collectionPageSize, offset)
+func fetchSinglePage(ctx context.Context, q *CollectionQuery, offset int) ([]*Collection, error) {
+	baseURL := url(q.UserID)
+	params := params(q, pageSize, offset)
 
-	resp, err := httpclient.HTTPGet(ctx, baseURL, params)
+	resp, err := httpclient.GET(ctx, baseURL, params)
 	if err != nil {
 		return nil, err
 	}
@@ -134,24 +140,20 @@ func fetchSinglePage(ctx context.Context, cq CollectionQuery, offset int) ([]*Co
 		return nil, err
 	}
 
-	type collectionResponse struct {
-		CollectionsByPage []*Collection `json:"data"`
-	}
-
-	var cr collectionResponse
-	if err := json.Unmarshal(body, &cr); err != nil {
+	page := new(response)
+	if err := json.Unmarshal(body, page); err != nil {
 		return nil, err
 	}
 
-	return cr.CollectionsByPage, nil
+	return page.Data, nil
 }
 
-// fetchCollectionCountByType 获取用户某一类收藏的数量。
-func fetchCollectionCountByType(ctx context.Context, cq CollectionQuery) (int, error) {
-	baseURL := userCollectionURL(cq.UserID)
-	params := userCollectionParams(cq, 1, 0)
+// fetchCount 获取用户某一类收藏的数量。
+func fetchCount(ctx context.Context, q *CollectionQuery) (int, error) {
+	baseURL := url(q.UserID)
+	params := params(q, 1, 0) // 只查一个条目，返回值带有收藏数量
 
-	resp, err := httpclient.HTTPGet(ctx, baseURL, params)
+	resp, err := httpclient.GET(ctx, baseURL, params)
 	if err != nil {
 		return 0, err
 	}
@@ -166,11 +168,8 @@ func fetchCollectionCountByType(ctx context.Context, cq CollectionQuery) (int, e
 		return 0, err
 	}
 
-	type response struct {
-		Total int `json:"total"`
-	}
-	var r response
-	json.Unmarshal(body, &r)
+	count := new(response)
+	json.Unmarshal(body, count)
 
-	return r.Total, nil
+	return count.Total, nil
 }

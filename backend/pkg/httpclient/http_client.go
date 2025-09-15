@@ -29,8 +29,8 @@ func Init() error {
 	return nil
 }
 
-// HTTPGet 发送 GET 请求，并进行速率限制。
-func HTTPGet(ctx context.Context, baseURL string, params map[string][]string) (*http.Response, error) {
+// GET 发送 GET 请求，并进行速率限制。
+func GET(ctx context.Context, baseURL string, params map[string][]string) (*http.Response, error) {
 	fullURL := baseURL + "?" + url.Values(params).Encode()
 	var resp *http.Response
 
