@@ -5,11 +5,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AcuLY/BangumiStaffStats/backend/config"
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/cache"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/config"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/conn/mysql"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/conn/redis"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/core/position"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/handler"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/middleware"
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/repository"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/store/bloom"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/httpclient"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
 	"github.com/gin-contrib/cors"
@@ -24,20 +26,26 @@ func main() {
 	}
 	time.Local = loc
 
-	if err := config.Init("./config.toml"); err != nil {
+	if err := config.Init("../config/config.toml"); err != nil {
 		log.Fatal("Failed to init config: " + err.Error())
 	}
 	if err := logger.Init(); err != nil {
 		log.Fatal("Failed to init logger: " + err.Error())
 	}
+	if err := position.Init(); err != nil {
+		logger.Fatal("Failed to init position: " + err.Error())
+	}
 	if err := httpclient.Init(); err != nil {
-		logger.Fatal("Failed to init HTTP client: "+err.Error())
+		logger.Fatal("Failed to init HTTP client: " + err.Error())
 	}
-	if err := cache.Init(); err != nil {
-		logger.Fatal("Failed to init Redis: "+err.Error())
+	if err := redis.Init(); err != nil {
+		logger.Fatal("Failed to init Redis: " + err.Error())
 	}
-	if err := repository.Init(); err != nil {
-		logger.Fatal("Failed to init MySQL: "+err.Error())
+	if err := mysql.Init(); err != nil {
+		logger.Fatal("Failed to init MySQL: " + err.Error())
+	}
+	if err := bloom.Init(); err != nil {
+		logger.Fatal("Failed to init Bloom: " + err.Error())
 	}
 
 	logger.Info("Initialization completed.")
