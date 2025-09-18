@@ -1,4 +1,4 @@
-package cache
+package redis
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 )
 
 var RDB *redis.Client
-var Ctx = context.Background()
 
 func Init() error {
 	if config.Redis == nil {
@@ -25,5 +24,5 @@ func Init() error {
 		PoolTimeout: time.Minute,
 	})
 
-	return RDB.Ping(Ctx).Err()
+	return RDB.Ping(context.Background()).Err()
 }
