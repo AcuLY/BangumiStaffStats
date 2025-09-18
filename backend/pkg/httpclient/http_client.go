@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/AcuLY/BangumiStaffStats/backend/config"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/config"
 )
 
 var (

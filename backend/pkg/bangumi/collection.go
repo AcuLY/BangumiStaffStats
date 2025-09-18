@@ -82,7 +82,7 @@ func url(userID string) string {
 }
 
 // params 创建 GET 请求所需的查询参数 map
-func params(q *CollectionQuery, limit int, offset int) map[string][]string {
+func params(q CollectionQuery, limit int, offset int) map[string][]string {
 	return map[string][]string{
 		"subject_type": {strconv.Itoa(q.SubjectType)},
 		"type":         {strconv.Itoa(q.CollectionType)},
@@ -92,7 +92,7 @@ func params(q *CollectionQuery, limit int, offset int) map[string][]string {
 }
 
 // FetchCollections 获取用户某一类型的所有收藏。
-func FetchCollections(ctx context.Context, q *CollectionQuery) ([]*Collection, error) {
+func FetchCollections(ctx context.Context, q CollectionQuery) ([]*Collection, error) {
 	count, err := fetchCount(ctx, q)
 	if err != nil {
 		return nil, err
@@ -125,7 +125,7 @@ func FetchCollections(ctx context.Context, q *CollectionQuery) ([]*Collection, e
 }
 
 // fetchSinglePage 获取用户一页的某一类收藏
-func fetchSinglePage(ctx context.Context, q *CollectionQuery, offset int) ([]*Collection, error) {
+func fetchSinglePage(ctx context.Context, q CollectionQuery, offset int) ([]*Collection, error) {
 	baseURL := url(q.UserID)
 	params := params(q, pageSize, offset)
 
@@ -149,7 +149,7 @@ func fetchSinglePage(ctx context.Context, q *CollectionQuery, offset int) ([]*Co
 }
 
 // fetchCount 获取用户某一类收藏的数量。
-func fetchCount(ctx context.Context, q *CollectionQuery) (int, error) {
+func fetchCount(ctx context.Context, q CollectionQuery) (int, error) {
 	baseURL := url(q.UserID)
 	params := params(q, 1, 0) // 只查一个条目，返回值带有收藏数量
 

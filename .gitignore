@@ -1,6 +1,6 @@
 /backend/.env
 /backend/config.toml
-/backend/logs
+**/logs
 /backend/__pycache__
 /backend/static
 /backend/.rubbish

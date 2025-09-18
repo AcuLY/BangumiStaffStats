@@ -1,0 +1,48 @@
+[main]
+appName = "BangumiStaffStats"
+host = "0.0.0.0"
+port = 8000
+
+[http]
+timeout = 10
+retryWaitTime = 2
+maxRetries = 3
+userAgent = "AcuL/BangumiStaffStatistics/1.1 (Web) (https://github.com/AcuLY/BangumiStaffStats)"
+accessToken = "q7VHQuxQsU7G0vHHtk2zlu0sE6esmlgzi91q6HhF"
+rateLimit = 5
+burst = 10 
+
+[mysql]
+host = "localhost"
+port = 3306
+user = "bgmss"
+password = "Luca126621"
+databaseName = "bgmss"
+maxOpenConnection = 100
+maxIdleConnection = 20
+maxLifetime = 5
+
+[redis]
+host = "localhost"
+port = 6379
+password = ""
+db = 0
+
+    [redis.ttl]
+    collection = 24
+    subject = 168
+    sequel = 168
+    person = 168
+    credit = 168
+    character = 168
+    cast = 168
+    statistic = 10
+
+[bloom]
+falsePositive = 0.001
+
+[log]
+appLogPath = "./logs/app/"
+ginLogPath = "./logs/gin/"
+gormLogPath = "./logs/gorm/"
+

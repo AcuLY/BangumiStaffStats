@@ -29,14 +29,17 @@ password = ""
 db = 0
 
     [redis.ttl]
-    userCollection = 24
+    collection = 24
     subject = 168
     sequel = 168
     person = 168
-    subjectPerson = 168
+    credit = 168
     character = 168
-    personCharacter = 168
+    cast = 168
     statistic = 10
+
+[bloom]
+falsePositive = 0.001
 
 [log]
 appLogPath = "./logs/app/"

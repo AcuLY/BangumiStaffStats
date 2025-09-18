@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AcuLY/BangumiStaffStats/backend/config"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
