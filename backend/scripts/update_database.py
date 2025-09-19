@@ -7,9 +7,9 @@ import toml
 import time
 from more_itertools import chunked
 
-
+POSITION_ID_MAPPING_FILE_PATH = "./position_id_mapping.json"
 JSONLINES_FILE_PATH = "../static/"
-CONFIG_PATH = "../config.toml"
+CONFIG_PATH = "../config/config.toml"
 check_need_update = True    # 是否比较 jsonlines 和数据库表的记录数量来判断需不需要更新数据库
 
 
@@ -191,8 +191,8 @@ def load_characters(cursor, batch_size=1000):
     print("加载 characters 完毕")
 
 
-def load_subject_person(cursor, batch_size=1000):
-    print("开始加载 subject-person")
+def load_credits(cursor, batch_size=1000):
+    print("开始加载 credits")
 
     # 加载 subject ids
     subject_ids = set()
@@ -205,6 +205,9 @@ def load_subject_person(cursor, batch_size=1000):
             if item["type"] in (2, 4):  # 2: 动画, 4: 游戏
                 subject_types[item["id"]] = item["type"]
 
+    with open(POSITION_ID_MAPPING_FILE_PATH, "r", encoding="utf-8") as f:
+        id_mapping = json.load(f)
+
     # 加载非声优职位 subject-person
     print("开始加载非声优职位")
     subject_person_map = defaultdict(list)
@@ -213,10 +216,16 @@ def load_subject_person(cursor, batch_size=1000):
     ) as f:
         for line in f:
             item = json.loads(line)
-            if item["subject_id"] in subject_ids:
-                subject_person_map[item["subject_id"]].append(
-                    (item["person_id"], item["position"])
-                )
+            if item["subject_id"] in subject_ids:   # 检查 subject 有效性
+                # 原本的职位映射有重复部分，这里做一遍映射处理
+                # 让每个职位名都对应唯一的 id
+                original_pos_id = item["position"]
+                real_pos_ids = id_mapping[str(original_pos_id)]
+                
+                for pos_id in real_pos_ids:
+                    subject_person_map[item["subject_id"]].append(
+                        (item["person_id"], pos_id)
+                    )
 
     # 加载角色和人物之间的配音关系
     print("开始加载所有配音关系")
@@ -229,7 +238,7 @@ def load_subject_person(cursor, batch_size=1000):
             sid = item["subject_id"]
             if sid not in subject_types:
                 continue
-            # 动画声优是 101 - 103，游戏声优是 1101 - 1103
+            # 动画声优是 101 - 106，游戏声优是 1101 - 1103
             offset = 100 if subject_types[sid] == 2 else 1100
             character_position_map[sid][item["character_id"]] = offset + item["type"]
 
@@ -242,45 +251,47 @@ def load_subject_person(cursor, batch_size=1000):
             cid = item["character_id"]
             pid = item["person_id"]
             if sid in character_position_map and cid in character_position_map[sid]:
-                position = character_position_map[sid][cid]
-                subject_person_map[sid].append((pid, position))
+                original_pos_id = character_position_map[sid][cid]
+                real_pos_ids = id_mapping[str(original_pos_id)]
+                for pos_id in real_pos_ids:
+                    subject_person_map[sid].append((pid, pos_id))
 
     # 展平为列表
     data = [
-        (sid, pid, position)
+        (sid, pid, pos_id)
         for sid, person_list in subject_person_map.items()
-        for pid, position in person_list
+        for pid, pos_id in person_list
     ]
 
     total = len(data)
     print(f"共需导入 {total} 条 subject-person 关系，批大小：{batch_size}")
     
-    cursor.execute("SELECT COUNT(*) FROM subject_person")
+    cursor.execute("SELECT COUNT(*) FROM credits")
     existing_count = cursor.fetchone()[0]
-    print(f'subject_person 表中已有 {existing_count} 条记录')
+    print(f'credits 表中已有 {existing_count} 条记录')
     
     if existing_count == total and check_need_update:
-        print("subject_person 数据已是最新，无需更新")
+        print("credits 数据已是最新，无需更新")
         return
 
     for batch in tqdm(
         chunked(data, batch_size),
         total=(total + batch_size - 1) // batch_size,
-        desc="写入 subject_person",
+        desc="写入 credits",
         ncols=80,
     ):
         cursor.executemany(
-            "INSERT INTO subject_person (subject_id, person_id, position) "
+            "INSERT INTO credits (subject_id, person_id, position_id) "
             "VALUES (%s, %s, %s) "
-            "ON DUPLICATE KEY UPDATE position = VALUES(position)",
+            "ON DUPLICATE KEY UPDATE position_id = VALUES(position_id)",
             batch,
         )
 
-    print("加载 subject_person 完毕")
+    print("加载 credits 完毕")
 
 
-def load_person_character(cursor, batch_size=1000):
-    print("开始加载 person-character")
+def load_casts(cursor, batch_size=1000):
+    print("开始加载 casts")
 
     print("加载所有条目 id 中")
     subject_ids = set()
@@ -294,6 +305,9 @@ def load_person_character(cursor, batch_size=1000):
     print("加载所有条目 id 完毕")
 
     print("加载 subject-character 中")
+    with open(POSITION_ID_MAPPING_FILE_PATH, "r", encoding="utf-8") as f:
+        id_mapping = json.load(f)
+
     subject_character_to_position = {}
     with open(
         JSONLINES_FILE_PATH + "subject-characters.jsonlines", "r", encoding="utf-8"
@@ -304,9 +318,13 @@ def load_person_character(cursor, batch_size=1000):
             cid = item["character_id"]
             if sid not in subject_types:
                 continue
-            # 动画声优是 101 - 103，游戏声优是 1101 - 1103
+            # 动画声优是 101 - 106，游戏声优是 1101 - 1103
             offset = 100 if subject_types[sid] == 2 else 1100
-            subject_character_to_position[(sid, cid)] = item["type"] + offset
+            original_pos_id = item["type"] + offset
+            
+            mapped_ids = id_mapping[str(original_pos_id)]
+            real_pos_id = original_pos_id if original_pos_id in mapped_ids else mapped_ids[0]
+            subject_character_to_position[(sid, cid)] = real_pos_id
 
     with open(
         JSONLINES_FILE_PATH + "person-characters.jsonlines", "r", encoding="utf-8"
@@ -322,35 +340,35 @@ def load_person_character(cursor, batch_size=1000):
         ):
             continue
 
-        position = subject_character_to_position[key]
-        data.append((item["person_id"], item["subject_id"], item["character_id"], position))
+        position_id = subject_character_to_position[key]
+        data.append((item["person_id"], item["subject_id"], item["character_id"], position_id))
 
     total = len(data)
-    print(f"共需导入 {total} 条 person-character 数据，批大小：{batch_size}")
+    print(f"共需导入 {total} 条 casts 数据，批大小：{batch_size}")
     
-    cursor.execute("SELECT COUNT(*) FROM person_character")
+    cursor.execute("SELECT COUNT(*) FROM casts")
     existing_count = cursor.fetchone()[0]
-    print(f'person_character 表中已有 {existing_count} 条记录')
+    print(f'casts 表中已有 {existing_count} 条记录')
     
     if existing_count == total and check_need_update:
-        print("person-character 数据已是最新，无需更新")
+        print("casts 数据已是最新，无需更新")
         return
     
 
     for batch in tqdm(
         chunked(data, batch_size),
         total=(total + batch_size - 1) // batch_size,
-        desc="写入 person-character",
+        desc="写入 casts",
         ncols=80,
     ):
         cursor.executemany(
-            "INSERT INTO person_character (person_id, subject_id, character_id, position) "
+            "INSERT INTO casts (person_id, subject_id, character_id, position_id) "
             "VALUES (%s, %s, %s, %s) "
-            "ON DUPLICATE KEY UPDATE position = VALUES(position)",
+            "ON DUPLICATE KEY UPDATE position_id = VALUES(position_id)",
             batch,
         )
 
-    print("加载 person-character 完毕")
+    print("加载 casts 完毕")
 
 
 # 并查集函数
@@ -376,8 +394,8 @@ class UnionFind:
                 self.size[rootY] += self.size[rootX]
 
 
-def load_sequel_orders(cursor, batch_size=1000):
-    print("开始加载 sequel_orders")
+def load_series(cursor, batch_size=1000):
+    print("开始加载 sequels")
 
     print("加载所有条目的类型和日期中")
     valid_subject_ids = set()
@@ -475,7 +493,7 @@ def load_sequel_orders(cursor, batch_size=1000):
         root_id = uf.find(subject_id)
         uf_list[root_id].append(subject_id)
 
-    sequel_orders = {}  # subject_id -> series_id, order
+    series = {}  # subject_id -> series_id, order
     series_id = 1  # 用来给每个集合分配唯一编号
 
     for root_id, subject_ids in uf_list.items():
@@ -498,36 +516,36 @@ def load_sequel_orders(cursor, batch_size=1000):
                 subject_ids[0], subject_ids[1] = subject_ids[1], subject_ids[0]
 
         for order, subject_id in enumerate(subject_ids):
-            sequel_orders[subject_id] = (series_id, order)
+            series[subject_id] = (series_id, order)
 
         series_id += 1
 
     final_data = [
         (subject_id, series_id, order)
-        for subject_id, (series_id, order) in sequel_orders.items()
+        for subject_id, (series_id, order) in series.items()
     ]
 
     total = len(final_data)
-    print(f"共需导入 {total} 条 sequel_orders 数据，批大小：{batch_size}")
+    print(f"共需导入 {total} 条 sequels 数据，批大小：{batch_size}")
     
-    cursor.execute("SELECT COUNT(*) FROM sequel_orders")
+    cursor.execute("SELECT COUNT(*) FROM series")
     existing_count = cursor.fetchone()[0]
-    print(f'sequel_orders 表中已有 {existing_count} 条记录')
+    print(f'sequels 表中已有 {existing_count} 条记录')
     
     if existing_count == total and check_need_update:
-        print("sequel_orders 数据已是最新，无需更新")
+        print("sequels 数据已是最新，无需更新")
         return
 
-    for batch in tqdm(chunked(final_data, batch_size), total=(total + batch_size - 1) // batch_size, desc="写入 sequel_orders", ncols=80):
+    for batch in tqdm(chunked(final_data, batch_size), total=(total + batch_size - 1) // batch_size, desc="写入 sequels", ncols=80):
         cursor.executemany(
-            "INSERT INTO sequel_orders (subject_id, series_id, sequel_order) "
+            "INSERT INTO sequels (subject_id, series_id, sequel_order) "
             "VALUES (%s, %s, %s) "
             "ON DUPLICATE KEY UPDATE "
             "series_id = VALUES(series_id), sequel_order = VALUES(sequel_order)",
             batch
         )
 
-    print("加载 sequel_orders 完毕")
+    print("加载 sequels 完毕")
 
 
 def need_update(cursor):
@@ -547,9 +565,9 @@ def main():
     parser.add_argument("--subjects", action="store_true")
     parser.add_argument("--people", action="store_true")
     parser.add_argument("--characters", action="store_true")
-    parser.add_argument("--subject-person", action="store_true")
-    parser.add_argument("--person-character", action="store_true")
-    parser.add_argument("--sequel-orders", action="store_true")
+    parser.add_argument("--credits", action="store_true")
+    parser.add_argument("--casts", action="store_true")
+    parser.add_argument("--sequels", action="store_true")
     parser.add_argument("--all", action="store_true", help="执行所有操作")
     parser.add_argument("--no-check", action="store_true", help="不检查是否需要更新")
     args = parser.parse_args()
@@ -609,12 +627,12 @@ def main():
             load_people(cursor)
         if args.all or args.characters:
             load_characters(cursor)
-        if args.all or args.subject_person:
-            load_subject_person(cursor)
-        if args.all or args.person_character:
-            load_person_character(cursor)
-        if args.all or args.sequel_orders:
-            load_sequel_orders(cursor)
+        if args.all or args.credits:
+            load_credits(cursor)
+        if args.all or args.casts:
+            load_casts(cursor)
+        if args.all or args.sequels:
+            load_series(cursor)
 
         conn.commit()
     finally:

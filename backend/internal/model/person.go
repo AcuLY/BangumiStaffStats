@@ -7,30 +7,32 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/config"
 )
 
-type PersonID int
-
-func (id PersonID) Key() string {
-	return fmt.Sprintf("person:%d", id)
+type Person struct {
+	ID     int    `gorm:"column:person_id"      json:"id"`
+	Name   string `gorm:"column:person_name"    json:"name"`
+	NameCN string `gorm:"column:person_name_cn" json:"nameCN"`
 }
 
-type Person struct {
-	ID     PersonID `gorm:"column:person_id"`
-	Name   string   `gorm:"column:person_name"`
-	NameCN string   `gorm:"column:person_name_cn"`
+func (p *Person) GetID() int {
+	return p.ID
+}
+
+func (p *Person) Key() string {
+	return fmt.Sprintf("person:%d", p.ID)
 }
 
 func (p *Person) TTL() time.Duration {
 	return config.Redis.TTL.Person.Duration()
 }
 
-func (p *Person) KeyObject() PersonID {
-	return p.ID
+type Credit struct {
+	PersonID   int `gorm:"column:person_id"`
+	SubjectID  int `gorm:"column:subject_id"`
+	PositionID int `gorm:"column:position_id"`
 }
 
-type Credit struct {
-	PersonID   PersonID  `gorm:"column:person_id"`
-	SubjectID  SubjectID `gorm:"column:subject_id"`
-	PositionID int       `gorm:"column:position_id"`
+func (c Credit) GetID() int {
+	return c.SubjectID
 }
 
 func (c Credit) Key() string {
@@ -39,8 +41,4 @@ func (c Credit) Key() string {
 
 func (c Credit) TTL() time.Duration {
 	return config.Redis.TTL.Credit.Duration()
-}
-
-func (c Credit) KeyObject() Credit {
-	return c
 }

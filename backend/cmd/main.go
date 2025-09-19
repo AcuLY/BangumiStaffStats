@@ -11,7 +11,7 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/core/position"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/handler"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/middleware"
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/store/bloom"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/store"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/httpclient"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
 	"github.com/gin-contrib/cors"
@@ -26,13 +26,13 @@ func main() {
 	}
 	time.Local = loc
 
-	if err := config.Init("../config/config.toml"); err != nil {
+	if err := config.Init("./config/config.toml"); err != nil {
 		log.Fatal("Failed to init config: " + err.Error())
 	}
 	if err := logger.Init(); err != nil {
 		log.Fatal("Failed to init logger: " + err.Error())
 	}
-	if err := position.Init(); err != nil {
+	if err := position.Init("./config/position.json"); err != nil {
 		logger.Fatal("Failed to init position: " + err.Error())
 	}
 	if err := httpclient.Init(); err != nil {
@@ -44,7 +44,7 @@ func main() {
 	if err := mysql.Init(); err != nil {
 		logger.Fatal("Failed to init MySQL: " + err.Error())
 	}
-	if err := bloom.Init(); err != nil {
+	if err := store.Init(); err != nil {
 		logger.Fatal("Failed to init Bloom: " + err.Error())
 	}
 

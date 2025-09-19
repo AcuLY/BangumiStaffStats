@@ -20,63 +20,73 @@ func Filter(subjects []*model.Subject, pass func(*model.Subject) bool) []*model.
 	return filtered
 }
 
-func ByDate(s *model.Subject, dateRange []*int) bool {
-	if len(dateRange) < 2 {
-		logger.Warn("Invalid date range", logger.Field("range", dateRange))
+func ByDate(dateRange []*int) func(*model.Subject) bool {
+	return func(s *model.Subject) bool {
+		if len(dateRange) < 2 {
+			logger.Warn("Invalid date range", logger.Field("range", dateRange))
+			return true
+		}
+
+		if dateRange[0] != nil && s.Date.Before(timestampToTime(*dateRange[0])) {
+			return false
+		}
+		if dateRange[1] != nil && s.Date.After(timestampToTime(*dateRange[1])) {
+			return false
+		}
+
 		return true
 	}
-
-	if dateRange[0] != nil && s.Date.Before(timestampToTime(*dateRange[0])) {
-		return false
-	}
-	if dateRange[1] != nil && s.Date.After(timestampToTime(*dateRange[1])) {
-		return false
-	}
-
-	return true
 }
 
-func ByFavorite(s *model.Subject, favoriteRange []*int) bool {
-	if len(favoriteRange) < 2 {
-		logger.Warn("Invalid favorite range", logger.Field("range", favoriteRange))
+func ByFavorite(favoriteRange []*int) func(*model.Subject) bool {
+	return func(s *model.Subject) bool {
+		if len(favoriteRange) < 2 {
+			logger.Warn("Invalid favorite range", logger.Field("range", favoriteRange))
+			return true
+		}
+
+		if favoriteRange[0] != nil && *favoriteRange[0] > s.Favorite {
+			return false
+		}
+		if favoriteRange[1] != nil && *favoriteRange[1] < s.Favorite {
+			return false
+		}
+
 		return true
 	}
-
-	if favoriteRange[0] != nil && *favoriteRange[0] > s.Favorite {
-		return false
-	}
-	if favoriteRange[1] != nil && *favoriteRange[1] < s.Favorite {
-		return false
-	}
-
-	return true
 }
 
-func ByRates(s *model.Subject, rateRange []*float64) bool {
-	if len(rateRange) < 2 {
-		logger.Warn("Invalid rate range", logger.Field("range", rateRange))
+func ByRate(rateRange []*float64) func(*model.Subject) bool {
+	return func(s *model.Subject) bool {
+		if len(rateRange) < 2 {
+			logger.Warn("Invalid rate range", logger.Field("range", rateRange))
+			return true
+		}
+
+		if rateRange[0] != nil && *rateRange[0] > s.Rate {
+			return false
+		}
+		if rateRange[1] != nil && *rateRange[1] < s.Rate {
+			return false
+		}
+
 		return true
 	}
-
-	if rateRange[0] != nil && *rateRange[0] > s.Rate {
-		return false
-	}
-	if rateRange[1] != nil && *rateRange[1] < s.Rate {
-		return false
-	}
-
-	return true
 }
 
-func ByTags(s *model.Subject, positiveRaw []string, negativeRaw []string) bool {
+func ByTags(positiveRaw []string, negativeRaw []string) func(*model.Subject) bool {
 	positiveTags := parseTags(positiveRaw, true)
 	negativeTags := parseTags(negativeRaw, false)
 
-	return matchAll(s, positiveTags) && !matchAny(s, negativeTags)
+	return func(s *model.Subject) bool {
+		return matchAll(s, positiveTags) && !matchAny(s, negativeTags)
+	}
 }
 
-func ByNSFW(s *model.Subject) bool {
-	return !s.NSFW
+func ByNSFW() func(*model.Subject) bool {
+	return func(s *model.Subject) bool {
+		return !s.NSFW
+	}
 }
 
 func timestampToTime(timestamp int) time.Time {

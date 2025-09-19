@@ -8,20 +8,25 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/bangumi"
 )
 
-type Query bangumi.CollectionQuery 
-
-func (q Query) Key() string {
-	return fmt.Sprintf("collection:%s:%d:%d", q.UserID, q.SubjectType, q.CollectionType)
-}
-
 // Collection 为用户的一条收藏
 type Collection struct {
-	ID       SubjectID
+	ID       int
 	UserRate float64
 }
 
-type Collections []Collection
+func (c Collection) GetID() int {
+	return c.ID
+}
 
-func (cs *Collections) TTL() time.Duration {
+type CollectionEntry struct {
+	Query       bangumi.CollectionQuery
+	Collections []Collection
+}
+
+func (e *CollectionEntry) Key() string {
+	return fmt.Sprintf("collection:%s:%d:%d", e.Query.UserID, e.Query.SubjectType, e.Query.CollectionType)
+}
+
+func (e *CollectionEntry) TTL() time.Duration {
 	return config.Redis.TTL.Collection.Duration()
 }

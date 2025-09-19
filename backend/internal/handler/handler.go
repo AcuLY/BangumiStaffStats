@@ -4,8 +4,8 @@ import (
 	"errors"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/constant"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/core/statistic"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/service"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/bangumi"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/httpclient"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
@@ -24,19 +24,19 @@ func GetStatistics(c *gin.Context) {
 
 	constant.FillInDefaults(req)
 
-	resp, err := service.Statistics(c.Request.Context(), req)
+	resp, err := statistic.Handle(c.Request.Context(), req)
 	if err != nil {
 		switch {
 		case errors.Is(err, bangumi.ErrInvalidUserID):
 			logger.Info("Invalid UserID.", logger.Field("request", req))
 			c.JSON(404, gin.H{"error": "找不到用户，请输入正确的 UID"})
-		case errors.Is(err, service.ErrNoResultFound):
+		case errors.Is(err, statistic.ErrNoResultFound):
 			logger.Info("No Result Found.", logger.Field("request", req))
 			c.JSON(404, gin.H{"error": "找不到符合条件的条目"})
 		case errors.Is(err, httpclient.ErrNetworkFailed):
 			logger.Error("Network Failed.", logger.Field("error", err.Error()))
 			c.JSON(500, gin.H{"error": "服务器网络错误，请稍后再试"})
-		case errors.Is(err, service.ErrInvalidPagination):
+		case errors.Is(err, statistic.ErrInvalidPagination):
 			logger.Info("Invalid Pagination", logger.Field("request", req))
 			c.JSON(404, gin.H{"error": "无效的分页"})
 		default:
@@ -49,8 +49,8 @@ func GetStatistics(c *gin.Context) {
 	if req.Page == 1 {
 		logger.Info(
 			"Success.",
-			logger.Field("summary count", resp.PersonCount),
-			logger.Field("item count", resp.ItemCount),
+			logger.Field("summary count", len(resp.Summaries)),
+			logger.Field("item count", resp.ObjectCount),
 		)
 	}
 

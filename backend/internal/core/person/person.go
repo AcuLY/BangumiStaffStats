@@ -7,35 +7,72 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/store"
 )
 
-func Get(ctx context.Context, ids []model.PersonID) ([]*model.Person, error) {
+type (
+	Subject = model.Subject
+	Person  = model.Person
+	Credit  = model.Credit
+)
+
+func Build(ctx context.Context, subjs []*Subject, posID int) (map[*Person][]*Subject, error) {
+	crs := buildCredits(subjs, posID)
+	if err := loadCredits(ctx, &crs); err != nil {
+		return nil, err
+	}
+
+	idToSubj := model.ToIDMap(subjs)
+
+	idToPer := make(map[int]*Person, len(crs)) // 人物需要去重
+	perToSubjs := make(map[*Person][]*Subject, len(crs))
+	for _, cr := range crs {
+		per, exists := idToPer[cr.PersonID]
+		if !exists {
+			per = &Person{ID: cr.PersonID}
+			idToPer[cr.PersonID] = per
+		}
+
+		subj := idToSubj[cr.SubjectID]
+		perToSubjs[per] = append(perToSubjs[per], subj)
+	}
+
+	ppl := model.FromIDMap(idToPer)
+	if err := loadPeople(ctx, &ppl); err != nil {
+		return nil, err
+	}
+
+	return perToSubjs, nil
+}
+
+func buildCredits(subjs []*Subject, posID int) []*Credit {
+	crs := make([]*Credit, 0, len(subjs))
+	for _, subj := range subjs {
+		crs = append(crs, &Credit{SubjectID: subj.ID, PositionID: posID})
+	}
+	return crs
+}
+
+func loadPeople(ctx context.Context, ppl *[]*Person) error {
 	sql := `
 		SELECT * FROM people
 		WHERE person_id IN ?
 	`
-
-	return store.DBReadThrough[model.PersonID, *model.Person](ctx, ids, sql, []any{ids})
-}
-
-func CreditsByPerson(ctx context.Context, sids []model.SubjectID, posID int) (map[model.PersonID][]model.SubjectID, error) {
-	keyCredits := make([]model.Credit, 0, len(sids))
-	for _, sid := range sids {
-		keyCredits = append(keyCredits, model.Credit{SubjectID: sid, PositionID: posID})
+	condFunc := func(ppl []*Person) []any {
+		return []any{model.ToIDs(ppl)}
 	}
 
+	return store.DBReadThrough(ctx, ppl, sql, condFunc)
+}
+
+func loadCredits(ctx context.Context, crs *[]*Credit) error {
 	sql := `
 		SELECT * FROM credits
 		WHERE subject_id IN ? AND position_id = ?
 	`
-
-	credits, err := store.DBReadThrough[model.Credit, model.Credit](ctx, keyCredits, sql, []any{sids, posID})
-	if err != nil {
-		return nil, err
+	condFunc := func(crs []*Credit) []any {
+		if len(crs) == 0 {
+			return []any{}
+		}
+		return []any{model.ToIDs(crs), crs[0].PositionID}
 	}
 
-	persToSubjs := make(map[model.PersonID][]model.SubjectID, len(sids))
-	for _, c := range credits {
-		persToSubjs[c.PersonID] = append(persToSubjs[c.PersonID], c.SubjectID)
-	}
-
-	return persToSubjs, nil
+	return store.DBReadThrough(ctx, crs, sql, condFunc)
 }

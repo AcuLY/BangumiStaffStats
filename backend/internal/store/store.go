@@ -2,60 +2,83 @@ package store
 
 import (
 	"context"
+	"fmt"
+	"time"
 
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/store/cache"
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/store/db"
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/store/entity"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
+	"github.com/bits-and-blooms/bloom/v3"
 )
 
-func extractValues[T entity.KeyObject, U entity.CacheObject](mapping map[T]U) []U {
-	values := make([]U, 0, len(mapping))
-	for _, val := range mapping {
-		values = append(values, val)
+func Init() error {
+	var ids []int
+	sql := "SELECT subject_id from subjects"
+
+	ids, err := DBRaw[int](context.Background(), sql)
+	if err != nil {
+		return err
 	}
-	return values
+
+	n := uint(len(ids))
+	fp := 0.001
+	subjectFilter = bloom.NewWithEstimates(n, fp)
+
+	for _, id := range ids {
+		subjectFilter.Add(fmt.Append(nil, id))
+	}
+
+	return nil
 }
 
-func ReadThrough[T entity.KeyObject, U entity.CacheObject](
-	ctx context.Context,
-	keyObjs []T,
-	fetch func(context.Context, []T) (map[T]U, error),
-) ([]U, error) {
-	missed, cached, err := cache.CacheLoadMany[T, U](ctx, keyObjs)
-	if err != nil {
-		return nil, err
-	}
-
-	fetched, err := fetch(ctx, missed)
-	if err != nil {
-		return nil, err
-	}
-
-	cache.CacheSaveMany(ctx, fetched)
-
-	return append(cached, extractValues(fetched)...), nil
+type Object[T any] interface {
+	*T
+	comparable
+	Key() string
+	TTL() time.Duration
 }
 
-func DBReadThrough[T entity.KeyObject, U entity.DBCacheObject[T]](
-	ctx context.Context,
-	keyObjs []T,
-	sql string,
-	conditions []any,
-) ([]U, error) {
-	fetch := func(ctx context.Context, condObjs []T) (map[T]U, error) {
-		result, err := db.DBRaw[U](ctx, sql, conditions...)
+func ReadThrough[T Object[U], U any](ctx context.Context, objs *[]T, fetch func(context.Context, *[]T) error) error {
+	if len(*objs) == 0 {
+		return nil
+	}
+
+	missed, cached, err := CacheLoadMany(ctx, *objs)
+	if err != nil {
+		return err
+	}
+
+	if len(missed) > 0 {
+		if err := fetch(ctx, &missed); err != nil {
+			return err
+		}
+		CacheSaveMany(ctx, missed)
+	}
+
+	res := append(cached, missed...)
+	idToRes := model.ToKeyMap(res)
+	for _, obj := range *objs {
+		*obj = *idToRes[obj.Key()]
+	}
+
+	return nil
+}
+
+func DBReadThrough[T Object[U], U any](ctx context.Context, objs *[]T, sql string, condFunc func([]T) []any) error {
+	fetch := func(ctx context.Context, missed *[]T) error {
+		conditions := condFunc(*missed)
+		result, err := DBRaw[T](ctx, sql, conditions...)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		mapping := make(map[T]U, len(condObjs))
-		for _, cacheObj := range result {
-			keyObj := cacheObj.KeyObject()
-			mapping[keyObj] = cacheObj
+		idToObj := model.ToKeyMap(result)
+		for _, obj := range *missed {
+			if fullObj, ok := idToObj[obj.Key()]; ok {
+				*obj = *fullObj
+			}
 		}
 
-		return mapping, nil
+		return nil
 	}
 
-	return ReadThrough(ctx, keyObjs, fetch)
+	return ReadThrough(ctx, objs, fetch)
 }

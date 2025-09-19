@@ -1,17 +1,12 @@
-package db
+package store
 
 import (
 	"context"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/conn/mysql"
+	"gorm.io/gorm"
 )
 
 func DBRaw[T any](ctx context.Context, sql string, conditions ...any) ([]T, error) {
-	result := make([]T, 0)
-
-	if err := mysql.DB.WithContext(ctx).Raw(sql, conditions...).Scan(&result).Error; err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return gorm.G[T](mysql.DB).Raw(sql, conditions...).Find(ctx)
 }

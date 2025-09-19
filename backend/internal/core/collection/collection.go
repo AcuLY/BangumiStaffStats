@@ -2,7 +2,6 @@ package collection
 
 import (
 	"context"
-	"sync"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/store"
@@ -10,56 +9,58 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Get 获取用户指定类型的全部收藏
-func Get(ctx context.Context, userID string, subjectType int, collectionTypes []int) ([]model.Collection, error) {
-	queries := make([]model.Query, 0, len(collectionTypes))
-	for _, collType := range collectionTypes {
-		queries = append(queries, model.Query{UserID: userID, SubjectType: subjectType, CollectionType: collType})
+type (
+	Collection      = model.Collection
+	CollectionEntry = model.CollectionEntry
+)
+
+// Fetch 获取用户指定类型的全部收藏
+func Fetch(ctx context.Context, userID string, subjectType int, collTypes []int) ([]Collection, error) {
+	entries := make([]*CollectionEntry, 0, len(collTypes))
+	for _, collType := range collTypes {
+		entries = append(entries, &CollectionEntry{
+			Query: bangumi.CollectionQuery{UserID: userID, SubjectType: subjectType, CollectionType: collType},
+		})
 	}
 
-	collectionsByTypes, err := store.ReadThrough(ctx, queries, fetch)
-	if err != nil {
+	if err := store.ReadThrough(ctx, &entries, fetchByType); err != nil {
 		return nil, err
 	}
 
-	// store.ReadThrough 返回的是 []Collection，需要合并
-	collections := make([]model.Collection, 0)
-	for _, collsByType := range collectionsByTypes {
-		collections = append(collections, *collsByType...)
+	// 一个 CollectionQuery 对应的是一个类型的收藏，需要合并
+	collections := make([]Collection, 0)
+	for _, e := range entries {
+		collections = append(collections, e.Collections...)
 	}
 
 	return collections, nil
 }
 
-func fetch(ctx context.Context, missed []model.Query) (map[model.Query]*model.Collections, error) {
-	collectionMap := make(map[model.Query]*model.Collections)
+func fetchByType(ctx context.Context, entries *[]*CollectionEntry) error {
 	g, gCtx := errgroup.WithContext(ctx)
-	var mu sync.Mutex
 
-	for _, q := range missed {
+	for _, q := range *entries {
 		g.Go(func() error {
-			fetchedColls, err := bangumi.FetchCollections(gCtx, (bangumi.CollectionQuery)(q))
+			fetched, err := bangumi.FetchCollections(gCtx, q.Query)
 			if err != nil {
 				return err
 			}
 
-			// 一个 query 对应一个收藏类型的全部收藏
-			collByType := make([]model.Collection, 0, len(fetchedColls))
-			for _, r := range fetchedColls {
-				collByType = append(collByType, model.Collection{ID: model.SubjectID(r.SubjectID), UserRate: float64(r.Rate)})
+			q.Collections = make([]Collection, 0, len(fetched))
+			for _, coll := range fetched {
+				q.Collections = append(q.Collections, Collection{
+					ID:       coll.Subject.ID,
+					UserRate: float64(coll.Rate),
+				})
 			}
-
-			mu.Lock()
-			collectionMap[q] = (*model.Collections)(&collByType)
-			mu.Unlock()
 
 			return nil
 		})
 	}
 
 	if err := g.Wait(); err != nil {
-		return nil, err
+		return err
 	}
 
-	return collectionMap, nil
+	return nil
 }

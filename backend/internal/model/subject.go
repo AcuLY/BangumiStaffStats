@@ -9,30 +9,29 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/config"
 )
 
-type SubjectID int
-
-func (id SubjectID) Key() string {
-	return fmt.Sprintf("subject:%d", id)
+type Subject struct {
+	ID          int         `gorm:"column:subject_id"       json:"id"`
+	Name        string      `gorm:"column:subject_name"     json:"name"`
+	NameCN      string      `gorm:"column:subject_name_cn"  json:"nameCN"`
+	Rate        float64     `gorm:"column:subject_rate"     json:"rate"`
+	Image       string      `gorm:"column:subject_image"    json:"image"`
+	Favorite    int         `gorm:"column:subject_favorite" json:"-"`
+	Tags        StringSlice `gorm:"column:subject_tags"     json:"-"`
+	Date        time.Time   `gorm:"column:subject_date"     json:"-"`
+	NSFW        bool        `gorm:"column:subject_nsfw"     json:"-"`
+	SequelOrder int         `gorm:"-"                       json:"-"`
 }
 
-type Subject struct {
-	ID                SubjectID   `gorm:"column:subject_id"`
-	Name              string      `gorm:"column:subject_name"`
-	NameCN            string      `gorm:"column:subject_name_cn"`
-	Rate              float64     `gorm:"column:subject_rate"`
-	Favorite          int         `gorm:"column:subject_favorite"`
-	Tags              StringSlice `gorm:"column:subject_tags"`
-	Date              time.Time   `gorm:"column:subject_date"`
-	Image             string      `gorm:"column:subject_image"`
-	NSFW              bool        `gorm:"column:subject_nsfw"`
+func (s *Subject) GetID() int {
+	return s.ID
+}
+
+func (s *Subject) Key() string {
+	return fmt.Sprintf("subject:%d", s.ID)
 }
 
 func (s *Subject) TTL() time.Duration {
 	return config.Redis.TTL.Subject.Duration()
-}
-
-func (s *Subject) KeyObject() SubjectID {
-	return s.ID
 }
 
 // StringSlice 是支持与 []byte 进行序列化和反序列化的 json 列表类型。
