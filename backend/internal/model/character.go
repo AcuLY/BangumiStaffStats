@@ -27,15 +27,26 @@ func (c *Character) TTL() time.Duration {
 	return config.Redis.TTL.Character.Duration()
 }
 
+type CastGroup struct {
+	SubjectID    int
+	PositionID   int
+	PersonID     int
+	CharacterIDs []int
+}
+
+func (c *CastGroup) Key() string {
+	return fmt.Sprintf("cast:%d:%d:%d", c.SubjectID, c.PersonID, c.PositionID)
+}
+
+func (c *CastGroup) TTL() time.Duration {
+	return config.Redis.TTL.Credit.Duration()
+}
+
 type Cast struct {
 	Credit
-	CharacterID int `gorm:"column:character_id"`
+	CharacterID int `gorm:"character_id"`
 }
 
-func (c Cast) Key() string {
-	return fmt.Sprintf("cast:%d:%d:%d", c.SubjectID, c.PersonID, c.CharacterID)
-}
-
-func (c Cast) TTL() time.Duration {
-	return config.Redis.TTL.Credit.Duration()
+func (c *Cast) Key() string {
+	return fmt.Sprintf("cast:%d:%d:%d", c.SubjectID, c.PersonID, c.PositionID)
 }

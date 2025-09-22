@@ -18,15 +18,15 @@ func (c Collection) GetID() int {
 	return c.ID
 }
 
-type CollectionEntry struct {
+type CollectionGroup struct {
 	Query       bangumi.CollectionQuery
 	Collections []Collection
 }
 
-func (e *CollectionEntry) Key() string {
+func (e *CollectionGroup) Key() string {
 	return fmt.Sprintf("collection:%s:%d:%d", e.Query.UserID, e.Query.SubjectType, e.Query.CollectionType)
 }
 
-func (e *CollectionEntry) TTL() time.Duration {
+func (e *CollectionGroup) TTL() time.Duration {
 	return config.Redis.TTL.Collection.Duration()
 }

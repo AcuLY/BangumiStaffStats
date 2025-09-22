@@ -5,17 +5,11 @@ import (
 	"sort"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/core/subject"
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
+	m "github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/store"
 )
 
-type (
-	Subject = model.Subject
-	Person  = model.Person
-	Sequel  = model.Sequel
-)
-
-func ExtractMains(ctx context.Context, subjs []*Subject, perToSubjs map[*Person][]*Subject) (map[*Person][]*Subject, int, error) {
+func ExtractMains(ctx context.Context, subjs []*m.Subject, perToSubjs map[*m.Person][]*m.Subject) (map[*m.Person][]*m.Subject, int, error) {
 	seqs := buildSequels(subjs)
 	if err := load(ctx, &seqs); err != nil {
 		return nil, 0, err
@@ -23,7 +17,7 @@ func ExtractMains(ctx context.Context, subjs []*Subject, perToSubjs map[*Person]
 
 	seriesCnt := countSeries(seqs)
 
-	perToMains := make(map[*Person][]*Subject, len(perToSubjs))
+	perToMains := make(map[*m.Person][]*m.Subject, len(perToSubjs))
 	for per, subjs := range perToSubjs {
 		mains := mainSubjects(subjs, seqs)
 		perToMains[per] = mains
@@ -32,15 +26,15 @@ func ExtractMains(ctx context.Context, subjs []*Subject, perToSubjs map[*Person]
 	return perToMains, seriesCnt, nil
 }
 
-func buildSequels(subjs []*Subject) []*Sequel {
-	seqs := make([]*Sequel, 0, len(subjs))
+func buildSequels(subjs []*m.Subject) []*m.Sequel {
+	seqs := make([]*m.Sequel, 0, len(subjs))
 	for _, subj := range subjs {
-		seqs = append(seqs, &Sequel{SubjectID: subj.ID})
+		seqs = append(seqs, &m.Sequel{SubjectID: subj.ID})
 	}
 	return seqs
 }
 
-func countSeries(seqs []*Sequel) int {
+func countSeries(seqs []*m.Sequel) int {
 	seriesSet := make(map[int]struct{}, len(seqs))
 	for _, seq := range seqs {
 		seriesSet[seq.SeriesID] = struct{}{}
@@ -48,21 +42,21 @@ func countSeries(seqs []*Sequel) int {
 	return len(seriesSet)
 }
 
-func mainSubjects(subjs []*Subject, seqs []*Sequel) []*Subject {
-	subjToSeq := model.ToIDMap(seqs)
-	subjsBySeries := make(map[int][]*Subject, len(subjs)) // 按系列聚合
+func mainSubjects(subjs []*m.Subject, seqs []*m.Sequel) []*m.Subject {
+	subjToSeq := m.ToIDMap(seqs)
+	subjsBySeries := make(map[int][]*m.Subject, len(subjs)) // 按系列聚合
 	for _, subj := range subjs {
 		ser := subjToSeq[subj.ID]
 		subjsBySeries[ser.SeriesID] = append(subjsBySeries[ser.SeriesID], subj)
 	}
 
-	mainSubjs := make([]*Subject, 0, len(subjs))
+	mainSubjs := make([]*m.Subject, 0, len(subjs))
 	for _, subjs := range subjsBySeries {
 		sort.Slice(subjs, func(i, j int) bool {
 			return subjToSeq[subjs[i].ID].Order < subjToSeq[subjs[j].ID].Order
 		})
 
-		mainSubjs = append(mainSubjs, &Subject{
+		mainSubjs = append(mainSubjs, &m.Subject{
 			ID:       subjs[0].ID,
 			Name:     subjs[0].Name,
 			NameCN:   subjs[0].NameCN,
@@ -75,13 +69,13 @@ func mainSubjects(subjs []*Subject, seqs []*Sequel) []*Subject {
 	return mainSubjs
 }
 
-func load(ctx context.Context, seqs *[]*Sequel) error {
+func load(ctx context.Context, seqs *[]*m.Sequel) error {
 	sql := `
 		SELECT * FROM sequels
 		WHERE subject_id IN ?
 	`
-	condFunc := func(seqs []*Sequel) []any {
-		return []any{model.ToIDs(seqs)}
+	condFunc := func(seqs []*m.Sequel) []any {
+		return []any{m.ToIDs(seqs)}
 	}
 
 	return store.DBReadThrough(ctx, seqs, sql, condFunc)

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
@@ -29,10 +30,14 @@ func Init() error {
 	return nil
 }
 
+type keyable interface {
+	Key() string
+}
+
 type Object[T any] interface {
 	*T
 	comparable
-	Key() string
+	keyable
 	TTL() time.Duration
 }
 
@@ -75,6 +80,38 @@ func DBReadThrough[T Object[U], U any](ctx context.Context, objs *[]T, sql strin
 			if fullObj, ok := idToObj[obj.Key()]; ok {
 				*obj = *fullObj
 			}
+		}
+
+		return nil
+	}
+
+	return ReadThrough(ctx, objs, fetch)
+}
+
+func DBReadThroughMany[T Object[U], U any, E keyable](ctx context.Context, objs *[]T, sql string, condFunc func([]T) []any, fieldName string) error {
+	fetch := func(ctx context.Context, missed *[]T) error {
+		conditions := condFunc(*missed)
+		results, err := DBRaw[E](ctx, sql, conditions...)
+		if err != nil {
+			return err
+		}
+
+		keyMap := model.ToKeyMap(*missed)
+		for _, res := range results {
+			resVal := reflect.ValueOf(res).Elem().FieldByName(fieldName)
+
+			key := res.Key()
+			obj := keyMap[key]
+
+			pluralFieldName := fieldName + "s"
+			originField := reflect.ValueOf(obj).Elem().FieldByName(pluralFieldName)
+			if originField.Kind() != reflect.Slice {
+				return fmt.Errorf("%s is not a slice", pluralFieldName)
+			}
+
+
+			newSlice := reflect.Append(originField, resVal)
+			originField.Set(newSlice)
 		}
 
 		return nil

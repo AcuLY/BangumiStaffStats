@@ -3,38 +3,34 @@ package person
 import (
 	"context"
 
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
+	m "github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/store"
 )
 
-type (
-	Subject = model.Subject
-	Person  = model.Person
-	Credit  = model.Credit
-)
-
-func Build(ctx context.Context, subjs []*Subject, posID int) (map[*Person][]*Subject, error) {
+func Build(ctx context.Context, subjs []*m.Subject, posID int) (map[*m.Person][]*m.Subject, error) {
 	crs := buildCredits(subjs, posID)
 	if err := loadCredits(ctx, &crs); err != nil {
 		return nil, err
 	}
 
-	idToSubj := model.ToIDMap(subjs)
+	idToSubj := m.ToIDMap(subjs)
 
-	idToPer := make(map[int]*Person, len(crs)) // 人物需要去重
-	perToSubjs := make(map[*Person][]*Subject, len(crs))
+	idToPer := make(map[int]*m.Person, len(crs)) // 人物需要去重
+	perToSubjs := make(map[*m.Person][]*m.Subject, len(crs))
 	for _, cr := range crs {
-		per, exists := idToPer[cr.PersonID]
-		if !exists {
-			per = &Person{ID: cr.PersonID}
-			idToPer[cr.PersonID] = per
-		}
+		for _, id := range cr.PersonIDs {
+			per, exists := idToPer[id]
+			if !exists {
+				per = &m.Person{ID: id}
+				idToPer[id] = per
+			}
 
-		subj := idToSubj[cr.SubjectID]
-		perToSubjs[per] = append(perToSubjs[per], subj)
+			subj := idToSubj[cr.SubjectID]
+			perToSubjs[per] = append(perToSubjs[per], subj)
+		}
 	}
 
-	ppl := model.FromIDMap(idToPer)
+	ppl := m.FromIDMap(idToPer)
 	if err := loadPeople(ctx, &ppl); err != nil {
 		return nil, err
 	}
@@ -42,37 +38,37 @@ func Build(ctx context.Context, subjs []*Subject, posID int) (map[*Person][]*Sub
 	return perToSubjs, nil
 }
 
-func buildCredits(subjs []*Subject, posID int) []*Credit {
-	crs := make([]*Credit, 0, len(subjs))
+func buildCredits(subjs []*m.Subject, posID int) []*m.CreditGroup {
+	crs := make([]*m.CreditGroup, 0, len(subjs))
 	for _, subj := range subjs {
-		crs = append(crs, &Credit{SubjectID: subj.ID, PositionID: posID})
+		crs = append(crs, &m.CreditGroup{SubjectID: subj.ID, PositionID: posID})
 	}
 	return crs
 }
 
-func loadPeople(ctx context.Context, ppl *[]*Person) error {
+func loadPeople(ctx context.Context, ppl *[]*m.Person) error {
 	sql := `
 		SELECT * FROM people
 		WHERE person_id IN ?
 	`
-	condFunc := func(ppl []*Person) []any {
-		return []any{model.ToIDs(ppl)}
+	condFunc := func(ppl []*m.Person) []any {
+		return []any{m.ToIDs(ppl)}
 	}
 
 	return store.DBReadThrough(ctx, ppl, sql, condFunc)
 }
 
-func loadCredits(ctx context.Context, crs *[]*Credit) error {
+func loadCredits(ctx context.Context, crs *[]*m.CreditGroup) error {
 	sql := `
 		SELECT * FROM credits
 		WHERE subject_id IN ? AND position_id = ?
 	`
-	condFunc := func(crs []*Credit) []any {
+	condFunc := func(crs []*m.CreditGroup) []any {
 		if len(crs) == 0 {
 			return []any{}
 		}
-		return []any{model.ToIDs(crs), crs[0].PositionID}
+		return []any{m.ToIDs(crs), crs[0].PositionID}
 	}
 
-	return store.DBReadThrough(ctx, crs, sql, condFunc)
+	return store.DBReadThroughMany[*m.CreditGroup, m.CreditGroup, *m.Credit](ctx, crs, sql, condFunc, "PersonID")
 }

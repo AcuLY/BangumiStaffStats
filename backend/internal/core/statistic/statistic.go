@@ -3,7 +3,6 @@ package statistic
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -15,7 +14,7 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/core/position"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/core/sequel"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/core/subject"
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
+	m "github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/store"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
 )
@@ -30,9 +29,9 @@ func timeElapse(begin *time.Time, msg string) {
 	*begin = time.Now()
 }
 
-func Handle(ctx context.Context, r *model.Request) (*model.Response, error) {
+func Handle(ctx context.Context, r *m.Request) (*m.Response, error) {
 	// 需要适配 store.ReadThrough 的接口，所以额外定义了一个切片
-	entities := []*model.StatsEntity{{Request: r}}
+	entities := []*m.StatsEntity{{Request: r}}
 	err := store.ReadThrough(ctx, &entities, fullStatistics)
 	if err != nil {
 		return nil, err
@@ -49,14 +48,14 @@ func Handle(ctx context.Context, r *model.Request) (*model.Response, error) {
 		return nil, err
 	}
 
-	resp := &model.Response{
+	resp := &m.Response{
 		Summaries:   curPage,
 		ObjectCount: countByType(r, full),
 	}
 	return resp, nil
 }
 
-func currentPage(r *model.Request, sums []*model.PersonSummary) ([]*model.PersonSummaryByType, error) {
+func currentPage(r *m.Request, sums []*m.PersonSummary) ([]*m.PersonSummaryByType, error) {
 	sortByType(r, sums)
 
 	if *r.Ascend {
@@ -69,11 +68,11 @@ func currentPage(r *model.Request, sums []*model.PersonSummary) ([]*model.Person
 	}
 	end := min(begin+r.PageSize, len(sums))
 
-	curPage := make([]*model.PersonSummaryByType, min(r.PageSize, len(sums)))
+	curPage := make([]*m.PersonSummaryByType, min(r.PageSize, len(sums)))
 	for i := begin; i < end; i++ {
 		curIdx := i - begin
 
-		curPage[curIdx] = new(model.PersonSummaryByType)
+		curPage[curIdx] = new(m.PersonSummaryByType)
 		curPage[curIdx].Person = *sums[i].Person
 
 		switch r.StatisticType {
@@ -89,7 +88,7 @@ func currentPage(r *model.Request, sums []*model.PersonSummary) ([]*model.Person
 	return curPage, nil
 }
 
-func sortByType(r *model.Request, sums []*model.PersonSummary) {
+func sortByType(r *m.Request, sums []*m.PersonSummary) {
 	if r.StatisticType == constant.StatsTypeCharacter {
 		SortByCharaCount(sums)
 	} else {
@@ -105,7 +104,7 @@ func sortByType(r *model.Request, sums []*model.PersonSummary) {
 	}
 }
 
-func countByType(r *model.Request, full *model.Statistics) int {
+func countByType(r *m.Request, full *m.Statistics) int {
 	switch r.StatisticType {
 	case constant.StatsTypeSubject:
 		return full.SubjectCount
@@ -118,7 +117,7 @@ func countByType(r *model.Request, full *model.Statistics) int {
 	}
 }
 
-func fullStatistics(ctx context.Context, entities *[]*model.StatsEntity) error {
+func fullStatistics(ctx context.Context, entities *[]*m.StatsEntity) error {
 	e := (*entities)[0]
 	r := e.Request
 
@@ -127,7 +126,7 @@ func fullStatistics(ctx context.Context, entities *[]*model.StatsEntity) error {
 
 	begin := time.Now()
 
-	var subjs []*model.Subject
+	var subjs []*m.Subject
 	var err error
 
 	if *r.IsGlobal {
@@ -153,9 +152,6 @@ func fullStatistics(ctx context.Context, entities *[]*model.StatsEntity) error {
 		}
 	}
 
-	for _, s := range subjs {
-		fmt.Printf("%s\n", s.NameCN)
-	}
 	timeElapse(&begin, "加载条目信息")
 
 	if !*r.ShowNSFW {
@@ -176,14 +172,6 @@ func fullStatistics(ctx context.Context, entities *[]*model.StatsEntity) error {
 		return err
 	}
 
-	for p, ss := range perToSubjs {
-		fmt.Println(p.NameCN)
-		for _, s := range ss {
-			fmt.Printf("%s, ", s.NameCN)
-		}
-		fmt.Print("\n\n")
-	}
-
 	timeElapse(&begin, "人物 → 条目")
 
 	perToMainSubjs, seriesCnt, err := sequel.ExtractMains(ctx, subjs, perToSubjs)
@@ -195,7 +183,7 @@ func fullStatistics(ctx context.Context, entities *[]*model.StatsEntity) error {
 	timeElapse(&begin, "标注续作")
 
 	// 创建人物到角色的映射
-	var perToCharas map[*model.Person][]*character.Character
+	var perToCharas map[*m.Person][]*m.Character
 	var charaCnt int
 	if strings.Contains(r.Position, "声优") {
 		perToCharas, charaCnt, err = character.BuildCasts(ctx, perToSubjs, posID)
@@ -207,26 +195,26 @@ func fullStatistics(ctx context.Context, entities *[]*model.StatsEntity) error {
 		timeElapse(&begin, "人物 → 角色")
 	}
 
-	var summaries []*model.PersonSummary
+	var summaries []*m.PersonSummary
 	for per, subjs := range perToSubjs {
 		mainSubjs := perToMainSubjs[per]
 		charas := perToCharas[per]
 
-		summaries = append(summaries, &model.PersonSummary{
+		summaries = append(summaries, &m.PersonSummary{
 			Person: per,
-			Subject: &model.SubjectSummary{
+			Subject: &m.SubjectSummary{
 				Subjects: subjs,
 				Count:    len(subjs),
 				Average:  subject.CalcAverage(subjs),
 				Overall:  subject.CalcOverall(subjs),
 			},
-			Series: &model.SubjectSummary{
+			Series: &m.SubjectSummary{
 				Subjects: mainSubjs,
 				Count:    len(mainSubjs),
 				Average:  subject.CalcAverage(mainSubjs),
 				Overall:  subject.CalcOverall(mainSubjs),
 			},
-			Character: &model.CharacterSummary{
+			Character: &m.CharacterSummary{
 				Characters: charas,
 				Count:      len(charas),
 			},
@@ -235,7 +223,7 @@ func fullStatistics(ctx context.Context, entities *[]*model.StatsEntity) error {
 	// 按照作品数、平均分降序排序
 	SortByCount(summaries, false)
 
-	e.Statistics = &model.Statistics{
+	e.Statistics = &m.Statistics{
 		PeopleSummary:  summaries,
 		PersonCount:    len(summaries),
 		SubjectCount:   len(subjs),

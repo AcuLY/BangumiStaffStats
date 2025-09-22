@@ -25,20 +25,30 @@ func (p *Person) TTL() time.Duration {
 	return config.Redis.TTL.Person.Duration()
 }
 
-type Credit struct {
-	PersonID   int `gorm:"column:person_id"`
-	SubjectID  int `gorm:"column:subject_id"`
-	PositionID int `gorm:"column:position_id"`
+type CreditGroup struct {
+	SubjectID  int
+	PositionID int
+	PersonIDs  []int
 }
 
-func (c Credit) GetID() int {
+func (c *CreditGroup) GetID() int {
 	return c.SubjectID
 }
 
-func (c Credit) Key() string {
+func (c *CreditGroup) Key() string {
 	return fmt.Sprintf("credit:%d:%d", c.SubjectID, c.PositionID)
 }
 
-func (c Credit) TTL() time.Duration {
+func (c *CreditGroup) TTL() time.Duration {
 	return config.Redis.TTL.Credit.Duration()
+}
+
+type Credit struct {
+	SubjectID  int `gorm:"subject_id"`
+	PositionID int `gorm:"position_id"`
+	PersonID   int `gorm:"person_id"`
+}
+
+func (c *Credit) Key() string {
+	return fmt.Sprintf("credit:%d:%d", c.SubjectID, c.PositionID)
 }
