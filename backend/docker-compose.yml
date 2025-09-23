@@ -22,7 +22,7 @@ services:
       - REDIS_ADDR=redis:${REDIS_PORT}
     volumes:
       - ./logs:/app/logs
-      - ./config.toml:/app/config.toml
+      - ./config/config.toml:/app/config.toml
 
   loader:
     build:
