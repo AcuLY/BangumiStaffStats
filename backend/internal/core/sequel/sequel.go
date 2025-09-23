@@ -2,7 +2,6 @@ package sequel
 
 import (
 	"context"
-	"sort"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/core/subject"
 	m "github.com/AcuLY/BangumiStaffStats/backend/internal/model"
@@ -17,9 +16,10 @@ func ExtractMains(ctx context.Context, subjs []*m.Subject, perToSubjs map[*m.Per
 
 	seriesCnt := countSeries(seqs)
 
+	subjToSeq := m.ToIDMap(seqs)
 	perToMains := make(map[*m.Person][]*m.Subject, len(perToSubjs))
 	for per, subjs := range perToSubjs {
-		mains := mainSubjects(subjs, seqs)
+		mains := mainSubjects(subjs, subjToSeq)
 		perToMains[per] = mains
 	}
 
@@ -42,8 +42,7 @@ func countSeries(seqs []*m.Sequel) int {
 	return len(seriesSet)
 }
 
-func mainSubjects(subjs []*m.Subject, seqs []*m.Sequel) []*m.Subject {
-	subjToSeq := m.ToIDMap(seqs)
+func mainSubjects(subjs []*m.Subject, subjToSeq map[int]*m.Sequel) []*m.Subject {
 	subjsBySeries := make(map[int][]*m.Subject, len(subjs)) // 按系列聚合
 	for _, subj := range subjs {
 		ser := subjToSeq[subj.ID]
@@ -52,16 +51,19 @@ func mainSubjects(subjs []*m.Subject, seqs []*m.Sequel) []*m.Subject {
 
 	mainSubjs := make([]*m.Subject, 0, len(subjs))
 	for _, subjs := range subjsBySeries {
-		sort.Slice(subjs, func(i, j int) bool {
-			return subjToSeq[subjs[i].ID].Order < subjToSeq[subjs[j].ID].Order
-		})
+		mainSubj := subjs[0]
+		for _, subj := range subjs {
+			if subjToSeq[subj.ID].Order < subjToSeq[mainSubj.ID].Order {
+				mainSubj = subj
+			}
+		}
 
 		mainSubjs = append(mainSubjs, &m.Subject{
-			ID:       subjs[0].ID,
-			Name:     subjs[0].Name,
-			NameCN:   subjs[0].NameCN,
-			Favorite: subjs[0].Favorite,
-			Image:    subjs[0].Image,
+			ID:       mainSubj.ID,
+			Name:     mainSubj.Name,
+			NameCN:   mainSubj.NameCN,
+			Favorite: mainSubj.Favorite,
+			Image:    mainSubj.Image,
 			Rate:     subject.CalcAverage(subjs),
 		})
 	}

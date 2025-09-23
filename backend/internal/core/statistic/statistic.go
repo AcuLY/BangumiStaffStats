@@ -50,6 +50,7 @@ func Handle(ctx context.Context, r *m.Request) (*m.Response, error) {
 
 	resp := &m.Response{
 		Summaries:   curPage,
+		PersonCount: full.PersonCount,
 		ObjectCount: countByType(r, full),
 	}
 	return resp, nil

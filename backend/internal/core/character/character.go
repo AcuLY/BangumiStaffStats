@@ -9,36 +9,47 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/store"
 )
 
+type perChara struct {
+	PersonID    int
+	CharacterID int
+}
+
 func BuildCasts(ctx context.Context, perToSubjs map[*m.Person][]*m.Subject, posID int) (map[*m.Person][]*m.Character, int, error) {
 	casts := buildCasts(perToSubjs, posID)
-	if err := loadCast(ctx, &casts); err != nil {
+	if err := loadCasts(ctx, &casts); err != nil {
 		return nil, 0, err
 	}
 
 	// 可能会出现一个人出演的角色出现在多个条目的情况，需要选择主条目
-	perToChara, charas := buildPerToCharas(perToSubjs, casts)
-	if err := loadCharacter(ctx, &charas); err != nil {
+	perToCharas, perCharaToSubj := buildPerToCharas(perToSubjs, casts)
+
+	charas := m.ValuesFlatten(perToCharas)
+	if err := loadCharacters(ctx, &charas); err != nil {
 		return nil, 0, err
 	}
 
-	return perToChara, len(charas), nil
+	// loadCharacter 会覆盖指针指向的值，BelongingSubject 需要放到后面填入
+	for per, charas := range perToCharas {
+		for _, chara := range charas {
+			subj := perCharaToSubj[perChara{PersonID: per.ID, CharacterID: chara.ID}]
+			chara.BelongingSubject = &m.Subject{Name: subj.Name, NameCN: subj.NameCN}
+		}
+	}
+
+	return perToCharas, len(charas), nil
 }
 
-func buildCasts(perToSubjs map[*m.Person][]*m.Subject, posID int) []*m.CastGroup {
-	casts := make([]*m.CastGroup, 0)
+func buildCasts(perToSubjs map[*m.Person][]*m.Subject, posID int) []*m.Casts {
+	casts := make([]*m.Casts, 0)
 	for per, subjs := range perToSubjs {
 		for _, subj := range subjs {
-			casts = append(casts, &m.CastGroup{PersonID: per.ID, SubjectID: subj.ID, PositionID: posID})
+			casts = append(casts, &m.Casts{PersonID: per.ID, SubjectID: subj.ID, PositionID: posID})
 		}
 	}
 	return casts
 }
 
-func buildPerToCharas(perToSubjs map[*m.Person][]*m.Subject, casts []*m.CastGroup) (map[*m.Person][]*m.Character, []*m.Character) {
-	type perChara struct {
-		PersonID    int
-		CharacterID int
-	}
+func buildPerToCharas(perToSubjs map[*m.Person][]*m.Subject, casts []*m.Casts) (map[*m.Person][]*m.Character, map[perChara]*m.Subject) {
 	idToPer := m.ToIDMap(m.Keys(perToSubjs))
 	idToSubj := m.ToIDMap(m.ValuesFlatten(perToSubjs))
 
@@ -56,22 +67,22 @@ func buildPerToCharas(perToSubjs map[*m.Person][]*m.Subject, casts []*m.CastGrou
 		}
 	}
 
-	perToChara := make(map[*m.Person][]*m.Character, len(perToSubjs))
+	perToCharas := make(map[*m.Person][]*m.Character, len(perToSubjs))
 	idToChara := make(map[int]*m.Character, len(casts))
-	for pc, subj := range perCharaToSubj {
+	for pc := range perCharaToSubj {
 		per := idToPer[pc.PersonID]
 		chara, exists := idToChara[pc.CharacterID]
 		if !exists {
-			chara = &m.Character{ID: pc.CharacterID, BelongingSubject: subj}
+			chara = &m.Character{ID: pc.CharacterID}
 			idToChara[pc.CharacterID] = chara
 		}
-		perToChara[per] = append(perToChara[per], chara)
+		perToCharas[per] = append(perToCharas[per], chara)
 	}
 
-	return perToChara, m.FromIDMap(idToChara)
+	return perToCharas, perCharaToSubj
 }
 
-func loadCharacter(ctx context.Context, charas *[]*m.Character) error {
+func loadCharacters(ctx context.Context, charas *[]*m.Character) error {
 	sql := `
 		SELECT * FROM characters 
 		WHERE character_id IN ?
@@ -83,25 +94,46 @@ func loadCharacter(ctx context.Context, charas *[]*m.Character) error {
 	return store.DBReadThrough(ctx, charas, sql, condFunc)
 }
 
-func loadCast(ctx context.Context, casts *[]*m.CastGroup) error {
-	// 构造 IN ((?, ?, ?), (?, ?, ?), ...)
-	placeholders := make([]string, 0, len(*casts))
-	for range len(*casts) {
+func loadCasts(ctx context.Context, casts *[]*m.Casts) error {
+	// 占位符长度可能会超出 mysql 最大限制，需要分批查询
+	const batchSize = 1000
+	allResults := make([]*m.Casts, 0, len(*casts))
+
+	// 构造占位符 ((?,?,?),(?,?,?),...)
+	placeholders := make([]string, 0, batchSize)
+	for range batchSize {
 		placeholders = append(placeholders, "(?, ?, ?)")
 	}
 
-	sql := fmt.Sprintf(`
-		SELECT * FROM casts
-		WHERE (subject_id, person_id, position_id) IN (%s)
-	`, strings.Join(placeholders, ","))
+	for i := 0; i < len(*casts); i += batchSize {
+		end := min(i+batchSize, len(*casts))
+		batch := (*casts)[i:end]
 
-	confFunc := func(casts []*m.CastGroup) []any {
-		conds := make([]any, 0, len(casts))
-		for _, cast := range casts {
-			conds = append(conds, []any{cast.SubjectID, cast.PersonID, cast.PositionID}...) // 主键顺序 subject 在 person 前
+		sqlFunc := func(casts []*m.Casts) string {
+			return fmt.Sprintf(`
+				SELECT subject_id, person_id, position_id, JSON_ARRAYAGG(character_id) as character_ids
+				FROM casts
+				WHERE (position_id, subject_id, person_id) IN (%s)
+				GROUP BY position_id, subject_id, person_id
+			`, strings.Join(placeholders[:len(casts)], ","))
 		}
-		return conds
+
+		condFunc := func(casts []*m.Casts) []any {
+			conds := make([]any, 0, len(casts)*3)
+			for _, cast := range casts {
+				conds = append(conds, cast.PositionID, cast.SubjectID, cast.PersonID)
+			}
+			return conds
+		}
+
+		err := store.DBReadThroughGenSQL(ctx, &batch, sqlFunc, condFunc)
+		if err != nil {
+			return err
+		}
+
+		allResults = append(allResults, batch...)
 	}
 
-	return store.DBReadThroughMany[*m.CastGroup, m.CastGroup, *m.Cast](ctx, casts, sql, confFunc, "CharacterID")
+	*casts = allResults
+	return nil
 }

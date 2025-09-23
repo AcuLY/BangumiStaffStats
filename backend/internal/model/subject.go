@@ -10,11 +10,11 @@ import (
 )
 
 type Subject struct {
-	ID          int         `gorm:"column:subject_id"       json:"id"`
-	Name        string      `gorm:"column:subject_name"     json:"name"`
-	NameCN      string      `gorm:"column:subject_name_cn"  json:"nameCN"`
-	Rate        float64     `gorm:"column:subject_rate"     json:"rate"`
-	Image       string      `gorm:"column:subject_image"    json:"image"`
+	ID          int         `gorm:"column:subject_id"       json:"id,omitempty"`
+	Name        string      `gorm:"column:subject_name"     json:"name,omitempty"`
+	NameCN      string      `gorm:"column:subject_name_cn"  json:"nameCN,omitempty"`
+	Rate        float64     `gorm:"column:subject_rate"     json:"rate,omitempty"`
+	Image       string      `gorm:"column:subject_image"    json:"image,omitempty"`
 	Favorite    int         `gorm:"column:subject_favorite" json:"-"`
 	Tags        StringSlice `gorm:"column:subject_tags"     json:"-"`
 	Date        time.Time   `gorm:"column:subject_date"     json:"-"`

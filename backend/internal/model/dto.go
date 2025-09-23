@@ -39,5 +39,6 @@ type Request struct {
 // Response 表示响应字段，其中 Summaries 从 Statistic.PeopleSummary 根据分页切分得到
 type Response struct {
 	Summaries   []*PersonSummaryByType `json:"summaries"`
-	ObjectCount int                    `json:"total"` // 查询到的 条目 / 系列 / 角色 数量
+	PersonCount int                    `json:"total"`
+	ObjectCount int                    `json:"itemCount"` // 查询到的 条目 / 系列 / 角色 数量
 }

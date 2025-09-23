@@ -49,7 +49,7 @@ func GetStatistics(c *gin.Context) {
 	if req.Page == 1 {
 		logger.Info(
 			"Success.",
-			logger.Field("summary count", len(resp.Summaries)),
+			logger.Field("person count", resp.PersonCount),
 			logger.Field("item count", resp.ObjectCount),
 		)
 	}

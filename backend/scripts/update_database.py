@@ -399,7 +399,7 @@ class UnionFind:
                 self.size[rootY] += self.size[rootX]
 
 
-def load_series(cursor, batch_size=1000):
+def load_sequels(cursor, batch_size=1000):
     print("开始加载 sequels")
 
     print("加载所有条目的类型和日期中")
@@ -533,7 +533,7 @@ def load_series(cursor, batch_size=1000):
     total = len(final_data)
     print(f"共需导入 {total} 条 sequels 数据，批大小：{batch_size}")
     
-    cursor.execute("SELECT COUNT(*) FROM series")
+    cursor.execute("SELECT COUNT(*) FROM sequels")
     existing_count = cursor.fetchone()[0]
     print(f'sequels 表中已有 {existing_count} 条记录')
     
@@ -637,7 +637,7 @@ def main():
         if args.all or args.casts:
             load_casts(cursor)
         if args.all or args.sequels:
-            load_series(cursor)
+            load_sequels(cursor)
 
         conn.commit()
     finally:

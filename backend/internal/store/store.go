@@ -3,10 +3,8 @@ package store
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"time"
 
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
+	m "github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 	"github.com/bits-and-blooms/bloom/v3"
 )
 
@@ -30,18 +28,7 @@ func Init() error {
 	return nil
 }
 
-type keyable interface {
-	Key() string
-}
-
-type Object[T any] interface {
-	*T
-	comparable
-	keyable
-	TTL() time.Duration
-}
-
-func ReadThrough[T Object[U], U any](ctx context.Context, objs *[]T, fetch func(context.Context, *[]T) error) error {
+func ReadThrough[T m.Object[U], U any](ctx context.Context, objs *[]T, fetch func(context.Context, *[]T) error) error {
 	if len(*objs) == 0 {
 		return nil
 	}
@@ -58,64 +45,54 @@ func ReadThrough[T Object[U], U any](ctx context.Context, objs *[]T, fetch func(
 		CacheSaveMany(ctx, missed)
 	}
 
-	res := append(cached, missed...)
-	idToRes := model.ToKeyMap(res)
+	results := append(cached, missed...)
+	keyToRes := m.ToKeyMap(results)
 	for _, obj := range *objs {
-		*obj = *idToRes[obj.Key()]
+		*obj = *keyToRes[obj.Key()]
 	}
 
 	return nil
 }
 
-func DBReadThrough[T Object[U], U any](ctx context.Context, objs *[]T, sql string, condFunc func([]T) []any) error {
-	fetch := func(ctx context.Context, missed *[]T) error {
-		conditions := condFunc(*missed)
-		result, err := DBRaw[T](ctx, sql, conditions...)
-		if err != nil {
-			return err
-		}
-
-		idToObj := model.ToKeyMap(result)
-		for _, obj := range *missed {
-			if fullObj, ok := idToObj[obj.Key()]; ok {
-				*obj = *fullObj
-			}
-		}
-
+func dbFetchAndMerge[T m.Object[U], U any](ctx context.Context, missed *[]T, sql string, conds []any) error {
+	if len(*missed) == 0 {
 		return nil
 	}
 
+	results, err := DBRaw[T](ctx, sql, conds...)
+	if err != nil {
+		return err
+	}
+	if len(results) == 0 {
+		return nil
+	}
+
+	keyToRes := m.ToKeyMap(results)
+	for _, obj := range *missed {
+		if obj == nil {
+			continue
+		}
+		if result, ok := keyToRes[obj.Key()]; ok && result != nil {
+			*obj = *result
+		}
+	}
+	return nil
+}
+
+func DBReadThrough[T m.Object[U], U any](ctx context.Context, objs *[]T, sql string, condFunc func([]T) []any) error {
+	fetch := func(ctx context.Context, missed *[]T) error {
+		return dbFetchAndMerge(ctx, missed, sql, condFunc(*missed))
+	}
 	return ReadThrough(ctx, objs, fetch)
 }
 
-func DBReadThroughMany[T Object[U], U any, E keyable](ctx context.Context, objs *[]T, sql string, condFunc func([]T) []any, fieldName string) error {
+func DBReadThroughGenSQL[T m.Object[U], U any](ctx context.Context, objs *[]T, sqlFunc func([]T) string, condFunc func([]T) []any) error {
 	fetch := func(ctx context.Context, missed *[]T) error {
-		conditions := condFunc(*missed)
-		results, err := DBRaw[E](ctx, sql, conditions...)
-		if err != nil {
-			return err
+		if len(*missed) == 0 {
+			return nil
 		}
-
-		keyMap := model.ToKeyMap(*missed)
-		for _, res := range results {
-			resVal := reflect.ValueOf(res).Elem().FieldByName(fieldName)
-
-			key := res.Key()
-			obj := keyMap[key]
-
-			pluralFieldName := fieldName + "s"
-			originField := reflect.ValueOf(obj).Elem().FieldByName(pluralFieldName)
-			if originField.Kind() != reflect.Slice {
-				return fmt.Errorf("%s is not a slice", pluralFieldName)
-			}
-
-
-			newSlice := reflect.Append(originField, resVal)
-			originField.Set(newSlice)
-		}
-
-		return nil
+		sql := sqlFunc(*missed)
+		return dbFetchAndMerge(ctx, missed, sql, condFunc(*missed))
 	}
-
 	return ReadThrough(ctx, objs, fetch)
 }

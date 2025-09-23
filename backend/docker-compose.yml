@@ -22,7 +22,7 @@ services:
       - REDIS_ADDR=redis:${REDIS_PORT}
     volumes:
       - ./logs:/app/logs
-      - ./config/config.toml:/app/config.toml
+      - ./config:/app/config
 
   loader:
     build:
@@ -37,6 +37,8 @@ services:
       - MYSQL_DATABASE=${MYSQL_DATABASE}
     volumes:
       - ./static:/static
+      - ./config:/config
+      - ./scripts:/scripts
 
   mysql:
     image: mysql:8.0

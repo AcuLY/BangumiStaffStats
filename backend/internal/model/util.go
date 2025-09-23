@@ -1,14 +1,23 @@
 package model
 
-type HasID interface {
+import "time"
+
+type Object[T any] interface {
+	*T
+	comparable
+	hasKey
+	TTL() time.Duration
+}
+
+type hasID interface {
 	GetID() int
 }
 
-type HasKey interface {
+type hasKey interface {
 	Key() string
 }
 
-func ToIDs[T HasID](objs []T) []int {
+func ToIDs[T hasID](objs []T) []int {
 	ids := make([]int, 0, len(objs))
 	for _, obj := range objs {
 		ids = append(ids, obj.GetID())
@@ -16,7 +25,7 @@ func ToIDs[T HasID](objs []T) []int {
 	return ids
 }
 
-func ToIDMap[T HasID](objs []T) map[int]T {
+func ToIDMap[T hasID](objs []T) map[int]T {
 	idMap := make(map[int]T, len(objs))
 	for _, obj := range objs {
 		idMap[obj.GetID()] = obj
@@ -24,7 +33,7 @@ func ToIDMap[T HasID](objs []T) map[int]T {
 	return idMap
 }
 
-func FromIDMap[T HasID](m map[int]T) []T {
+func FromIDMap[T hasID](m map[int]T) []T {
 	objs := make([]T, 0, len(m))
 	for _, obj := range m {
 		objs = append(objs, obj)
@@ -32,7 +41,7 @@ func FromIDMap[T HasID](m map[int]T) []T {
 	return objs
 }
 
-func ToKeyMap[T HasKey](objs []T) map[string]T {
+func ToKeyMap[T hasKey](objs []T) map[string]T {
 	keyMap := make(map[string]T, len(objs))
 	for _, obj := range objs {
 		keyMap[obj.Key()] = obj

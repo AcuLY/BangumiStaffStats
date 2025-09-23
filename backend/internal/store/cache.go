@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/conn/redis"
+	m "github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 )
 
-func buildKeys[T Object[U], U any](objs []T) []string {
+func buildKeys[T m.Object[U], U any](objs []T) []string {
 	keys := make([]string, 0, len(objs))
 	for _, obj := range objs {
 		keys = append(keys, obj.Key())
@@ -15,8 +16,7 @@ func buildKeys[T Object[U], U any](objs []T) []string {
 	return keys
 }
 
-// CacheSave 将给定的键值对和 ttl 写入缓存
-func CacheSave[T Object[U], U any](ctx context.Context, obj T) error {
+func CacheSave[T m.Object[U], U any](ctx context.Context, obj T) error {
 	raw, err := json.Marshal(obj)
 	if err != nil {
 		return err
@@ -25,8 +25,7 @@ func CacheSave[T Object[U], U any](ctx context.Context, obj T) error {
 	return redis.RDB.SetEx(ctx, obj.Key(), raw, obj.TTL()).Err()
 }
 
-// CacheSaveMany 将给定的键值对和 ttl 批量写入缓存
-func CacheSaveMany[T Object[U], U any](ctx context.Context, objs []T) error {
+func CacheSaveMany[T m.Object[U], U any](ctx context.Context, objs []T) error {
 	pipe := redis.RDB.Pipeline()
 
 	for _, obj := range objs {
@@ -43,8 +42,7 @@ func CacheSaveMany[T Object[U], U any](ctx context.Context, objs []T) error {
 	return err
 }
 
-// CacheLoadMany 批量查询给定的键，返回缓存缺失的键和缓存命中的值
-func CacheLoadMany[T Object[U], U any](ctx context.Context, objs []T) (missed []T, cached []T, err error) {
+func CacheLoadMany[T m.Object[U], U any](ctx context.Context, objs []T) (missed []T, cached []T, err error) {
 	if len(objs) == 0 {
 		return objs, nil, nil
 	}

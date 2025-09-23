@@ -16,6 +16,28 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
+-- Table structure for table `casts`
+--
+
+DROP TABLE IF EXISTS `casts`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `casts` (
+  `subject_id` mediumint NOT NULL,
+  `person_id` mediumint NOT NULL,
+  `character_id` mediumint NOT NULL,
+  `position_id` smallint NOT NULL,
+  PRIMARY KEY (`subject_id`,`person_id`,`character_id`),
+  KEY `person_id` (`person_id`),
+  KEY `character_id` (`character_id`),
+  KEY `idx_pos_subj_per_chara` (`position_id`,`subject_id`,`person_id`,`character_id`),
+  CONSTRAINT `casts_ibfk_1` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`subject_id`),
+  CONSTRAINT `casts_ibfk_2` FOREIGN KEY (`person_id`) REFERENCES `people` (`person_id`),
+  CONSTRAINT `casts_ibfk_3` FOREIGN KEY (`character_id`) REFERENCES `characters` (`character_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `characters`
 --
 
@@ -28,6 +50,25 @@ CREATE TABLE `characters` (
   `character_name_cn` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `character_image` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   PRIMARY KEY (`character_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `credits`
+--
+
+DROP TABLE IF EXISTS `credits`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `credits` (
+  `subject_id` mediumint NOT NULL,
+  `person_id` mediumint NOT NULL,
+  `position_id` smallint NOT NULL,
+  PRIMARY KEY (`subject_id`,`person_id`,`position_id`),
+  KEY `person_id` (`person_id`),
+  KEY `idx_position_subject_person` (`position_id`,`subject_id`,`person_id`),
+  CONSTRAINT `credits_ibfk_1` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`subject_id`),
+  CONSTRAINT `credits_ibfk_2` FOREIGN KEY (`person_id`) REFERENCES `people` (`person_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -47,60 +88,19 @@ CREATE TABLE `people` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `person_character`
+-- Table structure for table `sequels`
 --
 
-DROP TABLE IF EXISTS `person_character`;
+DROP TABLE IF EXISTS `sequels`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `person_character` (
-  `subject_id` mediumint NOT NULL,
-  `person_id` mediumint NOT NULL,
-  `character_id` mediumint NOT NULL,
-  `position` smallint NOT NULL,
-  PRIMARY KEY (`subject_id`,`person_id`,`character_id`),
-  KEY `person_id` (`person_id`),
-  KEY `character_id` (`character_id`),
-  KEY `idx_subject_id` (`subject_id`),
-  CONSTRAINT `person_character_ibfk_1` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`subject_id`),
-  CONSTRAINT `person_character_ibfk_2` FOREIGN KEY (`person_id`) REFERENCES `people` (`person_id`),
-  CONSTRAINT `person_character_ibfk_3` FOREIGN KEY (`character_id`) REFERENCES `characters` (`character_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `sequel_orders`
---
-
-DROP TABLE IF EXISTS `sequel_orders`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `sequel_orders` (
+CREATE TABLE `sequels` (
   `subject_id` mediumint NOT NULL,
   `series_id` mediumint NOT NULL,
   `sequel_order` mediumint NOT NULL,
   PRIMARY KEY (`subject_id`),
   KEY `subject_id` (`subject_id`),
-  CONSTRAINT `sequel_orders_ibfk_1` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`subject_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `subject_person`
---
-
-DROP TABLE IF EXISTS `subject_person`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `subject_person` (
-  `subject_id` mediumint NOT NULL,
-  `person_id` mediumint NOT NULL,
-  `position` smallint NOT NULL,
-  PRIMARY KEY (`subject_id`,`person_id`,`position`),
-  UNIQUE KEY `idx_subject_position_person` (`subject_id`,`position`,`person_id`),
-  KEY `person_id` (`person_id`),
-  CONSTRAINT `subject_person_ibfk_1` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`subject_id`),
-  CONSTRAINT `subject_person_ibfk_2` FOREIGN KEY (`person_id`) REFERENCES `people` (`person_id`)
+  CONSTRAINT `sequels_ibfk_1` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`subject_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -136,4 +136,4 @@ CREATE TABLE `subjects` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-09-09 10:39:53
+-- Dump completed on 2025-09-23 16:14:10

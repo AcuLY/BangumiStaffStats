@@ -47,9 +47,6 @@ func (e *StatsEntity) TTL() time.Duration {
 // Statistics 包含一次查询的完整结果，用于暂存在服务端
 type Statistics struct {
 	PeopleSummary  []*PersonSummary
-	Subjects       []*Subject
-	Series         []*Subject
-	Characters     []*Character
 	PersonCount    int
 	SubjectCount   int
 	SeriesCount    int
@@ -87,5 +84,5 @@ type SubjectSummary struct {
 // CharacterSummary 包含一个人物的全部角色
 type CharacterSummary struct {
 	Characters []*Character `json:"characters"`
-	Count      int          `json:"characterCount"`
+	Count      int          `json:"count"`
 }

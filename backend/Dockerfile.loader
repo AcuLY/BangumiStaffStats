@@ -3,8 +3,8 @@ FROM python:3.10
 COPY requirements.txt .
 RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
 
-COPY config.toml .
-COPY ./scripts/update_database.py update_database.py
-COPY ./scripts/fetch_latest_jsonlines.py fetch_latest_jsonlines.py
+WORKDIR /scripts
 
-CMD [ "python", "-u", "fetch_latest_jsonlines.py" ]
+COPY ./scripts/*.py ./
+
+CMD ["python", "-u", "fetch_latest_jsonlines.py"]

@@ -38,10 +38,10 @@ func Build(ctx context.Context, subjs []*m.Subject, posID int) (map[*m.Person][]
 	return perToSubjs, nil
 }
 
-func buildCredits(subjs []*m.Subject, posID int) []*m.CreditGroup {
-	crs := make([]*m.CreditGroup, 0, len(subjs))
+func buildCredits(subjs []*m.Subject, posID int) []*m.Credits {
+	crs := make([]*m.Credits, 0, len(subjs))
 	for _, subj := range subjs {
-		crs = append(crs, &m.CreditGroup{SubjectID: subj.ID, PositionID: posID})
+		crs = append(crs, &m.Credits{SubjectID: subj.ID, PositionID: posID})
 	}
 	return crs
 }
@@ -58,17 +58,19 @@ func loadPeople(ctx context.Context, ppl *[]*m.Person) error {
 	return store.DBReadThrough(ctx, ppl, sql, condFunc)
 }
 
-func loadCredits(ctx context.Context, crs *[]*m.CreditGroup) error {
+func loadCredits(ctx context.Context, crs *[]*m.Credits) error {
 	sql := `
-		SELECT * FROM credits
-		WHERE subject_id IN ? AND position_id = ?
+		SELECT subject_id, position_id, JSON_ARRAYAGG(person_id) AS person_ids
+		FROM credits
+		WHERE position_id = ? AND subject_id IN ?
+		GROUP BY position_id, subject_id
 	`
-	condFunc := func(crs []*m.CreditGroup) []any {
+	condFunc := func(crs []*m.Credits) []any {
 		if len(crs) == 0 {
 			return []any{}
 		}
-		return []any{m.ToIDs(crs), crs[0].PositionID}
+		return []any{crs[0].PositionID, m.ToIDs(crs)}
 	}
 
-	return store.DBReadThroughMany[*m.CreditGroup, m.CreditGroup, *m.Credit](ctx, crs, sql, condFunc, "PersonID")
+	return store.DBReadThrough(ctx, crs, sql, condFunc)
 }
