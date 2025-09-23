@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
-	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
 )
 
 func Filter(subjects []*model.Subject, pass func(*model.Subject) bool) []*model.Subject {
@@ -23,7 +22,6 @@ func Filter(subjects []*model.Subject, pass func(*model.Subject) bool) []*model.
 func ByDate(dateRange []*int) func(*model.Subject) bool {
 	return func(s *model.Subject) bool {
 		if len(dateRange) < 2 {
-			logger.Warn("Invalid date range", logger.Field("range", dateRange))
 			return true
 		}
 
@@ -41,7 +39,6 @@ func ByDate(dateRange []*int) func(*model.Subject) bool {
 func ByFavorite(favoriteRange []*int) func(*model.Subject) bool {
 	return func(s *model.Subject) bool {
 		if len(favoriteRange) < 2 {
-			logger.Warn("Invalid favorite range", logger.Field("range", favoriteRange))
 			return true
 		}
 
@@ -59,7 +56,6 @@ func ByFavorite(favoriteRange []*int) func(*model.Subject) bool {
 func ByRate(rateRange []*float64) func(*model.Subject) bool {
 	return func(s *model.Subject) bool {
 		if len(rateRange) < 2 {
-			logger.Warn("Invalid rate range", logger.Field("range", rateRange))
 			return true
 		}
 

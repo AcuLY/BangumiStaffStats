@@ -63,20 +63,20 @@ func currentPage(r *m.Request, sums []*m.PersonSummary) ([]*m.PersonSummaryByTyp
 		slices.Reverse(sums)
 	}
 
-	begin := (r.Page - 1) * r.PageSize
+	begin := (*r.Page - 1) * (*r.PageSize)
 	if begin >= len(sums) {
 		return nil, ErrInvalidPagination
 	}
-	end := min(begin+r.PageSize, len(sums))
+	end := min(begin+(*r.PageSize), len(sums))
 
-	curPage := make([]*m.PersonSummaryByType, min(r.PageSize, len(sums)))
+	curPage := make([]*m.PersonSummaryByType, min(*r.PageSize, len(sums)))
 	for i := begin; i < end; i++ {
 		curIdx := i - begin
 
 		curPage[curIdx] = new(m.PersonSummaryByType)
 		curPage[curIdx].Person = *sums[i].Person
 
-		switch r.StatisticType {
+		switch *r.StatisticType {
 		case constant.StatsTypeSubject:
 			curPage[curIdx].SubjectSummary = sums[i].Subject
 		case constant.StatsTypeSeries:
@@ -90,11 +90,11 @@ func currentPage(r *m.Request, sums []*m.PersonSummary) ([]*m.PersonSummaryByTyp
 }
 
 func sortByType(r *m.Request, sums []*m.PersonSummary) {
-	if r.StatisticType == constant.StatsTypeCharacter {
+	if *r.StatisticType == constant.StatsTypeCharacter {
 		SortByCharaCount(sums)
 	} else {
-		isSeries := r.StatisticType == constant.StatsTypeSeries
-		switch r.SortBy {
+		isSeries := *r.StatisticType == constant.StatsTypeSeries
+		switch *r.SortBy {
 		case constant.SortByCount:
 			SortByCount(sums, isSeries)
 		case constant.SortByAverageRate:
@@ -106,7 +106,7 @@ func sortByType(r *m.Request, sums []*m.PersonSummary) {
 }
 
 func countByType(r *m.Request, full *m.Statistics) int {
-	switch r.StatisticType {
+	switch *r.StatisticType {
 	case constant.StatsTypeSubject:
 		return full.SubjectCount
 	case constant.StatsTypeSeries:

@@ -20,7 +20,11 @@ func GetStatistics(c *gin.Context) {
 		return
 	}
 
-	logger.Info("Receive Request.", logger.Field("request", req))
+	if *req.Page == 1 {
+		logger.Info("Receive Request.", logger.Field("request", req))
+	} else {
+		logger.Info("Page")
+	}
 
 	constant.FillInDefaults(req)
 
@@ -46,7 +50,7 @@ func GetStatistics(c *gin.Context) {
 		return
 	}
 
-	if req.Page == 1 {
+	if *req.Page == 1 {
 		logger.Info(
 			"Success.",
 			logger.Field("person count", resp.PersonCount),

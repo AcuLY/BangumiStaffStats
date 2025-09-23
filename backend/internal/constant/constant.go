@@ -33,17 +33,21 @@ func FillInDefaults(r *model.Request) {
 		min, max := 50, 100000
 		r.FavoriteRange = []*int{&min, &max}
 	}
-	if r.Page == 0 {
-		r.Page = PageDefault
+	if r.Page == nil {
+		r.Page = new(int)
+		*r.Page = PageDefault
 	}
-	if r.PageSize == 0 {
-		r.PageSize = PageSizeDefault
+	if r.PageSize == nil {
+		r.PageSize = new(int)
+		*r.PageSize = PageSizeDefault
 	}
-	if r.SortBy == 0 {
-		r.SortBy = SortByDefault
+	if r.SortBy == nil {
+		r.SortBy = new(int)
+		*r.SortBy = SortByDefault
 	}
-	if r.StatisticType == 0 {
-		r.StatisticType = StatsTypeDefault
+	if r.StatisticType == nil {
+		r.StatisticType = new(int)
+		*r.StatisticType = StatsTypeDefault
 	}
 	if r.Ascend == nil {
 		r.Ascend = new(bool)
