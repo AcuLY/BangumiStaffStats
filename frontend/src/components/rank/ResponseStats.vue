@@ -29,12 +29,12 @@ watch(responseStore.response.summaries, playNumberAnimation)
 </script>
 
 <template>
-	<n-flex class="stats-wrapper" v-show="responseStore.response.personCount">
+	<n-flex class="stats-wrapper" v-show="responseStore.response.total">
 		<n-statistic label="共统计到" tabular-nums>
 			<n-number-animation
 				ref="numberAnimationInstRef"
 				:from="0"
-				:to="responseStore.response.personCount"
+				:to="responseStore.response.total"
 			/>
 			<template #suffix> 个人物 , </template>
 		</n-statistic>

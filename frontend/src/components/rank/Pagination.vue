@@ -59,7 +59,7 @@ watch(() => paginationStore.page, (newPage) => {
 		:class="props.bottom ? 'pagination-bottom' : 'pagination-top'"
 		:page="page"
 		:page-size="pageSize"
-		:item-count="responseStore.response.personCount"
+		:item-count="responseStore.response.total"
 		:page-sizes="pageSizes"
 		show-size-picker
 		:page-slot="pageSlot"

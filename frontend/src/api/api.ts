@@ -87,38 +87,47 @@ const EmptyRequest: StatsRequest = {
 	...EmptyPagination,
 }
 
-interface PersonalSummary {
-	personID: number
-	personName: string
-	personNameCN: string
+interface Person {
+	id: number
+	name: string
+	nameCN: string
+}
 
-	subjectIDs: number[]
-	subjectNames: string[]
-	subjectNamesCN: string[]
-	subjectImages: string[]
-	rates: number[]
-	count: number
-	averageRate: number
-	overallRate: number
+interface Subject {
+	id: number
+	name: string
+	nameCN: string
+	image: string
+	rate: number
+}
 
-	characterIDs: number[]
-	characterNames: string[]
-	characterNamesCN: string[]
-	characterImages: string[]
-	characterSubjectNames: string[]
-	characterSubjectNamesCN: string[]
-	characterCount: number
+interface Character {
+	id: number
+	name: string
+	nameCN: string
+	image: string
+	subject: Subject
+}
+
+interface PersonSummary {
+	person: Person
+
+	subjects?: Subject[]
+	characters?: Character[]
+
+	average?: number
+	overall?: number
 }
 
 interface StatsResponse {
-	summaries: PersonalSummary[]
-	personCount: number
+	summaries: PersonSummary[]
+	total: number
 	itemCount: number
 }
 
 const EmptyResponse: StatsResponse = {
 	summaries: [],
-	personCount: 0,
+	total: 0,
 	itemCount: 0,
 }
 
@@ -136,4 +145,4 @@ const fetchStatistics = async (data: StatsRequest): Promise<StatsResponse> => {
 }
 
 export { fetchStatistics, cancel, EmptyInput, EmptyRequest, EmptyResponse }
-export type { Input, Pagination, PersonalSummary, StatsRequest, StatsResponse }
+export type { Input, Pagination, Person, Subject, Character, PersonSummary, StatsRequest, StatsResponse }

@@ -1,22 +1,18 @@
 <script setup lang="ts">
+import type { Character, Subject } from '@/api/api'
 import { useDisplayStore } from '@/stores/display'
 import { useGlobalStore } from '@/stores/global'
 
 const props = defineProps<{
-	ids?: number[]
-	names?: string[]
-	characterSubjectNames?: string[]
-	rates?: number[]
+	items: Subject[] | Character[]
 }>()
 
 const globalStore = useGlobalStore()
-
-const name = (index: number): string => (props.names ? props.names[index] : '')
-const characterSubjectName = (index: number): string =>
-	props.characterSubjectNames ? props.characterSubjectNames[index] : ''
-const rate = (index: number): number => (props.rates ? props.rates[index] : 0)
-
 const displayStore = useDisplayStore()
+
+const name = (item: { name: string; nameCN: string }): string => {
+	return displayStore.showChinese ? item.nameCN : item.name
+}
 
 const SUBJECT_BASE_URL = 'https://bgm.tv/subject/'
 const CHARACTER_BASE_URL = 'https://bgm.tv/character/'
@@ -29,22 +25,29 @@ const CHARACTER_BASE_URL = 'https://bgm.tv/character/'
 		clickable
 		:show-divider="false"
 	>
-		<n-list-item class="list-item" v-for="(id, index) in props.ids">
-			<template v-if="displayStore.showCharacter">
+		<n-list-item class="list-item" v-for="item in props.items">
+			<template v-if="'subject' in item">
 				<n-tooltip
 					placement="top-end"
 					:content-style="{ maxWidth: globalStore.isMobile ? '250px' : '400px' }"
 				>
 					<template #trigger>
-						<a class="name" :href="`${CHARACTER_BASE_URL}${id}`" target="_blank" :data-link-id="id">
-							<TableText :value="name(index)" />
+						<a
+							class="name"
+							:href="`${CHARACTER_BASE_URL}${item.id}`"
+							target="_blank"
+							:data-link-id="item.id"
+						>
+							<TableText :value="name(item)" />
 							<span class="subject-name">
-								【<TableText :value="characterSubjectName(index)" />】
+								【<TableText
+									:value="name(item.subject)"
+								/>】
 							</span>
 						</a>
 					</template>
 
-					<TableText :value="`${name(index)}【${characterSubjectName(index)}】`" />
+					<TableText :value="`${name(item)}【${name(item.subject)}】`" />
 				</n-tooltip>
 			</template>
 
@@ -54,16 +57,16 @@ const CHARACTER_BASE_URL = 'https://bgm.tv/character/'
 					:content-style="{ maxWidth: globalStore.isMobile ? '180px' : '300px' }"
 				>
 					<template #trigger>
-						<a class="name" :href="`${SUBJECT_BASE_URL}${id}`" target="_blank" :data-link-id="id">
-							<TableText :value="rate(index)" bold />
+						<a class="name" :href="`${SUBJECT_BASE_URL}${item.id}`" target="_blank" :data-link-id="item.id">
+							<TableText :value="item.rate" bold />
 							<TableText :value="' '" />
-							<Star :unrated="rate(index) === 0" />
+							<Star :unrated="item.rate === 0" />
 							<TableText :value="' '" />
-							<TableText :value="name(index)" />
+							<TableText :value="name(item)" />
 						</a>
 					</template>
 
-					<TableText :value="name(index)" />
+					<TableText :value="name(item)" />
 				</n-tooltip>
 			</template>
 		</n-list-item>

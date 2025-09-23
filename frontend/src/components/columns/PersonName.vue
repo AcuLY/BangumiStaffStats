@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import type { PersonalSummary } from '@/api/api'
+import type { Person } from '@/api/api'
 import { useDisplayStore } from '@/stores/display'
 
 const displayStore = useDisplayStore()
 
 const props = defineProps<{
-	row: PersonalSummary
+	person: Person
 }>()
 
 const name = computed((): string =>
-	displayStore.showChinese ? props.row.personNameCN : props.row.personName
+	displayStore.showChinese ? props.person.nameCN : props.person.name
 )
-const link = computed((): string => `https://bgm.tv/person/${props.row.personID}`)
+const link = computed((): string => `https://bgm.tv/person/${props.person.id}`)
 </script>
 
 <template>

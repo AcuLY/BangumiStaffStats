@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import type { PersonalSummary } from '@/api/api'
+import type { PersonSummary } from '@/api/api'
 import { useGlobalStore } from '@/stores/global'
 
 const props = defineProps<{
-	row: PersonalSummary
+	row: PersonSummary
 }>()
 
 const globalStore = useGlobalStore()
 
 const rate = computed((): string | number =>
-	globalStore.isMobile ? props.row.averageRate.toFixed(1) : props.row.averageRate
+	props.row.average ? (globalStore.isMobile ? props.row.average.toFixed(1) : props.row.average) : 0
 )
 </script>
 
 <template>
-	<div v-if="props.row.averageRate">
+	<div v-if="props.row.average">
 		<TableText :value="rate" />
-        <TableText :value="' '" />
+		<TableText :value="' '" />
 		<Star />
 	</div>
 	<Star v-else unrated />

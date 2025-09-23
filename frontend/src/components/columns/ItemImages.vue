@@ -1,12 +1,10 @@
 <script setup lang="ts">
+import type { Character, Subject } from '@/api/api'
 import { useDisplayStore } from '@/stores/display'
 import { useGlobalStore } from '@/stores/global'
 
 const props = defineProps<{
-	ids?: number[]
-	names?: string[]
-	images?: string[]
-	characterSubjectNames?: string[]
+	items: Subject[] | Character[]
 }>()
 
 const globalStore = useGlobalStore()
@@ -27,25 +25,24 @@ const height = computed((): number => {
 	}
 })
 
-const name = (index: number): string => (props.names ? props.names[index] : '')
-const image = (index: number): string => (props.images ? props.images[index] : '')
-const characterSubjectName = (index: number): string =>
-	props.characterSubjectNames ? props.characterSubjectNames[index] : ''
+const name = (item: { name: string; nameCN: string }): string => {
+	return displayStore.showChinese ? item.nameCN : item.name
+}
 
 const SUBJECT_BASE_URL = 'https://bgm.tv/subject/'
 const CHARACTER_BASE_URL = 'https://bgm.tv/character/'
 const baseURL = computed((): string =>
-	props.characterSubjectNames ? CHARACTER_BASE_URL : SUBJECT_BASE_URL
+	displayStore.showCharacter ? CHARACTER_BASE_URL : SUBJECT_BASE_URL
 )
 </script>
 
 <template>
 	<div class="image-wrapper" :style="{ maxHeight: `${displayStore.rowHeight}px` }">
 		<a
-			v-for="(id, index) in props.ids"
-			:href="`${baseURL}${id}`"
+			v-for="item in props.items"
+			:href="`${baseURL}${item.id}`"
 			target="_blank"
-			:data-link-id="id"
+			:data-link-id="item.id"
 		>
 			<n-tooltip
 				placement="top-end"
@@ -55,15 +52,15 @@ const baseURL = computed((): string =>
 					<img
 						class="image"
 						:style="{ width: `${width}px`, height: `${height}px` }"
-						:src="image(index)"
-						:alt="image(index)"
+						:src="item.image"
+						:alt="item.image"
 						loading="lazy"
 					/>
 				</template>
-				<TableText :value="name(index)" />
+				<TableText :value="name(item)" />
 				<TableText
-					v-show="props.characterSubjectNames"
-					:value="`【${characterSubjectName(index)}】`"
+					v-if="'subject' in item"
+					:value="`【${name(item.subject)}】`"
 				/>
 			</n-tooltip>
 		</a>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PersonalSummary } from '@/api/api'
+import type { PersonSummary } from '@/api/api'
 import { useDisplayStore } from '@/stores/display'
 import { useGlobalStore } from '@/stores/global'
 import { usePaginationStore } from '@/stores/pagination'
@@ -35,7 +35,7 @@ const colWidthOverall = colWidth(50, 76)
 const colResizable = computed((): boolean => !globalStore.isMobile)
 
 const columns = computed(
-	(): DataTableColumns<PersonalSummary> => [
+	(): DataTableColumns<PersonSummary> => [
 		// 序号
 		{
 			title: '',
@@ -53,11 +53,11 @@ const columns = computed(
 		// 人名
 		{
 			title: () => h(TableText, { value: '人名' }),
-			key: 'personName',
+			key: 'person',
 			width: colWidthPersonName.value,
 			resizable: colResizable.value,
 			align: 'center',
-			render: (row) => h(PersonName, { row: row }),
+			render: (row) => h(PersonName, { person: row.person }),
 		},
 		// 数量
 		{
@@ -68,7 +68,7 @@ const columns = computed(
 			align: 'center',
 			sorter: 'default',
 			render: (row) =>
-				h(TableText, { value: displayStore.showCharacter ? row.characterCount : row.count }),
+				h(TableText, { value: row.subjects ? row.subjects.length : row.characters?.length }),
 		},
 		// 均分
 		{
@@ -96,7 +96,7 @@ const columns = computed(
 				h(TableText, {
 					value: displayStore.showCharacter ? '角色' : displayStore.mergeSeries ? '系列' : '作品',
 				}),
-			key: 'subjectIDs',
+			key: 'subjects',
 			titleAlign: 'center',
 			render: (row) => h(Item, { row: row }),
 		},
