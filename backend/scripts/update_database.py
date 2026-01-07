@@ -211,7 +211,8 @@ def load_credits(cursor, batch_size=1000):
     # 加载非声优职位 subject-person
     print("开始加载非声优职位")
     subject_person_map = defaultdict(list)
-    valid_cv = set()    # 部分配音（如译配）不在 subject-persons 但会出现在 person-characters，暂时忽略
+    valid_cv = set()    # 部分配音（如译配）不在 subject-persons 但会出现在 person-characters，暂时只考虑出现在前者中的记录
+
     with open(
         JSONLINES_FILE_PATH + "subject-persons.jsonlines", "r", encoding="utf-8"
     ) as f:
@@ -219,10 +220,13 @@ def load_credits(cursor, batch_size=1000):
             item = json.loads(line)
             if item["subject_id"] in subject_ids:   # 检查 subject 有效性
                 valid_cv.add(item["person_id"])
-                # 原本的职位映射有重复部分，这里做一遍映射处理
-                # 让每个职位名都对应唯一的 id
-                original_pos_id = item["position"]
-                real_pos_ids = id_mapping[str(original_pos_id)]
+                
+                # 原本的职位映射有重复部分，这里做一遍映射处理，让每个职位名都对应唯一的 id
+                original_pos_id = str(item["position"])
+                if original_pos_id not in id_mapping.keys():   # 防止官方出现新的 position_id 但本地没有
+                    continue
+                
+                real_pos_ids = id_mapping[original_pos_id]
                 
                 for pos_id in real_pos_ids:
                     subject_person_map[item["subject_id"]].append(
