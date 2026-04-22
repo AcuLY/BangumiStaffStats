@@ -1,7 +1,7 @@
 package model
 
 type Request struct {
-	UserID          string     `json:"userID"          binding:"required_unless=isGlobal true"`
+	UserID          string     `json:"userID"          binding:"omitempty"`
 	Position        string     `json:"position"        binding:"required"`
 	SubjectType     int        `json:"subjectType"     binding:"required,oneof=1 2 3 4 6"`
 	CollectionTypes []int      `json:"collectionTypes" binding:"required_unless=isGlobal true"`
@@ -9,7 +9,7 @@ type Request struct {
 	NegativeTags    []string   `json:"negativeTags"    binding:"omitempty"`
 	RateRange       []*float64 `json:"rateRange"       binding:"omitempty,len=2,dive,omitempty,min=0,max=10"`
 	FavoriteRange   []*int     `json:"favoriteRange"   binding:"omitempty,len=2,dive,omitempty,min=0"`
-	DateRange       []*int     `json:"dateRange"       binding:"omitempty,len=2,dive,omitempty,min=0,max=10"`
+	DateRange       []*int     `json:"dateRange"       binding:"omitempty,len=2,dive,omitempty,min=0"`
 	IsGlobal        *bool      `json:"isGlobal"        binding:"omitempty"`
 	ShowNSFW        *bool      `json:"showNSFW"        binding:"omitempty"`
 	StatisticType   *int       `json:"statisticType"   binding:"omitempty,oneof=1 2 3"`

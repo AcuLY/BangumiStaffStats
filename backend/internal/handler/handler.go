@@ -20,13 +20,18 @@ func GetStatistics(c *gin.Context) {
 		return
 	}
 
+	if req.UserID == "" && (req.IsGlobal == nil || !*req.IsGlobal) {
+		c.JSON(400, gin.H{"error": "非法请求：请输入用户 UID"})
+		return
+	}
+
+	constant.FillInDefaults(req)
+
 	if *req.Page == 1 {
 		logger.Info("Receive Request.", logger.Field("request", req))
 	} else {
 		logger.Info("Page")
 	}
-
-	constant.FillInDefaults(req)
 
 	resp, err := statistic.Handle(c.Request.Context(), req)
 	if err != nil {

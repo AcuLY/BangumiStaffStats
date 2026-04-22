@@ -15,10 +15,10 @@ type Subject struct {
 	NameCN      string      `gorm:"column:subject_name_cn"  json:"nameCN,omitempty"`
 	Rate        float64     `gorm:"column:subject_rate"     json:"rate,omitempty"`
 	Image       string      `gorm:"column:subject_image"    json:"image,omitempty"`
-	Favorite    int         `gorm:"column:subject_favorite" json:"-"`
-	Tags        StringSlice `gorm:"column:subject_tags"     json:"-"`
-	Date        time.Time   `gorm:"column:subject_date"     json:"-"`
-	NSFW        bool        `gorm:"column:subject_nsfw"     json:"-"`
+	Favorite    int         `gorm:"column:subject_favorite" json:"favorite,omitempty"`
+	Tags        StringSlice `gorm:"column:subject_tags"     json:"tags,omitempty"`
+	Date        time.Time   `gorm:"column:subject_date"     json:"date,omitempty"`
+	NSFW        bool        `gorm:"column:subject_nsfw"     json:"nsfw,omitempty"`
 	SequelOrder int         `gorm:"-"                       json:"-"`
 }
 
