@@ -22,5 +22,5 @@ func (s Sequel) Key() string {
 }
 
 func (s Sequel) TTL() time.Duration {
-	return config.Redis.TTL.Sequel.Duration()
+	return config.Cache.TTL.Sequel.Duration()
 }

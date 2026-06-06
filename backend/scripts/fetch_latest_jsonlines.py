@@ -9,7 +9,7 @@ PROXY_URL = "https://ghfast.top/"
 LATEST_JSON_URL = "https://raw.githubusercontent.com/bangumi/Archive/master/aux/latest.json"
 TARGET_DAY = 2  # 周三
 TARGET_TIME = dt_time(hour=19, minute=0)
-TARGET_DIR = "../static"
+TARGET_DIR = "../jsonlines"
 MAX_RETRIES = 3
 RETRY_DELAY = 10
 REQUIRED_JSONLINES = [
@@ -40,7 +40,7 @@ def wait_until_target_time():
     global database_initialized
     if not database_initialized:
         print("首次启动，开始初始化数据库")
-        subprocess.run(["python", "-u", "update_database.py", "--all"], check=True)
+        subprocess.run(["python", "-u", "build_sqlite.py"], check=True)
         database_initialized = True
         print("数据库初始化完成")
     
@@ -143,7 +143,7 @@ def main():
             print(f"下载解压出错: {e}")
 
         try:
-            subprocess.run(["python", "-u", "update_database.py", "--all"], check=True)
+            subprocess.run(["python", "-u", "build_sqlite.py"], check=True)
             print("数据库更新成功")
         except subprocess.CalledProcessError as e:
             print(f"更新数据库出错: {e}")

@@ -60,7 +60,7 @@ func loadPeople(ctx context.Context, ppl *[]*m.Person) error {
 
 func loadCredits(ctx context.Context, crs *[]*m.Credits) error {
 	sql := `
-		SELECT subject_id, position_id, JSON_ARRAYAGG(person_id) AS person_ids
+		SELECT subject_id, position_id, json_group_array(person_id) AS person_ids
 		FROM credits
 		WHERE position_id = ? AND subject_id IN ?
 		GROUP BY position_id, subject_id

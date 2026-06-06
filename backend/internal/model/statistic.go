@@ -41,7 +41,7 @@ func (e *StatsEntity) Key() string {
 }
 
 func (e *StatsEntity) TTL() time.Duration {
-	return config.Redis.TTL.Statistic.Duration()
+	return config.Cache.TTL.Statistic.Duration()
 }
 
 // Statistics 包含一次查询的完整结果，用于暂存在服务端

@@ -2,8 +2,10 @@ package handler
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/constant"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/core/detail"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/core/statistic"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/model"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/bangumi"
@@ -64,4 +66,57 @@ func GetStatistics(c *gin.Context) {
 	}
 
 	c.JSON(200, resp)
+}
+
+func GetSubjectDetail(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+
+	resp, err := detail.Subject(c.Request.Context(), id)
+	writeDetailResponse(c, resp, err)
+}
+
+func GetPersonDetail(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+
+	resp, err := detail.Person(c.Request.Context(), id)
+	writeDetailResponse(c, resp, err)
+}
+
+func GetCharacterDetail(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+
+	resp, err := detail.Character(c.Request.Context(), id)
+	writeDetailResponse(c, resp, err)
+}
+
+func parseID(c *gin.Context) (int, bool) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		c.JSON(400, gin.H{"error": "invalid id"})
+		return 0, false
+	}
+	return id, true
+}
+
+func writeDetailResponse(c *gin.Context, resp any, err error) {
+	if err == nil {
+		c.JSON(200, resp)
+		return
+	}
+	if errors.Is(err, detail.ErrNotFound) {
+		c.JSON(404, gin.H{"error": "detail not found"})
+		return
+	}
+
+	logger.Error("Failed to get detail.", logger.Field("error", err.Error()))
+	c.JSON(500, gin.H{"error": "internal error: " + err.Error()})
 }

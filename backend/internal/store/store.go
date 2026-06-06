@@ -9,6 +9,8 @@ import (
 )
 
 func Init() error {
+	InitCache()
+
 	var ids []int
 	sql := "SELECT subject_id from subjects"
 
@@ -80,19 +82,12 @@ func dbFetchAndMerge[T m.Object[U], U any](ctx context.Context, missed *[]T, sql
 }
 
 func DBReadThrough[T m.Object[U], U any](ctx context.Context, objs *[]T, sql string, condFunc func([]T) []any) error {
-	fetch := func(ctx context.Context, missed *[]T) error {
-		return dbFetchAndMerge(ctx, missed, sql, condFunc(*missed))
-	}
-	return ReadThrough(ctx, objs, fetch)
+	return dbFetchAndMerge(ctx, objs, sql, condFunc(*objs))
 }
 
 func DBReadThroughGenSQL[T m.Object[U], U any](ctx context.Context, objs *[]T, sqlFunc func([]T) string, condFunc func([]T) []any) error {
-	fetch := func(ctx context.Context, missed *[]T) error {
-		if len(*missed) == 0 {
-			return nil
-		}
-		sql := sqlFunc(*missed)
-		return dbFetchAndMerge(ctx, missed, sql, condFunc(*missed))
+	if len(*objs) == 0 {
+		return nil
 	}
-	return ReadThrough(ctx, objs, fetch)
+	return dbFetchAndMerge(ctx, objs, sqlFunc(*objs), condFunc(*objs))
 }

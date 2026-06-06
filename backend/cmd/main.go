@@ -1,13 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/config"
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/conn/mysql"
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/conn/redis"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/conn/sqlite"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/core/position"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/handler"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/middleware"
@@ -38,11 +38,8 @@ func main() {
 	if err := httpclient.Init(); err != nil {
 		logger.Fatal("Failed to init HTTP client: " + err.Error())
 	}
-	if err := redis.Init(); err != nil {
-		logger.Fatal("Failed to init Redis: " + err.Error())
-	}
-	if err := mysql.Init(); err != nil {
-		logger.Fatal("Failed to init MySQL: " + err.Error())
+	if err := sqlite.Init(); err != nil {
+		logger.Fatal("Failed to init SQLite: " + err.Error())
 	}
 	if err := store.Init(); err != nil {
 		logger.Fatal("Failed to init Bloom: " + err.Error())
@@ -58,15 +55,20 @@ func main() {
 	r.Use(gin.LoggerWithWriter(&logger.TimeSlicingWriter{LogPath: config.Log.GinLogPath}))
 	r.Use(cors.New(cors.Config{
 		AllowOriginFunc: func(origin string) bool {
-			return strings.HasPrefix(origin, "http://localhost:") || origin == "https://search.bgmss.fun"
+			return strings.HasPrefix(origin, "http://localhost:") ||
+				strings.HasPrefix(origin, "http://127.0.0.1:") ||
+				origin == "https://search.bgmss.fun"
 		},
-		AllowMethods:     []string{"POST", "OPTIONS"},
+		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type"},
 		AllowCredentials: true,
 	}))
 	r.Use(middleware.RequestTiming())
 
 	r.POST("/statistics", handler.GetStatistics)
+	r.GET("/subjects/:id", handler.GetSubjectDetail)
+	r.GET("/people/:id", handler.GetPersonDetail)
+	r.GET("/characters/:id", handler.GetCharacterDetail)
 
-	r.Run("0.0.0.0:5000")
+	r.Run(fmt.Sprintf("%s:%d", config.Main.Host, config.Main.Port))
 }

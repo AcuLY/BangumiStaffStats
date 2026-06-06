@@ -33,26 +33,19 @@ type httpConfig struct {
 	Burst         int    `toml:"burst"`
 }
 
-type mysqlConfig struct {
-	Host              string    `toml:"host"`
-	Port              int       `toml:"port"`
-	User              string    `toml:"user"`
-	Password          string    `toml:"password"`
-	DatabaseName      string    `toml:"databaseName"`
+type sqliteConfig struct {
+	Path              string    `toml:"path"`
 	MaxOpenConnection int       `toml:"maxOpenConnection"`
 	MaxIdleConnection int       `toml:"maxIdleConnection"`
 	MaxLifetime       ttlMinute `toml:"maxLifetime"`
 }
 
-type redisConfig struct {
-	Host     string         `toml:"host"`
-	Port     int            `toml:"port"`
-	Password string         `toml:"password"`
-	Db       int            `toml:"db"`
-	TTL      redisTTLConfig `toml:"ttl"`
+type cacheConfig struct {
+	MaxEntries int            `toml:"maxEntries"`
+	TTL        cacheTTLConfig `toml:"ttl"`
 }
 
-type redisTTLConfig struct {
+type cacheTTLConfig struct {
 	// 单位为小时
 	Collection ttlHour `toml:"collection"`
 	Subject    ttlHour `toml:"subject"`
@@ -76,21 +69,21 @@ type bloomConfig struct {
 }
 
 type rawConfig struct {
-	Main  mainConfig  `toml:"main"`
-	HTTP  httpConfig  `toml:"http"`
-	Mysql mysqlConfig `toml:"mysql"`
-	Redis redisConfig `toml:"redis"`
-	Bloom bloomConfig `toml:"bloom"`
-	Log   logConfig   `toml:"log"`
+	Main   mainConfig   `toml:"main"`
+	HTTP   httpConfig   `toml:"http"`
+	SQLite sqliteConfig `toml:"sqlite"`
+	Cache  cacheConfig  `toml:"cache"`
+	Bloom  bloomConfig  `toml:"bloom"`
+	Log    logConfig    `toml:"log"`
 }
 
 var (
-	Main  *mainConfig
-	HTTP  *httpConfig
-	Mysql *mysqlConfig
-	Redis *redisConfig
-	Bloom *bloomConfig
-	Log   *logConfig
+	Main   *mainConfig
+	HTTP   *httpConfig
+	SQLite *sqliteConfig
+	Cache  *cacheConfig
+	Bloom  *bloomConfig
+	Log    *logConfig
 )
 
 func Init(path string) error {
@@ -99,12 +92,57 @@ func Init(path string) error {
 		return err
 	}
 
+	applyDefaults(&cfg)
+
 	Main = &cfg.Main
 	HTTP = &cfg.HTTP
-	Mysql = &cfg.Mysql
-	Redis = &cfg.Redis
+	SQLite = &cfg.SQLite
+	Cache = &cfg.Cache
 	Bloom = &cfg.Bloom
 	Log = &cfg.Log
 
 	return nil
+}
+
+func applyDefaults(cfg *rawConfig) {
+	if cfg.SQLite.Path == "" {
+		cfg.SQLite.Path = "./data/bgmss.sqlite"
+	}
+	if cfg.SQLite.MaxOpenConnection == 0 {
+		cfg.SQLite.MaxOpenConnection = 8
+	}
+	if cfg.SQLite.MaxIdleConnection == 0 {
+		cfg.SQLite.MaxIdleConnection = 4
+	}
+	if cfg.SQLite.MaxLifetime == 0 {
+		cfg.SQLite.MaxLifetime = 30
+	}
+
+	if cfg.Cache.MaxEntries == 0 {
+		cfg.Cache.MaxEntries = 1024
+	}
+	if cfg.Cache.TTL.Collection == 0 {
+		cfg.Cache.TTL.Collection = 24
+	}
+	if cfg.Cache.TTL.Subject == 0 {
+		cfg.Cache.TTL.Subject = 168
+	}
+	if cfg.Cache.TTL.Sequel == 0 {
+		cfg.Cache.TTL.Sequel = 168
+	}
+	if cfg.Cache.TTL.Person == 0 {
+		cfg.Cache.TTL.Person = 168
+	}
+	if cfg.Cache.TTL.Credit == 0 {
+		cfg.Cache.TTL.Credit = 168
+	}
+	if cfg.Cache.TTL.Character == 0 {
+		cfg.Cache.TTL.Character = 168
+	}
+	if cfg.Cache.TTL.Cast == 0 {
+		cfg.Cache.TTL.Cast = 168
+	}
+	if cfg.Cache.TTL.Statistic == 0 {
+		cfg.Cache.TTL.Statistic = 10
+	}
 }

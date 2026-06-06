@@ -1,4 +1,6 @@
 static/
+jsonlines/
+data/
 .venv/
 .rubbish/
 logs/

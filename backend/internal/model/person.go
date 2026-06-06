@@ -24,7 +24,7 @@ func (p *Person) Key() string {
 }
 
 func (p *Person) TTL() time.Duration {
-	return config.Redis.TTL.Person.Duration()
+	return config.Cache.TTL.Person.Duration()
 }
 
 type Credits struct {
@@ -42,14 +42,22 @@ func (c *Credits) Key() string {
 }
 
 func (c *Credits) TTL() time.Duration {
-	return config.Redis.TTL.Credit.Duration()
+	return config.Cache.TTL.Credit.Duration()
 }
 
 type IntSlice []int
 
 func (s *IntSlice) Scan(value any) error {
-	bytes, ok := value.([]byte)
-	if !ok {
+	var bytes []byte
+	switch v := value.(type) {
+	case nil:
+		*s = nil
+		return nil
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
 		return fmt.Errorf("expected []byte, got %T", value)
 	}
 	return json.Unmarshal(bytes, s)

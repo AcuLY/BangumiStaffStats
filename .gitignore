@@ -2,7 +2,9 @@
 /backend/config.toml
 **/logs
 /backend/__pycache__
+**/__pycache__/
 /backend/static
+/backend/data
 /backend/.rubbish
 /backend/.venv
 /backend/jsonlines

@@ -95,7 +95,7 @@ func loadCharacters(ctx context.Context, charas *[]*m.Character) error {
 }
 
 func loadCasts(ctx context.Context, casts *[]*m.Casts) error {
-	// 占位符长度可能会超出 mysql 最大限制，需要分批查询
+	// 占位符过多会影响 SQL 构造和执行，分批查询可以保持单次查询大小稳定。
 	const batchSize = 1000
 	allResults := make([]*m.Casts, 0, len(*casts))
 
@@ -111,7 +111,7 @@ func loadCasts(ctx context.Context, casts *[]*m.Casts) error {
 
 		sqlFunc := func(casts []*m.Casts) string {
 			return fmt.Sprintf(`
-				SELECT subject_id, person_id, position_id, JSON_ARRAYAGG(character_id) as character_ids
+				SELECT subject_id, person_id, position_id, json_group_array(character_id) as character_ids
 				FROM casts
 				WHERE (position_id, subject_id, person_id) IN (%s)
 				GROUP BY position_id, subject_id, person_id

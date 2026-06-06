@@ -24,7 +24,7 @@ func (c *Character) Key() string {
 }
 
 func (c *Character) TTL() time.Duration {
-	return config.Redis.TTL.Character.Duration()
+	return config.Cache.TTL.Character.Duration()
 }
 
 type Casts struct {
@@ -39,5 +39,5 @@ func (c *Casts) Key() string {
 }
 
 func (c *Casts) TTL() time.Duration {
-	return config.Redis.TTL.Credit.Duration()
+	return config.Cache.TTL.Credit.Duration()
 }

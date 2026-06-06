@@ -28,5 +28,5 @@ func (e *CollectionGroup) Key() string {
 }
 
 func (e *CollectionGroup) TTL() time.Duration {
-	return config.Redis.TTL.Collection.Duration()
+	return config.Cache.TTL.Collection.Duration()
 }

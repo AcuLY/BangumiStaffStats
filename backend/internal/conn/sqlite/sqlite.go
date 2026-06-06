@@ -1,15 +1,17 @@
-package mysql
+package sqlite
 
 import (
 	"errors"
 	"fmt"
 	"log"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/config"
 	"github.com/AcuLY/BangumiStaffStats/backend/pkg/logger"
+	sqlitedriver "github.com/glebarez/sqlite"
 	"go.uber.org/zap"
-	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
@@ -17,21 +19,12 @@ import (
 var DB *gorm.DB
 
 func Init() error {
-	if config.Mysql == nil {
-		return errors.New("MySQL config not initialized")
+	if config.SQLite == nil {
+		return errors.New("SQLite config not initialized")
 	}
 
-	dsn := fmt.Sprintf(
-		"%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		config.Mysql.User,
-		config.Mysql.Password,
-		config.Mysql.Host,
-		config.Mysql.Port,
-		config.Mysql.DatabaseName,
-	)
-
 	var err error
-	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+	DB, err = gorm.Open(sqlitedriver.Open(readOnlyDSN(config.SQLite.Path)), &gorm.Config{
 		PrepareStmt: true,
 		Logger: gormlogger.New(
 			log.New(&logger.TimeSlicingWriter{LogPath: config.Log.GormLogPath}, "[GORM] ", log.LstdFlags),
@@ -49,11 +42,26 @@ func Init() error {
 	if err != nil {
 		return err
 	}
-	sqlDB.SetMaxOpenConns(config.Mysql.MaxOpenConnection)
-	sqlDB.SetMaxIdleConns(config.Mysql.MaxIdleConnection)
-	sqlDB.SetConnMaxLifetime(config.Mysql.MaxLifetime.Duration())
+	sqlDB.SetMaxOpenConns(config.SQLite.MaxOpenConnection)
+	sqlDB.SetMaxIdleConns(config.SQLite.MaxIdleConnection)
+	sqlDB.SetConnMaxLifetime(config.SQLite.MaxLifetime.Duration())
 
 	return nil
+}
+
+func readOnlyDSN(path string) string {
+	if strings.HasPrefix(path, "file:") {
+		return path
+	}
+
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		abs = path
+	}
+	return fmt.Sprintf(
+		"file:%s?mode=ro&cache=shared&_pragma=busy_timeout(5000)&_pragma=query_only(1)",
+		filepath.ToSlash(abs),
+	)
 }
 
 func DBStats() zap.Field {

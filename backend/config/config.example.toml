@@ -1,7 +1,7 @@
 [main]
 appName = "BangumiStaffStats"
 host = "0.0.0.0"
-port = 8000
+port = 5000
 
 [http]
 timeout = 10
@@ -12,23 +12,16 @@ accessToken = "YOUR_TOKEN"
 rateLimit = 5
 burst = 10 
 
-[mysql]
-host = "mysql"
-port = 3306
-user = "bgmss"
-password = "YOUR_PASSWORD"
-databaseName = "bgmss"
-maxOpenConnection = 100
-maxIdleConnection = 20
-maxLifetime = 5
+[sqlite]
+path = "./data/bgmss.sqlite"
+maxOpenConnection = 8
+maxIdleConnection = 4
+maxLifetime = 30
 
-[redis]
-host = "redis"
-port = 6379
-password = ""
-db = 0
+[cache]
+maxEntries = 1024
 
-    [redis.ttl]
+    [cache.ttl]
     collection = 24
     subject = 168
     sequel = 168
