@@ -55,7 +55,7 @@ const isCandidate = (person: Person | CandidatePerson): person is CandidatePerso
 				<span class="person-row__rank">{{ rankOffset + index + 1 }}</span>
 					<SafeImage
 						class="person-row__avatar"
-						:sources="workbench.personImageSources(person, 'small')"
+						:sources="workbench.personImageSources(person)"
 						:alt="workbench.personName(person)"
 						kind="person"
 						decorative
@@ -87,7 +87,7 @@ const isCandidate = (person: Person | CandidatePerson): person is CandidatePerso
 				</button>
 					<SafeImage
 						class="person-row__avatar"
-						:sources="workbench.personImageSources(person, 'small')"
+						:sources="workbench.personImageSources(person)"
 						:alt="workbench.personName(person)"
 						kind="person"
 						decorative

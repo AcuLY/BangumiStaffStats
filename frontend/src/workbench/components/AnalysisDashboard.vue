@@ -78,7 +78,7 @@ const commonTags = computed(() => {
 				<article v-for="(item, index) in workbench.selectedPeople.value" :key="item.person.id" class="analysis-profile">
 					<SafeImage
 						class="analysis-profile__media"
-						:sources="workbench.personImageSources(item.person, 'medium')"
+						:sources="workbench.personImageSources(item.person)"
 						:alt="workbench.personName(item.person)"
 						kind="person"
 						decorative

@@ -22,6 +22,7 @@ import type {
 	WorkbenchMode,
 	WorkbenchSnapshot,
 } from '../types'
+import { bangumiImageUrl } from '../data/bangumiImages'
 
 const RANKING_PAGE_SIZE = 10
 const CANDIDATE_PAGE_SIZE = 8
@@ -61,9 +62,9 @@ export interface WorkbenchContext {
 	positions: ComputedRef<Array<{ label: string; value: number }>>
 	personName: (person?: Person | null) => string
 	personSecondaryName: (person?: Person | null) => string
-	personImageSources: (person?: Person | null, size?: 'small' | 'medium' | 'large') => string[]
+	personImageSources: (person?: Person | null) => string[]
 	subjectName: (subject?: Subject | null) => string
-	subjectImageSources: (subject?: Subject | null, size?: 'small' | 'medium') => string[]
+	subjectImageSources: (subject?: Subject | null) => string[]
 	positionLabel: (positionId: number) => string
 	positionSubjectIds: (person: Person, positionId: number) => number[]
 	rankingMetric: Ref<RankingMetric>
@@ -187,32 +188,16 @@ export function provideWorkbench(
 		return [person.name, person.nameCN].find((name) => name && name !== primary) ?? ''
 	}
 
-	const personImageSources = (person?: Person | null, size: 'small' | 'medium' | 'large' = 'medium') => {
-		if (!person) return []
-		const order = size === 'large'
-			? ['large', 'medium', 'small'] as const
-			: size === 'small'
-				? ['small', 'medium', 'large'] as const
-				: ['medium', 'large', 'small'] as const
-		return unique(order.flatMap((candidate) => [
-			person.image?.[candidate],
-			person.id ? `https://api.bgm.tv/v0/persons/${person.id}/image?type=${candidate}` : '',
-		]).filter((source): source is string => Boolean(source)))
-	}
+	const personImageSources = (person?: Person | null) => person?.id
+		? [bangumiImageUrl('persons', person.id)]
+		: []
 
 	const subjectName = (subject?: Subject | null) =>
 		subject?.displayName || subject?.nameCN || subject?.name || '未命名作品'
 
-	const subjectImageSources = (subject?: Subject | null, size: 'small' | 'medium' = 'small') => {
-		if (!subject) return []
-		const order = size === 'medium'
-			? ['medium', 'common', 'small'] as const
-			: ['small', 'common', 'medium'] as const
-		return unique(order.flatMap((candidate) => [
-			subject.image?.[candidate],
-			subject.id ? `https://api.bgm.tv/v0/subjects/${subject.id}/image?type=${candidate}` : '',
-		]).filter((source): source is string => Boolean(source)))
-	}
+	const subjectImageSources = (subject?: Subject | null) => subject?.id
+		? [bangumiImageUrl('subjects', subject.id)]
+		: []
 
 	const positionSubjectIds = (person: Person, positionId: number) => {
 		const ids = person.positions?.[String(positionId)]?.subjectIds

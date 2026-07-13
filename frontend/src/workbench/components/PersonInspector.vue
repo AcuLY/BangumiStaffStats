@@ -35,7 +35,7 @@ watch([workbench.focusedPersonId, workbench.focusedWorkSearch], () => { showAllW
 		<header class="person-profile">
 				<SafeImage
 					class="person-profile__portrait"
-					:sources="workbench.personImageSources(person, 'large')"
+					:sources="workbench.personImageSources(person)"
 					:alt="workbench.personName(person)"
 					kind="person"
 					loading="eager"

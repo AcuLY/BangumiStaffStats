@@ -42,7 +42,7 @@ const selectedScopeCount = computed(() => workbench.selectedScopes.value.length)
 			<div class="selected-people-list">
 				<article v-for="(item, index) in workbench.selectedPeople.value" :key="item.person.id" class="selected-person-row">
 					<span class="identity-marker">{{ String.fromCharCode(65 + index) }}</span>
-					<SafeImage :sources="workbench.personImageSources(item.person, 'small')" :alt="workbench.personName(item.person)" kind="person" :width="36" :height="36" decorative />
+					<SafeImage :sources="workbench.personImageSources(item.person)" :alt="workbench.personName(item.person)" kind="person" :width="36" :height="36" decorative />
 					<span class="selected-person-row__copy">
 						<strong>{{ workbench.personName(item.person) }}</strong>
 						<small>{{ item.positionIds.map(workbench.positionLabel).join(' · ') }}</small>
@@ -91,6 +91,6 @@ const selectedScopeCount = computed(() => workbench.selectedScopes.value.length)
 			</footer>
 		</section>
 
-		<p class="picker-footnote">本地静态快照 · 人物和作品图片来自 Bangumi CDN，加载失败时显示降级图标。</p>
+		<p class="picker-footnote">本地静态快照 · 图片经 Bangumi API 兼容代理加载，失败时显示降级图标。</p>
 	</div>
 </template>
