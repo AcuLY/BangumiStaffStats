@@ -158,7 +158,6 @@ const conditionTitle = (key: ConditionKey) => ({
 				<span class="query-summary__item" :aria-label="`职位：${appliedPositionLabel}`">{{ appliedPositionLabel }}</span>
 				<span class="query-summary__item" :aria-label="`收藏状态：${collectionLabel}`">{{ collectionLabel }}</span>
 				<span class="query-summary__item" :aria-label="`高级条件：${advancedCount ? `${advancedCount} 项已启用` : '未启用'}`">{{ advancedCount ? `${advancedCount} 项` : '无高级条件' }}</span>
-				<span class="query-summary__item" :aria-label="`应用范围：${workbench.queryScopeCount.value} 部`">{{ workbench.queryScopeCount.value }} 部</span>
 			</div>
 			<button ref="editorButton" class="query-summary__edit" type="button" aria-expanded="false" aria-controls="query-editor" @click="openEditor">
 				<AppIcon name="edit" :size="16" />

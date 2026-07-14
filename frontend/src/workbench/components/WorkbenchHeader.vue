@@ -37,7 +37,6 @@ const onModeKeydown = (event: KeyboardEvent, index: number) => {
 				<span class="workbench-brand__mark"><AppIcon name="brand" :size="25" /></span>
 				<span class="workbench-brand__copy">
 					<strong>Bangumi Staff Statistics</strong>
-					<small>人物工作台 · 静态原型</small>
 				</span>
 			</a>
 

@@ -17,7 +17,7 @@ const validAverage = (values: number[]) => {
 	return valid.length ? floorTwo(valid.reduce((sum, value) => sum + value, 0) / valid.length) : null
 }
 const formatScore = (value: number | null | undefined) => Number.isFinite(value) ? Number(value).toFixed(2) : '—'
-const slotLabel = (index: number) => index < 26 ? String.fromCharCode(65 + index) : String(index + 1)
+const slotLabel = (index: number) => String(index + 1)
 
 const ratedShared = computed(() => workbench.sharedSubjects.value.filter((subject) => Number(subject.collection?.rate || 0) > 0))
 const personalAverage = computed(() => validAverage(ratedShared.value.map((subject) => Number(subject.collection?.rate || 0))))
@@ -279,9 +279,9 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 					<div><span class="section-context">参与作品分布</span><h2>两人的参与作品分布</h2><p>去重后 {{ participation.total }} 部 · 共同占比 {{ participation.percentage(participation.shared).toFixed(1) }}%</p></div>
 				</div>
 				<div class="participation-labels" :style="{ gridTemplateColumns: `${Math.max(participation.onlyA, 0.001)}fr ${Math.max(participation.shared, 0.001)}fr ${Math.max(participation.onlyB, 0.001)}fr` }">
-					<span>A 单独参与 · {{ participation.onlyA }}</span><span>共同参与 · {{ participation.shared }}</span><span>B 单独参与 · {{ participation.onlyB }}</span>
+					<span>1 单独参与 · {{ participation.onlyA }}</span><span>共同参与 · {{ participation.shared }}</span><span>2 单独参与 · {{ participation.onlyB }}</span>
 				</div>
-				<div class="participation-bar" :style="{ gridTemplateColumns: `${Math.max(participation.onlyA, 0.001)}fr ${Math.max(participation.shared, 0.001)}fr ${Math.max(participation.onlyB, 0.001)}fr` }" :aria-label="`A 单独参与 ${participation.percentage(participation.onlyA).toFixed(1)}%，共同参与 ${participation.percentage(participation.shared).toFixed(1)}%，B 单独参与 ${participation.percentage(participation.onlyB).toFixed(1)}%`">
+				<div class="participation-bar" :style="{ gridTemplateColumns: `${Math.max(participation.onlyA, 0.001)}fr ${Math.max(participation.shared, 0.001)}fr ${Math.max(participation.onlyB, 0.001)}fr` }" :aria-label="`第 1 位人物单独参与 ${participation.percentage(participation.onlyA).toFixed(1)}%，共同参与 ${participation.percentage(participation.shared).toFixed(1)}%，第 2 位人物单独参与 ${participation.percentage(participation.onlyB).toFixed(1)}%`">
 					<span class="is-a">{{ participation.percentage(participation.onlyA).toFixed(1) }}%</span>
 					<span class="is-common">{{ participation.percentage(participation.shared).toFixed(1) }}%</span>
 					<span class="is-b">{{ participation.percentage(participation.onlyB).toFixed(1) }}%</span>

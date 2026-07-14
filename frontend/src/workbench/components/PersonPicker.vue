@@ -56,9 +56,7 @@ const candidateRangeEnd = computed(() => Math.min(
 	workbench.candidatePeople.value.length,
 ))
 
-const selectionSlot = (index: number) => index < 26
-	? String.fromCharCode(65 + index)
-	: String(index + 1)
+const selectionSlot = (index: number) => String(index + 1)
 
 const availablePositionOptions = (item: typeof workbench.selectedPeople.value[number]) =>
 	workbench.positions.value.filter((position) =>
