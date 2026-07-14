@@ -2,13 +2,15 @@
 import { computed, ref, watch } from 'vue'
 import type { Person, Subject } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
+import { useMediaQuery } from '../composables/useMediaQuery'
 import SafeImage from './SafeImage.vue'
 import AppIcon from './AppIcon.vue'
+import SubjectWorkList from './SubjectWorkList.vue'
 
 const workbench = useWorkbench()
-const showAllSharedWorks = ref(false)
+const isNarrow = useMediaQuery('(max-width: 480px)')
 const sharedPage = ref(1)
-const sharedPageSize = 16
+const sharedPageSize = 10
 const SUMMARY_THRESHOLD = 5
 
 const floorTwo = (value: number) => Math.floor(value * 100) / 100
@@ -206,19 +208,16 @@ const participationEntries = (person: Person, positionIds: number[], subjectId: 
 
 const sharedPageCount = computed(() => Math.max(1, Math.ceil(workbench.sharedSubjects.value.length / sharedPageSize)))
 const visibleSharedWorks = computed(() => {
-	if (showAllSharedWorks.value) return workbench.sharedSubjects.value
 	const start = (sharedPage.value - 1) * sharedPageSize
 	return workbench.sharedSubjects.value.slice(start, start + sharedPageSize)
 })
 const visibleRange = computed(() => {
-	if (showAllSharedWorks.value) return `1—${workbench.sharedSubjects.value.length}`
 	const start = (sharedPage.value - 1) * sharedPageSize
 	return `${workbench.sharedSubjects.value.length ? start + 1 : 0}—${Math.min(start + sharedPageSize, workbench.sharedSubjects.value.length)}`
 })
 
 watch(() => workbench.sharedSubjects.value.map((subject) => subject.id).join(','), () => {
 	sharedPage.value = 1
-	showAllSharedWorks.value = false
 })
 watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value, count) })
 </script>
@@ -246,7 +245,6 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 					</h2>
 					<p>从 {{ workbench.selectedUnionCount.value }} 部关联作品中找到 {{ workbench.sharedSubjects.value.length }} 部共同作品。</p>
 				</div>
-				<span class="analysis-status"><span aria-hidden="true" />{{ workbench.analysisStatus.value }}</span>
 			</div>
 
 			<div class="profile-stage" :class="`profile-stage--${selectedMode}`">
@@ -398,7 +396,7 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 				<details class="matrix-details" :open="workbench.selectedPeople.value.length < SUMMARY_THRESHOLD">
 					<summary>查看 {{ workbench.selectedPeople.value.length }} × {{ workbench.selectedPeople.value.length }} 两两关系矩阵</summary>
 					<div class="data-scroll-x">
-						<table class="matrix-table">
+						<table class="matrix-table" :style="{ '--matrix-size': workbench.selectedPeople.value.length }">
 							<thead><tr><th scope="col">组合</th><th v-for="item in workbench.selectedPeople.value" :key="item.person.id" scope="col">{{ workbench.personName(item.person) }}<small>{{ item.positionIds.map(workbench.positionLabel).join(' / ') }}</small></th></tr></thead>
 							<tbody>
 								<tr v-for="row in workbench.selectedPeople.value" :key="row.person.id">
@@ -416,38 +414,21 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 
 			<section class="analysis-section surface-panel" aria-labelledby="common-works-title">
 				<div class="section-heading"><div><h2 id="common-works-title">共同参与作品</h2><p>{{ workbench.sharedSubjects.value.length }} 部 · 按个人评分与站评分排序</p></div></div>
-				<div class="data-scroll-x">
-					<table class="works-table works-table--common" :style="{ '--selected-count': workbench.selectedPeople.value.length }">
-						<caption>同时展示作品封面、Bangumi 排名、全站评分、我的评分和每位人物的参与信息。</caption>
-						<thead><tr><th>作品</th><th>日期</th><th>Bangumi Rank</th><th>全站评分</th><th>我的评分</th><th v-for="item in workbench.selectedPeople.value" :key="item.person.id">{{ workbench.personName(item.person) }}<small>{{ item.positionIds.map(workbench.positionLabel).join(' / ') }}</small></th></tr></thead>
-						<tbody>
-							<tr v-for="subject in visibleSharedWorks" :key="subject.id">
-								<td>
-									<span class="work-cell">
-										<a :href="`https://bgm.tv/subject/${subject.id}`" target="_blank" rel="noreferrer" :aria-label="`打开${workbench.subjectName(subject)}`"><SafeImage :sources="workbench.subjectImageSources(subject)" :alt="`${workbench.subjectName(subject)}封面`" kind="subject" :width="42" :height="58" /></a>
-										<span><a :href="`https://bgm.tv/subject/${subject.id}`" target="_blank" rel="noreferrer"><strong>{{ workbench.subjectName(subject) }}</strong></a><small v-if="subject.name && subject.name !== workbench.subjectName(subject)">{{ subject.name }}</small></span>
-									</span>
-								</td>
-								<td>{{ subject.date || '—' }}</td>
-								<td>{{ subject.rank ? `#${subject.rank}` : '—' }}</td>
-								<td><b>{{ formatScore(subject.score) }}</b></td>
-								<td><b>{{ subject.collection?.rate ? formatScore(subject.collection.rate) : '—' }}</b></td>
-								<td v-for="item in workbench.selectedPeople.value" :key="item.person.id">
+				<SubjectWorkList :subjects="visibleSharedWorks" empty-text="当前选择没有共同作品。">
+					<template #participants="{ subject }">
+						<div class="shared-work-participants">
+							<div v-for="item in workbench.selectedPeople.value" :key="item.person.id" class="shared-work-participant">
+								<strong>{{ workbench.personName(item.person) }}</strong>
+								<span class="shared-work-participant__roles">
 									<span v-for="entry in participationEntries(item.person, item.positionIds, subject.id)" :key="`${entry.displayName}-${entry.roleLabel}`" class="role-entry"><b>{{ entry.displayName }}</b><small>{{ entry.roleLabel }}</small></span>
-								</td>
-							</tr>
-							<tr v-if="!workbench.sharedSubjects.value.length"><td :colspan="5 + workbench.selectedPeople.value.length" class="table-empty">当前选择没有共同作品。</td></tr>
-						</tbody>
-					</table>
-				</div>
+								</span>
+							</div>
+						</div>
+					</template>
+				</SubjectWorkList>
 				<div v-if="workbench.sharedSubjects.value.length > sharedPageSize" class="table-disclosure table-disclosure--pager">
 					<span>{{ visibleRange }} / {{ workbench.sharedSubjects.value.length }}</span>
-					<div>
-						<n-button quaternary size="small" :disabled="showAllSharedWorks || sharedPage <= 1" aria-label="共同作品上一页" @click="sharedPage--">上一页</n-button>
-						<span v-if="!showAllSharedWorks">第 {{ sharedPage }} / {{ sharedPageCount }} 页</span>
-						<n-button quaternary size="small" :disabled="showAllSharedWorks || sharedPage >= sharedPageCount" aria-label="共同作品下一页" @click="sharedPage++">下一页</n-button>
-						<n-button text type="primary" @click="showAllSharedWorks = !showAllSharedWorks">{{ showAllSharedWorks ? '恢复分页' : '展示全部' }}</n-button>
-					</div>
+					<n-pagination v-model:page="sharedPage" :page-count="sharedPageCount" :page-slot="isNarrow ? 2 : 4" />
 				</div>
 			</section>
 		</template>

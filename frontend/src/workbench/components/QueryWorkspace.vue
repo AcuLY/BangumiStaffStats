@@ -6,12 +6,13 @@ import AppIcon from './AppIcon.vue'
 
 const workbench = useWorkbench()
 type FocusableControl = { focus: () => void }
+type NaiveButtonHandle = { $el?: HTMLButtonElement }
 
 const userInput = ref<FocusableControl>()
 const subjectTypeInput = ref<FocusableControl>()
 const positionInput = ref<FocusableControl>()
 const collectionField = ref<HTMLFieldSetElement>()
-const editorButton = ref<HTMLButtonElement>()
+const editorButton = ref<NaiveButtonHandle>()
 const moreOptionsOpen = ref(false)
 const pendingCoStarPosition = ref<QueryPositionValue | null>(null)
 
@@ -59,7 +60,6 @@ const draftPositionOptions = computed(() => positionOptionsFor(workbench.queryDr
 const subjectLabel = computed(() => subjectOptions.find((item) => item.value === workbench.query.subjectType)?.label ?? String(workbench.query.subjectType))
 const activeMode = computed<WorkbenchMode>(() => workbench.mode.value)
 const positionStageLabel = computed(() => activeMode.value === 'ranking' ? '排行职位' : '参与职位')
-const positionStageHint = computed(() => activeMode.value === 'ranking' ? '本次排行使用 1 个职位' : '可选择 1 个或多个职位')
 const activeAppliedPositions = computed(() => workbench.query.positionsByMode[activeMode.value])
 const activeDraftPositions = computed(() => workbench.queryDraft.positionsByMode[activeMode.value])
 type QueryErrorKind = 'userId' | 'subjectType' | 'collections' | 'positions' | 'date' | 'rate' | 'favorite' | ''
@@ -182,7 +182,7 @@ watch(() => workbench.mode.value, () => {
 watch(() => workbench.queryEditing.value, async (editing) => {
 	if (editing) return
 	await nextTick()
-	editorButton.value?.focus()
+	editorButton.value?.$el?.focus()
 })
 
 const openEditor = async () => {
@@ -197,11 +197,6 @@ const openEditor = async () => {
 const closeEditor = () => {
 	if (workbench.queryLoading.value) return
 	workbench.queryEditing.value = false
-}
-
-const toggleEditor = () => {
-	if (workbench.queryEditing.value) closeEditor()
-	else openEditor()
 }
 
 const focusFirstInvalidField = async () => {
@@ -228,8 +223,8 @@ const conditionTitle = (key: ConditionKey) => ({
 </script>
 
 <template>
-	<section class="query-workspace" aria-labelledby="query-title">
-		<div class="query-summary" tabindex="-1">
+	<section class="query-workspace" :aria-labelledby="workbench.queryEditing.value ? 'query-editor-title' : 'query-title'">
+		<div v-if="!workbench.queryEditing.value" class="query-summary" tabindex="-1">
 			<div class="query-summary__title">
 				<h1 id="query-title">当前查询</h1>
 				<span role="status">{{ workbench.queryStatus.value }}</span>
@@ -252,19 +247,20 @@ const conditionTitle = (key: ConditionKey) => ({
 					</span>
 				</div>
 			</div>
-			<button
+			<n-button
 				ref="editorButton"
 				class="query-summary__toggle"
-				:class="{ 'is-open': workbench.queryEditing.value }"
-				type="button"
-				:aria-label="workbench.queryEditing.value ? '收起查询条件' : '展开查询条件'"
-				:title="workbench.queryEditing.value ? '收起查询条件' : '展开查询条件'"
-				:aria-expanded="workbench.queryEditing.value"
+				quaternary
+				circle
+				attr-type="button"
+				aria-label="展开查询条件"
+				title="展开查询条件"
+				:aria-expanded="false"
 				aria-controls="query-editor"
-				@click="toggleEditor"
+				@click="openEditor"
 			>
 				<AppIcon name="chevron" :size="18" />
-			</button>
+			</n-button>
 		</div>
 
 		<form v-if="workbench.queryEditing.value" id="query-editor" class="query-editor" novalidate aria-labelledby="query-editor-title" @submit.prevent="submitEditor" @input="workbench.clearQueryFeedback" @keydown.esc.stop.prevent="closeEditor">
@@ -273,6 +269,9 @@ const conditionTitle = (key: ConditionKey) => ({
 					<span class="section-context">{{ workbench.mode.value === 'ranking' ? '人物排行' : '共同参与分析' }}</span>
 					<h2 id="query-editor-title">编辑查询</h2>
 				</div>
+				<n-button class="query-editor__collapse" quaternary circle attr-type="button" aria-label="收起查询条件" title="收起查询条件" aria-controls="query-editor" :aria-expanded="true" @click="closeEditor">
+					<AppIcon name="chevron" :size="18" />
+				</n-button>
 			</div>
 
 			<div class="query-editor__stages">
@@ -370,7 +369,6 @@ const conditionTitle = (key: ConditionKey) => ({
 						<span class="query-stage-index" aria-hidden="true">2</span>
 						<div>
 							<h2 id="query-position-stage-title">{{ positionStageLabel }}</h2>
-							<span>{{ positionStageHint }}</span>
 						</div>
 					</header>
 					<div class="field field--positions" :class="{ 'is-error': queryErrorKind === 'positions' }">
@@ -391,34 +389,34 @@ const conditionTitle = (key: ConditionKey) => ({
 								v-model:value="pendingCoStarPosition"
 								:options="availableCoStarPositionOptions"
 								:status="queryErrorKind === 'positions' ? 'error' : undefined"
-								:input-props="{ name: 'coStarPosition', 'aria-labelledby': 'query-position-control-label', 'aria-invalid': queryErrorKind === 'positions', 'aria-describedby': queryErrorKind === 'positions' ? 'query-error-positions' : 'query-position-hint' }"
+								:input-props="{ name: 'coStarPosition', 'aria-labelledby': 'query-position-control-label', 'aria-invalid': queryErrorKind === 'positions', 'aria-describedby': queryErrorKind === 'positions' ? 'query-error-positions' : undefined }"
 								:disabled="workbench.queryLoading.value || !availableCoStarPositionOptions.length"
 								:placeholder="availableCoStarPositionOptions.length ? '选择要添加的职位…' : '所有职位均已添加'"
 								@update:value="workbench.clearQueryFeedback"
 							/>
-							<button
+							<n-button
 								class="query-position-add"
-								type="button"
+								secondary
+								circle
+								attr-type="button"
 								aria-label="添加所选职位"
 								title="添加所选职位"
 								:disabled="pendingCoStarPosition === null || workbench.queryLoading.value"
 								@click="addCoStarPosition"
 							>
 								<AppIcon name="plus" :size="18" />
-							</button>
+							</n-button>
 						</div>
 						<small v-if="fieldError('positions')" id="query-error-positions" class="query-field-error">{{ fieldError('positions') }}</small>
 					</div>
 					<div v-if="workbench.mode.value === 'co-star'" class="query-position-selection">
-						<p id="query-position-hint">按添加顺序生成候选分组，第一个职位默认展示。</p>
 						<ol v-if="activeDraftPositions.length" aria-label="已选参与职位">
 							<li v-for="(position, index) in activeDraftPositions" :key="String(position)">
-								<span class="query-stage-index" aria-hidden="true">{{ index + 1 }}</span>
+								<span class="query-position-order" aria-hidden="true">{{ index + 1 }}</span>
 								<strong>{{ draftPositionLabel(position) }}</strong>
-								<small v-if="index === 0">默认展示</small>
-								<button type="button" :aria-label="`移除${draftPositionLabel(position)}`" :disabled="workbench.queryLoading.value" @click="removeCoStarPosition(position)">
+								<n-button quaternary circle size="small" attr-type="button" :aria-label="`移除${draftPositionLabel(position)}`" :disabled="workbench.queryLoading.value" @click="removeCoStarPosition(position)">
 									<AppIcon name="close" :size="16" />
-								</button>
+								</n-button>
 							</li>
 						</ol>
 						<div v-else class="query-position-selection__empty">尚未添加职位</div>

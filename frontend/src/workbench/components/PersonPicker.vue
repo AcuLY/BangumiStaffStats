@@ -8,7 +8,6 @@ const props = withDefaults(defineProps<{ drawer?: boolean }>(), { drawer: false 
 const emit = defineEmits<{ close: [] }>()
 const workbench = useWorkbench()
 const selectedTrayCollapsed = ref(props.drawer)
-const candidatePageSize = computed(() => Math.max(1, Number(workbench.snapshot.value?.meta.ui?.pageSize || 8)))
 
 const selectedScopeCount = computed(() => workbench.selectedScopes.value.length)
 const candidatePositionLabel = computed(() => workbench.positionLabel(workbench.candidatePositionId.value))
@@ -55,14 +54,6 @@ const candidateRankById = computed(() => new Map(
 	currentPositionRanking.value.map((item, index) => [item.personId, index + 1]),
 ))
 const currentPositionTotal = computed(() => currentPositionRanking.value.length)
-const candidateRangeStart = computed(() => workbench.candidatePeople.value.length
-	? (workbench.candidatePage.value - 1) * candidatePageSize.value + 1
-	: 0)
-const candidateRangeEnd = computed(() => Math.min(
-	candidateRangeStart.value + workbench.candidatePageItems.value.length - 1,
-	workbench.candidatePeople.value.length,
-))
-
 const selectionSlot = (index: number) => String(index + 1)
 
 const availablePositionOptions = (item: typeof workbench.selectedPeople.value[number]) =>
@@ -89,7 +80,6 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 		<header class="picker-heading">
 			<div>
 				<h2>人物选择</h2>
-				<span class="status-line" role="status">{{ workbench.analysisStatus.value }}</span>
 			</div>
 			<button v-if="drawer" class="icon-button" type="button" aria-label="关闭人物选择" @click="emit('close')">
 				<AppIcon name="close" />
@@ -116,8 +106,10 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 			</button>
 			<div v-show="!selectedTrayCollapsed" id="selected-people-list" class="selected-people-list">
 				<article v-for="(item, index) in workbench.selectedPeople.value" :key="item.person.id" class="selected-person-row">
-					<span class="identity-marker">{{ selectionSlot(index) }}</span>
-					<SafeImage :sources="workbench.personImageSources(item.person)" :alt="workbench.personName(item.person)" kind="person" :width="36" :height="44" decorative />
+					<span class="selected-person-row__portrait">
+						<SafeImage :sources="workbench.personImageSources(item.person)" :alt="workbench.personName(item.person)" kind="person" :width="36" :height="44" decorative />
+						<span class="identity-marker">{{ selectionSlot(index) }}</span>
+					</span>
 					<span class="selected-person-row__copy">
 						<strong>{{ workbench.personName(item.person) }}</strong>
 						<span class="selected-person-row__positions">
@@ -198,7 +190,6 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 				</n-input>
 
 				<div class="candidate-result-summary" role="status" aria-live="polite">
-					<strong>{{ candidatePositionLabel }}</strong>
 					<span>{{ workbench.candidatePeople.value.length }} 人 · 第 {{ workbench.candidatePage.value }} / {{ workbench.candidatePageCount.value }} 页</span>
 				</div>
 
@@ -230,7 +221,6 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 					<span class="person-row__identity candidate-row__identity">
 						<strong>{{ workbench.personName(person) }}</strong>
 						<small>
-							<span class="candidate-position">{{ person.activePositionLabel }}</span>
 							<span class="candidate-rank">#{{ candidateRankById.get(person.id) ?? '—' }}</span>
 						</small>
 						<span v-if="otherSelectedIdentityLabels(person.id).length" class="candidate-other-positions">
@@ -250,13 +240,11 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 				</div>
 
 				<footer class="picker-pagination">
-					<span class="candidate-range">{{ candidateRangeStart }}—{{ candidateRangeEnd }} / {{ workbench.candidatePeople.value.length }}</span>
-					<n-pagination v-model:page="workbench.candidatePage.value" :page-count="workbench.candidatePageCount.value" :page-slot="5" />
+					<n-pagination v-model:page="workbench.candidatePage.value" size="small" :page-count="workbench.candidatePageCount.value" :page-slot="3" />
 				</footer>
 			</div>
 		</section>
 
-		<p class="picker-footnote">本地静态快照 · 图片经 Bangumi API 兼容代理加载，失败时显示降级图标。</p>
 	</div>
 </template>
 
@@ -287,18 +275,32 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 }
 
 .selected-person-row {
-	align-items: start;
-	padding-block: 8px;
+	grid-template-columns: 36px minmax(0, 1fr) 36px;
+	align-items: center;
+	gap: var(--space-2);
+	min-height: 56px;
+	padding-block: 6px;
 }
 
-.selected-person-row > .identity-marker,
-.selected-person-row > .safe-image,
-.selected-person-row > .selected-person-row__remove {
-	margin-top: 2px;
+.selected-person-row__portrait {
+	position: relative;
+	display: block;
+	width: 36px;
+	height: 44px;
+}
+
+.selected-person-row__portrait .identity-marker {
+	position: absolute;
+	top: -4px;
+	left: -8px;
+	z-index: 2;
+	width: 22px;
+	height: 22px;
+	box-shadow: 0 1px 3px color-mix(in oklab, var(--text-1) 18%, transparent);
 }
 
 .selected-person-row__copy {
-	gap: var(--space-2);
+	gap: 4px;
 }
 
 .selected-person-row__positions {
@@ -310,8 +312,8 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 .selected-identity-chip {
 	display: inline-flex;
 	align-items: center;
-	min-height: 28px;
-	padding-left: 8px;
+	min-height: 24px;
+	padding-left: 7px;
 	border: 1px solid var(--border);
 	border-radius: 6px;
 	background: var(--surface-sunken);
@@ -323,8 +325,8 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 	position: relative;
 	display: grid;
 	place-items: center;
-	width: 28px;
-	height: 28px;
+	width: 24px;
+	height: 24px;
 	padding: 0;
 	border: 0;
 	background: transparent;
@@ -346,8 +348,12 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 	width: 112px;
 }
 
-.candidate-result-summary span,
-.candidate-range {
+.selected-person-row__remove {
+	width: 36px;
+	height: 44px;
+}
+
+.candidate-result-summary span {
 	color: var(--text-3);
 	font-size: var(--text-caption);
 }
@@ -355,13 +361,9 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 .candidate-result-summary {
 	display: flex;
 	align-items: baseline;
-	justify-content: space-between;
+	justify-content: flex-end;
 	gap: var(--space-3);
-	margin: var(--space-3) 0 var(--space-2);
-}
-
-.candidate-result-summary strong {
-	font-size: var(--text-subheading);
+	margin: var(--space-2) 0 var(--space-1);
 }
 
 .candidate-row__identity {
@@ -380,10 +382,6 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 .candidate-row__identity small {
 	display: flex;
 	gap: var(--space-1);
-}
-
-.candidate-position {
-	color: var(--primary-text);
 }
 
 .candidate-rank,
@@ -418,8 +416,26 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 }
 
 .picker-pagination {
-	justify-content: space-between;
-	gap: 8px;
+	justify-content: center;
+	width: 100%;
+	min-width: 0;
+	padding: 8px 0 0;
+	overflow: visible;
+}
+
+.picker-pagination :deep(.n-pagination) {
+	max-width: 100%;
+}
+
+.person-row--candidate {
+	width: 100%;
+	min-height: 52px;
+	margin-inline: 0;
+	padding: 4px 0;
+}
+
+.person-picker--drawer .candidate-browser {
+	padding-bottom: max(var(--section-pad), env(safe-area-inset-bottom));
 }
 
 @media (max-width: 420px) {

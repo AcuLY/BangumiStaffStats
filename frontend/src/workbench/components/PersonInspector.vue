@@ -2,17 +2,19 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import type { Subject } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
+import { useMediaQuery } from '../composables/useMediaQuery'
 import { PROFILE_EXTRAS } from '../data/profileExtras'
 import SafeImage from './SafeImage.vue'
 import AppIcon from './AppIcon.vue'
+import SubjectWorkList from './SubjectWorkList.vue'
 
 const workbench = useWorkbench()
+const isNarrow = useMediaQuery('(max-width: 480px)')
 type WorkSort = 'score' | 'personal' | 'collects' | 'rank' | 'date'
 
 const workSort = ref<WorkSort>('score')
 const workPage = ref(1)
 const workPageSize = ref(10)
-const showAllWorks = ref(false)
 const workSortOptions: Array<{ label: string; value: WorkSort }> = [
 	{ label: '全站评分优先', value: 'score' },
 	{ label: '我的评分优先', value: 'personal' },
@@ -77,14 +79,10 @@ const sortedWorks = computed(() => [...workbench.focusedSubjects.value].sort((a,
 }))
 const workPageCount = computed(() => Math.max(1, Math.ceil(sortedWorks.value.length / workPageSize.value)))
 const workPageStart = computed(() => (workPage.value - 1) * workPageSize.value)
-const visibleWorks = computed(() => showAllWorks.value
-	? sortedWorks.value
-	: sortedWorks.value.slice(workPageStart.value, workPageStart.value + workPageSize.value))
+const visibleWorks = computed(() => sortedWorks.value.slice(workPageStart.value, workPageStart.value + workPageSize.value))
 const workRange = computed(() => ({
-	start: sortedWorks.value.length ? (showAllWorks.value ? 1 : workPageStart.value + 1) : 0,
-	end: showAllWorks.value
-		? sortedWorks.value.length
-		: Math.min(workPageStart.value + workPageSize.value, sortedWorks.value.length),
+	start: sortedWorks.value.length ? workPageStart.value + 1 : 0,
+	end: Math.min(workPageStart.value + workPageSize.value, sortedWorks.value.length),
 }))
 
 const preference = computed(() => workbench.focusedAllSubjects.value
@@ -101,7 +99,6 @@ const moreConservative = computed(() => preference.value.filter((item) => item.d
 const focusWork = async (subject: Subject) => {
 	workbench.focusedWorkSearch.value = workbench.subjectName(subject)
 	workPage.value = 1
-	showAllWorks.value = false
 	await nextTick()
 	document.querySelector<HTMLInputElement>('input[aria-label="搜索参与作品"]')?.focus()
 }
@@ -115,17 +112,6 @@ const roleSummary = (subject: Subject) => {
 		`${role.displayName || role.nameCN || role.name || '角色'} · ${roleLabel(role.roleLabel)}`,
 	).join(' / ')
 }
-const subjectSecondaryName = (subject: Subject) => {
-	const primary = workbench.subjectName(subject)
-	return [subject.name, subject.nameCN].find((name) => name && name !== primary) ?? ''
-}
-const collectionLabel = (type?: number) => ({
-	1: '想看',
-	2: '看过',
-	3: '在看',
-	4: '搁置',
-	5: '抛弃',
-})[Number(type)] ?? '收藏'
 const numberFormatters = new Map<number, Intl.NumberFormat>()
 const numberFormatter = (digits: number) => {
 	if (!numberFormatters.has(digits)) numberFormatters.set(digits, new Intl.NumberFormat('zh-CN', {
@@ -134,19 +120,12 @@ const numberFormatter = (digits: number) => {
 	}))
 	return numberFormatters.get(digits)!
 }
-const integerFormatter = new Intl.NumberFormat('zh-CN')
-const dateFormatter = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' })
 const formatScore = (value?: number | null, digits = 2) => Number(value) > 0
 	? numberFormatter(digits).format(Number(value))
 	: '—'
 const formatDelta = (value: number) => `${value > 0 ? '+' : ''}${numberFormatter(1).format(value)}`
-const formatDate = (value?: string) => value
-	? dateFormatter.format(new Date(`${value}T00:00:00Z`))
-	: '—'
-
 watch([workbench.focusedPersonId, workbench.focusedWorkSearch, workSort, workPageSize], () => {
 	workPage.value = 1
-	showAllWorks.value = false
 })
 watch(workPageCount, (count) => {
 	workPage.value = Math.min(workPage.value, count)
@@ -269,32 +248,13 @@ watch(workPageCount, (count) => {
 				<n-select v-model:value="workSort" :options="workSortOptions" aria-label="参与作品排序" />
 				<n-select v-model:value="workPageSize" :options="workPageSizeOptions" aria-label="每页作品数" />
 			</div>
-			<ul class="person-work-list" aria-label="参与作品列表" :aria-busy="false">
-				<li v-for="subject in visibleWorks" :key="subject.id" class="person-work-row">
-					<span class="work-cell person-work-row__work">
-						<SafeImage :sources="workbench.subjectImageSources(subject)" :alt="`${workbench.subjectName(subject)}封面`" kind="subject" :width="36" :height="48" decorative />
-						<span class="work-cell__copy">
-							<a :href="`https://bgm.tv/subject/${subject.id}`" target="_blank" rel="noopener noreferrer">{{ workbench.subjectName(subject) }}</a>
-							<small v-if="subjectSecondaryName(subject)">{{ subjectSecondaryName(subject) }}</small>
-							<small class="work-cell__roles">{{ roleSummary(subject) }}</small>
-						</span>
-					</span>
-					<dl class="person-work-row__facts">
-						<div><dt>日期</dt><dd><time :datetime="subject.date || undefined">{{ formatDate(subject.date) }}</time></dd></div>
-						<div><dt translate="no">Bangumi</dt><dd><strong>{{ formatScore(subject.score) }}</strong><small><span translate="no">Rank</span> {{ subject.rank || '—' }}</small></dd></div>
-						<div><dt>收藏</dt><dd><strong>{{ integerFormatter.format(Number(subject.favoriteCount || 0)) }}</strong><small>{{ collectionLabel(subject.collection?.type) }}</small></dd></div>
-						<div><dt>我的评分</dt><dd><b>{{ formatScore(subject.collection?.rate) }}</b></dd></div>
-					</dl>
-				</li>
-				<li v-if="!visibleWorks.length" class="person-work-list__empty">没有符合当前搜索条件的作品。</li>
-			</ul>
+			<SubjectWorkList :subjects="visibleWorks" empty-text="没有符合当前搜索条件的作品。">
+				<template #role="{ subject }"><span class="subject-work-role">{{ roleSummary(subject) }}</span></template>
+			</SubjectWorkList>
 			<div class="table-disclosure rank-work-pagination" role="status" aria-live="polite">
 				<span>{{ workRange.start }}—{{ workRange.end }} / {{ sortedWorks.length }}</span>
 				<div class="rank-work-pagination__controls">
-					<n-pagination v-if="!showAllWorks" v-model:page="workPage" :page-count="workPageCount" :page-slot="4" />
-					<n-button v-if="sortedWorks.length > workPageSize" text type="primary" @click="showAllWorks = !showAllWorks">
-						{{ showAllWorks ? '恢复分页' : '展示全部' }}
-					</n-button>
+					<n-pagination v-model:page="workPage" :page-count="workPageCount" :page-slot="isNarrow ? 2 : 4" />
 				</div>
 			</div>
 		</section>

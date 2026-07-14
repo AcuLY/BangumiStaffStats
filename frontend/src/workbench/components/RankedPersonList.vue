@@ -77,7 +77,6 @@ const isCandidate = (person: Person | CandidatePerson): person is CandidatePerso
 						<strong>{{ formatScore(workbench.rankingValue(person, 'overall'), Boolean(person.ratedSubjectCount)) }}</strong>
 					</span>
 				</span>
-				<AppIcon class="person-row__arrow" name="arrow" :size="17" />
 			</button>
 
 			<button

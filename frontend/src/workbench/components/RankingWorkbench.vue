@@ -9,6 +9,7 @@ import AppIcon from './AppIcon.vue'
 
 const workbench = useWorkbench()
 const isMobile = useMediaQuery('(max-width: 780px)')
+const isNarrow = useMediaQuery('(max-width: 480px)')
 
 const sortOptions: Array<{ label: string; value: RankingMetric }> = [
 	{ label: '作品数', value: 'count' },
@@ -64,30 +65,34 @@ watch(isMobile, (mobile) => {
 					<span>排序维度</span>
 					<n-select v-model:value="workbench.rankingMetric.value" :options="sortOptions" />
 				</label>
-				<button
+				<n-button
 					class="order-button"
-					type="button"
+					secondary
+					attr-type="button"
 					:aria-label="workbench.rankingAscend.value ? '当前升序，切换为降序' : '当前降序，切换为升序'"
 					@click="workbench.rankingAscend.value = !workbench.rankingAscend.value"
 				>
-					<AppIcon class="sort-direction" name="chevron" :class="{ 'is-ascending': workbench.rankingAscend.value }" />
+					<template #icon><AppIcon class="sort-direction" name="chevron" :class="{ 'is-ascending': workbench.rankingAscend.value }" /></template>
 					{{ workbench.rankingAscend.value ? '升序' : '降序' }}
-				</button>
+				</n-button>
 			</div>
 
-			<div class="list-columns list-columns--ranking" aria-hidden="true">
-				<span>#</span>
-				<span>人物</span>
-				<span class="list-columns__metrics"><span>作品</span><span>均分</span><span>综合</span></span>
+			<div class="ranking-list-scroll">
+				<div class="list-columns list-columns--ranking" aria-hidden="true">
+					<span>#</span>
+					<span />
+					<span>人物</span>
+					<span class="list-columns__metrics"><span>作品</span><span>均分</span><span>综合</span></span>
+				</div>
+				<RankedPersonList
+					:items="workbench.rankingPageItems.value"
+					variant="ranking"
+					:rank-offset="rankOffset"
+					empty-title="当前查询没有匹配人物"
+					empty-description="请调整 UID、条目类型、职位或收藏范围。"
+					@activate="activatePerson"
+				/>
 			</div>
-			<RankedPersonList
-				:items="workbench.rankingPageItems.value"
-				variant="ranking"
-				:rank-offset="rankOffset"
-				empty-title="当前查询没有匹配人物"
-				empty-description="请调整 UID、条目类型、职位或收藏范围。"
-				@activate="activatePerson"
-			/>
 
 			<footer class="pane-pagination pane-pagination--ranking">
 				<div class="pane-pagination__meta">
@@ -97,7 +102,7 @@ watch(isMobile, (mobile) => {
 				<n-pagination
 					v-model:page="workbench.rankingPage.value"
 					:page-count="workbench.rankingPageCount.value"
-					:page-slot="4"
+					:page-slot="isNarrow ? 2 : 4"
 				/>
 			</footer>
 		</aside>

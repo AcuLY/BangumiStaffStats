@@ -50,10 +50,6 @@ watch(isMobile, (mobile) => {
 				<AppIcon name="chevron" :size="17" />
 			</button>
 			<AnalysisDashboard />
-			<footer class="workbench-footer">
-			<strong><span translate="no">Bangumi Staff Statistics</span> · 人物工作台</strong>
-				<span>数据来自本地静态快照；合作默契为原型计算。</span>
-			</footer>
 		</section>
 
 		<n-drawer v-if="isMobile" v-model:show="workbench.peopleDrawerOpen.value" placement="left" width="min(390px, calc(100vw - 24px))" aria-label="人物选择">
