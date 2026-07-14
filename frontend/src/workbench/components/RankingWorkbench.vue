@@ -116,9 +116,9 @@ watch(isMobile, (mobile) => {
 				<template #header>
 					<div class="drawer-custom-heading">
 						<strong>人物详情</strong>
-						<button class="icon-button" type="button" aria-label="关闭人物详情" @click="workbench.inspectorDrawerOpen.value = false">
-							<AppIcon name="close" />
-						</button>
+						<n-button class="drawer-close-button" quaternary circle attr-type="button" aria-label="关闭人物详情" @click="workbench.inspectorDrawerOpen.value = false">
+							<template #icon><AppIcon name="close" /></template>
+						</n-button>
 					</div>
 				</template>
 				<div id="ranking-inspector"><PersonInspector /></div>

@@ -60,16 +60,18 @@ const onModeKeydown = (event: KeyboardEvent, index: number) => {
 				</button>
 			</nav>
 
-			<button
+			<n-button
 				class="theme-toggle"
-				type="button"
+				quaternary
+				circle
+				attr-type="button"
 				:aria-pressed="workbench.theme.value === 'dark'"
 				:aria-label="workbench.theme.value === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
 				:title="workbench.theme.value === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
 				@click="workbench.toggleTheme"
 			>
-				<AppIcon :name="workbench.theme.value === 'dark' ? 'sun' : 'moon'" :size="17" />
-			</button>
+				<template #icon><AppIcon :name="workbench.theme.value === 'dark' ? 'sun' : 'moon'" :size="17" /></template>
+			</n-button>
 
 		</div>
 		<div class="workbench-header__query">

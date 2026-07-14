@@ -55,7 +55,8 @@ const load = async () => {
 		positionData.value = fixtures.positionData
 		workbench.focusedPersonId.value = workbench.rankingPeople.value[0]?.id ?? 0
 	} catch (reason) {
-		error.value = reason instanceof Error ? reason.message : '本地静态数据加载失败。'
+		console.error('Failed to load workbench data', reason)
+		error.value = '请稍后重试。'
 	} finally {
 		loading.value = false
 	}
@@ -114,14 +115,14 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnUnsavedQu
 					<main id="workbench-main" class="workbench-body" tabindex="-1">
 						<div v-if="loading" class="workbench-state surface-panel" role="status" aria-live="polite" aria-busy="true">
 							<span class="state-icon state-icon--loading"><AppIcon name="brand" :size="28" /></span>
-							<h1>正在整理本地人物快照…</h1>
-							<p>人物、作品与职位数据会从本项目的静态 JSON 读取。</p>
+							<h1>正在加载人物数据…</h1>
+							<p>正在准备人物、作品与职位信息。</p>
 							<div class="skeleton-lines" aria-hidden="true"><i /><i /><i /></div>
 						</div>
 
 						<div v-else-if="error" class="workbench-state surface-panel" role="alert">
 							<span class="state-icon"><AppIcon name="image" :size="28" /></span>
-							<h1>本地数据没有加载成功</h1>
+							<h1>无法加载人物数据</h1>
 							<p>{{ error }}</p>
 							<n-button type="primary" @click="load">重新加载</n-button>
 						</div>

@@ -18,10 +18,10 @@ const pendingCoStarPosition = ref<QueryPositionValue | null>(null)
 
 const subjectOptions = [
 	{ label: '动画', value: 2 },
-	{ label: '书籍（静态快照未载入）', value: 1, disabled: true },
-	{ label: '音乐（静态快照未载入）', value: 3, disabled: true },
-	{ label: '游戏（静态快照未载入）', value: 4, disabled: true },
-	{ label: '影视（静态快照未载入）', value: 6, disabled: true },
+	{ label: '书籍', value: 1, disabled: true },
+	{ label: '音乐', value: 3, disabled: true },
+	{ label: '游戏', value: 4, disabled: true },
+	{ label: '影视', value: 6, disabled: true },
 ]
 
 const positionVocabulary: Record<number, string[]> = {
@@ -40,7 +40,7 @@ const collectionVocabulary: Record<number, [string, string]> = {
 }
 
 const advancedOptions = [
-	{ key: 'isGlobal', title: '全站口径模拟', description: '使用当前静态数据切换到 Bangumi 全站评分口径。' },
+	{ key: 'isGlobal', title: '全站口径', description: '不限定个人收藏范围。' },
 	{ key: 'showNSFW', title: '显示 NSFW 条目', description: '包含在 Bangumi 标记为 NSFW 的条目。' },
 	{ key: 'date', title: '播出时间范围', description: '按条目播出、出版或发行月份筛选。' },
 	{ key: 'rate', title: '分数范围', description: '个人模式使用我的评分，全站模式使用全站评分。' },

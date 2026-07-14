@@ -18,15 +18,18 @@ watch(isMobile, (mobile) => {
 <template>
 		<div id="mode-panel-co-star" class="co-star-workbench" :class="{ 'is-rail-collapsed': railCollapsed }" role="tabpanel" aria-labelledby="mode-tab-co-star">
 		<aside v-if="!isMobile" class="people-rail surface-panel" :aria-label="railCollapsed ? '人物选择面板已收起' : '人物选择面板'">
-			<button
+			<n-button
 				class="rail-toggle"
-				type="button"
+				secondary
+				circle
+				size="small"
+				attr-type="button"
 				:aria-expanded="!railCollapsed"
 				:aria-label="railCollapsed ? '展开人物选择面板' : '收起人物选择面板'"
 				@click="railCollapsed = !railCollapsed"
 			>
-				<AppIcon name="chevron" :size="17" />
-			</button>
+				<template #icon><AppIcon name="chevron" :size="17" /></template>
+			</n-button>
 			<div v-if="railCollapsed" class="collapsed-rail">
 				<strong>{{ workbench.selectedPeople.value.length }}</strong>
 				<span>选择人物</span>

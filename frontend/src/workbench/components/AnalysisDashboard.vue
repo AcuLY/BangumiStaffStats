@@ -234,7 +234,6 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 		<section class="relationship-hero surface-panel" aria-labelledby="analysis-title">
 			<div class="analysis-title-row">
 				<div>
-					<span class="section-context">当前选择 · {{ workbench.selectedPeople.value.length }} 人</span>
 					<h2 id="analysis-title">
 						<template v-if="selectedMode === 'pair'">
 							{{ workbench.personName(workbench.selectedPeople.value[0]?.person) }}
@@ -319,7 +318,7 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 				<div v-if="chemistry" class="metric-with-tip">
 					<small>合作默契指数</small><strong>{{ chemistry.score }}</strong><span>/ 100</span>
 					<n-popover trigger="hover" placement="bottom">
-						<template #trigger><button type="button" class="metric-info" aria-label="查看合作默契指数计算说明"><AppIcon name="info" :size="14" /></button></template>
+						<template #trigger><n-button class="metric-info" quaternary circle size="tiny" attr-type="button" aria-label="查看合作默契指数计算说明"><template #icon><AppIcon name="info" :size="14" /></template></n-button></template>
 						<div class="metric-formula"><p>共同参与频次、评分表现与活跃年份覆盖综合计算，仅供参考。</p><span>频次 {{ chemistry.frequency }} × 35%</span><span>评分 {{ chemistry.rating }} × 40%</span><span>稳定性 {{ chemistry.stability }} × 25%</span></div>
 					</n-popover>
 				</div>
@@ -349,7 +348,7 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 				</section>
 
 				<section class="analysis-section surface-panel" aria-labelledby="relationship-signals-title">
-					<div class="section-heading"><div><h2 id="relationship-signals-title">关系信号</h2><p>基于当前选择与共同作品。</p></div></div>
+					<div class="section-heading"><div><h2 id="relationship-signals-title">关系信号</h2></div></div>
 					<div class="signal-grid">
 						<div><small>合作评分提升</small><strong>{{ relationshipLift === null ? '—' : `${relationshipLift >= 0 ? '+' : ''}${formatScore(relationshipLift)}` }}</strong><span>共同均分 − 人物均分基线</span></div>
 						<div><small>合作跨度</small><strong>{{ timelineStats.first && timelineStats.last ? timelineStats.last - timelineStats.first : 0 }} 年</strong><span>{{ timelineStats.first }}—{{ timelineStats.last }} · {{ workbench.sharedSubjects.value.length }} 部</span></div>

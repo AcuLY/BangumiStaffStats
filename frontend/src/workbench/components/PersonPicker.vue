@@ -53,7 +53,6 @@ const currentPositionRanking = computed(() => [...workbench.peopleById.value.val
 const candidateRankById = computed(() => new Map(
 	currentPositionRanking.value.map((item, index) => [item.personId, index + 1]),
 ))
-const currentPositionTotal = computed(() => currentPositionRanking.value.length)
 const selectionSlot = (index: number) => String(index + 1)
 
 const availablePositionOptions = (item: typeof workbench.selectedPeople.value[number]) =>
@@ -81,9 +80,9 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 			<div>
 				<h2>人物选择</h2>
 			</div>
-			<button v-if="drawer" class="icon-button" type="button" aria-label="关闭人物选择" @click="emit('close')">
+			<n-button v-if="drawer" class="drawer-close-button" quaternary circle attr-type="button" aria-label="关闭人物选择" title="关闭人物选择" @click="emit('close')">
 				<AppIcon name="close" />
-			</button>
+			</n-button>
 		</header>
 
 		<section class="selected-tray" aria-labelledby="selected-people-title">
@@ -115,13 +114,17 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 						<span class="selected-person-row__positions">
 							<span v-for="positionId in item.positionIds" :key="positionId" class="selected-identity-chip">
 								{{ workbench.positionLabel(positionId) }}
-								<button
-									type="button"
+								<n-button
+									class="selected-identity-remove"
+									quaternary
+									circle
+									size="tiny"
+									attr-type="button"
 									:aria-label="`移除${workbench.personName(item.person)}的${workbench.positionLabel(positionId)}身份`"
 									@click="workbench.toggleScope(item.person.id, positionId)"
 								>
 									<AppIcon name="close" :size="12" />
-								</button>
+								</n-button>
 							</span>
 							<n-select
 								v-if="availablePositionOptions(item).length"
@@ -135,9 +138,9 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 							/>
 						</span>
 					</span>
-					<button class="selected-person-row__remove" type="button" :aria-label="`移除${workbench.personName(item.person)}的全部身份`" @click="workbench.removePerson(item.person.id)">
+					<n-button class="selected-person-row__remove" quaternary circle attr-type="button" :aria-label="`移除${workbench.personName(item.person)}的全部身份`" :title="`移除${workbench.personName(item.person)}`" @click="workbench.removePerson(item.person.id)">
 						<AppIcon name="close" :size="16" />
-					</button>
+					</n-button>
 				</article>
 				<div v-if="!workbench.selectedPeople.value.length" class="selected-empty">从下方候选中选择至少两个人物。</div>
 			</div>
@@ -146,7 +149,6 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 		<section class="candidate-browser" aria-labelledby="candidate-title">
 			<div class="picker-section-heading">
 				<strong id="candidate-title">候选人物</strong>
-				<span role="status" aria-live="polite">{{ currentPositionTotal }} 人</span>
 			</div>
 
 			<div class="candidate-position-browser">
@@ -185,12 +187,12 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 				:role="drawer ? 'region' : 'tabpanel'"
 				:aria-labelledby="drawer ? 'candidate-title' : `candidate-position-tab-${workbench.candidatePositionId.value}`"
 			>
-				<n-input class="candidate-search" v-model:value="workbench.candidateSearch.value" clearable autocomplete="off" :placeholder="`在 ${currentPositionTotal} 位${candidatePositionLabel}中筛选…`" :aria-label="`搜索${candidatePositionLabel}候选人物`" :input-props="{ name: 'candidateSearch', spellcheck: 'false' }">
+				<n-input class="candidate-search" v-model:value="workbench.candidateSearch.value" clearable autocomplete="off" placeholder="筛选当前结果…" :aria-label="`搜索${candidatePositionLabel}候选人物`" :input-props="{ name: 'candidateSearch', spellcheck: 'false' }">
 					<template #prefix><AppIcon name="search" :size="16" /></template>
 				</n-input>
 
 				<div class="candidate-result-summary" role="status" aria-live="polite">
-					<span>{{ workbench.candidatePeople.value.length }} 人 · 第 {{ workbench.candidatePage.value }} / {{ workbench.candidatePageCount.value }} 页</span>
+					<span>第 {{ workbench.candidatePage.value }} / {{ workbench.candidatePageCount.value }} 页</span>
 				</div>
 
 				<div class="person-list person-list--candidate">
@@ -321,26 +323,22 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 	font-size: var(--text-control);
 }
 
-.selected-identity-chip button {
+.selected-identity-remove {
 	position: relative;
-	display: grid;
-	place-items: center;
 	width: 24px;
+	min-width: 24px;
 	height: 24px;
-	padding: 0;
-	border: 0;
-	background: transparent;
+	min-height: 24px;
 	color: var(--text-3);
-	cursor: pointer;
 }
 
-.selected-identity-chip button::before {
+.selected-identity-remove::before {
 	position: absolute;
 	inset: -8px;
 	content: "";
 }
 
-.selected-identity-chip button:hover {
+.selected-identity-remove:hover {
 	color: var(--error);
 }
 
@@ -350,7 +348,22 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 
 .selected-person-row__remove {
 	width: 36px;
-	height: 44px;
+	min-width: 36px;
+	height: 36px;
+	min-height: 36px;
+}
+
+@media (max-width: 780px) {
+	.selected-person-row {
+		grid-template-columns: 36px minmax(0, 1fr) 44px;
+	}
+
+	.selected-person-row__remove {
+		width: 44px;
+		min-width: 44px;
+		height: 44px;
+		min-height: 44px;
+	}
 }
 
 .candidate-result-summary span {

@@ -117,7 +117,6 @@ export interface WorkbenchContext {
 	relationshipMatrix: ComputedRef<Array<{ person: Person; values: number[] }>>
 	peopleDrawerOpen: Ref<boolean>
 	inspectorDrawerOpen: Ref<boolean>
-	analysisStatus: ComputedRef<string>
 }
 
 const workbenchKey: InjectionKey<WorkbenchContext> = Symbol('person-workbench')
@@ -195,7 +194,7 @@ export function provideWorkbench(
 		.filter((value) => Number.isFinite(value))
 	const rankingPositionIds = computed(() => numericPositionIds(query, 'ranking'))
 	const coStarPositionIds = computed(() => numericPositionIds(query, 'co-star'))
-	const queryStatus = ref('本地快照已应用')
+	const queryStatus = ref('正在加载')
 	const queryLoading = ref(false)
 	const queryError = ref('')
 	const queryFeedback = ref('')
@@ -374,9 +373,9 @@ export function provideWorkbench(
 		.filter((id) => queryScopeIds.value.has(id))
 
 	watch(queryScopeIds, (ids) => {
-		if (!snapshot.value) queryStatus.value = '正在载入本地快照'
-		else if (!queryUserMatchesFixture.value) queryStatus.value = '该 UID 不在本地快照中'
-		else if (!ids.size) queryStatus.value = '本地快照中没有匹配条目'
+		if (!snapshot.value) queryStatus.value = '正在加载'
+		else if (!queryUserMatchesFixture.value) queryStatus.value = '未找到此用户数据'
+		else if (!ids.size) queryStatus.value = '当前条件下没有匹配条目'
 		else queryStatus.value = `已应用 · ${ids.size} 部`
 	}, { immediate: true })
 
@@ -672,10 +671,6 @@ export function provideWorkbench(
 			new Set(column.subjectIds),
 		]).size),
 	})))
-	const analysisStatus = computed(() => selectedPeople.value.length >= 2
-		? `分析已更新 · ${selectedPeople.value.length} 人`
-		: '至少再选择 1 人')
-
 	const context: WorkbenchContext = {
 		snapshot,
 		positionData,
@@ -745,7 +740,6 @@ export function provideWorkbench(
 		relationshipMatrix,
 		peopleDrawerOpen,
 		inspectorDrawerOpen,
-		analysisStatus,
 	}
 
 	provide(workbenchKey, context)

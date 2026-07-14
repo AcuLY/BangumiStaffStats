@@ -257,27 +257,13 @@ table,
 	color: var(--on-primary);
 }
 
-.theme-toggle {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
+.n-button.theme-toggle {
 	justify-self: end;
 	width: 44px;
 	height: 44px;
 	min-width: 44px;
 	min-height: 44px;
-	padding: 0;
-	border: 1px solid var(--chrome-border);
-	border-radius: var(--radius-control);
-	background: var(--chrome-raised);
 	color: var(--chrome-text);
-	cursor: pointer;
-	transition: border-color 160ms ease-out, background-color 160ms ease-out;
-}
-
-.theme-toggle:hover {
-	border-color: color-mix(in oklab, var(--primary) 70%, var(--chrome-border));
-	background: color-mix(in oklab, var(--primary) 12%, var(--chrome-raised));
 }
 
 .query-editor__head,
@@ -306,32 +292,6 @@ table,
 
 .query-editor__head p {
 	margin-top: 4px;
-}
-
-.icon-button {
-	display: inline-grid;
-	place-items: center;
-	width: var(--touch-target-min);
-	height: var(--touch-target-min);
-	padding: 0;
-	border: 0;
-	border-radius: var(--radius-control);
-	background: transparent;
-	color: var(--text-2);
-	cursor: pointer;
-}
-
-.icon-button:hover {
-	background: var(--hover);
-}
-
-.icon-button--chrome {
-	color: var(--chrome-muted);
-}
-
-.icon-button--chrome:hover {
-	background: color-mix(in oklab, var(--chrome-text) 8%, transparent);
-	color: var(--chrome-text);
 }
 
 .field {
@@ -1021,32 +981,26 @@ table,
 	gap: 4px;
 }
 
-.rail-toggle {
+.n-button.rail-toggle {
 	position: absolute;
 	top: 16px;
 	right: -15px;
 	z-index: 2;
-	display: grid;
-	place-items: center;
-	width: 30px;
+	width: 34px;
 	height: 34px;
-	padding: 0;
-	border: 1px solid var(--border);
-	border-radius: var(--radius-control);
-	background: var(--surface);
+	min-width: 34px;
 	color: var(--text-2);
-	cursor: pointer;
 }
 
-.rail-toggle:hover {
+.n-button.rail-toggle:hover {
 	color: var(--primary-text);
 }
 
-.rail-toggle svg {
+.n-button.rail-toggle svg {
 	transform: rotate(90deg);
 }
 
-.is-rail-collapsed .rail-toggle svg {
+.is-rail-collapsed .n-button.rail-toggle svg {
 	transform: rotate(-90deg);
 }
 
@@ -1316,7 +1270,9 @@ table,
 
 .analysis-profile__media {
 	width: 132px;
-	height: 180px;
+	height: auto;
+	min-height: 180px;
+	align-self: stretch;
 	border-radius: 0;
 }
 
@@ -1563,7 +1519,9 @@ table,
 
 	.analysis-profile__media {
 		width: 72px;
-		height: 136px;
+		height: auto;
+		min-height: 136px;
+		align-self: stretch;
 	}
 
 	.analysis-profile__content {
@@ -1828,7 +1786,9 @@ table,
 
 	.analysis-profile__media {
 		width: 60px;
-		height: 148px;
+		height: auto;
+		min-height: 148px;
+		align-self: stretch;
 	}
 
 	.analysis-profile__content {
@@ -2086,7 +2046,9 @@ table,
 .profile-stage--group .analysis-profile__media,
 .profile-stage--summary .analysis-profile__media {
 	width: 88px;
-	height: 132px;
+	height: auto;
+	min-height: 132px;
+	align-self: stretch;
 }
 
 .analysis-profile__stats {
@@ -2300,19 +2262,21 @@ table,
 	position: relative;
 }
 
-.metric-info {
+.n-button.metric-info {
 	position: absolute;
 	top: 12px;
 	right: 10px;
-	display: grid;
-	place-items: center;
 	width: 28px;
 	height: 28px;
-	padding: 0;
-	border: 0;
-	background: transparent;
+	min-width: 28px;
+	min-height: 28px;
 	color: var(--text-3);
-	cursor: pointer;
+}
+
+.n-button.drawer-close-button {
+	width: var(--touch-target-min);
+	height: var(--touch-target-min);
+	min-width: var(--touch-target-min);
 }
 
 .metric-formula {
@@ -2867,7 +2831,9 @@ table,
 	.profile-stage--group .analysis-profile__media,
 	.profile-stage--summary .analysis-profile__media {
 		width: 72px;
-		height: 148px;
+		height: auto;
+		min-height: 148px;
+		align-self: stretch;
 	}
 
 	.analysis-profile__content {
@@ -3395,13 +3361,15 @@ table,
 	.person-profile__intro {
 		grid-template-areas:
 			"portrait identity"
-			"bio bio";
+			"portrait bio";
 		grid-template-columns: 96px minmax(0, 1fr);
 	}
 
 	.person-profile__portrait {
 		width: 96px;
-		height: 132px;
+		height: auto;
+		min-height: 132px;
+		align-self: stretch;
 		border-radius: var(--radius-card) 0 0 0;
 	}
 
@@ -3759,6 +3727,7 @@ table,
 	width: 36px;
 	min-width: 36px;
 	height: 36px;
+	min-height: 36px;
 	border-left: 1px solid var(--divider);
 	border-radius: 0 var(--radius-control) var(--radius-control) 0;
 }
