@@ -12,6 +12,14 @@ export interface ImageSet {
 
 export interface PersonPosition {
 	subjectIds: number[]
+	rolesBySubject?: Record<string, PersonRole[]>
+}
+
+export interface PersonRole {
+	roleLabel?: string
+	displayName?: string
+	name?: string
+	nameCN?: string
 }
 
 export interface Person {
@@ -22,6 +30,7 @@ export interface Person {
 	displayName?: string
 	aliases?: string[]
 	career?: string[]
+	careers?: string[]
 	image?: ImageSet
 	position?: { id: number; label: string }
 	positions?: Record<string, PersonPosition>
@@ -30,7 +39,7 @@ export interface Person {
 	ratedSubjectCount?: number
 	userAverage?: number
 	globalAverage?: number
-	rolesBySubject?: Record<string, Array<{ roleLabel?: string; displayName?: string }>>
+	rolesBySubject?: Record<string, PersonRole[]>
 }
 
 export interface SubjectCollection {
@@ -43,6 +52,7 @@ export interface SubjectCollection {
 export interface Subject {
 	id: number
 	type?: number
+	nsfw?: boolean
 	name?: string
 	nameCN?: string
 	displayName?: string
@@ -60,6 +70,10 @@ export interface SnapshotMeta {
 	uid?: string
 	userId?: string
 	generatedAt?: string
+	ui?: {
+		pageSize?: number
+		summaryThreshold?: number
+	}
 	query?: {
 		positionId?: number
 		positionLabel?: string
@@ -99,9 +113,27 @@ export interface CandidatePerson extends Person {
 	activeAverage: number
 }
 
+export interface QueryRangeCondition {
+	enabled: boolean
+	value: [string, string]
+}
+
+export interface QueryTagCondition {
+	enabled: boolean
+	value: string[]
+}
+
 export interface QueryState {
+	isGlobal: boolean
+	showNSFW: boolean
 	userId: string
 	subjectType: number
 	positionId: number
+	position: number | string
 	collectionTypes: number[]
+	date: QueryRangeCondition
+	rate: QueryRangeCondition
+	favorite: QueryRangeCondition
+	positiveTags: QueryTagCondition
+	negativeTags: QueryTagCondition
 }

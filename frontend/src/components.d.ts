@@ -49,6 +49,7 @@ declare module 'vue' {
     NNotificationProvider: typeof import('naive-ui')['NNotificationProvider']
     NNumberAnimation: typeof import('naive-ui')['NNumberAnimation']
     NPagination: typeof import('naive-ui')['NPagination']
+    NPopover: typeof import('naive-ui')['NPopover']
     NSelect: typeof import('naive-ui')['NSelect']
     NSlider: typeof import('naive-ui')['NSlider']
     NSpace: typeof import('naive-ui')['NSpace']

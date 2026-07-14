@@ -14,6 +14,7 @@ import type {
 	CandidatePerson,
 	DesignDirection,
 	Person,
+	PersonRole,
 	PositionData,
 	QueryState,
 	RankingMetric,
@@ -30,6 +31,9 @@ const CANDIDATE_PAGE_SIZE = 8
 const unique = <T>(values: T[]) => [...new Set(values)]
 const floorTwo = (value: number) => Math.floor(value * 100) / 100
 const roundTwo = (value: number) => Math.round(value * 100) / 100
+const compactSearch = (value: unknown) => String(value ?? '')
+	.toLocaleLowerCase('zh-CN')
+	.replace(/[\s·・_-]/g, '')
 
 function average(values: number[]) {
 	const rated = values.filter((value) => value > 0)
@@ -55,7 +59,15 @@ export interface WorkbenchContext {
 	query: QueryState
 	queryDraft: QueryState
 	queryStatus: Ref<string>
-	applyQuery: () => void
+	queryLoading: Ref<boolean>
+	queryError: Ref<string>
+	queryDraftDirty: ComputedRef<boolean>
+	queryDraftStatus: ComputedRef<string>
+	queryScopeCount: ComputedRef<number>
+	queryScopeSubjectIds: ComputedRef<Set<number>>
+	applyQuery: () => boolean
+	cancelQuery: () => void
+	clearQueryFeedback: () => void
 	restoreQuery: () => void
 	peopleById: ComputedRef<Map<number, Person>>
 	subjectsById: ComputedRef<Map<number, Subject>>
@@ -67,8 +79,10 @@ export interface WorkbenchContext {
 	subjectImageSources: (subject?: Subject | null) => string[]
 	positionLabel: (positionId: number) => string
 	positionSubjectIds: (person: Person, positionId: number) => number[]
+	personSubjectRoles: (person: Person, subjectId: number, positionId?: number) => PersonRole[]
 	rankingMetric: Ref<RankingMetric>
 	rankingAscend: Ref<boolean>
+	rankingSearch: Ref<string>
 	rankingPage: Ref<number>
 	rankingPageSize: Ref<number>
 	rankingPeople: ComputedRef<Person[]>
@@ -126,20 +140,63 @@ export function provideWorkbench(
 	]
 
 	const queryEditing = ref(false)
-	const query = reactive<QueryState>({
+	const makeQueryState = (): QueryState => ({
+		isGlobal: false,
+		showNSFW: false,
 		userId: 'lucay126',
 		subjectType: 2,
 		positionId: 102,
+		position: 102,
 		collectionTypes: [2, 3],
+		date: { enabled: false, value: ['', ''] },
+		rate: { enabled: false, value: ['', ''] },
+		favorite: { enabled: false, value: ['', ''] },
+		positiveTags: { enabled: false, value: [] },
+		negativeTags: { enabled: false, value: [] },
 	})
-	const queryDraft = reactive<QueryState>({ ...query, collectionTypes: [...query.collectionTypes] })
+	const cloneQuery = (source: QueryState): QueryState => ({
+		...source,
+		collectionTypes: [...source.collectionTypes],
+		date: { ...source.date, value: [...source.date.value] as [string, string] },
+		rate: { ...source.rate, value: [...source.rate.value] as [string, string] },
+		favorite: { ...source.favorite, value: [...source.favorite.value] as [string, string] },
+		positiveTags: { ...source.positiveTags, value: [...source.positiveTags.value] },
+		negativeTags: { ...source.negativeTags, value: [...source.negativeTags.value] },
+	})
+	const querySignature = (source: QueryState) => JSON.stringify({
+		...cloneQuery(source),
+		collectionTypes: [...source.collectionTypes].map(Number).sort((a, b) => a - b),
+		positiveTags: {
+			...source.positiveTags,
+			value: source.positiveTags.value.map((tag) => tag.trim()).filter(Boolean),
+		},
+		negativeTags: {
+			...source.negativeTags,
+			value: source.negativeTags.value.map((tag) => tag.trim()).filter(Boolean),
+		},
+	})
+	const query = reactive<QueryState>(makeQueryState())
+	const queryDraft = reactive<QueryState>(cloneQuery(query))
 	const queryStatus = ref('本地快照已应用')
+	const queryLoading = ref(false)
+	const queryError = ref('')
+	const queryFeedback = ref('')
+	const queryDraftDirty = computed(() => querySignature(queryDraft) !== querySignature(query))
+	const queryDraftStatus = computed(() => {
+		if (queryLoading.value) return '正在查询人物与作品…'
+		if (queryFeedback.value) return queryFeedback.value
+		return queryDraftDirty.value ? '有未提交的更改' : '条件未更改'
+	})
+	let queryTimer: ReturnType<typeof setTimeout> | null = null
 
 	const restoreQuery = () => {
-		Object.assign(queryDraft, {
-			...query,
-			collectionTypes: [...query.collectionTypes],
-		})
+		Object.assign(queryDraft, cloneQuery(query))
+		queryError.value = ''
+		queryFeedback.value = '已撤销更改'
+	}
+	const clearQueryFeedback = () => {
+		queryError.value = ''
+		queryFeedback.value = ''
 	}
 
 	const subjectsById = computed(() => new Map(
@@ -205,6 +262,12 @@ export function provideWorkbench(
 		if (Number(person.position?.id) === Number(positionId)) return (person.subjectIds ?? []).map(Number)
 		return []
 	}
+	const personSubjectRoles = (person: Person, subjectId: number, positionId = query.positionId) => {
+		const positionRoles = person.positions?.[String(positionId)]?.rolesBySubject
+		if (positionRoles?.[String(subjectId)]) return positionRoles[String(subjectId)]
+		if (Number(positionId) !== 102) return []
+		return person.rolesBySubject?.[String(subjectId)] ?? []
+	}
 
 	const averageForIds = (ids: number[]) => average(ids.map((id) =>
 		Number(subjectsById.value.get(Number(id))?.collection?.rate || 0),
@@ -215,17 +278,68 @@ export function provideWorkbench(
 
 	const queryUserMatchesFixture = computed(() => {
 		const fixtureUserId = snapshot.value?.meta.uid || snapshot.value?.meta.userId || ''
-		return Boolean(fixtureUserId)
+		return query.isGlobal || (Boolean(fixtureUserId)
 			&& query.userId.trim().toLocaleLowerCase('en-US') === fixtureUserId.toLocaleLowerCase('en-US')
+		)
 	})
+	const insideQueryRange = (value: number, range: QueryState['rate']) => {
+		if (!range.enabled) return true
+		const [start, end] = range.value
+		return (start === '' || value >= Number(start)) && (end === '' || value <= Number(end))
+	}
+	const subjectTagSet = (subject: Subject) => new Set([
+		...(subject.metaTags ?? []),
+		...(subject.tags ?? []),
+		...(subject.collection?.tags ?? []),
+	]
+		.map((tag) => typeof tag === 'string' ? tag : tag?.name)
+		.map(compactSearch)
+		.filter(Boolean))
+	const tagMatches = (tags: Set<string>, value: string) => [...tags]
+		.some((tag) => tag.includes(compactSearch(value)) || compactSearch(value).includes(tag))
 	const queryScopeIds = computed(() => {
 		if (!queryUserMatchesFixture.value) return new Set<number>()
 		const allowedCollectionTypes = new Set(query.collectionTypes.map(Number))
 		return new Set((snapshot.value?.subjects ?? [])
 			.filter((subject) => Number(subject.type) === Number(query.subjectType))
-			.filter((subject) => allowedCollectionTypes.has(Number(subject.collection?.type)))
+			.filter((subject) => query.showNSFW || !subject.nsfw)
+			.filter((subject) => query.isGlobal || allowedCollectionTypes.has(Number(subject.collection?.type)))
+			.filter((subject) => {
+				if (!query.date.enabled) return true
+				const month = String(subject.date ?? '').slice(0, 7)
+				const [start, end] = query.date.value
+				return (!start || Boolean(month) && month >= start) && (!end || Boolean(month) && month <= end)
+			})
+			.filter((subject) => insideQueryRange(
+				query.isGlobal ? Number(subject.score || 0) : Number(subject.collection?.rate || 0),
+				query.rate,
+			))
+			.filter((subject) => insideQueryRange(Number(subject.favoriteCount || 0), query.favorite))
+			.filter((subject) => {
+				const tags = subjectTagSet(subject)
+				const positive = query.positiveTags.value.map((group) => group.trim()).filter(Boolean)
+				if (query.positiveTags.enabled && positive.length) {
+					const matchesEveryGroup = positive.every((group) => group
+						.split('/')
+						.map((tag) => tag.trim())
+						.filter(Boolean)
+						.some((tag) => tagMatches(tags, tag)))
+					if (!matchesEveryGroup) return false
+				}
+				const negative = query.negativeTags.value.map((group) => group.trim()).filter(Boolean)
+				if (query.negativeTags.enabled && negative.length) {
+					const matchesExcludedGroup = negative.some((group) => group
+						.split('+')
+						.map((tag) => tag.trim())
+						.filter(Boolean)
+						.every((tag) => tagMatches(tags, tag)))
+					if (matchesExcludedGroup) return false
+				}
+				return true
+			})
 			.map((subject) => Number(subject.id)))
 	})
+	const queryScopeCount = computed(() => queryScopeIds.value.size)
 	const scopeSubjectIds = (ids: number[]) => ids
 		.map(Number)
 		.filter((id) => queryScopeIds.value.has(id))
@@ -234,11 +348,12 @@ export function provideWorkbench(
 		if (!snapshot.value) queryStatus.value = '正在载入本地快照'
 		else if (!queryUserMatchesFixture.value) queryStatus.value = '该 UID 不在本地快照中'
 		else if (!ids.size) queryStatus.value = '本地快照中没有匹配条目'
-		else queryStatus.value = `本地快照 · ${ids.size} 部条目`
+		else queryStatus.value = `已应用 · ${ids.size} 部`
 	}, { immediate: true })
 
 	const rankingMetric = ref<RankingMetric>('count')
 	const rankingAscend = ref(false)
+	const rankingSearch = ref('')
 	const rankingPage = ref(1)
 	const rankingPageSize = ref(RANKING_PAGE_SIZE)
 	const focusedPersonId = ref(4697)
@@ -247,13 +362,18 @@ export function provideWorkbench(
 	const rankingValue = (person: Person, metric = rankingMetric.value) => {
 		if (metric === 'average') return Number(person.userAverage || 0)
 		if (metric === 'overall') {
+			if (!Number(person.ratedSubjectCount || 0)) return 0
 			const count = Number(person.subjectCount || 0)
 			return roundTwo((count * Number(person.userAverage || 0) + 25) / (count + 5))
 		}
 		return Number(person.subjectCount || 0)
 	}
 
-	const rankingPeople = computed(() => [...peopleById.value.values()]
+	const rankingPeople = computed(() => {
+		const searchValue = rankingSearch.value.trim()
+		const queryValue = compactSearch(searchValue)
+		const exactId = /^\d+$/.test(searchValue) ? Number(searchValue) : null
+		return [...peopleById.value.values()]
 		.map((person): Person | null => {
 			const subjectIds = scopeSubjectIds(positionSubjectIds(person, query.positionId))
 			if (!subjectIds.length) return null
@@ -269,11 +389,23 @@ export function provideWorkbench(
 			}
 		})
 		.filter((person): person is Person => Boolean(person))
+		.filter((person) => {
+			if (!queryValue) return true
+			if (exactId !== null) return Number(person.id) === exactId
+			return [personName(person), person.name, person.nameCN, ...(person.aliases ?? [])]
+				.some((value) => compactSearch(value).includes(queryValue))
+		})
 		.sort((a, b) => {
+			const aHasMetric = rankingMetric.value === 'count' || Number(a.ratedSubjectCount || 0) > 0
+			const bHasMetric = rankingMetric.value === 'count' || Number(b.ratedSubjectCount || 0) > 0
+			if (aHasMetric !== bHasMetric) return aHasMetric ? -1 : 1
 			const delta = rankingValue(a) - rankingValue(b)
 			if (delta !== 0) return rankingAscend.value ? delta : -delta
-			return Number(a.id) - Number(b.id)
-		}))
+			return Number(b.subjectCount || 0) - Number(a.subjectCount || 0)
+				|| Number(b.userAverage || 0) - Number(a.userAverage || 0)
+				|| Number(a.id) - Number(b.id)
+		})
+	})
 
 	const rankingPageCount = computed(() => Math.max(1, Math.ceil(rankingPeople.value.length / rankingPageSize.value)))
 	const rankingPageItems = computed(() => {
@@ -291,9 +423,21 @@ export function provideWorkbench(
 		.filter((subject): subject is Subject => Boolean(subject))
 		.sort((a, b) => Number(b.collection?.rate || 0) - Number(a.collection?.rate || 0) || Number(b.score || 0) - Number(a.score || 0)))
 	const focusedSubjects = computed(() => {
-		const queryValue = focusedWorkSearch.value.trim().toLocaleLowerCase('zh-CN')
+		const queryValue = compactSearch(focusedWorkSearch.value)
 		return focusedAllSubjects.value
-			.filter((subject) => !queryValue || subjectName(subject).toLocaleLowerCase('zh-CN').includes(queryValue))
+			.filter((subject) => {
+				if (!queryValue) return true
+				const roles = focusedPerson.value
+					? personSubjectRoles(focusedPerson.value, subject.id).flatMap((role) => [
+						role.displayName,
+						role.nameCN,
+						role.name,
+						role.roleLabel,
+					])
+					: []
+				return [subjectName(subject), subject.displayName, subject.nameCN, subject.name, ...roles]
+					.some((value) => compactSearch(value).includes(queryValue))
+			})
 	})
 	const focusedDistribution = computed(() => Array.from({ length: 10 }, (_, index) => ({
 		label: String(index + 1),
@@ -303,14 +447,20 @@ export function provideWorkbench(
 		value: focusedAllSubjects.value.filter((subject) => !Number(subject.collection?.rate || 0)).length,
 	}))
 
-	watch([rankingMetric, rankingAscend, rankingPageSize], () => { rankingPage.value = 1 })
+	watch([rankingMetric, rankingAscend, rankingSearch, rankingPageSize], () => { rankingPage.value = 1 })
 	watch(rankingPageCount, (count) => { rankingPage.value = Math.min(rankingPage.value, count) })
+	watch(rankingPeople, (people) => {
+		if (people.some((person) => Number(person.id) === Number(focusedPersonId.value))) return
+		focusedPersonId.value = people[0]?.id ?? 0
+		focusedWorkSearch.value = ''
+	})
 
 	const browsePositionId = ref(102)
 	const candidateSearch = ref('')
 	const candidateFilter = ref<CandidateFilter>('all')
 	const candidateSort = ref<'count' | 'average' | 'name'>('count')
 	const candidatePage = ref(1)
+	const candidatePageSize = computed(() => Math.max(1, Number(snapshot.value?.meta.ui?.pageSize || CANDIDATE_PAGE_SIZE)))
 	const selectedScopes = ref<SelectedScope[]>([
 		{ personId: 4697, positionId: 102 },
 		{ personId: 4765, positionId: 102 },
@@ -322,7 +472,9 @@ export function provideWorkbench(
 	const isScopeSelected = (personId: number, positionId: number) => selectionKeys.value.has(`${personId}:${positionId}`)
 
 	const candidatePeople = computed(() => {
-		const queryValue = candidateSearch.value.trim().toLocaleLowerCase('zh-CN')
+		const searchValue = candidateSearch.value.trim()
+		const queryValue = compactSearch(searchValue)
+		const exactId = /^\d+$/.test(searchValue) ? Number(searchValue) : null
 		return [...peopleById.value.values()]
 			.map((person): CandidatePerson | null => {
 				const ids = scopeSubjectIds(positionSubjectIds(person, browsePositionId.value))
@@ -339,8 +491,9 @@ export function provideWorkbench(
 			.filter((person): person is CandidatePerson => Boolean(person))
 			.filter((person) => {
 				if (!queryValue) return true
+				if (exactId !== null) return Number(person.id) === exactId
 				return [personName(person), person.name, person.nameCN, ...(person.aliases ?? [])]
-					.some((value) => value?.toLocaleLowerCase('zh-CN').includes(queryValue))
+					.some((value) => compactSearch(value).includes(queryValue))
 			})
 			.filter((person) => {
 				const selected = isScopeSelected(person.id, browsePositionId.value)
@@ -349,31 +502,83 @@ export function provideWorkbench(
 					|| (candidateFilter.value === 'unselected' && !selected)
 			})
 			.sort((a, b) => {
-				if (candidateSort.value === 'name') return personName(a).localeCompare(personName(b), 'zh-CN')
-				if (candidateSort.value === 'average') return b.activeAverage - a.activeAverage || a.id - b.id
-				return b.activeSubjectCount - a.activeSubjectCount || a.id - b.id
+				if (candidateSort.value === 'name') return personName(a).localeCompare(personName(b), 'zh-CN') || a.id - b.id
+				if (candidateSort.value === 'average') return b.activeAverage - a.activeAverage || b.activeSubjectCount - a.activeSubjectCount || a.id - b.id
+				return b.activeSubjectCount - a.activeSubjectCount || b.activeAverage - a.activeAverage || a.id - b.id
 			})
 	})
-	const candidatePageCount = computed(() => Math.max(1, Math.ceil(candidatePeople.value.length / CANDIDATE_PAGE_SIZE)))
+	const candidatePageCount = computed(() => Math.max(1, Math.ceil(candidatePeople.value.length / candidatePageSize.value)))
 	const candidatePageItems = computed(() => {
-		const start = (candidatePage.value - 1) * CANDIDATE_PAGE_SIZE
-		return candidatePeople.value.slice(start, start + CANDIDATE_PAGE_SIZE)
+		const start = (candidatePage.value - 1) * candidatePageSize.value
+		return candidatePeople.value.slice(start, start + candidatePageSize.value)
 	})
 
 	watch([browsePositionId, candidateSearch, candidateFilter, candidateSort], () => { candidatePage.value = 1 })
 	watch(candidatePageCount, (count) => { candidatePage.value = Math.min(candidatePage.value, count) })
 
+	const validateQuery = (source: QueryState) => {
+		if (!source.isGlobal && !source.userId.trim()) return '请输入用户 UID。'
+		if (!source.subjectType) return '请选择条目类型。'
+		if (!String(source.position).trim()) return '请选择职位。'
+		if (!source.isGlobal && !source.collectionTypes.length) return '个人收藏模式至少选择一种收藏类型。'
+		const ranges: Array<[QueryState['date'], string, 'date' | 'number']> = [
+			[source.date, '播出时间', 'date'],
+			[source.rate, '评分', 'number'],
+			[source.favorite, '收藏人数', 'number'],
+		]
+		for (const [range, label, kind] of ranges) {
+			if (!range.enabled) continue
+			const [start, end] = range.value
+			if (start !== '' && end !== '') {
+				const inverted = kind === 'date' ? start > end : Number(start) > Number(end)
+				if (inverted) return `${label}的起点不能大于终点。`
+			}
+		}
+		if (source.rate.enabled && source.rate.value.some((value) => value !== '' && (Number(value) < 0 || Number(value) > 10))) {
+			return '评分范围必须在 0–10 之间。'
+		}
+		if (source.favorite.enabled && source.favorite.value.some((value) => value !== '' && Number(value) < 0)) {
+			return '收藏人数不能小于 0。'
+		}
+		return ''
+	}
+
 	const applyQuery = () => {
-		Object.assign(query, {
-			...queryDraft,
-			collectionTypes: [...queryDraft.collectionTypes],
-		})
-		queryEditing.value = false
-		rankingPage.value = 1
-		candidatePage.value = 1
-		focusedWorkSearch.value = ''
-		browsePositionId.value = query.positionId
-		focusedPersonId.value = rankingPeople.value[0]?.id ?? 0
+		if (queryLoading.value) return false
+		const invalid = validateQuery(queryDraft)
+		if (invalid) {
+			queryError.value = invalid
+			queryFeedback.value = '请先修正查询条件'
+			return false
+		}
+		const next = cloneQuery(queryDraft)
+		if (Number(next.subjectType) === 2 && Number.isFinite(Number(next.position))) {
+			next.positionId = Number(next.position)
+		}
+		queryError.value = ''
+		queryFeedback.value = ''
+		queryLoading.value = true
+		queryTimer = setTimeout(() => {
+			queryTimer = null
+			Object.assign(query, cloneQuery(next))
+			queryLoading.value = false
+			queryEditing.value = false
+			rankingPage.value = 1
+			candidatePage.value = 1
+			rankingSearch.value = ''
+			focusedWorkSearch.value = ''
+			if (Number(next.subjectType) === 2) browsePositionId.value = query.positionId
+			focusedPersonId.value = rankingPeople.value[0]?.id ?? 0
+		}, 520)
+		return true
+	}
+
+	const cancelQuery = () => {
+		if (!queryLoading.value) return
+		if (queryTimer) clearTimeout(queryTimer)
+		queryTimer = null
+		queryLoading.value = false
+		queryFeedback.value = '已取消 · 结果未变'
 	}
 
 	const toggleScope = (personId: number, positionId: number) => {
@@ -439,7 +644,15 @@ export function provideWorkbench(
 		query,
 		queryDraft,
 		queryStatus,
+		queryLoading,
+		queryError,
+		queryDraftDirty,
+		queryDraftStatus,
+		queryScopeCount,
+		queryScopeSubjectIds: queryScopeIds,
 		applyQuery,
+		cancelQuery,
+		clearQueryFeedback,
 		restoreQuery,
 		peopleById,
 		subjectsById,
@@ -451,8 +664,10 @@ export function provideWorkbench(
 		subjectImageSources,
 		positionLabel,
 		positionSubjectIds,
+		personSubjectRoles,
 		rankingMetric,
 		rankingAscend,
+		rankingSearch,
 		rankingPage,
 		rankingPageSize,
 		rankingPeople,

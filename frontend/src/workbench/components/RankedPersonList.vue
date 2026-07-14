@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { CandidatePerson, Person } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
 import AppIcon from './AppIcon.vue'
@@ -24,16 +23,14 @@ const emit = defineEmits<{
 
 const workbench = useWorkbench()
 
-const metricLabel = computed(() => ({
-	count: '作品',
-	average: '均分',
-	overall: '综合',
-})[workbench.rankingMetric.value])
+const formatScore = (value: number | undefined, hasRating = true) =>
+	hasRating && Number.isFinite(value) ? Number(value).toFixed(2) : '—'
 
-const formatMetric = (person: Person) => {
-	const value = workbench.rankingValue(person)
-	return workbench.rankingMetric.value === 'count' ? String(value) : value.toFixed(2)
-}
+const metricSummary = (person: Person) => [
+	`${person.subjectCount ?? 0} 部作品`,
+	`我的均分 ${formatScore(person.userAverage, Boolean(person.ratedSubjectCount))}`,
+	`综合分 ${formatScore(workbench.rankingValue(person, 'overall'), Boolean(person.ratedSubjectCount))}`,
+].join('，')
 
 const isCandidate = (person: Person | CandidatePerson): person is CandidatePerson =>
 	'activePositionId' in person
@@ -48,6 +45,8 @@ const isCandidate = (person: Person | CandidatePerson): person is CandidatePerso
 				:class="{ 'is-focused': workbench.focusedPersonId.value === person.id }"
 				:style="{ '--row-progress': `${workbench.rankingProgress(person)}%` }"
 				:aria-current="workbench.focusedPersonId.value === person.id ? 'true' : undefined"
+				aria-controls="ranking-inspector"
+				:aria-expanded="workbench.focusedPersonId.value === person.id"
 				type="button"
 				@click="emit('activate', person.id)"
 			>
@@ -66,9 +65,19 @@ const isCandidate = (person: Person | CandidatePerson): person is CandidatePerso
 					<strong>{{ workbench.personName(person) }}</strong>
 					<small>{{ workbench.personSecondaryName(person) || '人物资料' }}</small>
 				</span>
-				<span class="person-row__metric">
-					<strong>{{ formatMetric(person) }}</strong>
-					<small>{{ metricLabel }}</small>
+				<span class="person-row__metrics" :aria-label="metricSummary(person)">
+					<span class="person-row__metric" :class="{ 'is-active': workbench.rankingMetric.value === 'count' }">
+						<strong>{{ person.subjectCount ?? 0 }}</strong>
+						<small>作品</small>
+					</span>
+					<span class="person-row__metric" :class="{ 'is-active': workbench.rankingMetric.value === 'average' }">
+						<strong>{{ formatScore(person.userAverage, Boolean(person.ratedSubjectCount)) }}</strong>
+						<small>均分</small>
+					</span>
+					<span class="person-row__metric" :class="{ 'is-active': workbench.rankingMetric.value === 'overall' }">
+						<strong>{{ formatScore(workbench.rankingValue(person, 'overall'), Boolean(person.ratedSubjectCount)) }}</strong>
+						<small>综合</small>
+					</span>
 				</span>
 				<AppIcon class="person-row__arrow" name="arrow" :size="17" />
 			</button>

@@ -17,6 +17,10 @@ const sortOptions: Array<{ label: string; value: RankingMetric }> = [
 ]
 const pageSizeOptions = [5, 10, 20, 50]
 const rankOffset = computed(() => (workbench.rankingPage.value - 1) * workbench.rankingPageSize.value)
+const rankRange = computed(() => ({
+	start: workbench.rankingPeople.value.length ? rankOffset.value + 1 : 0,
+	end: Math.min(rankOffset.value + workbench.rankingPageSize.value, workbench.rankingPeople.value.length),
+}))
 
 const activatePerson = (personId: number) => {
 	workbench.focusedPersonId.value = personId
@@ -39,6 +43,17 @@ watch(isMobile, (mobile) => {
 				</div>
 				<strong class="result-count">{{ workbench.rankingPeople.value.length }} 人</strong>
 			</header>
+			<div class="ranking-search">
+				<n-input
+					v-model:value="workbench.rankingSearch.value"
+					clearable
+					placeholder="搜索人物名、别名或 ID"
+					aria-label="搜索排行人物"
+					:input-props="{ 'aria-label': '搜索排行人物' }"
+				>
+					<template #prefix><AppIcon name="search" :size="16" /></template>
+				</n-input>
+			</div>
 
 			<div class="pane-toolbar" aria-label="排行排序">
 				<label>
@@ -56,7 +71,11 @@ watch(isMobile, (mobile) => {
 				</button>
 			</div>
 
-			<div class="list-columns" aria-hidden="true"><span>#</span><span>人物</span><span>当前指标</span></div>
+			<div class="list-columns list-columns--ranking" aria-hidden="true">
+				<span>#</span>
+				<span>人物</span>
+				<span class="list-columns__metrics"><span>作品</span><span>均分</span><span>综合</span></span>
+			</div>
 			<RankedPersonList
 				:items="workbench.rankingPageItems.value"
 				variant="ranking"
@@ -67,6 +86,7 @@ watch(isMobile, (mobile) => {
 			/>
 
 			<footer class="pane-pagination">
+				<span class="ranking-page-summary">{{ rankRange.start }}—{{ rankRange.end }} / {{ workbench.rankingPeople.value.length }}</span>
 				<n-pagination
 					v-model:page="workbench.rankingPage.value"
 					v-model:page-size="workbench.rankingPageSize.value"
@@ -78,7 +98,7 @@ watch(isMobile, (mobile) => {
 			</footer>
 		</aside>
 
-		<section v-if="!isMobile" class="ranking-detail surface-panel" tabindex="-1" aria-label="人物详情">
+		<section v-if="!isMobile" id="ranking-inspector" class="ranking-detail surface-panel" tabindex="-1" aria-label="人物详情">
 			<PersonInspector />
 		</section>
 
@@ -92,7 +112,7 @@ watch(isMobile, (mobile) => {
 						</button>
 					</div>
 				</template>
-				<PersonInspector />
+				<div id="ranking-inspector"><PersonInspector /></div>
 			</n-drawer-content>
 		</n-drawer>
 	</div>
