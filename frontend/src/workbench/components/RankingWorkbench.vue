@@ -15,7 +15,7 @@ const sortOptions: Array<{ label: string; value: RankingMetric }> = [
 	{ label: '我的均分', value: 'average' },
 	{ label: '综合分', value: 'overall' },
 ]
-const pageSizeOptions = [5, 10, 20, 50]
+const pageSizeOptions = [5, 10, 20, 50].map((value) => ({ label: `${value} / 页`, value }))
 const rankOffset = computed(() => (workbench.rankingPage.value - 1) * workbench.rankingPageSize.value)
 const rankRange = computed(() => ({
 	start: workbench.rankingPeople.value.length ? rankOffset.value + 1 : 0,
@@ -85,15 +85,15 @@ watch(isMobile, (mobile) => {
 				@activate="activatePerson"
 			/>
 
-			<footer class="pane-pagination">
-				<span class="ranking-page-summary">{{ rankRange.start }}—{{ rankRange.end }} / {{ workbench.rankingPeople.value.length }}</span>
+			<footer class="pane-pagination pane-pagination--ranking">
+				<div class="pane-pagination__meta">
+					<span class="ranking-page-summary">{{ rankRange.start }}—{{ rankRange.end }} / {{ workbench.rankingPeople.value.length }}</span>
+					<n-select v-model:value="workbench.rankingPageSize.value" class="ranking-page-size" :options="pageSizeOptions" aria-label="排行每页人数" />
+				</div>
 				<n-pagination
 					v-model:page="workbench.rankingPage.value"
-					v-model:page-size="workbench.rankingPageSize.value"
 					:page-count="workbench.rankingPageCount.value"
-					:page-slot="5"
-					:page-sizes="pageSizeOptions"
-					show-size-picker
+					:page-slot="4"
 				/>
 			</footer>
 		</aside>

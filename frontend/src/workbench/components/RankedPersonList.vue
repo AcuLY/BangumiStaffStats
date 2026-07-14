@@ -47,6 +47,7 @@ const isCandidate = (person: Person | CandidatePerson): person is CandidatePerso
 				:aria-current="workbench.focusedPersonId.value === person.id ? 'true' : undefined"
 				aria-controls="ranking-inspector"
 				:aria-expanded="workbench.focusedPersonId.value === person.id"
+				:aria-label="`${rankOffset + index + 1}. ${workbench.personName(person)}，${workbench.personSecondaryName(person) || '人物资料'}，${metricSummary(person)}`"
 				type="button"
 				@click="emit('activate', person.id)"
 			>
@@ -68,15 +69,12 @@ const isCandidate = (person: Person | CandidatePerson): person is CandidatePerso
 				<span class="person-row__metrics" :aria-label="metricSummary(person)">
 					<span class="person-row__metric" :class="{ 'is-active': workbench.rankingMetric.value === 'count' }">
 						<strong>{{ person.subjectCount ?? 0 }}</strong>
-						<small>作品</small>
 					</span>
 					<span class="person-row__metric" :class="{ 'is-active': workbench.rankingMetric.value === 'average' }">
 						<strong>{{ formatScore(person.userAverage, Boolean(person.ratedSubjectCount)) }}</strong>
-						<small>均分</small>
 					</span>
 					<span class="person-row__metric" :class="{ 'is-active': workbench.rankingMetric.value === 'overall' }">
 						<strong>{{ formatScore(workbench.rankingValue(person, 'overall'), Boolean(person.ratedSubjectCount)) }}</strong>
-						<small>综合</small>
 					</span>
 				</span>
 				<AppIcon class="person-row__arrow" name="arrow" :size="17" />

@@ -42,8 +42,9 @@ const careerLine = computed(() => {
 })
 const profileSummary = computed(() => profileExtra.value?.summary
 	?? `${workbench.personName(person.value)}以“${workbench.positionLabel(workbench.query.positionId)}”身份参与了 ${person.value?.subjectCount ?? 0} 部当前筛选范围内的作品。`)
-const maxDistribution = computed(() => Math.max(1, ...workbench.focusedDistribution.value.map((item) => item.value)))
-const distributionLabel = computed(() => `${workbench.personName(person.value)}的评分分布：${workbench.focusedDistribution.value
+const ratedDistribution = computed(() => workbench.focusedDistribution.value.filter((item) => item.label !== '未评'))
+const maxDistribution = computed(() => Math.max(1, ...ratedDistribution.value.map((item) => item.value)))
+const distributionLabel = computed(() => `${workbench.personName(person.value)}的评分分布：${ratedDistribution.value
 	.map((item) => `${item.label} ${item.value} 部`)
 	.join('，')}`)
 const ratedRates = computed(() => workbench.focusedAllSubjects.value
@@ -108,7 +109,7 @@ const roleSummary = (subject: Subject) => {
 	if (!person.value) return ''
 	const roles = workbench.personSubjectRoles(person.value, subject.id)
 	if (!roles.length) return workbench.positionLabel(workbench.query.positionId)
-	return roles.slice(0, 3).map((role) =>
+	return roles.map((role) =>
 		`${role.displayName || role.nameCN || role.name || '角色'} · ${roleLabel(role.roleLabel)}`,
 	).join(' / ')
 }
@@ -139,6 +140,7 @@ watch(workPageCount, (count) => {
 <template>
 	<article v-if="person" class="person-inspector" aria-labelledby="inspector-person-name">
 		<header class="person-profile">
+			<div class="person-profile__intro">
 				<SafeImage
 					class="person-profile__portrait"
 					:sources="workbench.personImageSources(person)"
@@ -146,45 +148,42 @@ watch(workPageCount, (count) => {
 					kind="person"
 					loading="eager"
 					priority
-				:width="160"
-				:height="196"
-			/>
-			<div class="person-profile__content">
-				<span class="section-context">{{ workbench.positionLabel(workbench.query.positionId) }} · 当前焦点</span>
-				<h1 id="inspector-person-name">{{ workbench.personName(person) }}</h1>
-				<p v-if="workbench.personSecondaryName(person)">{{ workbench.personSecondaryName(person) }}</p>
-				<div class="person-profile__meta">
-					<span>{{ careerLine }}</span>
-					<span v-if="profileExtra">收藏 {{ profileExtra.collects.toLocaleString('zh-CN') }} · 讨论 {{ profileExtra.comments }}</span>
+					:width="160"
+					:height="208"
+				/>
+				<div class="person-profile__content">
+					<span class="section-context">{{ workbench.positionLabel(workbench.query.positionId) }} · 当前焦点</span>
+					<h1 id="inspector-person-name">{{ workbench.personName(person) }}</h1>
+					<p v-if="workbench.personSecondaryName(person)" class="person-profile__secondary">{{ workbench.personSecondaryName(person) }}</p>
+					<div class="person-profile__meta">
+						<span>{{ careerLine }}</span>
+						<span v-if="profileExtra">收藏 {{ profileExtra.collects.toLocaleString('zh-CN') }} · 讨论 {{ profileExtra.comments }}</span>
+					</div>
 				</div>
-				<details class="person-profile__bio" open>
-					<summary>人物简介</summary>
+				<section class="person-profile__bio" aria-labelledby="person-profile-bio-title">
+					<strong id="person-profile-bio-title">人物简介</strong>
 					<p>{{ profileSummary }}</p>
-				</details>
-				<div class="profile-metrics profile-metrics--extended" aria-label="人物统计">
-					<span><b>{{ person.subjectCount ?? person.subjectIds?.length ?? 0 }}</b><small>参与作品</small></span>
-					<span><b>{{ person.ratedSubjectCount ?? '—' }}</b><small>已评分</small></span>
-					<span><b>{{ formatScore(person.userAverage) }}</b><small>我的均分</small></span>
-					<span><b>{{ formatScore(person.globalAverage) }}</b><small>全站均分</small></span>
-					<span><b>{{ formatScore(overallScore) }}</b><small>综合分</small></span>
-					<span><b>{{ highestRate ?? '—' }}</b><small>我的最高</small></span>
-					<span><b>{{ lowestRate ?? '—' }}</b><small>我的最低</small></span>
-				</div>
+				</section>
+			</div>
+			<div class="profile-metrics profile-metrics--extended" aria-label="人物统计">
+				<span><b>{{ person.subjectCount ?? person.subjectIds?.length ?? 0 }}</b><small>参与作品</small></span>
+				<span><b>{{ person.ratedSubjectCount ?? '—' }}</b><small>已评分</small></span>
+				<span><b>{{ formatScore(person.userAverage) }}</b><small>我的均分</small></span>
+				<span><b>{{ formatScore(person.globalAverage) }}</b><small>全站均分</small></span>
+				<span><b>{{ formatScore(overallScore) }}</b><small>综合分</small></span>
+				<span><b>{{ highestRate ?? '—' }}</b><small>我的最高</small></span>
+				<span><b>{{ lowestRate ?? '—' }}</b><small>我的最低</small></span>
 			</div>
 		</header>
 
 		<section class="inspector-section" aria-labelledby="rating-distribution-title">
 			<div class="section-heading">
-				<div>
-					<h2 id="rating-distribution-title">个人评分分布</h2>
-					<p>未评分作品计入作品数，但不计入均分。</p>
-				</div>
-				<span class="derived-label"><AppIcon name="info" :size="14" />本地快照</span>
+				<h2 id="rating-distribution-title">个人评分分布</h2>
 			</div>
-				<div class="score-distribution" role="img" :aria-label="distributionLabel">
-				<div v-for="item in workbench.focusedDistribution.value" :key="item.label" class="score-bar">
+			<div class="score-distribution" role="img" :aria-label="distributionLabel">
+				<div v-for="item in ratedDistribution" :key="item.label" class="score-bar">
 					<span class="score-bar__value">{{ item.value }}</span>
-					<span class="score-bar__track"><i :style="{ height: `${Math.max(4, item.value / maxDistribution * 100)}%` }" /></span>
+					<span class="score-bar__track"><i :style="{ height: item.value ? `${Math.max(4, item.value / maxDistribution * 100)}%` : '0' }" /></span>
 					<small>{{ item.label }}</small>
 				</div>
 			</div>
@@ -253,34 +252,29 @@ watch(workPageCount, (count) => {
 				<n-select v-model:value="workSort" :options="workSortOptions" aria-label="参与作品排序" />
 				<n-select v-model:value="workPageSize" :options="workPageSizeOptions" aria-label="每页作品数" />
 			</div>
-			<div class="data-scroll-x">
-				<table class="works-table works-table--person">
-					<thead><tr><th>作品</th><th>日期</th><th>Bangumi</th><th>收藏</th><th>我的评分</th></tr></thead>
-					<tbody>
-						<tr v-for="subject in visibleWorks" :key="subject.id">
-							<td>
-								<span class="work-cell">
-									<SafeImage :sources="workbench.subjectImageSources(subject)" :alt="`${workbench.subjectName(subject)}封面`" kind="subject" :width="36" :height="48" decorative />
-									<span class="work-cell__copy">
-										<a :href="`https://bgm.tv/subject/${subject.id}`" target="_blank" rel="noopener noreferrer">{{ workbench.subjectName(subject) }}</a>
-										<small v-if="subjectSecondaryName(subject)">{{ subjectSecondaryName(subject) }}</small>
-										<small class="work-cell__roles">{{ roleSummary(subject) }}</small>
-									</span>
-								</span>
-							</td>
-							<td>{{ subject.date || '—' }}</td>
-							<td><strong>{{ formatScore(subject.score) }}</strong><small class="table-cell-meta">Rank {{ subject.rank || '—' }}</small></td>
-							<td><strong>{{ Number(subject.favoriteCount || 0).toLocaleString('zh-CN') }}</strong><small class="table-cell-meta">{{ collectionLabel(subject.collection?.type) }}</small></td>
-							<td><b>{{ formatScore(subject.collection?.rate) }}</b></td>
-						</tr>
-						<tr v-if="!visibleWorks.length"><td colspan="5" class="table-empty">没有符合当前搜索条件的作品。</td></tr>
-					</tbody>
-				</table>
-			</div>
+			<ul class="person-work-list" aria-label="参与作品列表">
+				<li v-for="subject in visibleWorks" :key="subject.id" class="person-work-row">
+					<span class="work-cell person-work-row__work">
+						<SafeImage :sources="workbench.subjectImageSources(subject)" :alt="`${workbench.subjectName(subject)}封面`" kind="subject" :width="36" :height="48" decorative />
+						<span class="work-cell__copy">
+							<a :href="`https://bgm.tv/subject/${subject.id}`" target="_blank" rel="noopener noreferrer">{{ workbench.subjectName(subject) }}</a>
+							<small v-if="subjectSecondaryName(subject)">{{ subjectSecondaryName(subject) }}</small>
+							<small class="work-cell__roles">{{ roleSummary(subject) }}</small>
+						</span>
+					</span>
+					<dl class="person-work-row__facts">
+						<div><dt>日期</dt><dd><time>{{ subject.date || '—' }}</time></dd></div>
+						<div><dt>Bangumi</dt><dd><strong>{{ formatScore(subject.score) }}</strong><small>Rank {{ subject.rank || '—' }}</small></dd></div>
+						<div><dt>收藏</dt><dd><strong>{{ Number(subject.favoriteCount || 0).toLocaleString('zh-CN') }}</strong><small>{{ collectionLabel(subject.collection?.type) }}</small></dd></div>
+						<div><dt>我的评分</dt><dd><b>{{ formatScore(subject.collection?.rate) }}</b></dd></div>
+					</dl>
+				</li>
+				<li v-if="!visibleWorks.length" class="person-work-list__empty">没有符合当前搜索条件的作品。</li>
+			</ul>
 			<div class="table-disclosure rank-work-pagination">
 				<span>{{ workRange.start }}—{{ workRange.end }} / {{ sortedWorks.length }}</span>
-				<div>
-					<n-pagination v-if="!showAllWorks" v-model:page="workPage" :page-count="workPageCount" :page-slot="5" />
+				<div class="rank-work-pagination__controls">
+					<n-pagination v-if="!showAllWorks" v-model:page="workPage" :page-count="workPageCount" :page-slot="4" />
 					<n-button v-if="sortedWorks.length > workPageSize" text type="primary" @click="showAllWorks = !showAllWorks">
 						{{ showAllWorks ? '恢复分页' : '展示全部' }}
 					</n-button>

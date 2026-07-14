@@ -8,10 +8,6 @@ const userInput = ref<{ focus: () => void }>()
 const editorButton = ref<HTMLButtonElement>()
 const moreOptionsOpen = ref(false)
 
-const focusMoreOptionsButton = () => {
-	document.getElementById('query-more-options')?.focus()
-}
-
 const subjectOptions = [
 	{ label: '动画', value: 2 },
 	{ label: '书籍', value: 1 },
@@ -156,13 +152,13 @@ const conditionTitle = (key: ConditionKey) => ({
 				<span role="status">{{ workbench.queryStatus.value }}</span>
 			</div>
 			<div class="query-summary__items" aria-label="已应用查询范围">
-				<span class="query-summary__item"><small>数据来源</small><b>{{ workbench.query.isGlobal ? '本地快照 · 全站口径' : '个人收藏' }}</b></span>
-				<span class="query-summary__item"><small>用户 UID</small><b>{{ workbench.query.isGlobal ? '—' : workbench.query.userId }}</b></span>
-				<span class="query-summary__item"><small>条目类型</small><b>{{ subjectLabel }}</b></span>
-				<span class="query-summary__item"><small>职位</small><b>{{ appliedPositionLabel }}</b></span>
-				<span class="query-summary__item"><small>收藏状态</small><b>{{ collectionLabel }}</b></span>
-				<span class="query-summary__item"><small>高级条件</small><b>{{ advancedCount ? `${advancedCount} 项已启用` : '未启用' }}</b></span>
-				<span class="query-summary__item"><small>应用范围</small><b>{{ workbench.queryScopeCount.value }} 部</b></span>
+				<span class="query-summary__item" :aria-label="`数据来源：${workbench.query.isGlobal ? '本地快照，全站口径' : '个人收藏'}`">{{ workbench.query.isGlobal ? '本地快照 · 全站口径' : '个人收藏' }}</span>
+				<span class="query-summary__item" :aria-label="`用户 UID：${workbench.query.isGlobal ? '不适用' : workbench.query.userId}`">{{ workbench.query.isGlobal ? '—' : workbench.query.userId }}</span>
+				<span class="query-summary__item" :aria-label="`条目类型：${subjectLabel}`">{{ subjectLabel }}</span>
+				<span class="query-summary__item" :aria-label="`职位：${appliedPositionLabel}`">{{ appliedPositionLabel }}</span>
+				<span class="query-summary__item" :aria-label="`收藏状态：${collectionLabel}`">{{ collectionLabel }}</span>
+				<span class="query-summary__item" :aria-label="`高级条件：${advancedCount ? `${advancedCount} 项已启用` : '未启用'}`">{{ advancedCount ? `${advancedCount} 项` : '无高级条件' }}</span>
+				<span class="query-summary__item" :aria-label="`应用范围：${workbench.queryScopeCount.value} 部`">{{ workbench.queryScopeCount.value }} 部</span>
 			</div>
 			<button ref="editorButton" class="query-summary__edit" type="button" aria-expanded="false" aria-controls="query-editor" @click="openEditor">
 				<AppIcon name="edit" :size="16" />
@@ -172,10 +168,7 @@ const conditionTitle = (key: ConditionKey) => ({
 
 		<form v-else id="query-editor" class="query-editor" novalidate @submit.prevent="submitEditor" @keydown.esc.prevent="closeEditor" @input="workbench.clearQueryFeedback">
 			<div class="query-editor__head">
-				<div>
-					<h2 id="query-title">编辑查询条件</h2>
-					<p>当前原型只重放内置静态快照，不会请求后端或写入数据。</p>
-				</div>
+				<h2 id="query-title">编辑查询条件</h2>
 				<button class="icon-button icon-button--chrome" type="button" aria-label="收起查询编辑器" :disabled="workbench.queryLoading.value" @click="closeEditor">
 					<AppIcon name="close" />
 				</button>
@@ -207,6 +200,30 @@ const conditionTitle = (key: ConditionKey) => ({
 			<n-card v-if="workbench.queryDraft.isGlobal" size="small" role="note" style="margin-top: 12px">
 				<strong>全站口径模拟</strong> · 仍只筛选本地静态快照 · UID、收藏类型已停用
 			</n-card>
+
+			<div class="query-editor__more">
+				<n-button
+					id="query-more-options"
+					attr-type="button"
+					:disabled="workbench.queryLoading.value"
+					:aria-expanded="moreOptionsOpen"
+					aria-controls="query-advanced-options"
+					@click="moreOptionsOpen = !moreOptionsOpen"
+				>
+					更多选项
+					<AppIcon class="query-more-options__chevron" name="chevron" :size="15" :class="{ 'is-open': moreOptionsOpen }" />
+				</n-button>
+			</div>
+
+			<div v-show="moreOptionsOpen" id="query-advanced-options" class="query-advanced-options" aria-label="更多查询选项">
+				<div v-for="option in advancedOptions" :key="option.key" class="query-advanced-option">
+					<div>
+						<strong>{{ option.title }}</strong>
+						<p>{{ option.description }}</p>
+					</div>
+					<n-switch :value="optionEnabled(option.key)" :aria-label="option.title" @update:value="toggleOption(option.key, $event)" />
+				</div>
+			</div>
 
 			<div v-if="enabledConditions.length" class="query-editor__fields" aria-label="已启用高级条件">
 				<fieldset v-for="key in enabledConditions" :key="key" class="field" :disabled="workbench.queryLoading.value">
@@ -247,28 +264,11 @@ const conditionTitle = (key: ConditionKey) => ({
 			<div class="query-editor__footer">
 				<span role="status" aria-live="polite">{{ workbench.queryDraftStatus.value }}</span>
 				<div class="query-editor__actions">
-					<n-button id="query-more-options" attr-type="button" :disabled="workbench.queryLoading.value" @click="moreOptionsOpen = true">更多选项</n-button>
 					<n-button attr-type="button" :disabled="!workbench.queryDraftDirty.value || workbench.queryLoading.value" @click="workbench.restoreQuery">撤销更改</n-button>
 					<n-button attr-type="button" :disabled="!workbench.queryLoading.value" @click="workbench.cancelQuery">取消查询</n-button>
 					<n-button type="primary" attr-type="submit" :loading="workbench.queryLoading.value" :disabled="workbench.queryLoading.value">{{ workbench.queryLoading.value ? '查询中' : '查询' }}</n-button>
 				</div>
 			</div>
 		</form>
-
-		<n-drawer v-model:show="moreOptionsOpen" :width="390" placement="right" @after-leave="focusMoreOptionsButton">
-			<n-drawer-content title="更多选项" closable>
-				<n-list bordered>
-					<n-list-item v-for="option in advancedOptions" :key="option.key">
-						<template #suffix>
-							<n-switch :value="optionEnabled(option.key)" :aria-label="option.title" @update:value="toggleOption(option.key, $event)" />
-						</template>
-						<div>
-							<strong>{{ option.title }}</strong>
-							<p>{{ option.description }}</p>
-						</div>
-					</n-list-item>
-				</n-list>
-			</n-drawer-content>
-		</n-drawer>
 	</section>
 </template>
