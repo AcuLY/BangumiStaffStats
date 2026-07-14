@@ -17,20 +17,16 @@ const loading = ref(true)
 const error = ref('')
 const workbench = provideWorkbench(snapshot, positionData)
 
-const isDark = computed(() => workbench.direction.value === 'screening')
+const isDark = computed(() => workbench.theme.value === 'dark')
 const backgroundInert = computed(() => workbench.peopleDrawerOpen.value || workbench.inspectorDrawerOpen.value)
-const directionPalette = computed(() => ({
-	archive: { base: '#c60475', hover: '#d42281', pressed: '#b40069' },
-	split: { base: '#a80868', hover: '#bd2677', pressed: '#841154' },
-	screening: { base: '#d91a80', hover: '#e63893', pressed: '#bd0b6d' },
-})[workbench.direction.value])
+const archivePalette = { base: '#c60475', hover: '#d42281', pressed: '#b40069' }
 const themeOverrides = computed<GlobalThemeOverrides>(() => ({
 	common: {
 		fontFamily: FONT_STACK,
 		fontFamilyMono: FONT_STACK,
-		primaryColor: directionPalette.value.base,
-		primaryColorHover: directionPalette.value.hover,
-		primaryColorPressed: directionPalette.value.pressed,
+		primaryColor: archivePalette.base,
+		primaryColorHover: archivePalette.hover,
+		primaryColorPressed: archivePalette.pressed,
 		borderRadius: '6px',
 		borderRadiusSmall: '6px',
 	},
@@ -55,12 +51,19 @@ const load = async () => {
 	}
 }
 
-watch(workbench.direction, (direction) => {
-	document.documentElement.dataset.visual = direction
-	document.documentElement.dataset.theme = direction === 'screening' ? 'dark' : 'light'
-	document.documentElement.style.colorScheme = direction === 'screening' ? 'dark' : 'light'
+watch(workbench.theme, (theme) => {
+	document.documentElement.dataset.visual = 'archive'
+	document.documentElement.dataset.theme = theme
+	document.documentElement.style.colorScheme = theme
+	try {
+		window.localStorage.setItem('bgmss-workbench-theme', theme)
+	} catch {
+		// Storage can be unavailable in privacy-restricted contexts; the in-memory mode still works.
+	}
 	const url = new URL(window.location.href)
-	url.searchParams.set('direction', direction)
+	url.searchParams.delete('direction')
+	if (theme === 'dark') url.searchParams.set('theme', 'dark')
+	else url.searchParams.delete('theme')
 	window.history.replaceState({}, '', url)
 }, { immediate: true })
 

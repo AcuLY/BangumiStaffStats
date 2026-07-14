@@ -1,5 +1,5 @@
 export type WorkbenchMode = 'ranking' | 'co-star'
-export type DesignDirection = 'archive' | 'split' | 'screening'
+export type WorkbenchTheme = 'light' | 'dark'
 export type RankingMetric = 'count' | 'average' | 'overall'
 export type CandidateFilter = 'all' | 'selected' | 'unselected'
 

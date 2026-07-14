@@ -12,7 +12,6 @@ import {
 import type {
 	CandidateFilter,
 	CandidatePerson,
-	DesignDirection,
 	Person,
 	PersonRole,
 	PositionData,
@@ -22,6 +21,7 @@ import type {
 	Subject,
 	WorkbenchMode,
 	WorkbenchSnapshot,
+	WorkbenchTheme,
 } from '../types'
 import { bangumiImageUrl } from '../data/bangumiImages'
 
@@ -53,8 +53,8 @@ export interface WorkbenchContext {
 	snapshot: Ref<WorkbenchSnapshot | null>
 	positionData: Ref<PositionData | null>
 	mode: Ref<WorkbenchMode>
-	direction: Ref<DesignDirection>
-	directions: Array<{ label: string; value: DesignDirection; description: string }>
+	theme: Ref<WorkbenchTheme>
+	toggleTheme: () => void
 	queryEditing: Ref<boolean>
 	query: QueryState
 	queryDraft: QueryState
@@ -127,17 +127,24 @@ export function provideWorkbench(
 	positionData: Ref<PositionData | null>,
 ) {
 	const mode = ref<WorkbenchMode>('co-star')
-	const directionFromUrl = new URLSearchParams(window.location.search).get('direction')
-	const direction = ref<DesignDirection>(
-		directionFromUrl === 'split' || directionFromUrl === 'screening'
-			? directionFromUrl
-			: 'archive',
+	const requestedTheme = new URLSearchParams(window.location.search).get('theme')
+	const storedTheme = (() => {
+		try {
+			return window.localStorage.getItem('bgmss-workbench-theme')
+		} catch {
+			return null
+		}
+	})()
+	const theme = ref<WorkbenchTheme>(
+		requestedTheme === 'dark' || requestedTheme === 'light'
+			? requestedTheme
+			: storedTheme === 'dark' || storedTheme === 'light'
+				? storedTheme
+				: 'light',
 	)
-	const directions: WorkbenchContext['directions'] = [
-		{ label: '社区档案台', value: 'archive', description: '清晰、稳妥，最贴近 Bangumi 社区工具。' },
-		{ label: '双色资料室', value: 'split', description: '深色控制区与浅色结果区形成明确分工。' },
-		{ label: '夜场审片台', value: 'screening', description: '低眩光石墨界面，适合长时间分析。' },
-	]
+	const toggleTheme = () => {
+		theme.value = theme.value === 'dark' ? 'light' : 'dark'
+	}
 
 	const queryEditing = ref(false)
 	const makeQueryState = (): QueryState => ({
@@ -638,8 +645,8 @@ export function provideWorkbench(
 		snapshot,
 		positionData,
 		mode,
-		direction,
-		directions,
+		theme,
+		toggleTheme,
 		queryEditing,
 		query,
 		queryDraft,

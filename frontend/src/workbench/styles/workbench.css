@@ -214,55 +214,45 @@ table,
 	color: var(--on-primary);
 }
 
-.direction-control {
-	display: flex;
+.theme-toggle {
+	display: inline-flex;
 	align-items: center;
-	justify-content: flex-end;
+	justify-content: center;
+	justify-self: end;
 	gap: 9px;
-	min-width: 0;
-}
-
-.direction-control__label {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	color: var(--chrome-muted);
-	font-size: 12px;
-	white-space: nowrap;
-}
-
-.direction-control__buttons {
-	display: inline-flex;
-	align-items: center;
-	gap: 1px;
-	padding: 3px;
+	min-width: 150px;
+	min-height: 40px;
+	padding: 0 11px;
 	border: 1px solid var(--chrome-border);
-	border-radius: 8px;
+	border-radius: var(--radius-control);
 	background: var(--chrome-raised);
-}
-
-.direction-control__buttons button {
-	height: 30px;
-	padding: 0 10px;
-	border: 0;
-	border-radius: 4px;
-	background: transparent;
-	color: var(--chrome-muted);
-	font-size: 12px;
-	font-weight: 600;
-	cursor: pointer;
-}
-
-.direction-control__buttons button:hover {
 	color: var(--chrome-text);
+	cursor: pointer;
+	transition: border-color 160ms ease-out, background-color 160ms ease-out;
 }
 
-.direction-control__buttons button.is-active {
-	background: color-mix(in oklab, var(--primary) 78%, var(--chrome-raised));
-	color: var(--on-primary);
+.theme-toggle:hover {
+	border-color: color-mix(in oklab, var(--primary) 70%, var(--chrome-border));
+	background: color-mix(in oklab, var(--primary) 12%, var(--chrome-raised));
 }
 
-.direction-control__select,
+.theme-toggle__copy {
+	display: grid;
+	gap: 1px;
+	text-align: left;
+	line-height: 1.15;
+}
+
+.theme-toggle__copy small {
+	color: var(--chrome-muted);
+	font-size: 11px;
+}
+
+.theme-toggle__copy strong {
+	font-size: 12px;
+	font-weight: 650;
+}
+
 .mobile-people-trigger {
 	display: none;
 }
@@ -1667,137 +1657,9 @@ table,
 	border-bottom: 1px solid var(--divider);
 }
 
-:root[data-visual="split"] .people-rail,
-:root[data-visual="split"] .ranking-pane,
-:root[data-visual="split"] .person-picker--drawer,
-:root[data-visual="split"] .n-drawer:has(.person-picker--drawer) {
-	--surface: var(--chrome-raised);
-	--surface-subtle: var(--chrome);
-	--surface-sunken: var(--chrome);
-	--hover: color-mix(in oklab, var(--chrome-text) 7%, var(--chrome-raised));
-	--border: var(--chrome-border);
-	--divider: var(--chrome-border);
-	--control-border: var(--chrome-border);
-	--text-1: var(--chrome-text);
-	--text-2: color-mix(in oklab, var(--chrome-text) 88%, var(--chrome-muted));
-	--text-3: var(--chrome-muted);
-	--primary-soft: color-mix(in oklab, var(--primary) 24%, var(--chrome-raised));
-	--primary-text: oklch(0.8 0.12 350);
-	--success: var(--success-on-chrome);
-	background: var(--rail-surface) !important;
-	color: var(--chrome-text);
-}
-
-:root[data-visual="split"] .people-rail h2,
-:root[data-visual="split"] .ranking-pane h1,
-:root[data-visual="split"] .person-picker--drawer h2,
-:root[data-visual="split"] .ranking-pane .person-row__identity strong,
-:root[data-visual="split"] .people-rail .person-row__identity strong,
-:root[data-visual="split"] .person-picker--drawer .person-row__identity strong,
-:root[data-visual="split"] .people-rail .selected-person-row__copy strong,
-:root[data-visual="split"] .person-picker--drawer .selected-person-row__copy strong {
-	color: var(--chrome-text);
-}
-
-:root[data-visual="split"] .people-rail .person-row,
-:root[data-visual="split"] .ranking-pane .person-row,
-:root[data-visual="split"] .person-picker--drawer .person-row,
-:root[data-visual="split"] .people-rail .candidate-filter,
-:root[data-visual="split"] .person-picker--drawer .candidate-filter {
-	background: var(--chrome-raised);
-}
-
-:root[data-visual="split"] .people-rail .person-row:hover,
-:root[data-visual="split"] .ranking-pane .person-row:hover,
-:root[data-visual="split"] .person-picker--drawer .person-row:hover {
-	background: color-mix(in oklab, var(--chrome-text) 7%, var(--chrome-raised));
-}
-
-:root[data-visual="split"] .people-rail .person-row.is-selected,
-:root[data-visual="split"] .person-picker--drawer .person-row.is-selected {
-	background: color-mix(in oklab, var(--primary) 24%, var(--chrome-raised));
-}
-
-:root[data-visual="split"] .people-rail .person-row__identity small,
-:root[data-visual="split"] .ranking-pane .person-row__identity small,
-:root[data-visual="split"] .person-picker--drawer .person-row__identity small,
-:root[data-visual="split"] .people-rail .person-row__metric small,
-:root[data-visual="split"] .ranking-pane .person-row__metric small,
-:root[data-visual="split"] .person-picker--drawer .person-row__metric small,
-:root[data-visual="split"] .people-rail .picker-section-heading span,
-:root[data-visual="split"] .person-picker--drawer .picker-section-heading span,
-:root[data-visual="split"] .people-rail .selected-person-row__copy small,
-:root[data-visual="split"] .person-picker--drawer .selected-person-row__copy small,
-:root[data-visual="split"] .people-rail .picker-footnote,
-:root[data-visual="split"] .person-picker--drawer .picker-footnote {
-	color: var(--chrome-muted);
-}
-
-:root[data-visual="split"] .people-rail .n-input,
-:root[data-visual="split"] .ranking-pane .n-input,
-:root[data-visual="split"] .people-rail .n-base-selection,
-:root[data-visual="split"] .ranking-pane .n-base-selection,
-:root[data-visual="split"] .person-picker--drawer .n-input,
-:root[data-visual="split"] .person-picker--drawer .n-base-selection {
-	--n-color: var(--chrome) !important;
-	--n-color-focus: var(--chrome) !important;
-	--n-text-color: var(--chrome-text) !important;
-	--n-placeholder-color: var(--chrome-muted) !important;
-	--n-border: 1px solid var(--chrome-border) !important;
-	--n-border-hover: 1px solid var(--primary-hover) !important;
-	--n-border-focus: 1px solid var(--primary) !important;
-}
-
-:root[data-visual="split"] .ranking-pane :focus-visible,
-:root[data-visual="split"] .people-rail :focus-visible,
-:root[data-visual="split"] .person-picker--drawer :focus-visible {
-	outline-color: var(--focus-on-chrome);
-}
-
-:root[data-visual="split"] .ranking-pane .n-pagination-item,
-:root[data-visual="split"] .ranking-pane .n-pagination-item--button {
-	border-color: var(--chrome-border) !important;
-	background: var(--chrome) !important;
-	color: var(--chrome-text) !important;
-}
-
-:root[data-visual="split"] .ranking-pane .n-pagination-item--active {
-	border-color: var(--primary) !important;
-	background: var(--primary) !important;
-	color: var(--on-primary) !important;
-}
-
-:root[data-visual="split"] .people-rail .candidate-filter button.is-active,
-:root[data-visual="split"] .person-picker--drawer .candidate-filter button.is-active,
-:root[data-visual="split"] .people-rail .person-row__select-glyph,
-:root[data-visual="split"] .person-picker--drawer .person-row__select-glyph {
-	background: var(--chrome);
-	color: var(--chrome-text);
-}
-
-:root[data-visual="screening"] .safe-image img {
-	filter: saturate(0.88) contrast(1.02);
-}
-
-:root[data-visual="screening"] .query-summary__item,
-:root[data-visual="screening"] .mode-tabs,
-:root[data-visual="screening"] .direction-control__buttons {
-	border-color: var(--chrome-border);
-}
-
 @media (max-width: 1240px) {
 	.workbench-header__bar {
-		grid-template-columns: auto auto minmax(180px, 1fr);
-	}
-
-	.direction-control__label,
-	.direction-control__buttons {
-		display: none;
-	}
-
-	.direction-control__select {
-		display: block;
-		width: 180px;
+		grid-template-columns: auto auto minmax(150px, 1fr);
 	}
 
 	.co-star-workbench {
@@ -1878,7 +1740,7 @@ table,
 	.workbench-header__bar {
 		grid-template-columns: minmax(0, 1fr) auto auto;
 		grid-template-areas:
-			"brand direction people"
+			"brand theme people"
 			"modes modes modes";
 		gap: 8px;
 		width: min(calc(100% - 24px), var(--workspace-max));
@@ -1902,8 +1764,10 @@ table,
 		min-height: 44px;
 	}
 
-	.direction-control { grid-area: direction; }
-	.direction-control__select { width: 132px; }
+	.theme-toggle {
+		grid-area: theme;
+		min-height: var(--touch-target-min);
+	}
 
 	.mobile-people-trigger {
 		position: relative;
@@ -2118,11 +1982,10 @@ table,
 
 @media (max-width: 480px) {
 	.workbench-header__bar {
-		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-columns: minmax(0, 1fr) auto auto;
 		grid-template-areas:
-			"brand people"
-			"direction direction"
-			"modes modes";
+			"brand theme people"
+			"modes modes modes";
 	}
 
 	.workbench-brand__copy strong {
@@ -2131,12 +1994,13 @@ table,
 		text-overflow: ellipsis;
 	}
 
-	.direction-control {
-		width: 100%;
+	.theme-toggle {
+		min-width: 0;
+		padding-inline: 10px;
 	}
 
-	.direction-control__select {
-		width: 100%;
+	.theme-toggle__copy small {
+		display: none;
 	}
 
 	.query-summary__items {

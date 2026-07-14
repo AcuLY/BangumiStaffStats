@@ -62,28 +62,20 @@ const onModeKeydown = (event: KeyboardEvent, index: number) => {
 				</button>
 			</nav>
 
-			<div class="direction-control" aria-label="视觉方向">
-				<span class="direction-control__label"><AppIcon name="palette" :size="16" />视觉方向</span>
-				<div class="direction-control__buttons">
-					<button
-						v-for="item in workbench.directions"
-						:key="item.value"
-						type="button"
-						:class="{ 'is-active': workbench.direction.value === item.value }"
-						:aria-pressed="workbench.direction.value === item.value"
-						:title="item.description"
-						@click="workbench.direction.value = item.value"
-					>
-						{{ item.label }}
-					</button>
-				</div>
-				<n-select
-					class="direction-control__select"
-					v-model:value="workbench.direction.value"
-					:options="workbench.directions"
-					aria-label="选择视觉方向"
-				/>
-			</div>
+			<button
+				class="theme-toggle"
+				type="button"
+				:aria-pressed="workbench.theme.value === 'dark'"
+				:aria-label="workbench.theme.value === 'dark' ? '切换到社区档案台浅色模式' : '切换到社区档案台深色模式'"
+				:title="workbench.theme.value === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
+				@click="workbench.toggleTheme"
+			>
+				<AppIcon :name="workbench.theme.value === 'dark' ? 'sun' : 'moon'" :size="17" />
+				<span class="theme-toggle__copy">
+					<small>社区档案台</small>
+					<strong>{{ workbench.theme.value === 'dark' ? '深色模式' : '浅色模式' }}</strong>
+				</span>
+			</button>
 
 			<button
 				v-if="workbench.mode.value === 'co-star'"
