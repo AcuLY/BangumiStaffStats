@@ -66,15 +66,11 @@ const onModeKeydown = (event: KeyboardEvent, index: number) => {
 				class="theme-toggle"
 				type="button"
 				:aria-pressed="workbench.theme.value === 'dark'"
-				:aria-label="workbench.theme.value === 'dark' ? '切换到社区档案台浅色模式' : '切换到社区档案台深色模式'"
+				aria-label="社区档案台深色模式"
 				:title="workbench.theme.value === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
 				@click="workbench.toggleTheme"
 			>
 				<AppIcon :name="workbench.theme.value === 'dark' ? 'sun' : 'moon'" :size="17" />
-				<span class="theme-toggle__copy">
-					<small>社区档案台</small>
-					<strong>{{ workbench.theme.value === 'dark' ? '深色模式' : '浅色模式' }}</strong>
-				</span>
 			</button>
 
 			<button

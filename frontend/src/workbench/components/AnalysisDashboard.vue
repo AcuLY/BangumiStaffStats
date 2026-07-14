@@ -160,25 +160,40 @@ const participation = computed(() => {
 	return { onlyA, onlyB, shared, total, percentage }
 })
 
-const bins = ['10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '未评']
+const bins = Array.from({ length: 10 }, (_, index) => String(index + 1))
 const seriesColors = ['#c61c7c', '#158486', '#7b6cb0', '#b47716', '#3f8068', '#a35f70']
-const groupedSeries = computed(() => workbench.selectedPeople.value.map((item, index) => {
-	const rates = item.subjectIds.map((id) => Number(workbench.subjectsById.value.get(id)?.collection?.rate || 0))
-	return {
-		item,
-		color: seriesColors[index % seriesColors.length],
-		average: profileAverage(item.subjectIds),
-		counts: bins.map((label) => label === '未评'
-			? rates.filter((rate) => rate === 0).length
-			: rates.filter((rate) => rate === Number(label)).length),
-	}
-}))
+const groupedSeries = computed(() => {
+	const people = workbench.selectedPeople.value.map((item, index) => {
+		const rates = item.subjectIds
+			.map((id) => Number(workbench.subjectsById.value.get(id)?.collection?.rate || 0))
+			.filter((rate) => rate >= 1 && rate <= 10)
+		return {
+			key: `person-${item.person.id}`,
+			marker: slotLabel(index),
+			label: workbench.personName(item.person),
+			color: seriesColors[index % seriesColors.length],
+			average: profileAverage(item.subjectIds),
+			ratedCount: rates.length,
+			counts: bins.map((label) => rates.filter((rate) => rate === Number(label)).length),
+		}
+	})
+	const sharedRates = ratedShared.value
+		.map((subject) => Number(subject.collection?.rate || 0))
+		.filter((rate) => rate >= 1 && rate <= 10)
+	return [...people, {
+		key: 'shared-works',
+		marker: '交集',
+		label: '共同作品',
+		color: '#4677c8',
+		average: personalAverage.value,
+		ratedCount: sharedRates.length,
+		counts: bins.map((label) => sharedRates.filter((rate) => rate === Number(label)).length),
+	}]
+})
 const maxGroupedDistribution = computed(() => Math.max(1, ...groupedSeries.value.flatMap((series) => series.counts)))
-
-const maxDistribution = computed(() => Math.max(1, ...workbench.ratingDistribution.value.map((item) => item.value)))
-const distributionLabel = computed(() => `共同作品评分分布：${workbench.ratingDistribution.value
-	.map((item) => `${item.label} ${item.value} 部`)
-	.join('，')}`)
+const groupedDistributionLabel = computed(() => `评分分布对比，仅统计 1 到 10 分的已评分作品。${groupedSeries.value
+	.map((series) => `${series.label}：${bins.map((label, index) => `${label} 分 ${series.counts[index]} 部`).join('，')}`)
+	.join('；')}`)
 
 const participationEntries = (person: Person, positionIds: number[], subjectId: number) => positionIds.flatMap((positionId) => {
 	if (!workbench.positionSubjectIds(person, positionId).includes(Number(subjectId))) return []
@@ -318,21 +333,21 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 
 			<div class="analysis-grid analysis-grid--insights">
 				<section class="analysis-section surface-panel" aria-labelledby="grouped-rating-title">
-					<div class="section-heading"><div><h2 id="grouped-rating-title">评分分布对比</h2><p>按我的收藏评分 · 同组同轴对比。</p></div></div>
+					<div class="section-heading"><div><h2 id="grouped-rating-title">评分分布对比</h2><p>人物与共同作品 · 1–10 分同组同轴对比。</p></div></div>
 					<div class="distribution-legend">
-						<span v-for="(series, index) in groupedSeries" :key="series.item.person.id" :style="{ '--series-color': series.color }">
-							<i aria-hidden="true" /><b>{{ slotLabel(index) }} · {{ workbench.personName(series.item.person) }}</b><small>均分 {{ formatScore(series.average) }} · {{ series.item.subjectIds.length }} 部</small>
+						<span v-for="series in groupedSeries" :key="series.key" :style="{ '--series-color': series.color }">
+							<i aria-hidden="true" /><b>{{ series.marker }} · {{ series.label }}</b><small>均分 {{ formatScore(series.average) }} · {{ series.ratedCount }} 部已评</small>
 						</span>
 					</div>
-					<div class="grouped-distribution" role="img" :aria-label="`${groupedSeries.length} 位人物的收藏评分分组柱状图`">
+					<div class="grouped-distribution" role="img" :aria-label="groupedDistributionLabel">
 						<div v-for="(label, binIndex) in bins" :key="label" class="grouped-bin">
 							<div class="grouped-bin__bars">
-								<i v-for="series in groupedSeries" :key="series.item.person.id" :style="{ height: `${series.counts[binIndex] ? Math.max(4, series.counts[binIndex] / maxGroupedDistribution * 100) : 0}%`, background: series.color }" :title="`${workbench.personName(series.item.person)} · ${label} · ${series.counts[binIndex]} 部`"><span v-if="series.counts[binIndex]">{{ series.counts[binIndex] }}</span></i>
+								<i v-for="series in groupedSeries" :key="series.key" :style="{ height: `${series.counts[binIndex] ? Math.max(4, series.counts[binIndex] / maxGroupedDistribution * 100) : 0}%`, background: series.color }" :title="`${series.label} · ${label} 分 · ${series.counts[binIndex]} 部`"><span v-if="series.counts[binIndex]">{{ series.counts[binIndex] }}</span></i>
 							</div>
 							<small>{{ label }}</small>
 						</div>
 					</div>
-					<p class="chart-note">每组按同一纵轴比较；均分仅统计已评分作品，作品数包含未评分作品。</p>
+					<p class="chart-note">共同作品已并入对比；所有系列使用同一纵轴，仅统计已评分作品。</p>
 				</section>
 
 				<section class="analysis-section surface-panel" aria-labelledby="relationship-signals-title">
@@ -348,17 +363,6 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 					</div>
 				</section>
 			</div>
-
-			<section class="analysis-section surface-panel" aria-labelledby="shared-rating-title">
-				<div class="section-heading"><div><h2 id="shared-rating-title">共同作品评分分布</h2><p>保留当前视图：1–10 分与未评分作品均计数。</p></div></div>
-				<div class="score-distribution score-distribution--large" role="img" :aria-label="distributionLabel">
-					<div v-for="item in workbench.ratingDistribution.value" :key="item.label" class="score-bar">
-						<span class="score-bar__value">{{ item.value }}</span>
-						<span class="score-bar__track"><i :style="{ height: `${Math.max(4, item.value / maxDistribution * 100)}%` }" /></span>
-						<small>{{ item.label }}</small>
-					</div>
-				</div>
-			</section>
 
 			<section class="analysis-section timeline-panel surface-panel" aria-labelledby="timeline-title">
 				<div class="section-heading"><div><h2 id="timeline-title">重复合作时间线</h2><p>横向距离按年份差值 · 圆点大小代表共同条目数。</p></div></div>

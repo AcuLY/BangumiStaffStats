@@ -52,13 +52,13 @@ const isCandidate = (person: Person | CandidatePerson): person is CandidatePerso
 			>
 				<span class="person-row__progress" aria-hidden="true" />
 				<span class="person-row__rank">{{ rankOffset + index + 1 }}</span>
-					<SafeImage
-						class="person-row__avatar"
-						:sources="workbench.personImageSources(person)"
-						:alt="workbench.personName(person)"
-						kind="person"
-						decorative
-					:width="44"
+				<SafeImage
+					class="person-row__avatar"
+					:sources="workbench.personImageSources(person)"
+					:alt="workbench.personName(person)"
+					kind="person"
+					decorative
+					:width="36"
 					:height="44"
 				/>
 				<span class="person-row__identity">
@@ -82,36 +82,34 @@ const isCandidate = (person: Person | CandidatePerson): person is CandidatePerso
 				<AppIcon class="person-row__arrow" name="arrow" :size="17" />
 			</button>
 
-			<article v-else-if="isCandidate(person)" class="person-row person-row--candidate" :class="{ 'is-selected': workbench.isScopeSelected(person.id, person.activePositionId) }">
-				<button
-					class="person-row__select"
-					type="button"
-					:aria-pressed="workbench.isScopeSelected(person.id, person.activePositionId)"
-					:aria-label="`${workbench.isScopeSelected(person.id, person.activePositionId) ? '移除' : '选择'}${workbench.personName(person)}的${person.activePositionLabel}身份`"
-					@click="emit('toggle', person.id, person.activePositionId)"
-				>
-					<span class="person-row__select-glyph">
-						<AppIcon :name="workbench.isScopeSelected(person.id, person.activePositionId) ? 'check' : 'plus'" :size="18" />
-					</span>
-				</button>
+			<button
+				v-else-if="isCandidate(person)"
+				class="person-row person-row--candidate"
+				type="button"
+				:class="{ 'is-selected': workbench.isScopeSelected(person.id, person.activePositionId) }"
+				:aria-pressed="workbench.isScopeSelected(person.id, person.activePositionId)"
+				:aria-label="`${workbench.isScopeSelected(person.id, person.activePositionId) ? '移除' : '选择'}${workbench.personName(person)}的${person.activePositionLabel}身份`"
+				@click="emit('toggle', person.id, person.activePositionId)"
+			>
+				<span class="candidate-row__portrait">
 					<SafeImage
 						class="person-row__avatar"
 						:sources="workbench.personImageSources(person)"
 						:alt="workbench.personName(person)"
 						kind="person"
 						decorative
-					:width="42"
-					:height="42"
-				/>
+						:width="36"
+						:height="44"
+					/>
+					<span v-if="workbench.isScopeSelected(person.id, person.activePositionId)" class="candidate-row__selected-state" aria-hidden="true">
+						<AppIcon name="check" :size="11" />
+					</span>
+				</span>
 				<span class="person-row__identity">
 					<strong>{{ workbench.personName(person) }}</strong>
 					<small>{{ person.activePositionLabel }} · {{ person.activeSubjectCount }} 部</small>
 				</span>
-				<span class="person-row__metric">
-					<strong>{{ person.activeAverage ? person.activeAverage.toFixed(2) : '—' }}</strong>
-					<small>我的均分</small>
-				</span>
-			</article>
+			</button>
 		</template>
 
 		<div v-if="!items.length" class="person-list__empty">

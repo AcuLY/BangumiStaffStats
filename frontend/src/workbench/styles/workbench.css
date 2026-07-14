@@ -219,10 +219,11 @@ table,
 	align-items: center;
 	justify-content: center;
 	justify-self: end;
-	gap: 9px;
-	min-width: 150px;
-	min-height: 40px;
-	padding: 0 11px;
+	width: 44px;
+	height: 44px;
+	min-width: 44px;
+	min-height: 44px;
+	padding: 0;
 	border: 1px solid var(--chrome-border);
 	border-radius: var(--radius-control);
 	background: var(--chrome-raised);
@@ -234,23 +235,6 @@ table,
 .theme-toggle:hover {
 	border-color: color-mix(in oklab, var(--primary) 70%, var(--chrome-border));
 	background: color-mix(in oklab, var(--primary) 12%, var(--chrome-raised));
-}
-
-.theme-toggle__copy {
-	display: grid;
-	gap: 1px;
-	text-align: left;
-	line-height: 1.15;
-}
-
-.theme-toggle__copy small {
-	color: var(--chrome-muted);
-	font-size: 11px;
-}
-
-.theme-toggle__copy strong {
-	font-size: 12px;
-	font-weight: 650;
 }
 
 .mobile-people-trigger {
@@ -709,7 +693,11 @@ table,
 
 .safe-image--person,
 .person-row__avatar {
-	border-radius: 50%;
+	border-radius: var(--radius-control);
+}
+
+.safe-image--person img {
+	object-position: center 20%;
 }
 
 .safe-image--subject {
@@ -717,7 +705,7 @@ table,
 }
 
 .person-row__avatar {
-	width: 44px;
+	width: 36px;
 	height: 44px;
 }
 
@@ -1082,6 +1070,7 @@ table,
 .person-picker {
 	min-width: 0;
 	max-height: calc(100vh - 34px);
+	overflow-x: clip;
 	overflow-y: auto;
 	overscroll-behavior: contain;
 }
@@ -1217,7 +1206,7 @@ table,
 
 .selected-person-row .safe-image {
 	width: 36px;
-	height: 36px;
+	height: 44px;
 }
 
 .selected-person-row__copy {
@@ -1308,16 +1297,26 @@ table,
 
 .person-row--candidate {
 	display: grid;
-	grid-template-columns: 44px 42px minmax(0, 1fr) auto;
+	grid-template-columns: 36px minmax(0, 1fr) auto;
 	align-items: center;
 	gap: 8px;
+	width: calc(100% + 32px);
 	min-height: var(--candidate-row-height);
 	margin-inline: -16px;
 	padding: 6px 16px;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
 }
 
 .person-row--candidate:hover {
 	background: var(--hover);
+}
+
+.person-row--candidate:focus-visible {
+	z-index: 2;
+	outline-offset: -2px;
 }
 
 .person-row--candidate.is-selected {
@@ -1326,36 +1325,30 @@ table,
 }
 
 .person-row--candidate .person-row__avatar {
-	width: 42px;
-	height: 42px;
-}
-
-.person-row__select {
-	display: grid;
-	place-items: center;
-	width: 44px;
+	width: 36px;
 	height: 44px;
-	padding: 0;
-	border: 0;
-	background: transparent;
-	cursor: pointer;
 }
 
-.person-row__select-glyph {
+.candidate-row__portrait {
+	position: relative;
+	display: block;
+	width: 36px;
+	height: 44px;
+}
+
+.candidate-row__selected-state {
+	position: absolute;
+	right: -4px;
+	bottom: -3px;
 	display: grid;
 	place-items: center;
-	width: 30px;
-	height: 30px;
-	border: 1px solid var(--control-border);
-	border-radius: var(--radius-control);
-	background: var(--surface);
-	color: var(--text-3);
-}
-
-.person-row__select[aria-pressed="true"] .person-row__select-glyph {
-	border-color: var(--primary);
+	width: 18px;
+	height: 18px;
+	border: 2px solid var(--surface);
+	border-radius: 50%;
 	background: var(--primary);
 	color: var(--on-primary);
+	box-shadow: 0 1px 3px color-mix(in oklab, var(--text-1) 20%, transparent);
 }
 
 .picker-pagination {
@@ -1996,11 +1989,7 @@ table,
 
 	.theme-toggle {
 		min-width: 0;
-		padding-inline: 10px;
-	}
-
-	.theme-toggle__copy small {
-		display: none;
+		padding: 0;
 	}
 
 	.query-summary__items {
@@ -2028,8 +2017,8 @@ table,
 	}
 
 	.person-row--ranking .person-row__avatar {
-		width: 40px;
-		height: 40px;
+		width: 36px;
+		height: 44px;
 	}
 
 	.list-columns {
@@ -2605,7 +2594,7 @@ table,
 
 .grouped-distribution {
 	display: grid;
-	grid-template-columns: repeat(11, minmax(42px, 1fr));
+	grid-template-columns: repeat(10, minmax(42px, 1fr));
 	align-items: end;
 	gap: 5px;
 	width: 100%;

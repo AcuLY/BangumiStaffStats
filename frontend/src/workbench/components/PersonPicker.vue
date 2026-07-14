@@ -75,10 +75,6 @@ const addIdentity = (personId: number, positionId: number | null) => {
 const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScopes.value
 	.filter((scope) => scope.personId === personId && scope.positionId !== workbench.browsePositionId.value)
 	.map((scope) => workbench.positionLabel(scope.positionId))
-
-const formatScore = (value: number) => Number.isFinite(value) && value > 0
-	? value.toFixed(2)
-	: '—'
 </script>
 
 <template>
@@ -114,7 +110,7 @@ const formatScore = (value: number) => Number.isFinite(value) && value > 0
 			<div v-show="!selectedTrayCollapsed" id="selected-people-list" class="selected-people-list">
 				<article v-for="(item, index) in workbench.selectedPeople.value" :key="item.person.id" class="selected-person-row">
 					<span class="identity-marker">{{ selectionSlot(index) }}</span>
-					<SafeImage :sources="workbench.personImageSources(item.person)" :alt="workbench.personName(item.person)" kind="person" :width="36" :height="36" decorative />
+					<SafeImage :sources="workbench.personImageSources(item.person)" :alt="workbench.personName(item.person)" kind="person" :width="36" :height="44" decorative />
 					<span class="selected-person-row__copy">
 						<strong>{{ workbench.personName(item.person) }}</strong>
 						<span class="selected-person-row__positions">
@@ -187,32 +183,30 @@ const formatScore = (value: number) => Number.isFinite(value) && value > 0
 			</div>
 
 			<div class="person-list person-list--candidate">
-				<article
+				<button
 					v-for="person in workbench.candidatePageItems.value"
 					:key="`candidate-${person.id}`"
 					class="person-row person-row--candidate"
+					type="button"
 					:class="{ 'is-selected': workbench.isScopeSelected(person.id, person.activePositionId) }"
+					:aria-pressed="workbench.isScopeSelected(person.id, person.activePositionId)"
+					:aria-label="`${workbench.isScopeSelected(person.id, person.activePositionId) ? '移除' : '选择'}${workbench.personName(person)}的${person.activePositionLabel}身份`"
+					@click="workbench.toggleScope(person.id, person.activePositionId)"
 				>
-					<button
-						class="person-row__select"
-						type="button"
-						:aria-pressed="workbench.isScopeSelected(person.id, person.activePositionId)"
-						:aria-label="`${workbench.isScopeSelected(person.id, person.activePositionId) ? '移除' : '选择'}${workbench.personName(person)}的${person.activePositionLabel}身份`"
-						@click="workbench.toggleScope(person.id, person.activePositionId)"
-					>
-						<span class="person-row__select-glyph">
-							<AppIcon :name="workbench.isScopeSelected(person.id, person.activePositionId) ? 'check' : 'plus'" :size="18" />
+					<span class="candidate-row__portrait">
+						<SafeImage
+							class="person-row__avatar"
+							:sources="workbench.personImageSources(person)"
+							:alt="workbench.personName(person)"
+							kind="person"
+							decorative
+							:width="36"
+							:height="44"
+						/>
+						<span v-if="workbench.isScopeSelected(person.id, person.activePositionId)" class="candidate-row__selected-state" aria-hidden="true">
+							<AppIcon name="check" :size="11" />
 						</span>
-					</button>
-					<SafeImage
-						class="person-row__avatar"
-						:sources="workbench.personImageSources(person)"
-						:alt="workbench.personName(person)"
-						kind="person"
-						decorative
-						:width="42"
-						:height="42"
-					/>
+					</span>
 					<span class="person-row__identity candidate-row__identity">
 						<strong>{{ workbench.personName(person) }}</strong>
 						<small>
@@ -225,9 +219,8 @@ const formatScore = (value: number) => Number.isFinite(value) && value > 0
 					</span>
 					<span class="candidate-row__metrics">
 						<span><strong>{{ person.activeSubjectCount }}</strong><small>作品</small></span>
-						<span><strong>{{ formatScore(person.activeAverage) }}</strong><small>均分</small></span>
 					</span>
-				</article>
+				</button>
 
 				<div v-if="!workbench.candidatePageItems.value.length" class="person-list__empty">
 					<AppIcon name="search" :size="22" />
