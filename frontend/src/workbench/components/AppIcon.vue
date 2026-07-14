@@ -72,5 +72,10 @@ withDefaults(defineProps<{
 </template>
 
 <style scoped>
-.app-icon { display: block; flex: 0 0 auto; }
+.app-icon {
+	display: block;
+	flex: 0 0 auto;
+	transform-box: fill-box;
+	transform-origin: center;
+}
 </style>

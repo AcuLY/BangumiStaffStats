@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { darkTheme, zhCN, type GlobalThemeOverrides } from 'naive-ui'
 import { loadWorkbenchFixtures } from './data/loadFixtures'
 import { provideWorkbench } from './composables/useWorkbench'
 import type { PositionData, WorkbenchSnapshot } from './types'
 import WorkbenchHeader from './components/WorkbenchHeader.vue'
+import QueryWorkspace from './components/QueryWorkspace.vue'
 import RankingWorkbench from './components/RankingWorkbench.vue'
 import CoStarWorkbench from './components/CoStarWorkbench.vue'
 import AppIcon from './components/AppIcon.vue'
@@ -51,10 +52,18 @@ const load = async () => {
 	}
 }
 
+const warnOnUnsavedQuery = (event: BeforeUnloadEvent) => {
+	if (!workbench.queryDraftDirty.value) return
+	event.preventDefault()
+	event.returnValue = ''
+}
+
 watch(workbench.theme, (theme) => {
 	document.documentElement.dataset.visual = 'archive'
 	document.documentElement.dataset.theme = theme
 	document.documentElement.style.colorScheme = theme
+	document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+		?.setAttribute('content', theme === 'dark' ? '#101014' : '#f5f5f7')
 	try {
 		window.localStorage.setItem('bgmss-workbench-theme', theme)
 	} catch {
@@ -67,7 +76,18 @@ watch(workbench.theme, (theme) => {
 	window.history.replaceState({}, '', url)
 }, { immediate: true })
 
-onMounted(load)
+watch(workbench.mode, (mode) => {
+	const url = new URL(window.location.href)
+	if (mode === 'ranking') url.searchParams.set('mode', 'ranking')
+	else url.searchParams.delete('mode')
+	window.history.replaceState({}, '', url)
+})
+
+onMounted(() => {
+	window.addEventListener('beforeunload', warnOnUnsavedQuery)
+	load()
+})
+onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnUnsavedQuery))
 </script>
 
 <template>
@@ -79,9 +99,9 @@ onMounted(load)
 					<WorkbenchHeader />
 
 					<main id="workbench-main" class="workbench-body" tabindex="-1">
-						<div v-if="loading" class="workbench-state surface-panel" aria-busy="true">
+						<div v-if="loading" class="workbench-state surface-panel" role="status" aria-live="polite" aria-busy="true">
 							<span class="state-icon state-icon--loading"><AppIcon name="brand" :size="28" /></span>
-							<h1>正在整理本地人物快照</h1>
+							<h1>正在整理本地人物快照…</h1>
 							<p>人物、作品与职位数据会从本项目的静态 JSON 读取。</p>
 							<div class="skeleton-lines" aria-hidden="true"><i /><i /><i /></div>
 						</div>
@@ -93,8 +113,11 @@ onMounted(load)
 							<n-button type="primary" @click="load">重新加载</n-button>
 						</div>
 
-						<RankingWorkbench v-else-if="workbench.mode.value === 'ranking'" />
-						<CoStarWorkbench v-else />
+						<template v-else>
+							<QueryWorkspace />
+							<RankingWorkbench v-if="workbench.mode.value === 'ranking'" />
+							<CoStarWorkbench v-else />
+						</template>
 					</main>
 				</div>
 			</n-dialog-provider>

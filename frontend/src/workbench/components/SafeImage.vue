@@ -104,6 +104,9 @@ const intrinsicStyle = computed(() => ({
 
 <template>
 	<span ref="containerRef" class="safe-image" :class="[`safe-image--${kind}`, { 'is-fallback': failed }]" :style="intrinsicStyle">
+		<span v-if="!failed && !loaded" class="safe-image__fallback safe-image__fallback--loading" aria-hidden="true">
+			<AppIcon :name="kind === 'person' ? 'person' : 'image'" :size="kind === 'person' ? 28 : 24" />
+		</span>
 		<img
 			v-if="!failed"
 			:key="currentSource"
@@ -115,6 +118,7 @@ const intrinsicStyle = computed(() => ({
 			:fetchpriority="priority ? 'high' : undefined"
 			decoding="async"
 			referrerpolicy="no-referrer"
+			:class="{ 'is-loaded': loaded }"
 			@load="markLoaded"
 			@error="tryNextSource"
 		/>

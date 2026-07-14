@@ -226,7 +226,7 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 <template>
 	<div v-if="workbench.selectedPeople.value.length < 2" class="analysis-empty surface-panel">
 		<span class="analysis-empty__icon"><AppIcon name="people" :size="30" /></span>
-		<h1>再选择一位共同参与者</h1>
+		<h2>再选择一位共同参与者</h2>
 		<p>至少需要两个人物，才能计算共同作品、评分分布和关系矩阵。</p>
 		<n-button type="primary" @click="workbench.peopleDrawerOpen.value = true">打开人物选择</n-button>
 	</div>
@@ -236,14 +236,14 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 			<div class="analysis-title-row">
 				<div>
 					<span class="section-context">当前选择 · {{ workbench.selectedPeople.value.length }} 人</span>
-					<h1 id="analysis-title">
+					<h2 id="analysis-title">
 						<template v-if="selectedMode === 'pair'">
 							{{ workbench.personName(workbench.selectedPeople.value[0]?.person) }}
 							<em>×</em>
 							{{ workbench.personName(workbench.selectedPeople.value[1]?.person) }}
 						</template>
 						<template v-else>共同参与画像</template>
-					</h1>
+					</h2>
 					<p>从 {{ workbench.selectedUnionCount.value }} 部关联作品中找到 {{ workbench.sharedSubjects.value.length }} 部共同作品。</p>
 				</div>
 				<span class="analysis-status"><span aria-hidden="true" />{{ workbench.analysisStatus.value }}</span>

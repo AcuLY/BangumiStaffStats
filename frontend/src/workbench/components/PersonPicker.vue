@@ -11,10 +11,32 @@ const selectedTrayCollapsed = ref(props.drawer)
 const candidatePageSize = computed(() => Math.max(1, Number(workbench.snapshot.value?.meta.ui?.pageSize || 8)))
 
 const selectedScopeCount = computed(() => workbench.selectedScopes.value.length)
+const candidatePositionLabel = computed(() => workbench.positionLabel(workbench.candidatePositionId.value))
+const candidatePositionSelectOptions = computed(() => workbench.candidatePositionOptions.value.map((option) => ({
+	label: `${option.label} · ${option.count} 人`,
+	value: option.value,
+})))
+const activateCandidatePosition = (positionId: number, focus = false) => {
+	workbench.candidatePositionId.value = positionId
+	if (focus) requestAnimationFrame(() => {
+		document.querySelector<HTMLButtonElement>(`[data-candidate-position="${positionId}"]`)?.focus()
+	})
+}
+const onCandidatePositionKeydown = (event: KeyboardEvent, index: number) => {
+	const options = workbench.candidatePositionOptions.value
+	let next = index
+	if (event.key === 'ArrowRight') next = (index + 1) % options.length
+	else if (event.key === 'ArrowLeft') next = (index - 1 + options.length) % options.length
+	else if (event.key === 'Home') next = 0
+	else if (event.key === 'End') next = options.length - 1
+	else return
+	event.preventDefault()
+	if (options[next]) activateCandidatePosition(options[next].value, true)
+}
 
 const currentPositionRanking = computed(() => [...workbench.peopleById.value.values()]
 	.map((person) => {
-		const subjectIds = workbench.positionSubjectIds(person, workbench.query.positionId)
+		const subjectIds = workbench.positionSubjectIds(person, workbench.candidatePositionId.value)
 			.filter((id) => workbench.queryScopeSubjectIds.value.has(Number(id)))
 		if (!subjectIds.length) return null
 		const rates = subjectIds
@@ -45,6 +67,8 @@ const selectionSlot = (index: number) => String(index + 1)
 
 const availablePositionOptions = (item: typeof workbench.selectedPeople.value[number]) =>
 	workbench.positions.value.filter((position) =>
+		workbench.coStarPositionIds.value.includes(position.value)
+		&&
 		!item.positionIds.includes(position.value)
 		&& workbench.positionSubjectIds(item.person, position.value)
 			.some((id) => workbench.queryScopeSubjectIds.value.has(Number(id))))
@@ -56,7 +80,7 @@ const addIdentity = (personId: number, positionId: number | null) => {
 }
 
 const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScopes.value
-	.filter((scope) => scope.personId === personId && scope.positionId !== workbench.query.positionId)
+	.filter((scope) => scope.personId === personId && scope.positionId !== workbench.candidatePositionId.value)
 	.map((scope) => workbench.positionLabel(scope.positionId))
 </script>
 
@@ -113,7 +137,7 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 								size="small"
 								:value="null"
 								:options="availablePositionOptions(item)"
-								placeholder="＋ 添加身份"
+								placeholder="＋ 添加身份…"
 								:aria-label="`为${workbench.personName(item.person)}添加身份`"
 								@update:value="addIdentity(item.person.id, $event)"
 							/>
@@ -129,20 +153,56 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 
 		<section class="candidate-browser" aria-labelledby="candidate-title">
 			<div class="picker-section-heading">
-				<strong id="candidate-title">{{ workbench.positionLabel(workbench.query.positionId) }}人物排行</strong>
-				<span>{{ currentPositionTotal }} 人</span>
+				<strong id="candidate-title">候选人物</strong>
+				<span role="status" aria-live="polite">{{ currentPositionTotal }} 人</span>
 			</div>
 
-			<n-input class="candidate-search" v-model:value="workbench.candidateSearch.value" clearable placeholder="搜索人物名或别名…" aria-label="搜索人物">
-				<template #prefix><AppIcon name="search" :size="16" /></template>
-			</n-input>
-
-			<div class="candidate-result-summary">
-				<strong>候选结果</strong>
-				<span>{{ workbench.candidatePeople.value.length }} 人 · 第 {{ workbench.candidatePage.value }} / {{ workbench.candidatePageCount.value }} 页</span>
+			<div class="candidate-position-browser">
+				<span class="candidate-position-browser__label">已应用职位</span>
+				<n-select
+					v-if="drawer"
+					v-model:value="workbench.candidatePositionId.value"
+					:options="candidatePositionSelectOptions"
+					aria-label="浏览候选职位"
+					:input-props="{ name: 'candidatePosition' }"
+				/>
+				<div v-else class="candidate-position-tabs" role="tablist" aria-label="浏览已应用职位">
+					<button
+						v-for="(option, index) in workbench.candidatePositionOptions.value"
+						:key="option.value"
+						:data-candidate-position="option.value"
+						:id="`candidate-position-tab-${option.value}`"
+						class="candidate-position-tab"
+						type="button"
+						role="tab"
+						:aria-selected="workbench.candidatePositionId.value === option.value"
+						aria-controls="candidate-position-results"
+						:tabindex="workbench.candidatePositionId.value === option.value ? 0 : -1"
+						@click="activateCandidatePosition(option.value)"
+						@keydown="onCandidatePositionKeydown($event, index)"
+					>
+						<span>{{ option.label }}</span>
+						<small>{{ option.count }}</small>
+					</button>
+				</div>
 			</div>
 
-			<div class="person-list person-list--candidate">
+			<div
+				id="candidate-position-results"
+				class="candidate-position-results"
+				:role="drawer ? 'region' : 'tabpanel'"
+				:aria-labelledby="drawer ? 'candidate-title' : `candidate-position-tab-${workbench.candidatePositionId.value}`"
+			>
+				<n-input class="candidate-search" v-model:value="workbench.candidateSearch.value" clearable autocomplete="off" :placeholder="`在 ${currentPositionTotal} 位${candidatePositionLabel}中筛选…`" :aria-label="`搜索${candidatePositionLabel}候选人物`" :input-props="{ name: 'candidateSearch', spellcheck: 'false' }">
+					<template #prefix><AppIcon name="search" :size="16" /></template>
+				</n-input>
+
+				<div class="candidate-result-summary" role="status" aria-live="polite">
+					<strong>{{ candidatePositionLabel }}</strong>
+					<span>{{ workbench.candidatePeople.value.length }} 人 · 第 {{ workbench.candidatePage.value }} / {{ workbench.candidatePageCount.value }} 页</span>
+				</div>
+
+				<div class="person-list person-list--candidate">
 				<button
 					v-for="person in workbench.candidatePageItems.value"
 					:key="`candidate-${person.id}`"
@@ -187,12 +247,13 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 					<strong>没有匹配的人物</strong>
 					<span>换一个搜索词。</span>
 				</div>
-			</div>
+				</div>
 
-			<footer class="picker-pagination">
-				<span class="candidate-range">{{ candidateRangeStart }}—{{ candidateRangeEnd }} / {{ workbench.candidatePeople.value.length }}</span>
-				<n-pagination v-model:page="workbench.candidatePage.value" :page-count="workbench.candidatePageCount.value" :page-slot="5" />
-			</footer>
+				<footer class="picker-pagination">
+					<span class="candidate-range">{{ candidateRangeStart }}—{{ candidateRangeEnd }} / {{ workbench.candidatePeople.value.length }}</span>
+					<n-pagination v-model:page="workbench.candidatePage.value" :page-count="workbench.candidatePageCount.value" :page-slot="5" />
+				</footer>
+			</div>
 		</section>
 
 		<p class="picker-footnote">本地静态快照 · 图片经 Bangumi API 兼容代理加载，失败时显示降级图标。</p>
@@ -207,14 +268,18 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 	width: 100%;
 	min-height: 44px;
 	margin-bottom: 8px;
-	padding: 0 10px;
+	padding: 0 var(--space-3);
 	border: 1px solid var(--border);
 	border-radius: var(--radius-control);
 	background: var(--surface-sunken);
 	color: var(--text-2);
 	font: inherit;
-	font-size: 12px;
+	font-size: var(--text-control);
 	cursor: pointer;
+}
+
+.selected-tray-toggle:hover {
+	background: var(--hover);
 }
 
 .selected-tray-toggle[aria-expanded='true'] svg {
@@ -233,13 +298,13 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 }
 
 .selected-person-row__copy {
-	gap: 6px;
+	gap: var(--space-2);
 }
 
 .selected-person-row__positions {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 5px;
+	gap: var(--space-1);
 }
 
 .selected-identity-chip {
@@ -251,10 +316,11 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 	border-radius: 6px;
 	background: var(--surface-sunken);
 	color: var(--text-2);
-	font-size: 12px;
+	font-size: var(--text-control);
 }
 
 .selected-identity-chip button {
+	position: relative;
 	display: grid;
 	place-items: center;
 	width: 28px;
@@ -264,6 +330,12 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 	background: transparent;
 	color: var(--text-3);
 	cursor: pointer;
+}
+
+.selected-identity-chip button::before {
+	position: absolute;
+	inset: -8px;
+	content: "";
 }
 
 .selected-identity-chip button:hover {
@@ -277,19 +349,19 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 .candidate-result-summary span,
 .candidate-range {
 	color: var(--text-3);
-	font-size: 12px;
+	font-size: var(--text-caption);
 }
 
 .candidate-result-summary {
 	display: flex;
 	align-items: baseline;
 	justify-content: space-between;
-	gap: 12px;
-	margin: 14px 0 8px;
+	gap: var(--space-3);
+	margin: var(--space-3) 0 var(--space-2);
 }
 
 .candidate-result-summary strong {
-	font-size: 16px;
+	font-size: var(--text-subheading);
 }
 
 .candidate-row__identity {
@@ -307,7 +379,7 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 
 .candidate-row__identity small {
 	display: flex;
-	gap: 5px;
+	gap: var(--space-1);
 }
 
 .candidate-position {
@@ -321,13 +393,13 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 
 .candidate-other-positions {
 	margin-top: 2px;
-	font-size: 11px;
+	font-size: var(--text-caption);
 }
 
 .candidate-row__metrics {
 	display: flex;
 	align-items: center;
-	gap: 9px;
+	gap: var(--space-2);
 	text-align: right;
 }
 
@@ -337,12 +409,12 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 }
 
 .candidate-row__metrics strong {
-	font-size: 12px;
+	font-size: var(--text-control);
 }
 
 .candidate-row__metrics small {
 	color: var(--text-3);
-	font-size: 10px;
+	font-size: var(--text-caption);
 }
 
 .picker-pagination {
@@ -352,7 +424,7 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 
 @media (max-width: 420px) {
 	.candidate-row__metrics {
-		gap: 5px;
+		gap: var(--space-1);
 	}
 
 	.candidate-row__metrics > span {

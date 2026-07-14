@@ -34,14 +34,16 @@ const careerLabels: Record<string, string> = {
 	seiyu: '声优',
 	actor: '演员',
 }
+const rankingPositionLabels = computed(() => workbench.rankingPositionIds.value.map(workbench.positionLabel))
+const rankingPositionLine = computed(() => rankingPositionLabels.value.join(' · ') || '未选择职位')
 const careerLine = computed(() => {
 	if (!person.value) return ''
 	const careers = (person.value.career ?? person.value.careers ?? [])
 		.map((career) => careerLabels[career] ?? career)
-	return [...new Set([workbench.positionLabel(workbench.query.positionId), ...careers])].join(' · ')
+	return [...new Set([...rankingPositionLabels.value, ...careers])].join(' · ')
 })
 const profileSummary = computed(() => profileExtra.value?.summary
-	?? `${workbench.personName(person.value)}以“${workbench.positionLabel(workbench.query.positionId)}”身份参与了 ${person.value?.subjectCount ?? 0} 部当前筛选范围内的作品。`)
+	?? `${workbench.personName(person.value)}以“${rankingPositionLine.value}”身份参与了 ${person.value?.subjectCount ?? 0} 部当前筛选范围内的作品。`)
 const ratedDistribution = computed(() => workbench.focusedDistribution.value.filter((item) => item.label !== '未评'))
 const maxDistribution = computed(() => Math.max(1, ...ratedDistribution.value.map((item) => item.value)))
 const distributionLabel = computed(() => `${workbench.personName(person.value)}的评分分布：${ratedDistribution.value
@@ -108,7 +110,7 @@ const roleLabel = (label?: string) => ({ '主役': '主角', '其他': '闲角' 
 const roleSummary = (subject: Subject) => {
 	if (!person.value) return ''
 	const roles = workbench.personSubjectRoles(person.value, subject.id)
-	if (!roles.length) return workbench.positionLabel(workbench.query.positionId)
+	if (!roles.length) return rankingPositionLine.value
 	return roles.map((role) =>
 		`${role.displayName || role.nameCN || role.name || '角色'} · ${roleLabel(role.roleLabel)}`,
 	).join(' / ')
@@ -124,8 +126,22 @@ const collectionLabel = (type?: number) => ({
 	4: '搁置',
 	5: '抛弃',
 })[Number(type)] ?? '收藏'
+const numberFormatters = new Map<number, Intl.NumberFormat>()
+const numberFormatter = (digits: number) => {
+	if (!numberFormatters.has(digits)) numberFormatters.set(digits, new Intl.NumberFormat('zh-CN', {
+		minimumFractionDigits: digits,
+		maximumFractionDigits: digits,
+	}))
+	return numberFormatters.get(digits)!
+}
+const integerFormatter = new Intl.NumberFormat('zh-CN')
+const dateFormatter = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' })
 const formatScore = (value?: number | null, digits = 2) => Number(value) > 0
-	? Number(value).toFixed(digits)
+	? numberFormatter(digits).format(Number(value))
+	: '—'
+const formatDelta = (value: number) => `${value > 0 ? '+' : ''}${numberFormatter(1).format(value)}`
+const formatDate = (value?: string) => value
+	? dateFormatter.format(new Date(`${value}T00:00:00Z`))
 	: '—'
 
 watch([workbench.focusedPersonId, workbench.focusedWorkSearch, workSort, workPageSize], () => {
@@ -152,8 +168,8 @@ watch(workPageCount, (count) => {
 					:height="208"
 				/>
 				<div class="person-profile__content">
-					<span class="section-context">{{ workbench.positionLabel(workbench.query.positionId) }} · 当前焦点</span>
-					<h1 id="inspector-person-name">{{ workbench.personName(person) }}</h1>
+					<span class="section-context">{{ rankingPositionLine }} · 当前焦点</span>
+					<h2 id="inspector-person-name">{{ workbench.personName(person) }}</h2>
 					<p v-if="workbench.personSecondaryName(person)" class="person-profile__secondary">{{ workbench.personSecondaryName(person) }}</p>
 					<div class="person-profile__meta">
 						<span>{{ careerLine }}</span>
@@ -207,7 +223,7 @@ watch(workPageCount, (count) => {
 									<strong>{{ workbench.subjectName(item.subject) }}</strong>
 									<small>我的 {{ formatScore(item.subject.collection?.rate) }} · 全站 {{ formatScore(item.subject.score) }}</small>
 								</span>
-								<b>+{{ item.delta.toFixed(1) }}</b>
+								<b>{{ formatDelta(item.delta) }}</b>
 							</button>
 						</li>
 						<li v-if="!morePreferred.length" class="muted-row">没有明显高于站评的作品</li>
@@ -223,7 +239,7 @@ watch(workPageCount, (count) => {
 									<strong>{{ workbench.subjectName(item.subject) }}</strong>
 									<small>我的 {{ formatScore(item.subject.collection?.rate) }} · 全站 {{ formatScore(item.subject.score) }}</small>
 								</span>
-								<b>{{ item.delta.toFixed(1) }}</b>
+								<b>{{ formatDelta(item.delta) }}</b>
 							</button>
 						</li>
 						<li v-if="!moreConservative.length" class="muted-row">没有明显低于站评的作品</li>
@@ -243,16 +259,17 @@ watch(workPageCount, (count) => {
 				<n-input
 					v-model:value="workbench.focusedWorkSearch.value"
 					clearable
-					placeholder="搜索中日文标题或角色名"
+					placeholder="搜索中日文标题或角色名…"
+					autocomplete="off"
 					aria-label="搜索参与作品"
-					:input-props="{ 'aria-label': '搜索参与作品' }"
+					:input-props="{ 'aria-label': '搜索参与作品', name: 'workSearch', spellcheck: 'false' }"
 				>
 					<template #prefix><AppIcon name="search" :size="16" /></template>
 				</n-input>
 				<n-select v-model:value="workSort" :options="workSortOptions" aria-label="参与作品排序" />
 				<n-select v-model:value="workPageSize" :options="workPageSizeOptions" aria-label="每页作品数" />
 			</div>
-			<ul class="person-work-list" aria-label="参与作品列表">
+			<ul class="person-work-list" aria-label="参与作品列表" :aria-busy="false">
 				<li v-for="subject in visibleWorks" :key="subject.id" class="person-work-row">
 					<span class="work-cell person-work-row__work">
 						<SafeImage :sources="workbench.subjectImageSources(subject)" :alt="`${workbench.subjectName(subject)}封面`" kind="subject" :width="36" :height="48" decorative />
@@ -263,15 +280,15 @@ watch(workPageCount, (count) => {
 						</span>
 					</span>
 					<dl class="person-work-row__facts">
-						<div><dt>日期</dt><dd><time>{{ subject.date || '—' }}</time></dd></div>
-						<div><dt>Bangumi</dt><dd><strong>{{ formatScore(subject.score) }}</strong><small>Rank {{ subject.rank || '—' }}</small></dd></div>
-						<div><dt>收藏</dt><dd><strong>{{ Number(subject.favoriteCount || 0).toLocaleString('zh-CN') }}</strong><small>{{ collectionLabel(subject.collection?.type) }}</small></dd></div>
+						<div><dt>日期</dt><dd><time :datetime="subject.date || undefined">{{ formatDate(subject.date) }}</time></dd></div>
+						<div><dt translate="no">Bangumi</dt><dd><strong>{{ formatScore(subject.score) }}</strong><small><span translate="no">Rank</span> {{ subject.rank || '—' }}</small></dd></div>
+						<div><dt>收藏</dt><dd><strong>{{ integerFormatter.format(Number(subject.favoriteCount || 0)) }}</strong><small>{{ collectionLabel(subject.collection?.type) }}</small></dd></div>
 						<div><dt>我的评分</dt><dd><b>{{ formatScore(subject.collection?.rate) }}</b></dd></div>
 					</dl>
 				</li>
 				<li v-if="!visibleWorks.length" class="person-work-list__empty">没有符合当前搜索条件的作品。</li>
 			</ul>
-			<div class="table-disclosure rank-work-pagination">
+			<div class="table-disclosure rank-work-pagination" role="status" aria-live="polite">
 				<span>{{ workRange.start }}—{{ workRange.end }} / {{ sortedWorks.length }}</span>
 				<div class="rank-work-pagination__controls">
 					<n-pagination v-if="!showAllWorks" v-model:page="workPage" :page-count="workPageCount" :page-slot="4" />
@@ -284,7 +301,7 @@ watch(workPageCount, (count) => {
 	</article>
 	<div v-else class="analysis-empty person-inspector-empty">
 		<span class="analysis-empty__icon"><AppIcon name="search" :size="28" /></span>
-		<h1>当前查询没有匹配人物</h1>
+		<h2>当前查询没有匹配人物</h2>
 		<p>请调整 UID、条目类型、职位或收藏范围。</p>
 	</div>
 </template>

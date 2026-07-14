@@ -1,19 +1,25 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import type { QueryPositionValue, WorkbenchMode } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
 import AppIcon from './AppIcon.vue'
 
 const workbench = useWorkbench()
-const userInput = ref<{ focus: () => void }>()
+type FocusableControl = { focus: () => void }
+
+const userInput = ref<FocusableControl>()
+const subjectTypeInput = ref<FocusableControl>()
+const positionInput = ref<FocusableControl>()
+const collectionField = ref<HTMLFieldSetElement>()
 const editorButton = ref<HTMLButtonElement>()
 const moreOptionsOpen = ref(false)
 
 const subjectOptions = [
 	{ label: '动画', value: 2 },
-	{ label: '书籍', value: 1 },
-	{ label: '音乐', value: 3 },
-	{ label: '游戏', value: 4 },
-	{ label: '影视', value: 6 },
+	{ label: '书籍（静态快照未载入）', value: 1, disabled: true },
+	{ label: '音乐（静态快照未载入）', value: 3, disabled: true },
+	{ label: '游戏（静态快照未载入）', value: 4, disabled: true },
+	{ label: '影视（静态快照未载入）', value: 6, disabled: true },
 ]
 
 const positionVocabulary: Record<number, string[]> = {
@@ -32,26 +38,53 @@ const collectionVocabulary: Record<number, [string, string]> = {
 }
 
 const advancedOptions = [
-	{ key: 'isGlobal', title: '全站口径模拟', description: '仍使用本地静态快照，但改用 Bangumi 全站评分口径；UID 与收藏类型会暂时停用。' },
-	{ key: 'showNSFW', title: '显示 NSFW 条目', description: '开启后不再过滤在 Bangumi 标记为 NSFW 的条目。' },
-	{ key: 'date', title: '播出时间范围', description: '按条目播出、出版或发行的月份筛选，端点可留空。' },
-	{ key: 'rate', title: '分数范围', description: '个人模式按我的评分，全站模式按全站评分；范围为 0–10。' },
-	{ key: 'favorite', title: '收藏人数范围', description: '按照条目的收藏人数筛选，端点可留空。' },
-	{ key: 'positiveTags', title: '正向标签', description: '仅保留匹配项；逗号表示“且”，单项内“/”表示“或”。' },
-	{ key: 'negativeTags', title: '反向标签', description: '排除匹配项；逗号表示分别排除，单项内“+”表示“与”。' },
+	{ key: 'isGlobal', title: '全站口径模拟', description: '使用当前静态数据切换到 Bangumi 全站评分口径。' },
+	{ key: 'showNSFW', title: '显示 NSFW 条目', description: '包含在 Bangumi 标记为 NSFW 的条目。' },
+	{ key: 'date', title: '播出时间范围', description: '按条目播出、出版或发行月份筛选。' },
+	{ key: 'rate', title: '分数范围', description: '个人模式使用我的评分，全站模式使用全站评分。' },
+	{ key: 'favorite', title: '收藏人数范围', description: '按条目的 Bangumi 收藏人数筛选。' },
+	{ key: 'positiveTags', title: '正向标签', description: '逗号表示“且”，单项内“/”表示“或”。' },
+	{ key: 'negativeTags', title: '反向标签', description: '逗号分别排除，单项内“+”表示“与”。' },
 ] as const
 
 type AdvancedOptionKey = typeof advancedOptions[number]['key']
 type ConditionKey = 'date' | 'rate' | 'favorite' | 'positiveTags' | 'negativeTags'
 
-const positionOptionsFor = (subjectType: number) => subjectType === 2
+const positionOptionsFor = (subjectType: number): Array<{ label: string; value: QueryPositionValue }> => subjectType === 2
 	? workbench.positions.value
 	: (positionVocabulary[subjectType] ?? []).map((label) => ({ label, value: label }))
 
 const draftPositionOptions = computed(() => positionOptionsFor(workbench.queryDraft.subjectType))
 const subjectLabel = computed(() => subjectOptions.find((item) => item.value === workbench.query.subjectType)?.label ?? String(workbench.query.subjectType))
-const appliedPositionLabel = computed(() => positionOptionsFor(workbench.query.subjectType)
-	.find((item) => String(item.value) === String(workbench.query.position))?.label ?? String(workbench.query.position || '未选择'))
+const activeMode = computed<WorkbenchMode>(() => workbench.mode.value)
+const positionStageLabel = computed(() => activeMode.value === 'ranking' ? '排行职位' : '参与职位')
+const positionStageHint = computed(() => activeMode.value === 'ranking' ? '本次排行使用 1 个职位' : '可选择 1 个或多个职位')
+const activeAppliedPositions = computed(() => workbench.query.positionsByMode[activeMode.value])
+const activeDraftPositions = computed(() => workbench.queryDraft.positionsByMode[activeMode.value])
+type QueryErrorKind = 'userId' | 'subjectType' | 'collections' | 'positions' | 'date' | 'rate' | 'favorite' | ''
+const queryErrorKind = computed<QueryErrorKind>(() => {
+	const message = workbench.queryError.value
+	if (!message) return ''
+	if (message.includes('UID')) return 'userId'
+	if (message.includes('条目类型')) return 'subjectType'
+	if (message.includes('职位') || message.includes('身份')) return 'positions'
+	if (message.includes('收藏类型')) return 'collections'
+	if (message.includes('播出时间')) return 'date'
+	if (message.includes('评分')) return 'rate'
+	if (message.includes('收藏人数')) return 'favorite'
+	return ''
+})
+const fieldError = (kind: string) => queryErrorKind.value === kind ? workbench.queryError.value : ''
+const appliedPositionLabels = computed(() => activeAppliedPositions.value.map((value) =>
+	positionOptionsFor(workbench.query.subjectType)
+		.find((item) => String(item.value) === String(value))?.label ?? String(value)))
+const rankingDraftPosition = computed<QueryPositionValue | null>({
+	get: () => workbench.queryDraft.positionsByMode.ranking[0] ?? null,
+	set: (value) => {
+		workbench.queryDraft.positionsByMode.ranking = value === null ? [] : [value]
+		workbench.clearQueryFeedback()
+	},
+})
 
 const collectionOptionsFor = (subjectType: number) => {
 	const [done, doing] = collectionVocabulary[subjectType] ?? collectionVocabulary[2]
@@ -64,7 +97,7 @@ const collectionOptionsFor = (subjectType: number) => {
 }
 const draftCollectionOptions = computed(() => collectionOptionsFor(workbench.queryDraft.subjectType))
 const collectionLabel = computed(() => workbench.query.isGlobal
-	? '不适用'
+	? '全站口径'
 	: workbench.query.collectionTypes
 		.map((value) => collectionOptionsFor(workbench.query.subjectType).find((item) => item.value === value)?.label)
 		.filter(Boolean)
@@ -106,8 +139,13 @@ const removeCondition = (key: ConditionKey) => {
 
 watch(() => workbench.queryDraft.subjectType, (subjectType) => {
 	const options = positionOptionsFor(subjectType)
-	if (!options.some((option) => String(option.value) === String(workbench.queryDraft.position))) {
-		workbench.queryDraft.position = options[0]?.value ?? ''
+	const valid = new Set(options.map((option) => String(option.value)))
+	for (const queryMode of ['ranking', 'co-star'] as WorkbenchMode[]) {
+		const retained = workbench.queryDraft.positionsByMode[queryMode]
+			.filter((value) => valid.has(String(value)))
+		workbench.queryDraft.positionsByMode[queryMode] = retained.length
+			? retained
+			: options[0]?.value === undefined ? [] : [options[0].value]
 	}
 	workbench.clearQueryFeedback()
 })
@@ -122,17 +160,27 @@ const openEditor = async () => {
 	workbench.queryEditing.value = true
 	workbench.clearQueryFeedback()
 	await nextTick()
-	if (!workbench.queryDraft.isGlobal) userInput.value?.focus()
+	const canAutoFocus = window.matchMedia('(min-width: 781px) and (pointer: fine)').matches
+	if (canAutoFocus && !workbench.queryDraft.isGlobal) userInput.value?.focus()
 }
 
-const closeEditor = async () => {
+const closeEditor = () => {
 	if (workbench.queryLoading.value) return
 	workbench.queryEditing.value = false
 }
 
+const focusFirstInvalidField = async () => {
+	await nextTick()
+	if (queryErrorKind.value === 'userId') userInput.value?.focus()
+	else if (queryErrorKind.value === 'subjectType') subjectTypeInput.value?.focus()
+	else if (queryErrorKind.value === 'positions') positionInput.value?.focus()
+	else if (queryErrorKind.value === 'collections') collectionField.value?.querySelector<HTMLElement>('[role="checkbox"]')?.focus()
+	else if (queryErrorKind.value) document.querySelector<HTMLInputElement>(`input[name="${queryErrorKind.value}${queryErrorKind.value === 'date' ? 'Start' : 'Min'}"]`)?.focus()
+}
+
 const submitEditor = () => {
 	const accepted = workbench.applyQuery()
-	if (!accepted && workbench.queryError.value.includes('UID')) nextTick(() => userInput.value?.focus())
+	if (!accepted) focusFirstInvalidField()
 }
 
 const conditionTitle = (key: ConditionKey) => ({
@@ -145,127 +193,187 @@ const conditionTitle = (key: ConditionKey) => ({
 </script>
 
 <template>
-	<section class="query-workspace" aria-labelledby="query-title">
+	<section class="query-workspace surface-panel" aria-labelledby="query-title">
 		<div v-if="!workbench.queryEditing.value" class="query-summary" tabindex="-1">
-			<div class="query-summary__heading">
-				<strong id="query-title">查询条件</strong>
+			<div class="query-summary__title">
+				<h1 id="query-title">当前查询</h1>
 				<span role="status">{{ workbench.queryStatus.value }}</span>
 			</div>
-			<div class="query-summary__items" aria-label="已应用查询范围">
-				<span class="query-summary__item" :aria-label="`数据来源：${workbench.query.isGlobal ? '本地快照，全站口径' : '个人收藏'}`">{{ workbench.query.isGlobal ? '本地快照 · 全站口径' : '个人收藏' }}</span>
-				<span class="query-summary__item" :aria-label="`用户 UID：${workbench.query.isGlobal ? '不适用' : workbench.query.userId}`">{{ workbench.query.isGlobal ? '—' : workbench.query.userId }}</span>
-				<span class="query-summary__item" :aria-label="`条目类型：${subjectLabel}`">{{ subjectLabel }}</span>
-				<span class="query-summary__item" :aria-label="`职位：${appliedPositionLabel}`">{{ appliedPositionLabel }}</span>
-				<span class="query-summary__item" :aria-label="`收藏状态：${collectionLabel}`">{{ collectionLabel }}</span>
-				<span class="query-summary__item" :aria-label="`高级条件：${advancedCount ? `${advancedCount} 项已启用` : '未启用'}`">{{ advancedCount ? `${advancedCount} 项` : '无高级条件' }}</span>
+			<div class="query-summary__stages" aria-label="已应用查询">
+				<div class="query-summary__stage">
+					<span class="query-stage-index" aria-hidden="true">1</span>
+					<span class="query-summary__stage-copy">
+						<small>作品范围</small>
+						<strong>
+							{{ workbench.query.isGlobal ? '全站口径' : `个人收藏 · ${workbench.query.userId}` }} · {{ subjectLabel }} · {{ collectionLabel }}<template v-if="advancedCount"> · {{ advancedCount }} 项高级条件</template>
+						</strong>
+					</span>
+				</div>
+				<div class="query-summary__stage query-summary__stage--positions">
+					<span class="query-stage-index" aria-hidden="true">2</span>
+					<span class="query-summary__stage-copy">
+						<small>{{ positionStageLabel }}</small>
+						<strong>{{ appliedPositionLabels.join(' + ') || '未选择' }}</strong>
+					</span>
+				</div>
 			</div>
 			<button ref="editorButton" class="query-summary__edit" type="button" aria-expanded="false" aria-controls="query-editor" @click="openEditor">
 				<AppIcon name="edit" :size="16" />
-				编辑查询
+				修改查询
 			</button>
 		</div>
 
-		<form v-else id="query-editor" class="query-editor" novalidate @submit.prevent="submitEditor" @keydown.esc.prevent="closeEditor" @input="workbench.clearQueryFeedback">
+		<form v-else id="query-editor" class="query-editor" novalidate @submit.prevent="submitEditor" @input="workbench.clearQueryFeedback">
 			<div class="query-editor__head">
-				<h2 id="query-title">编辑查询条件</h2>
-				<button class="icon-button icon-button--chrome" type="button" aria-label="收起查询编辑器" :disabled="workbench.queryLoading.value" @click="closeEditor">
+				<div>
+					<span class="section-context">{{ workbench.mode.value === 'ranking' ? '人物排行' : '共同参与分析' }}</span>
+					<h1 id="query-title">编辑查询</h1>
+				</div>
+				<button class="icon-button" type="button" aria-label="收起查询编辑器" :disabled="workbench.queryLoading.value" @click="closeEditor">
 					<AppIcon name="close" />
 				</button>
 			</div>
 
-			<div class="query-editor__fields">
-				<label class="field">
-					<span>用户 UID <small title="UID 是 Bangumi 个人主页链接的最后一段；全站模式下无需填写。">（不是昵称）</small></span>
-					<n-input ref="userInput" v-model:value="workbench.queryDraft.userId" placeholder="例如 lucay126" autocomplete="off" clearable :disabled="workbench.queryDraft.isGlobal || workbench.queryLoading.value" />
-				</label>
-				<label class="field">
-					<span>条目类型</span>
-					<n-select v-model:value="workbench.queryDraft.subjectType" :options="subjectOptions" :disabled="workbench.queryLoading.value" />
-				</label>
-				<label class="field">
-					<span>职位</span>
-					<n-select v-model:value="workbench.queryDraft.position" :options="draftPositionOptions" :disabled="workbench.queryLoading.value" />
-				</label>
-				<fieldset class="field field--collections" :disabled="workbench.queryDraft.isGlobal || workbench.queryLoading.value">
-					<legend>收藏类型</legend>
-					<n-checkbox-group v-model:value="workbench.queryDraft.collectionTypes">
-						<n-space :size="12" wrap>
-							<n-checkbox v-for="option in draftCollectionOptions" :key="option.value" :value="option.value" :label="option.label" />
-						</n-space>
-					</n-checkbox-group>
-				</fieldset>
-			</div>
+			<div class="query-editor__stages">
+				<section class="query-stage query-stage--scope" aria-labelledby="query-scope-stage-title">
+					<header class="query-stage__heading">
+						<span class="query-stage-index" aria-hidden="true">1</span>
+						<div>
+							<h2 id="query-scope-stage-title">作品范围</h2>
+							<span>确定参与统计的收藏作品</span>
+						</div>
+					</header>
 
-			<n-card v-if="workbench.queryDraft.isGlobal" size="small" role="note" style="margin-top: 12px">
-				<strong>全站口径模拟</strong> · 仍只筛选本地静态快照 · UID、收藏类型已停用
-			</n-card>
-
-			<div class="query-editor__more">
-				<n-button
-					id="query-more-options"
-					attr-type="button"
-					:disabled="workbench.queryLoading.value"
-					:aria-expanded="moreOptionsOpen"
-					aria-controls="query-advanced-options"
-					@click="moreOptionsOpen = !moreOptionsOpen"
-				>
-					更多选项
-					<AppIcon class="query-more-options__chevron" name="chevron" :size="15" :class="{ 'is-open': moreOptionsOpen }" />
-				</n-button>
-			</div>
-
-			<div v-show="moreOptionsOpen" id="query-advanced-options" class="query-advanced-options" aria-label="更多查询选项">
-				<div v-for="option in advancedOptions" :key="option.key" class="query-advanced-option">
-					<div>
-						<strong>{{ option.title }}</strong>
-						<p>{{ option.description }}</p>
+					<div class="query-scope-fields">
+						<label class="field" :class="{ 'is-error': queryErrorKind === 'userId' }">
+							<span>用户 UID <small title="UID 是 Bangumi 个人主页链接的最后一段">（不是昵称）</small></span>
+							<n-input ref="userInput" v-model:value="workbench.queryDraft.userId" placeholder="例如 lucay126…" autocomplete="off" clearable :status="queryErrorKind === 'userId' ? 'error' : undefined" :input-props="{ name: 'userId', spellcheck: 'false', 'aria-invalid': queryErrorKind === 'userId', 'aria-describedby': queryErrorKind === 'userId' ? 'query-error-userId' : undefined }" :disabled="workbench.queryDraft.isGlobal || workbench.queryLoading.value" />
+							<small v-if="fieldError('userId')" id="query-error-userId" class="query-field-error">{{ fieldError('userId') }}</small>
+						</label>
+						<label class="field" :class="{ 'is-error': queryErrorKind === 'subjectType' }">
+							<span>条目类型</span>
+							<n-select ref="subjectTypeInput" v-model:value="workbench.queryDraft.subjectType" :options="subjectOptions" :status="queryErrorKind === 'subjectType' ? 'error' : undefined" :input-props="{ name: 'subjectType', 'aria-invalid': queryErrorKind === 'subjectType', 'aria-describedby': queryErrorKind === 'subjectType' ? 'query-error-subjectType' : undefined }" :disabled="workbench.queryLoading.value" />
+							<small v-if="fieldError('subjectType')" id="query-error-subjectType" class="query-field-error">{{ fieldError('subjectType') }}</small>
+						</label>
+						<fieldset ref="collectionField" class="field field--collections" :class="{ 'is-error': queryErrorKind === 'collections' }" :disabled="workbench.queryDraft.isGlobal || workbench.queryLoading.value" :aria-invalid="queryErrorKind === 'collections'" :aria-describedby="queryErrorKind === 'collections' ? 'query-error-collections' : undefined">
+							<legend>收藏类型</legend>
+							<n-checkbox-group v-model:value="workbench.queryDraft.collectionTypes" @update:value="workbench.clearQueryFeedback">
+								<n-space :size="12" wrap>
+									<n-checkbox v-for="option in draftCollectionOptions" :key="option.value" :value="option.value" :label="option.label" />
+								</n-space>
+							</n-checkbox-group>
+							<small v-if="fieldError('collections')" id="query-error-collections" class="query-field-error">{{ fieldError('collections') }}</small>
+						</fieldset>
 					</div>
-					<n-switch :value="optionEnabled(option.key)" :aria-label="option.title" @update:value="toggleOption(option.key, $event)" />
-				</div>
+
+					<div class="query-editor__more">
+						<n-button
+							id="query-more-options"
+							attr-type="button"
+							:disabled="workbench.queryLoading.value"
+							:aria-expanded="moreOptionsOpen"
+							aria-controls="query-advanced-options"
+							@click="moreOptionsOpen = !moreOptionsOpen"
+						>
+							更多选项
+							<AppIcon class="query-more-options__chevron" name="chevron" :size="15" :class="{ 'is-open': moreOptionsOpen }" />
+						</n-button>
+					</div>
+
+					<div v-show="moreOptionsOpen" id="query-advanced-options" class="query-advanced-options" aria-label="更多查询选项">
+						<div v-for="option in advancedOptions" :key="option.key" class="query-advanced-option">
+							<div>
+								<strong>{{ option.title }}</strong>
+								<p>{{ option.description }}</p>
+							</div>
+							<n-switch :value="optionEnabled(option.key)" :aria-label="option.title" @update:value="toggleOption(option.key, $event)" />
+						</div>
+					</div>
+
+					<div v-if="enabledConditions.length" class="query-condition-fields" aria-label="已启用高级条件">
+						<fieldset v-for="key in enabledConditions" :key="key" class="field" :class="{ 'is-error': queryErrorKind === key }" :disabled="workbench.queryLoading.value">
+							<legend>
+								{{ conditionTitle(key) }}
+								<n-button text size="tiny" attr-type="button" :aria-label="`关闭${conditionTitle(key)}`" @click="removeCondition(key)">移除</n-button>
+							</legend>
+							<template v-if="key === 'date'">
+								<n-space :wrap="false" align="center">
+									<n-input v-model:value="workbench.queryDraft.date.value[0]" autocomplete="off" :status="queryErrorKind === 'date' ? 'error' : undefined" :input-props="{ type: 'month', 'aria-label': '播出时间起点', name: 'dateStart', 'aria-invalid': queryErrorKind === 'date', 'aria-describedby': queryErrorKind === 'date' ? 'query-error-date' : undefined }" placeholder="例如 2020-01…" />
+									<span aria-hidden="true">—</span>
+									<n-input v-model:value="workbench.queryDraft.date.value[1]" autocomplete="off" :status="queryErrorKind === 'date' ? 'error' : undefined" :input-props="{ type: 'month', 'aria-label': '播出时间终点', name: 'dateEnd', 'aria-invalid': queryErrorKind === 'date', 'aria-describedby': queryErrorKind === 'date' ? 'query-error-date' : undefined }" placeholder="例如 2026-12…" />
+								</n-space>
+							</template>
+							<template v-else-if="key === 'rate'">
+								<n-space :wrap="false" align="center">
+									<n-input v-model:value="workbench.queryDraft.rate.value[0]" autocomplete="off" :status="queryErrorKind === 'rate' ? 'error' : undefined" :input-props="{ type: 'number', min: 0, max: 10, step: 0.1, 'aria-label': '评分下限', name: 'rateMin', 'aria-invalid': queryErrorKind === 'rate', 'aria-describedby': queryErrorKind === 'rate' ? 'query-error-rate' : undefined }" placeholder="例如 6…" />
+									<span aria-hidden="true">—</span>
+									<n-input v-model:value="workbench.queryDraft.rate.value[1]" autocomplete="off" :status="queryErrorKind === 'rate' ? 'error' : undefined" :input-props="{ type: 'number', min: 0, max: 10, step: 0.1, 'aria-label': '评分上限', name: 'rateMax', 'aria-invalid': queryErrorKind === 'rate', 'aria-describedby': queryErrorKind === 'rate' ? 'query-error-rate' : undefined }" placeholder="例如 10…" />
+								</n-space>
+							</template>
+							<template v-else-if="key === 'favorite'">
+								<n-space :wrap="false" align="center">
+									<n-input v-model:value="workbench.queryDraft.favorite.value[0]" autocomplete="off" :status="queryErrorKind === 'favorite' ? 'error' : undefined" :input-props="{ type: 'number', min: 0, step: 1, 'aria-label': '收藏人数下限', name: 'favoriteMin', 'aria-invalid': queryErrorKind === 'favorite', 'aria-describedby': queryErrorKind === 'favorite' ? 'query-error-favorite' : undefined }" placeholder="例如 100…" />
+									<span aria-hidden="true">—</span>
+									<n-input v-model:value="workbench.queryDraft.favorite.value[1]" autocomplete="off" :status="queryErrorKind === 'favorite' ? 'error' : undefined" :input-props="{ type: 'number', min: 0, step: 1, 'aria-label': '收藏人数上限', name: 'favoriteMax', 'aria-invalid': queryErrorKind === 'favorite', 'aria-describedby': queryErrorKind === 'favorite' ? 'query-error-favorite' : undefined }" placeholder="例如 10000…" />
+								</n-space>
+							</template>
+							<n-input v-else-if="key === 'positiveTags'" v-model:value="positiveTagsText" autocomplete="off" :input-props="{ 'aria-label': '正向标签', name: 'positiveTags' }" placeholder="例如：原创/漫画改, 百合…" />
+							<n-input v-else v-model:value="negativeTagsText" autocomplete="off" :input-props="{ 'aria-label': '反向标签', name: 'negativeTags' }" placeholder="例如：原创, 百合+后宫…" />
+							<small v-if="fieldError(key)" :id="`query-error-${key}`" class="query-field-error">{{ fieldError(key) }}</small>
+						</fieldset>
+					</div>
+				</section>
+
+				<section class="query-stage query-stage--positions" aria-labelledby="query-position-stage-title">
+					<header class="query-stage__heading">
+						<span class="query-stage-index" aria-hidden="true">2</span>
+						<div>
+							<h2 id="query-position-stage-title">{{ positionStageLabel }}</h2>
+							<span>{{ positionStageHint }}</span>
+						</div>
+					</header>
+					<label class="field field--positions" :class="{ 'is-error': queryErrorKind === 'positions' }">
+						<span>{{ workbench.mode.value === 'ranking' ? '用于生成当前人物排行' : '用于生成候选人物分组' }}</span>
+						<n-select
+							v-if="workbench.mode.value === 'ranking'"
+							ref="positionInput"
+							v-model:value="rankingDraftPosition"
+							:options="draftPositionOptions"
+							:status="queryErrorKind === 'positions' ? 'error' : undefined"
+							:input-props="{ name: 'rankingPosition', 'aria-invalid': queryErrorKind === 'positions', 'aria-describedby': queryErrorKind === 'positions' ? 'query-error-positions' : undefined }"
+							:disabled="workbench.queryLoading.value"
+							placeholder="选择排行职位…"
+						/>
+						<n-select
+							v-else
+							ref="positionInput"
+							v-model:value="workbench.queryDraft.positionsByMode['co-star']"
+							multiple
+							max-tag-count="responsive"
+							:options="draftPositionOptions"
+							:status="queryErrorKind === 'positions' ? 'error' : undefined"
+							:input-props="{ name: 'coStarPositions', 'aria-invalid': queryErrorKind === 'positions', 'aria-describedby': queryErrorKind === 'positions' ? 'query-error-positions' : undefined }"
+							:disabled="workbench.queryLoading.value"
+							placeholder="选择一个或多个参与职位…"
+							@update:value="workbench.clearQueryFeedback"
+						/>
+						<small v-if="fieldError('positions')" id="query-error-positions" class="query-field-error">{{ fieldError('positions') }}</small>
+					</label>
+					<div class="query-stage__selection-status" role="status">
+						<span>{{ activeDraftPositions.length }} 个职位</span>
+						<strong>{{ activeDraftPositions.map((value) => draftPositionOptions.find((option) => String(option.value) === String(value))?.label ?? value).join(' + ') || '尚未选择' }}</strong>
+					</div>
+				</section>
 			</div>
 
-			<div v-if="enabledConditions.length" class="query-editor__fields" aria-label="已启用高级条件">
-				<fieldset v-for="key in enabledConditions" :key="key" class="field" :disabled="workbench.queryLoading.value">
-					<legend>
-						{{ conditionTitle(key) }}
-						<n-button text size="tiny" attr-type="button" :aria-label="`关闭${conditionTitle(key)}`" @click="removeCondition(key)">移除</n-button>
-					</legend>
-					<template v-if="key === 'date'">
-						<n-space :wrap="false" align="center">
-							<n-input v-model:value="workbench.queryDraft.date.value[0]" :input-props="{ 'aria-label': '播出时间起点' }" placeholder="YYYY-MM" />
-							<span aria-hidden="true">—</span>
-							<n-input v-model:value="workbench.queryDraft.date.value[1]" :input-props="{ 'aria-label': '播出时间终点' }" placeholder="YYYY-MM" />
-						</n-space>
-					</template>
-					<template v-else-if="key === 'rate'">
-						<n-space :wrap="false" align="center">
-							<n-input v-model:value="workbench.queryDraft.rate.value[0]" :input-props="{ 'aria-label': '评分下限' }" placeholder="0" />
-							<span aria-hidden="true">—</span>
-							<n-input v-model:value="workbench.queryDraft.rate.value[1]" :input-props="{ 'aria-label': '评分上限' }" placeholder="10" />
-						</n-space>
-					</template>
-					<template v-else-if="key === 'favorite'">
-						<n-space :wrap="false" align="center">
-							<n-input v-model:value="workbench.queryDraft.favorite.value[0]" :input-props="{ 'aria-label': '收藏人数下限' }" placeholder="0" />
-							<span aria-hidden="true">—</span>
-							<n-input v-model:value="workbench.queryDraft.favorite.value[1]" :input-props="{ 'aria-label': '收藏人数上限' }" placeholder="不限" />
-						</n-space>
-					</template>
-					<n-input v-else-if="key === 'positiveTags'" v-model:value="positiveTagsText" :input-props="{ 'aria-label': '正向标签' }" placeholder="例如：原创/漫画改, 百合" />
-					<n-input v-else v-model:value="negativeTagsText" :input-props="{ 'aria-label': '反向标签' }" placeholder="例如：原创, 百合+后宫" />
-				</fieldset>
-			</div>
-
-			<n-card v-if="workbench.queryError.value" size="small" role="alert" style="margin-top: 12px">
-				{{ workbench.queryError.value }}
-			</n-card>
+			<p v-if="workbench.queryError.value && !queryErrorKind" class="query-error" role="alert">{{ workbench.queryError.value }}</p>
 
 			<div class="query-editor__footer">
 				<span role="status" aria-live="polite">{{ workbench.queryDraftStatus.value }}</span>
 				<div class="query-editor__actions">
 					<n-button attr-type="button" :disabled="!workbench.queryDraftDirty.value || workbench.queryLoading.value" @click="workbench.restoreQuery">撤销更改</n-button>
 					<n-button attr-type="button" :disabled="!workbench.queryLoading.value" @click="workbench.cancelQuery">取消查询</n-button>
-					<n-button type="primary" attr-type="submit" :loading="workbench.queryLoading.value" :disabled="workbench.queryLoading.value">{{ workbench.queryLoading.value ? '查询中' : '查询' }}</n-button>
+					<n-button type="primary" attr-type="submit" :loading="workbench.queryLoading.value" :disabled="workbench.queryLoading.value">{{ workbench.queryLoading.value ? '查询中…' : '应用并查询' }}</n-button>
 				</div>
 			</div>
 		</form>

@@ -2,7 +2,6 @@
 import type { WorkbenchMode } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
 import AppIcon from './AppIcon.vue'
-import QueryWorkspace from './QueryWorkspace.vue'
 
 const workbench = useWorkbench()
 
@@ -33,7 +32,7 @@ const onModeKeydown = (event: KeyboardEvent, index: number) => {
 <template>
 	<header class="workbench-header">
 		<div class="workbench-header__bar">
-			<a class="workbench-brand" href="/person-workbench.html" aria-label="Bangumi Staff Statistics 人物工作台首页">
+			<a class="workbench-brand" href="/person-workbench.html" aria-label="Bangumi Staff Statistics 人物工作台首页" translate="no">
 				<span class="workbench-brand__mark"><AppIcon name="brand" :size="25" /></span>
 				<span class="workbench-brand__copy">
 					<strong>Bangumi Staff Statistics</strong>
@@ -51,7 +50,7 @@ const onModeKeydown = (event: KeyboardEvent, index: number) => {
 					type="button"
 					role="tab"
 						:aria-selected="workbench.mode.value === item.value"
-						:aria-controls="`mode-panel-${item.value}`"
+						:aria-controls="workbench.mode.value === item.value ? `mode-panel-${item.value}` : undefined"
 					:tabindex="workbench.mode.value === item.value ? 0 : -1"
 					@click="activateMode(item.value)"
 					@keydown="onModeKeydown($event, index)"
@@ -65,25 +64,13 @@ const onModeKeydown = (event: KeyboardEvent, index: number) => {
 				class="theme-toggle"
 				type="button"
 				:aria-pressed="workbench.theme.value === 'dark'"
-				aria-label="社区档案台深色模式"
+				:aria-label="workbench.theme.value === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
 				:title="workbench.theme.value === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
 				@click="workbench.toggleTheme"
 			>
 				<AppIcon :name="workbench.theme.value === 'dark' ? 'sun' : 'moon'" :size="17" />
 			</button>
 
-			<button
-				v-if="workbench.mode.value === 'co-star'"
-				class="mobile-people-trigger"
-				type="button"
-				:aria-label="`打开人物选择，已选 ${workbench.selectedPeople.value.length} 人`"
-				@click="workbench.peopleDrawerOpen.value = true"
-			>
-				<AppIcon name="people" />
-				<span>{{ workbench.selectedPeople.value.length }}</span>
-			</button>
 		</div>
-
-		<QueryWorkspace />
 	</header>
 </template>

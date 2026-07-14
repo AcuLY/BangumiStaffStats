@@ -21,6 +21,9 @@ const rankRange = computed(() => ({
 	start: workbench.rankingPeople.value.length ? rankOffset.value + 1 : 0,
 	end: Math.min(rankOffset.value + workbench.rankingPageSize.value, workbench.rankingPeople.value.length),
 }))
+const rankingPositionLabel = computed(() => workbench.rankingPositionIds.value
+	.map(workbench.positionLabel)
+	.join(' + ') || '未选择职位')
 
 const activatePerson = (personId: number) => {
 	workbench.focusedPersonId.value = personId
@@ -38,18 +41,19 @@ watch(isMobile, (mobile) => {
 		<aside class="ranking-pane surface-panel" aria-labelledby="ranking-list-title">
 			<header class="pane-heading">
 				<div>
-					<span class="section-context">{{ workbench.positionLabel(workbench.query.positionId) }}</span>
-					<h1 id="ranking-list-title">人物排行</h1>
+					<span class="section-context">{{ rankingPositionLabel }}</span>
+					<h2 id="ranking-list-title">人物排行</h2>
 				</div>
-				<strong class="result-count">{{ workbench.rankingPeople.value.length }} 人</strong>
+				<strong class="result-count" role="status" aria-live="polite">{{ workbench.rankingPeople.value.length }} 人</strong>
 			</header>
 			<div class="ranking-search">
 				<n-input
 					v-model:value="workbench.rankingSearch.value"
 					clearable
-					placeholder="搜索人物名、别名或 ID"
+					placeholder="搜索人物名、别名或 ID…"
+					autocomplete="off"
 					aria-label="搜索排行人物"
-					:input-props="{ 'aria-label': '搜索排行人物' }"
+					:input-props="{ 'aria-label': '搜索排行人物', name: 'rankingSearch', spellcheck: 'false' }"
 				>
 					<template #prefix><AppIcon name="search" :size="16" /></template>
 				</n-input>
@@ -102,7 +106,7 @@ watch(isMobile, (mobile) => {
 			<PersonInspector />
 		</section>
 
-		<n-drawer v-if="isMobile" v-model:show="workbench.inspectorDrawerOpen.value" placement="right" width="min(720px, 94vw)">
+		<n-drawer v-if="isMobile" v-model:show="workbench.inspectorDrawerOpen.value" placement="right" width="min(720px, 94vw)" aria-label="人物详情">
 			<n-drawer-content body-content-style="padding: 0;">
 				<template #header>
 					<div class="drawer-custom-heading">

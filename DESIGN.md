@@ -21,23 +21,37 @@
 App Header
 ├─ Brand
 ├─ Mode Tabs: 人物排行 / 共同参与分析
-├─ Query Workspace
-│  ├─ Query Summary View
-│  └─ Query Editor View
-└─ Theme / mobile drawer action
+└─ Theme
 
-Mode Workspace
+Main Workspace
+├─ Query Workspace
+│  ├─ Applied Query Summary
+│  └─ Query Editor
 ├─ Ranking
 │  ├─ RankedPersonList · focus variant
 │  └─ PersonInspector · panel / mobile drawer
 └─ Co-star
-   ├─ RankedPersonList · candidate variant
+   ├─ Candidate Rail / mobile drawer
+   │  ├─ Applied-position tabs
+   │  └─ RankedPersonList · candidate variant
    └─ Relationship Analysis
 ```
 
 ### 查询状态
 
-Query Workspace 是 App Header 的第二行，不再作为正文中的独立卡片。查询摘要和查询编辑器必须互斥，禁止同时出现。
+App Header 只承载品牌、模式切换和主题切换。Query Workspace 是 Main Workspace 顶部的一级表面，同时服务人物排行与共同参与分析。查询摘要和查询编辑器必须互斥，禁止同时出现。
+
+一次完整查询是一个原子提交：
+
+```text
+Applied Query = Work Scope + Positions for current mode
+```
+
+- Work Scope 包含数据来源、用户、条目类型、收藏状态和高级条件。
+- Positions 使用有序数组表达；数组顺序只用于默认展示顺序，查询结果按职位集合计算。
+- 人物排行当前 UI 只允许选择一个职位，但状态始终写入 `positionsByMode.ranking: [position]`，不使用不可扩展的单值字段。
+- 共同参与分析允许一次提交 `1..N` 个职位。
+- 修改 draft 时保留已应用查询及当前结果；只有“应用查询”才同时更新作品范围和职位。
 
 | 状态 | 摘要 | 编辑器 | 焦点 |
 |---|---|---|---|
@@ -53,16 +67,20 @@ Query Workspace 是 App Header 的第二行，不再作为正文中的独立卡�
 
 人物排行：
 
-- 查询已经确定职位，因此排行局部工具栏不再重复职位选择。
+- Query Workspace 中的排行职位当前是单选，因此排行局部工具栏不再重复职位选择。
+- 状态和计算必须对未来多职位查询兼容：人物必须在已选作品范围内同时拥有全部职位才进入结果；该人在各职位下的参与作品取 union，按 Subject ID 去重后计算作品数、均分和综合分。
+- 未来开放排行多职位时，只替换 Query Workspace 的职位输入形态，不改查询数据结构和排行计算口径。
 - 默认不提供人物搜索；若正式数据量显著增长，可在列表级插入“筛选当前结果”槽位。
 - 排行排序只提供作品数、我的均分、综合分三种维度；维度选择与独立升降序按钮放在同一行的紧凑控件组中，改变任一项后回到第 1 页。
 - 行点击表示聚焦一个人物，并在桌面 inspector / 移动 drawer 中展示完整信息。
 
 共同参与分析：
 
-- 职位由 Header 查询唯一控制；提交新查询后，候选排行刷新并回到第 1 页。
-- 候选栏只在已应用职位中搜索、选择或取消人物；默认按该职位作品数降序，不再提供局部职位、选择状态或排序控件。
-- 多职位身份在“已选人物”中管理，不随 Header 职位切换而丢失。已选条目保留头像、主名称、身份与数字序号；选择变化后分析结果自动刷新。
+- Query Workspace 一次应用作品范围和 `1..N` 个参与职位；提交后候选结果刷新并回到第 1 页。
+- 多职位查询产生“同一作品范围下、每个职位各自的候选人物集”，不要求候选人物同时拥有全部职位。
+- 候选栏通过本地 tabs 浏览已应用职位，默认打开数组中第一个职位。切换 tab 只切换当前候选视图，不重新查询作品范围或职位数据。
+- 候选人物搜索、分页和当前 tab 都是已应用结果上的本地状态，不属于 Applied Query。候选默认按当前职位作品数降序，不再提供选择状态或排序控件。
+- 人物选择以 `personId + positionId` 身份为单位；整行点击选择或取消当前职位身份，已选人物中可管理同一人的多个已应用职位。已选条目保留头像、主名称、身份与数字序号；身份变化后分析结果立即刷新。
 - 右侧始终是关系分析，不复用人物 inspector。
 
 ## 3. 颜色
@@ -167,7 +185,9 @@ Dark 模式的层级来自表面亮度差与 1px 边框，不依赖大片纯黑�
 |---|---|---|
 | 全局主题 | `NConfigProvider` | CSS semantic tokens |
 | 顶部模式 | `NTabs type="segment"` | 深色 Header 内的 segmented tabs |
-| 查询容器 | Header region + `NForm` | Header 第二行；摘要 / 编辑器互斥 |
+| 查询容器 | Main surface + `NForm` | Main Workspace 顶部；摘要 / 编辑器互斥 |
+| 职位输入 | `NSelect` | 排行单选但写入数组；共同分析 `multiple` |
+| 候选职位浏览 | `NTabs` / 移动窄屏 `NSelect` | 只切换本地视图，不发起查询 |
 | 输入/选择 | `NInput`, `NSelect` | 36px control，6px radius |
 | 收藏状态 | `NCheckboxGroup` | 可换行选择 chip |
 | 主/次操作 | `NButton` | primary / default |
@@ -198,7 +218,32 @@ Dark 模式的层级来自表面亮度差与 1px 边框，不依赖大片纯黑�
 --space-6: 24px;
 ```
 
-同一工具栏的 input、select、button 统一使用 `--control-height` 与 `--radius-control`；查询摘要行的标题、条件项、状态项与编辑按钮统一使用 `--summary-height` 与 `--radius-control`。移动端通过透明 hit area 保证 44px 触控目标，不改变同行控件的可见高度。禁止玻璃拟态、装饰性渐变卡片、巨型圆角、pill 与小圆角混排，以及随机彩色系列。
+同一工具栏的 input、select、button 统一使用 `--control-height` 与 `--radius-control`。查询摘要以“作品范围 / 当前模式职位”两个语义组排版，不把值做成 tag；“修改查询”与普通控件同高。移动端通过透明 hit area 保证 44px 触控目标。内容卡片禁止玻璃拟态和装饰性渐变；Header 可使用现有的半透明背景与 `backdrop-filter` 建立全局层级。禁止巨型圆角、pill 与小圆角混排，以及随机彩色系列。
+
+### Typography
+
+字体栈固定为：
+
+```css
+"Source Han Sans SC VF", "Source Han Sans SC", "Noto Sans CJK SC", "PingFang SC", sans-serif
+```
+
+数据工作台使用固定 rem 字级，不使用随视口变化的 `clamp()`：
+
+| Token | Size | Role |
+|---|---:|---|
+| `--text-caption` | 12px | 辅助信息、图表与表格标签 |
+| `--text-control` | 13px | 控件、字段标签、紧凑数据值 |
+| `--text-body` | 14px | 正文、人物名、主要列表内容 |
+| `--text-subheading` | 16px | 阶段标题、局部分组标题 |
+| `--text-section` | 19px | 面板标题 |
+| `--text-panel` | 23px | 主要结果标题 |
+| `--text-page` | 27px | 页面或人物主标题 |
+
+- 权重只使用 400（正文）、600（标签、选中态、人物名）和 700（标题）。
+- 连续正文至少 14px / 1.5；辅助信息至少 12px。
+- 图表内部空间极受限的轴标签可保留 9–11px，但必须同时提供可访问名称，且不用于查询、导航、人物名或连续正文。
+- 人物、评分、计数与分页数字默认使用 tabular numerals。
 
 ## 5. 共享人物排行组件
 
@@ -260,7 +305,7 @@ Candidate variant 根节点使用整行 `<button>` 承担选择。整行内不�
 
 ### 排行维度进度
 
-进度使用当前已应用查询、当前职位的完整结果集作为分母，不使用当前分页：
+进度使用当前已应用查询、当前排行职位集的完整结果集作为分母，不使用当前分页：
 
 ```ts
 progress = value / max(allResultValues) * 100
@@ -309,6 +354,8 @@ Inspector 不展示人物 Person ID，也不提供“加入共同分析”或“
 
 - 共同分析与排行使用相同的居中内容宽度、页面外边距和卡片分块语言；rail、page head、Hero、图表和表格区均是边界完整的 surface card，不允许 rail 与 main 直接贴满视口左右边缘。
 - 避免卡片套卡片：一个语义分区只保留一层边框与表面；内部依靠分隔线、间距和排版建立层级。
+- 候选栏的职位 tabs 只来自共同分析的已应用职位数组；桌面用 tabs，窄屏可为避免溢出改用等价单选控件。两者都是本地结果导航，不是第二个查询入口。
+- 候选搜索只筛选当前职位 tab 的已加载人物；分页只切分该本地结果。切换 tab、搜索词或 page size 时回到第 1 页。
 - 已选人物条目使用紧凑布局，显示头像、主名称、多身份管理、移除操作和数字序号，不展示日文副名、作品数或 Person ID。
 - 人物或身份变化后自动重算分析，加载状态在结果区就地表达；禁止额外“查看分析”或“重新运行”按钮。
 
@@ -383,10 +430,10 @@ Desktop：
 
 Mobile：
 
-- App Header 的“选人”是打开 drawer 的入口，不承担 desktop collapse。
+- “选人”入口位于共同分析的 Main Workspace 内，不放入 App Header，也不承担 desktop collapse。
 - Drawer 宽度 `min(390px, 100vw - 24px)`。
 - 内部 `min-width: 0`，自身纵向滚动。
-- 打开后 query、main 和 header 背景控件 inert；关闭后焦点返回 header 入口。
+- 打开后 query、main 和 header 背景控件 inert；关闭后焦点返回 Main Workspace 中的触发入口。
 
 ## 10. Responsive
 
@@ -423,10 +470,13 @@ Mobile：
 每个 mode 在 Light / Dark 下验证 `360、390、768、917、1185、1440px`：
 
 - 页面 `scrollWidth <= clientWidth + 1`。
-- Query Workspace 完整位于 Header，正文起始位置不再保留查询卡片占位。
+- Header 只包含品牌、模式与主题操作；Query Workspace 完整位于 Main Workspace 顶部。
 - 查询摘要与编辑器互斥。
 - 查询摘要同行控件均为 36px 高、6px 圆角且垂直对齐。
-- 排行职位只来自已应用查询。
+- 作品范围和当前模式的职位作为一次原子查询提交，draft 未提交时不覆盖已应用结果。
+- 排行职位 UI 只允许一个职位，但状态为数组；使用测试数据注入多职位后，人物按全职位交集过滤，作品按职位 union 去重计算。
+- 共同分析可一次应用 `1..N` 个职位；候选栏默认显示第一个，本地切换职位 tab 不重新查询。
+- 候选搜索、分页、职位 tab 和人物身份选择均在已应用结果上本地生效；身份变化立即重算分析。
 - 排序只包含 count / average / overall，维度与升降序同行且相互独立。
 - 排行进度随当前排行维度变化，并表现为半透明粉色矩形行背景，无底部线状进度。
 - `NPagination` 有数字页码、前后页和 5/10/20/50 size picker。

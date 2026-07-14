@@ -1,6 +1,8 @@
 export type WorkbenchMode = 'ranking' | 'co-star'
 export type WorkbenchTheme = 'light' | 'dark'
 export type RankingMetric = 'count' | 'average' | 'overall'
+export type QueryPositionValue = number | string
+export type QueryPositionsByMode = Record<WorkbenchMode, QueryPositionValue[]>
 export interface ImageSet {
 	small?: string
 	medium?: string
@@ -126,8 +128,7 @@ export interface QueryState {
 	showNSFW: boolean
 	userId: string
 	subjectType: number
-	positionId: number
-	position: number | string
+	positionsByMode: QueryPositionsByMode
 	collectionTypes: number[]
 	date: QueryRangeCondition
 	rate: QueryRangeCondition

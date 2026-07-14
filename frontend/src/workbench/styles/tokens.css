@@ -12,6 +12,13 @@
 	--space-4: 16px;
 	--space-5: 20px;
 	--space-6: 24px;
+	--text-caption: 0.75rem;
+	--text-control: 0.8125rem;
+	--text-body: 0.875rem;
+	--text-subheading: 1rem;
+	--text-section: 1.1875rem;
+	--text-panel: 1.4375rem;
+	--text-page: 1.6875rem;
 	--z-sticky: 20;
 	--z-drawer: 50;
 	font-family: var(--font-ui);
@@ -57,10 +64,10 @@
 	--candidate-row-height: 64px;
 	--selected-row-height: 56px;
 	--section-pad: 16px;
-	--body-size: 14px;
-	--h1-size: 27px;
-	--h2-size: 19px;
-	--h3-size: 14px;
+	--body-size: var(--text-body);
+	--h1-size: var(--text-page);
+	--h2-size: var(--text-section);
+	--h3-size: var(--text-body);
 	--workspace-max: 1440px;
 }
 

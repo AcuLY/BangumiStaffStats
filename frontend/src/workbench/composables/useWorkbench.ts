@@ -64,6 +64,8 @@ export interface WorkbenchContext {
 	queryDraftStatus: ComputedRef<string>
 	queryScopeCount: ComputedRef<number>
 	queryScopeSubjectIds: ComputedRef<Set<number>>
+	rankingPositionIds: ComputedRef<number[]>
+	coStarPositionIds: ComputedRef<number[]>
 	applyQuery: () => boolean
 	cancelQuery: () => void
 	clearQueryFeedback: () => void
@@ -97,6 +99,8 @@ export interface WorkbenchContext {
 	focusedDistribution: ComputedRef<Array<{ label: string; value: number }>>
 	candidateSearch: Ref<string>
 	candidatePage: Ref<number>
+	candidatePositionId: Ref<number>
+	candidatePositionOptions: ComputedRef<Array<{ label: string; value: number; count: number }>>
 	candidatePeople: ComputedRef<CandidatePerson[]>
 	candidatePageItems: ComputedRef<CandidatePerson[]>
 	candidatePageCount: ComputedRef<number>
@@ -122,7 +126,7 @@ export function provideWorkbench(
 	snapshot: Ref<WorkbenchSnapshot | null>,
 	positionData: Ref<PositionData | null>,
 ) {
-	const mode = ref<WorkbenchMode>('co-star')
+	const mode = ref<WorkbenchMode>(new URLSearchParams(window.location.search).get('mode') === 'ranking' ? 'ranking' : 'co-star')
 	const requestedTheme = new URLSearchParams(window.location.search).get('theme')
 	const storedTheme = (() => {
 		try {
@@ -148,8 +152,10 @@ export function provideWorkbench(
 		showNSFW: false,
 		userId: 'lucay126',
 		subjectType: 2,
-		positionId: 102,
-		position: 102,
+		positionsByMode: {
+			ranking: [102],
+			'co-star': [102],
+		},
 		collectionTypes: [2, 3],
 		date: { enabled: false, value: ['', ''] },
 		rate: { enabled: false, value: ['', ''] },
@@ -159,6 +165,10 @@ export function provideWorkbench(
 	})
 	const cloneQuery = (source: QueryState): QueryState => ({
 		...source,
+		positionsByMode: {
+			ranking: [...source.positionsByMode.ranking],
+			'co-star': [...source.positionsByMode['co-star']],
+		},
 		collectionTypes: [...source.collectionTypes],
 		date: { ...source.date, value: [...source.date.value] as [string, string] },
 		rate: { ...source.rate, value: [...source.rate.value] as [string, string] },
@@ -180,6 +190,11 @@ export function provideWorkbench(
 	})
 	const query = reactive<QueryState>(makeQueryState())
 	const queryDraft = reactive<QueryState>(cloneQuery(query))
+	const numericPositionIds = (source: QueryState, sourceMode: WorkbenchMode) => source.positionsByMode[sourceMode]
+		.map(Number)
+		.filter((value) => Number.isFinite(value))
+	const rankingPositionIds = computed(() => numericPositionIds(query, 'ranking'))
+	const coStarPositionIds = computed(() => numericPositionIds(query, 'co-star'))
 	const queryStatus = ref('本地快照已应用')
 	const queryLoading = ref(false)
 	const queryError = ref('')
@@ -265,11 +280,22 @@ export function provideWorkbench(
 		if (Number(person.position?.id) === Number(positionId)) return (person.subjectIds ?? []).map(Number)
 		return []
 	}
-	const personSubjectRoles = (person: Person, subjectId: number, positionId = query.positionId) => {
+	const personSubjectRolesAtPosition = (person: Person, subjectId: number, positionId: number) => {
 		const positionRoles = person.positions?.[String(positionId)]?.rolesBySubject
 		if (positionRoles?.[String(subjectId)]) return positionRoles[String(subjectId)]
 		if (Number(positionId) !== 102) return []
 		return person.rolesBySubject?.[String(subjectId)] ?? []
+	}
+	const personSubjectRoles = (person: Person, subjectId: number, positionId?: number) => {
+		const positionIds = positionId === undefined ? rankingPositionIds.value : [positionId]
+		const seen = new Set<string>()
+		return positionIds.flatMap((id) => personSubjectRolesAtPosition(person, subjectId, id))
+			.filter((role) => {
+				const key = [role.displayName, role.nameCN, role.name, role.roleLabel].join('|')
+				if (seen.has(key)) return false
+				seen.add(key)
+				return true
+			})
 	}
 
 	const averageForIds = (ids: number[]) => average(ids.map((id) =>
@@ -378,12 +404,18 @@ export function provideWorkbench(
 		const exactId = /^\d+$/.test(searchValue) ? Number(searchValue) : null
 		return [...peopleById.value.values()]
 		.map((person): Person | null => {
-			const subjectIds = scopeSubjectIds(positionSubjectIds(person, query.positionId))
-			if (!subjectIds.length) return null
+			const positionSubjectSets = rankingPositionIds.value.map((positionId) =>
+				scopeSubjectIds(positionSubjectIds(person, positionId)))
+			// Ranking multi-position means the person satisfies every requested role;
+			// metrics use the de-duplicated union of the matching works.
+			if (!positionSubjectSets.length || positionSubjectSets.some((ids) => !ids.length)) return null
+			const subjectIds = [...union(positionSubjectSets.map((ids) => new Set(ids)))]
 			const ratedSubjectCount = subjectIds.filter((id) => Number(subjectsById.value.get(id)?.collection?.rate || 0) > 0).length
 			return {
 				...person,
-				position: { id: query.positionId, label: positionLabel(query.positionId) },
+				position: rankingPositionIds.value[0]
+					? { id: rankingPositionIds.value[0], label: positionLabel(rankingPositionIds.value[0]) }
+					: undefined,
 				subjectIds,
 				subjectCount: subjectIds.length,
 				ratedSubjectCount,
@@ -460,6 +492,7 @@ export function provideWorkbench(
 
 	const candidateSearch = ref('')
 	const candidatePage = ref(1)
+	const candidatePositionId = ref(102)
 	const candidatePageSize = computed(() => Math.max(1, Number(snapshot.value?.meta.ui?.pageSize || CANDIDATE_PAGE_SIZE)))
 	const selectedScopes = ref<SelectedScope[]>([
 		{ personId: 4697, positionId: 102 },
@@ -470,6 +503,12 @@ export function provideWorkbench(
 
 	const selectionKeys = computed(() => new Set(selectedScopes.value.map((item) => `${item.personId}:${item.positionId}`)))
 	const isScopeSelected = (personId: number, positionId: number) => selectionKeys.value.has(`${personId}:${positionId}`)
+	const candidatePositionOptions = computed(() => coStarPositionIds.value.map((positionId) => ({
+		label: positionLabel(positionId),
+		value: positionId,
+		count: [...peopleById.value.values()].filter((person) =>
+			scopeSubjectIds(positionSubjectIds(person, positionId)).length > 0).length,
+	})))
 
 	const candidatePeople = computed(() => {
 		const searchValue = candidateSearch.value.trim()
@@ -477,12 +516,12 @@ export function provideWorkbench(
 		const exactId = /^\d+$/.test(searchValue) ? Number(searchValue) : null
 		return [...peopleById.value.values()]
 			.map((person): CandidatePerson | null => {
-				const ids = scopeSubjectIds(positionSubjectIds(person, query.positionId))
+				const ids = scopeSubjectIds(positionSubjectIds(person, candidatePositionId.value))
 				if (!ids.length) return null
 				return {
 					...person,
-					activePositionId: query.positionId,
-					activePositionLabel: positionLabel(query.positionId),
+					activePositionId: candidatePositionId.value,
+					activePositionLabel: positionLabel(candidatePositionId.value),
 					activeSubjectIds: ids,
 					activeSubjectCount: ids.length,
 					activeAverage: averageForIds(ids),
@@ -503,13 +542,20 @@ export function provideWorkbench(
 		return candidatePeople.value.slice(start, start + candidatePageSize.value)
 	})
 
-	watch([() => query.positionId, candidateSearch], () => { candidatePage.value = 1 })
+	watch(coStarPositionIds, (positionIds) => {
+		if (!positionIds.includes(candidatePositionId.value)) candidatePositionId.value = positionIds[0] ?? 0
+	}, { immediate: true })
+	watch(candidatePositionId, () => {
+		candidateSearch.value = ''
+		candidatePage.value = 1
+	})
+	watch(candidateSearch, () => { candidatePage.value = 1 })
 	watch(candidatePageCount, (count) => { candidatePage.value = Math.min(candidatePage.value, count) })
 
 	const validateQuery = (source: QueryState) => {
 		if (!source.isGlobal && !source.userId.trim()) return '请输入用户 UID。'
 		if (!source.subjectType) return '请选择条目类型。'
-		if (!String(source.position).trim()) return '请选择职位。'
+		if (!source.positionsByMode[mode.value].length) return mode.value === 'ranking' ? '请选择排行职位。' : '请至少选择一个参与职位。'
 		if (!source.isGlobal && !source.collectionTypes.length) return '个人收藏模式至少选择一种收藏类型。'
 		const ranges: Array<[QueryState['date'], string, 'date' | 'number']> = [
 			[source.date, '播出时间', 'date'],
@@ -542,8 +588,14 @@ export function provideWorkbench(
 			return false
 		}
 		const next = cloneQuery(queryDraft)
-		if (Number(next.subjectType) === 2 && Number.isFinite(Number(next.position))) {
-			next.positionId = Number(next.position)
+		if (mode.value === 'co-star') {
+			const nextPositionIds = new Set(numericPositionIds(next, 'co-star'))
+			const removedIdentities = selectedScopes.value.filter((scope) => !nextPositionIds.has(scope.positionId))
+			if (removedIdentities.length) {
+				queryError.value = `新的参与职位未包含已选人物的 ${removedIdentities.length} 个身份，请先移除对应身份。`
+				queryFeedback.value = '请先处理已选身份'
+				return false
+			}
 		}
 		queryError.value = ''
 		queryFeedback.value = ''
@@ -551,6 +603,7 @@ export function provideWorkbench(
 		queryTimer = setTimeout(() => {
 			queryTimer = null
 			Object.assign(query, cloneQuery(next))
+			candidatePositionId.value = numericPositionIds(next, 'co-star')[0] ?? 0
 			queryLoading.value = false
 			queryEditing.value = false
 			rankingPage.value = 1
@@ -639,6 +692,8 @@ export function provideWorkbench(
 		queryDraftStatus,
 		queryScopeCount,
 		queryScopeSubjectIds: queryScopeIds,
+		rankingPositionIds,
+		coStarPositionIds,
 		applyQuery,
 		cancelQuery,
 		clearQueryFeedback,
@@ -672,6 +727,8 @@ export function provideWorkbench(
 		focusedDistribution,
 		candidateSearch,
 		candidatePage,
+		candidatePositionId,
+		candidatePositionOptions,
 		candidatePeople,
 		candidatePageItems,
 		candidatePageCount,
