@@ -19,14 +19,15 @@
 
 ```text
 App Header
-├─ Brand
-├─ Mode Tabs: 人物排行 / 共同参与分析
-└─ Theme
+├─ Header Bar
+│  ├─ Brand
+│  ├─ Mode Tabs: 人物排行 / 共同参与分析
+│  └─ Theme
+└─ Query Workspace · integrated disclosure
+   ├─ Applied Query Summary · always visible
+   └─ Query Editor · expanded only
 
 Main Workspace
-├─ Query Workspace
-│  ├─ Applied Query Summary
-│  └─ Query Editor
 ├─ Ranking
 │  ├─ RankedPersonList · focus variant
 │  └─ PersonInspector · panel / mobile drawer
@@ -39,7 +40,9 @@ Main Workspace
 
 ### 查询状态
 
-App Header 只承载品牌、模式切换和主题切换。Query Workspace 是 Main Workspace 顶部的一级表面，同时服务人物排行与共同参与分析。查询摘要和查询编辑器必须互斥，禁止同时出现。
+Query Workspace 是 App Header 的第二行集成 disclosure，同时服务人物排行与共同参与分析。已应用查询摘要常驻，右侧 chevron 通过 `aria-expanded` 展开或收起 Query Editor；展开时编辑器在摘要下方的正常文档流中排版，不使用 overlay 或 Header 内部滚动区。
+
+Desktop 收起态下，Header Bar 与紧凑摘要作为一体 sticky；展开 Query Editor 时，整个 Header 回归正常文档流，避免编辑器占据大部分视口。`<=780px` 时 Header 无论收起或展开都不 sticky，不让双行导航与查询 disclosure 长期遮挡结果。
 
 一次完整查询是一个原子提交：
 
@@ -50,18 +53,19 @@ Applied Query = Work Scope + Positions for current mode
 - Work Scope 包含数据来源、用户、条目类型、收藏状态和高级条件。
 - Positions 使用有序数组表达；数组顺序只用于默认展示顺序，查询结果按职位集合计算。
 - 人物排行当前 UI 只允许选择一个职位，但状态始终写入 `positionsByMode.ranking: [position]`，不使用不可扩展的单值字段。
-- 共同参与分析允许一次提交 `1..N` 个职位。
+- 共同参与分析允许一次提交 `1..N` 个职位。职位输入使用单选 selector 加独立加号按钮，每次把一个职位 append 到有序已选列表；selector 不再重复显示已选 tag。
+- 已选职位列表是 draft 职位的唯一完整表达，支持逐项移除；第一项标记为默认候选分组，新增和移除都保持数组顺序。
 - 修改 draft 时保留已应用查询及当前结果；只有“应用查询”才同时更新作品范围和职位。
 
 | 状态 | 摘要 | 编辑器 | 焦点 |
 |---|---|---|---|
-| summary | 显示 | 隐藏且 inert | “编辑查询”可聚焦 |
-| editing | 隐藏且 inert | 显示 | 首个有效字段 |
-| loading | 隐藏且 inert | 显示 | 取消查询仍可用 |
+| summary | 显示 | 隐藏且 inert | chevron disclosure 可聚焦 |
+| editing | 显示 | 显示 | 首个有效字段 |
+| loading | 显示 | 显示 | 取消查询仍可用 |
 | success | 显示 | 隐藏且 inert | 查询摘要或结果标题 |
-| error | 隐藏且 inert | 显示 | 首个错误字段 |
+| error | 显示 | 显示 | 首个错误字段 |
 
-摘要使用紧凑、可换行的条件项。短内容不得被强制分配整列宽度；同行的条件项、状态与“编辑查询”操作必须统一为 36px 高、6px 圆角并垂直对齐，禁止 pill 与普通小圆角混排。
+摘要使用紧凑的“作品范围 / 当前模式职位”两组排版，值不做 tag；桌面窄屏优先截断次要值，移动端保留两组语义。chevron 按钮只显示图标，视觉尺寸与普通控件一致且命中区至少 44px，必须有动态 `aria-label`、`title`、`aria-expanded` 和 `aria-controls`。
 
 ### 模式职责
 
@@ -78,7 +82,7 @@ Applied Query = Work Scope + Positions for current mode
 
 - Query Workspace 一次应用作品范围和 `1..N` 个参与职位；提交后候选结果刷新并回到第 1 页。
 - 多职位查询产生“同一作品范围下、每个职位各自的候选人物集”，不要求候选人物同时拥有全部职位。
-- 候选栏通过本地 tabs 浏览已应用职位，默认打开数组中第一个职位。切换 tab 只切换当前候选视图，不重新查询作品范围或职位数据。
+- 候选栏通过本地 tabs 浏览已应用职位，默认打开有序数组中第一个职位。切换 tab 只切换当前候选视图，不重新查询作品范围或职位数据。
 - 候选人物搜索、分页和当前 tab 都是已应用结果上的本地状态，不属于 Applied Query。候选默认按当前职位作品数降序，不再提供选择状态或排序控件。
 - 人物选择以 `personId + positionId` 身份为单位；整行点击选择或取消当前职位身份，已选人物中可管理同一人的多个已应用职位。已选条目保留头像、主名称、身份与数字序号；身份变化后分析结果立即刷新。
 - 右侧始终是关系分析，不复用人物 inspector。
@@ -131,6 +135,13 @@ Applied Query = Work Scope + Positions for current mode
   --text-3: #646a70;
   --disabled: #91969b;
 
+  --chrome: var(--surface);
+  --chrome-raised: var(--surface-subtle);
+  --chrome-text: var(--text-1);
+  --chrome-muted: var(--text-3);
+  --chrome-border: var(--border);
+  --focus-on-chrome: var(--focus);
+
   --success: #0e6b4d;
   --warning: #845a0f;
   --error: #ba2b2e;
@@ -138,7 +149,7 @@ Applied Query = Work Scope + Positions for current mode
 }
 ```
 
-Light 模式禁止残留暗色硬编码。表格、矩阵、图表、rail 和 drawer 都必须显式绑定 semantic token。
+Light 模式的 Header 使用白色半透明 chrome：`--chrome` 映射到白色 `--surface`，Header 背景可使用高不透明度的 surface mix，并保留 `backdrop-filter` 用于滚动层级。模式 tab、主题按钮、文字和边界必须使用同一组 chrome semantic tokens，不保留浅色下的深色 Header 硬编码。表格、矩阵、图表、rail 和 drawer 也都必须显式绑定 semantic token。
 
 ### Dark
 
@@ -184,9 +195,9 @@ Dark 模式的层级来自表面亮度差与 1px 边框，不依赖大片纯黑�
 | 场景 | 生产组件 | 原型表现 |
 |---|---|---|
 | 全局主题 | `NConfigProvider` | CSS semantic tokens |
-| 顶部模式 | `NTabs type="segment"` | 深色 Header 内的 segmented tabs |
-| 查询容器 | Main surface + `NForm` | Main Workspace 顶部；摘要 / 编辑器互斥 |
-| 职位输入 | `NSelect` | 排行单选但写入数组；共同分析 `multiple` |
+| 顶部模式 | `NTabs type="segment"` | Header Bar 内的 segmented tabs |
+| 查询容器 | Header disclosure + `NForm` | Header 第二行；摘要常驻，chevron 控制下方 editor |
+| 职位输入 | `NSelect`, `NButton` | 排行单选但写入数组；共同分析为单选 selector + 加号 + 有序已选列表 |
 | 候选职位浏览 | `NTabs` / 移动窄屏 `NSelect` | 只切换本地视图，不发起查询 |
 | 输入/选择 | `NInput`, `NSelect` | 36px control，6px radius |
 | 收藏状态 | `NCheckboxGroup` | 可换行选择 chip |
@@ -218,7 +229,7 @@ Dark 模式的层级来自表面亮度差与 1px 边框，不依赖大片纯黑�
 --space-6: 24px;
 ```
 
-同一工具栏的 input、select、button 统一使用 `--control-height` 与 `--radius-control`。查询摘要以“作品范围 / 当前模式职位”两个语义组排版，不把值做成 tag；“修改查询”与普通控件同高。移动端通过透明 hit area 保证 44px 触控目标。内容卡片禁止玻璃拟态和装饰性渐变；Header 可使用现有的半透明背景与 `backdrop-filter` 建立全局层级。禁止巨型圆角、pill 与小圆角混排，以及随机彩色系列。
+同一工具栏的 input、select、button 统一使用 `--control-height` 与 `--radius-control`；icon-only disclosure、加号和移除操作使用至少 44px 命中区。查询摘要以“作品范围 / 当前模式职位”两个语义组排版，不把值做成 tag；收起操作只使用 chevron，不另设“修改查询”文字按钮或编辑器内的重复关闭入口。内容卡片禁止玻璃拟态和装饰性渐变；半透明与 `backdrop-filter` 只属于全局 Header chrome。禁止巨型圆角、pill 与小圆角混排，以及随机彩色系列。
 
 ### Typography
 
@@ -354,6 +365,7 @@ Inspector 不展示人物 Person ID，也不提供“加入共同分析”或“
 
 - 共同分析与排行使用相同的居中内容宽度、页面外边距和卡片分块语言；rail、page head、Hero、图表和表格区均是边界完整的 surface card，不允许 rail 与 main 直接贴满视口左右边缘。
 - 避免卡片套卡片：一个语义分区只保留一层边框与表面；内部依靠分隔线、间距和排版建立层级。
+- 查询编辑器中的参与职位使用“单选 selector + 加号”逐项添加，selector options 排除已选项。有序已选列表显示数字序号、职位名、第一项的“默认展示”状态和逐项移除操作；不在 selector 下再重复拼接整个职位字符串。
 - 候选栏的职位 tabs 只来自共同分析的已应用职位数组；桌面用 tabs，窄屏可为避免溢出改用等价单选控件。两者都是本地结果导航，不是第二个查询入口。
 - 候选搜索只筛选当前职位 tab 的已加载人物；分页只切分该本地结果。切换 tab、搜索词或 page size 时回到第 1 页。
 - 已选人物条目使用紧凑布局，显示头像、主名称、多身份管理、移除操作和数字序号，不展示日文副名、作品数或 Person ID。
@@ -447,6 +459,8 @@ Mobile：
 
 移动端不得通过缩小文字或直接隐藏重要内容来解决宽度问题。
 
+Header / Query Workspace 的响应式规则独立于两种业务模式：`>=781px` 只在 Query Editor 收起时 sticky，展开后回归文档流；`<=780px` 始终回归文档流。摘要在窄屏仍保留作品范围与职位两组信息，可对过长值使用 ellipsis，不把整个编辑器固定在视口内。
+
 ## 11. 文案
 
 - 前端只展示用户任务、数据口径和状态。
@@ -470,12 +484,12 @@ Mobile：
 每个 mode 在 Light / Dark 下验证 `360、390、768、917、1185、1440px`：
 
 - 页面 `scrollWidth <= clientWidth + 1`。
-- Header 只包含品牌、模式与主题操作；Query Workspace 完整位于 Main Workspace 顶部。
-- 查询摘要与编辑器互斥。
-- 查询摘要同行控件均为 36px 高、6px 圆角且垂直对齐。
+- Query Workspace 是 Header 第二行的集成 disclosure；摘要常驻，chevron 正确展开、收起 Query Editor 并反映 `aria-expanded`。
+- Desktop 收起态的 Header sticky；Desktop 展开态与 `<=780px` 的 Header 回归文档流，Query Editor 不产生 Header 内部滚动或遮挡结果的大面积 sticky 区。
+- 查询摘要保留“作品范围 / 当前模式职位”两个语义组；chevron 视觉与状态正确，命中区至少 44px。
 - 作品范围和当前模式的职位作为一次原子查询提交，draft 未提交时不覆盖已应用结果。
 - 排行职位 UI 只允许一个职位，但状态为数组；使用测试数据注入多职位后，人物按全职位交集过滤，作品按职位 union 去重计算。
-- 共同分析可一次应用 `1..N` 个职位；候选栏默认显示第一个，本地切换职位 tab 不重新查询。
+- 共同分析通过单选 selector + 加号 + 有序已选列表应用 `1..N` 个职位；第一项是默认候选分组，本地切换职位 tab 不重新查询。
 - 候选搜索、分页、职位 tab 和人物身份选择均在已应用结果上本地生效；身份变化立即重算分析。
 - 排序只包含 count / average / overall，维度与升降序同行且相互独立。
 - 排行进度随当前排行维度变化，并表现为半透明粉色矩形行背景，无底部线状进度。
@@ -490,5 +504,5 @@ Mobile：
 - 共同分析 Hero 使用紧凑固定 media 高度，文字不压在图片上。
 - 评分分布图 `scrollWidth === clientWidth`；仅表格与矩阵允许自身横向滚动。
 - 正文至少 13px、辅助文字至少 12px，无超小字号。
-- Light 表格/矩阵/图表无暗色硬编码；Dark 无纯黑断层。
+- Light Header 是白色半透明 chrome，tab、按钮、文字和边界使用 light semantic tokens；Light 表格/矩阵/图表无暗色硬编码；Dark 无纯黑断层。
 - Console 无 error；无重复 ID；两个 JSON snapshot 均可解析。

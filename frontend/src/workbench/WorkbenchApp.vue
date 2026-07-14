@@ -63,7 +63,7 @@ watch(workbench.theme, (theme) => {
 	document.documentElement.dataset.theme = theme
 	document.documentElement.style.colorScheme = theme
 	document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-		?.setAttribute('content', theme === 'dark' ? '#101014' : '#f5f5f7')
+		?.setAttribute('content', theme === 'dark' ? '#101014' : '#ffffff')
 	try {
 		window.localStorage.setItem('bgmss-workbench-theme', theme)
 	} catch {
@@ -96,7 +96,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnUnsavedQu
 			<n-dialog-provider>
 				<a class="skip-link" href="#workbench-main">跳到主要内容</a>
 				<div class="workbench-app" :inert="backgroundInert || undefined" :aria-hidden="backgroundInert ? 'true' : undefined">
-					<WorkbenchHeader />
+					<WorkbenchHeader>
+						<template #query>
+							<QueryWorkspace v-if="!loading && !error" />
+						</template>
+					</WorkbenchHeader>
 
 					<main id="workbench-main" class="workbench-body" tabindex="-1">
 						<div v-if="loading" class="workbench-state surface-panel" role="status" aria-live="polite" aria-busy="true">
@@ -114,7 +118,6 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnUnsavedQu
 						</div>
 
 						<template v-else>
-							<QueryWorkspace />
 							<RankingWorkbench v-if="workbench.mode.value === 'ranking'" />
 							<CoStarWorkbench v-else />
 						</template>

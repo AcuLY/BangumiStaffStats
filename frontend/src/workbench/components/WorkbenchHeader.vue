@@ -30,7 +30,7 @@ const onModeKeydown = (event: KeyboardEvent, index: number) => {
 </script>
 
 <template>
-	<header class="workbench-header">
+	<header class="workbench-header" :class="{ 'has-query-editor': workbench.queryEditing.value }">
 		<div class="workbench-header__bar">
 			<a class="workbench-brand" href="/person-workbench.html" aria-label="Bangumi Staff Statistics 人物工作台首页" translate="no">
 				<span class="workbench-brand__mark"><AppIcon name="brand" :size="25" /></span>
@@ -71,6 +71,9 @@ const onModeKeydown = (event: KeyboardEvent, index: number) => {
 				<AppIcon :name="workbench.theme.value === 'dark' ? 'sun' : 'moon'" :size="17" />
 			</button>
 
+		</div>
+		<div class="workbench-header__query">
+			<slot name="query" />
 		</div>
 	</header>
 </template>
