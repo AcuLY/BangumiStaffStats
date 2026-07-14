@@ -1254,46 +1254,10 @@ table,
 	font-size: 12px;
 }
 
-.candidate-controls {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(112px, 0.75fr);
-	gap: 8px;
+.candidate-search {
+	display: flex;
+	width: 100%;
 	margin-bottom: 12px;
-}
-
-.field--compact {
-	grid-column: 1 / -1;
-}
-
-.candidate-controls > .n-input {
-	grid-column: 1 / -1;
-}
-
-.candidate-filter {
-	display: grid;
-	grid-template-columns: repeat(3, 1fr);
-	padding: 3px;
-	border: 1px solid var(--border);
-	border-radius: var(--radius-control);
-	background: var(--surface-sunken);
-}
-
-.candidate-filter button {
-	height: 30px;
-	padding: 0 6px;
-	border: 0;
-	border-radius: 4px;
-	background: transparent;
-	color: var(--text-3);
-	font-size: 12px;
-	font-weight: 600;
-	cursor: pointer;
-}
-
-.candidate-filter button.is-active {
-	background: var(--surface);
-	color: var(--primary-text);
-	box-shadow: 0 1px 2px color-mix(in oklab, var(--text-1) 8%, transparent);
 }
 
 .person-row--candidate {
@@ -1897,7 +1861,6 @@ table,
 		min-height: 44px;
 	}
 
-	.candidate-filter button,
 	.order-button {
 		min-height: 44px;
 	}

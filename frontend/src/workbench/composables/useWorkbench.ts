@@ -10,7 +10,6 @@ import {
 	type Ref,
 } from 'vue'
 import type {
-	CandidateFilter,
 	CandidatePerson,
 	Person,
 	PersonRole,
@@ -96,10 +95,7 @@ export interface WorkbenchContext {
 	focusedSubjects: ComputedRef<Subject[]>
 	focusedWorkSearch: Ref<string>
 	focusedDistribution: ComputedRef<Array<{ label: string; value: number }>>
-	browsePositionId: Ref<number>
 	candidateSearch: Ref<string>
-	candidateFilter: Ref<CandidateFilter>
-	candidateSort: Ref<'count' | 'average' | 'name'>
 	candidatePage: Ref<number>
 	candidatePeople: ComputedRef<CandidatePerson[]>
 	candidatePageItems: ComputedRef<CandidatePerson[]>
@@ -462,10 +458,7 @@ export function provideWorkbench(
 		focusedWorkSearch.value = ''
 	})
 
-	const browsePositionId = ref(102)
 	const candidateSearch = ref('')
-	const candidateFilter = ref<CandidateFilter>('all')
-	const candidateSort = ref<'count' | 'average' | 'name'>('count')
 	const candidatePage = ref(1)
 	const candidatePageSize = computed(() => Math.max(1, Number(snapshot.value?.meta.ui?.pageSize || CANDIDATE_PAGE_SIZE)))
 	const selectedScopes = ref<SelectedScope[]>([
@@ -484,12 +477,12 @@ export function provideWorkbench(
 		const exactId = /^\d+$/.test(searchValue) ? Number(searchValue) : null
 		return [...peopleById.value.values()]
 			.map((person): CandidatePerson | null => {
-				const ids = scopeSubjectIds(positionSubjectIds(person, browsePositionId.value))
+				const ids = scopeSubjectIds(positionSubjectIds(person, query.positionId))
 				if (!ids.length) return null
 				return {
 					...person,
-					activePositionId: browsePositionId.value,
-					activePositionLabel: positionLabel(browsePositionId.value),
+					activePositionId: query.positionId,
+					activePositionLabel: positionLabel(query.positionId),
 					activeSubjectIds: ids,
 					activeSubjectCount: ids.length,
 					activeAverage: averageForIds(ids),
@@ -502,17 +495,7 @@ export function provideWorkbench(
 				return [personName(person), person.name, person.nameCN, ...(person.aliases ?? [])]
 					.some((value) => compactSearch(value).includes(queryValue))
 			})
-			.filter((person) => {
-				const selected = isScopeSelected(person.id, browsePositionId.value)
-				return candidateFilter.value === 'all'
-					|| (candidateFilter.value === 'selected' && selected)
-					|| (candidateFilter.value === 'unselected' && !selected)
-			})
-			.sort((a, b) => {
-				if (candidateSort.value === 'name') return personName(a).localeCompare(personName(b), 'zh-CN') || a.id - b.id
-				if (candidateSort.value === 'average') return b.activeAverage - a.activeAverage || b.activeSubjectCount - a.activeSubjectCount || a.id - b.id
-				return b.activeSubjectCount - a.activeSubjectCount || b.activeAverage - a.activeAverage || a.id - b.id
-			})
+			.sort((a, b) => b.activeSubjectCount - a.activeSubjectCount || b.activeAverage - a.activeAverage || a.id - b.id)
 	})
 	const candidatePageCount = computed(() => Math.max(1, Math.ceil(candidatePeople.value.length / candidatePageSize.value)))
 	const candidatePageItems = computed(() => {
@@ -520,7 +503,7 @@ export function provideWorkbench(
 		return candidatePeople.value.slice(start, start + candidatePageSize.value)
 	})
 
-	watch([browsePositionId, candidateSearch, candidateFilter, candidateSort], () => { candidatePage.value = 1 })
+	watch([() => query.positionId, candidateSearch], () => { candidatePage.value = 1 })
 	watch(candidatePageCount, (count) => { candidatePage.value = Math.min(candidatePage.value, count) })
 
 	const validateQuery = (source: QueryState) => {
@@ -574,7 +557,6 @@ export function provideWorkbench(
 			candidatePage.value = 1
 			rankingSearch.value = ''
 			focusedWorkSearch.value = ''
-			if (Number(next.subjectType) === 2) browsePositionId.value = query.positionId
 			focusedPersonId.value = rankingPeople.value[0]?.id ?? 0
 		}, 520)
 		return true
@@ -688,10 +670,7 @@ export function provideWorkbench(
 		focusedSubjects,
 		focusedWorkSearch,
 		focusedDistribution,
-		browsePositionId,
 		candidateSearch,
-		candidateFilter,
-		candidateSort,
 		candidatePage,
 		candidatePeople,
 		candidatePageItems,

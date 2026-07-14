@@ -10,26 +10,11 @@ const workbench = useWorkbench()
 const selectedTrayCollapsed = ref(props.drawer)
 const candidatePageSize = computed(() => Math.max(1, Number(workbench.snapshot.value?.meta.ui?.pageSize || 8)))
 
-const filterOptions = [
-	{ label: '全部', value: 'all' as const },
-	{ label: '未选', value: 'unselected' as const },
-	{ label: '已选', value: 'selected' as const },
-]
-const sortOptions = [
-	{ label: '该职位作品数', value: 'count' },
-	{ label: '我的均分', value: 'average' },
-	{ label: '人物名', value: 'name' },
-]
 const selectedScopeCount = computed(() => workbench.selectedScopes.value.length)
-const currentPositionSelectedCount = computed(() => new Set(
-	workbench.selectedScopes.value
-		.filter((scope) => scope.positionId === workbench.browsePositionId.value)
-		.map((scope) => scope.personId),
-).size)
 
 const currentPositionRanking = computed(() => [...workbench.peopleById.value.values()]
 	.map((person) => {
-		const subjectIds = workbench.positionSubjectIds(person, workbench.browsePositionId.value)
+		const subjectIds = workbench.positionSubjectIds(person, workbench.query.positionId)
 			.filter((id) => workbench.queryScopeSubjectIds.value.has(Number(id)))
 		if (!subjectIds.length) return null
 		const rates = subjectIds
@@ -71,7 +56,7 @@ const addIdentity = (personId: number, positionId: number | null) => {
 }
 
 const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScopes.value
-	.filter((scope) => scope.personId === personId && scope.positionId !== workbench.browsePositionId.value)
+	.filter((scope) => scope.personId === personId && scope.positionId !== workbench.query.positionId)
 	.map((scope) => workbench.positionLabel(scope.positionId))
 </script>
 
@@ -144,36 +129,13 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 
 		<section class="candidate-browser" aria-labelledby="candidate-title">
 			<div class="picker-section-heading">
-				<strong id="candidate-title">{{ workbench.positionLabel(workbench.browsePositionId.value) }}人物排行</strong>
+				<strong id="candidate-title">{{ workbench.positionLabel(workbench.query.positionId) }}人物排行</strong>
 				<span>{{ currentPositionTotal }} 人</span>
 			</div>
 
-			<div class="candidate-controls">
-				<label class="field field--compact">
-					<span class="position-browser-heading">
-						<span>浏览职位</span>
-						<small>本职位已选 {{ currentPositionSelectedCount }} 人</small>
-					</span>
-					<n-select v-model:value="workbench.browsePositionId.value" :options="workbench.positions.value" />
-					<small class="position-browser-help">支持多职位 · 作品自动去重</small>
-				</label>
-				<n-input v-model:value="workbench.candidateSearch.value" clearable placeholder="搜索人物名或别名…" aria-label="搜索人物">
-					<template #prefix><AppIcon name="search" :size="16" /></template>
-				</n-input>
-				<div class="candidate-filter" role="group" aria-label="人物选择状态筛选">
-					<button
-						v-for="option in filterOptions"
-						:key="option.value"
-						type="button"
-						:class="{ 'is-active': workbench.candidateFilter.value === option.value }"
-						:aria-pressed="workbench.candidateFilter.value === option.value"
-						@click="workbench.candidateFilter.value = option.value"
-					>
-						{{ option.label }}<span v-if="option.value === 'selected'"> · {{ currentPositionSelectedCount }}</span>
-					</button>
-				</div>
-				<n-select v-model:value="workbench.candidateSort.value" :options="sortOptions" aria-label="人物排序" />
-			</div>
+			<n-input class="candidate-search" v-model:value="workbench.candidateSearch.value" clearable placeholder="搜索人物名或别名…" aria-label="搜索人物">
+				<template #prefix><AppIcon name="search" :size="16" /></template>
+			</n-input>
 
 			<div class="candidate-result-summary">
 				<strong>候选结果</strong>
@@ -223,7 +185,7 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 				<div v-if="!workbench.candidatePageItems.value.length" class="person-list__empty">
 					<AppIcon name="search" :size="22" />
 					<strong>没有匹配的人物</strong>
-					<span>换一个搜索词或筛选条件。</span>
+					<span>换一个搜索词。</span>
 				</div>
 			</div>
 
@@ -312,24 +274,10 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 	width: 112px;
 }
 
-.position-browser-heading {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 8px;
-}
-
-.position-browser-heading small,
-.position-browser-help,
 .candidate-result-summary span,
 .candidate-range {
 	color: var(--text-3);
 	font-size: 12px;
-}
-
-.position-browser-help {
-	display: block;
-	margin-top: 6px;
 }
 
 .candidate-result-summary {
