@@ -56,6 +56,7 @@ declare module 'vue' {
     NSpin: typeof import('naive-ui')['NSpin']
     NStatistic: typeof import('naive-ui')['NStatistic']
     NSwitch: typeof import('naive-ui')['NSwitch']
+    NTag: typeof import('naive-ui')['NTag']
     NTooltip: typeof import('naive-ui')['NTooltip']
     OptionEnabler: typeof import('./components/inputs/OptionEnabler.vue')['default']
     OverallRate: typeof import('./components/columns/OverallRate.vue')['default']

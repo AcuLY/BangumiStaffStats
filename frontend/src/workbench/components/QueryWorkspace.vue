@@ -410,15 +410,20 @@ const conditionTitle = (key: ConditionKey) => ({
 						<small v-if="fieldError('positions')" id="query-error-positions" class="query-field-error">{{ fieldError('positions') }}</small>
 					</div>
 					<div v-if="workbench.mode.value === 'co-star'" class="query-position-selection">
-						<ol v-if="activeDraftPositions.length" aria-label="已选参与职位">
-							<li v-for="(position, index) in activeDraftPositions" :key="String(position)">
+						<n-space v-if="activeDraftPositions.length" :size="8" wrap role="list" aria-label="已选参与职位">
+							<n-tag
+								v-for="(position, index) in activeDraftPositions"
+								:key="String(position)"
+								closable
+								size="small"
+								:disabled="workbench.queryLoading.value"
+								role="listitem"
+								@close="removeCoStarPosition(position)"
+							>
 								<span class="query-position-order" aria-hidden="true">{{ index + 1 }}</span>
-								<strong>{{ draftPositionLabel(position) }}</strong>
-								<n-button quaternary circle size="small" attr-type="button" :aria-label="`移除${draftPositionLabel(position)}`" :disabled="workbench.queryLoading.value" @click="removeCoStarPosition(position)">
-									<AppIcon name="close" :size="16" />
-								</n-button>
-							</li>
-						</ol>
+								{{ draftPositionLabel(position) }}
+							</n-tag>
+						</n-space>
 						<div v-else class="query-position-selection__empty">尚未添加职位</div>
 					</div>
 				</section>
@@ -428,11 +433,11 @@ const conditionTitle = (key: ConditionKey) => ({
 
 			<div class="query-editor__footer">
 				<span role="status" aria-live="polite">{{ workbench.queryDraftStatus.value }}</span>
-				<div class="query-editor__actions">
+				<n-space class="query-editor__actions" :size="8" justify="end" wrap>
 					<n-button attr-type="button" :disabled="!workbench.queryDraftDirty.value || workbench.queryLoading.value" @click="workbench.restoreQuery">撤销更改</n-button>
 					<n-button attr-type="button" :disabled="!workbench.queryLoading.value" @click="workbench.cancelQuery">取消查询</n-button>
 					<n-button type="primary" attr-type="submit" :loading="workbench.queryLoading.value" :disabled="workbench.queryLoading.value">{{ workbench.queryLoading.value ? '查询中…' : '应用并查询' }}</n-button>
-				</div>
+				</n-space>
 			</div>
 		</form>
 	</section>

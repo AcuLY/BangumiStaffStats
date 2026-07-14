@@ -57,6 +57,9 @@ const aggregateTags = computed(() => {
 		.slice(0, limit)
 	return { meta: top(meta, 6), community: top(community, 8), personal: top(personal, 6) }
 })
+const aggregateTagCount = computed(() => aggregateTags.value.meta.length
+	+ aggregateTags.value.community.length
+	+ aggregateTags.value.personal.length)
 
 const timelineStats = computed(() => {
 	const years = new Map<number, number>()
@@ -294,14 +297,18 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 				</div>
 			</div>
 
-			<details class="analysis-tag-groups">
-				<summary>作品标签</summary>
-				<div class="tag-groups">
+			<section class="analysis-tag-groups" aria-labelledby="analysis-tags-title">
+				<div class="analysis-tag-groups__heading">
+					<strong id="analysis-tags-title">作品标签</strong>
+					<span v-if="aggregateTagCount">{{ aggregateTagCount }} 个高频标签</span>
+				</div>
+				<div v-if="aggregateTagCount" class="tag-groups">
 					<div class="tag-row"><strong>条目属性</strong><div><span v-for="([tag, count]) in aggregateTags.meta" :key="`meta-${tag}`">{{ tag }} · {{ count }}</span><span v-if="!aggregateTags.meta.length">无</span></div></div>
 					<div class="tag-row"><strong>社区标签</strong><div><span v-for="([tag, count]) in aggregateTags.community" :key="`community-${tag}`">{{ tag }} · {{ count }}</span><span v-if="!aggregateTags.community.length">无</span></div></div>
 					<div class="tag-row"><strong>我的收藏标签</strong><div><span v-for="([tag, count]) in aggregateTags.personal" :key="`personal-${tag}`">{{ tag }} · {{ count }}</span><span v-if="!aggregateTags.personal.length">未设置</span></div></div>
 				</div>
-			</details>
+				<p v-else class="analysis-tag-groups__empty">这些共同作品暂无可用标签。</p>
+			</section>
 		</section>
 
 		<section v-if="!workbench.sharedSubjects.value.length" class="analysis-empty surface-panel analysis-empty--zero">
@@ -392,8 +399,14 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 
 			<section class="analysis-section surface-panel" aria-labelledby="matrix-title">
 				<div class="section-heading"><div><h2 id="matrix-title">两两关系矩阵</h2><p>全站均分 / 共同作品数；高亮共同作品最多的组合。</p></div></div>
-				<details class="matrix-details" :open="workbench.selectedPeople.value.length < SUMMARY_THRESHOLD">
-					<summary>查看 {{ workbench.selectedPeople.value.length }} × {{ workbench.selectedPeople.value.length }} 两两关系矩阵</summary>
+				<component
+					:is="workbench.selectedPeople.value.length < SUMMARY_THRESHOLD ? 'div' : 'details'"
+					class="matrix-details"
+					:class="{ 'matrix-details--direct': workbench.selectedPeople.value.length < SUMMARY_THRESHOLD }"
+				>
+					<summary v-if="workbench.selectedPeople.value.length >= SUMMARY_THRESHOLD">
+						展开 {{ workbench.selectedPeople.value.length }} × {{ workbench.selectedPeople.value.length }} 两两关系矩阵
+					</summary>
 					<div class="data-scroll-x">
 						<table class="matrix-table" :style="{ '--matrix-size': workbench.selectedPeople.value.length }">
 							<thead><tr><th scope="col">组合</th><th v-for="item in workbench.selectedPeople.value" :key="item.person.id" scope="col">{{ workbench.personName(item.person) }}<small>{{ item.positionIds.map(workbench.positionLabel).join(' / ') }}</small></th></tr></thead>
@@ -408,7 +421,7 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 							</tbody>
 						</table>
 					</div>
-				</details>
+				</component>
 			</section>
 
 			<section class="analysis-section surface-panel" aria-labelledby="common-works-title">

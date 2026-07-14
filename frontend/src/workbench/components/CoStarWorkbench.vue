@@ -55,7 +55,7 @@ watch(isMobile, (mobile) => {
 			<AnalysisDashboard />
 		</section>
 
-		<n-drawer v-if="isMobile" v-model:show="workbench.peopleDrawerOpen.value" placement="left" width="min(390px, calc(100vw - 24px))" aria-label="人物选择">
+		<n-drawer v-if="isMobile" v-model:show="workbench.peopleDrawerOpen.value" placement="left" width="min(640px, calc(100vw - 24px))" aria-label="人物选择">
 			<n-drawer-content :native-scrollbar="false" body-content-style="padding: 0;" :closable="false">
 				<PersonPicker drawer @close="workbench.peopleDrawerOpen.value = false" />
 			</n-drawer-content>

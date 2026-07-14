@@ -11,27 +11,12 @@ const selectedTrayCollapsed = ref(props.drawer)
 
 const selectedScopeCount = computed(() => workbench.selectedScopes.value.length)
 const candidatePositionLabel = computed(() => workbench.positionLabel(workbench.candidatePositionId.value))
+const candidatePositionCount = computed(() => workbench.candidatePositionOptions.value
+	.find((option) => option.value === workbench.candidatePositionId.value)?.count ?? 0)
 const candidatePositionSelectOptions = computed(() => workbench.candidatePositionOptions.value.map((option) => ({
 	label: `${option.label} · ${option.count} 人`,
 	value: option.value,
 })))
-const activateCandidatePosition = (positionId: number, focus = false) => {
-	workbench.candidatePositionId.value = positionId
-	if (focus) requestAnimationFrame(() => {
-		document.querySelector<HTMLButtonElement>(`[data-candidate-position="${positionId}"]`)?.focus()
-	})
-}
-const onCandidatePositionKeydown = (event: KeyboardEvent, index: number) => {
-	const options = workbench.candidatePositionOptions.value
-	let next = index
-	if (event.key === 'ArrowRight') next = (index + 1) % options.length
-	else if (event.key === 'ArrowLeft') next = (index - 1 + options.length) % options.length
-	else if (event.key === 'Home') next = 0
-	else if (event.key === 'End') next = options.length - 1
-	else return
-	event.preventDefault()
-	if (options[next]) activateCandidatePosition(options[next].value, true)
-}
 
 const currentPositionRanking = computed(() => [...workbench.peopleById.value.values()]
 	.map((person) => {
@@ -149,43 +134,24 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 		<section class="candidate-browser" aria-labelledby="candidate-title">
 			<div class="picker-section-heading">
 				<strong id="candidate-title">候选人物</strong>
+				<span>{{ candidatePositionLabel }} · {{ candidatePositionCount }} 人</span>
 			</div>
 
-			<div class="candidate-position-browser">
-				<span class="candidate-position-browser__label">已应用职位</span>
+			<div v-if="workbench.candidatePositionOptions.value.length > 1" class="candidate-position-browser">
+				<span class="candidate-position-browser__label">浏览职位</span>
 				<n-select
-					v-if="drawer"
 					v-model:value="workbench.candidatePositionId.value"
 					:options="candidatePositionSelectOptions"
-					aria-label="浏览候选职位"
+					aria-label="浏览已应用职位"
 					:input-props="{ name: 'candidatePosition' }"
 				/>
-				<div v-else class="candidate-position-tabs" role="tablist" aria-label="浏览已应用职位">
-					<button
-						v-for="(option, index) in workbench.candidatePositionOptions.value"
-						:key="option.value"
-						:data-candidate-position="option.value"
-						:id="`candidate-position-tab-${option.value}`"
-						class="candidate-position-tab"
-						type="button"
-						role="tab"
-						:aria-selected="workbench.candidatePositionId.value === option.value"
-						aria-controls="candidate-position-results"
-						:tabindex="workbench.candidatePositionId.value === option.value ? 0 : -1"
-						@click="activateCandidatePosition(option.value)"
-						@keydown="onCandidatePositionKeydown($event, index)"
-					>
-						<span>{{ option.label }}</span>
-						<small>{{ option.count }}</small>
-					</button>
-				</div>
 			</div>
 
 			<div
 				id="candidate-position-results"
 				class="candidate-position-results"
-				:role="drawer ? 'region' : 'tabpanel'"
-				:aria-labelledby="drawer ? 'candidate-title' : `candidate-position-tab-${workbench.candidatePositionId.value}`"
+				role="region"
+				:aria-label="`${candidatePositionLabel}候选人物`"
 			>
 				<n-input class="candidate-search" v-model:value="workbench.candidateSearch.value" clearable autocomplete="off" placeholder="筛选当前结果…" :aria-label="`搜索${candidatePositionLabel}候选人物`" :input-props="{ name: 'candidateSearch', spellcheck: 'false' }">
 					<template #prefix><AppIcon name="search" :size="16" /></template>
@@ -442,9 +408,26 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 
 .person-row--candidate {
 	width: 100%;
-	min-height: 52px;
+	min-height: 56px;
 	margin-inline: 0;
-	padding: 4px 0;
+	padding: 6px var(--space-3);
+	border-radius: var(--radius-control);
+}
+
+.candidate-position-results {
+	container: candidate-results / inline-size;
+}
+
+@container candidate-results (min-width: 560px) {
+	.person-list--candidate {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--space-1) var(--space-2);
+	}
+
+	.person-list--candidate .person-list__empty {
+		grid-column: 1 / -1;
+	}
 }
 
 .person-picker--drawer .candidate-browser {
