@@ -57,10 +57,19 @@ const addIdentity = (personId: number, positionId: number | null) => {
 const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScopes.value
 	.filter((scope) => scope.personId === personId && scope.positionId !== workbench.candidatePositionId.value)
 	.map((scope) => workbench.positionLabel(scope.positionId))
+
+const guardPickerWheel = (event: WheelEvent) => {
+	const picker = event.currentTarget as HTMLElement
+	const maxScrollTop = picker.scrollHeight - picker.clientHeight
+	if (props.drawer || maxScrollTop <= 0) return
+	const reachesTop = event.deltaY < 0 && picker.scrollTop <= 0
+	const reachesBottom = event.deltaY > 0 && picker.scrollTop >= maxScrollTop - 1
+	if (reachesTop || reachesBottom) event.preventDefault()
+}
 </script>
 
 <template>
-	<div class="person-picker" :class="{ 'person-picker--drawer': drawer }">
+	<div class="person-picker" :class="{ 'person-picker--drawer': drawer }" @wheel="guardPickerWheel">
 		<header class="picker-heading">
 			<div>
 				<h2>人物选择</h2>
@@ -188,15 +197,14 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 					</span>
 					<span class="person-row__identity candidate-row__identity">
 						<strong>{{ workbench.personName(person) }}</strong>
-						<small>
+						<small class="candidate-row__meta">
 							<span class="candidate-rank">#{{ candidateRankById.get(person.id) ?? '—' }}</span>
+							<span aria-hidden="true">·</span>
+							<span class="candidate-work-count"><strong>{{ person.activeSubjectCount }}</strong> 部</span>
 						</small>
 						<span v-if="otherSelectedIdentityLabels(person.id).length" class="candidate-other-positions">
 							已选其他身份：{{ otherSelectedIdentityLabels(person.id).join(' / ') }}
 						</span>
-					</span>
-					<span class="candidate-row__metrics">
-						<span><strong>{{ person.activeSubjectCount }}</strong><small>作品</small></span>
 					</span>
 				</button>
 
@@ -347,6 +355,7 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 
 .candidate-row__identity {
 	display: grid;
+	grid-area: identity;
 	min-width: 0;
 }
 
@@ -358,9 +367,11 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 	white-space: nowrap;
 }
 
-.candidate-row__identity small {
+.candidate-row__meta {
 	display: flex;
+	align-items: baseline;
 	gap: var(--space-1);
+	color: var(--text-3);
 }
 
 .candidate-rank,
@@ -368,29 +379,13 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 	color: var(--text-3);
 }
 
+.candidate-work-count strong {
+	color: var(--text-2);
+	font-size: inherit;
+}
+
 .candidate-other-positions {
 	margin-top: 2px;
-	font-size: var(--text-caption);
-}
-
-.candidate-row__metrics {
-	display: flex;
-	align-items: center;
-	gap: var(--space-2);
-	text-align: right;
-}
-
-.candidate-row__metrics > span {
-	display: grid;
-	min-width: 36px;
-}
-
-.candidate-row__metrics strong {
-	font-size: var(--text-control);
-}
-
-.candidate-row__metrics small {
-	color: var(--text-3);
 	font-size: var(--text-caption);
 }
 
@@ -407,22 +402,28 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 }
 
 .person-row--candidate {
+	grid-template-areas: "portrait identity";
+	grid-template-columns: 36px minmax(0, 1fr);
 	width: 100%;
 	min-height: 56px;
 	margin-inline: 0;
-	padding: 6px var(--space-3);
+	padding: var(--space-2);
 	border-radius: var(--radius-control);
+}
+
+.candidate-row__portrait {
+	grid-area: portrait;
 }
 
 .candidate-position-results {
 	container: candidate-results / inline-size;
 }
 
-@container candidate-results (min-width: 560px) {
+@container candidate-results (min-width: 270px) {
 	.person-list--candidate {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--space-1) var(--space-2);
+		gap: var(--space-1);
 	}
 
 	.person-list--candidate .person-list__empty {
@@ -434,13 +435,11 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 	padding-bottom: max(var(--section-pad), env(safe-area-inset-bottom));
 }
 
-@media (max-width: 420px) {
-	.candidate-row__metrics {
+@container candidate-results (max-width: 269px) {
+	.person-list--candidate {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-1);
-	}
-
-	.candidate-row__metrics > span {
-		min-width: 32px;
 	}
 }
 </style>

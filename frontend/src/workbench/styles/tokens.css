@@ -21,9 +21,18 @@
 	--text-page: 1.6875rem;
 	--z-sticky: 20;
 	--z-drawer: 50;
+	--workbench-header-desktop-height: 121px;
+	--workbench-header-mobile-height: 187px;
+	--workbench-header-height: var(--workbench-header-desktop-height);
 	font-family: var(--font-ui);
 	font-synthesis: none;
 	text-rendering: optimizeLegibility;
+}
+
+@media (max-width: 780px) {
+	:root {
+		--workbench-header-height: var(--workbench-header-mobile-height);
+	}
 }
 
 :root[data-visual="archive"] {

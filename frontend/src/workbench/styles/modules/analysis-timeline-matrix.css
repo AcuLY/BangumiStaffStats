@@ -1,0 +1,172 @@
+.timeline-panel {
+	overflow: hidden;
+}
+
+.collaboration-timeline {
+	padding: 44px 10px 30px;
+}
+
+.collaboration-timeline__track {
+	position: relative;
+	height: 2px;
+	background: linear-gradient(90deg, var(--primary), var(--border) 50%, var(--success));
+}
+
+.collaboration-timeline__track > i {
+	position: absolute;
+	top: 50%;
+	display: block;
+	transform: translate(-50%, -50%);
+	border: 2px solid var(--surface);
+	border-radius: 50%;
+	background: var(--text-3);
+	box-shadow: 0 0 0 1px var(--border);
+	font-style: normal;
+}
+
+.collaboration-timeline__track > i.is-peak {
+	background: var(--primary);
+	box-shadow: 0 0 0 2px var(--primary-soft);
+}
+
+.collaboration-timeline__track > i.is-recent {
+	background: var(--success);
+}
+
+.collaboration-timeline__track > i.is-first:not(.is-solo) {
+	transform: translate(0, -50%);
+}
+
+.collaboration-timeline__track > i.is-last:not(.is-solo) {
+	transform: translate(-100%, -50%);
+}
+
+.collaboration-timeline__track i span,
+.collaboration-timeline__track i time {
+	position: absolute;
+	left: 50%;
+	transform: translateX(-50%);
+	white-space: nowrap;
+}
+
+.collaboration-timeline__track i span {
+	bottom: 15px;
+	color: var(--text-2);
+	font-size: var(--text-caption);
+}
+
+.collaboration-timeline__track i time {
+	top: 17px;
+	color: var(--text-3);
+	font-size: var(--text-caption);
+}
+
+.collaboration-timeline__track i.is-first:not(.is-solo) span,
+.collaboration-timeline__track i.is-first:not(.is-solo) time {
+	left: 0;
+	transform: none;
+}
+
+.collaboration-timeline__track i.is-last:not(.is-solo) span,
+.collaboration-timeline__track i.is-last:not(.is-solo) time {
+	right: 0;
+	left: auto;
+	transform: none;
+}
+
+.timeline-summary {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 0;
+	margin-top: var(--space-3);
+	border-top: 1px solid var(--divider);
+}
+
+.timeline-summary span {
+	display: grid;
+	gap: 3px;
+	min-width: 0;
+	padding: var(--space-3);
+	border-left: 1px solid var(--divider);
+	color: var(--text-3);
+	font-size: var(--text-caption);
+}
+
+.timeline-summary span:first-child {
+	border-left: 0;
+}
+
+.timeline-summary b {
+	min-width: 0;
+	color: var(--text-2);
+	font-size: var(--text-caption);
+	line-height: 1.45;
+}
+
+.matrix-details .data-scroll-x {
+	scrollbar-gutter: auto;
+}
+
+.matrix-details:not(.matrix-details--direct) summary {
+	display: flex;
+	align-items: center;
+	min-height: 42px;
+	color: var(--text-2);
+	font-size: var(--text-caption);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.matrix-table {
+	min-width: max(100%, calc(140px + var(--matrix-size, 2) * 140px));
+	table-layout: fixed;
+}
+
+.matrix-table th small,
+.matrix-table td small,
+.works-table th small {
+	display: block;
+	margin-top: 3px;
+	color: var(--text-3);
+	font-size: var(--text-caption);
+	font-weight: 400;
+}
+
+.matrix-table .is-diagonal {
+	background: var(--surface-sunken);
+	color: var(--text-3);
+}
+
+.matrix-table .is-best {
+	background: var(--primary-soft);
+	color: var(--primary-text);
+}
+
+.matrix-table .is-best b {
+	color: var(--primary-text);
+}
+
+.role-entry {
+	display: grid;
+	gap: 2px;
+}
+
+.role-entry small,
+.score-pair small {
+	color: var(--text-3);
+	font-size: var(--text-caption);
+}
+
+.role-entry + .role-entry {
+	margin-top: 7px;
+}
+
+.role-entry b {
+	font-size: var(--text-caption);
+	font-weight: 600;
+}
+
+.score-pair b {
+	display: block;
+	color: var(--text-1);
+}

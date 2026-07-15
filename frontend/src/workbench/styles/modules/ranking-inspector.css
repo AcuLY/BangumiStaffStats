@@ -1,0 +1,263 @@
+.person-inspector {
+	min-width: 0;
+}
+
+.person-profile {
+	display: grid;
+	grid-template-columns: 160px minmax(0, 1fr);
+	min-width: 0;
+	border-bottom: 1px solid var(--divider);
+}
+
+.person-profile__portrait {
+	width: 160px;
+	height: 196px;
+	border-radius: var(--radius-card) 0 0 0;
+}
+
+.person-profile__content {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	min-width: 0;
+	padding: 22px 24px;
+}
+
+.person-profile__content :is(h1, h2) {
+	margin-top: 4px;
+}
+
+.person-profile__content > p {
+	margin-top: 5px;
+	color: var(--text-3);
+}
+
+.profile-metrics {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(74px, 1fr));
+	margin-top: 24px;
+	border-block: 1px solid var(--divider);
+}
+
+.profile-metrics > span {
+	display: grid;
+	gap: 2px;
+	padding: 10px 12px;
+	border-right: 1px solid var(--divider);
+}
+
+.profile-metrics > span:last-child {
+	border-right: 0;
+}
+
+.profile-metrics b {
+	font-size: var(--text-subheading);
+}
+
+.profile-metrics small {
+	color: var(--text-3);
+}
+
+.inspector-section,
+.analysis-section {
+	min-width: 0;
+	padding: var(--section-pad) calc(var(--section-pad) + 8px);
+	border-bottom: 1px solid var(--divider);
+}
+
+.inspector-section:last-child,
+.analysis-section:last-child {
+	border-bottom: 0;
+}
+
+.section-heading {
+	align-items: center;
+	margin-bottom: 16px;
+}
+
+.section-heading p {
+	margin-top: 4px;
+	color: var(--text-3);
+	font-size: 13px;
+}
+
+.derived-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	color: var(--success);
+	font-size: 12px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.score-distribution {
+	display: grid;
+	grid-template-columns: repeat(11, minmax(0, 1fr));
+	align-items: end;
+	gap: 6px;
+	min-width: 0;
+	height: 180px;
+	padding-top: 8px;
+}
+
+.score-bar {
+	display: grid;
+	grid-template-rows: 20px minmax(0, 1fr) 18px;
+	gap: 4px;
+	min-width: 0;
+	height: 100%;
+	text-align: center;
+}
+
+.score-bar__value,
+.score-bar small {
+	color: var(--text-3);
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+}
+
+.score-bar__track {
+	position: relative;
+	display: flex;
+	align-items: flex-end;
+	justify-content: stretch;
+	min-width: 0;
+	border-bottom: 1px solid var(--border);
+	background: var(--surface-sunken);
+}
+
+.score-bar__track i {
+	display: block;
+	width: 100%;
+	min-height: 4px;
+	background: var(--primary);
+}
+
+.preference-columns {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 28px;
+}
+
+.preference-columns h3 {
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--divider);
+}
+
+.preference-columns ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.preference-columns li {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+	min-width: 0;
+	padding: 8px 0;
+	border-bottom: 1px solid var(--divider);
+}
+
+.preference-columns li span {
+	min-width: 0;
+	overflow: hidden;
+	color: var(--text-2);
+	font-size: 13px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.preference-columns li b {
+	color: var(--primary-text);
+	font-size: 13px;
+}
+
+.preference-columns .muted-row {
+	justify-content: flex-start;
+	color: var(--text-3);
+	font-size: 12px;
+}
+
+.section-heading--tools .n-input {
+	width: min(260px, 38vw);
+}
+
+.data-scroll-x {
+	min-width: 0;
+	max-width: 100%;
+	overflow-x: auto;
+	overscroll-behavior-inline: contain;
+	scrollbar-gutter: stable;
+}
+
+.works-table,
+.matrix-table {
+	width: 100%;
+	min-width: 640px;
+	border-collapse: collapse;
+	font-size: 13px;
+}
+
+.works-table th,
+.works-table td,
+.matrix-table th,
+.matrix-table td {
+	padding: 9px 12px;
+	border-bottom: 1px solid var(--divider);
+	color: var(--text-2);
+	text-align: left;
+	vertical-align: middle;
+}
+
+.works-table thead th,
+.matrix-table thead th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background: var(--surface-subtle);
+	color: var(--text-3);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.works-table tbody tr:nth-child(even),
+.matrix-table tbody tr:nth-child(even) {
+	background: color-mix(in oklab, var(--surface-subtle) 50%, transparent);
+}
+
+.works-table tbody tr:hover,
+.matrix-table tbody tr:hover {
+	background: var(--hover);
+}
+
+.work-cell {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 220px;
+}
+
+.work-cell .safe-image {
+	flex: 0 0 auto;
+	width: 36px;
+	height: 48px;
+}
+
+.work-cell strong {
+	display: -webkit-box;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--text-1);
+	font-weight: 600;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+}
+
+.table-empty {
+	padding: 28px !important;
+	color: var(--text-3) !important;
+	text-align: center !important;
+}

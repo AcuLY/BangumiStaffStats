@@ -1,9 +1,21 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { WorkbenchMode } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
 import AppIcon from './AppIcon.vue'
 
 const workbench = useWorkbench()
+const headerElement = ref<HTMLElement | null>(null)
+let headerResizeObserver: ResizeObserver | null = null
+
+const syncHeaderHeight = () => {
+	if (workbench.queryEditing.value) return
+	if (!headerElement.value?.querySelector('.query-summary')) return
+	const height = Math.ceil(headerElement.value?.getBoundingClientRect().height ?? 0)
+	if (height <= 0) return
+	const breakpoint = window.matchMedia('(max-width: 780px)').matches ? 'mobile' : 'desktop'
+	document.documentElement.style.setProperty(`--workbench-header-${breakpoint}-height`, `${height}px`)
+}
 
 const modes: Array<{ value: WorkbenchMode; label: string; icon: 'ranking' | 'people' }> = [
 	{ value: 'ranking', label: '人物排行', icon: 'ranking' },
@@ -27,10 +39,29 @@ const onModeKeydown = (event: KeyboardEvent, index: number) => {
 	event.preventDefault()
 	activateMode(modes[next].value, true)
 }
+
+onMounted(() => {
+	document.documentElement.style.removeProperty('--workbench-header-height')
+	headerResizeObserver = new ResizeObserver(syncHeaderHeight)
+	if (headerElement.value) headerResizeObserver.observe(headerElement.value)
+	window.addEventListener('resize', syncHeaderHeight)
+	syncHeaderHeight()
+})
+
+watch(workbench.queryEditing, (editing) => {
+	if (!editing) requestAnimationFrame(syncHeaderHeight)
+})
+
+onBeforeUnmount(() => {
+	headerResizeObserver?.disconnect()
+	window.removeEventListener('resize', syncHeaderHeight)
+	document.documentElement.style.removeProperty('--workbench-header-desktop-height')
+	document.documentElement.style.removeProperty('--workbench-header-mobile-height')
+})
 </script>
 
 <template>
-	<header class="workbench-header" :class="{ 'has-query-editor': workbench.queryEditing.value }">
+	<header ref="headerElement" class="workbench-header" :class="{ 'has-query-editor': workbench.queryEditing.value }">
 		<div class="workbench-header__bar">
 			<a class="workbench-brand" href="/person-workbench.html" aria-label="Bangumi Staff Statistics 人物工作台首页" translate="no">
 				<span class="workbench-brand__mark"><AppIcon name="brand" :size="25" /></span>

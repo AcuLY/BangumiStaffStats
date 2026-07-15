@@ -1,0 +1,276 @@
+.co-star-workbench {
+	display: grid;
+	grid-template-columns: 348px minmax(0, 1fr);
+	align-items: start;
+	gap: 16px;
+	min-width: 0;
+}
+
+.co-star-workbench.is-rail-collapsed {
+	grid-template-columns: 56px minmax(0, 1fr);
+}
+
+.people-rail {
+	position: sticky;
+	top: 16px;
+	min-width: 0;
+	max-height: calc(100vh - 32px);
+	background: var(--rail-surface);
+	overflow: visible;
+}
+
+.person-picker {
+	min-width: 0;
+	max-height: calc(100vh - 34px);
+	overflow-x: clip;
+	overflow-y: auto;
+	overscroll-behavior-y: none;
+	scrollbar-gutter: stable;
+}
+
+.picker-heading {
+	align-items: center;
+	padding: 16px;
+	border-bottom: 1px solid var(--divider);
+}
+
+.picker-heading h2 {
+	font-size: 19px;
+}
+
+.picker-heading > div {
+	display: grid;
+	gap: 4px;
+}
+
+.n-button.rail-toggle {
+	position: absolute;
+	top: 16px;
+	right: -15px;
+	z-index: 2;
+	width: 34px;
+	height: 34px;
+	min-width: 34px;
+	color: var(--text-2);
+}
+
+.n-button.rail-toggle:hover {
+	color: var(--primary-text);
+}
+
+.n-button.rail-toggle svg {
+	transform: rotate(90deg);
+}
+
+.is-rail-collapsed .n-button.rail-toggle svg {
+	transform: rotate(-90deg);
+}
+
+.collapsed-rail {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	min-height: 280px;
+	padding-top: 54px;
+}
+
+.collapsed-rail strong {
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background: var(--primary);
+	color: var(--on-primary);
+}
+
+.collapsed-rail span {
+	color: var(--text-3);
+	font-size: 12px;
+	writing-mode: vertical-rl;
+}
+
+.selected-tray,
+.candidate-browser {
+	padding: var(--section-pad);
+}
+
+.selected-tray {
+	border-bottom: 1px solid var(--divider);
+}
+
+.picker-section-heading {
+	align-items: baseline;
+	margin-bottom: 10px;
+}
+
+.picker-section-heading strong {
+	font-size: 13px;
+}
+
+.picker-section-heading span {
+	color: var(--text-3);
+	font-size: 12px;
+}
+
+.selected-people-list {
+	display: grid;
+}
+
+.selected-person-row {
+	display: grid;
+	grid-template-columns: 26px 36px minmax(0, 1fr) 44px;
+	align-items: center;
+	gap: 8px;
+	min-height: var(--selected-row-height);
+	border-bottom: 1px solid var(--divider);
+}
+
+.selected-person-row:last-child {
+	border-bottom: 0;
+}
+
+.identity-marker {
+	display: inline-grid;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	border: 1px solid var(--primary);
+	border-radius: 5px;
+	background: var(--primary-soft);
+	color: var(--primary-text);
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.selected-person-row:nth-child(2) .identity-marker,
+.analysis-profile:nth-child(2) .identity-marker {
+	border-color: var(--control-border);
+	background: var(--surface-sunken);
+	color: var(--text-2);
+}
+
+.selected-person-row .safe-image {
+	width: 36px;
+	height: 44px;
+}
+
+.selected-person-row__copy {
+	display: grid;
+	min-width: 0;
+	line-height: 1.25;
+}
+
+.selected-person-row__copy strong,
+.selected-person-row__copy small {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.selected-person-row__copy strong {
+	font-size: 13px;
+}
+
+.selected-person-row__copy small {
+	margin-top: 3px;
+	color: var(--text-3);
+}
+
+.selected-person-row__remove {
+	display: grid;
+	place-items: center;
+	width: 44px;
+	height: 44px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--text-3);
+	cursor: pointer;
+}
+
+.selected-person-row__remove:hover {
+	color: var(--error);
+}
+
+.selected-empty {
+	padding: 14px 0;
+	color: var(--text-3);
+	font-size: 12px;
+}
+
+.candidate-search {
+	display: flex;
+	width: 100%;
+	margin-bottom: 12px;
+}
+
+.person-row--candidate {
+	position: relative;
+	display: grid;
+	grid-template-columns: 36px minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 8px;
+	isolation: isolate;
+	width: 100%;
+	min-height: var(--candidate-row-height);
+	margin-inline: 0;
+	padding: var(--space-2);
+	border: 1px solid transparent;
+	border-radius: var(--radius-control);
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.person-row--candidate:hover {
+	background: var(--hover);
+}
+
+.person-row--candidate:focus-visible {
+	z-index: 2;
+	outline-offset: -2px;
+}
+
+.person-row--candidate.is-selected {
+	z-index: 1;
+	border-color: color-mix(in oklab, var(--primary) 50%, var(--border));
+	background: var(--primary-soft);
+	box-shadow: none;
+}
+
+.person-row--candidate .person-row__avatar {
+	width: 36px;
+	height: 44px;
+}
+
+.candidate-row__portrait {
+	position: relative;
+	display: block;
+	isolation: isolate;
+	width: 36px;
+	height: 44px;
+}
+
+.candidate-row__selected-state {
+	position: absolute;
+	right: -4px;
+	bottom: -3px;
+	z-index: 2;
+	display: grid;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	border: 2px solid var(--surface);
+	border-radius: 50%;
+	background: var(--primary);
+	color: var(--on-primary);
+	box-shadow: 0 1px 3px color-mix(in oklab, var(--text-1) 20%, transparent);
+}
+
+.picker-pagination {
+	justify-content: center;
+	padding-inline: 0;
+}
