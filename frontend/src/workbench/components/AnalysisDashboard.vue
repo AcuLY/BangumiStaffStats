@@ -266,9 +266,9 @@ watch(sharedPageCount, (count) => { sharedPage.value = Math.min(sharedPage.value
 						<h2>{{ workbench.personName(item.person) }}</h2>
 						<p>{{ item.positionIds.map(workbench.positionLabel).join(' · ') }}</p>
 						<div class="analysis-profile__stats">
-							<span><b>{{ item.subjectIds.length }}</b><small>参与作品</small></span>
-							<span><b>{{ profileRatedCount(item.subjectIds) }}</b><small>已评分</small></span>
-							<span><b>{{ formatScore(profileAverage(item.subjectIds)) }}</b><small>我的均分</small></span>
+							<span class="analysis-profile__stat analysis-profile__stat--count"><b>{{ item.subjectIds.length }}</b><small>参与作品</small></span>
+							<span class="analysis-profile__stat analysis-profile__stat--count"><b>{{ profileRatedCount(item.subjectIds) }}</b><small>已评分</small></span>
+							<span class="analysis-profile__stat analysis-profile__stat--score"><b>{{ formatScore(profileAverage(item.subjectIds)) }}</b><small>我的均分</small></span>
 						</div>
 					</div>
 				</article>
