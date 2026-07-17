@@ -1,3 +1,9 @@
+@media (min-width: 781px) {
+	.theme-toggle-slot {
+		justify-items: end;
+	}
+}
+
 @media (max-width: 1240px) {
 	.co-star-workbench {
 		grid-template-columns: 320px minmax(0, 1fr);

@@ -1,17 +1,28 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { WorkbenchMode } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
+import { useMediaQuery } from '../composables/useMediaQuery'
 import AppIcon from './AppIcon.vue'
 
 const workbench = useWorkbench()
+const isMobile = useMediaQuery('(max-width: 780px)')
+const themeToggleThemeOverrides = computed(() => isMobile.value
+	? undefined
+	: { heightMedium: '38px' }) // naive-size-token-exception: desktop header controls follow the annotated 38px compact-control specification.
 const headerElement = ref<HTMLElement | null>(null)
+const headerBarElement = ref<HTMLElement | null>(null)
 let headerResizeObserver: ResizeObserver | null = null
 
 const syncHeaderHeight = () => {
+	const header = headerElement.value
+	const headerBar = headerBarElement.value
+	if (!header || !headerBar) return
+	const headerBarHeight = Math.ceil(headerBar.getBoundingClientRect().bottom - header.getBoundingClientRect().top)
+	if (headerBarHeight > 0) document.documentElement.style.setProperty('--workbench-header-bar-height', `${headerBarHeight}px`)
 	if (workbench.queryEditing.value) return
-	if (!headerElement.value?.querySelector('.query-summary')) return
-	const height = Math.ceil(headerElement.value?.getBoundingClientRect().height ?? 0)
+	if (!header.querySelector('.query-summary')) return
+	const height = Math.ceil(header.getBoundingClientRect().height)
 	if (height <= 0) return
 	const breakpoint = window.matchMedia('(max-width: 780px)').matches ? 'mobile' : 'desktop'
 	document.documentElement.style.setProperty(`--workbench-header-${breakpoint}-height`, `${height}px`)
@@ -45,6 +56,7 @@ onMounted(() => {
 	document.documentElement.style.removeProperty('--workbench-header-height')
 	headerResizeObserver = new ResizeObserver(syncHeaderHeight)
 	if (headerElement.value) headerResizeObserver.observe(headerElement.value)
+	if (headerBarElement.value) headerResizeObserver.observe(headerBarElement.value)
 	window.addEventListener('resize', syncHeaderHeight)
 	syncHeaderHeight()
 })
@@ -58,12 +70,13 @@ onBeforeUnmount(() => {
 	window.removeEventListener('resize', syncHeaderHeight)
 	document.documentElement.style.removeProperty('--workbench-header-desktop-height')
 	document.documentElement.style.removeProperty('--workbench-header-mobile-height')
+	document.documentElement.style.removeProperty('--workbench-header-bar-height')
 })
 </script>
 
 <template>
 	<header ref="headerElement" class="workbench-header" :class="{ 'has-query-editor': workbench.queryEditing.value }">
-		<div class="workbench-header__bar">
+		<div ref="headerBarElement" class="workbench-header__bar">
 			<a class="workbench-brand" href="/person-workbench.html" aria-label="Bangumi Staff Statistics 人物工作台首页" translate="no">
 				<img class="workbench-brand__mark" src="/bgmss.png" alt="" />
 				<span class="workbench-brand__copy">
@@ -98,6 +111,7 @@ onBeforeUnmount(() => {
 				<n-button
 					class="theme-toggle"
 					size="medium"
+					:theme-overrides="themeToggleThemeOverrides"
 					quaternary
 					circle
 					attr-type="button"

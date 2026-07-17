@@ -51,6 +51,9 @@ Applied Query = Work Scope + Positions for current mode
 ```
 
 - Work Scope 包含数据来源、用户、条目类型、收藏状态、合并续作和高级条件；合并续作作为动画查询参数放在“更多选项”中。
+- “更多选项”按基础开关、时间范围、评分范围、评分规模和标签五组呈现；双列时同组条件成对同行，单列时保持相同语义顺序。条件顺序固定为 `NSFW / 合并续作`、`播出时间 / 收藏时间`、`我的评分 / 全站评分`、`个人－全站评分差 / 全站评分人数`、`正向标签 / 反向标签`。
+- 收藏人数范围不再作为查询条件，由全站评分人数范围替代。收藏时间指收藏记录最后更新时间，不等同于首次收藏时间；收藏时间和评分差必须提供可访问的 info 说明。
+- 播出时间与收藏时间共用月份起止和“近 1 / 3 / 5 年、指定年代”快捷范围。我的评分、收藏时间和评分差仅在个人收藏模式显示；全站评分与全站评分人数在两种数据来源下均可用。
 - Positions 使用有序数组表达；数组顺序只用于默认展示顺序，查询结果按职位集合计算。
 - 人物排行当前 UI 只允许选择一个职位，但状态始终写入 `positionsByMode.ranking: [position]`，不使用不可扩展的单值字段。
 - 共同参与分析允许一次提交 `1..N` 个职位。职位输入使用单选 selector 加独立加号按钮，每次把一个职位 append 到有序已选列表；selector 不再重复显示已选 tag。
@@ -149,7 +152,7 @@ Applied Query = Work Scope + Positions for current mode
 }
 ```
 
-Light 模式的 Header 使用白色半透明 chrome：`--chrome` 映射到白色 `--surface`。Header、查询浮层和移动端 drawer 统一使用 `--translucent-chrome-*` 语义变量；背景、hover、pressed、边界、滤镜和无滤镜回退值不得在组件内重复硬编码。模式 tab、主题按钮、文字和边界必须使用同一组 chrome semantic tokens，不保留浅色下的深色 Header 硬编码。表格、矩阵、图表、rail 和 drawer 也都必须显式绑定 semantic token。
+Light 模式的 Header 使用白色半透明 chrome：`--chrome` 映射到白色 `--surface`。Header、查询浮层和移动端 drawer 统一使用 `--translucent-chrome-*` 语义变量；背景、hover、pressed、边界、滤镜和无滤镜回退值不得在组件内重复硬编码。移动端 drawer 使用透明但可交互拦截的 mask，使模糊层直接合成在页面主体之上，不在两者之间垫一层均匀黑色。人物详情 drawer 通过公开的 height 参数从 Header 第一段的实测底部开始，内容不会进入第一段背后；详情标题在抽屉内部吸顶，不覆盖 Naive UI 内部节点。模式 tab、主题按钮、文字和边界必须使用同一组 chrome semantic tokens，不保留浅色下的深色 Header 硬编码。表格、矩阵、图表、rail 和 drawer 也都必须显式绑定 semantic token。
 
 ### Dark
 
@@ -213,7 +216,7 @@ Dark 模式的层级来自表面亮度差与 1px 边框，不依赖大片纯黑�
 | 排行与作品表 | `NDataTable` | striped、sorting、scroll-x |
 | 人物详情 | `NCard`, `NStatistic` | desktop panel / mobile drawer |
 | 移动详情与选人 | `NDrawer` | bottom inspector / bottom picker |
-| 分页 | `NPagination` | 数字页码 + 前后页 + 5/10/20/50 size picker |
+| 分页 | `NPagination` | 数字页码 + 前后页；人物排行使用 5/10/20 size picker，其他列表使用 5/10/20/50 |
 | 查询标签 | `NDynamicTags` | 具名“添加标签”触发按钮，命中区至少 44px |
 | 状态与身份 | `NTag type="primary"` | 已选职位使用强调色 compact tag |
 | 说明 | `NTooltip`, `NPopover` | portal 到 body，禁止伪元素 tooltip |
@@ -371,7 +374,9 @@ progress = value / max(allResultValues) * 100
 
 人物详情的“参与作品”和共演分析的“共同参与作品”统一使用 `SubjectWorkBrowser`。标题、搜索与排序工具栏、`SubjectWorkList` 和 `AdaptivePagination` 只维护一套结构与响应式规则；页面通过 `role` / `participants` 插槽保留各自的身份语义。
 
-搜索、排序、缺失值顺序、分页复位与页码收敛由 `useSubjectWorkBrowser` 统一管理。各页面只注入可搜索字段、排序选项与比较器；新增排序维度时扩展页面配置，不修改共享组件分支。
+搜索、排序、缺失值顺序、分页复位与页码收敛由 `useSubjectWorkBrowser` 统一管理。各页面只注入可搜索字段、排序选项与比较器；新增排序维度时扩展页面配置，不修改共享组件分支。人物排行、作品、角色与共同参与作品的“搜索 / 排序类型 / 升降序”始终组成同一行工具栏；升降序统一使用独立方向按钮，不使用第二个 select，窄屏通过弹性列宽收缩而不换行。`≤780px` 时三项控件文字统一为 12px；排序 selector 的触发框允许省略当前值，但展开菜单必须脱离触发框宽度并完整显示选项。
+
+排行职位包含声优（position `102`）时，人物详情在同一浏览器标题区使用 `NTabs` 切换“作品 / 角色”。角色按 Character ID 聚合，同一角色来自多部作品时只出现一张卡片；完整卡片展示头像、中日文名、戏份类型和全部来源作品，缩略卡片严格只保留缩小头像与双语名。作品与角色各自保留搜索、排序、分页状态，共用缩略模式开关；非声优查询不出现角色 tab。人物排行顶部统计同时增加当前结果内去重后的角色数。
 
 桌面放在排行右侧 panel；`≤780px` 使用从底部弹出的 `NDrawer`，高度为 `min(88dvh, 760px)`，点击上方未覆盖遮罩关闭。
 
@@ -382,8 +387,8 @@ progress = value / max(allResultValues) * 100
 3. 参与作品、已评分、我的均分、全站均分、综合分、相对偏好、最高分、最低分。
 4. 1–10 分个人评分分布。
 5. “我更偏爱 / 我更保守”的代表作品；同时显示我的评分、全站评分和两者直接相减得到的单作偏好，并标注“本站计算”。
-6. 作品搜索、排序、每页数量、分页。
-7. 封面、日期、Bangumi Rank、收藏人数、全站评分、个人评分、角色/职位。
+6. 作品 / 角色 tab（仅声优查询）、搜索、排序、每页数量、分页。
+7. 作品模式展示封面、日期、Bangumi Rank、收藏人数、全站评分、个人评分和角色/职位；角色模式展示角色双语名、戏份类型与来源作品。
 
 人物统计在详情容器宽度充足时使用放大的数字并将说明同行展示；容器变窄后自动恢复为数字在上、说明在下，禁止为维持同行而压缩或裁切说明。
 
@@ -477,6 +482,8 @@ Profile Card
 
 所有 grid/flex 子项必须设置 `min-width: 0`。头像、封面与 media 才能使用 `overflow: clip`；列表外壳不能裁掉 focus ring。
 
+页面内嵌的纵向列表使用原生滚动链：列表自身可滚动时优先滚动列表；列表无需内部滚动时，列表上的滚动直接交给页面。查询浮层、移动端 drawer 等锁定背景的模态表面仍隔离滚动链。
+
 ## 9. Rail 与 Drawer
 
 Desktop：
@@ -484,7 +491,7 @@ Desktop：
 - 共同分析使用 320–348px rail；rail 与主内容之间保留 12–16px gap，二者都位于与排行一致的居中 workspace 内。
 - 折叠按钮固定在 rail 与主内容的边界，不放在 App Header，也不属于 rail 滚动内容。
 - 收起后保留 56px 窄 rail、已选人数和同一展开按钮。
-- rail 具有基于收起态 Header 高度计算的确定视口高度；`PersonPicker` 是唯一纵向滚动所有者，并阻断到页面的滚动链。
+- rail 具有基于收起态 Header 高度计算的确定视口高度；`PersonPicker` 是唯一纵向滚动所有者，但在无需内部滚动时将滚动链交给页面。
 - 候选结果在可用宽度允许时使用紧凑双列 tile；tile 将排名与作品数合并为同一副行，不保留浪费横向空间的独立指标列。
 
 Mobile：
@@ -524,6 +531,8 @@ Header / Query Workspace 的响应式规则独立于两种业务模式：`>=781p
 - 图表颜色必须有文字、形状、位置或 pattern 的冗余编码。
 - 隐藏 panel 使用 `hidden/inert/aria-hidden` 的一致状态，不留下可 Tab 的控件。
 - 原生 select 使用明确 label；icon-only 按钮提供 `aria-label`。
+- 所有文本输入在有值时提供清除按钮；空值时不保留不可见清除按钮的尾部槽位，避免窄屏输入区被无效压缩。
+- 工作台 tooltip 使用统一视口边界：支持上下翻转，距可视视口至少 12px；长文本换行，超高内容在浮层内滚动，视口变化后重新校正位置。
 - 尊重 `prefers-reduced-motion`。
 
 ## 13. 验收
@@ -531,27 +540,32 @@ Header / Query Workspace 的响应式规则独立于两种业务模式：`>=781p
 每个 mode 在 Light / Dark 下验证 `360、390、768、917、1185、1440px`：
 
 - 页面 `scrollWidth <= clientWidth + 1`。
+- 所有 tooltip 在窄屏、视口边缘和内容换行后仍完整落在可视视口内，且不会扩大页面 `scrollWidth`。
 - Query Workspace 是 Header 第二行的集成 disclosure；收起态显示摘要并使用 edit 图标进入编辑，展开态由 Query Editor 替代并使用 chevron 收起，二者正确反映 `aria-expanded`。
 - Desktop Header 固定覆盖页面；Main Workspace 顶部保留准确的收起态 Header 间隙且自身至少为 `100dvh`。Query Editor 展开不会推动结果区，并可在 Header 内独立滚动；`<=780px` Header 回归文档流。
 - 查询摘要保留“作品范围 / 当前模式职位”两个可访问语义组，视觉上只显示参数；所有宽度下自动换行并完整显示全部已应用条件；edit 与收起 chevron 的纵向位置一致，并使用 Naive UI 原生 `large` 尺寸。
+- 更多选项的五组语义顺序在双列和单列布局中保持一致；两个时间范围可应用快捷范围，个人模式可同时应用我的评分、全站评分、评分差和全站评分人数，切换全站模式后不展示或执行个人专属条件。
 - 作品范围和当前模式的职位作为一次原子查询提交，draft 未提交时不覆盖已应用结果。
 - 排行职位 UI 只允许一个职位，但状态为数组；使用测试数据注入多职位后，人物按全职位交集过滤，作品按职位 union 去重计算。
 - 共同分析通过单选 selector + 加号 + 有序已选列表应用 `1..N` 个职位；第一项是默认候选分组，本地切换职位 tab 不重新查询。
 - 候选搜索、分页、职位 tab 和人物身份选择均在已应用结果上本地生效；身份变化立即重算分析。
 - Desktop 候选结果在 rail 内使用紧凑双列；人物名、排名与作品数无截断碰撞，选中状态图标位于头像上层。人物名或职位名采用单行 ellipsis 时必须具有完整 `title`。
 - 作品列表中文主标题最多两行，日文副标题单行显示；超出时分别截断或显示 `…`，且两者都有完整 `title`。
+- 声优查询的排行统计同时显示人物、条目和去重角色数；非声优查询不显示角色统计。
+- 声优人物详情可通过 `NTabs` 切换作品和角色；角色按 Character ID 跨作品聚合，完整卡片含双语名、戏份类型和全部来源作品，缩略卡片只含缩小头像与双语名，两个模式均可搜索、排序和分页。
 - 排序包含 count / average / overall / preference，维度与升降序同行且相互独立；排行榜在个人收藏模式始终同时显示作品数、均分、综合分和偏好分，排序只改变对应列高亮；全站模式不提供 preference 排序。
+- 人物排行、人物详情作品/角色和共同参与作品的搜索、排序类型、升降序控件在所有验收宽度下保持同一行，无横向溢出；`≤780px` 控件文字为 12px，排序菜单选项无省略。
 - 排行进度随当前排行维度变化；普通维度为半透明粉色矩形，相对偏好以零点为中心并同时用方向、颜色和正负号编码，无底部线状进度。
 - 相对偏好只使用个人与全站均有效的评分对，单作直接以个人评分减全站评分；详情显示有效作品数、平均偏差、作品数权重和收缩后得分。人物得分严格使用整数 `n` 和 `n/(n+5)` 数量权重。
 - 原型数据可由 `npm --prefix frontend run generate:workbench -- --jsonlines-dir <dump>` 离线重建；收藏行原样保留，站评、评分票数、系列关系、职位和人物关联来自同一份完整 JSONLines dump。
-- `NPagination` 有数字页码、前后页和 5/10/20/50 size picker。
+- `NPagination` 有数字页码和前后页；人物排行每页最多 20 人，候选人物及作品/角色列表仍提供 5/10/20/50 size picker。
 - 排行行不重复固定职位。
 - 所有可见人物信息均无 Person ID。
 - Inspector 简介初始展开且无加入分析操作；人物主名称后提供可访问的 Bangumi 人物页外链按钮。
 - 人物评分洞察不使用独立异色底。
 - Inspector 信息完整；移动端从底部弹出并可点上方遮罩关闭。
 - Desktop rail 边界按钮可收起/展开；mobile picker drawer 可用 Esc/遮罩/关闭按钮收起。
-- Desktop `PersonPicker` 滚动到首尾时页面不跟随滚动，rail 高度始终受当前收起态 Header 高度约束。
+- Desktop `PersonPicker` 在自身无需内部滚动时由页面继续滚动，rail 高度始终受当前收起态 Header 高度约束。
 - 共同分析与排行采用相同外边距和完整 card workspace；已选人物紧凑、分析自动刷新且无“查看分析”按钮。
 - 共同分析 Hero 使用固定 media 宽度并纵向撑满人物卡，文字不压在图片上。
 - 评分分布图 `scrollWidth === clientWidth`；仅表格与矩阵允许自身横向滚动。

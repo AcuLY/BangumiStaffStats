@@ -39,27 +39,17 @@
 
 .ranking-inspector-drawer {
 	overflow: hidden;
-	border-radius: var(--radius-card) var(--radius-card) 0 0;
 }
 
-.drawer-custom-heading--inspector {
-	position: sticky;
-	top: 0;
-	z-index: var(--z-sticky);
-	gap: var(--space-2);
-	min-height: 49px;
-	padding: 4px 12px 4px 16px;
-	border-bottom: 1px solid var(--divider);
-	background: var(--translucent-chrome-background);
-	-webkit-backdrop-filter: var(--translucent-chrome-filter);
-	backdrop-filter: var(--translucent-chrome-filter);
-}
-
-.drawer-custom-heading--inspector strong {
-	font-size: var(--text-body);
+.ranking-inspector-drawer__title {
+	font-size: var(--text-subheading);
 }
 
 @container person-inspector (max-width: 520px) {
+	.ranking-inspector-drawer .person-work-list {
+		margin-left: var(--space-2);
+	}
+
 	.ranking-inspector-drawer .person-profile__intro {
 		grid-template-areas:
 			"portrait identity"
@@ -131,6 +121,7 @@
 	}
 
 	.ranking-inspector-drawer .profile-metrics--extended > span {
+		grid-column: span 1;
 		align-content: center;
 		gap: var(--space-1);
 		min-height: 64px;

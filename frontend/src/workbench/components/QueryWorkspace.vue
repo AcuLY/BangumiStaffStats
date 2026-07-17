@@ -4,6 +4,9 @@ import type { QueryPositionValue, WorkbenchMode } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
 import { useMediaQuery } from '../composables/useMediaQuery'
 import AppIcon from './AppIcon.vue'
+import QueryDateRange from './QueryDateRange.vue'
+import QueryNumericRange from './QueryNumericRange.vue'
+import WorkbenchTooltip from './WorkbenchTooltip.vue'
 
 const workbench = useWorkbench()
 const isMobile = useMediaQuery('(max-width: 780px)')
@@ -17,6 +20,7 @@ const userInput = ref<FocusableControl>()
 const subjectTypeInput = ref<FocusableControl>()
 const positionInput = ref<FocusableControl>()
 const dateStartInput = ref<FocusableControl>()
+const collectionDateStartInput = ref<FocusableControl>()
 const collectionField = ref<HTMLFieldSetElement>()
 const editorButton = ref<HTMLButtonElement>()
 const queryOverlayTop = ref(0)
@@ -62,19 +66,68 @@ const collectionVocabulary: Record<number, [string, string]> = {
 }
 
 const advancedOptions = [
-	{ key: 'showNSFW', title: '显示 NSFW 条目' },
-	{ key: 'mergeSeries', title: '合并续作' },
-	{ key: 'date', title: '播出时间范围' },
-	{ key: 'rate', title: '分数范围' },
-	{ key: 'favorite', title: '收藏人数范围' },
-	{ key: 'positiveTags', title: '正向标签' },
-	{ key: 'negativeTags', title: '反向标签' },
+	{ key: 'showNSFW', title: '显示 NSFW 条目', help: '' },
+	{ key: 'mergeSeries', title: '合并续作', help: '' },
+	{ key: 'date', title: '播出时间范围', help: '' },
+	{
+		key: 'collectionDate',
+		title: '收藏时间范围',
+		help: '按收藏记录最后更新时间筛选；修改收藏状态、评分或短评都会更新时间，不等同于首次收藏时间。',
+	},
+	{ key: 'userRate', title: '我的评分范围', help: '' },
+	{ key: 'globalRate', title: '全站评分范围', help: '' },
+	{
+		key: 'scoreDifference',
+		title: '个人－全站评分差范围',
+		help: '个人评分减去全站评分；正数表示你打得更高，负数表示更低。仅统计双方都有评分的条目。',
+	},
+	{ key: 'ratingCount', title: '全站评分人数范围', help: '' },
+	{ key: 'positiveTags', title: '正向标签', help: '' },
+	{ key: 'negativeTags', title: '反向标签', help: '' },
 ] as const
 
 type AdvancedOptionKey = typeof advancedOptions[number]['key']
-type ConditionKey = 'date' | 'rate' | 'favorite' | 'positiveTags' | 'negativeTags'
-const visibleAdvancedOptions = computed(() => advancedOptions.filter((option) =>
-	option.key !== 'mergeSeries' || workbench.queryDraft.subjectType === 2))
+type DateConditionKey = 'date' | 'collectionDate'
+type NumericConditionKey = 'userRate' | 'globalRate' | 'scoreDifference' | 'ratingCount'
+type RangeConditionKey = DateConditionKey | NumericConditionKey
+type TagConditionKey = 'positiveTags' | 'negativeTags'
+type ConditionKey = RangeConditionKey | TagConditionKey
+const personalOptionKeys = new Set<AdvancedOptionKey>(['collectionDate', 'userRate', 'scoreDifference'])
+const advancedOptionByKey = new Map(advancedOptions.map((option) => [option.key, option] as const))
+const advancedOptionGroupKeys: AdvancedOptionKey[][] = [
+	['showNSFW', 'mergeSeries'],
+	['date', 'collectionDate'],
+	['userRate', 'globalRate'],
+	['scoreDifference', 'ratingCount'],
+	['positiveTags', 'negativeTags'],
+]
+const optionIsVisible = (option: typeof advancedOptions[number]) => {
+	if (option.key === 'mergeSeries' && workbench.queryDraft.subjectType !== 2) return false
+	if (workbench.queryDraft.isGlobal && personalOptionKeys.has(option.key)) return false
+	return true
+}
+const visibleAdvancedOptionGroups = computed(() => advancedOptionGroupKeys
+	.map((keys) => keys
+		.map((key) => advancedOptionByKey.get(key))
+		.filter((option): option is typeof advancedOptions[number] => Boolean(option) && optionIsVisible(option!)))
+	.filter((group) => group.length))
+const isNumericCondition = (key: ConditionKey): key is NumericConditionKey =>
+	key === 'userRate' || key === 'globalRate' || key === 'scoreDifference' || key === 'ratingCount'
+const numericRangeConfigs: Record<NumericConditionKey, {
+	min: number
+	max?: number
+	step: number
+	minLabel: string
+	maxLabel: string
+	minPlaceholder: string
+	maxPlaceholder: string
+	inputmode: 'decimal' | 'numeric'
+}> = {
+	userRate: { min: 0, max: 10, step: 0.5, minLabel: '我的评分下限', maxLabel: '我的评分上限', minPlaceholder: '最低分', maxPlaceholder: '最高分', inputmode: 'decimal' },
+	globalRate: { min: 0, max: 10, step: 0.5, minLabel: '全站评分下限', maxLabel: '全站评分上限', minPlaceholder: '最低分', maxPlaceholder: '最高分', inputmode: 'decimal' },
+	scoreDifference: { min: -10, max: 10, step: 0.5, minLabel: '个人与全站评分差下限', maxLabel: '个人与全站评分差上限', minPlaceholder: '最低差值', maxPlaceholder: '最高差值', inputmode: 'decimal' },
+	ratingCount: { min: 0, step: 100, minLabel: '全站评分人数下限', maxLabel: '全站评分人数上限', minPlaceholder: '最少人数', maxPlaceholder: '最多人数', inputmode: 'numeric' },
+}
 
 const positionOptionsFor = (subjectType: number): Array<{ label: string; value: QueryPositionValue }> => subjectType === 2
 	? workbench.positions.value
@@ -85,8 +138,8 @@ const subjectLabel = computed(() => subjectOptions.find((item) => item.value ===
 const activeMode = computed<WorkbenchMode>(() => workbench.mode.value)
 const positionStageLabel = computed(() => activeMode.value === 'ranking' ? '排行职位' : '参与职位')
 const activeAppliedPositions = computed(() => workbench.query.positionsByMode[activeMode.value])
-type QueryErrorKind = 'userId' | 'subjectType' | 'collections' | 'positions' | 'date' | 'rate' | 'favorite' | ''
-const advancedErrorKinds: QueryErrorKind[] = ['date', 'rate', 'favorite']
+type QueryErrorKind = 'userId' | 'subjectType' | 'collections' | 'positions' | RangeConditionKey | ''
+const advancedErrorKinds: QueryErrorKind[] = ['date', 'collectionDate', 'userRate', 'globalRate', 'scoreDifference', 'ratingCount']
 const queryErrorKind = computed<QueryErrorKind>(() => {
 	const message = workbench.queryError.value
 	if (!message) return ''
@@ -94,9 +147,12 @@ const queryErrorKind = computed<QueryErrorKind>(() => {
 	if (message.includes('条目类型')) return 'subjectType'
 	if (message.includes('职位') || message.includes('身份')) return 'positions'
 	if (message.includes('收藏类型')) return 'collections'
+	if (message.includes('收藏时间')) return 'collectionDate'
 	if (message.includes('播出时间')) return 'date'
-	if (message.includes('评分')) return 'rate'
-	if (message.includes('收藏人数')) return 'favorite'
+	if (message.includes('评分人数')) return 'ratingCount'
+	if (message.includes('评分差')) return 'scoreDifference'
+	if (message.includes('我的评分')) return 'userRate'
+	if (message.includes('全站评分')) return 'globalRate'
 	return ''
 })
 const fieldError = (kind: string) => queryErrorKind.value === kind ? workbench.queryError.value : ''
@@ -149,8 +205,11 @@ const appliedQuerySummary = computed(() => {
 	if (query.showNSFW) parts.push('含 NSFW')
 	if (query.mergeSeries) parts.push('合并续作')
 	if (query.date.enabled) parts.push(summarizeRange('播出时间', query.date.value))
-	if (query.rate.enabled) parts.push(summarizeRange('评分', query.rate.value))
-	if (query.favorite.enabled) parts.push(summarizeRange('收藏人数', query.favorite.value))
+	if (!query.isGlobal && query.collectionDate.enabled) parts.push(summarizeRange('收藏时间', query.collectionDate.value))
+	if (!query.isGlobal && query.userRate.enabled) parts.push(summarizeRange('我的评分', query.userRate.value))
+	if (query.globalRate.enabled) parts.push(summarizeRange('全站评分', query.globalRate.value))
+	if (!query.isGlobal && query.scoreDifference.enabled) parts.push(summarizeRange('评分差', query.scoreDifference.value))
+	if (query.ratingCount.enabled) parts.push(summarizeRange('评分人数', query.ratingCount.value))
 	if (query.positiveTags.enabled) parts.push(summarizeTags('正向标签', query.positiveTags.value))
 	if (query.negativeTags.enabled) parts.push(summarizeTags('反向标签', query.negativeTags.value))
 
@@ -165,32 +224,10 @@ const draftDataSource = computed<'personal' | 'global'>({
 	},
 })
 
-const numericRangeValue = (key: 'rate' | 'favorite', index: 0 | 1) => computed<number | null>({
-	get: () => {
-		const value = workbench.queryDraft[key].value[index]
-		return value === '' ? null : Number(value)
-	},
-	set: (value) => {
-		workbench.queryDraft[key].value[index] = value === null ? '' : String(value)
-		workbench.clearQueryFeedback()
-	},
-})
-
-const rateMin = numericRangeValue('rate', 0)
-const rateMax = numericRangeValue('rate', 1)
-const favoriteMin = numericRangeValue('favorite', 0)
-const favoriteMax = numericRangeValue('favorite', 1)
-
-const dateRangeValue = (index: 0 | 1) => computed<string | null>({
-	get: () => workbench.queryDraft.date.value[index] || null,
-	set: (value) => {
-		workbench.queryDraft.date.value[index] = value ?? ''
-		workbench.clearQueryFeedback()
-	},
-})
-
-const dateStart = dateRangeValue(0)
-const dateEnd = dateRangeValue(1)
+const updateRange = (key: RangeConditionKey, value: [string, string]) => {
+	workbench.queryDraft[key].value = value
+	workbench.clearQueryFeedback()
+}
 
 const optionHasControl = (key: AdvancedOptionKey): key is ConditionKey =>
 	key !== 'showNSFW' && key !== 'mergeSeries'
@@ -261,6 +298,7 @@ const focusFirstInvalidField = async () => {
 			await nextTick()
 		}
 		if (queryErrorKind.value === 'date') dateStartInput.value?.focus()
+		else if (queryErrorKind.value === 'collectionDate') collectionDateStartInput.value?.focus()
 		else document.querySelector<HTMLInputElement>(`input[name="${queryErrorKind.value}Min"]`)?.focus()
 	}
 }
@@ -272,8 +310,11 @@ const submitEditor = () => {
 
 const conditionTitle = (key: ConditionKey) => ({
 	date: '播出时间',
-	rate: '评分',
-	favorite: '收藏人数',
+	collectionDate: '收藏时间',
+	userRate: '我的评分',
+	globalRate: '全站评分',
+	scoreDifference: '个人－全站评分差',
+	ratingCount: '全站评分人数',
 	positiveTags: '正向标签',
 	negativeTags: '反向标签',
 })[key]
@@ -337,16 +378,17 @@ const conditionTitle = (key: ConditionKey) => ({
 						<div v-if="!workbench.queryDraft.isGlobal" class="field field--uid" :class="{ 'is-error': queryErrorKind === 'userId' }">
 							<div class="field-label-row">
 								<label for="query-user-id">用户 UID</label>
-								<n-tooltip placement="top" trigger="hover">
+								<WorkbenchTooltip
+									placement="top-end"
+									trigger="hover"
+								>
 									<template #trigger>
-										<button class="field-help-button" type="button" aria-label="什么是用户 UID" title="什么是用户 UID">
-											<AppIcon name="info" :size="16" />
-										</button>
+										<button class="field-help-trigger" type="button">什么是 UID？</button>
 									</template>
-									UID 是 Bangumi 个人主页地址中 /user/ 后的标识，不是昵称。
-								</n-tooltip>
+									进入 Bangumi 个人主页，取网址 /user/ 后的一段；例如 bgm.tv/user/lucay126 的 UID 是 lucay126。
+								</WorkbenchTooltip>
 							</div>
-							<n-input ref="userInput" v-model:value="workbench.queryDraft.userId" :size="scopeControlSize" placeholder="例如 lucay126" autocomplete="off" clearable :status="queryErrorKind === 'userId' ? 'error' : undefined" :input-props="{ id: 'query-user-id', name: 'userId', spellcheck: 'false', 'aria-invalid': queryErrorKind === 'userId', 'aria-describedby': queryErrorKind === 'userId' ? 'query-user-id-help query-error-userId' : 'query-user-id-help' }" :disabled="workbench.queryLoading.value" />
+							<n-input ref="userInput" v-model:value="workbench.queryDraft.userId" :size="scopeControlSize" placeholder="例如 lucay126" autocomplete="off" :clearable="Boolean(workbench.queryDraft.userId)" :status="queryErrorKind === 'userId' ? 'error' : undefined" :input-props="{ id: 'query-user-id', name: 'userId', spellcheck: 'false', 'aria-invalid': queryErrorKind === 'userId', 'aria-describedby': queryErrorKind === 'userId' ? 'query-user-id-help query-error-userId' : 'query-user-id-help' }" :disabled="workbench.queryLoading.value" />
 							<small id="query-user-id-help" class="sr-only">UID 是 Bangumi 个人主页地址中 /user/ 后的标识，不是昵称。</small>
 							<small v-if="fieldError('userId')" id="query-error-userId" class="query-field-error">{{ fieldError('userId') }}</small>
 						</div>
@@ -385,9 +427,20 @@ const conditionTitle = (key: ConditionKey) => ({
 								</button>
 							</template>
 							<div id="query-advanced-options" class="query-advanced-options" aria-label="更多查询选项">
-								<div v-for="option in visibleAdvancedOptions" :key="option.key" class="query-advanced-item" :class="{ 'has-control': optionHasControl(option.key) && optionEnabled(option.key) }">
+								<div v-for="(group, groupIndex) in visibleAdvancedOptionGroups" :key="groupIndex" class="query-advanced-group">
+								<div v-for="option in group" :key="option.key" class="query-advanced-item" :class="{ 'has-control': optionHasControl(option.key) && optionEnabled(option.key) }">
 									<div class="query-advanced-option">
-										<strong>{{ option.title }}</strong>
+										<div class="query-option-title">
+											<strong>{{ option.title }}</strong>
+											<WorkbenchTooltip v-if="option.help" placement="top" trigger="hover">
+												<template #trigger>
+													<button class="query-option-help" type="button" :aria-label="`${option.title}说明`" :title="`${option.title}说明`">
+														<AppIcon name="info" :size="15" />
+													</button>
+												</template>
+												{{ option.help }}
+											</WorkbenchTooltip>
+										</div>
 										<span class="query-advanced-switch">
 											<n-switch
 												:size="scopeControlSize"
@@ -400,104 +453,37 @@ const conditionTitle = (key: ConditionKey) => ({
 									</div>
 									<fieldset v-if="optionHasControl(option.key) && optionEnabled(option.key)" class="field query-advanced-control" :class="{ 'is-error': queryErrorKind === option.key }" :disabled="workbench.queryLoading.value">
 										<legend class="sr-only">{{ conditionTitle(option.key) }}</legend>
-										<template v-if="option.key === 'date'">
-											<div class="query-range-control">
-												<label class="query-range-field">
-													<span class="sr-only">播出时间起点</span>
-													<n-date-picker
-														ref="dateStartInput"
-														class="query-month-picker"
-														v-model:formatted-value="dateStart"
-														type="month"
-														format="yyyy-MM"
-														value-format="yyyy-MM"
-														:size="scopeControlSize"
-														:status="queryErrorKind === 'date' ? 'error' : undefined"
-														:disabled="workbench.queryLoading.value"
-														placeholder="最早时间"
-														clearable
-														update-value-on-close
-													/>
-												</label>
-												<span class="query-range-control__separator" aria-hidden="true">—</span>
-												<label class="query-range-field">
-													<span class="sr-only">播出时间终点</span>
-													<n-date-picker
-														class="query-month-picker"
-														v-model:formatted-value="dateEnd"
-														type="month"
-														format="yyyy-MM"
-														value-format="yyyy-MM"
-														:size="scopeControlSize"
-														:status="queryErrorKind === 'date' ? 'error' : undefined"
-														:disabled="workbench.queryLoading.value"
-														placeholder="最晚时间"
-														clearable
-														update-value-on-close
-													/>
-												</label>
-											</div>
-										</template>
-										<template v-else-if="option.key === 'rate'">
-											<div class="query-range-control">
-												<n-input-number
-													v-model:value="rateMin"
-													:size="scopeControlSize"
-													:min="0"
-													:max="10"
-													:step="0.5"
-													:status="queryErrorKind === 'rate' ? 'error' : undefined"
-													:disabled="workbench.queryLoading.value"
-													:input-props="{ name: 'rateMin', inputmode: 'decimal', 'aria-label': '评分下限', 'aria-invalid': queryErrorKind === 'rate', 'aria-describedby': queryErrorKind === 'rate' ? 'query-error-rate' : undefined }"
-													placeholder="最低分"
-													clearable
-													button-placement="both"
-												/>
-												<span class="query-range-control__separator" aria-hidden="true">—</span>
-												<n-input-number
-													v-model:value="rateMax"
-													:size="scopeControlSize"
-													:min="0"
-													:max="10"
-													:step="0.5"
-													:status="queryErrorKind === 'rate' ? 'error' : undefined"
-													:disabled="workbench.queryLoading.value"
-													:input-props="{ name: 'rateMax', inputmode: 'decimal', 'aria-label': '评分上限', 'aria-invalid': queryErrorKind === 'rate', 'aria-describedby': queryErrorKind === 'rate' ? 'query-error-rate' : undefined }"
-													placeholder="最高分"
-													clearable
-													button-placement="both"
-												/>
-											</div>
-										</template>
-										<template v-else-if="option.key === 'favorite'">
-											<div class="query-range-control">
-												<n-input-number
-													v-model:value="favoriteMin"
-													:size="scopeControlSize"
-													:min="0"
-													:step="100"
-													:status="queryErrorKind === 'favorite' ? 'error' : undefined"
-													:disabled="workbench.queryLoading.value"
-													:input-props="{ name: 'favoriteMin', inputmode: 'numeric', 'aria-label': '收藏人数下限', 'aria-invalid': queryErrorKind === 'favorite', 'aria-describedby': queryErrorKind === 'favorite' ? 'query-error-favorite' : undefined }"
-													placeholder="最低收藏数"
-													clearable
-													button-placement="both"
-												/>
-												<span class="query-range-control__separator" aria-hidden="true">—</span>
-												<n-input-number
-													v-model:value="favoriteMax"
-													:size="scopeControlSize"
-													:min="0"
-													:step="100"
-													:status="queryErrorKind === 'favorite' ? 'error' : undefined"
-													:disabled="workbench.queryLoading.value"
-													:input-props="{ name: 'favoriteMax', inputmode: 'numeric', 'aria-label': '收藏人数上限', 'aria-invalid': queryErrorKind === 'favorite', 'aria-describedby': queryErrorKind === 'favorite' ? 'query-error-favorite' : undefined }"
-													placeholder="最高收藏数"
-													clearable
-													button-placement="both"
-												/>
-											</div>
-										</template>
+										<QueryDateRange
+											v-if="option.key === 'date'"
+											ref="dateStartInput"
+											:model-value="workbench.queryDraft.date.value"
+											condition-key="播出时间"
+											start-label="播出时间起点"
+											end-label="播出时间终点"
+											:status="queryErrorKind === 'date' ? 'error' : undefined"
+											:disabled="workbench.queryLoading.value"
+											@update:model-value="updateRange('date', $event)"
+										/>
+										<QueryDateRange
+											v-else-if="option.key === 'collectionDate'"
+											ref="collectionDateStartInput"
+											:model-value="workbench.queryDraft.collectionDate.value"
+											condition-key="收藏时间"
+											start-label="收藏时间起点"
+											end-label="收藏时间终点"
+											:status="queryErrorKind === 'collectionDate' ? 'error' : undefined"
+											:disabled="workbench.queryLoading.value"
+											@update:model-value="updateRange('collectionDate', $event)"
+										/>
+										<QueryNumericRange
+											v-else-if="isNumericCondition(option.key)"
+											:model-value="workbench.queryDraft[option.key].value"
+											:condition-key="option.key"
+											v-bind="numericRangeConfigs[option.key]"
+											:status="queryErrorKind === option.key ? 'error' : undefined"
+											:disabled="workbench.queryLoading.value"
+											@update:model-value="updateRange(option.key, $event)"
+										/>
 									<n-dynamic-tags
 										v-else-if="option.key === 'positiveTags'"
 										v-model:value="workbench.queryDraft.positiveTags.value"
@@ -552,6 +538,7 @@ const conditionTitle = (key: ConditionKey) => ({
 									</n-dynamic-tags>
 										<small v-if="fieldError(option.key)" :id="`query-error-${option.key}`" class="query-field-error">{{ fieldError(option.key) }}</small>
 									</fieldset>
+								</div>
 							</div>
 						</div>
 						</n-collapse-item>

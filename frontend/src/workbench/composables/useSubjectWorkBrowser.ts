@@ -24,11 +24,6 @@ interface SubjectWorkBrowserOptions<T extends string> {
 export const SUBJECT_WORK_PAGE_SIZES = [5, 10, 20, 50]
 	.map((value) => ({ label: `每页 ${value} 部`, value }))
 
-export const SUBJECT_WORK_ORDER_OPTIONS: SubjectWorkSortOption<SubjectWorkSortOrder>[] = [
-	{ label: '降序', value: 'desc' },
-	{ label: '升序', value: 'asc' },
-]
-
 export const compactSubjectSearch = (value: unknown) => String(value ?? '')
 	.normalize('NFKC')
 	.toLocaleLowerCase('zh-CN')

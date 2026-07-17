@@ -8,18 +8,13 @@
 	.person-row__metric small {
 		font-size: var(--text-caption);
 	}
-
-	.work-list-toolbar {
-		grid-template-columns: minmax(0, 1fr) 160px;
-	}
-
-	.work-list-toolbar > :first-child {
-		grid-column: 1 / -1;
-	}
-
 }
 
 @media (max-width: 780px) {
+	.work-list-toolbar {
+		gap: 4px;
+	}
+
 	.person-profile {
 		grid-template-columns: 116px minmax(0, 1fr);
 	}
@@ -92,12 +87,28 @@
 		grid-template-columns: repeat(2, minmax(58px, 1fr));
 	}
 
-	.work-list-toolbar {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+	.tag-groups {
+		gap: var(--space-2);
 	}
 
-	.work-list-toolbar > :first-child {
-		grid-column: 1 / -1;
+	.tag-row {
+		gap: 6px;
+	}
+
+	.tag-row > strong {
+		padding-top: 0;
+		font-size: var(--text-caption);
+		line-height: 16px;
+	}
+
+	.tag-row > div {
+		gap: 4px;
+	}
+
+	.tag-row span {
+		padding: 2px 6px;
+		font-size: 11px;
+		line-height: 14px;
 	}
 
 	.analysis-profile,

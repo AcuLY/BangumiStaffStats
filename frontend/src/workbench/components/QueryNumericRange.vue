@@ -1,0 +1,70 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+
+const props = defineProps<{
+	modelValue: [string, string]
+	conditionKey: string
+	min: number
+	max?: number
+	step: number
+	minLabel: string
+	maxLabel: string
+	minPlaceholder: string
+	maxPlaceholder: string
+	inputmode: 'decimal' | 'numeric'
+	status?: 'error'
+	disabled?: boolean
+}>()
+
+const emit = defineEmits<{
+	'update:modelValue': [value: [string, string]]
+}>()
+
+const updateAt = (index: 0 | 1, value: number | null) => {
+	const next: [string, string] = [...props.modelValue]
+	next[index] = value === null ? '' : String(value)
+	emit('update:modelValue', next)
+}
+
+const minimum = computed<number | null>({
+	get: () => props.modelValue[0] === '' ? null : Number(props.modelValue[0]),
+	set: (value) => updateAt(0, value),
+})
+const maximum = computed<number | null>({
+	get: () => props.modelValue[1] === '' ? null : Number(props.modelValue[1]),
+	set: (value) => updateAt(1, value),
+})
+const errorId = computed(() => `query-error-${props.conditionKey}`)
+</script>
+
+<template>
+	<div class="query-range-control">
+		<n-input-number
+			v-model:value="minimum"
+			size="medium"
+			:min="min"
+			:max="max"
+			:step="step"
+			:status="status"
+			:disabled="disabled"
+			:input-props="{ name: `${conditionKey}Min`, inputmode, 'aria-label': minLabel, 'aria-invalid': status === 'error', 'aria-describedby': status === 'error' ? errorId : undefined }"
+			:placeholder="minPlaceholder"
+			clearable
+			button-placement="both"
+		/>
+		<span class="query-range-control__separator" aria-hidden="true">—</span>
+		<n-input-number
+			v-model:value="maximum"
+			size="medium"
+			:min="min"
+			:max="max"
+			:step="step"
+			:status="status"
+			:disabled="disabled"
+			:input-props="{ name: `${conditionKey}Max`, inputmode, 'aria-label': maxLabel, 'aria-invalid': status === 'error', 'aria-describedby': status === 'error' ? errorId : undefined }"
+			:placeholder="maxPlaceholder"
+			clearable
+			button-placement="both"
+		/>
+	</div>
+</template>

@@ -11,6 +11,7 @@ import {
 } from 'vue'
 import type {
 	CandidatePerson,
+	CharacterCredit,
 	Person,
 	PersonRole,
 	PositionData,
@@ -23,6 +24,10 @@ import type {
 	WorkbenchTheme,
 } from '../types'
 import { bangumiImageUrl } from '../data/bangumiImages'
+import {
+	buildCharacterCredits,
+	characterCreditKey,
+} from '../domain/characterCredits'
 import {
 	preferenceContribution,
 	summarizePreference,
@@ -90,6 +95,7 @@ export interface WorkbenchContext {
 	personName: (person?: Person | null) => string
 	personSecondaryName: (person?: Person | null) => string
 	personImageSources: (person?: Person | null) => string[]
+	characterImageSources: (characterId?: number | null) => string[]
 	subjectName: (subject?: Subject | null) => string
 	subjectImageSources: (subject?: Subject | null) => string[]
 	positionLabel: (positionId: number) => string
@@ -101,6 +107,7 @@ export interface WorkbenchContext {
 	rankingPage: Ref<number>
 	rankingPageSize: Ref<number>
 	rankingPeople: ComputedRef<Person[]>
+	rankingCharacterCount: ComputedRef<number>
 	rankingPageItems: ComputedRef<Person[]>
 	rankingPageCount: ComputedRef<number>
 	rankingValue: (person: Person, metric?: RankingMetric) => number | null
@@ -108,6 +115,7 @@ export interface WorkbenchContext {
 	focusedPersonId: Ref<number>
 	focusedPerson: ComputedRef<Person | null>
 	focusedAllSubjects: ComputedRef<Subject[]>
+	focusedCharacterCredits: ComputedRef<CharacterCredit[]>
 	focusedWorkSearch: Ref<string>
 	focusedDistribution: ComputedRef<Array<{ label: string; value: number }>>
 	focusedPreferenceContributions: ComputedRef<SubjectPreferenceContribution[]>
@@ -174,8 +182,11 @@ export function provideWorkbench(
 		},
 		collectionTypes: [2, 3],
 		date: { enabled: false, value: ['', ''] },
-		rate: { enabled: false, value: ['', ''] },
-		favorite: { enabled: false, value: ['', ''] },
+		collectionDate: { enabled: false, value: ['', ''] },
+		userRate: { enabled: false, value: ['', ''] },
+		globalRate: { enabled: false, value: ['', ''] },
+		scoreDifference: { enabled: false, value: ['', ''] },
+		ratingCount: { enabled: false, value: ['', ''] },
 		positiveTags: { enabled: false, value: [] },
 		negativeTags: { enabled: false, value: [] },
 	})
@@ -187,8 +198,11 @@ export function provideWorkbench(
 		},
 		collectionTypes: [...source.collectionTypes],
 		date: { ...source.date, value: [...source.date.value] as [string, string] },
-		rate: { ...source.rate, value: [...source.rate.value] as [string, string] },
-		favorite: { ...source.favorite, value: [...source.favorite.value] as [string, string] },
+		collectionDate: { ...source.collectionDate, value: [...source.collectionDate.value] as [string, string] },
+		userRate: { ...source.userRate, value: [...source.userRate.value] as [string, string] },
+		globalRate: { ...source.globalRate, value: [...source.globalRate.value] as [string, string] },
+		scoreDifference: { ...source.scoreDifference, value: [...source.scoreDifference.value] as [string, string] },
+		ratingCount: { ...source.ratingCount, value: [...source.ratingCount.value] as [string, string] },
 		positiveTags: { ...source.positiveTags, value: [...source.positiveTags.value] },
 		negativeTags: { ...source.negativeTags, value: [...source.negativeTags.value] },
 	})
@@ -281,6 +295,9 @@ export function provideWorkbench(
 	const personImageSources = (person?: Person | null) => person?.id
 		? [bangumiImageUrl('persons', person.id)]
 		: []
+	const characterImageSources = (characterId?: number | null) => Number(characterId) > 0
+		? [bangumiImageUrl('characters', Number(characterId))]
+		: []
 
 	const subjectName = (subject?: Subject | null) =>
 		subject?.displayName || subject?.nameCN || subject?.name || '未命名作品'
@@ -306,7 +323,7 @@ export function provideWorkbench(
 		const seen = new Set<string>()
 		return positionIds.flatMap((id) => personSubjectRolesAtPosition(person, subjectId, id))
 			.filter((role) => {
-				const key = [role.displayName, role.nameCN, role.name, role.roleLabel].join('|')
+				const key = [role.characterId, role.displayName, role.nameCN, role.name, role.roleLabel].join('|')
 				if (seen.has(key)) return false
 				seen.add(key)
 				return true
@@ -343,10 +360,16 @@ export function provideWorkbench(
 			.map(preferenceObservationForSubject),
 		preferenceOptions.value,
 	)
-	const insideQueryRange = (value: number, range: QueryState['rate']) => {
+	const insideQueryRange = (value: number, range: QueryState['userRate']) => {
 		if (!range.enabled) return true
 		const [start, end] = range.value
 		return (start === '' || value >= Number(start)) && (end === '' || value <= Number(end))
+	}
+	const insideMonthRange = (value: string | undefined, range: QueryState['date']) => {
+		if (!range.enabled) return true
+		const month = String(value ?? '').slice(0, 7)
+		const [start, end] = range.value
+		return (!start || Boolean(month) && month >= start) && (!end || Boolean(month) && month <= end)
 	}
 	const subjectTagSet = (subject: Subject) => new Set([
 		...(subject.metaTags ?? []),
@@ -365,17 +388,18 @@ export function provideWorkbench(
 			.filter((subject) => Number(subject.type) === Number(query.subjectType))
 			.filter((subject) => query.showNSFW || !subject.nsfw)
 			.filter((subject) => query.isGlobal || allowedCollectionTypes.has(Number(subject.collection?.type)))
+			.filter((subject) => insideMonthRange(subject.date, query.date))
+			.filter((subject) => query.isGlobal || insideMonthRange(subject.collection?.updatedAt, query.collectionDate))
+			.filter((subject) => query.isGlobal || insideQueryRange(Number(subject.collection?.rate || 0), query.userRate))
+			.filter((subject) => insideQueryRange(Number(subject.score || 0), query.globalRate))
 			.filter((subject) => {
-				if (!query.date.enabled) return true
-				const month = String(subject.date ?? '').slice(0, 7)
-				const [start, end] = query.date.value
-				return (!start || Boolean(month) && month >= start) && (!end || Boolean(month) && month <= end)
+				if (query.isGlobal || !query.scoreDifference.enabled) return true
+				const userScore = Number(subject.collection?.rate || 0)
+				const globalScore = Number(subject.score || 0)
+				return userScore > 0 && globalScore > 0
+					&& insideQueryRange(userScore - globalScore, query.scoreDifference)
 			})
-			.filter((subject) => insideQueryRange(
-				query.isGlobal ? Number(subject.score || 0) : Number(subject.collection?.rate || 0),
-				query.rate,
-			))
-			.filter((subject) => insideQueryRange(Number(subject.favoriteCount || 0), query.favorite))
+			.filter((subject) => insideQueryRange(Number(subject.ratingCount || 0), query.ratingCount))
 			.filter((subject) => {
 				const tags = subjectTagSet(subject)
 				const positive = query.positiveTags.value.map((group) => group.trim()).filter(Boolean)
@@ -483,6 +507,18 @@ export function provideWorkbench(
 				|| Number(a.id) - Number(b.id)
 		})
 	})
+	const rankingCharacterCount = computed(() => {
+		if (!rankingPositionIds.value.includes(102)) return 0
+		const characterKeys = new Set<string>()
+		for (const person of rankingPeople.value) {
+			for (const subjectId of scopeSubjectIds(positionSubjectIds(person, 102))) {
+				for (const role of personSubjectRoles(person, subjectId, 102)) {
+					characterKeys.add(characterCreditKey(role))
+				}
+			}
+		}
+		return characterKeys.size
+	})
 
 	const rankingPageCount = computed(() => Math.max(1, Math.ceil(rankingPeople.value.length / rankingPageSize.value)))
 	const rankingPageItems = computed(() => {
@@ -520,6 +556,13 @@ export function provideWorkbench(
 		.map((id) => subjectsById.value.get(Number(id)))
 		.filter((subject): subject is Subject => Boolean(subject))
 		.sort((a, b) => Number(b.collection?.rate || 0) - Number(a.collection?.rate || 0) || Number(b.score || 0) - Number(a.score || 0)))
+	const focusedCharacterCredits = computed(() => {
+		if (!focusedPerson.value || !rankingPositionIds.value.includes(102)) return []
+		return buildCharacterCredits(
+			focusedAllSubjects.value,
+			(subject) => personSubjectRoles(focusedPerson.value!, subject.id, 102),
+		)
+	})
 	const focusedDistribution = computed(() => Array.from({ length: 10 }, (_, index) => ({
 		label: String(index + 1),
 		value: focusedAllSubjects.value.filter((subject) => Number(subject.collection?.rate || 0) === index + 1).length,
@@ -624,9 +667,14 @@ export function provideWorkbench(
 		if (!source.isGlobal && !source.collectionTypes.length) return '个人收藏模式至少选择一种收藏类型。'
 		const ranges: Array<[QueryState['date'], string, 'date' | 'number']> = [
 			[source.date, '播出时间', 'date'],
-			[source.rate, '评分', 'number'],
-			[source.favorite, '收藏人数', 'number'],
 		]
+		if (!source.isGlobal) ranges.push(
+			[source.collectionDate, '收藏时间', 'date'],
+			[source.userRate, '我的评分', 'number'],
+		)
+		ranges.push([source.globalRate, '全站评分', 'number'])
+		if (!source.isGlobal) ranges.push([source.scoreDifference, '个人－全站评分差', 'number'])
+		ranges.push([source.ratingCount, '全站评分人数', 'number'])
 		for (const [range, label, kind] of ranges) {
 			if (!range.enabled) continue
 			const [start, end] = range.value
@@ -635,11 +683,17 @@ export function provideWorkbench(
 				if (inverted) return `${label}的起点不能大于终点。`
 			}
 		}
-		if (source.rate.enabled && source.rate.value.some((value) => value !== '' && (Number(value) < 0 || Number(value) > 10))) {
-			return '评分范围必须在 0–10 之间。'
+		if (!source.isGlobal && source.userRate.enabled && source.userRate.value.some((value) => value !== '' && (Number(value) < 0 || Number(value) > 10))) {
+			return '我的评分范围必须在 0–10 之间。'
 		}
-		if (source.favorite.enabled && source.favorite.value.some((value) => value !== '' && Number(value) < 0)) {
-			return '收藏人数不能小于 0。'
+		if (source.globalRate.enabled && source.globalRate.value.some((value) => value !== '' && (Number(value) < 0 || Number(value) > 10))) {
+			return '全站评分范围必须在 0–10 之间。'
+		}
+		if (!source.isGlobal && source.scoreDifference.enabled && source.scoreDifference.value.some((value) => value !== '' && (Number(value) < -10 || Number(value) > 10))) {
+			return '个人－全站评分差范围必须在 -10–10 之间。'
+		}
+		if (source.ratingCount.enabled && source.ratingCount.value.some((value) => value !== '' && Number(value) < 0)) {
+			return '全站评分人数不能小于 0。'
 		}
 		return ''
 	}
@@ -765,6 +819,7 @@ export function provideWorkbench(
 		personName,
 		personSecondaryName,
 		personImageSources,
+		characterImageSources,
 		subjectName,
 		subjectImageSources,
 		positionLabel,
@@ -776,6 +831,7 @@ export function provideWorkbench(
 		rankingPage,
 		rankingPageSize,
 		rankingPeople,
+		rankingCharacterCount,
 		rankingPageItems,
 		rankingPageCount,
 		rankingValue,
@@ -783,6 +839,7 @@ export function provideWorkbench(
 		focusedPersonId,
 		focusedPerson,
 		focusedAllSubjects,
+		focusedCharacterCredits,
 		focusedWorkSearch,
 		focusedDistribution,
 		focusedPreferenceContributions,

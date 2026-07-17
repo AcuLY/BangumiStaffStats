@@ -167,7 +167,7 @@
 	grid-area: career;
 	justify-self: end;
 	min-width: 0;
-	color: var(--primary-text);
+	color: var(--text-1);
 	font-size: var(--text-caption);
 	font-weight: 600;
 	line-height: 1.45;
@@ -236,6 +236,20 @@
 
 .profile-metrics--extended b,
 .profile-metrics--extended small {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.profile-metrics--extended .profile-metric__label {
+	display: flex;
+	align-items: center;
+	overflow: visible;
+	text-overflow: clip;
+}
+
+.profile-metric__label-text {
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;

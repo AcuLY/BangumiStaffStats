@@ -2,8 +2,7 @@
 	.workbench-header,
 	.query-editor-overlay,
 	.workbench-translucent-drawer,
-	.person-picker--drawer .picker-heading,
-	.drawer-custom-heading--inspector {
+	.person-picker--drawer .picker-heading {
 		background: var(--translucent-chrome-fallback);
 	}
 }

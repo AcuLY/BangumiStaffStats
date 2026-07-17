@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import WorkbenchTooltip from './WorkbenchTooltip.vue'
 
 const props = defineProps<{
 	entries: Array<{
@@ -17,23 +18,25 @@ const tooltipVisible = ref(false)
 </script>
 
 <template>
-	<n-tooltip :show="tooltipVisible" trigger="manual" placement="top-start">
+	<WorkbenchTooltip :show="tooltipVisible" :disabled="!hiddenCount" trigger="manual" placement="top-start">
 		<template #trigger>
 			<ul
 				class="adaptive-role-list"
 				:aria-label="`完整参与身份：${fullRoleLabel}`"
-				tabindex="0"
-				@mouseenter="tooltipVisible = true"
+				:tabindex="hiddenCount ? 0 : undefined"
+				@mouseenter="tooltipVisible = hiddenCount > 0"
 				@mouseleave="tooltipVisible = false"
-				@focusin="tooltipVisible = true"
+				@focusin="tooltipVisible = hiddenCount > 0"
 				@focusout="tooltipVisible = false"
 			>
 				<li v-for="(entry, index) in visibleEntries" :key="`${entry.name}-${entry.label ?? ''}-${index}`" class="adaptive-role-list__item">
 					<span class="adaptive-role-list__copy">
 						<strong :title="entry.name">{{ entry.name }}</strong>
 						<small v-if="entry.label">{{ entry.label }}</small>
-						<span v-if="index === MAX_VISIBLE_ROLES - 1 && hiddenCount" class="adaptive-role-list__more">… +{{ hiddenCount }}</span>
 					</span>
+				</li>
+				<li v-if="hiddenCount" class="adaptive-role-list__more-row">
+					<span class="adaptive-role-list__more">… +{{ hiddenCount }}</span>
 				</li>
 			</ul>
 		</template>
@@ -42,7 +45,7 @@ const tooltipVisible = ref(false)
 				<strong>{{ entry.name }}</strong><small v-if="entry.label">{{ entry.label }}</small>
 			</span>
 		</div>
-	</n-tooltip>
+	</WorkbenchTooltip>
 </template>
 
 <style scoped>
@@ -60,11 +63,15 @@ const tooltipVisible = ref(false)
 	min-width: 0;
 }
 
+.adaptive-role-list__more-row {
+	min-width: 0;
+	line-height: 18px;
+}
+
 .adaptive-role-list__copy {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto auto;
-	align-items: center;
-	gap: var(--space-2);
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-1);
 	width: 100%;
 	min-width: 0;
 	line-height: 20px;
@@ -72,11 +79,13 @@ const tooltipVisible = ref(false)
 }
 
 .adaptive-role-list__copy strong {
+	flex: 0 1 auto;
 	min-width: 0;
 	overflow: hidden;
 	color: var(--text-1);
 	font-size: var(--text-control);
 	font-weight: 700;
+	line-height: 20px;
 	text-overflow: ellipsis;
 }
 
@@ -85,9 +94,11 @@ const tooltipVisible = ref(false)
 	color: var(--text-3);
 	font-size: var(--text-caption);
 	font-weight: 400;
+	line-height: 16px;
 }
 
 .adaptive-role-list__more {
+	flex: 0 0 auto;
 	color: var(--text-2);
 	font-size: var(--text-caption);
 	font-weight: 700;

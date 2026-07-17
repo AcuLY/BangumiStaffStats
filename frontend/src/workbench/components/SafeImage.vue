@@ -5,7 +5,7 @@ import AppIcon from './AppIcon.vue'
 const props = withDefaults(defineProps<{
 	sources?: string[]
 	alt: string
-	kind?: 'person' | 'subject'
+	kind?: 'person' | 'subject' | 'character'
 	loading?: 'eager' | 'lazy'
 	width: number
 	height: number
@@ -100,12 +100,13 @@ const intrinsicStyle = computed(() => ({
 	'--safe-image-width': `${props.width}px`,
 	'--safe-image-height': `${props.height}px`,
 }))
+const portraitKind = computed(() => props.kind === 'person' || props.kind === 'character')
 </script>
 
 <template>
 	<span ref="containerRef" class="safe-image" :class="[`safe-image--${kind}`, { 'is-fallback': failed }]" :style="intrinsicStyle">
 		<span v-if="!failed && !loaded" class="safe-image__fallback safe-image__fallback--loading" aria-hidden="true">
-			<AppIcon :name="kind === 'person' ? 'person' : 'image'" :size="kind === 'person' ? 28 : 24" />
+			<AppIcon :name="portraitKind ? 'person' : 'image'" :size="portraitKind ? 28 : 24" />
 		</span>
 		<img
 			v-if="!failed"
@@ -129,7 +130,7 @@ const intrinsicStyle = computed(() => ({
 			:aria-hidden="decorative ? 'true' : undefined"
 			:aria-label="decorative ? undefined : fallbackLabel"
 		>
-			<AppIcon :name="kind === 'person' ? 'person' : 'image'" :size="kind === 'person' ? 28 : 24" />
+			<AppIcon :name="portraitKind ? 'person' : 'image'" :size="portraitKind ? 28 : 24" />
 		</span>
 	</span>
 </template>

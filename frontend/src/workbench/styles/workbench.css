@@ -14,8 +14,10 @@
 @import './modules/preference-ranking.css';
 @import './modules/fallbacks-and-containers.css';
 @import './modules/subject-work-list.css';
+@import './modules/character-role-list.css';
 @import './modules/shared-work-participants.css';
 @import './modules/pagination.css';
 @import './modules/query-workspace.css';
+@import './modules/query-range-controls.css';
 @import './modules/workspace-responsive.css';
 @import './modules/component-responsive.css';

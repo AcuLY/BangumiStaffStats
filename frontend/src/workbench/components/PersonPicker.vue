@@ -161,7 +161,7 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 				:aria-label="`${candidatePositionLabel}候选人物`"
 			>
 				<div class="candidate-search">
-					<n-input :size="controlSize" v-model:value="workbench.candidateSearch.value" clearable autocomplete="off" placeholder="筛选当前结果…" :aria-label="`搜索${candidatePositionLabel}候选人物`" :input-props="{ name: 'candidateSearch', spellcheck: 'false' }">
+					<n-input :size="controlSize" v-model:value="workbench.candidateSearch.value" :clearable="Boolean(workbench.candidateSearch.value)" autocomplete="off" placeholder="筛选当前结果…" :aria-label="`搜索${candidatePositionLabel}候选人物`" :input-props="{ name: 'candidateSearch', spellcheck: 'false' }">
 						<template #prefix><AppIcon name="search" :size="16" /></template>
 					</n-input>
 				</div>

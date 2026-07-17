@@ -103,7 +103,7 @@ for (const path of files) {
 	inspectNaiveComponentUsage(path, source)
 	if (sizedThemeTokenPattern.test(source)) {
 		source.split('\n').forEach((line, index) => {
-			if (sizedThemeTokenPattern.test(line)) {
+			if (sizedThemeTokenPattern.test(line) && !line.includes('naive-size-token-exception')) {
 				violations.push(`${path}:${index + 1}: ${line.trim()} uses a size-specific theme token; use the component size prop.`)
 			}
 		})

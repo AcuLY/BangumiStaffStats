@@ -32,10 +32,9 @@
 	grid-area: controls;
 	display: grid;
 	grid-template-areas:
-		"count count"
-		"search search"
-		"sort-field sort-direction";
-	grid-template-columns: minmax(0, 1fr) auto;
+		"count count count"
+		"search sort-field sort-direction";
+	grid-template-columns: minmax(0, 1fr) minmax(92px, 0.55fr) auto;
 	gap: var(--space-3) var(--space-2);
 	width: 100%;
 	min-width: 0;
@@ -44,7 +43,14 @@
 .ranking-result-stats {
 	grid-area: count;
 	justify-self: start;
+	width: 100%;
 	min-width: 0;
+}
+
+.ranking-result-stats__line {
+	width: 100%;
+	min-width: 0;
+	white-space: nowrap;
 }
 
 .ranking-sort-field {
@@ -64,14 +70,6 @@
 
 .ranking-pane > footer {
 	grid-area: pagination;
-}
-
-.sort-direction {
-	transform: rotate(0deg);
-}
-
-.sort-direction.is-ascending {
-	transform: rotate(180deg);
 }
 
 .list-columns {
@@ -202,11 +200,13 @@
 }
 
 .safe-image--person,
+.safe-image--character,
 .person-row__avatar {
 	border-radius: var(--radius-control);
 }
 
-.safe-image--person img {
+.safe-image--person img,
+.safe-image--character img {
 	object-position: center 20%;
 }
 

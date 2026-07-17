@@ -31,7 +31,7 @@ const { userID, isGlobal } = toRefs(input.value)
 			type="text"
 			placeholder="请输入用户 ID（不是昵称）"
 			:disabled="isGlobal"
-			clearable
+			:clearable="Boolean(userID)"
 		/>
 	</InputCard>
 </template>

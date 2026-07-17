@@ -1,5 +1,6 @@
 .subject-work-browser__heading-copy {
 	display: flex;
+	flex: 1 1 auto;
 	align-items: baseline;
 	gap: var(--space-2);
 	min-width: 0;
@@ -9,9 +10,65 @@
 	margin-top: 0;
 }
 
+.subject-work-browser__density-toggle {
+	display: inline-flex;
+	align-items: center;
+	flex: 0 0 auto;
+	gap: var(--space-2);
+	min-height: 28px;
+	color: var(--text-2);
+	font-size: var(--text-control);
+	font-weight: 400;
+}
+
+.person-credit-tabs {
+	width: min(280px, 100%);
+}
+
+.person-credit-tab__label,
+.subject-work-browser__density-label {
+	font-weight: 400;
+}
+
+.person-credit-tab__label {
+	display: inline-flex;
+	align-items: baseline;
+	gap: var(--space-1);
+}
+
+.person-credit-tab__count {
+	color: currentColor;
+	font-size: inherit;
+	font-variant-numeric: tabular-nums;
+	font-weight: inherit;
+}
+
 .work-list-toolbar {
 	display: grid;
-	grid-template-columns: minmax(220px, 1fr) minmax(154px, 0.55fr) minmax(116px, 0.38fr);
+	grid-template-columns: minmax(0, 1fr) minmax(92px, 0.52fr) auto;
 	gap: 8px;
 	margin-bottom: 12px;
+}
+
+@media (max-width: 780px) {
+	.person-credit-tab__label,
+	.subject-work-browser__density-label {
+		display: inline-flex;
+		align-items: center;
+		font-size: var(--text-caption);
+		line-height: 1;
+		transform: translateY(-2px);
+		vertical-align: middle;
+	}
+}
+
+@media (max-width: 520px) {
+	.subject-work-browser__heading {
+		align-items: flex-start;
+		flex-wrap: wrap;
+	}
+
+	.subject-work-browser__density-toggle {
+		min-height: 24px;
+	}
 }

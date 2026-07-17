@@ -18,7 +18,10 @@ export interface PersonPosition {
 }
 
 export interface PersonRole {
+	characterId?: number
+	roleType?: number
 	roleLabel?: string
+	sortOrder?: number
 	displayName?: string
 	name?: string
 	nameCN?: string
@@ -70,6 +73,25 @@ export interface Subject {
 	collection?: SubjectCollection
 	metaTags?: Array<string | { name?: string }>
 	tags?: Array<string | { name?: string }>
+}
+
+export interface CharacterCreditAppearance {
+	subject: Subject
+	roleType?: number
+	roleLabel: string
+	sortOrder: number
+}
+
+export interface CharacterCredit {
+	key: string
+	characterId?: number
+	displayName: string
+	name?: string
+	nameCN?: string
+	appearances: CharacterCreditAppearance[]
+	roleLabels: string[]
+	primaryRolePriority: number
+	subjectCount: number
 }
 
 export interface SnapshotMeta {
@@ -141,8 +163,11 @@ export interface QueryState {
 	positionsByMode: QueryPositionsByMode
 	collectionTypes: number[]
 	date: QueryRangeCondition
-	rate: QueryRangeCondition
-	favorite: QueryRangeCondition
+	collectionDate: QueryRangeCondition
+	userRate: QueryRangeCondition
+	globalRate: QueryRangeCondition
+	scoreDifference: QueryRangeCondition
+	ratingCount: QueryRangeCondition
 	positiveTags: QueryTagCondition
 	negativeTags: QueryTagCondition
 }

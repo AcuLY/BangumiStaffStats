@@ -221,7 +221,7 @@
 }
 
 @media (max-width: 480px) {
-	.query-advanced-options {
+	.query-advanced-group {
 		grid-template-columns: minmax(0, 1fr);
 	}
 

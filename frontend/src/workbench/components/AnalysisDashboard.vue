@@ -17,6 +17,7 @@ import {
 } from '../composables/useSubjectWorkBrowser'
 import SafeImage from './SafeImage.vue'
 import AppIcon from './AppIcon.vue'
+import WorkbenchTooltip from './WorkbenchTooltip.vue'
 import SubjectWorkBrowser from './SubjectWorkBrowser.vue'
 import AdaptiveParticipantBody from './AdaptiveParticipantBody.vue'
 import SubjectTagSummary from './SubjectTagSummary.vue'
@@ -472,14 +473,14 @@ const focusSharedWork = async (subject: Subject) => {
 				<div>
 					<div class="preference-title-row">
 						<h2 id="shared-preference-title">相对偏好</h2>
-						<n-tooltip trigger="hover" placement="top-end">
+						<WorkbenchTooltip trigger="hover" placement="top-end">
 							<template #trigger>
 								<button class="preference-model-info" type="button" :aria-label="`计算说明：${sharedPreferenceModelNote}`">
 									<AppIcon name="info" :size="16" />
 								</button>
 							</template>
 							<span class="preference-model-tooltip">{{ sharedPreferenceModelNote }}</span>
-						</n-tooltip>
+						</WorkbenchTooltip>
 					</div>
 					<p>仅基于当前人物的共同作品，比较我的评分与全站评分。</p>
 				</div>

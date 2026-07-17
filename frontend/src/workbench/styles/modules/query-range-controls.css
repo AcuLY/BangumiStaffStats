@@ -1,0 +1,58 @@
+.query-option-title {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	min-width: 0;
+}
+
+.query-option-help {
+	position: relative;
+	display: grid;
+	flex: 0 0 auto;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	margin-block: -4px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: var(--text-3);
+	cursor: help;
+}
+
+.query-option-help::before {
+	position: absolute;
+	inset: -10px;
+	content: '';
+}
+
+.query-option-help:hover {
+	background: var(--hover);
+	color: var(--primary-text);
+}
+
+.query-option-help:focus-visible {
+	outline: 2px solid var(--focus-on-chrome);
+	outline-offset: 2px;
+}
+
+.query-date-range {
+	display: grid;
+	gap: var(--space-2);
+	min-width: 0;
+}
+
+.query-range-presets {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	flex-wrap: wrap;
+}
+
+.query-decade-select {
+	flex: 1 1 112px;
+	width: 112px;
+	min-width: 112px;
+	max-width: 140px;
+}

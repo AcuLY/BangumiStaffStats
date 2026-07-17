@@ -57,8 +57,8 @@
 	display: inline-grid;
 	place-items: center;
 	justify-self: end;
-	width: 44px;
-	height: 44px;
+	width: 38px;
+	height: 38px;
 	border-radius: 50%;
 	color: var(--text-2);
 	transition: color 150ms ease-out;
@@ -265,6 +265,12 @@
 	border: 0;
 }
 
+.query-source-field legend {
+	display: flex;
+	align-items: center;
+	min-height: 28px;
+}
+
 .query-source-switch {
 	display: flex;
 	width: 100%;
@@ -325,6 +331,12 @@
 }
 
 .query-advanced-options {
+	display: grid;
+	gap: 0;
+	margin-top: calc(-1 * var(--space-2));
+}
+
+.query-advanced-group {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 0 var(--space-5);

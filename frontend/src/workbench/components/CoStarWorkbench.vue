@@ -48,6 +48,7 @@ watch(isMobile, (mobile) => {
 			v-model:show="workbench.peopleDrawerOpen.value"
 			class="workbench-translucent-drawer"
 			:block-scroll="true"
+			show-mask="transparent"
 			placement="bottom"
 			height="min(88dvh, 760px)"
 			aria-label="人物选择"

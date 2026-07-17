@@ -1,0 +1,245 @@
+.character-role-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(270px, 100%), 1fr));
+	gap: var(--space-2);
+	min-width: 0;
+	max-height: min(680px, 62vh);
+	margin: 0;
+	padding: 0 var(--space-2) 0 0;
+	list-style: none;
+	overflow-y: auto;
+	overscroll-behavior-y: auto;
+	scrollbar-gutter: stable;
+}
+
+.character-role-card {
+	display: grid;
+	grid-template-columns: 80px minmax(0, 1fr);
+	align-items: start;
+	align-self: start;
+	gap: var(--space-3);
+	min-width: 0;
+	padding: var(--space-3);
+	border: 1px solid var(--divider);
+	border-radius: var(--radius-control);
+	background: transparent;
+	transition: background-color 160ms ease-out, border-color 160ms ease-out;
+}
+
+.character-role-card:hover {
+	border-color: color-mix(in oklab, var(--primary) 32%, var(--border));
+	background: var(--hover);
+}
+
+.character-role-card__avatar {
+	width: 80px;
+	height: 110px;
+	border-radius: 5px;
+}
+
+.character-role-card__content,
+.character-role-card__names,
+.character-role-card__appearances,
+.character-role-card__appearance {
+	min-width: 0;
+}
+
+.character-role-card__content,
+.character-role-card__names {
+	display: grid;
+}
+
+.character-role-card:not(.character-role-card--compact) .character-role-card__content {
+	grid-template-rows: max-content 1fr;
+	height: 110px;
+}
+
+.character-role-card__names {
+	align-content: start;
+	gap: 2px;
+}
+
+.character-role-card__name-link,
+.character-role-card__name {
+	min-width: 0;
+	color: var(--text-1);
+	font-size: var(--text-subheading);
+	font-weight: 700;
+	line-height: 21px;
+}
+
+.character-role-card__name-link {
+	width: fit-content;
+	max-width: 100%;
+	border-radius: 2px;
+	text-decoration: none;
+}
+
+.character-role-card__name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.character-role-card__name-link strong {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.character-role-card__name-link:hover {
+	color: var(--primary-text);
+	text-decoration: underline;
+	text-underline-offset: 0.14em;
+}
+
+.character-role-card__name-link:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 3px;
+}
+
+.character-role-card__names small {
+	display: block;
+	overflow: hidden;
+	color: var(--text-3);
+	font-size: var(--text-caption);
+	line-height: 18px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.character-role-card__appearances {
+	display: grid;
+	align-self: end;
+	gap: var(--space-1);
+	margin: var(--space-2) 0 0;
+	padding: var(--space-2) 0 0;
+	border-top: 1px solid var(--divider);
+	list-style: none;
+}
+
+.character-role-card__appearance {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	overflow: hidden;
+	color: var(--text-2);
+	font-size: var(--text-control);
+	line-height: 20px;
+}
+
+.character-role-card__role {
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	min-height: 18px;
+	padding: 0 5px;
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	background: var(--surface-subtle);
+	color: var(--text-2);
+	font-size: 0.6875rem;
+	font-weight: 600;
+	line-height: 16px;
+	white-space: nowrap;
+}
+
+.character-role-card__role.is-prominent {
+	border-color: color-mix(in oklab, var(--primary) 28%, var(--border));
+	background: var(--primary-soft);
+	color: var(--primary-text);
+}
+
+.character-role-card__source-more {
+	flex: 0 0 auto;
+	color: var(--text-2);
+	font-size: var(--text-caption);
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.character-role-card__appearance a {
+	flex: 0 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--text-2);
+	text-decoration: underline;
+	text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
+	text-underline-offset: 0.14em;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.character-role-card__appearance a:hover {
+	color: var(--primary-text);
+	text-decoration-color: currentColor;
+}
+
+.character-role-card__appearance a:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
+}
+
+.character-role-source-tooltip {
+	display: grid;
+	gap: var(--space-1);
+}
+
+.character-role-source-tooltip > span {
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-2);
+}
+
+.character-role-source-tooltip b {
+	color: var(--primary-text);
+	font-size: var(--text-caption);
+}
+
+.character-role-list--compact {
+	grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+}
+
+.character-role-card--compact {
+	grid-template-columns: 36px minmax(0, 1fr);
+	align-items: center;
+	gap: var(--space-2);
+	min-height: 54px;
+	padding: var(--space-1) var(--space-2);
+}
+
+.character-role-card--compact .character-role-card__avatar {
+	width: 36px;
+	height: 46px;
+	border-radius: 4px;
+}
+
+.character-role-card--compact .character-role-card__name-link,
+.character-role-card--compact .character-role-card__name {
+	font-size: var(--text-body);
+	line-height: 20px;
+}
+
+.character-role-list__empty {
+	grid-column: 1 / -1;
+	padding: var(--space-6) var(--space-3);
+	border-bottom: 1px solid var(--divider);
+	color: var(--text-3);
+	font-size: var(--text-caption);
+	text-align: center;
+}
+
+@media (max-width: 520px) {
+	.character-role-list {
+		grid-template-columns: minmax(0, 1fr);
+		max-height: min(560px, 58dvh);
+	}
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.character-role-card {
+		transition: none;
+	}
+}

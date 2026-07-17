@@ -3,13 +3,17 @@ import type { Subject } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
 import SafeImage from './SafeImage.vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
 	subjects: Subject[]
 	emptyText?: string
 	ariaLabel?: string
+	compact?: boolean
+	startIndex?: number
 }>(), {
 	emptyText: '没有符合当前条件的作品。',
 	ariaLabel: '作品列表',
+	compact: false,
+	startIndex: 0,
 })
 
 defineSlots<{
@@ -76,17 +80,42 @@ const collectionLabel = (type?: number) => ({
 </script>
 
 <template>
-	<ul class="subject-work-list person-work-list" :aria-label="ariaLabel">
+	<ul class="subject-work-list person-work-list" :class="{ 'subject-work-list--compact': compact }" :aria-label="ariaLabel">
 		<li
-			v-for="subject in subjects"
+			v-for="(subject, index) in subjects"
 			:key="subject.id"
 			class="subject-work-row person-work-row"
 			:class="{
-				'subject-work-row--with-participants': Boolean($slots.participants),
-				'subject-work-row--with-role': Boolean($slots.role),
+				'subject-work-row--compact': compact,
+				'subject-work-row--with-participants': !compact && Boolean($slots.participants),
+				'subject-work-row--with-role': !compact && Boolean($slots.role),
 			}"
 		>
-			<div class="subject-work-row__work person-work-row__work work-cell">
+			<template v-if="compact">
+				<span class="subject-work-row__index" :aria-label="`第 ${props.startIndex + index + 1} 项`">{{ props.startIndex + index + 1 }}</span>
+				<div class="subject-work-row__compact-names">
+					<a
+						class="subject-work-row__primary-link"
+						:href="`https://bgm.tv/subject/${subject.id}`"
+						target="_blank"
+						rel="noopener noreferrer"
+						:title="workbench.subjectName(subject)"
+						:aria-label="`打开${workbench.subjectName(subject)}`"
+					>
+						<strong>{{ workbench.subjectName(subject) }}</strong>
+					</a>
+					<small v-if="subjectSecondaryName(subject)" class="subject-work-row__secondary" :title="subjectSecondaryName(subject)">{{ subjectSecondaryName(subject) }}</small>
+				</div>
+				<dl class="subject-work-row__compact-score" :aria-label="Number(subject.collection?.rate) > 0 ? `我的分数 ${formatPersonalScore(subject.collection?.rate)}` : '我的分数 未评分'">
+					<dt class="sr-only">我的分数</dt>
+					<dd aria-hidden="true">
+						<span v-if="Number(subject.collection?.rate) > 0">{{ formatPersonalScore(subject.collection?.rate) }}</span>
+						<Star :unrated="Number(subject.collection?.rate) <= 0" />
+					</dd>
+				</dl>
+			</template>
+
+			<div v-else class="subject-work-row__work person-work-row__work work-cell">
 				<span class="subject-work-row__cover-media" aria-hidden="true">
 					<SafeImage
 						class="subject-work-row__cover"
@@ -127,7 +156,7 @@ const collectionLabel = (type?: number) => ({
 				</div>
 			</div>
 
-			<dl class="subject-work-row__facts person-work-row__facts" :class="{ 'subject-work-row__facts--with-role': Boolean($slots.role) }">
+			<dl v-if="!compact" class="subject-work-row__facts person-work-row__facts" :class="{ 'subject-work-row__facts--with-role': Boolean($slots.role) }">
 				<div class="subject-work-row__score subject-work-row__score--global">
 					<dt>全站评分</dt>
 					<dd>
@@ -153,7 +182,7 @@ const collectionLabel = (type?: number) => ({
 				</div>
 			</dl>
 
-			<div v-if="$slots.participants" class="subject-work-row__participants">
+			<div v-if="!compact && $slots.participants" class="subject-work-row__participants">
 				<slot name="participants" :subject="subject" />
 			</div>
 		</li>

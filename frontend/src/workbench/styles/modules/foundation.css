@@ -90,6 +90,19 @@ small {
 	font-size: 12px;
 }
 
+.workbench-tooltip-content {
+	box-sizing: border-box;
+	max-width: min(336px, calc(100vw - 56px));
+	max-width: min(336px, calc(100dvw - 56px));
+	max-height: min(360px, calc(100vh - 56px));
+	max-height: min(360px, calc(100dvh - 56px));
+	overflow-x: hidden;
+	overflow-y: auto;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	overscroll-behavior: contain;
+}
+
 table,
 .profile-metrics,
 .metric-ledger,
@@ -221,7 +234,7 @@ table,
 }
 
 .workbench-brand__copy strong {
-	font-size: 14px;
+	font-size: var(--text-subheading);
 	font-weight: 700;
 	white-space: nowrap;
 }
@@ -302,24 +315,36 @@ table,
 	font-weight: 600;
 }
 
-.field-help-button {
-	display: grid;
-	place-items: center;
-	width: var(--touch-target-min);
-	height: var(--touch-target-min);
-	margin: -8px 0;
+.field-help-trigger {
+	position: relative;
+	appearance: none;
 	padding: 0;
 	border: 0;
-	border-radius: var(--radius-control);
 	background: transparent;
-	color: var(--text-3);
+	color: var(--primary-text);
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.5;
+	text-decoration: underline;
+	text-underline-offset: 3px;
 	cursor: help;
 }
 
-.field-help-button:hover,
-.field-help-button:focus-visible {
-	background: var(--hover);
-	color: var(--primary-text);
+.field-help-trigger::before {
+	position: absolute;
+	inset: -13px -8px;
+	content: '';
+}
+
+.field-help-trigger:hover {
+	color: var(--chrome-text);
+	text-decoration-thickness: 2px;
+}
+
+.field-help-trigger:focus-visible {
+	border-radius: 2px;
+	outline: 2px solid var(--focus-on-chrome);
+	outline-offset: 3px;
 }
 
 .field--collections {

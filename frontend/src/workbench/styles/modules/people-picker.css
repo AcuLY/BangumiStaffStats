@@ -21,7 +21,7 @@
 	max-height: calc(100vh - 34px);
 	overflow-x: clip;
 	overflow-y: hidden;
-	overscroll-behavior-y: contain;
+	overscroll-behavior-y: auto;
 	scrollbar-gutter: stable;
 }
 
@@ -51,7 +51,7 @@
 	border-bottom: 1px solid var(--divider);
 	max-height: min(320px, 42dvh);
 	overflow-y: auto;
-	overscroll-behavior: contain;
+	overscroll-behavior-y: auto;
 }
 
 .picker-section-heading {
@@ -154,7 +154,7 @@
 .person-list--candidate {
 	min-height: 0;
 	overflow-y: auto;
-	overscroll-behavior-y: contain;
+	overscroll-behavior-y: auto;
 	scrollbar-gutter: stable;
 }
 
@@ -228,6 +228,7 @@
 	max-height: none;
 	background: transparent;
 	overflow-y: auto;
+	overscroll-behavior-y: contain;
 }
 
 .person-picker--drawer .picker-heading {
