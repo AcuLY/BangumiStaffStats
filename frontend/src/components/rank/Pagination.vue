@@ -70,7 +70,7 @@ watch(() => paginationStore.page, (newPage) => {
 		show-quick-jumper
 	>
 		<template #goto>
-			<span style="font-size: larger">按回车跳至</span>
+			<span>按回车跳至</span>
 		</template>
 	</n-pagination>
 </template>

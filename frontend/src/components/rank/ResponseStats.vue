@@ -29,43 +29,31 @@ watch(responseStore.response.summaries, playNumberAnimation)
 </script>
 
 <template>
-	<n-flex class="stats-wrapper" v-show="responseStore.response.total">
-		<n-statistic label="共统计到" tabular-nums>
-			<n-number-animation
-				ref="numberAnimationInstRef"
-				:from="0"
-				:to="responseStore.response.total"
-			/>
-			<template #suffix> 个人物 , </template>
-		</n-statistic>
+	<div v-show="responseStore.response.total" class="stats-wrapper">
+		<n-flex>
+			<n-statistic label="共统计到" tabular-nums>
+				<n-number-animation
+					ref="numberAnimationInstRef"
+					:from="0"
+					:to="responseStore.response.total"
+				/>
+				<template #suffix> 个人物 , </template>
+			</n-statistic>
 
-		<n-statistic :label="'\u200B'" tabular-nums>
-			<n-number-animation
-				ref="numberAnimationInstRef"
-				:from="0"
-				:to="responseStore.response.itemCount"
-			/>
-			<template #suffix> 个{{ itemName }} </template>
-		</n-statistic>
-	</n-flex>
+			<n-statistic :label="'\u200B'" tabular-nums>
+				<n-number-animation
+					ref="numberAnimationInstRef"
+					:from="0"
+					:to="responseStore.response.itemCount"
+				/>
+				<template #suffix> 个{{ itemName }} </template>
+			</n-statistic>
+		</n-flex>
+	</div>
 </template>
 
 <style scoped>
 .stats-wrapper {
 	width: 90vw;
-}
-
-@media (max-width: 768px) {
-	:deep(.n-statistic__label) {
-		font-size: 12px;
-	}
-
-	:deep(.n-statistic-value__content) {
-		--n-value-font-size: 20px;
-	}
-
-	:deep(.n-statistic-value__suffix) {
-		--n-value-font-size: 18px;
-	}
 }
 </style>

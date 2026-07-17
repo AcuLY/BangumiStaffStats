@@ -27,6 +27,7 @@ const { userID, isGlobal } = toRefs(input.value)
 
 		<n-input
 			v-model:value="userID"
+			size="medium"
 			type="text"
 			placeholder="请输入用户 ID（不是昵称）"
 			:disabled="isGlobal"

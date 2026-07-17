@@ -5,12 +5,17 @@
 @import './modules/analysis-dashboard.css';
 @import './modules/foundation-responsive.css';
 @import './modules/ranking-data.css';
+@import './modules/subject-work-browser.css';
 @import './modules/analysis-profiles.css';
 @import './modules/analysis-insights.css';
 @import './modules/analysis-timeline-matrix.css';
 @import './modules/data-responsive.css';
 @import './modules/ranking-refinements.css';
+@import './modules/preference-ranking.css';
 @import './modules/fallbacks-and-containers.css';
+@import './modules/subject-work-list.css';
+@import './modules/shared-work-participants.css';
+@import './modules/pagination.css';
 @import './modules/query-workspace.css';
 @import './modules/workspace-responsive.css';
 @import './modules/component-responsive.css';

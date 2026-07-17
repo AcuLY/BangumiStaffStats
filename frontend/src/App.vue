@@ -30,7 +30,7 @@ const currentTheme = computed<GlobalTheme | null>(() =>
 					<Main />
 				</n-layout-content>
 
-				<n-layout-footer class="footer-wrapper">
+				<n-layout-footer>
 					<Footer />
 				</n-layout-footer>
 			</n-layout>
@@ -41,11 +41,6 @@ const currentTheme = computed<GlobalTheme | null>(() =>
 <style scoped>
 .content-wrapper {
 	min-height: calc(100vh - 75px - 43px);
-}
-
-.footer-wrapper {
-	position: relative;
-	bottom: 0;
 }
 
 @media (max-width: 768px) {

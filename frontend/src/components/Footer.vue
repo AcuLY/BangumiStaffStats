@@ -5,11 +5,13 @@ const globalStore = useGlobalStore()
 </script>
 
 <template>
-	<n-flex justify="center" class="footer-wrapper" :class="globalStore.darkMode && 'dark-mode'">
-		<a href="https://beian.miit.gov.cn/" target="_blank" class="link">
-			粤ICP备2024321317号
-		</a>
-	</n-flex>
+	<div class="footer-wrapper" :class="globalStore.darkMode && 'dark-mode'">
+		<n-flex justify="center">
+			<a href="https://beian.miit.gov.cn/" target="_blank" class="link">
+				粤ICP备2024321317号
+			</a>
+		</n-flex>
+	</div>
 </template>
 
 <style scoped>

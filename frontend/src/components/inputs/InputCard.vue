@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { INPUT_TYPE, type InputType } from '@/constants/types'
-import { useGlobalStore } from '@/stores/global'
 import { useInputStore } from '@/stores/input'
 import { storeToRefs } from 'pinia'
 
 const props = defineProps<{
 	type: InputType
 }>()
-
-const globalStore = useGlobalStore()
 
 const inputStore = useInputStore()
 const inputStoreRef = storeToRefs(inputStore)
@@ -55,28 +52,23 @@ const closable = enable !== null
 </script>
 
 <template>
-	<n-card
-		class="option"
-		:header-style="{ padding: globalStore.isMobile ? '8px 18px' : '8px 14px' }"
-		size="small"
-		hoverable
-		:closable="closable"
-		@close="enable = false"
-	>
-		<template #header>
-			<h3 class="title">{{ title }}</h3>
-		</template>
+	<div class="option">
+		<n-card size="small" hoverable :closable="closable" @close="enable = false">
+			<template #header>
+				<h3 class="title">{{ title }}</h3>
+			</template>
 
-		<template #header-extra>
-			<slot name="header-extra" />
-		</template>
+			<template #header-extra>
+				<slot name="header-extra" />
+			</template>
 
-		<template #action>
-			<n-flex class="action" justify="center" align="center">
-				<slot />
-			</n-flex>
-		</template>
-	</n-card>
+			<template #action>
+				<n-flex justify="center" align="center">
+					<slot />
+				</n-flex>
+			</template>
+		</n-card>
+	</div>
 </template>
 
 <style scoped>
@@ -86,10 +78,6 @@ const closable = enable !== null
 
 .title {
 	margin: 0;
-}
-
-.action {
-	min-height: 34px;
 }
 
 @media (max-width: 768px) {

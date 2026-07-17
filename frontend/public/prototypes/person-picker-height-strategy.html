@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>人物选择栏高度策略 · 低保真原型</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			--header-height: 121px;
+			--space-3: 12px;
+			--canvas: #101014;
+			--surface: #19191e;
+			--surface-2: #222228;
+			--border: #45454d;
+			--divider: #33333a;
+			--text: #f2f2f5;
+			--muted: #a7a7b0;
+			--accent: #d91a80;
+			font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+		}
+
+		* { box-sizing: border-box; }
+
+		html { background: var(--canvas); }
+
+		body {
+			min-width: 780px;
+			margin: 0;
+			background: var(--canvas);
+			color: var(--text);
+			font-size: 14px;
+		}
+
+		button,
+		input { font: inherit; }
+
+		.prototype-header {
+			position: fixed;
+			inset: 0 0 auto;
+			z-index: 10;
+			height: var(--header-height);
+			border-top: 4px solid var(--accent);
+			border-bottom: 1px solid var(--border);
+			background: #111116;
+		}
+
+		.header-row {
+			display: flex;
+			align-items: center;
+			gap: 14px;
+			height: 70px;
+			padding: 0 20px;
+			border-bottom: 1px solid var(--divider);
+		}
+
+		.brand-mark {
+			display: grid;
+			place-items: center;
+			width: 40px;
+			height: 40px;
+			border-radius: 7px;
+			background: var(--accent);
+			font-size: 24px;
+		}
+
+		.mode-tabs {
+			display: flex;
+			gap: 4px;
+			margin-left: 24px;
+			padding: 4px;
+			border: 1px solid var(--border);
+			border-radius: 8px;
+		}
+
+		.mode-tabs span {
+			padding: 9px 16px;
+			border-radius: 5px;
+			color: var(--muted);
+		}
+
+		.mode-tabs .active {
+			background: var(--accent);
+			color: white;
+			font-weight: 700;
+		}
+
+		.query-summary {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			height: 47px;
+			padding: 0 20px;
+			color: var(--muted);
+		}
+
+		.workbench {
+			display: grid;
+			grid-template-columns: 320px minmax(0, 1fr);
+			align-items: start;
+			gap: 16px;
+			width: min(calc(100% - 32px), 1180px);
+			min-height: 100dvh;
+			margin: 0 auto;
+			padding-top: calc(var(--header-height) + 8px);
+			padding-bottom: 28px;
+		}
+
+		.analysis-section {
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			background: var(--surface);
+		}
+
+		.rail {
+			display: grid;
+			grid-template-rows: auto auto minmax(0, 1fr);
+			min-width: 0;
+			border-right: 1px solid var(--divider);
+			background: transparent;
+			overflow: hidden;
+		}
+
+		.app[data-strategy="current"] .rail {
+			position: sticky;
+			top: calc(var(--header-height) + 8px);
+			height: calc(100dvh - var(--header-height) - var(--space-3));
+		}
+
+		.app[data-strategy="hybrid"] .rail {
+			position: static;
+			height: auto;
+			min-height: 680px;
+		}
+
+		.rail-title,
+		.selected,
+		.candidates { padding: 14px; }
+
+		.rail-title {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			min-height: 58px;
+			border-bottom: 1px solid var(--divider);
+			font-size: 19px;
+			font-weight: 700;
+		}
+
+		.selected {
+			border-bottom: 1px solid var(--divider);
+		}
+
+		.section-label {
+			display: flex;
+			justify-content: space-between;
+			margin-bottom: 10px;
+			color: var(--muted);
+			font-size: 12px;
+		}
+
+		.section-label strong { color: var(--text); }
+
+		.selected-row {
+			display: grid;
+			grid-template-columns: 24px 38px 1fr 28px;
+			align-items: center;
+			gap: 8px;
+			min-height: 57px;
+			border-bottom: 1px solid var(--divider);
+		}
+
+		.selected-row:last-child { border-bottom: 0; }
+
+		.avatar {
+			display: grid;
+			place-items: center;
+			width: 38px;
+			height: 44px;
+			border-radius: 5px;
+			background: #555561;
+			color: #d8d8df;
+			font-size: 11px;
+		}
+
+		.identity {
+			display: grid;
+			place-items: center;
+			width: 24px;
+			height: 24px;
+			border: 1px solid #8c4c72;
+			border-radius: 5px;
+			background: #371829;
+			font-size: 11px;
+		}
+
+		.person-copy { min-width: 0; }
+		.person-copy strong { display: block; }
+		.person-copy small { color: var(--muted); }
+
+		.candidates {
+			display: grid;
+			grid-template-rows: auto auto minmax(0, 1fr) auto;
+			min-height: 0;
+		}
+
+		.search {
+			width: 100%;
+			height: 36px;
+			margin-bottom: 10px;
+			padding: 0 10px;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: var(--surface-2);
+			color: var(--text);
+		}
+
+		.candidate-list {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			align-content: start;
+			gap: 4px;
+			min-height: 0;
+			overflow-y: auto;
+		}
+
+		.app[data-strategy="hybrid"] .candidate-list { overflow-y: visible; }
+
+		.candidate {
+			display: grid;
+			grid-template-columns: 38px minmax(0, 1fr);
+			align-items: center;
+			gap: 8px;
+			min-height: 60px;
+			padding: 7px;
+			border: 1px solid transparent;
+			border-radius: 6px;
+			background: var(--surface-2);
+		}
+
+		.candidate:nth-child(3) {
+			border-color: #8c4c72;
+			background: #371829;
+		}
+
+		.pagination {
+			display: flex;
+			justify-content: space-between;
+			gap: 6px;
+			padding-top: 10px;
+			color: var(--muted);
+		}
+
+		.pagination span {
+			padding: 6px 9px;
+			border: 1px solid var(--border);
+			border-radius: 5px;
+		}
+
+		.analysis {
+			display: grid;
+			gap: 16px;
+			min-width: 0;
+		}
+
+		.analysis-section {
+			min-height: 240px;
+			padding: 24px;
+		}
+
+		.analysis-section:first-child { min-height: 420px; }
+
+		.analysis-section h2 {
+			margin: 0 0 8px;
+			font-size: 20px;
+		}
+
+		.analysis-section p {
+			margin: 0;
+			color: var(--muted);
+		}
+
+		.chart {
+			display: flex;
+			align-items: end;
+			gap: 14px;
+			height: 240px;
+			margin-top: 30px;
+			padding: 0 16px 20px;
+			border-bottom: 1px solid var(--border);
+		}
+
+		.chart span {
+			flex: 1;
+			min-width: 12px;
+			background: #4c4c56;
+		}
+
+		.chart span:nth-child(3n) { background: #8c4c72; }
+
+		.prototype-controls {
+			position: fixed;
+			right: 16px;
+			bottom: 16px;
+			z-index: 20;
+			display: grid;
+			gap: 8px;
+			width: 280px;
+			padding: 12px;
+			border: 1px solid #6a6a75;
+			border-radius: 8px;
+			background: #222228;
+		}
+
+		.strategy-buttons {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 6px;
+		}
+
+		.strategy-buttons button {
+			min-height: 38px;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: #2d2d34;
+			color: var(--text);
+			cursor: pointer;
+		}
+
+		.strategy-buttons button[aria-pressed="true"] {
+			border-color: var(--accent);
+			background: #541634;
+		}
+
+		.measurement {
+			color: var(--muted);
+			font-size: 12px;
+			line-height: 1.5;
+		}
+
+		.measurement strong { color: var(--text); }
+
+		@media (min-height: 801px) {
+			.app[data-strategy="hybrid"] .rail {
+				position: sticky;
+				top: calc(var(--header-height) + 8px);
+				height: calc(100dvh - var(--header-height) - var(--space-3));
+				min-height: 0;
+			}
+
+			.app[data-strategy="hybrid"] .candidate-list { overflow-y: auto; }
+		}
+	</style>
+</head>
+<body>
+	<div id="app" class="app" data-strategy="hybrid">
+		<header class="prototype-header">
+			<div class="header-row">
+				<span class="brand-mark">B</span>
+				<strong>Bangumi Staff Statistics</strong>
+				<nav class="mode-tabs" aria-label="模式">
+					<span>人物排行</span>
+					<span class="active">共演分析</span>
+				</nav>
+			</div>
+			<div class="query-summary">
+				<span><strong>当前查询</strong>　声优 · lucay126 · 动画 · 看过 + 在看</span>
+				<span>已应用 · 449 部</span>
+			</div>
+		</header>
+
+		<main class="workbench">
+			<aside id="rail" class="rail" aria-label="人物选择">
+				<div class="rail-title"><span>人物选择</span><span>‹</span></div>
+				<section class="selected">
+					<div class="section-label"><strong>已选人物</strong><span>2 人 · 2 个身份</span></div>
+					<div class="selected-row"><span class="identity">1</span><span class="avatar">头像</span><span class="person-copy"><strong>宫野真守</strong><small>声优</small></span><span>×</span></div>
+					<div class="selected-row"><span class="identity">2</span><span class="avatar">头像</span><span class="person-copy"><strong>花泽香菜</strong><small>声优</small></span><span>×</span></div>
+				</section>
+				<section class="candidates">
+					<div class="section-label"><strong>候选人物</strong><span>声优 · 1—10 / 40</span></div>
+					<input class="search" value="" placeholder="筛选当前结果…" aria-label="筛选当前结果">
+					<div class="candidate-list">
+						<div class="candidate"><span class="avatar">头像</span><span class="person-copy"><strong>日笠阳子</strong><small>#1 · 71 部</small></span></div>
+						<div class="candidate"><span class="avatar">头像</span><span class="person-copy"><strong>佐仓绫音</strong><small>#2 · 58 部</small></span></div>
+						<div class="candidate"><span class="avatar">头像</span><span class="person-copy"><strong>花泽香菜</strong><small>#3 · 49 部</small></span></div>
+						<div class="candidate"><span class="avatar">头像</span><span class="person-copy"><strong>东山奈央</strong><small>#4 · 44 部</small></span></div>
+						<div class="candidate"><span class="avatar">头像</span><span class="person-copy"><strong>伊藤美来</strong><small>#5 · 44 部</small></span></div>
+						<div class="candidate"><span class="avatar">头像</span><span class="person-copy"><strong>石见舞菜香</strong><small>#6 · 41 部</small></span></div>
+						<div class="candidate"><span class="avatar">头像</span><span class="person-copy"><strong>悠木碧</strong><small>#7 · 39 部</small></span></div>
+						<div class="candidate"><span class="avatar">头像</span><span class="person-copy"><strong>黑泽朋世</strong><small>#8 · 38 部</small></span></div>
+						<div class="candidate"><span class="avatar">头像</span><span class="person-copy"><strong>早见沙织</strong><small>#9 · 37 部</small></span></div>
+						<div class="candidate"><span class="avatar">头像</span><span class="person-copy"><strong>上坂堇</strong><small>#10 · 36 部</small></span></div>
+					</div>
+					<div class="pagination"><span>‹</span><span>1　2　3　4</span><span>›</span></div>
+				</section>
+			</aside>
+
+			<section class="analysis" aria-label="分析内容占位">
+				<div class="analysis-section">
+					<h2>评分分布对比</h2>
+					<p>右侧内容保持长页面，用来观察左侧栏随页面滚动时的差异。</p>
+					<div class="chart"><span style="height:15%"></span><span style="height:30%"></span><span style="height:48%"></span><span style="height:72%"></span><span style="height:58%"></span><span style="height:88%"></span><span style="height:62%"></span><span style="height:42%"></span></div>
+				</div>
+				<div class="analysis-section"><h2>关系信号</h2><p>内容占位</p></div>
+				<div class="analysis-section"><h2>共同作品</h2><p>继续向下滚动，观察矮屏方案中左侧栏自然进入页面流。</p></div>
+			</section>
+		</main>
+
+		<aside class="prototype-controls" aria-label="原型控制">
+			<strong>高度策略预览</strong>
+			<div class="strategy-buttons">
+				<button type="button" data-set-strategy="current" aria-pressed="false">当前方案</button>
+				<button type="button" data-set-strategy="hybrid" aria-pressed="true">建议方案</button>
+			</div>
+			<div id="measurement" class="measurement" aria-live="polite"></div>
+		</aside>
+	</div>
+
+	<script>
+		const app = document.querySelector('#app')
+		const rail = document.querySelector('#rail')
+		const measurement = document.querySelector('#measurement')
+		const buttons = [...document.querySelectorAll('[data-set-strategy]')]
+
+		function updateMeasurement() {
+			const strategy = app.dataset.strategy
+			const height = Math.round(rail.getBoundingClientRect().height)
+			const shortViewport = window.innerHeight <= 800
+			const label = strategy === 'current' ? '当前方案' : '建议方案'
+			const behavior = strategy === 'hybrid' && shortViewport ? '自然高度 + 页面滚动' : '视口高度 + 内部滚动'
+			measurement.innerHTML = `<strong>${label}</strong><br>视口：${window.innerWidth} × ${window.innerHeight}px<br>人物栏：${height}px<br>行为：${behavior}`
+		}
+
+		buttons.forEach((button) => {
+			button.addEventListener('click', () => {
+				app.dataset.strategy = button.dataset.setStrategy
+				buttons.forEach((item) => item.setAttribute('aria-pressed', String(item === button)))
+				window.scrollTo({ top: 0, behavior: 'instant' })
+				updateMeasurement()
+			})
+		})
+
+		window.addEventListener('resize', updateMeasurement)
+		updateMeasurement()
+	</script>
+</body>
+</html>

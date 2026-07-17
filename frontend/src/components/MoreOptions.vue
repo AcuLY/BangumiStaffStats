@@ -16,15 +16,17 @@ const { showMoreOptions } = storeToRefs(inputStore)
 			<template #header>
 				<h3 style="margin: 4px 0">更多选项</h3>
 			</template>
-			<n-flex class="more-options-wrapper">
-				<OptionEnabler :type="INPUT_TYPE.IS_GLOBAL" />
-				<OptionEnabler :type="INPUT_TYPE.SHOW_NSFW" />
-				<OptionEnabler :type="INPUT_TYPE.DATE_RANGE" />
-				<OptionEnabler :type="INPUT_TYPE.RATE_RANGE" />
-				<OptionEnabler :type="INPUT_TYPE.FAVORITE_RANGE" />
-				<OptionEnabler :type="INPUT_TYPE.POSITIVE_TAGS" />
-				<OptionEnabler :type="INPUT_TYPE.NEGATIVE_TAGS" />
-			</n-flex>
+			<div class="more-options-wrapper">
+				<n-flex>
+					<OptionEnabler :type="INPUT_TYPE.IS_GLOBAL" />
+					<OptionEnabler :type="INPUT_TYPE.SHOW_NSFW" />
+					<OptionEnabler :type="INPUT_TYPE.DATE_RANGE" />
+					<OptionEnabler :type="INPUT_TYPE.RATE_RANGE" />
+					<OptionEnabler :type="INPUT_TYPE.FAVORITE_RANGE" />
+					<OptionEnabler :type="INPUT_TYPE.POSITIVE_TAGS" />
+					<OptionEnabler :type="INPUT_TYPE.NEGATIVE_TAGS" />
+				</n-flex>
+			</div>
 		</n-drawer-content>
 	</n-drawer>
 </template>

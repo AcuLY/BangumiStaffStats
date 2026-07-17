@@ -28,11 +28,19 @@ if (isPositive) {
 
 <template>
 	<InputCard :type="props.type" v-show="enable">
-		<n-dynamic-tags
-			style="width: 300px"
-			v-model:value="tags"
-			round
-			:color="{ borderColor: PRIMARY_COLOR, textColor: PRIMARY_COLOR }"
-		/>
+		<div class="tag-field">
+			<n-dynamic-tags
+				v-model:value="tags"
+				size="medium"
+				round
+				:color="{ borderColor: PRIMARY_COLOR, textColor: PRIMARY_COLOR }"
+			/>
+		</div>
 	</InputCard>
 </template>
+
+<style scoped>
+.tag-field {
+	width: 300px;
+}
+</style>

@@ -26,50 +26,63 @@ onMounted(() => {
 </script>
 
 <template>
-	<n-flex class="request-wrapper" justify="center" align="center" ref="request-wrapper">
-		<n-flex class="input-wrapper" justify="center" size="large">
-			<UserID />
-			<Select :type="INPUT_TYPE.SUBJECT_TYPE" />
-			<Select :type="INPUT_TYPE.POSITION" />
-			<CollectionType />
-			<Range :type="INPUT_TYPE.DATE_RANGE" />
-			<Range :type="INPUT_TYPE.RATE_RANGE" />
-			<Range :type="INPUT_TYPE.FAVORITE_RANGE" />
-			<Tag :type="INPUT_TYPE.POSITIVE_TAGS" />
-			<Tag :type="INPUT_TYPE.NEGATIVE_TAGS" />
+	<div class="request-wrapper" ref="request-wrapper">
+		<n-flex justify="center" align="center">
+			<div class="input-wrapper">
+				<n-flex justify="center" size="large">
+					<UserID />
+					<Select :type="INPUT_TYPE.SUBJECT_TYPE" />
+					<Select :type="INPUT_TYPE.POSITION" />
+					<CollectionType />
+					<Range :type="INPUT_TYPE.DATE_RANGE" />
+					<Range :type="INPUT_TYPE.RATE_RANGE" />
+					<Range :type="INPUT_TYPE.FAVORITE_RANGE" />
+					<Tag :type="INPUT_TYPE.POSITIVE_TAGS" />
+					<Tag :type="INPUT_TYPE.NEGATIVE_TAGS" />
+				</n-flex>
+			</div>
+
+			<n-flex justify="center">
+				<div class="button-slot">
+					<n-button
+						size="medium"
+						block
+						@click="inputStore.showMoreOptions = true"
+						ghost
+						:color="PRIMARY_COLOR"
+					>
+						更多选项
+					</n-button>
+				</div>
+
+				<div class="button-slot">
+					<n-button
+						size="medium"
+						block
+						@click="handleButtonClick"
+						type="primary"
+						:loading="globalStore.isLoading"
+					>
+						查询
+					</n-button>
+				</div>
+
+				<div class="button-slot">
+					<n-button
+						size="medium"
+						block
+						@click="cancel"
+						strong
+						secondary
+						type="primary"
+						:disabled="!globalStore.isLoading"
+					>
+						取消查询
+					</n-button>
+				</div>
+			</n-flex>
 		</n-flex>
-
-		<n-flex justify="center">
-			<n-button
-				class="button"
-				@click="inputStore.showMoreOptions = true"
-				ghost
-				:color="PRIMARY_COLOR"
-			>
-				更多选项
-			</n-button>
-
-			<n-button
-				class="button"
-				@click="handleButtonClick"
-				type="primary"
-				:loading="globalStore.isLoading"
-			>
-				查询
-			</n-button>
-
-			<n-button
-				class="button"
-				@click="cancel"
-				strong
-				secondary
-				type="primary"
-				:disabled="!globalStore.isLoading"
-			>
-				取消查询
-			</n-button>
-		</n-flex>
-	</n-flex>
+	</div>
 </template>
 
 <style scoped>
@@ -83,7 +96,7 @@ onMounted(() => {
 	margin-bottom: 10px;
 }
 
-.button {
+.button-slot {
 	width: 100px;
 	transform: translateY(8px);
 }

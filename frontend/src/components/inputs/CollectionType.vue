@@ -15,10 +15,10 @@ const actionName = computed<string>(() => calcActionName(subjectType.value ?? SU
 	<InputCard :type="INPUT_TYPE.COLLECTION_TYPES">
 		<n-checkbox-group v-model:value="collectionTypes" :disabled="isGlobal">
 			<n-flex justify="center">
-				<n-checkbox :value="COLLECTION_TYPE.DONE" :label="actionName + '过'" />
-				<n-checkbox :value="COLLECTION_TYPE.DOING" :label="'在' + actionName" />
-				<n-checkbox :value="COLLECTION_TYPE.ON_HOLD" label="搁置" />
-				<n-checkbox :value="COLLECTION_TYPE.DROPPED" label="抛弃" />
+				<n-checkbox size="medium" :value="COLLECTION_TYPE.DONE" :label="actionName + '过'" />
+				<n-checkbox size="medium" :value="COLLECTION_TYPE.DOING" :label="'在' + actionName" />
+				<n-checkbox size="medium" :value="COLLECTION_TYPE.ON_HOLD" label="搁置" />
+				<n-checkbox size="medium" :value="COLLECTION_TYPE.DROPPED" label="抛弃" />
 			</n-flex>
 		</n-checkbox-group>
 	</InputCard>

@@ -23,9 +23,15 @@ import type {
 	WorkbenchTheme,
 } from '../types'
 import { bangumiImageUrl } from '../data/bangumiImages'
+import {
+	preferenceContribution,
+	summarizePreference,
+	type PreferenceContribution,
+	type PreferenceObservation,
+} from '../domain/preference'
 
 const RANKING_PAGE_SIZE = 10
-const CANDIDATE_PAGE_SIZE = 8
+const CANDIDATE_PAGE_SIZE = 10
 
 const unique = <T>(values: T[]) => [...new Set(values)]
 const floorTwo = (value: number) => Math.floor(value * 100) / 100
@@ -47,6 +53,14 @@ function intersection(sets: Set<number>[]) {
 function union(sets: Set<number>[]) {
 	return new Set(sets.flatMap((set) => [...set]))
 }
+
+export interface RankingProgress {
+	signed: boolean
+	direction: 'positive' | 'negative' | 'neutral'
+	percent: number
+}
+
+export type SubjectPreferenceContribution = PreferenceContribution & { subject: Subject }
 
 export interface WorkbenchContext {
 	snapshot: Ref<WorkbenchSnapshot | null>
@@ -89,16 +103,17 @@ export interface WorkbenchContext {
 	rankingPeople: ComputedRef<Person[]>
 	rankingPageItems: ComputedRef<Person[]>
 	rankingPageCount: ComputedRef<number>
-	rankingValue: (person: Person, metric?: RankingMetric) => number
-	rankingProgress: (person: Person) => number
+	rankingValue: (person: Person, metric?: RankingMetric) => number | null
+	rankingProgress: (person: Person) => RankingProgress
 	focusedPersonId: Ref<number>
 	focusedPerson: ComputedRef<Person | null>
 	focusedAllSubjects: ComputedRef<Subject[]>
-	focusedSubjects: ComputedRef<Subject[]>
 	focusedWorkSearch: Ref<string>
 	focusedDistribution: ComputedRef<Array<{ label: string; value: number }>>
+	focusedPreferenceContributions: ComputedRef<SubjectPreferenceContribution[]>
 	candidateSearch: Ref<string>
 	candidatePage: Ref<number>
+	candidatePageSize: Ref<number>
 	candidatePositionId: Ref<number>
 	candidatePositionOptions: ComputedRef<Array<{ label: string; value: number; count: number }>>
 	candidatePeople: ComputedRef<CandidatePerson[]>
@@ -146,10 +161,12 @@ export function provideWorkbench(
 	}
 
 	const queryEditing = ref(false)
+	const requestedUserId = new URLSearchParams(window.location.search).get('user')?.trim()
 	const makeQueryState = (): QueryState => ({
 		isGlobal: false,
 		showNSFW: false,
-		userId: 'lucay126',
+		mergeSeries: false,
+		userId: requestedUserId || 'lucay126',
 		subjectType: 2,
 		positionsByMode: {
 			ranking: [102],
@@ -258,8 +275,7 @@ export function provideWorkbench(
 
 	const personSecondaryName = (person?: Person | null) => {
 		if (!person) return ''
-		const primary = personName(person)
-		return [person.name, person.nameCN].find((name) => name && name !== primary) ?? ''
+		return person.name || person.nameCN || ''
 	}
 
 	const personImageSources = (person?: Person | null) => person?.id
@@ -310,6 +326,23 @@ export function provideWorkbench(
 			&& query.userId.trim().toLocaleLowerCase('en-US') === fixtureUserId.toLocaleLowerCase('en-US')
 		)
 	})
+	const preferenceOptions = computed(() => ({
+		priorWorkCount: Number(snapshot.value?.meta.preference?.priorSeriesCount) || 5,
+		mergeSeries: query.mergeSeries,
+	}))
+	const preferenceObservationForSubject = (subject: Subject): PreferenceObservation => ({
+		subjectId: Number(subject.id),
+		userScore: Number(subject.collection?.rate || 0),
+		globalScore: Number(subject.score || 0),
+		seriesId: subject.seriesId,
+	})
+	const preferenceForIds = (ids: number[]) => summarizePreference(
+		ids
+			.map((id) => subjectsById.value.get(Number(id)))
+			.filter((subject): subject is Subject => Boolean(subject))
+			.map(preferenceObservationForSubject),
+		preferenceOptions.value,
+	)
 	const insideQueryRange = (value: number, range: QueryState['rate']) => {
 		if (!range.enabled) return true
 		const [start, end] = range.value
@@ -388,12 +421,15 @@ export function provideWorkbench(
 	const focusedWorkSearch = ref('')
 
 	const rankingValue = (person: Person, metric = rankingMetric.value) => {
-		if (metric === 'average') return Number(person.userAverage || 0)
+		if (metric === 'average') {
+			return Number(person.ratedSubjectCount || 0) ? Number(person.userAverage || 0) : null
+		}
 		if (metric === 'overall') {
-			if (!Number(person.ratedSubjectCount || 0)) return 0
-			const count = Number(person.subjectCount || 0)
+			if (!Number(person.ratedSubjectCount || 0)) return null
+			const count = Number(person.ratedSubjectCount || 0)
 			return roundTwo((count * Number(person.userAverage || 0) + 25) / (count + 5))
 		}
+		if (metric === 'preference') return person.preference?.score ?? null
 		return Number(person.subjectCount || 0)
 	}
 
@@ -420,6 +456,7 @@ export function provideWorkbench(
 				ratedSubjectCount,
 				userAverage: averageForIds(subjectIds),
 				globalAverage: globalAverageForIds(subjectIds),
+				preference: query.isGlobal ? undefined : preferenceForIds(subjectIds),
 			}
 		})
 		.filter((person): person is Person => Boolean(person))
@@ -430,11 +467,17 @@ export function provideWorkbench(
 				.some((value) => compactSearch(value).includes(queryValue))
 		})
 		.sort((a, b) => {
-			const aHasMetric = rankingMetric.value === 'count' || Number(a.ratedSubjectCount || 0) > 0
-			const bHasMetric = rankingMetric.value === 'count' || Number(b.ratedSubjectCount || 0) > 0
+			const aValue = rankingValue(a)
+			const bValue = rankingValue(b)
+			const aHasMetric = aValue !== null && Number.isFinite(aValue)
+			const bHasMetric = bValue !== null && Number.isFinite(bValue)
 			if (aHasMetric !== bHasMetric) return aHasMetric ? -1 : 1
-			const delta = rankingValue(a) - rankingValue(b)
+			const delta = Number(aValue || 0) - Number(bValue || 0)
 			if (delta !== 0) return rankingAscend.value ? delta : -delta
+			if (rankingMetric.value === 'preference') {
+				const evidenceDelta = Number(b.preference?.effectiveEvidence || 0) - Number(a.preference?.effectiveEvidence || 0)
+				if (evidenceDelta !== 0) return evidenceDelta
+			}
 			return Number(b.subjectCount || 0) - Number(a.subjectCount || 0)
 				|| Number(b.userAverage || 0) - Number(a.userAverage || 0)
 				|| Number(a.id) - Number(b.id)
@@ -446,9 +489,30 @@ export function provideWorkbench(
 		const start = (rankingPage.value - 1) * rankingPageSize.value
 		return rankingPeople.value.slice(start, start + rankingPageSize.value)
 	})
-	const rankingProgress = (person: Person) => {
-		const max = Math.max(1, ...rankingPeople.value.map((item) => rankingValue(item)))
-		return Math.max(4, (rankingValue(person) / max) * 100)
+	const rankingProgress = (person: Person): RankingProgress => {
+		const value = rankingValue(person)
+		if (rankingMetric.value === 'preference') {
+			const maxAbsolute = Math.max(0, ...rankingPeople.value
+				.map((item) => rankingValue(item, 'preference'))
+				.filter((item): item is number => item !== null && Number.isFinite(item))
+				.map(Math.abs))
+			if (value === null || !Number.isFinite(value) || Math.abs(value) < 1e-12 || maxAbsolute <= 0) {
+				return { signed: true, direction: 'neutral', percent: 0 }
+			}
+			return {
+				signed: true,
+				direction: value > 0 ? 'positive' : 'negative',
+				percent: Math.min(50, Math.abs(value) / maxAbsolute * 50),
+			}
+		}
+		const values = rankingPeople.value
+			.map((item) => rankingValue(item))
+			.filter((item): item is number => item !== null && Number.isFinite(item))
+		const max = Math.max(1, ...values)
+		const percent = value === null || !Number.isFinite(value) || value <= 0
+			? 0
+			: Math.max(4, value / max * 100)
+		return { signed: false, direction: 'neutral', percent }
 	}
 
 	const focusedPerson = computed(() => rankingPeople.value.find((person) => Number(person.id) === Number(focusedPersonId.value)) ?? rankingPeople.value[0] ?? null)
@@ -456,23 +520,6 @@ export function provideWorkbench(
 		.map((id) => subjectsById.value.get(Number(id)))
 		.filter((subject): subject is Subject => Boolean(subject))
 		.sort((a, b) => Number(b.collection?.rate || 0) - Number(a.collection?.rate || 0) || Number(b.score || 0) - Number(a.score || 0)))
-	const focusedSubjects = computed(() => {
-		const queryValue = compactSearch(focusedWorkSearch.value)
-		return focusedAllSubjects.value
-			.filter((subject) => {
-				if (!queryValue) return true
-				const roles = focusedPerson.value
-					? personSubjectRoles(focusedPerson.value, subject.id).flatMap((role) => [
-						role.displayName,
-						role.nameCN,
-						role.name,
-						role.roleLabel,
-					])
-					: []
-				return [subjectName(subject), subject.displayName, subject.nameCN, subject.name, ...roles]
-					.some((value) => compactSearch(value).includes(queryValue))
-			})
-	})
 	const focusedDistribution = computed(() => Array.from({ length: 10 }, (_, index) => ({
 		label: String(index + 1),
 		value: focusedAllSubjects.value.filter((subject) => Number(subject.collection?.rate || 0) === index + 1).length,
@@ -480,8 +527,26 @@ export function provideWorkbench(
 		label: '未评',
 		value: focusedAllSubjects.value.filter((subject) => !Number(subject.collection?.rate || 0)).length,
 	}))
+	const focusedPreferenceContributions = computed(() => {
+		if (query.isGlobal) return []
+		return focusedAllSubjects.value
+			.map((subject): SubjectPreferenceContribution | null => {
+				const contribution = preferenceContribution(preferenceObservationForSubject(subject))
+				return contribution ? { ...contribution, subject } : null
+			})
+			.filter((item): item is SubjectPreferenceContribution => Boolean(item))
+			.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference)
+				|| Number(a.subjectId) - Number(b.subjectId))
+	})
 
 	watch([rankingMetric, rankingAscend, rankingSearch, rankingPageSize], () => { rankingPage.value = 1 })
+	watch([rankingMetric, rankingAscend], () => {
+		focusedPersonId.value = rankingPeople.value[0]?.id ?? 0
+		focusedWorkSearch.value = ''
+	})
+	watch(() => query.isGlobal, (isGlobal) => {
+		if (isGlobal && rankingMetric.value === 'preference') rankingMetric.value = 'count'
+	})
 	watch(rankingPageCount, (count) => { rankingPage.value = Math.min(rankingPage.value, count) })
 	watch(rankingPeople, (people) => {
 		if (people.some((person) => Number(person.id) === Number(focusedPersonId.value))) return
@@ -492,10 +557,11 @@ export function provideWorkbench(
 	const candidateSearch = ref('')
 	const candidatePage = ref(1)
 	const candidatePositionId = ref(102)
-	const candidatePageSize = computed(() => Math.max(1, Number(snapshot.value?.meta.ui?.pageSize || CANDIDATE_PAGE_SIZE)))
+	const candidatePageSize = ref(CANDIDATE_PAGE_SIZE)
 	const selectedScopes = ref<SelectedScope[]>([
-		{ personId: 4697, positionId: 102 },
+		{ personId: 5745, positionId: 102 },
 		{ personId: 4765, positionId: 102 },
+		{ personId: 10600, positionId: 102 },
 	])
 	const peopleDrawerOpen = ref(false)
 	const inspectorDrawerOpen = ref(false)
@@ -548,7 +614,7 @@ export function provideWorkbench(
 		candidateSearch.value = ''
 		candidatePage.value = 1
 	})
-	watch(candidateSearch, () => { candidatePage.value = 1 })
+	watch([candidateSearch, candidatePageSize], () => { candidatePage.value = 1 })
 	watch(candidatePageCount, (count) => { candidatePage.value = Math.min(candidatePage.value, count) })
 
 	const validateQuery = (source: QueryState) => {
@@ -717,11 +783,12 @@ export function provideWorkbench(
 		focusedPersonId,
 		focusedPerson,
 		focusedAllSubjects,
-		focusedSubjects,
 		focusedWorkSearch,
 		focusedDistribution,
+		focusedPreferenceContributions,
 		candidateSearch,
 		candidatePage,
+		candidatePageSize,
 		candidatePositionId,
 		candidatePositionOptions,
 		candidatePeople,

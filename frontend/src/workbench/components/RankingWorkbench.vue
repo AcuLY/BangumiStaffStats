@@ -6,26 +6,49 @@ import { useMediaQuery } from '../composables/useMediaQuery'
 import RankedPersonList from './RankedPersonList.vue'
 import PersonInspector from './PersonInspector.vue'
 import AppIcon from './AppIcon.vue'
+import AdaptivePagination from './AdaptivePagination.vue'
 
 const workbench = useWorkbench()
 const isMobile = useMediaQuery('(max-width: 780px)')
-const isNarrow = useMediaQuery('(max-width: 480px)')
+const controlSize = 'medium' as const
+const resultStatisticThemeOverrides = {
+	valueFontSize: '20px',
+}
 
-const sortOptions: Array<{ label: string; value: RankingMetric }> = [
+const containDrawerWheel = (event: WheelEvent) => {
+	if (!event.deltaY) return
+	const scrollContainer = event.currentTarget
+	if (!(scrollContainer instanceof HTMLElement)) return
+
+	const maxScrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight
+	const canScroll = event.deltaY < 0
+		? scrollContainer.scrollTop > 0
+		: scrollContainer.scrollTop < maxScrollTop - 1
+	if (!canScroll) event.preventDefault()
+	event.stopPropagation()
+}
+
+const drawerScrollbarProps = {
+	containerStyle: { overscrollBehavior: 'contain' },
+	onWheel: containDrawerWheel,
+}
+
+const sortOptions = computed<Array<{ label: string; value: RankingMetric }>>(() => [
 	{ label: '作品数', value: 'count' },
 	{ label: '我的均分', value: 'average' },
 	{ label: '综合分', value: 'overall' },
-]
-const pageSizeOptions = [5, 10, 20, 50].map((value) => ({ label: `${value} / 页`, value }))
+	...(workbench.query.isGlobal ? [] : [{ label: '相对偏好', value: 'preference' as const }]),
+])
+const pageSizeOptions = [5, 10, 20, 50].map((value) => ({ label: `每页 ${value} 人`, value }))
+const updateRankingPageSize = (value: number) => {
+	workbench.rankingPageSize.value = value
+	workbench.rankingPage.value = 1
+}
 const rankOffset = computed(() => (workbench.rankingPage.value - 1) * workbench.rankingPageSize.value)
 const rankRange = computed(() => ({
 	start: workbench.rankingPeople.value.length ? rankOffset.value + 1 : 0,
 	end: Math.min(rankOffset.value + workbench.rankingPageSize.value, workbench.rankingPeople.value.length),
 }))
-const rankingPositionLabel = computed(() => workbench.rankingPositionIds.value
-	.map(workbench.positionLabel)
-	.join(' + ') || '未选择职位')
-
 const activatePerson = (personId: number) => {
 	workbench.focusedPersonId.value = personId
 	workbench.focusedWorkSearch.value = ''
@@ -39,16 +62,23 @@ watch(isMobile, (mobile) => {
 
 <template>
 	<div id="mode-panel-ranking" class="ranking-workbench" role="tabpanel" aria-labelledby="mode-tab-ranking">
-		<aside class="ranking-pane surface-panel" aria-labelledby="ranking-list-title">
-			<header class="pane-heading">
-				<div>
-					<span class="section-context">{{ rankingPositionLabel }}</span>
-					<h2 id="ranking-list-title">人物排行</h2>
+		<aside class="ranking-pane" aria-label="人物排行">
+			<div class="ranking-controls">
+				<div class="ranking-result-stats" role="status" aria-live="polite">
+					<n-flex :size="4" align="flex-end" :wrap="true">
+						<n-statistic label="共统计到" tabular-nums :theme-overrides="resultStatisticThemeOverrides">
+							<n-number-animation :from="0" :to="workbench.rankingPeople.value.length" />
+							<template #suffix> 个人物，</template>
+						</n-statistic>
+						<n-statistic :label="'\u200B'" tabular-nums :theme-overrides="resultStatisticThemeOverrides">
+							<n-number-animation :from="0" :to="workbench.queryScopeSubjectIds.value.size" />
+							<template #suffix> 个条目</template>
+						</n-statistic>
+					</n-flex>
 				</div>
-				<strong class="result-count" role="status" aria-live="polite">{{ workbench.rankingPeople.value.length }} 人</strong>
-			</header>
-			<div class="ranking-search">
 				<n-input
+					class="ranking-search"
+					:size="controlSize"
 					v-model:value="workbench.rankingSearch.value"
 					clearable
 					placeholder="搜索人物名、别名或 ID…"
@@ -58,15 +88,13 @@ watch(isMobile, (mobile) => {
 				>
 					<template #prefix><AppIcon name="search" :size="16" /></template>
 				</n-input>
-			</div>
 
-			<div class="pane-toolbar" aria-label="排行排序">
-				<label>
-					<span>排序维度</span>
-					<n-select v-model:value="workbench.rankingMetric.value" :options="sortOptions" />
-				</label>
+				<div class="ranking-sort-field">
+					<n-select aria-label="排序维度" :size="controlSize" v-model:value="workbench.rankingMetric.value" :options="sortOptions" />
+				</div>
 				<n-button
-					class="order-button"
+					class="ranking-sort-direction"
+					:size="controlSize"
 					secondary
 					attr-type="button"
 					:aria-label="workbench.rankingAscend.value ? '当前升序，切换为降序' : '当前降序，切换为升序'"
@@ -82,7 +110,7 @@ watch(isMobile, (mobile) => {
 					<span>#</span>
 					<span />
 					<span>人物</span>
-					<span class="list-columns__metrics"><span>作品</span><span>均分</span><span>综合</span></span>
+					<span class="list-columns__metrics"><span>作品</span><span>均分</span><span>综合</span><span>偏好</span></span>
 				</div>
 				<RankedPersonList
 					:items="workbench.rankingPageItems.value"
@@ -94,15 +122,16 @@ watch(isMobile, (mobile) => {
 				/>
 			</div>
 
-			<footer class="pane-pagination pane-pagination--ranking">
-				<div class="pane-pagination__meta">
-					<span class="ranking-page-summary">{{ rankRange.start }}—{{ rankRange.end }} / {{ workbench.rankingPeople.value.length }}</span>
-					<n-select v-model:value="workbench.rankingPageSize.value" class="ranking-page-size" :options="pageSizeOptions" aria-label="排行每页人数" />
-				</div>
-				<n-pagination
-					v-model:page="workbench.rankingPage.value"
-					:page-count="workbench.rankingPageCount.value"
-					:page-slot="isNarrow ? 2 : 4"
+			<footer>
+				<AdaptivePagination
+					:page="workbench.rankingPage.value"
+					:page-size="workbench.rankingPageSize.value"
+					:item-count="workbench.rankingPeople.value.length"
+					:page-sizes="pageSizeOptions"
+					:summary="`${rankRange.start}—${rankRange.end} / ${workbench.rankingPeople.value.length}`"
+					aria-label="人物排行分页"
+					@update:page="workbench.rankingPage.value = $event"
+					@update:page-size="updateRankingPageSize"
 				/>
 			</footer>
 		</aside>
@@ -111,16 +140,28 @@ watch(isMobile, (mobile) => {
 			<PersonInspector />
 		</section>
 
-		<n-drawer v-if="isMobile" v-model:show="workbench.inspectorDrawerOpen.value" placement="right" width="min(720px, 94vw)" aria-label="人物详情">
-			<n-drawer-content body-content-style="padding: 0;">
-				<template #header>
-					<div class="drawer-custom-heading">
-						<strong>人物详情</strong>
-						<n-button class="drawer-close-button" quaternary circle attr-type="button" aria-label="关闭人物详情" @click="workbench.inspectorDrawerOpen.value = false">
-							<template #icon><AppIcon name="close" /></template>
-						</n-button>
-					</div>
-				</template>
+		<n-drawer
+			v-if="isMobile"
+			v-model:show="workbench.inspectorDrawerOpen.value"
+			:block-scroll="true"
+			class="ranking-inspector-drawer workbench-translucent-drawer"
+			placement="bottom"
+			height="min(92dvh, 800px)"
+			aria-label="人物详情"
+		>
+			<!-- Special case: DrawerContent has no edge-to-edge body prop; use its public body-content-style API. -->
+			<n-drawer-content
+				:native-scrollbar="false"
+				:scrollbar-props="drawerScrollbarProps"
+				:closable="false"
+				body-content-style="padding: 0;"
+			>
+				<div class="drawer-custom-heading drawer-custom-heading--inspector">
+					<strong>人物详情</strong>
+					<n-button size="medium" quaternary circle attr-type="button" aria-label="关闭人物详情" @click="workbench.inspectorDrawerOpen.value = false">
+						<template #icon><AppIcon name="close" /></template>
+					</n-button>
+				</div>
 				<div id="ranking-inspector"><PersonInspector /></div>
 			</n-drawer-content>
 		</n-drawer>

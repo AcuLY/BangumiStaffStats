@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CandidatePerson, Person } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
+import { useMediaQuery } from '../composables/useMediaQuery'
 import AppIcon from './AppIcon.vue'
 import SafeImage from './SafeImage.vue'
 
@@ -22,14 +23,40 @@ const emit = defineEmits<{
 }>()
 
 const workbench = useWorkbench()
+const isMobile = useMediaQuery('(max-width: 780px)')
 
-const formatScore = (value: number | undefined, hasRating = true) =>
+const formatScore = (value: number | null | undefined, hasRating = true) =>
 	hasRating && Number.isFinite(value) ? Number(value).toFixed(2) : '—'
+
+const formatPreference = (person: Person) => {
+	const value = person.preference?.score
+	if (value === null || value === undefined || !Number.isFinite(value)) return '—'
+	return `${value < 0 ? '−' : '+'}${Math.abs(value).toFixed(2)}`
+}
+
+const hasPreference = (person: Person) => Number.isFinite(person.preference?.score)
+const preferenceSign = (person: Person) => Number(person.preference?.score) < 0 ? '−' : '+'
+const preferenceMagnitude = (person: Person) => Math.abs(Number(person.preference?.score)).toFixed(2)
+
+const progressClass = (person: Person) => {
+	const progress = workbench.rankingProgress(person)
+	return {
+		'is-signed': progress.signed,
+		'is-positive': progress.direction === 'positive',
+		'is-negative': progress.direction === 'negative',
+		'is-neutral': progress.direction === 'neutral',
+	}
+}
+
+const progressStyle = (person: Person) => ({
+	'--row-progress': `${workbench.rankingProgress(person).percent}%`,
+})
 
 const metricSummary = (person: Person) => [
 	`${person.subjectCount ?? 0} 部作品`,
 	`我的均分 ${formatScore(person.userAverage, Boolean(person.ratedSubjectCount))}`,
 	`综合分 ${formatScore(workbench.rankingValue(person, 'overall'), Boolean(person.ratedSubjectCount))}`,
+	`相对偏好 ${formatPreference(person)}`,
 ].join('，')
 
 const isCandidate = (person: Person | CandidatePerson): person is CandidatePerson =>
@@ -42,16 +69,19 @@ const isCandidate = (person: Person | CandidatePerson): person is CandidatePerso
 			<button
 				v-if="variant === 'ranking'"
 				class="person-row person-row--ranking"
-				:class="{ 'is-focused': workbench.focusedPersonId.value === person.id }"
-				:style="{ '--row-progress': `${workbench.rankingProgress(person)}%` }"
+				:class="{
+					'is-focused': workbench.focusedPersonId.value === person.id,
+					'has-signed-progress': workbench.rankingProgress(person).signed,
+				}"
+				:style="progressStyle(person)"
 				:aria-current="workbench.focusedPersonId.value === person.id ? 'true' : undefined"
 				aria-controls="ranking-inspector"
-				:aria-expanded="workbench.focusedPersonId.value === person.id"
+				:aria-expanded="workbench.focusedPersonId.value === person.id && (!isMobile || workbench.inspectorDrawerOpen.value)"
 				:aria-label="`${rankOffset + index + 1}. ${workbench.personName(person)}，${workbench.personSecondaryName(person) || '人物资料'}，${metricSummary(person)}`"
 				type="button"
 				@click="emit('activate', person.id)"
 			>
-				<span class="person-row__progress" aria-hidden="true" />
+				<span class="person-row__progress" :class="progressClass(person)" aria-hidden="true" />
 				<span class="person-row__rank">{{ rankOffset + index + 1 }}</span>
 				<SafeImage
 					class="person-row__avatar"
@@ -75,6 +105,10 @@ const isCandidate = (person: Person | CandidatePerson): person is CandidatePerso
 					</span>
 					<span class="person-row__metric" :class="{ 'is-active': workbench.rankingMetric.value === 'overall' }">
 						<strong>{{ formatScore(workbench.rankingValue(person, 'overall'), Boolean(person.ratedSubjectCount)) }}</strong>
+					</span>
+					<span class="person-row__metric" :class="{ 'is-active': workbench.rankingMetric.value === 'preference', 'is-unavailable': !hasPreference(person) }">
+						<strong v-if="hasPreference(person)" class="person-row__signed-value"><span>{{ preferenceSign(person) }}</span><span>{{ preferenceMagnitude(person) }}</span></strong>
+						<strong v-else>—</strong>
 					</span>
 				</span>
 			</button>

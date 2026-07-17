@@ -19,13 +19,11 @@ const CHARACTER_BASE_URL = 'https://bgm.tv/character/'
 </script>
 
 <template>
-	<n-list
+	<ul
 		class="list"
 		:style="{ maxHeight: `${displayStore.rowHeight}px` }"
-		clickable
-		:show-divider="false"
 	>
-		<n-list-item class="list-item" v-for="item in props.items">
+		<li class="list-item" v-for="item in props.items" :key="item.id">
 			<template v-if="'subject' in item">
 				<n-tooltip
 					placement="top-end"
@@ -69,33 +67,28 @@ const CHARACTER_BASE_URL = 'https://bgm.tv/character/'
 					<TableText :value="name(item)" />
 				</n-tooltip>
 			</template>
-		</n-list-item>
-	</n-list>
+		</li>
+	</ul>
 </template>
 
 <style scoped>
 .list {
+	margin: 2px 8px;
+	padding: 0;
+	list-style: none;
+	background-color: transparent;
 	overflow-x: hidden;
 	overflow-y: scroll;
 }
 
-.n-list {
-	background-color: transparent;
-	margin: 2px 8px;
-}
-
-.n-list::-webkit-scrollbar {
+.list::-webkit-scrollbar {
 	width: 4px;
 }
 
-:deep(.n-list-item) {
+.list-item {
 	width: 92%;
 	padding: 0;
 	margin: 4px;
-}
-
-:deep(.n-list-item__main) {
-	width: 100%;
 }
 
 .name {
@@ -130,15 +123,15 @@ const CHARACTER_BASE_URL = 'https://bgm.tv/character/'
 }
 
 @media (max-width: 768px) {
-	.n-list {
+	.list {
 		margin: 2px 5px;
 	}
 
-	.n-list::-webkit-scrollbar {
+	.list::-webkit-scrollbar {
 		width: 3px;
 	}
 
-	:deep(.n-list-item) {
+	.list-item {
 		margin: 1px;
 	}
 

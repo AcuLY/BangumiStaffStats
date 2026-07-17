@@ -17,15 +17,16 @@ const syncHeaderHeight = () => {
 	document.documentElement.style.setProperty(`--workbench-header-${breakpoint}-height`, `${height}px`)
 }
 
-const modes: Array<{ value: WorkbenchMode; label: string; icon: 'ranking' | 'people' }> = [
-	{ value: 'ranking', label: '人物排行', icon: 'ranking' },
-	{ value: 'co-star', label: '共同参与分析', icon: 'people' },
+const modes: Array<{ value: WorkbenchMode; label: string }> = [
+	{ value: 'ranking', label: '人物排行' },
+	{ value: 'co-star', label: '共演分析' },
 ]
 
-const activateMode = (mode: WorkbenchMode, focus = false) => {
+const activateMode = (mode: string | number, focus = false) => {
+	if (mode !== 'ranking' && mode !== 'co-star') return
 	workbench.mode.value = mode
 	if (focus) requestAnimationFrame(() => {
-		document.querySelector<HTMLButtonElement>(`[data-mode-tab="${mode}"]`)?.focus()
+		document.querySelector<HTMLElement>(`#mode-tab-${mode}`)?.focus()
 	})
 }
 
@@ -64,49 +65,57 @@ onBeforeUnmount(() => {
 	<header ref="headerElement" class="workbench-header" :class="{ 'has-query-editor': workbench.queryEditing.value }">
 		<div class="workbench-header__bar">
 			<a class="workbench-brand" href="/person-workbench.html" aria-label="Bangumi Staff Statistics 人物工作台首页" translate="no">
-				<span class="workbench-brand__mark"><AppIcon name="brand" :size="25" /></span>
+				<img class="workbench-brand__mark" src="/bgmss.png" alt="" />
 				<span class="workbench-brand__copy">
 					<strong>Bangumi Staff Statistics</strong>
 				</span>
 			</a>
 
 			<nav class="mode-tabs" role="tablist" aria-label="工作台模式">
-				<button
-					v-for="(item, index) in modes"
-					:key="item.value"
-						:data-mode-tab="item.value"
-						:id="`mode-tab-${item.value}`"
-						class="mode-tab"
-					:class="{ 'is-active': workbench.mode.value === item.value }"
-					type="button"
-					role="tab"
-						:aria-selected="workbench.mode.value === item.value"
-						:aria-controls="workbench.mode.value === item.value ? `mode-panel-${item.value}` : undefined"
-					:tabindex="workbench.mode.value === item.value ? 0 : -1"
-					@click="activateMode(item.value)"
-					@keydown="onModeKeydown($event, index)"
+				<n-tabs
+					type="segment"
+					size="small"
+					:value="workbench.mode.value"
+					@update:value="activateMode"
 				>
-					<AppIcon :name="item.icon" :size="17" />
-					{{ item.label }}
-				</button>
+					<n-tab
+						v-for="(item, index) in modes"
+						:key="item.value"
+						:name="item.value"
+						:id="`mode-tab-${item.value}`"
+						role="tab"
+						:aria-selected="workbench.mode.value === item.value"
+						:aria-controls="`mode-panel-${item.value}`"
+						:tabindex="workbench.mode.value === item.value ? 0 : -1"
+						@keydown="onModeKeydown($event, index)"
+					>
+						{{ item.label }}
+					</n-tab>
+				</n-tabs>
 			</nav>
 
-			<n-button
-				class="theme-toggle"
-				quaternary
-				circle
-				attr-type="button"
-				:aria-pressed="workbench.theme.value === 'dark'"
-				:aria-label="workbench.theme.value === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
-				:title="workbench.theme.value === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
-				@click="workbench.toggleTheme"
-			>
-				<template #icon><AppIcon :name="workbench.theme.value === 'dark' ? 'sun' : 'moon'" :size="17" /></template>
-			</n-button>
+			<span class="theme-toggle-slot">
+				<n-button
+					class="theme-toggle"
+					size="medium"
+					quaternary
+					circle
+					attr-type="button"
+					:aria-pressed="workbench.theme.value === 'dark'"
+					:aria-label="workbench.theme.value === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
+					:title="workbench.theme.value === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
+					@click="workbench.toggleTheme"
+				>
+					<template #icon><AppIcon :name="workbench.theme.value === 'dark' ? 'sun' : 'moon'" :size="18" /></template>
+				</n-button>
+			</span>
 
 		</div>
 		<div class="workbench-header__query">
 			<slot name="query" />
+		</div>
+		<div class="workbench-header__mobile-context">
+			<slot name="mobile-context" />
 		</div>
 	</header>
 </template>

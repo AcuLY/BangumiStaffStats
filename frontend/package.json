@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "dev:workbench": "vite --host 127.0.0.1 --port 4174 --strictPort",
-    "build": "vue-tsc -b && vite build",
+    "check:naive-css": "node scripts/check-naive-css-boundaries.mjs",
+    "generate:workbench": "node scripts/generate-workbench-data.mjs",
+    "test:unit": "vitest run",
+    "build": "npm run check:naive-css && vue-tsc -b && vite build",
     "preview": "vite preview",
     "preview:workbench": "vite preview --host 127.0.0.1 --port 4174 --strictPort"
   },

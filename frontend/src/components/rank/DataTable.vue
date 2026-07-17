@@ -179,56 +179,38 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-	<n-data-table
-		class="data-table"
-		ref="dataTableRef"
-		:columns="visibleColumns"
-		:data="responseStore.response.summaries"
-		:single-line="false"
-		:max-height="displayStore.tableHeight"
-		:loading="globalStore.isLoading"
-		striped
-		@update:sorter="handleSorterChange"
-	>
-		<template #loading>
-			<n-flex vertical>
-				<n-spin>
-					<template #description>
-						<div class="loading-text">
-							<h2 style="margin: 0">查询/加载中</h2>
-							<p style="margin: 0">条目越多所需要的时间可能就越长</p>
-							<p style="margin: 0">如果查询全站太慢请设置大一点的最小收藏人数</p>
-						</div>
-					</template>
-				</n-spin>
-			</n-flex>
-		</template>
-	</n-data-table>
+	<div class="data-table">
+		<n-data-table
+			ref="dataTableRef"
+			:columns="visibleColumns"
+			:data="responseStore.response.summaries"
+			:single-line="false"
+			:max-height="displayStore.tableHeight"
+			:loading="globalStore.isLoading"
+			size="medium"
+			striped
+			@update:sorter="handleSorterChange"
+		>
+			<template #loading>
+				<n-flex vertical>
+					<n-spin>
+						<template #description>
+							<div class="loading-text">
+								<h2 style="margin: 0">查询/加载中</h2>
+								<p style="margin: 0">条目越多所需要的时间可能就越长</p>
+								<p style="margin: 0">如果查询全站太慢请设置大一点的最小收藏人数</p>
+							</div>
+						</template>
+					</n-spin>
+				</n-flex>
+			</template>
+		</n-data-table>
+	</div>
 </template>
 
 <style scoped>
 .data-table {
 	width: 90vw;
-}
-
-.n-data-table {
-	overflow: hidden;
-}
-
-:deep(.n-data-table-base-table-body.n-scrollbar) {
-	--n-scrollbar-width: 6px !important;
-	--n-scrollbar-rail-right-vertical-right: 0 !important;
-}
-
-:deep(.n-data-table-td--last-col) {
-	padding: 0;
-	overflow: hidden;
-}
-
-@media (max-width: 768px) {
-	:deep(.n-data-table-base-table-body.n-scrollbar) {
-		--n-scrollbar-width: 3px !important;
-	}
 }
 
 .loading-text {

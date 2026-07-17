@@ -3,12 +3,14 @@
 </script>
 
 <template>
-	<n-flex class="content-wrapper" vertical align="center">
-		<Input />
-		<MoreOptions />
-		<n-divider class="divider"/>
-		<Rank />
-	</n-flex>
+	<div class="content-wrapper">
+		<n-flex vertical align="center">
+			<Input />
+			<MoreOptions />
+			<n-divider />
+			<Rank />
+		</n-flex>
+	</div>
 </template>
 
 <style scoped>
@@ -16,8 +18,4 @@
 	padding: 20px;
 }
 
-.divider {
-	width: 100vw;
-	margin: 10px 0 10px 0;
-}
 </style>

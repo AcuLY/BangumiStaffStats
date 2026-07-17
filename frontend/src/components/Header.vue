@@ -6,32 +6,43 @@ import Github from '@/assets/svgs/github.svg'
 
 const globalStore = useGlobalStore()
 const { switchMode } = globalStore
+
+const controlSize = computed(() => (globalStore.isMobile ? 'medium' : 'large'))
+const iconSize = computed(() => (globalStore.isMobile ? 24 : 40))
 </script>
 
 <template>
-	<n-flex class="header-wrapper" justify="space-between">
-		<n-flex>
-			<img src="/bgmss.png" class="bgmss-icon" />
-			<div>Bangumi Staff Statistics</div>
-		</n-flex>
+	<header class="header-wrapper">
+		<n-flex justify="space-between" align="center">
+			<n-flex align="center">
+				<img src="/bgmss.png" class="bgmss-icon" />
+				<div>Bangumi Staff Statistics</div>
+			</n-flex>
 
-		<n-flex justify="end">
-			<a href="https://github.com/AcuLY/BangumiStaffStats" target="_blank" class="github-icon">
-				<Github />
-			</a>
+			<n-flex justify="end" align="center">
+				<a href="https://github.com/AcuLY/BangumiStaffStats" target="_blank" class="github-icon">
+					<Github />
+				</a>
 
-			<n-button text class="dark-mode-icon" @click="switchMode" color="white">
-				<transition name="fade" mode="out-in">
-					<n-icon v-if="globalStore.darkMode">
-						<Light />
-					</n-icon>
-					<n-icon v-else>
-						<Dark />
-					</n-icon>
-				</transition>
-			</n-button>
+				<n-button
+					text
+					:size="controlSize"
+					@click="switchMode"
+					color="white"
+					aria-label="切换明暗主题"
+				>
+					<transition name="fade" mode="out-in">
+						<n-icon v-if="globalStore.darkMode" :size="iconSize">
+							<Light />
+						</n-icon>
+						<n-icon v-else :size="iconSize">
+							<Dark />
+						</n-icon>
+					</transition>
+				</n-button>
+			</n-flex>
 		</n-flex>
-	</n-flex>
+	</header>
 </template>
 
 <style scoped>
@@ -64,16 +75,6 @@ const { switchMode } = globalStore
 	color: var(--color-primary);
 }
 
-.dark-mode-icon {
-	color: white;
-	font-size: 40px;
-	transition: color 0.2s ease;
-}
-
-.dark-mode-icon:hover {
-	color: var(--color-primary);
-}
-
 @media (max-width: 768px) {
 	.header-wrapper {
 		padding: 10px;
@@ -84,10 +85,6 @@ const { switchMode } = globalStore
 		width: 24px;
 		height: 24px;
 		transform: translateY(-2px);
-	}
-
-	.dark-mode-icon {
-		font-size: 24px;
 	}
 
 	.github-icon {

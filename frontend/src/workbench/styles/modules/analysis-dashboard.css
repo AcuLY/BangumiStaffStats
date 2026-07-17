@@ -240,27 +240,3 @@
 	color: var(--primary-text);
 	font-weight: 700;
 }
-
-.n-drawer,
-.n-modal,
-.n-popover,
-.n-select-menu {
-	font-family: var(--font-ui);
-}
-
-.n-drawer {
-	background: var(--surface) !important;
-	color: var(--text-1);
-	overscroll-behavior: contain;
-}
-
-.n-button,
-.n-base-selection,
-.n-checkbox,
-.n-switch {
-	touch-action: manipulation;
-}
-
-.n-drawer-header {
-	border-bottom: 1px solid var(--divider);
-}

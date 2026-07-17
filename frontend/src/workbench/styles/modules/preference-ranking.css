@@ -1,0 +1,104 @@
+.person-row--ranking.has-signed-progress::after {
+	position: absolute;
+	inset: 0 auto 0 50%;
+	z-index: 0;
+	width: 1px;
+	background: color-mix(in oklab, var(--border) 78%, transparent);
+	content: "";
+	pointer-events: none;
+}
+
+.person-row__progress.is-signed {
+	inset: 0 auto 0 50%;
+	min-width: 2px;
+	background: color-mix(in oklab, var(--primary) 12%, transparent);
+}
+
+.person-row__progress.is-signed.is-negative {
+	inset: 0 50% 0 auto;
+	background: color-mix(in oklab, var(--text-3) 12%, transparent);
+}
+
+.person-row__progress.is-signed.is-neutral {
+	min-width: 0;
+}
+
+.preference-overview {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	align-items: center;
+	gap: 14px;
+	margin-bottom: 16px;
+	padding: 12px 14px;
+	border: 1px solid var(--divider);
+	border-radius: var(--radius-control);
+	background: var(--surface-subtle);
+}
+
+.preference-title-row {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+
+.preference-model-info {
+	display: inline-grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--text-3);
+	cursor: help;
+	transition: background-color 160ms ease-out, color 160ms ease-out;
+}
+
+.preference-model-info:hover {
+	background: var(--hover);
+	color: var(--primary-text);
+}
+
+.preference-model-tooltip {
+	display: block;
+	max-width: min(360px, 80vw);
+	line-height: 1.55;
+	white-space: pre-line;
+}
+
+.preference-overview__score {
+	color: var(--primary-text);
+	font-size: 24px;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+}
+
+.preference-overview__copy {
+	display: grid;
+	gap: 3px;
+	min-width: 0;
+}
+
+.preference-overview__copy strong {
+	color: var(--text-1);
+	font-size: 13px;
+}
+
+.preference-overview__copy small,
+.preference-model-note {
+	color: var(--text-3);
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.preference-work__copy small + small {
+	color: var(--text-2);
+}
+
+@container person-inspector (max-width: 480px) {
+	.preference-overview {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 7px;
+	}
+}

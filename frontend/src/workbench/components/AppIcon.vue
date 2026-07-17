@@ -1,6 +1,6 @@
 <script setup lang="ts">
 withDefaults(defineProps<{
-	name: 'brand' | 'ranking' | 'people' | 'sun' | 'moon' | 'search' | 'chevron' | 'close' | 'plus' | 'check' | 'person' | 'image' | 'edit' | 'arrow' | 'info'
+	name: 'brand' | 'ranking' | 'people' | 'sun' | 'moon' | 'search' | 'chevron' | 'close' | 'plus' | 'check' | 'person' | 'image' | 'edit' | 'arrow' | 'external' | 'info'
 	size?: number
 }>(), { size: 18 })
 </script>
@@ -63,6 +63,10 @@ withDefaults(defineProps<{
 		</template>
 		<template v-else-if="name === 'arrow'">
 			<path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+		</template>
+		<template v-else-if="name === 'external'">
+			<path d="M14 5h5v5M19 5l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+			<path d="M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
 		</template>
 		<template v-else-if="name === 'info'">
 			<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7" />

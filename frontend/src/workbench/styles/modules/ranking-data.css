@@ -1,16 +1,17 @@
 /* Parity layer: preserve the complete legacy workbench information model. */
-.ranking-search {
-	padding: 12px var(--section-pad) 0;
-	background: var(--surface-subtle);
+.ranking-controls > .ranking-search {
+	grid-area: search;
+	width: 100%;
+	min-width: 0;
 }
 
 .list-columns--ranking {
-	grid-template-columns: 28px minmax(0, 1fr) 162px;
+	grid-template-columns: 28px minmax(0, 1fr) 208px;
 }
 
 .list-columns__metrics {
 	display: grid;
-	grid-template-columns: repeat(3, minmax(46px, 1fr));
+	grid-template-columns: repeat(4, minmax(42px, 1fr));
 	gap: 8px;
 }
 
@@ -19,12 +20,12 @@
 }
 
 .person-row--ranking {
-	grid-template-columns: 28px 44px minmax(96px, 1fr) 162px 18px;
+	grid-template-columns: 28px 44px minmax(96px, 1fr) 208px 18px;
 }
 
 .person-row__metrics {
 	display: grid;
-	grid-template-columns: repeat(3, minmax(46px, 1fr));
+	grid-template-columns: repeat(4, minmax(42px, 1fr));
 	align-items: center;
 	gap: 8px;
 }
@@ -85,13 +86,6 @@
 	margin-top: 14px;
 }
 
-.rank-works-toolbar {
-	display: grid;
-	grid-template-columns: minmax(220px, 1fr) minmax(154px, 0.55fr) minmax(116px, 0.38fr);
-	gap: 8px;
-	margin-bottom: 12px;
-}
-
 .works-table--person {
 	min-width: 820px;
 }
@@ -139,19 +133,15 @@
 	align-items: center;
 	width: 100%;
 	min-height: 52px;
-	padding: 5px 0;
+	padding: 5px 8px;
 	border: 0;
+	border-radius: var(--radius-control);
 	background: transparent;
 	color: inherit;
 	font: inherit;
 	text-align: left;
 	cursor: pointer;
-}
-
-.preference-work:focus-visible {
-	border-radius: var(--radius-control);
-	outline: 2px solid var(--focus);
-	outline-offset: 2px;
+	transition: background-color 160ms ease-out, color 160ms ease-out;
 }
 
 .preference-work .safe-image {

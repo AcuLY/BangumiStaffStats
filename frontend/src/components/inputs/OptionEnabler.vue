@@ -59,21 +59,23 @@ switch (props.type) {
 		break
 }
 
-const size = globalStore.isMobile ? 'small' : 'medium'
+const size = computed(() => (globalStore.isMobile ? 'small' : 'medium'))
 </script>
 
 <template>
-	<n-card class="enabler-wrapper" :size="size">
-		<template #header>
-			<span class="title">{{ title }}</span>
-		</template>
+	<div class="enabler-wrapper">
+		<n-card :size="size">
+			<template #header>
+				<span class="title">{{ title }}</span>
+			</template>
 
-		<template #header-extra>
-			<n-switch v-model:value="value" :size="size" />
-		</template>
+			<template #header-extra>
+				<n-switch v-model:value="value" :size="size" />
+			</template>
 
-		<span class="description" v-html="description" />
-	</n-card>
+			<span class="description" v-html="description" />
+		</n-card>
+	</div>
 </template>
 
 <style scoped>

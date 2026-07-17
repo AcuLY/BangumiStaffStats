@@ -39,57 +39,57 @@ switch (props.type) {
 <template>
 	<InputCard :type="props.type" v-show="enable">
 		<n-flex justify="space-between">
-			<n-input-number
-				v-if="props.type != INPUT_TYPE.DATE_RANGE"
-				class="input-number"
-				v-model:value="range[0]"
-				:step="step"
-				:max="max"
-				:min="0"
-				clearable
-				button-placement="both"
-			/>
+			<div v-if="props.type != INPUT_TYPE.DATE_RANGE" class="range-control">
+				<n-input-number
+					v-model:value="range[0]"
+					size="medium"
+					:step="step"
+					:max="max"
+					:min="0"
+					clearable
+					button-placement="both"
+				/>
+			</div>
 
-			<n-date-picker
-				v-else
-				class="date-picker"
-				v-model:value="range[0]"
-				type="month"
-				clearable
-				update-value-on-close
-			/>
+			<div v-else class="range-control">
+				<n-date-picker
+					v-model:value="range[0]"
+					size="medium"
+					type="month"
+					clearable
+					update-value-on-close
+				/>
+			</div>
 
 			<span style="font-size: large">~</span>
 
-			<n-input-number
-				v-if="props.type != INPUT_TYPE.DATE_RANGE"
-				class="input-number"
-				v-model:value="range[1]"
-				:step="step"
-				:max="max"
-				:min="0"
-				clearable
-				button-placement="both"
-			/>
+			<div v-if="props.type != INPUT_TYPE.DATE_RANGE" class="range-control">
+				<n-input-number
+					v-model:value="range[1]"
+					size="medium"
+					:step="step"
+					:max="max"
+					:min="0"
+					clearable
+					button-placement="both"
+				/>
+			</div>
 
-			<n-date-picker
-				v-else
-				class="date-picker"
-				v-model:value="range[1]"
-				type="month"
-				clearable
-				update-value-on-close
-			/>
+			<div v-else class="range-control">
+				<n-date-picker
+					v-model:value="range[1]"
+					size="medium"
+					type="month"
+					clearable
+					update-value-on-close
+				/>
+			</div>
 		</n-flex>
 	</InputCard>
 </template>
 
 <style scoped>
-.input-number {
-	width: 120px;
-}
-
-.date-picker {
+.range-control {
 	width: 120px;
 }
 </style>

@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#141419">
+  <link rel="preconnect" href="https://search.bgmss.fun" crossorigin>
+  <title>角色参与主导 · 作品列表布局原型</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --font: "Source Han Sans SC VF", "Source Han Sans SC", "Noto Sans CJK SC", "PingFang SC", sans-serif;
+      --canvas: oklch(0.16 0.008 280); --surface: oklch(0.205 0.01 280); --surface-2: oklch(0.235 0.012 280);
+      --sunken: oklch(0.18 0.009 280); --hover: oklch(0.27 0.012 280); --border: oklch(0.33 0.012 280);
+      --divider: oklch(0.275 0.011 280); --text-1: oklch(0.95 0.006 280); --text-2: oklch(0.82 0.01 280);
+      --text-3: oklch(0.69 0.012 280); --primary: oklch(0.79 0.13 350); --primary-soft: oklch(0.27 0.055 350);
+      --success: oklch(0.72 0.13 160);
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--canvas); }
+    body { min-width: 320px; min-height: 100vh; margin: 0; overflow-x: hidden; background: var(--canvas); color: var(--text-1); font: 14px/1.45 var(--font); }
+    a { color: inherit; text-decoration: none; touch-action: manipulation; }
+    a:hover { color: var(--primary); }
+    a:focus-visible, summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+    h1, h2, h3, p, dl, dd { margin: 0; }
+    h1, h2, h3 { text-wrap: balance; }
+    .skip { position: fixed; top: 8px; left: 8px; z-index: 2; padding: 8px 12px; border-radius: 6px; background: var(--primary-soft); color: var(--primary); transform: translateY(-160%); }
+    .skip:focus-visible { transform: none; }
+    .prototype-bar { width: min(977px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 18px; display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+    .prototype-bar h1 { font-size: 22px; letter-spacing: -0.02em; }
+    .prototype-bar p { margin-top: 4px; color: var(--text-3); }
+    .variant-nav { display: flex; flex-wrap: wrap; gap: 4px; }
+    .variant-nav a { min-height: 44px; padding: 11px 10px; border-radius: 6px; color: var(--text-2); }
+    .variant-nav a:hover { background: var(--hover); color: var(--text-1); }
+    .variant-nav [aria-current="page"] { background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+    main { padding-bottom: 44px; }
+    .scene { width: min(977px, calc(100% - 32px)); margin: 0 auto 28px; }
+    .scene-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 9px; }
+    .scene-head h2 { font-size: 16px; }
+    .scene-head p { color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .app-frame { display: grid; gap: 16px; min-width: 0; }
+    .ranking-frame { grid-template-columns: 360px 601px; }
+    .costar-frame { grid-template-columns: 320px 641px; }
+    .mock-rail, .mock-main, .rail-fold { min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: hidden; }
+    .mock-rail { background: var(--sunken); }
+    .rail-head, .panel-head { padding: 17px 18px; border-bottom: 1px solid var(--divider); }
+    .rail-head strong, .panel-head h3 { font-size: 16px; }
+    .rail-head span, .panel-head p { display: block; margin-top: 2px; color: var(--text-3); font-size: 12px; }
+    .rail-list { margin: 0; padding: 8px 12px 12px; list-style: none; }
+    .rail-list li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 48px; padding: 7px 6px; border-bottom: 1px solid var(--divider); }
+    .rail-list li:last-child { border-bottom: 0; }
+    .rail-index { color: var(--text-3); text-align: center; font-variant-numeric: tabular-nums; }
+    .rail-person { min-width: 0; }
+    .rail-person b, .rail-person small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rail-person small { color: var(--text-3); }
+    .rail-value { color: var(--text-2); font-variant-numeric: tabular-nums; }
+    .selected { background: var(--primary-soft); border-radius: 6px; }
+    .mock-main { padding: 0 24px 22px; }
+    .mock-main .panel-head { margin: 0 -24px 4px; padding-inline: 24px; }
+    .rail-fold { display: none; margin-bottom: 10px; }
+    .rail-fold summary { min-height: 48px; padding: 13px 16px; cursor: pointer; list-style: none; font-weight: 700; }
+    .rail-fold summary::-webkit-details-marker { display: none; }
+    .rail-fold summary::after { content: "+"; float: right; color: var(--text-3); }
+    .rail-fold[open] summary::after { content: "−"; }
+    .work-list { margin: 0; padding: 0; list-style: none; }
+    .work-row { min-width: 0; padding: 15px 0 16px; border-bottom: 1px solid var(--divider); }
+    .work-list > li:last-child .work-row { border-bottom: 0; }
+    .subject-line { display: grid; grid-template-columns: 64px minmax(0, 1fr) 142px; gap: 12px; align-items: start; min-width: 0; }
+    .cover { position: relative; display: grid; place-items: center; width: 64px; height: 90px; overflow: hidden; border-radius: 5px; background: var(--surface-2); color: var(--text-3); }
+    .cover img { width: 100%; height: 100%; object-fit: cover; }
+    .cover svg { display: none; width: 26px; height: 26px; }
+    .cover.is-fallback svg { display: block; }
+    .identity { min-width: 0; padding-top: 1px; }
+    .title { display: block; color: var(--text-1); font-size: 15px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+    .original { margin-top: 2px; color: var(--text-3); font-size: 12px; overflow-wrap: anywhere; }
+    .tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 9px 0 0; padding: 0; list-style: none; }
+    .tags li { padding: 1px 6px; border: 1px solid var(--divider); border-radius: 999px; color: var(--text-2); font-size: 11px; white-space: nowrap; }
+    .evidence { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; }
+    .evidence > div { min-width: 0; padding: 2px 8px 7px; border-left: 1px solid var(--divider); }
+    .evidence dt { color: var(--text-3); font-size: 10px; white-space: nowrap; }
+    .evidence dd { margin-top: 1px; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .evidence .status { color: var(--success); }
+    .evidence .delta { color: var(--primary); }
+    .credit-ledger { margin: 11px 0 0 76px; min-width: 0; border-block: 1px solid var(--divider); background: var(--sunken); }
+    .credit { display: grid; grid-template-columns: 24px minmax(88px, .72fr) minmax(110px, 1fr) auto; align-items: center; gap: 8px; min-width: 0; min-height: 44px; padding: 6px 9px; }
+    .credit + .credit { border-top: 1px solid var(--divider); }
+    .credit-index { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 5px; background: var(--primary-soft); color: var(--primary); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .credit-person, .credit-character { min-width: 0; overflow-wrap: anywhere; }
+    .credit-person { font-weight: 700; }
+    .credit-character { color: var(--text-2); }
+    .credit-role { color: var(--text-3); font-size: 12px; white-space: nowrap; }
+    .credit.no-character { grid-template-columns: 24px minmax(120px, 1fr) auto; }
+    .credit.no-character .credit-role { color: var(--text-2); }
+    .credits-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 13px 0 6px 76px; color: var(--text-3); font-size: 12px; }
+    .credit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 12px; min-width: 0; margin-left: 76px; border-block: 1px solid var(--divider); background: var(--divider); }
+    .credit-grid .credit { grid-template-columns: 24px minmax(72px, .72fr) minmax(78px, 1fr); min-height: 48px; background: var(--sunken); }
+    .credit-grid .credit:nth-child(2) { border-top: 0; }
+    .credit-grid .credit-role { grid-column: 2 / -1; }
+    .credit-grid .no-character { grid-template-columns: 24px minmax(0, 1fr); }
+    .credit-grid .no-character .credit-role { grid-column: 2; }
+    .credit-grid .credit:last-child:nth-child(odd) { grid-column: 1 / -1; }
+    .context-chip { display: inline-flex; align-items: center; min-height: 24px; margin-bottom: 5px; padding: 2px 7px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); font-size: 11px; }
+    @media (max-width: 779px) {
+      .prototype-bar { align-items: start; flex-direction: column; }
+      .scene { margin-bottom: 22px; }
+      .scene-head p { display: none; }
+      .app-frame { display: block; }
+      .mock-rail { display: none; }
+      .rail-fold { display: block; }
+      .mock-main { padding: 0 16px 16px; }
+      .mock-main .panel-head { margin-inline: -16px; padding-inline: 16px; }
+    }
+    @media (max-width: 520px) {
+      .prototype-bar, .scene { width: min(100% - 24px, 977px); }
+      .prototype-bar { padding-top: 18px; }
+      .prototype-bar h1 { font-size: 20px; }
+      .variant-nav { width: 100%; }
+      .variant-nav a { flex: 1 1 0; padding-inline: 6px; text-align: center; }
+      .subject-line { grid-template-columns: 58px minmax(0, 1fr); gap: 10px; }
+      .cover { width: 58px; height: 82px; }
+      .evidence { grid-column: 1 / -1; margin-left: 68px; }
+      .evidence > div:first-child { border-left: 0; padding-left: 0; }
+      .credit-ledger, .credits-label, .credit-grid { margin-left: 68px; }
+      .credit { grid-template-columns: 22px minmax(82px, .8fr) minmax(90px, 1fr); }
+      .credit-role { grid-column: 2 / -1; }
+      .credit.no-character { grid-template-columns: 22px minmax(0, 1fr); }
+      .credit.no-character .credit-role { grid-column: 2; }
+      .credit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 8px; }
+      .credit-grid .credit { grid-template-columns: 22px minmax(0, 1fr); align-content: center; }
+      .credit-grid .credit-person, .credit-grid .credit-character, .credit-grid .credit-role { grid-column: 2; }
+    }
+    @media (max-width: 420px) {
+      .subject-line { grid-template-columns: 52px minmax(0, 1fr); }
+      .cover { width: 52px; height: 74px; }
+      .evidence, .credit-ledger, .credits-label, .credit-grid { margin-left: 0; }
+      .evidence { margin-top: 9px; }
+      .credit-grid { grid-template-columns: 1fr; gap: 1px 0; }
+      .credit-grid .credit:nth-child(2) { border-top: 1px solid var(--divider); }
+      .credit-grid .credit:last-child:nth-child(odd) { grid-column: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">跳到主要内容</a>
+  <svg width="0" height="0" aria-hidden="true" focusable="false"><symbol id="image-fallback" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m6 16 4-4 3 3 2-2 3 3"/><circle cx="9" cy="8" r="1.5"/></symbol></svg>
+  <header class="prototype-bar">
+    <div><h1>角色参与主导</h1><p>在真实列表宽度里优先回答“谁以什么身份参与”。</p></div>
+    <nav class="variant-nav" aria-label="布局方案"><a href="subject-work-layout-editorial.html">条目主导</a><a href="subject-work-layout-scorecard.html">评分比较</a><a href="subject-work-layout-credits.html" aria-current="page">角色参与</a></nav>
+  </header>
+
+  <main id="content">
+    <section class="scene" aria-labelledby="ranking-title">
+      <header class="scene-head"><h2 id="ranking-title">人物排行 · 参与作品列表</h2><p>外框 977 · 左栏 360 · 详情 601 · 列表约 551</p></header>
+      <details class="rail-fold"><summary>人物排行 · 当前人物</summary><ul class="rail-list"><li><span class="rail-index">1</span><span class="rail-person"><b>宫野真守</b><small>声优</small></span><span class="rail-value">14 部</span></li></ul></details>
+      <div class="app-frame ranking-frame">
+        <aside class="mock-rail" aria-label="人物排行示意">
+          <header class="rail-head"><strong>人物排行</strong><span>按参与作品数排序</span></header>
+          <ol class="rail-list"><li class="selected"><span class="rail-index">1</span><span class="rail-person"><b>宫野真守</b><small>声优</small></span><span class="rail-value">14</span></li><li><span class="rail-index">2</span><span class="rail-person"><b>佐藤卓哉</b><small>监督</small></span><span class="rail-value">6</span></li><li><span class="rail-index">3</span><span class="rail-person"><b>花田十辉</b><small>脚本 · 系列构成</small></span><span class="rail-value">29</span></li></ol>
+        </aside>
+        <section class="mock-main" aria-labelledby="ranking-list-title">
+          <header class="panel-head"><h3 id="ranking-list-title">参与作品</h3><p>同一行结构兼容配音角色与幕后职位</p></header>
+          <ol class="work-list">
+            <li><article class="work-row">
+              <span class="context-chip">声优 · 宫野真守</span>
+              <div class="subject-line">
+                <a class="cover" href="https://bgm.tv/subject/10380" target="_blank" rel="noopener noreferrer" aria-label="打开命运石之门"><img src="https://search.bgmss.fun/proxy/v0/subjects/10380/image?type=large" width="64" height="90" alt="命运石之门封面" fetchpriority="high" onerror="this.hidden=true;this.parentElement.classList.add('is-fallback')"><svg aria-hidden="true"><use href="#image-fallback"/></svg></a>
+                <div class="identity"><a class="title" href="https://bgm.tv/subject/10380" target="_blank" rel="noopener noreferrer">命运石之门</a><p class="original" lang="en" translate="no">STEINS;GATE</p><ul class="tags" aria-label="条目属性"><li>科幻</li><li>悬疑</li><li>TV</li><li>日本</li><li>游戏改</li></ul></div>
+                <dl class="evidence"><div><dt translate="no">Bangumi</dt><dd>8.80</dd></div><div><dt>我的评分</dt><dd>9.00</dd></div><div><dt>收藏</dt><dd class="status">看过</dd></div><div><dt>分差</dt><dd class="delta">+0.20</dd></div></dl>
+              </div>
+              <div class="credit-ledger" aria-label="宫野真守为冈部伦太郎配音，角色为主角"><div class="credit"><span class="credit-index">1</span><span class="credit-person">宫野真守</span><span class="credit-character">冈部伦太郎</span><span class="credit-role">声优 · 主角</span></div></div>
+            </article></li>
+            <li><article class="work-row">
+              <span class="context-chip">监督 · 佐藤卓哉</span>
+              <div class="subject-line">
+                <a class="cover" href="https://bgm.tv/subject/23119" target="_blank" rel="noopener noreferrer" aria-label="打开命运石之门 负荷领域的既视感"><img src="https://search.bgmss.fun/proxy/v0/subjects/23119/image?type=large" width="64" height="90" alt="命运石之门 负荷领域的既视感封面" loading="lazy" onerror="this.hidden=true;this.parentElement.classList.add('is-fallback')"><svg aria-hidden="true"><use href="#image-fallback"/></svg></a>
+                <div class="identity"><a class="title" href="https://bgm.tv/subject/23119" target="_blank" rel="noopener noreferrer">命运石之门 负荷领域的既视感</a><p class="original" lang="ja" translate="no">STEINS;GATE 負荷領域のデジャヴ</p><ul class="tags" aria-label="条目属性"><li>科幻</li><li>剧场版</li><li>恋爱</li><li>游戏改</li></ul></div>
+                <dl class="evidence"><div><dt translate="no">Bangumi</dt><dd>7.80</dd></div><div><dt>我的评分</dt><dd>7.00</dd></div><div><dt>收藏</dt><dd class="status">看过</dd></div><div><dt>分差</dt><dd class="delta">−0.80</dd></div></dl>
+              </div>
+              <div class="credit-ledger" aria-label="佐藤卓哉担任监督"><div class="credit no-character"><span class="credit-index">1</span><span class="credit-person">佐藤卓哉</span><span class="credit-role">监督</span></div></div>
+            </article></li>
+            <li><article class="work-row">
+              <span class="context-chip">脚本 · 系列构成 · 花田十辉</span>
+              <div class="subject-line">
+                <a class="cover" href="https://bgm.tv/subject/10380" target="_blank" rel="noopener noreferrer" aria-label="打开命运石之门"><img src="https://search.bgmss.fun/proxy/v0/subjects/10380/image?type=large" width="64" height="90" alt="命运石之门封面" loading="lazy" onerror="this.hidden=true;this.parentElement.classList.add('is-fallback')"><svg aria-hidden="true"><use href="#image-fallback"/></svg></a>
+                <div class="identity"><a class="title" href="https://bgm.tv/subject/10380" target="_blank" rel="noopener noreferrer">命运石之门</a><p class="original" lang="en" translate="no">STEINS;GATE</p><ul class="tags" aria-label="条目属性"><li>科幻</li><li>悬疑</li><li>TV</li><li>日本</li><li>游戏改</li></ul></div>
+                <dl class="evidence"><div><dt translate="no">Bangumi</dt><dd>8.80</dd></div><div><dt>我的评分</dt><dd>9.00</dd></div><div><dt>收藏</dt><dd class="status">看过</dd></div><div><dt>分差</dt><dd class="delta">+0.20</dd></div></dl>
+              </div>
+              <div class="credit-ledger" aria-label="花田十辉担任脚本与系列构成"><div class="credit no-character"><span class="credit-index">1</span><span class="credit-person">花田十辉</span><span class="credit-role">脚本 · 系列构成</span></div></div>
+            </article></li>
+          </ol>
+        </section>
+      </div>
+    </section>
+
+    <section class="scene" aria-labelledby="costar-title">
+      <header class="scene-head"><h2 id="costar-title">共演分析 · 共同参与作品</h2><p>外框 977 · 左栏 320 · 主区 641 · 列表约 591</p></header>
+      <details class="rail-fold"><summary>人物选择 · 已选 5 人</summary><ol class="rail-list"><li><span class="rail-index">1</span><span class="rail-person"><b>宫野真守</b><small>声优</small></span></li><li><span class="rail-index">2</span><span class="rail-person"><b>花泽香菜</b><small>声优</small></span></li></ol></details>
+      <div class="app-frame costar-frame">
+        <aside class="mock-rail" aria-label="人物选择示意">
+          <header class="rail-head"><strong>人物选择</strong><span>5 人 · 6 个身份</span></header>
+          <ol class="rail-list"><li><span class="rail-index">1</span><span class="rail-person"><b>宫野真守</b><small>声优</small></span></li><li><span class="rail-index">2</span><span class="rail-person"><b>花泽香菜</b><small>声优</small></span></li><li><span class="rail-index">3</span><span class="rail-person"><b>田村由香里</b><small>声优</small></span></li><li><span class="rail-index">4</span><span class="rail-person"><b>佐藤卓哉</b><small>监督</small></span></li><li><span class="rail-index">5</span><span class="rail-person"><b>花田十辉</b><small>脚本 · 系列构成</small></span></li></ol>
+        </aside>
+        <section class="mock-main" aria-labelledby="costar-list-title">
+          <header class="panel-head"><h3 id="costar-list-title">共同参与作品</h3><p>角色与幕后职位并列为参与凭据</p></header>
+          <ol class="work-list">
+            <li><article class="work-row">
+              <div class="subject-line">
+                <a class="cover" href="https://bgm.tv/subject/10380" target="_blank" rel="noopener noreferrer" aria-label="打开命运石之门"><img src="https://search.bgmss.fun/proxy/v0/subjects/10380/image?type=large" width="64" height="90" alt="命运石之门封面" fetchpriority="high" onerror="this.hidden=true;this.parentElement.classList.add('is-fallback')"><svg aria-hidden="true"><use href="#image-fallback"/></svg></a>
+                <div class="identity"><a class="title" href="https://bgm.tv/subject/10380" target="_blank" rel="noopener noreferrer">命运石之门</a><p class="original" lang="en" translate="no">STEINS;GATE</p><ul class="tags" aria-label="条目属性"><li>科幻</li><li>悬疑</li><li>TV</li><li>日本</li><li>游戏改</li></ul></div>
+                <dl class="evidence"><div><dt translate="no">Bangumi</dt><dd>8.80</dd></div><div><dt>我的评分</dt><dd>9.00</dd></div><div><dt>收藏</dt><dd class="status">看过</dd></div><div><dt>分差</dt><dd class="delta">+0.20</dd></div></dl>
+              </div>
+              <div class="credits-label"><span>参与凭据</span><span>5 人 · 每行最多 2 人</span></div>
+              <div class="credit-grid" aria-label="5 位共同参与者及其身份">
+                <div class="credit"><span class="credit-index">1</span><span class="credit-person">宫野真守</span><span class="credit-character">冈部伦太郎</span><span class="credit-role">声优 · 主役</span></div>
+                <div class="credit"><span class="credit-index">2</span><span class="credit-person">花泽香菜</span><span class="credit-character">椎名真由理</span><span class="credit-role">声优 · 主役</span></div>
+                <div class="credit"><span class="credit-index">3</span><span class="credit-person">田村由香里</span><span class="credit-character">阿万音铃羽</span><span class="credit-role">声优 · 主役</span></div>
+                <div class="credit no-character"><span class="credit-index">4</span><span class="credit-person">佐藤卓哉</span><span class="credit-role">监督</span></div>
+                <div class="credit no-character"><span class="credit-index">5</span><span class="credit-person">花田十辉</span><span class="credit-role">脚本 · 系列构成</span></div>
+              </div>
+            </article></li>
+          </ol>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

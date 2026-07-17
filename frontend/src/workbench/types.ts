@@ -1,6 +1,8 @@
+import type { PreferenceSummary } from './domain/preference'
+
 export type WorkbenchMode = 'ranking' | 'co-star'
 export type WorkbenchTheme = 'light' | 'dark'
-export type RankingMetric = 'count' | 'average' | 'overall'
+export type RankingMetric = 'count' | 'average' | 'overall' | 'preference'
 export type QueryPositionValue = number | string
 export type QueryPositionsByMode = Record<WorkbenchMode, QueryPositionValue[]>
 export interface ImageSet {
@@ -39,6 +41,7 @@ export interface Person {
 	ratedSubjectCount?: number
 	userAverage?: number
 	globalAverage?: number
+	preference?: PreferenceSummary
 	rolesBySubject?: Record<string, PersonRole[]>
 }
 
@@ -47,6 +50,7 @@ export interface SubjectCollection {
 	rate?: number
 	comment?: string
 	tags?: string[]
+	updatedAt?: string
 }
 
 export interface Subject {
@@ -58,8 +62,10 @@ export interface Subject {
 	displayName?: string
 	date?: string
 	score?: number
+	ratingCount?: number
 	rank?: number
 	favoriteCount?: number
+	seriesId?: number | string
 	image?: ImageSet
 	collection?: SubjectCollection
 	metaTags?: Array<string | { name?: string }>
@@ -79,6 +85,9 @@ export interface SnapshotMeta {
 		positionLabel?: string
 		subjectType?: number
 		collectionTypes?: number[]
+	}
+	preference?: {
+		priorSeriesCount?: number
 	}
 }
 
@@ -126,6 +135,7 @@ export interface QueryTagCondition {
 export interface QueryState {
 	isGlobal: boolean
 	showNSFW: boolean
+	mergeSeries: boolean
 	userId: string
 	subjectType: number
 	positionsByMode: QueryPositionsByMode

@@ -3,11 +3,19 @@
 }
 
 .collaboration-timeline {
-	padding: 44px 10px 30px;
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	max-width: 100%;
+	padding: 48px 10px;
+	overflow: clip;
 }
 
 .collaboration-timeline__track {
 	position: relative;
+	width: 100%;
+	min-width: 0;
+	max-width: 100%;
 	height: 2px;
 	background: linear-gradient(90deg, var(--primary), var(--border) 50%, var(--success));
 }
@@ -16,6 +24,8 @@
 	position: absolute;
 	top: 50%;
 	display: block;
+	width: 14px;
+	height: 14px;
 	transform: translate(-50%, -50%);
 	border: 2px solid var(--surface);
 	border-radius: 50%;
@@ -41,69 +51,60 @@
 	transform: translate(-100%, -50%);
 }
 
-.collaboration-timeline__track i span,
-.collaboration-timeline__track i time {
+.collaboration-timeline__label {
 	position: absolute;
 	left: 50%;
+	display: grid;
+	gap: 2px;
+	justify-items: center;
 	transform: translateX(-50%);
+	color: var(--text-3);
+	font-size: var(--text-caption);
+	font-style: normal;
+	line-height: 1.2;
 	white-space: nowrap;
 }
 
-.collaboration-timeline__track i span {
-	bottom: 15px;
-	color: var(--text-2);
-	font-size: var(--text-caption);
+.collaboration-timeline__track i.is-label-above .collaboration-timeline__label {
+	bottom: 17px;
 }
 
-.collaboration-timeline__track i time {
+.collaboration-timeline__track i.is-label-below .collaboration-timeline__label {
 	top: 17px;
-	color: var(--text-3);
-	font-size: var(--text-caption);
 }
 
-.collaboration-timeline__track i.is-first:not(.is-solo) span,
-.collaboration-timeline__track i.is-first:not(.is-solo) time {
+.collaboration-timeline__label b {
+	color: var(--text-2);
+	font-weight: 600;
+}
+
+.collaboration-timeline__label time {
+	color: var(--text-3);
+}
+
+.collaboration-timeline__track i.is-first:not(.is-solo) .collaboration-timeline__label {
 	left: 0;
+	justify-items: start;
 	transform: none;
 }
 
-.collaboration-timeline__track i.is-last:not(.is-solo) span,
-.collaboration-timeline__track i.is-last:not(.is-solo) time {
+.collaboration-timeline__track i.is-last:not(.is-solo) .collaboration-timeline__label {
 	right: 0;
 	left: auto;
+	justify-items: end;
 	transform: none;
 }
 
-.timeline-summary {
-	display: grid;
-	grid-template-columns: repeat(4, minmax(0, 1fr));
-	gap: 0;
-	margin-top: var(--space-3);
-	border-top: 1px solid var(--divider);
+.matrix-details:not(.matrix-details--scrollable) > .data-scroll-x {
+	overflow-x: clip;
+	overflow-y: hidden;
+	scrollbar-gutter: auto;
 }
 
-.timeline-summary span {
-	display: grid;
-	gap: 3px;
-	min-width: 0;
-	padding: var(--space-3);
-	border-left: 1px solid var(--divider);
-	color: var(--text-3);
-	font-size: var(--text-caption);
-}
-
-.timeline-summary span:first-child {
-	border-left: 0;
-}
-
-.timeline-summary b {
-	min-width: 0;
-	color: var(--text-2);
-	font-size: var(--text-caption);
-	line-height: 1.45;
-}
-
-.matrix-details .data-scroll-x {
+.matrix-details--scrollable > .data-scroll-x {
+	overflow-x: auto;
+	overflow-y: hidden;
+	overscroll-behavior-inline: contain;
 	scrollbar-gutter: auto;
 }
 
@@ -118,8 +119,21 @@
 }
 
 .matrix-table {
-	min-width: max(100%, calc(140px + var(--matrix-size, 2) * 140px));
+	width: 100%;
+	min-width: 0;
 	table-layout: fixed;
+}
+
+.matrix-details:not(.matrix-details--scrollable) .matrix-table {
+	min-width: 100%;
+}
+
+.matrix-table tr > :first-child {
+	width: clamp(84px, 22%, 112px);
+}
+
+.matrix-details--scrollable .matrix-table {
+	min-width: calc(112px + var(--matrix-size, 5) * 104px);
 }
 
 .matrix-table th small,

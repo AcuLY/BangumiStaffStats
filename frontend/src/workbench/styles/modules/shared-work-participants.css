@@ -1,0 +1,96 @@
+.shared-work-participants {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0;
+	min-width: 0;
+	padding: 0;
+	background: transparent;
+}
+
+.shared-work-participant {
+	display: grid;
+	grid-template-columns: 20px minmax(0, 1fr);
+	align-items: center;
+	gap: var(--space-2);
+	min-width: 0;
+	min-height: 58px;
+	padding: var(--space-2) var(--space-3);
+	background: transparent;
+}
+
+.shared-work-participant:nth-child(even) {
+	border-left: 1px solid var(--subject-work-divider, var(--divider));
+}
+
+.shared-work-participant:nth-child(n + 3) {
+	border-top: 1px solid var(--subject-work-divider, var(--divider));
+}
+
+.shared-work-participant:last-child:nth-child(odd) {
+	border-right: 1px solid var(--subject-work-divider, var(--divider));
+}
+
+.shared-work-participant:nth-last-child(2):nth-child(even) {
+	border-bottom: 1px solid var(--subject-work-divider, var(--divider));
+}
+
+.shared-work-participant__index {
+	display: grid;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: var(--primary-soft);
+	color: var(--primary-text);
+	font-size: var(--text-caption);
+	font-weight: 700;
+}
+
+.shared-work-participant__body,
+.shared-work-participant__roles {
+	display: grid;
+	min-width: 0;
+}
+
+.shared-work-participant__body {
+	grid-template-columns: minmax(0, 1fr);
+	align-self: stretch;
+	align-content: center;
+	gap: 2px var(--space-2);
+}
+
+.shared-work-participant__body--inline {
+	grid-template-columns: minmax(64px, max-content) minmax(0, 1fr);
+	align-items: center;
+}
+
+.shared-work-participant__name {
+	min-width: 0;
+	width: max-content;
+	max-width: 100%;
+	overflow: hidden;
+	color: var(--text-1);
+	font-size: var(--text-control);
+	font-weight: 700;
+	line-height: 20px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.shared-work-participant__roles {
+	width: 100%;
+}
+
+@container subject-work-list (max-width: 480px) {
+	.shared-work-participants {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.shared-work-participant:last-child:nth-child(odd) {
+		border-right: 0;
+	}
+
+	.shared-work-participant:nth-last-child(2):nth-child(even) {
+		border-bottom: 0;
+	}
+}

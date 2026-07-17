@@ -9,6 +9,7 @@ import QueryWorkspace from './components/QueryWorkspace.vue'
 import RankingWorkbench from './components/RankingWorkbench.vue'
 import CoStarWorkbench from './components/CoStarWorkbench.vue'
 import AppIcon from './components/AppIcon.vue'
+import WorkbenchFooter from './components/WorkbenchFooter.vue'
 
 const FONT_STACK = '"Source Han Sans SC VF", "Source Han Sans SC", "Noto Sans CJK SC", "PingFang SC", sans-serif'
 
@@ -20,6 +21,13 @@ const workbench = provideWorkbench(snapshot, positionData)
 
 const isDark = computed(() => workbench.theme.value === 'dark')
 const backgroundInert = computed(() => workbench.peopleDrawerOpen.value || workbench.inspectorDrawerOpen.value)
+const mobilePickerSelectionLabel = computed(() => {
+	if (!workbench.selectedPeople.value.length) return '尚未选择人物'
+	return `已选 ${workbench.selectedPeople.value.length} 人、${workbench.selectedScopes.value.length} 个身份：${workbench.selectedPeople.value.map((item) => {
+		const positions = item.positionIds.map(workbench.positionLabel).join('、') || '未选择职位'
+		return `人物：${workbench.personName(item.person)}，职位：${positions}`
+	}).join('；')}`
+})
 const archivePalette = { base: '#c60475', hover: '#d42281', pressed: '#b40069' }
 const themeOverrides = computed<GlobalThemeOverrides>(() => ({
 	common: {
@@ -32,18 +40,27 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
 		borderRadiusSmall: '6px',
 	},
 	Button: {
-		heightMedium: '36px',
 		borderRadiusMedium: '6px',
-		fontSizeMedium: '13px',
 		textColorPrimary: '#fff',
 		textColorHoverPrimary: '#fff',
 		textColorPressedPrimary: '#fff',
 		textColorFocusPrimary: '#fff',
 		textColorDisabledPrimary: '#fff',
 	},
-	Input: { heightMedium: '36px', borderRadius: '6px', fontSizeMedium: '13px' },
-	Select: { peers: { InternalSelection: { heightMedium: '36px', borderRadius: '6px', fontSizeMedium: '13px' } } },
-	Pagination: { itemSizeMedium: '34px', itemBorderRadius: '6px' },
+	Radio: {
+		buttonColorActive: archivePalette.base,
+		buttonBorderColorActive: archivePalette.base,
+		buttonTextColorActive: '#fff',
+	},
+	Input: { borderRadius: '6px' },
+	Select: { peers: { InternalSelection: { borderRadius: '6px' } } },
+	Pagination: { itemBorderRadius: '6px' },
+	Drawer: { color: 'transparent' },
+	Tabs: {
+		tabColorSegment: archivePalette.base,
+		tabFontSizeSmall: '13px',
+		tabTextColorActiveSegment: '#fff',
+	},
 }))
 
 const load = async () => {
@@ -104,34 +121,63 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnUnsavedQu
 	<n-config-provider :theme="isDark ? darkTheme : null" :theme-overrides="themeOverrides" :locale="zhCN">
 		<n-message-provider>
 			<n-dialog-provider>
-				<a class="skip-link" href="#workbench-main">跳到主要内容</a>
 				<div class="workbench-app" :inert="backgroundInert || undefined" :aria-hidden="backgroundInert ? 'true' : undefined">
 					<WorkbenchHeader>
 						<template #query>
 							<QueryWorkspace v-if="!loading && !error" />
 						</template>
+						<template #mobile-context>
+							<button
+								v-if="!loading && !error && !workbench.queryEditing.value && workbench.mode.value === 'co-star'"
+								class="mobile-picker-entry header-edit-card"
+								type="button"
+								aria-haspopup="dialog"
+								:aria-expanded="workbench.peopleDrawerOpen.value"
+								aria-controls="mobile-person-picker"
+								:aria-label="`${workbench.selectedPeople.value.length ? '调整人物选择' : '选择人物'}。${mobilePickerSelectionLabel}`"
+								@click="workbench.peopleDrawerOpen.value = true"
+							>
+								<span class="mobile-picker-entry__copy">
+									<span v-if="workbench.selectedPeople.value.length" class="mobile-picker-entry__selections mobile-header-context-summary" aria-hidden="true">
+										<span
+											v-for="item in workbench.selectedPeople.value"
+											:key="item.person.id"
+											class="mobile-picker-entry__selection"
+										>
+											<b class="mobile-picker-entry__person">{{ workbench.personName(item.person) }}</b>
+											<span class="mobile-picker-entry__positions">{{ item.positionIds.map(workbench.positionLabel).join(' / ') || '未选择职位' }}</span>
+										</span>
+									</span>
+									<small v-else class="mobile-picker-entry__empty">尚未选择人物</small>
+								</span>
+								<span class="mobile-picker-entry__action header-edit-card__action" aria-hidden="true"><AppIcon name="edit" :size="18" /></span>
+							</button>
+						</template>
 					</WorkbenchHeader>
 
-					<main id="workbench-main" class="workbench-body" tabindex="-1">
-						<div v-if="loading" class="workbench-state surface-panel" role="status" aria-live="polite" aria-busy="true">
-							<span class="state-icon state-icon--loading"><AppIcon name="brand" :size="28" /></span>
-							<h1>正在加载人物数据…</h1>
-							<p>正在准备人物、作品与职位信息。</p>
-							<div class="skeleton-lines" aria-hidden="true"><i /><i /><i /></div>
-						</div>
+					<div class="workbench-page-scroll">
+						<main id="workbench-main" class="workbench-body" tabindex="-1">
+							<div v-if="loading" class="workbench-state surface-panel" role="status" aria-live="polite" aria-busy="true">
+								<span class="state-icon state-icon--loading"><AppIcon name="brand" :size="28" /></span>
+								<h1>正在加载人物数据…</h1>
+								<p>正在准备人物、作品与职位信息。</p>
+								<div class="skeleton-lines" aria-hidden="true"><i /><i /><i /></div>
+							</div>
 
-						<div v-else-if="error" class="workbench-state surface-panel" role="alert">
-							<span class="state-icon"><AppIcon name="image" :size="28" /></span>
-							<h1>无法加载人物数据</h1>
-							<p>{{ error }}</p>
-							<n-button type="primary" @click="load">重新加载</n-button>
-						</div>
+							<div v-else-if="error" class="workbench-state surface-panel" role="alert">
+								<span class="state-icon"><AppIcon name="image" :size="28" /></span>
+								<h1>无法加载人物数据</h1>
+								<p>{{ error }}</p>
+								<n-button size="large" type="primary" @click="load">重新加载</n-button>
+							</div>
 
-						<template v-else>
-							<RankingWorkbench v-if="workbench.mode.value === 'ranking'" />
-							<CoStarWorkbench v-else />
-						</template>
-					</main>
+							<template v-else>
+								<RankingWorkbench v-if="workbench.mode.value === 'ranking'" />
+								<CoStarWorkbench v-else />
+							</template>
+						</main>
+						<WorkbenchFooter />
+					</div>
 				</div>
 			</n-dialog-provider>
 		</n-message-provider>

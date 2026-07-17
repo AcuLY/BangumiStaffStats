@@ -31,6 +31,7 @@ watch(subjectType, () => {
 	<InputCard :type="props.type">
 		<n-select
 			v-model:value="value"
+			size="medium"
 			:options="options"
 			:placeholder="`请选择${title}`"
 			clearable

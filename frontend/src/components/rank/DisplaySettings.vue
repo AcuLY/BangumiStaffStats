@@ -25,58 +25,65 @@ const handleClickMergeSeries = async (): Promise<void> => {
 
 <template>
 	<n-flex vertical>
-		<n-collapse class="setting-wrapper">
-			<n-collapse-item>
-				<template #header>
-					<span class="setting-title"> 显示设置 </span>
-				</template>
+		<div class="setting-wrapper">
+			<n-collapse>
+				<n-collapse-item>
+					<template #header>
+						<span class="setting-title"> 显示设置 </span>
+					</template>
 
-				<n-flex
-					class="switch-wrapper"
-					justify="flex-start"
-					:size="globalStore.isMobile ? 'small' : 'medium'"
-				>
-					<Switch v-model="displayStoreRefs.showChinese.value" label="显示中文" />
-					<Switch
-						v-model="displayStoreRefs.showImage.value"
-						label="显示图片"
-						v-show="!requestStore.request.isGlobal"
-					/>
-					<Switch
-						v-model="displayStoreRefs.showCharacter.value"
-						label="显示角色"
-						v-show="requestStore.isCV"
-						:callback="handleClickShowCharacter"
-					/>
-					<Switch
-						v-model="displayStoreRefs.mergeSeries.value"
-						label="合并续作"
-						v-show="!displayStoreRefs.showCharacter.value"
-						:callback="handleClickMergeSeries"
-					/>
+					<div class="switch-wrapper">
+						<n-flex
+							justify="flex-start"
+							:size="globalStore.isMobile ? 'small' : 'medium'"
+						>
+							<Switch v-model="displayStoreRefs.showChinese.value" label="显示中文" />
+							<Switch
+								v-model="displayStoreRefs.showImage.value"
+								label="显示图片"
+								v-show="!requestStore.request.isGlobal"
+							/>
+							<Switch
+								v-model="displayStoreRefs.showCharacter.value"
+								label="显示角色"
+								v-show="requestStore.isCV"
+								:callback="handleClickShowCharacter"
+							/>
+							<Switch
+								v-model="displayStoreRefs.mergeSeries.value"
+								label="合并续作"
+								v-show="!displayStoreRefs.showCharacter.value"
+								:callback="handleClickMergeSeries"
+							/>
 
-					<n-flex class="slider-wrapper" vertical>
-						行最大高度
-						<n-slider
-							class="slider"
-							v-model:value="displayStoreRefs.rowHeight.value"
-							:max="1000"
-							:min="100"
-							:step="20"
-						/>
+							<div class="slider-wrapper">
+								<n-flex vertical>
+									行最大高度
+									<div class="slider">
+										<n-slider
+											v-model:value="displayStoreRefs.rowHeight.value"
+											:max="1000"
+											:min="100"
+											:step="20"
+										/>
+									</div>
 
-						列表最大高度
-						<n-slider
-							class="slider"
-							v-model:value="displayStoreRefs.tableHeight.value"
-							:max="6000"
-							:min="400"
-							:step="20"
-						/>
-					</n-flex>
-				</n-flex>
-			</n-collapse-item>
-		</n-collapse>
+									列表最大高度
+									<div class="slider">
+										<n-slider
+											v-model:value="displayStoreRefs.tableHeight.value"
+											:max="6000"
+											:min="400"
+											:step="20"
+										/>
+									</div>
+								</n-flex>
+							</div>
+						</n-flex>
+					</div>
+				</n-collapse-item>
+			</n-collapse>
+		</div>
 	</n-flex>
 </template>
 

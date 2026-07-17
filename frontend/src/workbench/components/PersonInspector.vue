@@ -2,33 +2,29 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import type { Subject } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
-import { useMediaQuery } from '../composables/useMediaQuery'
+import {
+	compareSubjectNumber,
+	compareSubjectText,
+	SUBJECT_WORK_PAGE_SIZES,
+	useSubjectWorkBrowser,
+	type SubjectWorkSortOption,
+} from '../composables/useSubjectWorkBrowser'
 import { PROFILE_EXTRAS } from '../data/profileExtras'
 import SafeImage from './SafeImage.vue'
 import AppIcon from './AppIcon.vue'
-import SubjectWorkList from './SubjectWorkList.vue'
+import AdaptiveRoleList from './AdaptiveRoleList.vue'
+import SubjectWorkBrowser from './SubjectWorkBrowser.vue'
+import SubjectTagSummary from './SubjectTagSummary.vue'
 
 const workbench = useWorkbench()
-const isNarrow = useMediaQuery('(max-width: 480px)')
 type WorkSort = 'score' | 'personal' | 'collects' | 'rank' | 'date'
-
-const workSort = ref<WorkSort>('score')
-const workPage = ref(1)
-const workPageSize = ref(10)
-const workSortOptions: Array<{ label: string; value: WorkSort }> = [
-	{ label: '全站评分优先', value: 'score' },
-	{ label: '我的评分优先', value: 'personal' },
-	{ label: '收藏人数优先', value: 'collects' },
-	{ label: 'Bangumi Rank 优先', value: 'rank' },
-	{ label: '日期由新到旧', value: 'date' },
+const workSortOptions: SubjectWorkSortOption<WorkSort>[] = [
+	{ label: '全站评分', value: 'score' },
+	{ label: '我的评分', value: 'personal' },
+	{ label: '收藏人数', value: 'collects' },
+	{ label: 'Bangumi Rank', value: 'rank' },
+	{ label: '收藏日期', value: 'date' },
 ]
-const workPageSizeOptions = [
-	{ label: '每页 4 部', value: 4 },
-	{ label: '每页 6 部', value: 6 },
-	{ label: '每页 10 部', value: 10 },
-	{ label: '每页 12 部', value: 12 },
-]
-
 const person = computed(() => workbench.focusedPerson.value)
 const profileExtra = computed(() => person.value ? PROFILE_EXTRAS[person.value.id] : undefined)
 const careerLabels: Record<string, string> = {
@@ -46,6 +42,11 @@ const careerLine = computed(() => {
 })
 const profileSummary = computed(() => profileExtra.value?.summary
 	?? `${workbench.personName(person.value)}以“${rankingPositionLine.value}”身份参与了 ${person.value?.subjectCount ?? 0} 部当前筛选范围内的作品。`)
+const profileSummaryIsLong = computed(() => profileSummary.value.length > 60)
+const profileBioExpanded = ref(false)
+watch(() => person.value?.id, () => {
+	profileBioExpanded.value = false
+})
 const ratedDistribution = computed(() => workbench.focusedDistribution.value.filter((item) => item.label !== '未评'))
 const maxDistribution = computed(() => Math.max(1, ...ratedDistribution.value.map((item) => item.value)))
 const distributionLabel = computed(() => `${workbench.personName(person.value)}的评分分布：${ratedDistribution.value
@@ -60,41 +61,55 @@ const overallScore = computed(() => person.value && person.value.ratedSubjectCou
 	? workbench.rankingValue(person.value, 'overall')
 	: null)
 
-const sortedWorks = computed(() => [...workbench.focusedSubjects.value].sort((a, b) => {
-	if (workSort.value === 'personal') {
-		return Number(b.collection?.rate || 0) - Number(a.collection?.rate || 0)
-			|| Number(b.score || 0) - Number(a.score || 0)
-	}
-	if (workSort.value === 'date') return String(b.date || '').localeCompare(String(a.date || ''))
-	if (workSort.value === 'collects') {
-		return Number(b.favoriteCount || 0) - Number(a.favoriteCount || 0)
-			|| Number(b.score || 0) - Number(a.score || 0)
-	}
-	if (workSort.value === 'rank') {
-		return Number(a.rank || Number.MAX_SAFE_INTEGER) - Number(b.rank || Number.MAX_SAFE_INTEGER)
-			|| Number(b.score || 0) - Number(a.score || 0)
-	}
-	return Number(b.score || 0) - Number(a.score || 0)
-		|| Number(a.rank || Number.MAX_SAFE_INTEGER) - Number(b.rank || Number.MAX_SAFE_INTEGER)
-}))
-const workPageCount = computed(() => Math.max(1, Math.ceil(sortedWorks.value.length / workPageSize.value)))
-const workPageStart = computed(() => (workPage.value - 1) * workPageSize.value)
-const visibleWorks = computed(() => sortedWorks.value.slice(workPageStart.value, workPageStart.value + workPageSize.value))
-const workRange = computed(() => ({
-	start: sortedWorks.value.length ? workPageStart.value + 1 : 0,
-	end: Math.min(workPageStart.value + workPageSize.value, sortedWorks.value.length),
-}))
+const {
+	sort: workSort,
+	order: workOrder,
+	page: workPage,
+	pageSize: workPageSize,
+	sortedSubjects: sortedWorks,
+	visibleSubjects: visibleWorks,
+	rangeLabel: workRangeLabel,
+} = useSubjectWorkBrowser<WorkSort>({
+	subjects: () => workbench.focusedAllSubjects.value,
+	search: workbench.focusedWorkSearch,
+	searchTerms: (subject) => {
+		const roles = person.value
+			? workbench.personSubjectRoles(person.value, subject.id).flatMap((role) => [
+				role.displayName,
+				role.nameCN,
+				role.name,
+				role.roleLabel,
+			])
+			: []
+		return [workbench.subjectName(subject), subject.displayName, subject.nameCN, subject.name, ...roles]
+	},
+	initialSort: 'score',
+	comparators: {
+		score: (a, b, direction) => compareSubjectNumber(a.score, b.score, direction),
+		personal: (a, b, direction) => compareSubjectNumber(a.collection?.rate, b.collection?.rate, direction),
+		collects: (a, b, direction) => compareSubjectNumber(a.favoriteCount, b.favoriteCount, direction),
+		rank: (a, b, direction) => compareSubjectNumber(a.rank, b.rank, direction),
+		date: (a, b, direction) => compareSubjectText(a.collection?.updatedAt ?? a.date, b.collection?.updatedAt ?? b.date, direction),
+	},
+})
 
-const preference = computed(() => workbench.focusedAllSubjects.value
-	.map((subject) => ({
-		subject,
-		delta: Number(subject.collection?.rate || 0) - Number(subject.score || 0),
-	}))
-	.filter((item) => Number(item.subject.collection?.rate || 0) > 0 && Number(item.subject.score || 0) > 0)
-	.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)))
-
-const morePreferred = computed(() => preference.value.filter((item) => item.delta > 0).slice(0, 3))
-const moreConservative = computed(() => preference.value.filter((item) => item.delta < 0).slice(0, 3))
+const preferenceSummary = computed(() => person.value?.preference)
+const morePreferred = computed(() => workbench.focusedPreferenceContributions.value
+	.filter((item) => item.difference > 0)
+	.slice(0, 3))
+const moreConservative = computed(() => workbench.focusedPreferenceContributions.value
+	.filter((item) => item.difference < 0)
+	.slice(0, 3))
+const preferenceSampleLabel = computed(() => {
+	const count = Number(preferenceSummary.value?.effectiveEvidence || 0)
+	if (!count) return '无有效样本'
+	if (count <= 2) return '低样本'
+	if (count <= 9) return '中等样本'
+	return ''
+})
+const preferenceUnitLabel = computed(() => workbench.query.mergeSeries ? '系列' : '作品')
+const preferenceModelNote = computed(() => `单作偏好 = 我的评分 − 全站评分
+人物偏好分 = 平均偏差 × 有效${preferenceUnitLabel.value}数 /（有效${preferenceUnitLabel.value}数 + 5）。`)
 
 const focusWork = async (subject: Subject) => {
 	workbench.focusedWorkSearch.value = workbench.subjectName(subject)
@@ -105,12 +120,18 @@ const focusWork = async (subject: Subject) => {
 
 const roleLabel = (label?: string) => ({ '主役': '主角', '其他': '闲角' })[label ?? ''] ?? label ?? '参与'
 const roleSummary = (subject: Subject) => {
-	if (!person.value) return ''
-	const roles = workbench.personSubjectRoles(person.value, subject.id)
-	if (!roles.length) return rankingPositionLine.value
-	return roles.map((role) =>
-		`${role.displayName || role.nameCN || role.name || '角色'} · ${roleLabel(role.roleLabel)}`,
-	).join(' / ')
+	if (!person.value) return []
+	return workbench.rankingPositionIds.value.flatMap((positionId) => {
+		if (!workbench.positionSubjectIds(person.value!, positionId).includes(Number(subject.id))) return []
+		if (Number(positionId) !== 102) return [{ name: workbench.positionLabel(positionId) }]
+		const roles = workbench.personSubjectRoles(person.value!, subject.id, positionId)
+		return roles.length
+			? roles.map((role) => ({
+				name: role.displayName || role.nameCN || role.name || '角色',
+				label: roleLabel(role.roleLabel),
+			}))
+			: [{ name: '声优' }]
+	})
 }
 const numberFormatters = new Map<number, Intl.NumberFormat>()
 const numberFormatter = (digits: number) => {
@@ -123,13 +144,13 @@ const numberFormatter = (digits: number) => {
 const formatScore = (value?: number | null, digits = 2) => Number(value) > 0
 	? numberFormatter(digits).format(Number(value))
 	: '—'
-const formatDelta = (value: number) => `${value > 0 ? '+' : ''}${numberFormatter(1).format(value)}`
-watch([workbench.focusedPersonId, workbench.focusedWorkSearch, workSort, workPageSize], () => {
-	workPage.value = 1
-})
-watch(workPageCount, (count) => {
-	workPage.value = Math.min(workPage.value, count)
-})
+const formatPersonalScore = (value?: number | null) => formatScore(value, 0)
+const formatSigned = (value?: number | null, digits = 2) => value === null || value === undefined || !Number.isFinite(value)
+	? '—'
+	: `${value > 0 ? '+' : ''}${numberFormatter(digits).format(value)}`
+const formatPercent = (value?: number | null) => value === null || value === undefined || !Number.isFinite(value)
+	? '—'
+	: `${Math.round(value * 100)}%`
 </script>
 
 <template>
@@ -147,17 +168,33 @@ watch(workPageCount, (count) => {
 					:height="208"
 				/>
 				<div class="person-profile__content">
-					<span class="section-context">{{ rankingPositionLine }} · 当前焦点</span>
-					<h2 id="inspector-person-name">{{ workbench.personName(person) }}</h2>
-					<p v-if="workbench.personSecondaryName(person)" class="person-profile__secondary">{{ workbench.personSecondaryName(person) }}</p>
-					<div class="person-profile__meta">
-						<span>{{ careerLine }}</span>
-						<span v-if="profileExtra">收藏 {{ profileExtra.collects.toLocaleString('zh-CN') }} · 讨论 {{ profileExtra.comments }}</span>
+					<div class="person-profile__name-row">
+						<h2 id="inspector-person-name">{{ workbench.personName(person) }}</h2>
+						<a
+							class="person-profile__external-link"
+							:href="`https://bgm.tv/person/${person.id}`"
+							target="_blank"
+							rel="noopener noreferrer"
+							:title="`在 Bangumi 查看${workbench.personName(person)}`"
+							:aria-label="`在 Bangumi 查看${workbench.personName(person)}的人物页`"
+						>
+							<AppIcon name="external" :size="16" />
+						</a>
 					</div>
+					<span v-if="careerLine" class="person-profile__career" :title="careerLine">{{ careerLine }}</span>
+					<p v-if="workbench.personSecondaryName(person)" class="person-profile__secondary">{{ workbench.personSecondaryName(person) }}</p>
 				</div>
-				<section class="person-profile__bio" aria-labelledby="person-profile-bio-title">
-					<strong id="person-profile-bio-title">人物简介</strong>
+				<section class="person-profile__bio" :class="{ 'is-expanded': profileBioExpanded }" aria-label="人物简介">
 					<p>{{ profileSummary }}</p>
+					<button
+						v-if="profileSummaryIsLong"
+						class="person-profile__bio-toggle"
+						type="button"
+						:aria-expanded="profileBioExpanded"
+						@click="profileBioExpanded = !profileBioExpanded"
+					>
+						{{ profileBioExpanded ? '收起' : '展开' }}
+					</button>
 				</section>
 			</div>
 			<div class="profile-metrics profile-metrics--extended" aria-label="人物统计">
@@ -166,10 +203,20 @@ watch(workPageCount, (count) => {
 				<span><b>{{ formatScore(person.userAverage) }}</b><small>我的均分</small></span>
 				<span><b>{{ formatScore(person.globalAverage) }}</b><small>全站均分</small></span>
 				<span><b>{{ formatScore(overallScore) }}</b><small>综合分</small></span>
+				<span><b>{{ formatSigned(preferenceSummary?.score) }}</b><small>相对偏好</small></span>
 				<span><b>{{ highestRate ?? '—' }}</b><small>我的最高</small></span>
 				<span><b>{{ lowestRate ?? '—' }}</b><small>我的最低</small></span>
 			</div>
 		</header>
+
+		<section class="inspector-section" aria-labelledby="person-tags-title">
+			<SubjectTagSummary
+				:subjects="workbench.focusedAllSubjects.value"
+				title="作品标签"
+				heading-id="person-tags-title"
+				empty-text="该人物的参与作品暂无可用标签。"
+			/>
+		</section>
 
 		<section class="inspector-section" aria-labelledby="rating-distribution-title">
 			<div class="section-heading">
@@ -186,26 +233,41 @@ watch(workPageCount, (count) => {
 
 		<section class="inspector-section" aria-labelledby="preference-title">
 			<div class="section-heading">
-				<div>
-					<h2 id="preference-title">评分偏好</h2>
-					<p>比较我的评分与 Bangumi 全站评分。</p>
+				<div class="preference-title-row">
+					<h2 id="preference-title">相对偏好</h2>
+					<n-tooltip trigger="hover" placement="top-end">
+						<template #trigger>
+							<button class="preference-model-info" type="button" :aria-label="`计算说明：${preferenceModelNote}`">
+								<AppIcon name="info" :size="16" />
+							</button>
+						</template>
+						<span class="preference-model-tooltip">{{ preferenceModelNote }}</span>
+					</n-tooltip>
 				</div>
 			</div>
-			<div class="preference-columns">
+			<div v-if="preferenceSummary?.score !== null && preferenceSummary?.score !== undefined" class="preference-overview">
+				<strong class="preference-overview__score">{{ formatSigned(preferenceSummary.score) }}</strong>
+				<span class="preference-overview__copy">
+					<strong>{{ preferenceSummary.comparableCount }} 部有效作品<template v-if="workbench.query.mergeSeries"> · {{ preferenceSummary.effectiveEvidence }} 个系列</template></strong>
+					<small>平均偏差 {{ formatSigned(preferenceSummary.mean) }} · {{ preferenceUnitLabel }}数权重 {{ formatPercent(preferenceSummary.evidenceWeight) }}<template v-if="preferenceSampleLabel"> · {{ preferenceSampleLabel }}</template></small>
+				</span>
+			</div>
+			<p v-else class="preference-model-note">{{ workbench.query.isGlobal ? '相对偏好只在个人收藏模式计算。' : '该人物没有同时具备个人评分与有效全站评分的作品。' }}</p>
+			<div v-if="!workbench.query.isGlobal" class="preference-columns">
 				<div>
-					<h3>我更喜欢</h3>
+					<h3>我更偏爱</h3>
 					<ul>
 						<li v-for="item in morePreferred" :key="item.subject.id">
 							<button class="preference-work preference-work--positive" type="button" :aria-label="`在参与作品中定位${workbench.subjectName(item.subject)}`" @click="focusWork(item.subject)">
 								<SafeImage :sources="workbench.subjectImageSources(item.subject)" :alt="`${workbench.subjectName(item.subject)}封面`" kind="subject" :width="32" :height="42" decorative />
 								<span class="preference-work__copy">
 									<strong>{{ workbench.subjectName(item.subject) }}</strong>
-									<small>我的 {{ formatScore(item.subject.collection?.rate) }} · 全站 {{ formatScore(item.subject.score) }}</small>
+									<small>我的评分 {{ formatPersonalScore(item.userScore) }} · 全站评分 {{ formatScore(item.globalScore) }}</small>
 								</span>
-								<b>{{ formatDelta(item.delta) }}</b>
+								<b>{{ formatSigned(item.difference) }}</b>
 							</button>
 						</li>
-						<li v-if="!morePreferred.length" class="muted-row">没有明显高于站评的作品</li>
+						<li v-if="!morePreferred.length" class="muted-row">没有高于全站评分的作品</li>
 					</ul>
 				</div>
 				<div>
@@ -216,47 +278,43 @@ watch(workPageCount, (count) => {
 								<SafeImage :sources="workbench.subjectImageSources(item.subject)" :alt="`${workbench.subjectName(item.subject)}封面`" kind="subject" :width="32" :height="42" decorative />
 								<span class="preference-work__copy">
 									<strong>{{ workbench.subjectName(item.subject) }}</strong>
-									<small>我的 {{ formatScore(item.subject.collection?.rate) }} · 全站 {{ formatScore(item.subject.score) }}</small>
+									<small>我的评分 {{ formatPersonalScore(item.userScore) }} · 全站评分 {{ formatScore(item.globalScore) }}</small>
 								</span>
-								<b>{{ formatDelta(item.delta) }}</b>
+								<b>{{ formatSigned(item.difference) }}</b>
 							</button>
 						</li>
-						<li v-if="!moreConservative.length" class="muted-row">没有明显低于站评的作品</li>
+						<li v-if="!moreConservative.length" class="muted-row">没有低于全站评分的作品</li>
 					</ul>
 				</div>
 			</div>
 		</section>
 
 		<section class="inspector-section" aria-labelledby="person-works-title">
-			<div class="section-heading">
-				<div>
-					<h2 id="person-works-title">参与作品</h2>
-					<p>{{ person.subjectCount ?? 0 }} 部 · {{ person.ratedSubjectCount ?? 0 }} 部已评分</p>
-				</div>
-			</div>
-			<div class="rank-works-toolbar">
-				<n-input
-					v-model:value="workbench.focusedWorkSearch.value"
-					clearable
-					placeholder="搜索中日文标题或角色名…"
-					autocomplete="off"
-					aria-label="搜索参与作品"
-					:input-props="{ 'aria-label': '搜索参与作品', name: 'workSearch', spellcheck: 'false' }"
-				>
-					<template #prefix><AppIcon name="search" :size="16" /></template>
-				</n-input>
-				<n-select v-model:value="workSort" :options="workSortOptions" aria-label="参与作品排序" />
-				<n-select v-model:value="workPageSize" :options="workPageSizeOptions" aria-label="每页作品数" />
-			</div>
-			<SubjectWorkList :subjects="visibleWorks" empty-text="没有符合当前搜索条件的作品。">
-				<template #role="{ subject }"><span class="subject-work-role">{{ roleSummary(subject) }}</span></template>
-			</SubjectWorkList>
-			<div class="table-disclosure rank-work-pagination" role="status" aria-live="polite">
-				<span>{{ workRange.start }}—{{ workRange.end }} / {{ sortedWorks.length }}</span>
-				<div class="rank-work-pagination__controls">
-					<n-pagination v-model:page="workPage" :page-count="workPageCount" :page-slot="isNarrow ? 2 : 4" />
-				</div>
-			</div>
+			<SubjectWorkBrowser
+				v-model:search="workbench.focusedWorkSearch.value"
+				v-model:sort="workSort"
+				v-model:order="workOrder"
+				v-model:page="workPage"
+				v-model:page-size="workPageSize"
+				title="参与作品"
+				title-id="person-works-title"
+				:subjects="visibleWorks"
+				empty-text="没有符合当前搜索条件的作品。"
+				:sort-options="workSortOptions"
+				search-placeholder="搜索中日文标题或角色名…"
+				search-aria-label="搜索参与作品"
+				sort-aria-label="参与作品排序"
+				order-aria-label="参与作品排序方向"
+				search-name="workSearch"
+				:item-count="sortedWorks.length"
+				:page-sizes="SUBJECT_WORK_PAGE_SIZES"
+				:pagination-summary="workRangeLabel"
+				pagination-aria-label="参与作品分页"
+			>
+				<template #role="{ subject }">
+					<AdaptiveRoleList :entries="roleSummary(subject)" />
+				</template>
+			</SubjectWorkBrowser>
 		</section>
 	</article>
 	<div v-else class="analysis-empty person-inspector-empty">

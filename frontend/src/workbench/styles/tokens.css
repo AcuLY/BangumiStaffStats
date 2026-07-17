@@ -21,6 +21,7 @@
 	--text-page: 1.6875rem;
 	--z-sticky: 20;
 	--z-drawer: 50;
+	--translucent-chrome-filter: blur(16px) saturate(135%);
 	--workbench-header-desktop-height: 121px;
 	--workbench-header-mobile-height: 187px;
 	--workbench-header-height: var(--workbench-header-desktop-height);
@@ -62,6 +63,11 @@
 	--chrome-text: var(--text-1);
 	--chrome-muted: var(--text-3);
 	--chrome-border: var(--border);
+	--translucent-chrome-background: color-mix(in oklab, var(--chrome) 82%, transparent);
+	--translucent-chrome-hover: color-mix(in oklab, var(--hover) 86%, transparent);
+	--translucent-chrome-pressed: color-mix(in oklab, var(--pressed) 92%, transparent);
+	--translucent-chrome-border: color-mix(in oklab, var(--chrome-border) 72%, transparent);
+	--translucent-chrome-fallback: var(--chrome);
 	--rail-surface: var(--surface);
 	--success: oklch(0.43 0.12 160);
 	--success-on-chrome: var(--success);
@@ -114,4 +120,11 @@
 	--error: oklch(0.72 0.16 25);
 	--overlay: oklch(0.08 0.004 280 / 0.72);
 	--panel-shadow: none;
+}
+
+:root[data-visual="archive"][data-theme="light"] {
+	--translucent-chrome-background: color-mix(in oklab, var(--surface) 94%, transparent);
+	--translucent-chrome-hover: color-mix(in oklab, var(--hover) 96%, transparent);
+	--translucent-chrome-pressed: color-mix(in oklab, var(--pressed) 98%, transparent);
+	--translucent-chrome-fallback: var(--surface);
 }
