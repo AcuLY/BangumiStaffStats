@@ -12,13 +12,14 @@
 	--space-4: 16px;
 	--space-5: 20px;
 	--space-6: 24px;
+	--text-micro: 0.625rem;
 	--text-caption: 0.75rem;
-	--text-control: 0.8125rem;
+	--text-control: 0.875rem;
 	--text-body: 0.875rem;
 	--text-subheading: 1rem;
-	--text-section: 1.1875rem;
-	--text-panel: 1.4375rem;
-	--text-page: 1.6875rem;
+	--text-section: 1.25rem;
+	--text-panel: 1.5rem;
+	--text-page: 1.75rem;
 	--z-sticky: 20;
 	--z-drawer: 50;
 	--translucent-chrome-filter: blur(16px) saturate(135%);
@@ -69,6 +70,7 @@
 	--translucent-chrome-pressed: color-mix(in oklab, var(--pressed) 72%, transparent);
 	--translucent-chrome-border: color-mix(in oklab, var(--chrome-border) 72%, transparent);
 	--translucent-chrome-fallback: var(--chrome);
+	--translucent-chrome-edge-shadow: 0 6px 16px -9px rgba(0, 0, 0, 0.08), 0 9px 28px 0 rgba(0, 0, 0, 0.05), 0 12px 48px 16px rgba(0, 0, 0, 0.03);
 	--rail-surface: var(--surface);
 	--success: oklch(0.43 0.12 160);
 	--success-on-chrome: var(--success);

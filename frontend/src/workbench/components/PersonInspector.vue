@@ -22,6 +22,7 @@ import AdaptiveRoleList from './AdaptiveRoleList.vue'
 import CharacterRoleList from './CharacterRoleList.vue'
 import WorkbenchTooltip from './WorkbenchTooltip.vue'
 import RatingDistributionChart from './RatingDistributionChart.vue'
+import PreferenceWorkList from './PreferenceWorkList.vue'
 import SubjectWorkBrowser from './SubjectWorkBrowser.vue'
 import SubjectWorkList from './SubjectWorkList.vue'
 import SubjectTagSummary from './SubjectTagSummary.vue'
@@ -276,7 +277,6 @@ const numberFormatter = (digits: number) => {
 const formatScore = (value?: number | null, digits = 2) => Number(value) > 0
 	? numberFormatter(digits).format(Number(value))
 	: '—'
-const formatPersonalScore = (value?: number | null) => formatScore(value, 0)
 const formatSigned = (value?: number | null, digits = 2) => value === null || value === undefined || !Number.isFinite(value)
 	? '—'
 	: `${value > 0 ? '+' : ''}${numberFormatter(digits).format(value)}`
@@ -400,40 +400,12 @@ const formatSigned = (value?: number | null, digits = 2) => value === null || va
 				<h2 id="preference-title">我的偏好</h2>
 			</div>
 			<p v-if="preferenceSummary?.score === null || preferenceSummary?.score === undefined" class="preference-model-note">{{ workbench.query.isGlobal ? '相对偏好只在个人收藏模式计算。' : '该人物没有同时具备个人评分与有效全站评分的作品。' }}</p>
-			<div v-if="!workbench.query.isGlobal" class="preference-columns">
-				<div>
-					<h3>我更偏爱</h3>
-					<ul>
-						<li v-for="item in morePreferred" :key="item.subject.id">
-							<button class="preference-work preference-work--positive" type="button" :aria-label="`在参与作品中定位${workbench.subjectName(item.subject)}`" @click="focusWork(item.subject)">
-								<SafeImage :sources="workbench.subjectImageSources(item.subject)" :alt="`${workbench.subjectName(item.subject)}封面`" kind="subject" :width="32" :height="42" decorative />
-								<span class="preference-work__copy">
-									<strong>{{ workbench.subjectName(item.subject) }}</strong>
-									<small>我的评分 {{ formatPersonalScore(item.userScore) }} · 全站评分 {{ formatScore(item.globalScore) }}</small>
-								</span>
-								<b>{{ formatSigned(item.difference) }}</b>
-							</button>
-						</li>
-						<li v-if="!morePreferred.length" class="muted-row">没有高于全站评分的作品</li>
-					</ul>
-				</div>
-				<div>
-					<h3>我更保守</h3>
-					<ul>
-						<li v-for="item in moreConservative" :key="item.subject.id">
-							<button class="preference-work preference-work--negative" type="button" :aria-label="`在参与作品中定位${workbench.subjectName(item.subject)}`" @click="focusWork(item.subject)">
-								<SafeImage :sources="workbench.subjectImageSources(item.subject)" :alt="`${workbench.subjectName(item.subject)}封面`" kind="subject" :width="32" :height="42" decorative />
-								<span class="preference-work__copy">
-									<strong>{{ workbench.subjectName(item.subject) }}</strong>
-									<small>我的评分 {{ formatPersonalScore(item.userScore) }} · 全站评分 {{ formatScore(item.globalScore) }}</small>
-								</span>
-								<b>{{ formatSigned(item.difference) }}</b>
-							</button>
-						</li>
-						<li v-if="!moreConservative.length" class="muted-row">没有低于全站评分的作品</li>
-					</ul>
-				</div>
-			</div>
+			<PreferenceWorkList
+				v-if="!workbench.query.isGlobal"
+				:preferred="morePreferred"
+				:conservative="moreConservative"
+				@select="focusWork"
+			/>
 		</section>
 
 		<section class="inspector-section" aria-labelledby="person-credits-title">
@@ -460,11 +432,11 @@ const formatSigned = (value?: number | null, digits = 2) => value === null || va
 				:compact-aria-label="browserCompactAriaLabel"
 				:compact-description="browserCompactDescription"
 			>
-				<template #heading>
+				<template #heading="{ controlSize }">
 					<h2 id="person-credits-title" :class="{ 'sr-only': isVoiceActorQuery }">{{ isVoiceActorQuery ? '参与作品与配音角色' : '参与作品' }}</h2>
 					<div v-if="isVoiceActorQuery" class="person-credit-tabs">
 						<n-radio-group
-							size="small"
+							:size="controlSize"
 							:value="creditView"
 							role="radiogroup"
 							aria-label="浏览参与作品或配音角色"

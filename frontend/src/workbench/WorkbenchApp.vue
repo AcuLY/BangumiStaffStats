@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { darkTheme, zhCN, type GlobalThemeOverrides } from 'naive-ui'
+import { darkTheme, zhCN } from 'naive-ui'
 import { loadWorkbenchFixtures } from './data/loadFixtures'
 import { provideWorkbench } from './composables/useWorkbench'
 import type { PositionData, WorkbenchSnapshot } from './types'
@@ -10,8 +10,7 @@ import RankingWorkbench from './components/RankingWorkbench.vue'
 import CoStarWorkbench from './components/CoStarWorkbench.vue'
 import AppIcon from './components/AppIcon.vue'
 import WorkbenchFooter from './components/WorkbenchFooter.vue'
-
-const FONT_STACK = '"Source Han Sans SC VF", "Source Han Sans SC", "Noto Sans CJK SC", "PingFang SC", sans-serif'
+import { getWorkbenchThemeOverrides } from './naiveThemeOverrides'
 
 const snapshot = ref<WorkbenchSnapshot | null>(null)
 const positionData = ref<PositionData | null>(null)
@@ -20,6 +19,7 @@ const error = ref('')
 const workbench = provideWorkbench(snapshot, positionData)
 
 const isDark = computed(() => workbench.theme.value === 'dark')
+const themeOverrides = computed(() => getWorkbenchThemeOverrides(isDark.value))
 const backgroundInert = computed(() => workbench.peopleDrawerOpen.value || workbench.inspectorDrawerOpen.value)
 const mobilePickerSelectionLabel = computed(() => {
 	if (!workbench.selectedPeople.value.length) return '尚未选择人物'
@@ -28,41 +28,6 @@ const mobilePickerSelectionLabel = computed(() => {
 		return `人物：${workbench.personName(item.person)}，职位：${positions}`
 	}).join('；')}`
 })
-const archivePalette = { base: '#c60475', hover: '#d42281', pressed: '#b40069' }
-const themeOverrides = computed<GlobalThemeOverrides>(() => ({
-	common: {
-		fontFamily: FONT_STACK,
-		fontFamilyMono: FONT_STACK,
-		primaryColor: archivePalette.base,
-		primaryColorHover: archivePalette.hover,
-		primaryColorPressed: archivePalette.pressed,
-		borderRadius: '6px',
-		borderRadiusSmall: '6px',
-	},
-	Button: {
-		borderRadiusMedium: '6px',
-		textColorPrimary: '#fff',
-		textColorHoverPrimary: '#fff',
-		textColorPressedPrimary: '#fff',
-		textColorFocusPrimary: '#fff',
-		textColorDisabledPrimary: '#fff',
-	},
-	Radio: {
-		buttonColorActive: archivePalette.base,
-		buttonBorderColorActive: archivePalette.base,
-		buttonTextColorActive: '#fff',
-	},
-	Input: { borderRadius: '6px' },
-	Select: { peers: { InternalSelection: { borderRadius: '6px' } } },
-	Pagination: { itemBorderRadius: '6px' },
-	Drawer: { color: 'transparent' },
-	Tabs: {
-		tabColorSegment: archivePalette.base,
-		tabFontSizeSmall: '13px',
-		tabTextColorActiveSegment: '#fff',
-	},
-}))
-
 const load = async () => {
 	loading.value = true
 	error.value = ''

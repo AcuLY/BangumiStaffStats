@@ -21,6 +21,12 @@ const ROLE_LABEL_ALIASES: Record<string, string> = {
 	闲角: '其他',
 }
 
+const ROLE_LABEL_PRIORITIES = [
+	{ pattern: /主角|主役/, priority: 4 },
+	{ pattern: /配角/, priority: 3 },
+	{ pattern: /客串/, priority: 2 },
+] as const
+
 const compactIdentity = (value: unknown) => String(value ?? '')
 	.normalize('NFKC')
 	.trim()
@@ -38,10 +44,19 @@ export const characterRoleLabel = (role: Pick<PersonRole, 'roleType' | 'roleLabe
 		?? rawLabel) || '其他'
 }
 
-export const characterRolePriority = (role: Pick<PersonRole, 'roleType' | 'roleLabel'>) => {
-	const label = characterRoleLabel(role)
-	return ({ 主角: 4, 配角: 3, 客串: 2, 其他: 1 })[label] ?? 1
+export const characterRoleLabelPriority = (label: unknown) => {
+	const normalizedLabel = String(label ?? '').normalize('NFKC').trim()
+	return ROLE_LABEL_PRIORITIES.find(({ pattern }) => pattern.test(normalizedLabel))?.priority ?? 1
 }
+
+export const characterRolePriority = (role: Pick<PersonRole, 'roleType' | 'roleLabel'>) => {
+	return characterRoleLabelPriority(characterRoleLabel(role))
+}
+
+export const sortByCharacterRolePriority = <T>(items: readonly T[], getLabel: (item: T) => unknown): T[] => items
+	.map((item, index) => ({ item, index, priority: characterRoleLabelPriority(getLabel(item)) }))
+	.sort((left, right) => right.priority - left.priority || left.index - right.index)
+	.map(({ item }) => item)
 
 export const characterCreditKey = (role: PersonRole) => {
 	const characterId = Number(role.characterId)

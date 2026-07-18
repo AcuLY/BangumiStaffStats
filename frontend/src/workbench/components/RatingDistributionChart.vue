@@ -4,8 +4,11 @@ import type { Subject } from '../types'
 import {
 	buildQuarterlyRatingAverages,
 	buildScoreDistribution,
+	formatRatingDate,
 	type RatingSource,
 } from '../domain/ratingDistribution'
+import ScoreDistributionTooltip from './ScoreDistributionTooltip.vue'
+import WorkbenchTooltip from './WorkbenchTooltip.vue'
 
 const props = defineProps<{
 	subjects: Subject[]
@@ -43,6 +46,7 @@ watch(timeChartHost, (host, _previousHost, onCleanup) => {
 }, { flush: 'post' })
 
 watch(scoreSource, () => {
+	hoveredDistributionLabel.value = null
 	hoveredTimeWork.value = null
 })
 
@@ -90,6 +94,7 @@ const timeChart = computed(() => {
 			averages: [] as Array<{ key: number; x: number; y: number }>,
 			works: [] as Array<{
 				key: string
+				date: string
 				year: number
 				quarter: number
 				x: number
@@ -170,6 +175,7 @@ const timeChart = computed(() => {
 		const score = Number.isInteger(point.score) ? String(point.score) : point.score.toFixed(2)
 		return {
 			key: `${quarter.quarterIndex}-${point.subject.id}`,
+			date: point.date,
 			year: quarter.year,
 			quarter: quarter.quarter,
 			x,
@@ -179,7 +185,7 @@ const timeChart = computed(() => {
 			name,
 			tooltipX: Math.min(width - 130, Math.max(130, x)),
 			tooltipBelow: y < 92,
-			tooltip: `${name} · ${score} 分 · ${quarter.year} ${seasonLabel(quarter.quarter)}`,
+			tooltip: `${name} · ${score} 分 · ${formatRatingDate(point.date)}`,
 		}
 	}))
 	return {
@@ -238,19 +244,23 @@ const timeTickY = (score: number) => TIME_CHART_TOP + (10 - score) / 10 * (TIME_
 				class="score-bar"
 				:class="{ 'score-bar--peak': item.value === maxDistribution && item.value > 0, 'score-bar--empty': !item.value }"
 				:style="{ '--score-bar-height': `${distributionBarHeight(item.value)}%` }"
+				:tabindex="item.value ? 0 : undefined"
+				:aria-label="item.value ? `${item.label} 分，共 ${item.value} 部作品` : `${item.label} 分，没有作品`"
 				@mouseenter="hoveredDistributionLabel = item.value ? item.label : null"
 				@mouseleave="hoveredDistributionLabel = null"
+				@focus="hoveredDistributionLabel = item.value ? item.label : null"
+				@blur="hoveredDistributionLabel = null"
 			>
 				<span class="score-bar__track">
-					<n-tooltip
+					<WorkbenchTooltip
 						v-if="item.value"
 						:show="hoveredDistributionLabel === item.label"
 						trigger="manual"
 						placement="top"
 					>
 						<template #trigger><span class="score-bar__value">{{ item.value }}</span></template>
-						<span>{{ item.label }} 分：{{ item.value }} 部作品</span>
-					</n-tooltip>
+						<ScoreDistributionTooltip :score-label="item.label" :works="item.works" />
+					</WorkbenchTooltip>
 					<i />
 				</span>
 				<small>{{ item.label }}</small>
@@ -286,11 +296,17 @@ const timeTickY = (score: number) => TIME_CHART_TOP + (10 - score) / 10 * (TIME_
 					class="rating-time-chart__point"
 					@mouseenter="hoveredTimeWork = point.key"
 					@mouseleave="hoveredTimeWork = null"
-					@focus="hoveredTimeWork = point.key"
-					@blur="hoveredTimeWork = null"
 				>
 					<circle class="rating-time-chart__hit-target" :cx="point.x" :cy="point.y" r="8" />
-					<circle class="rating-time-chart__visible-point" :cx="point.x" :cy="point.y" r="3.5" tabindex="0">
+					<circle
+						class="rating-time-chart__visible-point"
+						:cx="point.x"
+						:cy="point.y"
+						r="3.5"
+						tabindex="0"
+						@focus="hoveredTimeWork = point.key"
+						@blur="hoveredTimeWork = null"
+					>
 						<title>{{ point.tooltip }}</title>
 					</circle>
 				</g>
@@ -304,7 +320,7 @@ const timeTickY = (score: number) => TIME_CHART_TOP + (10 - score) / 10 * (TIME_
 			>
 				<strong>{{ hoveredTimePoint.name }}</strong>
 				<span>{{ sourceLabel }} {{ Number.isInteger(hoveredTimePoint.score) ? hoveredTimePoint.score : hoveredTimePoint.score.toFixed(2) }}</span>
-				<small>{{ hoveredTimePoint.year }} {{ seasonLabel(hoveredTimePoint.quarter) }} · 季度均分 {{ hoveredTimePoint.quarterAverage.toFixed(2) }}</small>
+				<small>{{ formatRatingDate(hoveredTimePoint.date) }} · 季度均分 {{ hoveredTimePoint.quarterAverage.toFixed(2) }}</small>
 			</div>
 			<p v-if="!timeChart.works.length" class="rating-distribution-panel__empty">{{ timeChart.label }}</p>
 		</div>

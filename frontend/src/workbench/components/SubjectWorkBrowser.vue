@@ -5,6 +5,7 @@ import type { SubjectWorkSortOption, SubjectWorkSortOrder } from '../composables
 import WorkListToolbar from './WorkListToolbar.vue'
 import SubjectWorkList from './SubjectWorkList.vue'
 import AdaptivePagination from './AdaptivePagination.vue'
+import { useWorkbenchControlSize, type WorkbenchControlSize } from '../composables/useWorkbenchControlSize'
 
 const props = withDefaults(defineProps<{
 	title: string
@@ -47,7 +48,7 @@ const emit = defineEmits<{
 }>()
 
 defineSlots<{
-	heading(props: { title: string; titleId: string; headingMeta: string }): unknown
+	heading(props: { title: string; titleId: string; headingMeta: string; controlSize: WorkbenchControlSize }): unknown
 	list(props: { compact: boolean; startIndex: number; ariaLabel: string }): unknown
 	role(props: { subject: Subject }): unknown
 	participants(props: { subject: Subject }): unknown
@@ -59,13 +60,14 @@ const headingLabel = computed(() => props.headingMeta
 const densityMode = ref<'detailed' | 'compact'>('detailed')
 const compactMode = computed(() => densityMode.value === 'compact')
 const subjectStartIndex = computed(() => Math.max(0, (props.page - 1) * props.pageSize))
+const { controlSize } = useWorkbenchControlSize()
 </script>
 
 <template>
 	<div class="subject-work-browser">
 		<div class="section-heading subject-work-browser__heading">
 			<div class="subject-work-browser__heading-copy">
-				<slot name="heading" :title="title" :title-id="titleId" :heading-meta="headingMeta">
+				<slot name="heading" :title="title" :title-id="titleId" :heading-meta="headingMeta" :control-size="controlSize">
 					<h2 :id="titleId">{{ title }}</h2>
 					<p v-if="headingMeta" class="section-heading__meta" role="status" aria-live="polite">{{ headingMeta }}</p>
 				</slot>
@@ -73,7 +75,7 @@ const subjectStartIndex = computed(() => Math.max(0, (props.page - 1) * props.pa
 			<div class="subject-work-browser__density-toggle">
 				<n-radio-group
 					v-model:value="densityMode"
-					size="small"
+					:size="controlSize"
 					role="radiogroup"
 					:aria-label="compactAriaLabel"
 				>

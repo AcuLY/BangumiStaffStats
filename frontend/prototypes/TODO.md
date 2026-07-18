@@ -8,3 +8,4 @@
 8. info 文本
 9. 对齐两页数据
 10. icon 尺寸
+11. fallback 空白页

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { SubjectWorkSortOption, SubjectWorkSortOrder } from '../composables/useSubjectWorkBrowser'
-import { useMediaQuery } from '../composables/useMediaQuery'
+import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
 import AppIcon from './AppIcon.vue'
 import SortDirectionButton from './SortDirectionButton.vue'
+import { getWorkbenchControlThemeOverrides, getWorkbenchSelectThemeOverrides } from '../naiveThemeOverrides'
 
 withDefaults(defineProps<{
 	search: string
@@ -25,19 +26,9 @@ const emit = defineEmits<{
 	'update:order': [value: SubjectWorkSortOrder]
 }>()
 
-const isMobile = useMediaQuery('(max-width: 780px)')
-const controlSize = 'small' as const
-const controlThemeOverrides = computed(() => isMobile.value
-	? { common: { fontSizeSmall: '12px' } } // naive-size-token-exception: keep the native 28px small control height while applying the 12px mobile type spec.
-	: undefined)
-const selectThemeOverrides = computed(() => isMobile.value
-	? {
-		peers: {
-			InternalSelection: { fontSizeSmall: '12px' }, // naive-size-token-exception: NSelect trigger text does not inherit the provider's common small font size.
-			InternalSelectMenu: { optionFontSizeSmall: '12px' }, // naive-size-token-exception: keep expanded menu options aligned with the mobile toolbar type spec.
-		},
-	}
-	: undefined)
+const { controlSize, isMobile } = useWorkbenchControlSize()
+const controlThemeOverrides = computed(() => getWorkbenchControlThemeOverrides(isMobile.value))
+const selectThemeOverrides = computed(() => getWorkbenchSelectThemeOverrides(isMobile.value))
 </script>
 
 <template>
@@ -55,6 +46,11 @@ const selectThemeOverrides = computed(() => isMobile.value
 			>
 				<template #prefix><AppIcon name="search" :size="16" /></template>
 			</n-input>
+			<slot
+				name="before-sort"
+				:size="controlSize"
+				:select-theme-overrides="selectThemeOverrides"
+			/>
 			<n-select
 				:size="controlSize"
 				menu-size="small"

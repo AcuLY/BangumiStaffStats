@@ -1,18 +1,28 @@
 <script setup lang="ts">
-import type { CandidatePerson, Person } from '../types'
+import type { CandidatePerson, Person, RankingMetric } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
 import { useMediaQuery } from '../composables/useMediaQuery'
 import AppIcon from './AppIcon.vue'
 import SafeImage from './SafeImage.vue'
 
-withDefaults(defineProps<{
-	items: Array<Person | CandidatePerson>
-	variant: 'ranking' | 'candidate'
+interface CooperationPerson extends Person {
+	positionIds: number[]
+}
+
+const props = withDefaults(defineProps<{
+	items: Array<Person | CandidatePerson | CooperationPerson>
+	variant: 'ranking' | 'candidate' | 'cooperation'
 	rankOffset?: number
+	metric?: RankingMetric
+	focusedId?: number
+	averageLabel?: string
 	emptyTitle?: string
 	emptyDescription?: string
 }>(), {
 	rankOffset: 0,
+	metric: 'count',
+	focusedId: 0,
+	averageLabel: '我的均分',
 	emptyTitle: '没有匹配的人物',
 	emptyDescription: '换一个搜索词或筛选条件。',
 })
@@ -54,34 +64,52 @@ const progressStyle = (person: Person) => ({
 
 const metricSummary = (person: Person) => [
 	`${person.subjectCount ?? 0} 部作品`,
-	`我的均分 ${formatScore(person.userAverage, Boolean(person.ratedSubjectCount))}`,
+	`${props.averageLabel} ${formatScore(person.userAverage, Boolean(person.ratedSubjectCount))}`,
 	`综合分 ${formatScore(workbench.rankingValue(person, 'overall'), Boolean(person.ratedSubjectCount))}`,
 	`相对偏好 ${formatPreference(person)}`,
 ].join('，')
 
-const isCandidate = (person: Person | CandidatePerson): person is CandidatePerson =>
+const isCandidate = (person: Person | CandidatePerson | CooperationPerson): person is CandidatePerson =>
 	'activePositionId' in person
+const isCooperation = (person: Person | CandidatePerson | CooperationPerson): person is CooperationPerson =>
+	'positionIds' in person && !isCandidate(person)
+const activeMetric = () => props.variant === 'ranking' ? workbench.rankingMetric.value : props.metric
+const focused = (person: Person) => props.variant === 'ranking'
+	? workbench.focusedPersonId.value === person.id
+	: props.focusedId === person.id
+const secondaryLabel = (person: Person | CandidatePerson | CooperationPerson) => isCooperation(person)
+	? person.positionIds.map(workbench.positionLabel).join(' / ')
+	: workbench.personSecondaryName(person) || '人物资料'
 </script>
 
 <template>
-	<div class="person-list" :class="`person-list--${variant}`">
+	<div
+		class="person-list"
+		:class="[
+			`person-list--${variant}`,
+			{ 'person-list--ranking': variant === 'cooperation' },
+		]"
+	>
 		<template v-for="(person, index) in items" :key="`${variant}-${person.id}`">
 			<button
-				v-if="variant === 'ranking'"
+				v-if="variant === 'ranking' || isCooperation(person)"
 				class="person-row person-row--ranking"
 				:class="{
-					'is-focused': workbench.focusedPersonId.value === person.id,
-					'has-signed-progress': workbench.rankingProgress(person).signed,
+					'person-row--cooperation': variant === 'cooperation',
+					'is-focused': focused(person),
+					'has-signed-progress': variant === 'ranking' && workbench.rankingProgress(person).signed,
 				}"
-				:style="progressStyle(person)"
-				:aria-current="workbench.focusedPersonId.value === person.id ? 'true' : undefined"
-				aria-controls="ranking-inspector"
-				:aria-expanded="workbench.focusedPersonId.value === person.id && (!isMobile || workbench.inspectorDrawerOpen.value)"
-				:aria-label="`${rankOffset + index + 1}. ${workbench.personName(person)}，${workbench.personSecondaryName(person) || '人物资料'}，${metricSummary(person)}`"
+				:style="variant === 'ranking' ? progressStyle(person) : undefined"
+				:aria-current="focused(person) ? 'true' : undefined"
+				:aria-controls="variant === 'ranking' ? 'ranking-inspector' : 'single-cooperation-works-title'"
+				:aria-expanded="variant === 'ranking' ? focused(person) && (!isMobile || workbench.inspectorDrawerOpen.value) : undefined"
+				:aria-label="variant === 'ranking'
+					? `${rankOffset + index + 1}. ${workbench.personName(person)}，${secondaryLabel(person)}，${metricSummary(person)}`
+					: `查看与${workbench.personName(person)}合作的 ${person.subjectCount ?? 0} 部作品，${metricSummary(person)}`"
 				type="button"
 				@click="emit('activate', person.id)"
 			>
-				<span class="person-row__progress" :class="progressClass(person)" aria-hidden="true" />
+				<span v-if="variant === 'ranking'" class="person-row__progress" :class="progressClass(person)" aria-hidden="true" />
 				<span class="person-row__rank">{{ rankOffset + index + 1 }}</span>
 				<SafeImage
 					class="person-row__avatar"
@@ -94,19 +122,19 @@ const isCandidate = (person: Person | CandidatePerson): person is CandidatePerso
 				/>
 				<span class="person-row__identity">
 					<strong>{{ workbench.personName(person) }}</strong>
-					<small>{{ workbench.personSecondaryName(person) || '人物资料' }}</small>
+					<small :title="secondaryLabel(person)">{{ secondaryLabel(person) }}</small>
 				</span>
 				<span class="person-row__metrics" :aria-label="metricSummary(person)">
-					<span class="person-row__metric" :class="{ 'is-active': workbench.rankingMetric.value === 'count' }">
+					<span class="person-row__metric" :class="{ 'is-active': activeMetric() === 'count' }">
 						<strong>{{ person.subjectCount ?? 0 }}</strong>
 					</span>
-					<span class="person-row__metric" :class="{ 'is-active': workbench.rankingMetric.value === 'average' }">
+					<span class="person-row__metric" :class="{ 'is-active': activeMetric() === 'average' }">
 						<strong>{{ formatScore(person.userAverage, Boolean(person.ratedSubjectCount)) }}</strong>
 					</span>
-					<span class="person-row__metric" :class="{ 'is-active': workbench.rankingMetric.value === 'overall' }">
+					<span class="person-row__metric" :class="{ 'is-active': activeMetric() === 'overall' }">
 						<strong>{{ formatScore(workbench.rankingValue(person, 'overall'), Boolean(person.ratedSubjectCount)) }}</strong>
 					</span>
-					<span class="person-row__metric" :class="{ 'is-active': workbench.rankingMetric.value === 'preference', 'is-unavailable': !hasPreference(person) }">
+					<span class="person-row__metric" :class="{ 'is-active': activeMetric() === 'preference', 'is-unavailable': !hasPreference(person) }">
 						<strong v-if="hasPreference(person)" class="person-row__signed-value"><span>{{ preferenceSign(person) }}</span><span>{{ preferenceMagnitude(person) }}</span></strong>
 						<strong v-else>—</strong>
 					</span>

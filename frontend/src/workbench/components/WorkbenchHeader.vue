@@ -4,12 +4,11 @@ import type { WorkbenchMode } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
 import { useMediaQuery } from '../composables/useMediaQuery'
 import AppIcon from './AppIcon.vue'
+import { getThemeToggleThemeOverrides } from '../naiveThemeOverrides'
 
 const workbench = useWorkbench()
 const isMobile = useMediaQuery('(max-width: 780px)')
-const themeToggleThemeOverrides = computed(() => isMobile.value
-	? undefined
-	: { heightMedium: '38px' }) // naive-size-token-exception: desktop header controls follow the annotated 38px compact-control specification.
+const themeToggleThemeOverrides = computed(() => getThemeToggleThemeOverrides(isMobile.value))
 const headerElement = ref<HTMLElement | null>(null)
 const headerBarElement = ref<HTMLElement | null>(null)
 let headerResizeObserver: ResizeObserver | null = null

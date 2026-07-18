@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import type { CandidateSortMetric } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
 import SafeImage from './SafeImage.vue'
 import AppIcon from './AppIcon.vue'
 import AdaptivePagination from './AdaptivePagination.vue'
+import SortDirectionButton from './SortDirectionButton.vue'
+import { getWorkbenchControlThemeOverrides, getWorkbenchSelectThemeOverrides } from '../naiveThemeOverrides'
 
 const props = withDefaults(defineProps<{ drawer?: boolean }>(), { drawer: false })
 const emit = defineEmits<{ close: [] }>()
 const workbench = useWorkbench()
 const selectedTrayExpandedNames = ref<Array<string | number>>(props.drawer ? [] : ['selected-people'])
 const controlSize = computed<'small' | 'medium'>(() => props.drawer ? 'small' : 'medium')
+const controlThemeOverrides = computed(() => getWorkbenchControlThemeOverrides(props.drawer))
+const selectThemeOverrides = computed(() => getWorkbenchSelectThemeOverrides(props.drawer))
 
 const selectedScopeCount = computed(() => workbench.selectedScopes.value.length)
 const candidatePageSizeOptions = [5, 10, 20, 50].map((value) => ({ label: `每页 ${value} 人`, value }))
@@ -31,6 +36,12 @@ const candidatePositionSelectOptions = computed(() => workbench.candidatePositio
 	label: `${option.label} · ${option.count} 人`,
 	value: option.value,
 })))
+const candidateSortOptions = computed<Array<{ label: string; value: CandidateSortMetric }>>(() => [
+	{ label: '作品数', value: 'count' },
+	...(workbench.query.isGlobal ? [] : [{ label: '我的均分', value: 'average' as const }]),
+	{ label: '全站均分', value: 'globalAverage' },
+	{ label: '人物名', value: 'name' },
+])
 
 const currentPositionRanking = computed(() => [...workbench.peopleById.value.values()]
 	.map((person) => {
@@ -40,28 +51,40 @@ const currentPositionRanking = computed(() => [...workbench.peopleById.value.val
 		const rates = subjectIds
 			.map((id) => Number(workbench.subjectsById.value.get(Number(id))?.collection?.rate || 0))
 			.filter((rate) => rate > 0)
+		const globalScores = subjectIds
+			.map((id) => Number(workbench.subjectsById.value.get(Number(id))?.score || 0))
+			.filter((score) => score > 0)
 		return {
 			personId: person.id,
+			name: workbench.personName(person),
 			count: subjectIds.length,
 			average: rates.length ? rates.reduce((sum, rate) => sum + rate, 0) / rates.length : 0,
+			globalAverage: globalScores.length ? globalScores.reduce((sum, score) => sum + score, 0) / globalScores.length : 0,
 		}
 	})
-	.filter((item): item is { personId: number; count: number; average: number } => Boolean(item))
-	.sort((a, b) => b.count - a.count || b.average - a.average || a.personId - b.personId))
+	.filter((item): item is { personId: number; name: string; count: number; average: number; globalAverage: number } => Boolean(item))
+	.sort((a, b) => {
+		let comparison = 0
+		switch (workbench.candidateSortMetric.value) {
+			case 'average':
+				comparison = a.average - b.average
+				break
+			case 'globalAverage':
+				comparison = a.globalAverage - b.globalAverage
+				break
+			case 'name':
+				comparison = a.name.localeCompare(b.name, 'zh-CN')
+				break
+			default:
+				comparison = a.count - b.count
+		}
+		if (comparison) return workbench.candidateAscend.value ? comparison : -comparison
+		return b.count - a.count || b.average - a.average || a.personId - b.personId
+	}))
 
 const candidateRankById = computed(() => new Map(
 	currentPositionRanking.value.map((item, index) => [item.personId, index + 1]),
 ))
-const selectionSlot = (index: number) => String(index + 1)
-const selectedPersonNeedsFullRow = (item: typeof workbench.selectedPeople.value[number]) => {
-	const personNameLength = Array.from(String(workbench.personName(item.person)).trim()).length
-	const positionLabelLength = item.positionIds.reduce(
-		(total, positionId) => total + Array.from(String(workbench.positionLabel(positionId)).trim()).length,
-		0,
-	)
-	return personNameLength > 8 || item.positionIds.length > 2 || positionLabelLength > 12
-}
-
 const availablePositionOptions = (item: typeof workbench.selectedPeople.value[number]) =>
 	workbench.positions.value.filter((position) =>
 		workbench.coStarPositionIds.value.includes(position.value)
@@ -93,42 +116,71 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 			</n-button>
 		</header>
 
-		<section class="selected-tray" aria-label="已选人物">
+		<section
+			class="selected-tray"
+			:class="{ 'is-expanded': selectedTrayExpandedNames.includes('selected-people') }"
+			aria-label="已选人物"
+		>
 			<n-collapse
 				v-model:expanded-names="selectedTrayExpandedNames"
 				display-directive="show"
 			>
 				<n-collapse-item name="selected-people">
 					<template #header>已选人物</template>
-					<template #header-extra>{{ workbench.selectedPeople.value.length }} 人 · {{ selectedScopeCount }} 个身份</template>
+					<template #header-extra>
+						<span
+							class="selection-summary"
+							:aria-label="`${workbench.selectedPeople.value.length} 人，${selectedScopeCount} 个身份`"
+						>
+							<span><strong>{{ workbench.selectedPeople.value.length }}</strong> 人</span>
+							<span class="selection-summary__divider" aria-hidden="true"></span>
+							<span><strong>{{ selectedScopeCount }}</strong> 身份</span>
+						</span>
+					</template>
 					<div id="selected-people-list" class="selected-people-list">
 						<article
-							v-for="(item, index) in workbench.selectedPeople.value"
+							v-for="item in workbench.selectedPeople.value"
 							:key="item.person.id"
 							class="selected-person-row"
-							:class="{ 'selected-person-row--full': selectedPersonNeedsFullRow(item) }"
+							:aria-label="`${workbench.personName(item.person)}，${item.positionIds.map((positionId) => workbench.positionLabel(positionId)).join('、')}`"
 						>
-							<span class="identity-marker" aria-hidden="true">{{ selectionSlot(index) }}</span>
-							<span class="selected-person-row__copy">
-								<strong>{{ workbench.personName(item.person) }}</strong>
-								<span class="selected-person-row__positions">
-									<n-tag v-for="positionId in item.positionIds" :key="positionId" :size="controlSize" closable @close="workbench.toggleScope(item.person.id, positionId)">
-										{{ workbench.positionLabel(positionId) }}
-									</n-tag>
-									<span v-if="availablePositionOptions(item).length" class="position-add-select">
-										<n-select
-											:size="controlSize"
-											:value="null"
-											:options="availablePositionOptions(item)"
-											placeholder="＋ 添加身份…"
-											:aria-label="`为${workbench.personName(item.person)}添加身份`"
-											@update:value="addIdentity(item.person.id, $event)"
-										/>
-									</span>
+							<strong class="selected-person-row__name" :title="workbench.personName(item.person)">
+								<span class="selected-person-row__name-label">{{ workbench.personName(item.person) }}</span>
+							</strong>
+							<span class="selected-person-row__positions">
+								<span
+									v-for="positionId in item.positionIds"
+									:key="positionId"
+									class="selected-position-pill"
+								>
+									<span class="selected-position-tag__label">{{ workbench.positionLabel(positionId) }}</span>
+									<n-button
+										class="selected-position-tag__remove"
+										size="tiny"
+										quaternary
+										circle
+										attr-type="button"
+										:aria-label="`移除${workbench.personName(item.person)}的${workbench.positionLabel(positionId)}身份`"
+										:title="`移除${workbench.positionLabel(positionId)}身份`"
+										@click="workbench.toggleScope(item.person.id, positionId)"
+									>
+										<AppIcon name="close" :size="12" />
+									</n-button>
+								</span>
+								<span v-if="availablePositionOptions(item).length" class="position-add-select">
+									<n-select
+										size="small"
+										round
+										:value="null"
+										:options="availablePositionOptions(item)"
+										placeholder="＋ 添加身份…"
+										:aria-label="`为${workbench.personName(item.person)}添加身份`"
+										@update:value="addIdentity(item.person.id, $event)"
+									/>
 								</span>
 							</span>
-							<n-button class="selected-person-row__remove" :size="controlSize" type="error" quaternary circle attr-type="button" :aria-label="`移除${workbench.personName(item.person)}的全部身份`" :title="`移除${workbench.personName(item.person)}`" @click="workbench.removePerson(item.person.id)">
-								<AppIcon name="close" :size="16" />
+							<n-button class="selected-person-row__remove" size="tiny" quaternary circle attr-type="button" :aria-label="`移除${workbench.personName(item.person)}的全部身份`" :title="`移除${workbench.personName(item.person)}`" @click="workbench.removePerson(item.person.id)">
+								<AppIcon name="close" :size="12" />
 							</n-button>
 						</article>
 						<div v-if="!workbench.selectedPeople.value.length" class="selected-empty">从下方候选中选择至少两个人物。</div>
@@ -160,11 +212,30 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 				role="region"
 				:aria-label="`${candidatePositionLabel}候选人物`"
 			>
+				<n-config-provider :theme-overrides="controlThemeOverrides">
 				<div class="candidate-search">
 					<n-input :size="controlSize" v-model:value="workbench.candidateSearch.value" :clearable="Boolean(workbench.candidateSearch.value)" autocomplete="off" placeholder="筛选当前结果…" :aria-label="`搜索${candidatePositionLabel}候选人物`" :input-props="{ name: 'candidateSearch', spellcheck: 'false' }">
 						<template #prefix><AppIcon name="search" :size="16" /></template>
 					</n-input>
+					<n-select
+						class="candidate-sort-select"
+						:size="controlSize"
+						menu-size="small"
+						v-model:value="workbench.candidateSortMetric.value"
+						:options="candidateSortOptions"
+						:theme-overrides="selectThemeOverrides"
+						:consistent-menu-width="false"
+						aria-label="候选人物排序规则"
+					/>
+					<SortDirectionButton
+						class="candidate-sort-direction"
+						:size="controlSize"
+						:order="workbench.candidateAscend.value ? 'asc' : 'desc'"
+						context-label="候选人物排序方向"
+						@update:order="workbench.candidateAscend.value = $event === 'asc'"
+					/>
 				</div>
+				</n-config-provider>
 
 				<div class="person-list person-list--candidate">
 					<button
@@ -233,76 +304,6 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 </template>
 
 <style scoped>
-.selected-person-row {
-	grid-template-columns: 20px minmax(0, 1fr) 36px;
-	align-items: center;
-	gap: var(--space-2);
-	min-height: 52px;
-	padding-block: var(--space-1);
-}
-
-.person-picker--drawer .selected-person-row--full {
-	grid-column: 1 / -1;
-}
-
-.selected-person-row > .identity-marker {
-	width: 20px;
-	height: 20px;
-	border: 0;
-	border-radius: 0;
-	background: transparent;
-	color: var(--text-3);
-	font-size: var(--text-caption);
-}
-
-.selected-person-row__copy {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: var(--space-1) var(--space-2);
-}
-
-.selected-person-row__copy > strong {
-	overflow: visible;
-	text-overflow: clip;
-	white-space: normal;
-	overflow-wrap: anywhere;
-}
-
-.selected-person-row__positions {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--space-1);
-}
-
-.selected-person-row--full {
-	align-items: start;
-	padding-block: var(--space-2);
-}
-
-.selected-person-row--full .selected-person-row__copy {
-	display: grid;
-	align-items: start;
-	gap: var(--space-2);
-}
-
-.selected-person-row--full .selected-person-row__copy > strong {
-	width: 100%;
-	overflow: visible;
-	text-overflow: clip;
-	white-space: normal;
-	overflow-wrap: anywhere;
-}
-
-.selected-person-row--full .selected-person-row__positions {
-	width: 100%;
-}
-
-.selected-person-row--full > .identity-marker,
-.selected-person-row--full > .selected-person-row__remove {
-	margin-top: var(--space-1);
-}
-
 .position-add-select {
 	display: inline-block;
 	width: 112px;
@@ -379,6 +380,25 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 }
 
 @container candidate-results (max-width: 269px) {
+	.candidate-search {
+		grid-template-areas:
+			"search search"
+			"sort direction";
+		grid-template-columns: minmax(0, 1fr) auto;
+	}
+
+	.candidate-search > :first-child {
+		grid-area: search;
+	}
+
+	.candidate-sort-select {
+		grid-area: sort;
+	}
+
+	.candidate-sort-direction {
+		grid-area: direction;
+	}
+
 	.person-list--candidate {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);

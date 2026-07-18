@@ -11,6 +11,7 @@ import {
 } from 'vue'
 import type {
 	CandidatePerson,
+	CandidateSortMetric,
 	CharacterCredit,
 	Person,
 	PersonRole,
@@ -120,6 +121,8 @@ export interface WorkbenchContext {
 	focusedDistribution: ComputedRef<Array<{ label: string; value: number }>>
 	focusedPreferenceContributions: ComputedRef<SubjectPreferenceContribution[]>
 	candidateSearch: Ref<string>
+	candidateSortMetric: Ref<CandidateSortMetric>
+	candidateAscend: Ref<boolean>
 	candidatePage: Ref<number>
 	candidatePageSize: Ref<number>
 	candidatePositionId: Ref<number>
@@ -598,13 +601,13 @@ export function provideWorkbench(
 	})
 
 	const candidateSearch = ref('')
+	const candidateSortMetric = ref<CandidateSortMetric>('count')
+	const candidateAscend = ref(false)
 	const candidatePage = ref(1)
 	const candidatePositionId = ref(102)
 	const candidatePageSize = ref(CANDIDATE_PAGE_SIZE)
 	const selectedScopes = ref<SelectedScope[]>([
 		{ personId: 5745, positionId: 102 },
-		{ personId: 4765, positionId: 102 },
-		{ personId: 10600, positionId: 102 },
 	])
 	const peopleDrawerOpen = ref(false)
 	const inspectorDrawerOpen = ref(false)
@@ -633,6 +636,7 @@ export function provideWorkbench(
 					activeSubjectIds: ids,
 					activeSubjectCount: ids.length,
 					activeAverage: averageForIds(ids),
+					activeGlobalAverage: globalAverageForIds(ids),
 				}
 			})
 			.filter((person): person is CandidatePerson => Boolean(person))
@@ -642,7 +646,26 @@ export function provideWorkbench(
 				return [personName(person), person.name, person.nameCN, ...(person.aliases ?? [])]
 					.some((value) => compactSearch(value).includes(queryValue))
 			})
-			.sort((a, b) => b.activeSubjectCount - a.activeSubjectCount || b.activeAverage - a.activeAverage || a.id - b.id)
+			.sort((a, b) => {
+				let comparison = 0
+				switch (candidateSortMetric.value) {
+					case 'average':
+						comparison = a.activeAverage - b.activeAverage
+						break
+					case 'globalAverage':
+						comparison = a.activeGlobalAverage - b.activeGlobalAverage
+						break
+					case 'name':
+						comparison = personName(a).localeCompare(personName(b), 'zh-CN')
+						break
+					default:
+						comparison = a.activeSubjectCount - b.activeSubjectCount
+				}
+				if (comparison) return candidateAscend.value ? comparison : -comparison
+				return b.activeSubjectCount - a.activeSubjectCount
+					|| b.activeAverage - a.activeAverage
+					|| a.id - b.id
+			})
 	})
 	const candidatePageCount = computed(() => Math.max(1, Math.ceil(candidatePeople.value.length / candidatePageSize.value)))
 	const candidatePageItems = computed(() => {
@@ -657,7 +680,10 @@ export function provideWorkbench(
 		candidateSearch.value = ''
 		candidatePage.value = 1
 	})
-	watch([candidateSearch, candidatePageSize], () => { candidatePage.value = 1 })
+	watch([candidateSearch, candidateSortMetric, candidateAscend, candidatePageSize], () => { candidatePage.value = 1 })
+	watch(() => query.isGlobal, (isGlobal) => {
+		if (isGlobal && candidateSortMetric.value === 'average') candidateSortMetric.value = 'globalAverage'
+	})
 	watch(candidatePageCount, (count) => { candidatePage.value = Math.min(candidatePage.value, count) })
 
 	const validateQuery = (source: QueryState) => {
@@ -844,6 +870,8 @@ export function provideWorkbench(
 		focusedDistribution,
 		focusedPreferenceContributions,
 		candidateSearch,
+		candidateSortMetric,
+		candidateAscend,
 		candidatePage,
 		candidatePageSize,
 		candidatePositionId,

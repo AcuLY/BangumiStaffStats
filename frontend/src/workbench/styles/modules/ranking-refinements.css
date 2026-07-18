@@ -193,7 +193,7 @@
 
 .person-profile__bio p {
 	margin-top: 0;
-	font-size: 12px;
+	font-size: var(--text-body);
 	line-height: 1.65;
 }
 
@@ -254,23 +254,6 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-@container person-inspector (min-width: 521px) {
-	.profile-metrics--extended > span {
-		display: flex;
-		align-items: baseline;
-		gap: var(--space-2);
-	}
-
-	.profile-metrics--extended b {
-		flex: 0 0 auto;
-		font-size: var(--text-section);
-	}
-
-	.profile-metrics--extended small {
-		flex: 1 1 auto;
-	}
 }
 
 .score-distribution {

@@ -55,7 +55,7 @@
 	}
 
 	.profile-metrics--extended {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 	}
 
 	.profile-metrics--extended > span:nth-child(n) {

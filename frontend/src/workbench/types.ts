@@ -3,6 +3,7 @@ import type { PreferenceSummary } from './domain/preference'
 export type WorkbenchMode = 'ranking' | 'co-star'
 export type WorkbenchTheme = 'light' | 'dark'
 export type RankingMetric = 'count' | 'average' | 'overall' | 'preference'
+export type CandidateSortMetric = 'count' | 'average' | 'globalAverage' | 'name'
 export type QueryPositionValue = number | string
 export type QueryPositionsByMode = Record<WorkbenchMode, QueryPositionValue[]>
 export interface ImageSet {
@@ -142,6 +143,7 @@ export interface CandidatePerson extends Person {
 	activeSubjectIds: number[]
 	activeSubjectCount: number
 	activeAverage: number
+	activeGlobalAverage: number
 }
 
 export interface QueryRangeCondition {

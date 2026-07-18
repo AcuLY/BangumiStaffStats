@@ -11,6 +11,32 @@
 	min-width: 0;
 }
 
+.analysis-dashboard--unified {
+	gap: 0;
+	overflow: clip;
+}
+
+.analysis-dashboard--unified > .analysis-section {
+	border: 0;
+	border-bottom: 1px solid var(--divider);
+	border-radius: 0;
+	box-shadow: none;
+}
+
+.analysis-dashboard--unified > .analysis-section:last-child {
+	border-bottom: 0;
+}
+
+.analysis-dashboard--unified > .relationship-hero {
+	padding: 0;
+}
+
+.analysis-dashboard--unified > .relationship-hero .profile-stage {
+	margin-top: 0;
+	border: 0;
+	border-radius: 0;
+}
+
 .analysis-empty {
 	display: grid;
 	justify-items: center;
@@ -95,7 +121,7 @@
 .analysis-profile__content > p {
 	margin-top: 4px;
 	color: var(--text-3);
-	font-size: 13px;
+	font-size: var(--text-body);
 }
 
 .analysis-profile__content > div {
@@ -140,7 +166,7 @@
 
 .metric-ledger strong {
 	color: var(--text-1);
-	font-size: 23px;
+	font-size: var(--text-panel);
 	line-height: 1.2;
 }
 

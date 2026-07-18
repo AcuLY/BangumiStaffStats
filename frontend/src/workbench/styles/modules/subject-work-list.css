@@ -5,7 +5,7 @@
 	min-width: 0;
 	max-height: min(680px, 62vh);
 	margin: 0;
-	padding: 0 var(--space-2) 0 0;
+	padding: 0 var(--space-2) var(--space-2) 0;
 	list-style: none;
 	overflow-y: auto;
 	overscroll-behavior-y: auto;
@@ -378,7 +378,7 @@
 
 	.subject-work-row__meta li {
 		padding: 0 6px;
-		font-size: 11px;
+		font-size: var(--text-caption);
 		line-height: 14px;
 	}
 

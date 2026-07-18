@@ -32,9 +32,9 @@
 	grid-area: controls;
 	display: grid;
 	grid-template-areas:
-		"count count count"
-		"search sort-field sort-direction";
-	grid-template-columns: minmax(0, 1fr) minmax(92px, 0.55fr) auto;
+		"count"
+		"toolbar";
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--space-3) var(--space-2);
 	width: 100%;
 	min-width: 0;
@@ -53,15 +53,13 @@
 	white-space: nowrap;
 }
 
-.ranking-sort-field {
-	grid-area: sort-field;
-	display: grid;
+.ranking-toolbar {
+	grid-area: toolbar;
 	min-width: 0;
 }
 
-.ranking-sort-direction {
-	grid-area: sort-direction;
-	align-self: stretch;
+.ranking-toolbar .work-list-toolbar {
+	margin-bottom: 0;
 }
 
 .ranking-list-scroll {
@@ -142,7 +140,7 @@
 
 .person-row__rank {
 	color: var(--text-3);
-	font-size: 13px;
+	font-size: var(--text-control);
 	font-weight: 600;
 	text-align: center;
 }

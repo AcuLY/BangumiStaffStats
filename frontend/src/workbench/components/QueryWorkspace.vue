@@ -348,7 +348,7 @@ const conditionTitle = (key: ConditionKey) => ({
 					</span>
 				</span>
 				<span class="query-summary__action header-edit-card__action" aria-hidden="true">
-					<AppIcon name="edit" :size="18" />
+					<AppIcon name="edit" :size="20" />
 				</span>
 			</template>
 		</button>
@@ -553,7 +553,7 @@ const conditionTitle = (key: ConditionKey) => ({
 						</div>
 					</header>
 					<div class="field field--positions" :class="{ 'is-error': queryErrorKind === 'positions' }">
-						<span id="query-position-control-label">{{ workbench.mode.value === 'ranking' ? '可多选；仅保留同时具备全部所选职位的人物' : '可多选；选择参与共同分析的职位' }}</span>
+						<span id="query-position-control-label" class="query-position-hint">{{ workbench.mode.value === 'ranking' ? '可多选；仅保留同时具备全部所选职位的人物' : '可多选；选择参与共同分析的职位' }}</span>
 						<n-select
 							ref="positionInput"
 							v-model:value="draftPositions"

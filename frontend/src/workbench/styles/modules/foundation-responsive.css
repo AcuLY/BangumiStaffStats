@@ -123,11 +123,14 @@
 	.ranking-workbench,
 	.co-star-workbench {
 		grid-template-columns: minmax(0, 1fr);
+		width: calc(100% + (2 * var(--space-3)));
+		margin-inline: calc(-1 * var(--space-3));
 	}
 
 	.ranking-pane {
 		position: static;
 		overflow: visible;
+		padding-inline: var(--space-4);
 		border: 0;
 		border-radius: 0;
 		background: transparent;
@@ -209,6 +212,25 @@
 
 	.analysis-dashboard {
 		gap: 12px;
+	}
+
+	.analysis-dashboard--unified.surface-panel {
+		gap: 0;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		box-shadow: none;
+		overflow: visible;
+	}
+
+	.analysis-dashboard--unified > .analysis-section {
+		padding-inline: var(--space-4);
+		background: transparent;
+	}
+
+	.analysis-dashboard--unified .rating-summary,
+	.analysis-dashboard--unified .rating-summary > div {
+		background: transparent;
 	}
 
 	.analysis-title-row {

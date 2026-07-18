@@ -6,7 +6,9 @@ import {
 	characterCreditName,
 	characterCreditSecondaryName,
 	characterRoleLabel,
+	characterRoleLabelPriority,
 	countUniqueCharacterRoles,
+	sortByCharacterRolePriority,
 } from './characterCredits'
 
 const subjects: Subject[] = [
@@ -63,5 +65,38 @@ describe('character credits', () => {
 		expect(characterRoleLabel({ roleType: 2, roleLabel: '配角' })).toBe('配角')
 		expect(characterRoleLabel({ roleType: 3, roleLabel: '客串' })).toBe('客串')
 		expect(characterRoleLabel({ roleType: 5, roleLabel: '其他' })).toBe('其他')
+	})
+
+	it('recognizes role priority inside compound labels', () => {
+		expect(characterRoleLabelPriority('声优 · 主役')).toBe(4)
+		expect(characterRoleLabelPriority('声优 · 主角')).toBe(4)
+		expect(characterRoleLabelPriority('声优 · 配角')).toBe(3)
+		expect(characterRoleLabelPriority('声优 · 客串')).toBe(2)
+		expect(characterRoleLabelPriority('声优')).toBe(1)
+	})
+
+	it('sorts role-bearing items by main, supporting, guest, then other while preserving ties', () => {
+		const entries = [
+			{ id: 'supporting-a', label: '配角' },
+			{ id: 'other', label: '声优' },
+			{ id: 'main', label: '声优 · 主角' },
+			{ id: 'guest', label: '客串' },
+			{ id: 'supporting-b', label: '声优 · 配角' },
+		]
+
+		expect(sortByCharacterRolePriority(entries, entry => entry.label).map(entry => entry.id)).toEqual([
+			'main',
+			'supporting-a',
+			'supporting-b',
+			'guest',
+			'other',
+		])
+		expect(entries.map(entry => entry.id)).toEqual([
+			'supporting-a',
+			'other',
+			'main',
+			'guest',
+			'supporting-b',
+		])
 	})
 })

@@ -11,7 +11,10 @@
 		overflow: visible;
 	}
 
-	.person-picker {
+	.person-picker:not(.person-picker--drawer) {
+		--selected-tray-header-height: 44px;
+		--selected-tray-list-height: 120px;
+		grid-template-rows: auto minmax(0, 1fr);
 		height: auto;
 		min-height: 680px;
 		max-height: none;
@@ -20,11 +23,24 @@
 		scrollbar-gutter: auto;
 	}
 
-	.selected-tray {
-		max-height: none;
-		overflow-y: visible;
+	.person-picker:not(.person-picker--drawer) .selected-tray {
+		max-height: var(--selected-tray-header-height);
+		overflow: hidden;
 		overscroll-behavior-y: auto;
-		scrollbar-gutter: auto;
+	}
+
+	.person-picker:not(.person-picker--drawer) .selected-tray.is-expanded {
+		height: calc(var(--selected-tray-header-height) + var(--selected-tray-list-height));
+		max-height: calc(var(--selected-tray-header-height) + var(--selected-tray-list-height));
+	}
+
+	.person-picker:not(.person-picker--drawer) .selected-tray.is-expanded .selected-people-list {
+		height: var(--selected-tray-list-height);
+		padding-bottom: var(--space-1);
+		overflow-x: hidden;
+		overflow-y: auto;
+		overscroll-behavior-y: auto;
+		scrollbar-gutter: stable;
 	}
 
 	.person-list--candidate {

@@ -41,10 +41,6 @@
 		grid-template-columns: minmax(0, 1fr);
 	}
 
-	.collaboration-timeline {
-		padding-inline: 18px;
-	}
-
 	.table-disclosure--pager {
 		align-items: flex-start;
 		flex-direction: column;
@@ -80,7 +76,7 @@
 	}
 
 	.person-profile__bio p {
-		font-size: var(--text-caption);
+		font-size: var(--text-body);
 	}
 
 	.profile-metrics--extended {
@@ -107,7 +103,7 @@
 
 	.tag-row span {
 		padding: 2px 6px;
-		font-size: 11px;
+		font-size: var(--text-caption);
 		line-height: 14px;
 	}
 

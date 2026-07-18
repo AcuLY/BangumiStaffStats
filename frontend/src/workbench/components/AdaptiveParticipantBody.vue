@@ -37,7 +37,7 @@ const measure = () => {
 		return Math.ceil(range.getBoundingClientRect().width)
 	}
 	const roleWidth = Math.max(...entries.map((entry) => {
-		const displayName = entry.querySelector<HTMLElement>('strong')
+		const displayName = entry.querySelector<HTMLElement>('.adaptive-role-list__name')
 		const label = entry.querySelector<HTMLElement>('small')
 		const copy = entry.querySelector<HTMLElement>('.adaptive-role-list__copy')
 		const gap = label && copy ? Number.parseFloat(getComputedStyle(copy).columnGap) || 0 : 0
@@ -75,6 +75,6 @@ onBeforeUnmount(() => {
 <template>
 	<span ref="root" class="shared-work-participant__body" :class="{ 'shared-work-participant__body--inline': isInline }">
 		<strong class="shared-work-participant__name">{{ name }}</strong>
-		<AdaptiveRoleList class="shared-work-participant__roles" :entries="roleEntries" />
+		<AdaptiveRoleList class="shared-work-participant__roles" :entries="roleEntries" mode="co-star" />
 	</span>
 </template>

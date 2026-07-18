@@ -175,6 +175,8 @@
 	border-top: 1px solid var(--divider);
 	background: var(--translucent-chrome-fallback);
 	background: var(--translucent-chrome-background);
+	box-shadow: var(--translucent-chrome-edge-shadow);
+	clip-path: inset(0 0 -64px);
 	-webkit-backdrop-filter: var(--translucent-chrome-filter);
 	backdrop-filter: var(--translucent-chrome-filter);
 }
@@ -194,7 +196,7 @@
 
 .query-panel-enter-to,
 .query-panel-leave-from {
-	clip-path: inset(0);
+	clip-path: inset(0 0 -64px);
 }
 
 .query-editor__stages {
@@ -257,6 +259,7 @@
 	display: flex;
 	align-items: center;
 	min-height: 34px;
+	padding-left: 2px;
 }
 
 .query-source-field {
@@ -308,6 +311,11 @@
 
 .query-stage--positions .field--positions {
 	margin-top: var(--space-3);
+}
+
+.query-editor .field > .query-position-hint {
+	color: var(--text-3);
+	font-weight: 400;
 }
 
 .query-advanced-collapse {
