@@ -10,9 +10,15 @@
 	}
 }
 
-@media (max-width: 780px) {
+@media (width < 780px) {
 	.work-list-toolbar {
 		gap: 4px;
+	}
+
+	.ranking-pane .person-row--ranking .person-row__rank,
+	.ranking-pane .person-row--ranking .person-row__identity strong,
+	.ranking-pane .person-row--ranking .person-row__metric strong {
+		font-size: var(--text-caption);
 	}
 
 	.person-profile {
@@ -49,10 +55,6 @@
 }
 
 @media (max-width: 520px) {
-	.person-row__metric strong {
-		font-size: var(--text-caption);
-	}
-
 	.person-row__metric small,
 	.list-columns__metrics {
 		font-size: var(--text-caption);
@@ -73,10 +75,6 @@
 
 	.person-profile__meta span {
 		font-size: var(--text-caption);
-	}
-
-	.person-profile__bio p {
-		font-size: var(--text-body);
 	}
 
 	.profile-metrics--extended {
@@ -129,7 +127,7 @@
 	}
 
 	.analysis-profile__stats b {
-		font-size: 12px;
+		font-size: var(--text-body);
 	}
 
 	.participation-heading {

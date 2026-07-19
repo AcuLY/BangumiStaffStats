@@ -17,8 +17,10 @@
 
 .list-columns__metrics,
 .person-row__metrics {
-	grid-template-columns: repeat(4, minmax(0, 1fr));
-	gap: var(--space-1);
+	grid-template-columns: 25px 28px 28px 40px;
+	width: max-content;
+	max-width: 100%;
+	column-gap: 7px;
 }
 
 .list-columns--ranking .list-columns__metrics > span {
@@ -33,8 +35,8 @@
 
 .person-row__metric strong {
 	max-width: 100%;
-	font-size: 12px;
 	font-variant-numeric: tabular-nums;
+	font-weight: 400;
 	white-space: nowrap;
 }
 
@@ -50,6 +52,20 @@
 
 .person-row__metric.is-unavailable strong {
 	color: var(--text-3);
+}
+
+@media (width < 780px) {
+	.list-columns__metrics,
+	.person-row__metrics {
+		grid-template-columns: 25px 24px 24px 34px;
+	}
+}
+
+@container ranking-pane (min-width: 580px) {
+	.list-columns__metrics,
+	.person-row__metrics {
+		column-gap: calc(var(--space-6) + var(--space-2));
+	}
 }
 
 @container ranking-pane (max-width: 340px) {
@@ -183,17 +199,40 @@
 }
 
 .person-profile__bio-toggle {
-	display: none;
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	min-height: 32px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--primary-text);
+	font-size: var(--text-caption);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.person-profile__bio-toggle::before {
+	position: absolute;
+	inset: -6px 0;
+	content: '';
+}
+
+.person-profile__bio:not(.is-expanded) p {
+	display: -webkit-box;
+	overflow: hidden;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
 }
 
 .person-profile__bio strong {
 	color: var(--primary-text);
-	font-size: 12px;
+	font-size: var(--text-caption);
 }
 
 .person-profile__bio p {
 	margin-top: 0;
-	font-size: var(--text-body);
 	line-height: 1.65;
 }
 

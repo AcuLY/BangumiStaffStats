@@ -9,7 +9,7 @@
 这是面向 Bangumi 用户的高密度数据工作台，不是营销页，也不是通用 SaaS 后台。
 
 - 数据优先：通过对齐、表格、进度和明确口径建立可信度。
-- 密集但不微小：连续正文与常规项目自有控件文字不低于 14px；辅助文字、图表标签、表格次要信息及已注明的移动紧凑控件不低于 12px。
+- 密集但不微小：连续正文与常规项目自有控件文字不低于 14px；辅助文字、图表标签与表格次要信息不低于 12px。Naive UI 原生 preset 由组件库管理，不作为项目字号例外。
 - 粉色主导：粉色表示品牌、主操作、当前模式和关键选中态。
 - 单一品牌色：粉色承担品牌、主操作、焦点和信息提示；人物 B 与次要数据使用中性色区分。
 - 中性色组织：页面、卡片、表格、普通数据与非激活控件均使用黑白灰层级。
@@ -29,12 +29,12 @@ App Header
 
 Main Workspace
 ├─ Ranking
-│  ├─ RankedPersonList · focus variant
+│  ├─ RankedPersonList · ranking variant
 │  └─ PersonInspector · panel / mobile drawer
 └─ Co-star
    ├─ Candidate Rail / mobile drawer
    │  ├─ Applied-position tabs
-   │  └─ RankedPersonList · candidate variant
+   │  └─ PersonPicker candidate tiles + selected tray
    └─ Relationship Analysis
 ```
 
@@ -42,7 +42,7 @@ Main Workspace
 
 Query Workspace 是 App Header 的第二行集成 disclosure，同时服务人物排行与共同参与分析。收起态显示已应用查询摘要，并以右侧 edit 图标进入 Query Editor；展开态由 Query Editor 替代摘要，并以 chevron 收起。Desktop 展开时编辑器作为固定 Header 的覆盖层呈现，不改变 Main Workspace 的布局高度。
 
-Desktop Header 固定在视口顶部，页面只为收起态 Header 保留起始间隙；Main Workspace 自身保持至少 `100dvh`。展开 Query Editor 时 Header 高度不参与文档流，并以 `100dvh` 为最大高度独立滚动。`<=780px` 时 Header 回归正常文档流，不让双行导航与查询 disclosure 长期遮挡结果。
+Desktop Header 固定在视口顶部，页面只为收起态 Header 保留起始间隙；Main Workspace 自身保持至少 `100dvh`。展开 Query Editor 时 Header 高度不参与文档流，并以 `100dvh` 为最大高度独立滚动。`<780px` 时 Header 回归正常文档流，不让双行导航与查询 disclosure 长期遮挡结果。
 
 一次完整查询是一个原子提交：
 
@@ -232,9 +232,8 @@ Dark 模式的层级来自表面亮度差与 1px 边框，不依赖大片纯黑�
 ```css
 --radius-card: 8px;
 --radius-control: 6px;
---summary-height: 34px;
---control-height: 36px;
 --touch-target-min: 44px;
+--content-image-aspect-ratio: 3 / 4;
 --space-1: 4px;
 --space-2: 8px;
 --space-3: 12px;
@@ -243,7 +242,18 @@ Dark 模式的层级来自表面亮度差与 1px 边框，不依赖大片纯黑�
 --space-6: 24px;
 ```
 
-同一工具栏的 input、select、button 统一使用 `--control-height` 与 `--radius-control`；icon-only disclosure、加号和移除操作使用至少 44px 命中区。查询摘要保留“作品范围 / 当前模式职位”两个可访问语义组，视觉上只展示参数值，不把值做成 tag；收起态使用 edit 图标进入编辑，展开态使用 chevron 收起，不另设“修改查询”文字按钮或编辑器内的重复关闭入口。内容卡片禁止玻璃拟态和装饰性渐变；半透明与 `backdrop-filter` 只用于全局 chrome 层，包括 Header、查询浮层和移动端 drawer，不下放到普通内容卡片。禁止巨型圆角、pill 与小圆角混排，以及随机彩色系列。
+所有常规交互控件共享严格断点：视口 `<780px` 使用 Naive UI `small`，视口 `≥780px` 使用 `medium`；780px 本身必须落入 `medium`。该规则覆盖主控件与辅助控件，包括 Header modes、Query Editor、日期快捷项、年代与数值范围、工具栏、PersonPicker、分页、图表切换和 Select popup。Select trigger 与 menu 必须使用同一档 size，不得用 CSS 强制统一高度，也不得保留 480px 或 Drawer 专属的 `large` 例外。
+
+视觉上需要保持紧凑的自实现控件可使用 22 / 28 / 34px 的可见盒，但交互命中区仍至少为 `--touch-target-min`。Header 主题按钮是独立视觉规格：`≥780px` 为 38px、`<780px` 为 34px，外层命中区均为 44px，图标固定 18px。icon-only disclosure、信息、加号、移除和关闭操作也都使用至少 44px 命中区。查询摘要保留“作品范围 / 当前模式职位”两个可访问语义组，视觉上只展示参数值，不把值做成 tag；收起态使用 edit 图标进入编辑，展开态使用 chevron 收起，不另设“修改查询”文字按钮或编辑器内的重复关闭入口。内容卡片禁止玻璃拟态和装饰性渐变；半透明与 `backdrop-filter` 只用于全局 chrome 层，包括 Header、查询浮层和移动端 drawer，不下放到普通内容卡片。禁止巨型圆角、pill 与小圆角混排，以及随机彩色系列。
+
+### 外部内容图片
+
+**3:4 内容图片规则。** 所有从外部内容源加载的人物、角色和作品图片统一使用 `--content-image-aspect-ratio: 3 / 4`。适用范围包括排行、候选与已选人物头像，Person Inspector 肖像，共同分析 Hero 与指标引导头像，角色完整卡片与缩略卡片，以及作品列表、偏好列表和共同作品中的封面。品牌标志、功能图标、评分星标和图表不属于此规则。
+
+- `SafeImage` 是内容图片比例的唯一所有者。调用方只声明语义宽度，不得传入独立高度；图片固有 `width` / `height` 属性也必须按 3:4 派生。业务组件与响应式 CSS 不得覆盖该比例，或重新写入与宽度不匹配的固定高度。
+- 宽度可按语义角色和断点变化，高度必须始终由 `width × 4 / 3` 自动计算。Desktop、tablet、mobile、列表、Drawer 与 Hero 均无比例例外；空间不足时缩小宽度或重排内容，禁止压成正方形、3:2 或通过拉伸填满容器。
+- 内容图片在 3:4 媒体框内使用 `object-fit: cover`，禁止非等比拉伸。人物与角色使用 `object-position: center 20%` 优先保留面部，作品封面使用居中裁切；需要调整构图时只改变裁切焦点，不改变比例。
+- 加载中、加载失败和无图片占位必须占用同一个 3:4 媒体框，避免布局跳动。占位图标不参与比例计算，其视觉尺寸由图标系统另行定义；任何占位状态都不得改变外层几何尺寸与可访问名称。
 
 ### Typography
 
@@ -266,9 +276,12 @@ Dark 模式的层级来自表面亮度差与 1px 边框，不依赖大片纯黑�
 | `--text-panel` | 24px | 主要结果标题 |
 | `--text-page` | 28px | 页面或人物主标题 |
 
-- 项目自有 Naive theme override 必须落在同一偶数阶梯：模式 Tabs 使用 14px，移动紧凑控件与 Select 使用 12px；结果统计可按信息密度使用 16/18/20px，其中 18px 只作为 `NStatistic` 的响应式数据档，不扩展为通用正文或标题 token。
+- 项目自有 Naive theme override 必须使用 rem 并落在同一偶数阶梯：模式 Tabs 使用对应 preset，不通过局部 CSS 改字号；同一 `small` / `medium` preset 在所有业务区域保持同一含义。结果统计可按信息密度使用 16/18/20px 对应的 `1/1.125/1.25rem`，其中 18px 只作为 `NStatistic` 的响应式数据档，不扩展为通用正文或标题 token。
 - Naive UI 原生 preset 的内部字号不复制进项目 token，也不做机械改写。
+- 项目 CSS 的 `font-size` 只引用语义 token，不直接写 px；项目 override 只写 rem。历史 13/19/23/27px 分别上调并归入 14/20/24/28px 语义级，不保留奇数字号分支。
 - `--text-control` 与 `--text-body` 同为 14px 是刻意合并数值而非合并职责：控件依靠 600 权重、颜色与控件结构建立层级，正文依靠 400 权重与 1.5–1.65 行高建立阅读节奏；两个语义 token 继续分开，避免未来按职责调整时重新追踪选择器。
+- `<780px` 的 Query Editor 使用一组明确的结构标签例外：编辑器 disclosure 标题和字段标签为 `--text-caption`（12px），阶段标题为 `--text-body`（14px）；输入、Radio、Button、Select 等实际控件使用 `small` preset。`≥780px` 时实际控件统一使用 `medium`。
+- `<780px` 的人物排行主列表使用明确的紧凑行例外：排名、人物主名、人物副名和四项主指标统一为 `--text-caption`（12px），依靠 600/400 权重、颜色和列位置维持层级；`≥780px` 排行行继续使用 14px 主名、排名与指标，副名保持 12px。
 - 权重只使用 400（正文）、600（标签、选中态、人物名）和 700（标题）。
 - 连续正文至少 14px / 1.5；辅助信息至少 12px。
 - 图表内部空间极受限的轴标签可使用 10px `--text-micro`；其他辅助文字不低于 12px。微型字号必须同时提供可访问名称，且不用于查询、导航、人物名或连续正文。
@@ -289,58 +302,33 @@ Dark 模式的层级来自表面亮度差与 1px 边框，不依赖大片纯黑�
 ### `RankedPersonList`
 
 ```ts
-type RankedPersonListVariant = 'ranking' | 'candidate'
+type RankedPersonListVariant = 'ranking' | 'cooperation'
 
 interface RankedPersonListProps {
-  variant: RankedPersonListVariant
-  items: PersonListItem[]
-  focusedId?: number
-  selectedKeys?: Set<string>
-  sortBy?: 'count' | 'average' | 'overall' | 'preference'
-  ascend?: boolean
-  page: number
-  pageSize: number
-  total: number
-  loading?: boolean
+	variant: RankedPersonListVariant
+	items: Array<Person | CooperationPerson>
+	rankOffset?: number
+	metric?: 'count' | 'average' | 'overall' | 'preference'
+	focusedId?: number
+	averageLabel?: string
 }
 
 interface RankedPersonListEmits {
-  activate: [personId: number]
-  toggle: [personId: number, positionId: number]
-  pageChange: [page: number]
-  pageSizeChange: [pageSize: 5 | 10 | 20 | 50]
+	activate: [personId: number]
 }
 ```
 
-Slots：
-
-- `toolbar`
-- `columns`
-- `row-leading`
-- `row-avatar`
-- `row-identity`
-- `row-context`
-- `row-volume`
-- `row-metrics`
-- `row-action`
-- `empty`
-- `pagination`
-- `selected-tray`：仅 candidate。
-
 ### 启用矩阵
 
-| Slot / 行为 | 排行 | 共同分析候选 |
+| 行为 | 排行 | 单人物合作排行 |
 |---|---|---|
-| leading | 排名 | 头像上的已选状态 |
-| avatar | 开启 | 开启 |
-| identity | 中日文名 | 主名称 |
-| context | 不重复已固定职位 | 当前职位 badge、其他已选身份 |
-| volume | 当前排行维度进度 | 默认关闭 |
-| metrics | 作品数、均分、综合分、相对偏好始终同时显示；当前排序列只改变高亮 | 该职位作品数 |
-| whole-row click | 聚焦人物 | 选择 / 取消当前职位身份 |
-| action | disclosure | 无独立操作，整行使用 `aria-pressed` |
+| leading | 排名 | 排名 |
+| identity | 中日文名 | 主名称与合作职位 |
+| progress | 当前排行维度进度 | 默认关闭 |
+| metrics | 作品数、均分、综合分、相对偏好始终同时显示；当前排序列只改变高亮 | 同一套指标结构，文案使用合作口径 |
+| whole-row click | 聚焦人物并打开详情 | 聚焦合作人物并更新共同作品 |
 
-Candidate variant 根节点使用整行 `<button>` 承担选择。整行内不再嵌套其他按钮或 select。
+共同分析的候选列表不再经过 `RankedPersonList` 的 candidate 分支，而由 `PersonPicker` 维护其真实的候选 tile、选择态、已选人物 tray 与分页。`selected-tray` / `selected-person-row` 仍是有效结构，必须保留；只删除无消费者的旧 `--selected-row-height` token。排行/合作行高为 `≥780px` 72px、`<780px` 68px；PersonPicker 候选行为 `≥780px` 64px、`<780px` 60px；偏好作品行固定 52px。
 
 ### 排行维度进度
 
@@ -373,6 +361,7 @@ progress = value / max(allResultValues) * 100
 
 - 排序状态由 `sortBy: 'count' | 'average' | 'overall' | 'preference'` 与 `ascend: boolean` 独立表达；两项控件同行展示，不占用两行工具栏。切换全站模式时若当前为相对偏好，回退到作品数。
 - 分页使用 Naive UI `NPagination` 的数字页码、前后页、当前页状态与 size picker，page size 固定为 `5 / 10 / 20 / 50`。
+- `AdaptivePagination`、页码按钮与 size picker 全部遵循 `<780px = small`、`≥780px = medium`；不得根据页数、列表类型或 Drawer 状态另选尺寸。
 - 当前页保持可操作且使用 `aria-current="page"`，不能通过 `disabled` 表达选中。
 - 改变排序维度、升降序或 page size 时回到第 1 页；列表总数只显示人数，不在标题中重复页码。
 
@@ -382,11 +371,11 @@ progress = value / max(allResultValues) * 100
 
 人物详情的“参与作品”和共演分析的“共同参与作品”统一使用 `SubjectWorkBrowser`。标题、搜索与排序工具栏、`SubjectWorkList` 和 `AdaptivePagination` 只维护一套结构与响应式规则；页面通过 `role` / `participants` 插槽保留各自的身份语义。
 
-搜索、排序、缺失值顺序、分页复位与页码收敛由 `useSubjectWorkBrowser` 统一管理。各页面只注入可搜索字段、排序选项与比较器；新增排序维度时扩展页面配置，不修改共享组件分支。人物排行、作品、角色与共同参与作品的“搜索 / 排序类型 / 升降序”始终组成同一行工具栏；升降序统一使用独立方向按钮，不使用第二个 select，窄屏通过弹性列宽收缩而不换行。`≤780px` 时三项控件文字统一为 12px；排序 selector 的触发框允许省略当前值，但展开菜单必须脱离触发框宽度并完整显示选项。
+搜索、排序、缺失值顺序、分页复位与页码收敛由 `useSubjectWorkBrowser` 统一管理。各页面只注入可搜索字段、排序选项与比较器；新增排序维度时扩展页面配置，不修改共享组件分支。人物排行、作品、角色与共同参与作品的“搜索 / 排序类型 / 升降序”始终组成同一行工具栏；升降序统一使用独立方向按钮，不使用第二个 select，窄屏通过弹性列宽收缩而不换行。工具栏输入、排序 selector、menu 与方向按钮统一消费全局 `small / medium` 断点；排序 selector 的触发框允许省略当前值，但展开菜单必须脱离触发框宽度并完整显示选项。
 
 排行职位包含声优（position `102`）时，人物详情在同一浏览器标题区使用 `NTabs` 切换“作品 / 角色”。角色按 Character ID 聚合，同一角色来自多部作品时只出现一张卡片；完整卡片展示头像、中日文名、戏份类型和全部来源作品，缩略卡片严格只保留缩小头像与双语名。作品与角色各自保留搜索、排序、分页状态，共用缩略模式开关；非声优查询不出现角色 tab。人物排行顶部统计同时增加当前结果内去重后的角色数。
 
-桌面放在排行右侧 panel；`≤780px` 使用从底部弹出的 `NDrawer`，高度为 `min(88dvh, 760px)`，点击上方未覆盖遮罩关闭。
+桌面放在排行右侧 panel；`<780px` 使用从底部弹出的 `NDrawer`，其顶部与 Header 第一行底边对齐并一直延伸到视口底部，点击上方未覆盖遮罩关闭。Header 第一行高为 `≥780px` 56px、`<780px` 52px；计入 3px 顶部品牌边后，Drawer 起点 fallback 分别为 59px / 55px。Drawer 内部标题栏固定 52px。
 
 内容顺序：
 
@@ -433,8 +422,8 @@ Profile Card
 
 人物 A 使用粉色，人物 B 只使用中性灰文字或细描边。照片本身不得叠加大面积色彩 wash。
 
-- 所有人数共用同一套人物卡 DOM、媒体比例、三项指标和响应式规则；恰好两人时只允许标题与合作默契口径不同，不改变人物卡视觉结构。逻辑状态只保留 `pair` 与 `group`，`group` 覆盖 3 人及以上，不为 5 人另建 `summary` 模式。
-- 人物卡使用可换行的横向 tile；桌面 media 宽 `88px` 并撑满卡片高度，窄容器降为 `72px`。每张卡的“参与作品 / 已评分 / 我的均分”保持三等列，注释不换行且不得越出内容盒。
+- 所有人数共用同一套人物卡 DOM、统一的 3:4 媒体比例、三项指标和响应式规则；恰好两人时只允许标题与合作默契口径不同，不改变人物卡视觉结构。逻辑状态只保留 `pair` 与 `group`，`group` 覆盖 3 人及以上，不为 5 人另建 `summary` 模式。
+- 人物卡使用可换行的横向 tile；media 宽度由对应的响应式语义槽位决定，高度始终由 3:4 自动推导，不随卡片高度纵向拉伸。每张卡的“参与作品 / 已评分 / 我的均分”保持三等列，注释不换行且不得越出内容盒。
 - 姓名、职位、均分和其他正文位于独立 content 区，不叠在照片上；Hero 不显示人物 Person ID。
 
 ### 参与作品分布
@@ -453,6 +442,7 @@ Profile Card
 - 评分分布固定为 1–10 共 10 组，不展示“未评分”，使用 `repeat(10, minmax(0, 1fr))` 在可用宽度内重排；图表自身不得产生横向滚动条。
 - 数值与分类标签必须位于图表内容盒内部，辅助字号不低于 12px；窄屏可减少非关键刻度密度，但不能缩小到不可读。
 - 完整说明使用 `NPopover`，不使用会被 scroll container 裁切的绝对定位 tooltip。
+- 图表切换控件遵循全局 `<780px = small`、`≥780px = medium`。可交互数据点默认视觉直径 8px，hover / keyboard focus 为 12px；最近点命中范围至少 44×44px，且图表使用自己的可见焦点表现，不套用普通按钮 focus ring。
 
 人物评分洞察与所在卡片使用相同 surface 或透明背景，不增加独立异色底块；分组关系依靠标题、间距和分隔线表达。
 
@@ -492,6 +482,18 @@ Profile Card
 
 页面内嵌的纵向列表使用原生滚动链：列表自身可滚动时优先滚动列表；列表无需内部滚动时，列表上的滚动直接交给页面。查询浮层、移动端 drawer 等锁定背景的模态表面仍隔离滚动链。
 
+### Scrollbar 视觉分级
+
+Scrollbar 只分为壳层与组件两级，视觉宽度不得由各功能自行定义：
+
+- 壳层 scrollbar 使用 `--scrollbar-shell-size: 10px`，适用于页面 viewport、Header 内的 Query Editor，以及两个移动端 Drawer 的外层滚动面。
+- 组件 scrollbar 使用 `--scrollbar-component-size: 6px`，适用于 tooltip、作品列表、角色列表、已选人物列表、横向人物关系矩阵，以及 Naive UI Select / DatePicker / Pagination 的 popup。
+- 两级共用 `--scrollbar-radius: 999px`；track 透明，thumb 默认使用 `--control-border`，hover 使用 `--text-3`，active 使用 `--text-2`。thumb 与相邻 track / surface 的边界对比度至少为 `3:1`。
+
+原生 scrollbar 在 Firefox 使用 `scrollbar-width: auto / thin` 表达两级，在 Chromium / Safari 使用 WebKit scrollbar 精确应用 `10px / 6px`。Naive UI 的全局公开 `Scrollbar` theme override 固定为组件级 `6px`；移动端 Drawer 通过 `scrollbarProps.themeOverrides` 局部覆盖为壳层 `10px`，并保留 `native-scrollbar="false"`。不得选择 `.n-*` 私有类或改写 `--n-*` 内部变量。
+
+Teleport 到应用根节点之外的 popup 必须从 root 级 token 取得 scrollbar 样式，不能依赖 `.workbench-app` 作用域。自定义样式必须保留既有 `scrollbar-gutter`、`overscroll-behavior` 与滚动所有权；视觉分级不得改变滚动链。外层 Drawer 与内部列表同时可滚动时，外层始终为 `10px`，内层始终为 `6px`。在 forced-colors 模式下将颜色控制交还系统，但仍保留两级尺寸与所有权语义。
+
 ## 9. Rail 与 Drawer
 
 Desktop：
@@ -505,7 +507,7 @@ Desktop：
 Mobile：
 
 - “选人”入口位于 App Header 的移动端上下文行，只在共同分析且 Query Editor 收起时显示，不承担 desktop collapse；入口不显示人物图标或“人物选择”标题，直接列出每位已选人物的“姓名 · 职位”，右侧复用 Query Summary 的 edit 图标。每个人物是完整换行单元，人数较多时允许 Header 随内容自然增高且不截断信息。
-- Drawer 使用底部 sheet，宽度避开稳定的页面 scrollbar gutter，高度为 `min(88dvh, 760px)`。
+- Drawer 使用底部 sheet，宽度避开稳定的页面 scrollbar gutter；与人物详情 Drawer 一样从 Header 第一行底边延伸到视口底部，不保留 `min(88dvh, 760px)` 组件高度或内部 `min-height`。内部标题栏固定 52px。
 - 内部 `min-width: 0`，自身纵向滚动。
 - 打开后 query、main 和 header 背景控件 inert；关闭后焦点返回 Header 中的触发入口。
 
@@ -515,13 +517,12 @@ Mobile：
 |---|---|---|
 | `≥1180` | 完整指标列 + inspector | 348px rail；双列 Hero/analytics 可用 |
 | `918–1179` | 保留当前排序指标，次要列按槽位收敛 | 320px rail；主内容分区单列 |
-| `781–917` | 紧凑排行 + inspector | 300px rail；主内容分区单列 |
-| `≤780` | 单列排行 + 底部 inspector drawer | Header 选人入口 + 底部 picker drawer；主内容单列 |
-| `≤480` | 紧凑 Header；交互控件使用 Naive UI 原生 `large` 尺寸，不用 CSS 强制高度 | 候选指标降级为一个；图表不横滚，只有表格/矩阵可局部滚动 |
+| `780–917` | 紧凑排行 + inspector | 300px rail；主内容分区单列 |
+| `<780` | 单列排行 + 底部 inspector drawer | Header 选人入口 + 底部 picker drawer；主内容单列 |
 
 移动端不得通过缩小文字或直接隐藏重要内容来解决宽度问题。
 
-Header / Query Workspace 的响应式规则独立于两种业务模式：`>=781px` 固定覆盖页面，文档只保留收起态 Header 高度；Query Editor 展开时覆盖 Main Workspace 而不重新排版。`<=780px` 始终回归文档流。查询摘要在所有宽度下完整换行展示所有已应用条件，不使用 ellipsis；移动端仍可通过结构调整将参数分行，但不得隐藏内容。
+Header / Query Workspace 的响应式规则独立于两种业务模式：`≥780px` 固定覆盖页面，文档只保留收起态 Header 高度；Query Editor 展开时覆盖 Main Workspace 而不重新排版。`<780px` 始终回归文档流。查询摘要在所有宽度下完整换行展示所有已应用条件，不使用 ellipsis；移动端仍可通过结构调整将参数分行，但不得隐藏内容。480px 只允许继续承担必要的内容重排或列降级，不得再改变交互控件 size。
 
 ## 11. 文案
 
@@ -534,8 +535,10 @@ Header / Query Workspace 的响应式规则独立于两种业务模式：`>=781p
 ## 12. Accessibility
 
 - 正文对比度至少 4.5:1；边界、focus 与图形信息至少 3:1。
-- 连续正文与常规项目自有控件文字不低于 14px，辅助信息与已注明的移动紧凑控件不低于 12px；不得为了避免 overflow 将局部字号降到规则以下。
-- 粉色 focus ring 为 2px，并保留 2px offset。
+- 连续正文与常规项目自有控件文字不低于 14px，辅助信息不低于 12px；Naive UI 原生 preset 不由项目 CSS 或局部 theme override 缩小，不得为了避免 overflow 将局部字号降到规则以下。
+- 所有自实现交互统一使用 2px 粉色 `:focus-visible` ring 与 2px offset；Naive UI 控件保留组件库自身焦点表现，图表保留专用焦点表现。列表、tray、浮层和媒体容器不得裁掉外扩焦点环。
+- Info 操作的可见盒为 24px、图标 16px、命中区 44px；简介展开/收起使用 12px 文字、32px 可见布局、44px 命中区。
+- Footer 链接与所有可聚焦的溢出触发器命中高度至少 44px。
 - 图表颜色必须有文字、形状、位置或 pattern 的冗余编码。
 - 隐藏 panel 使用 `hidden/inert/aria-hidden` 的一致状态，不留下可 Tab 的控件。
 - 原生 select 使用明确 label；icon-only 按钮提供 `aria-label`。
@@ -545,13 +548,17 @@ Header / Query Workspace 的响应式规则独立于两种业务模式：`>=781p
 
 ## 13. 验收
 
-每个 mode 在 Light / Dark 下验证 `360、390、768、917、1185、1440px`：
+每个 mode 在 Light / Dark 下验证 `360、390、768、779、780、781、917、1185、1440px`；其中 779px 必须为 `small`，780px 与 781px 必须为 `medium`：
 
 - 页面 `scrollWidth <= clientWidth + 1`。
+- 所有外部人物、角色和作品图片在 Light / Dark、全部验收宽度及加载中、加载失败、无图片状态下均保持 3:4；运行时满足 `abs(width / height - 0.75) <= 0.01`。响应式只允许改变语义宽度，不得改变比例或注入独立高度。
 - 所有 tooltip 在窄屏、视口边缘和内容换行后仍完整落在可视视口内，且不会扩大页面 `scrollWidth`。
 - Query Workspace 是 Header 第二行的集成 disclosure；收起态显示摘要并使用 edit 图标进入编辑，展开态由 Query Editor 替代并使用 chevron 收起，二者正确反映 `aria-expanded`。
-- Desktop Header 固定覆盖页面；Main Workspace 顶部保留准确的收起态 Header 间隙且自身至少为 `100dvh`。Query Editor 展开不会推动结果区，并可在 Header 内独立滚动；`<=780px` Header 回归文档流。
-- 查询摘要保留“作品范围 / 当前模式职位”两个可访问语义组，视觉上只显示参数；所有宽度下自动换行并完整显示全部已应用条件；edit 与收起 chevron 的纵向位置一致，并使用 Naive UI 原生 `large` 尺寸。
+- Query Editor 在 `<780px` 时依次使用 12px 编辑器标题、14px 阶段标题、12px 字段标签；`≥780px` 时对应为 16px、16px、14px。全部 Naive UI 控件、Select menu 与辅助切换同时命中统一的 small / medium 档。
+- 人物排行主列表在 `<780px` 时排名、主副姓名与四项指标均为 12px；`≥780px` 时排名、主姓名与指标为 14px，副名为 12px。所有排行行必须消费同一规则，不能只缩小选中行或当前排序列。
+- Desktop Header 固定覆盖页面；Main Workspace 顶部保留准确的收起态 Header 间隙且自身至少为 `100dvh`。Query Editor 展开不会推动结果区，并可在 Header 内独立滚动；`<780px` Header 回归文档流。
+- 所有可滚动表面只使用两级 scrollbar：页面、Header Query Editor 与移动端 Drawer 外层为壳层 `10px`，tooltip、列表、矩阵及 popup 为组件层 `6px`；两级在 Light / Dark、hover / active、forced-colors 与外层/内层同时滚动时均保持正确样式、至少 `3:1` 的边界对比度和原有滚动所有权。
+- 查询摘要保留“作品范围 / 当前模式职位”两个可访问语义组，视觉上只显示参数；所有宽度下自动换行并完整显示全部已应用条件；edit 与收起 chevron 的纵向位置一致，使用紧凑视觉盒与至少 44px 命中区。
 - 更多选项的五组语义顺序在双列和单列布局中保持一致；两个时间范围可应用快捷范围，个人模式可同时应用我的评分、全站评分、评分差和全站评分人数，切换全站模式后不展示或执行个人专属条件。
 - 作品范围和当前模式的职位作为一次原子查询提交，draft 未提交时不覆盖已应用结果。
 - 排行职位 UI 只允许一个职位，但状态为数组；使用测试数据注入多职位后，人物按全职位交集过滤，作品按职位 union 去重计算。
@@ -562,21 +569,21 @@ Header / Query Workspace 的响应式规则独立于两种业务模式：`>=781p
 - 声优查询的排行统计同时显示人物、条目和去重角色数；非声优查询不显示角色统计。
 - 声优人物详情可通过 `NTabs` 切换作品和角色；角色按 Character ID 跨作品聚合，完整卡片含双语名、戏份类型和全部来源作品，缩略卡片只含缩小头像与双语名，两个模式均可搜索、排序和分页。
 - 排序包含 count / average / overall / preference，维度与升降序同行且相互独立；排行榜在个人收藏模式始终同时显示作品数、均分、综合分和偏好分，排序只改变对应列高亮；全站模式不提供 preference 排序。
-- 人物排行、人物详情作品/角色和共同参与作品的搜索、排序类型、升降序控件在所有验收宽度下保持同一行，无横向溢出；`≤780px` 控件文字为 12px，排序菜单选项无省略。
+- 人物排行、人物详情作品/角色和共同参与作品的搜索、排序类型、升降序控件在所有验收宽度下保持同一行，无横向溢出；同一断点下相同 Naive UI preset 的 computed 尺寸一致，Select trigger 与 menu 同档且菜单选项无省略。
 - 排行进度随当前排行维度变化；普通维度为半透明粉色矩形，相对偏好以零点为中心并同时用方向、颜色和正负号编码，无底部线状进度。
 - 相对偏好只使用个人与全站均有效的评分对，单作直接以个人评分减全站评分；详情显示有效作品数、平均偏差、作品数权重和收缩后得分。人物得分严格使用整数 `n` 和 `n/(n+5)` 数量权重。
 - 原型数据可由 `npm --prefix frontend run generate:workbench -- --jsonlines-dir <dump>` 离线重建；收藏行原样保留，站评、评分票数、系列关系、职位和人物关联来自同一份完整 JSONLines dump。
-- `NPagination` 有数字页码和前后页；人物排行每页最多 20 人，候选人物及作品/角色列表仍提供 5/10/20/50 size picker。
+- `NPagination` 有数字页码和前后页；人物排行每页最多 20 人，候选人物及作品/角色列表仍提供 5/10/20/50 size picker；所有分页在 779/780/781px 分别命中 small/medium/medium。
 - 排行行不重复固定职位。
 - 所有可见人物信息均无 Person ID。
 - Inspector 简介初始展开且无加入分析操作；人物主名称后提供可访问的 Bangumi 人物页外链按钮。
 - 人物评分洞察不使用独立异色底。
-- Inspector 信息完整；移动端从底部弹出并可点上方遮罩关闭。
+- Inspector 信息完整；移动端从 Header 第一行底边弹出并覆盖到视口底部，可点上方遮罩关闭；PersonPicker Drawer 使用相同高度链，两者内部标题栏均为 52px。
 - Desktop rail 边界按钮可收起/展开；mobile picker drawer 可用 Esc/遮罩/关闭按钮收起。
 - Desktop `PersonPicker` 在自身无需内部滚动时由页面继续滚动，rail 高度始终受当前收起态 Header 高度约束。
 - 共同分析与排行采用相同外边距和完整 card workspace；已选人物紧凑、分析自动刷新且无“查看分析”按钮。
-- 共同分析 Hero 使用固定 media 宽度并纵向撑满人物卡，文字不压在图片上。
+- 共同分析 Hero 使用既定响应式 media 宽度与 3:4 比例，高度由比例自动推导且不纵向拉伸；文字不压在图片上。
 - 评分分布图 `scrollWidth === clientWidth`；仅表格与矩阵允许自身横向滚动。
-- 连续正文与常规项目自有控件文字至少 14px、辅助文字与已注明的移动紧凑控件至少 12px；10px 仅用于具备可访问名称的空间受限图表信息。
+- 连续正文与常规项目自有控件文字至少 14px、辅助文字至少 12px；10px 仅用于具备完整可访问名称的空间受限图表信息，Naive UI 原生 preset 不计入项目 token 的机械改写。
 - Light Header 是白色半透明 chrome，tab、按钮、文字和边界使用 light semantic tokens；Light 表格/矩阵/图表无暗色硬编码；Dark 无纯黑断层。
 - Console 无 error；无重复 ID；两个 JSON snapshot 均可解析。

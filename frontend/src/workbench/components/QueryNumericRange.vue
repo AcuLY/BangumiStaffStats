@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
 
 const props = defineProps<{
 	modelValue: [string, string]
@@ -19,6 +20,8 @@ const props = defineProps<{
 const emit = defineEmits<{
 	'update:modelValue': [value: [string, string]]
 }>()
+
+const { controlSize } = useWorkbenchControlSize()
 
 const updateAt = (index: 0 | 1, value: number | null) => {
 	const next: [string, string] = [...props.modelValue]
@@ -41,7 +44,7 @@ const errorId = computed(() => `query-error-${props.conditionKey}`)
 	<div class="query-range-control">
 		<n-input-number
 			v-model:value="minimum"
-			size="medium"
+			:size="controlSize"
 			:min="min"
 			:max="max"
 			:step="step"
@@ -55,7 +58,7 @@ const errorId = computed(() => `query-error-${props.conditionKey}`)
 		<span class="query-range-control__separator" aria-hidden="true">—</span>
 		<n-input-number
 			v-model:value="maximum"
-			size="medium"
+			:size="controlSize"
 			:min="min"
 			:max="max"
 			:step="step"

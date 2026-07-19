@@ -2,19 +2,17 @@
 import { computed, ref } from 'vue'
 import type { CandidateSortMetric } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
+import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
 import SafeImage from './SafeImage.vue'
 import AppIcon from './AppIcon.vue'
 import AdaptivePagination from './AdaptivePagination.vue'
 import SortDirectionButton from './SortDirectionButton.vue'
-import { getWorkbenchControlThemeOverrides, getWorkbenchSelectThemeOverrides } from '../naiveThemeOverrides'
 
 const props = withDefaults(defineProps<{ drawer?: boolean }>(), { drawer: false })
 const emit = defineEmits<{ close: [] }>()
 const workbench = useWorkbench()
 const selectedTrayExpandedNames = ref<Array<string | number>>(props.drawer ? [] : ['selected-people'])
-const controlSize = computed<'small' | 'medium'>(() => props.drawer ? 'small' : 'medium')
-const controlThemeOverrides = computed(() => getWorkbenchControlThemeOverrides(props.drawer))
-const selectThemeOverrides = computed(() => getWorkbenchSelectThemeOverrides(props.drawer))
+const { controlSize, isMobile } = useWorkbenchControlSize()
 
 const selectedScopeCount = computed(() => workbench.selectedScopes.value.length)
 const candidatePageSizeOptions = [5, 10, 20, 50].map((value) => ({ label: `每页 ${value} 人`, value }))
@@ -111,9 +109,11 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 			<div>
 				<h2>人物选择</h2>
 			</div>
-			<n-button size="large" quaternary circle attr-type="button" aria-label="关闭人物选择" title="关闭人物选择" @click="emit('close')">
-				<AppIcon name="close" />
-			</n-button>
+			<span class="picker-heading__close-hit" @click="emit('close')">
+				<n-button class="picker-heading__close" :size="controlSize" quaternary circle attr-type="button" aria-label="关闭人物选择" title="关闭人物选择" @click.stop="emit('close')">
+					<AppIcon name="close" :size="16" />
+				</n-button>
+			</span>
 		</header>
 
 		<section
@@ -154,22 +154,26 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 									class="selected-position-pill"
 								>
 									<span class="selected-position-tag__label">{{ workbench.positionLabel(positionId) }}</span>
-									<n-button
-										class="selected-position-tag__remove"
-										size="tiny"
-										quaternary
-										circle
-										attr-type="button"
-										:aria-label="`移除${workbench.personName(item.person)}的${workbench.positionLabel(positionId)}身份`"
-										:title="`移除${workbench.positionLabel(positionId)}身份`"
-										@click="workbench.toggleScope(item.person.id, positionId)"
-									>
-										<AppIcon name="close" :size="12" />
-									</n-button>
+									<span class="selected-position-tag__remove-hit" @click="workbench.toggleScope(item.person.id, positionId)">
+										<n-button
+											class="selected-position-tag__remove"
+											size="tiny"
+											quaternary
+											circle
+											attr-type="button"
+											:aria-label="`移除${workbench.personName(item.person)}的${workbench.positionLabel(positionId)}身份`"
+											:title="`移除${workbench.positionLabel(positionId)}身份`"
+											@click.stop="workbench.toggleScope(item.person.id, positionId)"
+										>
+											<AppIcon name="close" :size="12" />
+										</n-button>
+									</span>
 								</span>
 								<span v-if="availablePositionOptions(item).length" class="position-add-select">
 									<n-select
-										size="small"
+										class="position-add-select__control"
+										:size="controlSize"
+										:menu-size="controlSize"
 										round
 										:value="null"
 										:options="availablePositionOptions(item)"
@@ -179,9 +183,11 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 									/>
 								</span>
 							</span>
-							<n-button class="selected-person-row__remove" size="tiny" quaternary circle attr-type="button" :aria-label="`移除${workbench.personName(item.person)}的全部身份`" :title="`移除${workbench.personName(item.person)}`" @click="workbench.removePerson(item.person.id)">
-								<AppIcon name="close" :size="12" />
-							</n-button>
+							<span class="selected-person-row__remove-hit" @click="workbench.removePerson(item.person.id)">
+								<n-button class="selected-person-row__remove" size="tiny" quaternary circle attr-type="button" :aria-label="`移除${workbench.personName(item.person)}的全部身份`" :title="`移除${workbench.personName(item.person)}`" @click.stop="workbench.removePerson(item.person.id)">
+									<AppIcon name="close" :size="12" />
+								</n-button>
+							</span>
 						</article>
 						<div v-if="!workbench.selectedPeople.value.length" class="selected-empty">从下方候选中选择至少两个人物。</div>
 					</div>
@@ -199,6 +205,7 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 				<span class="candidate-position-browser__label">浏览职位</span>
 				<n-select
 					:size="controlSize"
+					:menu-size="controlSize"
 					v-model:value="workbench.candidatePositionId.value"
 					:options="candidatePositionSelectOptions"
 					aria-label="浏览已应用职位"
@@ -212,7 +219,6 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 				role="region"
 				:aria-label="`${candidatePositionLabel}候选人物`"
 			>
-				<n-config-provider :theme-overrides="controlThemeOverrides">
 				<div class="candidate-search">
 					<n-input :size="controlSize" v-model:value="workbench.candidateSearch.value" :clearable="Boolean(workbench.candidateSearch.value)" autocomplete="off" placeholder="筛选当前结果…" :aria-label="`搜索${candidatePositionLabel}候选人物`" :input-props="{ name: 'candidateSearch', spellcheck: 'false' }">
 						<template #prefix><AppIcon name="search" :size="16" /></template>
@@ -220,10 +226,9 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 					<n-select
 						class="candidate-sort-select"
 						:size="controlSize"
-						menu-size="small"
+						:menu-size="controlSize"
 						v-model:value="workbench.candidateSortMetric.value"
 						:options="candidateSortOptions"
-						:theme-overrides="selectThemeOverrides"
 						:consistent-menu-width="false"
 						aria-label="候选人物排序规则"
 					/>
@@ -235,7 +240,6 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 						@update:order="workbench.candidateAscend.value = $event === 'asc'"
 					/>
 				</div>
-				</n-config-provider>
 
 				<div class="person-list person-list--candidate">
 					<button
@@ -255,8 +259,7 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 							:alt="workbench.personName(person)"
 							kind="person"
 							decorative
-							:width="36"
-							:height="44"
+							:width="isMobile ? 32 : 36"
 						/>
 						<span v-if="workbench.isScopeSelected(person.id, person.activePositionId)" class="candidate-row__selected-state" aria-hidden="true">
 							<AppIcon name="check" :size="11" />
@@ -349,9 +352,8 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 	grid-template-areas: "portrait identity";
 	grid-template-columns: 36px minmax(0, 1fr);
 	width: 100%;
-	min-height: 56px;
 	margin-inline: 0;
-	padding: var(--space-2);
+	padding: calc(var(--space-2) - 1px) var(--space-2);
 	border-radius: var(--radius-control);
 }
 
@@ -377,6 +379,21 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 
 .person-picker--drawer .candidate-browser {
 	padding-bottom: max(var(--section-pad), env(safe-area-inset-bottom));
+}
+
+@media (width < 780px) {
+	.person-row--candidate {
+		grid-template-columns: 32px minmax(0, 1fr);
+	}
+
+	.candidate-row__portrait {
+		width: 32px;
+	}
+
+	.person-row--candidate .person-row__avatar {
+		width: 32px;
+		height: auto;
+	}
 }
 
 @container candidate-results (max-width: 269px) {

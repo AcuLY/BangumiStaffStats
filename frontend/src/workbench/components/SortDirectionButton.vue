@@ -6,7 +6,7 @@ import type { SubjectWorkSortOrder } from '../composables/useSubjectWorkBrowser'
 import { useWorkbench } from '../composables/useWorkbench'
 import AppIcon from './AppIcon.vue'
 
-type SortDirectionButtonSize = 'tiny' | 'small' | 'medium' | 'large'
+type SortDirectionButtonSize = 'small' | 'medium'
 
 const props = withDefaults(defineProps<{
 	order: SubjectWorkSortOrder
@@ -53,16 +53,13 @@ const buttonThemeOverrides = computed<NonNullable<ButtonProps['themeOverrides']>
 })
 const buttonStyle = computed(() => ({
 	'--sort-direction-icon-color': themeVars.value.iconColor,
-	'--sort-direction-focus-shadow': workbench.theme.value === 'dark'
-		? `0 0 8px 0 color-mix(in srgb, ${themeVars.value.primaryColor} 40%, transparent)`
-		: `0 0 0 2px color-mix(in srgb, ${themeVars.value.primaryColor} 20%, transparent)`,
+	'--sort-direction-focus-color': themeVars.value.primaryColor,
 }))
 </script>
 
 <template>
 	<n-button
 		class="sort-direction-button"
-		:class="`sort-direction-button--${size}`"
 		:size="size"
 		:theme-overrides="buttonThemeOverrides"
 		:style="buttonStyle"
@@ -85,57 +82,18 @@ const buttonStyle = computed(() => ({
 
 <style scoped>
 .sort-direction-button {
-	display: grid;
-	justify-content: stretch;
 	white-space: nowrap;
 }
 
 .sort-direction-button:focus-visible {
-	box-shadow: var(--sort-direction-focus-shadow);
+	outline: 2px solid var(--sort-direction-focus-color);
+	outline-offset: 2px;
 }
 
 .sort-direction-button__content {
-	display: flex;
+	display: inline-flex;
 	align-items: center;
-	justify-content: flex-start;
 	gap: var(--space-1);
-	width: 100%;
-	min-width: 0;
-}
-
-.sort-direction-button--tiny,
-.sort-direction-button--small {
-	width: 66px;
-}
-
-.sort-direction-button--medium {
-	width: 70px;
-}
-
-.sort-direction-button--large {
-	width: 72px;
-}
-
-.sort-direction-button--tiny .sort-direction-button__content {
-	width: calc(100% - 9px);
-	margin-left: 6px;
-}
-
-.sort-direction-button--small .sort-direction-button__content {
-	width: calc(100% - 1px);
-	margin-left: 2px;
-}
-
-.sort-direction-button--medium .sort-direction-button__content {
-	width: calc(100% + 8px);
-	margin-right: -6px;
-	margin-left: -2px;
-}
-
-.sort-direction-button--large .sort-direction-button__content {
-	width: calc(100% + 14px);
-	margin-right: -8px;
-	margin-left: -6px;
 }
 
 .sort-direction-button__icon {

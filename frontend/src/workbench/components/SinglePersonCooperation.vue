@@ -18,6 +18,7 @@ import RankedPersonList from './RankedPersonList.vue'
 import RankingListColumns from './RankingListColumns.vue'
 import SharedWorkParticipants from './SharedWorkParticipants.vue'
 import WorkListToolbar from './WorkListToolbar.vue'
+import WorkbenchTooltip from './WorkbenchTooltip.vue'
 
 type PositionFilter = 'all' | number
 type CooperationWorkSort = 'personal' | 'score' | 'date' | 'title'
@@ -49,6 +50,20 @@ const partnerPosition = ref<PositionFilter>('all')
 const partnerPage = ref(1)
 const partnerPageSize = ref(10)
 const focusedPartnerId = ref(0)
+const visibleLeaderNameTooltip = ref<RankingMetric | null>(null)
+
+const leaderNameElement = (target: EventTarget | null) => {
+	if (!(target instanceof HTMLElement)) return null
+	if (target.matches('.single-cooperation__leader-person strong')) return target
+	return target.querySelector<HTMLElement>('.single-cooperation__leader-person strong')
+}
+const showLeaderNameTooltip = (metric: RankingMetric, event: Event) => {
+	const element = leaderNameElement(event.currentTarget)
+	visibleLeaderNameTooltip.value = element && element.scrollWidth > element.clientWidth ? metric : null
+}
+const hideLeaderNameTooltip = (metric: RankingMetric) => {
+	if (visibleLeaderNameTooltip.value === metric) visibleLeaderNameTooltip.value = null
+}
 
 const selectedPerson = computed(() => workbench.selectedPeople.value[0] ?? null)
 const sourceScoreLabel = computed(() => workbench.query.isGlobal ? '全站均分' : '我的均分')
@@ -315,7 +330,6 @@ watch(() => workbench.query.isGlobal, (isGlobal) => {
 						decorative
 						loading="eager"
 						:width="132"
-						:height="180"
 					/>
 					<div class="analysis-profile__content">
 						<span class="identity-marker" aria-hidden="true">1</span>
@@ -346,6 +360,8 @@ watch(() => workbench.query.isGlobal, (isGlobal) => {
 							:aria-pressed="leader.partner?.person.id === focusedPartnerId"
 							:aria-controls="leader.partner ? 'single-cooperation-works-title' : undefined"
 							:aria-label="leader.partner ? `${leader.label}：${workbench.personName(leader.partner.person)}，${leader.value}` : `${leader.label}：暂无数据`"
+							@focus="showLeaderNameTooltip(leader.metric, $event)"
+							@blur="hideLeaderNameTooltip(leader.metric)"
 							@click="leader.partner && focusPartner(leader.partner.person.id)"
 						>
 							<small class="single-cooperation__cell-label">{{ leader.label }}</small>
@@ -358,11 +374,23 @@ watch(() => workbench.query.isGlobal, (isGlobal) => {
 									kind="person"
 									decorative
 									:width="28"
-									:height="36"
 								/>
-								<strong :title="leader.partner ? workbench.personName(leader.partner.person) : '暂无数据'">
+								<WorkbenchTooltip
+									:show="visibleLeaderNameTooltip === leader.metric"
+									:disabled="!leader.partner"
+									trigger="manual"
+									placement="top"
+								>
+									<template #trigger>
+										<strong
+											@mouseenter="showLeaderNameTooltip(leader.metric, $event)"
+											@mouseleave="hideLeaderNameTooltip(leader.metric)"
+										>
+											{{ leader.partner ? workbench.personName(leader.partner.person) : '暂无数据' }}
+										</strong>
+									</template>
 									{{ leader.partner ? workbench.personName(leader.partner.person) : '暂无数据' }}
-								</strong>
+								</WorkbenchTooltip>
 							</span>
 							<b>{{ leader.value }}</b>
 						</button>
@@ -398,13 +426,12 @@ watch(() => workbench.query.isGlobal, (isGlobal) => {
 						@update:sort="updatePartnerMetric"
 						@update:order="partnerOrder = $event"
 					>
-						<template v-if="positionOptions.length !== 1" #before-sort="{ size, selectThemeOverrides }">
+						<template v-if="positionOptions.length !== 1" #before-sort="{ size }">
 							<n-select
 								v-model:value="partnerPosition"
 								:size="size"
-								menu-size="small"
+								:menu-size="size"
 								:options="positionOptions"
-								:theme-overrides="selectThemeOverrides"
 								:consistent-menu-width="false"
 								aria-label="按合作职位筛选"
 							/>

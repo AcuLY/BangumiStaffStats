@@ -152,6 +152,11 @@ const tooltipVisible = ref(false)
 	list-style: none;
 }
 
+.adaptive-role-list[tabindex="0"] {
+	align-content: center;
+	min-height: var(--touch-target-min);
+}
+
 .adaptive-role-list__row {
 	min-width: 0;
 }

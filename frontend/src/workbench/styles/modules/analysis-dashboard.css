@@ -172,7 +172,7 @@
 
 .metric-ledger span {
 	color: var(--text-3);
-	font-size: 12px;
+	font-size: var(--text-caption);
 }
 
 .analysis-grid {
@@ -221,7 +221,7 @@
 }
 
 .timeline-list b {
-	font-size: 12px;
+	font-size: var(--text-caption);
 	text-align: right;
 }
 
@@ -244,7 +244,7 @@
 }
 
 .tag-summary b {
-	font-size: 12px;
+	font-size: var(--text-caption);
 	font-weight: 600;
 }
 

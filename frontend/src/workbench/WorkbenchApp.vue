@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { darkTheme, zhCN } from 'naive-ui'
 import { loadWorkbenchFixtures } from './data/loadFixtures'
 import { provideWorkbench } from './composables/useWorkbench'
+import { useWorkbenchControlSize } from './composables/useWorkbenchControlSize'
 import type { PositionData, WorkbenchSnapshot } from './types'
 import WorkbenchHeader from './components/WorkbenchHeader.vue'
 import QueryWorkspace from './components/QueryWorkspace.vue'
@@ -17,6 +18,7 @@ const positionData = ref<PositionData | null>(null)
 const loading = ref(true)
 const error = ref('')
 const workbench = provideWorkbench(snapshot, positionData)
+const { controlSize } = useWorkbenchControlSize()
 
 const isDark = computed(() => workbench.theme.value === 'dark')
 const themeOverrides = computed(() => getWorkbenchThemeOverrides(isDark.value))
@@ -35,7 +37,9 @@ const load = async () => {
 		const fixtures = await loadWorkbenchFixtures()
 		snapshot.value = fixtures.snapshot
 		positionData.value = fixtures.positionData
-		workbench.focusedPersonId.value = workbench.rankingPeople.value[0]?.id ?? 0
+		if (workbench.hasAppliedQuery.value) {
+			workbench.focusedPersonId.value = workbench.rankingPeople.value[0]?.id ?? 0
+		}
 	} catch (reason) {
 		console.error('Failed to load workbench data', reason)
 		error.value = '请稍后重试。'
@@ -93,7 +97,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnUnsavedQu
 						</template>
 						<template #mobile-context>
 							<button
-								v-if="!loading && !error && !workbench.queryEditing.value && workbench.mode.value === 'co-star'"
+								v-if="!loading && !error && workbench.hasAppliedQuery.value && !workbench.queryEditing.value && workbench.mode.value === 'co-star'"
 								class="mobile-picker-entry header-edit-card"
 								type="button"
 								aria-haspopup="dialog"
@@ -133,8 +137,14 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnUnsavedQu
 								<span class="state-icon"><AppIcon name="image" :size="28" /></span>
 								<h1>无法加载人物数据</h1>
 								<p>{{ error }}</p>
-								<n-button size="large" type="primary" @click="load">重新加载</n-button>
+								<n-button :size="controlSize" type="primary" @click="load">重新加载</n-button>
 							</div>
+
+							<section v-else-if="!workbench.hasAppliedQuery.value" class="workbench-state surface-panel" aria-labelledby="query-empty-title">
+								<span class="state-icon"><AppIcon name="search" :size="28" /></span>
+								<h1 id="query-empty-title">尚未开始查询</h1>
+								<p>选择数据来源、条目类型和职位后开始。结果只会在你提交查询后出现。</p>
+							</section>
 
 							<template v-else>
 								<RankingWorkbench v-if="workbench.mode.value === 'ranking'" />

@@ -17,7 +17,7 @@
 	border: 0;
 	border-radius: var(--radius-control);
 	background: transparent;
-	color: var(--text-3);
+	color: var(--chrome-muted);
 	cursor: help;
 }
 
@@ -27,9 +27,13 @@
 	content: '';
 }
 
+.query-option-help .app-icon {
+	width: 16px;
+	height: 16px;
+}
+
 .query-option-help:hover {
-	background: var(--hover);
-	color: var(--primary-text);
+	color: var(--chrome-text);
 }
 
 .query-option-help:focus-visible {

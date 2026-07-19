@@ -2,13 +2,15 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AppIcon from './AppIcon.vue'
 
+const CONTENT_IMAGE_ASPECT_WIDTH = 3
+const CONTENT_IMAGE_ASPECT_HEIGHT = 4
+
 const props = withDefaults(defineProps<{
 	sources?: string[]
 	alt: string
 	kind?: 'person' | 'subject' | 'character'
 	loading?: 'eager' | 'lazy'
 	width: number
-	height: number
 	decorative?: boolean
 	priority?: boolean
 	timeoutMs?: number
@@ -98,8 +100,9 @@ const fallbackLabel = computed(() => props.alt
 
 const intrinsicStyle = computed(() => ({
 	'--safe-image-width': `${props.width}px`,
-	'--safe-image-height': `${props.height}px`,
 }))
+const intrinsicWidth = computed(() => props.width * CONTENT_IMAGE_ASPECT_WIDTH)
+const intrinsicHeight = computed(() => props.width * CONTENT_IMAGE_ASPECT_HEIGHT)
 const portraitKind = computed(() => props.kind === 'person' || props.kind === 'character')
 </script>
 
@@ -114,8 +117,8 @@ const portraitKind = computed(() => props.kind === 'person' || props.kind === 'c
 			:src="currentSource"
 			:alt="decorative ? '' : alt"
 			:loading="loading"
-			:width="width"
-			:height="height"
+			:width="intrinsicWidth"
+			:height="intrinsicHeight"
 			:fetchpriority="priority ? 'high' : undefined"
 			decoding="async"
 			referrerpolicy="no-referrer"

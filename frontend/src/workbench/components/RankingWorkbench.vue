@@ -8,13 +8,15 @@ import RankingListColumns from './RankingListColumns.vue'
 import PersonInspector from './PersonInspector.vue'
 import AdaptivePagination from './AdaptivePagination.vue'
 import WorkListToolbar from './WorkListToolbar.vue'
+import AppIcon from './AppIcon.vue'
 import {
 	getResultStatisticThemeOverrides,
 	inspectorDrawerThemeOverrides,
+	shellScrollbarThemeOverrides,
 } from '../naiveThemeOverrides'
 
 const workbench = useWorkbench()
-const { isMobile } = useWorkbenchControlSize()
+const { controlSize, isMobile } = useWorkbenchControlSize()
 
 const containDrawerWheel = (event: WheelEvent) => {
 	if (!event.deltaY) return
@@ -31,6 +33,7 @@ const containDrawerWheel = (event: WheelEvent) => {
 
 const drawerScrollbarProps = {
 	containerStyle: { overscrollBehavior: 'contain' },
+	themeOverrides: shellScrollbarThemeOverrides,
 	onWheel: containDrawerWheel,
 }
 
@@ -157,12 +160,28 @@ watch(isMobile, (mobile) => {
 			<n-drawer-content
 				:native-scrollbar="false"
 				:scrollbar-props="drawerScrollbarProps"
-				closable
+				:closable="false"
 				header-style="background: transparent;"
 				body-content-style="padding: 0;"
 			>
 				<template #header>
-					<span class="ranking-inspector-drawer__title">人物详情</span>
+					<span class="ranking-inspector-drawer__header">
+						<span class="ranking-inspector-drawer__title">人物详情</span>
+						<span class="ranking-inspector-drawer__close-hit" @click="workbench.inspectorDrawerOpen.value = false">
+							<n-button
+								class="ranking-inspector-drawer__close"
+								:size="controlSize"
+								quaternary
+								circle
+								attr-type="button"
+								aria-label="关闭人物详情"
+								title="关闭人物详情"
+								@click.stop="workbench.inspectorDrawerOpen.value = false"
+							>
+								<AppIcon name="close" :size="16" />
+							</n-button>
+						</span>
+					</span>
 				</template>
 				<div id="ranking-inspector"><PersonInspector /></div>
 			</n-drawer-content>

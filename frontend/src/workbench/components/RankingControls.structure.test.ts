@@ -5,6 +5,7 @@ const cooperationSource = readFileSync(new URL('./SinglePersonCooperation.vue', 
 const rankingSource = readFileSync(new URL('./RankingWorkbench.vue', import.meta.url), 'utf8')
 const toolbarSource = readFileSync(new URL('./WorkListToolbar.vue', import.meta.url), 'utf8')
 const cooperationStyles = readFileSync(new URL('../styles/modules/single-person-cooperation.css', import.meta.url), 'utf8')
+const componentResponsiveStyles = readFileSync(new URL('../styles/modules/component-responsive.css', import.meta.url), 'utf8')
 
 describe('shared ranking controls', () => {
 	it('uses WorkListToolbar for both work and cooperation-person sorting', () => {
@@ -24,5 +25,16 @@ describe('shared ranking controls', () => {
 		expect(rankingSource).toContain('<RankingListColumns')
 		expect(cooperationSource).toContain("import RankingListColumns from './RankingListColumns.vue'")
 		expect(cooperationSource).toContain('<RankingListColumns')
+	})
+
+	it('owns the mobile inspector header and close target explicitly', () => {
+		expect(rankingSource).toContain('height="calc(100dvh - var(--workbench-header-bar-height))"')
+		expect(rankingSource).toContain('class="ranking-inspector-drawer__close"')
+		expect(rankingSource).toContain('class="ranking-inspector-drawer__close-hit"')
+		expect(rankingSource).toContain(':size="controlSize"')
+		expect(rankingSource).toContain('<AppIcon name="close" :size="16" />')
+		expect(rankingSource).toContain(':closable="false"')
+		expect(componentResponsiveStyles).toMatch(/\.ranking-inspector-drawer__header\s*\{[^}]*height:\s*52px;/s)
+		expect(componentResponsiveStyles).toMatch(/\.ranking-inspector-drawer__close-hit\s*\{[^}]*width:\s*var\(--touch-target-min\);[^}]*height:\s*var\(--touch-target-min\);/s)
 	})
 })

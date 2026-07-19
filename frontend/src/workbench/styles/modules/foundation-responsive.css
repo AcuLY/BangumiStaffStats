@@ -1,4 +1,4 @@
-@media (min-width: 781px) {
+@media (width >= 780px) {
 	.theme-toggle-slot {
 		justify-items: end;
 	}
@@ -73,7 +73,7 @@
 	}
 }
 
-@media (max-width: 780px) {
+@media (width < 780px) {
 	.workbench-header__bar {
 		grid-template-columns: var(--touch-target-min) minmax(150px, 170px) var(--touch-target-min);
 		grid-template-areas: "brand modes theme";
@@ -152,14 +152,13 @@
 		scrollbar-gutter: auto;
 	}
 
-	.picker-heading {
-		padding-top: max(14px, env(safe-area-inset-top));
-	}
-
 	.person-picker--drawer .picker-heading {
 		position: sticky;
 		top: 0;
 		z-index: var(--z-sticky);
+		height: 52px;
+		min-height: 52px;
+		padding: var(--space-2) var(--space-4) var(--space-1);
 		background: var(--translucent-chrome-background);
 		-webkit-backdrop-filter: var(--translucent-chrome-filter);
 		backdrop-filter: var(--translucent-chrome-filter);
@@ -225,11 +224,6 @@
 
 	.analysis-dashboard--unified > .analysis-section {
 		padding-inline: var(--space-4);
-		background: transparent;
-	}
-
-	.analysis-dashboard--unified .rating-summary,
-	.analysis-dashboard--unified .rating-summary > div {
 		background: transparent;
 	}
 
@@ -322,7 +316,7 @@
 
 	.score-bar__value,
 	.score-bar small {
-		font-size: 12px;
+		font-size: var(--text-caption);
 	}
 }
 

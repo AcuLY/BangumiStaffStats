@@ -7,6 +7,7 @@ import {
 	formatRatingDate,
 	type RatingSource,
 } from '../domain/ratingDistribution'
+import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
 import ScoreDistributionTooltip from './ScoreDistributionTooltip.vue'
 import WorkbenchTooltip from './WorkbenchTooltip.vue'
 
@@ -16,12 +17,15 @@ const props = defineProps<{
 	isGlobalQuery: boolean
 }>()
 
+const { controlSize } = useWorkbenchControlSize()
+
 type ChartMode = 'score' | 'time'
 
 const chartMode = ref<ChartMode>('score')
 const scoreSource = ref<RatingSource>(props.isGlobalQuery ? 'global' : 'personal')
 const hoveredDistributionLabel = ref<string | null>(null)
 const hoveredTimeWork = ref<string | null>(null)
+const focusedTimeWork = ref<string | null>(null)
 const timeChartHost = ref<HTMLElement | null>(null)
 const timeChartWidth = ref(360)
 
@@ -32,6 +36,7 @@ watch(() => props.isGlobalQuery, (isGlobal) => {
 watch(() => props.personName, () => {
 	hoveredDistributionLabel.value = null
 	hoveredTimeWork.value = null
+	focusedTimeWork.value = null
 })
 
 watch(timeChartHost, (host, _previousHost, onCleanup) => {
@@ -48,6 +53,7 @@ watch(timeChartHost, (host, _previousHost, onCleanup) => {
 watch(scoreSource, () => {
 	hoveredDistributionLabel.value = null
 	hoveredTimeWork.value = null
+	focusedTimeWork.value = null
 })
 
 const sourceLabel = computed(() => scoreSource.value === 'personal' ? '我的评分' : '全站评分')
@@ -78,6 +84,9 @@ const TIME_CHART_TOP = 18
 const TIME_CHART_BOTTOM = 194
 const TIME_CHART_LEFT = 34
 const TIME_CHART_RIGHT = 14
+const TIME_POINT_RADIUS = 4
+const TIME_POINT_ACTIVE_RADIUS = 6
+const TIME_POINT_HIT_RADIUS = 22
 const timeYTicks = [0, 2, 4, 6, 8, 10]
 const MIN_YEAR_LABEL_GAP = 52
 const SEASON_LABELS = ['冬季', '春季', '夏季', '秋季'] as const
@@ -199,7 +208,28 @@ const timeChart = computed(() => {
 	}
 })
 
-const hoveredTimePoint = computed(() => timeChart.value.works.find((point) => point.key === hoveredTimeWork.value) ?? null)
+const activeTimeWork = computed(() => focusedTimeWork.value ?? hoveredTimeWork.value)
+const hoveredTimePoint = computed(() => timeChart.value.works.find((point) => point.key === activeTimeWork.value) ?? null)
+
+const updateHoveredTimeWork = (event: PointerEvent) => {
+	const chart = event.currentTarget
+	if (!(chart instanceof SVGSVGElement)) return
+	const bounds = chart.getBoundingClientRect()
+	if (!bounds.width || !bounds.height) return
+
+	let nearestKey: string | null = null
+	let nearestDistance = Number.POSITIVE_INFINITY
+	for (const point of timeChart.value.works) {
+		const clientX = bounds.left + point.x / timeChart.value.width * bounds.width
+		const clientY = bounds.top + point.y / TIME_CHART_HEIGHT * bounds.height
+		const distance = Math.hypot(event.clientX - clientX, event.clientY - clientY)
+		if (distance >= nearestDistance) continue
+		nearestKey = point.key
+		nearestDistance = distance
+	}
+
+	hoveredTimeWork.value = nearestDistance <= TIME_POINT_HIT_RADIUS ? nearestKey : null
+}
 
 const timeTickY = (score: number) => TIME_CHART_TOP + (10 - score) / 10 * (TIME_CHART_BOTTOM - TIME_CHART_TOP)
 </script>
@@ -210,13 +240,13 @@ const timeTickY = (score: number) => TIME_CHART_TOP + (10 - score) / 10 * (TIME_
 			<h2 id="rating-distribution-title">评分分布</h2>
 			<div class="rating-distribution-panel__controls">
 				<div class="rating-distribution-panel__control-group">
-					<n-radio-group v-model:value="chartMode" size="small" role="radiogroup" aria-label="评分图表维度">
+					<n-radio-group v-model:value="chartMode" :size="controlSize" role="radiogroup" aria-label="评分图表维度">
 						<n-radio-button value="score">按分数</n-radio-button>
 						<n-radio-button value="time">按时间</n-radio-button>
 					</n-radio-group>
 				</div>
 				<div class="rating-distribution-panel__control-group">
-					<n-radio-group v-model:value="scoreSource" size="small" role="radiogroup" aria-label="评分数据来源">
+					<n-radio-group v-model:value="scoreSource" :size="controlSize" role="radiogroup" aria-label="评分数据来源">
 						<n-radio-button value="personal" :disabled="isGlobalQuery">我的分数</n-radio-button>
 						<n-radio-button value="global">全站分数</n-radio-button>
 					</n-radio-group>
@@ -275,6 +305,8 @@ const timeTickY = (score: number) => TIME_CHART_TOP + (10 - score) / 10 * (TIME_
 				:viewBox="`0 0 ${timeChart.width} ${TIME_CHART_HEIGHT}`"
 				role="img"
 				:aria-label="timeChart.label"
+				@pointermove="updateHoveredTimeWork"
+				@pointerleave="hoveredTimeWork = null"
 			>
 				<g class="rating-time-chart__grid" aria-hidden="true">
 					<template v-for="tick in timeYTicks" :key="tick">
@@ -294,18 +326,22 @@ const timeTickY = (score: number) => TIME_CHART_TOP + (10 - score) / 10 * (TIME_
 					v-for="point in timeChart.works"
 					:key="point.key"
 					class="rating-time-chart__point"
-					@mouseenter="hoveredTimeWork = point.key"
-					@mouseleave="hoveredTimeWork = null"
 				>
-					<circle class="rating-time-chart__hit-target" :cx="point.x" :cy="point.y" r="8" />
 					<circle
 						class="rating-time-chart__visible-point"
 						:cx="point.x"
 						:cy="point.y"
-						r="3.5"
+						:r="activeTimeWork === point.key ? TIME_POINT_ACTIVE_RADIUS : TIME_POINT_RADIUS"
+						:style="{
+							transform: 'scale(1)',
+							fill: activeTimeWork === point.key ? 'var(--primary-text)' : undefined,
+							stroke: focusedTimeWork === point.key ? 'var(--focus)' : undefined,
+							strokeWidth: focusedTimeWork === point.key ? 2.5 : undefined,
+						}"
 						tabindex="0"
-						@focus="hoveredTimeWork = point.key"
-						@blur="hoveredTimeWork = null"
+						:aria-label="point.tooltip"
+						@focus="focusedTimeWork = point.key"
+						@blur="focusedTimeWork = null"
 					>
 						<title>{{ point.tooltip }}</title>
 					</circle>

@@ -70,10 +70,22 @@
 }
 
 .character-role-card__name-link {
+	position: relative;
 	width: fit-content;
 	max-width: 100%;
 	border-radius: 2px;
 	text-decoration: none;
+}
+
+.character-role-card__name-link::before {
+	position: absolute;
+	top: 50%;
+	left: 0;
+	width: 100%;
+	min-width: var(--touch-target-min);
+	height: var(--touch-target-min);
+	transform: translateY(-50%);
+	content: '';
 }
 
 .character-role-card__name {
@@ -97,7 +109,7 @@
 
 .character-role-card__name-link:focus-visible {
 	outline: 2px solid var(--focus);
-	outline-offset: 3px;
+	outline-offset: 2px;
 }
 
 .character-role-card__names small {
@@ -121,6 +133,11 @@
 	list-style: none;
 }
 
+.character-role-card__appearances[tabindex="0"] {
+	align-content: center;
+	min-height: var(--touch-target-min);
+}
+
 .character-role-card__appearance-row {
 	min-width: 0;
 }
@@ -138,7 +155,7 @@
 	display: flex;
 	align-items: center;
 	gap: var(--space-1);
-	overflow: hidden;
+	overflow: visible;
 	color: var(--text-2);
 	font-size: var(--text-control);
 	line-height: 20px;

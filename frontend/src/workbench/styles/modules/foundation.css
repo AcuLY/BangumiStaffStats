@@ -51,9 +51,49 @@ summary {
 	-webkit-tap-highlight-color: transparent;
 }
 
-:focus-visible {
-	outline: 0;
-	box-shadow: none;
+:where(
+	.workbench-brand,
+	.header-edit-card,
+	.query-advanced-collapse__trigger,
+	.person-row--ranking,
+	.person-row--candidate,
+	.preference-work,
+	.person-profile__bio-toggle,
+	.subject-work-row__primary-link,
+	.adaptive-role-list,
+	.character-role-card__appearances,
+	.score-bar,
+	.workbench-footer a
+):focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
+}
+
+:where(
+	.workbench-brand,
+	.header-edit-card,
+	.query-advanced-collapse__trigger
+):focus-visible {
+	outline-color: var(--focus-on-chrome);
+}
+
+@media (forced-colors: active) {
+	:where(
+		.workbench-brand,
+		.header-edit-card,
+		.query-advanced-collapse__trigger,
+		.person-row--ranking,
+		.person-row--candidate,
+		.preference-work,
+		.person-profile__bio-toggle,
+		.subject-work-row__primary-link,
+		.adaptive-role-list,
+		.character-role-card__appearances,
+		.score-bar,
+		.workbench-footer a
+	):focus-visible {
+		outline-color: Highlight;
+	}
 }
 
 button,
@@ -87,7 +127,7 @@ h2 { font-size: var(--h2-size); letter-spacing: -0.01em; }
 h3 { font-size: var(--h3-size); }
 
 small {
-	font-size: 12px;
+	font-size: var(--text-caption);
 }
 
 .workbench-tooltip-content {
@@ -272,11 +312,9 @@ table,
 	color: var(--chrome-text);
 }
 
-.query-editor__head p,
-.query-editor__footer,
-.query-editor__footer span {
+.query-editor__head p {
 	color: var(--chrome-muted);
-	font-size: 12px;
+	font-size: var(--text-caption);
 }
 
 .query-editor__head p {
@@ -293,7 +331,7 @@ table,
 .field > span,
 .field legend {
 	color: var(--text-2);
-	font-size: 12px;
+	font-size: var(--text-control);
 	font-weight: 600;
 }
 
@@ -317,34 +355,39 @@ table,
 
 .field-help-trigger {
 	position: relative;
+	display: grid;
+	flex: 0 0 auto;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	margin-block: -4px;
 	appearance: none;
 	padding: 0;
 	border: 0;
+	border-radius: var(--radius-control);
 	background: transparent;
-	color: var(--primary-text);
-	font-size: 12px;
-	font-weight: 600;
-	line-height: 1.5;
-	text-decoration: underline;
-	text-underline-offset: 3px;
+	color: var(--chrome-muted);
 	cursor: help;
 }
 
 .field-help-trigger::before {
 	position: absolute;
-	inset: -13px -8px;
+	inset: -10px;
 	content: '';
+}
+
+.field-help-trigger .app-icon {
+	width: 16px;
+	height: 16px;
 }
 
 .field-help-trigger:hover {
 	color: var(--chrome-text);
-	text-decoration-thickness: 2px;
 }
 
 .field-help-trigger:focus-visible {
-	border-radius: 2px;
 	outline: 2px solid var(--focus-on-chrome);
-	outline-offset: 3px;
+	outline-offset: 2px;
 }
 
 .field--collections {
@@ -394,6 +437,9 @@ table,
 }
 
 .workbench-footer a {
+	display: inline-flex;
+	align-items: center;
+	min-height: var(--touch-target-min);
 	color: inherit;
 	text-underline-offset: 3px;
 }

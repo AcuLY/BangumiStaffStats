@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useWorkbenchControlSize, type WorkbenchControlSize } from '../composables/useWorkbenchControlSize'
 
-type PaginationSize = 'small' | 'medium' | 'large'
 type PageSizeOption = number | { label: string; value: number }
 
 const props = withDefaults(defineProps<{
@@ -9,14 +9,13 @@ const props = withDefaults(defineProps<{
 	pageSize: number
 	itemCount: number
 	pageSizes?: PageSizeOption[]
-	size?: PaginationSize
+	size?: WorkbenchControlSize
 	showSizePicker?: boolean
 	showQuickJumper?: boolean
 	summary?: string
 	ariaLabel?: string
 }>(), {
 	pageSizes: () => [10],
-	size: 'medium',
 	showSizePicker: true,
 	showQuickJumper: true,
 	summary: '',
@@ -27,6 +26,9 @@ const emit = defineEmits<{
 	'update:page': [value: number]
 	'update:page-size': [value: number]
 }>()
+
+const { controlSize } = useWorkbenchControlSize()
+const paginationSize = computed<WorkbenchControlSize>(() => props.size ?? controlSize.value)
 
 const pagesContainer = ref<HTMLElement | null>(null)
 const pageSlot = ref(9)
@@ -64,7 +66,7 @@ onMounted(() => {
 })
 
 watch(
-	() => [props.page, props.pageSize, props.itemCount],
+	() => [props.page, props.pageSize, props.itemCount, paginationSize.value],
 	() => void syncPageSlot(),
 )
 
@@ -80,7 +82,7 @@ onBeforeUnmount(() => {
 		<div ref="pagesContainer" class="adaptive-pagination__pages">
 			<n-pagination
 				class="adaptive-pagination__control adaptive-pagination__control--pages"
-				:size="size"
+				:size="paginationSize"
 				:page="page"
 				:page-size="pageSize"
 				:item-count="itemCount"
@@ -92,7 +94,7 @@ onBeforeUnmount(() => {
 		<n-pagination
 			v-if="showSizePicker || showQuickJumper"
 			class="adaptive-pagination__control adaptive-pagination__control--tools"
-			:size="size"
+			:size="paginationSize"
 			:page="page"
 			:page-size="pageSize"
 			:item-count="itemCount"

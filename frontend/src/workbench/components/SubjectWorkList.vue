@@ -123,7 +123,6 @@ const collectionLabel = (type?: number) => ({
 						alt=""
 						kind="subject"
 						:width="64"
-						:height="88"
 						decorative
 					/>
 				</span>

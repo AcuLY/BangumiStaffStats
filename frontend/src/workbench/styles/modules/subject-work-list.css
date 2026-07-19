@@ -112,6 +112,7 @@
 }
 
 .subject-work-row__primary-link {
+	position: relative;
 	grid-area: title;
 	min-width: 0;
 	color: var(--text-1);
@@ -120,6 +121,17 @@
 	line-height: 20px;
 	text-decoration: none;
 	overflow-wrap: anywhere;
+}
+
+.subject-work-row__primary-link::before {
+	position: absolute;
+	top: 50%;
+	left: 0;
+	width: 100%;
+	min-width: var(--touch-target-min);
+	height: var(--touch-target-min);
+	transform: translateY(-50%);
+	content: '';
 }
 
 .subject-work-row__primary-link strong {
@@ -242,7 +254,7 @@
 .subject-work-row__facts dd b {
 	flex: 0 0 auto;
 	color: var(--text-1);
-	font-size: 16px;
+	font-size: var(--text-subheading);
 	font-weight: 700;
 	line-height: 20px;
 	white-space: nowrap;

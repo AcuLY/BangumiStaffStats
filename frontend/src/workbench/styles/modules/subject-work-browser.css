@@ -38,7 +38,7 @@
 
 .person-credit-tab__count {
 	color: currentColor;
-	font-size: inherit;
+	font-size: var(--text-caption);
 	font-variant-numeric: tabular-nums;
 	font-weight: inherit;
 }
@@ -50,12 +50,11 @@
 	margin-bottom: 12px;
 }
 
-@media (max-width: 780px) {
+@media (width < 780px) {
 	.person-credit-tab__label,
 	.subject-work-browser__density-label {
 		display: inline-flex;
 		align-items: center;
-		font-size: var(--text-caption);
 		line-height: 1;
 		transform: translateY(-2px);
 		vertical-align: middle;

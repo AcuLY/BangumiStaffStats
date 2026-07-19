@@ -57,8 +57,8 @@
 	display: inline-grid;
 	place-items: center;
 	justify-self: end;
-	width: 38px;
-	height: 38px;
+	width: 34px;
+	height: 34px;
 	border-radius: 50%;
 	color: var(--text-2);
 	transition: color 150ms ease-out;
@@ -93,7 +93,7 @@
 	border-radius: var(--radius-control);
 	background: var(--surface-sunken);
 	color: var(--text-2);
-	font-size: 12px;
+	font-size: var(--text-caption);
 	font-weight: 700;
 	font-variant-numeric: tabular-nums;
 }
@@ -302,7 +302,6 @@
 .query-editor .field > span,
 .query-editor .field legend {
 	color: var(--text-2);
-	font-size: var(--text-control);
 }
 
 .query-editor .field legend {
@@ -310,7 +309,14 @@
 }
 
 .query-stage--positions .field--positions {
+	grid-template-columns: minmax(0, 1fr);
+	min-width: 0;
 	margin-top: var(--space-3);
+}
+
+.query-position-select {
+	width: 100%;
+	min-width: 0;
 }
 
 .query-editor .field > .query-position-hint {
@@ -449,7 +455,7 @@
 	border-radius: var(--radius-control);
 	background: color-mix(in oklab, var(--error) 8%, transparent);
 	color: var(--error);
-	font-size: 12px;
+	font-size: var(--text-caption);
 }
 
 .query-editor__footer {
@@ -457,11 +463,18 @@
 	margin-inline: var(--query-editor-inline);
 	padding-top: var(--space-3);
 	border-color: var(--divider);
-	color: var(--text-3);
 }
 
-.query-editor__footer span {
+.query-tag-trigger-hit {
+	display: inline-grid;
+	place-items: center;
+	min-width: var(--touch-target-min);
+	min-height: var(--touch-target-min);
+}
+
+.query-editor__status {
 	color: var(--text-3);
+	font-size: var(--text-caption);
 }
 
 .query-field-error {
@@ -501,9 +514,4 @@
 .person-work-row__facts dt,
 .person-work-row__facts dd small {
 	font-size: var(--text-caption);
-}
-
-.person-profile__bio p {
-	max-width: 68ch;
-	font-size: var(--text-body);
 }

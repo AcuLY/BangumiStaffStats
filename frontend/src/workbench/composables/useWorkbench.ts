@@ -74,6 +74,7 @@ export interface WorkbenchContext {
 	mode: Ref<WorkbenchMode>
 	theme: Ref<WorkbenchTheme>
 	toggleTheme: () => void
+	hasAppliedQuery: Ref<boolean>
 	queryEditing: Ref<boolean>
 	query: QueryState
 	queryDraft: QueryState
@@ -171,13 +172,16 @@ export function provideWorkbench(
 		theme.value = theme.value === 'dark' ? 'light' : 'dark'
 	}
 
-	const queryEditing = ref(false)
+	const showsInitialQueryState = window.location.pathname.endsWith('/person-workbench-empty.html')
+	const hasAppliedQuery = ref(!showsInitialQueryState)
+	const queryEditing = ref(showsInitialQueryState)
+	const querySimulationDelayMs = showsInitialQueryState ? 1200 : 520
 	const requestedUserId = new URLSearchParams(window.location.search).get('user')?.trim()
 	const makeQueryState = (): QueryState => ({
 		isGlobal: false,
 		showNSFW: false,
 		mergeSeries: false,
-		userId: requestedUserId || 'lucay126',
+		userId: requestedUserId || (showsInitialQueryState ? '' : 'lucay126'),
 		subjectType: 2,
 		positionsByMode: {
 			ranking: [102],
@@ -236,6 +240,7 @@ export function provideWorkbench(
 	const queryDraftStatus = computed(() => {
 		if (queryLoading.value) return '正在查询人物与作品…'
 		if (queryFeedback.value) return queryFeedback.value
+		if (!hasAppliedQuery.value) return ''
 		return queryDraftDirty.value ? '有未提交的更改' : '条件未更改'
 	})
 	let queryTimer: ReturnType<typeof setTimeout> | null = null
@@ -385,6 +390,7 @@ export function provideWorkbench(
 	const tagMatches = (tags: Set<string>, value: string) => [...tags]
 		.some((tag) => tag.includes(compactSearch(value)) || compactSearch(value).includes(tag))
 	const queryScopeIds = computed(() => {
+		if (!hasAppliedQuery.value) return new Set<number>()
 		if (!queryUserMatchesFixture.value) return new Set<number>()
 		const allowedCollectionTypes = new Set(query.collectionTypes.map(Number))
 		return new Set((snapshot.value?.subjects ?? [])
@@ -433,7 +439,8 @@ export function provideWorkbench(
 		.filter((id) => queryScopeIds.value.has(id))
 
 	watch(queryScopeIds, (ids) => {
-		if (!snapshot.value) queryStatus.value = '正在加载'
+		if (!hasAppliedQuery.value) queryStatus.value = '尚未查询'
+		else if (!snapshot.value) queryStatus.value = '正在加载'
 		else if (!queryUserMatchesFixture.value) queryStatus.value = '未找到此用户数据'
 		else if (!ids.size) queryStatus.value = '当前条件下没有匹配条目'
 		else queryStatus.value = `已应用 · ${ids.size} 部`
@@ -444,7 +451,7 @@ export function provideWorkbench(
 	const rankingSearch = ref('')
 	const rankingPage = ref(1)
 	const rankingPageSize = ref(RANKING_PAGE_SIZE)
-	const focusedPersonId = ref(4697)
+	const focusedPersonId = ref(showsInitialQueryState ? 0 : 4697)
 	const focusedWorkSearch = ref('')
 
 	const rankingValue = (person: Person, metric = rankingMetric.value) => {
@@ -608,6 +615,8 @@ export function provideWorkbench(
 	const candidatePageSize = ref(CANDIDATE_PAGE_SIZE)
 	const selectedScopes = ref<SelectedScope[]>([
 		{ personId: 5745, positionId: 102 },
+		{ personId: 4765, positionId: 102 },
+		{ personId: 10600, positionId: 102 },
 	])
 	const peopleDrawerOpen = ref(false)
 	const inspectorDrawerOpen = ref(false)
@@ -748,6 +757,7 @@ export function provideWorkbench(
 		queryTimer = setTimeout(() => {
 			queryTimer = null
 			Object.assign(query, cloneQuery(next))
+			hasAppliedQuery.value = true
 			candidatePositionId.value = numericPositionIds(next, 'co-star')[0] ?? 0
 			queryLoading.value = false
 			queryEditing.value = false
@@ -756,7 +766,7 @@ export function provideWorkbench(
 			rankingSearch.value = ''
 			focusedWorkSearch.value = ''
 			focusedPersonId.value = rankingPeople.value[0]?.id ?? 0
-		}, 520)
+		}, querySimulationDelayMs)
 		return true
 	}
 
@@ -765,7 +775,7 @@ export function provideWorkbench(
 		if (queryTimer) clearTimeout(queryTimer)
 		queryTimer = null
 		queryLoading.value = false
-		queryFeedback.value = '已取消 · 结果未变'
+		queryFeedback.value = hasAppliedQuery.value ? '已取消 · 结果未变' : '已取消 · 尚未查询'
 	}
 
 	const toggleScope = (personId: number, positionId: number) => {
@@ -823,6 +833,7 @@ export function provideWorkbench(
 		mode,
 		theme,
 		toggleTheme,
+		hasAppliedQuery,
 		queryEditing,
 		query,
 		queryDraft,

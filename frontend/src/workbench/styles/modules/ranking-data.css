@@ -68,16 +68,16 @@
 .person-profile__bio summary {
 	width: max-content;
 	color: var(--primary-text);
-	font-size: 12px;
+	font-size: var(--text-caption);
 	font-weight: 600;
 	cursor: pointer;
 }
 
 .person-profile__bio p {
-	max-width: 72ch;
+	max-width: 68ch;
 	margin-top: 7px;
 	color: var(--text-2);
-	font-size: 12px;
+	font-size: var(--text-body);
 	line-height: 1.65;
 }
 

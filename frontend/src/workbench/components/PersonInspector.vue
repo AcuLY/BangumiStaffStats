@@ -54,11 +54,11 @@ const careerLine = computed(() => {
 const profileSummary = computed(() => profileExtra.value?.summary
 	?? `${workbench.personName(person.value)}以“${rankingPositionLine.value}”身份参与了 ${person.value?.subjectCount ?? 0} 部当前筛选范围内的作品。`)
 const profileSummaryIsLong = computed(() => profileSummary.value.length > 60)
-const profileBioExpanded = ref(false)
+const profileBioExpanded = ref(true)
 const overallScoreTooltipVisible = ref(false)
 const preferenceTooltipVisible = ref(false)
 watch(() => person.value?.id, () => {
-	profileBioExpanded.value = false
+	profileBioExpanded.value = true
 })
 const ratedRates = computed(() => workbench.focusedAllSubjects.value
 	.map((subject) => Number(subject.collection?.rate || 0))
@@ -294,7 +294,6 @@ const formatSigned = (value?: number | null, digits = 2) => value === null || va
 					loading="eager"
 					priority
 					:width="160"
-					:height="208"
 				/>
 				<div class="person-profile__content">
 					<div class="person-profile__name-row">
@@ -344,7 +343,7 @@ const formatSigned = (value?: number | null, digits = 2) => value === null || va
 									@focus="overallScoreTooltipVisible = true"
 									@blur="overallScoreTooltipVisible = false"
 								>
-									<AppIcon name="info" :size="13" />
+									<AppIcon name="info" :size="16" />
 								</button>
 							</template>
 							<span class="preference-model-tooltip">{{ overallScoreNote }}</span>
@@ -366,7 +365,7 @@ const formatSigned = (value?: number | null, digits = 2) => value === null || va
 									@focus="preferenceTooltipVisible = true"
 									@blur="preferenceTooltipVisible = false"
 								>
-									<AppIcon name="info" :size="13" />
+									<AppIcon name="info" :size="16" />
 								</button>
 							</template>
 							<span class="preference-model-tooltip">{{ preferenceModelNote }}</span>

@@ -1,15 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick } from 'vue'
 import type { Person, Subject } from '../types'
 import { characterRoleLabel } from '../domain/characterCredits'
-import { buildScoreDistribution } from '../domain/ratingDistribution'
 import {
 	preferenceContribution,
 	summarizePreference,
 	type PreferenceContribution,
 } from '../domain/preference'
 import { useWorkbench } from '../composables/useWorkbench'
-import { useMediaQuery } from '../composables/useMediaQuery'
 import {
 	compareSubjectNumber,
 	compareSubjectText,
@@ -19,17 +17,15 @@ import {
 } from '../composables/useSubjectWorkBrowser'
 import SafeImage from './SafeImage.vue'
 import AppIcon from './AppIcon.vue'
-import ScoreDistributionTooltip from './ScoreDistributionTooltip.vue'
+import ComparisonRatingDistribution from './ComparisonRatingDistribution.vue'
 import PreferenceWorkList from './PreferenceWorkList.vue'
 import SubjectWorkBrowser from './SubjectWorkBrowser.vue'
 import SubjectTagSummary from './SubjectTagSummary.vue'
 import SinglePersonCooperation from './SinglePersonCooperation.vue'
+import SharedRatingSummary from './SharedRatingSummary.vue'
 import SharedWorkParticipants from './SharedWorkParticipants.vue'
-import WorkbenchTooltip from './WorkbenchTooltip.vue'
 
 const workbench = useWorkbench()
-const isMobile = useMediaQuery('(max-width: 780px)')
-const controlSize = computed<'medium' | 'large'>(() => isMobile.value ? 'large' : 'medium')
 type SharedWorkSort = 'personal' | 'score' | 'date' | 'title'
 const sharedSortOptions: SubjectWorkSortOption<SharedWorkSort>[] = [
 	{ label: '我的评分', value: 'personal' },
@@ -46,7 +42,10 @@ const formatScore = (value: number | null | undefined) => Number.isFinite(value)
 const slotLabel = (index: number) => String(index + 1)
 
 const ratedShared = computed(() => workbench.sharedSubjects.value.filter((subject) => Number(subject.collection?.rate || 0) > 0))
-const personalAverage = computed(() => validAverage(ratedShared.value.map((subject) => Number(subject.collection?.rate || 0))))
+const personalSharedScores = computed(() => ratedShared.value.map((subject) => Number(subject.collection?.rate || 0)))
+const personalAverage = computed(() => validAverage(personalSharedScores.value))
+const personalHighest = computed(() => personalSharedScores.value.length ? Math.max(...personalSharedScores.value) : null)
+const personalLowest = computed(() => personalSharedScores.value.length ? Math.min(...personalSharedScores.value) : null)
 const globalAverage = computed(() => validAverage(workbench.sharedSubjects.value.map((subject) => Number(subject.score || 0))))
 
 type SharedPreferenceContribution = PreferenceContribution & { subject: Subject }
@@ -123,43 +122,29 @@ const pairStatsByPeople = computed(() => new Map(pairStats.value.map((pair) => [
 ])))
 const pairFor = (rowId: number, columnId: number) => pairStatsByPeople.value.get(pairKey(rowId, columnId))
 
-const bins = Array.from({ length: 10 }, (_, index) => String(index + 1))
-const seriesColors = ['#c60475', '#158486', '#d15c56', '#8f68cb', '#cd9c1f', '#549957', '#1a89c5', '#444898', '#d55e89', '#ea955e']
-const hoveredGroupedBar = ref<string | null>(null)
-const groupedBarKey = (seriesKey: string, scoreLabel: string) => `${seriesKey}-${scoreLabel}`
-const groupedSeries = computed(() => {
+const seriesColors = ['#c60475', '#158486', '#d15c56', '#8f68cb', '#a77400', '#549957', '#1a89c5', '#6b70c5', '#d55e89', '#b9683d']
+const comparisonSeries = computed(() => {
 	const people = workbench.selectedPeople.value.map((item, index) => {
 		const subjects = item.subjectIds
 			.map((id) => workbench.subjectsById.value.get(id))
 			.filter((subject): subject is Subject => Boolean(subject))
-		const buckets = buildScoreDistribution(subjects, 'personal')
 		return {
 			key: `person-${item.person.id}`,
 			marker: slotLabel(index),
 			label: workbench.personName(item.person),
 			color: seriesColors[index % seriesColors.length],
-			average: profileAverage(item.subjectIds),
-			ratedCount: buckets.reduce((sum, bucket) => sum + bucket.value, 0),
-			counts: buckets.map((bucket) => bucket.value),
-			buckets,
+			subjects,
 		}
 	})
-	const sharedBuckets = buildScoreDistribution(workbench.sharedSubjects.value, 'personal')
-	return [...people, {
+	const sharedWorks = {
 		key: 'shared-works',
 		marker: '',
 		label: '共同作品',
 		color: seriesColors[people.length % seriesColors.length],
-		average: personalAverage.value,
-		ratedCount: sharedBuckets.reduce((sum, bucket) => sum + bucket.value, 0),
-		counts: sharedBuckets.map((bucket) => bucket.value),
-		buckets: sharedBuckets,
-	}]
+		subjects: workbench.sharedSubjects.value,
+	}
+	return [sharedWorks, ...people]
 })
-const maxGroupedDistribution = computed(() => Math.max(1, ...groupedSeries.value.flatMap((series) => series.counts)))
-const groupedDistributionLabel = computed(() => `评分分布对比，仅统计 1 到 10 分的已评分作品。${groupedSeries.value
-	.map((series) => `${series.label}：${bins.map((label, index) => `${label} 分 ${series.counts[index]} 部`).join('，')}`)
-	.join('；')}`)
 
 interface ParticipationEntry {
 	displayName: string
@@ -226,7 +211,6 @@ const focusSharedWork = async (subject: Subject) => {
 		<span class="analysis-empty__icon"><AppIcon name="people" :size="30" /></span>
 		<h2>选择一位人物开始分析</h2>
 		<p>选择人物后可查看合作人物和合作作品；继续选择可比较共同作品、评分分布和关系矩阵。</p>
-		<n-button :size="controlSize" type="primary" @click="workbench.peopleDrawerOpen.value = true">打开人物选择</n-button>
 	</div>
 	<SinglePersonCooperation v-else-if="workbench.selectedPeople.value.length === 1" />
 
@@ -243,7 +227,6 @@ const focusSharedWork = async (subject: Subject) => {
 							decorative
 							:loading="index < 2 ? 'eager' : 'lazy'"
 							:width="132"
-							:height="180"
 						/>
 						<div class="analysis-profile__content">
 							<span class="identity-marker">{{ slotLabel(index) }}</span>
@@ -255,23 +238,36 @@ const focusSharedWork = async (subject: Subject) => {
 							</div>
 						</div>
 					</article>
-					<aside v-if="workbench.selectedPeople.value.length === 2 && index === 0" class="analysis-profile-summary" aria-label="双人组合概览">
-						<dl>
-							<div><dt>共同作品</dt><dd>{{ workbench.sharedSubjects.value.length }}</dd></div>
-							<div v-if="!workbench.query.isGlobal"><dt>已评作品</dt><dd>{{ ratedShared.length }}</dd></div>
-							<div><dt>全站均分</dt><dd>{{ formatScore(globalAverage) }}</dd></div>
-							<div v-if="!workbench.query.isGlobal"><dt>我的均分</dt><dd>{{ formatScore(personalAverage) }}</dd></div>
-						</dl>
-					</aside>
+					<SharedRatingSummary
+						v-if="workbench.selectedPeople.value.length === 2 && index === 0"
+						:shared-count="workbench.sharedSubjects.value.length"
+						:rated-count="ratedShared.length"
+						:global-average="globalAverage"
+						:personal-average="personalAverage"
+						:personal-highest="personalHighest"
+						:personal-lowest="personalLowest"
+						:show-personal="!workbench.query.isGlobal"
+						placement="pair"
+					/>
 				</template>
 			</div>
+			<SharedRatingSummary
+				v-if="workbench.selectedPeople.value.length > 2"
+				:shared-count="workbench.sharedSubjects.value.length"
+				:rated-count="ratedShared.length"
+				:global-average="globalAverage"
+				:personal-average="personalAverage"
+				:personal-highest="personalHighest"
+				:personal-lowest="personalLowest"
+				:show-personal="!workbench.query.isGlobal"
+				placement="below"
+			/>
 		</section>
 
 		<section v-if="!workbench.sharedSubjects.value.length" class="analysis-empty analysis-section analysis-empty--zero">
 			<span class="analysis-empty__icon"><AppIcon name="info" :size="28" /></span>
 			<h2>没有共同参与的作品</h2>
 			<p>可以移除人物、调整某个人物的职位，或更换当前选择。</p>
-			<n-button :size="controlSize" type="primary" @click="workbench.peopleDrawerOpen.value = true">调整已选人物</n-button>
 		</section>
 
 		<section v-if="workbench.sharedSubjects.value.length" class="analysis-section analysis-domain work-profile-domain" aria-labelledby="analysis-tags-title">
@@ -284,59 +280,13 @@ const focusSharedWork = async (subject: Subject) => {
 			aria-label="评分表现"
 		>
 			<template v-if="workbench.sharedSubjects.value.length">
-				<div class="profile-metrics profile-metrics--extended rating-summary" aria-label="共同作品评分概览">
-					<span><b>{{ workbench.sharedSubjects.value.length }}</b><small>共同作品</small></span>
-					<span><b>{{ ratedShared.length }}</b><small>已评作品</small></span>
-					<span><b>{{ formatScore(globalAverage) }}</b><small>全站均分</small></span>
-					<span class="profile-metric--primary"><b>{{ formatScore(personalAverage) }}</b><small>我的均分</small></span>
-				</div>
-
-				<div class="analysis-domain__block" aria-labelledby="grouped-rating-title">
-					<div class="section-heading section-heading--compact"><div><h3 id="grouped-rating-title">评分分布</h3><p>人物与共同作品 · 1–10 分同组同轴对比。</p></div></div>
-					<div class="distribution-legend">
-						<span v-for="series in groupedSeries" :key="series.key" :style="{ '--series-color': series.color }">
-							<i aria-hidden="true" /><b><template v-if="series.marker">{{ series.marker }} · </template>{{ series.label }}</b><small>均分 {{ formatScore(series.average) }} · {{ series.ratedCount }} 部已评</small>
-						</span>
-					</div>
-					<div class="grouped-distribution" role="img" :aria-label="groupedDistributionLabel">
-						<div v-for="(label, binIndex) in bins" :key="label" class="grouped-bin">
-							<div class="grouped-bin__bars">
-								<WorkbenchTooltip
-									v-for="series in groupedSeries"
-									:key="series.key"
-									:show="Boolean(series.counts[binIndex]) && hoveredGroupedBar === groupedBarKey(series.key, label)"
-									:disabled="!series.counts[binIndex]"
-									trigger="manual"
-									placement="top"
-								>
-									<template #trigger>
-										<i
-											:style="{ height: `${series.counts[binIndex] ? Math.max(4, series.counts[binIndex] / maxGroupedDistribution * 100) : 0}%`, background: series.color }"
-											:tabindex="series.counts[binIndex] ? 0 : undefined"
-											:aria-label="`${series.label}，${label} 分，${series.counts[binIndex]} 部作品`"
-											@mouseenter="hoveredGroupedBar = series.counts[binIndex] ? groupedBarKey(series.key, label) : null"
-											@mouseleave="hoveredGroupedBar = null"
-											@focus="hoveredGroupedBar = series.counts[binIndex] ? groupedBarKey(series.key, label) : null"
-											@blur="hoveredGroupedBar = null"
-										><span v-if="series.counts[binIndex]">{{ series.counts[binIndex] }}</span></i>
-									</template>
-									<ScoreDistributionTooltip
-										:series-label="series.label"
-										:score-label="label"
-										:works="series.buckets[binIndex].works"
-									/>
-								</WorkbenchTooltip>
-							</div>
-							<small>{{ label }}</small>
-						</div>
-					</div>
-				</div>
+				<ComparisonRatingDistribution :series="comparisonSeries" :is-global-query="workbench.query.isGlobal" />
 			</template>
 
 			<p v-else class="analysis-domain__empty">暂无全员共同作品，以下仅比较仍然存在的两两组合。</p>
 
 			<div v-if="selectedMode === 'group'" class="analysis-domain__block" aria-labelledby="matrix-title">
-				<div class="section-heading section-heading--compact"><div><h3 id="matrix-title">组合评分对比</h3><p>全站均分为主，共同作品数作为样本量；高亮样本最多的组合。</p></div></div>
+				<div class="section-heading section-heading--compact"><div><h3 id="matrix-title">组合评分对比</h3></div></div>
 				<div class="matrix-details matrix-details--direct" :class="{ 'matrix-details--scrollable': workbench.selectedPeople.value.length >= 5 }">
 					<div class="data-scroll-x">
 						<table class="matrix-table" :style="{ '--matrix-size': workbench.selectedPeople.value.length }">

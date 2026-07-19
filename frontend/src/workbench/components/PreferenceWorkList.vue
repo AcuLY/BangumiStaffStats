@@ -36,7 +36,7 @@ const formatSigned = (value: number | null | undefined) => value === null || val
 				<ul>
 					<li v-for="item in preferred" :key="item.subject.id">
 						<button class="preference-work preference-work--positive" type="button" :aria-label="`在${locationScope}中定位${workbench.subjectName(item.subject)}`" @click="emit('select', item.subject)">
-							<SafeImage :sources="workbench.subjectImageSources(item.subject)" :alt="`${workbench.subjectName(item.subject)}封面`" kind="subject" :width="32" :height="42" decorative />
+							<SafeImage :sources="workbench.subjectImageSources(item.subject)" :alt="`${workbench.subjectName(item.subject)}封面`" kind="subject" :width="32" decorative />
 							<span class="preference-work__copy">
 								<strong>{{ workbench.subjectName(item.subject) }}</strong>
 								<small>我的评分 {{ formatPersonalScore(item.userScore) }} · 全站评分 {{ formatScore(item.globalScore) }}</small>
@@ -52,7 +52,7 @@ const formatSigned = (value: number | null | undefined) => value === null || val
 				<ul>
 					<li v-for="item in conservative" :key="item.subject.id">
 						<button class="preference-work preference-work--negative" type="button" :aria-label="`在${locationScope}中定位${workbench.subjectName(item.subject)}`" @click="emit('select', item.subject)">
-							<SafeImage :sources="workbench.subjectImageSources(item.subject)" :alt="`${workbench.subjectName(item.subject)}封面`" kind="subject" :width="32" :height="42" decorative />
+							<SafeImage :sources="workbench.subjectImageSources(item.subject)" :alt="`${workbench.subjectName(item.subject)}封面`" kind="subject" :width="32" decorative />
 							<span class="preference-work__copy">
 								<strong>{{ workbench.subjectName(item.subject) }}</strong>
 								<small>我的评分 {{ formatPersonalScore(item.userScore) }} · 全站评分 {{ formatScore(item.globalScore) }}</small>

@@ -2,11 +2,12 @@
 import { watch } from 'vue'
 import { useWorkbench } from '../composables/useWorkbench'
 import { useMediaQuery } from '../composables/useMediaQuery'
+import { shellScrollbarThemeOverrides } from '../naiveThemeOverrides'
 import PersonPicker from './PersonPicker.vue'
 import AnalysisDashboard from './AnalysisDashboard.vue'
 
 const workbench = useWorkbench()
-const isMobile = useMediaQuery('(max-width: 780px)')
+const isMobile = useMediaQuery('(width < 780px)')
 
 const containDrawerWheel = (event: WheelEvent) => {
 	if (!event.deltaY) return
@@ -23,6 +24,7 @@ const containDrawerWheel = (event: WheelEvent) => {
 
 const drawerScrollbarProps = {
 	containerStyle: { overscrollBehavior: 'contain' },
+	themeOverrides: shellScrollbarThemeOverrides,
 	onWheel: containDrawerWheel,
 }
 
@@ -50,7 +52,7 @@ watch(isMobile, (mobile) => {
 			:block-scroll="true"
 			show-mask="transparent"
 			placement="bottom"
-			height="min(88dvh, 760px)"
+			height="calc(100dvh - var(--workbench-header-bar-height))"
 			aria-label="人物选择"
 		>
 			<!-- Special case: DrawerContent has no edge-to-edge body prop; use its public body-content-style API. -->

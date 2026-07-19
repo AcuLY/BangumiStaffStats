@@ -72,7 +72,7 @@
 	position: relative;
 	z-index: 1;
 	outline: 2px solid var(--focus);
-	outline-offset: -2px;
+	outline-offset: 2px;
 }
 
 .single-cooperation__leader:disabled {
@@ -187,7 +187,11 @@
 	}
 }
 
-@media (max-width: 780px) {
+@media (width < 780px) {
+	.single-cooperation.analysis-dashboard--unified > .single-cooperation__workspace {
+		padding: 0;
+	}
+
 	.profile-stage--people.single-cooperation__profile-stage {
 		grid-template-columns: 160px minmax(0, 1fr);
 	}

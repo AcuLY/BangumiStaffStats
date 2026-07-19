@@ -24,7 +24,7 @@
 
 .section-context {
 	color: var(--primary-text);
-	font-size: 12px;
+	font-size: var(--text-caption);
 	font-weight: 600;
 }
 
@@ -77,7 +77,7 @@
 	padding: 8px 42px 8px 16px;
 	border-bottom: 1px solid var(--divider);
 	color: var(--text-3);
-	font-size: 12px;
+	font-size: var(--text-caption);
 }
 
 .list-columns span:last-child {
@@ -163,7 +163,7 @@
 	gap: 12px;
 	padding-top: 12px;
 	color: var(--text-3);
-	font-size: 12px;
+	font-size: var(--text-caption);
 }
 
 .safe-image img {
@@ -227,7 +227,7 @@
 	min-width: 0;
 	overflow: hidden;
 	color: var(--text-1);
-	font-size: 14px;
+	font-size: var(--text-body);
 	font-weight: 600;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -251,7 +251,7 @@
 
 .person-row__metric strong {
 	color: var(--text-1);
-	font-size: 14px;
+	font-size: var(--text-control);
 }
 
 .person-row__metric small {

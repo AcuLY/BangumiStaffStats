@@ -3,9 +3,50 @@
 	container: relationship-hero / inline-size;
 }
 
+.profile-stage--people:not(.profile-stage--pair):not(.single-cooperation__profile-stage) {
+	display: flex;
+	flex-wrap: nowrap;
+	width: 100%;
+}
+
+.profile-stage--people:not(.profile-stage--pair):not(.single-cooperation__profile-stage) > .analysis-profile {
+	flex: 1 1 0;
+	width: auto;
+	min-width: 0;
+	max-height: 261.333px;
+}
+
+.profile-stage--people:not(.single-cooperation__profile-stage) .analysis-profile {
+	container: co-star-card / inline-size;
+}
+
+.profile-stage--people:not(.single-cooperation__profile-stage) .analysis-profile::after {
+	content: none;
+}
+
+.profile-stage--people:not(.single-cooperation__profile-stage) .analysis-profile__content {
+	--profile-scrim-height: min(68%, 164px);
+	background: linear-gradient(
+		to top,
+		oklch(0.08 0.006 280 / 0.94) 0,
+		oklch(0.08 0.006 280 / 0.78) 32%,
+		oklch(0.08 0.006 280 / 0.34) 68%,
+		transparent 100%
+	) bottom / 100% var(--profile-scrim-height) no-repeat;
+}
+
+.profile-stage--people:not(.single-cooperation__profile-stage) .analysis-profile__content h2,
+.profile-stage--people:not(.single-cooperation__profile-stage) .analysis-profile__content > p {
+	text-shadow: 0 1px 3px oklch(0.08 0.006 280 / 0.58);
+}
+
 @container relationship-hero (max-width: 519px) {
 	.profile-stage--people {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 180px));
+	}
+
+	.profile-stage--people:not(.profile-stage--pair):not(.single-cooperation__profile-stage) > .analysis-profile {
+		max-height: 240px;
 	}
 
 	.profile-stage--people .analysis-profile {
@@ -13,14 +54,8 @@
 		box-shadow: none;
 	}
 
-	.profile-stage--people .analysis-profile::after {
-		background: linear-gradient(
-			to bottom,
-			transparent 4%,
-			oklch(0.08 0.006 280 / 0.38) 28%,
-			oklch(0.08 0.006 280 / 0.9) 54%,
-			oklch(0.08 0.006 280 / 0.99) 100%
-		);
+	.profile-stage--people:not(.single-cooperation__profile-stage) .analysis-profile__content {
+		--profile-scrim-height: min(70%, 140px);
 	}
 
 	.profile-stage--people .analysis-profile__media {
@@ -46,7 +81,7 @@
 	}
 
 	.profile-stage--people .analysis-profile__content > p {
-		font-size: 11px;
+		font-size: var(--text-caption);
 		text-shadow: 0 1px 3px oklch(0.08 0.006 280 / 0.92);
 	}
 
@@ -69,6 +104,7 @@
 
 	.profile-stage--pair .analysis-profile-summary {
 		order: 2;
+		height: auto;
 	}
 
 	.profile-stage--people:not(.single-cooperation__profile-stage) .analysis-profile__stats {
@@ -77,7 +113,7 @@
 	}
 
 	.profile-stage--people .analysis-profile__stats small {
-		font-size: 11px;
+		font-size: var(--text-caption);
 		white-space: nowrap;
 	}
 
@@ -93,13 +129,23 @@
 		gap: 1px;
 	}
 
+	.shared-rating-summary--below dl {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
 	.analysis-profile-summary dl > div {
 		gap: var(--space-1);
 		padding: var(--space-3);
 	}
+}
 
-	.analysis-profile-summary dd {
-		font-size: var(--text-section);
+@container co-star-card (max-width: 155px) {
+	.profile-stage--people:not(.single-cooperation__profile-stage) .analysis-profile__content {
+		--profile-scrim-height: min(58%, 88px);
+	}
+
+	.analysis-profile__stats {
+		display: none !important;
 	}
 }
 
@@ -123,6 +169,23 @@
 
 .ranking-inspector-drawer__title {
 	font-size: var(--text-subheading);
+}
+
+.ranking-inspector-drawer__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	height: 52px;
+	padding-inline: var(--space-2);
+}
+
+.ranking-inspector-drawer__close-hit {
+	display: inline-grid;
+	place-items: center;
+	flex: 0 0 auto;
+	width: var(--touch-target-min);
+	height: var(--touch-target-min);
 }
 
 @container person-inspector (max-width: 520px) {
@@ -174,29 +237,7 @@
 
 	.ranking-inspector-drawer .person-profile__bio p {
 		margin-top: 0;
-		font-size: var(--text-body);
 		line-height: 1.6;
-	}
-
-	.ranking-inspector-drawer .person-profile__bio:not(.is-expanded) p {
-		display: -webkit-box;
-		overflow: hidden;
-		line-clamp: 2;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 2;
-	}
-
-	.ranking-inspector-drawer .person-profile__bio-toggle {
-		display: inline-flex;
-		align-items: center;
-		min-height: 32px;
-		padding: 0;
-		border: 0;
-		background: transparent;
-		color: var(--primary-text);
-		font-size: var(--text-caption);
-		font-weight: 600;
-		cursor: pointer;
 	}
 
 	.ranking-inspector-drawer .profile-metrics--extended {

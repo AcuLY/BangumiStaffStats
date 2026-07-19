@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
 
 const props = defineProps<{
 	modelValue: [string, string]
@@ -13,6 +14,8 @@ const props = defineProps<{
 const emit = defineEmits<{
 	'update:modelValue': [value: [string, string]]
 }>()
+
+const { controlSize } = useWorkbenchControlSize()
 
 type FocusableControl = { focus: () => void }
 const startInput = ref<FocusableControl>()
@@ -77,7 +80,7 @@ defineExpose({ focus: () => startInput.value?.focus() })
 					type="month"
 					format="yyyy-MM"
 					value-format="yyyy-MM"
-					size="medium"
+					:size="controlSize"
 					:status="status"
 					:disabled="disabled"
 					placeholder="最早时间"
@@ -94,7 +97,7 @@ defineExpose({ focus: () => startInput.value?.focus() })
 					type="month"
 					format="yyyy-MM"
 					value-format="yyyy-MM"
-					size="medium"
+					:size="controlSize"
 					:status="status"
 					:disabled="disabled"
 					placeholder="最晚时间"
@@ -107,7 +110,7 @@ defineExpose({ focus: () => startInput.value?.focus() })
 			<n-button
 				v-for="years in recentYearOptions"
 				:key="years"
-				size="small"
+				:size="controlSize"
 				attr-type="button"
 				:type="isRecentRange(years) ? 'primary' : 'default'"
 				:secondary="!isRecentRange(years)"
@@ -119,7 +122,8 @@ defineExpose({ focus: () => startInput.value?.focus() })
 			</n-button>
 			<n-select
 				class="query-decade-select"
-				size="small"
+				:size="controlSize"
+				:menu-size="controlSize"
 				:value="selectedDecade"
 				:options="decadeOptions"
 				:disabled="disabled"

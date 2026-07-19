@@ -3,9 +3,8 @@
 	--brand-decorative: oklch(0.65 0.25 355);
 	--radius-card: 8px;
 	--radius-control: 6px;
-	--summary-height: 34px;
-	--control-height: 36px;
 	--touch-target-min: 44px;
+	--content-image-aspect-ratio: 3 / 4;
 	--space-1: 4px;
 	--space-2: 8px;
 	--space-3: 12px;
@@ -22,19 +21,23 @@
 	--text-page: 1.75rem;
 	--z-sticky: 20;
 	--z-drawer: 50;
+	--scrollbar-shell-size: 10px;
+	--scrollbar-component-size: 6px;
+	--scrollbar-radius: 999px;
 	--translucent-chrome-filter: blur(16px) saturate(135%);
 	--workbench-header-desktop-height: 121px;
 	--workbench-header-mobile-height: 187px;
-	--workbench-header-bar-height: 55px;
+	--workbench-header-bar-height: 59px;
 	--workbench-header-height: var(--workbench-header-desktop-height);
 	font-family: var(--font-ui);
 	font-synthesis: none;
 	text-rendering: optimizeLegibility;
 }
 
-@media (max-width: 780px) {
+@media (width < 780px) {
 	:root {
 		--workbench-header-height: var(--workbench-header-mobile-height);
+		--workbench-header-bar-height: 55px;
 	}
 }
 
@@ -65,6 +68,10 @@
 	--chrome-text: var(--text-1);
 	--chrome-muted: var(--text-3);
 	--chrome-border: var(--border);
+	--scrollbar-track: transparent;
+	--scrollbar-thumb: var(--control-border);
+	--scrollbar-thumb-hover: var(--text-3);
+	--scrollbar-thumb-active: var(--text-2);
 	--translucent-chrome-background: color-mix(in oklab, var(--chrome) 82%, transparent);
 	--translucent-chrome-hover: color-mix(in oklab, var(--hover) 58%, transparent);
 	--translucent-chrome-pressed: color-mix(in oklab, var(--pressed) 72%, transparent);
@@ -80,7 +87,6 @@
 	--panel-shadow: 0 1px 2px oklch(0.2 0.01 285 / 0.06);
 	--rank-row-height: 72px;
 	--candidate-row-height: 64px;
-	--selected-row-height: 56px;
 	--section-pad: 16px;
 	--body-size: var(--text-body);
 	--h1-size: var(--text-page);

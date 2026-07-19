@@ -89,7 +89,7 @@
 
 .picker-section-heading span {
 	color: var(--text-3);
-	font-size: 12px;
+	font-size: var(--text-caption);
 }
 
 .selected-people-list {
@@ -97,7 +97,8 @@
 	align-content: flex-start;
 	align-items: flex-start;
 	flex-wrap: wrap;
-	gap: var(--space-2);
+	column-gap: var(--space-2);
+	row-gap: var(--space-4);
 	min-width: 0;
 }
 
@@ -126,7 +127,7 @@
 	border-radius: 5px;
 	background: var(--primary-soft);
 	color: var(--primary-text);
-	font-size: 12px;
+	font-size: var(--text-caption);
 	font-weight: 700;
 }
 
@@ -158,6 +159,8 @@
 
 .selected-position-tag__label {
 	color: var(--primary-pressed);
+	font-size: var(--text-caption);
+	line-height: 1;
 }
 
 .selected-person-row__positions {
@@ -167,6 +170,7 @@
 	flex-wrap: wrap;
 	gap: 2px;
 	min-width: 0;
+	margin-inline-start: 2px;
 	align-self: center;
 }
 
@@ -179,12 +183,32 @@
 	border-radius: 999px;
 	background-color: color-mix(in oklab, var(--on-primary) 82%, var(--primary));
 	background-clip: padding-box;
-	overflow: hidden;
+	overflow: visible;
 }
+.selected-position-tag__remove-hit {
+	position: relative;
+	z-index: 1;
+	display: inline-grid;
+	place-items: center;
+	width: var(--touch-target-min);
+	height: var(--touch-target-min);
+	margin-block: -10px;
+}
+
 .selected-position-tag__remove {
 	align-self: center;
 	flex: 0 0 auto;
 	color: var(--primary-pressed);
+}
+
+.selected-person-row__remove-hit {
+	position: relative;
+	z-index: 1;
+	display: inline-grid;
+	place-items: center;
+	width: var(--touch-target-min);
+	height: var(--touch-target-min);
+	margin-block: -8px;
 }
 
 .selected-person-row__remove {
@@ -216,7 +240,7 @@
 	flex: 1 0 100%;
 	padding: var(--space-3) 0;
 	color: var(--text-3);
-	font-size: 12px;
+	font-size: var(--text-caption);
 }
 
 .candidate-search {
@@ -243,6 +267,7 @@
 
 .person-list--candidate {
 	min-height: 0;
+	padding: 4px;
 	overflow-y: auto;
 	overscroll-behavior-y: auto;
 	scrollbar-gutter: stable;
@@ -265,6 +290,10 @@
 	font: inherit;
 	text-align: left;
 	cursor: pointer;
+}
+
+.person-picker:not(.person-picker--drawer) .person-row--candidate {
+	min-height: var(--candidate-row-height);
 }
 
 .person-row--candidate:hover {
@@ -315,7 +344,7 @@
 .person-picker--drawer {
 	--selected-tray-list-height: 120px;
 	display: block;
-	min-height: min(88dvh, 760px);
+	min-height: 100%;
 	max-height: none;
 	background: transparent;
 	overflow-y: auto;
@@ -324,10 +353,19 @@
 
 .person-picker--drawer .picker-heading {
 	position: relative;
-	min-height: 58px;
+	height: 52px;
+	min-height: 52px;
 	margin-bottom: var(--space-3);
-	padding: var(--space-3) var(--space-4) var(--space-1);
+	padding: var(--space-2) var(--space-4) var(--space-1);
 	border-bottom: 0;
+}
+
+.picker-heading__close-hit {
+	display: inline-grid;
+	place-items: center;
+	flex: 0 0 auto;
+	width: var(--touch-target-min);
+	height: var(--touch-target-min);
 }
 
 .person-picker--drawer .picker-heading h2 {
@@ -395,7 +433,7 @@
 	scrollbar-gutter: auto;
 }
 
-.person-picker--drawer .person-row--candidate {
+.person-picker.person-picker--drawer .person-row--candidate {
 	min-height: 60px;
 	padding: var(--space-2) var(--space-3);
 	border: 1px solid var(--divider);

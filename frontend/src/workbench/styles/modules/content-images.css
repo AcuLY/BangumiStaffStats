@@ -1,0 +1,29 @@
+.safe-image:is(.safe-image--person, .safe-image--character, .safe-image--subject) {
+	aspect-ratio: var(--content-image-aspect-ratio);
+	height: auto;
+	min-height: 0;
+}
+
+.safe-image.person-profile__portrait {
+	align-self: start;
+}
+
+.profile-stage--people:not(.profile-stage--pair):not(.single-cooperation__profile-stage) > .analysis-profile {
+	aspect-ratio: var(--content-image-aspect-ratio);
+	height: auto;
+	max-width: none;
+	max-height: 261.333px;
+}
+
+@container relationship-hero (max-width: 519px) {
+	.profile-stage--people:not(.profile-stage--pair):not(.single-cooperation__profile-stage) > .analysis-profile {
+		max-height: 240px;
+	}
+}
+
+.candidate-row__portrait,
+.subject-work-row__cover-media {
+	aspect-ratio: var(--content-image-aspect-ratio);
+	height: auto;
+	min-height: 0;
+}

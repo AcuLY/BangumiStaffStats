@@ -2,18 +2,14 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { QueryPositionValue, WorkbenchMode } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
-import { useMediaQuery } from '../composables/useMediaQuery'
+import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
 import AppIcon from './AppIcon.vue'
 import QueryDateRange from './QueryDateRange.vue'
 import QueryNumericRange from './QueryNumericRange.vue'
 import WorkbenchTooltip from './WorkbenchTooltip.vue'
 
 const workbench = useWorkbench()
-const isMobile = useMediaQuery('(max-width: 780px)')
-const controlSize = computed<'medium' | 'large'>(() => isMobile.value ? 'large' : 'medium')
-const scopeControlSize = 'medium' as const
-const collectionControlSize = 'medium' as const
-const dynamicTagInputSize = 'small' as const
+const { controlSize } = useWorkbenchControlSize()
 type FocusableControl = { focus: () => void }
 
 const userInput = ref<FocusableControl>()
@@ -25,6 +21,7 @@ const collectionField = ref<HTMLFieldSetElement>()
 const editorButton = ref<HTMLButtonElement>()
 const queryOverlayTop = ref(0)
 const expandedQuerySections = ref<string[]>([])
+const uidHelpTooltipVisible = ref(false)
 
 const containQueryWheel = (event: WheelEvent) => {
 	if (!event.deltaY) return
@@ -215,6 +212,12 @@ const appliedQuerySummary = computed(() => {
 
 	return parts.join(' · ')
 })
+const collapsedQuerySummary = computed(() => workbench.hasAppliedQuery.value
+	? appliedQuerySummary.value
+	: '暂无查询')
+const querySubmitLabel = computed(() => workbench.queryLoading.value
+	? '查询中…'
+	: workbench.hasAppliedQuery.value ? '应用并查询' : '开始查询')
 
 const draftDataSource = computed<'personal' | 'global'>({
 	get: () => workbench.queryDraft.isGlobal ? 'global' : 'personal',
@@ -272,11 +275,18 @@ const openEditor = async () => {
 	workbench.queryEditing.value = true
 	workbench.clearQueryFeedback()
 	await nextTick()
-	const canAutoFocus = window.matchMedia('(min-width: 781px) and (pointer: fine)').matches
+	const canAutoFocus = window.matchMedia('(width >= 780px) and (pointer: fine)').matches
 	if (canAutoFocus && !workbench.queryDraft.isGlobal) userInput.value?.focus()
 }
 
-onMounted(() => window.addEventListener('resize', syncQueryOverlayTop))
+onMounted(async () => {
+	window.addEventListener('resize', syncQueryOverlayTop)
+	if (!workbench.queryEditing.value) return
+	await nextTick()
+	syncQueryOverlayTop()
+	const canAutoFocus = window.matchMedia('(width >= 780px) and (pointer: fine)').matches
+	if (canAutoFocus && !workbench.queryDraft.isGlobal) userInput.value?.focus()
+})
 onBeforeUnmount(() => {
 	window.removeEventListener('resize', syncQueryOverlayTop)
 })
@@ -322,13 +332,13 @@ const conditionTitle = (key: ConditionKey) => ({
 
 <template>
 	<section class="query-workspace" :aria-labelledby="workbench.queryEditing.value ? 'query-editor-title' : 'query-title'">
-		<h1 v-if="!workbench.queryEditing.value" id="query-title" class="sr-only">当前查询</h1>
+		<h1 v-if="!workbench.queryEditing.value" id="query-title" class="sr-only">{{ workbench.hasAppliedQuery.value ? '当前查询' : '查询设置' }}</h1>
 		<button
 			ref="editorButton"
 			class="query-summary header-edit-card"
 			:class="{ 'is-editing': workbench.queryEditing.value }"
 			type="button"
-			:aria-label="workbench.queryEditing.value ? '收起查询条件' : `编辑查询条件：${appliedQuerySummary}`"
+			:aria-label="workbench.queryEditing.value ? '收起查询条件' : workbench.hasAppliedQuery.value ? `编辑查询条件：${appliedQuerySummary}` : '设置首次查询条件'"
 			:aria-expanded="workbench.queryEditing.value"
 			aria-controls="query-editor"
 			@click="workbench.queryEditing.value ? closeEditor() : openEditor()"
@@ -343,12 +353,12 @@ const conditionTitle = (key: ConditionKey) => ({
 				<span class="query-summary__stages">
 					<span class="query-summary__stage">
 						<span class="query-summary__stage-copy">
-							<strong class="mobile-header-context-summary">{{ appliedQuerySummary }}</strong>
+							<strong class="mobile-header-context-summary">{{ collapsedQuerySummary }}</strong>
 						</span>
 					</span>
 				</span>
 				<span class="query-summary__action header-edit-card__action" aria-hidden="true">
-					<AppIcon name="edit" :size="20" />
+					<AppIcon :name="workbench.hasAppliedQuery.value ? 'edit' : 'search'" :size="20" />
 				</span>
 			</template>
 		</button>
@@ -370,7 +380,7 @@ const conditionTitle = (key: ConditionKey) => ({
 					<div class="query-scope-fields">
 						<fieldset class="field field--source query-source-field">
 							<legend>数据来源</legend>
-							<n-radio-group class="query-source-switch" v-model:value="draftDataSource" name="queryDataSource" :size="scopeControlSize" :disabled="workbench.queryLoading.value">
+							<n-radio-group class="query-source-switch" v-model:value="draftDataSource" name="queryDataSource" :size="controlSize" :disabled="workbench.queryLoading.value">
 								<n-radio-button class="query-source-option" value="personal" aria-label="从个人收藏中查询"><span class="query-source-option__label">个人收藏</span></n-radio-button>
 								<n-radio-button class="query-source-option" value="global" aria-label="从全站数据中查询"><span class="query-source-option__label">全站数据</span></n-radio-button>
 							</n-radio-group>
@@ -379,22 +389,36 @@ const conditionTitle = (key: ConditionKey) => ({
 							<div class="field-label-row">
 								<label for="query-user-id">用户 UID</label>
 								<WorkbenchTooltip
+									:show="uidHelpTooltipVisible"
 									placement="top-end"
-									trigger="hover"
+									trigger="manual"
 								>
 									<template #trigger>
-										<button class="field-help-trigger" type="button">什么是 UID？</button>
+										<button
+											class="field-help-trigger"
+											type="button"
+											:aria-expanded="uidHelpTooltipVisible"
+											aria-label="什么是 UID？进入 Bangumi 个人主页，取网址 /user/ 后的一段。"
+											@mouseenter="uidHelpTooltipVisible = true"
+											@mouseleave="uidHelpTooltipVisible = false"
+											@focus="uidHelpTooltipVisible = true"
+											@blur="uidHelpTooltipVisible = false"
+											@click.stop="uidHelpTooltipVisible = true"
+											@keydown.esc.stop.prevent="uidHelpTooltipVisible = false"
+										>
+											<AppIcon name="info" :size="16" />
+										</button>
 									</template>
 									进入 Bangumi 个人主页，取网址 /user/ 后的一段；例如 bgm.tv/user/lucay126 的 UID 是 lucay126。
 								</WorkbenchTooltip>
 							</div>
-							<n-input ref="userInput" v-model:value="workbench.queryDraft.userId" :size="scopeControlSize" placeholder="例如 lucay126" autocomplete="off" :clearable="Boolean(workbench.queryDraft.userId)" :status="queryErrorKind === 'userId' ? 'error' : undefined" :input-props="{ id: 'query-user-id', name: 'userId', spellcheck: 'false', 'aria-invalid': queryErrorKind === 'userId', 'aria-describedby': queryErrorKind === 'userId' ? 'query-user-id-help query-error-userId' : 'query-user-id-help' }" :disabled="workbench.queryLoading.value" />
+							<n-input ref="userInput" v-model:value="workbench.queryDraft.userId" :size="controlSize" placeholder="例如 lucay126" autocomplete="off" :clearable="Boolean(workbench.queryDraft.userId)" :status="queryErrorKind === 'userId' ? 'error' : undefined" :input-props="{ id: 'query-user-id', name: 'userId', spellcheck: 'false', 'aria-invalid': queryErrorKind === 'userId', 'aria-describedby': queryErrorKind === 'userId' ? 'query-user-id-help query-error-userId' : 'query-user-id-help' }" :disabled="workbench.queryLoading.value" />
 							<small id="query-user-id-help" class="sr-only">UID 是 Bangumi 个人主页地址中 /user/ 后的标识，不是昵称。</small>
 							<small v-if="fieldError('userId')" id="query-error-userId" class="query-field-error">{{ fieldError('userId') }}</small>
 						</div>
 						<label class="field" :class="{ 'is-error': queryErrorKind === 'subjectType' }">
 							<span>条目类型</span>
-							<n-select ref="subjectTypeInput" v-model:value="workbench.queryDraft.subjectType" :size="scopeControlSize" :options="subjectOptions" :status="queryErrorKind === 'subjectType' ? 'error' : undefined" :input-props="{ name: 'subjectType', 'aria-invalid': queryErrorKind === 'subjectType', 'aria-describedby': queryErrorKind === 'subjectType' ? 'query-error-subjectType' : undefined }" :disabled="workbench.queryLoading.value" />
+							<n-select ref="subjectTypeInput" v-model:value="workbench.queryDraft.subjectType" :size="controlSize" :menu-size="controlSize" :options="subjectOptions" :status="queryErrorKind === 'subjectType' ? 'error' : undefined" :input-props="{ name: 'subjectType', 'aria-invalid': queryErrorKind === 'subjectType', 'aria-describedby': queryErrorKind === 'subjectType' ? 'query-error-subjectType' : undefined }" :disabled="workbench.queryLoading.value" />
 							<small v-if="fieldError('subjectType')" id="query-error-subjectType" class="query-field-error">{{ fieldError('subjectType') }}</small>
 						</label>
 						<fieldset v-if="!workbench.queryDraft.isGlobal" ref="collectionField" class="field field--collections" :class="{ 'is-error': queryErrorKind === 'collections' }" :disabled="workbench.queryLoading.value" :aria-invalid="queryErrorKind === 'collections'" :aria-describedby="queryErrorKind === 'collections' ? 'query-error-collections' : undefined">
@@ -402,7 +426,7 @@ const conditionTitle = (key: ConditionKey) => ({
 							<div class="query-collection-control">
 								<n-checkbox-group v-model:value="workbench.queryDraft.collectionTypes" @update:value="workbench.clearQueryFeedback">
 									<n-space :size="12" wrap>
-										<n-checkbox v-for="option in draftCollectionOptions" :key="option.value" :size="collectionControlSize" :value="option.value" :label="option.label" />
+									<n-checkbox v-for="option in draftCollectionOptions" :key="option.value" :size="controlSize" :value="option.value" :label="option.label" />
 									</n-space>
 								</n-checkbox-group>
 							</div>
@@ -435,15 +459,15 @@ const conditionTitle = (key: ConditionKey) => ({
 											<WorkbenchTooltip v-if="option.help" placement="top" trigger="hover">
 												<template #trigger>
 													<button class="query-option-help" type="button" :aria-label="`${option.title}说明`" :title="`${option.title}说明`">
-														<AppIcon name="info" :size="15" />
+												<AppIcon name="info" :size="16" />
 													</button>
 												</template>
 												{{ option.help }}
 											</WorkbenchTooltip>
 										</div>
 										<span class="query-advanced-switch">
-											<n-switch
-												:size="scopeControlSize"
+										<n-switch
+											:size="controlSize"
 												:value="optionEnabled(option.key)"
 												:aria-label="option.title"
 												:disabled="workbench.queryLoading.value"
@@ -485,9 +509,9 @@ const conditionTitle = (key: ConditionKey) => ({
 											@update:model-value="updateRange(option.key, $event)"
 										/>
 									<n-dynamic-tags
-										v-else-if="option.key === 'positiveTags'"
-										v-model:value="workbench.queryDraft.positiveTags.value"
-										:size="scopeControlSize"
+									v-else-if="option.key === 'positiveTags'"
+									v-model:value="workbench.queryDraft.positiveTags.value"
+									:size="controlSize"
 										:disabled="workbench.queryLoading.value"
 										:input-props="{ placeholder: '输入标签后回车', inputProps: { 'aria-label': '新增正向标签' } }"
 										:input-style="{ minWidth: '160px' }"
@@ -496,24 +520,26 @@ const conditionTitle = (key: ConditionKey) => ({
 										round
 									>
 										<template #trigger="{ activate, disabled }">
-											<n-button
-												:size="dynamicTagInputSize"
-												type="primary"
-												secondary
-												attr-type="button"
-												:disabled="disabled"
-												aria-label="添加正向标签"
-												@click="activate"
-											>
-												<template #icon><AppIcon name="plus" :size="16" /></template>
-												添加标签
-											</n-button>
+											<span class="query-tag-trigger-hit" @click="!disabled && activate()">
+												<n-button
+													:size="controlSize"
+													type="primary"
+													secondary
+													attr-type="button"
+													:disabled="disabled"
+													aria-label="添加正向标签"
+													@click.stop="activate"
+												>
+													<template #icon><AppIcon name="plus" :size="16" /></template>
+													添加标签
+												</n-button>
+											</span>
 										</template>
 									</n-dynamic-tags>
 									<n-dynamic-tags
-										v-else
-										v-model:value="workbench.queryDraft.negativeTags.value"
-										:size="scopeControlSize"
+									v-else
+									v-model:value="workbench.queryDraft.negativeTags.value"
+									:size="controlSize"
 										:disabled="workbench.queryLoading.value"
 										:input-props="{ placeholder: '输入标签后回车', inputProps: { 'aria-label': '新增反向标签' } }"
 										:input-style="{ minWidth: '160px' }"
@@ -522,18 +548,20 @@ const conditionTitle = (key: ConditionKey) => ({
 										round
 									>
 										<template #trigger="{ activate, disabled }">
-											<n-button
-												:size="dynamicTagInputSize"
-												type="primary"
-												secondary
-												attr-type="button"
-												:disabled="disabled"
-												aria-label="添加反向标签"
-												@click="activate"
-											>
-												<template #icon><AppIcon name="plus" :size="16" /></template>
-												添加标签
-											</n-button>
+											<span class="query-tag-trigger-hit" @click="!disabled && activate()">
+												<n-button
+													:size="controlSize"
+													type="primary"
+													secondary
+													attr-type="button"
+													:disabled="disabled"
+													aria-label="添加反向标签"
+													@click.stop="activate"
+												>
+													<template #icon><AppIcon name="plus" :size="16" /></template>
+													添加标签
+												</n-button>
+											</span>
 										</template>
 									</n-dynamic-tags>
 										<small v-if="fieldError(option.key)" :id="`query-error-${option.key}`" class="query-field-error">{{ fieldError(option.key) }}</small>
@@ -556,12 +584,13 @@ const conditionTitle = (key: ConditionKey) => ({
 						<span id="query-position-control-label" class="query-position-hint">{{ workbench.mode.value === 'ranking' ? '可多选；仅保留同时具备全部所选职位的人物' : '可多选；选择参与共同分析的职位' }}</span>
 						<n-select
 							ref="positionInput"
+							class="query-position-select"
 							v-model:value="draftPositions"
 							:size="controlSize"
+							:menu-size="controlSize"
 							:options="draftPositionOptions"
 							multiple
 							filterable
-							max-tag-count="responsive"
 							:status="queryErrorKind === 'positions' ? 'error' : undefined"
 							:input-props="{ name: `${workbench.mode.value}Positions`, 'aria-labelledby': 'query-position-control-label', 'aria-invalid': queryErrorKind === 'positions', 'aria-describedby': queryErrorKind === 'positions' ? 'query-error-positions' : undefined }"
 							:disabled="workbench.queryLoading.value"
@@ -575,11 +604,11 @@ const conditionTitle = (key: ConditionKey) => ({
 				<p v-if="workbench.queryError.value && !queryErrorKind" class="query-error" role="alert">{{ workbench.queryError.value }}</p>
 
 				<div class="query-editor__footer">
-					<span role="status" aria-live="polite">{{ workbench.queryDraftStatus.value }}</span>
+					<span v-if="workbench.queryDraftStatus.value" class="query-editor__status" role="status" aria-live="polite">{{ workbench.queryDraftStatus.value }}</span>
 					<n-space class="query-editor__actions" :size="8" justify="end" wrap>
 						<n-button :size="controlSize" attr-type="button" :disabled="!workbench.queryDraftDirty.value || workbench.queryLoading.value" @click="workbench.restoreQuery">撤销更改</n-button>
 						<n-button :size="controlSize" attr-type="button" :disabled="!workbench.queryLoading.value" @click="workbench.cancelQuery">取消查询</n-button>
-						<n-button :size="controlSize" type="primary" attr-type="submit" :loading="workbench.queryLoading.value" :disabled="workbench.queryLoading.value">{{ workbench.queryLoading.value ? '查询中…' : '应用并查询' }}</n-button>
+						<n-button :size="controlSize" type="primary" attr-type="submit" :loading="workbench.queryLoading.value" :disabled="workbench.queryLoading.value">{{ querySubmitLabel }}</n-button>
 					</n-space>
 				</div>
 			</div>

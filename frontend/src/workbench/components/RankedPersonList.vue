@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { CandidatePerson, Person, RankingMetric } from '../types'
+import type { Person, RankingMetric } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
-import { useMediaQuery } from '../composables/useMediaQuery'
+import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
 import AppIcon from './AppIcon.vue'
 import SafeImage from './SafeImage.vue'
 
@@ -10,8 +10,8 @@ interface CooperationPerson extends Person {
 }
 
 const props = withDefaults(defineProps<{
-	items: Array<Person | CandidatePerson | CooperationPerson>
-	variant: 'ranking' | 'candidate' | 'cooperation'
+	items: Array<Person | CooperationPerson>
+	variant: 'ranking' | 'cooperation'
 	rankOffset?: number
 	metric?: RankingMetric
 	focusedId?: number
@@ -29,11 +29,10 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
 	activate: [personId: number]
-	toggle: [personId: number, positionId: number]
 }>()
 
 const workbench = useWorkbench()
-const isMobile = useMediaQuery('(max-width: 780px)')
+const { isMobile } = useWorkbenchControlSize()
 
 const formatScore = (value: number | null | undefined, hasRating = true) =>
 	hasRating && Number.isFinite(value) ? Number(value).toFixed(2) : '—'
@@ -69,17 +68,21 @@ const metricSummary = (person: Person) => [
 	`相对偏好 ${formatPreference(person)}`,
 ].join('，')
 
-const isCandidate = (person: Person | CandidatePerson | CooperationPerson): person is CandidatePerson =>
-	'activePositionId' in person
-const isCooperation = (person: Person | CandidatePerson | CooperationPerson): person is CooperationPerson =>
-	'positionIds' in person && !isCandidate(person)
+const isCooperation = (person: Person | CooperationPerson): person is CooperationPerson =>
+	'positionIds' in person
 const activeMetric = () => props.variant === 'ranking' ? workbench.rankingMetric.value : props.metric
 const focused = (person: Person) => props.variant === 'ranking'
 	? workbench.focusedPersonId.value === person.id
 	: props.focusedId === person.id
-const secondaryLabel = (person: Person | CandidatePerson | CooperationPerson) => isCooperation(person)
+const secondaryLabel = (person: Person | CooperationPerson) => isCooperation(person)
 	? person.positionIds.map(workbench.positionLabel).join(' / ')
 	: workbench.personSecondaryName(person) || '人物资料'
+const identityTooltipSecondary = (person: Person | CooperationPerson) => {
+	const label = secondaryLabel(person)
+	return label && label !== workbench.personName(person) && label !== '人物资料' ? label : ''
+}
+const identityTooltipLabel = (person: Person | CooperationPerson) =>
+	[workbench.personName(person), identityTooltipSecondary(person)].filter(Boolean).join('\n')
 </script>
 
 <template>
@@ -92,7 +95,6 @@ const secondaryLabel = (person: Person | CandidatePerson | CooperationPerson) =>
 	>
 		<template v-for="(person, index) in items" :key="`${variant}-${person.id}`">
 			<button
-				v-if="variant === 'ranking' || isCooperation(person)"
 				class="person-row person-row--ranking"
 				:class="{
 					'person-row--cooperation': variant === 'cooperation',
@@ -118,11 +120,10 @@ const secondaryLabel = (person: Person | CandidatePerson | CooperationPerson) =>
 					kind="person"
 					decorative
 					:width="36"
-					:height="44"
 				/>
-				<span class="person-row__identity">
+				<span class="person-row__identity" :title="identityTooltipLabel(person)">
 					<strong>{{ workbench.personName(person) }}</strong>
-					<small :title="secondaryLabel(person)">{{ secondaryLabel(person) }}</small>
+					<small>{{ secondaryLabel(person) }}</small>
 				</span>
 				<span class="person-row__metrics" :aria-label="metricSummary(person)">
 					<span class="person-row__metric" :class="{ 'is-active': activeMetric() === 'count' }">
@@ -141,34 +142,6 @@ const secondaryLabel = (person: Person | CandidatePerson | CooperationPerson) =>
 				</span>
 			</button>
 
-			<button
-				v-else-if="isCandidate(person)"
-				class="person-row person-row--candidate"
-				type="button"
-				:class="{ 'is-selected': workbench.isScopeSelected(person.id, person.activePositionId) }"
-				:aria-pressed="workbench.isScopeSelected(person.id, person.activePositionId)"
-				:aria-label="`${workbench.isScopeSelected(person.id, person.activePositionId) ? '移除' : '选择'}${workbench.personName(person)}的${person.activePositionLabel}身份`"
-				@click="emit('toggle', person.id, person.activePositionId)"
-			>
-				<span class="candidate-row__portrait">
-					<SafeImage
-						class="person-row__avatar"
-						:sources="workbench.personImageSources(person)"
-						:alt="workbench.personName(person)"
-						kind="person"
-						decorative
-						:width="36"
-						:height="44"
-					/>
-					<span v-if="workbench.isScopeSelected(person.id, person.activePositionId)" class="candidate-row__selected-state" aria-hidden="true">
-						<AppIcon name="check" :size="11" />
-					</span>
-				</span>
-				<span class="person-row__identity">
-					<strong>{{ workbench.personName(person) }}</strong>
-					<small>{{ person.activePositionLabel }} · {{ person.activeSubjectCount }} 部</small>
-				</span>
-			</button>
 		</template>
 
 		<div v-if="!items.length" class="person-list__empty">

@@ -37,6 +37,7 @@ export default defineConfig({
 			input: {
 				main: path.resolve(__dirname, 'index.html'),
 				personWorkbench: path.resolve(__dirname, 'person-workbench.html'),
+				personWorkbenchEmpty: path.resolve(__dirname, 'person-workbench-empty.html'),
 			},
 		},
 	},

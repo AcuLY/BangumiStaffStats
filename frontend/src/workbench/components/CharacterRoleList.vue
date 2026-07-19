@@ -43,7 +43,6 @@ const characterUrl = (credit: CharacterCredit) => credit.characterId
 				:alt="characterCreditName(credit)"
 				kind="character"
 				:width="compact ? 36 : 80"
-				:height="compact ? 46 : 110"
 				decorative
 			/>
 

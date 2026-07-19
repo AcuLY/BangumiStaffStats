@@ -2,12 +2,15 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { WorkbenchMode } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
-import { useMediaQuery } from '../composables/useMediaQuery'
+import {
+	useWorkbenchControlSize,
+	WORKBENCH_COMPACT_CONTROL_MEDIA_QUERY,
+} from '../composables/useWorkbenchControlSize'
 import AppIcon from './AppIcon.vue'
 import { getThemeToggleThemeOverrides } from '../naiveThemeOverrides'
 
 const workbench = useWorkbench()
-const isMobile = useMediaQuery('(max-width: 780px)')
+const { controlSize, isMobile } = useWorkbenchControlSize()
 const themeToggleThemeOverrides = computed(() => getThemeToggleThemeOverrides(isMobile.value))
 const headerElement = ref<HTMLElement | null>(null)
 const headerBarElement = ref<HTMLElement | null>(null)
@@ -23,7 +26,7 @@ const syncHeaderHeight = () => {
 	if (!header.querySelector('.query-summary')) return
 	const height = Math.ceil(header.getBoundingClientRect().height)
 	if (height <= 0) return
-	const breakpoint = window.matchMedia('(max-width: 780px)').matches ? 'mobile' : 'desktop'
+	const breakpoint = window.matchMedia(WORKBENCH_COMPACT_CONTROL_MEDIA_QUERY).matches ? 'mobile' : 'desktop'
 	document.documentElement.style.setProperty(`--workbench-header-${breakpoint}-height`, `${height}px`)
 }
 
@@ -86,7 +89,7 @@ onBeforeUnmount(() => {
 			<nav class="mode-tabs" role="tablist" aria-label="工作台模式">
 				<n-tabs
 					type="segment"
-					size="small"
+					:size="controlSize"
 					:value="workbench.mode.value"
 					@update:value="activateMode"
 				>

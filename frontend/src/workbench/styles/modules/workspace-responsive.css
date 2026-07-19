@@ -1,4 +1,4 @@
-@media (min-width: 781px) {
+@media (width >= 780px) {
 	.workbench-body {
 		--workspace-panel-top: var(--space-2);
 		--workspace-panel-height: calc(100dvh - var(--workbench-header-height) - var(--space-3));
@@ -69,9 +69,19 @@
 	}
 }
 
-@media (max-width: 780px) {
+@media (width < 780px) {
 	.query-editor__title {
-		font-size: 14px;
+		font-size: var(--text-caption);
+	}
+
+	.query-stage__heading h2 {
+		font-size: var(--text-body);
+	}
+
+	.query-editor .field > span,
+	.query-editor .field legend,
+	.query-editor .field-label-row label {
+		font-size: var(--text-caption);
 	}
 
 	.query-summary,
@@ -91,8 +101,8 @@
 	.query-summary__action,
 	.mobile-picker-entry__action {
 		align-self: center;
-		width: 44px;
-		height: 44px;
+		width: 28px;
+		height: 28px;
 	}
 
 	.query-summary__stages {
