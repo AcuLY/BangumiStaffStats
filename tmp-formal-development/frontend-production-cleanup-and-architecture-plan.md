@@ -7,7 +7,7 @@
 > 范围：新版 `frontend/src/workbench`、旧生产入口、构建公开资源、前端测试及与现有后端的接口边界。
 > 本文只制定清理和迁移计划，不执行删除，也不代表已经接入、发布或部署。
 
-配套记录：[`data-logic-implementation-guide.md`](./data-logic-implementation-guide.md) 负责数据口径；[`backend-development-implementation-guide.md`](./backend-development-implementation-guide.md) 负责 catalog、API、路由、分享和请求状态契约；[`backend-operations-implementation-guide.md`](./backend-operations-implementation-guide.md) 负责部署与迁移；[`prototype-data-logic-audit.md`](../docs/decisions/prototype-data-logic-audit.md) 保留原型数据审计。
+配套记录：[`data-logic-implementation-guide.md`](./data-logic-implementation-guide.md) 负责数据口径；[`backend-development-implementation-guide.md`](./backend-development-implementation-guide.md) 负责 catalog、API、路由、分享和请求状态契约；[`backend-operations-implementation-guide.md`](./backend-operations-implementation-guide.md) 负责部署与迁移；[`prototype-data-logic-audit.md`](./decisions/prototype-data-logic-audit.md) 保留原型数据审计。
 
 ## 1. 结论
 

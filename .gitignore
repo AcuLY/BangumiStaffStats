@@ -1,19 +1,35 @@
-/backend/.env
-/backend/config.toml
-**/logs
-/backend/__pycache__
-/backend/static
-/backend/.rubbish
-/backend/.venv
-/backend/jsonlines
-/frontend/node_modules
-/frontend/dist
-.vscode/
+# macOS
+.DS_Store
+
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Node, Vite, tests
+node_modules/
+dist/
+.vite/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Python producer tooling
 .venv/
-*.tar
-*_test.go
-old-backend/
-index.html
-TODO
-/.vscode
-/frontend-depreciated
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Go test output
+/coverage.out
+
+# Local logs and scratch
+*.log
+/tmp/

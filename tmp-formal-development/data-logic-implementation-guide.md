@@ -4,7 +4,7 @@
 >
 > 更新日期：2026-07-23
 >
-> 决策事实以 [`prototype-data-logic-audit.md`](../docs/decisions/prototype-data-logic-audit.md) 为准；本文只是面向实施的投影，不替代审计记录。
+> 决策事实以 [`prototype-data-logic-audit.md`](./decisions/prototype-data-logic-audit.md) 为准；本文只是面向实施的投影，不替代审计记录。
 
 配套文档：
 

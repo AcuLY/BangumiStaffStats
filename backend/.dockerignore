@@ -1,6 +1,0 @@
-static/
-.venv/
-.rubbish/
-logs/
-*.tar
-.git
