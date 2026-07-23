@@ -2,7 +2,7 @@
 
 | Field | Contract |
 |---|---|
-| Status | Specified and partially applied; evidence and the first repaired planning checkpoint exist, generated trees are absent, and the five-path cleanup preparation is unstaged. Binary/non-UTF-8 `apply_patch` verification failed with zero complement deletion; the second and final repair awaits reapproval. Staged acceptance, cleanup commit, archive, final acceptance, push, release, and deploy are not complete. |
+| Reseal-checkpoint status | At this approval boundary, work is applied through accepted cleanup commit `c5435f0a7584bf63aeddf9d33738b15485fbd19e`; archive/sync has run and all tasks are complete. The archive commit is fail-closed because the reviewed double-LF synchronized-root hash conflicts with the mandatory cached-whitespace gate. The bounded post-archive canonicalization reseal awaits approval; archive committed, final accepted, pushed, released, and deployed remain false at this checkpoint, with later state recorded by the final handoff. |
 | Owner | `contracts`; apply and finalization are performed by implementation subagents. The main agent reviews or amends only OpenSpec artifacts and performs two read-only acceptances. |
 | Writable paths | Exact `.gitignore`, six root OpenSpec skills, root config, named active/archived change artifacts and synchronized root spec, master plan, relocated audit, two link-only guides, tracked deletion complement, and two exact generated directories. |
 | Read-only protected inputs | `LICENSE`, `PRODUCT.md`, `DESIGN.md`, `.agents/skills/impeccable/**`, `.codex/hooks.json`, `.impeccable/design.json`, and both backend guides; each remains byte-identical. |
@@ -15,7 +15,7 @@
 | Acceptance | Read-only main-agent acceptance of the exact staged candidate, then read-only acceptance of the clean post-archive commits and exact final set; Wave 1 waits for both. |
 | Non-goals | Application code or new tests, dependency manifests, API/schema implementation, CI, Docker, infrastructure, external repository work, push, PR, tag, release, deploy, or production activation. |
 | Operations deferred | nginx, systemd, production Compose, timers, secrets, deployment, release, host mutation, activation, cutover, monitoring installation, real periodic runs, rollback execution, and legacy-system deletion. |
-| Stop/rollback conditions | Stop on any root/branch/ref/status/hash/manifest/allowlist/link/parser/OpenSpec/ancestry/date mismatch, concurrent use, unexpected path, or absent approval; preserve evidence and never reset, checkout-restore, clean, rewrite oracle/evidence/accepted history, or auto-rollback. Only the two mechanically bounded, reapproved replacements of the unpublished planning checkpoint are excepted. |
+| Stop/rollback conditions | Stop on any root/branch/ref/status/hash/manifest/allowlist/link/parser/OpenSpec/ancestry/date mismatch, concurrent use, unexpected path, or absent approval; preserve evidence and never reset, checkout-restore, clean, rewrite oracle/evidence/accepted history, or auto-rollback. Only two mechanically bounded replacements of the unpublished planning checkpoint are history-rewrite exceptions; no third planning amend is allowed. One separately bounded post-archive output-canonicalization reseal may occur before the existing archive commit under exact reviewed byte/tree/diagnostic predicates. |
 
 ## ADDED Requirements
 
@@ -290,8 +290,26 @@ agent MAY reseal the same six control paths and the apply subagent MAY amend
 only the same unpublished planning checkpoint while leaving all five cleanup
 paths unstaged. It MUST again prove old/new OIDs, the evidence sole parent,
 unchanged subject, exact 14-path delta, approved tree and seal, no fifth final
-commit, and no ref to the replaced checkpoint. No third repair or planning
+commit, and no ref to the replaced checkpoint. No third planning repair or
 amend is authorized.
+
+If and only if archive/sync has already completed after the accepted cleanup
+commit, no archive commit exists, the exact Purpose content and strict
+validation pass, and the only remaining failure is that the reviewed
+double-terminal-LF root-spec hash makes `git diff --cached --check` report
+`new blank line at EOF`, the main agent MAY approve one post-archive output
+canonicalization reseal. The reseal MUST preserve the immutable planning
+manifest digest as provenance. The main agent MUST limit its amendments to the
+dated archived OpenSpec/manifest artifacts and synchronized root spec, obtain
+the matching master-plan amendment from its subagent owner, and only then
+review and seal the combined result. The reseal MUST lock the exact cleanup OID, accepted tree,
+pre-repair staged archive tree/path set, root-spec bytes, and sole whitespace
+diagnostic. The canonical synchronized root spec MUST contain the same Purpose
+and requirements with exactly one terminal LF. The finalization subagent MUST
+NOT rerun archive, amend any existing commit, create an extra commit, bypass
+cached whitespace validation, or change any product/application behavior; it
+may only stage the reapproved outputs into the already-authorized fourth and
+final archive commit.
 
 #### Scenario: Approved artifacts are unchanged
 - **WHEN** a mutation phase begins
@@ -315,15 +333,21 @@ amend is authorized.
 - **AND** the apply subagent MAY replace the same unpublished planning checkpoint once more under the exact parent, subject, 14-path delta, tree, seal, five-path unstaged-cleanup, and four-final-commit predicates
 - **AND** no third amend or broader deletion transport SHALL be authorized
 
+#### Scenario: Archived root-spec hash conflicts with cached whitespace
+- **WHEN** the exact archived-output predicates prove that a single extra terminal LF is the sole byte difference and the sole cached-whitespace error
+- **THEN** the main agent MAY amend the archived OpenSpec/root spec, MUST obtain the master-plan amendment from its subagent owner, and MAY then reapprove the bounded combined seal while preserving the original planning seal as immutable provenance
+- **AND** the synchronized root spec SHALL use one terminal LF, strict validation and cached whitespace SHALL both pass, and the existing archive commit remains the only pending commit
+- **AND** archive SHALL NOT be rerun and no existing commit, ref, product behavior, or unrelated path SHALL change
+
 ### Requirement: Accepted cleanup becomes an archived stable baseline
-The apply subagent MUST stop with an exact staged cleanup candidate for main-agent read-only acceptance. Only after explicit acceptance MAY a finalization subagent create a local cleanup commit, verify its exact parent and tree, complete the remaining task markers, run `openspec archive establish-formal-rewrite-baseline -y --json` on 2026-07-23 so the delta is synchronized to `openspec/specs/contracts-rewrite-baseline/spec.md` and the change moves to `openspec/changes/archive/2026-07-23-establish-formal-rewrite-baseline/`, replace the generated root spec's placeholder Purpose with `Define the clean-room repository baseline, governance boundaries, immutable prototype evidence, and acceptance gates required before any formal frontend, backend, updater, or shared-contract implementation begins.`, and create a local archive commit. The final branch MUST have no active change, no staged/unstaged/untracked/ignored file, and only the exact post-archive allowlist. No push, PR, tag, release, deployment, or operations action is authorized.
+The apply subagent MUST stop with an exact staged cleanup candidate for main-agent read-only acceptance. Only after explicit acceptance MAY a finalization subagent create a local cleanup commit, verify its exact parent and tree, complete the remaining task markers, run `openspec archive establish-formal-rewrite-baseline -y --json` on 2026-07-23 so the delta is synchronized to `openspec/specs/contracts-rewrite-baseline/spec.md` and the change moves to `openspec/changes/archive/2026-07-23-establish-formal-rewrite-baseline/`, replace the generated root spec's placeholder Purpose with `Define the clean-room repository baseline, governance boundaries, immutable prototype evidence, and acceptance gates required before any formal frontend, backend, updater, or shared-contract implementation begins.`, canonicalize the final synchronized spec to one terminal LF, and create a local archive commit. The final branch MUST have no active change, no staged/unstaged/untracked/ignored file, and only the exact post-archive allowlist. No push, PR, tag, release, deployment, or operations action is authorized.
 
 #### Scenario: Candidate has not been accepted
 - **WHEN** explicit main-agent staged-candidate acceptance is absent or the staged candidate changed after acceptance
 - **THEN** cleanup commit, archive, and archive commit SHALL NOT run
 
 #### Scenario: Stable finalization succeeds
-- **WHEN** the cleanup commit and archive commit have exact expected parents and deltas, strict validation passes for all synchronized specs, the active change is absent, and the worktree is clean
+- **WHEN** the cleanup commit and archive commit have exact expected parents and deltas, strict validation and cached whitespace pass for the canonical single-LF synchronized spec, the active change is absent, and the worktree is clean
 - **THEN** the main agent SHALL perform a second read-only acceptance
 - **AND** Wave 1 remains blocked until that acceptance passes
 

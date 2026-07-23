@@ -2,7 +2,7 @@
 
 | Field | Contract |
 |---|---|
-| Status | Specified and partially applied: evidence and the first repaired planning checkpoint exist; generated trees are absent; audit move, two link edits, and minimal ignore file are unstaged. Binary/non-UTF-8 `apply_patch` verification failed with zero complement deletion. The second and final planning repair awaits reapproval; candidate acceptance, cleanup commit, archive, final acceptance, push, release, and deploy are false. |
+| Reseal-checkpoint status | At this approval boundary, work is applied through accepted cleanup commit `c5435f0a7584bf63aeddf9d33738b15485fbd19e`. Archive/sync has run, all 23 tasks are complete, and the original 13 no-renames archive paths are staged. The archive commit is fail-closed because the reviewed double-LF root-spec hash passes while `git diff --cached --check` rejects that exact EOF blank line. The bounded post-archive canonicalization reseal awaits approval; archive committed, final accepted, pushed, released, and deployed are false at this checkpoint, with later state recorded by the final handoff. |
 | Owner | `contracts`; apply and finalization are subagent-only. The main agent may amend OpenSpec artifacts and performs two read-only acceptances. |
 | Writable paths | Exact `.gitignore`; six root OpenSpec skill files; root OpenSpec config; named active/archived change artifacts and synchronized root spec; master plan; relocated audit; two link-only guides; reviewed tracked deletion complement; and exact generated directories `frontend/node_modules/` and `frontend/dist/`. |
 | Read-only protected inputs | `LICENSE`, `PRODUCT.md`, `DESIGN.md`, `.agents/skills/impeccable/**`, `.codex/hooks.json`, `.impeccable/design.json`, and both backend guides remain byte-identical. |
@@ -15,7 +15,7 @@
 | Acceptance | Main agent read-only accepts the exact staged candidate, then separately accepts the clean post-archive branch; Wave 1 waits for both. |
 | Non-goals | Application/tests/dependencies/contracts/API/CI/Docker/infrastructure, external repo or host work, push/PR/tag/release/deploy, or production operations. |
 | Operations deferred | nginx, systemd, production Compose, timers, secrets, activation, cutover, monitoring installation, real periodic execution, rollback execution, and legacy deletion. |
-| Stop/rollback conditions | Stop on any root/branch/ref/status/hash/manifest/allowlist/link/parser/OpenSpec/ancestry/date/concurrency mismatch or absent approval. Preserve evidence; never reset, checkout-restore, clean, rewrite oracle/evidence/accepted history, or auto-rollback. Only the two exact reapproved replacements of the unpublished planning checkpoint are excepted. |
+| Stop/rollback conditions | Stop on any root/branch/ref/status/hash/manifest/allowlist/link/parser/OpenSpec/ancestry/date/concurrency mismatch or absent approval. Preserve evidence; never reset, checkout-restore, clean, rewrite oracle/evidence/accepted history, or auto-rollback. Only the two exact reapproved replacements of the unpublished planning checkpoint are history-rewrite exceptions; no third planning amend is permitted. One separately bounded post-archive output-canonicalization reseal may occur before the existing archive commit only under the exact fixed state below. |
 
 ## 1. Contracts owner — approval and exact initial preflight
 
@@ -238,7 +238,7 @@ self-reference:
 ```zsh
 set -euo pipefail
 
-FORMAL_APPROVAL_MANIFEST_SHA256=f42737d0d31bab3c04bb2d95a4e8b64a832340e3728e793656ac8314902b5635
+FORMAL_APPROVAL_MANIFEST_SHA256=1c2c8f619e11eb44aad52af54170662b6f34004e72ad7e1b41d9788254cee270
 FORMAL_MANIFEST=openspec/changes/establish-formal-rewrite-baseline/.approval-manifest.json
 
 test "$(
@@ -2467,8 +2467,8 @@ git write-tree
 
 ## 5. Contracts owner — accepted candidate finalization
 
-- [ ] 5.1 A finalization subagent, dispatched only after explicit main-agent candidate acceptance, MUST re-run the apply and archive skill instructions, receive the accepted cached-tree id, re-run the approval-seal and complete candidate gates without modifying the index, and create the local cleanup commit `chore: establish formal rewrite baseline` only when `git write-tree` still equals that accepted id.
-- [ ] 5.2 Verify the cleanup commit has the planning-approval commit as its parent, its tree equals the accepted tree, and the full workspace is clean. Then mark 5.1 and 5.2 complete with `apply_patch`, confirm no unchecked task remains, and re-run the approval-seal, strict validation, cached/unstaged checks, and exact-tree checker. Only after every task is complete may the same subagent execute the archive protocol below.
+- [x] 5.1 A finalization subagent, dispatched only after explicit main-agent candidate acceptance, MUST re-run the apply and archive skill instructions, receive the accepted cached-tree id, re-run the approval-seal and complete candidate gates without modifying the index, and create the local cleanup commit `chore: establish formal rewrite baseline` only when `git write-tree` still equals that accepted id.
+- [x] 5.2 Verify the cleanup commit has the planning-approval commit as its parent, its tree equals the accepted tree, and the full workspace is clean. Then mark 5.1 and 5.2 complete with `apply_patch`, confirm no unchecked task remains, and re-run the approval-seal, strict validation, cached/unstaged checks, and exact-tree checker. Only after every task is complete may the same subagent execute the archive protocol below.
 
 Cleanup-commit gate. `FORMAL_ACCEPTED_TREE` MUST be copied exactly from the
 main-agent acceptance dispatch; it MUST NOT be inferred after the candidate has
@@ -2687,6 +2687,227 @@ node -e '
 '
 ```
 
+Final and only post-archive output-canonicalization reseal. The original
+Purpose patch and strict validation completed, but the reviewed curated hash
+encoded two terminal LF bytes. The exact staged archive tree
+`4ec4543e89350085e0d3844c753e20c4383af9fd` then failed only
+`git diff --cached --check` with
+`openspec/specs/contracts-rewrite-baseline/spec.md:327: new blank line at EOF.`
+No archive commit was created. The canonical one-terminal-LF output differs by
+only that byte and is the only form that can satisfy cached whitespace.
+
+This reseal is not a third planning repair or a history rewrite. The immutable
+planning seal remains
+`f42737d0d31bab3c04bb2d95a4e8b64a832340e3728e793656ac8314902b5635`.
+The main agent MAY amend only the dated archived manifest, proposal, design,
+tasks, capability delta, and synchronized root spec; it MUST obtain the matching
+master-plan amendment from that plan's subagent owner, review it, and only then
+reapprove the combined seal. The finalization subagent MUST NOT rerun
+`openspec archive`, amend an existing commit, create an extra commit, unstage
+the already reviewed archive move, or change any other path. The same fourth
+and final archive commit absorbs these reapproved outputs. The original
+archive/Purpose/EOF procedure above is retained as failure evidence and MUST
+NOT be executed again after this reseal; resume only from the gate below.
+
+Before resuming finalization, re-run this entire gate. The seven worktree
+control/spec paths are expected because they are the reviewed reseal itself;
+the index MUST remain the exact failed archive candidate:
+
+```zsh
+set -euo pipefail
+
+FORMAL_CLEANUP=c5435f0a7584bf63aeddf9d33738b15485fbd19e
+FORMAL_ACCEPTED_TREE=bca117877cd580f6388187d11ba70e6ae736597e
+FORMAL_FAILED_ARCHIVE_TREE=4ec4543e89350085e0d3844c753e20c4383af9fd
+FORMAL_PLANNING_MANIFEST_SHA256=f42737d0d31bab3c04bb2d95a4e8b64a832340e3728e793656ac8314902b5635
+FORMAL_FINAL_ROOT_SPEC_SHA256=78a68814751b268f802979742d683fb1a72945ff7f3e030e1da0f2121c8cf02f
+FORMAL_ARCHIVE=openspec/changes/archive/2026-07-23-establish-formal-rewrite-baseline
+FORMAL_MANIFEST="${FORMAL_ARCHIVE}/.approval-manifest.json"
+FORMAL_TASKS="${FORMAL_ARCHIVE}/tasks.md"
+FORMAL_DELTA="${FORMAL_ARCHIVE}/specs/contracts-rewrite-baseline/spec.md"
+FORMAL_ROOT_SPEC=openspec/specs/contracts-rewrite-baseline/spec.md
+FORMAL_ARCHIVED_MANIFEST_SHA256="$(
+  sed -n \
+    "s/^FORMAL_APPROVAL_MANIFEST_SHA256=//p" \
+    "$FORMAL_TASKS"
+)"
+
+test "$(git rev-parse HEAD)" = "$FORMAL_CLEANUP"
+test "$(git rev-parse "${FORMAL_CLEANUP}^{tree}")" = \
+  "$FORMAL_ACCEPTED_TREE"
+test "$(git rev-parse "${FORMAL_CLEANUP}^")" = \
+  671738d7fb882279dd34ee6d37118cf14329dce9
+test "$(git write-tree)" = "$FORMAL_FAILED_ARCHIVE_TREE"
+test ! -e openspec/changes/establish-formal-rewrite-baseline
+test -d "$FORMAL_ARCHIVE"
+test -f "$FORMAL_ROOT_SPEC"
+test -z "$(git ls-files --others --exclude-standard)"
+test -z "$(
+  git status \
+    --porcelain=v1 \
+    --ignored=matching \
+    --untracked-files=all |
+  awk '$1 == "!!" { print }'
+)"
+
+node <<'NODE'
+const { execFileSync } = require("child_process");
+const active = "openspec/changes/establish-formal-rewrite-baseline";
+const archive =
+  "openspec/changes/archive/2026-07-23-establish-formal-rewrite-baseline";
+const rel = [
+  ".openspec.yaml",
+  ".approval-manifest.json",
+  "proposal.md",
+  "design.md",
+  "tasks.md",
+  "specs/contracts-rewrite-baseline/spec.md",
+];
+const expectedStaged = [
+  "openspec/specs/contracts-rewrite-baseline/spec.md",
+  ...rel.flatMap(file => [`${active}/${file}`, `${archive}/${file}`]),
+].sort();
+const actualStaged = execFileSync(
+  "git",
+  ["diff", "--cached", "--no-renames", "--name-only", "-z"],
+  { encoding: "utf8" },
+).split("\0").filter(Boolean).sort();
+if (JSON.stringify(actualStaged) !== JSON.stringify(expectedStaged)) {
+  process.stderr.write("failed archive staged path set differs\n");
+  process.exit(1);
+}
+const expectedUnstaged = [
+  `${archive}/.approval-manifest.json`,
+  `${archive}/proposal.md`,
+  `${archive}/design.md`,
+  `${archive}/tasks.md`,
+  `${archive}/specs/contracts-rewrite-baseline/spec.md`,
+  "openspec/specs/contracts-rewrite-baseline/spec.md",
+  "tmp-formal-development/formal-development-master-plan.md",
+].sort();
+const actualUnstaged = execFileSync(
+  "git",
+  ["diff", "--name-only", "-z"],
+  { encoding: "utf8" },
+).split("\0").filter(Boolean).sort();
+if (JSON.stringify(actualUnstaged) !== JSON.stringify(expectedUnstaged)) {
+  process.stderr.write("post-archive reseal path set differs\n");
+  process.exit(1);
+}
+NODE
+
+test "$(
+  git show :openspec/specs/contracts-rewrite-baseline/spec.md |
+  shasum -a 256 |
+  awk "{print \$1}"
+)" = 73ba0c12b7d3fd69592621d716f08a3a5ce7cdb16bb2853c3eca0e780862cd07
+test "$(
+  git show :openspec/specs/contracts-rewrite-baseline/spec.md |
+  wc -c |
+  tr -d "[:space:]"
+)" = 25907
+
+set +e
+cached_check="$(git diff --cached --check 2>&1)"
+cached_check_status=$?
+set -e
+test "$cached_check_status" -eq 2
+test "$cached_check" = \
+  "openspec/specs/contracts-rewrite-baseline/spec.md:327: new blank line at EOF."
+
+test "$(
+  shasum -a 256 "$FORMAL_MANIFEST" |
+  awk "{print \$1}"
+)" = "$FORMAL_ARCHIVED_MANIFEST_SHA256"
+test "$(
+  shasum -a 256 "$FORMAL_ROOT_SPEC" |
+  awk "{print \$1}"
+)" = "$FORMAL_FINAL_ROOT_SPEC_SHA256"
+
+node <<'NODE'
+const crypto = require("crypto");
+const fs = require("fs");
+const { execFileSync } = require("child_process");
+const archive =
+  "openspec/changes/archive/2026-07-23-establish-formal-rewrite-baseline";
+const manifestPath = `${archive}/.approval-manifest.json`;
+const taskPath = `${archive}/tasks.md`;
+const deltaPath = `${archive}/specs/contracts-rewrite-baseline/spec.md`;
+const rootSpecPath = "openspec/specs/contracts-rewrite-baseline/spec.md";
+const oldSeal =
+  "f42737d0d31bab3c04bb2d95a4e8b64a832340e3728e793656ac8314902b5635";
+const digest = value =>
+  crypto.createHash("sha256").update(value).digest("hex");
+const normalizeTasks = value =>
+  value
+    .replace(/^(\s*-\s*)\[[ xX]\]/gm, "$1[ ]")
+    .replace(
+      /^FORMAL_APPROVAL_MANIFEST_SHA256=[0-9a-f]{64}$/m,
+      "FORMAL_APPROVAL_MANIFEST_SHA256=<APPROVAL_MANIFEST_SHA256>",
+    );
+const manifestBody = fs.readFileSync(manifestPath);
+const manifest = JSON.parse(manifestBody);
+if (
+  manifest.supersedesPlanningManifestSha256 !== oldSeal ||
+  manifest.resealReason !== "post-archive-root-spec-eof-canonicalization"
+) process.exit(1);
+const embedded = fs.readFileSync(taskPath, "utf8").match(
+  /^FORMAL_APPROVAL_MANIFEST_SHA256=([0-9a-f]{64})$/m,
+)?.[1];
+if (!embedded || embedded !== digest(manifestBody)) process.exit(1);
+for (const item of manifest.files) {
+  const currentPath = item.path.startsWith(
+    "openspec/changes/establish-formal-rewrite-baseline/",
+  )
+    ? `${archive}/${item.path.slice(
+        "openspec/changes/establish-formal-rewrite-baseline/".length,
+      )}`
+    : item.path;
+  const body = fs.readFileSync(currentPath);
+  const actual =
+    currentPath === taskPath
+      ? digest(normalizeTasks(body.toString("utf8")))
+      : digest(body);
+  if (actual !== item.sha256) {
+    process.stderr.write(`post-archive reseal hash differs: ${currentPath}\n`);
+    process.exit(1);
+  }
+}
+const planningTasks = execFileSync(
+  "git",
+  [
+    "show",
+    "671738d7fb882279dd34ee6d37118cf14329dce9:openspec/changes/establish-formal-rewrite-baseline/tasks.md",
+  ],
+  { encoding: "utf8" },
+);
+const planningSeal = planningTasks.match(
+  /^FORMAL_APPROVAL_MANIFEST_SHA256=([0-9a-f]{64})$/m,
+)?.[1];
+if (planningSeal !== oldSeal) process.exit(1);
+const delta = fs.readFileSync(deltaPath, "utf8");
+const rootSpec = fs.readFileSync(rootSpecPath, "utf8");
+const deltaBody = delta
+  .split("## ADDED Requirements\n")[1]
+  ?.replace(/^\n/, "");
+const rootBody = rootSpec.split("## Requirements\n")[1];
+if (!deltaBody || !rootBody || deltaBody !== rootBody) {
+  process.stderr.write("archived delta and synchronized root requirements differ\n");
+  process.exit(1);
+}
+if (!rootSpec.endsWith("\n") || rootSpec.endsWith("\n\n")) {
+  process.stderr.write("root spec is not canonical single-LF\n");
+  process.exit(1);
+}
+if (Buffer.byteLength(rootSpec) !== 28036) {
+  process.stderr.write("root spec byte length differs\n");
+  process.exit(1);
+}
+NODE
+
+openspec validate --all --strict --json --no-interactive
+```
+
 Post-archive approval-seal and exact-tree gate:
 
 ```zsh
@@ -2716,7 +2937,7 @@ const normalizeTasks = value =>
     );
 if (
   digest(fs.readFileSync("openspec/specs/contracts-rewrite-baseline/spec.md")) !==
-  "73ba0c12b7d3fd69592621d716f08a3a5ce7cdb16bb2853c3eca0e780862cd07"
+  "78a68814751b268f802979742d683fb1a72945ff7f3e030e1da0f2121c8cf02f"
 ) {
   process.stderr.write("curated root spec hash differs\n");
   process.exit(1);
@@ -2748,11 +2969,18 @@ const approvedTaskBody = execFileSync(
 const approvedDigestMatch = approvedTaskBody.match(
   /^FORMAL_APPROVAL_MANIFEST_SHA256=([0-9a-f]{64})$/m,
 );
-if (!approvedDigestMatch || approvedDigestMatch[1] !== manifestSha) {
-  process.stderr.write("archived manifest digest differs from planning commit\n");
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const planningSeal =
+  "f42737d0d31bab3c04bb2d95a4e8b64a832340e3728e793656ac8314902b5635";
+if (
+  !approvedDigestMatch ||
+  approvedDigestMatch[1] !== planningSeal ||
+  manifest.supersedesPlanningManifestSha256 !== planningSeal ||
+  manifest.resealReason !== "post-archive-root-spec-eof-canonicalization"
+) {
+  process.stderr.write("archived reseal provenance differs\n");
   process.exit(1);
 }
-const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 for (const item of manifest.files) {
   const currentPath = item.path.startsWith(activePrefix)
     ? `${archivePrefix}${item.path.slice(activePrefix.length)}`
@@ -2766,6 +2994,27 @@ for (const item of manifest.files) {
     process.stderr.write(`archived approval hash differs: ${currentPath}\n`);
     process.exit(1);
   }
+}
+
+const delta = fs.readFileSync(
+  `${archivePrefix}specs/contracts-rewrite-baseline/spec.md`,
+  "utf8",
+);
+const rootSpec = fs.readFileSync(
+  "openspec/specs/contracts-rewrite-baseline/spec.md",
+  "utf8",
+);
+const deltaBody = delta
+  .split("## ADDED Requirements\n")[1]
+  ?.replace(/^\n/, "");
+const rootBody = rootSpec.split("## Requirements\n")[1];
+if (!deltaBody || !rootBody || deltaBody !== rootBody) {
+  process.stderr.write("archived delta and synchronized root requirements differ\n");
+  process.exit(1);
+}
+if (!rootSpec.endsWith("\n") || rootSpec.endsWith("\n\n")) {
+  process.stderr.write("root spec is not canonical single-LF\n");
+  process.exit(1);
 }
 
 const allow = /^(\.gitignore|LICENSE|PRODUCT\.md|DESIGN\.md|\.codex\/hooks\.json|\.codex\/skills\/openspec-(apply-change|archive-change|explore|propose|sync-specs|update-change)\/SKILL\.md|\.agents\/skills\/impeccable\/.+|\.impeccable\/design\.json|tmp-formal-development\/(backend-development-implementation-guide|backend-operations-implementation-guide|data-logic-implementation-guide|frontend-production-cleanup-and-architecture-plan|formal-development-master-plan)\.md|tmp-formal-development\/decisions\/prototype-data-logic-audit\.md|openspec\/config\.yaml|openspec\/specs\/contracts-rewrite-baseline\/spec\.md|openspec\/changes\/archive\/2026-07-23-establish-formal-rewrite-baseline\/(\.openspec\.yaml|\.approval-manifest\.json|proposal\.md|design\.md|tasks\.md|specs\/contracts-rewrite-baseline\/spec\.md))$/;
@@ -2822,21 +3071,17 @@ test "$(git rev-parse HEAD)" = "$FORMAL_CLEANUP"
 test "$(git show -s --format=%s "$FORMAL_CLEANUP")" = \
   "chore: establish formal rewrite baseline"
 
-archive_rel=(
-  .openspec.yaml
-  .approval-manifest.json
-  proposal.md
-  design.md
-  tasks.md
-  specs/contracts-rewrite-baseline/spec.md
+test "$(git write-tree)" = \
+  4ec4543e89350085e0d3844c753e20c4383af9fd
+archive_stage_paths=(
+  "${FORMAL_ARCHIVE}/.approval-manifest.json"
+  "${FORMAL_ARCHIVE}/proposal.md"
+  "${FORMAL_ARCHIVE}/design.md"
+  "${FORMAL_ARCHIVE}/tasks.md"
+  "${FORMAL_ARCHIVE}/specs/contracts-rewrite-baseline/spec.md"
+  openspec/specs/contracts-rewrite-baseline/spec.md
+  tmp-formal-development/formal-development-master-plan.md
 )
-archive_stage_paths=(openspec/specs/contracts-rewrite-baseline/spec.md)
-for relative in "${archive_rel[@]}"; do
-  archive_stage_paths+=(
-    "${FORMAL_ACTIVE}/${relative}"
-    "${FORMAL_ARCHIVE}/${relative}"
-  )
-done
 
 git add -- "${archive_stage_paths[@]}"
 git diff --quiet
@@ -2865,6 +3110,7 @@ const rel = [
 ];
 const expected = [
   "openspec/specs/contracts-rewrite-baseline/spec.md",
+  "tmp-formal-development/formal-development-master-plan.md",
   ...rel.flatMap(file => [`${active}/${file}`, `${archive}/${file}`]),
 ].sort();
 const actual = execFileSync(
@@ -2933,7 +3179,7 @@ test "$(git rev-parse \
 test "$(
   shasum -a 256 openspec/specs/contracts-rewrite-baseline/spec.md |
   awk "{print \$1}"
-)" = 73ba0c12b7d3fd69592621d716f08a3a5ce7cdb16bb2853c3eca0e780862cd07
+)" = 78a68814751b268f802979742d683fb1a72945ff7f3e030e1da0f2121c8cf02f
 test -z "$(
   git status \
     --porcelain=v1 \

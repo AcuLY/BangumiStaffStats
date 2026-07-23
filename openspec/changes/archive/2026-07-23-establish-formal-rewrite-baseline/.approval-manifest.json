@@ -2,6 +2,8 @@
   "schemaVersion": 1,
   "approvedOn": "2026-07-23",
   "taskNormalization": "checkboxes-unchecked-and-embedded-manifest-digest-placeholder",
+  "supersedesPlanningManifestSha256": "f42737d0d31bab3c04bb2d95a4e8b64a832340e3728e793656ac8314902b5635",
+  "resealReason": "post-archive-root-spec-eof-canonicalization",
   "files": [
     {
       "path": ".codex/skills/openspec-apply-change/SKILL.md",
@@ -37,23 +39,23 @@
     },
     {
       "path": "openspec/changes/establish-formal-rewrite-baseline/proposal.md",
-      "sha256": "20bcd398d8c509150da7deda72082b13345facf505d16faa8b02b3c8904e147b"
+      "sha256": "b4c41f38897d87b2f89d43ec80eb430d716b751c32f6ba9d05bae12f757a4051"
     },
     {
       "path": "openspec/changes/establish-formal-rewrite-baseline/design.md",
-      "sha256": "6ce9ff893f6985bd4bcc4c1a7f41c4a27af15ea99663385bdc9d5057b148a110"
+      "sha256": "a54f1625d2d8319cf41ba84e580737e15280bb9817a5b254a55ed962437c2151"
     },
     {
       "path": "openspec/changes/establish-formal-rewrite-baseline/tasks.md",
-      "sha256": "40828c3cdb6413e4c56f2d2c753964001ba8feaccb85896217dea2b7d901ec2c"
+      "sha256": "b5eb26c13ad7460b242a4b401188b6a83ac5db190daee12970245346bbae0fec"
     },
     {
       "path": "openspec/changes/establish-formal-rewrite-baseline/specs/contracts-rewrite-baseline/spec.md",
-      "sha256": "6b5a2f0e3b5a76f3ffc6e447e7a551adba47f2779a4da1d87c34281c581b9b00"
+      "sha256": "b5def89a271e535047781be9107cdc43217750ed11b87e43efcfbdd8b544aa8f"
     },
     {
       "path": "tmp-formal-development/formal-development-master-plan.md",
-      "sha256": "fdee21709410bc19d491db44fb933dadbfba960447fb1a8adea9e06876169585"
+      "sha256": "96084e6c74753bee9beb0aa71b8226e66e544e468ceba5f373bcc18d1829a957"
     }
   ]
 }

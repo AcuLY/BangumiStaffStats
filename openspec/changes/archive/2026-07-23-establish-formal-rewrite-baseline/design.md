@@ -12,7 +12,7 @@ This is a repository-governance change, not a product or application change. It 
 
 | Field | Contract |
 |---|---|
-| Status | Specified and partially applied: supplemental evidence and the first repaired planning checkpoint exist; generated trees are absent; the audit move, two link edits, and minimal ignore file are unstaged. `apply_patch` rejected the deletion complement during verification on binary/non-UTF-8 blobs, with zero complement deletion. The second and final planning repair is pending explicit main-agent reapproval. No candidate acceptance, cleanup commit, archive, push, release, or deploy has occurred. |
+| Reseal-checkpoint status | At this approval boundary, work is applied through accepted cleanup commit `c5435f0a7584bf63aeddf9d33738b15485fbd19e`. Archive/sync has run and all tasks are complete, but the archive commit is fail-closed because the reviewed double-LF root-spec hash and `git diff --cached --check` are mutually exclusive. The bounded post-archive canonicalization reseal awaits explicit main-agent approval. No archive commit, final acceptance, push, release, or deploy has occurred at this checkpoint; the final handoff records their later state. |
 | Owner | `contracts`; one implementation subagent applies reviewed tasks, and a finalization subagent commits/archives only after the staged candidate is accepted. The main agent may review or amend only OpenSpec artifacts and performs two read-only acceptances. |
 | Writable paths | Exact paths only: `.gitignore`; the six root `.codex/skills/openspec-*/SKILL.md` files; `openspec/config.yaml`; the named active-change files including `.approval-manifest.json`; the dated archived change and synchronized root spec; the master plan; the relocated audit; the two link-only guides; the reviewed tracked deletion complement; and the two exact generated directories. |
 | Read-only protected inputs | `LICENSE`, `PRODUCT.md`, `DESIGN.md`, `.agents/skills/impeccable/**`, `.codex/hooks.json`, `.impeccable/design.json`, and both backend implementation/operations guides. They remain byte-identical and are never made writable by parent-directory ownership. |
@@ -25,7 +25,7 @@ This is a repository-governance change, not a product or application change. It 
 | Acceptance | Main agent first accepts the exact staged cleanup candidate read-only; after subagent commits and archives, the main agent accepts the exact clean post-archive baseline read-only. Both are mandatory before Wave 1. |
 | Non-goals | Application code/new tests, dependencies, contracts/API implementation, CI, Docker, infrastructure, deployment/release, external repository or host work, push, PR, tag, release, or deployment. |
 | Operations deferred | nginx, systemd, production Compose, timers, secrets, deployment/release workflows, activation, cutover, monitoring installation, real periodic execution, rollback execution, and legacy-system deletion. |
-| Stop/rollback conditions | Stop on any root/branch/ref/worktree/hash/manifest/allowlist/link/parser/OpenSpec/ancestry/date mismatch, concurrent ref/worktree use, unexpected path, or missing approval. Preserve evidence; do not reset, checkout-restore, clean, rewrite oracle/evidence/accepted history, or automatically roll back. Only the two mechanically bounded, reapproved replacements of the same unpublished planning checkpoint are excepted; no third amend is authorized. |
+| Stop/rollback conditions | Stop on any root/branch/ref/worktree/hash/manifest/allowlist/link/parser/OpenSpec/ancestry/date mismatch, concurrent ref/worktree use, unexpected path, or missing approval. Preserve evidence; do not reset, checkout-restore, clean, rewrite oracle/evidence/accepted history, or automatically roll back. Only the two mechanically bounded, reapproved replacements of the same unpublished planning checkpoint are history-rewrite exceptions; no third planning amend is authorized. One separately bounded post-archive output-canonicalization reseal may occur before the existing archive commit only under the exact observed byte/tree/diagnostic predicates below. |
 
 Dependency direction is one-way:
 
@@ -62,7 +62,7 @@ An OpenSpec artifact cannot silently override a higher authority. An intentional
 - Updating product behavior, statistical semantics, visual behavior, copy, accessibility, or responsive rules.
 - Regenerating `.impeccable/design.json` before the real frontend foundation exists.
 - Retaining prototype code “temporarily” in the rewrite tip.
-- Performing general Git history rewriting, push, PR, tag, release, deployment, migration, or host mutation. Four exact final local commits are permitted: supplemental evidence, planning approval, cleanup, and archived/synchronized baseline. The only rewrite exceptions are the two reviewed replacements of the same unpublished planning checkpoint for the already-observed command and binary-decoding failures; exact path-scoped staging is required, no third amend is authorized, and no remote publication is authorized.
+- Performing general Git history rewriting, push, PR, tag, release, deployment, migration, or host mutation. Four exact final local commits are permitted: supplemental evidence, planning approval, cleanup, and archived/synchronized baseline. The only rewrite exceptions are the two reviewed replacements of the same unpublished planning checkpoint for the already-observed command and binary-decoding failures; exact path-scoped staging is required, no third planning amend is authorized, and no remote publication is authorized. The post-archive output-canonicalization reseal below changes no existing commit and is included in the already-authorized archive commit.
 
 ## Decisions
 
@@ -187,11 +187,34 @@ six control paths are resealed and amend only the unpublished planning
 checkpoint; the already applied five-path cleanup state remains unstaged and
 excluded from that commit. Old/new OIDs, the evidence sole parent, subject,
 exact 14-path delta, new tree/seal, and four-final-commit ancestry are
-reverified. No third repair is authorized.
+reverified. No third planning repair or amend is authorized.
+
+Archive finalization later exposed a different, post-history contradiction.
+OpenSpec 1.6.0 generated the reviewed raw root spec exactly, and the exact
+Purpose replacement passed strict validation, but the precomputed curated hash
+encoded two terminal LF bytes. Reaching that hash made the staged archive fail
+only `git diff --cached --check` with `new blank line at EOF`; using the
+canonical single terminal LF passed whitespace validation but missed that
+double-LF hash by exactly one byte. The finalization subagent stopped before the
+archive commit in both cases.
+
+This is resolved without another planning amend, archive rerun, or extra
+commit. Under the exact cleanup OID, accepted tree, staged archive tree, staged
+path set, root-spec hash, empty unstaged/untracked/ignored sets, and sole cached
+whitespace diagnostic recorded in `tasks.md`, the main agent may amend and
+reapprove only the dated archived OpenSpec/manifest artifacts and synchronized
+root spec. It MUST obtain the matching master-plan amendment from that plan's
+subagent owner, review it, and include it in the combined seal. The archived
+manifest records the immutable planning seal it supersedes. The synchronized
+root spec becomes the strictly validated capability plus the exact Purpose with
+one terminal LF, the final archive staging includes the subagent-authored
+master-plan correction, and cached whitespace MUST pass. The fourth and final
+commit remains `chore: archive formal rewrite baseline`; no existing commit or
+ref is rewritten.
 
 ### 9. Separate apply, acceptance, finalization, and publication states
 
-The implementation subagent performs only reviewed apply tasks and stops with an exact staged cleanup candidate. The main agent performs a first read-only acceptance. Only after that explicit result may a finalization subagent create `chore: establish formal rewrite baseline`, verify its exact delta, complete the remaining task markers, run `openspec archive establish-formal-rewrite-baseline -y --json`, replace OpenSpec's generated placeholder Purpose with the exact reviewed baseline Purpose, validate the synchronized root spec and dated archive, and create `chore: archive formal rewrite baseline`. The main agent then performs a second read-only acceptance against a clean worktree. Push, PR, tag, release, deployment, and operations remain unauthorized.
+The implementation subagent performs only reviewed apply tasks and stops with an exact staged cleanup candidate. The main agent performs a first read-only acceptance. Only after that explicit result may a finalization subagent create `chore: establish formal rewrite baseline`, verify its exact delta, complete the remaining task markers, run `openspec archive establish-formal-rewrite-baseline -y --json`, replace OpenSpec's generated placeholder Purpose with the exact reviewed baseline Purpose, validate the synchronized root spec and dated archive, and create `chore: archive formal rewrite baseline`. If and only if the observed EOF hash/whitespace contradiction is reproduced exactly before that archive commit, the post-archive-only reseal above canonicalizes the output and the same finalization subagent resumes without rerunning archive. The main agent then performs a second read-only acceptance against a clean worktree. Push, PR, tag, release, deployment, and operations remain unauthorized.
 
 Alternatives considered:
 
@@ -251,8 +274,10 @@ This is a repository-tree migration, not a deployment.
 12. It proves the worktree equals the proposed index, runs the full validation matrix against that index, and marks a task complete only after its evidence passes.
 13. It stops for the first main-agent read-only acceptance with the exact staged candidate unchanged.
 14. After explicit acceptance, a finalization subagent creates the exact local cleanup commit and verifies its parent and delta.
-15. The finalization subagent completes the remaining task markers, archives and synchronizes the change, validates the post-archive exact file/symlink set, and creates the exact local archive commit.
-16. The main agent performs a second read-only acceptance on the clean post-archive branch. Push, release, deployment, and operations remain unperformed.
+15. The finalization subagent completes the remaining task markers, archives and synchronizes the change, and validates the post-archive exact file/symlink set.
+16. If the exact reviewed double-LF hash then conflicts with the cached-whitespace gate, finalization stops; only the bounded main-agent-reviewed post-archive canonicalization reseal above may run, without rerunning archive or creating another commit.
+17. The finalization subagent validates the canonical single-LF synchronized spec, stages the exact archive paths plus the corrected master plan, and creates the exact local archive commit.
+18. The main agent performs a second read-only acceptance on the clean post-archive branch. Push, release, deployment, and operations remain unperformed.
 
 Rollback is intentionally not automated. Before or after a failure, the subagent preserves the current workspace and reports evidence. Any corrective edit requires reviewed task/spec guidance; it does not use reset, checkout-based rollback, clean, or broad restoration.
 
