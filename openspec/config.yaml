@@ -1,0 +1,146 @@
+schema: spec-driven
+
+context: |
+  This repository is a clean-room production rewrite of Bangumi Staff Statistics.
+  The immutable prototype oracle is commit
+  644b7748674e553f863d0ffd61d029f86fdc0717. Preserve its approved external
+  visual, interaction, state, copy, and responsive behavior unless an
+  OpenSpec change identifies an intentional delta or new capability. Old
+  application code is evidence only and must not dictate the new architecture.
+
+  The normative authority order is:
+  1. PRODUCT.md for product behavior and statistical semantics.
+  2. DESIGN.md for visual, interaction, responsive, and accessibility rules.
+  3. tmp-formal-development/decisions/prototype-data-logic-audit.md for
+     accepted data decisions after the baseline relocation is applied.
+  4. tmp-formal-development/formal-development-master-plan.md for dependency
+     ordering, ownership, and phase gates.
+  5. The active implementation guides in tmp-formal-development/ for
+     frontend, backend, updater, data, and deferred operations constraints.
+  6. Approved root OpenSpec capabilities and changes for the implementation
+     contract of one bounded change.
+  If these authorities conflict, stop before apply and reconcile the higher
+  authority and affected OpenSpec artifacts.
+
+  Use one repository-root openspec/ only. Nested OpenSpec roots and nested
+  generated OpenSpec skills under frontend/, backend/, updater/, contracts/,
+  apps/, or packages/ are forbidden.
+
+  Apply tasks may write only inside this repository and only inside their
+  declared Writable paths and Mutable refs. Another repository requires its own separately
+  approved OpenSpec change. Read-only external research must be declared;
+  external files, repositories, services, hosts, and production state must
+  never be mutated by an ordinary development change.
+
+  Capability ids must start with exactly one ownership prefix:
+  contracts-, backend-, updater-, or frontend-. Contracts owns cross-language
+  wire schemas, manifests, shared fixtures, and goldens; backend owns the Go
+  read-only API and statistical authority; updater owns the Python one-shot
+  Archive producer; frontend owns Vue presentation and interaction state.
+
+  Frontend baseline: Vue 3, Vite, Pinia, Naive UI, TypeScript, and native fetch.
+  Additional libraries require an approved OpenSpec rationale, alternatives,
+  ownership, and verification gate. Do not add a duplicate state layer,
+  request layer, statistical implementation, or speculative abstraction.
+
+  The Go backend is the sole statistical authority. Python is a one-shot
+  immutable Archive producer, Go is a read-only consumer, and Python/Go/TypeScript
+  share versioned contracts and goldens without sharing runtime business code.
+
+  All actual implementation is performed by implementation subagents. The main
+  agent may amend only OpenSpec artifacts, then performs read-only review and
+  acceptance. Master plans, guidance documents, application code, tests, and
+  repository mutations remain subagent work. No apply may start until proposal,
+  specs, design, and tasks are all complete, strictly valid, explicitly
+  reviewed, and approved.
+
+  Operations are deferred. Development may implement and test health endpoints,
+  metrics instrumentation, manifests, immutable artifact definitions,
+  reproducible local builds, characterization, and local container build smoke.
+  Production nginx, systemd, production Compose, timers, deployment or release
+  workflows, production secrets, host changes, cutover, real periodic runs,
+  and legacy-system deletion are outside approved development scope.
+
+rules:
+  proposal:
+    - >-
+      Every new or modified capability id must begin with contracts-, backend-,
+      updater-, or frontend-. Reject unprefixed, ambiguous, or catch-all
+      full-stack capabilities.
+    - >-
+      Under Impact, explicitly declare Status, Owner, Writable paths,
+      Read-only protected inputs, Deletion complement, Mutable refs, Consumes,
+      Produces, Dependencies, Deliverables, Acceptance, Non-goals, Operations
+      deferred, and Stop/rollback conditions. Writable paths and mutable refs
+      must be exact and narrow enough to prevent unrelated edits; read-only
+      protected inputs must never be implied writable by a parent directory.
+    - >-
+      Classify externally visible behavior as PRESERVE_ORACLE,
+      INTENTIONAL_DELTA, or NEW_CAPABILITY. Cite the immutable oracle commit
+      for preserved behavior and cite the governing authority for deltas.
+    - >-
+      State whether the change touches another repository or external state.
+      External push, pull request, tag, release, deployment, host mutation, or
+      production activation must remain an explicit later authorization gate.
+    - >-
+      A proposal must state that apply is blocked until proposal, specs, design,
+      and tasks have passed strict validation and main-agent review.
+  specs:
+    - >-
+      Each capability spec must contain a Capability Boundary section explicitly
+      declaring Status, Owner, Writable paths, Read-only protected inputs,
+      Deletion complement, Mutable refs, Consumes, Produces, Dependencies,
+      Deliverables, Acceptance, Non-goals, Operations deferred, and
+      Stop/rollback conditions before its ADDED, MODIFIED, or REMOVED
+      requirements.
+    - >-
+      Requirements must define observable behavior and failure-safe scenarios,
+      including stale or dirty workspace protection where relevant. Do not
+      encode implementation convenience as product semantics.
+    - >-
+      Cross-language requirements must name the authoritative contract or
+      golden and identify each producer and consumer. Frontend requirements
+      must not create a second statistical authority.
+    - >-
+      No spec may authorize a nested openspec/ root or nested generated
+      OpenSpec skill set.
+  design:
+    - >-
+      Include a change-boundary table with Status, Owner, Writable paths,
+      Read-only protected inputs, Deletion complement, Mutable refs, Consumes,
+      Produces, Dependencies, Deliverables, Acceptance, Non-goals, Operations
+      deferred, and Stop/rollback conditions, plus explicit dependency
+      direction.
+    - >-
+      Library additions must document purpose, considered alternatives,
+      ownership, bundle or runtime cost, and an enforceable acceptance gate.
+    - >-
+      Identify any oracle comparison method and separate preservation evidence
+      from intentional deltas and new capabilities.
+    - >-
+      Production operations must appear only as Non-goals or Operations
+      deferred unless a later user-approved operations change explicitly
+      reopens that scope.
+  tasks:
+    - >-
+      Start with a task-boundary table that explicitly declares Status, Owner,
+      Writable paths, Read-only protected inputs, Deletion complement, Mutable
+      refs, Consumes, Produces, Dependencies, Deliverables, Acceptance,
+      Non-goals, Operations deferred, and Stop/rollback conditions. Group tasks
+      by owner and exact writable path. Every implementation group must start
+      with a preflight that verifies branch, HEAD, allowed dirty state, and
+      reviewed artifact status, and must stop safely on mismatch.
+    - >-
+      Every implementation group must end with proportional automated,
+      cross-language, build, and browser acceptance where applicable. Record
+      exact commands and distinguish investigated, implemented, verified,
+      committed, pushed, released, and deployed states.
+    - >-
+      Forbid reset --hard, checkout-based rollback, git clean, git add -A,
+      broad recursive deletion, writes outside declared Writable paths, and
+      mutation of external repositories unless that repository has its own
+      approved OpenSpec change.
+    - >-
+      Do not include production nginx, systemd, production Compose, timers,
+      deployment or release workflows, host changes, cutover, real periodic
+      runs, or legacy-system deletion in development tasks.

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "approvedOn": "2026-07-23",
+  "taskNormalization": "checkboxes-unchecked-and-embedded-manifest-digest-placeholder",
+  "files": [
+    {
+      "path": ".codex/skills/openspec-apply-change/SKILL.md",
+      "sha256": "83e0d2d4c47674e312fc9d29297d91e5c018a5507e6961829ee623600e2cf2ff"
+    },
+    {
+      "path": ".codex/skills/openspec-archive-change/SKILL.md",
+      "sha256": "85c8764715a18fbd11d16ca04bd9e15d8644bf5e4203176ad34eee192b546472"
+    },
+    {
+      "path": ".codex/skills/openspec-explore/SKILL.md",
+      "sha256": "79249f798ad0d69bf95f08f3c7a29d44d982e4c1645f1a12a21dfcd488f4ba0d"
+    },
+    {
+      "path": ".codex/skills/openspec-propose/SKILL.md",
+      "sha256": "a666b2381a7d5e982d8e32183484020f518da2b795c0f387c5ff4b3cb47be0fd"
+    },
+    {
+      "path": ".codex/skills/openspec-sync-specs/SKILL.md",
+      "sha256": "420e5815eee33ebd642b9d038f0a5307b176923a5c1a837c4873e51de085aae3"
+    },
+    {
+      "path": ".codex/skills/openspec-update-change/SKILL.md",
+      "sha256": "82a51ed50b10ac3be479d7abc4a99fe3685ee7794078d7d8ea7bfc90ae42c2d9"
+    },
+    {
+      "path": "openspec/config.yaml",
+      "sha256": "47f60fa2c8cbe6ac19cfc1390788852ab992102ff96f67034d5cacbb8b76df16"
+    },
+    {
+      "path": "openspec/changes/establish-formal-rewrite-baseline/.openspec.yaml",
+      "sha256": "a853dfabefc888d819ac994f0843e5012a0f28364a636ffd6a0d0d28ca2aa4af"
+    },
+    {
+      "path": "openspec/changes/establish-formal-rewrite-baseline/proposal.md",
+      "sha256": "20bcd398d8c509150da7deda72082b13345facf505d16faa8b02b3c8904e147b"
+    },
+    {
+      "path": "openspec/changes/establish-formal-rewrite-baseline/design.md",
+      "sha256": "6ce9ff893f6985bd4bcc4c1a7f41c4a27af15ea99663385bdc9d5057b148a110"
+    },
+    {
+      "path": "openspec/changes/establish-formal-rewrite-baseline/tasks.md",
+      "sha256": "40828c3cdb6413e4c56f2d2c753964001ba8feaccb85896217dea2b7d901ec2c"
+    },
+    {
+      "path": "openspec/changes/establish-formal-rewrite-baseline/specs/contracts-rewrite-baseline/spec.md",
+      "sha256": "6b5a2f0e3b5a76f3ffc6e447e7a551adba47f2779a4da1d87c34281c581b9b00"
+    },
+    {
+      "path": "tmp-formal-development/formal-development-master-plan.md",
+      "sha256": "fdee21709410bc19d491db44fb933dadbfba960447fb1a8adea9e06876169585"
+    }
+  ]
+}
