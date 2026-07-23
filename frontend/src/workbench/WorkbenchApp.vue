@@ -11,6 +11,9 @@ import RankingWorkbench from './components/RankingWorkbench.vue'
 import CoStarWorkbench from './components/CoStarWorkbench.vue'
 import AppIcon from './components/AppIcon.vue'
 import WorkbenchFooter from './components/WorkbenchFooter.vue'
+import RankingQuerySkeleton from './components/RankingQuerySkeleton.vue'
+import CoStarQuerySkeleton from './components/CoStarQuerySkeleton.vue'
+import QueryMobilePickerSkeleton from './components/QueryMobilePickerSkeleton.vue'
 import { getWorkbenchThemeOverrides } from './naiveThemeOverrides'
 
 const snapshot = ref<WorkbenchSnapshot | null>(null)
@@ -19,6 +22,7 @@ const loading = ref(true)
 const error = ref('')
 const workbench = provideWorkbench(snapshot, positionData)
 const { controlSize } = useWorkbenchControlSize()
+const queryWorkspace = ref<{ openEditor: () => Promise<void> } | null>(null)
 
 const isDark = computed(() => workbench.theme.value === 'dark')
 const themeOverrides = computed(() => getWorkbenchThemeOverrides(isDark.value))
@@ -42,11 +46,13 @@ const load = async () => {
 		}
 	} catch (reason) {
 		console.error('Failed to load workbench data', reason)
-		error.value = '请稍后重试。'
+		error.value = '请稍后重试'
 	} finally {
 		loading.value = false
 	}
 }
+
+const openQueryEditor = () => queryWorkspace.value?.openEditor()
 
 const warnOnUnsavedQuery = (event: BeforeUnloadEvent) => {
 	if (!workbench.queryDraftDirty.value) return
@@ -59,7 +65,7 @@ watch(workbench.theme, (theme) => {
 	document.documentElement.dataset.theme = theme
 	document.documentElement.style.colorScheme = theme
 	document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-		?.setAttribute('content', theme === 'dark' ? '#101014' : '#ffffff')
+		?.setAttribute('content', theme === 'dark' ? '#0e0e10' : '#f4f4f6')
 	try {
 		window.localStorage.setItem('bgmss-workbench-theme', theme)
 	} catch {
@@ -79,25 +85,41 @@ watch(workbench.mode, (mode) => {
 	window.history.replaceState({}, '', url)
 })
 
+watch(() => workbench.query.mergeSeries, (mergeSeries) => {
+	const url = new URL(window.location.href)
+	if (mergeSeries) url.searchParams.set('result', 'series')
+	else url.searchParams.delete('result')
+	window.history.replaceState({}, '', url)
+}, { immediate: true })
+
 onMounted(() => {
 	window.addEventListener('beforeunload', warnOnUnsavedQuery)
 	load()
 })
-onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnUnsavedQuery))
+onBeforeUnmount(() => {
+	window.removeEventListener('beforeunload', warnOnUnsavedQuery)
+})
 </script>
 
 <template>
 	<n-config-provider :theme="isDark ? darkTheme : null" :theme-overrides="themeOverrides" :locale="zhCN">
 		<n-message-provider>
 			<n-dialog-provider>
-				<div class="workbench-app" :inert="backgroundInert || undefined" :aria-hidden="backgroundInert ? 'true' : undefined">
+				<div
+					class="workbench-app"
+					:inert="backgroundInert || undefined"
+					:aria-hidden="backgroundInert ? 'true' : undefined"
+				>
 					<WorkbenchHeader>
 						<template #query>
-							<QueryWorkspace v-if="!loading && !error" />
+							<QueryWorkspace v-if="!loading && !error" ref="queryWorkspace" />
 						</template>
 						<template #mobile-context>
+							<QueryMobilePickerSkeleton
+								v-if="!loading && !error && workbench.queryLoading.value && workbench.mode.value === 'co-star'"
+							/>
 							<button
-								v-if="!loading && !error && workbench.hasAppliedQuery.value && !workbench.queryEditing.value && workbench.mode.value === 'co-star'"
+								v-else-if="!loading && !error && workbench.hasAppliedQuery.value && !workbench.queryEditing.value && workbench.mode.value === 'co-star'"
 								class="mobile-picker-entry header-edit-card"
 								type="button"
 								aria-haspopup="dialog"
@@ -129,7 +151,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnUnsavedQu
 							<div v-if="loading" class="workbench-state surface-panel" role="status" aria-live="polite" aria-busy="true">
 								<span class="state-icon state-icon--loading"><AppIcon name="brand" :size="28" /></span>
 								<h1>正在加载人物数据…</h1>
-								<p>正在准备人物、作品与职位信息。</p>
+								<p>正在准备人物、作品与职位信息</p>
 								<div class="skeleton-lines" aria-hidden="true"><i /><i /><i /></div>
 							</div>
 
@@ -140,10 +162,13 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnUnsavedQu
 								<n-button :size="controlSize" type="primary" @click="load">重新加载</n-button>
 							</div>
 
+							<RankingQuerySkeleton v-else-if="workbench.queryLoading.value && workbench.mode.value === 'ranking'" />
+							<CoStarQuerySkeleton v-else-if="workbench.queryLoading.value && workbench.mode.value === 'co-star'" />
+
 							<section v-else-if="!workbench.hasAppliedQuery.value" class="workbench-state surface-panel" aria-labelledby="query-empty-title">
 								<span class="state-icon"><AppIcon name="search" :size="28" /></span>
 								<h1 id="query-empty-title">尚未开始查询</h1>
-								<p>选择数据来源、条目类型和职位后开始。结果只会在你提交查询后出现。</p>
+								<n-button :size="controlSize" type="primary" @click="openQueryEditor">设置查询条件</n-button>
 							</section>
 
 							<template v-else>

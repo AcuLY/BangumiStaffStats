@@ -9,13 +9,15 @@ import {
 } from '../domain/ratingDistribution'
 import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
 import ScoreDistributionTooltip from './ScoreDistributionTooltip.vue'
-import WorkbenchTooltip from './WorkbenchTooltip.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
 	subjects: Subject[]
 	personName: string
 	isGlobalQuery: boolean
-}>()
+	seriesMode?: boolean
+}>(), {
+	seriesMode: false,
+})
 
 const { controlSize } = useWorkbenchControlSize()
 
@@ -31,6 +33,10 @@ const timeChartWidth = ref(360)
 
 watch(() => props.isGlobalQuery, (isGlobal) => {
 	scoreSource.value = isGlobal ? 'global' : 'personal'
+}, { immediate: true })
+
+watch(() => props.seriesMode, (seriesMode) => {
+	if (seriesMode) chartMode.value = 'score'
 }, { immediate: true })
 
 watch(() => props.personName, () => {
@@ -56,7 +62,10 @@ watch(scoreSource, () => {
 	focusedTimeWork.value = null
 })
 
-const sourceLabel = computed(() => scoreSource.value === 'personal' ? '我的评分' : '全站评分')
+const sourceLabel = computed(() => scoreSource.value === 'personal'
+	? '我的评分'
+	: props.isGlobalQuery ? '评分' : '全站评分')
+const resultUnit = computed(() => props.seriesMode ? '个系列' : '部作品')
 const distribution = computed(() => buildScoreDistribution(props.subjects, scoreSource.value))
 const distributionTotal = computed(() => distribution.value.reduce((sum, item) => sum + item.value, 0))
 const maxDistribution = computed(() => Math.max(1, ...distribution.value.map((item) => item.value)))
@@ -76,7 +85,7 @@ const distributionBarHeight = (value: number) => value
 	? Math.max(4, value / distributionAxisMax.value * 100)
 	: 0
 const distributionLabel = computed(() => `${props.personName}的${sourceLabel.value}分布：${distribution.value
-	.map((item) => `${item.label} 分 ${item.value} 部`)
+	.map((item) => `${item.label} 分 ${item.value} ${resultUnit.value}`)
 	.join('，')}`)
 
 const TIME_CHART_HEIGHT = 236
@@ -116,7 +125,7 @@ const timeChart = computed(() => {
 				tooltip: string
 			}>,
 			polyline: '',
-			label: `${props.personName}没有同时具备播出时间和${sourceLabel.value}的作品。`,
+			label: `没有同时具备播出时间和${sourceLabel.value}的作品`,
 		}
 	}
 
@@ -237,18 +246,18 @@ const timeTickY = (score: number) => TIME_CHART_TOP + (10 - score) / 10 * (TIME_
 <template>
 	<div class="rating-distribution-panel">
 		<div class="section-heading rating-distribution-panel__heading">
-			<h2 id="rating-distribution-title">评分分布</h2>
-			<div class="rating-distribution-panel__controls">
-				<div class="rating-distribution-panel__control-group">
+			<h2 id="rating-distribution-title">{{ seriesMode ? '系列均分分布' : '评分分布' }}</h2>
+			<div v-if="!seriesMode || !isGlobalQuery" class="rating-distribution-panel__controls">
+				<div v-if="!seriesMode" class="rating-distribution-panel__control-group">
 					<n-radio-group v-model:value="chartMode" :size="controlSize" role="radiogroup" aria-label="评分图表维度">
-						<n-radio-button value="score">按分数</n-radio-button>
+						<n-radio-button value="score">按评分</n-radio-button>
 						<n-radio-button value="time">按时间</n-radio-button>
 					</n-radio-group>
 				</div>
-				<div class="rating-distribution-panel__control-group">
+				<div v-if="!isGlobalQuery" class="rating-distribution-panel__control-group">
 					<n-radio-group v-model:value="scoreSource" :size="controlSize" role="radiogroup" aria-label="评分数据来源">
-						<n-radio-button value="personal" :disabled="isGlobalQuery">我的分数</n-radio-button>
-						<n-radio-button value="global">全站分数</n-radio-button>
+						<n-radio-button value="personal">我的评分</n-radio-button>
+						<n-radio-button value="global">全站评分</n-radio-button>
 					</n-radio-group>
 				</div>
 			</div>
@@ -275,30 +284,35 @@ const timeTickY = (score: number) => TIME_CHART_TOP + (10 - score) / 10 * (TIME_
 				:class="{ 'score-bar--peak': item.value === maxDistribution && item.value > 0, 'score-bar--empty': !item.value }"
 				:style="{ '--score-bar-height': `${distributionBarHeight(item.value)}%` }"
 				:tabindex="item.value ? 0 : undefined"
-				:aria-label="item.value ? `${item.label} 分，共 ${item.value} 部作品` : `${item.label} 分，没有作品`"
+				:aria-label="item.value ? `${item.label} 分，共 ${item.value} ${resultUnit}` : `${item.label} 分，没有${seriesMode ? '系列' : '作品'}`"
 				@mouseenter="hoveredDistributionLabel = item.value ? item.label : null"
 				@mouseleave="hoveredDistributionLabel = null"
 				@focus="hoveredDistributionLabel = item.value ? item.label : null"
 				@blur="hoveredDistributionLabel = null"
 			>
 				<span class="score-bar__track">
-					<WorkbenchTooltip
+					<n-tooltip
 						v-if="item.value"
 						:show="hoveredDistributionLabel === item.label"
 						trigger="manual"
 						placement="top"
+						:animated="false"
+						style="max-width: min(336px, calc(100dvw - 72px));"
+						content-class="workbench-tooltip-content"
 					>
 						<template #trigger><span class="score-bar__value">{{ item.value }}</span></template>
-						<ScoreDistributionTooltip :score-label="item.label" :works="item.works" />
-					</WorkbenchTooltip>
+						<ScoreDistributionTooltip :score-label="item.label" :works="item.works" :unit-label="resultUnit" />
+					</n-tooltip>
 					<i />
 				</span>
 				<small>{{ item.label }}</small>
 			</div>
 		</div>
-		<p v-else-if="chartMode === 'score'" class="rating-distribution-panel__empty">没有可用于统计的{{ sourceLabel }}。</p>
+		<p v-else-if="chartMode === 'score'" class="rating-distribution-panel__empty">没有可用于统计的{{ sourceLabel }}</p>
 
-		<div v-else ref="timeChartHost" class="rating-time-chart__viewport">
+		<template v-else>
+			<p class="rating-time-chart__meaning">圆点表示单部作品评分 · 折线表示季度均分</p>
+			<div ref="timeChartHost" class="rating-time-chart__viewport">
 			<svg
 				v-if="timeChart.works.length"
 				class="rating-time-chart"
@@ -359,6 +373,7 @@ const timeTickY = (score: number) => TIME_CHART_TOP + (10 - score) / 10 * (TIME_
 				<small>{{ formatRatingDate(hoveredTimePoint.date) }} · 季度均分 {{ hoveredTimePoint.quarterAverage.toFixed(2) }}</small>
 			</div>
 			<p v-if="!timeChart.works.length" class="rating-distribution-panel__empty">{{ timeChart.label }}</p>
-		</div>
+			</div>
+		</template>
 	</div>
 </template>

@@ -22,7 +22,7 @@ const link = computed((): string => `https://bgm.tv/person/${props.person.id}`)
 
 <style scoped>
 .person-name {
-	color: (--color-primary);
+	color: var(--color-primary);
 	display: inline-block;
 	text-decoration: none;
 	line-height: 1.4;

@@ -56,113 +56,122 @@
 	font-size: var(--text-caption);
 }
 
-.grouped-distribution {
-	--grouped-label-row: 18px;
-	--grouped-bin-gap: var(--space-1);
-	--grouped-plot-bottom: calc(var(--grouped-label-row) + var(--grouped-bin-gap));
-	position: relative;
+.horizontal-distribution {
+	--comparison-bar-row-height: 14px;
+	--comparison-bar-row-gap: 3px;
+	--comparison-score-column: 2ch;
+	--comparison-value-column: 26px;
 	display: grid;
-	grid-template-columns: repeat(10, minmax(0, 1fr));
-	align-items: end;
-	gap: var(--space-1);
+	grid-template-columns: var(--comparison-score-column) minmax(0, 1fr);
+	gap: var(--space-2) var(--space-1);
 	width: 100%;
 	max-width: 100%;
 	min-width: 0;
-	height: 218px;
-	padding: 18px 4px 0 28px;
+}
+
+.horizontal-distribution__axis {
+	position: relative;
+	grid-column: 2;
+	height: 18px;
+	margin-right: calc(var(--comparison-value-column) + var(--space-1));
+	color: var(--text-3);
+	font-size: var(--text-caption);
+	font-variant-numeric: tabular-nums;
+}
+
+.horizontal-distribution__axis span {
+	position: absolute;
+	top: 0;
+	line-height: 1;
+	transform: translateX(-50%);
+}
+
+.horizontal-score-group {
+	display: grid;
+	grid-column: 1 / -1;
+	grid-template-columns: var(--comparison-score-column) minmax(0, 1fr);
+	align-items: center;
+	gap: var(--space-1);
+	min-width: 0;
+}
+
+.horizontal-score-group > small {
+	align-self: center;
+	justify-self: stretch;
+	color: var(--text-3);
+	font-size: var(--text-caption);
+	font-variant-numeric: tabular-nums;
+	text-align: left;
+}
+
+.horizontal-score-group__plot {
+	position: relative;
+	display: grid;
+	grid-auto-rows: var(--comparison-bar-row-height);
+	align-content: center;
+	gap: var(--comparison-bar-row-gap);
+	min-width: 0;
+	min-height: max(0px, calc(
+		var(--series-count) * var(--comparison-bar-row-height)
+		+ (var(--series-count) - 1) * var(--comparison-bar-row-gap)
+	));
 	isolation: isolate;
 }
 
-.grouped-distribution::before {
+.horizontal-score-group__plot::before {
 	position: absolute;
-	inset: 18px 4px var(--grouped-plot-bottom) 28px;
+	inset: 0 calc(var(--comparison-value-column) + var(--space-1)) 0 0;
 	z-index: -1;
-	background-image: linear-gradient(to bottom, var(--divider) 1px, transparent 1px);
-	background-size: 100% calc(100% / var(--distribution-steps));
+	background-image: linear-gradient(to right, var(--divider) 1px, transparent 1px);
+	background-size: calc(100% / var(--distribution-steps)) 100%;
 	content: '';
 	pointer-events: none;
 }
 
-.grouped-distribution .score-distribution__axis {
-	inset: 18px auto var(--grouped-plot-bottom) 0;
-}
-
-.grouped-bin {
-	display: grid;
-	grid-template-rows: minmax(0, 1fr) var(--grouped-label-row);
-	gap: var(--grouped-bin-gap);
-	min-width: 0;
-	height: 100%;
-	text-align: center;
-}
-
-.grouped-bin__bars {
-	display: grid;
-	grid-template-columns: repeat(var(--series-count), minmax(0, 18px));
-	align-items: flex-end;
-	justify-content: center;
-	column-gap: 0;
-	min-width: 0;
-	border-bottom: 1px solid var(--border);
-	background: transparent;
-}
-
-.grouped-bin__slot {
-	position: relative;
-	container-type: inline-size;
-	align-self: end;
-	width: 100%;
-	min-width: 0;
-	height: var(--bar-height);
-	min-height: 0;
-}
-
-.grouped-bin__bar {
-	position: relative;
+.horizontal-score-bar {
 	display: block;
-	width: 100%;
-	height: 100%;
-	min-height: 0;
+	min-width: 0;
+	height: var(--comparison-bar-row-height);
 }
 
-.grouped-bin__bar::before {
-	position: absolute;
-	inset: 0;
-	border-radius: 4px 4px 1px 1px;
-	background: var(--series-color);
-	content: '';
-	pointer-events: none;
-	transform-origin: bottom;
+.horizontal-score-bar:focus-visible {
+	outline: none;
 }
 
-.grouped-bin__bar:focus-visible {
-	z-index: 1;
+.horizontal-score-bar:focus-visible .horizontal-score-bar__track {
 	outline: 2px solid var(--focus);
 	outline-offset: 2px;
 }
 
-.grouped-bin__bar span {
+.horizontal-score-bar__track {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	height: 100%;
+	padding-right: calc(var(--comparison-value-column) + var(--space-1));
+}
+
+.horizontal-score-bar__fill {
+	position: relative;
+	display: block;
+	width: var(--bar-width);
+	height: 100%;
+	border-radius: 1px 4px 4px 1px;
+	background: var(--series-color);
+	transform-origin: left;
+}
+
+.horizontal-score-bar__value {
 	position: absolute;
-	bottom: calc(100% + 3px);
-	left: 50%;
-	display: none;
-	transform: translateX(-50%);
+	top: 50%;
+	left: calc(100% + var(--space-1));
+	transform: translateY(-50%);
 	color: var(--text-3);
 	font-size: var(--text-caption);
-	font-style: normal;
 	font-variant-numeric: tabular-nums;
+	line-height: 1;
 	white-space: nowrap;
-}
-
-@container (min-width: 18px) {
-	.grouped-bin__bar span {
-		display: block;
-	}
-}
-
-.grouped-bin > small {
-	color: var(--text-3);
-	font-size: var(--text-caption);
 }
 
 .comparison-time-chart__line {
@@ -215,14 +224,14 @@
 	stroke-width: 3;
 }
 
-@keyframes grouped-bar-grow {
+@keyframes comparison-score-bar-grow {
 	from {
 		opacity: 0.45;
-		transform: scaleY(0);
+		transform: scaleX(0);
 	}
 	to {
 		opacity: 1;
-		transform: scaleY(1);
+		transform: scaleX(1);
 	}
 }
 
@@ -254,18 +263,14 @@
 		transition: transform 160ms cubic-bezier(0.25, 1, 0.5, 1);
 	}
 
-	.grouped-bin__bar::before {
-		animation: grouped-bar-grow 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+	.horizontal-score-bar__fill {
+		animation: comparison-score-bar-grow 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 		animation-delay: var(--bar-delay);
 	}
 
-	.grouped-bin__bar span {
+	.horizontal-score-bar__value {
 		animation: grouped-bar-value-enter 140ms cubic-bezier(0.25, 1, 0.5, 1) both;
 		animation-delay: calc(var(--bar-delay) + 90ms);
-	}
-
-	.grouped-bar-move {
-		transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 	}
 
 	.comparison-time-chart__series {
@@ -285,13 +290,14 @@
 }
 
 @media (max-width: 520px) {
-	.grouped-distribution {
-		gap: 2px;
-		height: 208px;
+	.horizontal-distribution {
+		--comparison-bar-row-height: 12px;
+		--comparison-bar-row-gap: 2px;
+		--comparison-value-column: 22px;
+		gap: 6px var(--space-1);
 	}
 
-	.grouped-bin__bar span {
-		bottom: calc(100% + 2px);
+	.horizontal-score-bar__value {
 		font-size: var(--text-micro);
 	}
 }

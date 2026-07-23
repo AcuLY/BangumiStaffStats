@@ -1,0 +1,8 @@
+/* Full-site mode removes personal-only cells instead of reserving empty columns. */
+.profile-metrics--extended.profile-metrics--global {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.profile-metrics--extended.profile-metrics--global > span {
+	grid-column: span 1;
+}

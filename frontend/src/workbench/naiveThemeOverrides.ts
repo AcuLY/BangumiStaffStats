@@ -1,7 +1,25 @@
 import type { GlobalThemeOverrides } from 'naive-ui'
 
+export const WORKBENCH_PRIMARY_PALETTES = {
+	light: {
+		base: '#C82A70',
+		hover: '#D23978',
+		pressed: '#AD215F',
+		suppl: '#C82A70',
+		onPrimary: '#FFFFFF',
+	},
+	dark: {
+		base: '#F16A9C',
+		hover: '#FC85AF',
+		pressed: '#DA578A',
+		suppl: '#F16A9C',
+		onPrimary: '#17171B',
+	},
+} as const
+
+const LIGHT_PRIMARY_PALETTE = WORKBENCH_PRIMARY_PALETTES.light
+
 const FONT_STACK = '"Source Han Sans SC VF", "Source Han Sans SC", "Noto Sans CJK SC", "PingFang SC", sans-serif'
-const ARCHIVE_PALETTE = { base: '#c60475', hover: '#d42281', pressed: '#b40069' }
 const THEME_FONT_SIZE = {
 	control: '0.875rem',
 	subheading: '1rem',
@@ -22,6 +40,29 @@ const componentScrollbarThemeOverrides = {
 	width: 'var(--scrollbar-component-size)',
 }
 
+const selectTriggerThemeOverrides = { borderRadius: '6px' }
+
+const tagThemeOverrides = {
+	borderRadius: 'var(--workbench-tag-radius)',
+	borderPrimary: '1px solid var(--workbench-tag-border)',
+	textColorPrimary: 'var(--workbench-tag-text)',
+	colorPrimary: 'var(--workbench-tag-background)',
+	colorBorderedPrimary: 'var(--workbench-tag-background)',
+	closeIconColorPrimary: 'var(--workbench-tag-text)',
+	closeIconColorHoverPrimary: 'var(--primary-hover)',
+	closeIconColorPressedPrimary: 'var(--primary-pressed)',
+	closeColorHoverPrimary: 'color-mix(in oklab, var(--primary) 14%, transparent)',
+	closeColorPressedPrimary: 'color-mix(in oklab, var(--primary) 22%, transparent)',
+}
+
+const getPrimaryButtonTextThemeOverrides = (color: string) => ({
+	textColorPrimary: color,
+	textColorHoverPrimary: color,
+	textColorPressedPrimary: color,
+	textColorFocusPrimary: color,
+	textColorDisabledPrimary: color,
+})
+
 export const shellScrollbarThemeOverrides = {
 	...scrollbarThemeBase,
 	height: 'var(--scrollbar-shell-size)',
@@ -32,44 +73,78 @@ export const workbenchThemeOverrides: GlobalThemeOverrides = {
 	common: {
 		fontFamily: FONT_STACK,
 		fontFamilyMono: FONT_STACK,
-		primaryColor: ARCHIVE_PALETTE.base,
-		primaryColorHover: ARCHIVE_PALETTE.hover,
-		primaryColorPressed: ARCHIVE_PALETTE.pressed,
+		primaryColor: LIGHT_PRIMARY_PALETTE.base,
+		primaryColorHover: LIGHT_PRIMARY_PALETTE.hover,
+		primaryColorPressed: LIGHT_PRIMARY_PALETTE.pressed,
+		primaryColorSuppl: LIGHT_PRIMARY_PALETTE.suppl,
 		borderRadius: '6px',
 		borderRadiusSmall: '6px',
 	},
 	Button: {
 		borderRadiusMedium: '6px',
-		textColorPrimary: '#fff',
-		textColorHoverPrimary: '#fff',
-		textColorPressedPrimary: '#fff',
-		textColorFocusPrimary: '#fff',
-		textColorDisabledPrimary: '#fff',
+		...getPrimaryButtonTextThemeOverrides(LIGHT_PRIMARY_PALETTE.onPrimary),
 	},
 	Radio: {
-		buttonColorActive: ARCHIVE_PALETTE.base,
-		buttonBorderColorActive: ARCHIVE_PALETTE.base,
-		buttonTextColorActive: '#fff',
+		buttonColorActive: LIGHT_PRIMARY_PALETTE.base,
+		buttonBorderColorActive: LIGHT_PRIMARY_PALETTE.base,
+		buttonTextColorActive: LIGHT_PRIMARY_PALETTE.onPrimary,
 	},
 	Input: { borderRadius: '6px' },
-	Select: { peers: { InternalSelection: { borderRadius: '6px' } } },
+	Select: { peers: { InternalSelection: selectTriggerThemeOverrides } },
+	Tag: tagThemeOverrides,
 	Pagination: { itemBorderRadius: '6px' },
 	Drawer: { color: 'transparent' },
 	Scrollbar: componentScrollbarThemeOverrides,
+	Skeleton: {
+		color: 'var(--surface-sunken)',
+		colorEnd: 'color-mix(in oklab, var(--surface-sunken) 58%, var(--divider))',
+		borderRadius: 'min(var(--query-skeleton-radius-cap, 6px), var(--query-skeleton-radius-ratio, 20%))',
+	},
 	Tabs: {
-		tabColorSegment: ARCHIVE_PALETTE.base,
+		tabColorSegment: LIGHT_PRIMARY_PALETTE.base,
 		tabFontSizeSmall: THEME_FONT_SIZE.control,
-		tabTextColorActiveSegment: '#fff',
+		tabTextColorActiveSegment: LIGHT_PRIMARY_PALETTE.onPrimary,
 	},
 }
 
-export const getWorkbenchThemeOverrides = (isDark: boolean): GlobalThemeOverrides => ({
-	...workbenchThemeOverrides,
-	Tabs: {
-		...workbenchThemeOverrides.Tabs,
-		...(isDark ? {} : { colorSegment: '#efeff3' }),
-	},
-})
+export const getWorkbenchThemeOverrides = (isDark: boolean): GlobalThemeOverrides => {
+	const palette = isDark
+		? WORKBENCH_PRIMARY_PALETTES.dark
+		: WORKBENCH_PRIMARY_PALETTES.light
+
+	return {
+		...workbenchThemeOverrides,
+		common: {
+			...workbenchThemeOverrides.common,
+			primaryColor: palette.base,
+			primaryColorHover: palette.hover,
+			primaryColorPressed: palette.pressed,
+			primaryColorSuppl: palette.suppl,
+		},
+		Button: {
+			...workbenchThemeOverrides.Button,
+			...getPrimaryButtonTextThemeOverrides(palette.onPrimary),
+		},
+		Radio: {
+			...workbenchThemeOverrides.Radio,
+			buttonColorActive: palette.base,
+			buttonBorderColorActive: palette.base,
+			buttonTextColorActive: palette.onPrimary,
+		},
+		Skeleton: {
+			...workbenchThemeOverrides.Skeleton,
+			...(isDark ? {
+				color: 'color-mix(in oklab, var(--text-3) 16%, var(--surface))',
+				colorEnd: 'color-mix(in oklab, var(--text-3) 28%, var(--surface))',
+			} : {}),
+		},
+		Tabs: {
+			...workbenchThemeOverrides.Tabs,
+			tabColorSegment: palette.base,
+			tabTextColorActiveSegment: palette.onPrimary,
+		},
+	}
+}
 
 const desktopThemeToggleThemeOverrides = { heightMedium: '38px' } // naive-size-token-exception: desktop header controls follow the annotated 38px compact-control specification.
 

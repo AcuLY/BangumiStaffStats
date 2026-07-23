@@ -14,6 +14,7 @@ interface SubjectWorkBrowserOptions<T extends string> {
 	subjects: MaybeRefOrGetter<Subject[]>
 	search?: Ref<string>
 	searchTerms: (subject: Subject) => unknown[]
+	includeSubject?: (subject: Subject, sort: T) => boolean
 	initialSort: T
 	comparators: Record<T, SubjectWorkComparator>
 	fallbackComparator?: SubjectWorkComparator
@@ -21,7 +22,7 @@ interface SubjectWorkBrowserOptions<T extends string> {
 	initialPageSize?: number
 }
 
-export const SUBJECT_WORK_PAGE_SIZES = [5, 10, 20, 50]
+export const SUBJECT_WORK_PAGE_SIZES = [5, 10, 20]
 	.map((value) => ({ label: `每页 ${value} 部`, value }))
 
 export const compactSubjectSearch = (value: unknown) => String(value ?? '')
@@ -60,11 +61,14 @@ export function useSubjectWorkBrowser<T extends string>(options: SubjectWorkBrow
 	const order = ref<SubjectWorkSortOrder>(options.initialOrder ?? 'desc')
 	const page = ref(1)
 	const pageSize = ref(options.initialPageSize ?? 10)
+	const eligibleSubjects = computed(() => options.includeSubject
+		? sourceSubjects.value.filter((subject) => options.includeSubject!(subject, sort.value))
+		: sourceSubjects.value)
 
 	const filteredSubjects = computed(() => {
 		const query = compactSubjectSearch(search.value)
-		if (!query) return sourceSubjects.value
-		return sourceSubjects.value.filter((subject) => options.searchTerms(subject)
+		if (!query) return eligibleSubjects.value
+		return eligibleSubjects.value.filter((subject) => options.searchTerms(subject)
 			.some((value) => compactSubjectSearch(value).includes(query)))
 	})
 

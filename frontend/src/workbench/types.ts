@@ -13,6 +13,27 @@ export interface ImageSet {
 	common?: string
 }
 
+export interface SeriesMember {
+	id: number
+	seriesId: number | string
+	sequelOrder: number
+	name?: string
+	nameCN?: string
+	displayName?: string
+	image?: ImageSet
+}
+
+export interface SubjectSeriesView {
+	id: number | string
+	key: string
+	representativeSubjectId: number
+	includedSubjectIds: number[]
+	members: SeriesMember[]
+	membersComplete: boolean
+	sharedSubjectIds?: number[]
+	participantSubjectIds?: Record<string, number[]>
+}
+
 export interface PersonPosition {
 	subjectIds: number[]
 	rolesBySubject?: Record<string, PersonRole[]>
@@ -43,6 +64,7 @@ export interface Person {
 	subjectIds?: number[]
 	subjectCount?: number
 	ratedSubjectCount?: number
+	globalRatedSubjectCount?: number
 	userAverage?: number
 	globalAverage?: number
 	preference?: PreferenceSummary
@@ -70,6 +92,7 @@ export interface Subject {
 	rank?: number
 	favoriteCount?: number
 	seriesId?: number | string
+	series?: SubjectSeriesView
 	image?: ImageSet
 	collection?: SubjectCollection
 	metaTags?: Array<string | { name?: string }>
@@ -118,6 +141,7 @@ export interface WorkbenchSnapshot {
 	meta: SnapshotMeta
 	people: Person[]
 	subjects: Subject[]
+	seriesMembers?: SeriesMember[]
 	characters?: unknown[]
 	casts?: unknown[]
 }

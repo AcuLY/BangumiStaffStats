@@ -7,26 +7,26 @@ const props = defineProps<{
 	personalHighest: number | null
 	personalLowest: number | null
 	showPersonal: boolean
-	placement: 'pair' | 'below'
+	seriesMode?: boolean
 }>()
 
 const formatAverage = (value: number | null) => Number.isFinite(value) ? Number(value).toFixed(2) : '—'
-const formatPersonalScore = (value: number | null) => Number.isFinite(value) ? String(Number(value)) : '—'
+const formatPersonalScore = (value: number | null) => Number.isFinite(value)
+	? props.seriesMode ? Number(value).toFixed(2) : String(Number(value))
+	: '—'
 </script>
 
 <template>
-	<aside
-		class="analysis-profile-summary shared-rating-summary"
-		:class="`shared-rating-summary--${props.placement}`"
-		:aria-label="props.placement === 'pair' ? '双人组合概览' : '多人组合概览'"
+	<dl
+		class="analysis-profile-summary shared-rating-summary shared-rating-summary--below metric-grid"
+		:data-metric-count="props.showPersonal ? 6 : 2"
+		aria-label="多人组合概览"
 	>
-		<dl>
-			<div><dt>共同作品</dt><dd>{{ props.sharedCount }}</dd></div>
-			<div v-if="props.showPersonal"><dt>已评作品</dt><dd>{{ props.ratedCount }}</dd></div>
-			<div><dt>全站均分</dt><dd>{{ formatAverage(props.globalAverage) }}</dd></div>
-			<div v-if="props.showPersonal" class="analysis-profile-summary__metric--primary"><dt>我的均分</dt><dd>{{ formatAverage(props.personalAverage) }}</dd></div>
-			<div v-if="props.showPersonal"><dt>我的最高</dt><dd>{{ formatPersonalScore(props.personalHighest) }}</dd></div>
-			<div v-if="props.showPersonal"><dt>我的最低</dt><dd>{{ formatPersonalScore(props.personalLowest) }}</dd></div>
-		</dl>
-	</aside>
+		<div class="metric-unit"><dd class="metric-unit__value">{{ props.sharedCount }}</dd><dt class="metric-unit__label">{{ props.seriesMode ? '共同系列' : '共同作品' }}</dt></div>
+		<div v-if="props.showPersonal" class="metric-unit"><dd class="metric-unit__value">{{ props.ratedCount }}</dd><dt class="metric-unit__label">{{ props.seriesMode ? '已评系列' : '已评作品' }}</dt></div>
+		<div class="metric-unit"><dd class="metric-unit__value">{{ formatAverage(props.globalAverage) }}</dd><dt class="metric-unit__label">{{ props.showPersonal ? '全站均分' : '均分' }}</dt></div>
+		<div v-if="props.showPersonal" class="analysis-profile-summary__metric--primary metric-unit"><dd class="metric-unit__value">{{ formatAverage(props.personalAverage) }}</dd><dt class="metric-unit__label">我的均分</dt></div>
+		<div v-if="props.showPersonal" class="metric-unit"><dd class="metric-unit__value">{{ formatPersonalScore(props.personalHighest) }}</dd><dt class="metric-unit__label">{{ props.seriesMode ? '最高均分' : '最高评分' }}</dt></div>
+		<div v-if="props.showPersonal" class="metric-unit"><dd class="metric-unit__value">{{ formatPersonalScore(props.personalLowest) }}</dd><dt class="metric-unit__label">{{ props.seriesMode ? '最低均分' : '最低评分' }}</dt></div>
+	</dl>
 </template>

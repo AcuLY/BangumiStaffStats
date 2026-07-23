@@ -6,14 +6,14 @@ import SafeImage from './SafeImage.vue'
 
 type PreferenceWorkItem = PreferenceContribution & { subject: Subject }
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
 	preferred: PreferenceWorkItem[]
 	conservative: PreferenceWorkItem[]
-	workNoun?: string
 	locationScope?: string
+	seriesMode?: boolean
 }>(), {
-	workNoun: '作品',
 	locationScope: '参与作品',
+	seriesMode: false,
 })
 
 const emit = defineEmits<{
@@ -22,7 +22,9 @@ const emit = defineEmits<{
 
 const workbench = useWorkbench()
 const formatScore = (value: number | null | undefined) => Number.isFinite(value) ? Number(value).toFixed(2) : '—'
-const formatPersonalScore = (value: number | null | undefined) => Number(value) > 0 ? String(Number(value)) : '—'
+const formatPersonalScore = (value: number | null | undefined) => Number(value) > 0
+	? props.seriesMode ? Number(value).toFixed(2) : String(Number(value))
+	: '—'
 const formatSigned = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value)
 	? '—'
 	: `${value > 0 ? '+' : ''}${Number(value).toFixed(2)}`
@@ -39,12 +41,12 @@ const formatSigned = (value: number | null | undefined) => value === null || val
 							<SafeImage :sources="workbench.subjectImageSources(item.subject)" :alt="`${workbench.subjectName(item.subject)}封面`" kind="subject" :width="32" decorative />
 							<span class="preference-work__copy">
 								<strong>{{ workbench.subjectName(item.subject) }}</strong>
-								<small>我的评分 {{ formatPersonalScore(item.userScore) }} · 全站评分 {{ formatScore(item.globalScore) }}</small>
+								<small>{{ seriesMode ? '我的均分' : '我的评分' }} {{ formatPersonalScore(item.userScore) }} · {{ seriesMode ? '全站均分' : '全站评分' }} {{ formatScore(item.globalScore) }}</small>
 							</span>
 							<b>{{ formatSigned(item.difference) }}</b>
 						</button>
 					</li>
-					<li v-if="!preferred.length" class="muted-row">没有高于全站评分的{{ workNoun }}</li>
+					<li v-if="!preferred.length" class="muted-row">没有高于全站{{ seriesMode ? '均分的系列' : '评分的作品' }}</li>
 				</ul>
 			</div>
 			<div>
@@ -55,12 +57,12 @@ const formatSigned = (value: number | null | undefined) => value === null || val
 							<SafeImage :sources="workbench.subjectImageSources(item.subject)" :alt="`${workbench.subjectName(item.subject)}封面`" kind="subject" :width="32" decorative />
 							<span class="preference-work__copy">
 								<strong>{{ workbench.subjectName(item.subject) }}</strong>
-								<small>我的评分 {{ formatPersonalScore(item.userScore) }} · 全站评分 {{ formatScore(item.globalScore) }}</small>
+								<small>{{ seriesMode ? '我的均分' : '我的评分' }} {{ formatPersonalScore(item.userScore) }} · {{ seriesMode ? '全站均分' : '全站评分' }} {{ formatScore(item.globalScore) }}</small>
 							</span>
 							<b>{{ formatSigned(item.difference) }}</b>
 						</button>
 					</li>
-					<li v-if="!conservative.length" class="muted-row">没有低于全站评分的{{ workNoun }}</li>
+					<li v-if="!conservative.length" class="muted-row">没有低于全站{{ seriesMode ? '均分的系列' : '评分的作品' }}</li>
 				</ul>
 			</div>
 		</div>

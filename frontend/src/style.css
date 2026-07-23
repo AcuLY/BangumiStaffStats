@@ -1,6 +1,8 @@
 :root {
-	--color-primary: #f9389e;
-	--color-border: #f9389fb6;
+	--color-primary: #FF2075;
+	--color-primary-hover: #FF69B4;
+	--color-primary-pressed: #C71585;
+	--color-border: color-mix(in srgb, var(--color-primary) 72%, transparent);
 }
 
 ::-webkit-scrollbar {

@@ -30,13 +30,15 @@ const props = withDefaults(defineProps<{
 	paginationAriaLabel: string
 	showPagination?: boolean
 	compactAriaLabel?: string
+	detailedDescription?: string
 	compactDescription?: string
 }>(), {
 	searchName: 'workSearch',
 	headingMeta: '',
 	showPagination: true,
 	compactAriaLabel: '作品缩略模式',
-	compactDescription: '仅显示序号、双语名和我的分数',
+	detailedDescription: '显示完整作品信息',
+	compactDescription: '',
 })
 
 const emit = defineEmits<{
@@ -59,6 +61,8 @@ const headingLabel = computed(() => props.headingMeta
 	: props.title)
 const densityMode = ref<'detailed' | 'compact'>('detailed')
 const compactMode = computed(() => densityMode.value === 'compact')
+const effectiveCompactDescription = computed(() => props.compactDescription
+	|| '仅显示序号、双语名和评分')
 const subjectStartIndex = computed(() => Math.max(0, (props.page - 1) * props.pageSize))
 const { controlSize } = useWorkbenchControlSize()
 </script>
@@ -79,10 +83,10 @@ const { controlSize } = useWorkbenchControlSize()
 					role="radiogroup"
 					:aria-label="compactAriaLabel"
 				>
-					<n-radio-button value="detailed" title="显示完整作品信息">
+					<n-radio-button value="detailed" :title="detailedDescription">
 						<span class="subject-work-browser__density-label">详细</span>
 					</n-radio-button>
-					<n-radio-button value="compact" :title="compactDescription">
+					<n-radio-button value="compact" :title="effectiveCompactDescription">
 						<span class="subject-work-browser__density-label">缩略</span>
 					</n-radio-button>
 				</n-radio-group>

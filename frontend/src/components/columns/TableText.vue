@@ -13,7 +13,7 @@ const props = defineProps<{
 		class="text"
 		:style="[
 			{
-				color: props.pink ? '#FF1493' : 'inherit',
+				color: props.pink ? 'var(--color-primary)' : 'inherit',
 				fontWeight: props.bold ? 'bold' : 'normal',
 				...props.style,
 			},

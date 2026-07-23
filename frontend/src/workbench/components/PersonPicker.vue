@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import type { CandidateSortMetric } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
 import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
+import { SEARCH_EMPTY_COPY } from '../searchEmptyCopy'
 import SafeImage from './SafeImage.vue'
 import AppIcon from './AppIcon.vue'
 import AdaptivePagination from './AdaptivePagination.vue'
@@ -15,7 +16,7 @@ const selectedTrayExpandedNames = ref<Array<string | number>>(props.drawer ? [] 
 const { controlSize, isMobile } = useWorkbenchControlSize()
 
 const selectedScopeCount = computed(() => workbench.selectedScopes.value.length)
-const candidatePageSizeOptions = [5, 10, 20, 50].map((value) => ({ label: `每页 ${value} 人`, value }))
+const candidatePageSizeOptions = [5, 10, 20].map((value) => ({ label: `每页 ${value} 人`, value }))
 const updateCandidatePageSize = (value: number) => {
 	workbench.candidatePageSize.value = value
 	workbench.candidatePage.value = 1
@@ -35,10 +36,9 @@ const candidatePositionSelectOptions = computed(() => workbench.candidatePositio
 	value: option.value,
 })))
 const candidateSortOptions = computed<Array<{ label: string; value: CandidateSortMetric }>>(() => [
-	{ label: '作品数', value: 'count' },
+	{ label: workbench.query.mergeSeries ? '系列数' : '作品数', value: 'count' },
 	...(workbench.query.isGlobal ? [] : [{ label: '我的均分', value: 'average' as const }]),
-	{ label: '全站均分', value: 'globalAverage' },
-	{ label: '人物名', value: 'name' },
+	{ label: workbench.query.isGlobal ? '均分' : '全站均分', value: 'globalAverage' },
 ])
 
 const currentPositionRanking = computed(() => [...workbench.peopleById.value.values()]
@@ -46,21 +46,21 @@ const currentPositionRanking = computed(() => [...workbench.peopleById.value.val
 		const subjectIds = workbench.positionSubjectIds(person, workbench.candidatePositionId.value)
 			.filter((id) => workbench.queryScopeSubjectIds.value.has(Number(id)))
 		if (!subjectIds.length) return null
-		const rates = subjectIds
-			.map((id) => Number(workbench.subjectsById.value.get(Number(id))?.collection?.rate || 0))
+		const resultSubjects = workbench.resultSubjectsForIds(subjectIds)
+		const rates = resultSubjects
+			.map((subject) => Number(subject.collection?.rate || 0))
 			.filter((rate) => rate > 0)
-		const globalScores = subjectIds
-			.map((id) => Number(workbench.subjectsById.value.get(Number(id))?.score || 0))
+		const globalScores = resultSubjects
+			.map((subject) => Number(subject.score || 0))
 			.filter((score) => score > 0)
 		return {
 			personId: person.id,
-			name: workbench.personName(person),
-			count: subjectIds.length,
+			count: resultSubjects.length,
 			average: rates.length ? rates.reduce((sum, rate) => sum + rate, 0) / rates.length : 0,
 			globalAverage: globalScores.length ? globalScores.reduce((sum, score) => sum + score, 0) / globalScores.length : 0,
 		}
 	})
-	.filter((item): item is { personId: number; name: string; count: number; average: number; globalAverage: number } => Boolean(item))
+	.filter((item): item is { personId: number; count: number; average: number; globalAverage: number } => Boolean(item))
 	.sort((a, b) => {
 		let comparison = 0
 		switch (workbench.candidateSortMetric.value) {
@@ -70,33 +70,18 @@ const currentPositionRanking = computed(() => [...workbench.peopleById.value.val
 			case 'globalAverage':
 				comparison = a.globalAverage - b.globalAverage
 				break
-			case 'name':
-				comparison = a.name.localeCompare(b.name, 'zh-CN')
-				break
 			default:
 				comparison = a.count - b.count
 		}
 		if (comparison) return workbench.candidateAscend.value ? comparison : -comparison
-		return b.count - a.count || b.average - a.average || a.personId - b.personId
+		return b.count - a.count
+			|| (workbench.query.isGlobal ? b.globalAverage - a.globalAverage : b.average - a.average)
+			|| a.personId - b.personId
 	}))
 
 const candidateRankById = computed(() => new Map(
 	currentPositionRanking.value.map((item, index) => [item.personId, index + 1]),
 ))
-const availablePositionOptions = (item: typeof workbench.selectedPeople.value[number]) =>
-	workbench.positions.value.filter((position) =>
-		workbench.coStarPositionIds.value.includes(position.value)
-		&&
-		!item.positionIds.includes(position.value)
-		&& workbench.positionSubjectIds(item.person, position.value)
-			.some((id) => workbench.queryScopeSubjectIds.value.has(Number(id))))
-
-const addIdentity = (personId: number, positionId: number | null) => {
-	if (positionId !== null && !workbench.isScopeSelected(personId, positionId)) {
-		workbench.toggleScope(personId, positionId)
-	}
-}
-
 const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScopes.value
 	.filter((scope) => scope.personId === personId && scope.positionId !== workbench.candidatePositionId.value)
 	.map((scope) => workbench.positionLabel(scope.positionId))
@@ -137,60 +122,46 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 							<span><strong>{{ selectedScopeCount }}</strong> 身份</span>
 						</span>
 					</template>
-					<div id="selected-people-list" class="selected-people-list">
-						<article
-							v-for="item in workbench.selectedPeople.value"
+					<ol id="selected-people-list" class="selected-people-list">
+						<li
+							v-for="(item, index) in workbench.selectedPeople.value"
 							:key="item.person.id"
 							class="selected-person-row"
-							:aria-label="`${workbench.personName(item.person)}，${item.positionIds.map((positionId) => workbench.positionLabel(positionId)).join('、')}`"
+							:aria-label="`第${index + 1}位，${workbench.personName(item.person)}，${item.positionIds.map((positionId) => workbench.positionLabel(positionId)).join('、')}`"
 						>
+							<span class="selected-person-row__ordinal" aria-hidden="true">{{ index + 1 }}</span>
 							<strong class="selected-person-row__name" :title="workbench.personName(item.person)">
 								<span class="selected-person-row__name-label">{{ workbench.personName(item.person) }}</span>
 							</strong>
 							<span class="selected-person-row__positions">
-								<span
+								<button
 									v-for="positionId in item.positionIds"
 									:key="positionId"
-									class="selected-position-pill"
+									class="selected-position-action"
+									type="button"
+									:aria-label="`移除${workbench.personName(item.person)}的${workbench.positionLabel(positionId)}身份`"
+									:title="`移除${workbench.positionLabel(positionId)}身份`"
+									@click="workbench.toggleScope(item.person.id, positionId)"
 								>
-									<span class="selected-position-tag__label">{{ workbench.positionLabel(positionId) }}</span>
-									<span class="selected-position-tag__remove-hit" @click="workbench.toggleScope(item.person.id, positionId)">
-										<n-button
-											class="selected-position-tag__remove"
-											size="tiny"
-											quaternary
-											circle
-											attr-type="button"
-											:aria-label="`移除${workbench.personName(item.person)}的${workbench.positionLabel(positionId)}身份`"
-											:title="`移除${workbench.positionLabel(positionId)}身份`"
-											@click.stop="workbench.toggleScope(item.person.id, positionId)"
-										>
-											<AppIcon name="close" :size="12" />
-										</n-button>
+									<span class="selected-position-action__surface">
+										<span class="selected-position-tag__label" :title="workbench.positionLabel(positionId)">{{ workbench.positionLabel(positionId) }}</span>
+										<AppIcon name="close" :size="12" />
 									</span>
-								</span>
-								<span v-if="availablePositionOptions(item).length" class="position-add-select">
-									<n-select
-										class="position-add-select__control"
-										:size="controlSize"
-										:menu-size="controlSize"
-										round
-										:value="null"
-										:options="availablePositionOptions(item)"
-										placeholder="＋ 添加身份…"
-										:aria-label="`为${workbench.personName(item.person)}添加身份`"
-										@update:value="addIdentity(item.person.id, $event)"
-									/>
-								</span>
+								</button>
 							</span>
-							<span class="selected-person-row__remove-hit" @click="workbench.removePerson(item.person.id)">
-								<n-button class="selected-person-row__remove" size="tiny" quaternary circle attr-type="button" :aria-label="`移除${workbench.personName(item.person)}的全部身份`" :title="`移除${workbench.personName(item.person)}`" @click.stop="workbench.removePerson(item.person.id)">
-									<AppIcon name="close" :size="12" />
-								</n-button>
-							</span>
-						</article>
-						<div v-if="!workbench.selectedPeople.value.length" class="selected-empty">从下方候选中选择至少两个人物。</div>
-					</div>
+							<button
+								class="selected-person-row__remove"
+								type="button"
+								:aria-label="`移除${workbench.personName(item.person)}的全部身份`"
+								:title="`移除${workbench.personName(item.person)}`"
+								@click="workbench.removePerson(item.person.id)"
+							>
+								<span class="selected-person-row__remove-visual" aria-hidden="true">
+									<AppIcon name="close" :size="14" />
+								</span>
+							</button>
+						</li>
+					</ol>
 				</n-collapse-item>
 			</n-collapse>
 		</section>
@@ -220,7 +191,7 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 				:aria-label="`${candidatePositionLabel}候选人物`"
 			>
 				<div class="candidate-search">
-					<n-input :size="controlSize" v-model:value="workbench.candidateSearch.value" :clearable="Boolean(workbench.candidateSearch.value)" autocomplete="off" placeholder="筛选当前结果…" :aria-label="`搜索${candidatePositionLabel}候选人物`" :input-props="{ name: 'candidateSearch', spellcheck: 'false' }">
+					<n-input :size="controlSize" v-model:value="workbench.candidateSearch.value" :clearable="Boolean(workbench.candidateSearch.value)" autocomplete="off" placeholder="搜索人物" :aria-label="`搜索${candidatePositionLabel}候选人物`" :input-props="{ name: 'candidateSearch', spellcheck: 'false' }">
 						<template #prefix><AppIcon name="search" :size="16" /></template>
 					</n-input>
 					<n-select
@@ -252,44 +223,48 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 						:aria-label="`${workbench.isScopeSelected(person.id, person.activePositionId) ? '移除' : '选择'}${workbench.personName(person)}的${person.activePositionLabel}身份`"
 						@click="workbench.toggleScope(person.id, person.activePositionId)"
 					>
-					<span class="candidate-row__portrait">
-						<SafeImage
-							class="person-row__avatar"
-							:sources="workbench.personImageSources(person)"
-							:alt="workbench.personName(person)"
-							kind="person"
-							decorative
-							:width="isMobile ? 32 : 36"
-						/>
-						<span v-if="workbench.isScopeSelected(person.id, person.activePositionId)" class="candidate-row__selected-state" aria-hidden="true">
-							<AppIcon name="check" :size="11" />
+						<span class="candidate-row__portrait">
+							<SafeImage
+								class="person-row__avatar"
+								:sources="workbench.personImageSources(person)"
+								:alt="workbench.personName(person)"
+								kind="person"
+								decorative
+								:width="isMobile ? 32 : 36"
+							/>
+							<span v-if="workbench.isScopeSelected(person.id, person.activePositionId)" class="candidate-row__selected-state" aria-hidden="true">
+								<AppIcon name="check" :size="11" />
+							</span>
 						</span>
-					</span>
-					<span class="person-row__identity candidate-row__identity">
-						<strong :title="workbench.personName(person)">{{ workbench.personName(person) }}</strong>
-						<small class="candidate-row__meta">
-							<span class="candidate-rank">#{{ candidateRankById.get(person.id) ?? '—' }}</span>
-							<span aria-hidden="true">·</span>
-							<span class="candidate-work-count"><strong>{{ person.activeSubjectCount }}</strong> 部</span>
-						</small>
-						<span
-							v-if="otherSelectedIdentityLabels(person.id).length"
-							class="candidate-other-positions"
-							:title="`已选其他身份：${otherSelectedIdentityLabels(person.id).join(' / ')}`"
-						>
-							已选其他身份：{{ otherSelectedIdentityLabels(person.id).join(' / ') }}
+						<span class="person-row__identity candidate-row__identity">
+							<strong :title="workbench.personName(person)">{{ workbench.personName(person) }}</strong>
+							<small class="candidate-row__meta">
+								<span class="candidate-rank">#{{ candidateRankById.get(person.id) ?? '—' }}</span>
+								<span aria-hidden="true">·</span>
+								<span class="candidate-work-count" :title="workbench.query.mergeSeries ? `${person.activeSubjectCount} 个系列` : undefined"><strong>{{ person.activeSubjectCount }}</strong> {{ workbench.query.mergeSeries ? '个' : '部' }}</span>
+							</small>
+							<span
+								v-if="otherSelectedIdentityLabels(person.id).length"
+								class="candidate-other-positions"
+								:title="`已选其他身份：${otherSelectedIdentityLabels(person.id).join(' / ')}`"
+							>
+								已选其他身份：{{ otherSelectedIdentityLabels(person.id).join(' / ') }}
+							</span>
 						</span>
-					</span>
 					</button>
 
-				<div v-if="!workbench.candidatePageItems.value.length" class="person-list__empty">
-					<AppIcon name="search" :size="22" />
-					<strong>没有匹配的人物</strong>
-					<span>换一个搜索词。</span>
-				</div>
+					<div
+						v-if="workbench.candidateSearch.value.trim() && !workbench.candidatePeople.value.length"
+						class="person-list__empty"
+						role="status"
+						aria-live="polite"
+					>
+						<AppIcon name="search" :size="22" />
+						<strong>{{ SEARCH_EMPTY_COPY.person }}</strong>
+					</div>
 				</div>
 
-				<footer>
+			<footer>
 					<AdaptivePagination
 						:page="workbench.candidatePage.value"
 						:page-size="workbench.candidatePageSize.value"
@@ -299,7 +274,7 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 						@update:page="workbench.candidatePage.value = $event"
 						@update:page-size="updateCandidatePageSize"
 					/>
-				</footer>
+			</footer>
 			</div>
 		</section>
 
@@ -307,11 +282,6 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 </template>
 
 <style scoped>
-.position-add-select {
-	display: inline-block;
-	width: 112px;
-}
-
 .candidate-row__identity {
 	display: grid;
 	grid-area: identity;
@@ -365,16 +335,16 @@ const otherSelectedIdentityLabels = (personId: number) => workbench.selectedScop
 	container: candidate-results / inline-size;
 }
 
-@container candidate-results (min-width: 270px) {
-	.person-list--candidate {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--space-1);
-	}
+.person-list--candidate .person-list__empty {
+	grid-column: 1 / -1;
+}
 
-	.person-list--candidate .person-list__empty {
-		grid-column: 1 / -1;
-	}
+@container candidate-results (min-width: 270px) {
+		.person-list--candidate {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: var(--space-1);
+		}
 }
 
 .person-picker--drawer .candidate-browser {

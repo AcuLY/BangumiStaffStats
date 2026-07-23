@@ -3,14 +3,17 @@ import { computed } from 'vue'
 import type { Subject } from '../types'
 import { buildScoreTooltipModel } from '../domain/ratingDistribution'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
 	works: Subject[]
 	scoreLabel: string
 	seriesLabel?: string
-}>()
+	unitLabel?: string
+}>(), {
+	unitLabel: '部作品',
+})
 
 const model = computed(() => buildScoreTooltipModel(props.works))
-const heading = computed(() => [props.seriesLabel, `${props.scoreLabel} 分`, `${props.works.length} 部作品`]
+const heading = computed(() => [props.seriesLabel, `${props.scoreLabel} 分`, `${props.works.length} ${props.unitLabel}`]
 	.filter(Boolean)
 	.join(' · '))
 </script>

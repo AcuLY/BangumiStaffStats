@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { Person, RankingMetric, Subject } from '../types'
+import { localizedNameSearchTerms, matchesLocalizedNameSearch } from '../domain/nameSearch'
+import { overallScoreExplanation, preferenceExplanation } from '../domain/metricExplanations'
 import { summarizePreference, type PreferenceSummary } from '../domain/preference'
+import { summarizeRatings } from '../domain/ratingSummary'
 import { useWorkbench } from '../composables/useWorkbench'
+import { RESULT_EMPTY_COPY, SEARCH_EMPTY_COPY } from '../searchEmptyCopy'
 import {
 	compareSubjectNumber,
 	compareSubjectText,
@@ -12,21 +16,22 @@ import {
 	type SubjectWorkSortOrder,
 } from '../composables/useSubjectWorkBrowser'
 import AdaptivePagination from './AdaptivePagination.vue'
+import AppIcon from './AppIcon.vue'
 import SafeImage from './SafeImage.vue'
 import SubjectWorkBrowser from './SubjectWorkBrowser.vue'
 import RankedPersonList from './RankedPersonList.vue'
-import RankingListColumns from './RankingListColumns.vue'
 import SharedWorkParticipants from './SharedWorkParticipants.vue'
 import WorkListToolbar from './WorkListToolbar.vue'
-import WorkbenchTooltip from './WorkbenchTooltip.vue'
+import SelectedPersonCard from './SelectedPersonCard.vue'
 
 type PositionFilter = 'all' | number
-type CooperationWorkSort = 'personal' | 'score' | 'date' | 'title'
+type CooperationWorkSort = 'personal' | 'score' | 'date'
 
 interface CooperationPerson {
 	person: Person
 	positionIds: number[]
 	subjectIds: number[]
+	participantSubjectIds: number[]
 	subjectCount: number
 	ratedSubjectCount: number
 	average: number | null
@@ -42,6 +47,7 @@ interface CooperationLeader {
 }
 
 const workbench = useWorkbench()
+const seriesMode = computed(() => workbench.query.mergeSeries)
 
 const partnerSearch = ref('')
 const partnerMetric = ref<RankingMetric>('count')
@@ -49,8 +55,10 @@ const partnerOrder = ref<SubjectWorkSortOrder>('desc')
 const partnerPosition = ref<PositionFilter>('all')
 const partnerPage = ref(1)
 const partnerPageSize = ref(10)
+const partnerPageSizeOptions = [5, 10, 20].map((value) => ({ label: `每页 ${value} 人`, value }))
 const focusedPartnerId = ref(0)
 const visibleLeaderNameTooltip = ref<RankingMetric | null>(null)
+const cooperationMetricTooltipVisible = ref(false)
 
 const leaderNameElement = (target: EventTarget | null) => {
 	if (!(target instanceof HTMLElement)) return null
@@ -66,30 +74,23 @@ const hideLeaderNameTooltip = (metric: RankingMetric) => {
 }
 
 const selectedPerson = computed(() => workbench.selectedPeople.value[0] ?? null)
-const sourceScoreLabel = computed(() => workbench.query.isGlobal ? '全站均分' : '我的均分')
-
-const average = (values: number[]) => {
-	const valid = values.filter((value) => Number.isFinite(value) && value > 0)
-	if (!valid.length) return null
-	return Math.floor(valid.reduce((sum, value) => sum + value, 0) / valid.length * 100) / 100
-}
-const roundTwo = (value: number) => Math.round(value * 100) / 100
+const sourceScoreLabel = computed(() => '均分')
 const scoreForSubject = (subject: Subject | undefined) => workbench.query.isGlobal
 	? Number(subject?.score || 0)
 	: Number(subject?.collection?.rate || 0)
 const overallScore = (subjectIds: number[]) => {
-	const scores = subjectIds
-		.map((id) => scoreForSubject(workbench.subjectsById.value.get(id)))
-		.filter((value) => Number.isFinite(value) && value > 0)
-	if (!scores.length) return null
-	const mean = scores.reduce((sum, value) => sum + value, 0) / scores.length
-	return roundTwo((scores.length * mean + 25) / (scores.length + 5))
+	const summary = summarizeRatings(workbench.resultSubjectsForIds(subjectIds).map(scoreForSubject))
+	return summary.validCount ? summary.overall : null
 }
+const selectedPersonAverage = computed(() => {
+	const selected = selectedPerson.value
+	if (!selected) return '—'
+	const summary = summarizeRatings(workbench.resultSubjectsForIds(selected.subjectIds).map(scoreForSubject))
+	return summary.validCount ? summary.average.toFixed(2) : '—'
+})
 const preferenceForSubjects = (subjectIds: number[]) => {
 	if (workbench.query.isGlobal) return null
-	return summarizePreference(subjectIds
-		.map((id) => workbench.subjectsById.value.get(id))
-		.filter((subject): subject is Subject => Boolean(subject))
+	return summarizePreference(workbench.resultSubjectsForIds(subjectIds)
 		.map((subject) => ({
 			subjectId: Number(subject.id),
 			userScore: Number(subject.collection?.rate || 0),
@@ -100,11 +101,6 @@ const preferenceForSubjects = (subjectIds: number[]) => {
 			mergeSeries: workbench.query.mergeSeries,
 		})
 }
-
-const compactSearch = (value: unknown) => String(value ?? '')
-	.normalize('NFKC')
-	.toLocaleLowerCase('zh-CN')
-	.replace(/[\s·・_-]/g, '')
 
 const positionOptions = computed(() => [
 	...(workbench.coStarPositionIds.value.length > 1
@@ -122,48 +118,48 @@ const activePositionLabel = computed(() => partnerPosition.value === 'all'
 	? '全部已查询职位'
 	: workbench.positionLabel(Number(partnerPosition.value)))
 
-const cooperationPeople = computed<CooperationPerson[]>(() => {
+const cooperationCandidates = computed<CooperationPerson[]>(() => {
 	const selected = selectedPerson.value
 	if (!selected) return []
 	const selectedSubjectIds = new Set(selected.subjectIds)
-	const search = compactSearch(partnerSearch.value)
-	const exactId = /^\d+$/.test(partnerSearch.value.trim()) ? Number(partnerSearch.value.trim()) : null
 
 	return [...workbench.peopleById.value.values()]
 		.filter((person) => Number(person.id) !== Number(selected.person.id))
 		.map((person): CooperationPerson | null => {
-			const matches = activePositionIds.value.map((positionId) => ({
-				positionId,
-				subjectIds: workbench.positionSubjectIds(person, positionId)
+			const matches = activePositionIds.value.map((positionId) => {
+				const participantSubjectIds = workbench.positionSubjectIds(person, positionId)
 					.map(Number)
-					.filter((id) => workbench.queryScopeSubjectIds.value.has(id) && selectedSubjectIds.has(id)),
-			})).filter((item) => item.subjectIds.length)
+					.filter((id) => workbench.queryScopeSubjectIds.value.has(id))
+				return {
+					positionId,
+					participantSubjectIds,
+					subjectIds: participantSubjectIds.filter((id) => selectedSubjectIds.has(id)),
+				}
+			}).filter((item) => item.subjectIds.length)
 			if (!matches.length) return null
 
 			const subjectIds = [...new Set(matches.flatMap((item) => item.subjectIds))]
-			const scores = subjectIds.map((id) => scoreForSubject(workbench.subjectsById.value.get(id)))
+			const participantSubjectIds = [...new Set(matches.flatMap((item) => item.participantSubjectIds))]
+			const resultSubjects = workbench.resultSubjectsForIds(subjectIds)
+			const scoreSummary = summarizeRatings(resultSubjects.map(scoreForSubject))
 			return {
 				person,
 				positionIds: matches.map((item) => item.positionId),
 				subjectIds,
-				subjectCount: subjectIds.length,
-				ratedSubjectCount: scores.filter((value) => Number.isFinite(value) && value > 0).length,
-				average: average(scores),
+				participantSubjectIds,
+				subjectCount: resultSubjects.length,
+				ratedSubjectCount: scoreSummary.validCount,
+				average: scoreSummary.validCount ? scoreSummary.average : null,
 				overall: overallScore(subjectIds),
 				preference: preferenceForSubjects(subjectIds),
 			}
 		})
 		.filter((item): item is CooperationPerson => Boolean(item))
-		.filter((item) => {
-			if (!search) return true
-			if (exactId !== null) return Number(item.person.id) === exactId
-			return [
-				workbench.personName(item.person),
-				item.person.name,
-				item.person.nameCN,
-				...(item.person.aliases ?? []),
-			].some((value) => compactSearch(value).includes(search))
-		})
+})
+
+const cooperationPeople = computed<CooperationPerson[]>(() => {
+	return cooperationCandidates.value
+		.filter((item) => matchesLocalizedNameSearch(item.person, partnerSearch.value))
 		.sort((a, b) => {
 			const metricValue = (item: CooperationPerson) => {
 				if (partnerMetric.value === 'average') return item.average
@@ -205,16 +201,16 @@ const formatLeaderValue = (partner: CooperationPerson | null, metric: RankingMet
 	if (!partner) return '—'
 	const value = cooperationMetricValue(partner, metric)
 	if (value === null || !Number.isFinite(value)) return '—'
-	if (metric === 'count') return `${value} 部`
+	if (metric === 'count') return `${value} ${seriesMode.value ? '个' : '部'}`
 	if (metric === 'preference') return `${value < 0 ? '−' : '+'}${Math.abs(value).toFixed(2)}`
 	return value.toFixed(2)
 }
 const cooperationLeaders = computed<CooperationLeader[]>(() => {
 	const leaders: Array<Omit<CooperationLeader, 'value'>> = [
-		{ label: '合作数最高', metric: 'count', partner: cooperationLeaderFor('count') },
-		{ label: '均分最高', metric: 'average', partner: cooperationLeaderFor('average') },
+		{ label: seriesMode.value ? '系列数最高' : '合作数最高', metric: 'count', partner: cooperationLeaderFor('count') },
+		{ label: `${sourceScoreLabel.value}最高`, metric: 'average', partner: cooperationLeaderFor('average') },
 		{ label: '综合分最高', metric: 'overall', partner: cooperationLeaderFor('overall') },
-		{ label: '偏好分最高', metric: 'preference', partner: cooperationLeaderFor('preference') },
+		...(workbench.query.isGlobal ? [] : [{ label: '偏好分最高', metric: 'preference' as const, partner: cooperationLeaderFor('preference') }]),
 	]
 	return leaders.map((leader) => ({
 		...leader,
@@ -233,7 +229,9 @@ const visibleRankedPartners = computed(() => visiblePartners.value.map((item) =>
 	subjectIds: item.subjectIds,
 	subjectCount: item.subjectCount,
 	ratedSubjectCount: item.ratedSubjectCount,
-	userAverage: item.average ?? 0,
+	globalRatedSubjectCount: workbench.query.isGlobal ? item.ratedSubjectCount : undefined,
+	userAverage: workbench.query.isGlobal ? 0 : item.average ?? 0,
+	globalAverage: workbench.query.isGlobal ? item.average ?? 0 : item.person.globalAverage,
 	preference: item.preference ?? undefined,
 })))
 const partnerRangeLabel = computed(() => {
@@ -241,24 +239,52 @@ const partnerRangeLabel = computed(() => {
 	const end = Math.min(partnerPage.value * partnerPageSize.value, cooperationPeople.value.length)
 	return `${start}—${end} / ${cooperationPeople.value.length}`
 })
-const focusedPartner = computed(() => cooperationPeople.value
+const focusedPartner = computed(() => cooperationCandidates.value
 	.find((item) => Number(item.person.id) === Number(focusedPartnerId.value)) ?? null)
-const focusedSubjects = computed(() => (focusedPartner.value?.subjectIds ?? [])
-	.map((id) => workbench.subjectsById.value.get(id))
-	.filter((subject): subject is Subject => Boolean(subject)))
+const cooperationMetricHelp = computed(() => {
+	const partner = focusedPartner.value
+	const explanations = [overallScoreExplanation({
+		isGlobal: workbench.query.isGlobal,
+		seriesMode: seriesMode.value,
+		average: partner?.average,
+		validCount: partner?.ratedSubjectCount,
+		overall: partner?.overall,
+		subjectLabel: '当前合作人物',
+	})]
+	if (!workbench.query.isGlobal) explanations.push(preferenceExplanation({
+		seriesMode: seriesMode.value,
+		summary: partner?.preference,
+		subjectLabel: '当前合作人物',
+	}))
+	return explanations.join('\n\n')
+})
+const focusedSubjects = computed(() => {
+	const partner = focusedPartner.value
+	const selected = selectedPerson.value
+	if (!partner || !selected) return []
+	return workbench.resultSubjectsForIds(partner.subjectIds, {
+		sharedSubjectIds: partner.subjectIds,
+		participantSubjectIds: {
+			[String(selected.person.id)]: selected.subjectIds,
+			[String(partner.person.id)]: partner.participantSubjectIds,
+		},
+	})
+})
 
 const partnerSortOptions = computed(() => [
-	{ label: '作品数', value: 'count' as const },
+	{ label: seriesMode.value ? '系列数' : '作品数', value: 'count' as const },
 	{ label: sourceScoreLabel.value, value: 'average' as const },
 	{ label: '综合分', value: 'overall' as const },
-	{ label: workbench.query.isGlobal ? '偏好（仅个人收藏）' : '相对偏好', value: 'preference' as const, disabled: workbench.query.isGlobal },
+	...(workbench.query.isGlobal ? [] : [{ label: '相对偏好', value: 'preference' as const }]),
 ])
 const workSortOptions = computed<SubjectWorkSortOption<CooperationWorkSort>[]>(() => [
 	...(workbench.query.isGlobal ? [] : [{ label: '我的评分', value: 'personal' as const }]),
-	{ label: '全站评分', value: 'score' },
-	{ label: '收藏日期', value: 'date' },
-	{ label: '作品标题', value: 'title' },
+	{ label: workbench.query.isGlobal ? '评分' : '全站评分', value: 'score' },
+	...(workbench.query.isGlobal ? [] : [{ label: '收藏日期', value: 'date' as const }]),
 ])
+const workPageSizes = computed(() => seriesMode.value
+	? SUBJECT_WORK_PAGE_SIZES.map((option) => ({ ...option, label: `每页 ${option.value} 个系列` }))
+	: SUBJECT_WORK_PAGE_SIZES)
 
 const {
 	search: workSearch,
@@ -272,19 +298,15 @@ const {
 } = useSubjectWorkBrowser<CooperationWorkSort>({
 	subjects: focusedSubjects,
 	searchTerms: (subject) => [
-		workbench.subjectName(subject),
-		subject.displayName,
-		subject.nameCN,
-		subject.name,
-		...(subject.metaTags ?? []).map((tag) => typeof tag === 'string' ? tag : tag.name),
-		...(subject.tags ?? []).map((tag) => typeof tag === 'string' ? tag : tag.name),
+		...localizedNameSearchTerms(subject),
+		...(subject.series?.members.flatMap((member) => localizedNameSearchTerms(member)) ?? []),
 	],
 	initialSort: workbench.query.isGlobal ? 'score' : 'personal',
+	includeSubject: (subject, sort) => sort !== 'date' || Boolean(subject.collection?.updatedAt),
 	comparators: {
 		personal: (a, b, direction) => compareSubjectNumber(a.collection?.rate, b.collection?.rate, direction),
 		score: (a, b, direction) => compareSubjectNumber(a.score, b.score, direction),
-		date: (a, b, direction) => compareSubjectText(a.collection?.updatedAt ?? a.date, b.collection?.updatedAt ?? b.date, direction),
-		title: (a, b, direction) => compareSubjectText(workbench.subjectName(a), workbench.subjectName(b), direction),
+		date: (a, b, direction) => compareSubjectText(a.collection?.updatedAt, b.collection?.updatedAt, direction),
 	},
 	fallbackComparator: (a, b, direction) => compareSubjectNumber(a.score, b.score, direction),
 })
@@ -301,7 +323,12 @@ watch([partnerSearch, partnerMetric, partnerOrder, partnerPosition, partnerPageS
 watch(partnerPageCount, (count) => { partnerPage.value = Math.min(partnerPage.value, count) })
 watch(cooperationPeople, (people) => {
 	if (people.some((item) => Number(item.person.id) === Number(focusedPartnerId.value))) return
-	focusedPartnerId.value = people[0]?.person.id ?? 0
+	if (people.length) {
+		focusedPartnerId.value = people[0].person.id
+		return
+	}
+	if (cooperationCandidates.value.some((item) => Number(item.person.id) === Number(focusedPartnerId.value))) return
+	focusedPartnerId.value = cooperationCandidates.value[0]?.person.id ?? 0
 }, { immediate: true })
 watch(() => selectedPerson.value?.person.id, () => {
 	partnerSearch.value = ''
@@ -313,47 +340,38 @@ watch(workbench.coStarPositionIds, (positionIds) => {
 }, { immediate: true })
 watch(() => workbench.query.isGlobal, (isGlobal) => {
 	if (isGlobal && partnerMetric.value === 'preference') partnerMetric.value = 'count'
-	if (isGlobal && workSort.value === 'personal') workSort.value = 'score'
+	if (isGlobal && (workSort.value === 'personal' || workSort.value === 'date')) workSort.value = 'score'
 })
 </script>
 
 <template>
-	<article class="single-cooperation analysis-dashboard analysis-dashboard--unified surface-panel" aria-label="单人物合作分析">
-		<section v-if="selectedPerson" class="analysis-section relationship-hero" aria-label="查询人物概览">
-			<div class="profile-stage profile-stage--people single-cooperation__profile-stage">
-				<article class="analysis-profile single-cooperation__profile">
-					<SafeImage
-						class="analysis-profile__media"
-						:sources="workbench.personImageSources(selectedPerson.person)"
-						:alt="workbench.personName(selectedPerson.person)"
-						kind="person"
-						decorative
-						loading="eager"
-						:width="132"
-					/>
-					<div class="analysis-profile__content">
-						<span class="identity-marker" aria-hidden="true">1</span>
-						<h2>{{ workbench.personName(selectedPerson.person) }}</h2>
-						<p>{{ selectedPerson.positionIds.map(workbench.positionLabel).join(' · ') }}</p>
-					</div>
-				</article>
+	<article class="single-cooperation analysis-dashboard analysis-dashboard--unified surface-panel" aria-label="单人物共演分析">
+		<section v-if="selectedPerson" class="analysis-section relationship-hero selected-people-panel single-cooperation__selection" aria-label="已选人物概览">
+			<div class="single-cooperation__selection-content">
+				<ol class="selected-people-grid selected-people-grid--single">
+					<li>
+						<SelectedPersonCard
+							:person="selectedPerson.person"
+							:position-ids="selectedPerson.positionIds"
+							:subject-count="workbench.resultSubjectCount(selectedPerson.subjectIds)"
+							:average="selectedPersonAverage"
+							:index="0"
+						/>
+					</li>
+				</ol>
 				<div class="single-cooperation__profile-copy">
 					<div
-						class="single-cooperation__summary-grid"
-						:aria-label="`我的收藏 ${selectedPerson.subjectIds.length} 部，合作人物 ${cooperationPeople.length} 位，各指标最高合作人物`"
+						class="single-cooperation__summary-grid metric-grid"
+						:aria-label="`合作人物 ${cooperationPeople.length} 位，各指标最高合作人物`"
 					>
-						<div class="single-cooperation__summary-cell">
-							<small>我的收藏</small>
-							<b>{{ selectedPerson.subjectIds.length }}</b>
-						</div>
-						<div class="single-cooperation__summary-cell">
-							<small>合作人物</small>
-							<b>{{ cooperationPeople.length }}</b>
+						<div class="single-cooperation__summary-cell metric-unit">
+							<b class="metric-unit__value">{{ cooperationPeople.length }}</b>
+							<small class="metric-unit__label">合作人物</small>
 						</div>
 						<button
 							v-for="leader in cooperationLeaders"
 							:key="leader.metric"
-							class="single-cooperation__leader"
+							class="single-cooperation__leader metric-unit metric-unit--with-support"
 							:class="{ 'is-focused': leader.partner?.person.id === focusedPartnerId }"
 							type="button"
 							:disabled="!leader.partner"
@@ -364,8 +382,9 @@ watch(() => workbench.query.isGlobal, (isGlobal) => {
 							@blur="hideLeaderNameTooltip(leader.metric)"
 							@click="leader.partner && focusPartner(leader.partner.person.id)"
 						>
-							<small class="single-cooperation__cell-label">{{ leader.label }}</small>
-							<span class="single-cooperation__leader-person">
+							<b class="metric-unit__value">{{ leader.value }}</b>
+							<small class="single-cooperation__cell-label metric-unit__label">{{ leader.label }}</small>
+							<span class="single-cooperation__leader-person metric-unit__support">
 								<SafeImage
 									v-if="leader.partner"
 									class="single-cooperation__leader-avatar"
@@ -375,11 +394,14 @@ watch(() => workbench.query.isGlobal, (isGlobal) => {
 									decorative
 									:width="28"
 								/>
-								<WorkbenchTooltip
+								<n-tooltip
 									:show="visibleLeaderNameTooltip === leader.metric"
 									:disabled="!leader.partner"
 									trigger="manual"
 									placement="top"
+									:animated="false"
+									style="max-width: min(336px, calc(100dvw - 72px));"
+									content-class="workbench-tooltip-content"
 								>
 									<template #trigger>
 										<strong
@@ -390,20 +412,51 @@ watch(() => workbench.query.isGlobal, (isGlobal) => {
 										</strong>
 									</template>
 									{{ leader.partner ? workbench.personName(leader.partner.person) : '暂无数据' }}
-								</WorkbenchTooltip>
+								</n-tooltip>
 							</span>
-							<b>{{ leader.value }}</b>
 						</button>
 					</div>
 				</div>
 			</div>
 		</section>
 
-		<section class="analysis-section single-cooperation__workspace" aria-label="合作人物与合作作品">
+		<section
+			class="analysis-section single-cooperation__workspace"
+			:class="{ 'single-cooperation__workspace--empty': !focusedPartner }"
+			aria-label="合作人物与合作作品"
+		>
 			<aside class="single-cooperation__partners" aria-labelledby="cooperation-people-title">
 				<div class="section-heading single-cooperation__heading">
 					<div>
-						<h2 id="cooperation-people-title">合作人物</h2>
+						<div class="single-cooperation__heading-title">
+							<h2 id="cooperation-people-title">合作人物</h2>
+							<n-tooltip
+								:show="cooperationMetricTooltipVisible"
+								placement="top-start"
+								trigger="manual"
+								:animated="false"
+								style="max-width: min(336px, calc(100dvw - 72px));"
+								content-class="workbench-tooltip-content"
+							>
+								<template #trigger>
+									<button
+										class="profile-metric__info"
+										type="button"
+										:aria-expanded="cooperationMetricTooltipVisible"
+										:aria-label="`合作人物指标说明：${cooperationMetricHelp}`"
+										@mouseenter="cooperationMetricTooltipVisible = true"
+										@mouseleave="cooperationMetricTooltipVisible = false"
+										@focus="cooperationMetricTooltipVisible = true"
+										@blur="cooperationMetricTooltipVisible = false"
+										@click.stop="cooperationMetricTooltipVisible = true"
+										@keydown.esc.stop.prevent="cooperationMetricTooltipVisible = false"
+									>
+										<AppIcon name="info" :size="16" />
+									</button>
+								</template>
+								<span class="preference-model-tooltip">{{ cooperationMetricHelp }}</span>
+							</n-tooltip>
+						</div>
 						<p>{{ partnerRangeLabel }} · {{ activePositionLabel }}</p>
 					</div>
 				</div>
@@ -417,7 +470,7 @@ watch(() => workbench.query.isGlobal, (isGlobal) => {
 						:sort="partnerMetric"
 						:order="partnerOrder"
 						:sort-options="partnerSortOptions"
-						search-placeholder="搜索人物或 ID"
+						search-placeholder="搜索人物"
 						search-aria-label="搜索合作人物"
 						sort-aria-label="合作人物排序规则"
 						order-aria-label="合作人物排序方向"
@@ -439,7 +492,6 @@ watch(() => workbench.query.isGlobal, (isGlobal) => {
 					</WorkListToolbar>
 				</div>
 
-				<RankingListColumns class="single-cooperation__list-columns" />
 				<RankedPersonList
 					variant="cooperation"
 					:items="visibleRankedPartners"
@@ -447,8 +499,7 @@ watch(() => workbench.query.isGlobal, (isGlobal) => {
 					:metric="partnerMetric"
 					:focused-id="focusedPartnerId"
 					:average-label="sourceScoreLabel"
-					empty-title="没有符合条件的合作人物"
-					empty-description="尝试清除搜索或切换职位。"
+					:empty-title="partnerSearch.trim() ? SEARCH_EMPTY_COPY.person : RESULT_EMPTY_COPY.person"
 					@activate="focusPartner"
 				/>
 
@@ -456,7 +507,7 @@ watch(() => workbench.query.isGlobal, (isGlobal) => {
 					:page="partnerPage"
 					:page-size="partnerPageSize"
 					:item-count="cooperationPeople.length"
-					:page-sizes="[5, 10, 20, 50]"
+					:page-sizes="partnerPageSizeOptions"
 					:summary="partnerRangeLabel"
 					aria-label="合作人物分页"
 					@update:page="partnerPage = $event"
@@ -464,28 +515,31 @@ watch(() => workbench.query.isGlobal, (isGlobal) => {
 				/>
 			</aside>
 
-			<div class="single-cooperation__works">
+			<div v-if="focusedPartner" class="single-cooperation__works">
 				<SubjectWorkBrowser
 					v-model:search="workSearch"
 					v-model:sort="workSort"
 					v-model:order="workOrder"
 					v-model:page="workPage"
 					v-model:page-size="workPageSize"
-					:title="focusedPartner ? `与 ${workbench.personName(focusedPartner.person)} 的合作作品` : '合作作品'"
+					:title="`与 ${workbench.personName(focusedPartner.person)} 的合作${seriesMode ? '系列' : '作品'}`"
 					title-id="single-cooperation-works-title"
-					:heading-meta="focusedPartner ? `${focusedPartner.subjectCount} 部 · ${focusedPartner.positionIds.map(workbench.positionLabel).join(' / ')}` : '请选择一位合作人物'"
+					:heading-meta="`${focusedPartner.subjectCount} ${seriesMode ? '个系列' : '部'} · ${focusedPartner.positionIds.map(workbench.positionLabel).join(' / ')}`"
 					:subjects="visibleWorks"
-					:empty-text="focusedPartner ? '没有符合当前搜索条件的合作作品。' : '当前职位下没有可展示的合作作品。'"
+					:empty-text="seriesMode ? workSearch.trim() ? '没有符合搜索条件的系列' : '没有符合当前条件的系列' : workSearch.trim() ? SEARCH_EMPTY_COPY.work : RESULT_EMPTY_COPY.work"
 					:sort-options="workSortOptions"
-					search-placeholder="搜索合作作品"
-					search-aria-label="搜索合作作品"
-					sort-aria-label="合作作品排序规则"
-					order-aria-label="合作作品排序方向"
+					:search-placeholder="seriesMode ? '搜索系列或系列内作品' : '搜索作品'"
+					:search-aria-label="seriesMode ? '搜索合作系列或系列内作品' : '搜索合作作品'"
+					:sort-aria-label="seriesMode ? '合作系列排序规则' : '合作作品排序规则'"
+					:order-aria-label="seriesMode ? '合作系列排序方向' : '合作作品排序方向'"
 					search-name="singleCooperationWorkSearch"
 					:item-count="focusedWorks.length"
-					:page-sizes="SUBJECT_WORK_PAGE_SIZES"
+					:page-sizes="workPageSizes"
 					:pagination-summary="workRangeLabel"
-					pagination-aria-label="合作作品分页"
+					:pagination-aria-label="seriesMode ? '合作系列分页' : '合作作品分页'"
+					:compact-aria-label="seriesMode ? '合作系列缩略模式' : '合作作品缩略模式'"
+					:detailed-description="seriesMode ? '显示完整系列信息' : '显示完整作品信息'"
+					:compact-description="seriesMode ? '仅显示代表条目的序号、双语名和系列均分' : '仅显示序号、双语名和评分'"
 				>
 					<template v-if="selectedPerson && focusedPartner" #participants="{ subject }">
 						<SharedWorkParticipants
@@ -493,7 +547,7 @@ watch(() => workbench.query.isGlobal, (isGlobal) => {
 								selectedPerson,
 								{ person: focusedPartner.person, positionIds: focusedPartner.positionIds },
 							]"
-							:subject-id="subject.id"
+							:subject="subject"
 						/>
 					</template>
 				</SubjectWorkBrowser>

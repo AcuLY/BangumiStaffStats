@@ -3,6 +3,14 @@ export interface AdaptiveOverflowRow {
 	hiddenCount?: number
 }
 
+interface AdaptiveOverflowOptions {
+	widths: number[]
+	availableWidth: number
+	columnGap: number
+	overflowWidth: number
+	maxRows: number
+}
+
 const fitsPair = (
 	firstWidth: number,
 	secondWidth: number,
@@ -36,13 +44,7 @@ export const packAdaptiveOverflowRows = ({
 	columnGap,
 	overflowWidth,
 	maxRows,
-}: {
-	widths: number[]
-	availableWidth: number
-	columnGap: number
-	overflowWidth: number
-	maxRows: number
-}): AdaptiveOverflowRow[] => {
+}: AdaptiveOverflowOptions): AdaptiveOverflowRow[] => {
 	const fullRows = packEntries(widths, widths.length, availableWidth, columnGap)
 	if (fullRows.length <= maxRows) return fullRows
 
@@ -67,5 +69,64 @@ export const packAdaptiveOverflowRows = ({
 	// copy is wider than a half-cell, keep it beside the counter and let the
 	// rendered copy ellipsize inside its reserved half instead of dropping all
 	// visible context.
+	return [{ entries: [0], hiddenCount: widths.length - 1 }]
+}
+
+const packCompactEntries = (
+	widths: number[],
+	visibleCount: number,
+	availableWidth: number,
+	columnGap: number,
+) => {
+	const rows: AdaptiveOverflowRow[] = []
+	const rowWidths: number[] = []
+
+	for (let index = 0; index < visibleCount; index += 1) {
+		const entryWidth = Math.min(widths[index], availableWidth)
+		const rowIndex = rows.length - 1
+		const currentWidth = rowWidths[rowIndex] ?? 0
+		const nextWidth = currentWidth ? currentWidth + columnGap + entryWidth : entryWidth
+
+		if (rowIndex < 0 || nextWidth > availableWidth) {
+			rows.push({ entries: [index] })
+			rowWidths.push(entryWidth)
+			continue
+		}
+
+		rows[rowIndex].entries.push(index)
+		rowWidths[rowIndex] = nextWidth
+	}
+
+	return { rows, rowWidths }
+}
+
+export const packCompactOverflowRows = ({
+	widths,
+	availableWidth,
+	columnGap,
+	overflowWidth,
+	maxRows,
+}: AdaptiveOverflowOptions): AdaptiveOverflowRow[] => {
+	if (!widths.length) return []
+
+	const fullLayout = packCompactEntries(widths, widths.length, availableWidth, columnGap)
+	if (fullLayout.rows.length <= maxRows) return fullLayout.rows
+
+	for (let visibleCount = widths.length - 1; visibleCount >= 1; visibleCount -= 1) {
+		const layout = packCompactEntries(widths, visibleCount, availableWidth, columnGap)
+		if (layout.rows.length > maxRows) continue
+
+		const lastRowIndex = layout.rows.length - 1
+		const lastRow = layout.rows[lastRowIndex]
+		const lastRowWidth = layout.rowWidths[lastRowIndex] ?? 0
+		const counterWidth = Math.min(overflowWidth, availableWidth)
+		if (lastRow?.entries.length && lastRowWidth + columnGap + counterWidth <= availableWidth) {
+			lastRow.hiddenCount = widths.length - visibleCount
+			return layout.rows
+		}
+	}
+
+	// Keep one identity beside the counter even when its natural width is too
+	// large. The compact row lets the tag shrink and ellipsize in this case.
 	return [{ entries: [0], hiddenCount: widths.length - 1 }]
 }

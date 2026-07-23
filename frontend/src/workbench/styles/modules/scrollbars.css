@@ -1,26 +1,15 @@
-/* Page chrome: the page viewport, the Header query editor, and Drawer scrollbars share the 10px tier. */
-:where(
-	.workbench-page-scroll,
-	.query-editor__scroll
-) {
-	scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
-	scrollbar-width: auto;
-}
+/* Firefox only exposes keyword sizing. Keep it out of the WebKit path so Chromium/Safari use the exact token sizes below. */
+@supports not selector(::-webkit-scrollbar) {
+	/* Page chrome: the page viewport, the Header query editor, and Drawer scrollbars share the 10px tier. */
+	:where(
+		.workbench-page-scroll,
+		.query-editor__scroll
+	) {
+		scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+		scrollbar-width: auto;
+	}
 
-/* Dense data surfaces use a quieter 6px tier so the scrollbar does not compete with the content. */
-:where(
-	.workbench-tooltip-content,
-	.person-work-list,
-	.character-role-list,
-	.selected-people-list,
-	.matrix-details--scrollable > .data-scroll-x
-) {
-	scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
-	scrollbar-width: thin;
-}
-
-/* Chromium gives non-auto standard widths precedence over its precise WebKit dimensions. */
-@supports selector(::-webkit-scrollbar) {
+	/* Dense data surfaces use a quieter 6px tier so the scrollbar does not compete with the content. */
 	:where(
 		.workbench-tooltip-content,
 		.person-work-list,
@@ -28,7 +17,8 @@
 		.selected-people-list,
 		.matrix-details--scrollable > .data-scroll-x
 	) {
-		scrollbar-width: auto;
+		scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+		scrollbar-width: thin;
 	}
 }
 

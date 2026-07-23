@@ -2,25 +2,32 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import type { Subject } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
+import { RESULT_EMPTY_COPY, SEARCH_EMPTY_COPY } from '../searchEmptyCopy'
 import {
 	compareSubjectNumber,
 	compareSubjectText,
-	compactSubjectSearch,
 	SUBJECT_WORK_PAGE_SIZES,
 	useSubjectWorkBrowser,
 	type SubjectWorkSortOption,
 	type SubjectWorkSortOrder,
 } from '../composables/useSubjectWorkBrowser'
 import {
+	characterCreditKey,
 	characterCreditName,
 	characterRoleLabel,
+	characterRoleLabelPriority,
 } from '../domain/characterCredits'
+import {
+	localizedNameSearchTerms,
+	localizedNameSearchValue,
+	matchesLocalizedNameSearch,
+} from '../domain/nameSearch'
+import { overallScoreExplanation, preferenceExplanation } from '../domain/metricExplanations'
 import { PROFILE_EXTRAS } from '../data/profileExtras'
 import SafeImage from './SafeImage.vue'
 import AppIcon from './AppIcon.vue'
 import AdaptiveRoleList from './AdaptiveRoleList.vue'
 import CharacterRoleList from './CharacterRoleList.vue'
-import WorkbenchTooltip from './WorkbenchTooltip.vue'
 import RatingDistributionChart from './RatingDistributionChart.vue'
 import PreferenceWorkList from './PreferenceWorkList.vue'
 import SubjectWorkBrowser from './SubjectWorkBrowser.vue'
@@ -28,14 +35,14 @@ import SubjectWorkList from './SubjectWorkList.vue'
 import SubjectTagSummary from './SubjectTagSummary.vue'
 
 const workbench = useWorkbench()
-type WorkSort = 'score' | 'personal' | 'collects' | 'rank' | 'date'
-const workSortOptions: SubjectWorkSortOption<WorkSort>[] = [
-	{ label: '全站评分', value: 'score' },
-	{ label: '我的评分', value: 'personal' },
-	{ label: '收藏人数', value: 'collects' },
-	{ label: 'Bangumi Rank', value: 'rank' },
-	{ label: '收藏日期', value: 'date' },
-]
+const seriesMode = computed(() => workbench.query.mergeSeries)
+type WorkSort = 'score' | 'personal' | 'date' | 'seriesCount'
+const workSortOptions = computed<SubjectWorkSortOption<WorkSort>[]>(() => [
+	{ label: workbench.query.isGlobal ? '评分' : '全站评分', value: 'score' },
+	...(workbench.query.isGlobal ? [] : [{ label: '我的评分', value: 'personal' as const }]),
+	...(workbench.query.isGlobal ? [] : [{ label: '收藏日期', value: 'date' as const }]),
+	...(seriesMode.value ? [{ label: '系列作品数量', value: 'seriesCount' as const }] : []),
+])
 const person = computed(() => workbench.focusedPerson.value)
 const profileExtra = computed(() => person.value ? PROFILE_EXTRAS[person.value.id] : undefined)
 const careerLabels: Record<string, string> = {
@@ -52,23 +59,32 @@ const careerLine = computed(() => {
 	return [...new Set([...rankingPositionLabels.value, ...careers])].join(' · ')
 })
 const profileSummary = computed(() => profileExtra.value?.summary
-	?? `${workbench.personName(person.value)}以“${rankingPositionLine.value}”身份参与了 ${person.value?.subjectCount ?? 0} 部当前筛选范围内的作品。`)
+	?? `${workbench.personName(person.value)}以“${rankingPositionLine.value}”身份参与了 ${person.value?.subjectCount ?? 0} ${seriesMode.value ? '个当前筛选范围内的系列' : '部当前筛选范围内的作品'}。`)
 const profileSummaryIsLong = computed(() => profileSummary.value.length > 60)
-const profileBioExpanded = ref(true)
+const profileBioExpanded = ref(!profileSummaryIsLong.value)
 const overallScoreTooltipVisible = ref(false)
 const preferenceTooltipVisible = ref(false)
 watch(() => person.value?.id, () => {
-	profileBioExpanded.value = true
+	profileBioExpanded.value = !profileSummaryIsLong.value
 })
 const ratedRates = computed(() => workbench.focusedAllSubjects.value
 	.map((subject) => Number(subject.collection?.rate || 0))
 	.filter((rate) => rate > 0))
 const highestRate = computed(() => ratedRates.value.length ? Math.max(...ratedRates.value) : null)
 const lowestRate = computed(() => ratedRates.value.length ? Math.min(...ratedRates.value) : null)
-const overallScore = computed(() => person.value && person.value.ratedSubjectCount
-	? workbench.rankingValue(person.value, 'overall')
-	: null)
-const overallScoreNote = '综合分 =（我的均分 × 已评分数 + 5 分 × 5 部）÷（已评分数 + 5）。相当于加入 5 部 5 分的中性作品，避免作品很少时均分过度靠前。'
+const overallScore = computed(() => person.value ? workbench.rankingValue(person.value, 'overall') : null)
+const overallScoreNote = computed(() => overallScoreExplanation({
+	isGlobal: workbench.query.isGlobal,
+	seriesMode: seriesMode.value,
+	average: workbench.query.isGlobal ? person.value?.globalAverage : person.value?.userAverage,
+	validCount: workbench.query.isGlobal ? person.value?.globalRatedSubjectCount : person.value?.ratedSubjectCount,
+	overall: overallScore.value,
+}))
+
+const subjectSearchTerms = (subject: Subject) => [
+	...localizedNameSearchTerms(subject),
+	...(subject.series?.members.flatMap((member) => localizedNameSearchTerms(member)) ?? []),
+]
 
 const {
 	sort: workSort,
@@ -81,24 +97,14 @@ const {
 } = useSubjectWorkBrowser<WorkSort>({
 	subjects: () => workbench.focusedAllSubjects.value,
 	search: workbench.focusedWorkSearch,
-	searchTerms: (subject) => {
-		const roles = person.value
-			? workbench.personSubjectRoles(person.value, subject.id).flatMap((role) => [
-				role.displayName,
-				role.nameCN,
-				role.name,
-				role.roleLabel,
-			])
-			: []
-		return [workbench.subjectName(subject), subject.displayName, subject.nameCN, subject.name, ...roles]
-	},
+	searchTerms: subjectSearchTerms,
 	initialSort: 'score',
+	includeSubject: (subject, sort) => sort !== 'date' || Boolean(subject.collection?.updatedAt),
 	comparators: {
 		score: (a, b, direction) => compareSubjectNumber(a.score, b.score, direction),
 		personal: (a, b, direction) => compareSubjectNumber(a.collection?.rate, b.collection?.rate, direction),
-		collects: (a, b, direction) => compareSubjectNumber(a.favoriteCount, b.favoriteCount, direction),
-		rank: (a, b, direction) => compareSubjectNumber(a.rank, b.rank, direction),
-		date: (a, b, direction) => compareSubjectText(a.collection?.updatedAt ?? a.date, b.collection?.updatedAt ?? b.date, direction),
+		date: (a, b, direction) => compareSubjectText(a.collection?.updatedAt, b.collection?.updatedAt, direction),
+		seriesCount: (a, b, direction) => compareSubjectNumber(a.series?.members.length, b.series?.members.length, direction),
 	},
 })
 
@@ -109,7 +115,7 @@ const characterSortOptions: SubjectWorkSortOption<CharacterSort>[] = [
 	{ label: '作品数', value: 'works' },
 	{ label: '角色名', value: 'name' },
 ]
-const CHARACTER_PAGE_SIZES = [5, 10, 20, 50]
+const CHARACTER_PAGE_SIZES = [5, 10, 20]
 	.map((value) => ({ label: `每页 ${value} 个角色`, value }))
 const creditView = ref<CreditView>('works')
 const isVoiceActorQuery = computed(() => workbench.rankingPositionIds.value.includes(102))
@@ -119,22 +125,8 @@ const characterOrder = ref<SubjectWorkSortOrder>('desc')
 const characterPage = ref(1)
 const characterPageSize = ref(10)
 const characterCredits = computed(() => workbench.focusedCharacterCredits.value)
-const filteredCharacterCredits = computed(() => {
-	const query = compactSubjectSearch(characterSearch.value)
-	if (!query) return characterCredits.value
-	return characterCredits.value.filter((credit) => [
-		credit.displayName,
-		credit.nameCN,
-		credit.name,
-		...credit.roleLabels,
-		...credit.appearances.flatMap((appearance) => [
-			workbench.subjectName(appearance.subject),
-			appearance.subject.displayName,
-			appearance.subject.nameCN,
-			appearance.subject.name,
-		]),
-	].some((value) => compactSubjectSearch(value).includes(query)))
-})
+const filteredCharacterCredits = computed(() => characterCredits.value
+	.filter((credit) => matchesLocalizedNameSearch(credit, characterSearch.value)))
 const sortedCharacterCredits = computed(() => {
 	const direction = characterOrder.value === 'asc' ? 1 : -1
 	return [...filteredCharacterCredits.value].sort((a, b) => {
@@ -208,27 +200,38 @@ const browserPageSize = computed<number>({
 		else workPageSize.value = value
 	},
 })
-const browserTitle = computed(() => creditView.value === 'characters' ? '配音角色' : '参与作品')
+const browserTitle = computed(() => creditView.value === 'characters' ? '配音角色' : seriesMode.value ? '参与系列' : '参与作品')
 const browserSubjects = computed(() => creditView.value === 'works' ? visibleWorks.value : [])
-const browserEmptyText = computed(() => creditView.value === 'characters'
-	? '没有符合当前搜索条件的角色。'
-	: '没有符合当前搜索条件的作品。')
-const browserSortOptions = computed(() => creditView.value === 'characters' ? characterSortOptions : workSortOptions)
+const browserEmptyText = computed(() => {
+	if (browserSearch.value.trim()) {
+		return creditView.value === 'characters'
+			? SEARCH_EMPTY_COPY.character
+			: seriesMode.value ? '没有符合搜索条件的系列' : SEARCH_EMPTY_COPY.work
+	}
+	return creditView.value === 'characters'
+		? RESULT_EMPTY_COPY.character
+		: seriesMode.value ? '没有符合当前条件的系列' : RESULT_EMPTY_COPY.work
+})
+const browserSortOptions = computed(() => creditView.value === 'characters' ? characterSortOptions : workSortOptions.value)
 const browserSearchPlaceholder = computed(() => creditView.value === 'characters'
-	? '搜索角色双语名或来源作品…'
-	: '搜索中日文标题或角色名…')
-const browserSearchAriaLabel = computed(() => creditView.value === 'characters' ? '搜索配音角色' : '搜索参与作品')
-const browserSortAriaLabel = computed(() => creditView.value === 'characters' ? '配音角色排序' : '参与作品排序')
-const browserOrderAriaLabel = computed(() => creditView.value === 'characters' ? '配音角色排序方向' : '参与作品排序方向')
+	? '搜索角色'
+	: seriesMode.value ? '搜索系列或系列内作品' : '搜索作品')
+const browserSearchAriaLabel = computed(() => creditView.value === 'characters' ? '搜索配音角色' : seriesMode.value ? '搜索参与系列或系列内作品' : '搜索参与作品')
+const browserSortAriaLabel = computed(() => creditView.value === 'characters' ? '配音角色排序' : seriesMode.value ? '参与系列排序' : '参与作品排序')
+const browserOrderAriaLabel = computed(() => creditView.value === 'characters' ? '配音角色排序方向' : seriesMode.value ? '参与系列排序方向' : '参与作品排序方向')
 const browserSearchName = computed(() => creditView.value === 'characters' ? 'characterSearch' : 'workSearch')
 const browserItemCount = computed(() => creditView.value === 'characters' ? sortedCharacterCredits.value.length : sortedWorks.value.length)
-const browserPageSizes = computed(() => creditView.value === 'characters' ? CHARACTER_PAGE_SIZES : SUBJECT_WORK_PAGE_SIZES)
+const browserPageSizes = computed(() => creditView.value === 'characters'
+	? CHARACTER_PAGE_SIZES
+	: seriesMode.value
+		? SUBJECT_WORK_PAGE_SIZES.map((option) => ({ ...option, label: `每页 ${option.value} 个系列` }))
+		: SUBJECT_WORK_PAGE_SIZES)
 const browserRangeLabel = computed(() => creditView.value === 'characters' ? characterRangeLabel.value : workRangeLabel.value)
-const browserPaginationAriaLabel = computed(() => creditView.value === 'characters' ? '配音角色分页' : '参与作品分页')
-const browserCompactAriaLabel = computed(() => creditView.value === 'characters' ? '角色缩略模式' : '作品缩略模式')
+const browserPaginationAriaLabel = computed(() => creditView.value === 'characters' ? '配音角色分页' : seriesMode.value ? '参与系列分页' : '参与作品分页')
+const browserCompactAriaLabel = computed(() => creditView.value === 'characters' ? '角色缩略模式' : seriesMode.value ? '系列缩略模式' : '作品缩略模式')
 const browserCompactDescription = computed(() => creditView.value === 'characters'
 	? '仅显示角色的缩小头像和双语名'
-	: '仅显示序号、双语名和我的分数')
+	: seriesMode.value ? '仅显示代表条目的序号、双语名和系列均分' : '仅显示序号、双语名和评分')
 const updateCreditView = (value: string | number) => {
 	if (value === 'works' || value === 'characters') creditView.value = value
 }
@@ -240,32 +243,46 @@ const morePreferred = computed(() => workbench.focusedPreferenceContributions.va
 const moreConservative = computed(() => workbench.focusedPreferenceContributions.value
 	.filter((item) => item.difference < 0)
 	.slice(0, 3))
-const preferenceUnitLabel = computed(() => workbench.query.mergeSeries ? '系列' : '作品')
-const preferenceModelNote = computed(() => `单作偏好 = 我的评分 − 全站评分
-人物偏好分 = 平均偏差 × 有效${preferenceUnitLabel.value}数 /（有效${preferenceUnitLabel.value}数 + 5）。`)
+const preferenceModelNote = computed(() => preferenceExplanation({
+	seriesMode: seriesMode.value,
+	summary: preferenceSummary.value,
+}))
+
+watch([() => workbench.query.isGlobal, seriesMode], ([isGlobal, isSeries]) => {
+	if ((isGlobal && (workSort.value === 'personal' || workSort.value === 'date'))
+		|| (!isSeries && workSort.value === 'seriesCount')) workSort.value = 'score'
+})
 
 const focusWork = async (subject: Subject) => {
 	creditView.value = 'works'
-	workbench.focusedWorkSearch.value = workbench.subjectName(subject)
+	workbench.focusedWorkSearch.value = localizedNameSearchValue(subject)
 	workPage.value = 1
 	await nextTick()
-	document.querySelector<HTMLInputElement>('input[aria-label="搜索参与作品"]')?.focus()
+	document.querySelector<HTMLInputElement>(`input[aria-label="${browserSearchAriaLabel.value}"]`)?.focus()
 }
 
 const roleSummary = (subject: Subject) => {
-	if (!person.value) return []
-	return workbench.rankingPositionIds.value.flatMap((positionId) => {
-		if (!workbench.positionSubjectIds(person.value!, positionId).includes(Number(subject.id))) return []
-		if (Number(positionId) !== 102) return [{ name: workbench.positionLabel(positionId) }]
-		const roles = workbench.personSubjectRoles(person.value!, subject.id, positionId)
-		return roles.length
-			? roles.map((role) => ({
-				name: role.displayName || role.nameCN || role.name || '角色',
-				label: characterRoleLabel(role),
-			}))
-			: [{ name: '声优' }]
-	})
+	if (!person.value || !isVoiceActorQuery.value) return []
+	const voiceSubjectIds = new Set(workbench.positionSubjectIds(person.value, 102).map(Number))
+	const includedSubjectIds = subject.series?.includedSubjectIds ?? [Number(subject.id)]
+	const entriesByCharacter = new Map<string, { name: string; label: string; key: string }>()
+	for (const role of includedSubjectIds
+		.filter((subjectId) => voiceSubjectIds.has(Number(subjectId)))
+		.flatMap((subjectId) => workbench.personSubjectRoles(person.value!, subjectId, 102))) {
+		const key = characterCreditKey(role)
+		const entry = {
+			name: role.displayName || role.nameCN || role.name || '角色',
+			label: characterRoleLabel(role),
+			key,
+		}
+		const existing = entriesByCharacter.get(key)
+		if (!existing || characterRoleLabelPriority(entry.label) > characterRoleLabelPriority(existing.label)) {
+			entriesByCharacter.set(key, entry)
+		}
+	}
+	return [...entriesByCharacter.values()]
 }
+const hasRoleSummary = (subject: Subject) => roleSummary(subject).length > 0
 const numberFormatters = new Map<number, Intl.NumberFormat>()
 const numberFormatter = (digits: number) => {
 	if (!numberFormatters.has(digits)) numberFormatters.set(digits, new Intl.NumberFormat('zh-CN', {
@@ -323,66 +340,86 @@ const formatSigned = (value?: number | null, digits = 2) => value === null || va
 					</button>
 				</section>
 			</div>
-			<div class="profile-metrics profile-metrics--extended" aria-label="人物统计">
-				<span><b>{{ person.subjectCount ?? person.subjectIds?.length ?? 0 }}</b><small>参与作品</small></span>
-				<span><b>{{ person.ratedSubjectCount ?? '—' }}</b><small>已评分</small></span>
-				<span><b>{{ formatScore(person.globalAverage) }}</b><small>全站均分</small></span>
-				<span class="profile-metric--primary"><b>{{ formatScore(person.userAverage) }}</b><small>我的均分</small></span>
-				<span class="profile-metric--primary">
-					<b>{{ formatScore(overallScore) }}</b>
-					<small class="profile-metric__label">
+			<div class="profile-metrics profile-metrics--extended metric-grid" :class="{ 'profile-metrics--global': workbench.query.isGlobal }" aria-label="人物统计">
+				<span class="metric-unit"><small class="metric-unit__label">{{ seriesMode ? '参与系列' : '参与作品' }}</small><b class="metric-unit__value">{{ person.subjectCount ?? person.subjectIds?.length ?? 0 }}</b></span>
+				<span v-if="!workbench.query.isGlobal" class="metric-unit"><small class="metric-unit__label">{{ seriesMode ? '已评系列' : '已评分' }}</small><b class="metric-unit__value">{{ person.ratedSubjectCount ?? '—' }}</b></span>
+				<span class="metric-unit"><small class="metric-unit__label">{{ workbench.query.isGlobal ? '均分' : '全站均分' }}</small><b class="metric-unit__value">{{ formatScore(person.globalAverage) }}</b></span>
+				<span v-if="!workbench.query.isGlobal" class="profile-metric--primary metric-unit"><small class="metric-unit__label">我的均分</small><b class="metric-unit__value">{{ formatScore(person.userAverage) }}</b></span>
+				<span class="profile-metric--primary metric-unit">
+					<small class="profile-metric__label metric-unit__label">
 						<span class="profile-metric__label-text">综合分</span>
-						<WorkbenchTooltip :show="overallScoreTooltipVisible" trigger="manual" placement="top-end">
+						<n-tooltip
+							:show="overallScoreTooltipVisible"
+							trigger="manual"
+							placement="top-end"
+							:animated="false"
+							style="max-width: min(336px, calc(100dvw - 72px));"
+							content-class="workbench-tooltip-content"
+						>
 							<template #trigger>
 								<button
 									class="profile-metric__info"
 									type="button"
+									:aria-expanded="overallScoreTooltipVisible"
 									:aria-label="`综合分计算说明：${overallScoreNote}`"
 									@mouseenter="overallScoreTooltipVisible = true"
 									@mouseleave="overallScoreTooltipVisible = false"
 									@focus="overallScoreTooltipVisible = true"
 									@blur="overallScoreTooltipVisible = false"
+									@click.stop="overallScoreTooltipVisible = true"
+									@keydown.esc.stop.prevent="overallScoreTooltipVisible = false"
 								>
 									<AppIcon name="info" :size="16" />
 								</button>
 							</template>
 							<span class="preference-model-tooltip">{{ overallScoreNote }}</span>
-						</WorkbenchTooltip>
+						</n-tooltip>
 					</small>
+					<b class="metric-unit__value">{{ formatScore(overallScore) }}</b>
 				</span>
-				<span class="profile-metric--primary">
-					<b>{{ formatSigned(preferenceSummary?.score) }}</b>
-					<small class="profile-metric__label">
+				<span v-if="!workbench.query.isGlobal" class="profile-metric--primary metric-unit">
+					<small class="profile-metric__label metric-unit__label">
 						<span class="profile-metric__label-text">相对偏好</span>
-						<WorkbenchTooltip :show="preferenceTooltipVisible" trigger="manual" placement="top-end">
+						<n-tooltip
+							:show="preferenceTooltipVisible"
+							trigger="manual"
+							placement="top-end"
+							:animated="false"
+							style="max-width: min(336px, calc(100dvw - 72px));"
+							content-class="workbench-tooltip-content"
+						>
 							<template #trigger>
 								<button
 									class="profile-metric__info"
 									type="button"
+									:aria-expanded="preferenceTooltipVisible"
 									:aria-label="`相对偏好计算说明：${preferenceModelNote}`"
 									@mouseenter="preferenceTooltipVisible = true"
 									@mouseleave="preferenceTooltipVisible = false"
 									@focus="preferenceTooltipVisible = true"
 									@blur="preferenceTooltipVisible = false"
+									@click.stop="preferenceTooltipVisible = true"
+									@keydown.esc.stop.prevent="preferenceTooltipVisible = false"
 								>
 									<AppIcon name="info" :size="16" />
 								</button>
 							</template>
 							<span class="preference-model-tooltip">{{ preferenceModelNote }}</span>
-						</WorkbenchTooltip>
+						</n-tooltip>
 					</small>
+					<b class="metric-unit__value">{{ formatSigned(preferenceSummary?.score) }}</b>
 				</span>
-				<span><b>{{ highestRate ?? '—' }}</b><small>我的最高</small></span>
-				<span><b>{{ lowestRate ?? '—' }}</b><small>我的最低</small></span>
+				<span v-if="!workbench.query.isGlobal" class="metric-unit"><small class="metric-unit__label">{{ seriesMode ? '最高均分' : '最高评分' }}</small><b class="metric-unit__value">{{ formatScore(highestRate, seriesMode ? 2 : 0) }}</b></span>
+				<span v-if="!workbench.query.isGlobal" class="metric-unit"><small class="metric-unit__label">{{ seriesMode ? '最低均分' : '最低评分' }}</small><b class="metric-unit__value">{{ formatScore(lowestRate, seriesMode ? 2 : 0) }}</b></span>
 			</div>
 		</header>
 
 		<section class="inspector-section" aria-labelledby="person-tags-title">
 			<SubjectTagSummary
 				:subjects="workbench.focusedAllSubjects.value"
-				title="作品标签"
+				:show-personal="!workbench.query.isGlobal"
+				:title="seriesMode ? '代表条目标签' : '作品标签'"
 				heading-id="person-tags-title"
-				empty-text="该人物的参与作品暂无可用标签。"
 			/>
 		</section>
 
@@ -391,18 +428,20 @@ const formatSigned = (value?: number | null, digits = 2) => value === null || va
 				:subjects="workbench.focusedAllSubjects.value"
 				:person-name="workbench.personName(person)"
 				:is-global-query="workbench.query.isGlobal"
+				:series-mode="seriesMode"
 			/>
 		</section>
 
-		<section class="inspector-section" aria-labelledby="preference-title">
+		<section v-if="!workbench.query.isGlobal" class="inspector-section" aria-labelledby="preference-title">
 			<div class="section-heading">
-				<h2 id="preference-title">我的偏好</h2>
+				<h2 id="preference-title">相对偏好</h2>
 			</div>
-			<p v-if="preferenceSummary?.score === null || preferenceSummary?.score === undefined" class="preference-model-note">{{ workbench.query.isGlobal ? '相对偏好只在个人收藏模式计算。' : '该人物没有同时具备个人评分与有效全站评分的作品。' }}</p>
+			<p v-if="preferenceSummary?.score === null || preferenceSummary?.score === undefined" class="preference-model-note">没有同时具备我的评分与有效全站评分的{{ seriesMode ? '系列' : '作品' }}</p>
 			<PreferenceWorkList
-				v-if="!workbench.query.isGlobal"
 				:preferred="morePreferred"
 				:conservative="moreConservative"
+				:location-scope="seriesMode ? '参与系列' : '参与作品'"
+				:series-mode="seriesMode"
 				@select="focusWork"
 			/>
 		</section>
@@ -429,20 +468,21 @@ const formatSigned = (value?: number | null, digits = 2) => value === null || va
 				:pagination-summary="browserRangeLabel"
 				:pagination-aria-label="browserPaginationAriaLabel"
 				:compact-aria-label="browserCompactAriaLabel"
+				:detailed-description="seriesMode && creditView === 'works' ? '显示完整系列信息' : '显示完整作品信息'"
 				:compact-description="browserCompactDescription"
 			>
 				<template #heading="{ controlSize }">
-					<h2 id="person-credits-title" :class="{ 'sr-only': isVoiceActorQuery }">{{ isVoiceActorQuery ? '参与作品与配音角色' : '参与作品' }}</h2>
+					<h2 id="person-credits-title" :class="{ 'sr-only': isVoiceActorQuery }">{{ isVoiceActorQuery ? seriesMode ? '参与系列与配音角色' : '参与作品与配音角色' : seriesMode ? '参与系列' : '参与作品' }}</h2>
 					<div v-if="isVoiceActorQuery" class="person-credit-tabs">
 						<n-radio-group
 							:size="controlSize"
 							:value="creditView"
 							role="radiogroup"
-							aria-label="浏览参与作品或配音角色"
+							:aria-label="seriesMode ? '浏览参与系列或配音角色' : '浏览参与作品或配音角色'"
 							@update:value="updateCreditView"
 						>
 							<n-radio-button value="works">
-								<span class="person-credit-tab__label">作品 <small class="person-credit-tab__count">{{ workbench.focusedAllSubjects.value.length }}</small></span>
+								<span class="person-credit-tab__label">{{ seriesMode ? '系列' : '作品' }} <small class="person-credit-tab__count">{{ workbench.focusedAllSubjects.value.length }}</small></span>
 							</n-radio-button>
 							<n-radio-button value="characters">
 								<span class="person-credit-tab__label">角色 <small class="person-credit-tab__count">{{ characterCredits.length }}</small></span>
@@ -466,6 +506,8 @@ const formatSigned = (value?: number | null, digits = 2) => value === null || va
 							:aria-label="ariaLabel"
 							:compact="compact"
 							:start-index="startIndex"
+							role-label="配音角色"
+							:show-role="hasRoleSummary"
 						>
 							<template #role="{ subject }">
 								<AdaptiveRoleList :entries="roleSummary(subject)" />
@@ -478,7 +520,6 @@ const formatSigned = (value?: number | null, digits = 2) => value === null || va
 	</article>
 	<div v-else class="analysis-empty person-inspector-empty">
 		<span class="analysis-empty__icon"><AppIcon name="search" :size="28" /></span>
-		<h2>当前查询没有匹配人物</h2>
-		<p>请调整 UID、条目类型、职位或收藏范围。</p>
+		<h2>{{ workbench.rankingSearch.value.trim() ? SEARCH_EMPTY_COPY.person : RESULT_EMPTY_COPY.person }}</h2>
 	</div>
 </template>

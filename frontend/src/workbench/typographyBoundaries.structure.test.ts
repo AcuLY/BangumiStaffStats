@@ -27,6 +27,8 @@ const vueStyleSources = vueSources.flatMap(({ path, source }) => [...source.matc
 const activeStyleSources = [...cssSources, ...vueStyleSources]
 const themeSource = readFileSync(join(workbenchRoot, 'naiveThemeOverrides.ts'), 'utf8')
 const queryWorkspaceSource = readFileSync(join(componentsRoot, 'QueryWorkspace.vue'), 'utf8')
+const queryWorkspaceStyles = readFileSync(join(stylesRoot, 'modules', 'query-workspace.css'), 'utf8').replace(/\r\n/g, '\n')
+const singlePersonCooperationStyles = readFileSync(join(stylesRoot, 'modules', 'single-person-cooperation.css'), 'utf8').replace(/\r\n/g, '\n')
 const subjectWorkBrowserStyles = readFileSync(join(stylesRoot, 'modules', 'subject-work-browser.css'), 'utf8')
 const workspaceResponsiveStyles = readFileSync(join(stylesRoot, 'modules', 'workspace-responsive.css'), 'utf8').replace(/\r\n/g, '\n')
 const dataResponsiveStyles = readFileSync(join(stylesRoot, 'modules', 'data-responsive.css'), 'utf8').replace(/\r\n/g, '\n')
@@ -75,6 +77,36 @@ describe('workbench typography boundaries', () => {
 	}`)
 	})
 
+	it('implements the approved single-cooperation type scale', () => {
+		const mobileRankingStyles = dataResponsiveStyles.slice(
+			dataResponsiveStyles.indexOf('@media (width < 780px) {'),
+			dataResponsiveStyles.indexOf('@media (max-width: 520px) {'),
+		)
+		for (const selector of [
+			'\\.person-row--cooperation \\.person-row__rank',
+			'\\.person-row--cooperation \\.person-row__identity strong',
+			'\\.person-row--cooperation \\.person-row__metric strong',
+		]) {
+			expect(mobileRankingStyles).toMatch(new RegExp(`${selector}[\\s\\S]*?font-size:\\s*var\\(--text-caption\\)`))
+		}
+
+		expect(singlePersonCooperationStyles).toMatch(/\.single-cooperation__summary-cell b\s*{[^}]*font-size:\s*var\(--text-page\)/s)
+		const mobileCooperationStyles = singlePersonCooperationStyles.slice(
+			singlePersonCooperationStyles.indexOf('@media (width < 780px) {'),
+			singlePersonCooperationStyles.indexOf('@media (max-width: 480px) {'),
+		)
+		expect(mobileCooperationStyles).toMatch(/\.single-cooperation__summary-cell b\s*{[^}]*font-size:\s*var\(--text-section\)/s)
+	})
+
+	it('uses 12px advanced-option titles only below the mobile breakpoint', () => {
+		expect(queryWorkspaceStyles).toMatch(/\.query-advanced-option strong\s*{[^}]*font-size:\s*var\(--text-control\)/s)
+		const mobileWorkspaceStyles = workspaceResponsiveStyles.slice(
+			workspaceResponsiveStyles.indexOf('@media (width < 780px) {'),
+			workspaceResponsiveStyles.indexOf('@media (max-width: 640px) {'),
+		)
+		expect(mobileWorkspaceStyles).toMatch(/\.query-advanced-option strong\s*{[^}]*font-size:\s*var\(--text-caption\)/s)
+	})
+
 	it('keeps project Naive font overrides on the rem scale without mobile forks', () => {
 		expect(themeSource).not.toMatch(/\b\w*fontSize\w*\s*:\s*['"][^'"]*\b\d*\.?\d+px\b[^'"]*['"]/i)
 		expect(themeSource).not.toMatch(/THEME_FONT_SIZE\s*=\s*{[^}]*\b\d*\.?\d+px\b/s)
@@ -102,7 +134,7 @@ describe('workbench typography boundaries', () => {
 
 	it('reserves the micro token for accessible chart internals', () => {
 		const allowedSelectors = new Set([
-			'.grouped-bin__bar span',
+			'.horizontal-score-bar__value',
 			'.score-distribution__axis',
 			'.rating-time-chart__grid text',
 		])

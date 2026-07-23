@@ -107,19 +107,19 @@ const CHARACTER_BASE_URL = 'https://bgm.tv/character/'
 }
 
 .name:hover {
-	background-color: #ec468c;
-	border-color: #ec468c;
+	background-color: var(--color-primary-hover);
+	border-color: var(--color-primary-hover);
 	border-radius: 4px;
 	color: #ffffff;
-	box-shadow: 0px 0px 5px #ff1493;
+	box-shadow: 0 0 5px var(--color-primary);
 }
 
 .subject-name {
-	color: #c3809a;
+	color: var(--color-primary);
 }
 
 .name:hover .subject-name {
-	color: #ffd0f4;
+	color: #ffffff;
 }
 
 @media (max-width: 768px) {
@@ -140,15 +140,15 @@ const CHARACTER_BASE_URL = 'https://bgm.tv/character/'
 	}
 
 	.name:hover {
-		box-shadow: 0px 0px 2px #ff1493;
+		box-shadow: 0 0 2px var(--color-primary);
 	}
 
 	.name:focus {
-		background-color: #ec468c;
-		border-color: #ec468c;
+		background-color: var(--color-primary-hover);
+		border-color: var(--color-primary-hover);
 		border-radius: 4px;
 		color: #ffffff;
-		box-shadow: 0px 0px 2px #ff1493;
+		box-shadow: 0 0 2px var(--color-primary);
 	}
 }
 </style>

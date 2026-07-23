@@ -63,6 +63,14 @@
 	color: var(--primary-text);
 }
 
+.matrix-table tbody tr:hover > th,
+.matrix-table tbody tr:hover > td {
+	background-image: linear-gradient(
+		color-mix(in oklab, var(--hover) 60%, transparent),
+		color-mix(in oklab, var(--hover) 60%, transparent)
+	);
+}
+
 .role-entry {
 	display: grid;
 	gap: 2px;

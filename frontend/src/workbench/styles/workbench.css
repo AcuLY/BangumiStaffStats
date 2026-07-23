@@ -20,7 +20,11 @@
 @import './modules/pagination.css';
 @import './modules/query-workspace.css';
 @import './modules/query-range-controls.css';
+@import './modules/query-skeleton.css';
 @import './modules/workspace-responsive.css';
 @import './modules/component-responsive.css';
+@import './modules/selected-people.css';
+@import './modules/global-mode.css';
+@import './modules/metric-units.css';
 @import './modules/scrollbars.css';
 @import './modules/content-images.css';

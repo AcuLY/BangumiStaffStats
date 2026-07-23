@@ -94,10 +94,6 @@ onBeforeUnmount(() => {
 	intersectionObserver?.disconnect()
 })
 
-const fallbackLabel = computed(() => props.alt
-	? `${props.alt}的图片无法加载`
-	: '图片无法加载')
-
 const intrinsicStyle = computed(() => ({
 	'--safe-image-width': `${props.width}px`,
 }))
@@ -129,9 +125,7 @@ const portraitKind = computed(() => props.kind === 'person' || props.kind === 'c
 		<span
 			v-else
 			class="safe-image__fallback"
-			:role="decorative ? undefined : 'img'"
-			:aria-hidden="decorative ? 'true' : undefined"
-			:aria-label="decorative ? undefined : fallbackLabel"
+			aria-hidden="true"
 		>
 			<AppIcon :name="portraitKind ? 'person' : 'image'" :size="portraitKind ? 28 : 24" />
 		</span>

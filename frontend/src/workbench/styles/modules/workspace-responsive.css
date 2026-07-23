@@ -1,4 +1,8 @@
 @media (width >= 780px) {
+	.workbench-page-scroll {
+		scrollbar-gutter: stable both-edges;
+	}
+
 	.workbench-body {
 		--workspace-panel-top: var(--space-2);
 		--workspace-panel-height: calc(100dvh - var(--workbench-header-height) - var(--space-3));
@@ -13,7 +17,7 @@
 
 	.person-picker:not(.person-picker--drawer) {
 		--selected-tray-header-height: 44px;
-		--selected-tray-list-height: 120px;
+		--selected-tray-list-height: 166px;
 		grid-template-rows: auto minmax(0, 1fr);
 		height: auto;
 		min-height: 680px;
@@ -36,7 +40,6 @@
 
 	.person-picker:not(.person-picker--drawer) .selected-tray.is-expanded .selected-people-list {
 		height: var(--selected-tray-list-height);
-		padding-bottom: var(--space-1);
 		overflow-x: hidden;
 		overflow-y: auto;
 		overscroll-behavior-y: auto;
@@ -84,6 +87,10 @@
 		font-size: var(--text-caption);
 	}
 
+	.query-advanced-option strong {
+		font-size: var(--text-caption);
+	}
+
 	.query-summary,
 	.mobile-picker-entry {
 		width: min(100%, calc(var(--workspace-max) + 32px));
@@ -94,14 +101,20 @@
 
 	.query-summary,
 	.mobile-picker-entry {
+		padding-block: var(--space-2);
+	}
+
+	.query-summary,
+	.mobile-picker-entry {
 		grid-template-columns: minmax(0, 1fr) max-content;
 		gap: var(--space-2);
 	}
 
 	.query-summary__action,
+	.query-editor__collapse,
 	.mobile-picker-entry__action {
 		align-self: center;
-		width: 28px;
+		width: var(--touch-target-min);
 		height: 28px;
 	}
 
@@ -118,7 +131,7 @@
 
 	.query-summary__stage-copy strong {
 		white-space: normal;
-		overflow-wrap: anywhere;
+		overflow-wrap: normal;
 		text-overflow: clip;
 	}
 
@@ -251,12 +264,11 @@
 		grid-template-columns: minmax(0, 1fr);
 	}
 
-	.query-editor__footer,
-	.query-editor__actions {
+	.query-editor__footer {
 		align-items: stretch;
 	}
 
 	.query-editor__actions > * {
-		flex: 1 1 auto;
+		flex: 0 0 auto;
 	}
 }

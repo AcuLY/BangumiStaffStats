@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest'
 
 const componentsDirectory = new URL('.', import.meta.url)
 const safeImageSource = readFileSync(new URL('./SafeImage.vue', import.meta.url), 'utf8')
+const selectedPersonCardSource = readFileSync(new URL('./SelectedPersonCard.vue', import.meta.url), 'utf8')
 const tokensSource = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8')
 const workbenchStylesSource = readFileSync(new URL('../styles/workbench.css', import.meta.url), 'utf8')
+const selectedPeopleStylesSource = readFileSync(new URL('../styles/modules/selected-people.css', import.meta.url), 'utf8')
 const contentImageStylesUrl = new URL('../styles/modules/content-images.css', import.meta.url)
 const contentImageStylesSource = existsSync(contentImageStylesUrl)
 	? readFileSync(contentImageStylesUrl, 'utf8')
@@ -40,14 +42,27 @@ describe('SafeImage content ratio', () => {
 		}
 	})
 
-	it('keeps the shared ratio while allowing capped co-star card stretching', () => {
-		expect(contentImageStylesSource).toContain('aspect-ratio: var(--content-image-aspect-ratio);')
-		expect(contentImageStylesSource).toContain('height: auto;')
-		expect(contentImageStylesSource).toContain('min-height: 0;')
-		expect(contentImageStylesSource).toMatch(/\.safe-image\.person-profile__portrait\s*{[^}]*align-self:\s*start;/s)
-		expect(contentImageStylesSource).toMatch(/\.profile-stage--people:not\(\.profile-stage--pair\):not\(\.single-cooperation__profile-stage\)\s*>\s*\.analysis-profile\s*{[^}]*max-width:\s*none;[^}]*max-height:\s*261\.333px;/s)
-		expect(contentImageStylesSource).toMatch(/@container\s+relationship-hero\s*\(max-width:\s*519px\)[^{]*{[\s\S]*max-height:\s*240px;/)
-		expect(contentImageStylesSource).toMatch(/\.candidate-row__portrait[^}]*aspect-ratio:\s*var\(--content-image-aspect-ratio\);/s)
-		expect(contentImageStylesSource).toMatch(/\.subject-work-row__cover-media[^}]*aspect-ratio:\s*var\(--content-image-aspect-ratio\);/s)
+	it('uses a text-free decorative fallback until a final placeholder image is selected', () => {
+		expect(safeImageSource).not.toContain('fallbackLabel')
+		expect(safeImageSource).not.toContain('图片无法加载')
+		expect(safeImageSource).not.toContain(':aria-label="decorative ? undefined : fallbackLabel"')
+		expect(safeImageSource).toMatch(/v-else[\s\S]*?class="safe-image__fallback"[\s\S]*?aria-hidden="true"/)
+	})
+
+	it('keeps selected-person and candidate portraits on the shared 3:4 geometry', () => {
+		expect(contentImageStylesSource).toMatch(/\.safe-image:is\(\.safe-image--person, \.safe-image--character, \.safe-image--subject\)\s*\{[^}]*aspect-ratio:\s*var\(--content-image-aspect-ratio\);[^}]*height:\s*auto;[^}]*min-height:\s*0;/s)
+		expect(selectedPersonCardSource).toMatch(/<SafeImage[\s\S]*?class="selected-person-card__image"[\s\S]*?:width="84"[\s\S]*?\/>/)
+
+		const selectedPersonImageRule = selectedPeopleStylesSource.match(
+			/\.selected-person-card__image\s*\{([^}]*)\}/s,
+		)?.[1] ?? ''
+		expect(selectedPersonImageRule).toContain('width: 84px;')
+		expect(selectedPersonImageRule).toContain('height: auto;')
+		expect(selectedPersonImageRule).toContain('min-height: 0;')
+		expect(selectedPersonImageRule).not.toMatch(/height:\s*\d+px;/)
+
+		expect(contentImageStylesSource).toMatch(/\.candidate-row__portrait[^}]*aspect-ratio:\s*var\(--content-image-aspect-ratio\);[^}]*height:\s*auto;/s)
+		expect(contentImageStylesSource).toMatch(/\.subject-work-row__cover-media[^}]*aspect-ratio:\s*var\(--content-image-aspect-ratio\);[^}]*height:\s*auto;/s)
+		expect(tokensSource).not.toContain('--co-star-card-aspect-ratio:')
 	})
 })

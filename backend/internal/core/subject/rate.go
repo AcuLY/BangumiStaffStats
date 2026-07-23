@@ -8,6 +8,11 @@ import (
 
 // CalcAverage 计算给定条目的均分，保留两位小数，忽略 0 分的条目
 func CalcAverage(subjs []*model.Subject) float64 {
+	avg, _ := calcAverageWithValidRateCount(subjs)
+	return avg
+}
+
+func calcAverageWithValidRateCount(subjs []*model.Subject) (float64, int) {
 	var sum float64
 	var validRateCnt int
 
@@ -21,22 +26,22 @@ func CalcAverage(subjs []*model.Subject) float64 {
 	}
 
 	if validRateCnt == 0 {
-		return 0
+		return 0, 0
 	}
 
 	avg := sum / float64(validRateCnt)
 	floored := math.Floor(avg*100) / 100
 
-	return floored
+	return floored, validRateCnt
 }
 
 func CalcOverall(subjs []*model.Subject) float64 {
-	avg := CalcAverage(subjs)
+	avg, validRateCnt := calcAverageWithValidRateCount(subjs)
 	if avg == 0 {
 		return 0
 	}
 
-	n := float64(len(subjs))
+	n := float64(validRateCnt)
 	constant := 5.0
 	middle := 5.0
 

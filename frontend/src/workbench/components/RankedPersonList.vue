@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Person, RankingMetric } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
 import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
+import { SEARCH_EMPTY_COPY } from '../searchEmptyCopy'
 import AppIcon from './AppIcon.vue'
 import SafeImage from './SafeImage.vue'
 
@@ -22,9 +24,9 @@ const props = withDefaults(defineProps<{
 	rankOffset: 0,
 	metric: 'count',
 	focusedId: 0,
-	averageLabel: '我的均分',
-	emptyTitle: '没有匹配的人物',
-	emptyDescription: '换一个搜索词或筛选条件。',
+	averageLabel: '均分',
+	emptyTitle: SEARCH_EMPTY_COPY.person,
+	emptyDescription: '',
 })
 
 const emit = defineEmits<{
@@ -33,6 +35,7 @@ const emit = defineEmits<{
 
 const workbench = useWorkbench()
 const { isMobile } = useWorkbenchControlSize()
+const showPreference = computed(() => !workbench.query.isGlobal)
 
 const formatScore = (value: number | null | undefined, hasRating = true) =>
 	hasRating && Number.isFinite(value) ? Number(value).toFixed(2) : '—'
@@ -61,11 +64,14 @@ const progressStyle = (person: Person) => ({
 	'--row-progress': `${workbench.rankingProgress(person).percent}%`,
 })
 
+const ratingCount = (person: Person) => workbench.query.isGlobal
+	? Number(person.globalRatedSubjectCount || 0)
+	: Number(person.ratedSubjectCount || 0)
 const metricSummary = (person: Person) => [
-	`${person.subjectCount ?? 0} 部作品`,
-	`${props.averageLabel} ${formatScore(person.userAverage, Boolean(person.ratedSubjectCount))}`,
-	`综合分 ${formatScore(workbench.rankingValue(person, 'overall'), Boolean(person.ratedSubjectCount))}`,
-	`相对偏好 ${formatPreference(person)}`,
+	`${person.subjectCount ?? 0} ${workbench.query.mergeSeries ? '个系列' : '部作品'}`,
+	`${props.averageLabel} ${formatScore(workbench.rankingValue(person, 'average'), Boolean(ratingCount(person)))}`,
+	`综合分 ${formatScore(workbench.rankingValue(person, 'overall'), Boolean(ratingCount(person)))}`,
+	...(showPreference.value ? [`相对偏好 ${formatPreference(person)}`] : []),
 ].join('，')
 
 const isCooperation = (person: Person | CooperationPerson): person is CooperationPerson =>
@@ -87,6 +93,22 @@ const identityTooltipLabel = (person: Person | CooperationPerson) =>
 
 <template>
 	<div
+		class="list-columns list-columns--ranking"
+		:class="{ 'single-cooperation__list-columns': variant === 'cooperation' }"
+		aria-hidden="true"
+	>
+		<span>#</span>
+		<span />
+		<span>人物</span>
+		<span class="list-columns__metrics" :class="{ 'is-global': !showPreference }">
+			<span>{{ workbench.query.mergeSeries ? '系列' : '作品' }}</span>
+			<span>均分</span>
+			<span>综合</span>
+			<span v-if="showPreference">偏好</span>
+		</span>
+	</div>
+
+	<div
 		class="person-list"
 		:class="[
 			`person-list--${variant}`,
@@ -107,7 +129,7 @@ const identityTooltipLabel = (person: Person | CooperationPerson) =>
 				:aria-expanded="variant === 'ranking' ? focused(person) && (!isMobile || workbench.inspectorDrawerOpen.value) : undefined"
 				:aria-label="variant === 'ranking'
 					? `${rankOffset + index + 1}. ${workbench.personName(person)}，${secondaryLabel(person)}，${metricSummary(person)}`
-					: `查看与${workbench.personName(person)}合作的 ${person.subjectCount ?? 0} 部作品，${metricSummary(person)}`"
+					: `查看与${workbench.personName(person)}合作的 ${person.subjectCount ?? 0} ${workbench.query.mergeSeries ? '个系列' : '部作品'}，${metricSummary(person)}`"
 				type="button"
 				@click="emit('activate', person.id)"
 			>
@@ -125,17 +147,17 @@ const identityTooltipLabel = (person: Person | CooperationPerson) =>
 					<strong>{{ workbench.personName(person) }}</strong>
 					<small>{{ secondaryLabel(person) }}</small>
 				</span>
-				<span class="person-row__metrics" :aria-label="metricSummary(person)">
+				<span class="person-row__metrics" :class="{ 'is-global': !showPreference }" :aria-label="metricSummary(person)">
 					<span class="person-row__metric" :class="{ 'is-active': activeMetric() === 'count' }">
 						<strong>{{ person.subjectCount ?? 0 }}</strong>
 					</span>
 					<span class="person-row__metric" :class="{ 'is-active': activeMetric() === 'average' }">
-						<strong>{{ formatScore(person.userAverage, Boolean(person.ratedSubjectCount)) }}</strong>
+						<strong>{{ formatScore(workbench.rankingValue(person, 'average'), Boolean(ratingCount(person))) }}</strong>
 					</span>
 					<span class="person-row__metric" :class="{ 'is-active': activeMetric() === 'overall' }">
-						<strong>{{ formatScore(workbench.rankingValue(person, 'overall'), Boolean(person.ratedSubjectCount)) }}</strong>
+						<strong>{{ formatScore(workbench.rankingValue(person, 'overall'), Boolean(ratingCount(person))) }}</strong>
 					</span>
-					<span class="person-row__metric" :class="{ 'is-active': activeMetric() === 'preference', 'is-unavailable': !hasPreference(person) }">
+					<span v-if="showPreference" class="person-row__metric" :class="{ 'is-active': activeMetric() === 'preference', 'is-unavailable': !hasPreference(person) }">
 						<strong v-if="hasPreference(person)" class="person-row__signed-value"><span>{{ preferenceSign(person) }}</span><span>{{ preferenceMagnitude(person) }}</span></strong>
 						<strong v-else>—</strong>
 					</span>
@@ -147,7 +169,7 @@ const identityTooltipLabel = (person: Person | CooperationPerson) =>
 		<div v-if="!items.length" class="person-list__empty">
 			<AppIcon name="search" :size="22" />
 			<strong>{{ emptyTitle }}</strong>
-			<span>{{ emptyDescription }}</span>
+			<span v-if="emptyDescription">{{ emptyDescription }}</span>
 		</div>
 	</div>
 </template>

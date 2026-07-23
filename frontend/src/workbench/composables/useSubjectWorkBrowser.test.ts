@@ -45,4 +45,30 @@ describe('useSubjectWorkBrowser', () => {
 		expect(compareSubjectNumber(8, 0, 1)).toBe(-1)
 		expect(compareSubjectNumber(8, 0, -1)).toBe(-1)
 	})
+
+	it('can exclude entries that are invalid for only the active sort', async () => {
+		const source = ref<Subject[]>([
+			{ id: 1, nameCN: '有收藏日期', score: 8, collection: { updatedAt: '2026-01-02' } },
+			{ id: 2, nameCN: '只有作品日期', score: 7, date: '2025-01-02', collection: {} },
+		])
+		const browser = useSubjectWorkBrowser<'date' | 'score'>({
+			subjects: source,
+			searchTerms: (subject) => [subject.nameCN],
+			includeSubject: (subject, sort) => sort !== 'date' || Boolean(subject.collection?.updatedAt),
+			initialSort: 'date',
+			comparators: {
+				date: (a, b, direction) => compareSubjectText(a.collection?.updatedAt, b.collection?.updatedAt, direction),
+				score: (a, b, direction) => compareSubjectNumber(a.score, b.score, direction),
+			},
+		})
+
+		expect(browser.sortedSubjects.value.map((subject) => subject.id)).toEqual([1])
+		expect(browser.rangeLabel.value).toBe('1—1 / 1')
+
+		browser.sort.value = 'score'
+		await nextTick()
+
+		expect(browser.sortedSubjects.value.map((subject) => subject.id)).toEqual([1, 2])
+		expect(browser.rangeLabel.value).toBe('1—2 / 2')
+	})
 })

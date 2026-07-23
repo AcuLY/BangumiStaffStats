@@ -2,20 +2,25 @@
 	container: single-cooperation / inline-size;
 }
 
-.profile-stage--people.single-cooperation__profile-stage {
-	grid-template-columns: 196px minmax(0, 1fr);
+.single-cooperation__selection-content {
+	display: grid;
+	grid-template-columns: minmax(280px, .72fr) minmax(0, 1.28fr);
+	gap: 1px;
+	min-width: 0;
+	padding: 0;
+	background: var(--divider);
 }
 
 .single-cooperation__profile-copy {
 	min-width: 0;
-	border-left: 1px solid var(--divider);
 	background: var(--surface);
+	overflow: clip;
 }
 
 .single-cooperation__summary-grid {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	grid-template-rows: repeat(3, minmax(0, 1fr));
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	grid-template-rows: repeat(2, minmax(56px, 1fr));
 	gap: 1px;
 	width: 100%;
 	height: 100%;
@@ -39,18 +44,15 @@
 }
 
 .single-cooperation__summary-cell b {
-	font-size: var(--text-panel);
+	font-size: var(--text-page);
 	line-height: 1;
 	font-variant-numeric: tabular-nums;
 }
 
 .single-cooperation__leader {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
-	grid-template-rows: auto minmax(36px, auto);
 	align-content: center;
 	align-items: center;
-	gap: var(--space-2);
 	min-width: 0;
 	min-height: 0;
 	padding: var(--space-3) var(--space-4);
@@ -72,7 +74,7 @@
 	position: relative;
 	z-index: 1;
 	outline: 2px solid var(--focus);
-	outline-offset: 2px;
+	outline-offset: -2px;
 }
 
 .single-cooperation__leader:disabled {
@@ -84,10 +86,6 @@
 	width: 28px;
 	height: 36px;
 	border-radius: 3px;
-}
-
-.single-cooperation__cell-label {
-	grid-column: 1 / -1;
 }
 
 .single-cooperation__leader-person {
@@ -108,7 +106,7 @@
 
 .single-cooperation__leader > b {
 	color: var(--primary-text);
-	font-size: var(--text-caption);
+	font-size: var(--text-subheading);
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
 }
@@ -118,6 +116,10 @@
 	grid-template-columns: minmax(350px, .76fr) minmax(0, 1.24fr);
 	min-width: 0;
 	padding: 0;
+}
+
+.single-cooperation__workspace--empty {
+	grid-template-columns: minmax(0, 1fr);
 }
 
 .single-cooperation__partners,
@@ -134,6 +136,12 @@
 
 .single-cooperation__heading {
 	margin-bottom: var(--space-3);
+}
+
+.single-cooperation__heading-title {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
 }
 
 .single-cooperation__filters {
@@ -163,19 +171,24 @@
 	}
 }
 
-@media (max-width: 917px) {
-	.profile-stage--people.single-cooperation__profile-stage {
-		grid-template-columns: 160px minmax(0, 1fr);
+@container single-cooperation (max-width: 759px) {
+	.single-cooperation__selection-content {
+		grid-template-columns: minmax(0, 1fr);
 	}
+}
 
+@container single-cooperation (max-width: 520px) {
+	.single-cooperation__summary-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-rows: repeat(3, minmax(56px, 1fr));
+	}
+}
+
+@media (max-width: 917px) {
 	.single-cooperation__summary-cell,
 	.single-cooperation__leader {
 		gap: var(--space-1);
 		padding: var(--space-2) var(--space-3);
-	}
-
-	.single-cooperation__leader {
-		grid-template-rows: auto minmax(20px, auto);
 	}
 
 	.single-cooperation__leader-avatar {
@@ -192,16 +205,8 @@
 		padding: 0;
 	}
 
-	.profile-stage--people.single-cooperation__profile-stage {
-		grid-template-columns: 160px minmax(0, 1fr);
-	}
-
-	.single-cooperation__profile-copy {
-		border-left: 0;
-	}
-
-	.single-cooperation__summary-grid {
-		grid-template-rows: repeat(3, minmax(0, 1fr));
+	.single-cooperation__summary-cell b {
+		font-size: var(--text-section);
 	}
 
 	.single-cooperation__partners,
@@ -226,12 +231,6 @@
 		padding: var(--space-1);
 	}
 
-	.single-cooperation__leader {
-		grid-template-columns: minmax(0, 1fr);
-		grid-template-rows: auto auto auto;
-		gap: 2px;
-	}
-
 	.single-cooperation__leader-avatar {
 		width: 24px;
 		height: 32px;
@@ -240,10 +239,6 @@
 	.single-cooperation__leader-person {
 		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-1);
-	}
-
-	.single-cooperation__leader > b {
-		justify-self: start;
 	}
 
 	.single-cooperation__filters--with-position .work-list-toolbar {

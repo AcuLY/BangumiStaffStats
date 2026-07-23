@@ -35,20 +35,23 @@ import {
 	type PreferenceContribution,
 	type PreferenceObservation,
 } from '../domain/preference'
+import { matchesLocalizedNameSearch } from '../domain/nameSearch'
+import { shrinkRatingAverage, summarizeRatings } from '../domain/ratingSummary'
+import {
+	buildSeriesMemberIndex,
+	materializeResultSubjects,
+} from '../domain/seriesAggregation'
 
 const RANKING_PAGE_SIZE = 10
 const CANDIDATE_PAGE_SIZE = 10
 
 const unique = <T>(values: T[]) => [...new Set(values)]
-const floorTwo = (value: number) => Math.floor(value * 100) / 100
-const roundTwo = (value: number) => Math.round(value * 100) / 100
 const compactSearch = (value: unknown) => String(value ?? '')
 	.toLocaleLowerCase('zh-CN')
 	.replace(/[\s·・_-]/g, '')
 
 function average(values: number[]) {
-	const rated = values.filter((value) => value > 0)
-	return rated.length ? floorTwo(rated.reduce((sum, value) => sum + value, 0) / rated.length) : 0
+	return summarizeRatings(values).average
 }
 
 function intersection(sets: Set<number>[]) {
@@ -58,6 +61,13 @@ function intersection(sets: Set<number>[]) {
 
 function union(sets: Set<number>[]) {
 	return new Set(sets.flatMap((set) => [...set]))
+}
+
+export function retainSelectedScopesForPositions(
+	scopes: readonly SelectedScope[],
+	positionIds: ReadonlySet<number>,
+) {
+	return scopes.filter((scope) => positionIds.has(Number(scope.positionId)))
 }
 
 export interface RankingProgress {
@@ -85,6 +95,14 @@ export interface WorkbenchContext {
 	queryDraftStatus: ComputedRef<string>
 	queryScopeCount: ComputedRef<number>
 	queryScopeSubjectIds: ComputedRef<Set<number>>
+	resultSubjectsForIds: (
+		subjectIds: readonly number[],
+		options?: {
+			sharedSubjectIds?: readonly number[]
+			participantSubjectIds?: Readonly<Record<string, readonly number[]>>
+		},
+	) => Subject[]
+	resultSubjectCount: (subjectIds: readonly number[]) => number
 	rankingPositionIds: ComputedRef<number[]>
 	coStarPositionIds: ComputedRef<number[]>
 	applyQuery: () => boolean
@@ -108,6 +126,7 @@ export interface WorkbenchContext {
 	rankingSearch: Ref<string>
 	rankingPage: Ref<number>
 	rankingPageSize: Ref<number>
+	rankingResultPeople: ComputedRef<Person[]>
 	rankingPeople: ComputedRef<Person[]>
 	rankingCharacterCount: ComputedRef<number>
 	rankingPageItems: ComputedRef<Person[]>
@@ -152,8 +171,9 @@ export function provideWorkbench(
 	snapshot: Ref<WorkbenchSnapshot | null>,
 	positionData: Ref<PositionData | null>,
 ) {
-	const mode = ref<WorkbenchMode>(new URLSearchParams(window.location.search).get('mode') === 'ranking' ? 'ranking' : 'co-star')
-	const requestedTheme = new URLSearchParams(window.location.search).get('theme')
+	const routeSearch = new URLSearchParams(window.location.search)
+	const mode = ref<WorkbenchMode>(routeSearch.get('mode') === 'ranking' ? 'ranking' : 'co-star')
+	const requestedTheme = routeSearch.get('theme')
 	const storedTheme = (() => {
 		try {
 			return window.localStorage.getItem('bgmss-workbench-theme')
@@ -176,16 +196,16 @@ export function provideWorkbench(
 	const hasAppliedQuery = ref(!showsInitialQueryState)
 	const queryEditing = ref(showsInitialQueryState)
 	const querySimulationDelayMs = showsInitialQueryState ? 1200 : 520
-	const requestedUserId = new URLSearchParams(window.location.search).get('user')?.trim()
+	const requestedUserId = routeSearch.get('user')?.trim()
 	const makeQueryState = (): QueryState => ({
 		isGlobal: false,
 		showNSFW: false,
-		mergeSeries: false,
+		mergeSeries: routeSearch.get('result') === 'series',
 		userId: requestedUserId || (showsInitialQueryState ? '' : 'lucay126'),
 		subjectType: 2,
 		positionsByMode: {
 			ranking: [102],
-			'co-star': [102],
+			'co-star': [102, 3, 10, 6],
 		},
 		collectionTypes: [2, 3],
 		date: { enabled: false, value: ['', ''] },
@@ -258,6 +278,20 @@ export function provideWorkbench(
 	const subjectsById = computed(() => new Map(
 		(snapshot.value?.subjects ?? []).map((subject) => [Number(subject.id), subject]),
 	))
+	const seriesMemberIndex = computed(() => buildSeriesMemberIndex(snapshot.value?.seriesMembers))
+	const resultSubjectsForIds: WorkbenchContext['resultSubjectsForIds'] = (subjectIds, options = {}) => {
+		const subjects = subjectIds
+			.map(Number)
+			.map((id) => subjectsById.value.get(id))
+			.filter((subject): subject is Subject => Boolean(subject))
+		return materializeResultSubjects(subjects, {
+			mergeSeries: query.mergeSeries,
+			seriesMemberIndex: seriesMemberIndex.value,
+			subjectLookup: subjectsById.value,
+			...options,
+		})
+	}
+	const resultSubjectCount = (subjectIds: readonly number[]) => resultSubjectsForIds(subjectIds).length
 
 	const peopleById = computed(() => {
 		const people = new Map<number, Person>()
@@ -337,13 +371,6 @@ export function provideWorkbench(
 				return true
 			})
 	}
-
-	const averageForIds = (ids: number[]) => average(ids.map((id) =>
-		Number(subjectsById.value.get(Number(id))?.collection?.rate || 0),
-	))
-	const globalAverageForIds = (ids: number[]) => average(ids.map((id) =>
-		Number(subjectsById.value.get(Number(id))?.score || 0),
-	))
 
 	const queryUserMatchesFixture = computed(() => {
 		const fixtureUserId = snapshot.value?.meta.uid || snapshot.value?.meta.userId || ''
@@ -433,17 +460,17 @@ export function provideWorkbench(
 			})
 			.map((subject) => Number(subject.id)))
 	})
-	const queryScopeCount = computed(() => queryScopeIds.value.size)
+	const queryScopeCount = computed(() => resultSubjectCount([...queryScopeIds.value]))
 	const scopeSubjectIds = (ids: number[]) => ids
 		.map(Number)
 		.filter((id) => queryScopeIds.value.has(id))
 
-	watch(queryScopeIds, (ids) => {
+	watch([queryScopeIds, queryScopeCount, () => query.mergeSeries], ([ids]) => {
 		if (!hasAppliedQuery.value) queryStatus.value = '尚未查询'
 		else if (!snapshot.value) queryStatus.value = '正在加载'
 		else if (!queryUserMatchesFixture.value) queryStatus.value = '未找到此用户数据'
-		else if (!ids.size) queryStatus.value = '当前条件下没有匹配条目'
-		else queryStatus.value = `已应用 · ${ids.size} 部`
+		else if (!ids.size) queryStatus.value = query.mergeSeries ? '没有符合条件的系列' : '没有符合条件的条目'
+		else queryStatus.value = `已应用 · ${queryScopeCount.value} ${query.mergeSeries ? '个系列' : '部'}`
 	}, { immediate: true })
 
 	const rankingMetric = ref<RankingMetric>('count')
@@ -453,24 +480,28 @@ export function provideWorkbench(
 	const rankingPageSize = ref(RANKING_PAGE_SIZE)
 	const focusedPersonId = ref(showsInitialQueryState ? 0 : 4697)
 	const focusedWorkSearch = ref('')
+	const workbenchRatingCount = (person: Person) => query.isGlobal
+		? Number(person.globalRatedSubjectCount || 0)
+		: Number(person.ratedSubjectCount || 0)
+	const workbenchAverage = (person: Person) => query.isGlobal
+		? Number(person.globalAverage || 0)
+		: Number(person.userAverage || 0)
 
 	const rankingValue = (person: Person, metric = rankingMetric.value) => {
+		const ratedCount = Number(workbenchRatingCount(person))
+		const averageValue = workbenchAverage(person)
 		if (metric === 'average') {
-			return Number(person.ratedSubjectCount || 0) ? Number(person.userAverage || 0) : null
+			return ratedCount ? averageValue : null
 		}
 		if (metric === 'overall') {
-			if (!Number(person.ratedSubjectCount || 0)) return null
-			const count = Number(person.ratedSubjectCount || 0)
-			return roundTwo((count * Number(person.userAverage || 0) + 25) / (count + 5))
+			if (!ratedCount) return null
+			return shrinkRatingAverage(averageValue, ratedCount)
 		}
-		if (metric === 'preference') return person.preference?.score ?? null
+		if (metric === 'preference') return query.isGlobal ? null : person.preference?.score ?? null
 		return Number(person.subjectCount || 0)
 	}
 
-	const rankingPeople = computed(() => {
-		const searchValue = rankingSearch.value.trim()
-		const queryValue = compactSearch(searchValue)
-		const exactId = /^\d+$/.test(searchValue) ? Number(searchValue) : null
+	const rankingResultPeople = computed(() => {
 		return [...peopleById.value.values()]
 		.map((person): Person | null => {
 			const positionSubjectSets = rankingPositionIds.value.map((positionId) =>
@@ -479,27 +510,30 @@ export function provideWorkbench(
 			// metrics use the de-duplicated union of the matching works.
 			if (!positionSubjectSets.length || positionSubjectSets.some((ids) => !ids.length)) return null
 			const subjectIds = [...union(positionSubjectSets.map((ids) => new Set(ids)))]
-			const ratedSubjectCount = subjectIds.filter((id) => Number(subjectsById.value.get(id)?.collection?.rate || 0) > 0).length
+			const resultSubjects = resultSubjectsForIds(subjectIds)
+			const personalSummary = summarizeRatings(resultSubjects.map((subject) =>
+				Number(subject.collection?.rate || 0)))
+			const globalSummary = summarizeRatings(resultSubjects.map((subject) =>
+				Number(subject.score || 0)))
 			return {
 				...person,
 				position: rankingPositionIds.value[0]
 					? { id: rankingPositionIds.value[0], label: positionLabel(rankingPositionIds.value[0]) }
 					: undefined,
 				subjectIds,
-				subjectCount: subjectIds.length,
-				ratedSubjectCount,
-				userAverage: averageForIds(subjectIds),
-				globalAverage: globalAverageForIds(subjectIds),
+				subjectCount: resultSubjects.length,
+				ratedSubjectCount: personalSummary.validCount,
+				globalRatedSubjectCount: globalSummary.validCount,
+				userAverage: personalSummary.average,
+				globalAverage: globalSummary.average,
 				preference: query.isGlobal ? undefined : preferenceForIds(subjectIds),
 			}
 		})
 		.filter((person): person is Person => Boolean(person))
-		.filter((person) => {
-			if (!queryValue) return true
-			if (exactId !== null) return Number(person.id) === exactId
-			return [personName(person), person.name, person.nameCN, ...(person.aliases ?? [])]
-				.some((value) => compactSearch(value).includes(queryValue))
-		})
+	})
+	const rankingPeople = computed(() => {
+		return rankingResultPeople.value
+		.filter((person) => matchesLocalizedNameSearch(person, rankingSearch.value))
 		.sort((a, b) => {
 			const aValue = rankingValue(a)
 			const bValue = rankingValue(b)
@@ -513,14 +547,14 @@ export function provideWorkbench(
 				if (evidenceDelta !== 0) return evidenceDelta
 			}
 			return Number(b.subjectCount || 0) - Number(a.subjectCount || 0)
-				|| Number(b.userAverage || 0) - Number(a.userAverage || 0)
+				|| workbenchAverage(b) - workbenchAverage(a)
 				|| Number(a.id) - Number(b.id)
 		})
 	})
 	const rankingCharacterCount = computed(() => {
 		if (!rankingPositionIds.value.includes(102)) return 0
 		const characterKeys = new Set<string>()
-		for (const person of rankingPeople.value) {
+		for (const person of rankingResultPeople.value) {
 			for (const subjectId of scopeSubjectIds(positionSubjectIds(person, 102))) {
 				for (const role of personSubjectRoles(person, subjectId, 102)) {
 					characterKeys.add(characterCreditKey(role))
@@ -562,14 +596,16 @@ export function provideWorkbench(
 	}
 
 	const focusedPerson = computed(() => rankingPeople.value.find((person) => Number(person.id) === Number(focusedPersonId.value)) ?? rankingPeople.value[0] ?? null)
-	const focusedAllSubjects = computed(() => (focusedPerson.value?.subjectIds ?? [])
+	const focusedRawSubjects = computed(() => (focusedPerson.value?.subjectIds ?? [])
 		.map((id) => subjectsById.value.get(Number(id)))
 		.filter((subject): subject is Subject => Boolean(subject))
+		.sort((a, b) => Number(b.collection?.rate || 0) - Number(a.collection?.rate || 0) || Number(b.score || 0) - Number(a.score || 0)))
+	const focusedAllSubjects = computed(() => resultSubjectsForIds(focusedPerson.value?.subjectIds ?? [])
 		.sort((a, b) => Number(b.collection?.rate || 0) - Number(a.collection?.rate || 0) || Number(b.score || 0) - Number(a.score || 0)))
 	const focusedCharacterCredits = computed(() => {
 		if (!focusedPerson.value || !rankingPositionIds.value.includes(102)) return []
 		return buildCharacterCredits(
-			focusedAllSubjects.value,
+			focusedRawSubjects.value,
 			(subject) => personSubjectRoles(focusedPerson.value!, subject.id, 102),
 		)
 	})
@@ -615,8 +651,9 @@ export function provideWorkbench(
 	const candidatePageSize = ref(CANDIDATE_PAGE_SIZE)
 	const selectedScopes = ref<SelectedScope[]>([
 		{ personId: 5745, positionId: 102 },
-		{ personId: 4765, positionId: 102 },
-		{ personId: 10600, positionId: 102 },
+		{ personId: 262, positionId: 3 },
+		{ personId: 262, positionId: 10 },
+		{ personId: 9962, positionId: 6 },
 	])
 	const peopleDrawerOpen = ref(false)
 	const inspectorDrawerOpen = ref(false)
@@ -631,30 +668,23 @@ export function provideWorkbench(
 	})))
 
 	const candidatePeople = computed(() => {
-		const searchValue = candidateSearch.value.trim()
-		const queryValue = compactSearch(searchValue)
-		const exactId = /^\d+$/.test(searchValue) ? Number(searchValue) : null
 		return [...peopleById.value.values()]
 			.map((person): CandidatePerson | null => {
 				const ids = scopeSubjectIds(positionSubjectIds(person, candidatePositionId.value))
 				if (!ids.length) return null
+				const resultSubjects = resultSubjectsForIds(ids)
 				return {
 					...person,
 					activePositionId: candidatePositionId.value,
 					activePositionLabel: positionLabel(candidatePositionId.value),
 					activeSubjectIds: ids,
-					activeSubjectCount: ids.length,
-					activeAverage: averageForIds(ids),
-					activeGlobalAverage: globalAverageForIds(ids),
+					activeSubjectCount: resultSubjects.length,
+					activeAverage: average(resultSubjects.map((subject) => Number(subject.collection?.rate || 0))),
+					activeGlobalAverage: average(resultSubjects.map((subject) => Number(subject.score || 0))),
 				}
 			})
 			.filter((person): person is CandidatePerson => Boolean(person))
-			.filter((person) => {
-				if (!queryValue) return true
-				if (exactId !== null) return Number(person.id) === exactId
-				return [personName(person), person.name, person.nameCN, ...(person.aliases ?? [])]
-					.some((value) => compactSearch(value).includes(queryValue))
-			})
+			.filter((person) => matchesLocalizedNameSearch(person, candidateSearch.value))
 			.sort((a, b) => {
 				let comparison = 0
 				switch (candidateSortMetric.value) {
@@ -664,15 +694,12 @@ export function provideWorkbench(
 					case 'globalAverage':
 						comparison = a.activeGlobalAverage - b.activeGlobalAverage
 						break
-					case 'name':
-						comparison = personName(a).localeCompare(personName(b), 'zh-CN')
-						break
 					default:
 						comparison = a.activeSubjectCount - b.activeSubjectCount
 				}
 				if (comparison) return candidateAscend.value ? comparison : -comparison
 				return b.activeSubjectCount - a.activeSubjectCount
-					|| b.activeAverage - a.activeAverage
+					|| (query.isGlobal ? b.activeGlobalAverage - a.activeGlobalAverage : b.activeAverage - a.activeAverage)
 					|| a.id - b.id
 			})
 	})
@@ -696,10 +723,11 @@ export function provideWorkbench(
 	watch(candidatePageCount, (count) => { candidatePage.value = Math.min(candidatePage.value, count) })
 
 	const validateQuery = (source: QueryState) => {
-		if (!source.isGlobal && !source.userId.trim()) return '请输入用户 UID。'
-		if (!source.subjectType) return '请选择条目类型。'
-		if (!source.positionsByMode[mode.value].length) return mode.value === 'ranking' ? '请选择排行职位。' : '请至少选择一个参与职位。'
-		if (!source.isGlobal && !source.collectionTypes.length) return '个人收藏模式至少选择一种收藏类型。'
+		if (!source.isGlobal && !source.userId.trim()) return '用户 UID 未填写'
+		if (!source.subjectType) return '条目类型未选择'
+		if (!source.positionsByMode[mode.value].length) return mode.value === 'ranking' ? '排行职位未选择' : '参与职位未选择'
+		if (!source.isGlobal && !source.collectionTypes.length) return '收藏类型未选择'
+		const globalRateLabel = source.isGlobal ? '评分' : '全站评分'
 		const ranges: Array<[QueryState['date'], string, 'date' | 'number']> = [
 			[source.date, '播出时间', 'date'],
 		]
@@ -707,28 +735,28 @@ export function provideWorkbench(
 			[source.collectionDate, '收藏时间', 'date'],
 			[source.userRate, '我的评分', 'number'],
 		)
-		ranges.push([source.globalRate, '全站评分', 'number'])
-		if (!source.isGlobal) ranges.push([source.scoreDifference, '个人－全站评分差', 'number'])
-		ranges.push([source.ratingCount, '全站评分人数', 'number'])
+		ranges.push([source.globalRate, globalRateLabel, 'number'])
+		if (!source.isGlobal) ranges.push([source.scoreDifference, '我的评分与全站评分差', 'number'])
+		ranges.push([source.ratingCount, '评分人数', 'number'])
 		for (const [range, label, kind] of ranges) {
 			if (!range.enabled) continue
 			const [start, end] = range.value
 			if (start !== '' && end !== '') {
 				const inverted = kind === 'date' ? start > end : Number(start) > Number(end)
-				if (inverted) return `${label}的起点不能大于终点。`
+				if (inverted) return `${label}起点大于终点`
 			}
 		}
 		if (!source.isGlobal && source.userRate.enabled && source.userRate.value.some((value) => value !== '' && (Number(value) < 0 || Number(value) > 10))) {
-			return '我的评分范围必须在 0–10 之间。'
+			return '我的评分超出 0–10'
 		}
 		if (source.globalRate.enabled && source.globalRate.value.some((value) => value !== '' && (Number(value) < 0 || Number(value) > 10))) {
-			return '全站评分范围必须在 0–10 之间。'
+			return `${globalRateLabel}超出 0–10`
 		}
 		if (!source.isGlobal && source.scoreDifference.enabled && source.scoreDifference.value.some((value) => value !== '' && (Number(value) < -10 || Number(value) > 10))) {
-			return '个人－全站评分差范围必须在 -10–10 之间。'
+			return '我的评分与全站评分差超出 -10–10'
 		}
 		if (source.ratingCount.enabled && source.ratingCount.value.some((value) => value !== '' && Number(value) < 0)) {
-			return '全站评分人数不能小于 0。'
+			return '评分人数小于 0'
 		}
 		return ''
 	}
@@ -738,25 +766,22 @@ export function provideWorkbench(
 		const invalid = validateQuery(queryDraft)
 		if (invalid) {
 			queryError.value = invalid
-			queryFeedback.value = '请先修正查询条件'
+			queryFeedback.value = '查询条件存在错误'
 			return false
 		}
 		const next = cloneQuery(queryDraft)
-		if (mode.value === 'co-star') {
-			const nextPositionIds = new Set(numericPositionIds(next, 'co-star'))
-			const removedIdentities = selectedScopes.value.filter((scope) => !nextPositionIds.has(scope.positionId))
-			if (removedIdentities.length) {
-				queryError.value = `新的参与职位未包含已选人物的 ${removedIdentities.length} 个身份，请先移除对应身份。`
-				queryFeedback.value = '请先处理已选身份'
-				return false
-			}
-		}
+		const nextCoStarPositionIds = mode.value === 'co-star'
+			? new Set(numericPositionIds(next, 'co-star'))
+			: null
 		queryError.value = ''
 		queryFeedback.value = ''
 		queryLoading.value = true
 		queryTimer = setTimeout(() => {
 			queryTimer = null
 			Object.assign(query, cloneQuery(next))
+			if (nextCoStarPositionIds) {
+				selectedScopes.value = retainSelectedScopesForPositions(selectedScopes.value, nextCoStarPositionIds)
+			}
 			hasAppliedQuery.value = true
 			candidatePositionId.value = numericPositionIds(next, 'co-star')[0] ?? 0
 			queryLoading.value = false
@@ -805,10 +830,16 @@ export function provideWorkbench(
 		if (selectedPeople.value.length < 2) return new Set<number>()
 		return intersection(selectedPeople.value.map((item) => new Set(item.subjectIds)))
 	})
-	const selectedUnionCount = computed(() => union(selectedPeople.value.map((item) => new Set(item.subjectIds))).size)
-	const sharedSubjects = computed(() => [...commonSubjectIds.value]
-		.map((id) => subjectsById.value.get(id))
-		.filter((subject): subject is Subject => Boolean(subject))
+	const selectedUnionSubjectIds = computed(() => [...union(selectedPeople.value.map((item) => new Set(item.subjectIds)))])
+	const selectedUnionCount = computed(() => resultSubjectCount(selectedUnionSubjectIds.value))
+	const participantSubjectIds = computed(() => Object.fromEntries(selectedPeople.value.map((item) => [
+		String(item.person.id),
+		item.subjectIds,
+	])))
+	const sharedSubjects = computed(() => resultSubjectsForIds([...commonSubjectIds.value], {
+		sharedSubjectIds: [...commonSubjectIds.value],
+		participantSubjectIds: participantSubjectIds.value,
+	})
 		.sort((a, b) => Number(b.collection?.rate || 0) - Number(a.collection?.rate || 0) || Number(b.score || 0) - Number(a.score || 0)))
 	const ratingDistribution = computed(() => Array.from({ length: 10 }, (_, index) => ({
 		label: String(index + 1),
@@ -822,10 +853,10 @@ export function provideWorkbench(
 		: 0)
 	const relationshipMatrix = computed(() => selectedPeople.value.map((row) => ({
 		person: row.person,
-		values: selectedPeople.value.map((column) => intersection([
+		values: selectedPeople.value.map((column) => resultSubjectCount([...intersection([
 			new Set(row.subjectIds),
 			new Set(column.subjectIds),
-		]).size),
+		])])),
 	})))
 	const context: WorkbenchContext = {
 		snapshot,
@@ -844,6 +875,8 @@ export function provideWorkbench(
 		queryDraftStatus,
 		queryScopeCount,
 		queryScopeSubjectIds: queryScopeIds,
+		resultSubjectsForIds,
+		resultSubjectCount,
 		rankingPositionIds,
 		coStarPositionIds,
 		applyQuery,
@@ -867,6 +900,7 @@ export function provideWorkbench(
 		rankingSearch,
 		rankingPage,
 		rankingPageSize,
+		rankingResultPeople,
 		rankingPeople,
 		rankingCharacterCount,
 		rankingPageItems,

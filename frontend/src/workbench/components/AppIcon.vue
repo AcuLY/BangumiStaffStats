@@ -1,6 +1,6 @@
 <script setup lang="ts">
 withDefaults(defineProps<{
-	name: 'brand' | 'ranking' | 'people' | 'sun' | 'moon' | 'search' | 'chevron' | 'close' | 'plus' | 'check' | 'person' | 'image' | 'edit' | 'arrow' | 'external' | 'info'
+	name: 'brand' | 'people' | 'sun' | 'moon' | 'search' | 'chevron' | 'close' | 'plus' | 'check' | 'person' | 'image' | 'edit' | 'info'
 	size?: number
 }>(), { size: 18 })
 </script>
@@ -8,7 +8,7 @@ withDefaults(defineProps<{
 <template>
 	<svg
 		class="app-icon"
-		:viewBox="name === 'brand' ? '0 0 24 24' : '0 0 24 24'"
+		viewBox="0 0 24 24"
 		:width="size"
 		:height="size"
 		fill="none"
@@ -16,10 +16,6 @@ withDefaults(defineProps<{
 	>
 		<template v-if="name === 'brand'">
 			<path d="M5 4h8a4 4 0 0 1 0 8H5V4Zm0 8h9a4 4 0 0 1 0 8H5v-8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-		</template>
-		<template v-else-if="name === 'ranking'">
-			<path d="M5 19V9m7 10V5m7 14v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-			<path d="M3 19h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
 		</template>
 		<template v-else-if="name === 'people'">
 			<circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="1.8" />
@@ -60,13 +56,6 @@ withDefaults(defineProps<{
 		</template>
 		<template v-else-if="name === 'edit'">
 			<path d="m14.5 5.5 4 4M6 18l2.2-5.2L16.5 4.5a1.4 1.4 0 0 1 2 0l1 1a1.4 1.4 0 0 1 0 2l-8.3 8.3L6 18Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
-		</template>
-		<template v-else-if="name === 'arrow'">
-			<path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-		</template>
-		<template v-else-if="name === 'external'">
-			<path d="M14 5h5v5M19 5l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-			<path d="M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
 		</template>
 		<template v-else-if="name === 'info'">
 			<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7" />

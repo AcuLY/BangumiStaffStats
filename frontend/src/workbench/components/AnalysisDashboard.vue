@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { computed, nextTick } from 'vue'
-import type { Person, Subject } from '../types'
-import { characterRoleLabel } from '../domain/characterCredits'
+import { computed, nextTick, watch } from 'vue'
+import type { Subject } from '../types'
+import { categoricalPaletteForTheme } from '../categoricalPalette'
+import { localizedNameSearchTerms, localizedNameSearchValue } from '../domain/nameSearch'
+import { RESULT_EMPTY_COPY, SEARCH_EMPTY_COPY } from '../searchEmptyCopy'
 import {
 	preferenceContribution,
 	summarizePreference,
 	type PreferenceContribution,
 } from '../domain/preference'
 import { useWorkbench } from '../composables/useWorkbench'
+import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
 import {
 	compareSubjectNumber,
 	compareSubjectText,
@@ -15,7 +18,6 @@ import {
 	useSubjectWorkBrowser,
 	type SubjectWorkSortOption,
 } from '../composables/useSubjectWorkBrowser'
-import SafeImage from './SafeImage.vue'
 import AppIcon from './AppIcon.vue'
 import ComparisonRatingDistribution from './ComparisonRatingDistribution.vue'
 import PreferenceWorkList from './PreferenceWorkList.vue'
@@ -24,15 +26,18 @@ import SubjectTagSummary from './SubjectTagSummary.vue'
 import SinglePersonCooperation from './SinglePersonCooperation.vue'
 import SharedRatingSummary from './SharedRatingSummary.vue'
 import SharedWorkParticipants from './SharedWorkParticipants.vue'
+import SelectedPersonCard from './SelectedPersonCard.vue'
 
 const workbench = useWorkbench()
-type SharedWorkSort = 'personal' | 'score' | 'date' | 'title'
-const sharedSortOptions: SubjectWorkSortOption<SharedWorkSort>[] = [
-	{ label: '我的评分', value: 'personal' },
-	{ label: '全站评分', value: 'score' },
-	{ label: '收藏日期', value: 'date' },
-	{ label: '作品标题', value: 'title' },
-]
+const seriesMode = computed(() => workbench.query.mergeSeries)
+const emit = defineEmits<{ 'request-person-selection': [] }>()
+const { controlSize } = useWorkbenchControlSize()
+type SharedWorkSort = 'personal' | 'score' | 'date'
+const sharedSortOptions = computed<SubjectWorkSortOption<SharedWorkSort>[]>(() => [
+	...(workbench.query.isGlobal ? [] : [{ label: '我的评分', value: 'personal' as const }]),
+	{ label: workbench.query.isGlobal ? '评分' : '全站评分', value: 'score' },
+	...(workbench.query.isGlobal ? [] : [{ label: '收藏日期', value: 'date' as const }]),
+])
 const floorTwo = (value: number) => Math.floor(value * 100) / 100
 const validAverage = (values: number[]) => {
 	const valid = values.filter((value) => Number.isFinite(value) && value > 0)
@@ -40,7 +45,6 @@ const validAverage = (values: number[]) => {
 }
 const formatScore = (value: number | null | undefined) => Number.isFinite(value) ? Number(value).toFixed(2) : '—'
 const slotLabel = (index: number) => String(index + 1)
-
 const ratedShared = computed(() => workbench.sharedSubjects.value.filter((subject) => Number(subject.collection?.rate || 0) > 0))
 const personalSharedScores = computed(() => ratedShared.value.map((subject) => Number(subject.collection?.rate || 0)))
 const personalAverage = computed(() => validAverage(personalSharedScores.value))
@@ -83,9 +87,10 @@ const morePreferredShared = computed(() => sharedPreferenceContributions.value
 const moreConservativeShared = computed(() => sharedPreferenceContributions.value
 	.filter((item) => item.difference < 0)
 	.slice(0, 3))
-
-const profileAverage = (ids: number[]) => validAverage(ids.map((id) => Number(workbench.subjectsById.value.get(id)?.collection?.rate || 0)))
-const profileGlobalAverage = (ids: number[]) => validAverage(ids.map((id) => Number(workbench.subjectsById.value.get(id)?.score || 0)))
+const resultSubjects = (ids: readonly number[]) => workbench.resultSubjectsForIds(ids)
+const profileAverage = (ids: number[]) => validAverage(resultSubjects(ids).map((subject) => Number(subject.collection?.rate || 0)))
+const profileGlobalAverage = (ids: number[]) => validAverage(resultSubjects(ids).map((subject) => Number(subject.score || 0)))
+const profileModeAverage = (ids: number[]) => workbench.query.isGlobal ? profileGlobalAverage(ids) : profileAverage(ids)
 
 const selectedMode = computed(() => workbench.selectedPeople.value.length > 2 ? 'group' : 'pair')
 interface PairStat {
@@ -102,7 +107,7 @@ const pairStats = computed<PairStat[]>(() => {
 		for (const b of workbench.selectedPeople.value.slice(index + 1)) {
 			const bIds = new Set(b.subjectIds)
 			const ids = a.subjectIds.filter((id) => bIds.has(id))
-			const subjects = ids.map((id) => workbench.subjectsById.value.get(id)).filter((subject): subject is Subject => Boolean(subject))
+			const subjects = resultSubjects(ids)
 			pairs.push({
 				a,
 				b,
@@ -121,44 +126,28 @@ const pairStatsByPeople = computed(() => new Map(pairStats.value.map((pair) => [
 	pair,
 ])))
 const pairFor = (rowId: number, columnId: number) => pairStatsByPeople.value.get(pairKey(rowId, columnId))
+const pairModeAverage = (pair: PairStat | undefined) => workbench.query.isGlobal ? pair?.globalAverage : pair?.userAverage
 
-const seriesColors = ['#c60475', '#158486', '#d15c56', '#8f68cb', '#a77400', '#549957', '#1a89c5', '#6b70c5', '#d55e89', '#b9683d']
+const seriesColors = computed(() => categoricalPaletteForTheme(workbench.theme.value))
 const comparisonSeries = computed(() => {
 	const people = workbench.selectedPeople.value.map((item, index) => {
-		const subjects = item.subjectIds
-			.map((id) => workbench.subjectsById.value.get(id))
-			.filter((subject): subject is Subject => Boolean(subject))
+		const subjects = resultSubjects(item.subjectIds)
 		return {
 			key: `person-${item.person.id}`,
 			marker: slotLabel(index),
 			label: workbench.personName(item.person),
-			color: seriesColors[index % seriesColors.length],
+			color: seriesColors.value[(index + 1) % seriesColors.value.length],
 			subjects,
 		}
 	})
 	const sharedWorks = {
 		key: 'shared-works',
 		marker: '',
-		label: '共同作品',
-		color: seriesColors[people.length % seriesColors.length],
+		label: seriesMode.value ? '共同系列' : '共同作品',
+		color: seriesColors.value[0],
 		subjects: workbench.sharedSubjects.value,
 	}
 	return [sharedWorks, ...people]
-})
-
-interface ParticipationEntry {
-	displayName: string
-	roleLabel: string
-	kind: 'character' | 'position'
-}
-
-const participationEntries = (person: Person, positionIds: number[], subjectId: number): ParticipationEntry[] => positionIds.flatMap<ParticipationEntry>((positionId) => {
-	if (!workbench.positionSubjectIds(person, positionId).includes(Number(subjectId))) return []
-	if (Number(positionId) !== 102) return [{ displayName: workbench.positionLabel(positionId), roleLabel: '', kind: 'position' as const }]
-	const roles = workbench.personSubjectRoles(person, subjectId, positionId)
-	return roles.length
-		? roles.map((role) => ({ displayName: role.displayName || '角色', roleLabel: `声优 · ${characterRoleLabel(role)}`, kind: 'character' as const }))
-		: [{ displayName: '声优', roleLabel: '', kind: 'position' as const }]
 })
 
 const {
@@ -172,87 +161,59 @@ const {
 	rangeLabel: sharedRangeLabel,
 } = useSubjectWorkBrowser<SharedWorkSort>({
 	subjects: () => workbench.sharedSubjects.value,
-	searchTerms: (subject) => {
-		const participantTerms = workbench.selectedPeople.value.flatMap((item) => [
-			workbench.personName(item.person),
-			...participationEntries(item.person, item.positionIds, subject.id).flatMap((entry) => [entry.displayName, entry.roleLabel]),
-		])
-		return [
-			workbench.subjectName(subject),
-			subject.displayName,
-			subject.nameCN,
-			subject.name,
-			...(subject.metaTags ?? []).map((tag) => typeof tag === 'string' ? tag : tag.name),
-			...(subject.tags ?? []).map((tag) => typeof tag === 'string' ? tag : tag.name),
-			...participantTerms,
-		]
-	},
-	initialSort: 'personal',
+	searchTerms: (subject) => [
+		...localizedNameSearchTerms(subject),
+		...(subject.series?.members.flatMap((member) => localizedNameSearchTerms(member)) ?? []),
+	],
+	initialSort: workbench.query.isGlobal ? 'score' : 'personal',
+	includeSubject: (subject, sort) => sort !== 'date' || Boolean(subject.collection?.updatedAt),
 	comparators: {
 		personal: (a, b, direction) => compareSubjectNumber(a.collection?.rate, b.collection?.rate, direction),
 		score: (a, b, direction) => compareSubjectNumber(a.score, b.score, direction),
-		date: (a, b, direction) => compareSubjectText(a.collection?.updatedAt ?? a.date, b.collection?.updatedAt ?? b.date, direction),
-		title: (a, b, direction) => compareSubjectText(workbench.subjectName(a), workbench.subjectName(b), direction),
+		date: (a, b, direction) => compareSubjectText(a.collection?.updatedAt, b.collection?.updatedAt, direction),
 	},
 	fallbackComparator: (a, b, direction) => compareSubjectNumber(a.score, b.score, direction),
 })
 
+watch(() => workbench.query.isGlobal, (isGlobal) => {
+	if (isGlobal && (sharedSort.value === 'personal' || sharedSort.value === 'date')) sharedSort.value = 'score'
+})
+
 const focusSharedWork = async (subject: Subject) => {
-	sharedSearch.value = workbench.subjectName(subject)
+	sharedSearch.value = localizedNameSearchValue(subject)
 	sharedPage.value = 1
 	await nextTick()
-	document.querySelector<HTMLInputElement>('input[aria-label="搜索共同参与作品"]')?.focus()
+	document.querySelector<HTMLInputElement>(`input[aria-label="搜索共同${seriesMode.value ? '系列或系列内作品' : '作品'}"]`)?.focus()
 }
+
+const sharedPageSizes = computed(() => seriesMode.value
+	? SUBJECT_WORK_PAGE_SIZES.map((option) => ({ ...option, label: `每页 ${option.value} 个系列` }))
+	: SUBJECT_WORK_PAGE_SIZES)
 
 </script>
 
 <template>
 	<div v-if="!workbench.selectedPeople.value.length" class="analysis-empty surface-panel">
 		<span class="analysis-empty__icon"><AppIcon name="people" :size="30" /></span>
-		<h2>选择一位人物开始分析</h2>
-		<p>选择人物后可查看合作人物和合作作品；继续选择可比较共同作品、评分分布和关系矩阵。</p>
+		<h2>尚未选择人物</h2>
+		<n-button :size="controlSize" type="primary" @click="emit('request-person-selection')">选择人物</n-button>
 	</div>
 	<SinglePersonCooperation v-else-if="workbench.selectedPeople.value.length === 1" />
 
-	<article v-else class="analysis-dashboard analysis-dashboard--unified surface-panel" aria-label="共同参与分析" :data-analysis-mode="selectedMode">
-		<section class="analysis-section relationship-hero" aria-label="已选人物画像">
-			<div class="profile-stage profile-stage--people" :class="{ 'profile-stage--pair': workbench.selectedPeople.value.length === 2 }">
-				<template v-for="(item, index) in workbench.selectedPeople.value" :key="item.person.id">
-					<article class="analysis-profile">
-						<SafeImage
-							class="analysis-profile__media"
-							:sources="workbench.personImageSources(item.person)"
-							:alt="workbench.personName(item.person)"
-							kind="person"
-							decorative
-							:loading="index < 2 ? 'eager' : 'lazy'"
-							:width="132"
-						/>
-						<div class="analysis-profile__content">
-							<span class="identity-marker">{{ slotLabel(index) }}</span>
-							<h2>{{ workbench.personName(item.person) }}</h2>
-							<p>{{ item.positionIds.map(workbench.positionLabel).join(' · ') }}</p>
-							<div class="analysis-profile__stats">
-								<span class="analysis-profile__stat analysis-profile__stat--count"><b>{{ item.subjectIds.length }}</b><small>我的收藏</small></span>
-								<span class="analysis-profile__stat analysis-profile__stat--score"><b>{{ formatScore(profileAverage(item.subjectIds)) }}</b><small>我的均分</small></span>
-							</div>
-						</div>
-					</article>
-					<SharedRatingSummary
-						v-if="workbench.selectedPeople.value.length === 2 && index === 0"
-						:shared-count="workbench.sharedSubjects.value.length"
-						:rated-count="ratedShared.length"
-						:global-average="globalAverage"
-						:personal-average="personalAverage"
-						:personal-highest="personalHighest"
-						:personal-lowest="personalLowest"
-						:show-personal="!workbench.query.isGlobal"
-						placement="pair"
+	<article v-else class="analysis-dashboard analysis-dashboard--unified surface-panel" aria-label="共演分析" :data-analysis-mode="selectedMode">
+		<section class="analysis-section relationship-hero selected-people-panel" aria-label="已选人物概览">
+			<ol class="selected-people-grid">
+				<li v-for="(item, index) in workbench.selectedPeople.value" :key="item.person.id">
+					<SelectedPersonCard
+						:person="item.person"
+						:position-ids="item.positionIds"
+						:subject-count="workbench.resultSubjectCount(item.subjectIds)"
+						:average="formatScore(profileModeAverage(item.subjectIds))"
+						:index="index"
 					/>
-				</template>
-			</div>
+				</li>
+			</ol>
 			<SharedRatingSummary
-				v-if="workbench.selectedPeople.value.length > 2"
 				:shared-count="workbench.sharedSubjects.value.length"
 				:rated-count="ratedShared.length"
 				:global-average="globalAverage"
@@ -260,18 +221,17 @@ const focusSharedWork = async (subject: Subject) => {
 				:personal-highest="personalHighest"
 				:personal-lowest="personalLowest"
 				:show-personal="!workbench.query.isGlobal"
-				placement="below"
+				:series-mode="seriesMode"
 			/>
 		</section>
 
 		<section v-if="!workbench.sharedSubjects.value.length" class="analysis-empty analysis-section analysis-empty--zero">
 			<span class="analysis-empty__icon"><AppIcon name="info" :size="28" /></span>
-			<h2>没有共同参与的作品</h2>
-			<p>可以移除人物、调整某个人物的职位，或更换当前选择。</p>
+			<h2>没有共同{{ seriesMode ? '系列' : '作品' }}</h2>
 		</section>
 
 		<section v-if="workbench.sharedSubjects.value.length" class="analysis-section analysis-domain work-profile-domain" aria-labelledby="analysis-tags-title">
-			<SubjectTagSummary :subjects="workbench.sharedSubjects.value" title="作品标签" heading-id="analysis-tags-title" />
+			<SubjectTagSummary :subjects="workbench.sharedSubjects.value" :show-personal="!workbench.query.isGlobal" :title="seriesMode ? '代表条目标签' : '作品标签'" heading-id="analysis-tags-title" />
 		</section>
 
 		<section
@@ -280,10 +240,10 @@ const focusSharedWork = async (subject: Subject) => {
 			aria-label="评分表现"
 		>
 			<template v-if="workbench.sharedSubjects.value.length">
-				<ComparisonRatingDistribution :series="comparisonSeries" :is-global-query="workbench.query.isGlobal" />
+				<ComparisonRatingDistribution :series="comparisonSeries" :is-global-query="workbench.query.isGlobal" :series-mode="seriesMode" />
 			</template>
 
-			<p v-else class="analysis-domain__empty">暂无全员共同作品，以下仅比较仍然存在的两两组合。</p>
+			<p v-else class="analysis-domain__empty">暂无全员共同{{ seriesMode ? '系列' : '作品' }}</p>
 
 			<div v-if="selectedMode === 'group'" class="analysis-domain__block" aria-labelledby="matrix-title">
 				<div class="section-heading section-heading--compact"><div><h3 id="matrix-title">组合评分对比</h3></div></div>
@@ -294,9 +254,16 @@ const focusSharedWork = async (subject: Subject) => {
 							<tbody>
 								<tr v-for="row in workbench.selectedPeople.value" :key="row.person.id">
 									<th scope="row">{{ workbench.personName(row.person) }}<small>{{ row.positionIds.map(workbench.positionLabel).join(' / ') }}</small></th>
-									<td v-for="column in workbench.selectedPeople.value" :key="column.person.id" :class="{ 'is-diagonal': row.person.id === column.person.id, 'is-best': row.person.id !== column.person.id && Boolean(bestPair?.count) && pairFor(row.person.id, column.person.id)?.count === bestPair?.count }">
-										<template v-if="row.person.id === column.person.id"><b>{{ formatScore(profileGlobalAverage(row.subjectIds)) }}</b><small>{{ row.subjectIds.length }} 部作品</small></template>
-										<template v-else><b>{{ formatScore(pairFor(row.person.id, column.person.id)?.globalAverage) }}</b><small>{{ pairFor(row.person.id, column.person.id)?.count ?? 0 }} 部共同</small></template>
+									<td
+										v-for="column in workbench.selectedPeople.value"
+										:key="column.person.id"
+										:class="{ 'is-diagonal': row.person.id === column.person.id, 'is-best': row.person.id !== column.person.id && Boolean(bestPair?.count) && pairFor(row.person.id, column.person.id)?.count === bestPair?.count }"
+										:aria-label="row.person.id === column.person.id
+											? `${workbench.personName(row.person)}参与 ${seriesMode ? workbench.resultSubjectCount(row.subjectIds) + ' 个系列' : row.subjectIds.length + ' 部作品'}，均分 ${formatScore(profileModeAverage(row.subjectIds))}`
+											: `${workbench.personName(row.person)}与${workbench.personName(column.person)}共同参与 ${pairFor(row.person.id, column.person.id)?.count ?? 0} ${seriesMode ? '个系列' : '部作品'}，均分 ${formatScore(pairModeAverage(pairFor(row.person.id, column.person.id)))}`"
+									>
+										<template v-if="row.person.id === column.person.id"><b>{{ formatScore(profileModeAverage(row.subjectIds)) }}</b><small>{{ seriesMode ? `${workbench.resultSubjectCount(row.subjectIds)} 个系列` : `${row.subjectIds.length} 部作品` }}</small></template>
+										<template v-else><b>{{ formatScore(pairModeAverage(pairFor(row.person.id, column.person.id))) }}</b><small>{{ seriesMode ? `共同 ${pairFor(row.person.id, column.person.id)?.count ?? 0} 个` : `${pairFor(row.person.id, column.person.id)?.count ?? 0} 部共同` }}</small></template>
 									</td>
 								</tr>
 							</tbody>
@@ -306,19 +273,18 @@ const focusSharedWork = async (subject: Subject) => {
 			</div>
 		</section>
 
-		<section v-if="workbench.sharedSubjects.value.length" class="analysis-section analysis-domain preference-domain" aria-labelledby="shared-preference-title">
+		<section v-if="workbench.sharedSubjects.value.length && !workbench.query.isGlobal" class="analysis-section analysis-domain preference-domain" aria-labelledby="shared-preference-title">
 			<div class="section-heading">
 				<h2 id="shared-preference-title">相对偏好</h2>
 			</div>
 
-			<p v-if="sharedPreferenceSummary.score === null" class="preference-model-note">{{ workbench.query.isGlobal ? '相对偏好只在个人收藏模式计算。' : '共同作品中没有同时具备个人评分与有效全站评分的作品。' }}</p>
+			<p v-if="sharedPreferenceSummary.score === null" class="preference-model-note">共同{{ seriesMode ? '系列' : '作品' }}中没有同时具备我的评分与有效全站评分的{{ seriesMode ? '系列' : '作品' }}</p>
 
 			<PreferenceWorkList
-				v-if="!workbench.query.isGlobal"
 				:preferred="morePreferredShared"
 				:conservative="moreConservativeShared"
-				work-noun="共同作品"
-				location-scope="共同参与作品"
+				:location-scope="seriesMode ? '共同系列' : '共同作品'"
+				:series-mode="seriesMode"
 				@select="focusSharedWork"
 			/>
 		</section>
@@ -330,25 +296,28 @@ const focusSharedWork = async (subject: Subject) => {
 				v-model:order="sharedOrder"
 				v-model:page="sharedPage"
 				v-model:page-size="sharedPageSize"
-				title="共同参与作品"
+				:title="seriesMode ? '共同系列' : '共同作品'"
 				title-id="common-works-title"
 				:subjects="visibleSharedWorks"
-				empty-text="没有符合当前搜索条件的共同作品。"
+				:empty-text="seriesMode ? sharedSearch.trim() ? '没有符合搜索条件的系列' : '没有符合当前条件的系列' : sharedSearch.trim() ? SEARCH_EMPTY_COPY.work : RESULT_EMPTY_COPY.work"
 				:sort-options="sharedSortOptions"
-				search-placeholder="搜索中日文标题、人物或角色名…"
-				search-aria-label="搜索共同参与作品"
-				sort-aria-label="共同参与作品排序依据"
-				order-aria-label="共同参与作品排序方向"
+				:search-placeholder="seriesMode ? '搜索系列或系列内作品' : '搜索作品'"
+				:search-aria-label="seriesMode ? '搜索共同系列或系列内作品' : '搜索共同作品'"
+				:sort-aria-label="seriesMode ? '共同系列排序依据' : '共同作品排序依据'"
+				:order-aria-label="seriesMode ? '共同系列排序方向' : '共同作品排序方向'"
 				search-name="sharedWorkSearch"
-				:heading-meta="`${sharedWorks.length}${sharedSearch.trim() ? ` / ${workbench.sharedSubjects.value.length}` : ''} 部`"
+				:heading-meta="`${sharedWorks.length}${sharedSearch.trim() ? ` / ${workbench.sharedSubjects.value.length}` : ''} ${seriesMode ? '个系列' : '部'}`"
 				:item-count="sharedWorks.length"
-				:page-sizes="SUBJECT_WORK_PAGE_SIZES"
+				:page-sizes="sharedPageSizes"
 				:pagination-summary="sharedRangeLabel"
-				pagination-aria-label="共同作品分页"
+				:pagination-aria-label="seriesMode ? '共同系列分页' : '共同作品分页'"
+				:compact-aria-label="seriesMode ? '共同系列缩略模式' : '共同作品缩略模式'"
+				:detailed-description="seriesMode ? '显示完整系列信息' : '显示完整作品信息'"
+				:compact-description="seriesMode ? '仅显示代表条目的序号、双语名和系列均分' : '仅显示序号、双语名和评分'"
 				:show-pagination="sharedWorks.length > SUBJECT_WORK_PAGE_SIZES[0].value"
 			>
 				<template #participants="{ subject }">
-					<SharedWorkParticipants :participants="workbench.selectedPeople.value" :subject-id="subject.id" />
+					<SharedWorkParticipants :participants="workbench.selectedPeople.value" :subject="subject" />
 				</template>
 			</SubjectWorkBrowser>
 		</section>

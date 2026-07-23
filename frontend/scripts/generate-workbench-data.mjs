@@ -32,11 +32,23 @@ const SUPPORTED_POSITIONS = Object.freeze([
 const SUPPORTED_POSITION_IDS = new Set(SUPPORTED_POSITIONS.map(({ id }) => id))
 const PRIOR_SERIES_COUNT = 5
 
-// Keep this in sync with backend/scripts/update_database.py::load_sequels.
+// Keep these in sync with backend/scripts/update_database.py::load_sequels.
 const SAME_SERIES_RELATIONS = new Set([
 	2, 3, 4, 5, 6, 9, 10, 11, 12,
 	1002, 1003, 1004, 1005, 1006, 1007, 1008, 1010, 1013, 1015,
 	4002, 4003, 4006, 4009, 4010, 4012, 4015, 4016, 4017, 4018,
+])
+const MAIN_SERIES_POSITIVE_RELATIONS = new Set([
+	1, 3, 4, 6, 11, 1003, 1006, 1007, 4003, 4006, 4015, 4018, 4019,
+])
+const MAIN_SERIES_NEUTRAL_RELATIONS = new Set([
+	7, 8, 9, 10, 14, 99,
+	1004, 1010, 1011, 1012, 1013, 1014, 1015, 1099,
+	3001, 3002, 3003, 3004, 3005, 3006, 3007, 3099,
+	4007, 4008, 4009, 4010, 4014, 4016, 4099,
+])
+const MAIN_SERIES_NEGATIVE_RELATIONS = new Set([
+	2, 5, 12, 1002, 1005, 1008, 4002, 4012, 4017,
 ])
 
 const REQUIRED_JSONLINES = Object.freeze([
@@ -195,6 +207,14 @@ class SparseUnionFind {
 	}
 }
 
+function addMapValue(map, key, delta) {
+	map.set(key, (map.get(key) || 0) + delta)
+}
+
+function normalizedSubjectDate(value) {
+	return String(value || '') || '9999-99-99'
+}
+
 function sumNumericValues(value) {
 	return Object.values(value || {}).reduce((sum, item) => sum + (Number(item) || 0), 0)
 }
@@ -281,6 +301,21 @@ function subjectFromDump(item, collection) {
 		tags: Array.isArray(item.tags) ? item.tags : [],
 		image: bangumiImageSet('subjects', id, true),
 		collection: structuredClone(collection),
+	}
+}
+
+function seriesMemberFromDump(item, seriesId, sequelOrder) {
+	const id = Number(item.id)
+	const name = String(item.name || '')
+	const nameCN = String(item.name_cn || '') || name
+	return {
+		id,
+		seriesId,
+		sequelOrder,
+		name,
+		nameCN,
+		displayName: nameCN || name,
+		image: bangumiImageSet('subjects', id, true),
 	}
 }
 
@@ -455,14 +490,16 @@ async function generate(options) {
 
 	const positionMapping = await readJson(positionMappingPath)
 	const typeBySubject = new Map()
+	const dateBySubject = new Map()
 	const subjectsById = new Map()
 
-	console.error(`[1/7] Reading ${displayPath(jsonlinePath('subject.jsonlines'))}`)
+	console.error(`[1/8] Reading ${displayPath(jsonlinePath('subject.jsonlines'))}`)
 	await forEachJsonLine(jsonlinePath('subject.jsonlines'), (item) => {
 		const subjectId = Number(item.id)
 		if (!Number.isInteger(subjectId)) return
 		const subjectType = Number(item.type) || 0
 		typeBySubject.set(subjectId, subjectType)
+		dateBySubject.set(subjectId, normalizedSubjectDate(item.date))
 		const collection = collectionBySubject.get(subjectId)
 		if (collection) subjectsById.set(subjectId, subjectFromDump(item, collection))
 	})
@@ -475,25 +512,81 @@ async function generate(options) {
 	}
 
 	const series = new SparseUnionFind()
+	const mainSeriesPossibilityScore = new Map()
 	let sameSeriesEdges = 0
-	console.error(`[2/7] Reading ${displayPath(jsonlinePath('subject-relations.jsonlines'))}`)
+	console.error(`[2/8] Reading ${displayPath(jsonlinePath('subject-relations.jsonlines'))}`)
 	await forEachJsonLine(jsonlinePath('subject-relations.jsonlines'), (item) => {
 		const subjectId = Number(item.subject_id)
 		const relatedSubjectId = Number(item.related_subject_id)
 		const relationType = Number(item.relation_type)
-		if (!SAME_SERIES_RELATIONS.has(relationType)) return
 		const subjectType = typeBySubject.get(subjectId)
-		if (subjectType === undefined || subjectType !== typeBySubject.get(relatedSubjectId)) return
-		if (series.union(subjectId, relatedSubjectId)) sameSeriesEdges += 1
+		const relatedSubjectType = typeBySubject.get(relatedSubjectId)
+		if (subjectType === undefined || relatedSubjectType === undefined) return
+		const isSameType = subjectType === relatedSubjectType
+
+		if (SAME_SERIES_RELATIONS.has(relationType) && isSameType) {
+			if (series.union(subjectId, relatedSubjectId)) sameSeriesEdges += 1
+		}
+		if (MAIN_SERIES_POSITIVE_RELATIONS.has(relationType) && isSameType) {
+			addMapValue(mainSeriesPossibilityScore, subjectId, 5)
+			addMapValue(mainSeriesPossibilityScore, relatedSubjectId, -5)
+		}
+		if (MAIN_SERIES_NEGATIVE_RELATIONS.has(relationType) && isSameType) {
+			addMapValue(mainSeriesPossibilityScore, subjectId, -5)
+			addMapValue(mainSeriesPossibilityScore, relatedSubjectId, 5)
+		}
+		if (MAIN_SERIES_NEUTRAL_RELATIONS.has(relationType)) {
+			addMapValue(mainSeriesPossibilityScore, subjectId, 1)
+			addMapValue(mainSeriesPossibilityScore, relatedSubjectId, 1)
+		}
 	})
 	for (const subject of subjectsById.values()) subject.seriesId = series.seriesId(subject.id)
+
+	const relevantSeriesIds = new Set([...subjectsById.values()].map((subject) => subject.seriesId))
+	const memberIdsBySeries = new Map()
+	for (const subjectId of typeBySubject.keys()) {
+		const seriesId = series.seriesId(subjectId)
+		if (!relevantSeriesIds.has(seriesId)) continue
+		const memberIds = memberIdsBySeries.get(seriesId) || []
+		memberIds.push(subjectId)
+		memberIdsBySeries.set(seriesId, memberIds)
+	}
+
+	const sequelOrderBySubject = new Map()
+	for (const memberIds of memberIdsBySeries.values()) {
+		memberIds.sort((left, right) =>
+			(mainSeriesPossibilityScore.get(right) || 0) - (mainSeriesPossibilityScore.get(left) || 0)
+				|| dateBySubject.get(left).localeCompare(dateBySubject.get(right))
+				|| left - right)
+		if (memberIds.length > 1) {
+			const [first, second] = memberIds
+			const scoreDifference = (mainSeriesPossibilityScore.get(first) || 0)
+				- (mainSeriesPossibilityScore.get(second) || 0)
+			if (scoreDifference < 15 && dateBySubject.get(first) > dateBySubject.get(second)) {
+				;[memberIds[0], memberIds[1]] = [memberIds[1], memberIds[0]]
+			}
+		}
+		memberIds.forEach((subjectId, order) => sequelOrderBySubject.set(subjectId, order))
+	}
+
+	const seriesMembers = []
+	console.error(`[3/8] Reading complete series members from ${displayPath(jsonlinePath('subject.jsonlines'))}`)
+	await forEachJsonLine(jsonlinePath('subject.jsonlines'), (item) => {
+		const subjectId = Number(item.id)
+		const sequelOrder = sequelOrderBySubject.get(subjectId)
+		if (sequelOrder === undefined) return
+		seriesMembers.push(seriesMemberFromDump(item, series.seriesId(subjectId), sequelOrder))
+	})
+	seriesMembers.sort((left, right) => Number(left.seriesId) - Number(right.seriesId)
+		|| left.sequelOrder - right.sequelOrder
+		|| left.id - right.id)
 
 	const creditIndex = new Map()
 	const validCvPersonIds = new Set()
 	let invalidSubjectPersonRows = 0
 	let unmappedPositionRows = 0
 	let directCreditEdges = 0
-	console.error(`[3/7] Reading ${displayPath(jsonlinePath('subject-persons.jsonlines'))}`)
+	console.error(`[4/8] Reading ${displayPath(jsonlinePath('subject-persons.jsonlines'))}`)
 	await forEachJsonLine(jsonlinePath('subject-persons.jsonlines'), (item) => {
 		const subjectId = Number(item.subject_id)
 		const personId = Number(item.person_id)
@@ -516,7 +609,7 @@ async function generate(options) {
 	})
 
 	const subjectCharacterPositions = new Map()
-	console.error(`[4/7] Reading ${displayPath(jsonlinePath('subject-characters.jsonlines'))}`)
+	console.error(`[5/8] Reading ${displayPath(jsonlinePath('subject-characters.jsonlines'))}`)
 	await forEachJsonLine(jsonlinePath('subject-characters.jsonlines'), (item) => {
 		const subjectId = Number(item.subject_id)
 		if (!collectionBySubject.has(subjectId)) return
@@ -540,7 +633,7 @@ async function generate(options) {
 	let voiceCreditEdges = 0
 	let voiceRoleRecords = 0
 	let unmappedVoicePositionRows = 0
-	console.error(`[5/7] Reading ${displayPath(jsonlinePath('person-characters.jsonlines'))}`)
+	console.error(`[6/8] Reading ${displayPath(jsonlinePath('person-characters.jsonlines'))}`)
 	await forEachJsonLine(jsonlinePath('person-characters.jsonlines'), (item) => {
 		const subjectId = Number(item.subject_id)
 		const personId = Number(item.person_id)
@@ -570,14 +663,14 @@ async function generate(options) {
 	})
 
 	const peopleById = new Map()
-	console.error(`[6/7] Reading ${displayPath(jsonlinePath('person.jsonlines'))}`)
+	console.error(`[7/8] Reading ${displayPath(jsonlinePath('person.jsonlines'))}`)
 	await forEachJsonLine(jsonlinePath('person.jsonlines'), (item) => {
 		const personId = Number(item.id)
 		if (creditIndex.has(personId)) peopleById.set(personId, personFromDump(item))
 	})
 
 	const charactersById = new Map()
-	console.error(`[7/7] Reading ${displayPath(jsonlinePath('character.jsonlines'))}`)
+	console.error(`[8/8] Reading ${displayPath(jsonlinePath('character.jsonlines'))}`)
 	await forEachJsonLine(jsonlinePath('character.jsonlines'), (item) => {
 		const characterId = Number(item.id)
 		if (usedCharacterIds.has(characterId)) charactersById.set(characterId, characterFromDump(item))
@@ -661,7 +754,7 @@ async function generate(options) {
 
 	const meta = {
 		...sourceMeta,
-		schemaVersion: 2,
+		schemaVersion: 3,
 		generatedAt,
 		source: 'local-jsonlines+collections-snapshot',
 		collectionTotals: {
@@ -705,6 +798,7 @@ async function generate(options) {
 			supportedCredits: supportedCreditCount,
 			subjects: sortedSubjects.length,
 			series: new Set(sortedSubjects.map((subject) => subject.seriesId)).size,
+			seriesMembers: seriesMembers.length,
 			characters: usedCharacterIds.size,
 			casts: voiceRoleRecords,
 			validCvPeople: validCvPersonIds.size,
@@ -734,6 +828,8 @@ async function generate(options) {
 			position102: 'Credits mapped to position 102 from subject-persons plus subject-characters/person-characters; person-character rows require the loader-compatible global valid_cv person rule.',
 			ratingCount: 'Sum of the 1 through 10 buckets in subject.jsonlines score_details.',
 			seriesId: 'Canonical minimum subject id in the same-type connected component induced by the backend same-series relation types; isolated subjects use their own id.',
+			sequelOrder: 'Backend-compatible relation weighting and date ordering from update_database.py::load_sequels, with subject id as the deterministic final tie-breaker.',
+			seriesMembers: 'Complete dump-known members for every series intersecting the collection snapshot; display metadata only and not part of the collection query scope.',
 			subjectCount: 'Includes collected subjects whose personal rate is 0.',
 			userAverage: 'Arithmetic mean of collection.rate values greater than 0, floored to two decimals.',
 			ranking: 'subjectCount descending, userAverage descending, person id ascending for deterministic ties.',
@@ -747,6 +843,7 @@ async function generate(options) {
 		meta,
 		people: voicePeople,
 		subjects: sortedSubjects,
+		seriesMembers,
 	}
 	const positionData = {
 		positions: SUPPORTED_POSITIONS,
@@ -765,6 +862,7 @@ async function generate(options) {
 		jsonlinesDir: displayPath(jsonlinesDir),
 		outputs: [displayPath(snapshotOutputPath), displayPath(positionOutputPath)],
 		subjects: sortedSubjects.length,
+		seriesMembers: seriesMembers.length,
 		usableRatingPairs,
 		voicePeople: voicePeople.length,
 		supportedPeople: positionPeople.length,

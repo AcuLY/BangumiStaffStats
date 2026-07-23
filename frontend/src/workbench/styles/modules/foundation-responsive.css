@@ -35,31 +35,6 @@
 		grid-template-columns: 1fr;
 	}
 
-	.profile-stage {
-		grid-template-columns: 1fr;
-	}
-
-	.analysis-profile + .analysis-profile {
-		border-top: 1px solid var(--divider);
-		border-left: 0;
-	}
-
-	.analysis-profile {
-		grid-template-columns: 72px minmax(0, 1fr);
-	}
-
-	.analysis-profile__media {
-		width: 72px;
-		height: auto;
-		min-height: 136px;
-		align-self: stretch;
-	}
-
-	.analysis-profile__content {
-		min-height: 136px;
-		padding: 12px;
-	}
-
 	.metric-ledger {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
@@ -120,6 +95,13 @@
 		padding-top: 12px;
 	}
 
+	.workbench-state[aria-labelledby='query-empty-title'],
+	.analysis-empty {
+		border: 0;
+		background: transparent;
+		box-shadow: none;
+	}
+
 	.ranking-workbench,
 	.co-star-workbench {
 		grid-template-columns: minmax(0, 1fr);
@@ -159,9 +141,9 @@
 		height: 52px;
 		min-height: 52px;
 		padding: var(--space-2) var(--space-4) var(--space-1);
-		background: var(--translucent-chrome-background);
-		-webkit-backdrop-filter: var(--translucent-chrome-filter);
-		backdrop-filter: var(--translucent-chrome-filter);
+		background: transparent;
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
 	}
 
 	.person-row--ranking {
@@ -280,26 +262,6 @@
 	.preference-columns {
 		grid-template-columns: 1fr;
 		gap: 16px;
-	}
-
-	.analysis-profile {
-		grid-template-columns: 60px minmax(0, 1fr);
-	}
-
-	.analysis-profile__media {
-		width: 60px;
-		height: auto;
-		min-height: 148px;
-		align-self: stretch;
-	}
-
-	.analysis-profile__content {
-		min-height: 148px;
-		padding: 10px;
-	}
-
-	.analysis-profile__content h2 {
-		font-size: var(--text-subheading);
 	}
 
 	.metric-ledger > div {

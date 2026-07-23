@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import type { Subject } from '../types'
+import { ref } from 'vue'
+import type { SeriesMember, Subject } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
+import { RESULT_EMPTY_COPY } from '../searchEmptyCopy'
+import AppIcon from './AppIcon.vue'
 import SafeImage from './SafeImage.vue'
 
 const props = withDefaults(defineProps<{
@@ -9,11 +12,14 @@ const props = withDefaults(defineProps<{
 	ariaLabel?: string
 	compact?: boolean
 	startIndex?: number
+	roleLabel?: string
+	showRole?: (subject: Subject) => boolean
 }>(), {
-	emptyText: '没有符合当前条件的作品。',
+	emptyText: RESULT_EMPTY_COPY.work,
 	ariaLabel: '作品列表',
 	compact: false,
 	startIndex: 0,
+	roleLabel: '参与身份',
 })
 
 defineSlots<{
@@ -77,6 +83,58 @@ const collectionLabel = (type?: number) => ({
 	4: '搁置',
 	5: '抛弃',
 })[Number(type)] ?? '未收藏'
+const currentScoreLabel = (subject: Subject) => subject.series ? '均分' : '评分'
+const currentScore = (subject: Subject) => workbench.query.isGlobal
+	? Number(subject.score || 0)
+	: Number(subject.collection?.rate || 0)
+const formatCurrentScore = (subject: Subject) => workbench.query.isGlobal
+	? formatScore(subject.score)
+	: subject.series ? formatScore(subject.collection?.rate) : formatPersonalScore(subject.collection?.rate)
+const seriesMembers = (subject: Subject) => subject.series?.members ?? []
+const hasSeriesMembers = (subject: Subject) => seriesMembers(subject).length > 0
+const seriesSummary = (subject: Subject) => {
+	if (!subject.series) return ''
+	const memberCount = subject.series.members.length
+	const sharedCount = subject.series.sharedSubjectIds?.length
+	return sharedCount === undefined
+		? `参与 ${subject.series.includedSubjectIds.length} 部 · 系列 ${memberCount} 部`
+		: `共同参与 ${sharedCount} 部 · 系列 ${memberCount} 部`
+}
+const seriesMemberName = (member: SeriesMember) =>
+	member.displayName || member.nameCN || member.name || `条目 ${member.id}`
+const seriesMemberOriginalName = (member: SeriesMember) => String(member.name ?? '').trim()
+const seriesMemberTitle = (member: SeriesMember) => [
+	seriesMemberName(member),
+	seriesMemberOriginalName(member),
+].filter(Boolean).join(' · ')
+const visibleSeriesInfoSubjectId = ref<number | null>(null)
+const showSeriesInfoTooltip = (subjectId: number) => {
+	visibleSeriesInfoSubjectId.value = subjectId
+}
+const hideSeriesInfoTooltip = (subjectId: number) => {
+	if (visibleSeriesInfoSubjectId.value === subjectId) visibleSeriesInfoSubjectId.value = null
+}
+const visibleSeriesMemberTooltip = ref<string | null>(null)
+const seriesMemberTooltipKey = (subjectId: number, memberId: number) => `${subjectId}:${memberId}`
+const seriesMemberTextElements = (target: EventTarget | null) => {
+	if (!(target instanceof HTMLElement)) return []
+	return Array.from(target.querySelectorAll<HTMLElement>(
+		'.subject-work-row__series-member-name, .subject-work-row__series-member-original',
+	))
+}
+const showSeriesMemberTooltip = (key: string, event: Event) => {
+	visibleSeriesMemberTooltip.value = seriesMemberTextElements(event.currentTarget)
+		.some((element) => element.scrollWidth > element.clientWidth)
+		? key
+		: null
+}
+const hideSeriesMemberTooltip = (key: string) => {
+	if (visibleSeriesMemberTooltip.value === key) visibleSeriesMemberTooltip.value = null
+}
+const seriesMemberImageSources = (member: SeriesMember) =>
+	workbench.subjectImageSources(member)
+const roleVisible = (subject: Subject, hasRoleSlot: boolean) => hasRoleSlot
+	&& (props.showRole?.(subject) ?? true)
 </script>
 
 <template>
@@ -88,7 +146,8 @@ const collectionLabel = (type?: number) => ({
 			:class="{
 				'subject-work-row--compact': compact,
 				'subject-work-row--with-participants': !compact && Boolean($slots.participants),
-				'subject-work-row--with-role': !compact && Boolean($slots.role),
+				'subject-work-row--with-role': !compact && roleVisible(subject, Boolean($slots.role)),
+				'subject-work-row--with-series-members': !compact && hasSeriesMembers(subject),
 			}"
 		>
 			<template v-if="compact">
@@ -106,11 +165,11 @@ const collectionLabel = (type?: number) => ({
 					</a>
 					<small v-if="subjectSecondaryName(subject)" class="subject-work-row__secondary" :title="subjectSecondaryName(subject)">{{ subjectSecondaryName(subject) }}</small>
 				</div>
-				<dl class="subject-work-row__compact-score" :aria-label="Number(subject.collection?.rate) > 0 ? `我的分数 ${formatPersonalScore(subject.collection?.rate)}` : '我的分数 未评分'">
-					<dt class="sr-only">我的分数</dt>
+				<dl class="subject-work-row__compact-score" :aria-label="currentScore(subject) > 0 ? `${currentScoreLabel(subject)} ${formatCurrentScore(subject)}` : `${currentScoreLabel(subject)} 未评分`">
+					<dt class="sr-only">{{ currentScoreLabel(subject) }}</dt>
 					<dd aria-hidden="true">
-						<span v-if="Number(subject.collection?.rate) > 0">{{ formatPersonalScore(subject.collection?.rate) }}</span>
-						<Star :unrated="Number(subject.collection?.rate) <= 0" />
+						<span v-if="currentScore(subject) > 0">{{ formatCurrentScore(subject) }}</span>
+						<Star :unrated="currentScore(subject) <= 0" />
 					</dd>
 				</dl>
 			</template>
@@ -138,7 +197,7 @@ const collectionLabel = (type?: number) => ({
 						>
 							<strong>{{ workbench.subjectName(subject) }}</strong>
 						</a>
-						<span class="subject-work-row__collection-meta">
+						<span v-if="!workbench.query.isGlobal && !subject.series" class="subject-work-row__collection-meta">
 							<span class="subject-work-row__collection" :aria-label="`收藏状态：${collectionLabel(subject.collection?.type)}`">{{ collectionLabel(subject.collection?.type) }}</span>
 							<time
 								v-if="formatCollectionDate(subject.collection?.updatedAt)"
@@ -149,24 +208,54 @@ const collectionLabel = (type?: number) => ({
 						</span>
 					</div>
 					<small v-if="subjectSecondaryName(subject)" class="subject-work-row__secondary" :title="subjectSecondaryName(subject)">{{ subjectSecondaryName(subject) }}</small>
+					<small v-if="seriesSummary(subject)" class="subject-work-row__series-summary">
+						<span>{{ seriesSummary(subject) }}</span>
+						<n-tooltip
+							v-if="subject.series && $slots.participants"
+							:show="visibleSeriesInfoSubjectId === subject.id"
+							placement="top-end"
+							trigger="manual"
+							:animated="false"
+							style="max-width: min(336px, calc(100dvw - 72px));"
+							content-class="workbench-tooltip-content"
+						>
+							<template #trigger>
+								<button
+									class="profile-metric__info subject-work-row__series-info"
+									type="button"
+									aria-label="系列参与身份数量说明：参与身份标签末尾的数字表示该人物以此身份参与的系列内作品数"
+									:aria-expanded="visibleSeriesInfoSubjectId === subject.id"
+									@mouseenter="showSeriesInfoTooltip(subject.id)"
+									@mouseleave="hideSeriesInfoTooltip(subject.id)"
+									@focus="showSeriesInfoTooltip(subject.id)"
+									@blur="hideSeriesInfoTooltip(subject.id)"
+									@click.stop="showSeriesInfoTooltip(subject.id)"
+									@keydown.esc.stop.prevent="hideSeriesInfoTooltip(subject.id)"
+								>
+									<AppIcon name="info" :size="16" />
+								</button>
+							</template>
+							<span>参与身份标签末尾的数字表示该人物以此身份参与的系列内作品数</span>
+						</n-tooltip>
+					</small>
 					<ul v-if="subjectMetaTags(subject).length" class="subject-work-row__meta" aria-label="条目属性">
 						<li v-for="tag in subjectMetaTags(subject)" :key="tag">{{ tag }}</li>
 					</ul>
 				</div>
 			</div>
 
-			<dl v-if="!compact" class="subject-work-row__facts person-work-row__facts" :class="{ 'subject-work-row__facts--with-role': Boolean($slots.role) }">
+			<dl v-if="!compact" class="subject-work-row__facts person-work-row__facts" :class="{ 'subject-work-row__facts--with-role': roleVisible(subject, Boolean($slots.role)), 'subject-work-row__facts--global': workbench.query.isGlobal }">
 				<div class="subject-work-row__score subject-work-row__score--global">
-					<dt>全站评分</dt>
+					<dt>{{ workbench.query.isGlobal ? subject.series ? '均分' : '评分' : subject.series ? '全站均分' : '全站评分' }}</dt>
 					<dd>
 						<strong>{{ formatScore(subject.score) }}</strong>
 						<small v-if="hasRatingCount(subject.ratingCount)" class="subject-work-row__rating-count">{{ formatRatingCount(subject.ratingCount) }} 人</small>
 					</dd>
 				</div>
-				<div class="subject-work-row__score subject-work-row__score--mine">
-					<dt>我的评分</dt>
+				<div v-if="!workbench.query.isGlobal" class="subject-work-row__score subject-work-row__score--mine">
+					<dt>{{ subject.series ? '我的均分' : '我的评分' }}</dt>
 					<dd>
-						<b>{{ formatPersonalScore(subject.collection?.rate) }}</b>
+						<b>{{ subject.series ? formatScore(subject.collection?.rate) : formatPersonalScore(subject.collection?.rate) }}</b>
 						<span
 							v-if="hasVisibleDifference(subject)"
 							class="subject-work-row__difference"
@@ -175,8 +264,8 @@ const collectionLabel = (type?: number) => ({
 						>{{ formatDifference(subject) }}</span>
 					</dd>
 				</div>
-				<div v-if="$slots.role" class="subject-work-row__role-fact">
-					<dt>参与身份</dt>
+				<div v-if="roleVisible(subject, Boolean($slots.role))" class="subject-work-row__role-fact">
+					<dt>{{ roleLabel }}</dt>
 					<dd><slot name="role" :subject="subject" /></dd>
 				</div>
 			</dl>
@@ -184,6 +273,56 @@ const collectionLabel = (type?: number) => ({
 			<div v-if="!compact && $slots.participants" class="subject-work-row__participants">
 				<slot name="participants" :subject="subject" />
 			</div>
+
+			<section
+				v-if="!compact && hasSeriesMembers(subject)"
+				class="subject-work-row__series-members"
+				:aria-label="`${workbench.subjectName(subject)}的系列作品，共 ${seriesMembers(subject).length} 部`"
+			>
+				<strong class="subject-work-row__series-members-title">系列作品（{{ seriesMembers(subject).length }}）</strong>
+				<ul class="subject-work-row__series-member-list">
+					<li v-for="member in seriesMembers(subject)" :key="member.id">
+						<n-tooltip
+							:show="visibleSeriesMemberTooltip === seriesMemberTooltipKey(subject.id, member.id)"
+							trigger="manual"
+							placement="top-start"
+							:animated="false"
+							style="max-width: min(336px, calc(100dvw - 72px));"
+							content-class="workbench-tooltip-content"
+						>
+							<template #trigger>
+								<a
+									class="subject-work-row__series-member"
+									:href="`https://bgm.tv/subject/${member.id}`"
+									target="_blank"
+									rel="noopener noreferrer"
+									@mouseenter="showSeriesMemberTooltip(seriesMemberTooltipKey(subject.id, member.id), $event)"
+									@mouseleave="hideSeriesMemberTooltip(seriesMemberTooltipKey(subject.id, member.id))"
+									@focus="showSeriesMemberTooltip(seriesMemberTooltipKey(subject.id, member.id), $event)"
+									@blur="hideSeriesMemberTooltip(seriesMemberTooltipKey(subject.id, member.id))"
+								>
+									<SafeImage
+										class="subject-work-row__series-member-cover"
+										:sources="seriesMemberImageSources(member)"
+										alt=""
+										kind="subject"
+										:width="28"
+										decorative
+									/>
+									<span class="subject-work-row__series-member-copy">
+										<span class="subject-work-row__series-member-name">{{ seriesMemberName(member) }}</span>
+										<small
+											v-if="seriesMemberOriginalName(member)"
+											class="subject-work-row__series-member-original"
+										>{{ seriesMemberOriginalName(member) }}</small>
+									</span>
+								</a>
+							</template>
+							{{ seriesMemberTitle(member) }}
+						</n-tooltip>
+					</li>
+				</ul>
+			</section>
 		</li>
 		<li v-if="!subjects.length" class="subject-work-list__empty person-work-list__empty">{{ emptyText }}</li>
 	</ul>

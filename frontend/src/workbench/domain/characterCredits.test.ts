@@ -73,6 +73,10 @@ describe('character credits', () => {
 		expect(characterRoleLabelPriority('声优 · 配角')).toBe(3)
 		expect(characterRoleLabelPriority('声优 · 客串')).toBe(2)
 		expect(characterRoleLabelPriority('声优')).toBe(1)
+		expect(characterRoleLabelPriority('声优（主角）：角色 A')).toBe(4)
+		expect(characterRoleLabelPriority('声优（配角）：角色 B')).toBe(3)
+		expect(characterRoleLabelPriority('声优（客串）：角色 C')).toBe(2)
+		expect(characterRoleLabelPriority('导演')).toBe(1)
 	})
 
 	it('sorts role-bearing items by main, supporting, guest, then other while preserving ties', () => {

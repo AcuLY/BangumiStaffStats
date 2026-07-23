@@ -5,7 +5,6 @@ import { useWorkbench } from '../composables/useWorkbench'
 import { sortByCharacterRolePriority } from '../domain/characterCredits'
 import { packAdaptiveOverflowRows, type AdaptiveOverflowRow } from './adaptiveOverflowGrid'
 import CharacterRoleTag from './CharacterRoleTag.vue'
-import WorkbenchTooltip from './WorkbenchTooltip.vue'
 
 const props = defineProps<{
 	credit: CharacterCredit
@@ -85,7 +84,15 @@ const hiddenCount = computed(() => rows.value.find(row => row.hiddenCount)?.hidd
 </script>
 
 <template>
-	<WorkbenchTooltip :show="tooltipVisible" :disabled="!hiddenCount" trigger="manual" placement="top-start">
+	<n-tooltip
+		:show="tooltipVisible"
+		:disabled="!hiddenCount"
+		trigger="manual"
+		placement="top-start"
+		:animated="false"
+		style="max-width: min(336px, calc(100dvw - 72px));"
+		content-class="workbench-tooltip-content"
+	>
 		<template #trigger>
 			<ul
 				ref="root"
@@ -141,5 +148,5 @@ const hiddenCount = computed(() => rows.value.find(row => row.hiddenCount)?.hidd
 				<CharacterRoleTag :label="appearance.roleLabel" />{{ workbench.subjectName(appearance.subject) }}
 			</span>
 		</div>
-	</WorkbenchTooltip>
+	</n-tooltip>
 </template>

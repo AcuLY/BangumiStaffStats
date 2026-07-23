@@ -3,8 +3,8 @@ import { computed, watch } from 'vue'
 import type { RankingMetric } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
 import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
+import { RESULT_EMPTY_COPY, SEARCH_EMPTY_COPY } from '../searchEmptyCopy'
 import RankedPersonList from './RankedPersonList.vue'
-import RankingListColumns from './RankingListColumns.vue'
 import PersonInspector from './PersonInspector.vue'
 import AdaptivePagination from './AdaptivePagination.vue'
 import WorkListToolbar from './WorkListToolbar.vue'
@@ -38,11 +38,12 @@ const drawerScrollbarProps = {
 }
 
 const sortOptions = computed<Array<{ label: string; value: RankingMetric }>>(() => [
-	{ label: '作品数', value: 'count' },
-	{ label: '我的均分', value: 'average' },
+	{ label: workbench.query.mergeSeries ? '系列数' : '作品数', value: 'count' },
+	{ label: '均分', value: 'average' },
 	{ label: '综合分', value: 'overall' },
 	...(workbench.query.isGlobal ? [] : [{ label: '相对偏好', value: 'preference' as const }]),
 ])
+const averageLabel = computed(() => '均分')
 const pageSizeOptions = [5, 10, 20].map((value) => ({ label: `每页 ${value} 人`, value }))
 const updateRankingPageSize = (value: number) => {
 	workbench.rankingPageSize.value = value
@@ -83,12 +84,12 @@ watch(isMobile, (mobile) => {
 						:wrap="false"
 					>
 						<n-statistic label="共统计到" tabular-nums :theme-overrides="resultStatisticThemeOverrides">
-							<n-number-animation :from="0" :to="workbench.rankingPeople.value.length" />
+							<n-number-animation :from="0" :to="workbench.rankingResultPeople.value.length" />
 							<template #suffix> 个人物，</template>
 						</n-statistic>
 						<n-statistic :label="'\u200B'" tabular-nums :theme-overrides="resultStatisticThemeOverrides">
-							<n-number-animation :from="0" :to="workbench.queryScopeSubjectIds.value.size" />
-							<template #suffix> 个条目<template v-if="isVoiceActorQuery">，</template></template>
+							<n-number-animation :from="0" :to="workbench.queryScopeCount.value" />
+							<template #suffix> {{ workbench.query.mergeSeries ? ' 个系列' : ' 个条目' }}<template v-if="isVoiceActorQuery">，</template></template>
 						</n-statistic>
 						<n-statistic v-if="isVoiceActorQuery" :label="'\u200B'" tabular-nums :theme-overrides="resultStatisticThemeOverrides">
 							<n-number-animation :from="0" :to="workbench.rankingCharacterCount.value" />
@@ -102,7 +103,7 @@ watch(isMobile, (mobile) => {
 						:sort="workbench.rankingMetric.value"
 						:order="workbench.rankingAscend.value ? 'asc' : 'desc'"
 						:sort-options="sortOptions"
-						search-placeholder="搜索人物或 ID"
+						search-placeholder="搜索人物"
 						search-aria-label="搜索排行人物"
 						sort-aria-label="人物排序规则"
 						order-aria-label="人物排行排序方向"
@@ -115,13 +116,13 @@ watch(isMobile, (mobile) => {
 			</div>
 
 			<div class="ranking-list-scroll">
-				<RankingListColumns />
 				<RankedPersonList
 					:items="workbench.rankingPageItems.value"
 					variant="ranking"
 					:rank-offset="rankOffset"
-					empty-title="当前查询没有匹配人物"
-					empty-description="请调整 UID、条目类型、职位或收藏范围。"
+					:average-label="averageLabel"
+					:empty-title="workbench.rankingSearch.value.trim() ? SEARCH_EMPTY_COPY.person : RESULT_EMPTY_COPY.person"
+					empty-description=""
 					@activate="activatePerson"
 				/>
 			</div>

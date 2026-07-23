@@ -6,9 +6,9 @@ const props = withDefaults(defineProps<{
 	subjects: Subject[]
 	title: string
 	headingId: string
-	emptyText?: string
+	showPersonal?: boolean
 }>(), {
-	emptyText: '这些作品暂无可用标签。',
+	showPersonal: true,
 })
 
 const tagGroups = computed(() => {
@@ -35,7 +35,7 @@ const tagGroups = computed(() => {
 })
 const tagCount = computed(() => tagGroups.value.meta.length
 	+ tagGroups.value.community.length
-	+ tagGroups.value.personal.length)
+	+ (props.showPersonal ? tagGroups.value.personal.length : 0))
 </script>
 
 <template>
@@ -46,7 +46,7 @@ const tagCount = computed(() => tagGroups.value.meta.length
 	<div v-if="tagCount" class="tag-groups">
 		<div class="tag-row"><strong>条目属性</strong><div><span v-for="([tag, count]) in tagGroups.meta" :key="`meta-${tag}`">{{ tag }} · {{ count }}</span><span v-if="!tagGroups.meta.length">无</span></div></div>
 		<div class="tag-row"><strong>社区标签</strong><div><span v-for="([tag, count]) in tagGroups.community" :key="`community-${tag}`">{{ tag }} · {{ count }}</span><span v-if="!tagGroups.community.length">无</span></div></div>
-		<div class="tag-row"><strong>我的收藏标签</strong><div><span v-for="([tag, count]) in tagGroups.personal" :key="`personal-${tag}`">{{ tag }} · {{ count }}</span><span v-if="!tagGroups.personal.length">未设置</span></div></div>
+		<div v-if="showPersonal" class="tag-row"><strong>收藏标签</strong><div><span v-for="([tag, count]) in tagGroups.personal" :key="`personal-${tag}`">{{ tag }} · {{ count }}</span><span v-if="!tagGroups.personal.length">未设置</span></div></div>
 	</div>
-	<p v-else class="analysis-domain__empty">{{ emptyText }}</p>
+	<p v-else class="analysis-domain__empty">暂无可用标签</p>
 </template>

@@ -9,7 +9,6 @@ import {
 } from '../domain/ratingDistribution'
 import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
 import ScoreDistributionTooltip from './ScoreDistributionTooltip.vue'
-import WorkbenchTooltip from './WorkbenchTooltip.vue'
 
 interface ComparisonSeriesInput {
 	key: string
@@ -48,10 +47,13 @@ interface ComparisonTimeSeries {
 	summary: string
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
 	series: ComparisonSeriesInput[]
 	isGlobalQuery: boolean
-}>()
+	seriesMode?: boolean
+}>(), {
+	seriesMode: false,
+})
 
 const { controlSize } = useWorkbenchControlSize()
 
@@ -93,6 +95,10 @@ watch(() => props.isGlobalQuery, (isGlobal) => {
 	scoreSource.value = isGlobal ? 'global' : 'personal'
 }, { immediate: true })
 
+watch(() => props.seriesMode, (seriesMode) => {
+	if (seriesMode) chartMode.value = 'score'
+}, { immediate: true })
+
 watch([scoreSource, chartMode], () => {
 	hoveredGroupedBar.value = null
 	hoveredTimePointKey.value = null
@@ -118,7 +124,10 @@ watch(timeChartHost, (host, _previousHost, onCleanup) => {
 	onCleanup(() => observer.disconnect())
 }, { flush: 'post' })
 
-const sourceLabel = computed(() => scoreSource.value === 'personal' ? '我的分数' : '全站分数')
+const sourceLabel = computed(() => scoreSource.value === 'personal'
+	? '我的评分'
+	: props.isGlobalQuery ? '评分' : '全站评分')
+const resultUnit = computed(() => props.seriesMode ? '个系列' : '部作品')
 const isSeriesVisible = (seriesKey: string) => !hiddenSeriesKeys.value.has(seriesKey)
 const setSeriesVisible = (seriesKey: string, visible: boolean) => {
 	const nextHiddenKeys = new Set(hiddenSeriesKeys.value)
@@ -139,6 +148,9 @@ const scoreSeries = computed(() => props.series.map((series) => {
 	}
 }))
 const scoreLabels = computed(() => scoreSeries.value[0]?.buckets.map((bucket) => bucket.label) ?? [])
+const scoreBins = computed(() => scoreLabels.value
+	.map((label, index) => ({ label, index }))
+	.reverse())
 const scoreTotal = computed(() => scoreSeries.value.reduce((sum, series) => sum + series.total, 0))
 const availableScoreSeriesKeys = computed(() => new Set(scoreSeries.value
 	.filter((series) => series.total)
@@ -146,7 +158,10 @@ const availableScoreSeriesKeys = computed(() => new Set(scoreSeries.value
 const visibleScoreSeries = computed(() => scoreSeries.value.filter((series) => (
 	availableScoreSeriesKeys.value.has(series.key) && isSeriesVisible(series.key)
 )))
-const visibleScoreTotal = computed(() => visibleScoreSeries.value.reduce((sum, series) => sum + series.total, 0))
+const renderedScoreBins = computed(() => scoreBins.value.map((scoreBin) => ({
+	...scoreBin,
+	series: visibleScoreSeries.value.filter((series) => series.counts[scoreBin.index] > 0),
+})))
 const maxGroupedDistribution = computed(() => Math.max(1, ...scoreSeries.value.flatMap((series) => series.counts)))
 const distributionTickStep = computed(() => {
 	const roughStep = maxGroupedDistribution.value / 4
@@ -160,12 +175,12 @@ const distributionTicks = computed(() => Array.from(
 	{ length: Math.round(distributionAxisMax.value / distributionTickStep.value) + 1 },
 	(_, index) => index * distributionTickStep.value,
 ))
-const distributionBarHeight = (value: number) => value
-	? Math.max(4, value / distributionAxisMax.value * 100)
+const distributionBarWidth = (value: number) => value
+	? Math.max(2, value / distributionAxisMax.value * 100)
 	: 0
-const groupedBarKey = (seriesKey: string, scoreLabel: string) => `${seriesKey}-${scoreLabel}`
-const groupedDistributionLabel = computed(() => `${sourceLabel.value}分布对比；仅包含当前勾选系列。${visibleScoreSeries.value
-	.map((series) => `${series.label}：${scoreLabels.value.map((label, index) => `${label} 分 ${series.counts[index]} 部`).join('，')}`)
+const scoreBarKey = (seriesKey: string, scoreLabel: string) => `${seriesKey}-${scoreLabel}`
+const scoreComparisonLabel = computed(() => `${sourceLabel.value}分布对比；评分位于纵轴，每档评分下横向柱按当前勾选数据组分组，并使用同一${props.seriesMode ? '系列' : '作品'}数量刻度。${visibleScoreSeries.value
+	.map((series) => `${series.label}：${scoreBins.value.map((scoreBin) => `${scoreBin.label} 分 ${series.counts[scoreBin.index]} ${resultUnit.value}`).join('，')}`)
 	.join('；')}`)
 
 const TIME_CHART_HEIGHT = 236
@@ -195,7 +210,7 @@ const timeChart = computed(() => {
 			years: [] as TimeAxisYear[],
 			quarterLabels: [] as TimeAxisQuarter[],
 			series: [] as ComparisonTimeSeries[],
-			label: `没有同时具备播出时间和${sourceLabel.value}的作品。`,
+			label: `没有同时具备播出时间和${sourceLabel.value}的作品`,
 		}
 	}
 
@@ -312,27 +327,28 @@ const updateHoveredTimePoint = (event: PointerEvent) => {
 
 	hoveredTimePointKey.value = nearestDistance <= TIME_POINT_HIT_RADIUS ? nearestKey : null
 }
-const visibleTimePointTotal = computed(() => visibleTimeSeries.value.reduce((sum, series) => sum + series.points.length, 0))
-const visibleTimeChartLabel = computed(() => `${sourceLabel.value}时间对比；折线表示当前勾选系列的季度均分。${visibleTimeSeries.value
-	.map((series) => `${series.label} ${series.points.length} 个季度`)
-	.join('；')}`)
+const visibleTimeChartLabel = computed(() => visibleTimeSeries.value.length
+	? `${sourceLabel.value}时间对比；折线表示当前勾选系列的季度均分。${visibleTimeSeries.value
+		.map((series) => `${series.label} ${series.points.length} 个季度`)
+		.join('；')}`
+	: `${sourceLabel.value}时间对比；当前未显示时间曲线`)
 </script>
 
 <template>
 	<div class="analysis-domain__block rating-distribution-panel">
 		<div class="section-heading rating-distribution-panel__heading">
-			<h2 id="comparison-rating-distribution-title">评分分布</h2>
-			<div class="rating-distribution-panel__controls">
-				<div class="rating-distribution-panel__control-group">
+			<h2 id="comparison-rating-distribution-title">{{ seriesMode ? '系列均分分布' : '评分分布' }}</h2>
+			<div v-if="!seriesMode || !isGlobalQuery" class="rating-distribution-panel__controls">
+				<div v-if="!seriesMode" class="rating-distribution-panel__control-group">
 					<n-radio-group v-model:value="chartMode" :size="controlSize" role="radiogroup" aria-label="评分图表维度">
-						<n-radio-button value="score">按分数</n-radio-button>
+						<n-radio-button value="score">按评分</n-radio-button>
 						<n-radio-button value="time">按时间</n-radio-button>
 					</n-radio-group>
 				</div>
-				<div class="rating-distribution-panel__control-group">
+				<div v-if="!isGlobalQuery" class="rating-distribution-panel__control-group">
 					<n-radio-group v-model:value="scoreSource" :size="controlSize" role="radiogroup" aria-label="评分数据来源">
-						<n-radio-button value="personal" :disabled="isGlobalQuery">我的分数</n-radio-button>
-						<n-radio-button value="global">全站分数</n-radio-button>
+						<n-radio-button value="personal">我的评分</n-radio-button>
+						<n-radio-button value="global">全站评分</n-radio-button>
 					</n-radio-group>
 				</div>
 			</div>
@@ -362,74 +378,81 @@ const visibleTimeChartLabel = computed(() => `${sourceLabel.value}时间对比�
 		<template v-if="chartMode === 'score'">
 			<Transition name="score-source" mode="out-in">
 				<div
-					v-if="visibleScoreTotal"
+					v-if="scoreTotal"
 					:key="scoreSource"
-					class="grouped-distribution"
-					role="img"
-					:aria-label="groupedDistributionLabel"
-					:style="{ '--distribution-steps': Math.max(1, distributionTicks.length - 1) }"
+					class="horizontal-distribution"
+					role="group"
+					:aria-label="scoreComparisonLabel"
+					:style="{
+						'--distribution-steps': Math.max(1, distributionTicks.length - 1),
+						'--series-count': Math.max(1, visibleScoreSeries.length),
+					}"
 				>
-					<div class="score-distribution__axis" aria-hidden="true">
+					<div class="horizontal-distribution__axis" aria-hidden="true">
 						<span
 							v-for="tick in distributionTicks"
 							:key="tick"
-							:style="{ bottom: `${tick / distributionAxisMax * 100}%` }"
+							:style="{ left: `${tick / distributionAxisMax * 100}%` }"
 						>{{ tick }}</span>
 					</div>
-					<div v-for="(label, binIndex) in scoreLabels" :key="label" class="grouped-bin">
-						<TransitionGroup
-							tag="div"
-							name="grouped-bar"
-							:css="false"
-							class="grouped-bin__bars"
-							:style="{ '--series-count': visibleScoreSeries.length }"
-						>
+					<div
+						v-for="(scoreBin, scoreRowIndex) in renderedScoreBins"
+						:key="scoreBin.label"
+						class="horizontal-score-group"
+					>
+						<small>{{ scoreBin.label }}</small>
+						<div class="horizontal-score-group__plot">
 							<div
-								v-for="(series, seriesIndex) in visibleScoreSeries"
+								v-for="(series, seriesIndex) in scoreBin.series"
 								:key="series.key"
-								class="grouped-bin__slot"
+								class="horizontal-score-bar"
 								:style="{
-									'--bar-height': `${distributionBarHeight(series.counts[binIndex])}%`,
 									'--series-color': series.color,
-									'--bar-delay': `${binIndex * 6 + seriesIndex * 8}ms`,
+									'--bar-width': `${distributionBarWidth(series.counts[scoreBin.index])}%`,
+									'--bar-delay': `${scoreRowIndex * 12 + seriesIndex * 8}ms`,
 								}"
+								tabindex="0"
+								:aria-label="`${series.label}，${scoreBin.label} 分，${series.counts[scoreBin.index]} ${resultUnit}`"
+								@mouseenter="hoveredGroupedBar = scoreBarKey(series.key, scoreBin.label)"
+								@mouseleave="hoveredGroupedBar = null"
+								@focus="hoveredGroupedBar = scoreBarKey(series.key, scoreBin.label)"
+								@blur="hoveredGroupedBar = null"
 							>
-								<WorkbenchTooltip
-									:show="Boolean(series.counts[binIndex]) && hoveredGroupedBar === groupedBarKey(series.key, label)"
-									:disabled="!series.counts[binIndex]"
+								<n-tooltip
+									:show="hoveredGroupedBar === scoreBarKey(series.key, scoreBin.label)"
 									trigger="manual"
 									placement="top"
+									:animated="false"
+									style="max-width: min(336px, calc(100dvw - 72px));"
+									content-class="workbench-tooltip-content"
 								>
 									<template #trigger>
-										<i
-											class="grouped-bin__bar"
-											:tabindex="series.counts[binIndex] ? 0 : undefined"
-											:aria-label="`${series.label}，${label} 分，${series.counts[binIndex]} 部作品`"
-											@mouseenter="hoveredGroupedBar = series.counts[binIndex] ? groupedBarKey(series.key, label) : null"
-											@mouseleave="hoveredGroupedBar = null"
-											@focus="hoveredGroupedBar = series.counts[binIndex] ? groupedBarKey(series.key, label) : null"
-											@blur="hoveredGroupedBar = null"
-										><span v-if="series.counts[binIndex]">{{ series.counts[binIndex] }}</span></i>
+										<span class="horizontal-score-bar__track">
+											<span class="horizontal-score-bar__fill" aria-hidden="true">
+												<span class="horizontal-score-bar__value">{{ series.counts[scoreBin.index] }}</span>
+											</span>
+										</span>
 									</template>
 									<ScoreDistributionTooltip
 										:series-label="series.label"
-										:score-label="label"
-										:works="series.buckets[binIndex].works"
+										:score-label="scoreBin.label"
+										:works="series.buckets[scoreBin.index].works"
+										:unit-label="resultUnit"
 									/>
-								</WorkbenchTooltip>
+								</n-tooltip>
 							</div>
-						</TransitionGroup>
-						<small>{{ label }}</small>
+						</div>
 					</div>
 				</div>
-				<p v-else-if="scoreTotal" key="score-empty-selection" class="rating-distribution-panel__empty" role="status">请至少勾选一组评分分布。</p>
-				<p v-else key="score-empty-data" class="rating-distribution-panel__empty">没有可用于比较的{{ sourceLabel }}。</p>
+				<p v-else key="score-empty-data" class="rating-distribution-panel__empty">没有可用于比较的{{ sourceLabel }}</p>
 			</Transition>
 		</template>
 
-		<div v-else ref="timeChartHost" class="rating-time-chart__viewport comparison-time-chart__viewport">
+		<template v-else>
+			<p class="rating-time-chart__meaning">圆点与折线均表示各对比系列的季度均分</p>
+			<div ref="timeChartHost" class="rating-time-chart__viewport comparison-time-chart__viewport">
 			<svg
-				v-if="visibleTimePointTotal"
+				v-if="timePointTotal"
 				class="rating-time-chart comparison-time-chart"
 				:viewBox="`0 0 ${timeChart.width} ${TIME_CHART_HEIGHT}`"
 				role="img"
@@ -481,8 +504,8 @@ const visibleTimeChartLabel = computed(() => `${sourceLabel.value}时间对比�
 					</circle>
 				</g>
 			</svg>
-			<p v-if="timePointTotal && !visibleTimePointTotal" class="rating-distribution-panel__empty" role="status">请至少勾选一条时间曲线。</p>
-			<p v-else-if="!timePointTotal" class="rating-distribution-panel__empty">{{ timeChart.label }}</p>
-		</div>
+			<p v-else class="rating-distribution-panel__empty">{{ timeChart.label }}</p>
+			</div>
+		</template>
 	</div>
 </template>

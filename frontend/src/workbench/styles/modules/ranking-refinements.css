@@ -17,10 +17,18 @@
 
 .list-columns__metrics,
 .person-row__metrics {
-	grid-template-columns: 25px 28px 28px 40px;
-	width: max-content;
+	--ranking-preference-track: 40px;
+
+	grid-template-columns: repeat(3, minmax(0, 1fr)) var(--ranking-preference-track);
+	width: 100%;
 	max-width: 100%;
-	column-gap: 7px;
+	padding-inline-start: var(--space-1);
+	gap: 0;
+}
+
+.list-columns__metrics.is-global,
+.person-row__metrics.is-global {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .list-columns--ranking .list-columns__metrics > span {
@@ -52,20 +60,6 @@
 
 .person-row__metric.is-unavailable strong {
 	color: var(--text-3);
-}
-
-@media (width < 780px) {
-	.list-columns__metrics,
-	.person-row__metrics {
-		grid-template-columns: 25px 24px 24px 34px;
-	}
-}
-
-@container ranking-pane (min-width: 580px) {
-	.list-columns__metrics,
-	.person-row__metrics {
-		column-gap: calc(var(--space-6) + var(--space-2));
-	}
 }
 
 @container ranking-pane (max-width: 340px) {
@@ -268,9 +262,13 @@
 
 .profile-metrics--extended > span {
 	min-width: 0;
-	padding: 12px 10px;
+	padding: var(--space-3);
 	border: 0 !important;
 	background: var(--surface);
+}
+
+.workbench-translucent-drawer .profile-metrics--extended > span {
+	background: var(--drawer-raised);
 }
 
 .profile-metrics--extended b,

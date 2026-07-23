@@ -11,7 +11,13 @@
 	min-width: 0;
 	max-height: none;
 	background: transparent;
+	box-shadow: inset 0 0 0 0 var(--focus);
 	overflow: hidden;
+	transition: box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.people-rail--attention {
+	box-shadow: inset 0 0 0 2px var(--focus);
 }
 
 .person-picker {
@@ -58,9 +64,6 @@
 	align-items: center;
 	gap: var(--space-1);
 	min-height: 24px;
-	padding-inline: 6px;
-	border-radius: 999px;
-	background: var(--surface-sunken);
 	color: var(--text-3);
 	font-size: var(--text-caption);
 	font-variant-numeric: tabular-nums;
@@ -93,29 +96,49 @@
 }
 
 .selected-people-list {
-	display: flex;
+	position: relative;
+	display: grid;
+	grid-auto-rows: minmax(var(--touch-target-min), auto);
+	gap: var(--space-1);
 	align-content: flex-start;
-	align-items: flex-start;
-	flex-wrap: wrap;
-	column-gap: var(--space-2);
-	row-gap: var(--space-4);
+	isolation: isolate;
 	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	list-style: none;
 }
 
 .selected-person-row {
-	display: inline-flex;
+	position: relative;
+	display: grid;
+	grid-template-columns: var(--space-6) minmax(0, 5rem) minmax(0, 1fr) var(--touch-target-min);
 	align-items: center;
-	flex: 0 1 auto;
-	gap: 2px;
+	width: 100%;
 	min-width: 0;
-	max-width: 100%;
-	min-height: 28px;
-	padding: 1px 2px;
-	padding-left: 6px;
-	border: 1px solid var(--primary-pressed);
-	border-radius: 999px;
-	background: var(--primary);
-	color: var(--on-primary);
+	min-height: var(--touch-target-min);
+	border: 1px solid var(--divider);
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: var(--text-1);
+}
+
+.selected-person-row:hover,
+.selected-person-row:focus-within {
+	border-color: var(--control-border);
+	background: var(--hover);
+}
+
+.selected-person-row__ordinal {
+	display: grid;
+	place-items: center;
+	align-self: stretch;
+	color: var(--text-3);
+	font-size: var(--text-caption);
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
 }
 
 .identity-marker {
@@ -139,108 +162,153 @@
 }
 
 .selected-person-row__name {
-	display: inline-flex;
+	display: flex;
 	align-items: center;
 	align-self: stretch;
 	min-width: 0;
-	max-width: 10ch;
+	padding-inline: var(--space-2);
+	color: var(--text-1);
+	font-size: var(--text-body);
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.selected-person-row__name-label {
+	display: block;
+	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	font-size: var(--text-caption);
-	line-height: 1;
-}
-
-.selected-person-row__name-label,
-.selected-position-tag__label {
-	display: inline-block;
-	transform: translateY(.5px);
 }
 
 .selected-position-tag__label {
-	color: var(--primary-pressed);
-	font-size: var(--text-caption);
-	line-height: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .selected-person-row__positions {
 	display: flex;
 	align-items: center;
-	flex: 0 1 auto;
+	align-self: stretch;
 	flex-wrap: wrap;
-	gap: 2px;
+	gap: 0 2px;
 	min-width: 0;
-	margin-inline-start: 2px;
-	align-self: center;
+	padding-inline: 2px;
 }
 
-.selected-position-pill {
+.selected-position-action {
+	appearance: none;
 	display: inline-flex;
 	align-items: center;
-	height: 24px;
-	padding: 0 0 0 7px;
-	border: 1px solid var(--primary-pressed);
-	border-radius: 999px;
-	background-color: color-mix(in oklab, var(--on-primary) 82%, var(--primary));
-	background-clip: padding-box;
-	overflow: visible;
-}
-.selected-position-tag__remove-hit {
-	position: relative;
-	z-index: 1;
-	display: inline-grid;
-	place-items: center;
-	width: var(--touch-target-min);
-	height: var(--touch-target-min);
-	margin-block: -10px;
-}
-
-.selected-position-tag__remove {
-	align-self: center;
-	flex: 0 0 auto;
-	color: var(--primary-pressed);
+	justify-content: center;
+	flex: 0 1 auto;
+	gap: var(--space-1);
+	min-width: var(--touch-target-min);
+	min-height: var(--touch-target-min);
+	max-width: 100%;
+	padding: 0;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--primary-text);
+	font: inherit;
+	font-size: var(--text-caption);
+	font-weight: 600;
+	line-height: 1.35;
+	cursor: pointer;
 }
 
-.selected-person-row__remove-hit {
-	position: relative;
-	z-index: 1;
-	display: inline-grid;
-	place-items: center;
-	width: var(--touch-target-min);
-	height: var(--touch-target-min);
-	margin-block: -8px;
+.selected-position-action__surface {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-1);
+	min-width: 0;
+	max-width: 100%;
+	min-height: 28px;
+	padding-inline: 7px;
+	border: 1px solid var(--workbench-tag-border);
+	border-radius: var(--workbench-tag-radius);
+	background: var(--workbench-tag-background);
+	color: var(--workbench-tag-text);
+	transition:
+		background-color 160ms ease-out,
+		border-color 160ms ease-out,
+		color 160ms ease-out;
+}
+
+.selected-position-action:hover .selected-position-action__surface {
+	border-color: color-mix(in oklab, var(--primary) 58%, var(--divider));
+	background: var(--workbench-tag-background-strong);
+}
+
+.selected-position-action:active .selected-position-action__surface {
+	background: color-mix(in oklab, var(--primary) 20%, var(--surface-sunken));
 }
 
 .selected-person-row__remove {
-	align-self: center;
-	flex: 0 0 auto;
-	color: var(--on-primary);
-}
-
-:root[data-theme="light"] .selected-person-row {
-	border-color: color-mix(in oklab, var(--primary) 24%, transparent);
-	background: color-mix(in oklab, var(--on-primary) 82%, var(--primary));
-	color: var(--primary-pressed);
-}
-
-:root[data-theme="light"] .selected-position-pill {
-	background-color: var(--primary);
-}
-
-:root[data-theme="light"] .selected-position-tag__label,
-:root[data-theme="light"] .selected-position-tag__remove {
-	color: var(--on-primary);
-}
-
-:root[data-theme="light"] .selected-person-row__remove {
-	color: var(--primary-pressed);
-}
-
-.selected-empty {
-	flex: 1 0 100%;
-	padding: var(--space-3) 0;
+	appearance: none;
+	display: grid;
+	place-items: center;
+	align-self: start;
+	width: var(--touch-target-min);
+	height: var(--touch-target-min);
+	padding: 0;
+	border: 0;
+	background: transparent;
 	color: var(--text-3);
-	font-size: var(--text-caption);
+	cursor: pointer;
+}
+
+.selected-person-row__remove-visual {
+	display: grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	border: 1px solid color-mix(in oklab, var(--divider) 88%, transparent);
+	border-radius: 6px;
+	background: color-mix(in oklab, var(--surface-subtle) 76%, transparent);
+	transition:
+		background-color 160ms ease-out,
+		border-color 160ms ease-out,
+		color 160ms ease-out;
+}
+
+.selected-person-row__remove:hover .selected-person-row__remove-visual {
+	border-color: color-mix(in oklab, var(--error) 32%, var(--divider));
+	background: color-mix(in oklab, var(--error) 12%, var(--surface-sunken));
+	color: var(--error);
+}
+
+.selected-person-row__remove:active .selected-person-row__remove-visual {
+	background: color-mix(in oklab, var(--error) 18%, var(--surface-sunken));
+}
+
+.selected-position-action:focus-visible,
+.selected-person-row__remove:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: -3px;
+}
+
+@media (forced-colors: active) {
+	.people-rail--attention {
+		box-shadow: inset 0 0 0 2px Highlight;
+	}
+
+	.selected-position-action:focus-visible,
+	.selected-person-row__remove:focus-visible {
+		outline-color: Highlight;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.people-rail,
+	.selected-position-action__surface,
+	.selected-person-row__remove-visual {
+		transition-duration: 0s;
+	}
 }
 
 .candidate-search {
@@ -342,7 +410,7 @@
 }
 
 .person-picker--drawer {
-	--selected-tray-list-height: 120px;
+	--selected-tray-list-height: 166px;
 	display: block;
 	min-height: 100%;
 	max-height: none;
@@ -393,13 +461,10 @@
 
 .person-picker--drawer .selected-people-list {
 	container: selected-people / inline-size;
-	padding-top: var(--space-2);
-	border-top: 1px solid var(--divider);
 }
 
 .person-picker--drawer .selected-tray.is-expanded .selected-people-list {
 	height: var(--selected-tray-list-height);
-	padding-bottom: var(--space-1);
 	overflow-x: hidden;
 	overflow-y: auto;
 	overscroll-behavior-y: auto;
@@ -408,10 +473,6 @@
 
 .person-picker--drawer .selected-person-row {
 	min-width: 0;
-}
-
-.person-picker--drawer .selected-empty {
-	padding-inline: var(--space-2);
 }
 
 .person-picker--drawer .candidate-browser {
@@ -438,7 +499,7 @@
 	padding: var(--space-2) var(--space-3);
 	border: 1px solid var(--divider);
 	border-radius: var(--radius-control);
-	background: var(--surface);
+	background: var(--drawer-raised);
 }
 
 .person-picker--drawer .person-row--candidate:hover {

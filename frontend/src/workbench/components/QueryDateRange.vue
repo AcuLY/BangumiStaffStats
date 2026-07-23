@@ -128,7 +128,7 @@ defineExpose({ focus: () => startInput.value?.focus() })
 				:options="decadeOptions"
 				:disabled="disabled"
 				:input-props="{ 'aria-label': `${conditionKey}指定年代` }"
-				placeholder="指定年代"
+				placeholder="选择年代"
 				@update:value="applyDecade"
 			/>
 		</div>

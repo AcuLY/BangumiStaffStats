@@ -1,0 +1,584 @@
+.query-skeleton {
+	--query-skeleton-radius-cap: 6px;
+	--query-skeleton-radius-ratio: 20%;
+
+	min-width: 0;
+}
+
+/* Ranking pane */
+.query-skeleton__ranking-stats {
+	display: flex;
+	align-items: flex-end;
+	gap: var(--space-1);
+	min-height: 49px;
+}
+
+.query-skeleton__statistic {
+	display: grid;
+	align-content: end;
+	gap: var(--space-1);
+	min-width: 0;
+	min-height: 49px;
+}
+
+.query-skeleton__statistic-label-placeholder {
+	display: block;
+	height: 17px;
+}
+
+.query-skeleton__toolbar,
+.query-skeleton__work-toolbar {
+	grid-template-columns: minmax(0, 1fr) minmax(92px, 0.52fr) auto;
+	height: 34px;
+	min-width: 0;
+}
+
+.query-skeleton__toolbar-order {
+	display: block;
+	width: 76px;
+	height: 100%;
+}
+
+.query-skeleton__mobile-picker-entry {
+	cursor: default;
+}
+
+.query-skeleton__mobile-picker-entry:hover {
+	background: transparent;
+}
+
+.query-skeleton__mobile-picker-selection {
+	flex-wrap: nowrap;
+}
+
+.query-skeleton__list-columns {
+	align-items: center;
+	min-height: 35px;
+}
+
+.query-skeleton__list-columns > .list-columns__metrics,
+.query-skeleton__ranking-row > .person-row__metrics {
+	align-items: center;
+}
+
+.query-skeleton__identity,
+.query-skeleton__candidate-identity {
+	display: grid;
+	align-content: center;
+	gap: var(--space-1);
+	min-height: 36.8px;
+}
+
+.query-skeleton__avatar {
+	overflow: clip;
+}
+
+.query-skeleton__ranking-row {
+	cursor: default;
+}
+
+.query-skeleton__ranking-row:hover {
+	background: var(--surface);
+}
+
+/* AdaptivePagination is scoped in production, so the loading state mirrors its box model here. */
+.query-skeleton__adaptive-pagination {
+	display: grid;
+	justify-items: end;
+	gap: var(--space-2);
+	width: 100%;
+	min-width: 0;
+	margin-top: var(--space-4);
+}
+
+.query-skeleton__pagination-summary {
+	display: block;
+	height: 16.8px;
+}
+
+.query-skeleton__pagination-pages,
+.query-skeleton__pagination-tools {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--space-1);
+	width: 100%;
+	min-width: 0;
+}
+
+.query-skeleton__pagination-pages,
+.query-skeleton__pagination-tools {
+	height: 28px;
+}
+
+.query-skeleton__pagination-tools {
+	gap: var(--space-2);
+}
+
+/* Person inspector */
+.query-skeleton__portrait {
+	overflow: clip;
+	background: transparent;
+}
+
+.query-skeleton__profile-copy {
+	min-height: 83px;
+}
+
+.query-skeleton__bio-lines {
+	display: grid !important;
+	gap: var(--space-2);
+	min-height: 34px;
+}
+
+.query-skeleton__bio {
+	box-sizing: border-box;
+	min-height: 98.2px;
+}
+
+.query-skeleton__bio .person-profile__bio-toggle {
+	width: 44px;
+	height: 32px;
+}
+
+.query-skeleton__profile-metrics > .metric-unit {
+	min-height: 72px;
+}
+
+.query-skeleton__profile-metrics :is(.metric-unit__label, .metric-unit__value),
+.query-skeleton__summary-grid :is(.metric-unit__label, .metric-unit__value),
+.query-skeleton__profile .metric-unit :is(.metric-unit__label, .metric-unit__value) {
+	display: block;
+}
+
+.query-skeleton__section-heading {
+	min-width: 0;
+	min-height: 25px;
+}
+
+.query-skeleton__tag-groups {
+	min-height: 100px;
+}
+
+.query-skeleton__rating-section {
+	min-height: 300px;
+}
+
+.query-skeleton__rating-title {
+	display: flex;
+	align-items: center;
+	min-height: 25px;
+}
+
+.query-skeleton__score-distribution {
+	height: 180px;
+}
+
+.query-skeleton__score-fill {
+	overflow: clip;
+	background: transparent !important;
+}
+
+.query-skeleton__score-distribution .score-bar small {
+	display: grid;
+	place-items: center;
+}
+
+.query-skeleton__preference-work {
+	cursor: default;
+}
+
+.query-skeleton__preference-work:hover {
+	background: transparent;
+}
+
+.query-skeleton__preference-section > .section-heading {
+	min-height: 25px;
+}
+
+.query-skeleton__preference-list {
+	min-height: 205.5px;
+}
+
+.query-skeleton__preference-copy {
+	display: grid;
+	align-content: center;
+	gap: 2px;
+	min-width: 0;
+}
+
+.query-skeleton__preference-cover,
+.query-skeleton__subject-cover {
+	background: transparent;
+}
+
+/* Shared work browser */
+.query-skeleton__work-browser {
+	min-width: 0;
+}
+
+.query-skeleton__density-control {
+	display: block;
+	width: 104px;
+	height: 34px;
+}
+
+.query-skeleton__work-toolbar {
+	margin-bottom: 12px;
+}
+
+.query-skeleton__subject-work-list--ranking .query-skeleton__subject-work-row {
+	min-height: 224px;
+}
+
+.query-skeleton__subject-work-list--shared .query-skeleton__subject-work-row {
+	min-height: 291px;
+}
+
+.query-skeleton__subject-work-row {
+	cursor: default;
+}
+
+.query-skeleton__subject-work-row:hover {
+	border-color: var(--divider) !important;
+	background: transparent !important;
+}
+
+.query-skeleton__subject-work-title {
+	grid-area: title;
+}
+
+.query-skeleton__subject-work-secondary {
+	grid-area: secondary;
+}
+
+.query-skeleton__subject-work-tags {
+	grid-area: meta;
+}
+
+.query-skeleton__meta-tag {
+	--query-skeleton-meta-tag-height: 20px;
+}
+
+@container subject-work-list (max-width: 480px) {
+	.query-skeleton__meta-tag {
+		--query-skeleton-meta-tag-height: 16px;
+	}
+}
+
+.query-skeleton__participants {
+	min-height: 117px;
+}
+
+.query-skeleton__participant-body {
+	gap: var(--space-1);
+}
+
+/* People picker */
+.query-skeleton__people-rail {
+	overflow: visible;
+	background: transparent;
+}
+
+.query-skeleton__picker {
+	min-height: 680px;
+}
+
+.query-skeleton__selected-tray-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	height: var(--selected-tray-header-height, 44px);
+	padding-inline: var(--space-2);
+}
+
+.query-skeleton__selected-people-list {
+	height: var(--selected-tray-list-height, 166px);
+	padding: var(--space-1);
+}
+
+.query-skeleton__selected-person-row {
+	cursor: default;
+}
+
+.query-skeleton__selected-person-row:hover {
+	border-color: var(--divider);
+	background: transparent;
+}
+
+.query-skeleton__selected-person-row .selected-person-row__name {
+	display: flex;
+	align-items: center;
+}
+
+.query-skeleton__selected-person-row .selected-person-row__remove {
+	display: grid;
+	place-items: center;
+}
+
+.query-skeleton__picker-heading {
+	min-height: 21px;
+}
+
+.query-skeleton__position-browser {
+	display: grid;
+	gap: var(--space-2);
+	margin-bottom: var(--space-3);
+}
+
+.query-skeleton__position-label {
+	display: flex;
+	align-items: center;
+	min-height: 18px;
+}
+
+.query-skeleton__candidate-results {
+	container: candidate-position-results / inline-size;
+}
+
+.query-skeleton__candidate-search {
+	grid-template-columns: minmax(0, 1fr) 96px auto;
+	height: 34px;
+}
+
+.query-skeleton__candidate-list {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--space-1);
+	padding: var(--space-1);
+	overflow: visible;
+	scrollbar-gutter: auto;
+}
+
+.query-skeleton__candidate-card {
+	display: grid;
+	grid-template-areas: "portrait identity";
+	grid-template-columns: 36px minmax(0, 1fr);
+	gap: var(--space-2);
+	min-height: var(--candidate-row-height);
+	padding: 7px var(--space-2);
+	cursor: default;
+}
+
+.query-skeleton__candidate-card .candidate-row__portrait {
+	grid-area: portrait;
+	width: 36px;
+}
+
+.query-skeleton__candidate-card .candidate-row__identity {
+	grid-area: identity;
+}
+
+.query-skeleton__candidate-card:hover {
+	border-color: transparent;
+	background: var(--surface);
+}
+
+/* Analysis dashboard */
+.query-skeleton__analysis {
+	container: query-skeleton-analysis / inline-size;
+	width: 100%;
+	max-width: 1440px;
+	justify-self: center;
+}
+
+.query-skeleton__profile {
+	min-height: 112px;
+}
+
+.query-skeleton__analysis-media {
+	height: 112px;
+	overflow: clip;
+}
+
+.query-skeleton__profile .selected-person-card__ordinal {
+	display: flex;
+	align-items: center;
+}
+
+.query-skeleton__profile .selected-person-card__signature {
+	display: grid;
+	align-content: center;
+	gap: 3px;
+}
+
+.query-skeleton__profile .selected-person-card__metrics > div {
+	display: grid;
+	align-content: end;
+	gap: 1px;
+}
+
+.query-skeleton__summary-grid > .metric-unit {
+	min-height: 64px;
+}
+
+.query-skeleton__distribution-legend > span {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	min-height: 22.4px;
+}
+
+.query-skeleton__checkbox {
+	display: block;
+	width: 16px;
+	height: 16px;
+	border-radius: var(--radius-control);
+	overflow: clip;
+}
+
+.query-skeleton__score-table-scroll {
+	height: 748px;
+	overflow-y: hidden;
+	scrollbar-gutter: auto;
+}
+
+.query-skeleton__score-table {
+	height: 100%;
+	table-layout: fixed;
+}
+
+.query-skeleton__score-column {
+	width: 72px;
+}
+
+.query-skeleton__score-table :is(th, td) {
+	box-sizing: border-box;
+	height: 69px;
+}
+
+.query-skeleton__score-table thead th {
+	height: 58px;
+}
+
+.query-skeleton__score-table-heading {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.query-skeleton__score-table-cell {
+	display: grid;
+	align-content: center;
+	gap: var(--space-1);
+	min-height: 32px;
+}
+
+.query-skeleton__rating-domain {
+	min-height: 1212.9px;
+}
+
+.query-skeleton__matrix {
+	border-collapse: collapse;
+}
+
+.query-skeleton__matrix :is(th, td) {
+	box-sizing: border-box;
+	height: 60.125px;
+}
+
+.query-skeleton__matrix-cell {
+	display: grid;
+	justify-items: center;
+	gap: var(--space-1);
+}
+
+@container person-inspector (max-width: 480px) {
+	.query-skeleton__bio {
+		min-height: 109.2px;
+	}
+
+	.query-skeleton__profile-metrics > .metric-unit {
+		min-height: 70px;
+	}
+
+	.query-skeleton__profile-metrics > .metric-unit:nth-child(n + 4):nth-child(-n + 6) {
+		min-height: 72px;
+	}
+}
+
+@container query-skeleton-analysis (max-width: 500px) {
+	.query-skeleton__matrix :is(th, td) {
+		height: 69px;
+	}
+}
+
+@media (width < 780px) {
+	.query-skeleton__toolbar,
+	.query-skeleton__work-toolbar {
+		height: 28px;
+		gap: var(--space-1);
+	}
+
+	.query-skeleton__toolbar-order {
+		width: 68px;
+	}
+
+	.query-skeleton__checkbox {
+		width: 14px;
+		height: 14px;
+	}
+
+	.query-skeleton__ranking-stats {
+		flex-wrap: nowrap;
+	}
+
+	.query-skeleton__identity {
+		min-height: 34.2px;
+	}
+
+	.query-skeleton__pagination-pages,
+	.query-skeleton__pagination-tools {
+		height: 22px;
+	}
+
+	.query-skeleton__density-control {
+		height: 28px;
+	}
+
+	.query-skeleton__inspector {
+		display: none;
+	}
+
+	.query-skeleton__analysis {
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		box-shadow: none;
+	}
+}
+
+@media (max-width: 520px) {
+	.query-skeleton__tag-groups {
+		min-height: 0;
+	}
+
+	.query-skeleton__score-table {
+		min-width: 640px;
+	}
+
+	.query-skeleton__score-table-scroll {
+		height: 618px;
+	}
+
+	.query-skeleton__score-table :is(th, td) {
+		height: 56px;
+	}
+
+	.query-skeleton__score-table thead th {
+		height: 58px;
+	}
+
+	.query-skeleton__rating-domain {
+		min-height: 0;
+	}
+
+	.query-skeleton__matrix {
+		min-width: 560px;
+	}
+
+	.query-skeleton__matrix :is(th, td) {
+		height: 69px;
+	}
+}

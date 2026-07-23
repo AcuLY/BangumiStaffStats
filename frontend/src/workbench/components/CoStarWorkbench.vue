@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useWorkbench } from '../composables/useWorkbench'
 import { useMediaQuery } from '../composables/useMediaQuery'
 import { shellScrollbarThemeOverrides } from '../naiveThemeOverrides'
@@ -8,6 +8,28 @@ import AnalysisDashboard from './AnalysisDashboard.vue'
 
 const workbench = useWorkbench()
 const isMobile = useMediaQuery('(width < 780px)')
+const peopleRailHighlighted = ref(false)
+let peopleRailHighlightTimer: number | undefined
+
+const clearPeopleRailHighlight = () => {
+	peopleRailHighlighted.value = false
+	if (peopleRailHighlightTimer !== undefined) {
+		window.clearTimeout(peopleRailHighlightTimer)
+		peopleRailHighlightTimer = undefined
+	}
+}
+
+const requestPersonSelection = async () => {
+	if (isMobile.value) {
+		workbench.peopleDrawerOpen.value = true
+		return
+	}
+
+	clearPeopleRailHighlight()
+	await nextTick()
+	peopleRailHighlighted.value = true
+	peopleRailHighlightTimer = window.setTimeout(clearPeopleRailHighlight, 900)
+}
 
 const containDrawerWheel = (event: WheelEvent) => {
 	if (!event.deltaY) return
@@ -29,19 +51,22 @@ const drawerScrollbarProps = {
 }
 
 watch(isMobile, (mobile) => {
-	if (!mobile) workbench.peopleDrawerOpen.value = false
+	if (mobile) clearPeopleRailHighlight()
+	else workbench.peopleDrawerOpen.value = false
 })
+
+onBeforeUnmount(clearPeopleRailHighlight)
 
 </script>
 
 <template>
 	<div id="mode-panel-co-star" class="co-star-workbench" role="tabpanel" aria-labelledby="mode-tab-co-star">
-		<aside v-if="!isMobile" class="people-rail" aria-label="人物选择面板">
+		<aside v-if="!isMobile" class="people-rail" :class="{ 'people-rail--attention': peopleRailHighlighted }" aria-label="人物选择面板">
 			<PersonPicker />
 		</aside>
 
-		<section id="analysis-main" class="analysis-main" aria-label="共演分析结果">
-			<AnalysisDashboard />
+		<section id="analysis-main" class="analysis-main" aria-label="共演分析">
+			<AnalysisDashboard @request-person-selection="requestPersonSelection" />
 		</section>
 
 		<n-drawer

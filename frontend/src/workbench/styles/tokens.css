@@ -1,6 +1,15 @@
 :root {
 	--font-ui: "Source Han Sans SC VF", "Source Han Sans SC", "Noto Sans CJK SC", "PingFang SC", sans-serif;
-	--brand-decorative: oklch(0.65 0.25 355);
+	--brand-primary-light: #C82A70;
+	--brand-primary-light-hover: #D23978;
+	--brand-primary-light-pressed: #AD215F;
+	--brand-primary-dark: #F16A9C;
+	--brand-primary-dark-hover: #FC85AF;
+	--brand-primary-dark-pressed: #DA578A;
+	--brand-primary: var(--brand-primary-light);
+	--brand-primary-hover: var(--brand-primary-light-hover);
+	--brand-primary-pressed: var(--brand-primary-light-pressed);
+	--brand-decorative: var(--brand-primary);
 	--radius-card: 8px;
 	--radius-control: 6px;
 	--touch-target-min: 44px;
@@ -42,28 +51,33 @@
 }
 
 :root[data-visual="archive"] {
-	--canvas: oklch(0.965 0.004 330);
-	--surface: oklch(0.995 0.002 330);
-	--surface-subtle: oklch(0.975 0.006 330);
-	--surface-sunken: oklch(0.945 0.006 315);
+	--canvas: hsl(240 9.6% 96.2%);
+	--surface: hsl(240 18.5% 98.3%);
+	--surface-subtle: hsl(0 0% 100%);
+	--surface-sunken: hsl(240 10.2% 92.4%);
 	--hover: oklch(0.94 0.014 350);
 	--pressed: oklch(0.915 0.018 350);
-	--border: oklch(0.86 0.009 320);
-	--divider: oklch(0.925 0.006 320);
-	--control-border: oklch(0.65 0.012 320);
+	--border: hsl(240 7.9% 86.1%);
+	--divider: hsl(240 8.5% 90.8%);
+	--control-border: #928D94;
 	--text-1: oklch(0.24 0.015 285);
 	--text-2: oklch(0.34 0.014 285);
 	--text-3: oklch(0.47 0.015 285);
 	--disabled: oklch(0.62 0.01 300);
-	--primary: oklch(0.52 0.22 352);
-	--primary-hover: oklch(0.56 0.22 352);
-	--primary-pressed: oklch(0.47 0.2 352);
-	--primary-soft: oklch(0.96 0.03 352);
-	--primary-text: oklch(0.44 0.18 352);
-	--focus: oklch(0.48 0.2 352);
+	--primary: var(--brand-primary);
+	--primary-hover: var(--brand-primary-hover);
+	--primary-pressed: var(--brand-primary-pressed);
+	--primary-soft: color-mix(in oklab, var(--primary) 8%, var(--surface));
+	--primary-text: var(--primary);
+	--workbench-tag-background: var(--primary-soft);
+	--workbench-tag-background-strong: color-mix(in oklab, var(--primary) 28%, var(--surface));
+	--workbench-tag-border: color-mix(in oklab, var(--primary) 42%, var(--divider));
+	--workbench-tag-text: var(--primary-text);
+	--workbench-tag-radius: var(--radius-control);
+	--focus: var(--primary);
 	--focus-on-chrome: var(--focus);
 	--on-primary: oklch(0.99 0 0);
-	--chrome: var(--surface);
+	--chrome: hsl(0 0% 100%);
 	--chrome-raised: var(--surface-subtle);
 	--chrome-text: var(--text-1);
 	--chrome-muted: var(--text-3);
@@ -72,12 +86,17 @@
 	--scrollbar-thumb: var(--control-border);
 	--scrollbar-thumb-hover: var(--text-3);
 	--scrollbar-thumb-active: var(--text-2);
-	--translucent-chrome-background: color-mix(in oklab, var(--chrome) 82%, transparent);
+	--translucent-chrome-background: color-mix(in oklab, var(--chrome) 92%, transparent);
 	--translucent-chrome-hover: color-mix(in oklab, var(--hover) 58%, transparent);
 	--translucent-chrome-pressed: color-mix(in oklab, var(--pressed) 72%, transparent);
 	--translucent-chrome-border: color-mix(in oklab, var(--chrome-border) 72%, transparent);
 	--translucent-chrome-fallback: var(--chrome);
 	--translucent-chrome-edge-shadow: 0 6px 16px -9px rgba(0, 0, 0, 0.08), 0 9px 28px 0 rgba(0, 0, 0, 0.05), 0 12px 48px 16px rgba(0, 0, 0, 0.03);
+	--drawer-surface: hsl(240 18.5% 97.5%);
+	--drawer-raised: hsl(0 0% 100%);
+	--drawer-divider: hsl(240 8.5% 90.8%);
+	--translucent-drawer-background: color-mix(in oklab, var(--drawer-surface) 96%, transparent);
+	--translucent-drawer-fallback: var(--drawer-surface);
 	--rail-surface: var(--surface);
 	--success: oklch(0.43 0.12 160);
 	--success-on-chrome: var(--success);
@@ -92,36 +111,38 @@
 	--h1-size: var(--text-page);
 	--h2-size: var(--text-section);
 	--h3-size: var(--text-body);
-	--workspace-max: 1440px;
+	--workspace-max: 1280px;
 }
 
 :root[data-visual="archive"][data-theme="dark"] {
-	--canvas: oklch(0.16 0.008 280);
-	--surface: oklch(0.205 0.01 280);
-	--surface-subtle: oklch(0.235 0.012 280);
-	--surface-sunken: oklch(0.18 0.009 280);
+	--brand-primary: var(--brand-primary-dark);
+	--brand-primary-hover: var(--brand-primary-dark-hover);
+	--brand-primary-pressed: var(--brand-primary-dark-pressed);
+	--canvas: hsl(240 7.8% 5.8%);
+	--surface: hsl(240 7.1% 9.8%);
+	--surface-subtle: hsl(240 6.8% 12.8%);
+	--surface-sunken: hsl(240 8.5% 4.5%);
 	--hover: oklch(0.27 0.012 280);
 	--pressed: oklch(0.3 0.015 280);
-	--border: oklch(0.33 0.012 280);
-	--divider: oklch(0.275 0.011 280);
-	--control-border: oklch(0.51 0.012 280);
+	--border: hsl(240 6.1% 20.5%);
+	--divider: hsl(240 5.9% 15.8%);
+	--control-border: #64656D;
 	--text-1: oklch(0.95 0.006 280);
 	--text-2: oklch(0.82 0.01 280);
 	--text-3: oklch(0.69 0.012 280);
 	--disabled: oklch(0.52 0.01 280);
-	--primary: oklch(0.55 0.21 352);
-	--primary-hover: oklch(0.58 0.21 352);
-	--primary-pressed: oklch(0.5 0.19 352);
-	--primary-soft: oklch(0.27 0.055 350);
-	--primary-text: oklch(0.79 0.13 350);
-	--focus: oklch(0.72 0.15 350);
-	--focus-on-chrome: oklch(0.72 0.15 350);
-	--on-primary: oklch(0.99 0 0);
-	--chrome: oklch(0.13 0.01 280);
-	--chrome-raised: oklch(0.18 0.01 280);
+	--primary-soft: color-mix(in oklab, var(--primary) 20%, var(--surface));
+	--focus: var(--primary-hover);
+	--focus-on-chrome: var(--primary-hover);
+	--on-primary: #17171B;
+	--chrome: hsl(240 12.6% 2.4%);
+	--chrome-raised: var(--surface-subtle);
 	--chrome-text: var(--text-1);
 	--chrome-muted: var(--text-3);
 	--chrome-border: oklch(0.3 0.012 280);
+	--drawer-surface: hsl(240 7.1% 9.8%);
+	--drawer-raised: hsl(240 6.8% 12.8%);
+	--drawer-divider: hsl(240 5.9% 15.8%);
 	--rail-surface: var(--surface-sunken);
 	--success: oklch(0.68 0.13 160);
 	--success-on-chrome: oklch(0.68 0.13 160);
@@ -132,8 +153,7 @@
 }
 
 :root[data-visual="archive"][data-theme="light"] {
-	--translucent-chrome-background: color-mix(in oklab, var(--surface) 94%, transparent);
 	--translucent-chrome-hover: color-mix(in oklab, var(--hover) 68%, transparent);
 	--translucent-chrome-pressed: color-mix(in oklab, var(--pressed) 82%, transparent);
-	--translucent-chrome-fallback: var(--surface);
+	--translucent-chrome-fallback: var(--chrome);
 }

@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { QueryPositionValue, WorkbenchMode } from '../types'
+import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { NTag } from 'naive-ui'
+import type { SelectOption } from 'naive-ui'
+import type { QueryPositionValue, QueryState, WorkbenchMode } from '../types'
 import { useWorkbench } from '../composables/useWorkbench'
 import { useWorkbenchControlSize } from '../composables/useWorkbenchControlSize'
 import AppIcon from './AppIcon.vue'
 import QueryDateRange from './QueryDateRange.vue'
 import QueryNumericRange from './QueryNumericRange.vue'
-import WorkbenchTooltip from './WorkbenchTooltip.vue'
 
 const workbench = useWorkbench()
 const { controlSize } = useWorkbenchControlSize()
+const tagTriggerButtonSize = computed<'tiny' | 'small'>(() => controlSize.value === 'small' ? 'tiny' : 'small')
 type FocusableControl = { focus: () => void }
 
 const userInput = ref<FocusableControl>()
@@ -22,6 +24,9 @@ const editorButton = ref<HTMLButtonElement>()
 const queryOverlayTop = ref(0)
 const expandedQuerySections = ref<string[]>([])
 const uidHelpTooltipVisible = ref(false)
+const visibleQueryHelp = ref<string | null>(null)
+let restoreEditorButtonFocus = true
+let editorButtonPointerActivated = false
 
 const containQueryWheel = (event: WheelEvent) => {
 	if (!event.deltaY) return
@@ -36,6 +41,7 @@ const containQueryWheel = (event: WheelEvent) => {
 }
 
 const toggleAdvancedSection = () => {
+	visibleQueryHelp.value = null
 	expandedQuerySections.value = expandedQuerySections.value.includes('advanced') ? [] : ['advanced']
 }
 
@@ -64,23 +70,39 @@ const collectionVocabulary: Record<number, [string, string]> = {
 
 const advancedOptions = [
 	{ key: 'showNSFW', title: '显示 NSFW 条目', help: '' },
-	{ key: 'mergeSeries', title: '合并续作', help: '' },
+	{
+		key: 'mergeSeries',
+		title: '合并续作',
+		help: '按续作关系把条目合并为系列；人物、共同范围和数量按系列去重，系列评分取当前范围内成员作品的均分',
+	},
 	{ key: 'date', title: '播出时间范围', help: '' },
 	{
 		key: 'collectionDate',
 		title: '收藏时间范围',
-		help: '按收藏记录最后更新时间筛选；修改收藏状态、评分或短评都会更新时间，不等同于首次收藏时间。',
+		help: '按收藏记录最后更新时间筛选；修改收藏状态、评分或短评都会更新时间，不等同于首次收藏时间',
 	},
 	{ key: 'userRate', title: '我的评分范围', help: '' },
 	{ key: 'globalRate', title: '全站评分范围', help: '' },
 	{
 		key: 'scoreDifference',
-		title: '个人－全站评分差范围',
-		help: '个人评分减去全站评分；正数表示你打得更高，负数表示更低。仅统计双方都有评分的条目。',
+		title: '我的评分与全站评分差范围',
+		help: '我的评分减去全站评分；正数表示你打得更高，负数表示更低',
 	},
-	{ key: 'ratingCount', title: '全站评分人数范围', help: '' },
-	{ key: 'positiveTags', title: '正向标签', help: '' },
-	{ key: 'negativeTags', title: '反向标签', help: '' },
+	{
+		key: 'ratingCount',
+		title: '评分人数范围',
+		help: '按作品的全站有效评分人数筛选；该条件只过滤作品，不参与综合分加权',
+	},
+	{
+		key: 'positiveTags',
+		title: '正向标签',
+		help: '每个正向标签项都必须命中；同一项中用 / 分隔表示满足任一标签',
+	},
+	{
+		key: 'negativeTags',
+		title: '反向标签',
+		help: '命中任一反向标签项即排除；同一项中用 + 分隔表示同时包含这些标签时才排除',
+	},
 ] as const
 
 type AdvancedOptionKey = typeof advancedOptions[number]['key']
@@ -108,6 +130,8 @@ const visibleAdvancedOptionGroups = computed(() => advancedOptionGroupKeys
 		.map((key) => advancedOptionByKey.get(key))
 		.filter((option): option is typeof advancedOptions[number] => Boolean(option) && optionIsVisible(option!)))
 	.filter((group) => group.length))
+const advancedOptionTitle = (option: typeof advancedOptions[number]) =>
+	option.key === 'globalRate' && workbench.queryDraft.isGlobal ? '评分范围' : option.title
 const isNumericCondition = (key: ConditionKey): key is NumericConditionKey =>
 	key === 'userRate' || key === 'globalRate' || key === 'scoreDifference' || key === 'ratingCount'
 const numericRangeConfigs: Record<NumericConditionKey, {
@@ -122,19 +146,38 @@ const numericRangeConfigs: Record<NumericConditionKey, {
 }> = {
 	userRate: { min: 0, max: 10, step: 0.5, minLabel: '我的评分下限', maxLabel: '我的评分上限', minPlaceholder: '最低分', maxPlaceholder: '最高分', inputmode: 'decimal' },
 	globalRate: { min: 0, max: 10, step: 0.5, minLabel: '全站评分下限', maxLabel: '全站评分上限', minPlaceholder: '最低分', maxPlaceholder: '最高分', inputmode: 'decimal' },
-	scoreDifference: { min: -10, max: 10, step: 0.5, minLabel: '个人与全站评分差下限', maxLabel: '个人与全站评分差上限', minPlaceholder: '最低差值', maxPlaceholder: '最高差值', inputmode: 'decimal' },
-	ratingCount: { min: 0, step: 100, minLabel: '全站评分人数下限', maxLabel: '全站评分人数上限', minPlaceholder: '最少人数', maxPlaceholder: '最多人数', inputmode: 'numeric' },
+	scoreDifference: { min: -10, max: 10, step: 0.5, minLabel: '我的评分与全站评分差下限', maxLabel: '我的评分与全站评分差上限', minPlaceholder: '最低差值', maxPlaceholder: '最高差值', inputmode: 'decimal' },
+	ratingCount: { min: 0, step: 100, minLabel: '评分人数下限', maxLabel: '评分人数上限', minPlaceholder: '最少人数', maxPlaceholder: '最多人数', inputmode: 'numeric' },
+}
+const numericRangeConfig = (key: NumericConditionKey) => {
+	if (key !== 'globalRate' || !workbench.queryDraft.isGlobal) return numericRangeConfigs[key]
+	return { ...numericRangeConfigs.globalRate, minLabel: '评分下限', maxLabel: '评分上限' }
 }
 
 const positionOptionsFor = (subjectType: number): Array<{ label: string; value: QueryPositionValue }> => subjectType === 2
 	? workbench.positions.value
 	: (positionVocabulary[subjectType] ?? []).map((label) => ({ label, value: label }))
 
+const renderPositionTag = ({ option, handleClose }: { option: SelectOption; handleClose: () => void }) => h(
+	NTag,
+	{
+		type: 'primary',
+		size: controlSize.value,
+		closable: !option.disabled,
+		disabled: workbench.queryLoading.value || Boolean(option.disabled),
+		internalCloseIsButtonTag: false,
+		internalCloseFocusable: false,
+		onClose: handleClose,
+	},
+	{ default: () => String(option.label ?? option.value ?? '') },
+)
+
 const draftPositionOptions = computed(() => positionOptionsFor(workbench.queryDraft.subjectType))
-const subjectLabel = computed(() => subjectOptions.find((item) => item.value === workbench.query.subjectType)?.label ?? String(workbench.query.subjectType))
 const activeMode = computed<WorkbenchMode>(() => workbench.mode.value)
 const positionStageLabel = computed(() => activeMode.value === 'ranking' ? '排行职位' : '参与职位')
-const activeAppliedPositions = computed(() => workbench.query.positionsByMode[activeMode.value])
+const positionStageHelp = computed(() => activeMode.value === 'ranking'
+	? '仅统计同时具备全部已选职位的人物；参与作品按已选职位合并并去重'
+	: '每个职位分别生成候选人物；第一项作为默认浏览职位')
 type QueryErrorKind = 'userId' | 'subjectType' | 'collections' | 'positions' | RangeConditionKey | ''
 const advancedErrorKinds: QueryErrorKind[] = ['date', 'collectionDate', 'userRate', 'globalRate', 'scoreDifference', 'ratingCount']
 const queryErrorKind = computed<QueryErrorKind>(() => {
@@ -149,13 +192,10 @@ const queryErrorKind = computed<QueryErrorKind>(() => {
 	if (message.includes('评分人数')) return 'ratingCount'
 	if (message.includes('评分差')) return 'scoreDifference'
 	if (message.includes('我的评分')) return 'userRate'
-	if (message.includes('全站评分')) return 'globalRate'
+	if (message.includes('评分')) return 'globalRate'
 	return ''
 })
 const fieldError = (kind: string) => queryErrorKind.value === kind ? workbench.queryError.value : ''
-const appliedPositionLabels = computed(() => activeAppliedPositions.value.map((value) =>
-	positionOptionsFor(workbench.query.subjectType)
-		.find((item) => String(item.value) === String(value))?.label ?? String(value)))
 const draftPositions = computed<QueryPositionValue[]>({
 	get: () => workbench.queryDraft.positionsByMode[activeMode.value],
 	set: (value) => {
@@ -174,12 +214,6 @@ const collectionOptionsFor = (subjectType: number) => {
 	]
 }
 const draftCollectionOptions = computed(() => collectionOptionsFor(workbench.queryDraft.subjectType))
-const collectionLabel = computed(() => workbench.query.isGlobal
-	? '全站口径'
-	: workbench.query.collectionTypes
-		.map((value) => collectionOptionsFor(workbench.query.subjectType).find((item) => item.value === value)?.label)
-		.filter(Boolean)
-		.join(' + ') || '未选择')
 
 const summarizeRange = (label: string, [minimum, maximum]: [string, string]) => {
 	const bounds = minimum && maximum
@@ -190,31 +224,41 @@ const summarizeRange = (label: string, [minimum, maximum]: [string, string]) => 
 
 const summarizeTags = (label: string, tags: string[]) => `${label} ${tags.length ? tags.join('、') : '未填写'}`
 
-const appliedQuerySummary = computed(() => {
-	const query = workbench.query
+const querySummaryPartsFor = (query: QueryState) => {
+	const positionLabels = query.positionsByMode[activeMode.value].map((value) =>
+		positionOptionsFor(query.subjectType)
+			.find((item) => String(item.value) === String(value))?.label ?? String(value))
+	const subjectLabel = subjectOptions.find((item) => item.value === query.subjectType)?.label ?? String(query.subjectType)
+	const collectionLabel = query.collectionTypes
+		.map((value) => collectionOptionsFor(query.subjectType).find((item) => item.value === value)?.label)
+		.filter(Boolean)
+		.join(' + ') || '未选择'
 	const parts = [
-		appliedPositionLabels.value.join(' + ') || '未选择职位',
+		positionLabels.join(' + ') || '未选择职位',
 		query.isGlobal ? '全站数据' : query.userId,
-		subjectLabel.value,
+		subjectLabel,
 	]
 
-	if (!query.isGlobal) parts.push(collectionLabel.value)
+	if (!query.isGlobal) parts.push(collectionLabel)
 	if (query.showNSFW) parts.push('含 NSFW')
 	if (query.mergeSeries) parts.push('合并续作')
 	if (query.date.enabled) parts.push(summarizeRange('播出时间', query.date.value))
 	if (!query.isGlobal && query.collectionDate.enabled) parts.push(summarizeRange('收藏时间', query.collectionDate.value))
 	if (!query.isGlobal && query.userRate.enabled) parts.push(summarizeRange('我的评分', query.userRate.value))
-	if (query.globalRate.enabled) parts.push(summarizeRange('全站评分', query.globalRate.value))
-	if (!query.isGlobal && query.scoreDifference.enabled) parts.push(summarizeRange('评分差', query.scoreDifference.value))
+	if (query.globalRate.enabled) parts.push(summarizeRange(query.isGlobal ? '评分' : '全站评分', query.globalRate.value))
+	if (!query.isGlobal && query.scoreDifference.enabled) parts.push(summarizeRange('我的评分与全站评分差', query.scoreDifference.value))
 	if (query.ratingCount.enabled) parts.push(summarizeRange('评分人数', query.ratingCount.value))
 	if (query.positiveTags.enabled) parts.push(summarizeTags('正向标签', query.positiveTags.value))
 	if (query.negativeTags.enabled) parts.push(summarizeTags('反向标签', query.negativeTags.value))
 
-	return parts.join(' · ')
-})
-const collapsedQuerySummary = computed(() => workbench.hasAppliedQuery.value
-	? appliedQuerySummary.value
-	: '暂无查询')
+	return parts
+}
+const appliedQuerySummaryParts = computed(() => querySummaryPartsFor(workbench.query))
+const draftQuerySummaryParts = computed(() => querySummaryPartsFor(workbench.queryDraft))
+const appliedQuerySummary = computed(() => appliedQuerySummaryParts.value.join(' · '))
+const collapsedQuerySummaryParts = computed(() => workbench.queryLoading.value
+	? draftQuerySummaryParts.value
+	: workbench.hasAppliedQuery.value ? appliedQuerySummaryParts.value : ['暂无查询'])
 const querySubmitLabel = computed(() => workbench.queryLoading.value
 	? '查询中…'
 	: workbench.hasAppliedQuery.value ? '应用并查询' : '开始查询')
@@ -267,7 +311,12 @@ const syncQueryOverlayTop = () => {
 watch(() => workbench.queryEditing.value, async (editing) => {
 	await nextTick()
 	if (editing) syncQueryOverlayTop()
-	else editorButton.value?.focus()
+	else {
+		uidHelpTooltipVisible.value = false
+		visibleQueryHelp.value = null
+		if (restoreEditorButtonFocus && document.activeElement !== editorButton.value) editorButton.value?.focus()
+		restoreEditorButtonFocus = true
+	}
 })
 
 const openEditor = async () => {
@@ -278,6 +327,8 @@ const openEditor = async () => {
 	const canAutoFocus = window.matchMedia('(width >= 780px) and (pointer: fine)').matches
 	if (canAutoFocus && !workbench.queryDraft.isGlobal) userInput.value?.focus()
 }
+
+defineExpose({ openEditor })
 
 onMounted(async () => {
 	window.addEventListener('resize', syncQueryOverlayTop)
@@ -291,9 +342,26 @@ onBeforeUnmount(() => {
 	window.removeEventListener('resize', syncQueryOverlayTop)
 })
 
-const closeEditor = () => {
+const closeEditor = (restoreFocus = true) => {
 	if (workbench.queryLoading.value) return
+	restoreEditorButtonFocus = restoreFocus
 	workbench.queryEditing.value = false
+}
+
+const markEditorPointerActivation = () => {
+	editorButtonPointerActivated = true
+}
+
+const clearEditorPointerActivation = () => {
+	editorButtonPointerActivated = false
+}
+
+const toggleEditor = (event: MouseEvent) => {
+	const pointerActivated = editorButtonPointerActivated || event.detail > 0
+	editorButtonPointerActivated = false
+	if (workbench.queryEditing.value) closeEditor(!pointerActivated)
+	else openEditor()
+	if (pointerActivated) editorButton.value?.blur()
 }
 
 const focusFirstInvalidField = async () => {
@@ -315,16 +383,20 @@ const focusFirstInvalidField = async () => {
 
 const submitEditor = () => {
 	const accepted = workbench.applyQuery()
-	if (!accepted) focusFirstInvalidField()
+	if (!accepted) {
+		focusFirstInvalidField()
+		return
+	}
+	workbench.queryEditing.value = false
 }
 
 const conditionTitle = (key: ConditionKey) => ({
 	date: '播出时间',
 	collectionDate: '收藏时间',
 	userRate: '我的评分',
-	globalRate: '全站评分',
-	scoreDifference: '个人－全站评分差',
-	ratingCount: '全站评分人数',
+	globalRate: workbench.queryDraft.isGlobal ? '评分' : '全站评分',
+	scoreDifference: '我的评分与全站评分差',
+	ratingCount: '评分人数',
 	positiveTags: '正向标签',
 	negativeTags: '反向标签',
 })[key]
@@ -338,10 +410,13 @@ const conditionTitle = (key: ConditionKey) => ({
 			class="query-summary header-edit-card"
 			:class="{ 'is-editing': workbench.queryEditing.value }"
 			type="button"
-			:aria-label="workbench.queryEditing.value ? '收起查询条件' : workbench.hasAppliedQuery.value ? `编辑查询条件：${appliedQuerySummary}` : '设置首次查询条件'"
+			:aria-label="workbench.queryEditing.value ? '收起查询条件' : workbench.queryLoading.value ? '查询中，打开查询面板以取消' : workbench.hasAppliedQuery.value ? `编辑查询条件：${appliedQuerySummary}` : '设置首次查询条件'"
 			:aria-expanded="workbench.queryEditing.value"
+			:aria-busy="workbench.queryLoading.value"
 			aria-controls="query-editor"
-			@click="workbench.queryEditing.value ? closeEditor() : openEditor()"
+			@pointerdown="markEditorPointerActivation"
+			@pointercancel="clearEditorPointerActivation"
+			@click="toggleEditor"
 		>
 			<template v-if="workbench.queryEditing.value">
 				<span id="query-editor-title" class="query-editor__title" role="heading" aria-level="2">编辑查询</span>
@@ -353,12 +428,18 @@ const conditionTitle = (key: ConditionKey) => ({
 				<span class="query-summary__stages">
 					<span class="query-summary__stage">
 						<span class="query-summary__stage-copy">
-							<strong class="mobile-header-context-summary">{{ collapsedQuerySummary }}</strong>
+							<strong class="mobile-header-context-summary">
+								<span
+									v-for="(part, index) in collapsedQuerySummaryParts"
+									:key="`${index}-${part}`"
+									class="query-summary__value"
+								>{{ part }}</span>
+							</strong>
 						</span>
 					</span>
 				</span>
 				<span class="query-summary__action header-edit-card__action" aria-hidden="true">
-					<AppIcon :name="workbench.hasAppliedQuery.value ? 'edit' : 'search'" :size="20" />
+					<AppIcon :name="workbench.hasAppliedQuery.value ? 'edit' : 'search'" :size="18" />
 				</span>
 			</template>
 		</button>
@@ -366,7 +447,7 @@ const conditionTitle = (key: ConditionKey) => ({
 		<Teleport to="body">
 		<Transition name="query-panel">
 		<div v-if="workbench.queryEditing.value" class="query-editor-overlay" :style="{ '--query-overlay-top': `${queryOverlayTop}px` }">
-		<form id="query-editor" class="query-editor" novalidate aria-labelledby="query-editor-title" @submit.prevent="submitEditor" @input="workbench.clearQueryFeedback" @keydown.esc.stop.prevent="closeEditor">
+			<form id="query-editor" class="query-editor" novalidate aria-labelledby="query-editor-title" @submit.prevent="submitEditor" @input="workbench.clearQueryFeedback" @keydown.esc.stop.prevent="closeEditor()">
 			<div class="query-editor__scroll" @wheel="containQueryWheel">
 				<div class="query-editor__stages">
 				<section class="query-stage query-stage--scope" aria-labelledby="query-scope-stage-title">
@@ -388,17 +469,20 @@ const conditionTitle = (key: ConditionKey) => ({
 						<div v-if="!workbench.queryDraft.isGlobal" class="field field--uid" :class="{ 'is-error': queryErrorKind === 'userId' }">
 							<div class="field-label-row">
 								<label for="query-user-id">用户 UID</label>
-								<WorkbenchTooltip
+								<n-tooltip
 									:show="uidHelpTooltipVisible"
 									placement="top-end"
 									trigger="manual"
+									:animated="false"
+									style="max-width: min(336px, calc(100dvw - 72px));"
+									content-class="workbench-tooltip-content"
 								>
 									<template #trigger>
 										<button
 											class="field-help-trigger"
 											type="button"
 											:aria-expanded="uidHelpTooltipVisible"
-											aria-label="什么是 UID？进入 Bangumi 个人主页，取网址 /user/ 后的一段。"
+											aria-label="什么是 UID？进入 Bangumi 个人主页，取网址 /user/ 后的一段"
 											@mouseenter="uidHelpTooltipVisible = true"
 											@mouseleave="uidHelpTooltipVisible = false"
 											@focus="uidHelpTooltipVisible = true"
@@ -409,11 +493,11 @@ const conditionTitle = (key: ConditionKey) => ({
 											<AppIcon name="info" :size="16" />
 										</button>
 									</template>
-									进入 Bangumi 个人主页，取网址 /user/ 后的一段；例如 bgm.tv/user/lucay126 的 UID 是 lucay126。
-								</WorkbenchTooltip>
+									进入 Bangumi 个人主页，取网址 /user/ 后的一段；例如 bgm.tv/user/lucay126 的 UID 是 lucay126
+								</n-tooltip>
 							</div>
-							<n-input ref="userInput" v-model:value="workbench.queryDraft.userId" :size="controlSize" placeholder="例如 lucay126" autocomplete="off" :clearable="Boolean(workbench.queryDraft.userId)" :status="queryErrorKind === 'userId' ? 'error' : undefined" :input-props="{ id: 'query-user-id', name: 'userId', spellcheck: 'false', 'aria-invalid': queryErrorKind === 'userId', 'aria-describedby': queryErrorKind === 'userId' ? 'query-user-id-help query-error-userId' : 'query-user-id-help' }" :disabled="workbench.queryLoading.value" />
-							<small id="query-user-id-help" class="sr-only">UID 是 Bangumi 个人主页地址中 /user/ 后的标识，不是昵称。</small>
+							<n-input ref="userInput" v-model:value="workbench.queryDraft.userId" :size="controlSize" placeholder="不是昵称" autocomplete="off" :clearable="Boolean(workbench.queryDraft.userId)" :status="queryErrorKind === 'userId' ? 'error' : undefined" :input-props="{ id: 'query-user-id', name: 'userId', spellcheck: 'false', 'aria-invalid': queryErrorKind === 'userId', 'aria-describedby': queryErrorKind === 'userId' ? 'query-user-id-help query-error-userId' : 'query-user-id-help' }" :disabled="workbench.queryLoading.value" />
+							<small id="query-user-id-help" class="sr-only">UID 是 Bangumi 个人主页地址中 /user/ 后的标识，不是昵称</small>
 							<small v-if="fieldError('userId')" id="query-error-userId" class="query-field-error">{{ fieldError('userId') }}</small>
 						</div>
 						<label class="field" :class="{ 'is-error': queryErrorKind === 'subjectType' }">
@@ -455,21 +539,40 @@ const conditionTitle = (key: ConditionKey) => ({
 								<div v-for="option in group" :key="option.key" class="query-advanced-item" :class="{ 'has-control': optionHasControl(option.key) && optionEnabled(option.key) }">
 									<div class="query-advanced-option">
 										<div class="query-option-title">
-											<strong>{{ option.title }}</strong>
-											<WorkbenchTooltip v-if="option.help" placement="top" trigger="hover">
+											<strong>{{ advancedOptionTitle(option) }}</strong>
+											<n-tooltip
+												v-if="option.help"
+												:show="visibleQueryHelp === option.key"
+												placement="top"
+												trigger="manual"
+												:animated="false"
+												style="max-width: min(336px, calc(100dvw - 72px));"
+												content-class="workbench-tooltip-content"
+											>
 												<template #trigger>
-													<button class="query-option-help" type="button" :aria-label="`${option.title}说明`" :title="`${option.title}说明`">
-												<AppIcon name="info" :size="16" />
+													<button
+														class="query-option-help"
+														type="button"
+														:aria-expanded="visibleQueryHelp === option.key"
+														:aria-label="`${advancedOptionTitle(option)}说明：${option.help}`"
+														@mouseenter="visibleQueryHelp = option.key"
+														@mouseleave="visibleQueryHelp = null"
+														@focus="visibleQueryHelp = option.key"
+														@blur="visibleQueryHelp = null"
+														@click.stop="visibleQueryHelp = option.key"
+														@keydown.esc.stop.prevent="visibleQueryHelp = null"
+													>
+														<AppIcon name="info" :size="16" />
 													</button>
 												</template>
 												{{ option.help }}
-											</WorkbenchTooltip>
+											</n-tooltip>
 										</div>
 										<span class="query-advanced-switch">
 										<n-switch
 											:size="controlSize"
 												:value="optionEnabled(option.key)"
-												:aria-label="option.title"
+												:aria-label="advancedOptionTitle(option)"
 												:disabled="workbench.queryLoading.value"
 												@update:value="toggleOption(option.key, $event)"
 											/>
@@ -503,67 +606,69 @@ const conditionTitle = (key: ConditionKey) => ({
 											v-else-if="isNumericCondition(option.key)"
 											:model-value="workbench.queryDraft[option.key].value"
 											:condition-key="option.key"
-											v-bind="numericRangeConfigs[option.key]"
+											v-bind="numericRangeConfig(option.key)"
 											:status="queryErrorKind === option.key ? 'error' : undefined"
 											:disabled="workbench.queryLoading.value"
 											@update:model-value="updateRange(option.key, $event)"
 										/>
-									<n-dynamic-tags
-									v-else-if="option.key === 'positiveTags'"
-									v-model:value="workbench.queryDraft.positiveTags.value"
-									:size="controlSize"
-										:disabled="workbench.queryLoading.value"
-										:input-props="{ placeholder: '输入标签后回车', inputProps: { 'aria-label': '新增正向标签' } }"
-										:input-style="{ minWidth: '160px' }"
-										aria-label="正向标签"
-										type="primary"
-										round
-									>
-										<template #trigger="{ activate, disabled }">
-											<span class="query-tag-trigger-hit" @click="!disabled && activate()">
-												<n-button
-													:size="controlSize"
-													type="primary"
-													secondary
-													attr-type="button"
-													:disabled="disabled"
-													aria-label="添加正向标签"
-													@click.stop="activate"
+											<div v-else-if="option.key === 'positiveTags'" class="query-tag-control-row">
+												<n-dynamic-tags
+													class="query-tags"
+												v-model:value="workbench.queryDraft.positiveTags.value"
+												:size="controlSize"
+												:disabled="workbench.queryLoading.value"
+												:input-props="{ size: controlSize, placeholder: '输入标签后回车', inputProps: { 'aria-label': '新增正向标签' } }"
+												:input-style="{ minWidth: '160px' }"
+												aria-label="正向标签"
+												type="primary"
 												>
-													<template #icon><AppIcon name="plus" :size="16" /></template>
-													添加标签
-												</n-button>
-											</span>
-										</template>
-									</n-dynamic-tags>
-									<n-dynamic-tags
-									v-else
-									v-model:value="workbench.queryDraft.negativeTags.value"
-									:size="controlSize"
-										:disabled="workbench.queryLoading.value"
-										:input-props="{ placeholder: '输入标签后回车', inputProps: { 'aria-label': '新增反向标签' } }"
-										:input-style="{ minWidth: '160px' }"
-										aria-label="反向标签"
-										type="primary"
-										round
-									>
-										<template #trigger="{ activate, disabled }">
-											<span class="query-tag-trigger-hit" @click="!disabled && activate()">
+												<template #trigger="{ activate, disabled }">
+													<span class="query-tag-trigger-hit" @click="!disabled && activate()">
 												<n-button
-													:size="controlSize"
-													type="primary"
-													secondary
-													attr-type="button"
-													:disabled="disabled"
-													aria-label="添加反向标签"
-													@click.stop="activate"
+													:size="tagTriggerButtonSize"
+															type="primary"
+															secondary
+															attr-type="button"
+															:disabled="disabled"
+															aria-label="添加正向标签"
+															@click.stop="activate"
+														>
+															<template #icon><AppIcon name="plus" :size="16" /></template>
+															添加标签
+														</n-button>
+													</span>
+												</template>
+											</n-dynamic-tags>
+										</div>
+											<div v-else class="query-tag-control-row">
+												<n-dynamic-tags
+													class="query-tags"
+												v-model:value="workbench.queryDraft.negativeTags.value"
+												:size="controlSize"
+												:disabled="workbench.queryLoading.value"
+												:input-props="{ size: controlSize, placeholder: '输入标签后回车', inputProps: { 'aria-label': '新增反向标签' } }"
+												:input-style="{ minWidth: '160px' }"
+												aria-label="反向标签"
+												type="primary"
 												>
-													<template #icon><AppIcon name="plus" :size="16" /></template>
-													添加标签
-												</n-button>
-											</span>
-										</template>
-									</n-dynamic-tags>
+												<template #trigger="{ activate, disabled }">
+													<span class="query-tag-trigger-hit" @click="!disabled && activate()">
+												<n-button
+													:size="tagTriggerButtonSize"
+															type="primary"
+															secondary
+															attr-type="button"
+															:disabled="disabled"
+															aria-label="添加反向标签"
+															@click.stop="activate"
+														>
+															<template #icon><AppIcon name="plus" :size="16" /></template>
+															添加标签
+														</n-button>
+													</span>
+												</template>
+											</n-dynamic-tags>
+										</div>
 										<small v-if="fieldError(option.key)" :id="`query-error-${option.key}`" class="query-field-error">{{ fieldError(option.key) }}</small>
 									</fieldset>
 								</div>
@@ -577,24 +682,53 @@ const conditionTitle = (key: ConditionKey) => ({
 					<header class="query-stage__heading">
 						<span class="query-stage-index" aria-hidden="true">2</span>
 						<div>
-							<h2 id="query-position-stage-title">{{ positionStageLabel }}</h2>
+							<div class="query-stage__title-row">
+								<h2 id="query-position-stage-title">{{ positionStageLabel }}</h2>
+								<n-tooltip
+									:show="visibleQueryHelp === 'positions'"
+									placement="top"
+									trigger="manual"
+									:animated="false"
+									style="max-width: min(336px, calc(100dvw - 72px));"
+									content-class="workbench-tooltip-content"
+								>
+									<template #trigger>
+										<button
+											class="query-option-help"
+											type="button"
+											:aria-expanded="visibleQueryHelp === 'positions'"
+											:aria-label="`${positionStageLabel}说明：${positionStageHelp}`"
+											@mouseenter="visibleQueryHelp = 'positions'"
+											@mouseleave="visibleQueryHelp = null"
+											@focus="visibleQueryHelp = 'positions'"
+											@blur="visibleQueryHelp = null"
+											@click.stop="visibleQueryHelp = 'positions'"
+											@keydown.esc.stop.prevent="visibleQueryHelp = null"
+										>
+											<AppIcon name="info" :size="16" />
+										</button>
+									</template>
+									{{ positionStageHelp }}
+								</n-tooltip>
+							</div>
 						</div>
 					</header>
 					<div class="field field--positions" :class="{ 'is-error': queryErrorKind === 'positions' }">
-						<span id="query-position-control-label" class="query-position-hint">{{ workbench.mode.value === 'ranking' ? '可多选；仅保留同时具备全部所选职位的人物' : '可多选；选择参与共同分析的职位' }}</span>
+						<span id="query-position-control-label" class="query-position-hint">{{ workbench.mode.value === 'ranking' ? '可多选；仅保留同时具备全部所选职位的人物' : '可多选；选择参与共演分析的职位' }}</span>
 						<n-select
 							ref="positionInput"
 							class="query-position-select"
 							v-model:value="draftPositions"
 							:size="controlSize"
-							:menu-size="controlSize"
-							:options="draftPositionOptions"
-							multiple
+								:menu-size="controlSize"
+								:options="draftPositionOptions"
+								:render-tag="renderPositionTag"
+								multiple
 							filterable
 							:status="queryErrorKind === 'positions' ? 'error' : undefined"
 							:input-props="{ name: `${workbench.mode.value}Positions`, 'aria-labelledby': 'query-position-control-label', 'aria-invalid': queryErrorKind === 'positions', 'aria-describedby': queryErrorKind === 'positions' ? 'query-error-positions' : undefined }"
 							:disabled="workbench.queryLoading.value"
-							:placeholder="workbench.mode.value === 'ranking' ? '选择排行职位…' : '选择参与职位…'"
+							:placeholder="workbench.mode.value === 'ranking' ? '选择排行职位' : '选择参与职位'"
 						/>
 						<small v-if="fieldError('positions')" id="query-error-positions" class="query-field-error">{{ fieldError('positions') }}</small>
 					</div>

@@ -16,6 +16,8 @@ const rankingRefinementStyles = readWorkbenchFile('./styles/modules/ranking-refi
 const adaptiveRoleSource = readWorkbenchFile('./components/AdaptiveRoleList.vue')
 const inspectorSource = readWorkbenchFile('./components/PersonInspector.vue')
 const querySource = readWorkbenchFile('./components/QueryWorkspace.vue')
+const selectedPersonCardSource = readWorkbenchFile('./components/SelectedPersonCard.vue')
+const selectedPeopleStyles = readWorkbenchFile('./styles/modules/selected-people.css')
 
 describe('workbench focus-visible boundary', () => {
 	it('does not globally erase browser or Naive UI focus indicators', () => {
@@ -69,9 +71,9 @@ describe('workbench focus-visible boundary', () => {
 		expect(characterRoleStyles).toMatch(/\.character-role-card__appearances\[tabindex="0"\]\s*\{[^}]*min-height:\s*var\(--touch-target-min\);/s)
 	})
 
-	it('expands the inspector bio by default and exposes the toggle on every surface', () => {
-		expect(inspectorSource).toContain('const profileBioExpanded = ref(true)')
-		expect(inspectorSource).toContain('profileBioExpanded.value = true')
+	it('collapses long inspector bios by default and exposes the toggle on every surface', () => {
+		expect(inspectorSource).toContain('const profileBioExpanded = ref(!profileSummaryIsLong.value)')
+		expect(inspectorSource).toContain('profileBioExpanded.value = !profileSummaryIsLong.value')
 		expect(rankingRefinementStyles).toMatch(/\.person-profile__bio:not\(\.is-expanded\) p\s*\{[^}]*-webkit-line-clamp:\s*2;/s)
 		expect(rankingRefinementStyles).not.toMatch(/\.person-profile__bio-toggle\s*\{[^}]*display:\s*none;/s)
 	})
@@ -87,14 +89,15 @@ describe('workbench focus-visible boundary', () => {
 		}
 	})
 
-	it('keeps compact picker actions visually small while exposing 44px targets', () => {
-		for (const selector of [
-			'.picker-heading__close-hit',
-			'.selected-position-tag__remove-hit',
-			'.selected-person-row__remove-hit',
-		]) {
-			const escapedSelector = selector.replace('.', '\\.')
-			expect(pickerStyles).toMatch(new RegExp(`${escapedSelector}\\s*\\{[^}]*width:\\s*var\\(--touch-target-min\\);[^}]*height:\\s*var\\(--touch-target-min\\);`, 's'))
-		}
+	it('keeps management actions operable in the tray and the overview card read-only', () => {
+		expect(pickerStyles).toMatch(/\.picker-heading__close-hit\s*\{[^}]*width:\s*var\(--touch-target-min\);[^}]*height:\s*var\(--touch-target-min\);/s)
+		expect(pickerStyles).toMatch(/\.selected-position-action\s*\{[^}]*min-width:\s*var\(--touch-target-min\);[^}]*min-height:\s*var\(--touch-target-min\);/s)
+		expect(pickerStyles).toMatch(/\.selected-person-row__remove\s*\{[^}]*width:\s*var\(--touch-target-min\);[^}]*height:\s*var\(--touch-target-min\);/s)
+		expect(pickerStyles).toMatch(/\.selected-position-action:focus-visible,\s*\.selected-person-row__remove:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--focus\);[^}]*outline-offset:\s*-3px;/s)
+		expect(selectedPersonCardSource).not.toContain('<button')
+		expect(selectedPersonCardSource).not.toContain('defineEmits')
+		expect(selectedPeopleStyles).not.toContain('.selected-person-card__remove')
+		expect(selectedPeopleStyles).not.toContain('.selected-person-card__identity-action')
+		expect(selectedPeopleStyles).not.toContain('.selected-person-card__name:focus-visible')
 	})
 })

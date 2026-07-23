@@ -21,6 +21,12 @@
 		font-size: var(--text-caption);
 	}
 
+	.person-row--cooperation .person-row__rank,
+	.person-row--cooperation .person-row__identity strong,
+	.person-row--cooperation .person-row__metric strong {
+		font-size: var(--text-caption);
+	}
+
 	.person-profile {
 		grid-template-columns: 116px minmax(0, 1fr);
 	}
@@ -37,10 +43,6 @@
 
 	.profile-metrics--extended > span:nth-child(3n) {
 		border-right: 0;
-	}
-
-	.analysis-profile__stats {
-		grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
 	}
 
 	.tag-row {
@@ -103,31 +105,6 @@
 		padding: 2px 6px;
 		font-size: var(--text-caption);
 		line-height: 14px;
-	}
-
-	.analysis-profile,
-	.profile-stage--people .analysis-profile {
-		grid-template-columns: 72px minmax(0, 1fr);
-	}
-
-	.analysis-profile__media,
-	.profile-stage--people .analysis-profile__media {
-		width: 72px;
-		height: auto;
-		min-height: 148px;
-		align-self: stretch;
-	}
-
-	.analysis-profile__content {
-		min-height: 148px;
-	}
-
-	.analysis-profile__stats {
-		gap: 0 !important;
-	}
-
-	.analysis-profile__stats b {
-		font-size: var(--text-body);
 	}
 
 	.participation-heading {

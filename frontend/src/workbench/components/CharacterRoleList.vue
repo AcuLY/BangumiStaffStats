@@ -5,6 +5,7 @@ import {
 	characterCreditSecondaryName,
 } from '../domain/characterCredits'
 import { useWorkbench } from '../composables/useWorkbench'
+import { SEARCH_EMPTY_COPY } from '../searchEmptyCopy'
 import AdaptiveAppearanceList from './AdaptiveAppearanceList.vue'
 import SafeImage from './SafeImage.vue'
 
@@ -15,7 +16,7 @@ withDefaults(defineProps<{
 	ariaLabel?: string
 }>(), {
 	compact: false,
-	emptyText: '没有符合当前搜索条件的角色。',
+	emptyText: SEARCH_EMPTY_COPY.character,
 	ariaLabel: '配音角色列表',
 })
 

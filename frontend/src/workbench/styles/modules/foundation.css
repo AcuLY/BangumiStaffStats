@@ -132,8 +132,6 @@ small {
 
 .workbench-tooltip-content {
 	box-sizing: border-box;
-	max-width: min(336px, calc(100vw - 56px));
-	max-width: min(336px, calc(100dvw - 56px));
 	max-height: min(360px, calc(100vh - 56px));
 	max-height: min(360px, calc(100dvh - 56px));
 	overflow-x: hidden;
@@ -248,8 +246,9 @@ table,
 }
 
 .workbench-translucent-drawer {
-	background: var(--translucent-chrome-fallback) !important;
-	background: var(--translucent-chrome-background) !important;
+	--divider: var(--drawer-divider);
+	background: var(--translucent-drawer-fallback) !important;
+	background: var(--translucent-drawer-background) !important;
 	-webkit-backdrop-filter: var(--translucent-chrome-filter);
 	backdrop-filter: var(--translucent-chrome-filter);
 }

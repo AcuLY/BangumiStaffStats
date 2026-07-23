@@ -1,0 +1,1362 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta name="description" content="Bangumi Staff Statistics Light / Dark 表面配色调试台" />
+	<meta name="theme-color" content="#e7e7eb" />
+	<title>表面配色调试台 · Bangumi Staff Statistics</title>
+	<style>
+		:root {
+			--font-ui: "Source Han Sans SC VF", "Source Han Sans SC", "Noto Sans CJK SC", "PingFang SC", sans-serif;
+			--accent: #FF2075;
+			--lab-canvas: #e7e7eb;
+			--lab-surface: #f7f7fa;
+			--lab-raised: #ffffff;
+			--lab-border: #c9c9d0;
+			--lab-divider: #d9d9df;
+			--lab-text: #202226;
+			--lab-muted: #62666c;
+			font-family: var(--font-ui);
+			font-synthesis: none;
+			text-rendering: optimizeLegibility;
+		}
+
+		* { box-sizing: border-box; }
+
+		html {
+			min-width: 320px;
+			background: var(--lab-canvas);
+		}
+
+		body {
+			min-height: 100vh;
+			margin: 0;
+			background: var(--lab-canvas);
+			color: var(--lab-text);
+			font-size: 14px;
+			line-height: 1.5;
+		}
+
+		button,
+		input,
+		textarea { font: inherit; }
+
+		button:focus-visible,
+		input:focus-visible,
+		textarea:focus-visible,
+		summary:focus-visible {
+			outline: 2px solid var(--accent);
+			outline-offset: 2px;
+		}
+
+		.lab {
+			width: min(1600px, calc(100% - 32px));
+			margin-inline: auto;
+			padding-block: 28px 48px;
+		}
+
+		.lab-heading {
+			display: flex;
+			align-items: flex-end;
+			justify-content: space-between;
+			gap: 24px;
+			margin-bottom: 18px;
+		}
+
+		.lab-heading__copy { max-width: 72ch; }
+
+		.lab-heading h1 {
+			margin: 0;
+			font-size: 24px;
+			line-height: 1.25;
+			letter-spacing: -0.02em;
+			text-wrap: balance;
+		}
+
+		.lab-heading p {
+			margin: 8px 0 0;
+			color: var(--lab-muted);
+			text-wrap: pretty;
+		}
+
+		.baseline-badge {
+			flex: 0 0 auto;
+			padding: 6px 9px;
+			border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--lab-border));
+			border-radius: 6px;
+			background: color-mix(in srgb, var(--accent) 7%, var(--lab-raised));
+			color: #8f0758;
+			font-size: 12px;
+			font-weight: 600;
+		}
+
+		.lab-layout {
+			display: grid;
+			grid-template-columns: minmax(430px, 470px) minmax(0, 1fr);
+			gap: 18px;
+			align-items: start;
+		}
+
+		.controls-panel {
+			position: sticky;
+			top: 16px;
+			min-width: 0;
+			padding: 16px;
+			border: 1px solid var(--lab-border);
+			border-radius: 10px;
+			background: var(--lab-surface);
+		}
+
+		.panel-heading {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 12px;
+			margin-bottom: 12px;
+		}
+
+		.panel-heading h2 {
+			margin: 0;
+			font-size: 16px;
+		}
+
+		.panel-heading span {
+			color: var(--lab-muted);
+			font-size: 12px;
+		}
+
+		.palette-grid {
+			display: grid;
+			grid-template-columns: 74px repeat(2, minmax(0, 1fr));
+			border-top: 1px solid var(--lab-divider);
+			border-left: 1px solid var(--lab-divider);
+		}
+
+		.palette-grid > * {
+			min-width: 0;
+			padding: 8px;
+			border-right: 1px solid var(--lab-divider);
+			border-bottom: 1px solid var(--lab-divider);
+		}
+
+		.palette-grid__head {
+			background: #ededf1;
+			color: #50545a;
+			font-size: 12px;
+			font-weight: 700;
+			text-align: center;
+		}
+
+		.palette-grid__label {
+			display: flex;
+			align-items: center;
+			font-size: 12px;
+			font-weight: 600;
+		}
+
+		.color-control {
+			display: grid;
+			grid-template-columns: 30px minmax(0, 1fr);
+			align-items: center;
+			gap: 6px;
+			background: var(--lab-raised);
+			border-top: 0;
+			border-left: 0;
+			color: var(--lab-text);
+			cursor: pointer;
+			font: inherit;
+			text-align: left;
+		}
+
+		.color-control:hover { background: #f1f1f4; }
+
+		.color-control.is-selected {
+			position: relative;
+			z-index: 1;
+			box-shadow: inset 0 0 0 2px var(--accent);
+		}
+
+		.color-control__swatch,
+		.hsl-editor__swatch {
+			display: block;
+			background: var(--swatch);
+			border: 1px solid #b8bac2;
+			border-radius: 6px;
+		}
+
+		.color-control__swatch {
+			width: 30px;
+			height: 30px;
+		}
+
+		.color-control__value {
+			min-width: 0;
+			font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+			font-size: 10px;
+			font-variant-numeric: tabular-nums;
+			white-space: nowrap;
+		}
+
+		.hsl-editor {
+			margin-top: 14px;
+			padding-top: 14px;
+			border-top: 1px solid var(--lab-divider);
+		}
+
+		.hsl-editor__heading {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			margin-bottom: 12px;
+		}
+
+		.hsl-editor__heading > div {
+			display: flex;
+			align-items: center;
+			gap: 9px;
+			min-width: 0;
+		}
+
+		.hsl-editor__heading strong,
+		.hsl-editor__heading small { display: block; }
+		.hsl-editor__heading strong { font-size: 13px; }
+		.hsl-editor__heading small { color: var(--lab-muted); font-size: 11px; }
+
+		.hsl-editor__swatch {
+			flex: 0 0 auto;
+			width: 38px;
+			height: 38px;
+		}
+
+		.hsl-editor__value {
+			color: var(--lab-muted);
+			font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+			font-size: 11px;
+			white-space: nowrap;
+		}
+
+		.hsl-ranges { display: grid; gap: 9px; }
+
+		.hsl-range {
+			display: grid;
+			grid-template-columns: 76px minmax(0, 1fr) 64px;
+			align-items: center;
+			gap: 9px;
+		}
+
+		.hsl-range label {
+			font-size: 12px;
+			font-weight: 600;
+		}
+
+		.hsl-range input[type="range"] {
+			width: 100%;
+			height: 14px;
+			margin: 0;
+			appearance: none;
+			border: 1px solid #aaaeb6;
+			border-radius: 4px;
+			background: var(--track);
+			cursor: pointer;
+		}
+
+		.hsl-range input[type="range"]::-webkit-slider-thumb {
+			width: 16px;
+			height: 22px;
+			appearance: none;
+			border: 2px solid #4e5158;
+			border-radius: 4px;
+			background: #fff;
+			box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
+		}
+
+		.hsl-number {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 16px;
+			align-items: center;
+			height: 32px;
+			border: 1px solid #b8bac2;
+			border-radius: 6px;
+			background: #fff;
+			color: #555961;
+		}
+
+		.hsl-number input {
+			width: 100%;
+			min-width: 0;
+			padding: 5px 2px 5px 7px;
+			border: 0;
+			outline: 0;
+			background: transparent;
+			color: #24262a;
+			font-variant-numeric: tabular-nums;
+			font-size: 11px;
+			text-align: right;
+		}
+
+		.hsl-number span { font-size: 10px; }
+
+		.hsl-number:focus-within {
+			outline: 2px solid var(--accent);
+			outline-offset: 2px;
+		}
+
+		.alpha-controls {
+			display: grid;
+			gap: 10px;
+			margin-top: 14px;
+			padding-top: 14px;
+			border-top: 1px solid var(--lab-divider);
+		}
+
+		.range-control {
+			display: grid;
+			grid-template-columns: 112px minmax(0, 1fr) 42px;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.range-control label {
+			font-size: 12px;
+			font-weight: 600;
+		}
+
+		.range-control output {
+			font-variant-numeric: tabular-nums;
+			font-size: 12px;
+			text-align: right;
+		}
+
+		.range-control input[type="range"] { accent-color: var(--accent); }
+
+		.preview-options {
+			display: flex;
+			gap: 8px 14px;
+			flex-wrap: wrap;
+			margin-top: 14px;
+			padding-top: 14px;
+			border-top: 1px solid var(--lab-divider);
+		}
+
+		.check-control {
+			display: inline-flex;
+			align-items: center;
+			gap: 7px;
+			min-height: 32px;
+			font-size: 12px;
+			font-weight: 600;
+		}
+
+		.check-control input { accent-color: var(--accent); }
+
+		.control-actions {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 8px;
+			margin-top: 14px;
+		}
+
+		.action-button {
+			min-height: 38px;
+			padding: 7px 10px;
+			border: 1px solid #b8bac2;
+			border-radius: 6px;
+			background: #fff;
+			color: #282a2e;
+			cursor: pointer;
+			font-weight: 600;
+		}
+
+		.action-button:hover { background: #f0f0f3; }
+		.action-button--primary { border-color: var(--accent); color: #9f075f; }
+
+		.lab-status {
+			min-height: 20px;
+			margin: 8px 0 0;
+			color: var(--lab-muted);
+			font-size: 12px;
+		}
+
+		.config-output {
+			margin-top: 8px;
+			border-top: 1px solid var(--lab-divider);
+		}
+
+		.config-output summary {
+			padding-block: 10px 6px;
+			cursor: pointer;
+			font-size: 12px;
+			font-weight: 600;
+		}
+
+		.config-output textarea {
+			width: 100%;
+			min-height: 160px;
+			padding: 9px;
+			border: 1px solid #b8bac2;
+			border-radius: 6px;
+			background: #fff;
+			color: #282a2e;
+			font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+			font-size: 11px;
+			line-height: 1.45;
+			resize: vertical;
+		}
+
+		.preview-area { min-width: 0; }
+
+		.preview-toolbar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			margin-bottom: 10px;
+		}
+
+		.preview-toolbar h2 {
+			margin: 0;
+			font-size: 16px;
+		}
+
+		.preview-toolbar p {
+			margin: 0;
+			color: var(--lab-muted);
+			font-size: 12px;
+		}
+
+		.comparison {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 14px;
+		}
+
+		.theme-preview {
+			--header-color: rgb(255 255 255 / 92%);
+			--main: hsl(240 9.6% 96.2%);
+			--card: hsl(240 18.5% 98.3%);
+			--raised: hsl(0 0% 100%);
+			--sunken: hsl(240 10.2% 92.4%);
+			--border: hsl(240 7.9% 86.1%);
+			--divider: hsl(240 8.5% 90.8%);
+			--drawer-color: hsl(240 18.5% 97.5% / 96%);
+			--text-1: #1f2225;
+			--text-2: #4f5358;
+			--text-3: #6b7076;
+			--accent-soft: #ffd8e8;
+			--accent-ink: #a30660;
+			min-width: 0;
+		}
+
+		.theme-preview--dark {
+			--text-1: #f5f5f7;
+			--text-2: #d2d2d7;
+			--text-3: #a5a5ad;
+			--accent-soft: #4b1830;
+			--accent-ink: #ff8abd;
+		}
+
+		.theme-label {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			margin-bottom: 7px;
+			padding-inline: 2px;
+		}
+
+		.theme-label strong { font-size: 14px; }
+
+		.theme-label code {
+			color: var(--lab-muted);
+			font-family: inherit;
+			font-size: 11px;
+		}
+
+		.theme-shell {
+			position: relative;
+			min-height: 640px;
+			border: 1px solid #bfc0c6;
+			border-radius: 10px;
+			background: var(--main);
+			color: var(--text-1);
+			overflow: hidden;
+		}
+
+		.theme-preview--dark .theme-shell { border-color: #4a4a52; }
+
+		.backdrop-sample {
+			position: absolute;
+			top: 44px;
+			right: 20px;
+			z-index: 0;
+			width: 144px;
+			height: 86px;
+			border-radius: 8px;
+			background: var(--accent-soft);
+			transform: rotate(-4deg);
+		}
+
+		.demo-header {
+			position: relative;
+			z-index: 3;
+			border-top: 3px solid var(--accent);
+			border-bottom: 1px solid var(--border);
+			background: var(--header-color);
+			-webkit-backdrop-filter: blur(16px) saturate(135%);
+			backdrop-filter: blur(16px) saturate(135%);
+		}
+
+		.demo-header__bar,
+		.demo-header__summary,
+		.demo-header__editor { background: transparent; }
+
+		.demo-header__bar {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto auto;
+			align-items: center;
+			gap: 10px;
+			min-height: 54px;
+			padding: 8px 12px;
+		}
+
+		.brand {
+			display: flex;
+			align-items: center;
+			gap: 7px;
+			min-width: 0;
+			font-weight: 700;
+		}
+
+		.brand-mark {
+			display: grid;
+			place-items: center;
+			width: 28px;
+			height: 28px;
+			border: 1px solid var(--accent);
+			border-radius: 6px;
+			color: var(--accent-ink);
+		}
+
+		.mode-tabs {
+			display: flex;
+			gap: 3px;
+			padding: 3px;
+			border-radius: 6px;
+			background: var(--sunken);
+		}
+
+		.mode-tabs span {
+			padding: 5px 8px;
+			border-radius: 4px;
+			color: var(--text-2);
+			font-size: 11px;
+			font-weight: 600;
+		}
+
+		.mode-tabs .is-active { background: var(--accent); color: #fff; }
+
+		.theme-icon {
+			display: grid;
+			place-items: center;
+			width: 32px;
+			height: 32px;
+			border: 1px solid var(--border);
+			border-radius: 50%;
+			color: var(--text-1);
+		}
+
+		.demo-header__summary {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			min-height: 46px;
+			padding: 8px 12px;
+			border-top: 1px solid var(--divider);
+			color: var(--text-2);
+			font-size: 11px;
+		}
+
+		.demo-header__summary b { color: var(--text-1); }
+
+		.demo-header__editor {
+			display: none;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 8px;
+			padding: 10px 12px 12px;
+			border-top: 1px solid var(--divider);
+		}
+
+		.is-query-expanded .demo-header__editor { display: grid; }
+
+		.demo-field {
+			display: grid;
+			gap: 4px;
+			min-width: 0;
+			color: var(--text-3);
+			font-size: 10px;
+			font-weight: 600;
+		}
+
+		.demo-field span {
+			min-width: 0;
+			padding: 6px 8px;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: var(--raised);
+			color: var(--text-1);
+			font-size: 11px;
+			font-weight: 400;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.demo-main {
+			position: relative;
+			z-index: 1;
+			min-height: 486px;
+			padding: 14px;
+			background: var(--main);
+		}
+
+		.surface-note {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			margin-bottom: 10px;
+			color: var(--text-3);
+			font-size: 10px;
+		}
+
+		.surface-note code {
+			color: var(--text-1);
+			font-family: inherit;
+			font-weight: 600;
+		}
+
+		.workspace {
+			display: grid;
+			grid-template-columns: 118px minmax(0, 1fr);
+			gap: 10px;
+			align-items: start;
+		}
+
+		.people-rail {
+			display: grid;
+			gap: 5px;
+			background: transparent;
+		}
+
+		.people-rail h3,
+		.content-card h3 {
+			margin: 0;
+			font-size: 13px;
+		}
+
+		.person-row {
+			display: grid;
+			grid-template-columns: 26px minmax(0, 1fr);
+			align-items: center;
+			gap: 6px;
+			min-height: 42px;
+			padding: 6px;
+			border-radius: 6px;
+			color: var(--text-2);
+		}
+
+		.person-row.is-selected { background: var(--sunken); }
+
+		.avatar {
+			display: grid;
+			place-items: center;
+			width: 26px;
+			height: 34px;
+			border-radius: 4px;
+			background: var(--raised);
+			color: var(--accent-ink);
+			font-size: 10px;
+			font-weight: 700;
+		}
+
+		.person-row b,
+		.person-row small { display: block; }
+		.person-row b { color: var(--text-1); font-size: 11px; }
+		.person-row small { color: var(--text-3); font-size: 9px; }
+
+		.content-card {
+			padding: 13px;
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			background: var(--card);
+		}
+
+		.card-heading {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 10px;
+			padding-bottom: 10px;
+			border-bottom: 1px solid var(--divider);
+		}
+
+		.card-heading p {
+			margin: 3px 0 0;
+			color: var(--text-3);
+			font-size: 10px;
+		}
+
+		.card-heading code {
+			color: var(--text-2);
+			font-family: inherit;
+			font-size: 10px;
+			font-weight: 600;
+		}
+
+		.metric-grid {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 6px;
+			margin-top: 10px;
+		}
+
+		.metric {
+			padding: 8px;
+			border-radius: 6px;
+			background: var(--raised);
+		}
+
+		.metric b,
+		.metric span { display: block; }
+		.metric b { font-size: 16px; line-height: 1.2; }
+		.metric span { margin-top: 3px; color: var(--text-3); font-size: 9px; }
+
+		.demo-list { display: grid; margin-top: 10px; }
+
+		.demo-list div {
+			display: flex;
+			justify-content: space-between;
+			gap: 10px;
+			padding-block: 8px;
+			border-top: 1px solid var(--divider);
+			color: var(--text-2);
+			font-size: 10px;
+		}
+
+		.demo-list strong { color: var(--text-1); }
+
+		.contrast-strip {
+			display: flex;
+			gap: 5px;
+			flex-wrap: wrap;
+			margin-top: 12px;
+		}
+
+		.contrast-chip {
+			padding: 5px 7px;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: var(--raised);
+			color: var(--text-2);
+			font-size: 9px;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.demo-drawer {
+			position: absolute;
+			top: 57px;
+			right: 0;
+			bottom: 0;
+			z-index: 5;
+			width: min(62%, 330px);
+			border-left: 1px solid var(--divider);
+			background: var(--drawer-color);
+			-webkit-backdrop-filter: blur(16px) saturate(135%);
+			backdrop-filter: blur(16px) saturate(135%);
+			transform: translateX(100%);
+			transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+		}
+
+		.show-drawer .demo-drawer { transform: translateX(0); }
+
+		.drawer-heading {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			min-height: 48px;
+			padding: 9px 12px;
+			border-bottom: 1px solid var(--divider);
+			background: transparent;
+		}
+
+		.drawer-heading strong { font-size: 13px; }
+
+		.drawer-close {
+			display: grid;
+			place-items: center;
+			width: 30px;
+			height: 30px;
+			border: 1px solid var(--border);
+			border-radius: 50%;
+			background: var(--raised);
+			color: var(--text-1);
+		}
+
+		.drawer-content {
+			display: grid;
+			gap: 7px;
+			padding: 12px;
+		}
+
+		.drawer-item {
+			padding: 9px;
+			border: 1px solid var(--divider);
+			border-radius: 6px;
+			background: var(--raised);
+		}
+
+		.drawer-item b,
+		.drawer-item small { display: block; }
+		.drawer-item b { font-size: 11px; }
+		.drawer-item small { margin-top: 3px; color: var(--text-3); font-size: 9px; }
+
+		@media (max-width: 1240px) {
+			.lab-layout { grid-template-columns: minmax(0, 1fr); }
+			.controls-panel { position: static; }
+		}
+
+		@media (max-width: 820px) {
+			.comparison { grid-template-columns: minmax(0, 1fr); }
+		}
+
+		@media (max-width: 620px) {
+			.lab {
+				width: min(100% - 20px, 560px);
+				padding-block: 20px 32px;
+			}
+
+			.lab-heading {
+				align-items: flex-start;
+				flex-direction: column;
+				gap: 10px;
+			}
+
+			.palette-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+			.palette-grid__corner { display: none; }
+			.palette-grid__label { grid-column: 1 / -1; background: #ededf1; }
+			.color-control { grid-template-columns: 28px minmax(0, 1fr); padding-inline: 7px; }
+			.color-control__swatch { width: 28px; height: 28px; }
+			.color-control__value { font-size: 9px; }
+			.hsl-range { grid-template-columns: 62px minmax(0, 1fr) 60px; gap: 7px; }
+			.range-control { grid-template-columns: 100px minmax(0, 1fr) 40px; }
+			.preview-toolbar { align-items: flex-start; flex-direction: column; gap: 3px; }
+			.demo-header__bar { grid-template-columns: minmax(0, 1fr) auto; }
+			.mode-tabs { grid-column: 1 / -1; grid-row: 2; }
+			.mode-tabs span { flex: 1; text-align: center; }
+			.demo-header__editor,
+			.workspace { grid-template-columns: minmax(0, 1fr); }
+			.people-rail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+			.people-rail h3 { grid-column: 1 / -1; }
+			.person-row { grid-template-columns: minmax(0, 1fr); text-align: center; }
+			.avatar { margin-inline: auto; }
+			.demo-drawer { width: 100%; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.demo-drawer { transition-duration: 0s; }
+		}
+	</style>
+</head>
+<body>
+	<main class="lab">
+		<header class="lab-heading">
+			<div class="lab-heading__copy">
+				<h1>Light / Dark 表面配色调试台</h1>
+				<p>先选择一个 Light / Dark 色位，再用 H、S、L 调整色相、饱和度和明度。这里只保存实验值并更新预览，不会自动修改设计文档或正式代码。</p>
+			</div>
+			<span class="baseline-badge">基线：2026-07-21 近黑低饱和方案</span>
+		</header>
+
+		<div class="lab-layout">
+			<aside class="controls-panel" aria-labelledby="palette-heading">
+				<div class="panel-heading">
+					<h2 id="palette-heading">语义色板</h2>
+					<span>Light / Dark 同步预览</span>
+				</div>
+
+				<div class="palette-grid">
+					<div class="palette-grid__head palette-grid__corner" aria-hidden="true"></div>
+					<div class="palette-grid__head">Light</div>
+					<div class="palette-grid__head">Dark</div>
+
+					<div class="palette-grid__label">Header</div>
+					<button class="color-control is-selected" type="button" data-color-select data-theme="light" data-token="header" aria-label="调整 Light Header HSL" aria-pressed="true"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+					<button class="color-control" type="button" data-color-select data-theme="dark" data-token="header" aria-label="调整 Dark Header HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+
+					<div class="palette-grid__label">主体</div>
+					<button class="color-control" type="button" data-color-select data-theme="light" data-token="main" aria-label="调整 Light 主体 HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+					<button class="color-control" type="button" data-color-select data-theme="dark" data-token="main" aria-label="调整 Dark 主体 HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+
+					<div class="palette-grid__label">卡片</div>
+					<button class="color-control" type="button" data-color-select data-theme="light" data-token="card" aria-label="调整 Light 卡片 HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+					<button class="color-control" type="button" data-color-select data-theme="dark" data-token="card" aria-label="调整 Dark 卡片 HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+
+					<div class="palette-grid__label">抬升</div>
+					<button class="color-control" type="button" data-color-select data-theme="light" data-token="raised" aria-label="调整 Light 抬升表面 HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+					<button class="color-control" type="button" data-color-select data-theme="dark" data-token="raised" aria-label="调整 Dark 抬升表面 HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+
+					<div class="palette-grid__label">下沉</div>
+					<button class="color-control" type="button" data-color-select data-theme="light" data-token="sunken" aria-label="调整 Light 下沉表面 HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+					<button class="color-control" type="button" data-color-select data-theme="dark" data-token="sunken" aria-label="调整 Dark 下沉表面 HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+
+					<div class="palette-grid__label">Drawer</div>
+					<button class="color-control" type="button" data-color-select data-theme="light" data-token="drawer" aria-label="调整 Light Drawer HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+					<button class="color-control" type="button" data-color-select data-theme="dark" data-token="drawer" aria-label="调整 Dark Drawer HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+
+					<div class="palette-grid__label">边界</div>
+					<button class="color-control" type="button" data-color-select data-theme="light" data-token="border" aria-label="调整 Light 边界 HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+					<button class="color-control" type="button" data-color-select data-theme="dark" data-token="border" aria-label="调整 Dark 边界 HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+
+					<div class="palette-grid__label">分隔</div>
+					<button class="color-control" type="button" data-color-select data-theme="light" data-token="divider" aria-label="调整 Light 分隔线 HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+					<button class="color-control" type="button" data-color-select data-theme="dark" data-token="divider" aria-label="调整 Dark 分隔线 HSL" aria-pressed="false"><span class="color-control__swatch" data-color-swatch></span><span class="color-control__value" data-hsl-label></span></button>
+				</div>
+
+				<section class="hsl-editor" aria-labelledby="hsl-editor-title">
+					<div class="hsl-editor__heading">
+						<div><span class="hsl-editor__swatch" data-editor-swatch></span><span><strong id="hsl-editor-title" data-selected-title></strong><small>当前选择</small></span></div>
+						<code class="hsl-editor__value" data-selected-value></code>
+					</div>
+					<div class="hsl-ranges">
+						<div class="hsl-range">
+							<label for="hsl-hue">色相 H</label>
+							<input id="hsl-hue" type="range" min="0" max="360" step="0.1" data-hsl-channel="h" />
+							<span class="hsl-number"><input type="number" min="0" max="360" step="0.1" inputmode="decimal" data-hsl-channel="h" aria-label="色相 H 数值" /><span>°</span></span>
+						</div>
+						<div class="hsl-range">
+							<label for="hsl-saturation">饱和度 S</label>
+							<input id="hsl-saturation" type="range" min="0" max="100" step="0.1" data-hsl-channel="s" />
+							<span class="hsl-number"><input type="number" min="0" max="100" step="0.1" inputmode="decimal" data-hsl-channel="s" aria-label="饱和度 S 数值" /><span>%</span></span>
+						</div>
+						<div class="hsl-range">
+							<label for="hsl-lightness">明度 L</label>
+							<input id="hsl-lightness" type="range" min="0" max="100" step="0.1" data-hsl-channel="l" />
+							<span class="hsl-number"><input type="number" min="0" max="100" step="0.1" inputmode="decimal" data-hsl-channel="l" aria-label="明度 L 数值" /><span>%</span></span>
+						</div>
+					</div>
+				</section>
+
+				<div class="alpha-controls">
+					<div class="range-control">
+						<label for="header-opacity">Header 透明度</label>
+						<input id="header-opacity" type="range" min="50" max="100" step="1" data-alpha="headerOpacity" />
+						<output for="header-opacity" data-alpha-value="headerOpacity"></output>
+					</div>
+					<div class="range-control">
+						<label for="drawer-opacity">Drawer 透明度</label>
+						<input id="drawer-opacity" type="range" min="70" max="100" step="1" data-alpha="drawerOpacity" />
+						<output for="drawer-opacity" data-alpha-value="drawerOpacity"></output>
+					</div>
+				</div>
+
+				<div class="preview-options" aria-label="预览内容">
+					<label class="check-control"><input type="checkbox" data-preview-option="query" checked />展开 Query Editor</label>
+					<label class="check-control"><input type="checkbox" data-preview-option="drawer" />显示 Drawer</label>
+				</div>
+
+				<div class="control-actions">
+					<button class="action-button" type="button" data-action="reset">恢复确认基线</button>
+					<button class="action-button action-button--primary" type="button" data-action="copy">复制当前配置</button>
+				</div>
+				<p class="lab-status" data-status aria-live="polite"></p>
+
+				<details class="config-output">
+					<summary>查看当前配置 JSON</summary>
+					<textarea data-output readonly aria-label="当前表面配色 JSON"></textarea>
+				</details>
+			</aside>
+
+			<section class="preview-area" aria-labelledby="preview-heading">
+				<div class="preview-toolbar">
+					<h2 id="preview-heading">实时效果</h2>
+					<p>色值变化即时保存到本机浏览器；刷新后仍会保留。</p>
+				</div>
+
+				<div class="comparison">
+					<article class="theme-preview theme-preview--light" data-preview="light" aria-labelledby="light-preview-title">
+						<div class="theme-label"><strong id="light-preview-title">Light</strong><code data-theme-summary="light"></code></div>
+						<div class="theme-shell is-query-expanded" data-shell>
+							<div class="backdrop-sample" aria-hidden="true"></div>
+							<header class="demo-header">
+								<div class="demo-header__bar">
+									<div class="brand"><span class="brand-mark">B</span><span>人物工作台</span></div>
+									<div class="mode-tabs"><span>人物排行</span><span class="is-active">共演分析</span></div>
+									<span class="theme-icon" aria-hidden="true">☾</span>
+								</div>
+								<div class="demo-header__summary"><span><b>当前查询</b> · 声优 + 脚本 · 动画</span><span>编辑</span></div>
+								<div class="demo-header__editor">
+									<label class="demo-field">作品范围<span>lucay126 · 动画 · 看过 + 在看</span></label>
+									<label class="demo-field">参与职位<span>声优 · 脚本 · 系列构成</span></label>
+								</div>
+							</header>
+							<div class="demo-main">
+								<div class="surface-note"><span>主体灰底</span><code data-value="light-main"></code></div>
+								<div class="workspace">
+									<aside class="people-rail">
+										<h3>人物</h3>
+										<div class="person-row is-selected"><span class="avatar">佐</span><span><b>佐仓绫音</b><small>声优</small></span></div>
+										<div class="person-row"><span class="avatar">花</span><span><b>花田十辉</b><small>脚本</small></span></div>
+										<div class="person-row"><span class="avatar">藤</span><span><b>藤泽庆昌</b><small>音乐</small></span></div>
+									</aside>
+									<section class="content-card">
+										<div class="card-heading"><div><h3>共同参与分析</h3><p>桌面主体整体卡片</p></div><code data-value="light-card"></code></div>
+										<div class="metric-grid"><div class="metric"><b>32</b><span>共同作品</span></div><div class="metric"><b>6.84</b><span>我的均分</span></div><div class="metric"><b>6.71</b><span>全站均分</span></div></div>
+										<div class="demo-list"><div><strong>作品标签</strong><span>14 个高频标签</span></div><div><strong>评分分布</strong><span>1–10 分</span></div><div><strong>共同参与作品</strong><span>按综合分排序</span></div></div>
+									</section>
+								</div>
+								<div class="contrast-strip" data-contrast="light"></div>
+							</div>
+							<aside class="demo-drawer" aria-label="Light Drawer 预览"><div class="drawer-heading"><strong>人物选择</strong><span class="drawer-close">×</span></div><div class="drawer-content"><div class="drawer-item"><b>佐仓绫音</b><small>声优 · 已选择</small></div><div class="drawer-item"><b>花泽香菜</b><small>60 部作品</small></div><div class="drawer-item"><b>伊藤美来</b><small>48 部作品</small></div></div></aside>
+						</div>
+					</article>
+
+					<article class="theme-preview theme-preview--dark" data-preview="dark" aria-labelledby="dark-preview-title">
+						<div class="theme-label"><strong id="dark-preview-title">Dark</strong><code data-theme-summary="dark"></code></div>
+						<div class="theme-shell is-query-expanded" data-shell>
+							<div class="backdrop-sample" aria-hidden="true"></div>
+							<header class="demo-header">
+								<div class="demo-header__bar">
+									<div class="brand"><span class="brand-mark">B</span><span>人物工作台</span></div>
+									<div class="mode-tabs"><span>人物排行</span><span class="is-active">共演分析</span></div>
+									<span class="theme-icon" aria-hidden="true">☀</span>
+								</div>
+								<div class="demo-header__summary"><span><b>当前查询</b> · 声优 + 脚本 · 动画</span><span>编辑</span></div>
+								<div class="demo-header__editor">
+									<label class="demo-field">作品范围<span>lucay126 · 动画 · 看过 + 在看</span></label>
+									<label class="demo-field">参与职位<span>声优 · 脚本 · 系列构成</span></label>
+								</div>
+							</header>
+							<div class="demo-main">
+								<div class="surface-note"><span>主体灰底</span><code data-value="dark-main"></code></div>
+								<div class="workspace">
+									<aside class="people-rail">
+										<h3>人物</h3>
+										<div class="person-row is-selected"><span class="avatar">佐</span><span><b>佐仓绫音</b><small>声优</small></span></div>
+										<div class="person-row"><span class="avatar">花</span><span><b>花田十辉</b><small>脚本</small></span></div>
+										<div class="person-row"><span class="avatar">藤</span><span><b>藤泽庆昌</b><small>音乐</small></span></div>
+									</aside>
+									<section class="content-card">
+										<div class="card-heading"><div><h3>共同参与分析</h3><p>桌面主体整体卡片</p></div><code data-value="dark-card"></code></div>
+										<div class="metric-grid"><div class="metric"><b>32</b><span>共同作品</span></div><div class="metric"><b>6.84</b><span>我的均分</span></div><div class="metric"><b>6.71</b><span>全站均分</span></div></div>
+										<div class="demo-list"><div><strong>作品标签</strong><span>14 个高频标签</span></div><div><strong>评分分布</strong><span>1–10 分</span></div><div><strong>共同参与作品</strong><span>按综合分排序</span></div></div>
+									</section>
+								</div>
+								<div class="contrast-strip" data-contrast="dark"></div>
+							</div>
+							<aside class="demo-drawer" aria-label="Dark Drawer 预览"><div class="drawer-heading"><strong>人物选择</strong><span class="drawer-close">×</span></div><div class="drawer-content"><div class="drawer-item"><b>佐仓绫音</b><small>声优 · 已选择</small></div><div class="drawer-item"><b>花泽香菜</b><small>60 部作品</small></div><div class="drawer-item"><b>伊藤美来</b><small>48 部作品</small></div></div></aside>
+						</div>
+					</article>
+				</div>
+			</section>
+		</div>
+	</main>
+
+	<script>
+		const STORAGE_KEY = 'bgmss-surface-color-lab-hsl-v3'
+		const TOKEN_LABELS = {
+			header: 'Header',
+			main: '主体',
+			card: '卡片',
+			raised: '抬升表面',
+			sunken: '下沉表面',
+			drawer: 'Drawer',
+			border: '边界',
+			divider: '分隔线',
+		}
+
+		const clone = (value) => JSON.parse(JSON.stringify(value))
+		const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value))
+		const roundTenth = (value) => Math.round(value * 10) / 10
+		const normalizeHex = (value) => {
+			const raw = String(value).trim().replace(/^#/, '')
+			if (/^[\da-f]{3}$/i.test(raw)) return `#${[...raw].map((character) => character.repeat(2)).join('').toUpperCase()}`
+			if (/^[\da-f]{6}$/i.test(raw)) return `#${raw.toUpperCase()}`
+			return null
+		}
+
+		const hexToRgb = (hex) => {
+			const normalized = normalizeHex(hex)
+			return [1, 3, 5].map((index) => Number.parseInt(normalized.slice(index, index + 2), 16))
+		}
+
+		const hexToHsl = (hex) => {
+			const [red, green, blue] = hexToRgb(hex).map((channel) => channel / 255)
+			const maximum = Math.max(red, green, blue)
+			const minimum = Math.min(red, green, blue)
+			const delta = maximum - minimum
+			const lightness = (maximum + minimum) / 2
+			let hue = 0
+
+			if (delta) {
+				if (maximum === red) hue = 60 * (((green - blue) / delta) % 6)
+				if (maximum === green) hue = 60 * (((blue - red) / delta) + 2)
+				if (maximum === blue) hue = 60 * (((red - green) / delta) + 4)
+			}
+
+			const saturation = delta ? delta / (1 - Math.abs((2 * lightness) - 1)) : 0
+			return {
+				h: roundTenth((hue + 360) % 360),
+				s: roundTenth(saturation * 100),
+				l: roundTenth(lightness * 100),
+			}
+		}
+
+		const normalizeHsl = (value) => {
+			if (typeof value === 'string') {
+				const hex = normalizeHex(value)
+				if (hex) return hexToHsl(hex)
+				const match = value.match(/^hsl\(\s*(-?[\d.]+)(?:deg)?[\s,]+([\d.]+)%[\s,]+([\d.]+)%\s*\)$/i)
+				if (match) value = { h: Number(match[1]), s: Number(match[2]), l: Number(match[3]) }
+			}
+			if (!value || typeof value !== 'object') return null
+			const hue = Number(value.h)
+			const saturation = Number(value.s)
+			const lightness = Number(value.l)
+			if (![hue, saturation, lightness].every(Number.isFinite)) return null
+			return {
+				h: roundTenth(clamp(hue, 0, 360)),
+				s: roundTenth(clamp(saturation, 0, 100)),
+				l: roundTenth(clamp(lightness, 0, 100)),
+			}
+		}
+
+		const hslToHex = ({ h, s, l }) => {
+			const hue = ((h % 360) + 360) % 360
+			const saturation = s / 100
+			const lightness = l / 100
+			const chroma = (1 - Math.abs((2 * lightness) - 1)) * saturation
+			const section = hue / 60
+			const secondary = chroma * (1 - Math.abs((section % 2) - 1))
+			const channels = section < 1 ? [chroma, secondary, 0]
+				: section < 2 ? [secondary, chroma, 0]
+					: section < 3 ? [0, chroma, secondary]
+						: section < 4 ? [0, secondary, chroma]
+							: section < 5 ? [secondary, 0, chroma]
+								: [chroma, 0, secondary]
+			const offset = lightness - (chroma / 2)
+			return `#${channels.map((channel) => Math.round((channel + offset) * 255).toString(16).padStart(2, '0')).join('').toUpperCase()}`
+		}
+
+		const formatHsl = ({ h, s, l }) => `hsl(${h} ${s}% ${l}%)`
+		const formatHslAlpha = (color, opacity) => `hsl(${color.h} ${color.s}% ${color.l}% / ${opacity / 100})`
+
+		const BASELINE = {
+			light: {
+				header: { h: 0, s: 0, l: 100 },
+				main: { h: 240, s: 9.6, l: 96.2 },
+				card: { h: 240, s: 18.5, l: 98.3 },
+				raised: { h: 0, s: 0, l: 100 },
+				sunken: { h: 240, s: 10.2, l: 92.4 },
+				drawer: { h: 240, s: 18.5, l: 97.5 },
+				border: { h: 240, s: 7.9, l: 86.1 },
+				divider: { h: 240, s: 8.5, l: 90.8 },
+			},
+			dark: {
+				header: { h: 240, s: 12.6, l: 2.4 },
+				main: { h: 240, s: 7.8, l: 5.8 },
+				card: { h: 240, s: 7.1, l: 9.8 },
+				raised: { h: 240, s: 6.8, l: 12.8 },
+				sunken: { h: 240, s: 8.5, l: 4.5 },
+				drawer: { h: 240, s: 7.1, l: 9.8 },
+				border: { h: 240, s: 6.1, l: 20.5 },
+				divider: { h: 240, s: 5.9, l: 15.8 },
+			},
+			headerOpacity: 92,
+			drawerOpacity: 96,
+		}
+
+		const loadState = () => {
+			try {
+				const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
+				if (!saved) return clone(BASELINE)
+				const next = clone(BASELINE)
+				for (const theme of ['light', 'dark']) {
+					for (const token of Object.keys(next[theme])) {
+						const color = normalizeHsl(saved?.[theme]?.[token])
+						if (color) next[theme][token] = color
+					}
+				}
+				for (const key of ['headerOpacity', 'drawerOpacity']) {
+					const value = Number(saved?.[key])
+					if (Number.isFinite(value)) next[key] = Math.round(clamp(value, 0, 100))
+				}
+				return next
+			} catch {
+				return clone(BASELINE)
+			}
+		}
+
+		let state = loadState()
+		let selection = { theme: 'light', token: 'header' }
+		const status = document.querySelector('[data-status]')
+		const output = document.querySelector('[data-output]')
+		const previewShells = [...document.querySelectorAll('[data-shell]')]
+
+		const composite = (foreground, background, opacity) => {
+			const front = hexToRgb(foreground)
+			const back = hexToRgb(background)
+			const alpha = opacity / 100
+			const channels = front.map((channel, index) => Math.round((channel * alpha) + (back[index] * (1 - alpha))))
+			return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('').toUpperCase()}`
+		}
+
+		const luminance = (hex) => {
+			const channels = hexToRgb(hex).map((value) => {
+				const channel = value / 255
+				return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+			})
+			return (0.2126 * channels[0]) + (0.7152 * channels[1]) + (0.0722 * channels[2])
+		}
+
+		const contrast = (first, second) => {
+			const high = Math.max(luminance(first), luminance(second))
+			const low = Math.min(luminance(first), luminance(second))
+			return (high + 0.05) / (low + 0.05)
+		}
+
+		const serializeState = () => ({
+			light: Object.fromEntries(Object.entries(state.light).map(([token, color]) => [token, formatHsl(color)])),
+			dark: Object.fromEntries(Object.entries(state.dark).map(([token, color]) => [token, formatHsl(color)])),
+			headerOpacity: state.headerOpacity,
+			drawerOpacity: state.drawerOpacity,
+		})
+
+		const saveState = () => {
+			try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch {}
+		}
+
+		const render = ({ save = true } = {}) => {
+			for (const control of document.querySelectorAll('[data-color-select]')) {
+				const isSelected = control.dataset.theme === selection.theme && control.dataset.token === selection.token
+				const color = state[control.dataset.theme][control.dataset.token]
+				control.style.setProperty('--swatch', formatHsl(color))
+				control.querySelector('[data-hsl-label]').textContent = formatHsl(color)
+				control.classList.toggle('is-selected', isSelected)
+				control.setAttribute('aria-pressed', String(isSelected))
+			}
+
+			const selectedColor = state[selection.theme][selection.token]
+			document.querySelector('[data-selected-title]').textContent = `${selection.theme === 'light' ? 'Light' : 'Dark'} · ${TOKEN_LABELS[selection.token]}`
+			document.querySelector('[data-selected-value]').textContent = formatHsl(selectedColor)
+			document.querySelector('[data-editor-swatch]').style.setProperty('--swatch', formatHsl(selectedColor))
+			for (const control of document.querySelectorAll('[data-hsl-channel]')) {
+				control.value = selectedColor[control.dataset.hslChannel]
+			}
+
+			const hue = selectedColor.h
+			const saturation = selectedColor.s
+			const lightness = selectedColor.l
+			document.querySelector('#hsl-hue').style.setProperty('--track', 'linear-gradient(90deg, hsl(0 100% 50%), hsl(60 100% 50%), hsl(120 100% 50%), hsl(180 100% 50%), hsl(240 100% 50%), hsl(300 100% 50%), hsl(360 100% 50%))')
+			document.querySelector('#hsl-saturation').style.setProperty('--track', `linear-gradient(90deg, hsl(${hue} 0% ${lightness}%), hsl(${hue} 100% ${lightness}%))`)
+			document.querySelector('#hsl-lightness').style.setProperty('--track', `linear-gradient(90deg, hsl(${hue} ${saturation}% 0%), hsl(${hue} ${saturation}% 50%), hsl(${hue} ${saturation}% 100%))`)
+
+			for (const control of document.querySelectorAll('[data-alpha]')) {
+				control.value = state[control.dataset.alpha]
+				document.querySelector(`[data-alpha-value="${control.dataset.alpha}"]`).textContent = `${state[control.dataset.alpha]}%`
+			}
+
+			for (const theme of ['light', 'dark']) {
+				const preview = document.querySelector(`[data-preview="${theme}"]`)
+				const palette = state[theme]
+				preview.style.setProperty('--header-color', formatHslAlpha(palette.header, state.headerOpacity))
+				preview.style.setProperty('--main', formatHsl(palette.main))
+				preview.style.setProperty('--card', formatHsl(palette.card))
+				preview.style.setProperty('--raised', formatHsl(palette.raised))
+				preview.style.setProperty('--sunken', formatHsl(palette.sunken))
+				preview.style.setProperty('--border', formatHsl(palette.border))
+				preview.style.setProperty('--divider', formatHsl(palette.divider))
+				preview.style.setProperty('--drawer-color', formatHslAlpha(palette.drawer, state.drawerOpacity))
+				document.querySelector(`[data-value="${theme}-main"]`).textContent = formatHsl(palette.main)
+				document.querySelector(`[data-value="${theme}-card"]`).textContent = formatHsl(palette.card)
+				document.querySelector(`[data-theme-summary="${theme}"]`).textContent = `${formatHsl(palette.header)} / ${state.headerOpacity}% · ${formatHsl(palette.main)} · ${formatHsl(palette.card)}`
+
+				const mainHex = hslToHex(palette.main)
+				const cardHex = hslToHex(palette.card)
+				const text = theme === 'light' ? '#1F2225' : '#F5F5F7'
+				const visibleHeader = composite(hslToHex(palette.header), mainHex, state.headerOpacity)
+				const ratios = [
+					`Header/主体 ${contrast(visibleHeader, mainHex).toFixed(2)}:1`,
+					`卡片/主体 ${contrast(cardHex, mainHex).toFixed(2)}:1`,
+					`正文/主体 ${contrast(text, mainHex).toFixed(2)}:1`,
+				]
+				document.querySelector(`[data-contrast="${theme}"]`).innerHTML = ratios.map((label) => `<span class="contrast-chip">${label}</span>`).join('')
+			}
+
+			output.value = JSON.stringify(serializeState(), null, 2)
+			if (save) saveState()
+		}
+
+		const setStatus = (message) => {
+			status.textContent = message
+			window.clearTimeout(setStatus.timer)
+			setStatus.timer = window.setTimeout(() => { status.textContent = '' }, 3200)
+		}
+
+		document.addEventListener('click', (event) => {
+			const control = event.target.closest('[data-color-select]')
+			if (!control) return
+			selection = { theme: control.dataset.theme, token: control.dataset.token }
+			render({ save: false })
+		})
+
+		document.addEventListener('input', (event) => {
+			const control = event.target
+			if (control.matches('[data-hsl-channel]')) {
+				if (control.value === '') return
+				const channel = control.dataset.hslChannel
+				const maximum = channel === 'h' ? 360 : 100
+				const value = Number(control.value)
+				if (!Number.isFinite(value)) return
+				state[selection.theme][selection.token][channel] = roundTenth(clamp(value, 0, maximum))
+				render()
+			}
+			if (control.matches('[data-alpha]')) {
+				state[control.dataset.alpha] = Number(control.value)
+				render()
+			}
+		})
+
+		document.addEventListener('change', (event) => {
+			const control = event.target
+			if (control.matches('[data-preview-option]')) {
+				const className = control.dataset.previewOption === 'query' ? 'is-query-expanded' : 'show-drawer'
+				previewShells.forEach((shell) => shell.classList.toggle(className, control.checked))
+			}
+		})
+
+		document.querySelector('[data-action="reset"]').addEventListener('click', () => {
+			state = clone(BASELINE)
+			render()
+			setStatus('已恢复 2026-07-21 确认基线')
+		})
+
+		document.querySelector('[data-action="copy"]').addEventListener('click', async () => {
+			const value = output.value
+			try {
+				await navigator.clipboard.writeText(value)
+				setStatus('HSL 配置已复制，可直接发给我')
+			} catch {
+				output.focus()
+				output.select()
+				document.execCommand('copy')
+				setStatus('HSL 配置已复制，可直接发给我')
+			}
+		})
+
+		render({ save: false })
+	</script>
+</body>
+</html>

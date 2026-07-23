@@ -23,11 +23,11 @@
 			--text-2: oklch(0.34 0.014 285);
 			--text-3: oklch(0.47 0.015 285);
 			--disabled: oklch(0.62 0.01 300);
-			--primary: #c60475;
-			--primary-hover: #d42281;
-			--primary-pressed: #b40069;
-			--primary-soft: oklch(0.96 0.03 352);
-			--focus: oklch(0.48 0.2 352);
+			--primary: #C82A70;
+			--primary-hover: #D23978;
+			--primary-pressed: #AD215F;
+			--primary-soft: color-mix(in oklab, var(--primary) 8%, var(--surface));
+			--focus: var(--primary);
 			--on-primary: #fff;
 			--success: oklch(0.43 0.12 160);
 			--warning: oklch(0.43 0.09 80);
@@ -61,11 +61,12 @@
 			--text-2: oklch(0.82 0.01 280);
 			--text-3: oklch(0.69 0.012 280);
 			--disabled: oklch(0.52 0.01 280);
-			--primary: #d91a80;
-			--primary-hover: #e63893;
-			--primary-pressed: #bd0b6d;
-			--primary-soft: oklch(0.27 0.055 350);
-			--focus: oklch(0.72 0.15 350);
+			--primary: #F16A9C;
+			--primary-hover: #FC85AF;
+			--primary-pressed: #DA578A;
+			--primary-soft: color-mix(in oklab, var(--primary) 20%, var(--surface));
+			--focus: var(--primary-hover);
+			--on-primary: #17171B;
 			--success: oklch(0.68 0.13 160);
 			--warning: oklch(0.75 0.11 80);
 			--error: oklch(0.72 0.16 25);
@@ -116,7 +117,7 @@
 			gap: var(--space-4);
 			min-height: 58px;
 			padding: 10px max(16px, calc((100vw - 1480px) / 2));
-			border-top: 3px solid #ff2075;
+			border-top: 3px solid var(--primary);
 			border-bottom: 1px solid var(--border);
 			background: color-mix(in oklab, var(--surface) 92%, transparent);
 			backdrop-filter: blur(16px) saturate(135%);
@@ -569,7 +570,7 @@
 	<header class="app-header">
 		<div class="brand">
 			<h1>十色调色盘实验室</h1>
-			<p>为人物、系列和分类数据建立一套固定颜色；此页面不会修改正式原型。</p>
+			<p>为人物、系列和分类数据建立同色位的 Light / Dark 双主题颜色。</p>
 		</div>
 		<div class="header-actions" aria-label="全局工具">
 			<button class="button button--icon" id="undoButton" type="button" title="撤销" aria-label="撤销">↶</button>
@@ -585,8 +586,8 @@
 			<section class="palette-overview" aria-labelledby="paletteTitle">
 				<div class="section-heading">
 					<div>
-						<h2 id="paletteTitle">固定顺序 · 10 色</h2>
-						<p>第一色锁定为当前工作台主粉色的起点，第二色为青绿色；点击色块后在下方精调。更改会自动保存在当前浏览器。</p>
+						<h2 id="paletteTitle">双主题固定顺序 · 10 色</h2>
+						<p>Light / Dark 共用色位、名称和色相方向；第一色分别锚定当前主题主色。切换右侧主题即可编辑对应色盘。</p>
 					</div>
 					<div class="inline-actions">
 						<label class="field">
@@ -660,7 +661,7 @@
 							<p>同时检查折线、分组柱、堆叠、图例与密集矩阵；模拟模式只影响预览，不会改写原始色值。</p>
 						</div>
 						<label class="field">
-							<span>预览表面</span>
+							<span>编辑与预览主题</span>
 							<select class="control" id="surfaceSelect">
 								<option value="light">浅色工作台</option>
 								<option value="dark">深色工作台</option>
@@ -690,8 +691,8 @@
 	<dialog id="importDialog">
 		<form method="dialog" class="dialog-body" id="importForm">
 			<h2>导入调色盘</h2>
-			<p>接受 HEX 数组，或工具导出的 JSON。必须正好包含 10 个有效颜色。</p>
-			<textarea class="control" id="importInput" spellcheck="false" placeholder='["#c60475", "#158486", ...]'></textarea>
+			<p>接受当前主题的 10 色 HEX 数组，或包含 Light / Dark 两套色盘的工具导出 JSON。</p>
+			<textarea class="control" id="importInput" spellcheck="false" placeholder='{"palettes":{"light":[...],"dark":[...]}}'></textarea>
 			<div class="dialog-actions">
 				<button class="button" value="cancel" type="button" id="cancelImportButton">取消</button>
 				<button class="button button--primary" value="default" type="submit">导入并预览</button>
@@ -705,22 +706,15 @@
 		(() => {
 			'use strict';
 
-			const STORAGE_KEY = 'bgmss-palette-lab-v1';
-			const INITIAL_PALETTE = [
-				{ name: '主体粉', hex: '#C60475' },
-				{ name: '青绿色', hex: '#158486' },
-				{ name: '赭金', hex: '#C8741D' },
-				{ name: '鸢尾紫', hex: '#9A76D4' },
-				{ name: '陶土棕', hex: '#844C3E' },
-				{ name: '靛蓝', hex: '#4953AB' },
-				{ name: '叶绿', hex: '#6F9C37' },
-				{ name: '深橄榄', hex: '#376E00' },
-				{ name: '晴空蓝', hex: '#3093DB' },
-				{ name: '灰玫瑰', hex: '#D06481' },
-			];
+			const STORAGE_KEY = 'bgmss-palette-lab-v3';
+			const PALETTE_NAMES = ['系列粉', '青绿色', '珊瑚红', '鸢尾紫', '赭金', '叶绿', '晴空蓝', '靛蓝', '灰玫瑰', '杏橙'];
+			const INITIAL_PALETTES = {
+				light: ['#C82A70', '#288183', '#C05852', '#916FC8', '#A07703', '#579459', '#368FC4', '#5B62AB', '#D96D92', '#C97F4E'],
+				dark: ['#F16A9C', '#61A8AA', '#EF8E86', '#BEA0F2', '#D2AB59', '#87BD87', '#6FB7E9', '#8992D6', '#FFA9C3', '#FDB78C'],
+			};
 
 			const state = {
-				palette: loadPalette(),
+				palettes: loadPalettes(),
 				selected: 0,
 				vision: 'normal',
 				surface: 'light',
@@ -740,17 +734,39 @@
 				return palette.map((color) => ({ ...color }));
 			}
 
-			function loadPalette() {
+			function createPalette(colors, names = PALETTE_NAMES) {
+				return colors.map((hex, index) => ({ name: names[index] || PALETTE_NAMES[index], hex }));
+			}
+
+			function clonePalettes(palettes) {
+				return { light: clonePalette(palettes.light), dark: clonePalette(palettes.dark) };
+			}
+
+			function normalizePalette(source, fallback) {
+				if (!Array.isArray(source) || source.length !== 10) return null;
+				const palette = source.map((item, index) => ({
+					name: String((typeof item === 'string' ? '' : item.name) || fallback[index].name).slice(0, 28),
+					hex: normalizeHex(typeof item === 'string' ? item : item.hex),
+				}));
+				return palette.every((item) => item.hex) ? palette : null;
+			}
+
+			function loadPalettes() {
+				const initial = {
+					light: createPalette(INITIAL_PALETTES.light),
+					dark: createPalette(INITIAL_PALETTES.dark),
+				};
 				try {
 					const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-					if (Array.isArray(saved) && saved.length === 10 && saved.every((item) => normalizeHex(item.hex))) {
-						return saved.map((item, index) => ({
-							name: String(item.name || INITIAL_PALETTE[index].name).slice(0, 28),
-							hex: normalizeHex(item.hex),
-						}));
-					}
+					const light = normalizePalette(saved?.light, initial.light);
+					const dark = normalizePalette(saved?.dark, initial.dark);
+					if (light && dark) return { light, dark };
 				} catch {}
-				return clonePalette(INITIAL_PALETTE);
+				return clonePalettes(initial);
+			}
+
+			function currentPalette() {
+				return state.palettes[state.surface];
 			}
 
 			function normalizeHex(value) {
@@ -850,7 +866,7 @@
 			}
 
 			function snapshot() {
-				return JSON.stringify(state.palette);
+				return JSON.stringify(state.palettes);
 			}
 
 			function commit(previous) {
@@ -873,7 +889,7 @@
 			function undo() {
 				if (!state.history.length) return;
 				state.future.push(snapshot());
-				state.palette = JSON.parse(state.history.pop());
+				state.palettes = JSON.parse(state.history.pop());
 				localStorage.setItem(STORAGE_KEY, snapshot());
 				render();
 			}
@@ -881,7 +897,7 @@
 			function redo() {
 				if (!state.future.length) return;
 				state.history.push(snapshot());
-				state.palette = JSON.parse(state.future.pop());
+				state.palettes = JSON.parse(state.future.pop());
 				localStorage.setItem(STORAGE_KEY, snapshot());
 				render();
 			}
@@ -905,7 +921,7 @@
 			}
 
 			function currentColors() {
-				return state.palette.map((color) => simulatedHex(color.hex));
+				return currentPalette().map((color) => simulatedHex(color.hex));
 			}
 
 			function closestPair(colors = currentColors()) {
@@ -920,7 +936,7 @@
 			}
 
 			function renderPalette() {
-				paletteList.innerHTML = state.palette.map((color, index) => `
+				paletteList.innerHTML = currentPalette().map((color, index) => `
 					<button class="swatch-card${index === state.selected ? ' is-selected' : ''}" type="button" role="option" aria-selected="${index === state.selected}" data-select="${index}" title="${escapeHtml(color.name)} · ${color.hex}">
 						<span class="swatch-color" style="background:${simulatedHex(color.hex)}"></span>
 						<span class="swatch-meta"><b>${String(index + 1).padStart(2, '0')} · ${escapeHtml(color.name)}</b><span>${color.hex}</span></span>
@@ -929,7 +945,7 @@
 			}
 
 			function renderEditor() {
-				const color = state.palette[state.selected];
+				const color = currentPalette()[state.selected];
 				const oklch = hexToOklch(color.hex);
 				$('#selectedNumber').textContent = `#${String(state.selected + 1).padStart(2, '0')}`;
 				$('#nativeColor').value = color.hex;
@@ -947,9 +963,9 @@
 			}
 
 			function renderContrast(hex) {
+				const theme = previewTheme();
 				const samples = [
-					{ background: '#FFFFFF', foreground: hex, label: '颜色 / 白底' },
-					{ background: '#18181C', foreground: hex, label: '颜色 / 深底' },
+					{ background: theme.surface, foreground: hex, label: `颜色 / ${state.surface === 'dark' ? '深色' : '浅色'}表面` },
 					{ background: hex, foreground: '#FFFFFF', label: '白字 / 色底' },
 					{ background: hex, foreground: '#18181C', label: '深字 / 色底' },
 				];
@@ -967,19 +983,22 @@
 			}
 
 			function renderQuality() {
-				const normalClosest = closestPair(state.palette.map((color) => color.hex));
+				const palette = currentPalette();
+				const theme = previewTheme();
+				const normalClosest = closestPair(palette.map((color) => color.hex));
 				const simulatedClosest = closestPair();
 				const classify = (distance) => distance >= 12 ? 'is-good' : distance >= 8 ? 'is-watch' : 'is-risk';
-				const contrastPasses = state.palette.filter((color) => Math.max(contrastRatio(color.hex, '#FFFFFF'), contrastRatio(color.hex, '#18181C')) >= 4.5).length;
+				const contrastPasses = palette.filter((color) => contrastRatio(color.hex, theme.surface) >= 3).length;
 				$('#qualityStrip').innerHTML = `
 					<div class="quality-item ${classify(normalClosest.distance)}"><span>标准视觉最接近</span><b>${normalClosest.distance.toFixed(1)} ΔE · ${normalClosest.a + 1}/${normalClosest.b + 1}</b></div>
 					<div class="quality-item ${classify(simulatedClosest.distance)}"><span>当前模拟最接近</span><b>${simulatedClosest.distance.toFixed(1)} ΔE · ${simulatedClosest.a + 1}/${simulatedClosest.b + 1}</b></div>
-					<div class="quality-item ${contrastPasses === 10 ? 'is-good' : 'is-watch'}"><span>可配 AA 文字</span><b>${contrastPasses} / 10 色</b></div>
+					<div class="quality-item ${contrastPasses === 10 ? 'is-good' : 'is-watch'}"><span>图形对比 ≥ 3:1</span><b>${contrastPasses} / 10 色</b></div>
 				`;
 			}
 
 			function renderPreview() {
 				const colors = currentColors();
+				const palette = currentPalette();
 				const theme = previewTheme();
 				previewCanvas.style.setProperty('--preview-bg', theme.bg);
 				previewCanvas.style.setProperty('--preview-surface', theme.surface);
@@ -1005,7 +1024,7 @@
 				}).join('');
 
 				const grid = [35, 80, 125, 170, 215].map((y) => `<line class="chart-grid" x1="25" y1="${y}" x2="424" y2="${y}" />`).join('');
-				const labels = state.palette.map((color, index) => `<span class="legend-item"><i style="background:${colors[index]}"></i><span>${String(index + 1).padStart(2, '0')} ${escapeHtml(color.name)}</span></span>`).join('');
+				const labels = palette.map((color, index) => `<span class="legend-item"><i style="background:${colors[index]}"></i><span>${String(index + 1).padStart(2, '0')} ${escapeHtml(color.name)}</span></span>`).join('');
 				const bars = colors.map((color, index) => `<i class="bar" data-index="${index + 1}" style="height:${48 + ((index * 37) % 118)}px;background:${color}"></i>`).join('');
 				const stack = colors.map((color, index) => `<i style="flex:${5 + ((index * 7) % 13)};background:${color}"></i>`).join('');
 				const matrix = Array.from({ length: 60 }, (_, index) => `<i style="background:${colors[(index * 7 + Math.floor(index / 10) * 3) % 10]};opacity:${.46 + (index % 4) * .17}"></i>`).join('');
@@ -1034,15 +1053,24 @@
 			}
 
 			function exportText() {
+				const light = state.palettes.light;
+				const dark = state.palettes.dark;
 				if (state.format === 'json') {
-					return JSON.stringify({ name: 'Bangumi Staff Statistics categorical palette', colors: state.palette }, null, 2);
+					return JSON.stringify({ name: 'Bangumi Staff Statistics categorical palettes', palettes: state.palettes }, null, 2);
 				}
 				return [
 					':root {',
-					...state.palette.map((color, index) => `  --series-${String(index + 1).padStart(2, '0')}: ${color.hex}; /* ${color.name} */`),
+					...light.map((color, index) => `  --series-${String(index + 1).padStart(2, '0')}: ${color.hex}; /* ${color.name} */`),
 					'}',
 					'',
-					`const seriesColors = [${state.palette.map((color) => `'${color.hex.toLowerCase()}'`).join(', ')}]`,
+					':root[data-theme="dark"] {',
+					...dark.map((color, index) => `  --series-${String(index + 1).padStart(2, '0')}: ${color.hex}; /* ${color.name} */`),
+					'}',
+					'',
+					'const seriesColorPalettes = {',
+					`  light: [${light.map((color) => `'${color.hex}'`).join(', ')}],`,
+					`  dark: [${dark.map((color) => `'${color.hex}'`).join(', ')}],`,
+					'} as const',
 				].join('\n');
 			}
 
@@ -1071,7 +1099,7 @@
 				const H = Number($('#hueRange').value);
 				const hex = oklchToHex({ L, C, H });
 
-				state.palette[state.selected].hex = hex;
+				currentPalette()[state.selected].hex = hex;
 				localStorage.setItem(STORAGE_KEY, snapshot());
 				$('#nativeColor').value = hex;
 				$('#hexInput').value = hex;
@@ -1096,20 +1124,28 @@
 				const target = state.selected + direction;
 				if (target < 0 || target > 9) return;
 				mutate(() => {
-					[state.palette[state.selected], state.palette[target]] = [state.palette[target], state.palette[state.selected]];
+					for (const theme of ['light', 'dark']) {
+						[state.palettes[theme][state.selected], state.palettes[theme][target]] = [state.palettes[theme][target], state.palettes[theme][state.selected]];
+					}
 					state.selected = target;
 				});
 			}
 
 			function parseImport(value) {
 				const parsed = JSON.parse(value);
-				const source = Array.isArray(parsed) ? parsed : parsed.colors;
-				if (!Array.isArray(source) || source.length !== 10) throw new Error('需要正好 10 个颜色');
-				return source.map((item, index) => {
-					const hex = normalizeHex(typeof item === 'string' ? item : item.hex);
-					if (!hex) throw new Error(`第 ${index + 1} 个颜色不是有效 HEX`);
-					return { name: typeof item === 'string' ? INITIAL_PALETTE[index].name : String(item.name || INITIAL_PALETTE[index].name).slice(0, 28), hex };
-				});
+				const palettes = parsed?.palettes ?? parsed;
+				const fallback = {
+					light: createPalette(INITIAL_PALETTES.light),
+					dark: createPalette(INITIAL_PALETTES.dark),
+				};
+				const light = normalizePalette(palettes?.light, fallback.light);
+				const dark = normalizePalette(palettes?.dark, fallback.dark);
+				if (light && dark) return { palettes: { light, dark } };
+
+				const source = Array.isArray(parsed) ? parsed : parsed?.colors;
+				const palette = normalizePalette(source, currentPalette());
+				if (!palette) throw new Error('需要当前主题的 10 个颜色，或 Light / Dark 各 10 个颜色');
+				return { palette };
 			}
 
 			function escapeHtml(value) {
@@ -1123,16 +1159,20 @@
 				render();
 			});
 
-			$('#nativeColor').addEventListener('input', (event) => mutate(() => { state.palette[state.selected].hex = normalizeHex(event.target.value); }));
-			$('#nameInput').addEventListener('change', (event) => mutate(() => { state.palette[state.selected].name = event.target.value.trim() || `颜色 ${state.selected + 1}`; }));
+			$('#nativeColor').addEventListener('input', (event) => mutate(() => { currentPalette()[state.selected].hex = normalizeHex(event.target.value); }));
+			$('#nameInput').addEventListener('change', (event) => mutate(() => {
+				const name = event.target.value.trim() || `颜色 ${state.selected + 1}`;
+				state.palettes.light[state.selected].name = name;
+				state.palettes.dark[state.selected].name = name;
+			}));
 			$('#hexInput').addEventListener('input', (event) => {
 				const hex = normalizeHex(event.target.value);
-				if (hex && hex !== state.palette[state.selected].hex) mutate(() => { state.palette[state.selected].hex = hex; });
+				if (hex && hex !== currentPalette()[state.selected].hex) mutate(() => { currentPalette()[state.selected].hex = hex; });
 			});
 			$('#hexInput').addEventListener('change', (event) => {
 				const hex = normalizeHex(event.target.value);
-				if (!hex) { showToast('请输入 6 位 HEX，例如 #158486'); renderEditor(); return; }
-				mutate(() => { state.palette[state.selected].hex = hex; });
+				if (!hex) { showToast('请输入 6 位 HEX，例如 #288183'); renderEditor(); return; }
+				mutate(() => { currentPalette()[state.selected].hex = hex; });
 			});
 
 			['#lightnessRange', '#chromaRange', '#hueRange'].forEach((selector) => {
@@ -1149,7 +1189,7 @@
 			$('#moveRightButton').addEventListener('click', () => moveSelected(1));
 			$('#undoButton').addEventListener('click', undo);
 			$('#redoButton').addEventListener('click', redo);
-			$('#copyColorButton').addEventListener('click', () => copyText(state.palette[state.selected].hex, '当前 HEX 已复制'));
+			$('#copyColorButton').addEventListener('click', () => copyText(currentPalette()[state.selected].hex, '当前 HEX 已复制'));
 			$('#copyAllButton').addEventListener('click', () => copyText(exportText(), '完整调色盘已复制'));
 			$('#copyOutputButton').addEventListener('click', () => copyText(exportText(), '导出内容已复制'));
 
@@ -1158,7 +1198,7 @@
 				state.surface = event.target.value;
 				document.documentElement.dataset.theme = state.surface;
 				document.querySelector('meta[name="theme-color"]').content = state.surface === 'dark' ? '#101014' : '#f5f5f7';
-				renderPreview();
+				render();
 			});
 
 			$('#formatButton').addEventListener('click', () => { state.format = state.format === 'css' ? 'json' : 'css'; renderExport(); });
@@ -1174,13 +1214,19 @@
 			});
 
 			$('#resetButton').addEventListener('click', () => {
-				if (!confirm('恢复最初的 10 色候选？当前修改仍可通过“撤销”找回。')) return;
-				mutate(() => { state.palette = clonePalette(INITIAL_PALETTE); state.selected = 0; });
+				if (!confirm('恢复最初的 Light / Dark 双主题候选？当前修改仍可通过“撤销”找回。')) return;
+				mutate(() => {
+					state.palettes = {
+						light: createPalette(INITIAL_PALETTES.light),
+						dark: createPalette(INITIAL_PALETTES.dark),
+					};
+					state.selected = 0;
+				});
 				showToast('已恢复初始候选');
 			});
 
 			$('#importButton').addEventListener('click', () => {
-				$('#importInput').value = JSON.stringify(state.palette, null, 2);
+				$('#importInput').value = JSON.stringify({ palettes: state.palettes }, null, 2);
 				$('#importDialog').showModal();
 			});
 			$('#cancelImportButton').addEventListener('click', () => $('#importDialog').close());
@@ -1188,7 +1234,11 @@
 				event.preventDefault();
 				try {
 					const imported = parseImport($('#importInput').value);
-					mutate(() => { state.palette = imported; state.selected = 0; });
+					mutate(() => {
+						if (imported.palettes) state.palettes = imported.palettes;
+						else state.palettes[state.surface] = imported.palette;
+						state.selected = 0;
+					});
 					$('#importDialog').close();
 					showToast('调色盘已导入');
 				} catch (error) {

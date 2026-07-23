@@ -1,0 +1,248 @@
+.selected-people-panel {
+	container: selected-people-panel / inline-size;
+	overflow: clip;
+}
+
+.selected-people-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 1px;
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	background: var(--divider);
+	list-style: none;
+}
+
+.selected-people-grid > li {
+	min-width: 0;
+	background: var(--surface);
+}
+
+.selected-person-card {
+	display: grid;
+	grid-template-columns: 84px minmax(0, 1fr);
+	min-width: 0;
+	min-height: 112px;
+	height: 100%;
+	background: var(--surface);
+	overflow: clip;
+}
+
+.selected-person-card__media {
+	width: 84px;
+	min-width: 0;
+	border-right: 1px solid var(--divider);
+	background: var(--surface-sunken);
+}
+
+.selected-person-card__image {
+	display: block;
+	width: 84px;
+	height: auto;
+	min-height: 0;
+	border-radius: 0;
+}
+
+.selected-person-card__ordinal {
+	min-width: 2ch;
+	color: color-mix(in oklab, var(--primary) 68%, var(--text-2));
+	font-size: var(--text-caption);
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.04em;
+	line-height: 1;
+}
+
+.selected-person-card__body {
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) auto;
+	min-width: 0;
+	height: 112px;
+	background: linear-gradient(112deg, color-mix(in oklab, var(--primary) 4%, var(--surface)) 0%, var(--surface) 64%);
+}
+
+.selected-person-card__header {
+	display: grid;
+	grid-template-columns: auto 1px minmax(0, 1fr);
+	align-items: center;
+	gap: var(--space-2);
+	min-width: 0;
+	padding: var(--space-2) var(--space-3);
+}
+
+.selected-person-card__signature-rule {
+	width: 1px;
+	height: 34px;
+	background: color-mix(in oklab, var(--primary) 48%, var(--divider));
+}
+
+.selected-person-card__signature {
+	display: grid;
+	align-content: center;
+	gap: 3px;
+	min-width: 0;
+}
+
+.selected-person-card__name {
+	min-width: 0;
+	max-width: 100%;
+	margin: 0;
+	font-size: var(--text-subheading);
+	line-height: 1.25;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.selected-person-card__identities {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	min-width: 0;
+	margin: 0;
+	color: var(--text-3);
+	font-size: var(--text-caption);
+	line-height: 1.25;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.selected-person-card__identities > span:not(.selected-person-card__identity-separator) {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.selected-person-card__identity-separator {
+	flex: 0 0 auto;
+	color: color-mix(in oklab, var(--text-3) 68%, transparent);
+}
+
+.selected-person-card__metrics {
+	align-self: end;
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0;
+	width: 100%;
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border-top: 1px solid var(--divider);
+	border-radius: 0;
+}
+
+.selected-person-card__metrics > div {
+	display: grid;
+	align-content: end;
+	gap: 1px;
+	min-width: 0;
+	padding: 7px var(--space-3) 6px;
+	border-radius: 0;
+}
+
+.selected-person-card__metrics > div + div {
+	border-inline-start: 1px solid var(--divider);
+}
+
+.selected-person-card__metrics dd {
+	margin: 0;
+	color: var(--text-1);
+	font-size: var(--text-subheading);
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.15;
+}
+
+.selected-person-card__metrics dt {
+	color: var(--text-3);
+	font-size: var(--text-caption);
+	line-height: 1.2;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.selected-people-panel > .shared-rating-summary--below {
+	width: 100%;
+	border-top: 1px solid var(--divider);
+}
+
+@container selected-people-panel (min-width: 544px) {
+	.selected-people-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.selected-people-grid:has(> li:last-child:nth-child(odd))::after {
+		min-height: 112px;
+		background: var(--surface);
+		content: '';
+	}
+
+	.selected-people-grid:not(.selected-people-grid--single):has(> li:last-child:nth-child(odd))::after {
+		--relationship-canvas: color-mix(in oklab, var(--surface-sunken) 48%, var(--surface));
+		--relationship-line: color-mix(in oklab, var(--text-3) 28%, transparent);
+		--relationship-stroke: color-mix(in oklab, var(--primary) 34%, var(--text-3));
+
+		background:
+			radial-gradient(circle at 50% 50%, var(--relationship-stroke) 0 2px, transparent 2.5px),
+			radial-gradient(circle at 23% 50%, var(--relationship-stroke) 0 2px, transparent 2.5px),
+			radial-gradient(circle at 77% 50%, var(--relationship-stroke) 0 2px, transparent 2.5px),
+			radial-gradient(circle at 47% 50%, transparent 0 13px, var(--relationship-stroke) 13.5px 14.5px, transparent 15px),
+			radial-gradient(circle at 53% 50%, transparent 0 13px, var(--relationship-stroke) 13.5px 14.5px, transparent 15px),
+			radial-gradient(circle at 47% 50%, var(--relationship-canvas) 0 13px, transparent 13.5px),
+			radial-gradient(circle at 53% 50%, var(--relationship-canvas) 0 13px, transparent 13.5px),
+			linear-gradient(var(--relationship-line), var(--relationship-line)) center / 54% 1px no-repeat,
+			var(--relationship-canvas);
+		pointer-events: none;
+		user-select: none;
+	}
+
+	.selected-people-panel > .shared-rating-summary--below[data-metric-count] {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+
+	.selected-people-panel > .shared-rating-summary--below[data-metric-count="2"]::before,
+	.selected-people-panel > .shared-rating-summary--below[data-metric-count="2"]::after,
+	.selected-people-panel > .shared-rating-summary--below[data-metric-count="6"]::before,
+	.selected-people-panel > .shared-rating-summary--below[data-metric-count="6"]::after {
+		min-height: 64px;
+		background: var(--surface);
+		content: '';
+	}
+
+	.selected-people-panel > .shared-rating-summary--below[data-metric-count="2"]::before,
+	.selected-people-panel > .shared-rating-summary--below[data-metric-count="6"]::before {
+		grid-column: 3;
+	}
+
+	.selected-people-panel > .shared-rating-summary--below[data-metric-count="2"]::after,
+	.selected-people-panel > .shared-rating-summary--below[data-metric-count="6"]::after {
+		grid-column: 4;
+	}
+
+	.selected-people-panel > .shared-rating-summary--below[data-metric-count="2"]::before,
+	.selected-people-panel > .shared-rating-summary--below[data-metric-count="2"]::after {
+		grid-row: 1;
+	}
+
+	.selected-people-panel > .shared-rating-summary--below[data-metric-count="6"]::before,
+	.selected-people-panel > .shared-rating-summary--below[data-metric-count="6"]::after {
+		grid-row: 2;
+	}
+}
+
+@media (width < 780px) {
+	.analysis-dashboard--unified > .selected-people-panel {
+		width: auto;
+		margin-inline: var(--space-4);
+		padding: 0;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-card);
+		background: var(--surface);
+	}
+
+	.analysis-dashboard--unified > .selected-people-panel::after {
+		display: none;
+	}
+}

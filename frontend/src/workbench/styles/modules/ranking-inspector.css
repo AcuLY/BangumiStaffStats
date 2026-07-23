@@ -83,7 +83,7 @@
 
 .profile-metrics > span {
 	display: grid;
-	gap: 2px;
+	gap: var(--space-1);
 	padding: 10px 12px;
 	border-right: 1px solid var(--divider);
 }
@@ -210,6 +210,10 @@
 	flex: 0 0 auto;
 }
 
+.rating-distribution-panel__controls > .rating-distribution-panel__control-group:only-child {
+	margin-inline-start: auto;
+}
+
 .rating-distribution-panel__empty {
 	display: grid;
 	place-items: center;
@@ -322,6 +326,13 @@
 	max-width: 100%;
 	min-width: 0;
 	overflow: clip;
+}
+
+.rating-time-chart__meaning {
+	margin: 0 0 var(--space-2);
+	color: var(--text-3);
+	font-size: var(--text-caption);
+	line-height: 1.5;
 }
 
 .rating-time-chart {
