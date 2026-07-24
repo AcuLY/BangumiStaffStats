@@ -16,19 +16,18 @@
 The repository SHALL retain the project skill at
 `.agents/skills/impeccable/**`, declare `version: 4.0.2`, and match official
 tag `skill-v4.0.2` at peeled commit
-`fc2e694afca1ac0cc384b4fe56bab3335fea7912`. Updates SHALL use official CLI
-`impeccable@3.3.1` under Node `24.18.0`; npm CLI and Skill versions SHALL NOT be
-conflated.
+`fc2e694afca1ac0cc384b4fe56bab3335fea7912`. The accepted runtime SHALL be Node
+`24.18.0`; npm CLI `3.3.1` and Skill `4.0.2` versions SHALL NOT be conflated.
 
-#### Scenario: Supported project update succeeds
+#### Scenario: Existing official-updater candidate is accepted
 
-- **WHEN** the implementation owner runs the non-interactive project updater with an explicit Node 24 PATH
+- **WHEN** the implementation owner compares the existing candidate with the pinned official distribution
 - **THEN** the installed skill and Impeccable Codex hook match the pinned v4.0.2 distribution
-- **AND** a second updater run is repository-idempotent
+- **AND** runtime acceptance executes under Node 24 without another updater run
 
 #### Scenario: Latest Skill changes
 
-- **WHEN** the updater returns a Skill version other than v4.0.2 or the result differs from the pinned tag
+- **WHEN** the candidate declares a Skill version other than v4.0.2 or differs from the pinned tag
 - **THEN** apply SHALL stop without accepting or committing the candidate
 
 ### Requirement: Project context SHALL use one explicit formal SPA surface

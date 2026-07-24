@@ -17,7 +17,7 @@
 ## 2. Implementation — subagent
 
 - [ ] 2.1 Read the complete approved change; verify branch/planning HEAD, empty index, current candidate envelope, foreign untracked state, and protected paths before mutation.
-- [ ] 2.2 With Node 24 first in PATH, run `npx --yes impeccable@3.3.1 update --project --yes`; verify Skill v4.0.2 against official tag/commit and prove a second run is idempotent.
+- [ ] 2.2 Without rerunning the updater, verify the existing candidate's Skill v4.0.2 header, complete 127-file tree, and Codex hook against official tag/commit.
 - [ ] 2.3 Apply only the approved PRODUCT schema migration, exact route surface brief, and bounded root Impeccable ignore block.
 - [ ] 2.4 Verify every installed JavaScript file with Node 24 syntax checks; validate skill metadata, Codex hook merge, context, all surface resolutions, doctor JSON, and safe hook smoke behavior.
 - [ ] 2.5 Run targeted/all strict OpenSpec, OpenSpec doctor, Git diff checks, and exact changed-path inventory; prove DESIGN/sidecar/editor/Contracts/Wave 1B/runtime/remote state is untouched.

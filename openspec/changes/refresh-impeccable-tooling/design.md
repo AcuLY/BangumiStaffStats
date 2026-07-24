@@ -28,16 +28,17 @@ The updater changes the skill and merges its Codex hook; it does not migrate
 PRODUCT, create a surface brief, or edit `.gitignore`.
 
 An unaccepted candidate already exists because this CLI performs `update` even
-when called with `update --help`. Apply therefore reruns the supported command
-under the correct Node 24 PATH as an idempotency check and validates the
-candidate rather than discarding it.
+when called with `update --help`. A read-only comparison has already shown the
+127-file skill and hook match the pinned tag. Apply SHALL NOT rerun the updater:
+it follows the release that is latest at execution time, so another run would
+add a new-release race without adding evidence.
 
 ## Decisions
 
-### Use the official updater, then verify the pinned result
+### Verify the existing official-updater result
 
-The implementation owner SHALL use the official CLI instead of maintaining a
-custom downloader or filesystem transaction. After update it SHALL verify:
+The implementation owner SHALL validate the current candidate rather than
+maintain a custom downloader or filesystem transaction. It SHALL verify:
 
 - the installed `SKILL.md` declares `version: 4.0.2`;
 - the installed skill inventory matches the official `skill-v4.0.2` tag after
@@ -45,10 +46,9 @@ custom downloader or filesystem transaction. After update it SHALL verify:
   content;
 - the Impeccable entries in `.codex/hooks.json` match the official Codex
   distribution and preserve any unrelated hook entries;
-- a second supported update produces no repository delta.
 
-If the current latest payload is no longer v4.0.2, apply stops so the
-specification can be revised deliberately.
+If the candidate is not exactly v4.0.2, apply stops so the specification can be
+revised deliberately.
 
 ### Keep project design context at repository root
 
@@ -127,7 +127,6 @@ This does not require those steps for backend-only or updater-only changes.
 
 ## Verification
 
-- Run the official updater twice with an explicit Node 24 PATH.
 - Compare installed Skill/hook output with the pinned official tag.
 - Run `node --check` for every installed `.mjs` and `.js` file.
 - Run v4 context against `frontend`, surface path/list/read checks, doctor JSON,
@@ -138,8 +137,8 @@ This does not require those steps for backend-only or updater-only changes.
 
 ## Risks / Trade-offs
 
-- The updater follows the current Skill release, so post-update verification is
-  the pin. A version newer than v4.0.2 stops this change.
+- The updater follows the current Skill release, so the already-proven candidate
+  is retained and verified rather than fetched again.
 - Codex may require the user to re-approve the changed project hook in `/hooks`;
   this is a local trust UI action and not repository implementation.
 - The design sidecar remains intentionally stale until formal frontend
