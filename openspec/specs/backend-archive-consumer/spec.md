@@ -279,3 +279,30 @@ validation, and no residue.
 - **WHEN** all acceptance gates pass from the approved inputs
 - **THEN** only the internal consumer/startup capability SHALL be claimed
 - **AND** HTTP, observability, producer, operations, activation, and hot reload SHALL remain absent
+
+### Requirement: Consumer SHALL bind only the corrected raw-domain Archive v1
+
+The Go consumer SHALL bind its schema-object count/digest to the corrected
+compatibility matrix and SHALL execute the unchanged-path-set canonical corpus.
+Contract tests SHALL query the corrected minimal fixture and prove that raw
+cast roles and relation codes are SQLite integers, all five normalized subject
+types are readable, code `2` and code `3` retain their stored source direction,
+and no discarded text-normalized draft value is accepted.
+
+The consumer SHALL remain read-only and SHALL not derive series or cast-query
+semantics while loading. It validates the corrected shared authority; later
+backend domain work applies the accepted main/all and series predicates.
+
+#### Scenario: Corrected canonical bundle is loaded
+
+- **WHEN** the corrected manifest, SQLite bytes, schema digest, object seal,
+  dataVersion, and table counts agree
+- **THEN** the existing candidate loader SHALL accept the bundle
+- **AND** contract queries SHALL return the exact numeric raw-domain sentinels
+
+#### Scenario: Discarded draft identity is supplied
+
+- **WHEN** a bundle carries the prior draft schema/object/dataVersion identity
+  or text-normalized cast/relation data
+- **THEN** the existing fixed validation precedence SHALL reject it
+- **AND** no fallback tuple or content rewrite SHALL run

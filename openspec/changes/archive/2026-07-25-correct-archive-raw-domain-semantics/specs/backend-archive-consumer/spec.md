@@ -4,7 +4,7 @@
 |---|---|
 | Status | specified correction; implementation and verification pending |
 | Owner | Bounded correction owner for the accepted Go consumer; main agent accepts |
-| Writable paths | Only `backend/internal/archive/contract.go`, `backend/internal/archive/golden_test.go`, `backend/internal/archive/contracttest/archive_contract_test.go`, and declared OpenSpec paths |
+| Writable paths | Only `backend/internal/archive/contract.go`, `backend/internal/archive/golden_test.go`, `backend/internal/archive/contracttest/archive_contract_test.go`, `backend/internal/archive/mutation_test.go`, `backend/internal/archive/state_test.go`, and declared OpenSpec paths |
 | Read-only protected inputs | All other backend code, producer candidate, updater/catalog/frontend, other contracts/specs, refs/remotes, hosts, and production |
 | Deletion complement | Only the exact active-to-archive OpenSpec move; no backend deletion |
 | Mutable refs | The single accepted local correction commit; stash lifecycle belongs to the recovery owner |

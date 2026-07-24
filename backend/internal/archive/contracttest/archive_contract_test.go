@@ -16,19 +16,22 @@ import (
 )
 
 const (
-	outcomeValid               = "VALID"
-	outcomeManifestSchema      = "MANIFEST_SCHEMA_INVALID"
-	outcomeManifestAccounting  = "MANIFEST_ACCOUNTING_INVALID"
-	outcomeArchiveUnsupported  = "ARCHIVE_VERSION_UNSUPPORTED"
-	sqliteHeader               = "SQLite format 3\x00"
-	manifestFilename           = "archive-manifest.json"
-	pointerFilename            = "current-pointer.json"
-	sqliteFilename             = "bangumi.sqlite"
-	manifestSchemaFilename     = "archive-manifest.schema.json"
-	pointerSchemaFilename      = "current-pointer.schema.json"
-	compatibilityFilename      = "compatibility-matrix.json"
-	schemaSQLFilename          = "schema.sql"
-	archiveGoldenIndexFilename = "index.json"
+	outcomeValid                = "VALID"
+	outcomeManifestSchema       = "MANIFEST_SCHEMA_INVALID"
+	outcomeManifestAccounting   = "MANIFEST_ACCOUNTING_INVALID"
+	outcomeArchiveUnsupported   = "ARCHIVE_VERSION_UNSUPPORTED"
+	sqliteHeader                = "SQLite format 3\x00"
+	manifestFilename            = "archive-manifest.json"
+	pointerFilename             = "current-pointer.json"
+	sqliteFilename              = "bangumi.sqlite"
+	manifestSchemaFilename      = "archive-manifest.schema.json"
+	pointerSchemaFilename       = "current-pointer.schema.json"
+	compatibilityFilename       = "compatibility-matrix.json"
+	schemaSQLFilename           = "schema.sql"
+	archiveGoldenIndexFilename  = "index.json"
+	discardedSchemaSQLDigest    = "sha256:4a09c42d8f9c401fba24fe2c4b17a5f4a482825e1617cd40024757503e2bd249"
+	discardedSchemaObjectDigest = "sha256:f7b6b3795b16d32fad3503e7976d5598ca3e92e6327f2875fb745fb8d095f35d"
+	discardedDataVersion        = "dv1-9bcb52b9134d58713a5e3a54ca83c5fb77a595e52e06a56f755afe1f644e96eb"
 )
 
 type archiveIndex struct {
@@ -149,6 +152,84 @@ func TestIndexedArchiveFilesMatchTheirDigests(t *testing.T) {
 		}
 		if got := digest(data); got != entry.Digest {
 			t.Errorf("digest %s = %s, want %s", entry.Path, got, entry.Digest)
+		}
+	}
+}
+
+func TestCorrectedRawDomainAuthority(t *testing.T) {
+	authority := loadAuthority(t)
+	if len(authority.index.Files) != 32 {
+		t.Fatalf("indexed canonical paths = %d, want 32", len(authority.index.Files))
+	}
+	if len(authority.matrix.Supported) != 1 {
+		t.Fatalf("supported compatibility tuples = %d, want 1", len(authority.matrix.Supported))
+	}
+
+	schemaSQL := readFile(t, filepath.Join(authority.schemaRoot, schemaSQLFilename))
+	for _, fragment := range []string{
+		"relation_type INTEGER NOT NULL CHECK (",
+		"relation_type > 0",
+		"relation_type <= 9007199254740991",
+		"role_type INTEGER NOT NULL CHECK (role_type BETWEEN 1 AND 6)",
+	} {
+		if !bytes.Contains(schemaSQL, []byte(fragment)) {
+			t.Fatalf("schema.sql is missing raw-domain constraint %q", fragment)
+		}
+	}
+	for _, fragment := range []string{
+		"relation_type TEXT",
+		"role_type TEXT",
+		"role_type IN ('main', 'support', 'guest')",
+	} {
+		if bytes.Contains(schemaSQL, []byte(fragment)) {
+			t.Fatalf("schema.sql retains discarded text-domain fragment %q", fragment)
+		}
+	}
+	if got := digest(schemaSQL); got != authority.matrix.CanonicalSchema.SchemaSQLDigest {
+		t.Fatalf("canonical schema digest = %s, want %s", got, authority.matrix.CanonicalSchema.SchemaSQLDigest)
+	}
+	if authority.matrix.CanonicalSchema.SchemaSQLDigest == discardedSchemaSQLDigest ||
+		authority.matrix.CanonicalSchema.Digest == discardedSchemaObjectDigest {
+		t.Fatalf("compatibility matrix retains a discarded schema identity: %+v", authority.matrix.CanonicalSchema)
+	}
+
+	sentinels := make(map[string]int64, len(authority.matrix.Sentinels))
+	for _, sentinel := range authority.matrix.Sentinels {
+		sentinels[sentinel.ID] = sentinel.ExpectedInteger
+	}
+	for id, expected := range map[string]int64{
+		"main-cast-is-raw-role-1":                 1,
+		"all-cast-includes-raw-roles-1-through-6": 6,
+		"locked-raw-relation-domain":              52,
+		"relation-code-2-source-direction":        1,
+		"relation-code-3-source-direction":        1,
+		"raw-domain-text-values-absent":           0,
+		"normalized-subject-type-book":            1,
+		"normalized-subject-type-anime":           1,
+		"normalized-subject-type-music":           1,
+		"normalized-subject-type-game":            1,
+		"normalized-subject-type-real":            1,
+	} {
+		if got, ok := sentinels[id]; !ok || got != expected {
+			t.Fatalf("raw-domain sentinel %s = %d, present %t, want %d", id, got, ok, expected)
+		}
+	}
+
+	for _, path := range []string{
+		filepath.Join(authority.schemaRoot, compatibilityFilename),
+		filepath.Join(authority.goldenRoot, archiveGoldenIndexFilename),
+		filepath.Join(authority.goldenRoot, "valid", "minimal", manifestFilename),
+		filepath.Join(authority.goldenRoot, "valid", "minimal", pointerFilename),
+	} {
+		data := readFile(t, path)
+		for _, discarded := range []string{
+			discardedSchemaSQLDigest,
+			discardedSchemaObjectDigest,
+			discardedDataVersion,
+		} {
+			if bytes.Contains(data, []byte(discarded)) {
+				t.Fatalf("%s retains discarded draft identity %s", path, discarded)
+			}
 		}
 	}
 }

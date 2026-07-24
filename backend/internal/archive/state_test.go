@@ -245,7 +245,7 @@ func TestConcurrentReadsAndRepeatedClose(t *testing.T) {
 			if err := scanOne(store, "SELECT COUNT(*) FROM subject", &count); err != nil {
 				t.Errorf("concurrent read: %v", err)
 			}
-			if count != 4 {
+			if count != 8 {
 				t.Errorf("subject count = %d", count)
 			}
 		}()
@@ -336,8 +336,8 @@ func TestStoreCloseWaitsForActiveRowsBeforeReleasingVFS(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	if rowCount != 4 {
-		t.Fatalf("rows read during close = %d, want 4", rowCount)
+	if rowCount != 8 {
+		t.Fatalf("rows read during close = %d, want 8", rowCount)
 	}
 	if err := rows.Close(); err != nil {
 		t.Fatal(err)

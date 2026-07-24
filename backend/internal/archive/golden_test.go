@@ -335,6 +335,153 @@ func TestMinimalGoldenSentinelsUseMatrixValues(t *testing.T) {
 	}
 }
 
+func TestMinimalGoldenRawDomainsRemainNumericAndDirected(t *testing.T) {
+	root, dataVersion := arrangeValidCandidate(t, false)
+	store, err := LoadCandidate(context.Background(), root, dataVersion)
+	if err != nil {
+		t.Fatalf("load candidate: %v", err)
+	}
+	defer store.Close()
+
+	var castCount, castDistinct, castNonIntegers, castMinimum, castMaximum int64
+	queryOne(
+		t,
+		store,
+		`SELECT COUNT(*), COUNT(DISTINCT role_type),
+		        SUM(CASE WHEN typeof(role_type) <> 'integer' THEN 1 ELSE 0 END),
+		        MIN(role_type), MAX(role_type)
+		   FROM cast_credit
+		  WHERE eligible = 1 AND provenance = 'exact'`,
+		&castCount,
+		&castDistinct,
+		&castNonIntegers,
+		&castMinimum,
+		&castMaximum,
+	)
+	if castCount != 6 || castDistinct != 6 || castNonIntegers != 0 ||
+		castMinimum != 1 || castMaximum != 6 {
+		t.Fatalf(
+			"raw cast domain = count:%d distinct:%d nonInteger:%d range:%d..%d",
+			castCount,
+			castDistinct,
+			castNonIntegers,
+			castMinimum,
+			castMaximum,
+		)
+	}
+
+	var relationDistinct, relationNonIntegers, relationMinimum, relationMaximum int64
+	queryOne(
+		t,
+		store,
+		`SELECT COUNT(DISTINCT relation_type),
+		        SUM(CASE WHEN typeof(relation_type) <> 'integer' THEN 1 ELSE 0 END),
+		        MIN(relation_type), MAX(relation_type)
+		   FROM subject_relation`,
+		&relationDistinct,
+		&relationNonIntegers,
+		&relationMinimum,
+		&relationMaximum,
+	)
+	if relationDistinct != 52 || relationNonIntegers != 0 ||
+		relationMinimum != 1 || relationMaximum != 4099 {
+		t.Fatalf(
+			"raw relation domain = distinct:%d nonInteger:%d range:%d..%d",
+			relationDistinct,
+			relationNonIntegers,
+			relationMinimum,
+			relationMaximum,
+		)
+	}
+
+	var code2Type, code3Type string
+	var code2, code3 int64
+	queryOne(
+		t,
+		store,
+		`SELECT typeof(relation_type), relation_type
+		   FROM subject_relation
+		  WHERE subject_type = 'anime' AND subject_id = 1
+		    AND related_subject_type = 'anime' AND related_subject_id = 2
+		    AND relation_type = 2`,
+		&code2Type,
+		&code2,
+	)
+	queryOne(
+		t,
+		store,
+		`SELECT typeof(relation_type), relation_type
+		   FROM subject_relation
+		  WHERE subject_type = 'anime' AND subject_id = 2
+		    AND related_subject_type = 'anime' AND related_subject_id = 1
+		    AND relation_type = 3`,
+		&code3Type,
+		&code3,
+	)
+	if code2Type != "integer" || code2 != 2 ||
+		code3Type != "integer" || code3 != 3 {
+		t.Fatalf(
+			"directed raw relations = code2:(%s,%d) code3:(%s,%d)",
+			code2Type,
+			code2,
+			code3Type,
+			code3,
+		)
+	}
+
+	var book, anime, music, game, real int64
+	queryOne(
+		t,
+		store,
+		`SELECT
+		    SUM(CASE WHEN subject_type = 'book' THEN 1 ELSE 0 END),
+		    SUM(CASE WHEN subject_type = 'anime' THEN 1 ELSE 0 END),
+		    SUM(CASE WHEN subject_type = 'music' THEN 1 ELSE 0 END),
+		    SUM(CASE WHEN subject_type = 'game' THEN 1 ELSE 0 END),
+		    SUM(CASE WHEN subject_type = 'real' THEN 1 ELSE 0 END)
+		   FROM subject`,
+		&book,
+		&anime,
+		&music,
+		&game,
+		&real,
+	)
+	if book != 1 || anime != 4 || music != 1 || game != 1 || real != 1 {
+		t.Fatalf(
+			"normalized subject types = book:%d anime:%d music:%d game:%d real:%d",
+			book,
+			anime,
+			music,
+			game,
+			real,
+		)
+	}
+}
+
+func TestDiscardedDraftSchemaIdentityRejectedAtCompatibility(t *testing.T) {
+	const discardedDraftSchemaSQLDigest = "sha256:4a09c42d8f9c401fba24fe2c4b17a5f4a482825e1617cd40024757503e2bd249"
+
+	root, dataVersion := arrangeValidCandidate(t, false)
+	manifestPath := runtimeManifestPath(root, dataVersion)
+	var document map[string]any
+	mustDecodeJSON(t, mustReadFile(t, manifestPath), &document)
+	document["schemaSqlDigest"] = discardedDraftSchemaSQLDigest
+	mutated, err := json.MarshalIndent(document, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, append(mutated, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err := LoadCandidate(context.Background(), root, dataVersion)
+	if store != nil {
+		store.Close()
+		t.Fatal("discarded draft schema identity returned a store")
+	}
+	requireCode(t, err, CodeArchiveVersionUnsupported)
+}
+
 func TestCompiledContractConstantsMatchAuthority(t *testing.T) {
 	var matrix struct {
 		Supported []struct {

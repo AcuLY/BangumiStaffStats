@@ -1067,8 +1067,18 @@ function validateMatrix(matrix) {
     [
       "unknown-position-preserved-without-catalog-placeholder",
       "eligible-exact-cast",
+      "main-cast-is-raw-role-1",
+      "all-cast-includes-raw-roles-1-through-6",
+      "locked-raw-relation-domain",
+      "relation-code-2-source-direction",
+      "relation-code-3-source-direction",
+      "raw-domain-text-values-absent",
       "selectable-unknown-position-absent",
-      "minimal-anime-subject",
+      "normalized-subject-type-anime",
+      "normalized-subject-type-book",
+      "normalized-subject-type-music",
+      "normalized-subject-type-game",
+      "normalized-subject-type-real",
       "safe-subject-count",
       "nsfw-subject-count",
       "month-filter-eligible-subject-count",
@@ -1355,6 +1365,14 @@ function validateDdlAndBuilder(matrix) {
     ),
     "staff_credit must not foreign-key unknown positions to staff_position",
   );
+  invariant(
+    /relation_type\s+INTEGER\s+NOT NULL\s+CHECK\s*\(\s*relation_type\s*>\s*0\s+AND\s+relation_type\s*<=\s*9007199254740991\s*\)/i.test(text),
+    "DDL must preserve positive JSON-safe numeric relation types",
+  );
+  invariant(
+    /role_type\s+INTEGER\s+NOT NULL\s+CHECK\s*\(\s*role_type\s+BETWEEN\s+1\s+AND\s+6\s*\)/i.test(text),
+    "DDL must preserve numeric cast roles 1..6",
+  );
   const builder = path.join(TOOLING_ROOT, "build_sqlite_fixtures.py");
   const python = fs.realpathSync(run("/usr/bin/which", ["python3"]));
   const output = run(python, [builder, "--self-test"], {
@@ -1390,12 +1408,34 @@ function validateDdlAndBuilder(matrix) {
     rejectedSqlRows: 22,
     validSqlRows: 4,
   });
+  assert.deepEqual(report.rawDomains, {
+    subjectTypeMappings: 5,
+    castRoles: 6,
+    relationTypes: 52,
+    rejectedSubjectTypes: 8,
+    rejectedCastRoles: 8,
+    rejectedRelationTypes: 8,
+    rejectedSqlRows: 8,
+    subjectTypeDomainSeal: "5a78c4f014c3f76d16b2d902afb0e5f0ae25540fce9485c6a908f39abff55000",
+    castRoleDomainSeal: "c5d161527c5f9d09a2ed9cd76c4063481472f14da4dda40d19468bbfab4421a7",
+    relationTypeDomainSeal: "a12d764c98b4064df39a139914790aade8b6e887ca3d50e7b4c6a955ea4cd9ca",
+  });
   assert.deepEqual(report.inspection.sentinels, {
     "unknown-position-preserved-without-catalog-placeholder": 1,
-    "eligible-exact-cast": 1,
+    "eligible-exact-cast": 6,
+    "main-cast-is-raw-role-1": 1,
+    "all-cast-includes-raw-roles-1-through-6": 6,
+    "locked-raw-relation-domain": 52,
+    "relation-code-2-source-direction": 1,
+    "relation-code-3-source-direction": 1,
+    "raw-domain-text-values-absent": 0,
     "selectable-unknown-position-absent": 0,
-    "minimal-anime-subject": 1,
-    "safe-subject-count": 3,
+    "normalized-subject-type-anime": 1,
+    "normalized-subject-type-book": 1,
+    "normalized-subject-type-music": 1,
+    "normalized-subject-type-game": 1,
+    "normalized-subject-type-real": 1,
+    "safe-subject-count": 7,
     "nsfw-subject-count": 1,
     "month-filter-eligible-subject-count": 2,
     "year-only-date-preserved": 1,

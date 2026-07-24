@@ -24,6 +24,70 @@ GOLDEN_ROOT = CONTRACTS_ROOT / "goldens" / "archive"
 SCHEMA_SQL = SCHEMA_ROOT / "schema.sql"
 COMPATIBILITY_MATRIX = SCHEMA_ROOT / "compatibility-matrix.json"
 SAFE_INTEGER_MAX = 9_007_199_254_740_991
+SUBJECT_TYPE_MAP = {
+    1: "book",
+    2: "anime",
+    3: "music",
+    4: "game",
+    6: "real",
+}
+LOCKED_RELATION_TYPES = (
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    14,
+    99,
+    1002,
+    1003,
+    1004,
+    1005,
+    1006,
+    1007,
+    1008,
+    1010,
+    1011,
+    1012,
+    1013,
+    1014,
+    1015,
+    1099,
+    3001,
+    3002,
+    3003,
+    3004,
+    3005,
+    3006,
+    3007,
+    3099,
+    4002,
+    4003,
+    4006,
+    4007,
+    4008,
+    4009,
+    4010,
+    4012,
+    4013,
+    4014,
+    4015,
+    4016,
+    4017,
+    4018,
+    4019,
+    4099,
+)
+SUBJECT_TYPE_DOMAIN_SEAL = "5a78c4f014c3f76d16b2d902afb0e5f0ae25540fce9485c6a908f39abff55000"
+CAST_ROLE_DOMAIN_SEAL = "c5d161527c5f9d09a2ed9cd76c4063481472f14da4dda40d19468bbfab4421a7"
+RELATION_TYPE_DOMAIN_SEAL = "a12d764c98b4064df39a139914790aade8b6e887ca3d50e7b4c6a955ea4cd9ca"
 APPLICATION_ID = 1_111_969_107
 SQLITE_SCHEMA_VERSION = 1
 MANIFEST_SCHEMA_VERSION = 1
@@ -134,7 +198,65 @@ SENTINELS = (
     (
         "eligible-exact-cast",
         "SELECT COUNT(*) FROM cast_credit WHERE eligible = 1 AND provenance = 'exact'",
+        6,
+    ),
+    (
+        "main-cast-is-raw-role-1",
+        "SELECT COUNT(*) FROM cast_credit WHERE eligible = 1 AND role_type = 1",
         1,
+    ),
+    (
+        "all-cast-includes-raw-roles-1-through-6",
+        """
+        SELECT COUNT(*) FROM cast_credit
+        WHERE eligible = 1
+          AND provenance = 'exact'
+          AND typeof(role_type) = 'integer'
+          AND role_type BETWEEN 1 AND 6
+        """,
+        6,
+    ),
+    (
+        "locked-raw-relation-domain",
+        """
+        SELECT COUNT(DISTINCT relation_type) FROM subject_relation
+        WHERE typeof(relation_type) = 'integer'
+        """,
+        52,
+    ),
+    (
+        "relation-code-2-source-direction",
+        """
+        SELECT COUNT(*) FROM subject_relation
+        WHERE subject_type = 'anime'
+          AND subject_id = 1
+          AND related_subject_type = 'anime'
+          AND related_subject_id = 2
+          AND relation_type = 2
+        """,
+        1,
+    ),
+    (
+        "relation-code-3-source-direction",
+        """
+        SELECT COUNT(*) FROM subject_relation
+        WHERE subject_type = 'anime'
+          AND subject_id = 2
+          AND related_subject_type = 'anime'
+          AND related_subject_id = 1
+          AND relation_type = 3
+        """,
+        1,
+    ),
+    (
+        "raw-domain-text-values-absent",
+        """
+        SELECT
+          (SELECT COUNT(*) FROM cast_credit WHERE typeof(role_type) <> 'integer')
+          +
+          (SELECT COUNT(*) FROM subject_relation WHERE typeof(relation_type) <> 'integer')
+        """,
+        0,
     ),
     (
         "selectable-unknown-position-absent",
@@ -142,14 +264,34 @@ SENTINELS = (
         0,
     ),
     (
-        "minimal-anime-subject",
+        "normalized-subject-type-anime",
         "SELECT COUNT(*) FROM subject WHERE subject_type = 'anime' AND subject_id = 1",
+        1,
+    ),
+    (
+        "normalized-subject-type-book",
+        "SELECT COUNT(*) FROM subject WHERE subject_type = 'book' AND subject_id = 1",
+        1,
+    ),
+    (
+        "normalized-subject-type-music",
+        "SELECT COUNT(*) FROM subject WHERE subject_type = 'music' AND subject_id = 1",
+        1,
+    ),
+    (
+        "normalized-subject-type-game",
+        "SELECT COUNT(*) FROM subject WHERE subject_type = 'game' AND subject_id = 1",
+        1,
+    ),
+    (
+        "normalized-subject-type-real",
+        "SELECT COUNT(*) FROM subject WHERE subject_type = 'real' AND subject_id = 1",
         1,
     ),
     (
         "safe-subject-count",
         "SELECT COUNT(*) FROM subject WHERE nsfw = 0",
-        3,
+        7,
     ),
     (
         "nsfw-subject-count",
@@ -198,6 +340,167 @@ def days_in_month(year: int, month: int) -> int:
     if month in (4, 6, 9, 11):
         return 30
     return 31
+
+
+def normalized_subject_type(value: Any) -> str:
+    if type(value) is not int or value not in SUBJECT_TYPE_MAP:
+        fail(f"subject type is outside the registered source domain: {value!r}")
+    return SUBJECT_TYPE_MAP[value]
+
+
+def raw_cast_role_type(value: Any) -> int:
+    if type(value) is not int or not 1 <= value <= 6:
+        fail(f"cast role is outside the registered source domain: {value!r}")
+    return value
+
+
+def raw_relation_type(value: Any) -> int:
+    if type(value) is not int or not 1 <= value <= SAFE_INTEGER_MAX:
+        fail(f"relation type is not a positive JSON-safe source integer: {value!r}")
+    return value
+
+
+def raw_domain_self_test() -> dict[str, Any]:
+    mapped_types = tuple(
+        normalized_subject_type(value) for value in SUBJECT_TYPE_MAP
+    )
+    if mapped_types != ("book", "anime", "music", "game", "real"):
+        fail(f"subject type mapping drifted: {mapped_types!r}")
+    cast_roles = tuple(raw_cast_role_type(value) for value in range(1, 7))
+    relation_types = tuple(
+        raw_relation_type(value) for value in LOCKED_RELATION_TYPES
+    )
+
+    rejected_subject_types = (0, 5, 7, -1, None, True, 2.0, "2")
+    rejected_cast_roles = (0, 7, -1, SAFE_INTEGER_MAX, None, True, 1.0, "1")
+    rejected_relation_types = (
+        0,
+        -1,
+        SAFE_INTEGER_MAX + 1,
+        None,
+        True,
+        1.0,
+        2.5,
+        "2",
+    )
+    for function, values in (
+        (normalized_subject_type, rejected_subject_types),
+        (raw_cast_role_type, rejected_cast_roles),
+        (raw_relation_type, rejected_relation_types),
+    ):
+        for value in values:
+            try:
+                function(value)
+            except RuntimeError:
+                continue
+            fail(f"raw domain adapter accepted invalid value: {value!r}")
+
+    domain_preimages = {
+        "subjectTypeDomainSeal": "".join(
+            f"{value}\n" for value in SUBJECT_TYPE_MAP
+        ).encode("ascii"),
+        "castRoleDomainSeal": b"1\n2\n3\n4\n5\n6\n",
+        "relationTypeDomainSeal": "".join(
+            f"{value}\n" for value in LOCKED_RELATION_TYPES
+        ).encode("ascii"),
+    }
+    domain_seals = {
+        name: hashlib.sha256(preimage).hexdigest()
+        for name, preimage in domain_preimages.items()
+    }
+    expected_seals = {
+        "subjectTypeDomainSeal": SUBJECT_TYPE_DOMAIN_SEAL,
+        "castRoleDomainSeal": CAST_ROLE_DOMAIN_SEAL,
+        "relationTypeDomainSeal": RELATION_TYPE_DOMAIN_SEAL,
+    }
+    if domain_seals != expected_seals:
+        fail(f"locked raw domain seals drifted: {domain_seals!r}")
+
+    connection = sqlite3.connect(":memory:")
+    try:
+        connection.executescript(SCHEMA_SQL.read_text(encoding="utf-8"))
+        connection.executemany(
+            """
+            INSERT INTO subject (
+              subject_type, subject_id, name, nsfw, air_date,
+              air_date_precision, votes
+            ) VALUES (?, ?, ?, 0, NULL, NULL, 0)
+            """,
+            (
+                ("anime", 1, "raw-domain-source"),
+                ("anime", 2, "raw-domain-related"),
+            ),
+        )
+        connection.execute(
+            "INSERT INTO person VALUES (1, 'raw-domain-person', NULL, NULL)"
+        )
+        connection.execute(
+            "INSERT INTO character VALUES (1, 'raw-domain-character', NULL)"
+        )
+        connection.commit()
+        rejected_sql_rows = (
+            (
+                "cast-zero",
+                "INSERT INTO cast_credit VALUES ('anime', 1, 1, 1, ?, 0, 1, 'exact')",
+                0,
+            ),
+            (
+                "cast-seven",
+                "INSERT INTO cast_credit VALUES ('anime', 1, 1, 1, ?, 0, 1, 'exact')",
+                7,
+            ),
+            (
+                "cast-non-integral",
+                "INSERT INTO cast_credit VALUES ('anime', 1, 1, 1, ?, 0, 1, 'exact')",
+                1.5,
+            ),
+            (
+                "cast-text-label",
+                "INSERT INTO cast_credit VALUES ('anime', 1, 1, 1, ?, 0, 1, 'exact')",
+                "main",
+            ),
+            (
+                "relation-zero",
+                "INSERT INTO subject_relation VALUES ('anime', 1, 'anime', 2, ?)",
+                0,
+            ),
+            (
+                "relation-unsafe",
+                "INSERT INTO subject_relation VALUES ('anime', 1, 'anime', 2, ?)",
+                SAFE_INTEGER_MAX + 1,
+            ),
+            (
+                "relation-non-integral",
+                "INSERT INTO subject_relation VALUES ('anime', 1, 'anime', 2, ?)",
+                2.5,
+            ),
+            (
+                "relation-text-label",
+                "INSERT INTO subject_relation VALUES ('anime', 1, 'anime', 2, ?)",
+                "sequel",
+            ),
+        )
+        for label, statement, value in rejected_sql_rows:
+            try:
+                connection.execute(statement, (value,))
+                connection.rollback()
+            except sqlite3.DatabaseError:
+                connection.rollback()
+                continue
+            fail(f"SQLite accepted invalid raw domain row: {label}")
+    finally:
+        connection.close()
+
+    return {
+        "subjectTypeMappings": len(mapped_types),
+        "castRoles": len(cast_roles),
+        "relationTypes": len(relation_types),
+        "rejectedSubjectTypes": len(rejected_subject_types),
+        "rejectedCastRoles": len(rejected_cast_roles),
+        "rejectedRelationTypes": len(rejected_relation_types),
+        "rejectedSqlRows": len(rejected_sql_rows),
+        **domain_seals,
+    }
 
 
 def subject_semantics(
@@ -557,13 +860,13 @@ def semantic_inputs(sql_digest: str, sqlite_version: int = 1) -> dict[str, Any]:
 
 def source_files() -> list[dict[str, Any]]:
     accounting = {
-        "subject.jsonlines": (4, 4, 0, 0, 0),
-        "person.jsonlines": (2, 2, 0, 0, 0),
+        "subject.jsonlines": (8, 8, 0, 0, 0),
+        "person.jsonlines": (7, 7, 0, 0, 0),
         "character.jsonlines": (1, 1, 0, 0, 0),
         "subject-persons.jsonlines": (2, 1, 0, 0, 1),
-        "subject-characters.jsonlines": (1, 1, 0, 0, 0),
+        "subject-characters.jsonlines": (6, 6, 0, 0, 0),
         "person-characters.jsonlines": (1, 1, 0, 0, 0),
-        "subject-relations.jsonlines": (1, 1, 0, 0, 0),
+        "subject-relations.jsonlines": (52, 52, 0, 0, 0),
     }
     result: list[dict[str, Any]] = []
     for name in SOURCE_NAMES:
@@ -610,7 +913,7 @@ def insert_minimal_rows(connection: sqlite3.Connection, version: str, inputs: di
         """,
         (
             (
-                "anime",
+                normalized_subject_type(2),
                 1,
                 "Golden Animation",
                 "金标动画",
@@ -645,6 +948,42 @@ def insert_minimal_rows(connection: sqlite3.Connection, version: str, inputs: di
                 None,
                 0,
             ),
+            (
+                normalized_subject_type(1),
+                1,
+                "Golden Book",
+                "金标书籍",
+                *subject_semantics(False, None),
+                None,
+                0,
+            ),
+            (
+                normalized_subject_type(3),
+                1,
+                "Golden Music",
+                "金标音乐",
+                *subject_semantics(False, None),
+                None,
+                0,
+            ),
+            (
+                normalized_subject_type(4),
+                1,
+                "Golden Game",
+                "金标游戏",
+                *subject_semantics(False, None),
+                None,
+                0,
+            ),
+            (
+                normalized_subject_type(6),
+                1,
+                "Golden Real",
+                "金标三次元",
+                *subject_semantics(False, None),
+                None,
+                0,
+            ),
         ),
     )
     connection.executemany(
@@ -663,6 +1002,11 @@ def insert_minimal_rows(connection: sqlite3.Connection, version: str, inputs: di
         (
             (100, "Golden Director", "金标导演", None),
             (101, "Golden Voice", "金标声优", None),
+            (102, "Golden Voice 2", "金标声优二", None),
+            (103, "Golden Voice 3", "金标声优三", None),
+            (104, "Golden Voice 4", "金标声优四", None),
+            (105, "Golden Voice 5", "金标声优五", None),
+            (106, "Golden Voice 6", "金标声优六", None),
         ),
     )
     connection.execute("INSERT INTO person_career VALUES (?, ?)", (101, "seiyu"))
@@ -670,9 +1014,18 @@ def insert_minimal_rows(connection: sqlite3.Connection, version: str, inputs: di
         "INSERT INTO character VALUES (?, ?, ?)",
         (200, "Golden Character", "金标角色"),
     )
-    connection.execute(
+    connection.executemany(
         "INSERT INTO subject_relation VALUES (?, ?, ?, ?, ?)",
-        ("anime", 1, "anime", 2, "sequel"),
+        tuple(
+            (
+                "anime",
+                2 if relation_type == 3 else 1,
+                "anime",
+                1 if relation_type == 3 else 2,
+                raw_relation_type(relation_type),
+            )
+            for relation_type in LOCKED_RELATION_TYPES
+        ),
     )
     connection.execute(
         "INSERT INTO staff_position_category VALUES (?, ?, ?, ?)",
@@ -704,9 +1057,21 @@ def insert_minimal_rows(connection: sqlite3.Connection, version: str, inputs: di
             ("anime", 1, 101, 999999),
         ),
     )
-    connection.execute(
+    connection.executemany(
         "INSERT INTO cast_credit VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        ("anime", 1, 101, 200, "main", 1, 1, "exact"),
+        tuple(
+            (
+                "anime",
+                1,
+                100 + role_type,
+                200,
+                raw_cast_role_type(role_type),
+                role_type,
+                1,
+                "exact",
+            )
+            for role_type in range(1, 7)
+        ),
     )
     connection.executemany(
         """
@@ -788,7 +1153,7 @@ def insert_minimal_rows(connection: sqlite3.Connection, version: str, inputs: di
                 "select:cast:anime:main",
                 "cast:anime:main",
                 "exactCast",
-                "roleType=main",
+                "roleType=1",
             ),
         ),
     )
@@ -1288,6 +1653,7 @@ def generate(root: Path) -> dict[str, Any]:
         fail(f"golden root is a symlink: {root}")
     root.mkdir(parents=True, exist_ok=True)
     canonical_schema = canonical_schema_record()
+    raw_domain_report = raw_domain_self_test()
     subject_semantic_report = subject_semantics_self_test()
     schema_object_report = schema_object_self_test(canonical_schema)
     sql_bytes = SCHEMA_SQL.read_bytes()
@@ -1509,6 +1875,7 @@ def generate(root: Path) -> dict[str, Any]:
         "manifestDigest": sha256_bytes(json_bytes(valid_manifest)),
         "sqliteDigest": file_digest(valid_db),
         "goldenFileCount": len(entries) + 1,
+        "rawDomains": raw_domain_report,
         "subjectSemantics": subject_semantic_report,
         "schemaObjectSelfTest": schema_object_report,
         "sqlite": inspection,
@@ -1614,6 +1981,7 @@ def self_test() -> dict[str, Any]:
     inputs = semantic_inputs(sql_digest)
     version = data_version(inputs)
     canonical_schema = canonical_schema_record()
+    raw_domain_report = raw_domain_self_test()
     subject_semantic_report = subject_semantics_self_test()
     schema_object_report = schema_object_self_test(canonical_schema)
     with tempfile.TemporaryDirectory(prefix="sqlite-self-test-", dir=temp_parent) as directory:
@@ -1623,6 +1991,7 @@ def self_test() -> dict[str, Any]:
             "python": sys.version.split()[0],
             "sqlite": sqlite3.sqlite_version,
             "dataVersion": version,
+            "rawDomains": raw_domain_report,
             "subjectSemantics": subject_semantic_report,
             "schemaObjectSelfTest": schema_object_report,
             "inspection": inspect_valid_database(

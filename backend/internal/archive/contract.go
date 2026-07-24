@@ -19,9 +19,9 @@ const (
 	sqliteSchemaVersion    = 1
 	sqliteApplicationID    = 1111969107
 	dataVersionAlgorithm   = "bgmss-archive-data-version-v1"
-	schemaSQLDigest        = "sha256:4a09c42d8f9c401fba24fe2c4b17a5f4a482825e1617cd40024757503e2bd249"
+	schemaSQLDigest        = "sha256:fe3ff18c4601a6e7fae894db0a4c58e26a7ded6f2d8ad19716946db32789d7b8"
 	schemaObjectAlgorithm  = "bgmss-sqlite-schema-objects-v1"
-	schemaObjectDigest     = "sha256:f7b6b3795b16d32fad3503e7976d5598ca3e92e6327f2875fb745fb8d095f35d"
+	schemaObjectDigest     = "sha256:4f035a17c18ac49708d48ae333ac2aecefcbbbb279508162f43b893e1be71a46"
 	schemaObjectCount      = 35
 	sqliteFilename         = "bangumi.sqlite"
 	maxJSONInteger         = int64(9007199254740991)

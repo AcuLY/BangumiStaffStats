@@ -384,7 +384,7 @@ func TestStoreRawQueryBoundaryRejectsUnsafeSQLBeforeDriver(t *testing.T) {
 
 	var count int64
 	queryOne(t, store, " \nSELECT COUNT(*) FROM subject", &count)
-	if count != 4 {
+	if count != 8 {
 		t.Fatalf("SELECT count = %d", count)
 	}
 	queryOne(
@@ -393,7 +393,7 @@ func TestStoreRawQueryBoundaryRejectsUnsafeSQLBeforeDriver(t *testing.T) {
 		"WITH selected AS (SELECT subject_id FROM subject) SELECT COUNT(*) FROM selected",
 		&count,
 	)
-	if count != 4 {
+	if count != 8 {
 		t.Fatalf("WITH count = %d", count)
 	}
 	maximumLengthQuery := "SELECT 1" + strings.Repeat(" ", maxReadQueryBytes-len("SELECT 1"))

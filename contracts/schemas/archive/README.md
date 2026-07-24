@@ -43,9 +43,9 @@ and is valid despite occupying 2051 bytes.
 The indexed `vectors/manifest-string-semantics.json` is the shared Node,
 Python, and isolated-Go evidence. It fixes 25 JSON-string cases plus one
 ephemeral raw-byte recipe that preserves the `archiveAssetUrl` string
-delimiters and replaces exactly its payload with bytes `C3 28`. The prior 31
-golden paths and bytes remain unchanged; the new vector is the only added
-golden and makes the closed index contain exactly 32 paths.
+delimiters and replaces exactly its payload with bytes `C3 28`. It remains one
+of the closed corpus's fixed 32 paths; the pre-snapshot raw-domain correction
+regenerates schema-dependent bytes without adding or removing a path.
 
 The digest construction is deliberately acyclic:
 
@@ -111,6 +111,29 @@ ASCII digit shape, rejects embedded NUL/trailing bytes, checks year
 date normalization. Precision is derived only from the registered raw string
 shape. Month filters and quarter/timeline derivation use only precision 2 or 3;
 null and year-only dates are excluded rather than inferred as January or Q1.
+
+## Raw upstream domains
+
+Archive storage preserves upstream numeric facts instead of converting them to
+display labels. `cast_credit.role_type` is an integer in the exact range
+`1..6`; main cast is the query predicate `role_type = 1`, while all cast
+includes every eligible exact row in `1..6`. `subject_relation.relation_type`
+is the exact positive JSON-safe integer (`1..9007199254740991`) and each row
+keeps the dump direction `subject_id -> related_subject_id`. Series eligibility
+is downstream logic and never rewrites, filters, or reverses the stored fact.
+
+The source adapter is a closed map: `1=book`, `2=anime`, `3=music`, `4=game`,
+and `6=real`. Other subject codes, non-integer source values, cast roles outside
+`1..6`, and non-positive or unsafe relation codes fail before finalization.
+The deterministic fixture round-trips all five normalized subject types, all
+six cast roles, directed relation codes `2` and `3`, and the locked 52-code
+relation domain. Its sorted newline-delimited domain seals are
+`5a78c4f014c3f76d16b2d902afb0e5f0ae25540fce9485c6a908f39abff55000`
+for subject types,
+`c5d161527c5f9d09a2ed9cd76c4063481472f14da4dda40d19468bbfab4421a7`
+for cast roles, and
+`a12d764c98b4064df39a139914790aade8b6e887ca3d50e7b4c6a955ea4cd9ca`
+for relation types.
 
 ## Local verification
 

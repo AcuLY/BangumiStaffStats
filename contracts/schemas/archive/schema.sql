@@ -136,7 +136,10 @@ CREATE TABLE subject_relation (
   subject_id INTEGER NOT NULL,
   related_subject_type TEXT NOT NULL CHECK (related_subject_type IN ('book', 'anime', 'music', 'game', 'real')),
   related_subject_id INTEGER NOT NULL CHECK (related_subject_id > 0),
-  relation_type TEXT NOT NULL CHECK (length(relation_type) BETWEEN 1 AND 64),
+  relation_type INTEGER NOT NULL CHECK (
+    relation_type > 0
+    AND relation_type <= 9007199254740991
+  ),
   PRIMARY KEY (subject_type, subject_id, related_subject_type, related_subject_id, relation_type),
   FOREIGN KEY (subject_type, subject_id) REFERENCES subject (subject_type, subject_id),
   FOREIGN KEY (related_subject_type, related_subject_id) REFERENCES subject (subject_type, subject_id)
@@ -181,7 +184,7 @@ CREATE TABLE cast_credit (
   subject_id INTEGER NOT NULL,
   person_id INTEGER NOT NULL,
   character_id INTEGER NOT NULL,
-  role_type TEXT NOT NULL CHECK (role_type IN ('main', 'support', 'guest')),
+  role_type INTEGER NOT NULL CHECK (role_type BETWEEN 1 AND 6),
   sort_order INTEGER NOT NULL CHECK (sort_order >= 0),
   eligible INTEGER NOT NULL CHECK (eligible = 1),
   provenance TEXT NOT NULL CHECK (provenance = 'exact'),

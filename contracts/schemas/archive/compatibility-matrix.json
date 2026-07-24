@@ -10,9 +10,9 @@
     }
   ],
   "canonicalSchema": {
-    "schemaSqlDigest": "sha256:4a09c42d8f9c401fba24fe2c4b17a5f4a482825e1617cd40024757503e2bd249",
+    "schemaSqlDigest": "sha256:fe3ff18c4601a6e7fae894db0a4c58e26a7ded6f2d8ad19716946db32789d7b8",
     "algorithm": "bgmss-sqlite-schema-objects-v1",
-    "digest": "sha256:f7b6b3795b16d32fad3503e7976d5598ca3e92e6327f2875fb745fb8d095f35d",
+    "digest": "sha256:4f035a17c18ac49708d48ae333ac2aecefcbbbb279508162f43b893e1be71a46",
     "objectCount": 35
   },
   "requiredTables": [
@@ -143,7 +143,37 @@
     {
       "id": "eligible-exact-cast",
       "sql": "SELECT COUNT(*) FROM cast_credit WHERE eligible = 1 AND provenance = 'exact'",
+      "expectedInteger": 6
+    },
+    {
+      "id": "main-cast-is-raw-role-1",
+      "sql": "SELECT COUNT(*) FROM cast_credit WHERE eligible = 1 AND role_type = 1",
       "expectedInteger": 1
+    },
+    {
+      "id": "all-cast-includes-raw-roles-1-through-6",
+      "sql": "SELECT COUNT(*) FROM cast_credit WHERE eligible = 1 AND provenance = 'exact' AND typeof(role_type) = 'integer' AND role_type BETWEEN 1 AND 6",
+      "expectedInteger": 6
+    },
+    {
+      "id": "locked-raw-relation-domain",
+      "sql": "SELECT COUNT(DISTINCT relation_type) FROM subject_relation WHERE typeof(relation_type) = 'integer'",
+      "expectedInteger": 52
+    },
+    {
+      "id": "relation-code-2-source-direction",
+      "sql": "SELECT COUNT(*) FROM subject_relation WHERE subject_type = 'anime' AND subject_id = 1 AND related_subject_type = 'anime' AND related_subject_id = 2 AND relation_type = 2",
+      "expectedInteger": 1
+    },
+    {
+      "id": "relation-code-3-source-direction",
+      "sql": "SELECT COUNT(*) FROM subject_relation WHERE subject_type = 'anime' AND subject_id = 2 AND related_subject_type = 'anime' AND related_subject_id = 1 AND relation_type = 3",
+      "expectedInteger": 1
+    },
+    {
+      "id": "raw-domain-text-values-absent",
+      "sql": "SELECT (SELECT COUNT(*) FROM cast_credit WHERE typeof(role_type) <> 'integer') + (SELECT COUNT(*) FROM subject_relation WHERE typeof(relation_type) <> 'integer')",
+      "expectedInteger": 0
     },
     {
       "id": "selectable-unknown-position-absent",
@@ -151,14 +181,34 @@
       "expectedInteger": 0
     },
     {
-      "id": "minimal-anime-subject",
+      "id": "normalized-subject-type-anime",
       "sql": "SELECT COUNT(*) FROM subject WHERE subject_type = 'anime' AND subject_id = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "normalized-subject-type-book",
+      "sql": "SELECT COUNT(*) FROM subject WHERE subject_type = 'book' AND subject_id = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "normalized-subject-type-music",
+      "sql": "SELECT COUNT(*) FROM subject WHERE subject_type = 'music' AND subject_id = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "normalized-subject-type-game",
+      "sql": "SELECT COUNT(*) FROM subject WHERE subject_type = 'game' AND subject_id = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "normalized-subject-type-real",
+      "sql": "SELECT COUNT(*) FROM subject WHERE subject_type = 'real' AND subject_id = 1",
       "expectedInteger": 1
     },
     {
       "id": "safe-subject-count",
       "sql": "SELECT COUNT(*) FROM subject WHERE nsfw = 0",
-      "expectedInteger": 3
+      "expectedInteger": 7
     },
     {
       "id": "nsfw-subject-count",
