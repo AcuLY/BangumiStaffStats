@@ -1,8 +1,6 @@
 # Product
 
-## Register
-
-product
+<!-- impeccable:product-schema 1 -->
 
 ## Platform
 

@@ -2,7 +2,7 @@
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: unaccepted updater candidate only; verified: official CLI/Skill/tag/commit, exact 127-file skill, official hook provenance, and strict planning checks passed; full candidate acceptance pending; committed: planning status is determined by containing Git history and final upgrade commit is not yet claimed; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: approved; implemented: complete; verified: official provenance plus implementation-owner and main acceptance passed; committed: planning checkpoints `0dbefcf` and `769c9bc`, while final implementation/archive status is determined by the containing Git history; pushed: no; released: no; deployed: no |
 | Owner | Main owns specification and acceptance; one implementation subagent owns the idempotent updater/adaptation/validation block. |
 | Scope | Only the exact tooling, project-context, surface, ignore, task, and lifecycle paths declared by the proposal may change. |
 

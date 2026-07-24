@@ -47,7 +47,7 @@ None.
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: unaccepted updater candidate only; verified: official CLI/Skill/tag/commit, exact 127-file skill, official hook provenance, and strict planning checks passed; full candidate acceptance pending; committed: planning status is determined by containing Git history and final upgrade commit is not yet claimed; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: approved; implemented: complete; verified: official provenance plus implementation-owner and main acceptance passed; committed: planning checkpoints `0dbefcf` and `769c9bc`, while final implementation/archive status is determined by the containing Git history; pushed: no; released: no; deployed: no |
 | Owner | Main owns decisions, specification, acceptance, lifecycle, and small corrections. One implementation subagent owns the idempotent updater rerun, project adaptation, and validation because the large vendored-tree context is worth isolating. |
 | Writable paths | Planning: this change's five artifacts. Apply: `.agents/skills/impeccable/**`, `.codex/hooks.json`, `.gitignore`, `PRODUCT.md`, `.impeccable/surfaces/route.md`, and task checkboxes. Lifecycle: the exact archive and `openspec/specs/frontend-impeccable-tooling/spec.md`. |
 | Protected inputs | `DESIGN.md`, `.impeccable/design.json`, `.vscode/**`, `contracts/**`, `tmp-formal-development/**`, the three Wave 1B changes, application/runtime roots, remotes, and production state. |
