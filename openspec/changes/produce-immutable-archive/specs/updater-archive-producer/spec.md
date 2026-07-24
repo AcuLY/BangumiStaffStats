@@ -8,9 +8,9 @@
 | Read-only protected inputs | All contracts, accepted backend consumer, guides/specs, other runtime roots/changes, refs/remotes, hosts and production. |
 | Deletion complement | None. |
 | Mutable refs | None. |
-| Consumes | Accepted foundations/consumer, the corrected Archive subject contract, Contracts producer cases, and one explicit source/build request. |
+| Consumes | Accepted foundations/consumer, the corrected Archive subject and manifest-string contract, Contracts producer cases, and one explicit source/build request. |
 | Produces | One inactive `versions/<dataVersion>/{manifest.json,bangumi.sqlite}` or bounded no-change/failure evidence. |
-| Dependencies | Accepted `contracts-archive-manifest`, exited `correct-archive-subject-semantics`, `updater-runtime-foundation`, `backend-archive-consumer`, and `backend/cmd/archive-smoke`; PyYAML `6.0.3`. |
+| Dependencies | Accepted `contracts-archive-manifest`, exited `correct-archive-subject-semantics` and `harden-archive-manifest-string-semantics`, `updater-runtime-foundation`, `backend-archive-consumer`, and `backend/cmd/archive-smoke`; PyYAML `6.0.3`. |
 | Deliverables | One-shot CLI/API, acquisition/staging/builder/gates/finalizer, tests/lock/docs. |
 | Acceptance | Synthetic and complete-source smoke, Go candidate validation, reproducibility, full Python/dependency/residue gates. |
 | Non-goals | Pointer/current, activation/reload/rollback, schedule/daemon/lock/restart, catalog enrichment, API/query, operations. |
@@ -72,9 +72,24 @@ digest and the actual 35-object `bgmss-sqlite-schema-objects-v1` seal from the
 fresh database. A matching name set or copied digest claim SHALL NOT permit a
 weakened or extra explicit object to reach manifest creation or Go smoke.
 
+The real Python manifest finalizer SHALL execute the exited string contract
+before writing `manifest.json`: `generatedAt` SHALL be the exact
+calendar-valid UTC `YYYY-MM-DDTHH:mm:ss[.1..6]Z` subset with year
+`0001..9999`; each URL SHALL contain only Unicode scalar values and be bounded
+inclusively at 12 through 2048 scalars, never encoded bytes; and surrogate code
+points SHALL be rejected rather than normalized or replaced. Every indexed
+`manifest-string-semantics.json` case, including the exact `C3 28` raw-byte
+recipe, SHALL pass through this runtime finalizer boundary. The Contracts
+isolated Python probe alone SHALL NOT satisfy producer acceptance.
+
 #### Scenario: Identical semantics are regenerated
 - **WHEN** the same source/common/schema/rules/catalog inputs are rebuilt in another staging root
 - **THEN** dataVersion, accounting, counts, and canonical logical-row digests SHALL match
+
+#### Scenario: Manifest strings cross the producer boundary
+- **WHEN** the indexed valid and invalid timestamp, scalar-length, surrogate, and raw-byte cases are applied to the real finalizer
+- **THEN** valid cases SHALL produce canonical manifest bytes
+- **AND** every invalid case SHALL fail before inactive publication with no final candidate
 
 ### Requirement: Go validation SHALL precede inactive atomic publication
 

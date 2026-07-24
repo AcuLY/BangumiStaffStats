@@ -10,9 +10,9 @@
 | Read-only protected inputs | Shared Archive schemas/matrix/goldens, root specs, guides, other code/changes, refs/remotes, hosts, and production. |
 | Deletion complement | None. |
 | Mutable refs | None during apply. |
-| Consumes | The corrected root Archive/runtime specs, corrected shared indexed corpus, and caller-supplied root. |
+| Consumes | The corrected and string-hardened root Archive/runtime specs, corrected shared indexed corpus, and caller-supplied root. |
 | Produces | `backend/internal/archive` runtime store, minimal application assembly, and a development-only candidate-smoke CLI. |
-| Dependencies | `contracts-archive-manifest`, `backend-runtime-foundation`, accepted/exited `correct-archive-subject-semantics`, Go `1.26.5`, and driver pins below. |
+| Dependencies | `contracts-archive-manifest`, `backend-runtime-foundation`, accepted/exited `correct-archive-subject-semantics` and `harden-archive-manifest-string-semantics`, Go `1.26.5`, and driver pins below. |
 | Deliverables | Loader/state/store, startup/shutdown wiring, candidate-smoke CLI, dependency/path guards, tests. |
 | Acceptance | Full indexed corpus, added mutation/path/write/concurrency/lifecycle cases, full/race/vet/build and repository gates. |
 | Non-goals | HTTP, observability, producer, catalog/query semantics, activation/hot reload/rollback, operations. |
@@ -69,6 +69,17 @@ bytes, then perform the one-value strict JSON decode. This rejection precedes
 shape, compatibility, digest, or publication decisions and is covered by
 temporary invalid-byte mutations whose replacement text would otherwise remain
 schema-valid.
+
+The manifest decoder additionally implements the exited string hardening before
+source accounting: it validates the exact calendar-valid UTC
+`YYYY-MM-DDTHH:mm:ss[.1..6]Z` subset with years `0001..9999`; scans raw JSON
+string escapes so an isolated high or low surrogate fails before
+`encoding/json` can replace it; and counts both URL fields by validated Unicode
+scalar values in the inclusive `12..2048` range rather than UTF-8 bytes. The
+backend tests execute every case in the indexed
+`manifest-string-semantics.json` through this real decoder, including the exact
+`C3 28` raw-byte recipe. The Contracts isolated Go probe is evidence for the
+language-neutral rule, not a substitute for this runtime proof.
 
 Validation follows `compatibility-matrix.json` precedence: fatal UTF-8 and
 strict manifest shape/accounting; supported tuple; recomputed dataVersion;
@@ -151,7 +162,11 @@ Shutdown first stops serving, atomically clears readiness, and closes the winner
 
 ## Migration Plan
 
-Apply the consumer and pins, wire the required root into startup, then run all acceptance gates. No data migration, activation, deployment, or rollback action occurs; failure leaves the prior code candidate unaccepted.
+After both Archive contract corrections exit, apply the consumer and pins, wire
+the required root into startup, execute the shared manifest-string vector
+through the runtime decoder, then run all acceptance gates. No data migration,
+activation, deployment, or rollback action occurs; failure leaves the prior
+code candidate unaccepted.
 
 ## Open Questions
 

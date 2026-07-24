@@ -8,9 +8,9 @@
 | Read-only protected inputs | `contracts/**`, root specs, guides, all other code/changes, refs/remotes, hosts, and production. |
 | Deletion complement | None. |
 | Mutable refs | None during apply. |
-| Consumes | The accepted `correct-archive-subject-semantics` revision of `contracts-archive-manifest`, `backend-runtime-foundation`, corrected shared indexed goldens, and one caller-approved Archive root. |
+| Consumes | The accepted `correct-archive-subject-semantics` and `harden-archive-manifest-string-semantics` revisions of `contracts-archive-manifest`, `backend-runtime-foundation`, corrected shared indexed goldens, and one caller-approved Archive root. |
 | Produces | One internal immutable Archive store, atomic readiness state, and development-only pointer-free candidate-smoke CLI. |
-| Dependencies | Completed contract/runtime foundations, accepted/exited `correct-archive-subject-semantics`, Go `1.26.5`, `modernc.org/sqlite v1.54.0`, `modernc.org/libc v1.74.1`. |
+| Dependencies | Completed contract/runtime foundations, accepted/exited `correct-archive-subject-semantics` and `harden-archive-manifest-string-semantics`, Go `1.26.5`, `modernc.org/sqlite v1.54.0`, `modernc.org/libc v1.74.1`. |
 | Deliverables | Strict loader, bounded read pool, state/lifecycle assembly, guards, and tests. |
 | Acceptance | Full corpus plus path/write/concurrency/lifecycle tests and full/race/vet/build/OpenSpec gates. |
 | Non-goals | HTTP, observability, producer, activation/hot reload/rollback, catalog/query implementation, operations. |
@@ -70,6 +70,15 @@ every required table/index; then every manifest table count. Runtime selection
 SHALL additionally validate pointer shape, manifest digest, and
 pointer/manifest identity before publication.
 
+Strict manifest validation SHALL apply the exited string hardening before
+source accounting. `generatedAt` SHALL use the exact calendar-valid UTC
+`YYYY-MM-DDTHH:mm:ss[.1..6]Z` subset with years `0001..9999`, real Gregorian
+dates, hour `00..23`, and minute/second `00..59`. Both URL fields SHALL contain
+only Unicode scalar values and be bounded inclusively at 12 through 2048
+scalars, never UTF-8 bytes. The consumer SHALL inspect raw JSON string escapes
+and reject an isolated high or low surrogate before `encoding/json` can replace
+it with U+FFFD; a legal pair SHALL count as one scalar.
+
 Manifest, directory, SQLite metadata, and recomputed dataVersion SHALL agree;
 runtime current identity SHALL also agree. The first failure SHALL return the
 shared stable outcome and SHALL close the candidate.
@@ -109,6 +118,13 @@ full Archive candidate.
 
 - **WHEN** any indexed invalid bundle or a derived missing-table, missing-index, metadata, integrity, foreign-key, or count mutation is loaded
 - **THEN** its first applicable stable outcome SHALL be returned and no store SHALL publish
+
+#### Scenario: Manifest string semantics are exercised by the runtime
+
+- **WHEN** every case in the indexed `manifest-string-semantics.json`, including the exact `C3 28` raw-byte recipe, is passed through the real Go manifest decoder
+- **THEN** valid calendar, fraction, scalar-length, and legal-pair cases SHALL be accepted
+- **AND** impossible time, below/above-bound URL, isolated-surrogate, and malformed-byte cases SHALL return `MANIFEST_SCHEMA_INVALID` before later gates
+- **AND** the isolated Contracts Go probe alone SHALL NOT satisfy this runtime acceptance
 
 ### Requirement: SQLite SHALL be opened read-only and bounded
 
@@ -203,6 +219,9 @@ Tests SHALL consume every case group indexed by
 only against the minimal fixture, and add only temporary mutations for
 malformed pointer/manifest UTF-8 and missing/path/write/lifecycle behavior. No
 contract/schema/golden copy SHALL be committed.
+Every indexed manifest-string case SHALL execute through the real Go manifest
+decoder, including exact timestamp arithmetic, scalar counting, raw surrogate
+inspection, and the malformed-byte recipe.
 Acceptance SHALL include targeted/full tests, a separate `go test -race ./...`
 with the host race toolchain, vet, ordinary `CGO_ENABLED=0` build/test,
 architecture/dependency and persistent-inventory guards, strict change/all

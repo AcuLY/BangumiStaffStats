@@ -10,6 +10,10 @@ The backend foundation only checks Archive contract evidence; it cannot open a r
 - Decode pointer and manifest files from fatal UTF-8 bytes before JSON parsing;
   malformed source bytes cannot become replacement characters even when all
   surrounding shapes and digests are otherwise valid.
+- Enforce the accepted `harden-archive-manifest-string-semantics` contract at
+  the real Go manifest boundary: exact calendar-valid UTC `generatedAt`,
+  Unicode-scalar URL bounds, raw isolated-surrogate rejection before
+  `encoding/json` replacement, and the shared indexed string vector.
 - Validate manifest/digest/version/object/count and SQLite invariants, keep the
   compatibility matrix's exact sentinel values scoped to its minimal golden,
   then open SQLite read-only/no-create.
@@ -39,11 +43,11 @@ None.
 | Read-only protected inputs | `contracts/**`, root `openspec/specs/**`, formal guides/master plan, `PRODUCT.md`, `DESIGN.md`, all other backend/frontend/updater files, other changes, Git refs/remotes, hosts, and production. |
 | Deletion complement | None; no existing file or authority may be deleted. |
 | Mutable refs | None during apply; no stage, commit, archive, branch/ref mutation, or push. |
-| Consumes | The accepted `correct-archive-subject-semantics` revision of `contracts-archive-manifest`, `backend-runtime-foundation`, the corrected shared goldens, and a caller-approved local Archive root. |
+| Consumes | The accepted `correct-archive-subject-semantics` and `harden-archive-manifest-string-semantics` revisions of `contracts-archive-manifest`, `backend-runtime-foundation`, the corrected shared goldens, and a caller-approved local Archive root. |
 | Produces | One internal read-only store/readiness state, startup assembly, and development-only candidate-smoke CLI; no HTTP, producer, activation, or operations artifact. |
-| Dependencies | Implemented `define-archive-manifest-contract` and `bootstrap-backend-runtime`, plus accepted/exited `correct-archive-subject-semantics` before final consumer acceptance; exact Go `1.26.5`; pinned SQLite dependencies named in design. |
-| Deliverables | Consumer package with fatal UTF-8 contract decoding and canonical actual-SQLite schema-object seal verification, minimal startup wiring, candidate-smoke CLI, dependency/architecture/check updates, and tests. |
-| Acceptance | Corrected shared valid/invalid goldens, invalid-UTF-8 pointer/manifest mutations, weakened-definition/extra-object mutations, extra path/write/concurrency/lifecycle cases, `go test ./...`, `go test -race ./...`, vet/build, dependency/inventory checks, strict change/all validation, and no residue. |
+| Dependencies | Implemented `define-archive-manifest-contract` and `bootstrap-backend-runtime`, plus accepted/exited `correct-archive-subject-semantics` and `harden-archive-manifest-string-semantics` before final consumer acceptance; exact Go `1.26.5`; pinned SQLite dependencies named in design. |
+| Deliverables | Consumer package with fatal UTF-8 contract decoding, exact generated-time/Unicode-scalar/surrogate validation, shared manifest-string vector execution, and canonical actual-SQLite schema-object seal verification; minimal startup wiring, candidate-smoke CLI, dependency/architecture/check updates, and tests. |
+| Acceptance | Corrected shared valid/invalid goldens and all indexed manifest-string cases through the real Go decoder, invalid-UTF-8 pointer/manifest mutations, weakened-definition/extra-object mutations, extra path/write/concurrency/lifecycle cases, `go test ./...`, `go test -race ./...`, vet/build, dependency/inventory checks, strict change/all validation, and no residue. |
 | Non-goals | Archive production or activation, pointer switching/hot reload/rollback, HTTP/readiness routes, observability, catalog/domain/query behavior, operations, deployment, or legacy work. |
 | Operations deferred | Production roots, scheduling, activation, restart, rollback, retention, systemd/Compose/nginx, release, and deployment remain later work. |
 | Stop/rollback conditions | Stop on authority/dependency/path drift, overlapping writes, or a failed gate. Close the unpublished candidate, keep not-ready, and revert only this owned candidate; never rewrite protected input or external state. |

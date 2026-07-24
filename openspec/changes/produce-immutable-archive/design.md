@@ -15,9 +15,9 @@ producer owner writes backend or contract authority.
 | Read-only protected inputs | Archive schemas, remaining contracts, accepted consumer, guides/specs, other code/changes, refs/remotes, hosts, and production. |
 | Deletion complement | None. |
 | Mutable refs | None during apply. |
-| Consumes | Corrected accepted Archive/updater contracts, corrected Contracts corpus, exact public sources, and accepted `backend/cmd/archive-smoke`. |
+| Consumes | Corrected and string-hardened accepted Archive/updater contracts, corrected Contracts corpus, exact public sources, and accepted `backend/cmd/archive-smoke`. |
 | Produces | Indexed synthetic cases and one closed inactive Archive version after every staging gate. |
-| Dependencies | The two accepted foundations plus accepted/exited `correct-archive-subject-semantics` and accepted `implement-backend-archive-consumer`; PyYAML `6.0.3`. |
+| Dependencies | The two accepted foundations plus accepted/exited `correct-archive-subject-semantics` and `harden-archive-manifest-string-semantics`, and accepted `implement-backend-archive-consumer`; PyYAML `6.0.3`. |
 | Deliverables | Acquisition, streaming builder, strict gates, manifest/finalization, consumer smoke, tests/docs/lock. |
 | Acceptance | Synthetic matrix, disposable complete-source smoke, reproducibility, consumer, Python/dependency/OpenSpec/inventory gates. |
 | Non-goals | Activation/current pointer, schedule/daemon/lock/restart, business endpoints/catalog enrichment, operations. |
@@ -65,6 +65,16 @@ and actual 35-object `sqlite_schema` seal, foreign-key/integrity checks,
 manifest counts and quality invariants, read-only reopen, and deterministic
 logical-row digests. The authority supplies dataVersion and digest order:
 semantic inputs, final SQLite, then manifest.
+
+The real Python manifest finalizer applies the exited string hardening before
+writing bytes: it emits only an exact calendar-valid UTC
+`YYYY-MM-DDTHH:mm:ss[.1..6]Z` value with year `0001..9999`, rejects either URL
+when it contains a surrogate code point, and counts each URL by Unicode scalar
+values in the inclusive `12..2048` range rather than encoded bytes. Its tests
+execute every case in the indexed `manifest-string-semantics.json` through this
+runtime boundary, including the exact `C3 28` malformed-byte recipe as a
+negative input. Contracts' isolated Python probe does not substitute for the
+producer proof.
 
 ### Validate before inactive publication
 
