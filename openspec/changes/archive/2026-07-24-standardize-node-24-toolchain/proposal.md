@@ -39,7 +39,7 @@ None.
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: planning review and strict validation only; committed: no planning or implementation commit; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: approved; implemented: complete; verified: exact Node/default/project/fresh-shell/npm/OpenSpec/Git acceptance passed; committed: planning checkpoint `6b9c801`, while implementation/archive status is determined by the containing Git history; pushed: no; released: no; deployed: no |
 | Owner | Main owns specification, approval, verification, staging, commits, and archive. The standard local tool update is a low-context reversible operation and may be performed directly by main. |
 | Writable paths | Planning: `openspec/config.yaml` and the five artifacts under `openspec/changes/standardize-node-24-toolchain`. Apply repository: `.nvmrc`, `.node-version`, and task checkboxes. User-authorized tool paths: NVM-managed `/Users/luca/.nvm/versions/node/v24.18.0/**`, `/Users/luca/.nvm/.cache/**`, and `/Users/luca/.nvm/alias/default`. Accepted lifecycle: the exact active change, dated archive, and `openspec/specs/frontend-node-toolchain/spec.md`. |
 | Read-only protected inputs | Product/design/planning documents, root contracts/specs, all application source, package manifests/locks, Git index and unrelated worktree state, shell startup files, NVM scripts, other installed runtimes/aliases, Homebrew, external repositories, remotes, and production state. |

@@ -1,23 +1,11 @@
-## Capability Boundary
+# frontend-node-toolchain Specification
 
-| Boundary | Declaration |
-|---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: planning review and strict validation only; committed: no planning or implementation commit; pushed: no; released: no; deployed: no |
-| Owner | Main owns specification, the standard reversible tool update, verification, and lifecycle. |
-| Writable paths | `.nvmrc`, `.node-version`, task checkboxes, NVM-managed v24.18.0/cache/default paths, and exact accepted archive/root-spec paths. |
-| Read-only protected inputs | Application/product/design/contracts files, manifests/locks, unrelated Git state, shell startup files, NVM scripts, older runtimes/aliases, external repos/remotes/production. |
-| Deletion complement | No old runtime, global, shell, app, or unrelated cache deletion; only NVM-owned install transients, default-alias replacement, exact pins on rollback, and accepted OpenSpec archive lifecycle. |
-| Mutable refs | Local `codex/formal-rewrite` planning/final commits only. |
-| Consumes | Approved artifacts, official release status, NVM `0.40.3`, current Node/default state. |
-| Produces | Node `24.18.0`, exact pins/default, verification evidence, accepted capability. |
-| Dependencies | macOS arm64, NVM, official Node download. Direction: this capability gates Impeccable and frontend foundation. |
-| Deliverables | Installed/pinned runtime, verification, archived/root spec, downstream handoff. |
-| Acceptance | All requirements/scenarios and strict OpenSpec/Git checks pass with no unrelated mutation. |
-| Non-goals | Product code, frontend dependencies, shell/NVM redesign, old-runtime cleanup, operations. |
-| Operations deferred | Push/PR/tag/release/deploy and production changes. |
-| Stop/rollback conditions | Stop on drift/install/verification failure; restore the prior NVM default and exact pins without broad deletion. |
+## Purpose
 
-## ADDED Requirements
+Define the exact supported Node runtime, repository version pins, NVM default,
+and verification boundary used by the formal frontend toolchain.
+
+## Requirements
 
 ### Requirement: The project SHALL use exact Node 24.18.0
 

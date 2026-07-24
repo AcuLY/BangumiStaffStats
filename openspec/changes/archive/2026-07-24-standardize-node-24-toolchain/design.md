@@ -8,7 +8,7 @@ This change uses standard NVM behavior instead of custom filesystem mutation.
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: planning review and strict validation only; committed: no planning or implementation commit; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: approved; implemented: complete; verified: exact Node/default/project/fresh-shell/npm/OpenSpec/Git acceptance passed; committed: planning checkpoint `6b9c801`, while implementation/archive status is determined by the containing Git history; pushed: no; released: no; deployed: no |
 | Owner | Main owns the concise spec, standard NVM update, acceptance, and lifecycle. |
 | Writable paths | Planning: `openspec/config.yaml` and the five active change artifacts. Apply: `.nvmrc`, `.node-version`, task checkboxes, NVM-managed target/cache, and `alias/default`. Lifecycle: exact dated archive and root capability spec. |
 | Read-only protected inputs | All application/product/design/contracts content, manifests/locks, unrelated Git state, startup files, NVM scripts, older runtimes/aliases, Homebrew, external repos, remotes, and production. |
