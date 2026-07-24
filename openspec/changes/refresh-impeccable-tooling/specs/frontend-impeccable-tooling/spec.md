@@ -1,0 +1,88 @@
+## Capability Boundary
+
+| Boundary | Declaration |
+|---|---|
+| Status | investigated: complete; specified: approved; implemented: unaccepted updater candidate only; verified: official CLI/Skill/tag/commit, exact 127-file skill, official hook provenance, and strict planning checks passed; full candidate acceptance pending; committed: planning status is determined by containing Git history and final upgrade commit is not yet claimed; pushed: no; released: no; deployed: no |
+| Owner | Main owns spec and acceptance; one implementation subagent owns updater/adaptation/validation; main may make small accepted corrections and lifecycle changes. |
+| Writable paths | `.agents/skills/impeccable/**`, `.codex/hooks.json`, `.gitignore`, `PRODUCT.md`, `.impeccable/surfaces/route.md`, task markers, and exact OpenSpec lifecycle paths. |
+| Protected inputs | DESIGN/sidecar, editor state, Contracts, formal guides, Wave 1B changes, runtime roots, remotes, and production. |
+| Acceptance | v4.0.2 pinned-result verification plus context/surface/doctor/hook/syntax/OpenSpec/Git gates and no transient residue. |
+| Operations deferred | Push, PR, tag, release, deployment, and production/host changes. |
+
+## ADDED Requirements
+
+### Requirement: Repository tooling SHALL use official Impeccable Skill v4.0.2
+
+The repository SHALL retain the project skill at
+`.agents/skills/impeccable/**`, declare `version: 4.0.2`, and match official
+tag `skill-v4.0.2` at peeled commit
+`fc2e694afca1ac0cc384b4fe56bab3335fea7912`. Updates SHALL use official CLI
+`impeccable@3.3.1` under Node `24.18.0`; npm CLI and Skill versions SHALL NOT be
+conflated.
+
+#### Scenario: Supported project update succeeds
+
+- **WHEN** the implementation owner runs the non-interactive project updater with an explicit Node 24 PATH
+- **THEN** the installed skill and Impeccable Codex hook match the pinned v4.0.2 distribution
+- **AND** a second updater run is repository-idempotent
+
+#### Scenario: Latest Skill changes
+
+- **WHEN** the updater returns a Skill version other than v4.0.2 or the result differs from the pinned tag
+- **THEN** apply SHALL stop without accepting or committing the candidate
+
+### Requirement: Project context SHALL use one explicit formal SPA surface
+
+`PRODUCT.md` SHALL contain one `<!-- impeccable:product-schema 1 -->` marker,
+SHALL NOT contain the deprecated global Register section, and SHALL otherwise
+preserve its product contract. `.impeccable/surfaces/route.md` SHALL define one
+`Operate` surface for `/`, `/ranking`, `/co-star`, `frontend`,
+`frontend/index.html`, and `frontend/src/app/App.vue`, inheriting
+`DESIGN.md` and the prototype oracle without creating a new visual identity.
+
+#### Scenario: A formal frontend target loads context
+
+- **WHEN** v4 context or surface routing resolves any declared route/source target
+- **THEN** it SHALL load the same route brief together with root PRODUCT and DESIGN context
+- **AND** the brief SHALL preserve backend/shared-contract statistical authority
+
+#### Scenario: Sidecar is stale before frontend implementation
+
+- **WHEN** doctor inspects the retained oracle-derived design sidecar
+- **THEN** only the documented stale-sidecar finding MAY remain
+- **AND** apply SHALL NOT regenerate the sidecar from an empty frontend
+
+### Requirement: Hook and runtime state SHALL remain bounded
+
+The project Codex hook SHALL use the official v4 Impeccable hook entries while
+preserving unrelated hooks. Root ignore rules SHALL cover only documented
+Impeccable runtime outputs; design, surface, editor, source, and OpenSpec files
+SHALL remain visible and trackable.
+
+#### Scenario: Tooling validation runs
+
+- **WHEN** the installed JavaScript, context, surface, doctor, and hook checks execute under Node 24
+- **THEN** they SHALL pass without unexpected warnings/errors or repository writes outside the declared runtime paths
+
+#### Scenario: Apply completes
+
+- **WHEN** the candidate is handed to main for acceptance
+- **THEN** no updater archive, download, hook cache, live session, evidence, link, special file, or unrelated ignored residue SHALL remain
+
+### Requirement: Future visible frontend work SHALL use the v4 quality lifecycle
+
+Every later change that implements visible frontend UI SHALL resolve the
+applicable surface, load its owning v4 playbook and craft floor, preserve the
+approved outward visual world unless its own OpenSpec declares a delta, verify
+rendered responsive/accessibility behavior, and receive a separate read-only
+Impeccable finish review.
+
+#### Scenario: Formal frontend foundation begins
+
+- **WHEN** the first formal SPA implementation starts
+- **THEN** its owner SHALL use v4 new-work to preserve and expand the incumbent world and SHALL load Operate guidance
+
+#### Scenario: Backend-only work begins
+
+- **WHEN** a change has no user-visible frontend output
+- **THEN** the UI-specific playbook, screenshot, and finish-review gates SHALL NOT block that work
