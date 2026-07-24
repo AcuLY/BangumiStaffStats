@@ -2,36 +2,42 @@
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: initial checkpoint approved, toolchain correction pending approval; implemented: partial candidate retained; verified: preflight and paused-state seals only; committed: initial planning checkpoint only, correction and product not committed; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: initial checkpoint and both observed corrections approved; implemented: partial candidates retained; verified: paused-state seals, generator-pruning diagnosis, strict validation, and independent spec review complete; committed: planning/correction control history only, product not committed; pushed: no; released: no; deployed: no |
 | Owner | Contracts owner / capability `contracts-query-wire`; spec subagent plans, implementation/finalization subagents apply/test/commit/archive, main agent only reviews/amends OpenSpec and performs read-only acceptance |
 | Writable paths | Planning: `openspec/changes/define-shared-query-wire/**`. Apply: `contracts/openapi/**`, `contracts/schemas/query/**`, `contracts/goldens/query/**` |
 | Read-only protected inputs | `PRODUCT.md`; `DESIGN.md`; `openspec/config.yaml`; `openspec/specs/contracts-rewrite-baseline/spec.md`; `tmp-formal-development/formal-development-master-plan.md`; `tmp-formal-development/data-logic-implementation-guide.md`; `tmp-formal-development/backend-development-implementation-guide.md`; `tmp-formal-development/decisions/prototype-data-logic-audit.md`; `.impeccable/**`; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`, especially `frontend/src/workbench/types.ts`, `frontend/src/workbench/components/QueryWorkspace.vue`, `frontend/src/workbench/composables/useWorkbench.ts`, `frontend/public/workbench-data/co-star-snapshot.json`, and `frontend/public/workbench-data/position-data.json` |
 | Deletion complement | Empty; no existing tracked path may be deleted, moved, or rewritten outside the apply roots, and no pre-existing path inside those roots may be removed without an approved amendment |
-| Mutable refs | Initial checkpoint is `c7f868e2861e8fea250f033c27538ecf793bacad`. One sealed observed correction may advance `refs/heads/codex/formal-rewrite` once from that commit with subject `docs(openspec): approve wave 1 archive toolchain correction` and exactly both changes' proposal/design/spec/tasks, never product/cache output. After main-agent acceptance of that replacement apply checkpoint, only task checkboxes may change and every Git ref/index remains immutable until one accepted combined finalization commit; no amend/rebase/tag/push |
+| Mutable refs | Accepted initial/first-correction checkpoints are `c7f868e2861e8fea250f033c27538ecf793bacad` and `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c`. One second sealed correction may advance the branch from `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c` with subject `docs(openspec): approve wave 1 query codegen correction` and exactly both changes' proposal/design/spec/tasks, never product/cache/temp output. After main-agent acceptance, only task checkboxes may change and every Git ref/index remains immutable until the accepted combined finalization commit; no amend/rebase/tag/push |
 | Consumes | Accepted `establish-formal-rewrite-baseline`; protected authorities/oracle; read-only locked npm and Go module downloads used only for contract verification |
 | Produces | Authoritative OpenAPI 3.1 components, draft 2020-12 query/digest-projection/error/share schemas, language-neutral positive/negative/normalization/queryDigest vectors, pinned Unicode 15.1 age/NFKC/folding evidence, oracle limit evidence, and Go/TS generation-feasibility evidence |
 | Dependencies | `establish-formal-rewrite-baseline` |
 | Deliverables | Personal/global query union, PositionKey, tag/range/default normalization, UID-free digest projection and cycle-free canonical queryDigest, exact operation input/view matrix, closed share topology, error envelope, version/failure rules, locked contract tooling and cross-language generation inputs |
-| Acceptance | Exact paired-checkpoint/index/path gates; strict OpenSpec; strict JSON Schema compilation; OpenAPI lint; all vectors and idempotence/digest/share-byte checks; Go/TS model generation without schema error; all cache/temp/generated paths confined to and cleaned from the owned golden root |
+| Acceptance | Exact paired-checkpoint/index/path gates; strict OpenSpec; strict JSON Schema compilation; OpenAPI lint; all vectors and idempotence/digest/share-byte checks; deterministic TS generation; exact Go `models,skip-prune` generation with all 17 component names represented by non-header declarations plus syntax/format/compile smoke; all cache/temp/generated paths confined to and cleaned from the owned golden root |
 | Non-goals | Endpoint paths/results/handlers, store/cache lookup or cache-key composition/statistics, collection access, catalog implementation, Archive wire, UI/runtime adapters, server-side share service, runtime consumer tests |
 | Operations deferred | No nginx, systemd, production Compose/timers, deployment/release, secrets, host changes, production activation, registry push, monitoring rollout, migration, or legacy removal |
 | Stop/rollback conditions | Stop on missing approval, branch/HEAD/dependency/protected-input/dirty-state mismatch, write outside owned paths, unlocked tool, failed lint/vector/codegen, or P0/P1 finding. Preserve evidence and use explicit path-scoped correction only; never reset-hard, checkout rollback, git clean, broad recursive deletion, or history rewrite |
 
-### Lifecycle control (not synchronized): The observed correction checkpoint preserves the paused apply bytes
+### Lifecycle control (not synchronized): Both observed corrections preserve the paused apply bytes
 
-At the observed recovery boundary, both apply owners SHALL be stopped at initial HEAD `c7f868e2861e8fea250f033c27538ecf793bacad` with an empty index. Query tasks 1.1–1.3 SHALL be the only checked Query tasks. Its 23 persistent regular files SHALL retain aggregate `9203d122d69629e6fcd4c24774108f7c7e1831ebf1299228fa743c40d6295f44`; all regular files including retained cache/install state SHALL retain aggregate `38dc3dfdf68ed1073d99a50ecb6574a1d87e63de8f050203f99c14a72962f586`; and its symlink path/target stream SHALL retain aggregate `4aa5af9e55948f608d1ef3d7f06ca5d76775946c2638deef2db7276d264fbfae`.
+The first observed Archive-toolchain correction advanced the accepted initial checkpoint `c7f868e2861e8fea250f033c27538ecf793bacad` to accepted HEAD `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c` with exact subject `docs(openspec): approve wave 1 archive toolchain correction` and only the eight proposal/design/delta-spec/tasks paths for the two Wave 1A changes. It committed no product/cache output.
 
-The delegated correction SHALL stage and commit exactly proposal, design, delta spec, and tasks for this change and `define-archive-manifest-contract`, with exact subject `docs(openspec): approve wave 1 archive toolchain correction` and sole parent the initial HEAD. It SHALL stage no `contracts/**` path and SHALL run no product-writing command. Apply SHALL remain stopped until the main agent accepts the replacement HEAD and re-proves both owners' product/cache seals. Each original owner SHALL then resume from the first unchecked task after re-snapshotting the new HEAD and sibling boundary.
+After apply resumed, the pinned Go command without `skip-prune` encountered the endpoint-free document's zero `paths` and 17 named `components.schemas`. Default pruning exited zero but produced only a 190-byte comment/package file, SHA-256 `3a96d587a33aca1902c2a4325c86273647c4e7a830250a8bb8589285a99d31d0`, with no model declaration. This output SHALL be classified as failed generation feasibility even though its `gofmt -d` output is empty. The reviewed replacement SHALL use the generator's pinned `skip-prune` option and SHALL test declarations explicitly.
 
-#### Scenario: Correction preserves the Query candidate
+At the second recovery boundary, both apply owners SHALL be stopped at exact HEAD `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c` with an empty index. Query tasks 1.1–1.3 SHALL be the only checked Query tasks. For `contracts/openapi/**`, `contracts/schemas/query/**`, and `contracts/goldens/query/**`, a regular-file seal means SHA-256 over the textual `shasum -a 256` lines obtained from `LC_ALL=C` NUL-path-sorted files. Excluding `node_modules/**`, `.cache/**`, and `.tmp/**`, exactly 23 regular files SHALL seal to `2a2483d6b91d5b764db1e6c722137fd707f5b79f8a3310b20285a291b9a5779f`; including all retained cache/temp state, exactly 13,025 regular files SHALL seal to `84c216d846b03990ce5f7ba50fd006045df32d513fa6dcb3e15e6ba402720cf6`. Exactly seven symlinks SHALL produce a `LC_ALL=C` path-sorted `path<TAB>readlink-target<LF>` stream sealing to `4aa5af9e55948f608d1ef3d7f06ca5d76775946c2638deef2db7276d264fbfae`.
 
-- **WHEN** the correction subagent compares the pre-commit and post-commit paused Query inventories
-- **THEN** all three Query seals SHALL equal the values above, the index SHALL be empty after commit, and only the eight approved OpenSpec paths SHALL appear in the correction commit
+Archive tasks 1.1–1.4 and 2.1–2.4 SHALL be its only checked tasks at the same boundary and `contracts/goldens/archive` SHALL remain absent. Its 11 persistent/all-6,181 regular-file seals SHALL be `070e38ecc0a91750ffc0e98900f50f0987c26d775a85aa137d39c540c21df427` and `5b8b8801d5b672d5ffc643483d04c3c3fa239ac45015820640843520bdd71629`; its 13 symlink entries SHALL seal to `8721691feb55259ac161846b32d87fce8e2fc9a4a21ffb551e8b3459f183f7ea` under the same formulas.
 
-#### Scenario: Apply resumes from the accepted replacement checkpoint
+The second delegated correction SHALL stage exactly the same eight OpenSpec artifact paths and no `contracts/**`, cache, or temp path; its sole parent SHALL be `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c` and its exact subject SHALL be `docs(openspec): approve wave 1 query codegen correction`. It SHALL run no install, cleanup, generator, verifier, fixture, or other product-writing command. Apply SHALL remain stopped until the main agent accepts the replacement HEAD and re-proves both owners' counts, seals, and checked sets.
 
-- **WHEN** the main agent accepts the correction commit and unchanged Query/Archive seals
-- **THEN** the Query owner SHALL retain its current product/cache bytes, re-snapshot the new HEAD, and continue from task 2.1 without redoing or claiming additional completed work
+#### Scenario: Second correction preserves both candidates
+
+- **WHEN** the correction subagent compares the second-boundary inventories before and after its exact eight-path commit
+- **THEN** all Query and Archive counts/seals/check sets above SHALL remain exact, the index SHALL be empty after commit, and no product/cache/temp byte SHALL appear in the commit
+
+#### Scenario: Apply resumes from the accepted second replacement checkpoint
+
+- **WHEN** the main agent accepts the second correction commit and unchanged Query/Archive states
+- **THEN** the original Query owner SHALL retain and revalidate its bytes from task 2.1 and the original Archive owner SHALL retain and revalidate its bytes from task 2.5 after each re-snapshots the new HEAD and sibling boundary
 
 The authoritative contract producer is the Contracts owner. Future Go backend and TypeScript frontend foundations are independent consumers of `contracts/openapi/openapi.yaml`, `contracts/schemas/query/**`, and the same `contracts/goldens/query/**`; neither consumer becomes a second contract or statistical authority. This capability SHALL NOT create a nested `openspec/` root or nested generated OpenSpec skill set.
 
@@ -47,7 +53,8 @@ API query version selection SHALL be the `/api/v1` family plus versioned schema 
 
 #### Scenario: Both generators consume one authority
 - **WHEN** `openapi-typescript@7.13.0` and `oapi-codegen/v2@v2.8.0` read `contracts/openapi/openapi.yaml`
-- **THEN** both model-only generations complete without unresolved references or schema-level errors from the same referenced JSON Schemas
+- **THEN** TypeScript generation and exact Go `-generate models,skip-prune` generation complete without unresolved references or schema-level errors from the same referenced JSON Schemas
+- **AND** the Go output contains non-header type declarations covering all 17 named component schemas despite the document having zero paths
 - **AND** no generated Go/TypeScript consumer file is committed by this change
 
 #### Scenario: An undeclared body version is submitted
@@ -409,7 +416,7 @@ An invalid share SHALL preserve the safe first-query UI, expose a stable error, 
 
 ### Requirement: Language-neutral goldens cover positive, negative, normalization, digest, and canonical bytes
 
-`contracts/goldens/query/**` SHALL be data-first and consumable without JavaScript-specific value encodings. A manifest SHALL identify each case, schema, catalog/path context, expected accept/reject result, stable error code/field path, normalized output, digest projection, exact RFC 8785 projection JSON, exact queryDigest separator/preimage/digest, and exact share text when applicable.
+`contracts/goldens/query/**` SHALL be data-first and consumable without JavaScript-specific value encodings. A manifest SHALL identify each case, schema, catalog/path context, expected accept/reject result, stable error code/field path, normalized output, digest projection, exact RFC 8785 projection JSON, exact queryDigest separator/preimage/digest, and exact share text when applicable. Its code-generation evidence SHALL additionally record exact generator identity/version/command, OpenAPI path count, authoritative component-schema count and sorted names, generated byte length and SHA-256, and the sorted generated declaration inventory. For Go, every authoritative component name SHALL occur as a generated type declaration; byte-positive comment/package output SHALL fail.
 
 Positive vectors SHALL cover both scopes, every PositionKey family, repeated-position first-occurrence normalization, all range/tag forms, every operation component/default, JSON-safe integer boundaries, a valid error envelope, ranking share, and all three co-star workspace states. Negative vectors SHALL cover unknown fields at every object layer, scope leakage, malformed/conflicting/catalog-invalid positions, invalid/empty ranges and tags, post-15.1/unassigned scalars, lone high/low surrogates in JSON keys/values, non-finite/non-JSON or unsafe integers via textual fixtures where required, invalid pages/sorts/sections, error-envelope failures, and share version/encoding/size/topology/identity/path failures. Normalization/digest vectors SHALL prove UID exclusion, canonical equivalence, idempotence, excluded-field invariance, exact projection/separator/preimage, and exact lowercase SHA-256 output. Official RFC 8785 and pinned Unicode 15.1 normalization/age/folding vectors SHALL be represented with source/version provenance.
 
@@ -431,7 +438,7 @@ Oracle-derived limit evidence SHALL record commit/path provenance and measured U
 
 ### Requirement: Contract tooling is locked, development-only, and removable
 
-The only committed Node tooling files SHALL be `contracts/goldens/query/package.json`, `contracts/goldens/query/package-lock.json`, and `contracts/goldens/query/verify.mjs`. Development dependencies SHALL be exactly justified and locked: `ajv@8.20.0`, `ajv-formats@3.0.1`, `@redocly/cli@2.40.0`, `openapi-typescript@7.13.0`, and `canonicalize@3.0.0`. The package and acceptance gate SHALL enforce `node >=20.19.0 <21.0.0 || >=22.12.0` and `npm >=10`; npm engine mismatches SHALL fail rather than warn. Package lifecycle scripts SHALL be disabled during installation. `oapi-codegen/v2@v2.8.0` SHALL be invoked at an exact version for model-only stdout generation.
+The only committed Node tooling files SHALL be `contracts/goldens/query/package.json`, `contracts/goldens/query/package-lock.json`, and `contracts/goldens/query/verify.mjs`. Development dependencies SHALL be exactly justified and locked: `ajv@8.20.0`, `ajv-formats@3.0.1`, `@redocly/cli@2.40.0`, `openapi-typescript@7.13.0`, and `canonicalize@3.0.0`. The package and acceptance gate SHALL enforce `node >=20.19.0 <21.0.0 || >=22.12.0` and `npm >=10`; npm engine mismatches SHALL fail rather than warn. Package lifecycle scripts SHALL be disabled during installation. `oapi-codegen/v2@v2.8.0` SHALL be invoked at that exact version with exact generation selection `models,skip-prune`; default component pruning is forbidden for this zero-path contract document.
 
 These tools SHALL have zero backend/frontend/updater runtime imports and zero application bundle bytes. `canonicalize@3.0.0` SHALL be the Contracts verifier's reviewed RFC 8785 implementation and SHALL pass official adversarial vectors; future Go/TS runtimes SHALL independently reproduce the golden bytes rather than import this Node verifier. OpenAPI lint, strict schema compilation, vector/digest/canonical-byte execution, and generation feasibility SHALL all be mandatory acceptance gates. A future equivalent repository-owned verifier SHALL remove redundant dependencies through a separate reviewed change rather than accumulating a second toolchain.
 
@@ -439,8 +446,13 @@ All installation, Go build/module/workspace cache, generator temporary, and gene
 
 #### Scenario: Locked tooling verifies the bundle
 - **WHEN** a clean locked install runs schema compilation, OpenAPI lint, Unicode/RFC 8785/normalization/queryDigest/share vectors, TS generation, and Go model-only generation with all cache paths redirected into the owned root
-- **THEN** every command exits zero with non-empty deterministic generation output
-- **AND** dependency versions and integrity match the lock/evidence record
+- **THEN** every command exits zero with deterministic generation output, the Go output is longer than the 190-byte rejected baseline and contains actual declarations for all 17 authoritative component-schema names, and temporary Go syntax/`gofmt`/compile smoke passes
+- **AND** the manifest's exact commands, versions, path/component counts, declaration inventories, byte lengths, hashes, dependency versions, and lock integrity match the observed outputs
+
+#### Scenario: Default pruning returns a header-only Go file
+- **WHEN** Go generation exits zero but omits any authoritative component declaration, including the observed zero-path/default-pruning result
+- **THEN** generation feasibility fails regardless of file non-emptiness or empty `gofmt -d`
+- **AND** no candidate handoff or staging is authorized
 
 #### Scenario: Generated tooling residue remains
 - **WHEN** `node_modules`, `.cache/npm`, `.cache/go-build`, `.cache/go-mod`, `.cache/go-path`, `.tmp`, generated Go/TS, or any tool output remains in the physical tree/index at candidate handoff or appears outside the owned golden root

@@ -2,12 +2,12 @@
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: initial checkpoint approved, toolchain correction pending approval; implemented: partial candidate retained; verified: preflight and paused-state seals only; committed: initial planning checkpoint only, correction and product not committed; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: initial checkpoint and both observed corrections approved; implemented: partial candidates retained; verified: paused-state seals, generator-pruning diagnosis, strict validation, and independent spec review complete; committed: planning/correction control history only, product not committed; pushed: no; released: no; deployed: no |
 | Owner | Contracts owner / `contracts-archive-manifest`; apply, finalization, commit, and archive are delegated subagent work; main agent only amends OpenSpec and performs read-only acceptance |
 | Writable paths | Exactly `contracts/schemas/archive/**` and `contracts/goldens/archive/**` |
 | Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, `openspec/config.yaml`, existing root specs, all formal-development guides/decisions, Impeccable files, and oracle commit `644b7748674e553f863d0ffd61d029f86fdc0717` |
 | Deletion complement | Every path outside the two writable roots and every unenumerated pre-existing path inside them; sibling query paths are tolerated read-only state, not writable state |
-| Mutable refs | Initial checkpoint is `c7f868e2861e8fea250f033c27538ecf793bacad`. One sealed observed correction may advance the branch once from it with exact subject `docs(openspec): approve wave 1 archive toolchain correction` and exactly proposal/design/spec/tasks for both Wave 1A changes, no product/cache bytes. After main-agent acceptance of that replacement checkpoint, parallel apply may change only task checkboxes and no Git ref/index; one later finalization subagent may update the branch through the accepted combined commit |
+| Mutable refs | Accepted initial/first-correction checkpoints are `c7f868e2861e8fea250f033c27538ecf793bacad` and `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c`. One second sealed correction may advance the branch from `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c` with exact subject `docs(openspec): approve wave 1 query codegen correction` and exactly proposal/design/spec/tasks for both changes, no product/cache/temp bytes. After main-agent acceptance, parallel apply may change only task checkboxes and no Git ref/index until the accepted combined commit |
 | Consumes | `contracts-rewrite-baseline`, master plan Wave 1, backend guide §3, data guide Phases 0–1, `DR-DATA-PIPELINE-001`, `DR-DATA-SCHEMA-001`, and read-only oracle evidence |
 | Produces | Strict Archive/pointer/dataVersion/index schemas, SQLite v1 DDL and compatibility matrix, deterministic digest vectors, a minimal valid Archive, invalid bundles, and contract-local verification evidence |
 | Dependencies | Completed `establish-formal-rewrite-baseline`; no Python/Go runtime dependency; operationally paired but not semantically coupled with `define-shared-query-wire` |
@@ -17,21 +17,27 @@
 | Operations deferred | Production paths/users/permissions, nginx/systemd/Compose/timer/`flock`, pointer switching, restart/readiness rollback, retention, secrets, release, deploy, and host mutation |
 | Stop/rollback conditions | Stop on branch/HEAD/index/dirty-state drift, sibling-path ambiguity, overlap, tool drift, schema/vector disagreement, nondeterminism, or out-of-bound write; preserve state and forbid reset, checkout rollback, clean, broad recursive deletion, staging/commit/archive during parallel apply, and history rewriting |
 
-### Lifecycle control (not synchronized): The observed toolchain correction preserves both paused candidates
+### Lifecycle control (not synchronized): Both observed corrections preserve both paused candidates
 
-At the recovery boundary, both apply owners SHALL be stopped at initial HEAD `c7f868e2861e8fea250f033c27538ecf793bacad` with an empty index. Archive tasks 1.1–1.4 and 2.1 SHALL be the only checked Archive tasks; `contracts/goldens/archive` SHALL be absent. The 11 persistent Archive regular files SHALL retain aggregate `f0814d8de7e913496b8df9c3c8df27e9d3e6351b9e263533677db09868233c82`; all Archive regular files including cache/install state SHALL retain aggregate `9dc29d0c2c7a6e48a8370e3d1b6acf736e86d25a8326edf9044dc53df50d338f`; and all Archive symlink path/target entries SHALL retain aggregate `8721691feb55259ac161846b32d87fce8e2fc9a4a21ffb551e8b3459f183f7ea`.
+The first observed toolchain correction advanced the initial checkpoint `c7f868e2861e8fea250f033c27538ecf793bacad` to accepted HEAD `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c` with exact subject `docs(openspec): approve wave 1 archive toolchain correction` and only the eight proposal/design/delta-spec/tasks paths for both Wave 1A changes. It committed no product/cache output and authorized the reviewed `stream-json@2.1.0` override.
 
-The correction subagent SHALL stage and commit exactly the proposal, design, delta spec, and tasks for this change and `define-shared-query-wire`, with exact subject `docs(openspec): approve wave 1 archive toolchain correction` and sole parent the initial HEAD. It SHALL stage no `contracts/**` path and run no product-writing command. Apply SHALL remain stopped until the main agent accepts the replacement HEAD and re-proves the Archive and Query seals. The original Archive owner SHALL then resume at task 2.2 after re-snapshotting the replacement checkpoint and sibling state.
+After apply resumed, the sibling Query Go generator exposed a distinct endpoint-free default-pruning defect. Both owners SHALL be stopped at a second recovery boundary before the corrected Query generator runs. HEAD SHALL be exactly `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c`, the index SHALL be empty, Archive tasks 1.1–1.4 and 2.1–2.4 SHALL be its only checked tasks, and `contracts/goldens/archive` SHALL remain absent.
 
-#### Scenario: Toolchain correction does not absorb implementation output
+For the two Archive roots, a regular-file seal means SHA-256 over the textual `shasum -a 256` lines from `LC_ALL=C` NUL-path-sorted files. Excluding `node_modules/**`, `.cache/**`, and `.tmp/**`, exactly 11 regular files SHALL seal to `070e38ecc0a91750ffc0e98900f50f0987c26d775a85aa137d39c540c21df427`; including all retained cache/temp state, exactly 6,181 regular files SHALL seal to `5b8b8801d5b672d5ffc643483d04c3c3fa239ac45015820640843520bdd71629`. Exactly 13 symlinks SHALL produce a `LC_ALL=C` path-sorted `path<TAB>readlink-target<LF>` stream sealing to `8721691feb55259ac161846b32d87fce8e2fc9a4a21ffb551e8b3459f183f7ea`.
 
-- **WHEN** the correction subagent creates the approved eight-path commit
-- **THEN** no Archive or Query product/cache byte SHALL be staged or committed and all paused-state seals SHALL remain exact
+The Query sibling SHALL have tasks 1.1–1.3 alone checked; its 23 persistent/all-13,025 regular-file seals SHALL be `2a2483d6b91d5b764db1e6c722137fd707f5b79f8a3310b20285a291b9a5779f` and `84c216d846b03990ce5f7ba50fd006045df32d513fa6dcb3e15e6ba402720cf6`, and its seven-symlink seal SHALL be `4aa5af9e55948f608d1ef3d7f06ca5d76775946c2638deef2db7276d264fbfae` under the same formulas.
 
-#### Scenario: Archive apply resumes with the reviewed override
+The second correction subagent SHALL stage exactly the same eight OpenSpec artifact paths, no `contracts/**`/cache/temp path, and SHALL create only a commit whose sole parent is `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c` and exact subject is `docs(openspec): approve wave 1 query codegen correction`. It SHALL run no product-writing command. Apply SHALL remain stopped until the main agent accepts the replacement HEAD and re-proves all counts, seals, and checked sets.
 
-- **WHEN** the main agent accepts the correction commit and both unchanged candidates
-- **THEN** the Archive owner SHALL preserve its existing files, re-prove the new checkpoint, and continue from task 2.2 using the exact `stream-json@2.1.0` override and its generation/compile gates
+#### Scenario: Query correction does not absorb implementation output
+
+- **WHEN** the second correction subagent creates the approved eight-path commit
+- **THEN** no Archive or Query product/cache/temp byte SHALL be staged or committed and every second-boundary count, seal, and checkbox set SHALL remain exact
+
+#### Scenario: Archive apply resumes after the sibling correction
+
+- **WHEN** the main agent accepts the second correction commit and both unchanged candidates
+- **THEN** the original Archive owner SHALL preserve and revalidate its existing files, re-snapshot the new checkpoint, and continue from task 2.5 without redoing or claiming already checked work
 
 ## ADDED Requirements
 
