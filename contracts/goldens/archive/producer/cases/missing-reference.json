@@ -1,0 +1,620 @@
+{
+  "caseSchemaVersion": 1,
+  "caseId": "missing-reference",
+  "caseKind": "missing-reference",
+  "description": "A subject-person record whose person reference is absent fails before finalization.",
+  "inputs": {
+    "sourceSetAlgorithm": "bgmss-producer-source-set-v1",
+    "sources": [
+      {
+        "name": "subject.jsonlines",
+        "bytesUtf8": "{\"id\":1,\"type\":1,\"name\":\"Book One\",\"name_cn\":\"书一\",\"nsfw\":false,\"date\":\"2020\"}\n{\"id\":2,\"type\":2,\"name\":\"Anime Two\",\"name_cn\":\"动画二\",\"nsfw\":false,\"date\":\"2024-01-01\"}\n{\"id\":3,\"type\":3,\"name\":\"Music Three\",\"name_cn\":\"音乐三\",\"nsfw\":false,\"date\":null}\n{\"id\":4,\"type\":4,\"name\":\"Game Four\",\"name_cn\":\"游戏四\",\"nsfw\":false,\"date\":\"2025-02\"}\n{\"id\":5,\"type\":6,\"name\":\"Real Five\",\"name_cn\":\"现实五\",\"nsfw\":false,\"date\":\"2023-12-31\"}\n{\"id\":6,\"type\":2,\"name\":\"Anime Six\",\"name_cn\":null,\"nsfw\":true,\"date\":\"2024-06\"}\n",
+        "size": 522,
+        "digest": "sha256:b7f2e4e5bc39f8f594c01d7dd82e0f9f56d12d92caf543aa964bd604f5b038ab",
+        "declaredSize": 522,
+        "declaredDigest": "sha256:b7f2e4e5bc39f8f594c01d7dd82e0f9f56d12d92caf543aa964bd604f5b038ab"
+      },
+      {
+        "name": "person.jsonlines",
+        "bytesUtf8": "{\"id\":101,\"name\":\"Person 1\",\"name_cn\":\"人物1\",\"career\":[\"seiyu\"]}\n{\"id\":102,\"name\":\"Person 2\",\"name_cn\":\"人物2\",\"career\":[\"seiyu\"]}\n{\"id\":103,\"name\":\"Person 3\",\"name_cn\":\"人物3\",\"career\":[\"seiyu\"]}\n{\"id\":104,\"name\":\"Person 4\",\"name_cn\":\"人物4\",\"career\":[\"seiyu\"]}\n{\"id\":105,\"name\":\"Person 5\",\"name_cn\":\"人物5\",\"career\":[\"seiyu\"]}\n{\"id\":106,\"name\":\"Person 6\",\"name_cn\":\"人物6\",\"career\":[\"seiyu\"]}\n",
+        "size": 408,
+        "digest": "sha256:6ae1ef3a1000191cc6e37a3ba761395abf1d2c8ea08c239104b4df2db7e77bcb",
+        "declaredSize": 408,
+        "declaredDigest": "sha256:6ae1ef3a1000191cc6e37a3ba761395abf1d2c8ea08c239104b4df2db7e77bcb"
+      },
+      {
+        "name": "character.jsonlines",
+        "bytesUtf8": "{\"id\":201,\"name\":\"Character 1\",\"name_cn\":\"角色1\"}\n{\"id\":202,\"name\":\"Character 2\",\"name_cn\":\"角色2\"}\n{\"id\":203,\"name\":\"Character 3\",\"name_cn\":\"角色3\"}\n{\"id\":204,\"name\":\"Character 4\",\"name_cn\":\"角色4\"}\n{\"id\":205,\"name\":\"Character 5\",\"name_cn\":\"角色5\"}\n{\"id\":206,\"name\":\"Character 6\",\"name_cn\":\"角色6\"}\n",
+        "size": 312,
+        "digest": "sha256:b7f25eb4c8f628c6c2a015fce59cc5f6b5038f5847122422b3c86e8f0577da0b",
+        "declaredSize": 312,
+        "declaredDigest": "sha256:b7f25eb4c8f628c6c2a015fce59cc5f6b5038f5847122422b3c86e8f0577da0b"
+      },
+      {
+        "name": "subject-persons.jsonlines",
+        "bytesUtf8": "{\"subject_id\":1,\"person_id\":101,\"position\":1}\n{\"subject_id\":2,\"person_id\":102,\"position\":2}\n{\"subject_id\":3,\"person_id\":103,\"position\":3}\n{\"subject_id\":4,\"person_id\":104,\"position\":4}\n{\"subject_id\":5,\"person_id\":105,\"position\":6}\n{\"subject_id\":2,\"person_id\":106,\"position\":2}\n{\"subject_id\":1,\"person_id\":999,\"position\":1}\n",
+        "size": 322,
+        "digest": "sha256:bf0328e6cc445dfffc33a9b7fc47e3b99f85d18796f781c1b2c60b8eb090a422",
+        "declaredSize": 322,
+        "declaredDigest": "sha256:bf0328e6cc445dfffc33a9b7fc47e3b99f85d18796f781c1b2c60b8eb090a422"
+      },
+      {
+        "name": "subject-characters.jsonlines",
+        "bytesUtf8": "{\"subject_id\":2,\"character_id\":201,\"type\":1,\"order\":0}\n{\"subject_id\":2,\"character_id\":202,\"type\":2,\"order\":1}\n{\"subject_id\":2,\"character_id\":203,\"type\":3,\"order\":2}\n{\"subject_id\":2,\"character_id\":204,\"type\":4,\"order\":3}\n{\"subject_id\":2,\"character_id\":205,\"type\":5,\"order\":4}\n{\"subject_id\":2,\"character_id\":206,\"type\":6,\"order\":5}\n",
+        "size": 330,
+        "digest": "sha256:fc1bcf161b1b1fab65a857af77ee554a132ca7111d5f660a6ce7afcec42232e7",
+        "declaredSize": 330,
+        "declaredDigest": "sha256:fc1bcf161b1b1fab65a857af77ee554a132ca7111d5f660a6ce7afcec42232e7"
+      },
+      {
+        "name": "person-characters.jsonlines",
+        "bytesUtf8": "{\"subject_id\":2,\"character_id\":201,\"person_id\":101}\n{\"subject_id\":2,\"character_id\":202,\"person_id\":102}\n{\"subject_id\":2,\"character_id\":203,\"person_id\":103}\n{\"subject_id\":2,\"character_id\":204,\"person_id\":104}\n{\"subject_id\":2,\"character_id\":205,\"person_id\":105}\n{\"subject_id\":2,\"character_id\":206,\"person_id\":106}\n",
+        "size": 312,
+        "digest": "sha256:2e4d2ce6e8724a2f9bee4689a1d6e19890918e1e612a6987117a4c960719eefd",
+        "declaredSize": 312,
+        "declaredDigest": "sha256:2e4d2ce6e8724a2f9bee4689a1d6e19890918e1e612a6987117a4c960719eefd"
+      },
+      {
+        "name": "subject-relations.jsonlines",
+        "bytesUtf8": "{\"subject_id\":2,\"related_subject_id\":6,\"relation_type\":1}\n{\"subject_id\":2,\"related_subject_id\":6,\"relation_type\":2}\n{\"subject_id\":6,\"related_subject_id\":2,\"relation_type\":3}\n",
+        "size": 174,
+        "digest": "sha256:8937c629f06a128d22c2eea01a2db2cf134f64834f5b5156ed987c5705fd798e",
+        "declaredSize": 174,
+        "declaredDigest": "sha256:8937c629f06a128d22c2eea01a2db2cf134f64834f5b5156ed987c5705fd798e"
+      }
+    ],
+    "commonSubjectStaffs": {
+      "bytesUtf8": "{\"positions\":[{\"subjectType\":1,\"positionId\":1,\"nameCn\":\"作者\",\"nameEn\":\"Author\",\"nameJp\":null,\"categories\":[\"writing\"],\"sortOrder\":10,\"status\":\"selectable\"},{\"subjectType\":2,\"positionId\":2,\"nameCn\":\"导演\",\"nameEn\":\"Director\",\"nameJp\":\"監督\",\"categories\":[\"production\"],\"sortOrder\":20,\"status\":\"selectable\"},{\"subjectType\":3,\"positionId\":3,\"nameCn\":\"艺术家\",\"nameEn\":\"Artist\",\"nameJp\":null,\"categories\":[\"music\"],\"sortOrder\":30,\"status\":\"selectable\"},{\"subjectType\":4,\"positionId\":4,\"nameCn\":\"开发\",\"nameEn\":\"Developer\",\"nameJp\":null,\"categories\":[\"production\"],\"sortOrder\":40,\"status\":\"selectable\"},{\"subjectType\":6,\"positionId\":6,\"nameCn\":\"出演\",\"nameEn\":\"Performer\",\"nameJp\":null,\"categories\":[\"cast\"],\"sortOrder\":50,\"status\":\"selectable\"}]}\n",
+      "size": 757,
+      "digest": "sha256:24163ba3a1520c207ecd282a562641c7669077dbef63cb5083fd8b24dd457180"
+    },
+    "catalogConfig": {
+      "bytesUtf8": "{\"positions\":[{\"positionKey\":\"staff:book:1\",\"subjectType\":\"book\",\"positionKind\":\"staff\",\"label\":\"作者\",\"displayOrder\":10,\"selectable\":true,\"capabilities\":[\"rankings\"],\"selectionRule\":\"positionId=1\"},{\"positionKey\":\"staff:anime:2\",\"subjectType\":\"anime\",\"positionKind\":\"staff\",\"label\":\"导演\",\"displayOrder\":20,\"selectable\":true,\"capabilities\":[\"rankings\",\"candidates\"],\"selectionRule\":\"positionId=2\"},{\"positionKey\":\"cast:anime:main\",\"subjectType\":\"anime\",\"positionKind\":\"cast\",\"label\":\"主要声优\",\"displayOrder\":30,\"selectable\":true,\"capabilities\":[\"coStar\"],\"selectionRule\":\"roleType=1\"},{\"positionKey\":\"cast:anime:all\",\"subjectType\":\"anime\",\"positionKind\":\"cast\",\"label\":\"全部声优\",\"displayOrder\":40,\"selectable\":true,\"capabilities\":[\"coStar\"],\"selectionRule\":\"roleType=1..6\"},{\"positionKey\":\"staff:music:3\",\"subjectType\":\"music\",\"positionKind\":\"staff\",\"label\":\"艺术家\",\"displayOrder\":50,\"selectable\":true,\"capabilities\":[\"rankings\"],\"selectionRule\":\"positionId=3\"},{\"positionKey\":\"staff:game:4\",\"subjectType\":\"game\",\"positionKind\":\"staff\",\"label\":\"开发\",\"displayOrder\":60,\"selectable\":true,\"capabilities\":[\"rankings\"],\"selectionRule\":\"positionId=4\"},{\"positionKey\":\"staff:real:6\",\"subjectType\":\"real\",\"positionKind\":\"staff\",\"label\":\"出演\",\"displayOrder\":70,\"selectable\":true,\"capabilities\":[\"rankings\"],\"selectionRule\":\"positionId=6\"}],\"groups\":[{\"groupKey\":\"featured:book\",\"subjectType\":\"book\",\"label\":\"图书职位\",\"displayOrder\":10,\"positionKeys\":[\"staff:book:1\"]},{\"groupKey\":\"featured:anime\",\"subjectType\":\"anime\",\"label\":\"动画职位\",\"displayOrder\":20,\"positionKeys\":[\"staff:anime:2\",\"cast:anime:main\",\"cast:anime:all\"]},{\"groupKey\":\"featured:music\",\"subjectType\":\"music\",\"label\":\"音乐职位\",\"displayOrder\":30,\"positionKeys\":[\"staff:music:3\"]},{\"groupKey\":\"featured:game\",\"subjectType\":\"game\",\"label\":\"游戏职位\",\"displayOrder\":40,\"positionKeys\":[\"staff:game:4\"]},{\"groupKey\":\"featured:real\",\"subjectType\":\"real\",\"label\":\"三次元职位\",\"displayOrder\":50,\"positionKeys\":[\"staff:real:6\"]}]}\n",
+      "size": 2027,
+      "digest": "sha256:5a6082bc4af89320ef3f7a2ea045189a4a9b2797ef084dbc914f40f2978f4898"
+    },
+    "identity": {
+      "archiveRelease": "producer-golden-v1",
+      "archiveDigest": "sha256:9ea5c2a7645d82091c9cf6d09c418bcf0e82e4fbc557ad1c260d3cbff7eb57d0",
+      "commonCommit": "6a8442c17143a870357a5ff812362e8b5cfe9f9d",
+      "commonDigest": "sha256:24163ba3a1520c207ecd282a562641c7669077dbef63cb5083fd8b24dd457180",
+      "manifestSchemaVersion": 1,
+      "sqliteSchemaVersion": 1,
+      "schemaSqlDigest": "sha256:fe3ff18c4601a6e7fae894db0a4c58e26a7ded6f2d8ad19716946db32789d7b8",
+      "domainRulesVersion": "domain-raw-v1",
+      "castRulesVersion": "cast-exact-v1",
+      "catalogConfigDigest": "sha256:5a6082bc4af89320ef3f7a2ea045189a4a9b2797ef084dbc914f40f2978f4898"
+    }
+  },
+  "dataVersion": {
+    "algorithm": "bgmss-archive-data-version-v1",
+    "canonicalPreimage": "bgmss-archive-data-version-v1\narchiveRelease=producer-golden-v1\narchiveDigest=sha256:9ea5c2a7645d82091c9cf6d09c418bcf0e82e4fbc557ad1c260d3cbff7eb57d0\ncommonCommit=6a8442c17143a870357a5ff812362e8b5cfe9f9d\ncommonDigest=sha256:24163ba3a1520c207ecd282a562641c7669077dbef63cb5083fd8b24dd457180\nmanifestSchemaVersion=1\nsqliteSchemaVersion=1\nschemaSqlDigest=sha256:fe3ff18c4601a6e7fae894db0a4c58e26a7ded6f2d8ad19716946db32789d7b8\ndomainRulesVersion=domain-raw-v1\ncastRulesVersion=cast-exact-v1\ncatalogConfigDigest=sha256:5a6082bc4af89320ef3f7a2ea045189a4a9b2797ef084dbc914f40f2978f4898\n",
+    "canonicalPreimageByteLength": 579,
+    "result": "dv1-00cd0ca0b32fc67fff4cf977d938e6c5cc43a4b979601909b08e16559af6ed10"
+  },
+  "expected": {
+    "accounting": [
+      {
+        "name": "subject.jsonlines",
+        "recordsTotal": 6,
+        "imported": 6,
+        "duplicate": 0,
+        "invalid": 0,
+        "unresolved": 0
+      },
+      {
+        "name": "person.jsonlines",
+        "recordsTotal": 6,
+        "imported": 6,
+        "duplicate": 0,
+        "invalid": 0,
+        "unresolved": 0
+      },
+      {
+        "name": "character.jsonlines",
+        "recordsTotal": 6,
+        "imported": 6,
+        "duplicate": 0,
+        "invalid": 0,
+        "unresolved": 0
+      },
+      {
+        "name": "subject-persons.jsonlines",
+        "recordsTotal": 7,
+        "imported": 6,
+        "duplicate": 0,
+        "invalid": 1,
+        "unresolved": 0
+      },
+      {
+        "name": "subject-characters.jsonlines",
+        "recordsTotal": 6,
+        "imported": 6,
+        "duplicate": 0,
+        "invalid": 0,
+        "unresolved": 0
+      },
+      {
+        "name": "person-characters.jsonlines",
+        "recordsTotal": 6,
+        "imported": 6,
+        "duplicate": 0,
+        "invalid": 0,
+        "unresolved": 0
+      },
+      {
+        "name": "subject-relations.jsonlines",
+        "recordsTotal": 3,
+        "imported": 3,
+        "duplicate": 0,
+        "invalid": 0,
+        "unresolved": 0
+      }
+    ],
+    "logicalProjection": {
+      "subject": [
+        {
+          "subjectType": "anime",
+          "subjectId": 2,
+          "name": "Anime Two",
+          "nameCn": "动画二",
+          "nsfw": false,
+          "airDate": "2024-01-01",
+          "airDatePrecision": 3
+        },
+        {
+          "subjectType": "anime",
+          "subjectId": 6,
+          "name": "Anime Six",
+          "nameCn": null,
+          "nsfw": true,
+          "airDate": "2024-06",
+          "airDatePrecision": 2
+        },
+        {
+          "subjectType": "book",
+          "subjectId": 1,
+          "name": "Book One",
+          "nameCn": "书一",
+          "nsfw": false,
+          "airDate": "2020",
+          "airDatePrecision": 1
+        },
+        {
+          "subjectType": "game",
+          "subjectId": 4,
+          "name": "Game Four",
+          "nameCn": "游戏四",
+          "nsfw": false,
+          "airDate": "2025-02",
+          "airDatePrecision": 2
+        },
+        {
+          "subjectType": "music",
+          "subjectId": 3,
+          "name": "Music Three",
+          "nameCn": "音乐三",
+          "nsfw": false,
+          "airDate": null,
+          "airDatePrecision": null
+        },
+        {
+          "subjectType": "real",
+          "subjectId": 5,
+          "name": "Real Five",
+          "nameCn": "现实五",
+          "nsfw": false,
+          "airDate": "2023-12-31",
+          "airDatePrecision": 3
+        }
+      ],
+      "person": [
+        {
+          "personId": 101,
+          "name": "Person 1",
+          "nameCn": "人物1",
+          "careers": [
+            "seiyu"
+          ]
+        },
+        {
+          "personId": 102,
+          "name": "Person 2",
+          "nameCn": "人物2",
+          "careers": [
+            "seiyu"
+          ]
+        },
+        {
+          "personId": 103,
+          "name": "Person 3",
+          "nameCn": "人物3",
+          "careers": [
+            "seiyu"
+          ]
+        },
+        {
+          "personId": 104,
+          "name": "Person 4",
+          "nameCn": "人物4",
+          "careers": [
+            "seiyu"
+          ]
+        },
+        {
+          "personId": 105,
+          "name": "Person 5",
+          "nameCn": "人物5",
+          "careers": [
+            "seiyu"
+          ]
+        },
+        {
+          "personId": 106,
+          "name": "Person 6",
+          "nameCn": "人物6",
+          "careers": [
+            "seiyu"
+          ]
+        }
+      ],
+      "character": [
+        {
+          "characterId": 201,
+          "name": "Character 1",
+          "nameCn": "角色1"
+        },
+        {
+          "characterId": 202,
+          "name": "Character 2",
+          "nameCn": "角色2"
+        },
+        {
+          "characterId": 203,
+          "name": "Character 3",
+          "nameCn": "角色3"
+        },
+        {
+          "characterId": 204,
+          "name": "Character 4",
+          "nameCn": "角色4"
+        },
+        {
+          "characterId": 205,
+          "name": "Character 5",
+          "nameCn": "角色5"
+        },
+        {
+          "characterId": 206,
+          "name": "Character 6",
+          "nameCn": "角色6"
+        }
+      ],
+      "subjectRelation": [
+        {
+          "subjectType": "anime",
+          "subjectId": 2,
+          "relatedSubjectType": "anime",
+          "relatedSubjectId": 6,
+          "relationType": 1
+        },
+        {
+          "subjectType": "anime",
+          "subjectId": 2,
+          "relatedSubjectType": "anime",
+          "relatedSubjectId": 6,
+          "relationType": 2
+        },
+        {
+          "subjectType": "anime",
+          "subjectId": 6,
+          "relatedSubjectType": "anime",
+          "relatedSubjectId": 2,
+          "relationType": 3
+        }
+      ],
+      "staffPosition": [
+        {
+          "subjectType": "anime",
+          "positionId": 2,
+          "nameCn": "导演",
+          "nameEn": "Director",
+          "nameJp": "監督",
+          "categories": [
+            "production"
+          ],
+          "sortOrder": 20,
+          "status": "selectable"
+        },
+        {
+          "subjectType": "book",
+          "positionId": 1,
+          "nameCn": "作者",
+          "nameEn": "Author",
+          "nameJp": null,
+          "categories": [
+            "writing"
+          ],
+          "sortOrder": 10,
+          "status": "selectable"
+        },
+        {
+          "subjectType": "game",
+          "positionId": 4,
+          "nameCn": "开发",
+          "nameEn": "Developer",
+          "nameJp": null,
+          "categories": [
+            "production"
+          ],
+          "sortOrder": 40,
+          "status": "selectable"
+        },
+        {
+          "subjectType": "music",
+          "positionId": 3,
+          "nameCn": "艺术家",
+          "nameEn": "Artist",
+          "nameJp": null,
+          "categories": [
+            "music"
+          ],
+          "sortOrder": 30,
+          "status": "selectable"
+        },
+        {
+          "subjectType": "real",
+          "positionId": 6,
+          "nameCn": "出演",
+          "nameEn": "Performer",
+          "nameJp": null,
+          "categories": [
+            "cast"
+          ],
+          "sortOrder": 50,
+          "status": "selectable"
+        }
+      ],
+      "staffCredit": [
+        {
+          "subjectType": "anime",
+          "subjectId": 2,
+          "personId": 102,
+          "positionId": 2,
+          "resolved": true,
+          "selectable": true
+        },
+        {
+          "subjectType": "anime",
+          "subjectId": 2,
+          "personId": 106,
+          "positionId": 2,
+          "resolved": true,
+          "selectable": true
+        },
+        {
+          "subjectType": "book",
+          "subjectId": 1,
+          "personId": 101,
+          "positionId": 1,
+          "resolved": true,
+          "selectable": true
+        },
+        {
+          "subjectType": "game",
+          "subjectId": 4,
+          "personId": 104,
+          "positionId": 4,
+          "resolved": true,
+          "selectable": true
+        },
+        {
+          "subjectType": "music",
+          "subjectId": 3,
+          "personId": 103,
+          "positionId": 3,
+          "resolved": true,
+          "selectable": true
+        },
+        {
+          "subjectType": "real",
+          "subjectId": 5,
+          "personId": 105,
+          "positionId": 6,
+          "resolved": true,
+          "selectable": true
+        }
+      ],
+      "castCredit": [
+        {
+          "subjectType": "anime",
+          "subjectId": 2,
+          "personId": 101,
+          "characterId": 201,
+          "roleType": 1,
+          "eligible": true,
+          "provenance": "exact"
+        },
+        {
+          "subjectType": "anime",
+          "subjectId": 2,
+          "personId": 102,
+          "characterId": 202,
+          "roleType": 2,
+          "eligible": true,
+          "provenance": "exact"
+        },
+        {
+          "subjectType": "anime",
+          "subjectId": 2,
+          "personId": 103,
+          "characterId": 203,
+          "roleType": 3,
+          "eligible": true,
+          "provenance": "exact"
+        },
+        {
+          "subjectType": "anime",
+          "subjectId": 2,
+          "personId": 104,
+          "characterId": 204,
+          "roleType": 4,
+          "eligible": true,
+          "provenance": "exact"
+        },
+        {
+          "subjectType": "anime",
+          "subjectId": 2,
+          "personId": 105,
+          "characterId": 205,
+          "roleType": 5,
+          "eligible": true,
+          "provenance": "exact"
+        },
+        {
+          "subjectType": "anime",
+          "subjectId": 2,
+          "personId": 106,
+          "characterId": 206,
+          "roleType": 6,
+          "eligible": true,
+          "provenance": "exact"
+        }
+      ],
+      "catalogPosition": [
+        {
+          "positionKey": "staff:book:1",
+          "subjectType": "book",
+          "positionKind": "staff",
+          "label": "作者",
+          "displayOrder": 10,
+          "selectable": true,
+          "capabilities": [
+            "rankings"
+          ],
+          "selectionRule": "positionId=1"
+        },
+        {
+          "positionKey": "staff:anime:2",
+          "subjectType": "anime",
+          "positionKind": "staff",
+          "label": "导演",
+          "displayOrder": 20,
+          "selectable": true,
+          "capabilities": [
+            "rankings",
+            "candidates"
+          ],
+          "selectionRule": "positionId=2"
+        },
+        {
+          "positionKey": "cast:anime:main",
+          "subjectType": "anime",
+          "positionKind": "cast",
+          "label": "主要声优",
+          "displayOrder": 30,
+          "selectable": true,
+          "capabilities": [
+            "coStar"
+          ],
+          "selectionRule": "roleType=1"
+        },
+        {
+          "positionKey": "cast:anime:all",
+          "subjectType": "anime",
+          "positionKind": "cast",
+          "label": "全部声优",
+          "displayOrder": 40,
+          "selectable": true,
+          "capabilities": [
+            "coStar"
+          ],
+          "selectionRule": "roleType=1..6"
+        },
+        {
+          "positionKey": "staff:music:3",
+          "subjectType": "music",
+          "positionKind": "staff",
+          "label": "艺术家",
+          "displayOrder": 50,
+          "selectable": true,
+          "capabilities": [
+            "rankings"
+          ],
+          "selectionRule": "positionId=3"
+        },
+        {
+          "positionKey": "staff:game:4",
+          "subjectType": "game",
+          "positionKind": "staff",
+          "label": "开发",
+          "displayOrder": 60,
+          "selectable": true,
+          "capabilities": [
+            "rankings"
+          ],
+          "selectionRule": "positionId=4"
+        },
+        {
+          "positionKey": "staff:real:6",
+          "subjectType": "real",
+          "positionKind": "staff",
+          "label": "出演",
+          "displayOrder": 70,
+          "selectable": true,
+          "capabilities": [
+            "rankings"
+          ],
+          "selectionRule": "positionId=6"
+        }
+      ]
+    },
+    "logicalDigests": {
+      "algorithm": "bgmss-producer-logical-rows-v1",
+      "subject": "sha256:ff9c874ec8eef4b1b77eeaa4eb2a71c466bd9488208ae5b41e0ca126e25dfc18",
+      "person": "sha256:070b2ff01e2f845078270f18014c3441e4a648983187feb8f644b72fed1b221e",
+      "character": "sha256:c9ef14fb7e8e6b76372e065497fbcf9ec6c01b45ee37da613bd75fde5b6eef18",
+      "subjectRelation": "sha256:9a88d50d2ddd5d26621b084437e5a4b95a52b1ac5df0b857bcd613c9a26e6a99",
+      "staffPosition": "sha256:d4b03b5c662ecc6b7e0404061fb9f8c9086e672c29b07dbd6dbe293e3133598f",
+      "staffCredit": "sha256:8a3066e727d05c5a506f0d808c8458fb60f9e81e9962039eaf5d02f62aacfc10",
+      "castCredit": "sha256:e0fe46120e7c698e8e6bae81f8dfc5d0a3e43a3a8b3f3f958748ae925a336131",
+      "catalogPosition": "sha256:d13c59ba98b9395bbcbae86d6c96d4afc3fed4bb05cf9efbbd982c7e006d7468"
+    },
+    "tableCounts": {
+      "archive_meta": 1,
+      "subject": 6,
+      "subject_rating_bucket": 0,
+      "subject_tag": 0,
+      "person": 6,
+      "person_career": 6,
+      "character": 6,
+      "subject_relation": 3,
+      "staff_position": 5,
+      "staff_position_category": 5,
+      "staff_credit": 6,
+      "cast_credit": 6,
+      "staff_set": 0,
+      "staff_set_member": 0,
+      "catalog_position": 7,
+      "catalog_position_member": 0,
+      "catalog_group": 5,
+      "catalog_group_member": 7,
+      "catalog_capability": 8,
+      "catalog_selection_rule": 7
+    },
+    "qualitySummary": {
+      "NO_CHARACTERS": 5,
+      "NO_CAST_RELATIONS": 5,
+      "FILTERED_BY_VALID_CV": 0,
+      "UNKNOWN_STAFF_POSITION": 0
+    },
+    "outcome": "SOURCE_REFERENCE_MISSING",
+    "firstFailure": {
+      "code": "SOURCE_REFERENCE_MISSING",
+      "source": "subject-persons.jsonlines",
+      "line": 7
+    },
+    "candidateAllowed": false
+  },
+  "equivalence": null
+}

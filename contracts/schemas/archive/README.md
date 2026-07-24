@@ -10,6 +10,8 @@ than maintain private copies.
 - `current-pointer.schema.json` defines an inert, path-free activation pointer.
 - `data-version-input.schema.json` defines the semantic inputs to `dataVersion`.
 - `fixture-index.schema.json` defines the closed golden inventory.
+- `producer-case.schema.json` defines one strict, compact producer-only case.
+- `producer-index.schema.json` defines the separately closed producer inventory.
 - `compatibility-matrix.json` fixes the only supported v1 compatibility tuple,
   validation order, required SQLite objects, and sentinel queries.
 - `schema.sql` is the canonical SQLite v1 DDL.
@@ -46,6 +48,67 @@ ephemeral raw-byte recipe that preserves the `archiveAssetUrl` string
 delimiters and replaces exactly its payload with bytes `C3 28`. It remains one
 of the closed corpus's fixed 32 paths; the pre-snapshot raw-domain correction
 regenerates schema-dependent bytes without adding or removing a path.
+
+## Producer-only evidence
+
+The accepted consumer corpus and producer evidence are two disjoint closed
+inventories. `contracts/goldens/archive/index.json` continues to own exactly
+the 32 canonical consumer paths outside `producer/**`.
+`contracts/goldens/archive/producer/index.json` owns every other regular,
+non-symlink file below `producer/` and uses paths relative to that directory.
+Neither index may contain a path owned by the other. Producer cases are never
+dispatched as manifest, pointer, vector, or SQLite consumer fixtures.
+
+Each producer case is standalone and fixes:
+
+- the exact UTF-8 bytes, byte size, SHA-256, declared size, and declared
+  SHA-256 for every present JSONLines source;
+- exact compact JSON-as-YAML `subject_staffs.yml` evidence and catalog-config
+  bytes with their sizes and digests;
+- the complete dataVersion input, canonical LF preimage, byte length, and
+  result;
+- exclusive per-source imported/duplicate/invalid/unresolved accounting;
+- canonical logical projections, per-projection
+  `bgmss-producer-logical-rows-v1` digests, all 20 SQLite table counts, and the
+  four bounded quality counts; and
+- one stable outcome, bounded first failure, and whether a final candidate is
+  allowed.
+
+`bgmss-producer-source-set-v1` binds compact synthetic source evidence without
+pretending to be an upstream ZIP. It sorts sources by UTF-8 basename and hashes
+an LF record containing the algorithm, source count, and each basename byte
+length/value, exact source size, and exact source digest. That result is the
+case's synthetic `archiveDigest`; common/catalog digests and the canonical
+`schema.sql` digest are independently recomputed before dataVersion.
+
+The 15 cases cover a complete seven-source build, byte-identical regeneration,
+an identical duplicate, a permitted raw unknown staff position, malformed and
+unknown-field records, a true primary-key conflict, a missing required
+reference, missing and extra sources, declared digest and size mismatches, and
+three raw-domain rejection families. The positive case contains source type
+codes `1/2/3/4/6`, cast roles `1..6`, directed relation rows `2 -> 6` with
+codes `1` and `2`, and `6 -> 2` with code `3`. Code `1` is valid outside the
+series predicate. The rejection cases exercise another numeric subject code
+and a numeric-looking string, an out-of-range cast role and a numeric-looking
+string, plus non-positive, JSON-unsafe, and numeric-looking-string relation
+codes. Stored logical rows retain only the accepted integer roles and relation
+codes; the `cast:anime:main` catalog rule is the numeric predicate
+`roleType=1`.
+
+For every failed case, accounting, logical projections, row counts, and their
+digests are verifier-only counterfactual recomputation evidence over the
+declared bytes. They are not evidence that a producer processed, persisted, or
+published those rows. Source-set, declared-size, and declared-digest gates take
+precedence over record and reference failures, and only `VALID` permits a final
+candidate. These are tiny contract vectors only: they are not downloaded
+Archive data and introduce no manifest, pointer, SQLite, compatibility, or
+runtime-schema change.
+
+The Python fixture builder regenerates and compares only the canonical
+32-entry corpus and proves its fixed root-index and sorted path/digest seals.
+The shared Node verifier performs fatal UTF-8 decoding, strict 2020-12 schema
+compilation, closed inventory/hash checks, and independent semantic
+recomputation for both corpora.
 
 The digest construction is deliberately acyclic:
 

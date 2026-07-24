@@ -16,12 +16,28 @@ const TOOLING_ROOT = path.dirname(SCRIPT);
 const SCHEMA_ROOT = path.dirname(TOOLING_ROOT);
 const CONTRACTS_ROOT = path.dirname(path.dirname(SCHEMA_ROOT));
 const GOLDEN_ROOT = path.join(CONTRACTS_ROOT, "goldens", "archive");
+const PRODUCER_ROOT = path.join(GOLDEN_ROOT, "producer");
 const REPOSITORY_ROOT = path.dirname(CONTRACTS_ROOT);
 const SAFE_INTEGER_MAX = 9_007_199_254_740_991;
 const ALGORITHM = "bgmss-archive-data-version-v1";
+const PRODUCER_SOURCE_SET_ALGORITHM = "bgmss-producer-source-set-v1";
+const PRODUCER_LOGICAL_ROWS_ALGORITHM = "bgmss-producer-logical-rows-v1";
 const SCHEMA_OBJECT_ALGORITHM = "bgmss-sqlite-schema-objects-v1";
 const SCHEMA_OBJECT_COUNT = 35;
+const CANONICAL_INDEX_SHA256 =
+  "db3e9d2f81a90f8c7b36e9d6a0010bb35c54b4b0890d21ea4ecbe2f0b0979801";
+const CANONICAL_INDEX_TABLE_SHA256 =
+  "cd6c1609e94d86b665b1c053874266c48f09826fcb11c8691b1c6249c1d3927c";
+const CANONICAL_INDEXED_FILES = 32;
 const COMMON_COMMIT = "6a8442c17143a870357a5ff812362e8b5cfe9f9d";
+const PRODUCER_SUBJECT_TYPES = new Map([
+  [1, "book"],
+  [2, "anime"],
+  [3, "music"],
+  [4, "game"],
+  [6, "real"],
+]);
+const PRODUCER_NORMALIZED_SUBJECT_TYPES = [...PRODUCER_SUBJECT_TYPES.values()];
 const SOURCE_NAMES = [
   "subject.jsonlines",
   "person.jsonlines",
@@ -36,6 +52,8 @@ const SCHEMA_FILES = {
   pointer: "current-pointer.schema.json",
   dataVersionInput: "data-version-input.schema.json",
   fixtureIndex: "fixture-index.schema.json",
+  producerCase: "producer-case.schema.json",
+  producerIndex: "producer-index.schema.json",
 };
 const EXPECTED_SCHEMA_INVENTORY = [
   "README.md",
@@ -44,6 +62,8 @@ const EXPECTED_SCHEMA_INVENTORY = [
   "current-pointer.schema.json",
   "data-version-input.schema.json",
   "fixture-index.schema.json",
+  "producer-case.schema.json",
+  "producer-index.schema.json",
   "schema.sql",
   "tooling/build_sqlite_fixtures.py",
   "tooling/package-lock.json",
@@ -63,6 +83,66 @@ const RESULT_STAGE = new Map([
   ["SQLITE_REQUIRED_OBJECT_MISSING", "sqlite-required-objects"],
   ["SQLITE_TABLE_COUNT_MISMATCH", "sqlite-table-count"],
 ]);
+const PRODUCER_CASE_KINDS = [
+  "valid-seven-source",
+  "identical-regeneration",
+  "identical-duplicate",
+  "permitted-unresolved-position",
+  "malformed-record",
+  "unknown-field-record",
+  "conflicting-duplicate",
+  "missing-reference",
+  "missing-source",
+  "extra-source",
+  "digest-mismatch",
+  "size-mismatch",
+  "invalid-subject-type",
+  "invalid-cast-role",
+  "invalid-relation-code",
+];
+const PRODUCER_OUTCOMES = new Set([
+  "VALID",
+  "SOURCE_SET_MISSING",
+  "SOURCE_SET_EXTRA",
+  "SOURCE_SIZE_MISMATCH",
+  "SOURCE_DIGEST_MISMATCH",
+  "SOURCE_RECORD_MALFORMED",
+  "SOURCE_RECORD_UNKNOWN_FIELD",
+  "SOURCE_DUPLICATE_CONFLICT",
+  "SOURCE_REFERENCE_MISSING",
+]);
+const TABLE_NAMES = [
+  "archive_meta",
+  "subject",
+  "subject_rating_bucket",
+  "subject_tag",
+  "person",
+  "person_career",
+  "character",
+  "subject_relation",
+  "staff_position",
+  "staff_position_category",
+  "staff_credit",
+  "cast_credit",
+  "staff_set",
+  "staff_set_member",
+  "catalog_position",
+  "catalog_position_member",
+  "catalog_group",
+  "catalog_group_member",
+  "catalog_capability",
+  "catalog_selection_rule",
+];
+const PRODUCER_PROJECTION_NAMES = [
+  "subject",
+  "person",
+  "character",
+  "subjectRelation",
+  "staffPosition",
+  "staffCredit",
+  "castCredit",
+  "catalogPosition",
+];
 const GENERATED_AT_FORMAT = "bgmss-utc-generated-at-v1";
 const UNICODE_SCALAR_URL_FORMAT = "bgmss-unicode-scalar-url-v1";
 const MANIFEST_STRING_VECTOR_PATH = path.join(
@@ -331,6 +411,8 @@ function validateStrictJsonDecoding() {
     "schema",
     "package",
     "lockfile",
+    "producer-case",
+    "producer-index",
   ];
   const invalidUtf8Json = Buffer.from([
     0x7b, 0x22, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x3a, 0x22,
@@ -1260,18 +1342,1258 @@ function validateDataVersionVector(filePath, validators) {
   return "VALID";
 }
 
+function plainObject(value, label) {
+  invariant(
+    value !== null && typeof value === "object" && !Array.isArray(value),
+    `${label} must be an object`,
+  );
+  return value;
+}
+
+function exactObjectKeys(value, keys, label) {
+  plainObject(value, label);
+  assert.deepEqual(
+    Object.keys(value).sort(),
+    [...keys].sort(),
+    `${label} fields`,
+  );
+}
+
+function positiveSafeInteger(value, label, { allowZero = false } = {}) {
+  invariant(
+    Number.isSafeInteger(value) && (allowZero ? value >= 0 : value > 0),
+    `${label} must be a JSON-safe ${allowZero ? "non-negative" : "positive"} integer`,
+  );
+  return value;
+}
+
+function boundedProducerString(value, label, maximum = 256) {
+  invariant(
+    typeof value === "string" && value.length > 0 && value.length <= maximum,
+    `${label} must be bounded non-empty text`,
+  );
+  invariant(
+    !value.includes("\0") && !value.includes("\r") && !value.includes("\n"),
+    `${label} contains a forbidden control`,
+  );
+  strictUtf8Bytes(value, label);
+  return value;
+}
+
+function producerSourceSetDigest(sources) {
+  const ordered = [...sources].sort((left, right) =>
+    Buffer.compare(
+      strictUtf8Bytes(left.name, "producer source name"),
+      strictUtf8Bytes(right.name, "producer source name"),
+    ),
+  );
+  const chunks = [
+    Buffer.from(`${PRODUCER_SOURCE_SET_ALGORITHM}\n`, "ascii"),
+    Buffer.from(`count=${ordered.length}\n`, "ascii"),
+  ];
+  for (const source of ordered) {
+    const name = strictUtf8Bytes(source.name, `producer source ${source.name} name`);
+    chunks.push(
+      Buffer.from(`name=${name.length}:`, "ascii"),
+      name,
+      Buffer.from("\n", "ascii"),
+      Buffer.from(`size=${source.size}\n`, "ascii"),
+      Buffer.from(`digest=${source.digest}\n`, "ascii"),
+    );
+  }
+  return sha256(Buffer.concat(chunks));
+}
+
+function producerBlobBytes(blob, label) {
+  const bytes = strictUtf8Bytes(blob.bytesUtf8, `${label} bytes`);
+  assert.equal(bytes.byteLength, blob.size, `${label} exact size`);
+  assert.equal(sha256(bytes), blob.digest, `${label} exact digest`);
+  return bytes;
+}
+
+function parseProducerCommon(blob) {
+  const document = JSON.parse(
+    new TextDecoder("utf-8", { fatal: true }).decode(
+      producerBlobBytes(blob, "producer common"),
+    ),
+  );
+  exactObjectKeys(document, ["positions"], "producer common");
+  invariant(Array.isArray(document.positions), "producer common positions must be an array");
+  const identities = new Set();
+  return document.positions.map((position, index) => {
+    const label = `producer common position ${index}`;
+    exactObjectKeys(
+      position,
+      [
+        "subjectType",
+        "positionId",
+        "nameCn",
+        "nameEn",
+        "nameJp",
+        "categories",
+        "sortOrder",
+        "status",
+      ],
+      label,
+    );
+    invariant(
+      PRODUCER_SUBJECT_TYPES.has(position.subjectType),
+      `${label} subject type`,
+    );
+    positiveSafeInteger(position.positionId, `${label} id`);
+    boundedProducerString(position.nameCn, `${label} Chinese name`, 128);
+    for (const field of ["nameEn", "nameJp"]) {
+      invariant(
+        position[field] === null ||
+          (typeof position[field] === "string" &&
+            position[field].length > 0 &&
+            position[field].length <= 128),
+        `${label} ${field}`,
+      );
+    }
+    invariant(
+      Array.isArray(position.categories) &&
+        position.categories.length > 0 &&
+        position.categories.length <= 16,
+      `${label} categories`,
+    );
+    for (const category of position.categories) {
+      assert.match(category, /^[a-z][a-z0-9-]*$/, `${label} category`);
+    }
+    assert.equal(new Set(position.categories).size, position.categories.length);
+    positiveSafeInteger(position.sortOrder, `${label} sort order`, { allowZero: true });
+    invariant(["selectable", "hidden"].includes(position.status), `${label} status`);
+    const identity = `${position.subjectType}:${position.positionId}`;
+    invariant(!identities.has(identity), `${label} duplicate identity`);
+    identities.add(identity);
+    return position;
+  });
+}
+
+function parseProducerCatalog(blob) {
+  const document = JSON.parse(
+    new TextDecoder("utf-8", { fatal: true }).decode(
+      producerBlobBytes(blob, "producer catalog config"),
+    ),
+  );
+  exactObjectKeys(document, ["positions", "groups"], "producer catalog config");
+  invariant(
+    Array.isArray(document.positions) &&
+      document.positions.length > 0 &&
+      document.positions.length <= 32,
+    "producer catalog positions",
+  );
+  invariant(
+    Array.isArray(document.groups) && document.groups.length <= 16,
+    "producer catalog groups",
+  );
+  const positionKeys = new Set();
+  const catalogPositionSubjectTypes = new Map();
+  for (const [index, position] of document.positions.entries()) {
+    const label = `producer catalog position ${index}`;
+    exactObjectKeys(
+      position,
+      [
+        "positionKey",
+        "subjectType",
+        "positionKind",
+        "label",
+        "displayOrder",
+        "selectable",
+        "capabilities",
+        "selectionRule",
+      ],
+      label,
+    );
+    assert.match(position.positionKey, /^[a-z]+:[a-z]+:[a-z0-9-]+$/, `${label} key`);
+    invariant(!positionKeys.has(position.positionKey), `${label} duplicate key`);
+    positionKeys.add(position.positionKey);
+    catalogPositionSubjectTypes.set(
+      position.positionKey,
+      position.subjectType,
+    );
+    invariant(
+      PRODUCER_NORMALIZED_SUBJECT_TYPES.includes(position.subjectType),
+      `${label} subject type`,
+    );
+    invariant(["staff", "cast"].includes(position.positionKind), `${label} kind`);
+    const [keyKind, keySubjectType, keySelector] =
+      position.positionKey.split(":");
+    assert.equal(keyKind, position.positionKind, `${label} key kind`);
+    assert.equal(
+      keySubjectType,
+      position.subjectType,
+      `${label} key subject type`,
+    );
+    if (position.positionKind === "cast") {
+      invariant(
+        ["anime", "game"].includes(position.subjectType),
+        `${label} cast subject type`,
+      );
+      invariant(["main", "all"].includes(keySelector), `${label} cast selector`);
+      assert.equal(
+        position.selectionRule,
+        keySelector === "main" ? "roleType=1" : "roleType=1..6",
+        `${label} numeric cast selection rule`,
+      );
+    } else {
+      assert.match(keySelector, /^[1-9][0-9]*$/, `${label} staff selector`);
+      assert.equal(
+        position.selectionRule,
+        `positionId=${keySelector}`,
+        `${label} staff selection rule`,
+      );
+    }
+    boundedProducerString(position.label, `${label} label`, 128);
+    positiveSafeInteger(position.displayOrder, `${label} display order`, {
+      allowZero: true,
+    });
+    invariant(typeof position.selectable === "boolean", `${label} selectable`);
+    invariant(
+      Array.isArray(position.capabilities) &&
+        position.capabilities.length > 0 &&
+        position.capabilities.length <= 16,
+      `${label} capabilities`,
+    );
+    assert.equal(new Set(position.capabilities).size, position.capabilities.length);
+    for (const capability of position.capabilities) {
+      assert.match(capability, /^[A-Za-z][A-Za-z0-9-]*$/, `${label} capability`);
+    }
+    boundedProducerString(position.selectionRule, `${label} selection rule`, 128);
+  }
+  const groupKeys = new Set();
+  for (const [index, group] of document.groups.entries()) {
+    const label = `producer catalog group ${index}`;
+    exactObjectKeys(
+      group,
+      ["groupKey", "subjectType", "label", "displayOrder", "positionKeys"],
+      label,
+    );
+    assert.match(group.groupKey, /^[a-z]+:[a-z]+$/, `${label} key`);
+    invariant(!groupKeys.has(group.groupKey), `${label} duplicate key`);
+    groupKeys.add(group.groupKey);
+    invariant(
+      PRODUCER_NORMALIZED_SUBJECT_TYPES.includes(group.subjectType),
+      `${label} subject type`,
+    );
+    boundedProducerString(group.label, `${label} label`, 128);
+    positiveSafeInteger(group.displayOrder, `${label} display order`, {
+      allowZero: true,
+    });
+    invariant(
+      Array.isArray(group.positionKeys) &&
+        group.positionKeys.length > 0 &&
+        group.positionKeys.length <= 32,
+      `${label} position keys`,
+    );
+    assert.equal(new Set(group.positionKeys).size, group.positionKeys.length);
+    for (const positionKey of group.positionKeys) {
+      invariant(positionKeys.has(positionKey), `${label} has an unknown position key`);
+      assert.equal(
+        catalogPositionSubjectTypes.get(positionKey),
+        group.subjectType,
+        `${label} cross-type position key`,
+      );
+    }
+  }
+  return document;
+}
+
+const PRODUCER_RECORD_FIELDS = new Map([
+  [
+    "subject.jsonlines",
+    ["id", "type", "name", "name_cn", "nsfw", "date"],
+  ],
+  ["person.jsonlines", ["id", "name", "name_cn", "career"]],
+  ["character.jsonlines", ["id", "name", "name_cn"]],
+  [
+    "subject-persons.jsonlines",
+    ["subject_id", "person_id", "position"],
+  ],
+  [
+    "subject-characters.jsonlines",
+    ["subject_id", "character_id", "type", "order"],
+  ],
+  [
+    "person-characters.jsonlines",
+    ["subject_id", "character_id", "person_id"],
+  ],
+  [
+    "subject-relations.jsonlines",
+    ["subject_id", "related_subject_id", "relation_type"],
+  ],
+]);
+
+function producerRecordIdentity(sourceName, record) {
+  if (sourceName === "subject.jsonlines") return String(record.id);
+  if (sourceName === "person.jsonlines") return String(record.id);
+  if (sourceName === "character.jsonlines") return String(record.id);
+  if (sourceName === "subject-persons.jsonlines") {
+    return `${record.subject_id}:${record.person_id}:${record.position}`;
+  }
+  if (sourceName === "subject-characters.jsonlines") {
+    return `${record.subject_id}:${record.character_id}`;
+  }
+  if (sourceName === "person-characters.jsonlines") {
+    return `${record.subject_id}:${record.character_id}:${record.person_id}`;
+  }
+  if (sourceName === "subject-relations.jsonlines") {
+    return `${record.subject_id}:${record.related_subject_id}:${record.relation_type}`;
+  }
+  return null;
+}
+
+function partialDatePrecision(value, label) {
+  if (value === null) return null;
+  invariant(typeof value === "string", `${label} must be text or null`);
+  const match = /^([0-9]{4})(?:-([0-9]{2})(?:-([0-9]{2}))?)?$/.exec(value);
+  invariant(match, `${label} shape`);
+  const year = Number(match[1]);
+  invariant(year >= 1 && year <= 9999, `${label} year`);
+  if (match[2] === undefined) return 1;
+  const month = Number(match[2]);
+  invariant(month >= 1 && month <= 12, `${label} month`);
+  if (match[3] === undefined) return 2;
+  const day = Number(match[3]);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const monthDays = [
+    31,
+    leap ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ];
+  invariant(day >= 1 && day <= monthDays[month - 1], `${label} day`);
+  return 3;
+}
+
+function validateProducerRecordShape(sourceName, record, label) {
+  const fields = PRODUCER_RECORD_FIELDS.get(sourceName);
+  if (!fields) return { code: "SOURCE_RECORD_MALFORMED" };
+  if (record === null || typeof record !== "object" || Array.isArray(record)) {
+    return { code: "SOURCE_RECORD_MALFORMED" };
+  }
+  if (Object.keys(record).some((key) => !fields.includes(key))) {
+    return { code: "SOURCE_RECORD_UNKNOWN_FIELD" };
+  }
+  if (fields.some((key) => !Object.hasOwn(record, key))) {
+    return { code: "SOURCE_RECORD_MALFORMED" };
+  }
+  try {
+    if (sourceName === "subject.jsonlines") {
+      positiveSafeInteger(record.id, `${label} subject id`);
+      invariant(
+        PRODUCER_SUBJECT_TYPES.has(record.type),
+        `${label} subject type`,
+      );
+      boundedProducerString(record.name, `${label} subject name`);
+      invariant(
+        record.name_cn === null ||
+          (typeof record.name_cn === "string" &&
+            record.name_cn.length > 0 &&
+            record.name_cn.length <= 256),
+        `${label} subject Chinese name`,
+      );
+      invariant(typeof record.nsfw === "boolean", `${label} subject NSFW`);
+      partialDatePrecision(record.date, `${label} subject date`);
+    } else if (sourceName === "person.jsonlines") {
+      positiveSafeInteger(record.id, `${label} person id`);
+      boundedProducerString(record.name, `${label} person name`);
+      invariant(
+        record.name_cn === null ||
+          (typeof record.name_cn === "string" &&
+            record.name_cn.length > 0 &&
+            record.name_cn.length <= 256),
+        `${label} person Chinese name`,
+      );
+      invariant(
+        Array.isArray(record.career) && record.career.length <= 16,
+        `${label} person career`,
+      );
+      assert.equal(new Set(record.career).size, record.career.length);
+      for (const career of record.career) {
+        assert.match(career, /^[a-z][a-z0-9-]*$/, `${label} career`);
+      }
+    } else if (sourceName === "character.jsonlines") {
+      positiveSafeInteger(record.id, `${label} character id`);
+      boundedProducerString(record.name, `${label} character name`);
+      invariant(
+        record.name_cn === null ||
+          (typeof record.name_cn === "string" &&
+            record.name_cn.length > 0 &&
+            record.name_cn.length <= 256),
+        `${label} character Chinese name`,
+      );
+    } else if (sourceName === "subject-characters.jsonlines") {
+      positiveSafeInteger(record.subject_id, `${label} subject_id`);
+      positiveSafeInteger(record.character_id, `${label} character_id`);
+      invariant(
+        Number.isSafeInteger(record.type) &&
+          record.type >= 1 &&
+          record.type <= 6,
+        `${label} cast role type`,
+      );
+      positiveSafeInteger(record.order, `${label} order`, { allowZero: true });
+    } else {
+      for (const field of fields) {
+        positiveSafeInteger(record[field], `${label} ${field}`);
+      }
+    }
+  } catch {
+    return { code: "SOURCE_RECORD_MALFORMED" };
+  }
+  return { code: null };
+}
+
+function producerTypeName(value) {
+  invariant(
+    PRODUCER_SUBJECT_TYPES.has(value),
+    `unsupported producer subject type: ${value}`,
+  );
+  return PRODUCER_SUBJECT_TYPES.get(value);
+}
+
+function producerLogicalDigests(projection) {
+  const result = { algorithm: PRODUCER_LOGICAL_ROWS_ALGORITHM };
+  for (const name of PRODUCER_PROJECTION_NAMES) {
+    result[name] = sha256(canonicalJsonBytes(projection[name]));
+  }
+  return result;
+}
+
+function evaluateProducerCase(document, validators) {
+  invariant(validators.producerCase(document), `producer case schema: ${JSON.stringify(validators.producerCase.errors)}`);
+  assert.equal(document.inputs.sourceSetAlgorithm, PRODUCER_SOURCE_SET_ALGORITHM);
+  assert.equal(document.dataVersion.algorithm, ALGORITHM);
+  invariant(PRODUCER_OUTCOMES.has(document.expected.outcome), "unknown producer outcome");
+
+  const sources = document.inputs.sources;
+  const sourceByName = new Map();
+  const sourceOrder = new Map();
+  for (const [index, source] of sources.entries()) {
+    invariant(!sourceByName.has(source.name), `duplicate producer source: ${source.name}`);
+    sourceByName.set(source.name, source);
+    sourceOrder.set(source.name, index);
+    const bytes = strictUtf8Bytes(source.bytesUtf8, `producer source ${source.name}`);
+    assert.equal(bytes.byteLength, source.size, `${source.name} exact size`);
+    assert.equal(sha256(bytes), source.digest, `${source.name} exact digest`);
+  }
+
+  const missing = SOURCE_NAMES.filter((name) => !sourceByName.has(name));
+  const extra = sources
+    .map((source) => source.name)
+    .filter((name) => !SOURCE_NAMES.includes(name));
+  let inputGateFailure = null;
+  if (missing.length > 0) {
+    inputGateFailure = {
+      code: "SOURCE_SET_MISSING",
+      source: missing[0],
+      line: null,
+    };
+  } else if (extra.length > 0) {
+    inputGateFailure = {
+      code: "SOURCE_SET_EXTRA",
+      source: extra[0],
+      line: null,
+    };
+  } else {
+    const sizeMismatch = sources.find(
+      (source) => source.declaredSize !== source.size,
+    );
+    const digestMismatch = sources.find(
+      (source) => source.declaredDigest !== source.digest,
+    );
+    if (sizeMismatch) {
+      inputGateFailure = {
+        code: "SOURCE_SIZE_MISMATCH",
+        source: sizeMismatch.name,
+        line: null,
+      };
+    } else if (digestMismatch) {
+      inputGateFailure = {
+        code: "SOURCE_DIGEST_MISMATCH",
+        source: digestMismatch.name,
+        line: null,
+      };
+    }
+  }
+
+  const commonPositions = parseProducerCommon(document.inputs.commonSubjectStaffs);
+  const catalog = parseProducerCatalog(document.inputs.catalogConfig);
+  assert.equal(
+    document.inputs.identity.archiveDigest,
+    producerSourceSetDigest(sources),
+    "producer source set digest",
+  );
+  assert.equal(
+    document.inputs.identity.commonDigest,
+    document.inputs.commonSubjectStaffs.digest,
+    "producer common identity digest",
+  );
+  assert.equal(
+    document.inputs.identity.catalogConfigDigest,
+    document.inputs.catalogConfig.digest,
+    "producer catalog identity digest",
+  );
+  assert.equal(
+    document.inputs.identity.schemaSqlDigest,
+    fileDigest(path.join(SCHEMA_ROOT, "schema.sql")),
+    "producer schema SQL identity digest",
+  );
+  invariant(
+    validators.dataVersionInput(document.inputs.identity),
+    `producer identity schema: ${JSON.stringify(validators.dataVersionInput.errors)}`,
+  );
+  const versionPreimage = canonicalPreimage(document.inputs.identity);
+  assert.equal(
+    document.dataVersion.canonicalPreimage,
+    versionPreimage.toString("utf8"),
+    "producer dataVersion preimage",
+  );
+  assert.equal(
+    document.dataVersion.canonicalPreimageByteLength,
+    versionPreimage.byteLength,
+    "producer dataVersion preimage length",
+  );
+  assert.equal(
+    document.dataVersion.result,
+    computeDataVersion(document.inputs.identity),
+    "producer dataVersion result",
+  );
+
+  const accounting = sources.map((source) => ({
+    name: source.name,
+    recordsTotal: 0,
+    imported: 0,
+    duplicate: 0,
+    invalid: 0,
+    unresolved: 0,
+  }));
+  const accountingByName = new Map(accounting.map((entry) => [entry.name, entry]));
+  const parsedBySource = new Map(sources.map((source) => [source.name, []]));
+  let recordFailure = null;
+  for (const source of sources) {
+    const bytes = strictUtf8Bytes(source.bytesUtf8, `producer source ${source.name}`);
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    invariant(
+      text.length === 0 || text.endsWith("\n"),
+      `${source.name} must be empty or end with LF`,
+    );
+    const lines = text.length === 0 ? [] : text.slice(0, -1).split("\n");
+    const accountingEntry = accountingByName.get(source.name);
+    accountingEntry.recordsTotal = lines.length;
+    const seen = new Map();
+    for (const [lineIndex, line] of lines.entries()) {
+      const lineNumber = lineIndex + 1;
+      let record;
+      try {
+        record = JSON.parse(line);
+      } catch {
+        accountingEntry.invalid += 1;
+        if (!recordFailure) {
+          recordFailure = {
+            code: "SOURCE_RECORD_MALFORMED",
+            source: source.name,
+            line: lineNumber,
+          };
+        }
+        continue;
+      }
+      const shape = validateProducerRecordShape(
+        source.name,
+        record,
+        `${source.name}:${lineNumber}`,
+      );
+      if (shape.code) {
+        accountingEntry.invalid += 1;
+        if (!recordFailure) {
+          recordFailure = {
+            code: shape.code,
+            source: source.name,
+            line: lineNumber,
+          };
+        }
+        continue;
+      }
+      const identity = producerRecordIdentity(source.name, record);
+      invariant(identity !== null, `${source.name}:${lineNumber} has no identity`);
+      if (seen.has(identity)) {
+        if (isDeepStrictEqual(seen.get(identity), record)) {
+          accountingEntry.duplicate += 1;
+        } else {
+          accountingEntry.invalid += 1;
+          if (!recordFailure) {
+            recordFailure = {
+              code: "SOURCE_DUPLICATE_CONFLICT",
+              source: source.name,
+              line: lineNumber,
+            };
+          }
+        }
+        continue;
+      }
+      seen.set(identity, record);
+      parsedBySource.get(source.name).push({
+        source: source.name,
+        line: lineNumber,
+        record,
+        classification: "pending",
+      });
+    }
+  }
+
+  const subjects = new Map(
+    (parsedBySource.get("subject.jsonlines") ?? []).map((entry) => [
+      entry.record.id,
+      entry,
+    ]),
+  );
+  const people = new Map(
+    (parsedBySource.get("person.jsonlines") ?? []).map((entry) => [
+      entry.record.id,
+      entry,
+    ]),
+  );
+  const characters = new Map(
+    (parsedBySource.get("character.jsonlines") ?? []).map((entry) => [
+      entry.record.id,
+      entry,
+    ]),
+  );
+  const commonByIdentity = new Map(
+    commonPositions.map((position) => [
+      `${position.subjectType}:${position.positionId}`,
+      position,
+    ]),
+  );
+  let referenceFailure = null;
+  function classify(entry, classification) {
+    entry.classification = classification;
+    accountingByName.get(entry.source)[classification] += 1;
+  }
+  for (const sourceName of sources.map((source) => source.name)) {
+    for (const entry of parsedBySource.get(sourceName)) {
+      const record = entry.record;
+      if (
+        ["subject.jsonlines", "person.jsonlines", "character.jsonlines"].includes(
+          sourceName,
+        )
+      ) {
+        classify(entry, "imported");
+      } else if (sourceName === "subject-persons.jsonlines") {
+        if (!subjects.has(record.subject_id) || !people.has(record.person_id)) {
+          classify(entry, "invalid");
+        } else if (
+          !commonByIdentity.has(
+            `${subjects.get(record.subject_id).record.type}:${record.position}`,
+          )
+        ) {
+          classify(entry, "unresolved");
+        } else {
+          classify(entry, "imported");
+        }
+      } else if (sourceName === "subject-characters.jsonlines") {
+        classify(
+          entry,
+          subjects.has(record.subject_id) && characters.has(record.character_id)
+            ? "imported"
+            : "invalid",
+        );
+      } else if (sourceName === "person-characters.jsonlines") {
+        const subjectCharacter = (parsedBySource.get(
+          "subject-characters.jsonlines",
+        ) ?? []).some(
+          (candidate) =>
+            candidate.classification === "imported" &&
+            candidate.record.subject_id === record.subject_id &&
+            candidate.record.character_id === record.character_id,
+        );
+        classify(
+          entry,
+          subjects.has(record.subject_id) &&
+            characters.has(record.character_id) &&
+            people.has(record.person_id) &&
+            subjectCharacter
+            ? "imported"
+            : "invalid",
+        );
+      } else if (sourceName === "subject-relations.jsonlines") {
+        classify(
+          entry,
+          subjects.has(record.subject_id) &&
+            subjects.has(record.related_subject_id)
+            ? "imported"
+            : "invalid",
+        );
+      }
+      if (entry.classification === "invalid" && !referenceFailure) {
+        referenceFailure = {
+          code: "SOURCE_REFERENCE_MISSING",
+          source: entry.source,
+          line: entry.line,
+        };
+      }
+    }
+  }
+  const firstFailure =
+    inputGateFailure ?? recordFailure ?? referenceFailure;
+
+  const subjectRows = [...subjects.values()]
+    .map(({ record }) => ({
+      subjectType: producerTypeName(record.type),
+      subjectId: record.id,
+      name: record.name,
+      nameCn: record.name_cn,
+      nsfw: record.nsfw,
+      airDate: record.date,
+      airDatePrecision: partialDatePrecision(
+        record.date,
+        `subject ${record.id} date`,
+      ),
+    }))
+    .sort(
+      (left, right) =>
+        left.subjectType.localeCompare(right.subjectType) ||
+        left.subjectId - right.subjectId,
+    );
+  const personRows = [...people.values()]
+    .map(({ record }) => ({
+      personId: record.id,
+      name: record.name,
+      nameCn: record.name_cn,
+      careers: [...record.career].sort(),
+    }))
+    .sort((left, right) => left.personId - right.personId);
+  const characterRows = [...characters.values()]
+    .map(({ record }) => ({
+      characterId: record.id,
+      name: record.name,
+      nameCn: record.name_cn,
+    }))
+    .sort((left, right) => left.characterId - right.characterId);
+  const relationRows = (parsedBySource.get("subject-relations.jsonlines") ?? [])
+    .filter((entry) => entry.classification === "imported")
+    .map(({ record }) => ({
+      subjectType: producerTypeName(subjects.get(record.subject_id).record.type),
+      subjectId: record.subject_id,
+      relatedSubjectType: producerTypeName(
+        subjects.get(record.related_subject_id).record.type,
+      ),
+      relatedSubjectId: record.related_subject_id,
+      relationType: record.relation_type,
+    }))
+    .sort(
+      (left, right) =>
+        left.subjectType.localeCompare(right.subjectType) ||
+        left.subjectId - right.subjectId ||
+        left.relatedSubjectType.localeCompare(right.relatedSubjectType) ||
+        left.relatedSubjectId - right.relatedSubjectId ||
+        left.relationType - right.relationType,
+    );
+  const staffPositionRows = commonPositions
+    .map((position) => ({
+      subjectType: producerTypeName(position.subjectType),
+      positionId: position.positionId,
+      nameCn: position.nameCn,
+      nameEn: position.nameEn,
+      nameJp: position.nameJp,
+      categories: [...position.categories],
+      sortOrder: position.sortOrder,
+      status: position.status,
+    }))
+    .sort(
+      (left, right) =>
+        left.subjectType.localeCompare(right.subjectType) ||
+        left.positionId - right.positionId,
+    );
+  const staffCreditRows = (parsedBySource.get("subject-persons.jsonlines") ?? [])
+    .filter((entry) =>
+      ["imported", "unresolved"].includes(entry.classification),
+    )
+    .map(({ record, classification }) => {
+      const subjectType = producerTypeName(
+        subjects.get(record.subject_id).record.type,
+      );
+      const resolved = classification === "imported";
+      const position = commonByIdentity.get(
+        `${subjects.get(record.subject_id).record.type}:${record.position}`,
+      );
+      return {
+        subjectType,
+        subjectId: record.subject_id,
+        personId: record.person_id,
+        positionId: record.position,
+        resolved,
+        selectable: resolved && position.status === "selectable",
+      };
+    })
+    .sort(
+      (left, right) =>
+        left.subjectType.localeCompare(right.subjectType) ||
+        left.subjectId - right.subjectId ||
+        left.personId - right.personId ||
+        left.positionId - right.positionId,
+    );
+  const eligiblePeople = new Set(staffCreditRows.map((row) => row.personId));
+  const subjectCharacterByIdentity = new Map(
+    (parsedBySource.get("subject-characters.jsonlines") ?? [])
+      .filter((entry) => entry.classification === "imported")
+      .map((entry) => [
+        `${entry.record.subject_id}:${entry.record.character_id}`,
+        entry.record,
+      ]),
+  );
+  let filteredByValidCv = 0;
+  const castCreditRows = [];
+  for (const entry of parsedBySource.get("person-characters.jsonlines") ?? []) {
+    if (entry.classification !== "imported") continue;
+    const record = entry.record;
+    if (!eligiblePeople.has(record.person_id)) {
+      filteredByValidCv += 1;
+      continue;
+    }
+    const role = subjectCharacterByIdentity.get(
+      `${record.subject_id}:${record.character_id}`,
+    );
+    castCreditRows.push({
+      subjectType: producerTypeName(subjects.get(record.subject_id).record.type),
+      subjectId: record.subject_id,
+      personId: record.person_id,
+      characterId: record.character_id,
+      roleType: role.type,
+      eligible: true,
+      provenance: "exact",
+    });
+  }
+  castCreditRows.sort(
+    (left, right) =>
+      left.subjectType.localeCompare(right.subjectType) ||
+      left.subjectId - right.subjectId ||
+      left.personId - right.personId ||
+      left.characterId - right.characterId,
+  );
+  const catalogPositionRows = catalog.positions
+    .map((position) => ({ ...position, capabilities: [...position.capabilities] }))
+    .sort(
+      (left, right) =>
+        left.displayOrder - right.displayOrder ||
+        left.positionKey.localeCompare(right.positionKey),
+    );
+  const projection = {
+    subject: subjectRows,
+    person: personRows,
+    character: characterRows,
+    subjectRelation: relationRows,
+    staffPosition: staffPositionRows,
+    staffCredit: staffCreditRows,
+    castCredit: castCreditRows,
+    catalogPosition: catalogPositionRows,
+  };
+  const subjectsWithCharacters = new Set(
+    [...subjectCharacterByIdentity.values()].map((record) => record.subject_id),
+  );
+  const subjectsWithCast = new Set(castCreditRows.map((record) => record.subjectId));
+  const qualitySummary = {
+    NO_CHARACTERS: subjectRows.filter(
+      (subject) => !subjectsWithCharacters.has(subject.subjectId),
+    ).length,
+    NO_CAST_RELATIONS: subjectRows.filter(
+      (subject) => !subjectsWithCast.has(subject.subjectId),
+    ).length,
+    FILTERED_BY_VALID_CV: filteredByValidCv,
+    UNKNOWN_STAFF_POSITION: staffCreditRows.filter((row) => !row.resolved).length,
+  };
+  const tableCounts = Object.fromEntries(TABLE_NAMES.map((name) => [name, 0]));
+  Object.assign(tableCounts, {
+    archive_meta: 1,
+    subject: subjectRows.length,
+    person: personRows.length,
+    person_career: personRows.reduce(
+      (count, person) => count + person.careers.length,
+      0,
+    ),
+    character: characterRows.length,
+    subject_relation: relationRows.length,
+    staff_position: staffPositionRows.length,
+    staff_position_category: staffPositionRows.reduce(
+      (count, position) => count + position.categories.length,
+      0,
+    ),
+    staff_credit: staffCreditRows.length,
+    cast_credit: castCreditRows.length,
+    catalog_position: catalogPositionRows.length,
+    catalog_group: catalog.groups.length,
+    catalog_group_member: catalog.groups.reduce(
+      (count, group) => count + group.positionKeys.length,
+      0,
+    ),
+    catalog_capability: catalogPositionRows.reduce(
+      (count, position) => count + position.capabilities.length,
+      0,
+    ),
+    catalog_selection_rule: catalogPositionRows.length,
+  });
+  for (const entry of accounting) {
+    assert.equal(
+      entry.recordsTotal,
+      entry.imported + entry.duplicate + entry.invalid + entry.unresolved,
+      `${entry.name} exclusive accounting`,
+    );
+  }
+  const logicalDigests = producerLogicalDigests(projection);
+  const outcome = firstFailure?.code ?? "VALID";
+  assert.deepEqual(document.expected.accounting, accounting, "producer accounting");
+  assert.deepEqual(
+    document.expected.logicalProjection,
+    projection,
+    "producer logical projection",
+  );
+  assert.deepEqual(
+    document.expected.logicalDigests,
+    logicalDigests,
+    "producer logical row digests",
+  );
+  assert.deepEqual(document.expected.tableCounts, tableCounts, "producer table counts");
+  assert.deepEqual(
+    document.expected.qualitySummary,
+    qualitySummary,
+    "producer quality summary",
+  );
+  assert.equal(document.expected.outcome, outcome, "producer stable outcome");
+  assert.deepEqual(
+    document.expected.firstFailure,
+    firstFailure,
+    "producer first failure",
+  );
+  assert.equal(
+    document.expected.candidateAllowed,
+    outcome === "VALID",
+    "producer final candidate allowance",
+  );
+  return {
+    caseId: document.caseId,
+    caseKind: document.caseKind,
+    sourceCount: sources.length,
+    sourceRecords: accounting.reduce(
+      (count, entry) => count + entry.recordsTotal,
+      0,
+    ),
+    dataVersion: document.dataVersion.result,
+    logicalDigests,
+    outcome,
+    firstFailure,
+    candidateAllowed: document.expected.candidateAllowed,
+  };
+}
+
+function producerCaseSourceRecords(document, sourceName) {
+  const source = document.inputs.sources.find(
+    (candidate) => candidate.name === sourceName,
+  );
+  invariant(source, `${document.caseId} is missing ${sourceName}`);
+  if (source.bytesUtf8.length === 0) return [];
+  invariant(
+    source.bytesUtf8.endsWith("\n"),
+    `${document.caseId} ${sourceName} must end with LF`,
+  );
+  return source.bytesUtf8
+    .slice(0, -1)
+    .split("\n")
+    .map((line) => JSON.parse(line));
+}
+
+function validateProducerRawDomainCoverage(documents) {
+  const positive = documents.get("valid-seven-source");
+  invariant(positive, "producer positive raw-domain case is missing");
+  const subjectRecords = producerCaseSourceRecords(
+    positive,
+    "subject.jsonlines",
+  );
+  const castRecords = producerCaseSourceRecords(
+    positive,
+    "subject-characters.jsonlines",
+  );
+  const relationRecords = producerCaseSourceRecords(
+    positive,
+    "subject-relations.jsonlines",
+  );
+  assert.deepEqual(
+    [...new Set(subjectRecords.map((record) => record.type))].sort(
+      (left, right) => left - right,
+    ),
+    [1, 2, 3, 4, 6],
+    "producer positive source-type coverage",
+  );
+  assert.deepEqual(
+    [...new Set(castRecords.map((record) => record.type))].sort(
+      (left, right) => left - right,
+    ),
+    [1, 2, 3, 4, 5, 6],
+    "producer positive cast-role coverage",
+  );
+  assert.deepEqual(
+    relationRecords.map((record) => [
+      record.subject_id,
+      record.related_subject_id,
+      record.relation_type,
+    ]),
+    [
+      [2, 6, 1],
+      [2, 6, 2],
+      [6, 2, 3],
+    ],
+    "producer positive directed relation coverage",
+  );
+  assert.deepEqual(
+    positive.expected.logicalProjection.subjectRelation.map((row) => [
+      row.subjectId,
+      row.relatedSubjectId,
+      row.relationType,
+    ]),
+    [
+      [2, 6, 1],
+      [2, 6, 2],
+      [6, 2, 3],
+    ],
+    "producer relation projection must preserve numeric values and direction",
+  );
+  assert.deepEqual(
+    positive.expected.logicalProjection.castCredit.map((row) => row.roleType),
+    [1, 2, 3, 4, 5, 6],
+    "producer cast projection must preserve numeric roles",
+  );
+  assert.equal(
+    positive.expected.logicalProjection.catalogPosition.find(
+      (position) => position.positionKey === "cast:anime:main",
+    )?.selectionRule,
+    "roleType=1",
+    "producer main-cast catalog rule",
+  );
+
+  const invalidMatrix = [
+    {
+      caseId: "invalid-subject-type",
+      sourceName: "subject.jsonlines",
+      values: [5, "2"],
+      selector: (record) => record.type,
+      invalid: 2,
+      line: 7,
+    },
+    {
+      caseId: "invalid-cast-role",
+      sourceName: "subject-characters.jsonlines",
+      values: [7, "1"],
+      selector: (record) => record.type,
+      invalid: 2,
+      line: 7,
+    },
+    {
+      caseId: "invalid-relation-code",
+      sourceName: "subject-relations.jsonlines",
+      values: [0, SAFE_INTEGER_MAX + 1, "2"],
+      selector: (record) => record.relation_type,
+      invalid: 3,
+      line: 4,
+    },
+  ];
+  for (const evidence of invalidMatrix) {
+    const document = documents.get(evidence.caseId);
+    invariant(document, `${evidence.caseId} is missing`);
+    const records = producerCaseSourceRecords(document, evidence.sourceName);
+    assert.deepEqual(
+      records.slice(-evidence.values.length).map(evidence.selector),
+      evidence.values,
+      `${evidence.caseId} rejection sentinels`,
+    );
+    const accounting = document.expected.accounting.find(
+      (entry) => entry.name === evidence.sourceName,
+    );
+    assert.equal(accounting?.invalid, evidence.invalid, `${evidence.caseId} invalid count`);
+    assert.deepEqual(
+      document.expected.firstFailure,
+      {
+        code: "SOURCE_RECORD_MALFORMED",
+        source: evidence.sourceName,
+        line: evidence.line,
+      },
+      `${evidence.caseId} first domain failure`,
+    );
+    assert.equal(
+      document.expected.candidateAllowed,
+      false,
+      `${evidence.caseId} candidate prohibition`,
+    );
+  }
+  return {
+    sourceTypes: [1, 2, 3, 4, 6],
+    castRoles: [1, 2, 3, 4, 5, 6],
+    directedRelations: [
+      [2, 6, 1],
+      [2, 6, 2],
+      [6, 2, 3],
+    ],
+    rejectedDomainRecords: invalidMatrix.reduce(
+      (count, evidence) => count + evidence.invalid,
+      0,
+    ),
+  };
+}
+
+function validateProducerCorpus(validators, canonicalIndex) {
+  const indexPath = path.join(PRODUCER_ROOT, "index.json");
+  const index = readJson(indexPath);
+  invariant(
+    validators.producerIndex(index),
+    `producer index schema: ${JSON.stringify(validators.producerIndex.errors)}`,
+  );
+  const indexedPaths = index.files.map((entry) => entry.path);
+  const indexedCaseIds = index.files.map((entry) => entry.caseId);
+  assert.equal(new Set(indexedPaths).size, indexedPaths.length, "duplicate producer path");
+  assert.equal(
+    new Set(indexedCaseIds).size,
+    indexedCaseIds.length,
+    "duplicate producer case id",
+  );
+  invariant(
+    canonicalIndex.files.every(
+      (entry) => entry.path !== "producer" && !entry.path.startsWith("producer/"),
+    ),
+    "canonical root index cross-indexes producer evidence",
+  );
+  const physical = [];
+  function visit(directory) {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolute = path.join(directory, entry.name);
+      invariant(!entry.isSymbolicLink(), `producer symlink forbidden: ${absolute}`);
+      if (entry.isDirectory()) visit(absolute);
+      else {
+        invariant(entry.isFile(), `producer non-regular path: ${absolute}`);
+        if (absolute !== indexPath) {
+          physical.push(
+            path.relative(PRODUCER_ROOT, absolute).split(path.sep).join("/"),
+          );
+        }
+      }
+    }
+  }
+  visit(PRODUCER_ROOT);
+  physical.sort();
+  assert.deepEqual(
+    [...indexedPaths].sort(),
+    physical,
+    "producer index is not closed-world",
+  );
+  const reports = [];
+  const documents = new Map();
+  for (const entry of index.files) {
+    invariant(
+      !entry.path.startsWith("producer/") && entry.path !== "index.json",
+      `producer cross-index path: ${entry.path}`,
+    );
+    const absolute = path.join(PRODUCER_ROOT, entry.path);
+    canonicalContained(absolute, PRODUCER_ROOT, `producer golden ${entry.path}`);
+    assert.equal(fileDigest(absolute), entry.digest, `producer digest drift: ${entry.path}`);
+    const document = readJson(absolute);
+    assert.equal(document.caseId, entry.caseId, `${entry.path} case id`);
+    assert.equal(
+      path.basename(entry.path, ".json"),
+      entry.caseId,
+      `${entry.path} basename/case id`,
+    );
+    invariant(!documents.has(document.caseId), `duplicate case document ${document.caseId}`);
+    documents.set(document.caseId, document);
+    reports.push(evaluateProducerCase(document, validators));
+  }
+  assert.deepEqual(
+    [...documents.values()].map((document) => document.caseKind).sort(),
+    [...PRODUCER_CASE_KINDS].sort(),
+    "producer case-kind matrix",
+  );
+  for (const document of documents.values()) {
+    if (document.equivalence === null) continue;
+    const reference = documents.get(document.equivalence.caseId);
+    invariant(reference, `${document.caseId} equivalence target is missing`);
+    assert.equal(
+      document.dataVersion.result === reference.dataVersion.result,
+      document.equivalence.sameDataVersion,
+      `${document.caseId} dataVersion equivalence`,
+    );
+    assert.equal(
+      isDeepStrictEqual(
+        document.expected.logicalProjection,
+        reference.expected.logicalProjection,
+      ),
+      document.equivalence.sameLogicalProjection,
+      `${document.caseId} logical equivalence`,
+    );
+  }
+  const rawDomains = validateProducerRawDomainCoverage(documents);
+  return {
+    indexDigest: fileDigest(indexPath),
+    indexedFiles: index.files.length,
+    cases: reports.length,
+    files: index.files.map((entry) => ({
+      path: entry.path,
+      caseId: entry.caseId,
+      digest: entry.digest,
+    })),
+    rawDomains,
+    reports,
+  };
+}
+
 function validateGoldenCorpus(validators, matrix) {
   const indexPath = path.join(GOLDEN_ROOT, "index.json");
+  const indexBytes = fs.readFileSync(indexPath);
+  assert.equal(
+    crypto.createHash("sha256").update(indexBytes).digest("hex"),
+    CANONICAL_INDEX_SHA256,
+    "canonical root-index SHA-256",
+  );
   const index = readJson(indexPath);
   invariant(validators.fixtureIndex(index), `fixture index schema: ${JSON.stringify(validators.fixtureIndex.errors)}`);
+  assert.equal(
+    index.files.length,
+    CANONICAL_INDEXED_FILES,
+    "approved canonical index count",
+  );
+  const pathDigestTable = Buffer.from(
+    [...index.files]
+      .sort((left, right) =>
+        Buffer.compare(Buffer.from(left.path, "utf8"), Buffer.from(right.path, "utf8")),
+      )
+      .map((entry) => `${entry.path}\t${entry.digest}\n`)
+      .join(""),
+    "utf8",
+  );
+  assert.equal(
+    crypto.createHash("sha256").update(pathDigestTable).digest("hex"),
+    CANONICAL_INDEX_TABLE_SHA256,
+    "canonical sorted path/digest seal",
+  );
   const indexedPaths = index.files.map((entry) => entry.path);
+  invariant(
+    indexedPaths.every(
+      (entry) => entry !== "producer" && !entry.startsWith("producer/"),
+    ),
+    "canonical index contains producer evidence",
+  );
   assert.equal(new Set(indexedPaths).size, indexedPaths.length, "duplicate indexed path");
   const physical = [];
   function visit(directory) {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const absolute = path.join(directory, entry.name);
       invariant(!entry.isSymbolicLink(), `golden symlink forbidden: ${absolute}`);
-      if (entry.isDirectory()) visit(absolute);
+      if (entry.isDirectory()) {
+        if (absolute !== PRODUCER_ROOT) visit(absolute);
+      }
       else {
         invariant(entry.isFile(), `golden non-regular path: ${absolute}`);
         if (absolute !== indexPath) {
@@ -1328,6 +2650,9 @@ function validateGoldenCorpus(validators, matrix) {
   assert.equal(index.files.length, 32, "approved corpus must contain 32 indexed files");
   invariant(manifestStrings, "manifest string vector is not indexed");
   return {
+    index,
+    indexDigest: fileDigest(indexPath),
+    sortedPathDigestSeal: `sha256:${CANONICAL_INDEX_TABLE_SHA256}`,
     indexedFiles: index.files.length,
     cases: byCase.size,
     manifestStrings,
@@ -2283,7 +3608,10 @@ function main() {
     report.ddl = validateDdlAndBuilder(matrix);
   }
   if (!schemasOnly && !codegenOnly) {
-    report.goldens = validateGoldenCorpus(validators, matrix);
+    const canonical = validateGoldenCorpus(validators, matrix);
+    const producer = validateProducerCorpus(validators, canonical.index);
+    const { index: _canonicalIndex, ...canonicalReport } = canonical;
+    report.goldens = { ...canonicalReport, producer };
     verifyNoCurrentJson();
   }
   if (codegenOnly || !schemasOnly) {

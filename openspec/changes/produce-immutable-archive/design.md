@@ -9,15 +9,15 @@ producer owner writes backend or contract authority.
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: main semantic/dependency review, strict change/all validation, and doctor passed; committed: determined by containing Git history; pushed/released/deployed: no |
+| Status | investigated: complete; specified: approved after resolving the closed-index/tooling conflict with a disjoint producer sub-index; implemented: no; verified: main semantic/dependency review and strict validation passed after amendment; committed: determined by containing Git history; pushed/released/deployed: no |
 | Owner | Contracts owner completes and hands off goldens; Updater owner applies producer; main agent reviews/accepts. |
 | Writable paths | Exactly the planning, Contracts, and Updater owner sets in `proposal.md`; owners are sequential and disjoint. |
-| Read-only protected inputs | Archive schemas, remaining contracts, accepted consumer, guides/specs, other code/changes, refs/remotes, hosts, and production. |
+| Read-only protected inputs | The canonical Archive root index and its 32 accepted paths/bytes, remaining Archive schemas/contracts, accepted consumer, guides/specs, other code/changes, refs/remotes, hosts, and production. |
 | Deletion complement | None. |
 | Mutable refs | None during apply. |
-| Consumes | Corrected and string-hardened accepted Archive/updater contracts, corrected Contracts corpus, exact public sources, and accepted `backend/cmd/archive-smoke`. |
+| Consumes | Corrected, string-hardened, raw-domain-preserving accepted Archive/updater contracts; the corrected canonical corpus; exact public sources; and accepted `backend/cmd/archive-smoke`. |
 | Produces | Indexed synthetic cases and one closed inactive Archive version after every staging gate. |
-| Dependencies | The two accepted foundations plus accepted/exited `correct-archive-subject-semantics` and `harden-archive-manifest-string-semantics`, and accepted `implement-backend-archive-consumer`; PyYAML `6.0.3`. |
+| Dependencies | The two accepted foundations plus accepted/exited `correct-archive-subject-semantics`, `harden-archive-manifest-string-semantics`, and `correct-archive-raw-domain-semantics`, and accepted `implement-backend-archive-consumer`; PyYAML `6.0.3`. |
 | Deliverables | Acquisition, streaming builder, strict gates, manifest/finalization, consumer smoke, tests/docs/lock. |
 | Acceptance | Synthetic matrix, disposable complete-source smoke, reproducibility, consumer, Python/dependency/OpenSpec/inventory gates. |
 | Non-goals | Activation/current pointer, schedule/daemon/lock/restart, business endpoints/catalog enrichment, operations. |
@@ -37,10 +37,31 @@ catalog/cast semantics, run resident work, or publish to production.
 ### Use two sequential ownership blocks
 
 Contracts first adds compact synthetic source/expected cases under its owned
-golden subtree and closes `index.json`. Only after main acceptance may Updater
-consume them. If a case needs a new schema or contract meaning, Contracts stops
-and proposes that authority change; Updater never edits or privately replaces
-it.
+golden subtree. The accepted root `contracts/goldens/archive/index.json`
+continues to own exactly the 32 canonical consumer fixtures and remains
+byte-identical, so already accepted consumers do not reinterpret producer
+vectors as runtime bundles. Producer evidence instead uses
+`producer/index.json`, validated by a dedicated producer-index schema; that
+sub-index lists every other regular file below `producer/` exactly once and
+binds each case digest and id. Each case is validated by the dedicated
+producer-case schema and then semantically recomputed by the shared Node
+verifier.
+
+The fixture builder continues to regenerate and compare only the corrected
+32-file corpus, explicitly rejects canonical drift, and delegates the disjoint
+producer subtree to the shared verifier. The verifier checks both closed
+inventories, forbids cross-index paths, and reports canonical and producer
+counts separately. This avoids changing accepted consumer test semantics while
+still making unindexed producer evidence impossible. Only after main acceptance
+may Updater consume the producer sub-index. If a case needs an Archive runtime
+schema or contract meaning change, Contracts stops and proposes that authority
+change; Updater never edits or privately replaces it.
+
+Producer cases and runtime construction consume the corrected raw authority
+directly: source types map only `1/2/3/4/6` to
+`book/anime/music/game/real`, cast roles remain integer `1..6`, and relation
+codes remain positive JSON-safe integers in source direction. No producer
+fixture or adapter may restore the discarded text-role/relation mapping.
 
 ### Acquire exact public inputs into a private staging root
 

@@ -156,6 +156,14 @@ GENERATED_AT = re.compile(
     re.ASCII,
 )
 MANIFEST_STRING_VECTOR = "vectors/manifest-string-semantics.json"
+PRODUCER_SUBTREE = "producer"
+CANONICAL_INDEX_SHA256 = (
+    "db3e9d2f81a90f8c7b36e9d6a0010bb35c54b4b0890d21ea4ecbe2f0b0979801"
+)
+CANONICAL_INDEX_TABLE_SHA256 = (
+    "cd6c1609e94d86b665b1c053874266c48f09826fcb11c8691b1c6249c1d3927c"
+)
+CANONICAL_INDEXED_FILES = 32
 MANIFEST_STRING_CASE_IDS = (
     "generated-at-valid-no-fraction",
     "generated-at-invalid-fraction-0",
@@ -678,6 +686,52 @@ def sha256_bytes(data: bytes) -> str:
 
 def file_digest(file_path: Path) -> str:
     return sha256_bytes(file_path.read_bytes())
+
+
+def canonical_index_evidence(root: Path) -> dict[str, Any]:
+    index_path = root / "index.json"
+    index_bytes = index_path.read_bytes()
+    index_sha256 = hashlib.sha256(index_bytes).hexdigest()
+    if index_sha256 != CANONICAL_INDEX_SHA256:
+        fail(f"canonical root index digest drifted: {index_sha256}")
+    try:
+        index = json.loads(index_bytes.decode("utf-8", errors="strict"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        fail(f"canonical root index is not strict UTF-8 JSON: {error}")
+    if (
+        not isinstance(index, dict)
+        or list(index) != ["indexSchemaVersion", "files"]
+        or index["indexSchemaVersion"] != 1
+        or not isinstance(index["files"], list)
+        or len(index["files"]) != CANONICAL_INDEXED_FILES
+    ):
+        fail("canonical root index shape/count drifted")
+    paths: list[str] = []
+    table = bytearray()
+    for entry in sorted(index["files"], key=lambda value: value.get("path", "")):
+        if not isinstance(entry, dict):
+            fail("canonical root index entry is not an object")
+        relative = entry.get("path")
+        digest = entry.get("digest")
+        if (
+            not isinstance(relative, str)
+            or not isinstance(digest, str)
+            or relative == PRODUCER_SUBTREE
+            or relative.startswith(f"{PRODUCER_SUBTREE}/")
+        ):
+            fail(f"canonical root index contains an invalid/cross-index path: {relative!r}")
+        paths.append(relative)
+        table.extend(f"{relative}\t{digest}\n".encode("utf-8", errors="strict"))
+    if len(set(paths)) != CANONICAL_INDEXED_FILES:
+        fail("canonical root index path set is not unique")
+    table_sha256 = hashlib.sha256(bytes(table)).hexdigest()
+    if table_sha256 != CANONICAL_INDEX_TABLE_SHA256:
+        fail(f"canonical root index table seal drifted: {table_sha256}")
+    return {
+        "indexSha256": index_sha256,
+        "indexedFiles": len(paths),
+        "sortedPathDigestSeal": table_sha256,
+    }
 
 
 def schema_object_record(connection: sqlite3.Connection) -> dict[str, Any]:
@@ -1842,11 +1896,14 @@ def generate(root: Path) -> dict[str, Any]:
             relative = f"invalid/bundles/{case_id}/{basename}"
             metadata[relative] = (case_id, stage, expected)
 
-    physical = sorted(
-        file_path.relative_to(root).as_posix()
-        for file_path in root.rglob("*")
-        if file_path.is_file() and file_path.name != "index.json"
-    )
+    physical = []
+    for file_path in root.rglob("*"):
+        relative_path = file_path.relative_to(root)
+        if relative_path.parts and relative_path.parts[0] == PRODUCER_SUBTREE:
+            continue
+        if file_path.is_file() and file_path.name != "index.json":
+            physical.append(relative_path.as_posix())
+    physical.sort()
     if set(physical) != set(metadata):
         fail(
             "generated golden inventory mismatch: "
@@ -1867,6 +1924,7 @@ def generate(root: Path) -> dict[str, Any]:
         )
     index = {"indexSchemaVersion": 1, "files": entries}
     write_bytes(root / "index.json", json_bytes(index))
+    canonical_index = canonical_index_evidence(root)
     inspection = inspect_valid_database(valid_db, version, canonical_schema)
     return {
         "dataVersion": version,
@@ -1876,24 +1934,32 @@ def generate(root: Path) -> dict[str, Any]:
         "sqliteDigest": file_digest(valid_db),
         "goldenFileCount": len(entries) + 1,
         "rawDomains": raw_domain_report,
+        "canonicalIndex": canonical_index,
         "subjectSemantics": subject_semantic_report,
         "schemaObjectSelfTest": schema_object_report,
         "sqlite": inspection,
     }
 
 
-def inventory(root: Path) -> dict[str, bytes]:
+def inventory(root: Path, *, exclude_producer: bool = False) -> dict[str, bytes]:
     if not root.exists() or root.is_symlink():
         fail(f"fixture root missing or unsafe: {root}")
     result: dict[str, bytes] = {}
     for entry in sorted(root.rglob("*")):
+        relative_path = entry.relative_to(root)
+        if (
+            exclude_producer
+            and relative_path.parts
+            and relative_path.parts[0] == PRODUCER_SUBTREE
+        ):
+            continue
         if entry.is_symlink():
             fail(f"fixture symlink forbidden: {entry}")
         if entry.is_dir():
             continue
         if not entry.is_file():
             fail(f"fixture is not regular: {entry}")
-        result[entry.relative_to(root).as_posix()] = entry.read_bytes()
+        result[relative_path.as_posix()] = entry.read_bytes()
     return result
 
 
@@ -1910,7 +1976,8 @@ def write_manifest_string_vector() -> dict[str, Any]:
         generated_root = Path(directory) / "archive"
         report = generate(generated_root)
         generated = inventory(generated_root)
-        accepted = inventory(GOLDEN_ROOT)
+        accepted = inventory(GOLDEN_ROOT, exclude_producer=True)
+        accepted_index = canonical_index_evidence(GOLDEN_ROOT)
         prior_paths = set(accepted) - {"index.json", MANIFEST_STRING_VECTOR}
         if len(prior_paths) != 31:
             fail(f"accepted baseline must contain exactly 31 prior golden files, got {len(prior_paths)}")
@@ -1933,6 +2000,7 @@ def write_manifest_string_vector() -> dict[str, Any]:
         return {
             **report,
             "indexedFiles": 32,
+            "acceptedCanonicalIndex": accepted_index,
             "manifestStringVectorDigest": sha256_bytes(generated[MANIFEST_STRING_VECTOR]),
             "priorGoldenFilesUnchanged": len(prior_paths),
         }
@@ -1951,7 +2019,8 @@ def check_fixtures() -> dict[str, Any]:
         generated_root = Path(directory) / "archive"
         report = generate(generated_root)
         generated = inventory(generated_root)
-        accepted = inventory(GOLDEN_ROOT)
+        accepted = inventory(GOLDEN_ROOT, exclude_producer=True)
+        accepted_index = canonical_index_evidence(GOLDEN_ROOT)
         if generated.keys() != accepted.keys():
             fail(
                 "accepted fixture inventory differs: "
@@ -1965,7 +2034,7 @@ def check_fixtures() -> dict[str, Any]:
         ]
         if drift:
             fail(f"accepted fixture bytes drifted: {drift}")
-        return report
+        return {**report, "acceptedCanonicalIndex": accepted_index}
 
 
 def self_test() -> dict[str, Any]:

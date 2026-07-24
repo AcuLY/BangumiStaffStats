@@ -8,9 +8,9 @@
 | Read-only protected inputs | All contracts, accepted backend consumer, guides/specs, other runtime roots/changes, refs/remotes, hosts and production. |
 | Deletion complement | None. |
 | Mutable refs | None. |
-| Consumes | Accepted foundations/consumer, the corrected Archive subject and manifest-string contract, Contracts producer cases, and one explicit source/build request. |
+| Consumes | Accepted foundations/consumer, the corrected Archive subject, manifest-string, and raw-domain contract, Contracts producer cases, and one explicit source/build request. |
 | Produces | One inactive `versions/<dataVersion>/{manifest.json,bangumi.sqlite}` or bounded no-change/failure evidence. |
-| Dependencies | Accepted `contracts-archive-manifest`, exited `correct-archive-subject-semantics` and `harden-archive-manifest-string-semantics`, `updater-runtime-foundation`, `backend-archive-consumer`, and `backend/cmd/archive-smoke`; PyYAML `6.0.3`. |
+| Dependencies | Accepted `contracts-archive-manifest`, exited `correct-archive-subject-semantics`, `harden-archive-manifest-string-semantics`, and `correct-archive-raw-domain-semantics`, `updater-runtime-foundation`, `backend-archive-consumer`, and `backend/cmd/archive-smoke`; PyYAML `6.0.3`. |
 | Deliverables | One-shot CLI/API, acquisition/staging/builder/gates/finalizer, tests/lock/docs. |
 | Acceptance | Synthetic and complete-source smoke, Go candidate validation, reproducibility, full Python/dependency/residue gates. |
 | Non-goals | Pointer/current, activation/reload/rollback, schedule/daemon/lock/restart, catalog enrichment, API/query, operations. |
@@ -48,6 +48,13 @@ facts, or silently drop deletion/conflict/reference evidence. Unknown staff
 positions allowed by the contract SHALL remain raw/non-selectable/unresolved;
 malformed, conflicting, or dangling-required facts SHALL fail.
 
+The source adapter SHALL accept only subject types `1/2/3/4/6` and map them to
+`book/anime/music/game/real`. It SHALL preserve cast roles as integers `1..6`
+and relation codes as positive JSON-safe integers in original
+`subject -> related_subject` direction. It SHALL reject wrong JSON types or
+out-of-domain values before finalization and SHALL never restore discarded
+text role/relation mapping.
+
 #### Scenario: Complete synthetic sources are built
 - **WHEN** the accepted valid producer golden is streamed
 - **THEN** every expected logical row, exclusive accounting equation, table count, quality code, and raw unknown-position fact SHALL match
@@ -55,6 +62,10 @@ malformed, conflicting, or dangling-required facts SHALL fail.
 #### Scenario: A line is malformed or conflicts
 - **WHEN** a line is invalid, an identity repeats with different content, or a required reference cannot resolve
 - **THEN** the declared first failure SHALL occur before finalization with no partial catalog/database published
+
+#### Scenario: Raw upstream domains cross the producer boundary
+- **WHEN** source records exercise every accepted subject type, cast role, and numeric relation direction
+- **THEN** the SQLite rows SHALL preserve those numeric domains exactly and reject text aliases or invalid values
 
 ### Requirement: Identity, quality, and manifest SHALL be deterministic
 

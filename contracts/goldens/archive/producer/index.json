@@ -1,0 +1,80 @@
+{
+  "indexSchemaVersion": 1,
+  "files": [
+    {
+      "path": "cases/conflicting-duplicate.json",
+      "digest": "sha256:bfc6cf24a5bd902fb90173900c7c6fde760021139ef18b1fde228be07aae602c",
+      "caseId": "conflicting-duplicate"
+    },
+    {
+      "path": "cases/digest-mismatch.json",
+      "digest": "sha256:c7cb400a7f33677dbb127b46140001af39b79ca74dcae5a63448e51c40e0b0fc",
+      "caseId": "digest-mismatch"
+    },
+    {
+      "path": "cases/extra-source.json",
+      "digest": "sha256:e87c19342d269da8863a57667a4dc37c0aa6ae7e7a3f6d5a398245f5ca85f86c",
+      "caseId": "extra-source"
+    },
+    {
+      "path": "cases/identical-duplicate.json",
+      "digest": "sha256:5a3a94213b7c90e17d7be2becbc198d82968a4b8905f66d8787dbd7376732497",
+      "caseId": "identical-duplicate"
+    },
+    {
+      "path": "cases/identical-regeneration.json",
+      "digest": "sha256:7578a3b422336400c9a11fa1d54808da14c3d6120b1c66495c667ed04bb2a571",
+      "caseId": "identical-regeneration"
+    },
+    {
+      "path": "cases/invalid-cast-role.json",
+      "digest": "sha256:3690ba279b7cbb6cd667f9f85be6cc91702e9bb758ca671c12e3ea9d2d62c6bb",
+      "caseId": "invalid-cast-role"
+    },
+    {
+      "path": "cases/invalid-relation-code.json",
+      "digest": "sha256:5cc105d6091125cd6e2950c8383733ffbfe27d2a4efdf1d63f63e184163e297a",
+      "caseId": "invalid-relation-code"
+    },
+    {
+      "path": "cases/invalid-subject-type.json",
+      "digest": "sha256:5d9e29f475c1770250e80030a9d495c879859a081215a863879f0e54af7c878a",
+      "caseId": "invalid-subject-type"
+    },
+    {
+      "path": "cases/malformed-record.json",
+      "digest": "sha256:5c15a97e90bd906946dc5ef343e699f4ac93638374aa3e6efbc6e054b5cb47e5",
+      "caseId": "malformed-record"
+    },
+    {
+      "path": "cases/missing-reference.json",
+      "digest": "sha256:821190556a111691da945c302bcae4c98cf7ac059492ffef48fc2dd84ea633d4",
+      "caseId": "missing-reference"
+    },
+    {
+      "path": "cases/missing-source.json",
+      "digest": "sha256:f6e133028b533f8e96b4b174680df1cb4fec587d756a61236876ad86eb3bc9e4",
+      "caseId": "missing-source"
+    },
+    {
+      "path": "cases/permitted-unresolved-position.json",
+      "digest": "sha256:5ad557b4e9b97fb7692f9006df0dd735ab698cfdb625fe5eb735aec8ffcc172c",
+      "caseId": "permitted-unresolved-position"
+    },
+    {
+      "path": "cases/size-mismatch.json",
+      "digest": "sha256:9511480f0b0cda8f693ae91072b5ff6ad1aaaa7c9223c046368d76b318411d20",
+      "caseId": "size-mismatch"
+    },
+    {
+      "path": "cases/unknown-field-record.json",
+      "digest": "sha256:c9b5ea2aa32289482589f8bb4ec896e4310c7a42b079560d4e7eeebd5f5adb3f",
+      "caseId": "unknown-field-record"
+    },
+    {
+      "path": "cases/valid-seven-source.json",
+      "digest": "sha256:7715638318eaa952fb990027338cb37ea64f5860e0c10aaed7f1b429720b4b59",
+      "caseId": "valid-seven-source"
+    }
+  ]
+}
