@@ -28,8 +28,12 @@ formal master-plan `implement-image-proxy` row.
 
 ### Modified Capabilities
 
-None. The accepted HTTP/runtime and observability behavior is consumed
-unchanged; this capability owns its route integration and closed image labels.
+- `backend-http-runtime`: Admit the exact image route without weakening the
+  three infrastructure routes or admitting any other business route.
+- `backend-runtime-foundation`: Add the `httpapi -> imageproxy` dependency and
+  keep the image route available when Archive readiness is false.
+- `backend-observability`: Add only closed image route/operation/outcome
+  dimensions and one identity-free terminal image event.
 
 ## Impact
 
@@ -37,7 +41,7 @@ unchanged; this capability owns its route integration and closed image labels.
 |---|---|
 | Status | investigated/specification in progress; implemented/verified/committed/pushed/released/deployed: no |
 | Owner | One Backend subagent implements; main agent reviews the specification and accepts the result. |
-| Writable paths | This change; `backend/internal/imageproxy/**`; exact necessary files under `backend/internal/httpapi/**`, `backend/internal/observability/**`, `backend/internal/app/**`, and `backend/internal/architecture/dependencies_test.go`. |
+| Writable paths | This change; `backend/internal/imageproxy/**`; exact necessary files under `backend/internal/httpapi/**`, `backend/internal/observability/**`, `backend/internal/app/**`; `backend/internal/architecture/dependencies_test.go`; `backend/scripts/check.sh`; and `backend/README.md`. |
 | Read-only protected inputs | Archive/contracts/updater/frontend, other OpenSpec changes/root specs, guides, Git refs/remotes, hosts, and production. |
 | Deletion complement | None. |
 | Mutable refs | None during apply; apply does not stage, commit, archive, or push. |

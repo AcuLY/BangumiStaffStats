@@ -33,8 +33,8 @@ func Run(ctx context.Context, address, archiveRoot string) error {
 	return RunListener(ctx, listener, archiveRoot)
 }
 
-// RunListener loads one Archive and serves the three runtime routes on a
-// caller-supplied listener.
+// RunListener loads one Archive and serves the approved runtime and image
+// routes on a caller-supplied listener.
 func RunListener(ctx context.Context, listener net.Listener, archiveRoot string) error {
 	runtimeObservability, err := httpapi.NewRuntimeObservability(os.Stderr)
 	if err != nil {

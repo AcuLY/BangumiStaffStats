@@ -135,6 +135,42 @@ type queryRejectedPayload struct {
 	DurationMS    int64    `json:"duration_ms"`
 }
 
+// ImageOutcome is the closed terminal outcome set for the image boundary.
+type ImageOutcome string
+
+const (
+	ImageOutcomeSuccess     ImageOutcome = "success"
+	ImageOutcomeRejected    ImageOutcome = "rejected"
+	ImageOutcomeBusy        ImageOutcome = "busy"
+	ImageOutcomeNotFound    ImageOutcome = "not_found"
+	ImageOutcomeTimeout     ImageOutcome = "timeout"
+	ImageOutcomeCanceled    ImageOutcome = "canceled"
+	ImageOutcomeUnavailable ImageOutcome = "unavailable"
+	ImageOutcomeProtocol    ImageOutcome = "protocol_error"
+	ImageOutcomeStreamError ImageOutcome = "stream_error"
+)
+
+// ImageObservation contains only bounded terminal facts. Resource, ID, type,
+// URL, headers, and upstream values have no representation here.
+type ImageObservation struct {
+	RequestID     string
+	Outcome       ImageOutcome
+	Status        int
+	Duration      time.Duration
+	ResponseBytes int64
+}
+
+type imageCompletedPayload struct {
+	Event         string `json:"event"`
+	Channel       string `json:"channel"`
+	RequestID     string `json:"request_id"`
+	Operation     string `json:"operation"`
+	Outcome       string `json:"outcome"`
+	Status        int    `json:"status"`
+	DurationMS    int64  `json:"duration_ms"`
+	ResponseBytes int64  `json:"response_bytes"`
+}
+
 func archiveLoadFailedEvent(code ArchiveErrorCode) (Event, error) {
 	if _, valid := ParseArchiveErrorCode(string(code)); !valid {
 		return Event{}, errors.New("observability: invalid Archive error code")
@@ -366,6 +402,57 @@ func (s *EventSink) Emit(event Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return writeEvent(s.writer, event)
+}
+
+// EmitImage emits one allowlisted image terminal event.
+func (s *EventSink) EmitImage(observation ImageObservation) error {
+	if s == nil || s.writer == nil {
+		return errors.New("observability: nil event sink")
+	}
+	if !validRequestID(observation.RequestID) ||
+		!validImageOutcomeStatus(observation.Outcome, observation.Status) ||
+		!validEventDuration(observation.Duration) ||
+		observation.ResponseBytes < 0 ||
+		observation.ResponseBytes > 1<<30 {
+		return errors.New("observability: invalid image observation")
+	}
+	event := Event{
+		payload: imageCompletedPayload{
+			Event:         "image_proxy_completed",
+			Channel:       "app",
+			RequestID:     observation.RequestID,
+			Operation:     "image",
+			Outcome:       string(observation.Outcome),
+			Status:        observation.Status,
+			DurationMS:    observation.Duration.Milliseconds(),
+			ResponseBytes: observation.ResponseBytes,
+		},
+		emitted: new(atomic.Bool),
+	}
+	return s.Emit(event)
+}
+
+func validImageOutcomeStatus(outcome ImageOutcome, status int) bool {
+	switch outcome {
+	case ImageOutcomeSuccess:
+		return status == 200 || status == 304
+	case ImageOutcomeRejected:
+		return status == 400 || status == 405
+	case ImageOutcomeBusy, ImageOutcomeUnavailable:
+		return status == 503
+	case ImageOutcomeNotFound:
+		return status == 404
+	case ImageOutcomeTimeout:
+		return status == 504
+	case ImageOutcomeCanceled:
+		return status == 0
+	case ImageOutcomeProtocol:
+		return status == 502
+	case ImageOutcomeStreamError:
+		return status == 200
+	default:
+		return false
+	}
 }
 
 func writeEvent(writer io.Writer, event Event) error {

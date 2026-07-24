@@ -37,6 +37,8 @@ type middlewareOptions struct {
 	requestTimeout time.Duration
 	requestID      func() string
 	metrics        *observability.Registry
+	images         imageFetcher
+	events         *observability.EventSink
 }
 
 func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Handler {
@@ -84,6 +86,7 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 
 		var snapshot responseSnapshot
 		var outcome observability.Outcome
+		var abortConnection bool
 		select {
 		case result := <-handlerDone:
 			if result.contextCause != nil {
@@ -91,8 +94,15 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 				break
 			}
 			if result.panicValue != nil {
-				snapshot = recorder.terminate(&internalResponse)
-				outcome = observability.OutcomePanic
+				if errors.Is(panicError(result.panicValue), http.ErrAbortHandler) &&
+					recorder.isCommitted() {
+					snapshot = recorder.terminate(nil)
+					outcome = observability.OutcomeError
+					abortConnection = true
+				} else {
+					snapshot = recorder.terminate(&internalResponse)
+					outcome = observability.OutcomePanic
+				}
 				break
 			}
 			snapshot = recorder.finish()
@@ -115,7 +125,15 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 		if outcome == observability.OutcomeCanceled && !snapshot.committed {
 			panic(http.ErrAbortHandler)
 		}
+		if abortConnection {
+			panic(http.ErrAbortHandler)
+		}
 	})
+}
+
+func panicError(value any) error {
+	err, _ := value.(error)
+	return err
 }
 
 func finishContextOutcome(recorder *commitWriter, cause error) (responseSnapshot, observability.Outcome) {
@@ -147,6 +165,9 @@ func metricRoute(request *http.Request) observability.Route {
 	case routeMetrics:
 		return observability.RouteMetrics
 	default:
+		if imageRouteCandidate(request) {
+			return observability.RouteImage
+		}
 		return observability.RouteUnknown
 	}
 }
@@ -157,6 +178,8 @@ func metricOperation(request *http.Request) observability.Operation {
 		return observability.OperationHealth
 	case observability.RouteMetrics:
 		return observability.OperationMetrics
+	case observability.RouteImage:
+		return observability.OperationImage
 	default:
 		return observability.OperationUnknown
 	}
@@ -233,6 +256,12 @@ func (w *commitWriter) setContext(ctx context.Context) {
 	w.mu.Lock()
 	w.context = ctx
 	w.mu.Unlock()
+}
+
+func (w *commitWriter) isCommitted() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.committed
 }
 
 func (w *commitWriter) WriteHeader(status int) {

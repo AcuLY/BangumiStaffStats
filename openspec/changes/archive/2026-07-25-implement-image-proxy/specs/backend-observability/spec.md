@@ -1,9 +1,5 @@
-# backend-observability Specification
+## MODIFIED Requirements
 
-## Purpose
-Define allowlisted structured runtime events and concurrency-safe,
-low-cardinality Prometheus metrics for the development HTTP runtime.
-## Requirements
 ### Requirement: Events SHALL be structured, allowlisted, and non-duplicative
 
 Events SHALL be one-line JSON with fixed event/channel names and typed
@@ -60,28 +56,11 @@ fixed `image` value and closed request outcomes. `canceled` SHALL be the sole
 cancellation outcome and `none` SHALL be the status class only when
 client/process cancellation wins before commit. Request ID, raw path, UID,
 entity, image identity/type, search/tag, digest, query, error text, and upstream
-value SHALL never be labels.
-dataVersion SHALL appear only on one current-snapshot info series; publishing
-or clearing state SHALL replace/remove the prior labeled sample rather than
-accumulate historical versions. Durations SHALL use seconds and
-capacities/sizes bytes with matching names.
+value SHALL never be labels. dataVersion SHALL appear only on one
+current-snapshot info series; publishing or clearing state SHALL replace/remove
+the prior labeled sample rather than accumulate historical versions. Durations
+SHALL use seconds and capacities/sizes bytes with matching names.
 
 #### Scenario: Concurrent requests and a scrape run
 - **WHEN** fixed routes including image, unknown paths, readiness transitions, cancellations, and `/metrics` scrapes execute concurrently under the race detector
 - **THEN** counters are monotonic, histograms internally agree, exposition is parseable and deterministic, and label series stay within the fixed inventory
-
-### Requirement: Metrics exposition SHALL be safe and non-critical
-
-Exact `GET /metrics` SHALL return Prometheus text exposition with correct content type, HELP/TYPE declarations, finite numeric samples, and final newline, plus `no-store` and the generated request-ID header. Rendering SHALL use an atomic snapshot, SHALL NOT query Archive or block ordinary handlers, and an observability-internal failure SHALL not make other API routes unavailable.
-
-#### Scenario: Metrics are scraped while readiness is false
-- **WHEN** no Archive store is published or its readiness probe fails
-- **THEN** `/metrics` remains 200, reports readiness 0 without snapshot identity, and emits no query log or Archive validation
-
-### Requirement: Observability SHALL remain development instrumentation
-
-No event named `update_activated`, updater status writer, monitoring agent, remote exporter, scrape configuration, dashboard, alert, retention rule, SLO, or production endpoint exposure SHALL be created by this change.
-
-#### Scenario: Observability is accepted
-- **WHEN** allowlist/redaction/cardinality/unit/parse/concurrency/race/full and strict OpenSpec gates pass
-- **THEN** only in-process instrumentation and local route behavior SHALL be claimed, with no deployment or external-state mutation

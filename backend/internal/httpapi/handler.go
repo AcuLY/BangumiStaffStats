@@ -6,8 +6,11 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/imageproxy"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/observability"
 )
 
@@ -17,14 +20,21 @@ const (
 	routeLivez   = "/livez"
 	routeReadyz  = "/readyz"
 	routeMetrics = "/metrics"
+	routeImages  = "/api/v1/images/bangumi/"
 )
 
 // ReadinessProbe performs the sole fixed published-Archive identity query.
 type ReadinessProbe func(context.Context) (string, error)
 
+type imageFetcher interface {
+	Fetch(context.Context, imageproxy.Request) (*imageproxy.Response, error)
+}
+
 type routeHandler struct {
 	readiness ReadinessProbe
 	metrics   *observability.Registry
+	images    imageFetcher
+	events    *observability.EventSink
 }
 
 // RuntimeObservability owns the HTTP registry and typed event sink while
@@ -54,7 +64,12 @@ func (r *RuntimeObservability) Handler(readiness ReadinessProbe) http.Handler {
 	if r == nil {
 		return NewHandler(readiness, nil)
 	}
-	return NewHandler(readiness, r.metrics)
+	return newHandler(readiness, r.metrics, middlewareOptions{
+		requestTimeout: DefaultRequestTimeout,
+		metrics:        r.metrics,
+		images:         imageproxy.NewClient(),
+		events:         r.events,
+	})
 }
 
 // SetLive updates the process liveness metric.
@@ -100,14 +115,20 @@ func NewHandler(readiness ReadinessProbe, metrics *observability.Registry) http.
 	return newHandler(readiness, metrics, middlewareOptions{
 		requestTimeout: DefaultRequestTimeout,
 		metrics:        metrics,
+		images:         imageproxy.NewClient(),
 	})
 }
 
 func newHandler(readiness ReadinessProbe, metrics *observability.Registry, options middlewareOptions) http.Handler {
 	options.metrics = metrics
+	if options.images == nil {
+		options.images = imageproxy.NewClient()
+	}
 	return runtimeMiddleware(&routeHandler{
 		readiness: readiness,
 		metrics:   metrics,
+		images:    options.images,
+		events:    options.events,
 	}, options)
 }
 
@@ -133,8 +154,217 @@ func (h *routeHandler) ServeHTTP(writer http.ResponseWriter, request *http.Reque
 		}
 		h.writeMetrics(writer, requestID)
 	default:
+		if imageRouteCandidate(request) {
+			if request.Method != http.MethodGet {
+				writeWrongMethod(writer, requestID)
+				return
+			}
+			h.writeImage(writer, request, requestID)
+			return
+		}
 		writeError(writer, requestID, notFoundResponse)
 	}
+}
+
+func imageRouteCandidate(request *http.Request) bool {
+	if request == nil || request.URL == nil {
+		return false
+	}
+	return strings.HasPrefix(request.URL.Path, routeImages) ||
+		strings.HasPrefix(request.URL.EscapedPath(), routeImages)
+}
+
+func (h *routeHandler) writeImage(writer http.ResponseWriter, request *http.Request, requestID string) {
+	startedAt := time.Now()
+	observation := observability.ImageObservation{
+		RequestID: requestID,
+		Outcome:   observability.ImageOutcomeProtocol,
+		Status:    http.StatusBadGateway,
+	}
+	defer func() {
+		if h.events == nil {
+			return
+		}
+		observation.Duration = time.Since(startedAt)
+		_ = h.events.EmitImage(observation)
+	}()
+
+	imageRequest, ok := parseImageRequest(request)
+	if !ok {
+		observation.Outcome = observability.ImageOutcomeRejected
+		observation.Status = http.StatusBadRequest
+		writeError(writer, requestID, responseError{
+			status:  http.StatusBadRequest,
+			code:    codeInvalidRequest,
+			message: "invalid request",
+		})
+		return
+	}
+	response, err := h.images.Fetch(request.Context(), imageRequest)
+	if err != nil {
+		observation.Outcome, observation.Status = h.writeImageError(writer, request, requestID, err)
+		return
+	}
+	if response == nil || response.Body == nil {
+		writeError(writer, requestID, upstreamProtocolResponse)
+		return
+	}
+	defer response.Body.Close()
+
+	if response.Status == http.StatusNotModified {
+		observation.Outcome = observability.ImageOutcomeSuccess
+		observation.Status = http.StatusNotModified
+		writeImageCacheHeaders(writer.Header(), response)
+		writer.WriteHeader(http.StatusNotModified)
+		return
+	}
+	if response.Status != http.StatusOK || response.ContentType == "" ||
+		response.ContentLength == 0 || response.ContentLength > imageproxy.MaxBodyBytes {
+		writeError(writer, requestID, upstreamProtocolResponse)
+		return
+	}
+
+	header := writer.Header()
+	writeImageCacheHeaders(header, response)
+	header.Set("Content-Type", response.ContentType)
+	if response.ContentLength > 0 {
+		header.Set("Content-Length", strconv.FormatInt(response.ContentLength, 10))
+	}
+	writer.WriteHeader(http.StatusOK)
+	written, copyErr := io.Copy(writer, response.Body)
+	observation.ResponseBytes = written
+	if copyErr != nil || response.ContentLength >= 0 && written != response.ContentLength {
+		observation.Outcome = observability.ImageOutcomeStreamError
+		observation.Status = http.StatusOK
+		panic(http.ErrAbortHandler)
+	}
+	observation.Outcome = observability.ImageOutcomeSuccess
+	observation.Status = http.StatusOK
+}
+
+func writeImageCacheHeaders(header http.Header, response *imageproxy.Response) {
+	if response.ETag != "" {
+		header.Set("ETag", response.ETag)
+	}
+	if response.LastModified != "" {
+		header.Set("Last-Modified", response.LastModified)
+	}
+	if response.CacheControl != "" {
+		header.Set("Cache-Control", response.CacheControl)
+	} else {
+		header.Set("Cache-Control", "no-store")
+	}
+}
+
+func (h *routeHandler) writeImageError(
+	writer http.ResponseWriter,
+	request *http.Request,
+	requestID string,
+	err error,
+) (observability.ImageOutcome, int) {
+	kind, ok := imageproxy.ErrorKindOf(err)
+	if !ok {
+		writeError(writer, requestID, upstreamProtocolResponse)
+		return observability.ImageOutcomeProtocol, http.StatusBadGateway
+	}
+	switch kind {
+	case imageproxy.ErrorInvalid:
+		writeError(writer, requestID, responseError{
+			status:  http.StatusBadRequest,
+			code:    codeInvalidRequest,
+			message: "invalid request",
+		})
+		return observability.ImageOutcomeRejected, http.StatusBadRequest
+	case imageproxy.ErrorBusy:
+		writer.Header().Set("Retry-After", "1")
+		writeError(writer, requestID, serverBusyResponse)
+		return observability.ImageOutcomeBusy, http.StatusServiceUnavailable
+	case imageproxy.ErrorNotFound:
+		writeError(writer, requestID, notFoundResponse)
+		return observability.ImageOutcomeNotFound, http.StatusNotFound
+	case imageproxy.ErrorTimeout:
+		writeError(writer, requestID, timeoutResponse)
+		return observability.ImageOutcomeTimeout, http.StatusGatewayTimeout
+	case imageproxy.ErrorCanceled:
+		if request.Context().Err() == nil {
+			writeError(writer, requestID, upstreamUnavailableResponse)
+			return observability.ImageOutcomeUnavailable, http.StatusServiceUnavailable
+		}
+		return observability.ImageOutcomeCanceled, 0
+	case imageproxy.ErrorUnavailable:
+		writeError(writer, requestID, upstreamUnavailableResponse)
+		return observability.ImageOutcomeUnavailable, http.StatusServiceUnavailable
+	case imageproxy.ErrorProtocol:
+		writeError(writer, requestID, upstreamProtocolResponse)
+		return observability.ImageOutcomeProtocol, http.StatusBadGateway
+	default:
+		writeError(writer, requestID, upstreamProtocolResponse)
+		return observability.ImageOutcomeProtocol, http.StatusBadGateway
+	}
+}
+
+func parseImageRequest(request *http.Request) (imageproxy.Request, bool) {
+	if request == nil || request.URL == nil || request.URL.RawPath != "" ||
+		request.URL.EscapedPath() != request.URL.Path {
+		return imageproxy.Request{}, false
+	}
+	path := strings.TrimPrefix(request.URL.Path, routeImages)
+	segments := strings.Split(path, string('/'))
+	if len(segments) != 2 || segments[0] == "" || segments[1] == "" {
+		return imageproxy.Request{}, false
+	}
+	resource := imageproxy.Resource(segments[0])
+	switch resource {
+	case imageproxy.ResourceSubjects, imageproxy.ResourcePersons, imageproxy.ResourceCharacters:
+	default:
+		return imageproxy.Request{}, false
+	}
+	if segments[1][0] == '0' || len(segments[1]) > 19 {
+		return imageproxy.Request{}, false
+	}
+	id, err := strconv.ParseUint(segments[1], 10, 63)
+	if err != nil || id == 0 || strconv.FormatUint(id, 10) != segments[1] {
+		return imageproxy.Request{}, false
+	}
+	const typePrefix = "type="
+	if !strings.HasPrefix(request.URL.RawQuery, typePrefix) ||
+		strings.Count(request.URL.RawQuery, "=") != 1 ||
+		strings.Contains(request.URL.RawQuery, "&") {
+		return imageproxy.Request{}, false
+	}
+	imageType := imageproxy.Type(strings.TrimPrefix(request.URL.RawQuery, typePrefix))
+	switch imageType {
+	case imageproxy.TypeSmall, imageproxy.TypeGrid, imageproxy.TypeLarge, imageproxy.TypeMedium, imageproxy.TypeCommon:
+	default:
+		return imageproxy.Request{}, false
+	}
+
+	ifNoneMatch, ok := oneHeader(request.Header, "If-None-Match")
+	if !ok {
+		return imageproxy.Request{}, false
+	}
+	ifModifiedSince, ok := oneHeader(request.Header, "If-Modified-Since")
+	if !ok {
+		return imageproxy.Request{}, false
+	}
+	return imageproxy.Request{
+		Resource:        resource,
+		ID:              id,
+		Type:            imageType,
+		IfNoneMatch:     ifNoneMatch,
+		IfModifiedSince: ifModifiedSince,
+	}, true
+}
+
+func oneHeader(header http.Header, name string) (string, bool) {
+	values := header.Values(name)
+	if len(values) > 1 {
+		return "", false
+	}
+	if len(values) == 0 {
+		return "", true
+	}
+	return values[0], true
 }
 
 func writeWrongMethod(writer http.ResponseWriter, requestID string) {

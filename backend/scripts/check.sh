@@ -128,6 +128,7 @@ internal/archive/store.go
 internal/archive/test_helpers_test.go
 internal/httpapi/handler.go
 internal/httpapi/handler_test.go
+internal/httpapi/image_handler_test.go
 internal/httpapi/middleware.go
 internal/httpapi/middleware_test.go
 internal/httpapi/server.go
@@ -136,6 +137,8 @@ internal/httpapi/transport.go
 internal/httpapi/transport_test.go
 internal/httpapi/wire/query_contract_test.go
 internal/httpapi/wire/query_wire.gen.go
+internal/imageproxy/client.go
+internal/imageproxy/client_test.go
 internal/observability/events.go
 internal/observability/events_test.go
 internal/observability/metrics.go
@@ -167,10 +170,20 @@ if find . -type d \( -name vendor -o -name openspec \) \
   echo "forbidden backend directory found" >&2
   exit 1
 fi
-if grep -R -n -E '(/api/v1|/health|image[-_ ]proxy|upstream client|update_activated|net/http/pprof)' \
+if grep -R -n -E '(/health|/proxy|ProxyFromEnvironment|update_activated|net/http/pprof)' \
   --include='*.go' --exclude='*_test.go' cmd internal \
   | grep -v 'internal/httpapi/wire/query_wire.gen.go' >/dev/null; then
   echo "deferred route or feature found in production source" >&2
+  exit 1
+fi
+image_route_literals="$(
+  grep -R -n -F '"/api/v1/images/bangumi/"' \
+    --include='*.go' --exclude='*_test.go' cmd internal || true
+)"
+if [[ "$(printf '%s\n' "$image_route_literals" | wc -l | tr -d ' ')" != "1" ]] ||
+  [[ "$image_route_literals" != internal/httpapi/handler.go:* ]]; then
+  echo "image route literal is missing or outside its exact owner" >&2
+  printf '%s\n' "$image_route_literals" >&2
   exit 1
 fi
 

@@ -29,14 +29,15 @@ module/workspace/vendor tree.
 ### Requirement: Package dependencies SHALL follow the approved direction
 
 The foundation SHALL enforce `cmd/api -> app -> {archive,httpapi}`,
-`cmd/archive-smoke -> archive`, `httpapi -> {observability,wire}`,
-`observability -> standard library`, and
+`cmd/archive-smoke -> archive`,
+`httpapi -> {imageproxy,observability,wire}`,
+`imageproxy -> standard library`, `observability -> standard library`, and
 `query -> {archive,cache,collection}` for later admitted query work.
-`archive`, `query`, `cache`, `collection`, and `observability` MUST NOT import
-transport or application layers. Production imports outside the standard
-library SHALL remain limited to the generated wire runtime and the approved
-SQLite driver/VFS. Cycles, unknown packages, nested modules, and production
-`workbench` naming SHALL be rejected.
+`archive`, `imageproxy`, `query`, `cache`, `collection`, and `observability`
+MUST NOT import transport or application layers. Production imports outside
+the standard library SHALL remain limited to the generated wire runtime and
+the approved SQLite driver/VFS. Cycles, unknown packages, nested modules, and
+production `workbench` naming SHALL be rejected.
 
 #### Scenario: Foundation graph is valid
 
@@ -144,10 +145,11 @@ absolute Archive root. Before entering `Serve`, it SHALL attempt exactly one
 accepted Archive load. Success SHALL atomically publish the complete store. A
 non-cancellation load failure SHALL close the candidate, emit exactly one
 bounded `archive_load_failed` app/startup event, and then serve only exact
-`GET /livez`, `GET /readyz`, and `GET /metrics` with readiness false for that
-process lifetime; it SHALL NOT retry, reload, fall back, or expose a business
-route. If the process context is canceled during load, startup SHALL emit the
-same bounded event and return without serving.
+`GET /livez`, `GET /readyz`, `GET /metrics`, and the separately specified
+Archive-independent exact image route with readiness false for that process
+lifetime; it SHALL NOT retry, reload, fall back, or expose an Archive-dependent
+business route. If the process context is canceled during load, startup SHALL
+emit the same bounded event and return without serving.
 
 If the mandatory event writer fails or short-writes, startup SHALL close the
 owned Archive state, propagate that operational failure, and return without
@@ -161,13 +163,13 @@ clears readiness and closes any published Store.
 
 #### Scenario: Process starts with a valid Archive and stops
 
-- **WHEN** a loopback server loads a valid Archive, serves all three exact runtime routes, and its context is canceled
-- **THEN** liveness/readiness/metrics reflect the published store, serving stops within the bound, readiness clears, and the Store closes
+- **WHEN** a loopback server loads a valid Archive, serves the three exact infrastructure routes plus the exact image route, and its context is canceled
+- **THEN** liveness/readiness/metrics reflect the published store, the image route remains independently bounded, serving stops within the bound, readiness clears, and the Store closes
 
 #### Scenario: Empty process starts and stops
 
-- **WHEN** the superseded empty-mux lifecycle expectation is evaluated after the HTTP runtime is admitted
-- **THEN** acceptance SHALL reject empty-mux 404 behavior and require only the three exact runtime routes plus the bounded lifecycle above
+- **WHEN** the superseded empty-mux lifecycle expectation is evaluated after the HTTP runtime and image route are admitted
+- **THEN** acceptance SHALL reject empty-mux 404 behavior and require the three exact infrastructure routes plus the exact image route and bounded lifecycle above
 
 #### Scenario: Listener or serve fails
 
@@ -177,7 +179,7 @@ clears readiness and closes any published Store.
 #### Scenario: Archive loading fails
 
 - **WHEN** the explicit Archive root is missing, relative, invalid, incompatible, or otherwise fails with a non-cancellation outcome
-- **THEN** exactly one sanitized startup event SHALL be emitted, `/livez` and `/metrics` SHALL remain available, `/readyz` SHALL remain 503 without dataVersion, and no retry, fallback, business route, or partial Store SHALL exist
+- **THEN** exactly one sanitized startup event SHALL be emitted, `/livez`, `/metrics`, and the exact image route SHALL remain available, `/readyz` SHALL remain 503 without dataVersion, and no retry, fallback, Archive-dependent business route, or partial Store SHALL exist
 
 #### Scenario: Startup is canceled while loading
 

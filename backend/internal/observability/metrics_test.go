@@ -152,6 +152,7 @@ func TestMetricRequestSeriesCardinalityIsFixed(t *testing.T) {
 		{route: RouteLivez, operation: OperationHealth},
 		{route: RouteReadyz, operation: OperationHealth},
 		{route: RouteMetrics, operation: OperationMetrics},
+		{route: RouteImage, operation: OperationImage},
 		{route: RouteUnknown, operation: OperationUnknown},
 	}
 	methods := []Method{MethodGET, MethodOther}
@@ -203,7 +204,7 @@ func TestMetricRequestSeriesCardinalityIsFixed(t *testing.T) {
 			gotSeries++
 		}
 	}
-	if gotSeries != wantSeries || gotSeries != 200 {
+	if gotSeries != wantSeries || gotSeries != 250 {
 		t.Fatalf("request series = %d, want fixed %d", gotSeries, wantSeries)
 	}
 }

@@ -24,8 +24,11 @@ const (
 	codeEntityNotFound       errorCode = "ENTITY_NOT_FOUND"
 	codeRequestTooLarge      errorCode = "REQUEST_TOO_LARGE"
 	codeUnsupportedMediaType errorCode = "UNSUPPORTED_MEDIA_TYPE"
+	codeServerBusy           errorCode = "SERVER_BUSY"
 	codeNotReady             errorCode = "NOT_READY"
 	codeUpstreamTimeout      errorCode = "UPSTREAM_TIMEOUT"
+	codeUpstreamUnavailable  errorCode = "UPSTREAM_UNAVAILABLE"
+	codeUpstreamProtocol     errorCode = "UPSTREAM_PROTOCOL_ERROR"
 	codeInternalError        errorCode = "INTERNAL_ERROR"
 )
 
@@ -58,6 +61,24 @@ var (
 		status:    http.StatusGatewayTimeout,
 		code:      codeUpstreamTimeout,
 		message:   "request timed out",
+		retryable: true,
+	}
+	serverBusyResponse = responseError{
+		status:    http.StatusServiceUnavailable,
+		code:      codeServerBusy,
+		message:   "service busy",
+		retryable: true,
+	}
+	upstreamUnavailableResponse = responseError{
+		status:    http.StatusServiceUnavailable,
+		code:      codeUpstreamUnavailable,
+		message:   "upstream unavailable",
+		retryable: true,
+	}
+	upstreamProtocolResponse = responseError{
+		status:    http.StatusBadGateway,
+		code:      codeUpstreamProtocol,
+		message:   "upstream response invalid",
 		retryable: true,
 	}
 	internalResponse = responseError{

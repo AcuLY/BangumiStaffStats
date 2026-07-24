@@ -363,6 +363,30 @@ func TestMiddlewareContainsPanicBeforeAndAfterCommit(t *testing.T) {
 		assertMetricContains(t, metrics, `outcome="panic"`, `status_class="5xx"`)
 	})
 
+	t.Run("abort sentinel before commit", func(t *testing.T) {
+		metrics := newTestMetrics(t)
+		handler := runtimeMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			panic(http.ErrAbortHandler)
+		}), middlewareOptions{
+			requestTimeout: time.Second,
+			requestID:      func() string { return "panic-id" },
+			metrics:        metrics,
+		})
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/livez", nil))
+		if recorder.Code != http.StatusInternalServerError {
+			t.Fatalf("status = %d", recorder.Code)
+		}
+		var envelope wire.ErrorEnvelopeV1
+		if err := json.Unmarshal(recorder.Body.Bytes(), &envelope); err != nil {
+			t.Fatal(err)
+		}
+		if envelope.Error.Code != codeInternalError || !envelope.Error.Retryable {
+			t.Fatalf("error = %#v", envelope.Error)
+		}
+		assertMetricContains(t, metrics, `outcome="panic"`, `status_class="5xx"`)
+	})
+
 	t.Run("after commit", func(t *testing.T) {
 		metrics := newTestMetrics(t)
 		handler := runtimeMiddleware(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {

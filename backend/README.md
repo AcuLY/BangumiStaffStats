@@ -10,15 +10,17 @@ reloads, or exposes a business route.
 If the mandatory event writer fails or short-writes, startup closes the owned
 Archive state and returns without serving.
 
-The development runtime has exactly:
+The development runtime has exactly three infrastructure routes and one
+same-origin image route:
 
 ```text
 GET /livez
 GET /readyz
 GET /metrics
+GET /api/v1/images/bangumi/{subjects|persons|characters}/{positiveID}?type={small|grid|large|medium|common}
 ```
 
-All three reject other methods. `/readyz` performs one fixed one-second
+All four reject other methods. `/readyz` performs one fixed one-second
 `archive_meta` identity read through the published Store. `/metrics` is
 standard-library, low-cardinality Prometheus text instrumentation; its
 production exposure, scrape configuration, retention, alerts, and SLOs remain
@@ -28,6 +30,12 @@ requires an endpoint-owned structural validator to accept the exact bounded
 raw JSON before any typed destination assignment. It also contains request
 deadlines, cancellations, and panics without registering a placeholder
 business endpoint.
+
+The image route constructs only fixed `https://api.bgm.tv/v0/...` requests,
+ignores environment proxies, rejects redirects and arbitrary request headers,
+uses an independent timeout and concurrency pool, admits only reviewed image
+MIME values, and streams at most 8 MiB. It stores no image bytes and does not
+choose an image type for the frontend.
 
 The module pins Go 1.26.5 and keeps downloaded toolchains, module/build caches,
 temporary files, and binaries below ignored backend-local directories.

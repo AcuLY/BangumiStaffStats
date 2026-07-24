@@ -89,7 +89,7 @@ func TestRunListenerPublishesArchiveServesThreeRoutesAndStops(t *testing.T) {
 	}
 }
 
-func TestRunListenerArchiveFailureServesHealthOnlyPermanentlyNotReady(t *testing.T) {
+func TestRunListenerArchiveFailureServesRuntimeAndImagePermanentlyNotReady(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -135,12 +135,30 @@ func TestRunListenerArchiveFailureServesHealthOnlyPermanentlyNotReady(t *testing
 		t.Fatalf("startup event = %q", events.String())
 	}
 
+	// The exact image route is independent of Archive readiness. An invalid
+	// shape proves that the route is registered without contacting upstream.
+	imageResponse := getResponse(
+		t,
+		client,
+		listener,
+		"/api/v1/images/bangumi/subjects/0?type=small",
+	)
+	if imageResponse.status != http.StatusBadRequest ||
+		!strings.Contains(imageResponse.body, `"code":"INVALID_REQUEST"`) {
+		t.Fatalf("image route = %d %q", imageResponse.status, imageResponse.body)
+	}
+	if strings.Count(events.String(), "\n") != 2 ||
+		!strings.Contains(events.String(), `"event":"image_proxy_completed"`) ||
+		!strings.Contains(events.String(), `"outcome":"rejected"`) {
+		t.Fatalf("image event = %q", events.String())
+	}
+
 	// A later readiness request remains false; no load retry or fallback exists.
 	if response := getResponse(t, client, listener, "/readyz"); response.status != http.StatusServiceUnavailable {
 		t.Fatalf("second ready status = %d", response.status)
 	}
-	if strings.Count(events.String(), "\n") != 1 {
-		t.Fatalf("startup event duplicated: %q", events.String())
+	if strings.Count(events.String(), "\n") != 2 {
+		t.Fatalf("terminal events changed unexpectedly: %q", events.String())
 	}
 
 	cancel()

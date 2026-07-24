@@ -225,6 +225,52 @@ func TestEventSinkRejectsEmptyAndShortWrites(t *testing.T) {
 	}
 }
 
+func TestImageEventIsClosedAndContainsNoImageIdentity(t *testing.T) {
+	var output bytes.Buffer
+	sink := NewEventSink(&output)
+	if err := sink.EmitImage(ImageObservation{
+		RequestID:     "image-request-id",
+		Outcome:       ImageOutcomeSuccess,
+		Status:        200,
+		Duration:      12 * time.Millisecond,
+		ResponseBytes: 512,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	const want = `{"event":"image_proxy_completed","channel":"app","request_id":"image-request-id","operation":"image","outcome":"success","status":200,"duration_ms":12,"response_bytes":512}` + "\n"
+	if output.String() != want {
+		t.Fatalf("image event = %q", output.String())
+	}
+	for _, forbidden := range []string{
+		"subject", "person", "character", "type", "url", "query",
+		"header", "cookie", "authorization", "upstream", "body",
+	} {
+		if strings.Contains(strings.ToLower(output.String()), forbidden) {
+			t.Fatalf("image event contains forbidden value %q", forbidden)
+		}
+	}
+}
+
+func TestImageEventRejectsArbitraryOrInconsistentFacts(t *testing.T) {
+	testCases := []ImageObservation{
+		{RequestID: "id\nurl", Outcome: ImageOutcomeSuccess, Status: 200},
+		{RequestID: "safe-id", Outcome: ImageOutcome("subject-42"), Status: 200},
+		{RequestID: "safe-id", Outcome: ImageOutcomeSuccess, Status: 502},
+		{RequestID: "safe-id", Outcome: ImageOutcomeCanceled, Status: 200},
+		{RequestID: "safe-id", Outcome: ImageOutcomeProtocol, Status: 502, Duration: -1},
+		{RequestID: "safe-id", Outcome: ImageOutcomeProtocol, Status: 502, ResponseBytes: -1},
+	}
+	for _, observation := range testCases {
+		var output bytes.Buffer
+		if err := NewEventSink(&output).EmitImage(observation); err == nil {
+			t.Fatalf("accepted invalid image observation: %#v", observation)
+		}
+		if output.Len() != 0 {
+			t.Fatalf("invalid observation emitted %q", output.String())
+		}
+	}
+}
+
 type lockedBuffer struct {
 	mu sync.Mutex
 	bytes.Buffer

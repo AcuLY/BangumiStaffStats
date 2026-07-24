@@ -22,6 +22,7 @@ const (
 	RouteLivez   Route = "livez"
 	RouteReadyz  Route = "readyz"
 	RouteMetrics Route = "metrics"
+	RouteImage   Route = "image"
 	RouteUnknown Route = "unknown"
 )
 
@@ -31,6 +32,7 @@ type Operation string
 const (
 	OperationHealth  Operation = "health"
 	OperationMetrics Operation = "metrics"
+	OperationImage   Operation = "image"
 	OperationUnknown Operation = "unknown"
 )
 
@@ -243,6 +245,8 @@ func validRouteOperation(route Route, operation Operation) bool {
 		return operation == OperationHealth
 	case RouteMetrics:
 		return operation == OperationMetrics
+	case RouteImage:
+		return operation == OperationImage
 	case RouteUnknown:
 		return operation == OperationUnknown
 	default:

@@ -43,8 +43,9 @@ func TestProductionPackageDependencies(t *testing.T) {
 		modulePath + "/cmd/api":                       {modulePath + "/internal/app"},
 		modulePath + "/cmd/archive-smoke":             {modulePath + "/internal/archive"},
 		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/httpapi"},
-		modulePath + "/internal/httpapi":              {modulePath + "/internal/httpapi/wire", modulePath + "/internal/observability"},
+		modulePath + "/internal/httpapi":              {modulePath + "/internal/httpapi/wire", modulePath + "/internal/imageproxy", modulePath + "/internal/observability"},
 		modulePath + "/internal/httpapi/wire":         {},
+		modulePath + "/internal/imageproxy":           {},
 		modulePath + "/internal/observability":        {},
 		modulePath + "/internal/query":                {modulePath + "/internal/archive", modulePath + "/internal/cache", modulePath + "/internal/collection"},
 		modulePath + "/internal/archive":              {},
@@ -163,13 +164,14 @@ func TestPinnedModuleDeclaration(t *testing.T) {
 	}
 }
 
-func TestRuntimeHasExactlyThreeInfrastructureRoutes(t *testing.T) {
+func TestRuntimeHasExactApprovedRoutes(t *testing.T) {
 	moduleRoot := findModuleRoot(t)
 	httpapiRoot := filepath.Join(moduleRoot, "internal", "httpapi")
 	allowedRoutes := map[string]string{
-		"/livez":   filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
-		"/readyz":  filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
-		"/metrics": filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
+		"/livez":                  filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
+		"/readyz":                 filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
+		"/metrics":                filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
+		"/api/v1/images/bangumi/": filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
 	}
 	routeCounts := make(map[string]int, len(allowedRoutes))
 	err := filepath.WalkDir(moduleRoot, func(path string, entry os.DirEntry, walkErr error) error {
