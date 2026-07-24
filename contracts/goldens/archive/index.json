@@ -3,28 +3,28 @@
   "files": [
     {
       "path": "invalid/bundles/manifest-data-version-mismatch/archive-manifest.json",
-      "digest": "sha256:dd91defb57fbebb00346dc58466a631d6d44cbd924990651ea85aeb1956da993",
+      "digest": "sha256:5184c74898c749d20324f8d66cac6a181e41f39bf4d080f0d2e9f3402e1d9ec0",
       "caseId": "manifest-data-version-mismatch",
       "validationStage": "data-version",
       "expected": "DATA_VERSION_MISMATCH"
     },
     {
       "path": "invalid/bundles/manifest-data-version-mismatch/bangumi.sqlite",
-      "digest": "sha256:5fcbb804db390bc8efaa23bc6188dda05f0f6193443c95e96e95e401c4ff6b46",
+      "digest": "sha256:acbbe8a7c18d8e9fe0484362e4d7567ffac674b01896e3d8997194b58f76fea3",
       "caseId": "manifest-data-version-mismatch",
       "validationStage": "data-version",
       "expected": "DATA_VERSION_MISMATCH"
     },
     {
       "path": "invalid/bundles/manifest-data-version-mismatch/current-pointer.json",
-      "digest": "sha256:203df5f5713c76497de275c6a6ea8acc8ef21518e91147653060af9d2bbd0054",
+      "digest": "sha256:f6a2ad8425b6fa43d642fea68e26c1bd690f713e4e441e3f191ac4b18dfdfb7b",
       "caseId": "manifest-data-version-mismatch",
       "validationStage": "data-version",
       "expected": "DATA_VERSION_MISMATCH"
     },
     {
       "path": "invalid/bundles/sqlite-corrupt/archive-manifest.json",
-      "digest": "sha256:14a600995842a781c38c61ac154acd49ee7ead56b96ad2d498b908df9423ed1f",
+      "digest": "sha256:8603f007f5a698b1d56d3bb84c26a12585a10c6c22781ecb4cc6975bbc481527",
       "caseId": "sqlite-corrupt",
       "validationStage": "sqlite-format",
       "expected": "SQLITE_FORMAT_INVALID"
@@ -38,182 +38,182 @@
     },
     {
       "path": "invalid/bundles/sqlite-corrupt/current-pointer.json",
-      "digest": "sha256:712cef0304780ef880a1d7c191e023ea0b2db7053e890c1292b247f7d8d508f2",
+      "digest": "sha256:4b6b65826773735207c4b1b98116eef335ce11073e5a08e29e3e57faa1f6d2d2",
       "caseId": "sqlite-corrupt",
       "validationStage": "sqlite-format",
       "expected": "SQLITE_FORMAT_INVALID"
     },
     {
       "path": "invalid/bundles/sqlite-data-version-mismatch/archive-manifest.json",
-      "digest": "sha256:2fbc30ea34a365ed0b2d253a28ecab8a5feccfa00ef13c85b4dda9806d813ed7",
+      "digest": "sha256:7092a8a8bb8a0958e24d4aa8193a8d5b91abb99e8938f6ecedca097fd2344de5",
       "caseId": "sqlite-data-version-mismatch",
       "validationStage": "sqlite-identity",
       "expected": "SQLITE_DATA_VERSION_MISMATCH"
     },
     {
       "path": "invalid/bundles/sqlite-data-version-mismatch/bangumi.sqlite",
-      "digest": "sha256:26e626fa32b30404b292ca92ef7e5a75802babc3e2730824d17a65fd99847a30",
+      "digest": "sha256:01337011f5ef59254399302e2c39c4c87cf85f6ade514cb94b9e197605c518dd",
       "caseId": "sqlite-data-version-mismatch",
       "validationStage": "sqlite-identity",
       "expected": "SQLITE_DATA_VERSION_MISMATCH"
     },
     {
       "path": "invalid/bundles/sqlite-data-version-mismatch/current-pointer.json",
-      "digest": "sha256:6a5f80f8d7da2cbb4354e811c7e323b8698d7f2f1acf0443bffc11ecd5e08d16",
+      "digest": "sha256:f97663007dd42e247de64fb8dc5755cd6e4f0eba56da48e46ebb9b64fbb15873",
       "caseId": "sqlite-data-version-mismatch",
       "validationStage": "sqlite-identity",
       "expected": "SQLITE_DATA_VERSION_MISMATCH"
     },
     {
       "path": "invalid/bundles/sqlite-digest-mismatch/archive-manifest.json",
-      "digest": "sha256:fc026e3cc4dd1690b738e4eef66444ba0a6bbdc9da716e18a86eb9a097bb484e",
+      "digest": "sha256:19907b93db4b3ee297b2b0fb25d5680889d594598f24bbd8c1d08963f4c4e4c5",
       "caseId": "sqlite-digest-mismatch",
       "validationStage": "sqlite-digest",
       "expected": "SQLITE_DIGEST_MISMATCH"
     },
     {
       "path": "invalid/bundles/sqlite-digest-mismatch/bangumi.sqlite",
-      "digest": "sha256:711935ea552879de36510627dca68fd70fb0947b4bcafe09a3e817eb2ad48e66",
+      "digest": "sha256:cfc05d0bd3d836763dd008a744e54da9db29bbcc50b0415ae42559bc178e5ca7",
       "caseId": "sqlite-digest-mismatch",
       "validationStage": "sqlite-digest",
       "expected": "SQLITE_DIGEST_MISMATCH"
     },
     {
       "path": "invalid/bundles/sqlite-digest-mismatch/current-pointer.json",
-      "digest": "sha256:76ed6a88d387ddb6ecb333445555e7279eef0ae9c1452118c32a5fd24d627bcb",
+      "digest": "sha256:cc7f9ecf9b024f648b4d2bdff1f92975d000cd4322ee0382abf1a199eeb9838a",
       "caseId": "sqlite-digest-mismatch",
       "validationStage": "sqlite-digest",
       "expected": "SQLITE_DIGEST_MISMATCH"
     },
     {
       "path": "invalid/bundles/sqlite-required-index-missing/archive-manifest.json",
-      "digest": "sha256:502428065e6361cfc16ef7907d832f10a21846097d49f46a248115b1de880303",
+      "digest": "sha256:c0a23cc7927400461a8032a5fc008421bec52544fefbad82bfc973ccd6cc96eb",
       "caseId": "sqlite-required-index-missing",
       "validationStage": "sqlite-required-objects",
       "expected": "SQLITE_REQUIRED_OBJECT_MISSING"
     },
     {
       "path": "invalid/bundles/sqlite-required-index-missing/bangumi.sqlite",
-      "digest": "sha256:5159e3d346a71514ed30fd20a1cd1b09f5dda755187efc1710e6b4c0cc7b42af",
+      "digest": "sha256:de55eaeb3557284ab60671c61c0e753997ed647b0ffcd4f264a64f083ace0131",
       "caseId": "sqlite-required-index-missing",
       "validationStage": "sqlite-required-objects",
       "expected": "SQLITE_REQUIRED_OBJECT_MISSING"
     },
     {
       "path": "invalid/bundles/sqlite-required-index-missing/current-pointer.json",
-      "digest": "sha256:35d8e0f50790db88c6a5d4dd7d2af3c911fcfd1dff9e35889d372ae198b6d0e5",
+      "digest": "sha256:4477c31b7451cf1d18e4cf44af073051f2ef08193efde7582b64634730f2b6b8",
       "caseId": "sqlite-required-index-missing",
       "validationStage": "sqlite-required-objects",
       "expected": "SQLITE_REQUIRED_OBJECT_MISSING"
     },
     {
       "path": "invalid/bundles/sqlite-table-count-mismatch/archive-manifest.json",
-      "digest": "sha256:9b6789d62a41b4453d2d389b864a732d04507fdc6b5284501edf573d643431a4",
+      "digest": "sha256:58af2654f27cfdd4afdc4555ef9d6862aadd4d9524c1b325124fc5a22218cabf",
       "caseId": "sqlite-table-count-mismatch",
       "validationStage": "sqlite-table-count",
       "expected": "SQLITE_TABLE_COUNT_MISMATCH"
     },
     {
       "path": "invalid/bundles/sqlite-table-count-mismatch/bangumi.sqlite",
-      "digest": "sha256:5fcbb804db390bc8efaa23bc6188dda05f0f6193443c95e96e95e401c4ff6b46",
+      "digest": "sha256:acbbe8a7c18d8e9fe0484362e4d7567ffac674b01896e3d8997194b58f76fea3",
       "caseId": "sqlite-table-count-mismatch",
       "validationStage": "sqlite-table-count",
       "expected": "SQLITE_TABLE_COUNT_MISMATCH"
     },
     {
       "path": "invalid/bundles/sqlite-table-count-mismatch/current-pointer.json",
-      "digest": "sha256:f7848033f476e1c1d6359551b3d613b7c6489f7419b39192d6524ebde92b90bc",
+      "digest": "sha256:ca0bce98543fbacfe312f982e7a81363af1a836435d939d7d8ed6c0d84afe57e",
       "caseId": "sqlite-table-count-mismatch",
       "validationStage": "sqlite-table-count",
       "expected": "SQLITE_TABLE_COUNT_MISMATCH"
     },
     {
       "path": "invalid/bundles/sqlite-unsupported-schema/archive-manifest.json",
-      "digest": "sha256:e1a69b5555b84812e346b12c51efba650a6ee0b1e28ea37be95cf12f4e036942",
+      "digest": "sha256:893c4aa33098db8681e74057bc6b2be10cded96da62d89e79b52034d0adc1add",
       "caseId": "sqlite-unsupported-schema",
       "validationStage": "compatibility",
       "expected": "ARCHIVE_VERSION_UNSUPPORTED"
     },
     {
       "path": "invalid/bundles/sqlite-unsupported-schema/bangumi.sqlite",
-      "digest": "sha256:5fcbb804db390bc8efaa23bc6188dda05f0f6193443c95e96e95e401c4ff6b46",
+      "digest": "sha256:acbbe8a7c18d8e9fe0484362e4d7567ffac674b01896e3d8997194b58f76fea3",
       "caseId": "sqlite-unsupported-schema",
       "validationStage": "compatibility",
       "expected": "ARCHIVE_VERSION_UNSUPPORTED"
     },
     {
       "path": "invalid/bundles/sqlite-unsupported-schema/current-pointer.json",
-      "digest": "sha256:1f50c21141c85ef46dd9c62dbccb0a0ecb35de088a475a5b24d23584f081fa29",
+      "digest": "sha256:2201f5b919e7919a4065195592c05933cace1a096edc2e51246ee418c1df51e6",
       "caseId": "sqlite-unsupported-schema",
       "validationStage": "compatibility",
       "expected": "ARCHIVE_VERSION_UNSUPPORTED"
     },
     {
       "path": "invalid/json/manifest-bad-digest.json",
-      "digest": "sha256:7c64152260598a03a792ad1a1c9e3d8d65068a74612ce217fd2f5fb73c2834b6",
+      "digest": "sha256:23d2324ce40de2dd0f99cf544e66c6adc55a2a8061455a364f6b3f878edd2fae",
       "caseId": "manifest-bad-digest",
       "validationStage": "json-schema",
       "expected": "MANIFEST_SCHEMA_INVALID"
     },
     {
       "path": "invalid/json/manifest-source-accounting-mismatch.json",
-      "digest": "sha256:4d76d34ca487a66b52407b11262bd8bfd1222e53ee4ebaea0e4434d74d08b281",
+      "digest": "sha256:0f388d0248f7b71604eaf721a691d0f663f0dd5d61d1031c808c4b8086dc589d",
       "caseId": "manifest-source-accounting-mismatch",
       "validationStage": "source-accounting",
       "expected": "MANIFEST_ACCOUNTING_INVALID"
     },
     {
       "path": "invalid/json/manifest-unknown-field.json",
-      "digest": "sha256:2dbfb674699bdb3e224339319640bdfcfe356688d82e247d70f8b13f96e9b273",
+      "digest": "sha256:f666cee4693242166cf660a63317cedd3abb0581e7fd99f23ec7232636ebe109",
       "caseId": "manifest-unknown-field",
       "validationStage": "json-schema",
       "expected": "MANIFEST_SCHEMA_INVALID"
     },
     {
       "path": "invalid/json/manifest-unsafe-sqlite-file.json",
-      "digest": "sha256:84768a2c341e037ada084c51c4a7fbdae4cd4455b5ec2d49fb9e8cedf03bd7d8",
+      "digest": "sha256:3bed645653ce729bf839f5e392e4d3903fd60ad97745cf244262cebc8ed2b228",
       "caseId": "manifest-unsafe-sqlite-file",
       "validationStage": "json-schema",
       "expected": "MANIFEST_SCHEMA_INVALID"
     },
     {
       "path": "invalid/json/pointer-unknown-field.json",
-      "digest": "sha256:35c62af6cec2ce873aea015c7dde503c1311313ddbe8b69cc7efaeb50561b63e",
+      "digest": "sha256:8263aa4d9af6d2407e9f274866598d3d8665a702716392c21501b84a2fdd4203",
       "caseId": "pointer-unknown-field",
       "validationStage": "json-schema",
       "expected": "POINTER_SCHEMA_INVALID"
     },
     {
       "path": "invalid/json/pointer-unsafe-data-version.json",
-      "digest": "sha256:51406737960d377ddc2614c62e522faa52ac346c11b31c198ce044508e66cd68",
+      "digest": "sha256:e6dcd3b98cbf4c87034d04ca905c684658e87db13bc714131c14479acedcad79",
       "caseId": "pointer-unsafe-data-version",
       "validationStage": "json-schema",
       "expected": "POINTER_SCHEMA_INVALID"
     },
     {
       "path": "valid/minimal/archive-manifest.json",
-      "digest": "sha256:fc026e3cc4dd1690b738e4eef66444ba0a6bbdc9da716e18a86eb9a097bb484e",
+      "digest": "sha256:19907b93db4b3ee297b2b0fb25d5680889d594598f24bbd8c1d08963f4c4e4c5",
       "caseId": "minimal-valid",
       "validationStage": "valid",
       "expected": "VALID"
     },
     {
       "path": "valid/minimal/bangumi.sqlite",
-      "digest": "sha256:5fcbb804db390bc8efaa23bc6188dda05f0f6193443c95e96e95e401c4ff6b46",
+      "digest": "sha256:acbbe8a7c18d8e9fe0484362e4d7567ffac674b01896e3d8997194b58f76fea3",
       "caseId": "minimal-valid",
       "validationStage": "valid",
       "expected": "VALID"
     },
     {
       "path": "valid/minimal/current-pointer.json",
-      "digest": "sha256:76ed6a88d387ddb6ecb333445555e7279eef0ae9c1452118c32a5fd24d627bcb",
+      "digest": "sha256:cc7f9ecf9b024f648b4d2bdff1f92975d000cd4322ee0382abf1a199eeb9838a",
       "caseId": "minimal-valid",
       "validationStage": "valid",
       "expected": "VALID"
     },
     {
       "path": "vectors/data-version.json",
-      "digest": "sha256:981ad75464f6072bbb15633a6adf5a03233a2d2c427f5aa96690c527bdca85eb",
+      "digest": "sha256:02e21b5f741087eca338827e44d7c1f40bfc041cc249c6a86146d77cd13f1608",
       "caseId": "data-version-vector",
       "validationStage": "valid",
       "expected": "VALID"

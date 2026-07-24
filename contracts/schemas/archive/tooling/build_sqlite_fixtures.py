@@ -8,6 +8,7 @@ import copy
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 import sys
@@ -21,12 +22,15 @@ SCHEMA_ROOT = SCRIPT.parents[1]
 CONTRACTS_ROOT = SCHEMA_ROOT.parents[1]
 GOLDEN_ROOT = CONTRACTS_ROOT / "goldens" / "archive"
 SCHEMA_SQL = SCHEMA_ROOT / "schema.sql"
+COMPATIBILITY_MATRIX = SCHEMA_ROOT / "compatibility-matrix.json"
 SAFE_INTEGER_MAX = 9_007_199_254_740_991
 APPLICATION_ID = 1_111_969_107
 SQLITE_SCHEMA_VERSION = 1
 MANIFEST_SCHEMA_VERSION = 1
 POINTER_SCHEMA_VERSION = 1
 ALGORITHM = "bgmss-archive-data-version-v1"
+SCHEMA_OBJECT_ALGORITHM = "bgmss-sqlite-schema-objects-v1"
+SCHEMA_OBJECT_COUNT = 35
 COMMON_COMMIT = "6a8442c17143a870357a5ff812362e8b5cfe9f9d"
 SOURCE_NAMES = (
     "subject.jsonlines",
@@ -60,7 +64,7 @@ TABLE_NAMES = (
     "catalog_selection_rule",
 )
 REQUIRED_INDEXES = (
-    "idx_subject_type_date_id",
+    "idx_subject_filter_date_id",
     "idx_subject_relation_source",
     "idx_subject_tag_lookup",
     "idx_person_career_lookup",
@@ -76,10 +80,259 @@ REQUIRED_INDEXES = (
     "idx_catalog_capability_lookup",
     "idx_catalog_selection_rule_lookup",
 )
+MISSING = object()
+PARTIAL_DATE = re.compile(
+    r"^(?P<year>[0-9]{4})(?:-(?P<month>[0-9]{2})(?:-(?P<day>[0-9]{2}))?)?$",
+    re.ASCII,
+)
+SENTINELS = (
+    (
+        "unknown-position-preserved-without-catalog-placeholder",
+        """
+        SELECT COUNT(*) FROM staff_credit AS c
+        LEFT JOIN staff_position AS p
+          ON p.subject_type = c.subject_type
+         AND p.position_id = c.position_id
+        WHERE p.position_id IS NULL
+        """,
+        1,
+    ),
+    (
+        "eligible-exact-cast",
+        "SELECT COUNT(*) FROM cast_credit WHERE eligible = 1 AND provenance = 'exact'",
+        1,
+    ),
+    (
+        "selectable-unknown-position-absent",
+        "SELECT COUNT(*) FROM catalog_position WHERE position_key = 'staff:anime:999999'",
+        0,
+    ),
+    (
+        "minimal-anime-subject",
+        "SELECT COUNT(*) FROM subject WHERE subject_type = 'anime' AND subject_id = 1",
+        1,
+    ),
+    (
+        "safe-subject-count",
+        "SELECT COUNT(*) FROM subject WHERE nsfw = 0",
+        3,
+    ),
+    (
+        "nsfw-subject-count",
+        "SELECT COUNT(*) FROM subject WHERE nsfw = 1",
+        1,
+    ),
+    (
+        "month-filter-eligible-subject-count",
+        """
+        SELECT COUNT(*) FROM subject
+        WHERE air_date_precision IN (2, 3)
+          AND substr(air_date, 1, 7) BETWEEN '2024-01' AND '2025-12'
+        """,
+        2,
+    ),
+    (
+        "year-only-date-preserved",
+        """
+        SELECT COUNT(*) FROM subject
+        WHERE subject_type = 'anime'
+          AND subject_id = 3
+          AND air_date = '2023'
+          AND air_date_precision = 1
+        """,
+        1,
+    ),
+    (
+        "null-date-precision-consistent",
+        """
+        SELECT COUNT(*) FROM subject
+        WHERE (air_date IS NULL) <> (air_date_precision IS NULL)
+        """,
+        0,
+    ),
+)
 
 
 def fail(message: str) -> None:
     raise RuntimeError(message)
+
+
+def days_in_month(year: int, month: int) -> int:
+    if month == 2:
+        leap = year % 400 == 0 or (year % 4 == 0 and year % 100 != 0)
+        return 29 if leap else 28
+    if month in (4, 6, 9, 11):
+        return 30
+    return 31
+
+
+def subject_semantics(
+    nsfw: Any = MISSING,
+    air_date: Any = None,
+) -> tuple[int, str | None, int | None]:
+    if type(nsfw) is not bool:
+        fail("subject nsfw must be an explicit boolean")
+    if air_date is None:
+        return (int(nsfw), None, None)
+    if type(air_date) is not str:
+        fail("subject date must be a registered raw string or null")
+    if "\0" in air_date:
+        fail("subject date must not contain an embedded NUL")
+    match = PARTIAL_DATE.fullmatch(air_date)
+    if match is None:
+        fail(f"subject date has an unregistered shape: {air_date!r}")
+    year = int(match.group("year"))
+    if year == 0:
+        fail("subject date year 0000 is invalid")
+    month_text = match.group("month")
+    if month_text is None:
+        return (int(nsfw), air_date, 1)
+    month = int(month_text)
+    if not 1 <= month <= 12:
+        fail(f"subject date month is invalid: {air_date!r}")
+    day_text = match.group("day")
+    if day_text is None:
+        return (int(nsfw), air_date, 2)
+    day = int(day_text)
+    if not 1 <= day <= days_in_month(year, month):
+        fail(f"subject date day is invalid: {air_date!r}")
+    return (int(nsfw), air_date, 3)
+
+
+def subject_semantics_self_test() -> dict[str, int]:
+    valid_mappings = (
+        (False, None, (0, None, None)),
+        (False, "0001", (0, "0001", 1)),
+        (True, "2024-02", (1, "2024-02", 2)),
+        (False, "2024-02-29", (0, "2024-02-29", 3)),
+        (False, "2000-02-29", (0, "2000-02-29", 3)),
+        (False, "1900-02-28", (0, "1900-02-28", 3)),
+        (False, "9999-12-31", (0, "9999-12-31", 3)),
+    )
+    for nsfw, air_date, expected in valid_mappings:
+        actual = subject_semantics(nsfw, air_date)
+        if actual != expected:
+            fail(f"subject semantic mapping mismatch: {actual!r} != {expected!r}")
+
+    rejected_nsfw = (MISSING, None, 0, 1, 0.0, "0", "false", b"false")
+    for value in rejected_nsfw:
+        try:
+            subject_semantics(value)
+        except RuntimeError:
+            continue
+        fail(f"subject semantic mapping accepted invalid nsfw: {value!r}")
+
+    rejected_dates: tuple[Any, ...] = (
+        2024,
+        b"2024",
+        "",
+        "2024-",
+        "2024-2",
+        "2024/02",
+        "2024-02-29x",
+        "2024\0junk",
+        "2024-02\0junk",
+        "2024-02-29\0junk",
+        "0000",
+        "0000-01",
+        "2024-00",
+        "2024-13",
+        "2024-01-00",
+        "2024-04-31",
+        "2023-02-29",
+        "1900-02-29",
+    )
+    for value in rejected_dates:
+        try:
+            subject_semantics(False, value)
+        except RuntimeError:
+            continue
+        fail(f"subject semantic mapping accepted invalid date: {value!r}")
+
+    invalid_rows = (
+        ("nsfw-null", None, None, None),
+        ("nsfw-negative", -1, None, None),
+        ("nsfw-two", 2, None, None),
+        ("nsfw-text", "false", None, None),
+        ("date-without-precision", 0, "2024", None),
+        ("precision-without-date", 0, None, 1),
+        ("year-as-month", 0, "2024", 2),
+        ("month-as-year", 0, "2024-02", 1),
+        ("month-as-day", 0, "2024-02", 3),
+        ("day-as-month", 0, "2024-02-29", 2),
+        ("unknown-precision", 0, "2024", 4),
+        ("trailing-date", 0, "2024-02-29x", 3),
+        ("year-embedded-nul", 0, "2024\0junk", 1),
+        ("month-embedded-nul", 0, "2024-02\0junk", 2),
+        ("day-embedded-nul", 0, "2024-02-29\0junk", 3),
+        ("year-zero", 0, "0000", 1),
+        ("month-zero", 0, "2024-00", 2),
+        ("month-thirteen", 0, "2024-13", 2),
+        ("day-zero", 0, "2024-01-00", 3),
+        ("april-thirty-one", 0, "2024-04-31", 3),
+        ("common-year-leap-day", 0, "2023-02-29", 3),
+        ("century-non-leap-day", 0, "1900-02-29", 3),
+    )
+    connection = sqlite3.connect(":memory:")
+    try:
+        connection.executescript(SCHEMA_SQL.read_text(encoding="utf-8"))
+        statement = """
+            INSERT INTO subject (
+              subject_type, subject_id, name, name_cn, nsfw, air_date,
+              air_date_precision, score, votes
+            ) VALUES ('anime', ?, ?, NULL, ?, ?, ?, NULL, 0)
+        """
+        for subject_id, (label, nsfw, air_date, precision) in enumerate(
+            invalid_rows, start=10_000
+        ):
+            try:
+                connection.execute(
+                    statement,
+                    (subject_id, f"invalid-{label}", nsfw, air_date, precision),
+                )
+                connection.rollback()
+            except sqlite3.DatabaseError:
+                connection.rollback()
+                continue
+            fail(f"SQLite accepted invalid subject row: {label}")
+
+        valid_rows = (
+            ("null-date", False, None),
+            ("year-date", False, "2023"),
+            ("month-date", True, "2024-02"),
+            ("leap-day", False, "2000-02-29"),
+        )
+        for subject_id, (label, nsfw, air_date) in enumerate(
+            valid_rows, start=20_000
+        ):
+            stored_nsfw, stored_date, precision = subject_semantics(nsfw, air_date)
+            connection.execute(
+                statement,
+                (
+                    subject_id,
+                    f"valid-{label}",
+                    stored_nsfw,
+                    stored_date,
+                    precision,
+                ),
+            )
+        valid_sql_rows = int(
+            connection.execute(
+                "SELECT COUNT(*) FROM subject WHERE subject_id >= 20000"
+            ).fetchone()[0]
+        )
+        if valid_sql_rows != len(valid_rows):
+            fail(f"SQLite valid subject count mismatch: {valid_sql_rows}")
+    finally:
+        connection.close()
+
+    return {
+        "validMappings": len(valid_mappings),
+        "rejectedNsfwMappings": len(rejected_nsfw),
+        "rejectedDateMappings": len(rejected_dates),
+        "rejectedSqlRows": len(invalid_rows),
+        "validSqlRows": len(valid_rows),
+    }
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -88,6 +341,122 @@ def sha256_bytes(data: bytes) -> str:
 
 def file_digest(file_path: Path) -> str:
     return sha256_bytes(file_path.read_bytes())
+
+
+def schema_object_record(connection: sqlite3.Connection) -> dict[str, Any]:
+    rows = connection.execute(
+        """
+        SELECT type, name, tbl_name, sql
+        FROM sqlite_schema
+        WHERE type IN ('table', 'index', 'view', 'trigger')
+          AND sql IS NOT NULL
+          AND lower(substr(name, 1, 7)) <> 'sqlite_'
+        ORDER BY
+          type COLLATE BINARY,
+          name COLLATE BINARY,
+          tbl_name COLLATE BINARY
+        """
+    ).fetchall()
+    preimage = bytearray()
+    preimage.extend(f"{SCHEMA_OBJECT_ALGORITHM}\n".encode("ascii"))
+    preimage.extend(f"count={len(rows)}\n".encode("ascii"))
+    for object_type, name, table_name, sql in rows:
+        for field, value in (
+            ("type", object_type),
+            ("name", name),
+            ("table", table_name),
+            ("sql", sql),
+        ):
+            if not isinstance(value, str):
+                fail(f"SQLite schema {field} is not text: {value!r}")
+            encoded = value.encode("utf-8", errors="strict")
+            preimage.extend(f"{field}={len(encoded)}:".encode("ascii"))
+            preimage.extend(encoded)
+            preimage.extend(b"\n")
+    return {
+        "algorithm": SCHEMA_OBJECT_ALGORITHM,
+        "digest": sha256_bytes(bytes(preimage)),
+        "objectCount": len(rows),
+    }
+
+
+def canonical_schema_record() -> dict[str, Any]:
+    matrix = json.loads(COMPATIBILITY_MATRIX.read_text(encoding="utf-8"))
+    record = matrix.get("canonicalSchema")
+    if not isinstance(record, dict) or list(record) != [
+        "schemaSqlDigest",
+        "algorithm",
+        "digest",
+        "objectCount",
+    ]:
+        fail("compatibility matrix canonicalSchema shape is invalid")
+    if record["schemaSqlDigest"] != file_digest(SCHEMA_SQL):
+        fail("compatibility matrix schemaSqlDigest differs from schema.sql")
+    if record["algorithm"] != SCHEMA_OBJECT_ALGORITHM:
+        fail("compatibility matrix schema object algorithm differs")
+    if record["objectCount"] != SCHEMA_OBJECT_COUNT:
+        fail("compatibility matrix schema object count differs")
+    if not (
+        isinstance(record["digest"], str)
+        and len(record["digest"]) == 71
+        and record["digest"].startswith("sha256:")
+    ):
+        fail("compatibility matrix schema object digest is invalid")
+    return record
+
+
+def schema_object_outcome(
+    actual: dict[str, Any],
+    canonical: dict[str, Any],
+) -> str:
+    expected = {
+        "algorithm": canonical["algorithm"],
+        "digest": canonical["digest"],
+        "objectCount": canonical["objectCount"],
+    }
+    return "VALID" if actual == expected else "SQLITE_REQUIRED_OBJECT_MISSING"
+
+
+def schema_object_self_test(canonical: dict[str, Any]) -> dict[str, Any]:
+    schema_text = SCHEMA_SQL.read_text(encoding="utf-8")
+    canonical_connection = sqlite3.connect(":memory:")
+    try:
+        canonical_connection.executescript(schema_text)
+        actual = schema_object_record(canonical_connection)
+    finally:
+        canonical_connection.close()
+    if schema_object_outcome(actual, canonical) != "VALID":
+        fail(f"canonical SQLite schema object seal differs: {actual!r}")
+
+    nul_constraint = "      AND instr(air_date, char(0)) = 0\n"
+    if schema_text.count(nul_constraint) != 1:
+        fail("canonical embedded-NUL constraint is not unique")
+    weakened_text = schema_text.replace(nul_constraint, "", 1)
+    weakened_connection = sqlite3.connect(":memory:")
+    try:
+        weakened_connection.executescript(weakened_text)
+        weakened = schema_object_record(weakened_connection)
+        weakened_connection.execute(
+            """
+            INSERT INTO subject (
+              subject_type, subject_id, name, nsfw, air_date,
+              air_date_precision, votes
+            ) VALUES ('anime', 99999, 'weakened-nul-probe', 0, ?, 1, 0)
+            """,
+            ("2024\0junk",),
+        )
+    finally:
+        weakened_connection.close()
+    weakened_outcome = schema_object_outcome(weakened, canonical)
+    if weakened["objectCount"] != SCHEMA_OBJECT_COUNT:
+        fail(f"weakened schema changed object count: {weakened!r}")
+    if weakened_outcome != "SQLITE_REQUIRED_OBJECT_MISSING":
+        fail("weakened SQLite schema object definition was accepted")
+    return {
+        "canonical": actual,
+        "weakenedDigest": weakened["digest"],
+        "weakenedOutcome": weakened_outcome,
+    }
 
 
 def json_bytes(value: Any) -> bytes:
@@ -154,7 +523,7 @@ def semantic_inputs(sql_digest: str, sqlite_version: int = 1) -> dict[str, Any]:
 
 def source_files() -> list[dict[str, Any]]:
     accounting = {
-        "subject.jsonlines": (2, 2, 0, 0, 0),
+        "subject.jsonlines": (4, 4, 0, 0, 0),
         "person.jsonlines": (2, 2, 0, 0, 0),
         "character.jsonlines": (1, 1, 0, 0, 0),
         "subject-persons.jsonlines": (2, 1, 0, 0, 1),
@@ -201,12 +570,47 @@ def insert_minimal_rows(connection: sqlite3.Connection, version: str, inputs: di
     connection.executemany(
         """
         INSERT INTO subject (
-          subject_type, subject_id, name, name_cn, air_date, score, votes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          subject_type, subject_id, name, name_cn, nsfw, air_date,
+          air_date_precision, score, votes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ("anime", 1, "Golden Animation", "金标动画", "2024-01-01", 8.2, 10),
-            ("anime", 2, "Golden Sequel", "金标续作", "2025-01-01", 7.8, 5),
+            (
+                "anime",
+                1,
+                "Golden Animation",
+                "金标动画",
+                *subject_semantics(False, "2024-01-01"),
+                8.2,
+                10,
+            ),
+            (
+                "anime",
+                2,
+                "Golden Sequel",
+                "金标续作",
+                *subject_semantics(True, "2025-01"),
+                7.8,
+                5,
+            ),
+            (
+                "anime",
+                3,
+                "Golden Year",
+                "金标年份",
+                *subject_semantics(False, "2023"),
+                None,
+                0,
+            ),
+            (
+                "anime",
+                4,
+                "Golden Undated",
+                "金标待定",
+                *subject_semantics(False, None),
+                None,
+                0,
+            ),
         ),
     )
     connection.executemany(
@@ -411,7 +815,11 @@ def database_counts(file_path: Path) -> dict[str, int]:
         connection.close()
 
 
-def inspect_valid_database(file_path: Path, expected_version: str) -> dict[str, Any]:
+def inspect_valid_database(
+    file_path: Path,
+    expected_version: str,
+    canonical_schema: dict[str, Any],
+) -> dict[str, Any]:
     uri = f"{file_path.resolve().as_uri()}?mode=ro&immutable=1"
     connection = sqlite3.connect(uri, uri=True)
     try:
@@ -439,25 +847,10 @@ def inspect_valid_database(file_path: Path, expected_version: str) -> dict[str, 
             """
         ).fetchone()
         sentinels = {
-            "unknownPosition": connection.execute(
-                """
-                SELECT COUNT(*) FROM staff_credit AS c
-                LEFT JOIN staff_position AS p
-                  ON p.subject_type = c.subject_type
-                 AND p.position_id = c.position_id
-                WHERE p.position_id IS NULL
-                """
-            ).fetchone()[0],
-            "unknownCatalog": connection.execute(
-                "SELECT COUNT(*) FROM catalog_position WHERE position_key = 'staff:anime:999999'"
-            ).fetchone()[0],
-            "eligibleExactCast": connection.execute(
-                "SELECT COUNT(*) FROM cast_credit WHERE eligible = 1 AND provenance = 'exact'"
-            ).fetchone()[0],
-            "animeSubject": connection.execute(
-                "SELECT COUNT(*) FROM subject WHERE subject_type = 'anime' AND subject_id = 1"
-            ).fetchone()[0],
+            sentinel_id: int(connection.execute(sql).fetchone()[0])
+            for sentinel_id, sql, _ in SENTINELS
         }
+        schema_objects = schema_object_record(connection)
     finally:
         connection.close()
     if application_id != APPLICATION_ID:
@@ -472,19 +865,21 @@ def inspect_valid_database(file_path: Path, expected_version: str) -> dict[str, 
         fail(f"missing indexes: {sorted(set(REQUIRED_INDEXES) - indexes)}")
     if embedded != (expected_version, 1, 1, ALGORITHM):
         fail(f"unexpected embedded metadata: {embedded!r}")
-    if sentinels != {
-        "unknownPosition": 1,
-        "unknownCatalog": 0,
-        "eligibleExactCast": 1,
-        "animeSubject": 1,
-    }:
+    expected_sentinels = {
+        sentinel_id: expected
+        for sentinel_id, _, expected in SENTINELS
+    }
+    if sentinels != expected_sentinels:
         fail(f"sentinel mismatch: {sentinels!r}")
+    if schema_object_outcome(schema_objects, canonical_schema) != "VALID":
+        fail(f"SQLite schema object seal mismatch: {schema_objects!r}")
     return {
         "applicationId": application_id,
         "userVersion": user_version,
         "integrity": integrity,
         "tableCount": len(TABLE_NAMES),
         "requiredIndexCount": len(REQUIRED_INDEXES),
+        "schemaObjects": schema_objects,
         "sentinels": sentinels,
     }
 
@@ -587,6 +982,9 @@ def generate(root: Path) -> dict[str, Any]:
     if root.exists() and root.is_symlink():
         fail(f"golden root is a symlink: {root}")
     root.mkdir(parents=True, exist_ok=True)
+    canonical_schema = canonical_schema_record()
+    subject_semantic_report = subject_semantics_self_test()
+    schema_object_report = schema_object_self_test(canonical_schema)
     sql_bytes = SCHEMA_SQL.read_bytes()
     if b"\r" in sql_bytes or not sql_bytes.endswith(b"\n") or sql_bytes.endswith(b"\n\n"):
         fail("schema.sql must be LF-only with exactly one final LF")
@@ -789,7 +1187,7 @@ def generate(root: Path) -> dict[str, Any]:
         )
     index = {"indexSchemaVersion": 1, "files": entries}
     write_bytes(root / "index.json", json_bytes(index))
-    inspection = inspect_valid_database(valid_db, version)
+    inspection = inspect_valid_database(valid_db, version, canonical_schema)
     return {
         "dataVersion": version,
         "preimageByteLength": len(canonical_preimage(inputs)),
@@ -797,6 +1195,8 @@ def generate(root: Path) -> dict[str, Any]:
         "manifestDigest": sha256_bytes(json_bytes(valid_manifest)),
         "sqliteDigest": file_digest(valid_db),
         "goldenFileCount": len(entries) + 1,
+        "subjectSemantics": subject_semantic_report,
+        "schemaObjectSelfTest": schema_object_report,
         "sqlite": inspection,
     }
 
@@ -858,6 +1258,9 @@ def self_test() -> dict[str, Any]:
     sql_digest = sha256_bytes(SCHEMA_SQL.read_bytes())
     inputs = semantic_inputs(sql_digest)
     version = data_version(inputs)
+    canonical_schema = canonical_schema_record()
+    subject_semantic_report = subject_semantics_self_test()
+    schema_object_report = schema_object_self_test(canonical_schema)
     with tempfile.TemporaryDirectory(prefix="sqlite-self-test-", dir=temp_parent) as directory:
         database = Path(directory) / "bangumi.sqlite"
         create_database(database, version, inputs)
@@ -865,7 +1268,13 @@ def self_test() -> dict[str, Any]:
             "python": sys.version.split()[0],
             "sqlite": sqlite3.sqlite_version,
             "dataVersion": version,
-            "inspection": inspect_valid_database(database, version),
+            "subjectSemantics": subject_semantic_report,
+            "schemaObjectSelfTest": schema_object_report,
+            "inspection": inspect_valid_database(
+                database,
+                version,
+                canonical_schema,
+            ),
         }
 
 

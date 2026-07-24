@@ -8,9 +8,9 @@
 | Read-only protected inputs | `contracts/schemas/archive/**`, all existing goldens, updater/backend code, root specs, other changes/state. |
 | Deletion complement | None. |
 | Mutable refs | None. |
-| Consumes | Existing closed Archive contract and SQLite v1 authority. |
+| Consumes | The corrected closed Archive contract and SQLite v1 authority. |
 | Produces | Closed, indexed synthetic producer inputs and expected results. |
-| Dependencies | Accepted `contracts-archive-manifest`; no runtime implementation dependency. |
+| Dependencies | Accepted `contracts-archive-manifest` after exited `correct-archive-subject-semantics`; no runtime implementation dependency. |
 | Deliverables | Positive/accounting/failure cases, expected logical rows/counts/identity, updated exact index. |
 | Acceptance | Closed inventory/hash verification and independent semantic review before updater apply. |
 | Non-goals | Full downloaded Archive, schema changes, producer/backend implementation, activation or operations. |

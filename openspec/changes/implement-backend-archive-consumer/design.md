@@ -10,10 +10,10 @@
 | Read-only protected inputs | Shared Archive schemas/matrix/goldens, root specs, guides, other code/changes, refs/remotes, hosts, and production. |
 | Deletion complement | None. |
 | Mutable refs | None during apply. |
-| Consumes | Root Archive/runtime specs, shared indexed corpus, caller-supplied root. |
-| Produces | `backend/internal/archive` runtime store plus minimal application assembly. |
-| Dependencies | `contracts-archive-manifest`, `backend-runtime-foundation`, Go `1.26.5`, driver pins below. |
-| Deliverables | Loader/state/store, startup/shutdown wiring, dependency/path guards, tests. |
+| Consumes | The corrected root Archive/runtime specs, corrected shared indexed corpus, and caller-supplied root. |
+| Produces | `backend/internal/archive` runtime store, minimal application assembly, and a development-only candidate-smoke CLI. |
+| Dependencies | `contracts-archive-manifest`, `backend-runtime-foundation`, accepted/exited `correct-archive-subject-semantics`, Go `1.26.5`, and driver pins below. |
+| Deliverables | Loader/state/store, startup/shutdown wiring, candidate-smoke CLI, dependency/path guards, tests. |
 | Acceptance | Full indexed corpus, added mutation/path/write/concurrency/lifecycle cases, full/race/vet/build and repository gates. |
 | Non-goals | HTTP, observability, producer, catalog/query semantics, activation/hot reload/rollback, operations. |
 | Operations deferred | Production root convention, pointer switch, restart, retention, scheduler and deploy. |
@@ -21,9 +21,13 @@
 
 ## Goals / Non-Goals
 
-**Goals:** fail-closed resolution and contract validation; provable no-create, read-only SQLite access; single atomic publication; clean concurrent lifecycle.
+**Goals:** fail-closed current and inactive-candidate validation; provable
+no-create, read-only SQLite access; single atomic runtime publication; clean
+concurrent lifecycle.
 
-**Non-Goals:** any wire/route/metric/log contract, Archive construction or activation, production path choice, reload, rollback, or business query.
+**Non-Goals:** any HTTP/query wire, route, metric, or log contract; Archive
+construction or activation; production path choice; reload; rollback; or
+business query.
 
 ## Decisions
 
@@ -45,32 +49,104 @@ removal of the driver if the consumer is removed.
 
 ### Resolve beneath one root, then validate in contract order
 
-`cmd/api` requires `-archive-root` as an absolute path and passes it explicitly to `app`; no default production directory is defined. The loader opens an `os.Root`, strictly reads `current.json` once, validates its three fields, and derives only `versions/<dataVersion>/manifest.json` and `bangumi.sqlite`.
+`cmd/api` requires `-archive-root` as an absolute path and passes it explicitly
+to `app`; no default production directory is defined. Runtime selection opens an
+`os.Root`, strictly reads `current.json` once, validates its three fields, and
+delegates to a shared candidate loader. The candidate loader accepts the same
+absolute root plus one validated dataVersion and derives only
+`versions/<dataVersion>/manifest.json` and `bangumi.sqlite`; it does not require,
+read, create, or publish a pointer.
 `os.Root` plus component `Lstat` rejects escape, symlink, and non-regular
 objects; manifest and database bytes are each hashed from their validated file.
 The consumer compares the database's file identity, size, and modification time
 before hashing and after SQLite validation, failing if any changes. This uses Go
 1.26.5, which contains the current `os.Root` traversal fix.
 
-Validation follows `compatibility-matrix.json` precedence: strict pointer and manifest shape/accounting; supported tuple; recomputed dataVersion; pointer, manifest digest, directory and manifest identity; regular-file containment and size; SQLite digest/format; application/user versions and `archive_meta`; required tables/indexes, integrity/foreign-key/sentinels; table counts.
-Compiled v1 constants are tested directly against the shared matrix, `schema.sql`, vector, and every indexed golden; no schema or golden is copied.
+Go's standard JSON decoder replaces malformed UTF-8 with U+FFFD, so
+unknown-field rejection alone is insufficient for the corrected contract.
+Both pointer and manifest readers first require `utf8.Valid` on the bounded raw
+bytes, then perform the one-value strict JSON decode. This rejection precedes
+shape, compatibility, digest, or publication decisions and is covered by
+temporary invalid-byte mutations whose replacement text would otherwise remain
+schema-valid.
+
+Validation follows `compatibility-matrix.json` precedence: fatal UTF-8 and
+strict manifest shape/accounting; supported tuple; recomputed dataVersion;
+directory and manifest identity; regular-file containment and size; SQLite
+digest/format; application/user versions and `archive_meta`; required
+tables/indexes, integrity/foreign-key; then table counts. Runtime selection
+additionally gates fatal UTF-8, pointer shape, and manifest digest before
+publication.
+
+The corrected matrix's exact sentinel values describe the indexed minimal
+fixture. Contract tests execute them against that fixture and its derived
+mutations; the runtime/candidate loader does not require arbitrary full Archive
+content to equal those fixture counts. Before sentinels, the loader computes
+the corrected language-neutral digest of every actual explicit
+`sqlite_schema` definition and requires the matrix's canonical 35-object seal;
+matching object names alone is insufficient. Compiled v1 constants are tested
+directly against the shared matrix, `schema.sql`, vector, and every indexed
+golden; no schema or golden is copied.
+
+### Give the producer an independent, pointer-free smoke
+
+`cmd/archive-smoke` accepts an absolute `-archive-root` and one
+`-data-version`, calls the candidate loader, emits exactly one bounded JSON
+result containing `ok`, `dataVersion`, `manifestDigest`, and `sqliteDigest`,
+then closes the store. It never reads or writes `current.json`, never mutates
+the version, and never publishes readiness. Failure emits a sanitized stable
+code and a non-zero status without paths or content values. A failed result
+write is itself a command failure: the smoke never reports success or returns
+zero when its bounded JSON cannot be emitted. This lets the producer build the
+fixed `versions/<dataVersion>` layout inside disposable staging, run the
+actual Go consumer, and only then atomically publish the inactive directory.
 
 ### Make every pooled connection read-only
 
-Build (never concatenate) this `net/url` file URI for the validated absolute DB: `file:///abs...?cache=private&immutable=1&mode=ro&_pragma=busy_timeout%285000%29&_pragma=foreign_keys%281%29&_pragma=query_only%281%29`.
-SQLite documents [`mode=ro`](https://sqlite.org/uri.html) as read-only rather than read-write-create and `immutable=1` for files guaranteed not to change; `query_only` is defense in depth. Immutable mode is admitted only after the producer is closed, journal mode is `DELETE`, no `-wal`/`-shm`/`-journal` sidecar exists, and the version path/bytes are guaranteed unchanged until all handles close; otherwise loading fails rather than weakening the DSN. Shared cache, `nolock`, and consumer journal pragmas are forbidden.
+Register a per-store read-only `modernc.org/sqlite/vfs` over a narrow
+`os.Root` for the already validated version directory. Build, never
+concatenate, a `net/url` URI for only the relative `bangumi.sqlite` name with
+that generated VFS plus `cache=private`, `immutable=1`, `mode=ro`, and the exact
+busy-timeout, foreign-key, and query-only pragmas. The store owns the database,
+VFS, and roots through close. This ensures SQLite opens the same root-bound
+object that was validated even if a pathname is renamed/rebound, and neither an
+`ATTACH` nor a changed `query_only` pragma can create or write an external file.
 
-`sql.Open` is followed by pool limits `MaxOpenConns=4`, `MaxIdleConns=4`, zero lifetime/idle expiry, then `PingContext`. Four acquired connections must each report the configured pragmas; `integrity_check(1)` must return exactly one `ok` row and `foreign_key_check` zero rows. Tests also assert the main database path, missing-file no-create, and rejected DDL/DML.
+SQLite documents [`mode=ro`](https://sqlite.org/uri.html) as read-only rather
+than read-write-create and `immutable=1` for files guaranteed not to change;
+the root-bound read-only VFS is the filesystem enforcement and `query_only` is
+defense in depth. Immutable mode is admitted only after the producer is closed,
+journal mode is `DELETE`, no `-wal`/`-shm`/`-journal` sidecar exists, and the
+version bytes are guaranteed unchanged until all handles close; otherwise
+loading fails rather than weakening the DSN. Shared cache, `nolock`, and
+consumer journal pragmas are forbidden.
+
+`sql.Open` is followed by pool limits `MaxOpenConns=4`, `MaxIdleConns=4`, zero
+lifetime/idle expiry, then `PingContext`. Four acquired connections must each
+report the configured pragmas; `integrity_check(1)` must return exactly one
+`ok` row and `foreign_key_check` zero rows. The Store admits only one statement
+of at most 65,536 bytes whose first ASCII keyword is `SELECT` or `WITH`, with
+no SQL comment token or semicolon; rejected text returns a fixed safe
+programming-error sentinel before reaching the driver. SQLite `query_only`
+remains the second gate for a write-capable `WITH`. Tests assert the main VFS
+identity, missing-file no-create, pathname rebound safety, rejected
+DDL/DML/pragma/attach/multi-statement input, and absence of every external or
+sidecar file.
 
 ### Publish one complete store
 
-Loading builds a private candidate. A deferred close remains armed through every gate; only a successful compare-and-swap from nil to one immutable `Store` disarms it. The pointer is readiness: nil is not-ready. Competing or second publication loses, closes its candidate, and cannot replace the winner.
+Loading builds a private candidate. A deferred close remains armed through every gate. The pointer-selected runtime path alone may disarm it after a successful compare-and-swap from nil to one immutable `Store`; pointer-free validation returns an owned store that its smoke caller closes and never touches readiness. The state pointer is readiness: nil is not-ready. Competing or second runtime publication loses, closes its candidate, and cannot replace the winner.
 Shutdown first stops serving, atomically clears readiness, and closes the winner exactly once; no runtime reload API exists.
 
 ## Risks / Trade-offs
 
-- [Filesystem changes during validation] → immutable layout, `os.Root`, pre/post identity checks, `immutable=1`, and fail-closed tests.
+- [Filesystem changes during validation] → immutable layout, one root-bound
+  read-only SQLite VFS, pre/post identity checks, `immutable=1`, pathname
+  rebound tests, and fail-closed close ordering.
 - [Compiled contract constants drift] → direct matrix/schema/vector and closed golden tests fail before acceptance.
+- [Fixture sentinel values reject production-sized data] → exact matrix values
+  remain minimal-golden assertions; arbitrary candidates use content-independent
+  contract, integrity, object, metadata, and count gates.
 - [Four connections are not performance-tuned] → bounded safe baseline; later query work may change it only with race/benchmark evidence.
 
 ## Migration Plan

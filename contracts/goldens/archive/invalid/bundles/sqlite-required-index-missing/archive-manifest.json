@@ -2,7 +2,7 @@
   "manifestSchemaVersion": 1,
   "sqliteSchemaVersion": 1,
   "dataVersionAlgorithm": "bgmss-archive-data-version-v1",
-  "dataVersion": "dv1-0660e0dcf08e4808dea4a3eee9907c548a4d81cb9380c999db63e15bf2a45bd8",
+  "dataVersion": "dv1-9bcb52b9134d58713a5e3a54ca83c5fb77a595e52e06a56f755afe1f644e96eb",
   "generatorVersion": "archive-contract-fixture-v1",
   "generatedAt": "2026-01-01T00:00:00Z",
   "archiveRelease": "golden-v1",
@@ -14,7 +14,7 @@
   "commonSubjectStaffsUrl": "https://raw.githubusercontent.com/bangumi/common/6a8442c17143a870357a5ff812362e8b5cfe9f9d/subject_staffs.yml",
   "commonSize": 40,
   "commonDigest": "sha256:0649c282e74e319f810f5e9c3f2024221cef8070f24686f1bd2d041114b7eb6b",
-  "schemaSqlDigest": "sha256:befeb1a6de6a37b50053f187a7f424a1c4eaadcf3d96a717977b65af636578b5",
+  "schemaSqlDigest": "sha256:4a09c42d8f9c401fba24fe2c4b17a5f4a482825e1617cd40024757503e2bd249",
   "catalogConfigDigest": "sha256:2b103894453b55d01bcb65b8010a55f54c57cd73e23deca39f4a0a9d2aadc678",
   "domainRulesVersion": "domain-v1",
   "castRulesVersion": "cast-exact-v1",
@@ -23,8 +23,8 @@
       "name": "subject.jsonlines",
       "size": 32,
       "digest": "sha256:f3f48361e9a49c2fab8ac5553f88639ba322de4356b686e642c1ea459e1b7f2e",
-      "recordsTotal": 2,
-      "imported": 2,
+      "recordsTotal": 4,
+      "imported": 4,
       "duplicate": 0,
       "invalid": 0,
       "unresolved": 0
@@ -92,7 +92,7 @@
   ],
   "tableCounts": {
     "archive_meta": 1,
-    "subject": 2,
+    "subject": 4,
     "subject_rating_bucket": 2,
     "subject_tag": 2,
     "person": 2,
@@ -120,5 +120,5 @@
   },
   "sqliteFile": "bangumi.sqlite",
   "sqliteSize": 233472,
-  "sqliteDigest": "sha256:5159e3d346a71514ed30fd20a1cd1b09f5dda755187efc1710e6b4c0cc7b42af"
+  "sqliteDigest": "sha256:de55eaeb3557284ab60671c61c0e753997ed647b0ffcd4f264a64f083ace0131"
 }

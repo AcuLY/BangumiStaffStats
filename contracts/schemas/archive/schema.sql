@@ -27,10 +27,70 @@ CREATE TABLE subject (
   subject_id INTEGER NOT NULL CHECK (subject_id > 0),
   name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 4096),
   name_cn TEXT CHECK (name_cn IS NULL OR length(name_cn) BETWEEN 1 AND 4096),
-  air_date TEXT CHECK (air_date IS NULL OR air_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  nsfw INTEGER NOT NULL CHECK (nsfw IN (0, 1)),
+  air_date TEXT,
+  air_date_precision INTEGER,
   score REAL CHECK (score IS NULL OR score BETWEEN 0.0 AND 10.0),
   votes INTEGER NOT NULL DEFAULT 0 CHECK (votes >= 0),
-  PRIMARY KEY (subject_type, subject_id)
+  PRIMARY KEY (subject_type, subject_id),
+  CHECK (
+    (air_date IS NULL AND air_date_precision IS NULL)
+    OR (
+      air_date IS NOT NULL
+      AND air_date_precision IS NOT NULL
+      AND instr(air_date, char(0)) = 0
+      AND (
+        (
+          air_date_precision = 1
+          AND length(air_date) = 4
+          AND air_date GLOB '[0-9][0-9][0-9][0-9]'
+        )
+        OR (
+          air_date_precision = 2
+          AND length(air_date) = 7
+          AND air_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]'
+        )
+        OR (
+          air_date_precision = 3
+          AND length(air_date) = 10
+          AND air_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+        )
+      )
+      AND CAST(substr(air_date, 1, 4) AS INTEGER) BETWEEN 1 AND 9999
+      AND (
+        air_date_precision = 1
+        OR CAST(substr(air_date, 6, 2) AS INTEGER) BETWEEN 1 AND 12
+      )
+      AND (
+        air_date_precision IN (1, 2)
+        OR CAST(substr(air_date, 9, 2) AS INTEGER) BETWEEN 1 AND
+          CASE CAST(substr(air_date, 6, 2) AS INTEGER)
+            WHEN 1 THEN 31
+            WHEN 2 THEN
+              CASE
+                WHEN (
+                  CAST(substr(air_date, 1, 4) AS INTEGER) % 400 = 0
+                  OR (
+                    CAST(substr(air_date, 1, 4) AS INTEGER) % 4 = 0
+                    AND CAST(substr(air_date, 1, 4) AS INTEGER) % 100 <> 0
+                  )
+                ) THEN 29
+                ELSE 28
+              END
+            WHEN 3 THEN 31
+            WHEN 4 THEN 30
+            WHEN 5 THEN 31
+            WHEN 6 THEN 30
+            WHEN 7 THEN 31
+            WHEN 8 THEN 31
+            WHEN 9 THEN 30
+            WHEN 10 THEN 31
+            WHEN 11 THEN 30
+            WHEN 12 THEN 31
+          END
+      )
+    )
+  )
 ) STRICT;
 
 CREATE TABLE subject_rating_bucket (
@@ -205,8 +265,8 @@ CREATE TABLE catalog_selection_rule (
   FOREIGN KEY (position_key) REFERENCES catalog_position (position_key)
 ) STRICT;
 
-CREATE INDEX idx_subject_type_date_id
-  ON subject (subject_type, air_date, subject_id);
+CREATE INDEX idx_subject_filter_date_id
+  ON subject (subject_type, nsfw, air_date_precision, air_date, subject_id);
 CREATE INDEX idx_subject_relation_source
   ON subject_relation (subject_type, subject_id, relation_type, related_subject_id);
 CREATE INDEX idx_subject_tag_lookup

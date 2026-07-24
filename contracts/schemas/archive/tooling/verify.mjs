@@ -8,6 +8,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { TextDecoder } from "node:util";
 import Ajv2020 from "ajv/dist/2020.js";
 
 const SCRIPT = fs.realpathSync(fileURLToPath(import.meta.url));
@@ -18,6 +19,8 @@ const GOLDEN_ROOT = path.join(CONTRACTS_ROOT, "goldens", "archive");
 const REPOSITORY_ROOT = path.dirname(CONTRACTS_ROOT);
 const SAFE_INTEGER_MAX = 9_007_199_254_740_991;
 const ALGORITHM = "bgmss-archive-data-version-v1";
+const SCHEMA_OBJECT_ALGORITHM = "bgmss-sqlite-schema-objects-v1";
+const SCHEMA_OBJECT_COUNT = 35;
 const COMMON_COMMIT = "6a8442c17143a870357a5ff812362e8b5cfe9f9d";
 const SOURCE_NAMES = [
   "subject.jsonlines",
@@ -66,7 +69,9 @@ function invariant(value, message) {
 }
 
 function readJson(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  const bytes = fs.readFileSync(filePath);
+  const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  return JSON.parse(text);
 }
 
 function sha256(bytes) {
@@ -103,6 +108,56 @@ function canonicalPreimage(input) {
 
 function computeDataVersion(input) {
   return `dv1-${crypto.createHash("sha256").update(canonicalPreimage(input)).digest("hex")}`;
+}
+
+function strictUtf8Bytes(value, label) {
+  invariant(typeof value === "string", `${label} must be text`);
+  const bytes = Buffer.from(value, "utf8");
+  assert.equal(
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+    value,
+    `${label} must round-trip exact UTF-8`,
+  );
+  return bytes;
+}
+
+function schemaObjectRecord(objects) {
+  invariant(Array.isArray(objects), "SQLite schema objects must be an array");
+  const ordered = objects.map((object, index) => {
+    assert.deepEqual(
+      Object.keys(object),
+      ["type", "name", "table", "sql"],
+      `SQLite schema object ${index} shape`,
+    );
+    return {
+      type: strictUtf8Bytes(object.type, `schema object ${index} type`),
+      name: strictUtf8Bytes(object.name, `schema object ${index} name`),
+      table: strictUtf8Bytes(object.table, `schema object ${index} table`),
+      sql: strictUtf8Bytes(object.sql, `schema object ${index} sql`),
+    };
+  });
+  ordered.sort((left, right) => {
+    for (const field of ["type", "name", "table"]) {
+      const compared = Buffer.compare(left[field], right[field]);
+      if (compared !== 0) return compared;
+    }
+    return 0;
+  });
+  const chunks = [
+    Buffer.from(`${SCHEMA_OBJECT_ALGORITHM}\n`, "ascii"),
+    Buffer.from(`count=${ordered.length}\n`, "ascii"),
+  ];
+  for (const object of ordered) {
+    for (const field of ["type", "name", "table", "sql"]) {
+      const value = object[field];
+      chunks.push(Buffer.from(`${field}=${value.length}:`, "ascii"), value, Buffer.from("\n"));
+    }
+  }
+  return {
+    algorithm: SCHEMA_OBJECT_ALGORITHM,
+    digest: sha256(Buffer.concat(chunks)),
+    objectCount: ordered.length,
+  };
 }
 
 function manifestInputs(manifest) {
@@ -224,6 +279,41 @@ function validateEnvironment({ requireGo }) {
     assert.equal(process.env.GOTOOLCHAIN, "local", "GOTOOLCHAIN must be local");
   }
   return { nodeVersion: process.version, npmVersion };
+}
+
+function validateStrictJsonDecoding() {
+  const categories = [
+    "manifest",
+    "pointer",
+    "index",
+    "vector",
+    "matrix",
+    "schema",
+    "package",
+    "lockfile",
+  ];
+  const invalidUtf8Json = Buffer.from([
+    0x7b, 0x22, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x3a, 0x22,
+    0xc3, 0x28,
+    0x22, 0x7d,
+  ]);
+  const tempParent = fs.realpathSync(process.env.TMPDIR);
+  const root = fs.mkdtempSync(path.join(tempParent, "strict-json-"));
+  canonicalContained(root, path.join(SCHEMA_ROOT, ".tmp"), "strict JSON self-test");
+  try {
+    for (const category of categories) {
+      const candidate = path.join(root, `${category}.json`);
+      fs.writeFileSync(candidate, invalidUtf8Json);
+      assert.throws(
+        () => readJson(candidate),
+        (error) => error instanceof TypeError,
+        `${category} invalid UTF-8 must fail before JSON.parse`,
+      );
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true });
+  }
+  return { categories, rejectedBytes: invalidUtf8Json.length };
 }
 
 function walkSchema(node, location = "#") {
@@ -367,12 +457,15 @@ function semanticManifestError(manifest) {
 }
 
 function compatible(pointer, manifest, matrix) {
-  return matrix.supported.some(
+  return (
+    manifest.schemaSqlDigest === matrix.canonicalSchema.schemaSqlDigest &&
+    matrix.supported.some(
     (entry) =>
       entry.pointerSchemaVersion === pointer.pointerSchemaVersion &&
       entry.manifestSchemaVersion === manifest.manifestSchemaVersion &&
       entry.sqliteSchemaVersion === manifest.sqliteSchemaVersion &&
       entry.dataVersionAlgorithm === manifest.dataVersionAlgorithm,
+    )
   );
 }
 
@@ -391,6 +484,20 @@ try:
             "foreignKeyCheck": con.execute("PRAGMA foreign_key_check").fetchall(),
             "tables": sorted(row[0] for row in con.execute("SELECT name FROM sqlite_schema WHERE type = 'table'")),
             "indexes": sorted(row[0] for row in con.execute("SELECT name FROM sqlite_schema WHERE type = 'index'")),
+            "schemaObjects": [
+                {"type": row[0], "name": row[1], "table": row[2], "sql": row[3]}
+                for row in con.execute("""
+                    SELECT type, name, tbl_name, sql
+                    FROM sqlite_schema
+                    WHERE type IN ('table', 'index', 'view', 'trigger')
+                      AND sql IS NOT NULL
+                      AND lower(substr(name, 1, 7)) <> 'sqlite_'
+                    ORDER BY
+                      type COLLATE BINARY,
+                      name COLLATE BINARY,
+                      tbl_name COLLATE BINARY
+                """)
+            ],
         }
         try:
             result["metadata"] = con.execute(
@@ -439,6 +546,7 @@ function validateMatrix(matrix) {
   assert.deepEqual(Object.keys(matrix), [
     "matrixSchemaVersion",
     "supported",
+    "canonicalSchema",
     "requiredTables",
     "requiredIndexes",
     "validationPrecedence",
@@ -454,13 +562,45 @@ function validateMatrix(matrix) {
       dataVersionAlgorithm: ALGORITHM,
     },
   ]);
+  assert.deepEqual(Object.keys(matrix.canonicalSchema), [
+    "schemaSqlDigest",
+    "algorithm",
+    "digest",
+    "objectCount",
+  ]);
+  assert.equal(
+    matrix.canonicalSchema.schemaSqlDigest,
+    fileDigest(path.join(SCHEMA_ROOT, "schema.sql")),
+    "canonical schema.sql digest differs",
+  );
+  assert.equal(matrix.canonicalSchema.algorithm, SCHEMA_OBJECT_ALGORITHM);
+  assert.match(matrix.canonicalSchema.digest, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(matrix.canonicalSchema.objectCount, SCHEMA_OBJECT_COUNT);
   assert.equal(new Set(matrix.requiredTables).size, 20);
   assert.equal(new Set(matrix.requiredIndexes).size, 15);
+  assert.equal(matrix.requiredIndexes[0], "idx_subject_filter_date_id");
+  invariant(
+    !matrix.requiredIndexes.includes("idx_subject_type_date_id"),
+    "old subject date index must not remain compatible",
+  );
   assert.deepEqual(
     matrix.validationPrecedence.map((item) => item.order),
     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   );
-  assert.equal(new Set(matrix.sentinels.map((item) => item.id)).size, 4);
+  assert.deepEqual(
+    matrix.sentinels.map((item) => item.id),
+    [
+      "unknown-position-preserved-without-catalog-placeholder",
+      "eligible-exact-cast",
+      "selectable-unknown-position-absent",
+      "minimal-anime-subject",
+      "safe-subject-count",
+      "nsfw-subject-count",
+      "month-filter-eligible-subject-count",
+      "year-only-date-preserved",
+      "null-date-precision-consistent",
+    ],
+  );
 }
 
 function validateBundle(bundleRoot, validators, matrix) {
@@ -523,6 +663,17 @@ function validateBundle(bundleRoot, validators, matrix) {
   ) {
     return "SQLITE_DATA_VERSION_MISMATCH";
   }
+  let actualSchema;
+  try {
+    actualSchema = schemaObjectRecord(inspection.schemaObjects);
+  } catch {
+    return "SQLITE_REQUIRED_OBJECT_MISSING";
+  }
+  const expectedSchema = {
+    algorithm: matrix.canonicalSchema.algorithm,
+    digest: matrix.canonicalSchema.digest,
+    objectCount: matrix.canonicalSchema.objectCount,
+  };
   const tables = new Set(inspection.tables);
   const indexes = new Set(inspection.indexes);
   const sentinelsValid = matrix.sentinels.every(
@@ -531,6 +682,7 @@ function validateBundle(bundleRoot, validators, matrix) {
   if (
     inspection.integrity !== "ok" ||
     inspection.foreignKeyCheck.length !== 0 ||
+    !isDeepStrictEqual(actualSchema, expectedSchema) ||
     matrix.requiredTables.some((table) => !tables.has(table)) ||
     matrix.requiredIndexes.some((index) => !indexes.has(index)) ||
     !sentinelsValid
@@ -697,6 +849,18 @@ function validateDdlAndBuilder(matrix) {
     invariant(text.includes(`CREATE INDEX ${index}`), `DDL missing ${index}`);
   }
   invariant(
+    !text.includes("CREATE INDEX idx_subject_type_date_id"),
+    "DDL retains old subject date index",
+  );
+  invariant(
+    /nsfw\s+INTEGER\s+NOT NULL\s+CHECK\s*\(\s*nsfw\s+IN\s*\(\s*0\s*,\s*1\s*\)\s*\)/i.test(text),
+    "DDL missing required boolean NSFW fact",
+  );
+  invariant(
+    /air_date_precision\s+INTEGER/i.test(text),
+    "DDL missing explicit air_date_precision",
+  );
+  invariant(
     !/FOREIGN KEY\s*\(\s*subject_type\s*,\s*position_id\s*\).*staff_position/is.test(
       text.slice(text.indexOf("CREATE TABLE staff_credit"), text.indexOf("CREATE TABLE cast_credit")),
     ),
@@ -712,6 +876,42 @@ function validateDdlAndBuilder(matrix) {
   assert.equal(report.inspection.userVersion, 1);
   assert.equal(report.inspection.tableCount, 20);
   assert.equal(report.inspection.requiredIndexCount, 15);
+  const expectedSchemaObjects = {
+    algorithm: matrix.canonicalSchema.algorithm,
+    digest: matrix.canonicalSchema.digest,
+    objectCount: matrix.canonicalSchema.objectCount,
+  };
+  assert.deepEqual(report.inspection.schemaObjects, expectedSchemaObjects);
+  assert.deepEqual(
+    report.schemaObjectSelfTest.canonical,
+    expectedSchemaObjects,
+  );
+  assert.notEqual(
+    report.schemaObjectSelfTest.weakenedDigest,
+    expectedSchemaObjects.digest,
+  );
+  assert.equal(
+    report.schemaObjectSelfTest.weakenedOutcome,
+    "SQLITE_REQUIRED_OBJECT_MISSING",
+  );
+  assert.deepEqual(report.subjectSemantics, {
+    validMappings: 7,
+    rejectedNsfwMappings: 8,
+    rejectedDateMappings: 18,
+    rejectedSqlRows: 22,
+    validSqlRows: 4,
+  });
+  assert.deepEqual(report.inspection.sentinels, {
+    "unknown-position-preserved-without-catalog-placeholder": 1,
+    "eligible-exact-cast": 1,
+    "selectable-unknown-position-absent": 0,
+    "minimal-anime-subject": 1,
+    "safe-subject-count": 3,
+    "nsfw-subject-count": 1,
+    "month-filter-eligible-subject-count": 2,
+    "year-only-date-preserved": 1,
+    "null-date-precision-consistent": 0,
+  });
   return report;
 }
 
@@ -747,58 +947,165 @@ function directoryByteSeal(root) {
   return { digest: hash.digest("hex"), fileCount, byteCount };
 }
 
+function diagnosticDirectoryByteSeal(root) {
+  try {
+    return { ok: true, ...directoryByteSeal(root) };
+  } catch (error) {
+    return { ok: false, error: error?.message ?? String(error) };
+  }
+}
+
 function sandboxLiteral(value) {
   return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+}
+
+function sanitizeGoSandboxEnvironment(environment) {
+  const sanitized = { ...environment };
+  const ignoredClaimKeys = Object.keys(sanitized)
+    .filter((name) => name.startsWith("ARCHIVE_GO_"))
+    .sort();
+  for (const name of ignoredClaimKeys) delete sanitized[name];
+  return { environment: sanitized, ignoredClaimKeys };
+}
+
+function directGoSandboxInvocation({
+  mode,
+  sandboxExecutable,
+  profile,
+  executable,
+  args,
+}) {
+  invariant(mode === "off" || mode === "local", `unsafe Go telemetry mode: ${mode}`);
+  invariant(path.isAbsolute(sandboxExecutable), "sandbox wrapper must be absolute");
+  invariant(path.isAbsolute(executable), "Go-starting executable must be absolute");
+  invariant(typeof profile === "string" && profile.length > 0, "sandbox profile must be present");
+  return {
+    executable: sandboxExecutable,
+    args: ["-p", profile, executable, ...args],
+  };
+}
+
+function validateGoSandboxPolicy({
+  sandboxExecutable,
+  profile,
+  goExecutable,
+  gofmtExecutable,
+}) {
+  const forgedEnvironment = {
+    PATH: "/forged/path",
+    ARCHIVE_GO_SANDBOX_INHERITED: "1",
+    ARCHIVE_GO_SANDBOX_WRAPPER: "/usr/bin/true",
+    ARCHIVE_GO_TELEMETRY_SAFE: "1",
+  };
+  const sanitized = sanitizeGoSandboxEnvironment(forgedEnvironment);
+  assert.deepEqual(sanitized.ignoredClaimKeys, [
+    "ARCHIVE_GO_SANDBOX_INHERITED",
+    "ARCHIVE_GO_SANDBOX_WRAPPER",
+    "ARCHIVE_GO_TELEMETRY_SAFE",
+  ]);
+  assert.equal(sanitized.environment.PATH, forgedEnvironment.PATH);
+  for (const name of sanitized.ignoredClaimKeys) {
+    assert.equal(
+      Object.hasOwn(sanitized.environment, name),
+      false,
+      `${name} must not reach a Go-starting child`,
+    );
+  }
+  const modes = ["off", "local"];
+  const executables = [goExecutable, gofmtExecutable];
+  for (const mode of modes) {
+    for (const executable of executables) {
+      const invocation = directGoSandboxInvocation({
+        mode,
+        sandboxExecutable,
+        profile,
+        executable,
+        args: ["-self-test"],
+      });
+      assert.equal(invocation.executable, sandboxExecutable);
+      assert.deepEqual(invocation.args, [
+        "-p",
+        profile,
+        executable,
+        "-self-test",
+      ]);
+    }
+  }
+  return {
+    acceptedDiscoveryModes: modes,
+    directlyWrappedExecutables: executables,
+    unconditionalDirectWrapper: true,
+    forgedEnvironmentKeys: sanitized.ignoredClaimKeys,
+    environmentBypassAccepted: false,
+  };
 }
 
 function prepareGo() {
   invariant(process.platform === "darwin", "approved Go telemetry sandbox currently requires macOS");
   const goExecutable = fs.realpathSync(run("/usr/bin/which", ["go"]));
+  const gofmtExecutable = fs.realpathSync(
+    path.join(path.dirname(goExecutable), "gofmt"),
+  );
+  const sandboxExecutable = fs.realpathSync("/usr/bin/sandbox-exec");
+  const sandboxStat = fs.statSync(sandboxExecutable);
+  invariant(
+    sandboxStat.isFile() && (sandboxStat.mode & 0o111) !== 0,
+    "sandbox-exec must be a regular executable",
+  );
+  const processEnvironment = sanitizeGoSandboxEnvironment(process.env);
+  const ignoredClaimKeys = new Set(processEnvironment.ignoredClaimKeys);
   const controlledEnvironment = {
-    ...process.env,
+    ...processEnvironment.environment,
     GOENV: "off",
     GOWORK: "off",
     GOTOOLCHAIN: "local",
   };
-  const inheritedSandbox = process.env.ARCHIVE_GO_SANDBOX_INHERITED === "1";
   const bootstrapProfile = "(version 1)(allow default)(deny network*)(deny file-write*)";
-  const telemetryOutput = (
-    inheritedSandbox
-      ? run(goExecutable, ["env", "GOTELEMETRY", "GOTELEMETRYDIR"], {
-          env: controlledEnvironment,
-        })
-      : run(
-          "/usr/bin/sandbox-exec",
-          ["-p", bootstrapProfile, "/usr/bin/env", "GOENV=off", "GOWORK=off", "GOTOOLCHAIN=local", goExecutable, "env", "GOTELEMETRY", "GOTELEMETRYDIR"],
-          { env: controlledEnvironment },
-        )
+  const discoveryCommand = [
+    "-p",
+    bootstrapProfile,
+    "/usr/bin/env",
+    "GOENV=off",
+    "GOWORK=off",
+    "GOTOOLCHAIN=local",
+    goExecutable,
+    "env",
+    "GOTELEMETRY",
+    "GOTELEMETRYDIR",
+  ];
+  const telemetryOutput = run(
+    sandboxExecutable,
+    discoveryCommand,
+    { env: controlledEnvironment },
   ).split("\n");
   invariant(telemetryOutput.length === 2, `unexpected Go telemetry output: ${telemetryOutput}`);
   const [mode, telemetryDirectoryText] = telemetryOutput;
   invariant(mode === "off" || mode === "local", `unsafe Go telemetry mode: ${mode}`);
-  let telemetryDirectory = null;
-  let initialSeal = null;
-  let profile = null;
-  if (mode === "local") {
-    telemetryDirectory = fs.realpathSync(telemetryDirectoryText);
-    invariant(fs.statSync(telemetryDirectory).isDirectory(), "Go telemetry directory is not a directory");
-    initialSeal = directoryByteSeal(telemetryDirectory);
-    profile = [
-      "(version 1)",
-      "(allow default)",
-      "(deny network*)",
-      `(deny file-write* (subpath "${sandboxLiteral(telemetryDirectory)}"))`,
-    ].join("");
-    if (inheritedSandbox) {
-      assert.equal(
-        fs.realpathSync(process.env.ARCHIVE_GO_TELEMETRY_DIR),
-        telemetryDirectory,
-        "inherited telemetry directory differs from Go discovery",
-      );
-    }
-  }
+  const telemetryDirectory = fs.realpathSync(telemetryDirectoryText);
+  invariant(
+    fs.statSync(telemetryDirectory).isDirectory(),
+    "Go telemetry directory is not a directory",
+  );
+  const initialSeal = diagnosticDirectoryByteSeal(telemetryDirectory);
+  const profile = [
+    "(version 1)",
+    "(allow default)",
+    "(deny network*)",
+    `(deny file-write* (subpath "${sandboxLiteral(telemetryDirectory)}"))`,
+  ].join("");
+  const policySelfTest = validateGoSandboxPolicy({
+    sandboxExecutable,
+    profile,
+    goExecutable,
+    gofmtExecutable,
+  });
+  const goCommands = [];
   function runGoTool(executable, args, options = {}) {
-    const environment = {
+    invariant(
+      executable === goExecutable || executable === gofmtExecutable,
+      `unapproved Go-starting executable: ${executable}`,
+    );
+    const childEnvironment = sanitizeGoSandboxEnvironment({
       ...controlledEnvironment,
       ...options.env,
       GOENV: "off",
@@ -807,30 +1114,67 @@ function prepareGo() {
       GOPROXY: "off",
       GOSUMDB: "off",
       CGO_ENABLED: "0",
+    });
+    for (const name of childEnvironment.ignoredClaimKeys) {
+      ignoredClaimKeys.add(name);
+    }
+    const invocation = directGoSandboxInvocation({
+      mode,
+      sandboxExecutable,
+      profile,
+      executable,
+      args,
+    });
+    const evidence = {
+      executable,
+      args: [...args],
+      cwd: options.cwd ?? REPOSITORY_ROOT,
+      wrapper: invocation.executable,
+      profile,
     };
-    if (mode === "local" && !inheritedSandbox) {
-      return run(
-        "/usr/bin/sandbox-exec",
-        ["-p", profile, executable, ...args],
-        { ...options, env: environment },
-      );
-    }
-    return run(executable, args, { ...options, env: environment });
+    goCommands.push(evidence);
+    return run(invocation.executable, invocation.args, {
+      ...options,
+      env: childEnvironment.environment,
+    });
   }
-  function verifySeal() {
-    if (mode === "local") {
-      assert.deepEqual(directoryByteSeal(telemetryDirectory), initialSeal, "Go telemetry bytes changed");
-    }
+  function finishTelemetryDiagnostics(expectedCommandCount) {
+    assert.equal(
+      goCommands.length,
+      expectedCommandCount,
+      "unexpected Go-starting command count",
+    );
+    invariant(
+      goCommands.every(
+        (command) =>
+          command.wrapper === sandboxExecutable &&
+          command.profile === profile,
+      ),
+      "a Go-starting command lacked the telemetry write-denial sandbox",
+    );
+    const finalSeal = diagnosticDirectoryByteSeal(telemetryDirectory);
+    const equal = isDeepStrictEqual(initialSeal, finalSeal);
+    return {
+      before: initialSeal,
+      after: finalSeal,
+      changed: !equal,
+    };
   }
   return {
     mode,
     telemetryDirectory,
     initialSeal,
-    inheritedSandbox,
+    sandboxExecutable,
+    bootstrapProfile,
+    discoveryCommand,
+    profile,
+    policySelfTest,
+    ignoredClaimKeys,
+    goCommands,
     goExecutable,
-    gofmtExecutable: fs.realpathSync(path.join(path.dirname(goExecutable), "gofmt")),
+    gofmtExecutable,
     runGoTool,
-    verifySeal,
+    finishTelemetryDiagnostics,
   };
 }
 
@@ -911,7 +1255,9 @@ function runCodegen() {
     go.runGoTool(go.goExecutable, ["test", "./..."], { cwd: goRoot });
     results.push(schemaName);
   }
-  go.verifySeal();
+  const expectedGoCommandCount = 2 + results.length * 2;
+  const telemetryDiagnostics =
+    go.finishTelemetryDiagnostics(expectedGoCommandCount);
   return {
     schemas: results,
     quicktypeVersion,
@@ -920,8 +1266,14 @@ function runCodegen() {
     goExecutable: go.goExecutable,
     goTelemetryMode: go.mode,
     goTelemetryDirectory: go.telemetryDirectory,
-    goTelemetrySeal: go.initialSeal,
-    goSandboxInherited: go.inheritedSandbox,
+    goTelemetryDiagnostics: telemetryDiagnostics,
+    goSandboxWrapper: go.sandboxExecutable,
+    goSandboxBootstrapProfile: go.bootstrapProfile,
+    goSandboxDiscoveryCommand: go.discoveryCommand,
+    goSandboxProfile: go.profile,
+    goSandboxPolicySelfTest: go.policySelfTest,
+    goSandboxIgnoredEnvironmentKeys: [...go.ignoredClaimKeys].sort(),
+    goSandboxedCommands: go.goCommands,
   };
 }
 
@@ -947,6 +1299,7 @@ function main() {
   const codegenOnly = process.argv.includes("--codegen-only");
   const schemasOnly = process.argv.includes("--schemas-only");
   const environment = validateEnvironment({ requireGo: codegenOnly || !schemasOnly });
+  const strictJson = validateStrictJsonDecoding();
   validateLockfile();
   const installedTools = validateInstalledToolGraph();
   assert.deepEqual(persistentSchemaInventory(), EXPECTED_SCHEMA_INVENTORY);
@@ -955,6 +1308,7 @@ function main() {
   validateMatrix(matrix);
   const report = {
     environment,
+    strictJson,
     schemaCount: Object.keys(validators).length,
     schemaInventory: EXPECTED_SCHEMA_INVENTORY.length,
     installedTools,

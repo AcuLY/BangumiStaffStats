@@ -22,6 +22,18 @@ production v1 rather than preserving a known-incomplete contract.
 - Regenerate the closed Archive corpus, data-version vector, bundle identities,
   and compatibility sentinels deterministically so both semantics are
   executable contract evidence.
+- Replace the Archive verifier's flaky whole-directory Go telemetry equality
+  gate with the already accepted process-level sandbox boundary: the shared
+  directory snapshot is diagnostic, while every command capable of starting
+  Go is denied writes to that directory regardless of the initially discovered
+  `off` or `local` mode and fails closed if the wrapper is missing or cannot
+  run.
+- Make the existing verifier decode every JSON file as fatal UTF-8 before
+  parsing, so invalid source bytes cannot be silently replaced with U+FFFD and
+  accepted after matching digests.
+- Bind canonical `schema.sql` to the definitions actually stored in each
+  SQLite file through a language-neutral `sqlite_schema` object seal, so
+  altered constraints or extra explicit objects fail the required-object gate.
 - Insert this correction into the master DAG and make Archive consumer,
   producer, and query-result work depend on it.
 
@@ -50,17 +62,17 @@ None.
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: main semantic/dependency review and strict validation passed; committed/pushed/released/deployed: no |
+| Status | investigated: complete; specified: approved; implemented: yes; verified: owner gates, independent read-only review, and main acceptance passed; committed: determined by containing Git history; pushed/released/deployed: no |
 | Owner | Contracts owner applies deterministic contract and fixture changes; main agent reviews the spec, amends affected active changes, and performs final acceptance. |
-| Writable paths | Planning: `openspec/changes/correct-archive-subject-semantics/**`. Apply: `contracts/schemas/archive/schema.sql`, `contracts/schemas/archive/README.md`, `contracts/schemas/archive/compatibility-matrix.json`, `contracts/schemas/archive/tooling/build_sqlite_fixtures.py`, `contracts/schemas/archive/tooling/verify.mjs`, `contracts/goldens/archive/index.json`, `contracts/goldens/archive/valid/minimal/**`, `contracts/goldens/archive/invalid/bundles/**`, `contracts/goldens/archive/vectors/data-version.json`, `tmp-formal-development/formal-development-master-plan.md`, and this change's task markers. |
+| Writable paths | Planning: `openspec/changes/correct-archive-subject-semantics/**`. Persistent apply: `contracts/schemas/archive/schema.sql`, `contracts/schemas/archive/README.md`, `contracts/schemas/archive/compatibility-matrix.json`, `contracts/schemas/archive/tooling/build_sqlite_fixtures.py`, `contracts/schemas/archive/tooling/verify.mjs`, `contracts/goldens/archive/index.json`, `contracts/goldens/archive/valid/minimal/**`, `contracts/goldens/archive/invalid/bundles/**`, `contracts/goldens/archive/invalid/json/**`, `contracts/goldens/archive/vectors/data-version.json`, `tmp-formal-development/formal-development-master-plan.md`, and this change's task markers. Disposable verification writes are limited to `contracts/schemas/archive/.cache/**`, `contracts/schemas/archive/.tmp/**`, and `contracts/schemas/archive/tooling/node_modules/**`, all absent at exit. |
 | Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, `tmp-formal-development/backend-development-implementation-guide.md`, `tmp-formal-development/data-logic-implementation-guide.md`, `tmp-formal-development/decisions/prototype-data-logic-audit.md`, all root specs, archived changes, backend/updater/frontend source and tests, other active changes, `.vscode/**`, `.impeccable/hook.cache.json`, Git refs/remotes, external repositories, hosts, and production. |
-| Deletion complement | None. The existing closed corpus of 31 indexed files is regenerated in place; no golden path, fixture group, authority, or unrelated path may be added or deleted. |
+| Deletion complement | Only the declared disposable verification roots may be removed after canonical containment checks. The existing closed corpus of 31 indexed files is regenerated in place; no golden path, fixture group, authority, or unrelated path may be added or deleted. |
 | Mutable refs | None during planning or apply; no stage, commit, archive, branch/ref update, or push belongs to the implementation owner. |
 | Consumes | `PRODUCT.md`, backend guide §§3/8/10, accepted `DR-DATA-DATE-001`, `contracts-archive-manifest`, `contracts-query-wire`, and the current closed Archive corpus/tooling. |
 | Produces | Corrected pre-production Archive v1 DDL, explicit subject semantics, regenerated language-neutral evidence, and a corrected master dependency DAG. |
 | Dependencies | Completed `define-archive-manifest-contract` and `define-shared-query-wire`; precondition that no formal/public/activated Archive v1 exists. Before apply, main must amend `implement-backend-archive-consumer`, `produce-immutable-archive`, and `implement-query-result-set` to consume this correction and block their apply until it exits. |
-| Deliverables | Subject DDL constraints and index, documentation, compatibility sentinels, deterministic valid/invalid SQLite bundles and identities, updated vector/index, and master-plan change row/edges/count. |
-| Acceptance | Contract fixture builder check plus clean regeneration equivalence; pinned Node verification; schema, calendar, precision, NSFW, digest/vector, matrix sentinel, closed-index and residue checks; targeted and all strict OpenSpec validation when no unrelated draft is incomplete. |
+| Deliverables | Subject DDL constraints and index, documentation, compatibility sentinels, deterministic valid/invalid SQLite bundles and identities, canonical SQLite schema-object sealing, fatal UTF-8 JSON decoding plus process-level Go telemetry isolation in the existing verifier, updated vector/index, and master-plan change row/edges/count. |
+| Acceptance | Contract fixture builder check plus clean regeneration equivalence; pinned Node verification; canonical SQL/object-seal mutation, fatal UTF-8, calendar, precision, NSFW, digest/vector, matrix sentinel, closed-index and residue checks; every Go-starting verifier command proven inside the telemetry write-denial sandbox without requiring equality of a shared global snapshot; targeted and all strict OpenSpec validation when no unrelated draft is incomplete. |
 | Non-goals | No backend, updater, frontend, query, HTTP, producer, consumer, catalog, or statistics implementation; no new Archive version; no manifest/pointer/dataVersion algorithm redesign; no upstream download or full Archive build. |
 | Operations deferred | No `current.json`, activation, migration, scheduling, retention, restart, rollback, release, deployment, or production data action. |
 | Stop/rollback conditions | Stop before mutation if any formal/public v1 exists, authority or owned-path state drifts, another owner overlaps a writable path, an affected active change is not reconciled, or deterministic/strict verification fails. In that case propose SQLite schema version 2 or fix the spec; revert only this owned unstaged candidate and never rewrite protected or external state. |

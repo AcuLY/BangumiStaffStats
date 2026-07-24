@@ -8,9 +8,9 @@
 | Read-only protected inputs | All contracts, accepted backend consumer, guides/specs, other runtime roots/changes, refs/remotes, hosts and production. |
 | Deletion complement | None. |
 | Mutable refs | None. |
-| Consumes | Accepted foundations/consumer, Contracts producer cases, one explicit source/build request. |
+| Consumes | Accepted foundations/consumer, the corrected Archive subject contract, Contracts producer cases, and one explicit source/build request. |
 | Produces | One inactive `versions/<dataVersion>/{manifest.json,bangumi.sqlite}` or bounded no-change/failure evidence. |
-| Dependencies | Accepted `contracts-archive-manifest`, `updater-runtime-foundation`, `backend-archive-consumer` and `backend/cmd/archive-smoke`; PyYAML `6.0.3`. |
+| Dependencies | Accepted `contracts-archive-manifest`, exited `correct-archive-subject-semantics`, `updater-runtime-foundation`, `backend-archive-consumer`, and `backend/cmd/archive-smoke`; PyYAML `6.0.3`. |
 | Deliverables | One-shot CLI/API, acquisition/staging/builder/gates/finalizer, tests/lock/docs. |
 | Acceptance | Synthetic and complete-source smoke, Go candidate validation, reproducibility, full Python/dependency/residue gates. |
 | Non-goals | Pointer/current, activation/reload/rollback, schedule/daemon/lock/restart, catalog enrichment, API/query, operations. |
@@ -66,6 +66,11 @@ digests, and read-only reopen. Same validated semantic inputs SHALL yield the
 same dataVersion and logical rows regardless of generated time/run directory;
 generated time, physical SQLite bytes, paths, and activation state MUST NOT
 enter dataVersion.
+
+Schema validation SHALL require both the corrected canonical `schema.sql`
+digest and the actual 35-object `bgmss-sqlite-schema-objects-v1` seal from the
+fresh database. A matching name set or copied digest claim SHALL NOT permit a
+weakened or extra explicit object to reach manifest creation or Go smoke.
 
 #### Scenario: Identical semantics are regenerated
 - **WHEN** the same source/common/schema/rules/catalog inputs are rebuilt in another staging root

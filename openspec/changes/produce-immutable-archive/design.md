@@ -15,9 +15,9 @@ producer owner writes backend or contract authority.
 | Read-only protected inputs | Archive schemas, remaining contracts, accepted consumer, guides/specs, other code/changes, refs/remotes, hosts, and production. |
 | Deletion complement | None. |
 | Mutable refs | None during apply. |
-| Consumes | Accepted Archive/updater contracts, Contracts corpus, exact public sources, accepted `backend/cmd/archive-smoke`. |
+| Consumes | Corrected accepted Archive/updater contracts, corrected Contracts corpus, exact public sources, and accepted `backend/cmd/archive-smoke`. |
 | Produces | Indexed synthetic cases and one closed inactive Archive version after every staging gate. |
-| Dependencies | The two accepted foundations plus accepted `implement-backend-archive-consumer`; PyYAML `6.0.3`. |
+| Dependencies | The two accepted foundations plus accepted/exited `correct-archive-subject-semantics` and accepted `implement-backend-archive-consumer`; PyYAML `6.0.3`. |
 | Deliverables | Acquisition, streaming builder, strict gates, manifest/finalization, consumer smoke, tests/docs/lock. |
 | Acceptance | Synthetic matrix, disposable complete-source smoke, reproducibility, consumer, Python/dependency/OpenSpec/inventory gates. |
 | Non-goals | Activation/current pointer, schedule/daemon/lock/restart, business endpoints/catalog enrichment, operations. |
@@ -60,9 +60,10 @@ identical duplicates and contract-permitted raw unknown positions are counted,
 while malformed/conflicting/dangling-required facts fail. No old database,
 row-count shortcut, bulk in-memory materialization, pandas, or ORM is used.
 
-After indexes, the candidate passes foreign-key/integrity checks, manifest
-counts and quality invariants, read-only reopen, and deterministic logical-row
-digests. The authority supplies dataVersion and digest order:
+After indexes, the candidate passes the corrected canonical schema SQL digest
+and actual 35-object `sqlite_schema` seal, foreign-key/integrity checks,
+manifest counts and quality invariants, read-only reopen, and deterministic
+logical-row digests. The authority supplies dataVersion and digest order:
 semantic inputs, final SQLite, then manifest.
 
 ### Validate before inactive publication

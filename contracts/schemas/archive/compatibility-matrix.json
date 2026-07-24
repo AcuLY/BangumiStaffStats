@@ -9,6 +9,12 @@
       "dataVersionAlgorithm": "bgmss-archive-data-version-v1"
     }
   ],
+  "canonicalSchema": {
+    "schemaSqlDigest": "sha256:4a09c42d8f9c401fba24fe2c4b17a5f4a482825e1617cd40024757503e2bd249",
+    "algorithm": "bgmss-sqlite-schema-objects-v1",
+    "digest": "sha256:f7b6b3795b16d32fad3503e7976d5598ca3e92e6327f2875fb745fb8d095f35d",
+    "objectCount": 35
+  },
   "requiredTables": [
     "archive_meta",
     "subject",
@@ -32,7 +38,7 @@
     "catalog_selection_rule"
   ],
   "requiredIndexes": [
-    "idx_subject_type_date_id",
+    "idx_subject_filter_date_id",
     "idx_subject_relation_source",
     "idx_subject_tag_lookup",
     "idx_person_career_lookup",
@@ -148,6 +154,31 @@
       "id": "minimal-anime-subject",
       "sql": "SELECT COUNT(*) FROM subject WHERE subject_type = 'anime' AND subject_id = 1",
       "expectedInteger": 1
+    },
+    {
+      "id": "safe-subject-count",
+      "sql": "SELECT COUNT(*) FROM subject WHERE nsfw = 0",
+      "expectedInteger": 3
+    },
+    {
+      "id": "nsfw-subject-count",
+      "sql": "SELECT COUNT(*) FROM subject WHERE nsfw = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "month-filter-eligible-subject-count",
+      "sql": "SELECT COUNT(*) FROM subject WHERE air_date_precision IN (2, 3) AND substr(air_date, 1, 7) BETWEEN '2024-01' AND '2025-12'",
+      "expectedInteger": 2
+    },
+    {
+      "id": "year-only-date-preserved",
+      "sql": "SELECT COUNT(*) FROM subject WHERE subject_type = 'anime' AND subject_id = 3 AND air_date = '2023' AND air_date_precision = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "null-date-precision-consistent",
+      "sql": "SELECT COUNT(*) FROM subject WHERE (air_date IS NULL) <> (air_date_precision IS NULL)",
+      "expectedInteger": 0
     }
   ]
 }

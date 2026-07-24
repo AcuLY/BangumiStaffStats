@@ -267,10 +267,16 @@ bootstrap-bangumi-collection-go-openspec
   --> fixed public v0.1.0
 
 Wave 2
-define-archive-manifest-contract + bootstrap-backend-runtime
+define-archive-manifest-contract + define-shared-query-wire
+  --> correct-archive-subject-semantics
+
+define-archive-manifest-contract
+  + correct-archive-subject-semantics
+  + bootstrap-backend-runtime
   --> implement-backend-archive-consumer
 
 define-archive-manifest-contract
+  + correct-archive-subject-semantics
   + bootstrap-updater-runtime
   + implement-backend-archive-consumer
   --> produce-immutable-archive
@@ -283,6 +289,7 @@ bootstrap-backend-runtime
       --> implement-image-proxy
 
 implement-backend-archive-consumer
+  + correct-archive-subject-semantics
   + derive-position-catalog-and-cast
   + define-shared-query-wire
   --> implement-query-result-set
@@ -356,7 +363,7 @@ produce-immutable-archive
       --> complete-integrated-development-acceptance
 ```
 
-主仓 DAG 共 27 个 change，按上述边方向拓扑排序后无环：Archive consumer 不依赖 producer，只先消费 contracts change 提供的最小 fixture；producer 再以该 consumer 完成 full smoke，因此不会形成 producer/consumer 验收闭环。前端 co-star vertical 明确排在 ranking vertical 之后，最终集成验收排在 artifacts 之后。
+主仓 DAG 共 28 个 change，按上述边方向拓扑排序后无环：Archive subject correction 在 Archive/query 两项 contract definition 之后，并作为 consumer、producer 和 query-result 的直接依赖；Archive consumer 不依赖 producer，只先消费 contracts change 提供的最小 fixture；producer 再以该 consumer 完成 full smoke，因此不会形成 producer/consumer 验收闭环。前端 co-star vertical 明确排在 ranking vertical 之后，最终集成验收排在 artifacts 之后。
 
 Wave 5 图中列出的 19 个 ID 是 `produce-development-artifacts` 的确切直接依赖，不是可继续保留在 OpenSpec 中的组别别名；创建该 change 时必须把这 19 个 ID 逐项写入 `proposal.md`、`design.md` 和 `tasks.md`。`complete-integrated-development-acceptance` 的确切直接依赖是 `produce-development-artifacts`，其传递闭包覆盖上述 19 个 change 及它们的前置 change。
 
@@ -384,18 +391,19 @@ Wave 5 图中列出的 19 个 ID 是 `produce-development-artifacts` 的确切�
 
 | Change | Owner / capability | Owned paths | Depends | Deliverables | Acceptance | Non-goals | Exit |
 |---|---|---|---|---|---|---|---|
-| `implement-backend-archive-consumer` | Backend / `backend-archive-consumer` | `backend/internal/archive/**`，以及 backend foundation 在 spec 中枚举的启动装配文件 | `define-archive-manifest-contract`, `bootstrap-backend-runtime` | 严格只读 Archive consumer 和启动门：一次性严格解析 `current.json`；校验 manifest/digest/schema/table/index/dataVersion 一致；read-only/no-create 打开；integrity/sentinel/catalog-domain smoke；成功后原子发布 store/ready | 未知字段、非法路径、文件缺失、digest/schema/table/index/dataVersion 不一致或 sentinel 失败均关闭新句柄并保持 not-ready；API 不修改 snapshot、不自动回退；最小合法 fixture 可发布 ready | 不生成 Archive；不切换 `current.json`；不实现生产回滚或进程内热切换 | 最小合法/损坏/不兼容 fixtures 的 Go consumer tests 全通过，后续 producer、HTTP readiness、catalog 和 domain 可依赖同一 consumer |
-| `produce-immutable-archive` | Updater / `updater-archive-producer`; Contracts / `contracts-archive-goldens` | Updater：`updater/**`；Contracts：`contracts/goldens/archive/**` | `define-archive-manifest-contract`, `bootstrap-updater-runtime`, `implement-backend-archive-consumer` | 下载、SHA-256、暂存、stream build、schema/reference/quality/integrity checks、manifest；由 Contracts owner维护跨语言最小/完整 Archive golden | 中途失败无可消费版本；active DB 不原地改写；同输入逻辑数据和 dataVersion 稳定；完整来源 smoke 使用已实现的 Go 只读 consumer 验证 | 不调度、不 `flock`、不切 `current.json`、不重启 API | 完整 producer 输出通过 Go consumer 全部启动门和 smoke query |
+| `correct-archive-subject-semantics` | Contracts / `contracts-archive-manifest` | `contracts/schemas/archive/schema.sql`, `contracts/schemas/archive/README.md`, `contracts/schemas/archive/compatibility-matrix.json`, `contracts/schemas/archive/tooling/build_sqlite_fixtures.py`, `contracts/schemas/archive/tooling/verify.mjs`, 既有 `contracts/goldens/archive/{valid/minimal/**,invalid/bundles/**,invalid/json/**,vectors/data-version.json,index.json}`, 本文及本 change task markers；验证期间仅可写且退出前必须移除 `contracts/schemas/archive/{.cache/**,.tmp/**,tooling/node_modules/**}` | `define-archive-manifest-contract`, `define-shared-query-wire` | 上线前修正 SQLite v1 subject：权威 NSFW、显式 null/year/month/day precision、严格 Gregorian/calendar/leap 约束；以 canonical SQL digest + actual 35-object seal 绑定真实 DDL；原位重生成同一 31-path closed corpus 和全部 identities | 无 formal/public/activated v1；四类 subject、非法输入/弱化 schema 矩阵、9 sentinels、双重确定性、digest/vector/index 与严格 OpenSpec gate 全通过 | 不改 manifest/SQLite 版本号；不兼容旧 draft v1；不实现 producer/consumer/query runtime，不激活或部署 | corrected v1 Contracts 被接受并退出后，consumer、producer、query-result 才可适配和继续验收 |
+| `implement-backend-archive-consumer` | Backend / `backend-archive-consumer` | `backend/internal/archive/**`，以及 backend foundation 在 spec 中枚举的启动装配文件 | `define-archive-manifest-contract`, `correct-archive-subject-semantics`, `bootstrap-backend-runtime` | 严格只读 Archive consumer 和启动门：一次性严格解析 `current.json`；校验 manifest/digest/canonical SQL + actual schema-object seal/table/index/dataVersion 一致；read-only/no-create 打开；integrity/sentinel/catalog-domain smoke；成功后原子发布 store/ready | 未知字段、非法路径、文件缺失、digest/schema definition/table/index/dataVersion 不一致或 sentinel 失败均关闭新句柄并保持 not-ready；API 不修改 snapshot、不自动回退；最小合法 fixture 可发布 ready | 不生成 Archive；不切换 `current.json`；不实现生产回滚或进程内热切换 | 最小合法/损坏/弱化 schema/不兼容 fixtures 的 Go consumer tests 全通过，后续 producer、HTTP readiness、catalog 和 domain 可依赖同一 consumer |
+| `produce-immutable-archive` | Updater / `updater-archive-producer`; Contracts / `contracts-archive-goldens` | Updater：`updater/**`；Contracts：`contracts/goldens/archive/**` | `define-archive-manifest-contract`, `correct-archive-subject-semantics`, `bootstrap-updater-runtime`, `implement-backend-archive-consumer` | 下载、SHA-256、暂存、stream build、canonical SQL/35-object schema seal/reference/quality/integrity checks、manifest；由 Contracts owner维护跨语言最小/完整 Archive golden | 中途失败无可消费版本；弱化/额外 schema object 不能进入 manifest；active DB 不原地改写；同输入逻辑数据和 dataVersion 稳定；完整来源 smoke 使用已实现的 Go 只读 consumer 验证 | 不调度、不 `flock`、不切 `current.json`、不重启 API | 完整 producer 输出通过 Go consumer 全部启动门和 smoke query |
 | `derive-position-catalog-and-cast` | Updater / `updater-position-catalog`; Contracts / `contracts-position-catalog` | `updater/**`, `contracts/schemas/catalog/**`, `contracts/goldens/catalog/**` | `produce-immutable-archive` | 动态职位目录、多上层分类、固定常用职位、main/all 互斥、dormant staffset、exact cast 数据 | canonical key 稳定；多分类不复制实体；常用顺序精确；只接受 exact same-subject cast；无法证明时阻塞而非推断 | 不做跨作品 cast credit，不做 API/UI selector | catalog/cast synthetic 与完整数据质量门通过 |
 | `implement-backend-http-and-observability` | Backend / `backend-http-runtime`, `backend-observability` | `backend/**` | `bootstrap-backend-runtime`, `define-shared-query-wire`, `implement-backend-archive-consumer` | 严格 JSON、requestId、错误 envelope、limits/timeouts/cancel；`/livez`、`/readyz`、`/metrics`、结构化事件；readiness 只消费 archive consumer 的已发布状态 | 多余字段和超大 body 被拒；取消向下传播；consumer 任一启动门失败时保持 not-ready；指标低基数且日志无 UID/token | 不重复实现 Archive 校验；不部署 Prometheus，不写 systemd/nginx；不产生 `update_activated` | transport/fuzz/race/health tests 全通过，readiness 与 consumer 状态一致 |
 | `implement-image-proxy` | Backend / `backend-image-proxy` | `backend/**` | `implement-backend-http-and-observability` | 同源图片代理、resource/type/size 白名单、上游超时、缓存头和安全错误 | 非开放代理；host/path/规格绕过测试通过；错误不泄露上游 body | 不为 UI 猜图片尺寸，不做 CDN/生产 cache 配置 | 代理 contract 和 SSRF 负例通过 |
-| `implement-query-result-set` | Backend / `backend-query-result-set`; Contracts / `contracts-query-goldens` | Backend：`backend/**`；Contracts：`contracts/goldens/query-domain/**` | `define-shared-query-wire`, `implement-backend-archive-consumer`, `derive-position-catalog-and-cast` | personal/global 分离；查询归一化；过滤；多职位 AND；作品 union + Subject ID 去重；tag 布尔逻辑；identity；由 Contracts owner维护跨语言 result-set goldens | search/sort/page 不改变基础集合；global 不读取个人字段；标签逻辑和缺失值通过共享 goldens；所有查询只经只读 Archive consumer | 不计算最终指标，不分页 HTTP response | 与数据指南的结果集合 goldens 一致，consumer/domain integration 通过 |
+| `implement-query-result-set` | Backend / `backend-query-result-set`; Contracts / `contracts-query-goldens` | Backend：`backend/**`；Contracts：`contracts/goldens/query-domain/**` | `define-shared-query-wire`, `correct-archive-subject-semantics`, `implement-backend-archive-consumer`, `derive-position-catalog-and-cast` | personal/global 分离；查询归一化；过滤；多职位 AND；作品 union + Subject ID 去重；tag 布尔逻辑；identity；由 Contracts owner维护跨语言 result-set goldens | search/sort/page 不改变基础集合；global 不读取个人字段；标签逻辑和缺失值通过共享 goldens；所有查询只经只读 Archive consumer | 不计算最终指标，不分页 HTTP response | 与数据指南的结果集合 goldens 一致，consumer/domain integration 通过 |
 | `implement-statistics-series-sort-evidence` | Backend / `backend-statistics-authority`; Contracts / `contracts-statistics-goldens` | Backend：`backend/**`；Contracts：`contracts/goldens/statistics/**` | `implement-query-result-set` | 均分、综合分、偏好、评分分布、系列连通分量、严格总序、摘要、evidence；由 Contracts owner维护跨语言统计 goldens | `0/null` 不计评分；`[6,7,7] -> 6.66`；五个中性样本；缺失指标永远最后；stable ID 最终破同分；`.5` 向上分箱 | 前端不复制算法；不以评分人数加权综合分 | 跨语言历史 golden 与新 Go 权威结果一致或有已批准 delta |
 | `expose-dynamic-catalog` | Backend / `backend-catalog-api`; Contracts / `contracts-catalog-api` | Backend：`backend/**`；Contracts：`contracts/openapi/openapi.yaml`, `contracts/goldens/api/catalog/**` | `derive-position-catalog-and-cast`, `implement-backend-archive-consumer`, `implement-backend-http-and-observability` | catalog endpoint、版本/来源元数据、正式错误；Contracts owner先定义并验证 catalog wire | API 返回 key 与 query 接受 key 完全一致；加载失败不伪装为空；未知/休眠职位有 scenario；handler 只消费已发布只读 store | 不实现排行或前端 selector | OpenAPI 无 drift，handler 与 Archive consumer integration 通过 |
 
 ### External lane：`bangumi-collection-go`
 
-此 lane 不计入主仓 27 个 change，由独立仓库、独立 OpenSpec 和独立分支治理。外部仓库的固定开发基线是 `8173f44911360150a5a5a7c6418021d1014fe85b`；OpenSpec bootstrap 和 hardening 分支都必须从该 commit 的普通 ancestry开始。
+此 lane 不计入主仓 28 个 change，由独立仓库、独立 OpenSpec 和独立分支治理。外部仓库的固定开发基线是 `8173f44911360150a5a5a7c6418021d1014fe85b`；OpenSpec bootstrap 和 hardening 分支都必须从该 commit 的普通 ancestry开始。
 
 以下现有用户文件不属于 hardening 输入或提交内容，必须在整个 lane 中原样保护：
 

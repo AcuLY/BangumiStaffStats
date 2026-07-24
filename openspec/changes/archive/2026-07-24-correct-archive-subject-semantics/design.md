@@ -8,7 +8,7 @@ to a day-shaped string and has no NSFW column. That cannot safely implement
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: main semantic/dependency review and strict validation passed; committed/pushed/released/deployed: no |
+| Status | investigated: complete; specified: approved; implemented: yes; verified: owner gates, independent read-only review, and main acceptance passed; committed: determined by containing Git history; pushed/released/deployed: no |
 | Owner | Contracts implementation owner; main agent owns review, affected-change reconciliation, and acceptance. |
 | Writable paths | Exactly the apply paths in `proposal.md`; planning writes only this change directory. |
 | Read-only protected inputs | Product/design/data authorities, root specs, archived and other active changes, all product/runtime code, local editor/cache state, refs/remotes, external repositories, hosts, and production. |
@@ -17,8 +17,8 @@ to a day-shaped string and has no NSFW column. That cannot safely implement
 | Consumes | Existing Archive v1 contract/tooling/corpus, `PRODUCT.md`, backend guide §§3/8/10, accepted `DR-DATA-DATE-001`, and shared-query semantics. |
 | Produces | One corrected pre-production v1 contract bundle and master DAG. |
 | Dependencies | Completed Archive/query contract changes and proof that no formal/public v1 exists. Main must amend the active consumer, producer, and query-result specs before apply. |
-| Deliverables | DDL/documentation/matrix/tooling updates, deterministic regenerated corpus/vector identities, and master-plan row/edges/count. |
-| Acceptance | Builder check and byte-equivalent regeneration, pinned verifier, strict semantic insertion matrix, matrix sentinels, closed-index/digest/vector checks, no residue, targeted strict validation. |
+| Deliverables | DDL/documentation/matrix/tooling updates, canonical SQLite schema-object seal, fatal UTF-8 JSON decoding, process-level Go telemetry isolation, deterministic regenerated corpus/vector identities, and master-plan row/edges/count. |
+| Acceptance | Builder check and byte-equivalent regeneration, pinned verifier, canonical schema-object mutation rejection, fatal UTF-8 rejection, strict semantic insertion matrix, matrix sentinels, process-level telemetry write denial, closed-index/digest/vector checks, no residue, targeted strict validation. |
 | Non-goals | Runtime implementation, a v2 format, new dependency, full Archive acquisition, query/statistics code, or operations. |
 | Operations deferred | Activation, migration, schedule, retention, restart, rollback, release, deployment, and production data remain absent. |
 | Stop/rollback conditions | Stop if a formal/public v1 exists, an affected active spec is unreconciled, authority/scope drifts, or any deterministic/strict gate fails; propose v2 if the version precondition fails and revert only owned unstaged bytes. |
@@ -76,11 +76,13 @@ exactly. The producer derives precision only from the exact registered shape
 of the authoritative raw `date` string; this records source precision and does
 not invent a missing component. Month is `01..12`; day is checked against the
 month's real length with the Gregorian leap rule `(year % 400 = 0) OR (year %
-4 = 0 AND year % 100 != 0)`. Exact length, separators, and ASCII digits reject
-trailing data.
+4 = 0 AND year % 100 != 0)`. Exact byte content, separators, and ASCII digits
+reject trailing data. The DDL explicitly rejects embedded NUL before using
+SQLite text functions, whose length/pattern behavior otherwise stops at NUL.
 
-The DDL uses explicit integer/substr/arithmetic checks rather than SQLite
-`date()` normalization, whose permissive rollover would weaken the contract.
+The DDL uses an explicit NUL rejection plus integer/substr/arithmetic checks
+rather than SQLite `date()` normalization, whose permissive rollover would
+weaken the contract.
 Separate year/month/day columns were rejected as wider and easier to partially
 populate; deriving precision only from text was rejected because the accepted
 decision requires precision to remain an explicit fact. Text precision labels
@@ -138,6 +140,75 @@ Before apply, main must amend those three active changes so their compiled
 contract constants, producer mapping, and query semantics consume the corrected
 contract. This Contracts change does not edit their artifacts or code.
 
+### Isolate Go telemetry per verifier process
+
+The existing Archive verifier discovers Go's non-settable telemetry mode and
+directory safely, and already runs each Go-starting child through a macOS
+`sandbox-exec` profile that denies writes beneath that directory. Its final
+whole-directory byte-equality assertion is not a valid ownership proof:
+persistent editor-owned Go processes can update the same global directory
+while the verifier's own children remain correctly denied.
+
+The shared directory's before/after seals therefore remain diagnostic evidence
+only. After discovery accepts either `off` or `local`, every actual Go or
+`gofmt` executable invocation, including those launched by nested verifier
+logic, must be wrapped directly by the reviewed telemetry-subpath write-denial
+profile. The wrapper is unconditional because another process may change the
+shared mode after discovery. Environment variables or caller self-attestation
+cannot bypass that wrapper. Path/profile mismatch, unavailable `sandbox-exec`,
+or a non-zero wrapper result fails closed. The verifier never changes telemetry
+mode, interprets/deletes counters, authorizes upload, or stops/configures
+unrelated processes.
+
+This aligns the Archive gate with the accepted `contracts-query-wire` boundary.
+Waiting for a quiet global snapshot, trusting an inherited-sandbox environment
+flag, changing the expected digest, redirecting the user's home/config
+directory, or terminating editor processes were rejected as forgeable, flaky,
+or intrusive.
+
+### Decode contract JSON bytes strictly
+
+Node's string-form `readFileSync(..., "utf8")` replaces malformed UTF-8 with
+U+FFFD before `JSON.parse`. Because some schema strings legitimately permit
+U+FFFD, matching a digest to malicious or corrupt raw bytes could otherwise
+turn an encoding error into accepted JSON and diverge from strict consumers in
+other languages.
+
+The verifier reads bytes first and uses a fatal UTF-8 decoder before parsing
+every file-backed JSON authority or fixture. An executable negative self-test
+must prove malformed bytes fail before schema validation; it adds no golden
+path. Requiring each caller to remember a separate encoding check was rejected
+because all contract JSON should share one fail-closed boundary.
+
+### Bind actual SQLite object definitions
+
+The manifest's `schemaSqlDigest` identifies canonical `schema.sql`, but a
+matching claim and SQLite byte digest do not prove that the database was
+created from that DDL. Required table/index names and sentinels alone can still
+accept a database whose `CHECK`, `STRICT`, foreign-key, or index definition was
+weakened.
+
+The compatibility matrix therefore records one canonical schema record: the
+exact `schema.sql` SHA-256 plus the explicit-object seal produced by executing
+it. The object preimage starts with
+`bgmss-sqlite-schema-objects-v1\n`, then `count=<decimal>\n`, followed by every
+`sqlite_schema` row whose `type` is `table|index|view|trigger`, whose `sql` is
+non-null, and whose name is not SQLite-reserved. Rows use SQLite `BINARY` order
+by `(type,name,tbl_name)`. Each row appends the fixed fields
+`type|name|table|sql` as
+`<field>=<UTF-8-byte-length>:<raw-UTF-8-bytes>\n`. Corrected v1 has exactly 35
+explicit objects: 20 tables and 15 indexes.
+
+Verifier, fixture builder, future producer, and consumer compute the seal from
+the actual database and require it to equal the matrix value; the verifier also
+requires the manifest's `schemaSqlDigest` to equal the matrix/file digest.
+Missing, altered, or extra explicit schema objects fail at the existing
+`SQLITE_REQUIRED_OBJECT_MISSING` stage. A disposable mutation self-test builds
+with the NUL constraint weakened and proves the seal differs and is rejected.
+Copying an expected digest into `archive_meta`, parsing DDL independently in
+each language, or relying only on sentinel rows were rejected because none
+independently binds the stored schema definitions.
+
 ## Risks / Trade-offs
 
 - [Same numeric version could conceal two meanings] → permit only the
@@ -151,6 +222,14 @@ contract. This Contracts change does not edit their artifacts or code.
   both classes and sentinels plus downstream query goldens assert both modes.
 - [Contracts land before runtime adapters] → reconcile active specs first,
   preserve their apply blocks, then adapt/re-run each owner after this exits.
+- [A shared telemetry directory changes concurrently] → compare snapshots only
+  for diagnostics; accept solely on the enforced per-process write-denial
+  sandbox and fail closed on any missing wrapper/inheritance proof.
+- [Node replaces malformed JSON bytes] → one shared fatal UTF-8 decoder and an
+  invalid-byte self-test run before any schema or digest-based acceptance.
+- [SQLite object names survive weakened definitions] → compare a fixed
+  language-neutral seal of every actual explicit `sqlite_schema` definition
+  against the compatibility matrix before sentinels/counts.
 
 ## Migration Plan
 
