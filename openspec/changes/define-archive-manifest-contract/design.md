@@ -15,12 +15,12 @@ The accepted target is different: Python will later produce a new immutable SQLi
 
 | Field | Boundary |
 |---|---|
-| Status | investigated: complete; specified: initial checkpoint and both observed corrections approved; implemented: partial candidates retained; verified: paused-state seals, generator-pruning diagnosis, strict validation, and independent spec review complete; committed: planning/correction control history only, product not committed; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: initial checkpoint, two semantic corrections, and external editor-state amendment approved; exact workspace-state checkpoint commit pending; implemented: partial candidates retained; verified: paused-state seals, generator-pruning diagnosis, strict validation, and independent semantic review complete; committed: planning/semantic-correction control history only, product not committed; pushed: no; released: no; deployed: no |
 | Owner | Contracts owner / `contracts-archive-manifest`; delegated subagents perform apply, commits, and archive; main agent amends OpenSpec only and performs read-only acceptance |
 | Writable paths | Exactly `contracts/schemas/archive/**` and `contracts/goldens/archive/**` |
-| Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, `openspec/config.yaml`, root capability specs, all `tmp-formal-development/**` guidance/decisions, Impeccable files, and all oracle paths at `644b7748674e553f863d0ffd61d029f86fdc0717` |
-| Deletion complement | All paths outside the two writable subtrees, plus any unenumerated pre-existing file inside them; sibling query paths may be observed as exact tolerated dirty state but are never writable by this owner |
-| Mutable refs | Accepted checkpoints are initial `c7f868e2861e8fea250f033c27538ecf793bacad` and Archive toolchain correction `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c`. One second sealed correction may advance the branch from `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c` with subject `docs(openspec): approve wave 1 query codegen correction` and exactly both changes' proposal/design/spec/tasks, never product/cache/temp bytes. After main-agent acceptance, parallel apply may change only task checkboxes and index/refs remain immutable until the combined phase commit |
+| Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, `openspec/config.yaml`, root capability specs, all `tmp-formal-development/**` guidance/decisions, Impeccable files, all oracle paths at `644b7748674e553f863d0ffd61d029f86fdc0717`, and externally created untracked `.vscode/settings.json` at SHA-256 `048f53e6ca01ac583b48784cd2f6f7d248e0534849955b144e75f017f73188a3` |
+| Deletion complement | All paths outside the two writable subtrees, plus any unenumerated pre-existing file inside them; sibling query paths may be observed as exact tolerated dirty state but are never writable by this owner. Exact sealed untracked `.vscode/settings.json` is tolerated protected foreign state, never writable or a cleanup target |
+| Mutable refs | Accepted checkpoints are initial `c7f868e2861e8fea250f033c27538ecf793bacad`, Archive toolchain correction `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c`, and Query codegen correction `52af379d48d7c29a479b59a4670ae07d73b1c0fb`. One sealed workspace-state amendment may advance the branch from `52af379d48d7c29a479b59a4670ae07d73b1c0fb` with exact subject `docs(openspec): record wave 1 external editor state` and exactly both changes' proposal/design/spec/tasks, never product/cache/temp/editor bytes. After main-agent acceptance, parallel apply may change only task checkboxes and index/refs remain immutable until the combined phase commit |
 | Consumes | `contracts-rewrite-baseline`; master plan Wave 1; backend guide §3; data guide Phases 0–1; `DR-DATA-PIPELINE-001`; `DR-DATA-SCHEMA-001`; read-only oracle evidence |
 | Produces | Archive JSON Schemas, SQLite v1 DDL/identity, compatibility matrix, dataVersion/digest contract, valid/invalid goldens, verification tooling, generation-feasibility evidence |
 | Dependencies | Completed `establish-formal-rewrite-baseline`; no semantic dependency on the sibling query change or on Python/Go runtimes; operationally paired with `define-shared-query-wire` in Wave 1A |
@@ -28,7 +28,7 @@ The accepted target is different: Python will later produce a new immutable SQLi
 | Acceptance | Strict schema compilation; closed fixture index; positive/negative JSON and SQLite cases; deterministic digest vectors; path-safety negatives; temporary Go/Python generation smoke; exact-path diff and clean checks |
 | Non-goals | Runtime producer/consumer, full Archive, data download, real `current.json`, activation, query/domain/API/UI implementation |
 | Operations deferred | Production paths/users/permissions, timers, `flock`, current switching, restart/readiness rollback, retention, secrets, releases, deployment, host mutation |
-| Stop/rollback conditions | Stop on branch/HEAD/index drift, dirty state outside the exact sibling allowance, path overlap, sibling-snapshot ambiguity, tool lock drift, schema/vector disagreement, nondeterminism, or out-of-bound write; preserve state and never stage/commit/archive during parallel apply or reset/clean/history-rewrite |
+| Stop/rollback conditions | Stop on branch/HEAD/index drift, dirty state outside the exact sibling allowance plus unchanged sealed `.vscode/settings.json`, editor-state drift, path overlap, sibling-snapshot ambiguity, tool lock drift, schema/vector disagreement, nondeterminism, or out-of-bound write; preserve state and never stage/commit/archive during parallel apply or reset/clean/history-rewrite |
 
 ### Observed mid-apply recovery protocol
 
@@ -43,6 +43,10 @@ At the second boundary HEAD is exactly `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c
 The paused Query sibling has tasks 1.1–1.3 alone checked; its 23 persistent/all-13,025 regular-file seals are `2a2483d6b91d5b764db1e6c722137fd707f5b79f8a3310b20285a291b9a5779f` and `84c216d846b03990ce5f7ba50fd006045df32d513fa6dcb3e15e6ba402720cf6`, and its seven-symlink seal is `4aa5af9e55948f608d1ef3d7f06ca5d76775946c2638deef2db7276d264fbfae` under the same formulas.
 
 One second quiescent correction subagent may stage exactly the same eight OpenSpec paths and create a commit whose sole parent is `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c` and exact subject is `docs(openspec): approve wave 1 query codegen correction`. It stages no product/cache/temp byte and runs no install, cleanup, generation, verifier, fixture, or other product-writing command. Only after main-agent acceptance of the exact commit and unchanged second-boundary seals/check sets may the original Archive owner re-snapshot and resume at task 2.5; Query resumes at task 2.1.
+
+That correction was accepted as exact HEAD `52af379d48d7c29a479b59a4670ae07d73b1c0fb`. Before either owner resumed, the editor independently created untracked regular file `.vscode/settings.json`, containing only `git.ignoreLimitWarning=true`, with SHA-256 `048f53e6ca01ac583b48784cd2f6f7d248e0534849955b144e75f017f73188a3`; `.vscode/**` contains exactly this one non-symlink file. It is foreign user/editor state and no implementation/finalization owner may modify, delete, ignore, stage, commit, or claim it.
+
+All candidate counts, seals, and checked sets remain the second-boundary values. One workspace-state amendment subagent may commit only the same eight OpenSpec paths from parent `52af379d48d7c29a479b59a4670ae07d73b1c0fb` with exact subject `docs(openspec): record wave 1 external editor state`, staging no editor/product/cache/temp byte and running no product-writing command. After main-agent acceptance, the original Archive owner resumes at 2.5 and Query at 2.1, with the exact editor file added only to their read-only tolerated status projection; any drift stops work without repair.
 
 Dependency direction is one-way:
 
@@ -66,7 +70,7 @@ contracts/schemas/query/**
 contracts/goldens/query/**
 ```
 
-This Archive owner records the sibling paths and hashes at the common clean planning checkpoint, never writes or stages them, and scopes every diff/test/inventory command to its own change. The sibling agent applies the inverse rule to this change’s `tasks.md`, `contracts/schemas/archive/**`, and `contracts/goldens/archive/**`.
+This Archive owner records the sibling paths and hashes at the common approved checkpoint, never writes or stages them, and scopes every diff/test/inventory command to its own change. It separately records exact sealed `.vscode/settings.json` as protected foreign state outside both envelopes. The sibling agent applies the inverse rule to this change’s `tasks.md`, `contracts/schemas/archive/**`, and `contracts/goldens/archive/**`.
 
 ## Goals / Non-Goals
 

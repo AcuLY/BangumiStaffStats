@@ -2,12 +2,12 @@
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: initial checkpoint and both observed corrections approved; implemented: partial candidates retained; verified: paused-state seals, generator-pruning diagnosis, strict validation, and independent spec review complete; committed: planning/correction control history only, product not committed; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: initial checkpoint, two semantic corrections, and external editor-state amendment approved; exact workspace-state checkpoint commit pending; implemented: partial candidates retained; verified: paused-state seals, generator-pruning diagnosis, strict validation, and independent semantic review complete; committed: planning/semantic-correction control history only, product not committed; pushed: no; released: no; deployed: no |
 | Owner | Contracts owner / `contracts-archive-manifest`; apply, finalization, commit, and archive are delegated subagent work; main agent only amends OpenSpec and performs read-only acceptance |
 | Writable paths | Exactly `contracts/schemas/archive/**` and `contracts/goldens/archive/**` |
-| Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, `openspec/config.yaml`, existing root specs, all formal-development guides/decisions, Impeccable files, and oracle commit `644b7748674e553f863d0ffd61d029f86fdc0717` |
-| Deletion complement | Every path outside the two writable roots and every unenumerated pre-existing path inside them; sibling query paths are tolerated read-only state, not writable state |
-| Mutable refs | Accepted initial/first-correction checkpoints are `c7f868e2861e8fea250f033c27538ecf793bacad` and `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c`. One second sealed correction may advance the branch from `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c` with exact subject `docs(openspec): approve wave 1 query codegen correction` and exactly proposal/design/spec/tasks for both changes, no product/cache/temp bytes. After main-agent acceptance, parallel apply may change only task checkboxes and no Git ref/index until the accepted combined commit |
+| Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, `openspec/config.yaml`, existing root specs, all formal-development guides/decisions, Impeccable files, oracle commit `644b7748674e553f863d0ffd61d029f86fdc0717`, and externally created untracked `.vscode/settings.json` at SHA-256 `048f53e6ca01ac583b48784cd2f6f7d248e0534849955b144e75f017f73188a3` |
+| Deletion complement | Every path outside the two writable roots and every unenumerated pre-existing path inside them; sibling query paths and exact sealed untracked `.vscode/settings.json` are tolerated read-only state, not writable state |
+| Mutable refs | Accepted initial/semantic-correction checkpoints are `c7f868e2861e8fea250f033c27538ecf793bacad`, `ad5bf1a0fbca06aba1f7d2cff5be66e1d726701c`, and `52af379d48d7c29a479b59a4670ae07d73b1c0fb`. One sealed workspace-state amendment may advance the branch from `52af379d48d7c29a479b59a4670ae07d73b1c0fb` with exact subject `docs(openspec): record wave 1 external editor state` and exactly proposal/design/spec/tasks for both changes, no product/cache/temp/editor bytes. After main-agent acceptance, parallel apply may change only task checkboxes and no Git ref/index until the accepted combined commit |
 | Consumes | `contracts-rewrite-baseline`, master plan Wave 1, backend guide §3, data guide Phases 0–1, `DR-DATA-PIPELINE-001`, `DR-DATA-SCHEMA-001`, and read-only oracle evidence |
 | Produces | Strict Archive/pointer/dataVersion/index schemas, SQLite v1 DDL and compatibility matrix, deterministic digest vectors, a minimal valid Archive, invalid bundles, and contract-local verification evidence |
 | Dependencies | Completed `establish-formal-rewrite-baseline`; no Python/Go runtime dependency; operationally paired but not semantically coupled with `define-shared-query-wire` |
@@ -15,7 +15,7 @@
 | Acceptance | Strict schema and OpenSpec validation; closed fixture inventory; deterministic vector/hash checks; positive/negative SQLite checks; Python/Go generation feasibility; exact path-scoped and combined finalization seals |
 | Non-goals | Full Archive, producer/consumer runtime, query/statistics/API/UI, live data fetch, actual `current.json`, activation, scheduler, migration, deployment, or legacy cleanup |
 | Operations deferred | Production paths/users/permissions, nginx/systemd/Compose/timer/`flock`, pointer switching, restart/readiness rollback, retention, secrets, release, deploy, and host mutation |
-| Stop/rollback conditions | Stop on branch/HEAD/index/dirty-state drift, sibling-path ambiguity, overlap, tool drift, schema/vector disagreement, nondeterminism, or out-of-bound write; preserve state and forbid reset, checkout rollback, clean, broad recursive deletion, staging/commit/archive during parallel apply, and history rewriting |
+| Stop/rollback conditions | Stop on branch/HEAD/index drift, dirty-state drift other than unchanged sealed `.vscode/settings.json`, editor-state drift, sibling-path ambiguity, overlap, tool drift, schema/vector disagreement, nondeterminism, or out-of-bound write; preserve state and forbid reset, checkout rollback, clean, broad recursive deletion, staging/commit/archive during parallel apply, and history rewriting |
 
 ### Lifecycle control (not synchronized): Both observed corrections preserve both paused candidates
 
@@ -38,6 +38,16 @@ The second correction subagent SHALL stage exactly the same eight OpenSpec artif
 
 - **WHEN** the main agent accepts the second correction commit and both unchanged candidates
 - **THEN** the original Archive owner SHALL preserve and revalidate its existing files, re-snapshot the new checkpoint, and continue from task 2.5 without redoing or claiming already checked work
+
+The second correction SHALL be accepted as exact HEAD `52af379d48d7c29a479b59a4670ae07d73b1c0fb`. Before either owner resumes, untracked regular non-symlink `.vscode/settings.json` SHALL appear as externally owned editor state. It SHALL be the only `.vscode/**` entry, have SHA-256 `048f53e6ca01ac583b48784cd2f6f7d248e0534849955b144e75f017f73188a3`, and have no index membership. All second-boundary candidate counts, seals, and checked sets SHALL remain unchanged.
+
+One workspace-state amendment subagent SHALL stage exactly the same eight OpenSpec paths, with sole parent `52af379d48d7c29a479b59a4670ae07d73b1c0fb` and exact subject `docs(openspec): record wave 1 external editor state`; it SHALL stage or modify no `.vscode/**`, product, cache, or temp byte and run no product-writing command. Apply remains stopped until main-agent acceptance.
+
+#### Scenario: External editor state remains foreign
+
+- **WHEN** the workspace-state amendment or resumed owner inspects `.vscode/**`
+- **THEN** only the exact untracked non-symlink file/hash above SHALL be tolerated outside the combined implementation envelope
+- **AND** any drift SHALL stop work without deleting, hiding, staging, or repairing the file
 
 ## ADDED Requirements
 
@@ -263,15 +273,17 @@ contracts/schemas/query/**
 contracts/goldens/query/**
 ```
 
+It MAY additionally tolerate only the exact untracked non-symlink `.vscode/settings.json` and SHA-256 recorded by the lifecycle control. That path is outside both owner envelopes and SHALL never be written, staged, cleaned, hidden, or included in implementation conclusions.
+
 It SHALL write only its own `tasks.md`, `contracts/schemas/archive/**`, and `contracts/goldens/archive/**`; SHALL never stage, commit, archive, or mutate a Git ref while the sibling runs; and SHALL scope all status/diff/check/inventory commands to its own paths plus a read-only exact-union guard. The index MUST remain empty.
 
-#### Scenario: Both agents start clean and remain disjoint
-- **WHEN** both apply agents observe the same approved HEAD, empty index, clean initial worktree, non-overlapping path sets, and valid seals
+#### Scenario: Both agents start from the exact tolerated state and remain disjoint
+- **WHEN** both apply agents observe the same approved HEAD, empty index, no dirty path outside the two owner sets except exact sealed untracked `.vscode/settings.json`, non-overlapping path sets, and valid seals
 - **THEN** each MAY create its own unstaged candidate in parallel
 - **AND** sibling changes under the exact allowance SHALL not be mistaken for this owner’s output
 
 #### Scenario: Unexpected dirty path or index entry appears
-- **WHEN** any changed/untracked/ignored path falls outside the two exact owner sets, either set overlaps, the sibling baseline cannot be identified, or the index becomes non-empty
+- **WHEN** any changed/untracked/ignored path falls outside the two exact owner sets and is not exact sealed untracked `.vscode/settings.json`, either set overlaps, the sibling baseline cannot be identified, or the index becomes non-empty
 - **THEN** this apply SHALL stop without staging, restoring, deleting, or rewriting either candidate
 
 #### Scenario: One apply candidate becomes ready first
@@ -280,12 +292,12 @@ It SHALL write only its own `tasks.md`, `contracts/schemas/archive/**`, and `con
 - **AND** it SHALL NOT commit, archive, or wait by mutating the sibling’s state
 
 ### Requirement: One finalization subagent creates the Wave 1A commit
-Only after both apply agents have stopped and the main agent has independently accepted both unstaged candidates may one delegated finalization subagent stage or archive. It SHALL re-prove the common planning HEAD, empty index, exact combined path union, no extra dirty/ignored path, both candidate hashes, and both strict validation results; archive `define-archive-manifest-contract` and `define-shared-query-wire`; verify the two synchronized root specs and exact archive path delta; stage no path outside the reviewed combined apply/archive union; stop for final main-agent read-only acceptance; and then create exactly one commit with subject `feat(contracts): establish wave 1 shared contracts`.
+Only after both apply agents have stopped and the main agent has independently accepted both unstaged candidates may one delegated finalization subagent stage or archive. It SHALL re-prove the accepted workspace-state amendment HEAD, empty index, exact combined path union, no extra dirty/ignored path beyond unchanged sealed `.vscode/settings.json`, both candidate hashes, and both strict validation results; archive `define-archive-manifest-contract` and `define-shared-query-wire`; verify the two synchronized root specs and exact archive path delta; stage no path outside the reviewed combined apply/archive union and specifically no `.vscode/**`; stop for final main-agent read-only acceptance; and then create exactly one commit with subject `feat(contracts): establish wave 1 shared contracts`.
 
 #### Scenario: Both accepted candidates finalize exactly
 - **WHEN** both candidate seals still match and archive output contains only the two expected archived changes/root specs plus their accepted contract paths
 - **THEN** the same finalization subagent MAY create the single exact-subject phase commit after final acceptance
-- **AND** the resulting worktree/index SHALL be clean
+- **AND** the resulting index SHALL be clean and the worktree SHALL contain no dirty path except exact sealed untracked `.vscode/settings.json`
 
 #### Scenario: Candidate or archive output drifts
 - **WHEN** any accepted byte changes, an expected path is missing, an extra path appears, archive synchronization differs, or strict/cached checks fail
