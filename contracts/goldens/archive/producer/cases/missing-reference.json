@@ -2,7 +2,7 @@
   "caseSchemaVersion": 1,
   "caseId": "missing-reference",
   "caseKind": "missing-reference",
-  "description": "A subject-person record whose person reference is absent fails before finalization.",
+  "description": "A subject-person record whose person reference is absent is counted invalid and excluded.",
   "inputs": {
     "sourceSetAlgorithm": "bgmss-producer-source-set-v1",
     "sources": [
@@ -608,13 +608,9 @@
       "FILTERED_BY_VALID_CV": 0,
       "UNKNOWN_STAFF_POSITION": 0
     },
-    "outcome": "SOURCE_REFERENCE_MISSING",
-    "firstFailure": {
-      "code": "SOURCE_REFERENCE_MISSING",
-      "source": "subject-persons.jsonlines",
-      "line": 7
-    },
-    "candidateAllowed": false
+    "outcome": "VALID",
+    "firstFailure": null,
+    "candidateAllowed": true
   },
   "equivalence": null
 }

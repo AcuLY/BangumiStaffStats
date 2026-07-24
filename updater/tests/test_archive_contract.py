@@ -53,7 +53,7 @@ def test_whole_bundle_and_selected_cases_are_valid(contracts_root: Path) -> None
     before = _tree_seal(contracts_root)
     report = check_contracts(contracts_root)
 
-    assert report.indexed_files == 31
+    assert report.indexed_files == 32
     assert dict(report.selected_outcomes) == _EXPECTED_OUTCOMES
     assert _tree_seal(contracts_root) == before
     assert not tuple(contracts_root.rglob("current.json"))

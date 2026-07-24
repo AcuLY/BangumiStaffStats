@@ -48,7 +48,7 @@
     },
     {
       "path": "cases/missing-reference.json",
-      "digest": "sha256:e891adf3a24bf2c8be5f96dc0f9def7dd065e92f36c6ce41e8fb97311eb7b3a4",
+      "digest": "sha256:9caae46a242d2db739ebe399e5f6fbba76746b136171a6198aef47d32afa0ef8",
       "caseId": "missing-reference"
     },
     {

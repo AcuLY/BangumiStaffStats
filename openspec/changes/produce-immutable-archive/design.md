@@ -9,7 +9,7 @@ producer owner writes backend or contract authority.
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved after resolving the closed-index/tooling conflict with a disjoint producer sub-index; implemented: no; verified: main semantic/dependency review and strict validation passed after amendment; committed: determined by containing Git history; pushed/released/deployed: no |
+| Status | investigated: complete; specified: approved after resolving the closed-index/tooling conflict with a disjoint producer sub-index; implemented: Contracts and Updater complete; verified: 133-test offline suite plus explicit complete-source Python-to-real-Go smoke, strict Python/build/dependency/Contracts/OpenSpec gates, canonical 32-file seal, final inventory, and residue checks passed; committed: pending this phase commit; pushed/released/deployed: no |
 | Owner | Contracts owner completes and hands off goldens; Updater owner applies producer; main agent reviews/accepts. |
 | Writable paths | Exactly the planning, Contracts, and Updater owner sets in `proposal.md`; owners are sequential and disjoint. |
 | Read-only protected inputs | The canonical Archive root index and its 32 accepted paths/bytes, remaining Archive schemas/contracts, accepted consumer, guides/specs, other code/changes, refs/remotes, hosts, and production. |
@@ -17,7 +17,7 @@ producer owner writes backend or contract authority.
 | Mutable refs | None during apply. |
 | Consumes | Corrected, string-hardened, raw-domain-preserving accepted Archive/updater contracts; the corrected canonical corpus; exact public sources; and accepted `backend/cmd/archive-smoke`. |
 | Produces | Indexed synthetic cases and one closed inactive Archive version after every staging gate. |
-| Dependencies | The two accepted foundations plus accepted/exited `correct-archive-subject-semantics`, `harden-archive-manifest-string-semantics`, and `correct-archive-raw-domain-semantics`, and accepted `implement-backend-archive-consumer`; PyYAML `6.0.3`. |
+| Dependencies | The two accepted foundations plus accepted/exited `correct-archive-subject-semantics`, `harden-archive-manifest-string-semantics`, `correct-archive-raw-domain-semantics`, and `correct-archive-staffset-key-bound`, and accepted `implement-backend-archive-consumer`; PyYAML `6.0.3`. |
 | Deliverables | Acquisition, streaming builder, strict gates, manifest/finalization, consumer smoke, tests/docs/lock. |
 | Acceptance | Synthetic matrix, disposable complete-source smoke, reproducibility, consumer, Python/dependency/OpenSpec/inventory gates. |
 | Non-goals | Activation/current pointer, schedule/daemon/lock/restart, business endpoints/catalog enrichment, operations. |
@@ -76,10 +76,16 @@ smoke may download the complete sources into disposable staging.
 
 `ZipFile.open` and bounded line-by-line strict JSON decoding feed batched
 standard-library `sqlite3` transactions in deterministic identity order. Each
-physical line enters exactly one of imported/duplicate/invalid/unresolved;
-identical duplicates and contract-permitted raw unknown positions are counted,
-while malformed/conflicting/dangling-required facts fail. No old database,
-row-count shortcut, bulk in-memory materialization, pandas, or ORM is used.
+physical line enters exactly one of imported/duplicate/invalid/unresolved.
+Identical duplicates and contract-permitted raw unknown positions are counted.
+Syntactically valid relationship lines whose required Archive identity is
+absent are excluded and counted once as `invalid`, so the staged SQLite remains
+referentially complete without silently claiming the source fact was imported;
+malformed/unknown-field/wrong-domain records and conflicting duplicates remain
+fatal. Upstream empty strings in nullable `subject.name_cn` and `subject.date`
+mean absence and normalize to SQL `NULL` (with null date precision), while
+non-empty values remain exact. No old database, row-count shortcut, bulk
+in-memory materialization, pandas, or ORM is used.
 
 After indexes, the candidate passes the corrected canonical schema SQL digest
 and actual 35-object `sqlite_schema` seal, foreign-key/integrity checks,

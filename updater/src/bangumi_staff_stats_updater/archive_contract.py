@@ -108,6 +108,10 @@ class _Validators:
 class _Matrix:
     required_tables: tuple[str, ...]
     required_indexes: tuple[str, ...]
+    schema_sql_digest: str
+    schema_object_algorithm: str
+    schema_object_digest: str
+    schema_object_count: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -324,6 +328,7 @@ def _load_matrix(schema_root: Path) -> _Matrix:
     expected_keys = {
         "matrixSchemaVersion",
         "supported",
+        "canonicalSchema",
         "requiredTables",
         "requiredIndexes",
         "validationPrecedence",
@@ -361,6 +366,39 @@ def _load_matrix(schema_root: Path) -> _Matrix:
     ):
         _fail_input("compatibility matrix tuple is unsupported")
 
+    canonical_schema = _object(matrix.get("canonicalSchema"), "canonical schema identity")
+    if set(canonical_schema) != {
+        "schemaSqlDigest",
+        "algorithm",
+        "digest",
+        "objectCount",
+    }:
+        _fail_input("canonical schema identity shape is invalid")
+    schema_sql_digest = _string(
+        canonical_schema.get("schemaSqlDigest"),
+        "canonical schema SQL digest",
+    )
+    schema_object_algorithm = _string(
+        canonical_schema.get("algorithm"),
+        "canonical schema object algorithm",
+    )
+    schema_object_digest = _string(
+        canonical_schema.get("digest"),
+        "canonical schema object digest",
+    )
+    schema_object_count = _integer(
+        canonical_schema.get("objectCount"),
+        "canonical schema object count",
+    )
+    if (
+        schema_object_algorithm != "bgmss-sqlite-schema-objects-v1"
+        or not schema_sql_digest.startswith("sha256:")
+        or len(schema_sql_digest) != 71
+        or not schema_object_digest.startswith("sha256:")
+        or len(schema_object_digest) != 71
+    ):
+        _fail_input("canonical schema identity is invalid")
+
     precedence = []
     for item in _array(matrix.get("validationPrecedence"), "validation precedence"):
         entry = _object(item, "validation precedence entry")
@@ -386,12 +424,21 @@ def _load_matrix(schema_root: Path) -> _Matrix:
         sentinel_ids.add(_string(sentinel.get("id"), "sentinel id"))
         _string(sentinel.get("sql"), "sentinel SQL")
         _integer(sentinel.get("expectedInteger"), "sentinel expected integer")
-    if len(sentinels) != 4 or len(sentinel_ids) != 4:
+    if not sentinels or len(sentinel_ids) != len(sentinels):
         _fail_input("sentinel inventory is invalid")
 
+    required_tables = _strings(matrix.get("requiredTables"), "required tables", count=20)
+    required_indexes = _strings(matrix.get("requiredIndexes"), "required indexes", count=15)
+    if schema_object_count != len(required_tables) + len(required_indexes):
+        _fail_input("canonical schema object count is invalid")
+
     return _Matrix(
-        required_tables=_strings(matrix.get("requiredTables"), "required tables", count=20),
-        required_indexes=_strings(matrix.get("requiredIndexes"), "required indexes", count=15),
+        required_tables=required_tables,
+        required_indexes=required_indexes,
+        schema_sql_digest=schema_sql_digest,
+        schema_object_algorithm=schema_object_algorithm,
+        schema_object_digest=schema_object_digest,
+        schema_object_count=schema_object_count,
     )
 
 
@@ -416,7 +463,10 @@ def _validate_ddl(schema_root: Path, matrix: _Matrix) -> str:
     for index in matrix.required_indexes:
         if f"CREATE INDEX {index}" not in text:
             _fail_input("schema.sql is missing a required index")
-    return _digest_bytes(ddl)
+    digest = _digest_bytes(ddl)
+    if digest != matrix.schema_sql_digest:
+        _fail_input("schema.sql digest disagrees with the compatibility matrix")
+    return digest
 
 
 def _walk_regular_files(root: Path) -> tuple[str, ...]:
@@ -469,10 +519,12 @@ def _index_entries(golden_root: Path, validator: _Validator) -> tuple[_IndexEntr
                 expected=_string(item.get("expected"), "fixture outcome"),
             )
         )
-    if len(entries) != 31 or len({entry.path for entry in entries}) != len(entries):
-        _fail_input("fixture index does not contain the approved 31 unique files")
+    if len(entries) != 32 or len({entry.path for entry in entries}) != len(entries):
+        _fail_input("fixture index does not contain the approved 32 unique files")
 
-    physical = set(_walk_regular_files(golden_root))
+    physical = {
+        path for path in _walk_regular_files(golden_root) if not path.startswith("producer/")
+    }
     physical.discard("index.json")
     indexed = {entry.path for entry in entries}
     if physical != indexed:

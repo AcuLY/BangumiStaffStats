@@ -5,10 +5,13 @@ build-backend = "hatchling.build"
 [project]
 name = "bangumi-staff-stats-updater"
 version = "0.1.0"
-description = "One-shot updater foundation for Bangumi Staff Stats"
+description = "One-shot immutable Archive producer for Bangumi Staff Stats"
 readme = "README.md"
 requires-python = ">=3.14.6,<3.15"
-dependencies = ["jsonschema==4.26.0"]
+dependencies = [
+  "jsonschema==4.26.0",
+  "pyyaml==6.0.3",
+]
 
 [project.scripts]
 bgmss-updater = "bangumi_staff_stats_updater.cli:run"
@@ -40,7 +43,7 @@ cache_dir = ".cache/mypy"
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["jsonschema", "jsonschema.*"]
+module = ["jsonschema", "jsonschema.*", "yaml", "yaml.*"]
 ignore_missing_imports = true
 
 [tool.ruff]

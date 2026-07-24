@@ -1145,8 +1145,7 @@
             "SOURCE_DIGEST_MISMATCH",
             "SOURCE_RECORD_MALFORMED",
             "SOURCE_RECORD_UNKNOWN_FIELD",
-            "SOURCE_DUPLICATE_CONFLICT",
-            "SOURCE_REFERENCE_MISSING"
+            "SOURCE_DUPLICATE_CONFLICT"
           ]
         },
         "source": {
@@ -1215,8 +1214,7 @@
             "SOURCE_DIGEST_MISMATCH",
             "SOURCE_RECORD_MALFORMED",
             "SOURCE_RECORD_UNKNOWN_FIELD",
-            "SOURCE_DUPLICATE_CONFLICT",
-            "SOURCE_REFERENCE_MISSING"
+            "SOURCE_DUPLICATE_CONFLICT"
           ]
         },
         "firstFailure": {

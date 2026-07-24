@@ -109,7 +109,6 @@ const PRODUCER_OUTCOMES = new Set([
   "SOURCE_RECORD_MALFORMED",
   "SOURCE_RECORD_UNKNOWN_FIELD",
   "SOURCE_DUPLICATE_CONFLICT",
-  "SOURCE_REFERENCE_MISSING",
 ]);
 const TABLE_NAMES = [
   "archive_meta",
@@ -1973,7 +1972,6 @@ function evaluateProducerCase(document, validators) {
       position,
     ]),
   );
-  let referenceFailure = null;
   function classify(entry, classification) {
     entry.classification = classification;
     accountingByName.get(entry.source)[classification] += 1;
@@ -2033,17 +2031,9 @@ function evaluateProducerCase(document, validators) {
             : "invalid",
         );
       }
-      if (entry.classification === "invalid" && !referenceFailure) {
-        referenceFailure = {
-          code: "SOURCE_REFERENCE_MISSING",
-          source: entry.source,
-          line: entry.line,
-        };
-      }
     }
   }
-  const firstFailure =
-    inputGateFailure ?? recordFailure ?? referenceFailure;
+  const firstFailure = inputGateFailure ?? recordFailure;
 
   const subjectRows = [...subjects.values()]
     .map(({ record }) => ({
@@ -2446,6 +2436,68 @@ function validateProducerRawDomainCoverage(documents) {
   };
 }
 
+function validateProducerDanglingReferenceCoverage(documents) {
+  const document = documents.get("missing-reference");
+  invariant(document, "producer missing-reference case is missing");
+  const sourceName = "subject-persons.jsonlines";
+  const records = producerCaseSourceRecords(document, sourceName);
+  const dangling = records.at(-1);
+  assert.deepEqual(
+    dangling,
+    { subject_id: 1, person_id: 999, position: 1 },
+    "producer dangling-reference sentinel",
+  );
+  const accounting = document.expected.accounting.find(
+    (entry) => entry.name === sourceName,
+  );
+  assert.deepEqual(
+    accounting,
+    {
+      name: sourceName,
+      recordsTotal: 7,
+      imported: 6,
+      duplicate: 0,
+      invalid: 1,
+      unresolved: 0,
+    },
+    "producer dangling-reference accounting",
+  );
+  assert.equal(
+    document.expected.logicalProjection.staffCredit.some(
+      (row) =>
+        row.subjectId === dangling.subject_id &&
+        row.personId === dangling.person_id &&
+        row.positionId === dangling.position,
+    ),
+    false,
+    "producer dangling reference must not produce a logical row",
+  );
+  assert.equal(
+    document.expected.tableCounts.staff_credit,
+    document.expected.logicalProjection.staffCredit.length,
+    "producer dangling reference must not produce a SQLite row",
+  );
+  assert.equal(document.expected.outcome, "VALID", "producer dangling outcome");
+  assert.equal(
+    document.expected.firstFailure,
+    null,
+    "producer dangling reference must not expose a fatal failure",
+  );
+  assert.equal(
+    document.expected.candidateAllowed,
+    true,
+    "producer dangling reference must permit a candidate",
+  );
+  return {
+    source: sourceName,
+    line: records.length,
+    invalid: accounting.invalid,
+    logicalRows: document.expected.logicalProjection.staffCredit.length,
+    outcome: document.expected.outcome,
+    candidateAllowed: document.expected.candidateAllowed,
+  };
+}
+
 function validateProducerCorpus(validators, canonicalIndex) {
   const indexPath = path.join(PRODUCER_ROOT, "index.json");
   const index = readJson(indexPath);
@@ -2535,6 +2587,7 @@ function validateProducerCorpus(validators, canonicalIndex) {
     );
   }
   const rawDomains = validateProducerRawDomainCoverage(documents);
+  const danglingReference = validateProducerDanglingReferenceCoverage(documents);
   return {
     indexDigest: fileDigest(indexPath),
     indexedFiles: index.files.length,
@@ -2545,6 +2598,7 @@ function validateProducerCorpus(validators, canonicalIndex) {
       digest: entry.digest,
     })),
     rawDomains,
+    danglingReference,
     reports,
   };
 }

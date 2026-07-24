@@ -1,4 +1,4 @@
-"""Terminating command-line interface for the updater foundation."""
+"""Terminating command-line interface for immutable Archive production."""
 
 from __future__ import annotations
 
@@ -11,6 +11,8 @@ from typing import NoReturn
 
 from . import __version__
 from .archive_contract import ContractExpectationError, ContractInputError, check_contracts
+from .producer.model import ProducerError
+from .producer.service import ProduceRequest, produce
 
 _PROGRAM = "bgmss-updater"
 
@@ -45,6 +47,13 @@ def _parser() -> _Parser:
         allow_abbrev=False,
     )
     contract.add_argument("--contracts-root", required=True)
+    producer = subcommands.add_parser("produce", allow_abbrev=False)
+    producer.add_argument("--output-root", required=True)
+    producer.add_argument("--contracts-root", required=True)
+    producer.add_argument("--catalog-config", required=True)
+    producer.add_argument("--common-commit", required=True)
+    producer.add_argument("--archive-smoke", required=True)
+    producer.add_argument("--generated-at")
     return parser
 
 
@@ -52,6 +61,15 @@ def _emit(code: str, status: str, *, error: bool) -> None:
     output = json.dumps({"code": code, "status": status}, sort_keys=True, separators=(",", ":"))
     encoded = f"{output}\n"
     if len(encoded.encode()) > 256:
+        raise RuntimeError
+    stream = sys.stderr if error else sys.stdout
+    stream.write(encoded)
+
+
+def _emit_document(document: dict[str, object], *, error: bool) -> None:
+    output = json.dumps(document, sort_keys=True, separators=(",", ":"))
+    encoded = f"{output}\n"
+    if len(encoded.encode()) > 512:
         raise RuntimeError
     stream = sys.stderr if error else sys.stdout
     stream.write(encoded)
@@ -73,6 +91,19 @@ def main(args: Sequence[str] | None = None) -> int:
             check_contracts(Path(namespace.contracts_root))
             _emit("VALID", "ok", error=False)
             return 0
+        if namespace.command == "produce":
+            result = produce(
+                ProduceRequest(
+                    output_root=Path(namespace.output_root),
+                    contracts_root=Path(namespace.contracts_root),
+                    catalog_config=Path(namespace.catalog_config),
+                    common_commit=namespace.common_commit,
+                    archive_smoke=Path(namespace.archive_smoke),
+                    generated_at=namespace.generated_at,
+                )
+            )
+            _emit_document(result.as_json(), error=False)
+            return 0
         raise RuntimeError
     except _ParserExit as error:
         if error.message is not None:
@@ -87,6 +118,19 @@ def main(args: Sequence[str] | None = None) -> int:
     except ContractExpectationError:
         _emit("CONTRACT_CHECK_FAILED", "error", error=True)
         return 1
+    except ProducerError as error:
+        code = error.code
+        if (
+            not code
+            or len(code) > 64
+            or any(character not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" for character in code)
+        ):
+            code = "PRODUCER_FAILED"
+        _emit(code, "error", error=True)
+        return 1
+    except KeyboardInterrupt:
+        _emit("CANCELED", "error", error=True)
+        return 130
     except Exception:
         _emit("INTERNAL_ERROR", "error", error=True)
         return 70

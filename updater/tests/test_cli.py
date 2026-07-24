@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import logging
 import os
 import subprocess
@@ -19,6 +20,8 @@ from bangumi_staff_stats_updater.archive_contract import (
     ContractExpectationError,
     ContractInputError,
 )
+from bangumi_staff_stats_updater.producer.model import ProducerError
+from bangumi_staff_stats_updater.producer.service import ProduceResult
 
 
 def _invoke(
@@ -35,7 +38,7 @@ def test_version_is_exact(capsys: pytest.CaptureFixture[str]) -> None:
     assert _invoke(["--version"], capsys) == (0, "bgmss-updater 0.1.0\n", "")
 
 
-def test_help_is_deterministic_and_lists_only_foundation_commands(
+def test_help_is_deterministic_and_lists_only_terminating_commands(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     first = _invoke(["--help"], capsys)
@@ -44,14 +47,18 @@ def test_help_is_deterministic_and_lists_only_foundation_commands(
     assert first == second
     assert first[0] == 0
     assert first[2] == ""
-    assert len(first[1].encode()) <= 256
+    assert len(first[1].encode()) <= 512
     assert "doctor" in first[1]
     assert "contract-check" in first[1]
+    assert "produce" in first[1]
     for forbidden in ("build", "publish", "activate", "serve", "watch", "daemon", "schedule"):
         assert forbidden not in first[1]
 
 
-@pytest.mark.parametrize("command", [["doctor", "--help"], ["contract-check", "--help"]])
+@pytest.mark.parametrize(
+    "command",
+    [["doctor", "--help"], ["contract-check", "--help"], ["produce", "--help"]],
+)
 def test_subcommand_help_is_bounded(
     command: list[str],
     capsys: pytest.CaptureFixture[str],
@@ -59,7 +66,7 @@ def test_subcommand_help_is_bounded(
     status, stdout, stderr = _invoke(command, capsys)
     assert status == 0
     assert stderr == ""
-    assert len(stdout.encode()) <= 256
+    assert len(stdout.encode()) <= 1024
 
 
 def test_doctor_is_exact(capsys: pytest.CaptureFixture[str]) -> None:
@@ -80,12 +87,58 @@ def test_contract_check_success(
     ) == (0, '{"code":"VALID","status":"ok"}\n', "")
 
 
+def test_produce_success_is_bounded_and_exact(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    observed: list[object] = []
+
+    def succeed(request: object) -> ProduceResult:
+        observed.append(request)
+        return ProduceResult(
+            "published",
+            "dv1-" + ("a" * 64),
+            "sha256:" + ("b" * 64),
+            "sha256:" + ("c" * 64),
+        )
+
+    monkeypatch.setattr(cli, "produce", succeed)
+    args = [
+        "produce",
+        "--output-root",
+        "/archive",
+        "--contracts-root",
+        "/contracts",
+        "--catalog-config",
+        "/catalog.json",
+        "--common-commit",
+        "d" * 40,
+        "--archive-smoke",
+        "/archive-smoke",
+        "--generated-at",
+        "2026-07-25T00:00:00Z",
+    ]
+    status, stdout, stderr = _invoke(args, capsys)
+    assert status == 0
+    assert stderr == ""
+    assert len(stdout.encode()) <= 512
+    assert json.loads(stdout) == {
+        "code": "ARCHIVE_READY",
+        "dataVersion": "dv1-" + ("a" * 64),
+        "manifestDigest": "sha256:" + ("b" * 64),
+        "sqliteDigest": "sha256:" + ("c" * 64),
+        "status": "published",
+    }
+    assert len(observed) == 1
+
+
 @pytest.mark.parametrize(
     "args",
     [
         [],
         ["unknown"],
         ["contract-check"],
+        ["produce"],
         ["contract-check", "--contracts-r", "secret-value"],
         ["build"],
         ["publish"],
@@ -146,6 +199,36 @@ def test_contract_failures_are_redacted_and_bounded(
     assert "traceback" not in stderr
 
 
+def test_producer_failure_is_redacted_and_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fail(_request: object) -> NoReturn:
+        raise ProducerError("SOURCE_DIGEST_MISMATCH", evidence="/private/source")
+
+    monkeypatch.setattr(cli, "produce", fail)
+    status, stdout, stderr = _invoke(
+        [
+            "produce",
+            "--output-root",
+            "/archive",
+            "--contracts-root",
+            "/contracts",
+            "--catalog-config",
+            "/catalog.json",
+            "--common-commit",
+            "d" * 40,
+            "--archive-smoke",
+            "/archive-smoke",
+        ],
+        capsys,
+    )
+    assert status == 1
+    assert stdout == ""
+    assert stderr == '{"code":"SOURCE_DIGEST_MISMATCH","status":"error"}\n'
+    assert "/private" not in stderr
+
+
 def test_invalid_real_root_is_redacted(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -187,6 +270,11 @@ def test_imports_do_not_start_runtime_work(
         "bangumi_staff_stats_updater.archive_contract",
         "bangumi_staff_stats_updater.cli",
         "bangumi_staff_stats_updater.__main__",
+        "bangumi_staff_stats_updater.producer.acquisition",
+        "bangumi_staff_stats_updater.producer.builder",
+        "bangumi_staff_stats_updater.producer.manifest",
+        "bangumi_staff_stats_updater.producer.service",
+        "bangumi_staff_stats_updater.producer.staging",
     ):
         sys.modules.pop(module_name, None)
     importlib.import_module("bangumi_staff_stats_updater")

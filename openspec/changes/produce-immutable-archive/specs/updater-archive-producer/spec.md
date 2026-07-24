@@ -10,7 +10,7 @@
 | Mutable refs | None. |
 | Consumes | Accepted foundations/consumer, the corrected Archive subject, manifest-string, and raw-domain contract, Contracts producer cases, and one explicit source/build request. |
 | Produces | One inactive `versions/<dataVersion>/{manifest.json,bangumi.sqlite}` or bounded no-change/failure evidence. |
-| Dependencies | Accepted `contracts-archive-manifest`, exited `correct-archive-subject-semantics`, `harden-archive-manifest-string-semantics`, and `correct-archive-raw-domain-semantics`, `updater-runtime-foundation`, `backend-archive-consumer`, and `backend/cmd/archive-smoke`; PyYAML `6.0.3`. |
+| Dependencies | Accepted `contracts-archive-manifest`, exited `correct-archive-subject-semantics`, `harden-archive-manifest-string-semantics`, `correct-archive-raw-domain-semantics`, and `correct-archive-staffset-key-bound`, `updater-runtime-foundation`, `backend-archive-consumer`, and `backend/cmd/archive-smoke`; PyYAML `6.0.3`. |
 | Deliverables | One-shot CLI/API, acquisition/staging/builder/gates/finalizer, tests/lock/docs. |
 | Acceptance | Synthetic and complete-source smoke, Go candidate validation, reproducibility, full Python/dependency/residue gates. |
 | Non-goals | Pointer/current, activation/reload/rollback, schedule/daemon/lock/restart, catalog enrichment, API/query, operations. |
@@ -46,7 +46,16 @@ build a new SQLite v1 with deterministic keys/order and bounded transactions;
 it MUST NOT load all sources into memory, reuse/upsert an old DB, infer missing
 facts, or silently drop deletion/conflict/reference evidence. Unknown staff
 positions allowed by the contract SHALL remain raw/non-selectable/unresolved;
-malformed, conflicting, or dangling-required facts SHALL fail.
+syntactically valid relationship lines with an absent required Archive identity
+SHALL be excluded from logical/SQLite rows and counted once as `invalid`;
+malformed/unknown-field/wrong-domain records and conflicting duplicates SHALL
+remain fatal. The resulting SQLite SHALL pass foreign-key and reference
+integrity with no fabricated placeholder.
+
+Upstream empty strings in nullable `subject.name_cn` and `subject.date` SHALL
+normalize to SQL `NULL`; an empty date SHALL also produce null date precision.
+Every non-empty name/date byte sequence SHALL continue through the registered
+strict validation without fallback or inference.
 
 The source adapter SHALL accept only subject types `1/2/3/4/6` and map them to
 `book/anime/music/game/real`. It SHALL preserve cast roles as integers `1..6`
@@ -60,8 +69,16 @@ text role/relation mapping.
 - **THEN** every expected logical row, exclusive accounting equation, table count, quality code, and raw unknown-position fact SHALL match
 
 #### Scenario: A line is malformed or conflicts
-- **WHEN** a line is invalid, an identity repeats with different content, or a required reference cannot resolve
+- **WHEN** a record is malformed/unknown-field/wrong-domain or an identity repeats with different content
 - **THEN** the declared first failure SHALL occur before finalization with no partial catalog/database published
+
+#### Scenario: A required Archive reference is absent
+- **WHEN** a syntactically valid relationship line refers to an absent subject, person, character, or required exact pairing
+- **THEN** that physical line SHALL count once as `invalid`, produce no dangling logical/SQLite row, and SHALL NOT fail the otherwise valid batch
+
+#### Scenario: A nullable upstream field is empty
+- **WHEN** a subject carries an empty `name_cn` or `date`
+- **THEN** the producer SHALL store SQL `NULL` (and null date precision) without changing any non-empty fact
 
 #### Scenario: Raw upstream domains cross the producer boundary
 - **WHEN** source records exercise every accepted subject type, cast role, and numeric relation direction

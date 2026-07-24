@@ -8,9 +8,9 @@
 | Read-only protected inputs | Root `contracts/goldens/archive/index.json`, all 32 paths it indexes, every remaining Archive schema/golden, updater/backend code, root specs, and other changes/state. |
 | Deletion complement | None. |
 | Mutable refs | None. |
-| Consumes | The corrected, string-hardened, raw-domain-preserving closed Archive contract and SQLite v1 authority. |
+| Consumes | The corrected, string-hardened, raw-domain-preserving, staff-set-bound-corrected closed Archive contract and SQLite v1 authority. |
 | Produces | Closed, indexed synthetic producer inputs and expected results. |
-| Dependencies | Accepted `contracts-archive-manifest` after exited `correct-archive-subject-semantics`, `harden-archive-manifest-string-semantics`, and `correct-archive-raw-domain-semantics`; no runtime implementation dependency. |
+| Dependencies | Accepted `contracts-archive-manifest` after exited `correct-archive-subject-semantics`, `harden-archive-manifest-string-semantics`, `correct-archive-raw-domain-semantics`, and `correct-archive-staffset-key-bound`; no runtime implementation dependency. |
 | Deliverables | Producer case/index schemas, positive/accounting/failure cases, expected logical rows/counts/identity, one separately closed producer index, and canonical-corpus-preserving verifier/builder documentation. |
 | Acceptance | The accepted root index and 32 canonical paths/bytes remain byte-identical; the producer subtree is separately schema-valid, hash-closed, semantically recomputed, and independently reviewed before updater apply. |
 | Non-goals | Full downloaded Archive, schema changes, producer/backend implementation, activation or operations. |
@@ -32,6 +32,14 @@ producer outcome, first failure, and whether a final candidate may exist. No
 case may contain downloaded full-dump, secret, user, pointer, or `current.json`
 data.
 
+The missing-required-reference case SHALL represent a syntactically valid
+relationship line whose referenced Archive identity is absent. It SHALL count
+that physical line exactly once as `invalid`, exclude the dangling logical and
+SQLite row, retain a referentially complete candidate, and finish as `VALID`
+with no first failure. `SOURCE_REFERENCE_MISSING` SHALL NOT remain an exposed
+fatal producer outcome. Malformed records and conflicting duplicates remain
+fatal and SHALL NOT be reclassified as ordinary invalid accounting.
+
 `producer-case.schema.json` and `producer-index.schema.json` SHALL be strict
 JSON Schema 2020-12 documents with closed objects, bounded strings/arrays and
 JSON-safe integers. `producer/index.json` SHALL list every other file below
@@ -50,9 +58,9 @@ closed inventories separately and reject any cross-index path. Neither the
 producer schemas nor cases alter the Archive manifest, pointer, SQLite schema,
 compatibility tuple, canonical fixture outcome, or accepted consumer behavior.
 The protected root-index SHA-256 SHALL remain
-`db3e9d2f81a90f8c7b36e9d6a0010bb35c54b4b0890d21ea4ecbe2f0b0979801`;
+`655d77b46bf3a76c67ab74d11abd250aa5ab08e770a17732148fc327f74786c6`;
 the SHA-256 of its `LC_ALL=C` sorted `<path><TAB><digest><LF>` table SHALL
-remain `cd6c1609e94d86b665b1c053874266c48f09826fcb11c8691b1c6249c1d3927c`.
+remain `e83b9ba65759b314398204d23ff17adf17e5761d3ff0543f98ce3512071e2357`.
 
 The positive and rejection cases SHALL cover all five registered source type
 codes, all six integer cast roles, directed relation codes `2/3`, another
@@ -67,8 +75,13 @@ Archive values.
 - **AND** any needed schema/semantic change SHALL stop for a separate Contracts-authority amendment rather than be implemented privately
 
 #### Scenario: A producer failure case is evaluated
-- **WHEN** one declared record/source/digest invariant is violated
+- **WHEN** one declared fatal record/source/digest invariant is violated
 - **THEN** the case SHALL name one bounded first failure and assert that no final Archive candidate exists
+
+#### Scenario: A syntactically valid relationship dangles
+- **WHEN** one relationship line references an Archive identity absent from the complete input set
+- **THEN** that line SHALL contribute once to its source `invalid` count and no logical/SQLite row
+- **AND** the otherwise valid candidate SHALL complete without `SOURCE_REFERENCE_MISSING`
 
 #### Scenario: Canonical and producer inventories are confused
 - **WHEN** a producer path enters the root index, a canonical path enters the producer sub-index, either inventory has an unindexed/missing/duplicate/hash-drifted/symlink/non-regular path, or any accepted canonical byte changes
