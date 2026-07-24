@@ -9,7 +9,7 @@ producer owner writes backend or contract authority.
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved after resolving the closed-index/tooling conflict with a disjoint producer sub-index; implemented: Contracts and Updater complete; verified: 133-test offline suite plus explicit complete-source Python-to-real-Go smoke, strict Python/build/dependency/Contracts/OpenSpec gates, canonical 32-file seal, final inventory, and residue checks passed; committed: pending this phase commit; pushed/released/deployed: no |
+| Status | investigated: complete; specified: approved after resolving the closed-index/tooling conflict with a disjoint producer sub-index; implemented: Contracts and Updater complete; verified: 133-test offline suite plus explicit complete-source Python-to-real-Go smoke, strict Python/build/dependency/Contracts/OpenSpec gates, canonical 32-file seal, final inventory, and residue checks passed; committed: `9d890174`; pushed/released/deployed: no |
 | Owner | Contracts owner completes and hands off goldens; Updater owner applies producer; main agent reviews/accepts. |
 | Writable paths | Exactly the planning, Contracts, and Updater owner sets in `proposal.md`; owners are sequential and disjoint. |
 | Read-only protected inputs | The canonical Archive root index and its 32 accepted paths/bytes, remaining Archive schemas/contracts, accepted consumer, guides/specs, other code/changes, refs/remotes, hosts, and production. |

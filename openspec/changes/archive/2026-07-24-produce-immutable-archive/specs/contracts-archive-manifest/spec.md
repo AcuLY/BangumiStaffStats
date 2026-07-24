@@ -44,7 +44,7 @@ accepted consumer corpus outcome.
 Neither corpus SHALL contain downloaded full Archive data, a real user
 collection, token, secret, or production pointer.
 
-#### Scenario: Closed canonical corpus is verified
+#### Scenario: Closed corpus is verified
 - **WHEN** the verifier walks canonical paths below `contracts/goldens/archive/**`
 - **THEN** their path set SHALL equal the unchanged root-index path set exactly
 - **AND** every canonical case SHALL produce its indexed outcome in the fixed precedence
@@ -58,7 +58,7 @@ collection, token, secret, or production pointer.
 - **WHEN** the canonical corrupt-SQLite case has a manifest whose SQLite digest matches the deliberately corrupt bytes
 - **THEN** validation SHALL pass the digest gate and fail specifically as `SQLITE_FORMAT_INVALID`
 
-#### Scenario: Either inventory drifts
+#### Scenario: Fixture bytes drift
 - **WHEN** a canonical or producer golden is added, removed, replaced, symlinked, cross-indexed, or changed without its owning exact index and expected result
 - **THEN** contract verification SHALL fail before candidate acceptance
 - **AND** canonical fixture regeneration SHALL NOT rewrite or bless producer evidence

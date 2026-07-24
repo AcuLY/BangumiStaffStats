@@ -2,7 +2,7 @@
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: Contracts producer block and Updater complete; verified: 133-test offline suite plus explicit complete-source Python-to-real-Go smoke, strict Python/build/dependency/Contracts/OpenSpec gates, canonical 32-file seal, final inventory, and residue checks passed; committed: pending this phase commit; pushed/released/deployed: no |
+| Status | investigated: complete; specified: approved; implemented: Contracts producer block and Updater complete; verified: 133-test offline suite plus explicit complete-source Python-to-real-Go smoke, strict Python/build/dependency/Contracts/OpenSpec gates, canonical 32-file seal, final inventory, and residue checks passed; committed: `9d890174`; pushed/released/deployed: no |
 | Owner | Contracts owner first, Updater owner second, main agent acceptance last. |
 | Writable paths | Each owner may write only its exact `proposal.md` path set and its own task markers. |
 | Read-only protected inputs | Root Archive golden index and its 32 canonical paths/bytes, all schemas/contracts outside the exact Contracts writable set, accepted consumer, guides/specs, other code/changes, refs/remotes, hosts/production. |
@@ -37,4 +37,4 @@
 ## 3. Main-agent acceptance
 
 - [x] 3.1 Audit both disjoint owner diffs and evidence, rerun material offline/full-source/Go/OpenSpec/inventory gates, and confirm protected bytes, prior versions, external state, refs, and `current.json` remained untouched.
-- [ ] 3.2 Record exact investigated/implemented/verified/committed/pushed/released/deployed state; after acceptance, the main agent may perform the explicitly authorized archive/stage/commit workflow and continue later development, but must not push, release, deploy, activate, or start operations.
+- [x] 3.2 Record exact investigated/implemented/verified/committed/pushed/released/deployed state; after acceptance, the main agent may perform the explicitly authorized archive/stage/commit workflow and continue later development, but must not push, release, deploy, activate, or start operations.
