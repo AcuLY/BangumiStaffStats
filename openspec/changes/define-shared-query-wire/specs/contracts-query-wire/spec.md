@@ -2,12 +2,12 @@
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: draft pending strict validation and main-agent approval; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: initial checkpoint approved, toolchain correction pending approval; implemented: partial candidate retained; verified: preflight and paused-state seals only; committed: initial planning checkpoint only, correction and product not committed; pushed: no; released: no; deployed: no |
 | Owner | Contracts owner / capability `contracts-query-wire`; spec subagent plans, implementation/finalization subagents apply/test/commit/archive, main agent only reviews/amends OpenSpec and performs read-only acceptance |
 | Writable paths | Planning: `openspec/changes/define-shared-query-wire/**`. Apply: `contracts/openapi/**`, `contracts/schemas/query/**`, `contracts/goldens/query/**` |
 | Read-only protected inputs | `PRODUCT.md`; `DESIGN.md`; `openspec/config.yaml`; `openspec/specs/contracts-rewrite-baseline/spec.md`; `tmp-formal-development/formal-development-master-plan.md`; `tmp-formal-development/data-logic-implementation-guide.md`; `tmp-formal-development/backend-development-implementation-guide.md`; `tmp-formal-development/decisions/prototype-data-logic-audit.md`; `.impeccable/**`; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`, especially `frontend/src/workbench/types.ts`, `frontend/src/workbench/components/QueryWorkspace.vue`, `frontend/src/workbench/composables/useWorkbench.ts`, `frontend/public/workbench-data/co-star-snapshot.json`, and `frontend/public/workbench-data/position-data.json` |
 | Deletion complement | Empty; no existing tracked path may be deleted, moved, or rewritten outside the apply roots, and no pre-existing path inside those roots may be removed without an approved amendment |
-| Mutable refs | Before apply, one delegated checkpoint subagent may advance `refs/heads/codex/formal-rewrite` once from exact parent `e5d67d7d74614b7a95da4a7887caa8e1f25bc307` using subject `docs(openspec): approve wave 1 shared contracts` and only the two approved Wave 1A change directories. During apply, only this change's checkbox markers may change and every Git ref/index remains immutable. After both candidates are accepted, one finalization subagent alone may advance the branch with the exact combined phase commit, without amend/rebase/tag/push |
+| Mutable refs | Initial checkpoint is `c7f868e2861e8fea250f033c27538ecf793bacad`. One sealed observed correction may advance `refs/heads/codex/formal-rewrite` once from that commit with subject `docs(openspec): approve wave 1 archive toolchain correction` and exactly both changes' proposal/design/spec/tasks, never product/cache output. After main-agent acceptance of that replacement apply checkpoint, only task checkboxes may change and every Git ref/index remains immutable until one accepted combined finalization commit; no amend/rebase/tag/push |
 | Consumes | Accepted `establish-formal-rewrite-baseline`; protected authorities/oracle; read-only locked npm and Go module downloads used only for contract verification |
 | Produces | Authoritative OpenAPI 3.1 components, draft 2020-12 query/digest-projection/error/share schemas, language-neutral positive/negative/normalization/queryDigest vectors, pinned Unicode 15.1 age/NFKC/folding evidence, oracle limit evidence, and Go/TS generation-feasibility evidence |
 | Dependencies | `establish-formal-rewrite-baseline` |
@@ -16,6 +16,22 @@
 | Non-goals | Endpoint paths/results/handlers, store/cache lookup or cache-key composition/statistics, collection access, catalog implementation, Archive wire, UI/runtime adapters, server-side share service, runtime consumer tests |
 | Operations deferred | No nginx, systemd, production Compose/timers, deployment/release, secrets, host changes, production activation, registry push, monitoring rollout, migration, or legacy removal |
 | Stop/rollback conditions | Stop on missing approval, branch/HEAD/dependency/protected-input/dirty-state mismatch, write outside owned paths, unlocked tool, failed lint/vector/codegen, or P0/P1 finding. Preserve evidence and use explicit path-scoped correction only; never reset-hard, checkout rollback, git clean, broad recursive deletion, or history rewrite |
+
+### Lifecycle control (not synchronized): The observed correction checkpoint preserves the paused apply bytes
+
+At the observed recovery boundary, both apply owners SHALL be stopped at initial HEAD `c7f868e2861e8fea250f033c27538ecf793bacad` with an empty index. Query tasks 1.1–1.3 SHALL be the only checked Query tasks. Its 23 persistent regular files SHALL retain aggregate `9203d122d69629e6fcd4c24774108f7c7e1831ebf1299228fa743c40d6295f44`; all regular files including retained cache/install state SHALL retain aggregate `38dc3dfdf68ed1073d99a50ecb6574a1d87e63de8f050203f99c14a72962f586`; and its symlink path/target stream SHALL retain aggregate `4aa5af9e55948f608d1ef3d7f06ca5d76775946c2638deef2db7276d264fbfae`.
+
+The delegated correction SHALL stage and commit exactly proposal, design, delta spec, and tasks for this change and `define-archive-manifest-contract`, with exact subject `docs(openspec): approve wave 1 archive toolchain correction` and sole parent the initial HEAD. It SHALL stage no `contracts/**` path and SHALL run no product-writing command. Apply SHALL remain stopped until the main agent accepts the replacement HEAD and re-proves both owners' product/cache seals. Each original owner SHALL then resume from the first unchecked task after re-snapshotting the new HEAD and sibling boundary.
+
+#### Scenario: Correction preserves the Query candidate
+
+- **WHEN** the correction subagent compares the pre-commit and post-commit paused Query inventories
+- **THEN** all three Query seals SHALL equal the values above, the index SHALL be empty after commit, and only the eight approved OpenSpec paths SHALL appear in the correction commit
+
+#### Scenario: Apply resumes from the accepted replacement checkpoint
+
+- **WHEN** the main agent accepts the correction commit and unchanged Query/Archive seals
+- **THEN** the Query owner SHALL retain its current product/cache bytes, re-snapshot the new HEAD, and continue from task 2.1 without redoing or claiming additional completed work
 
 The authoritative contract producer is the Contracts owner. Future Go backend and TypeScript frontend foundations are independent consumers of `contracts/openapi/openapi.yaml`, `contracts/schemas/query/**`, and the same `contracts/goldens/query/**`; neither consumer becomes a second contract or statistical authority. This capability SHALL NOT create a nested `openspec/` root or nested generated OpenSpec skill set.
 

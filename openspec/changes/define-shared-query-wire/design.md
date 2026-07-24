@@ -18,12 +18,12 @@ The oracle fixture contains a real eight-byte public UID, 7,059 public/meta/pers
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: draft pending strict validation and main-agent approval; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: initial checkpoint approved, toolchain correction pending approval; implemented: partial candidate retained; verified: preflight and paused-state seals only; committed: initial planning checkpoint only, correction and product not committed; pushed: no; released: no; deployed: no |
 | Owner | Contracts owner / `contracts-query-wire`; spec subagent authors planning artifacts, implementation/finalization subagents apply/test/commit/archive, main agent reviews/amends OpenSpec and performs read-only acceptance |
 | Writable paths | Planning only: `openspec/changes/define-shared-query-wire/**`. Apply only: `contracts/openapi/**`, `contracts/schemas/query/**`, `contracts/goldens/query/**` |
 | Read-only protected inputs | `PRODUCT.md`; `DESIGN.md`; `openspec/config.yaml`; `openspec/specs/contracts-rewrite-baseline/spec.md`; `tmp-formal-development/formal-development-master-plan.md`; `tmp-formal-development/data-logic-implementation-guide.md`; `tmp-formal-development/backend-development-implementation-guide.md`; `tmp-formal-development/decisions/prototype-data-logic-audit.md`; `.impeccable/**`; oracle commit and the five oracle paths listed above |
 | Deletion complement | Empty; no tracked deletion, move, or rewrite is authorized outside the apply roots, and no existing path within them may be removed without an approved OpenSpec amendment |
-| Mutable refs | Pre-apply checkpoint: one delegated checkpoint subagent may advance `refs/heads/codex/formal-rewrite` once from exact parent `e5d67d7d74614b7a95da4a7887caa8e1f25bc307` with exact subject `docs(openspec): approve wave 1 shared contracts` and only the two approved Wave 1A change directories. During apply, only this change's task-checkbox markers may change and every Git ref/index remains immutable. After both candidates are accepted, one finalization subagent alone may advance the branch with the exact combined phase commit; no amend, rebase, tag, push, or other ref mutation |
+| Mutable refs | The accepted initial checkpoint is `c7f868e2861e8fea250f033c27538ecf793bacad`. One observed correction checkpoint may advance `refs/heads/codex/formal-rewrite` once from that commit with exact subject `docs(openspec): approve wave 1 archive toolchain correction` and exactly eight OpenSpec artifact paths after both apply owners stop, all product/cache bytes are sealed, and both task checkbox sets are sealed; no product path is staged. Apply resumes only after main-agent acceptance of the replacement checkpoint, then only task checkboxes may change and every Git ref/index remains immutable. After both final candidates are accepted, one finalization subagent alone may advance the branch with the exact combined phase commit; no amend, rebase, tag, push, or other ref mutation |
 | Consumes | Accepted `establish-formal-rewrite-baseline`; protected authorities/oracle; read-only npm registry and Go module proxy downloads for locked development tools |
 | Produces | OpenAPI 3.1 component document; JSON Schema draft 2020-12 query/error/share schemas; positive/negative/normalization/queryDigest/limit/codegen evidence; locked Node-only contract verifier |
 | Dependencies | Exact direct dependency: `establish-formal-rewrite-baseline` |
@@ -32,6 +32,23 @@ The oracle fixture contains a real eight-byte public UID, 7,059 public/meta/pers
 | Non-goals | Endpoint paths/results/handlers, runtime adapters, catalog/store/cache lookup/statistics, Archive wire, UI, server-side share persistence, runtime consumer tests |
 | Operations deferred | Production proxy/process/container orchestration, timer, deployment/release, secrets, host mutation, production activation, registry push, monitoring rollout, migration |
 | Stop/rollback conditions | Stop on branch/HEAD/approval/dependency/protected-input/dirty-state/path mismatch, schema disagreement, unlocked dependency, failed vector/codegen, or P0/P1 finding. Preserve evidence and use only explicit path-scoped corrections; never reset-hard, checkout rollback, git clean, broad recursive deletion, or history rewrite |
+
+### Observed mid-apply recovery protocol
+
+The initial apply reached a sealed, partially implemented state before the sibling Archive owner discovered the locked `quicktype@26.0.0` / `stream-json@3.5.0` engine contradiction. Both apply owners then stopped at `c7f868e2861e8fea250f033c27538ecf793bacad`, with an empty index and no ref mutation. Query had completed only tasks 1.1–1.3. Its current persistent inventory is exactly 23 regular files under the three owned roots; the sorted `shasum -a 256` output has aggregate `9203d122d69629e6fcd4c24774108f7c7e1831ebf1299228fa743c40d6295f44`. Including retained `.cache/npm/**` and `node_modules/**`, the same all-regular-file aggregate is `38dc3dfdf68ed1073d99a50ecb6574a1d87e63de8f050203f99c14a72962f586`; the sorted `path<TAB>readlink-target` stream for all symlinks has aggregate `4aa5af9e55948f608d1ef3d7f06ca5d76775946c2638deef2db7276d264fbfae`. Those bytes are evidence, not correction-checkpoint content.
+
+The correction checkpoint contains exactly these eight paths:
+
+- `openspec/changes/define-shared-query-wire/proposal.md`
+- `openspec/changes/define-shared-query-wire/design.md`
+- `openspec/changes/define-shared-query-wire/specs/contracts-query-wire/spec.md`
+- `openspec/changes/define-shared-query-wire/tasks.md`
+- `openspec/changes/define-archive-manifest-contract/proposal.md`
+- `openspec/changes/define-archive-manifest-contract/design.md`
+- `openspec/changes/define-archive-manifest-contract/specs/contracts-archive-manifest/spec.md`
+- `openspec/changes/define-archive-manifest-contract/tasks.md`
+
+A quiescent correction subagent first re-proves the branch, exact parent, empty index, checked-task sets, and both owners' persistent/physical/symlink seals. It stages only those eight paths, proves the cached path set is exact and no `contracts/**` byte is staged, creates the exact-subject correction commit, and stops. The main agent then performs read-only acceptance of the new HEAD, sole parent/delta/subject, empty index, and unchanged product/cache seals. Only after that acceptance may the two original owners resume: each re-snapshots the replacement HEAD and sibling state, keeps the retained candidate, and continues from its first unchecked task. No cleanup, install, generator, verifier, or other product-writing command is permitted between the initial seal and accepted replacement checkpoint.
 
 Dependency direction is:
 

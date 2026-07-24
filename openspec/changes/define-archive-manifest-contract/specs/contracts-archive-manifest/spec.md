@@ -2,12 +2,12 @@
 
 | Field | Declaration |
 |---|---|
-| Status | Proposed; apply blocked until every planning artifact passes strict validation and explicit main-agent review |
+| Status | investigated: complete; specified: initial checkpoint approved, toolchain correction pending approval; implemented: partial candidate retained; verified: preflight and paused-state seals only; committed: initial planning checkpoint only, correction and product not committed; pushed: no; released: no; deployed: no |
 | Owner | Contracts owner / `contracts-archive-manifest`; apply, finalization, commit, and archive are delegated subagent work; main agent only amends OpenSpec and performs read-only acceptance |
 | Writable paths | Exactly `contracts/schemas/archive/**` and `contracts/goldens/archive/**` |
 | Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, `openspec/config.yaml`, existing root specs, all formal-development guides/decisions, Impeccable files, and oracle commit `644b7748674e553f863d0ffd61d029f86fdc0717` |
 | Deletion complement | Every path outside the two writable roots and every unenumerated pre-existing path inside them; sibling query paths are tolerated read-only state, not writable state |
-| Mutable refs | Before apply, one delegated checkpoint subagent may advance `refs/heads/codex/formal-rewrite` once from exact parent `e5d67d7d74614b7a95da4a7887caa8e1f25bc307` with subject `docs(openspec): approve wave 1 shared contracts` and only the two approved Wave 1A change directories. Parallel apply may then change only this change’s `tasks.md` checkboxes and no Git ref/index; one later finalization subagent may update the branch through the accepted combined Wave 1A commit |
+| Mutable refs | Initial checkpoint is `c7f868e2861e8fea250f033c27538ecf793bacad`. One sealed observed correction may advance the branch once from it with exact subject `docs(openspec): approve wave 1 archive toolchain correction` and exactly proposal/design/spec/tasks for both Wave 1A changes, no product/cache bytes. After main-agent acceptance of that replacement checkpoint, parallel apply may change only task checkboxes and no Git ref/index; one later finalization subagent may update the branch through the accepted combined commit |
 | Consumes | `contracts-rewrite-baseline`, master plan Wave 1, backend guide §3, data guide Phases 0–1, `DR-DATA-PIPELINE-001`, `DR-DATA-SCHEMA-001`, and read-only oracle evidence |
 | Produces | Strict Archive/pointer/dataVersion/index schemas, SQLite v1 DDL and compatibility matrix, deterministic digest vectors, a minimal valid Archive, invalid bundles, and contract-local verification evidence |
 | Dependencies | Completed `establish-formal-rewrite-baseline`; no Python/Go runtime dependency; operationally paired but not semantically coupled with `define-shared-query-wire` |
@@ -16,6 +16,22 @@
 | Non-goals | Full Archive, producer/consumer runtime, query/statistics/API/UI, live data fetch, actual `current.json`, activation, scheduler, migration, deployment, or legacy cleanup |
 | Operations deferred | Production paths/users/permissions, nginx/systemd/Compose/timer/`flock`, pointer switching, restart/readiness rollback, retention, secrets, release, deploy, and host mutation |
 | Stop/rollback conditions | Stop on branch/HEAD/index/dirty-state drift, sibling-path ambiguity, overlap, tool drift, schema/vector disagreement, nondeterminism, or out-of-bound write; preserve state and forbid reset, checkout rollback, clean, broad recursive deletion, staging/commit/archive during parallel apply, and history rewriting |
+
+### Lifecycle control (not synchronized): The observed toolchain correction preserves both paused candidates
+
+At the recovery boundary, both apply owners SHALL be stopped at initial HEAD `c7f868e2861e8fea250f033c27538ecf793bacad` with an empty index. Archive tasks 1.1–1.4 and 2.1 SHALL be the only checked Archive tasks; `contracts/goldens/archive` SHALL be absent. The 11 persistent Archive regular files SHALL retain aggregate `f0814d8de7e913496b8df9c3c8df27e9d3e6351b9e263533677db09868233c82`; all Archive regular files including cache/install state SHALL retain aggregate `9dc29d0c2c7a6e48a8370e3d1b6acf736e86d25a8326edf9044dc53df50d338f`; and all Archive symlink path/target entries SHALL retain aggregate `8721691feb55259ac161846b32d87fce8e2fc9a4a21ffb551e8b3459f183f7ea`.
+
+The correction subagent SHALL stage and commit exactly the proposal, design, delta spec, and tasks for this change and `define-shared-query-wire`, with exact subject `docs(openspec): approve wave 1 archive toolchain correction` and sole parent the initial HEAD. It SHALL stage no `contracts/**` path and run no product-writing command. Apply SHALL remain stopped until the main agent accepts the replacement HEAD and re-proves the Archive and Query seals. The original Archive owner SHALL then resume at task 2.2 after re-snapshotting the replacement checkpoint and sibling state.
+
+#### Scenario: Toolchain correction does not absorb implementation output
+
+- **WHEN** the correction subagent creates the approved eight-path commit
+- **THEN** no Archive or Query product/cache byte SHALL be staged or committed and all paused-state seals SHALL remain exact
+
+#### Scenario: Archive apply resumes with the reviewed override
+
+- **WHEN** the main agent accepts the correction commit and both unchanged candidates
+- **THEN** the Archive owner SHALL preserve its existing files, re-prove the new checkpoint, and continue from task 2.2 using the exact `stream-json@2.1.0` override and its generation/compile gates
 
 ## ADDED Requirements
 
@@ -203,13 +219,14 @@ The corpus SHALL contain one tiny internally consistent valid Archive and the ex
 - **THEN** contract verification SHALL fail before candidate acceptance
 
 ### Requirement: Tooling is pinned, local, and disposable
-The only persistent tooling files SHALL be the four individually approved design paths. `ajv@8.20.0` and `quicktype@26.0.0` SHALL be exact development-only dependencies with a committed lockfile and install scripts disabled. The package and acceptance gate SHALL enforce `node >=20.19.0` and `npm >=10`, and npm engine mismatches SHALL fail rather than warn. Ajv SHALL compile/validate the schemas and fixtures in strict JSON Schema 2020-12 mode. Quicktype SHALL generate temporary Python and Go models from the authoritative schemas without schema-level error; the Python output SHALL pass syntax compilation and the Go output SHALL pass formatting and an isolated compile smoke using the available development toolchain. This feasibility smoke SHALL NOT require a bootstrapped updater/backend application or make generated files authoritative.
+The only persistent tooling files SHALL be the four individually approved design paths. `ajv@8.20.0` and `quicktype@26.0.0` SHALL be the only direct development dependencies, with a committed lockfile and install scripts disabled. Because quicktype 26 declares Node `>=20.19.0` while its exact `stream-json@3.5.0` edge requires Node `>=22`, `package.json` SHALL use the exact npm override `stream-json: 2.1.0`. That BSD-3-Clause transitive compatibility pin SHALL have no direct application import. `npm ls quicktype stream-json` SHALL resolve exactly quicktype `26.0.0` and stream-json `2.1.0`, with no installed `3.5.0`; the used `parser.asStream` export SHALL be callable. The package and acceptance gate SHALL enforce `node >=20.19.0` and `npm >=10`, and all remaining npm engine mismatches SHALL fail rather than warn. Ajv SHALL compile/validate the schemas and fixtures in strict JSON Schema 2020-12 mode. Quicktype SHALL generate temporary Python and Go models from the authoritative schemas without schema-level error; the Python output SHALL pass syntax compilation and the Go output SHALL pass formatting and an isolated compile smoke using the available development toolchain. Install success without both language smokes SHALL fail. This feasibility smoke SHALL NOT require a bootstrapped updater/backend application or make generated files authoritative.
 
 All configurable npm cache, Go build/module/workspace cache, installed packages, Python bytecode, SQLite-build scratch, process temporary files, and generated models SHALL stay below canonical non-symlink descendants `contracts/schemas/archive/.cache/**`, `contracts/schemas/archive/tooling/node_modules/**`, or `contracts/schemas/archive/.tmp/**`. Apply SHALL verify the effective npm cache, `GOCACHE`, `GOMODCACHE`, `GOPATH`, and `TMPDIR` under those roots; use `GOENV=off`, `GOWORK=off`, `GOTOOLCHAIN=local`, and npm engine-strict mode; and disable Python bytecode writes. Before any ordinary Go process starts, apply SHALL invoke the absolute Go executable's `go env GOTELEMETRY GOTELEMETRYDIR` inside a bootstrap macOS `sandbox-exec` profile combining `(allow default)`, `(deny network*)`, and `(deny file-write*)`, with the same three Go controls. This discovery process cannot write telemetry or start an uploader. Apply SHALL stop on upload-enabled or unknown returned mode, then canonicalize and byte-seal the returned directory. With `local` mode, every later Go-starting command SHALL run through a reviewed profile denying `file-write*` beneath that directory; with `off`, that later wrapper is unnecessary. Apply SHALL verify the seal after all Go work without interpreting/deleting counters, changing global mode, or authorizing upload. The owned ephemeral roots SHALL be removed by exact validated targets after verification and SHALL be absent from the final physical/index inventory.
 
 #### Scenario: Pinned tools verify the contract
 - **WHEN** the exact lock installs with scripts disabled and local cache routing
-- **THEN** strict schema, vector, SQLite, Python-generation, and Go-generation checks SHALL pass without writing outside the Archive writable root
+- **THEN** the exact quicktype/stream-json resolution and parser export gate SHALL pass
+- **AND** strict schema, vector, SQLite, Python-generation, and Go-generation checks SHALL pass without writing outside the Archive writable root
 
 #### Scenario: Tool or temporary output drifts
 - **WHEN** the lock cannot install exactly, a tool version differs, generated code fails syntax/compile smoke, a global/home/system-temp write is required, or an ephemeral root remains
