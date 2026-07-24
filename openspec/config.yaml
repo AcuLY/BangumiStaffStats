@@ -27,10 +27,16 @@ context: |
   apps/, or packages/ are forbidden.
 
   Apply tasks may write only inside this repository and only inside their
-  declared Writable paths and Mutable refs. Another repository requires its own separately
-  approved OpenSpec change. Read-only external research must be declared;
-  external files, repositories, services, hosts, and production state must
-  never be mutated by an ordinary development change.
+  declared Writable paths and Mutable refs. A narrowly scoped local
+  developer-toolchain change may additionally write exact user-level paths
+  only when the user has explicitly authorized that tool update and the
+  approved OpenSpec records each path's preimage, writer, deletion complement,
+  acceptance, and rollback. This exception never authorizes another
+  repository, remote ref, service, production state, or an undeclared host
+  path. Another repository requires its own separately approved OpenSpec
+  change. Read-only external research must be declared; external files,
+  repositories, services, hosts, and production state must never be mutated
+  by an ordinary development change.
 
   Capability ids must start with exactly one ownership prefix:
   contracts-, backend-, updater-, or frontend-. Contracts owns cross-language
@@ -47,10 +53,28 @@ context: |
   immutable Archive producer, Go is a read-only consumer, and Python/Go/TypeScript
   share versioned contracts and goldens without sharing runtime business code.
 
-  All actual implementation is performed by implementation subagents. The main
-  agent may amend only OpenSpec artifacts, then performs read-only review and
-  acceptance. Master plans, guidance documents, application code, tests, and
-  repository mutations remain subagent work. No apply may start until proposal,
+  The main agent owns decisions, coordination, specification audit, and final
+  acceptance. Subagents own concrete implementation blocks when parallel
+  execution or isolation of implementation detail materially improves delivery.
+  Delegation has context-transfer, startup, coordination, and handoff cost, so
+  use a subagent only when its expected parallelism or context-isolation benefit
+  exceeds that cost; otherwise the main agent handles the work directly.
+  Delegation is an efficiency mechanism, not an approval ritual: the main agent
+  may directly perform simple mechanical corrections and low-context repository
+  lifecycle work such as staging, OpenSpec synchronization/archive, commits,
+  and local ref updates when that shortens the critical path without creating
+  conflicting ownership. A small correction requires an exact, strict-valid OpenSpec, a
+  completed block-level zero-P0/P1 planning review, no active conflicting
+  owner, the same acceptance gates, and no new capability or public behavior,
+  dependency, contract or schema, architecture, external or remote state, or
+  broad or unbounded cleanup. The completed block-level review satisfies this
+  prerequisite: there is no per-correction preapproval, subagent handoff, or
+  repeated review ritual. Independent correction review may be folded into the
+  next candidate or final acceptance; only a safety-sensitive correction
+  additionally requires an independent zero-P0/P1 candidate review before
+  commit. Every substantive development block remains OpenSpec-first with one
+  clear implementation owner; the main agent continues to own specification
+  review/amendment and final acceptance. No apply may start until proposal,
   specs, design, and tasks are all complete, strictly valid, explicitly
   reviewed, and approved.
 
