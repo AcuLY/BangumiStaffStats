@@ -18,6 +18,11 @@
 /contracts/goldens/query/.cache/go-path/
 /contracts/goldens/query/.tmp/
 
+# Archive contract tool state
+/contracts/schemas/archive/.cache/
+/contracts/schemas/archive/.tmp/
+/contracts/schemas/archive/tooling/node_modules/
+
 # Impeccable runtime state
 /.impeccable/config.local.json
 /.impeccable/hook.cache.json
