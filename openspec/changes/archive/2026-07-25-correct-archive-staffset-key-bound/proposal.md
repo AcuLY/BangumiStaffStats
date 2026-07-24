@@ -41,7 +41,7 @@ None.
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: main authority/dependency review plus strict change/all validation and doctor passed |
+| Status | investigated: complete; specified: approved; implemented: complete; verified: main Contracts/Go/OpenSpec acceptance passed; committed: this local archive/sync commit; pushed/released/deployed: no |
 | Owner | One delegated correction owner applies Contracts and bounded Go consumer changes; main agent reviews, accepts, synchronizes, archives, and commits. |
 | Writable paths | Planning: `openspec/changes/correct-archive-staffset-key-bound/**`. Apply: `contracts/schemas/archive/schema.sql`, `compatibility-matrix.json`, `README.md`, `tooling/build_sqlite_fixtures.py`, `tooling/verify.mjs`; `contracts/goldens/archive/index.json` and its exact 32 indexed paths; `contracts/goldens/archive/producer/index.json` and its exact 15 indexed cases; `backend/internal/archive/contract.go`, `golden_test.go`, `contracttest/archive_contract_test.go`, `mutation_test.go`, `state_test.go`; and this change's task markers. Final sync/archive: only the two modified root specs and `openspec/changes/archive/2026-07-25-correct-archive-staffset-key-bound/**`. |
 | Read-only protected inputs | Producer schemas, all other Contracts/backend files, active producer Updater code and tests, catalog/query/frontend code, guides/decisions, other changes/tasks, refs/remotes, external repositories/hosts/services, and production. |

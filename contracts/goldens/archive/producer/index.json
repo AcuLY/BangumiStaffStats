@@ -3,77 +3,77 @@
   "files": [
     {
       "path": "cases/conflicting-duplicate.json",
-      "digest": "sha256:bfc6cf24a5bd902fb90173900c7c6fde760021139ef18b1fde228be07aae602c",
+      "digest": "sha256:69d053c5f323d5c7dcf89229069373c7d83703002b34aa636f63eb760d06edb3",
       "caseId": "conflicting-duplicate"
     },
     {
       "path": "cases/digest-mismatch.json",
-      "digest": "sha256:c7cb400a7f33677dbb127b46140001af39b79ca74dcae5a63448e51c40e0b0fc",
+      "digest": "sha256:dd664547c93ef6777e492956ef6e3cfb8464511d7dc55facac1cca36190d2b8a",
       "caseId": "digest-mismatch"
     },
     {
       "path": "cases/extra-source.json",
-      "digest": "sha256:e87c19342d269da8863a57667a4dc37c0aa6ae7e7a3f6d5a398245f5ca85f86c",
+      "digest": "sha256:d1c60933d45f5fa14f5edb5ed34659cae503ad11e4160a7858e4f89c662a4e88",
       "caseId": "extra-source"
     },
     {
       "path": "cases/identical-duplicate.json",
-      "digest": "sha256:5a3a94213b7c90e17d7be2becbc198d82968a4b8905f66d8787dbd7376732497",
+      "digest": "sha256:9812fb15cd1da40d94ded75e30150f503766c9bbf15b4c483f5b0a41e5be9ad8",
       "caseId": "identical-duplicate"
     },
     {
       "path": "cases/identical-regeneration.json",
-      "digest": "sha256:7578a3b422336400c9a11fa1d54808da14c3d6120b1c66495c667ed04bb2a571",
+      "digest": "sha256:317106ecffa8c1d2d0ff7ea6995b12c2eee6bcdf60b9d84bd5a70c5184b7bfe1",
       "caseId": "identical-regeneration"
     },
     {
       "path": "cases/invalid-cast-role.json",
-      "digest": "sha256:3690ba279b7cbb6cd667f9f85be6cc91702e9bb758ca671c12e3ea9d2d62c6bb",
+      "digest": "sha256:4d7c5d2343c7cdb28a338eef90a6554a0c8806b059147eaff871fea0d8c3069f",
       "caseId": "invalid-cast-role"
     },
     {
       "path": "cases/invalid-relation-code.json",
-      "digest": "sha256:5cc105d6091125cd6e2950c8383733ffbfe27d2a4efdf1d63f63e184163e297a",
+      "digest": "sha256:9e5e66e2f58a6f8670781494c68953a95a5fc5e8ef19185646735dc514354b61",
       "caseId": "invalid-relation-code"
     },
     {
       "path": "cases/invalid-subject-type.json",
-      "digest": "sha256:5d9e29f475c1770250e80030a9d495c879859a081215a863879f0e54af7c878a",
+      "digest": "sha256:fcede442e3277c332e1b4f6262c81275f2fc43d185b6a9a9dfe12fe9e40f2c24",
       "caseId": "invalid-subject-type"
     },
     {
       "path": "cases/malformed-record.json",
-      "digest": "sha256:5c15a97e90bd906946dc5ef343e699f4ac93638374aa3e6efbc6e054b5cb47e5",
+      "digest": "sha256:0d73552b7d58ca69952a800bcd30b69a7335c8f66d775ba2b2eb5e607c7aef20",
       "caseId": "malformed-record"
     },
     {
       "path": "cases/missing-reference.json",
-      "digest": "sha256:821190556a111691da945c302bcae4c98cf7ac059492ffef48fc2dd84ea633d4",
+      "digest": "sha256:e891adf3a24bf2c8be5f96dc0f9def7dd065e92f36c6ce41e8fb97311eb7b3a4",
       "caseId": "missing-reference"
     },
     {
       "path": "cases/missing-source.json",
-      "digest": "sha256:f6e133028b533f8e96b4b174680df1cb4fec587d756a61236876ad86eb3bc9e4",
+      "digest": "sha256:75af955cfcfb893519e1020b8f5a5bddaf9a56eca943b99fc4b015d84fab13e3",
       "caseId": "missing-source"
     },
     {
       "path": "cases/permitted-unresolved-position.json",
-      "digest": "sha256:5ad557b4e9b97fb7692f9006df0dd735ab698cfdb625fe5eb735aec8ffcc172c",
+      "digest": "sha256:5cad5a9a4ed7a489711d29335469a9b84b9bb430421d6b986cefc9ac7d91868e",
       "caseId": "permitted-unresolved-position"
     },
     {
       "path": "cases/size-mismatch.json",
-      "digest": "sha256:9511480f0b0cda8f693ae91072b5ff6ad1aaaa7c9223c046368d76b318411d20",
+      "digest": "sha256:1faaf1e5a9d00e6cda96f1e02857215445f3b02a4a6a5c4ac6b84678863f40e4",
       "caseId": "size-mismatch"
     },
     {
       "path": "cases/unknown-field-record.json",
-      "digest": "sha256:c9b5ea2aa32289482589f8bb4ec896e4310c7a42b079560d4e7eeebd5f5adb3f",
+      "digest": "sha256:bd52618b6c6ae90ef36655a6fc37f1d4e1213caab89a51597e1aca041c007689",
       "caseId": "unknown-field-record"
     },
     {
       "path": "cases/valid-seven-source.json",
-      "digest": "sha256:7715638318eaa952fb990027338cb37ea64f5860e0c10aaed7f1b429720b4b59",
+      "digest": "sha256:3a01e117cd1e11eb19fb21d46e1184cbd71ed1e6bb01de214ca81935ceab4b1d",
       "caseId": "valid-seven-source"
     }
   ]

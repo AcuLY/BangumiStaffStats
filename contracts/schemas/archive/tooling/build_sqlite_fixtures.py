@@ -158,10 +158,10 @@ GENERATED_AT = re.compile(
 MANIFEST_STRING_VECTOR = "vectors/manifest-string-semantics.json"
 PRODUCER_SUBTREE = "producer"
 CANONICAL_INDEX_SHA256 = (
-    "db3e9d2f81a90f8c7b36e9d6a0010bb35c54b4b0890d21ea4ecbe2f0b0979801"
+    "655d77b46bf3a76c67ab74d11abd250aa5ab08e770a17732148fc327f74786c6"
 )
 CANONICAL_INDEX_TABLE_SHA256 = (
-    "cd6c1609e94d86b665b1c053874266c48f09826fcb11c8691b1c6249c1d3927c"
+    "e83b9ba65759b314398204d23ff17adf17e5761d3ff0543f98ce3512071e2357"
 )
 CANONICAL_INDEXED_FILES = 32
 MANIFEST_STRING_CASE_IDS = (
@@ -677,6 +677,84 @@ def subject_semantics_self_test() -> dict[str, int]:
         "rejectedDateMappings": len(rejected_dates),
         "rejectedSqlRows": len(invalid_rows),
         "validSqlRows": len(valid_rows),
+    }
+
+
+def staff_set_key_bound_self_test() -> dict[str, Any]:
+    accepted_keys = (
+        "staffset:book:a",
+        "staffset:book:" + "a" * 82,
+    )
+    rejected_keys = (
+        "staffset:book:",
+        "staffset:book:" + "a" * 83,
+    )
+    if tuple(map(len, accepted_keys)) != (15, 96):
+        fail("staff-set accepted boundary fixtures have incorrect lengths")
+    if tuple(map(len, rejected_keys)) != (14, 97):
+        fail("staff-set rejected boundary fixtures have incorrect lengths")
+
+    connection = sqlite3.connect(":memory:")
+    try:
+        connection.executescript(SCHEMA_SQL.read_text(encoding="utf-8"))
+        connection.executemany(
+            """
+            INSERT INTO staff_position (
+              subject_type, position_id, name_cn, name_en, name_jp, categories,
+              sort_order, status, common_commit
+            ) VALUES ('book', ?, NULL, ?, NULL, '[]', ?, 'hidden', ?)
+            """,
+            (
+                (90_001, "Lower bound sentinel", 1, COMMON_COMMIT),
+                (90_002, "Upper bound sentinel", 2, COMMON_COMMIT),
+            ),
+        )
+        for position_id, set_key in zip((90_001, 90_002), accepted_keys):
+            connection.execute(
+                "INSERT INTO staff_set VALUES (?, 'book', ?, ?)",
+                (set_key, f"Boundary {len(set_key)}", position_id),
+            )
+            connection.execute(
+                "INSERT INTO staff_set_member VALUES (?, 'book', ?)",
+                (set_key, position_id),
+            )
+
+        for set_key in rejected_keys:
+            connection.execute("SAVEPOINT rejected_staff_set")
+            try:
+                connection.execute(
+                    "INSERT INTO staff_set VALUES (?, 'book', ?, 1)",
+                    (set_key, f"Boundary {len(set_key)}"),
+                )
+            except sqlite3.IntegrityError:
+                connection.execute("ROLLBACK TO rejected_staff_set")
+                connection.execute("RELEASE rejected_staff_set")
+                continue
+            connection.execute("ROLLBACK TO rejected_staff_set")
+            connection.execute("RELEASE rejected_staff_set")
+            fail(f"SQLite accepted invalid staff-set key length: {len(set_key)}")
+
+        accepted_rows = int(
+            connection.execute(
+                "SELECT COUNT(*) FROM staff_set WHERE length(set_key) IN (15, 96)"
+            ).fetchone()[0]
+        )
+        accepted_member_rows = int(
+            connection.execute("SELECT COUNT(*) FROM staff_set_member").fetchone()[0]
+        )
+        if accepted_rows != 2 or accepted_member_rows != 2:
+            fail(
+                "staff-set accepted boundary rows drifted: "
+                f"{accepted_rows}, {accepted_member_rows}"
+            )
+    finally:
+        connection.close()
+
+    return {
+        "acceptedLengths": [15, 96],
+        "rejectedLengths": [14, 97],
+        "acceptedRows": accepted_rows,
+        "acceptedMemberRows": accepted_member_rows,
     }
 
 
@@ -1709,6 +1787,7 @@ def generate(root: Path) -> dict[str, Any]:
     canonical_schema = canonical_schema_record()
     raw_domain_report = raw_domain_self_test()
     subject_semantic_report = subject_semantics_self_test()
+    staff_set_key_bound_report = staff_set_key_bound_self_test()
     schema_object_report = schema_object_self_test(canonical_schema)
     sql_bytes = SCHEMA_SQL.read_bytes()
     if b"\r" in sql_bytes or not sql_bytes.endswith(b"\n") or sql_bytes.endswith(b"\n\n"):
@@ -1936,6 +2015,7 @@ def generate(root: Path) -> dict[str, Any]:
         "rawDomains": raw_domain_report,
         "canonicalIndex": canonical_index,
         "subjectSemantics": subject_semantic_report,
+        "staffSetKeyBounds": staff_set_key_bound_report,
         "schemaObjectSelfTest": schema_object_report,
         "sqlite": inspection,
     }
@@ -2052,6 +2132,7 @@ def self_test() -> dict[str, Any]:
     canonical_schema = canonical_schema_record()
     raw_domain_report = raw_domain_self_test()
     subject_semantic_report = subject_semantics_self_test()
+    staff_set_key_bound_report = staff_set_key_bound_self_test()
     schema_object_report = schema_object_self_test(canonical_schema)
     with tempfile.TemporaryDirectory(prefix="sqlite-self-test-", dir=temp_parent) as directory:
         database = Path(directory) / "bangumi.sqlite"
@@ -2062,6 +2143,7 @@ def self_test() -> dict[str, Any]:
             "dataVersion": version,
             "rawDomains": raw_domain_report,
             "subjectSemantics": subject_semantic_report,
+            "staffSetKeyBounds": staff_set_key_bound_report,
             "schemaObjectSelfTest": schema_object_report,
             "inspection": inspect_valid_database(
                 database,

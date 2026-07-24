@@ -72,7 +72,7 @@
       "commonDigest": "sha256:24163ba3a1520c207ecd282a562641c7669077dbef63cb5083fd8b24dd457180",
       "manifestSchemaVersion": 1,
       "sqliteSchemaVersion": 1,
-      "schemaSqlDigest": "sha256:fe3ff18c4601a6e7fae894db0a4c58e26a7ded6f2d8ad19716946db32789d7b8",
+      "schemaSqlDigest": "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0",
       "domainRulesVersion": "domain-raw-v1",
       "castRulesVersion": "cast-exact-v1",
       "catalogConfigDigest": "sha256:5a6082bc4af89320ef3f7a2ea045189a4a9b2797ef084dbc914f40f2978f4898"
@@ -80,9 +80,9 @@
   },
   "dataVersion": {
     "algorithm": "bgmss-archive-data-version-v1",
-    "canonicalPreimage": "bgmss-archive-data-version-v1\narchiveRelease=producer-golden-v1\narchiveDigest=sha256:4c3e2ccd63da878c9c92ee3c81d0814aad517a279e0da7b3d1b1f9af48ea87b9\ncommonCommit=6a8442c17143a870357a5ff812362e8b5cfe9f9d\ncommonDigest=sha256:24163ba3a1520c207ecd282a562641c7669077dbef63cb5083fd8b24dd457180\nmanifestSchemaVersion=1\nsqliteSchemaVersion=1\nschemaSqlDigest=sha256:fe3ff18c4601a6e7fae894db0a4c58e26a7ded6f2d8ad19716946db32789d7b8\ndomainRulesVersion=domain-raw-v1\ncastRulesVersion=cast-exact-v1\ncatalogConfigDigest=sha256:5a6082bc4af89320ef3f7a2ea045189a4a9b2797ef084dbc914f40f2978f4898\n",
+    "canonicalPreimage": "bgmss-archive-data-version-v1\narchiveRelease=producer-golden-v1\narchiveDigest=sha256:4c3e2ccd63da878c9c92ee3c81d0814aad517a279e0da7b3d1b1f9af48ea87b9\ncommonCommit=6a8442c17143a870357a5ff812362e8b5cfe9f9d\ncommonDigest=sha256:24163ba3a1520c207ecd282a562641c7669077dbef63cb5083fd8b24dd457180\nmanifestSchemaVersion=1\nsqliteSchemaVersion=1\nschemaSqlDigest=sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0\ndomainRulesVersion=domain-raw-v1\ncastRulesVersion=cast-exact-v1\ncatalogConfigDigest=sha256:5a6082bc4af89320ef3f7a2ea045189a4a9b2797ef084dbc914f40f2978f4898\n",
     "canonicalPreimageByteLength": 579,
-    "result": "dv1-7cf13e3c5d4c12934daccae1ffb4cba72f131cce8b45a43b7fb709db7a8bafce"
+    "result": "dv1-c4b955d4087cecf556a44f00dba4a9ca991ca66e375574ada9055802b2da751a"
   },
   "expected": {
     "accounting": [

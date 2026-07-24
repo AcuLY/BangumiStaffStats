@@ -2,7 +2,7 @@
 
 | Boundary | Declaration |
 |---|---|
-| Status | specified: approved; implemented: no; verified: main dependency review and strict planning gates passed |
+| Status | specified: approved; implemented: complete; verified: main Contracts/Go/OpenSpec acceptance passed; committed: this local archive/sync commit; pushed/released/deployed: no |
 | Owner | Correction owner updates bounded Go binding/tests only. |
 | Writable paths | Exact five Go paths in proposal plus task markers. |
 | Read-only protected inputs | Other backend/updater/contracts/product state. |
@@ -12,7 +12,7 @@
 | Non-goals | Producer/catalog/query/HTTP behavior, fallback, operations. |
 | Stop/rollback conditions | Stop on Contracts drift, extra path need, or failed startup/integrity gates. |
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Candidate load validates every compatibility gate before publication
 

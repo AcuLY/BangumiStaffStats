@@ -684,3 +684,26 @@ digests SHALL not remain as a second compatibility tuple.
   identity remains accepted
 - **THEN** in-place correction SHALL stop
 - **AND** a new versioned compatibility change SHALL be required
+
+### Requirement: Archive SQLite schema is strict and versioned
+
+The `staff_set.set_key` check SHALL accept inclusive text length `15..96`.
+Fifteen is the exact minimum for the accepted
+`staffset:{book|anime|music|game|real}:{slug}` family with a one-character
+slug. This correction SHALL NOT change the one-character slug allowance, the
+96-byte full-key maximum, table/index inventory, manifest/SQLite version, or
+dataVersion algorithm.
+
+The canonical schema SQL/object seals and every dependent canonical and
+producer identity SHALL be regenerated deterministically while retaining the
+exact existing 32-file canonical path set and 15-case producer path set.
+
+#### Scenario: Inclusive staff-set key bounds are exercised
+- **WHEN** real SQLite receives valid staff-set keys of exact lengths 15 and 96
+- **THEN** both inserts SHALL succeed under the canonical DDL
+- **AND** otherwise equivalent keys of lengths 14 and 97 SHALL fail the DDL check
+
+#### Scenario: Corrected schema identities are rebuilt
+- **WHEN** the corrected DDL is built twice from identical inputs
+- **THEN** schema/object/dataVersion/SQLite/manifest/pointer/vector/index and producer-case identities SHALL match across runs
+- **AND** no canonical or producer indexed path SHALL be added, removed, or reinterpreted

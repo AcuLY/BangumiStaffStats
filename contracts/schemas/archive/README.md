@@ -110,6 +110,11 @@ The shared Node verifier performs fatal UTF-8 decoding, strict 2020-12 schema
 compilation, closed inventory/hash checks, and independent semantic
 recomputation for both corpora.
 
+The same builder exercises the `staff_set.set_key` length check through
+isolated real-SQLite rows: exact lengths 15 and 96 admit both parent and member
+rows, while otherwise equivalent lengths 14 and 97 are rejected. Catalog/query
+grammar remains the stricter syntax authority.
+
 The digest construction is deliberately acyclic:
 
 ```text

@@ -306,3 +306,16 @@ backend domain work applies the accepted main/all and series predicates.
   or text-normalized cast/relation data
 - **THEN** the existing fixed validation precedence SHALL reject it
 - **AND** no fallback tuple or content rewrite SHALL run
+
+### Requirement: Candidate load validates every compatibility gate before publication
+
+The consumer SHALL bind to the corrected canonical schema SQL and 35-object
+definition seals. Its real-SQLite contract evidence SHALL accept a valid
+15-character staff-set key under the corrected DDL and reject the superseded
+schema identity. Loader behavior remains read-only and all existing gate
+precedence remains unchanged.
+
+#### Scenario: Corrected draft-v1 fixture is loaded
+- **WHEN** the regenerated canonical fixture carries the corrected schema/object seals
+- **THEN** candidate validation SHALL pass all existing startup gates
+- **AND** the bound consumer SHALL expose no fallback to the superseded lower-bound definition

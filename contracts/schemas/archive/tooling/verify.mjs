@@ -25,9 +25,9 @@ const PRODUCER_LOGICAL_ROWS_ALGORITHM = "bgmss-producer-logical-rows-v1";
 const SCHEMA_OBJECT_ALGORITHM = "bgmss-sqlite-schema-objects-v1";
 const SCHEMA_OBJECT_COUNT = 35;
 const CANONICAL_INDEX_SHA256 =
-  "db3e9d2f81a90f8c7b36e9d6a0010bb35c54b4b0890d21ea4ecbe2f0b0979801";
+  "655d77b46bf3a76c67ab74d11abd250aa5ab08e770a17732148fc327f74786c6";
 const CANONICAL_INDEX_TABLE_SHA256 =
-  "cd6c1609e94d86b665b1c053874266c48f09826fcb11c8691b1c6249c1d3927c";
+  "e83b9ba65759b314398204d23ff17adf17e5761d3ff0543f98ce3512071e2357";
 const CANONICAL_INDEXED_FILES = 32;
 const COMMON_COMMIT = "6a8442c17143a870357a5ff812362e8b5cfe9f9d";
 const PRODUCER_SUBJECT_TYPES = new Map([
@@ -2698,6 +2698,14 @@ function validateDdlAndBuilder(matrix) {
     /role_type\s+INTEGER\s+NOT NULL\s+CHECK\s*\(\s*role_type\s+BETWEEN\s+1\s+AND\s+6\s*\)/i.test(text),
     "DDL must preserve numeric cast roles 1..6",
   );
+  invariant(
+    /length\s*\(\s*set_key\s*\)\s+BETWEEN\s+15\s+AND\s+96/i.test(text),
+    "DDL must preserve inclusive staff-set key lengths 15..96",
+  );
+  invariant(
+    !/length\s*\(\s*set_key\s*\)\s+BETWEEN\s+17\s+AND\s+96/i.test(text),
+    "DDL retains superseded staff-set lower bound",
+  );
   const builder = path.join(TOOLING_ROOT, "build_sqlite_fixtures.py");
   const python = fs.realpathSync(run("/usr/bin/which", ["python3"]));
   const output = run(python, [builder, "--self-test"], {
@@ -2732,6 +2740,12 @@ function validateDdlAndBuilder(matrix) {
     rejectedDateMappings: 18,
     rejectedSqlRows: 22,
     validSqlRows: 4,
+  });
+  assert.deepEqual(report.staffSetKeyBounds, {
+    acceptedLengths: [15, 96],
+    rejectedLengths: [14, 97],
+    acceptedRows: 2,
+    acceptedMemberRows: 2,
   });
   assert.deepEqual(report.rawDomains, {
     subjectTypeMappings: 5,

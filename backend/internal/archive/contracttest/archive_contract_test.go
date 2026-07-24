@@ -32,6 +32,9 @@ const (
 	discardedSchemaSQLDigest    = "sha256:4a09c42d8f9c401fba24fe2c4b17a5f4a482825e1617cd40024757503e2bd249"
 	discardedSchemaObjectDigest = "sha256:f7b6b3795b16d32fad3503e7976d5598ca3e92e6327f2875fb745fb8d095f35d"
 	discardedDataVersion        = "dv1-9bcb52b9134d58713a5e3a54ca83c5fb77a595e52e06a56f755afe1f644e96eb"
+	supersededBoundSQLDigest    = "sha256:fe3ff18c4601a6e7fae894db0a4c58e26a7ded6f2d8ad19716946db32789d7b8"
+	supersededBoundObjectDigest = "sha256:4f035a17c18ac49708d48ae333ac2aecefcbbbb279508162f43b893e1be71a46"
+	supersededBoundDataVersion  = "dv1-8577238451268b0a71275b73074e505b2d37a8be35a2db71ce16f81f3c5f2129"
 )
 
 type archiveIndex struct {
@@ -171,6 +174,7 @@ func TestCorrectedRawDomainAuthority(t *testing.T) {
 		"relation_type > 0",
 		"relation_type <= 9007199254740991",
 		"role_type INTEGER NOT NULL CHECK (role_type BETWEEN 1 AND 6)",
+		"length(set_key) BETWEEN 15 AND 96",
 	} {
 		if !bytes.Contains(schemaSQL, []byte(fragment)) {
 			t.Fatalf("schema.sql is missing raw-domain constraint %q", fragment)
@@ -180,6 +184,7 @@ func TestCorrectedRawDomainAuthority(t *testing.T) {
 		"relation_type TEXT",
 		"role_type TEXT",
 		"role_type IN ('main', 'support', 'guest')",
+		"length(set_key) BETWEEN 17 AND 96",
 	} {
 		if bytes.Contains(schemaSQL, []byte(fragment)) {
 			t.Fatalf("schema.sql retains discarded text-domain fragment %q", fragment)
@@ -226,6 +231,9 @@ func TestCorrectedRawDomainAuthority(t *testing.T) {
 			discardedSchemaSQLDigest,
 			discardedSchemaObjectDigest,
 			discardedDataVersion,
+			supersededBoundSQLDigest,
+			supersededBoundObjectDigest,
+			supersededBoundDataVersion,
 		} {
 			if bytes.Contains(data, []byte(discarded)) {
 				t.Fatalf("%s retains discarded draft identity %s", path, discarded)

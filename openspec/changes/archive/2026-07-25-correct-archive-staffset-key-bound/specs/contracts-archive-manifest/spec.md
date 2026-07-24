@@ -2,7 +2,7 @@
 
 | Boundary | Declaration |
 |---|---|
-| Status | specified: approved; implemented: no; verified: main authority review and strict planning gates passed |
+| Status | specified: approved; implemented: complete; verified: main Contracts/Go/OpenSpec acceptance passed; committed: this local archive/sync commit; pushed/released/deployed: no |
 | Owner | Correction owner updates bounded Contracts authority; producer/catalog consume it read-only. |
 | Writable paths | Exact Contracts paths in proposal plus this task's markers. |
 | Read-only protected inputs | All other Contracts/runtime/state, especially active Updater work. |
@@ -12,7 +12,7 @@
 | Non-goals | Staff-set activation, catalog/query semantics, version bump, operations. |
 | Stop/rollback conditions | Stop on formal v1, path-set drift, overlap, or failed deterministic gates. |
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Archive SQLite schema is strict and versioned
 

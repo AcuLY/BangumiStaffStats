@@ -3,6 +3,7 @@ package archive
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -458,28 +459,100 @@ func TestMinimalGoldenRawDomainsRemainNumericAndDirected(t *testing.T) {
 	}
 }
 
-func TestDiscardedDraftSchemaIdentityRejectedAtCompatibility(t *testing.T) {
-	const discardedDraftSchemaSQLDigest = "sha256:4a09c42d8f9c401fba24fe2c4b17a5f4a482825e1617cd40024757503e2bd249"
+func TestDiscardedSchemaIdentitiesRejectedAtCompatibility(t *testing.T) {
+	for name, discardedSchemaSQLDigest := range map[string]string{
+		"earlier draft":            "sha256:4a09c42d8f9c401fba24fe2c4b17a5f4a482825e1617cd40024757503e2bd249",
+		"17-character lower bound": "sha256:fe3ff18c4601a6e7fae894db0a4c58e26a7ded6f2d8ad19716946db32789d7b8",
+	} {
+		t.Run(name, func(t *testing.T) {
+			root, dataVersion := arrangeValidCandidate(t, false)
+			manifestPath := runtimeManifestPath(root, dataVersion)
+			var document map[string]any
+			mustDecodeJSON(t, mustReadFile(t, manifestPath), &document)
+			document["schemaSqlDigest"] = discardedSchemaSQLDigest
+			mutated, err := json.MarshalIndent(document, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(manifestPath, append(mutated, '\n'), 0o644); err != nil {
+				t.Fatal(err)
+			}
 
-	root, dataVersion := arrangeValidCandidate(t, false)
-	manifestPath := runtimeManifestPath(root, dataVersion)
-	var document map[string]any
-	mustDecodeJSON(t, mustReadFile(t, manifestPath), &document)
-	document["schemaSqlDigest"] = discardedDraftSchemaSQLDigest
-	mutated, err := json.MarshalIndent(document, "", "  ")
+			store, err := LoadCandidate(context.Background(), root, dataVersion)
+			if store != nil {
+				store.Close()
+				t.Fatal("discarded schema identity returned a store")
+			}
+			requireCode(t, err, CodeArchiveVersionUnsupported)
+		})
+	}
+}
+
+func TestCorrectedStaffSetKeyBoundsInRealSQLite(t *testing.T) {
+	database, err := sql.Open(sqliteDriverName, filepath.Join(t.TempDir(), "staff-set.sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(manifestPath, append(mutated, '\n'), 0o644); err != nil {
-		t.Fatal(err)
+	defer database.Close()
+	if _, err := database.Exec(string(mustReadFile(t, filepath.Join(archiveSchemaRoot(t), "schema.sql")))); err != nil {
+		t.Fatalf("apply canonical schema: %v", err)
+	}
+	if _, err := database.Exec(`
+		INSERT INTO staff_position (
+			subject_type, position_id, name_cn, name_en, name_jp, categories,
+			sort_order, status, common_commit
+		) VALUES
+			('book', 90001, NULL, 'Lower bound sentinel', NULL, '[]', 1, 'hidden', '6a8442c17143a870357a5ff812362e8b5cfe9f9d'),
+			('book', 90002, NULL, 'Upper bound sentinel', NULL, '[]', 2, 'hidden', '6a8442c17143a870357a5ff812362e8b5cfe9f9d')
+	`); err != nil {
+		t.Fatalf("insert sentinel positions: %v", err)
 	}
 
-	store, err := LoadCandidate(context.Background(), root, dataVersion)
-	if store != nil {
-		store.Close()
-		t.Fatal("discarded draft schema identity returned a store")
+	accepted := []string{
+		"staffset:book:a",
+		"staffset:book:" + strings.Repeat("a", 82),
 	}
-	requireCode(t, err, CodeArchiveVersionUnsupported)
+	for index, setKey := range accepted {
+		positionID := 90001 + index
+		if _, err := database.Exec(
+			"INSERT INTO staff_set VALUES (?, 'book', ?, ?)",
+			setKey,
+			fmt.Sprintf("Boundary %d", len(setKey)),
+			positionID,
+		); err != nil {
+			t.Fatalf("insert accepted length %d: %v", len(setKey), err)
+		}
+		if _, err := database.Exec(
+			"INSERT INTO staff_set_member VALUES (?, 'book', ?)",
+			setKey,
+			positionID,
+		); err != nil {
+			t.Fatalf("insert accepted member length %d: %v", len(setKey), err)
+		}
+	}
+	for _, setKey := range []string{
+		"staffset:book:",
+		"staffset:book:" + strings.Repeat("a", 83),
+	} {
+		if _, err := database.Exec(
+			"INSERT INTO staff_set VALUES (?, 'book', ?, 1)",
+			setKey,
+			fmt.Sprintf("Boundary %d", len(setKey)),
+		); err == nil {
+			t.Fatalf("accepted rejected length %d", len(setKey))
+		}
+	}
+
+	var sets, members int
+	if err := database.QueryRow("SELECT COUNT(*) FROM staff_set").Scan(&sets); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.QueryRow("SELECT COUNT(*) FROM staff_set_member").Scan(&members); err != nil {
+		t.Fatal(err)
+	}
+	if sets != 2 || members != 2 {
+		t.Fatalf("accepted boundary rows = sets:%d members:%d, want 2/2", sets, members)
+	}
 }
 
 func TestCompiledContractConstantsMatchAuthority(t *testing.T) {

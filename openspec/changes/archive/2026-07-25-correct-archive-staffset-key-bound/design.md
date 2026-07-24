@@ -10,7 +10,7 @@ defect, not a catalog-specific policy choice.
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: main authority/dependency review and strict planning gates passed |
+| Status | investigated: complete; specified: approved; implemented: complete; verified: main Contracts/Go/OpenSpec acceptance passed; committed: this local archive/sync commit; pushed/released/deployed: no |
 | Owner | Delegated correction owner implements; main agent reviews and accepts. |
 | Writable paths | Exact proposal path set only. |
 | Read-only protected inputs | Active Updater implementation, catalog change, all other code/contracts/state, refs/remotes, external state, and production. |

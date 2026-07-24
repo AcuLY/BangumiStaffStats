@@ -196,7 +196,7 @@ CREATE TABLE cast_credit (
 
 CREATE TABLE staff_set (
   set_key TEXT NOT NULL PRIMARY KEY CHECK (
-    length(set_key) BETWEEN 17 AND 96
+    length(set_key) BETWEEN 15 AND 96
     AND set_key GLOB 'staffset:*:*'
   ),
   subject_type TEXT NOT NULL CHECK (subject_type IN ('book', 'anime', 'music', 'game', 'real')),

@@ -2,7 +2,7 @@
   "manifestSchemaVersion": 1,
   "sqliteSchemaVersion": 1,
   "dataVersionAlgorithm": "bgmss-archive-data-version-v1",
-  "dataVersion": "dv1-8577238451268b0a71275b73074e505b2d37a8be35a2db71ce16f81f3c5f2129",
+  "dataVersion": "dv1-702727dd95a2f0d9227f9bf19d3b1f75a85266ccc016e42a9304a10dc7b4df97",
   "generatorVersion": "archive-contract-fixture-v1",
   "generatedAt": "2026-01-01T00:00:00Z",
   "archiveRelease": "golden-v1",
@@ -14,7 +14,7 @@
   "commonSubjectStaffsUrl": "https://raw.githubusercontent.com/bangumi/common/6a8442c17143a870357a5ff812362e8b5cfe9f9d/subject_staffs.yml",
   "commonSize": 40,
   "commonDigest": "sha256:0649c282e74e319f810f5e9c3f2024221cef8070f24686f1bd2d041114b7eb6b",
-  "schemaSqlDigest": "sha256:fe3ff18c4601a6e7fae894db0a4c58e26a7ded6f2d8ad19716946db32789d7b8",
+  "schemaSqlDigest": "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0",
   "catalogConfigDigest": "sha256:2b103894453b55d01bcb65b8010a55f54c57cd73e23deca39f4a0a9d2aadc678",
   "domainRulesVersion": "domain-v1",
   "castRulesVersion": "cast-exact-v1",
@@ -120,6 +120,6 @@
   },
   "sqliteFile": "bangumi.sqlite",
   "sqliteSize": 237568,
-  "sqliteDigest": "sha256:9da5c02a4ee212ecfba63534a2d4f491229242d1f6935c9c4f8eb8b31bab6216",
+  "sqliteDigest": "sha256:5241106e1a72a790bc117b1ded594f510c8611de70ffd7df3c8f54c17bde4947",
   "unexpected": true
 }
