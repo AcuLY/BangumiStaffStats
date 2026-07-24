@@ -1,0 +1,97 @@
+{
+  "kind": "unicode",
+  "version": "15.1.0",
+  "trimCases": [
+    {
+      "id": "trim-u0085-and-u3000",
+      "input": "　Alice ",
+      "expected": "Alice"
+    },
+    {
+      "id": "preserve-feff",
+      "input": "﻿Alice﻿",
+      "expected": "﻿Alice﻿"
+    },
+    {
+      "id": "trim-mixed-boundary-run",
+      "input": "\t\n\r                  　Tag\t",
+      "expected": "Tag"
+    },
+    {
+      "id": "interior-whitespace-preserved",
+      "input": "　AB　",
+      "expected": "AB"
+    }
+  ],
+  "foldCases": [
+    {
+      "id": "nfkc-fullwidth",
+      "input": " ＳＦ ",
+      "expected": "sf"
+    },
+    {
+      "id": "full-fold-sharp-s",
+      "input": "Straße",
+      "expected": "strasse"
+    },
+    {
+      "id": "default-not-turkic",
+      "input": "İI",
+      "expected": "i̇i"
+    },
+    {
+      "id": "fold-final-sigma",
+      "input": "ΟΣ",
+      "expected": "οσ"
+    },
+    {
+      "id": "assigned-in-15-1",
+      "input": "𮯰",
+      "expected": "𮯰"
+    },
+    {
+      "id": "default-dotless-i",
+      "input": "Iı",
+      "expected": "iı"
+    },
+    {
+      "id": "nfkc-combining-mark",
+      "input": "É",
+      "expected": "é"
+    },
+    {
+      "id": "tag-trim-u0085-mixed",
+      "input": "　Ｔag ",
+      "expected": "tag"
+    },
+    {
+      "id": "tag-preserve-feff",
+      "input": "﻿Ａ﻿",
+      "expected": "﻿a﻿"
+    }
+  ],
+  "rejectionCases": [
+    {
+      "id": "post-15-1-scalar",
+      "input": "𜰀",
+      "expectedCode": "FIELD_INVALID"
+    },
+    {
+      "id": "lone-high-surrogate-value",
+      "input": "\ud800",
+      "expectedCode": "FIELD_INVALID"
+    },
+    {
+      "id": "lone-low-surrogate-value",
+      "input": "\udc00",
+      "expectedCode": "FIELD_INVALID"
+    },
+    {
+      "id": "lone-surrogate-key",
+      "object": {
+        "\ud800": "value"
+      },
+      "expectedCode": "FIELD_INVALID"
+    }
+  ]
+}

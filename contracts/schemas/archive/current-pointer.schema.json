@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/archive/current-pointer-v1.json",
+  "title": "Archive current pointer v1",
+  "description": "An inert, path-free pointer. A runtime derives fixed names only after validating dataVersion.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pointerSchemaVersion",
+    "dataVersion",
+    "manifestDigest"
+  ],
+  "properties": {
+    "pointerSchemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "dataVersion": {
+      "type": "string",
+      "pattern": "^dv1-[0-9a-f]{64}$"
+    },
+    "manifestDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

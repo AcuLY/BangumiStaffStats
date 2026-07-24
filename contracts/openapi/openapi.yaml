@@ -1,0 +1,208 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "Bangumi Staff Statistics Shared Contracts",
+    "version": "1.0.0",
+    "description": "Wave 1 shared query components. Business endpoint paths and result DTOs are intentionally deferred.",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Version 1 API family"
+    }
+  ],
+  "paths": {},
+  "components": {
+    "schemas": {
+      "SharedQueryV1": {
+        "$ref": "../schemas/query/shared-query-v1.schema.json"
+      },
+      "EffectiveQueryV1": {
+        "$ref": "../schemas/query/effective-query-v1.schema.json"
+      },
+      "QueryDigestProjectionV1": {
+        "$ref": "../schemas/query/query-digest-projection-v1.schema.json"
+      },
+      "CatalogContextV1": {
+        "$ref": "../schemas/query/catalog-context-v1.schema.json"
+      },
+      "RankingsViewV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/RankingsViewV1"
+      },
+      "CandidatesInputV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/CandidatesInputV1"
+      },
+      "CandidatesViewV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/CandidatesViewV1"
+      },
+      "PersonDetailInputV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/PersonDetailInputV1"
+      },
+      "PersonDetailViewV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/PersonDetailViewV1"
+      },
+      "PartnersInputV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/PartnersInputV1"
+      },
+      "PartnersViewV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/PartnersViewV1"
+      },
+      "CoStarInputV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/CoStarInputV1"
+      },
+      "CoStarViewV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/CoStarViewV1"
+      },
+      "ErrorEnvelopeV1": {
+        "$ref": "../schemas/query/error-envelope-v1.schema.json"
+      },
+      "SharePayloadV1": {
+        "$ref": "../schemas/query/share-payload-v1.schema.json"
+      },
+      "RankingShareWorkspaceV1": {
+        "$ref": "../schemas/query/share-payload-v1.schema.json#/$defs/RankingWorkspaceV1"
+      },
+      "CoStarShareWorkspaceV1": {
+        "$ref": "../schemas/query/share-payload-v1.schema.json#/$defs/CoStarWorkspaceV1"
+      }
+    },
+    "responses": {
+      "BadRequestErrorV1": {
+        "description": "Invalid JSON, request shape, field value, position selection, capability, query-result identity, participant count, or identity count.",
+        "x-error-codes": [
+          "INVALID_JSON",
+          "INVALID_REQUEST",
+          "FIELD_INVALID",
+          "POSITION_SELECTION_CONFLICT",
+          "POSITION_NOT_FOUND",
+          "POSITION_NOT_SELECTABLE",
+          "POSITION_SUBJECT_TYPE_MISMATCH",
+          "CAPABILITY_NOT_AVAILABLE",
+          "PERSON_NOT_IN_QUERY_RESULT",
+          "PARTICIPANT_LIMIT_EXCEEDED",
+          "IDENTITY_LIMIT_EXCEEDED"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ForbiddenErrorV1": {
+        "description": "The requested collection is not public.",
+        "x-error-codes": [
+          "COLLECTION_NOT_PUBLIC"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "NotFoundErrorV1": {
+        "description": "The requested user or entity does not exist.",
+        "x-error-codes": [
+          "USER_NOT_FOUND",
+          "ENTITY_NOT_FOUND"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "PayloadTooLargeErrorV1": {
+        "description": "The request exceeds the transport limit.",
+        "x-error-codes": [
+          "REQUEST_TOO_LARGE"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "UnsupportedMediaTypeErrorV1": {
+        "description": "The request media type is unsupported.",
+        "x-error-codes": [
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "RateLimitedErrorV1": {
+        "description": "The caller has exceeded the request rate.",
+        "x-error-codes": [
+          "RATE_LIMITED"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ServiceUnavailableErrorV1": {
+        "description": "The service is busy, not ready, or an upstream is unavailable or invalid.",
+        "x-error-codes": [
+          "SERVER_BUSY",
+          "NOT_READY",
+          "UPSTREAM_UNAVAILABLE",
+          "UPSTREAM_PROTOCOL_ERROR"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "GatewayTimeoutErrorV1": {
+        "description": "The upstream request timed out.",
+        "x-error-codes": [
+          "UPSTREAM_TIMEOUT"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "InternalErrorV1": {
+        "description": "An unexpected internal failure occurred.",
+        "x-error-codes": [
+          "INTERNAL_ERROR"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      }
+    }
+  }
+}

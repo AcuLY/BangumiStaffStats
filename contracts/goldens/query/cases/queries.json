@@ -1,0 +1,1479 @@
+{
+  "kind": "query-normalization",
+  "version": 1,
+  "cases": [
+    {
+      "id": "personal-normalization",
+      "submitted": {
+        "scope": "personal",
+        "uid": "Alice　",
+        "collectionStatuses": [
+          "dropped",
+          "completed",
+          "completed",
+          "in_progress"
+        ],
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2",
+          "staff:anime:2",
+          "cast:anime:all"
+        ],
+        "filters": {
+          "subjectDate": {
+            "min": "2000-01",
+            "max": "2025-12"
+          },
+          "collectionUpdatedAt": {
+            "min": "2020-02"
+          },
+          "personalScore": {
+            "min": 0,
+            "max": 10
+          },
+          "globalScore": {
+            "min": 6.5
+          },
+          "scoreDifference": {
+            "min": -10,
+            "max": 10
+          },
+          "ratingCount": {
+            "min": 0,
+            "max": 9007199254740991
+          },
+          "tags": {
+            "include": [
+              {
+                "anyOf": [
+                  " ＳＦ ",
+                  "sf",
+                  "Straße",
+                  "STRASSE"
+                ]
+              },
+              {
+                "anyOf": [
+                  "日常"
+                ]
+              }
+            ],
+            "exclude": [
+              {
+                "allOf": [
+                  "　ドラマ",
+                  "ドラマ "
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:anime:2",
+            "subjectType": "anime",
+            "selectable": true
+          },
+          {
+            "key": "cast:anime:all",
+            "subjectType": "anime",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed",
+            "in_progress",
+            "dropped"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false,
+          "filters": {
+            "subjectDate": {
+              "min": "2000-01",
+              "max": "2025-12"
+            },
+            "collectionUpdatedAt": {
+              "min": "2020-02"
+            },
+            "personalScore": {
+              "min": 0,
+              "max": 10
+            },
+            "globalScore": {
+              "min": 6.5
+            },
+            "scoreDifference": {
+              "min": -10,
+              "max": 10
+            },
+            "ratingCount": {
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "sf",
+                    "strasse"
+                  ]
+                },
+                {
+                  "anyOf": [
+                    "日常"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "ドラマ"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "projection": {
+          "scope": "personal",
+          "collectionStatuses": [
+            "completed",
+            "in_progress",
+            "dropped"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false,
+          "filters": {
+            "subjectDate": {
+              "min": "2000-01",
+              "max": "2025-12"
+            },
+            "collectionUpdatedAt": {
+              "min": "2020-02"
+            },
+            "personalScore": {
+              "min": 0,
+              "max": 10
+            },
+            "globalScore": {
+              "min": 6.5
+            },
+            "scoreDifference": {
+              "min": -10,
+              "max": 10
+            },
+            "ratingCount": {
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "sf",
+                    "strasse"
+                  ]
+                },
+                {
+                  "anyOf": [
+                    "日常"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "ドラマ"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "canonical": "{\"collectionStatuses\":[\"completed\",\"in_progress\",\"dropped\"],\"filters\":{\"collectionUpdatedAt\":{\"min\":\"2020-02\"},\"globalScore\":{\"min\":6.5},\"personalScore\":{\"max\":10,\"min\":0},\"ratingCount\":{\"max\":9007199254740991,\"min\":0},\"scoreDifference\":{\"max\":10,\"min\":-10},\"subjectDate\":{\"max\":\"2025-12\",\"min\":\"2000-01\"},\"tags\":{\"exclude\":[{\"allOf\":[\"ドラマ\"]}],\"include\":[{\"anyOf\":[\"sf\",\"strasse\"]},{\"anyOf\":[\"日常\"]}]}},\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[\"staff:anime:2\",\"cast:anime:all\"],\"scope\":\"personal\",\"subjectType\":\"anime\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22636f6c6c656374696f6e5374617475736573223a5b22636f6d706c65746564222c22696e5f70726f6772657373222c2264726f70706564225d2c2266696c74657273223a7b22636f6c6c656374696f6e557064617465644174223a7b226d696e223a22323032302d3032227d2c22676c6f62616c53636f7265223a7b226d696e223a362e357d2c22706572736f6e616c53636f7265223a7b226d6178223a31302c226d696e223a307d2c22726174696e67436f756e74223a7b226d6178223a393030373139393235343734303939312c226d696e223a307d2c2273636f7265446966666572656e6365223a7b226d6178223a31302c226d696e223a2d31307d2c227375626a65637444617465223a7b226d6178223a22323032352d3132222c226d696e223a22323030302d3031227d2c2274616773223a7b226578636c756465223a5b7b22616c6c4f66223a5b22e38389e383a9e3839e225d7d5d2c22696e636c756465223a5b7b22616e794f66223a5b227366222c2273747261737365225d7d2c7b22616e794f66223a5b22e697a5e5b8b8225d7d5d7d7d2c22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b2273746166663a616e696d653a32222c22636173743a616e696d653a616c6c225d2c2273636f7065223a22706572736f6e616c222c227375626a65637454797065223a22616e696d65227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJjb2xsZWN0aW9uU3RhdHVzZXMiOlsiY29tcGxldGVkIiwiaW5fcHJvZ3Jlc3MiLCJkcm9wcGVkIl0sImZpbHRlcnMiOnsiY29sbGVjdGlvblVwZGF0ZWRBdCI6eyJtaW4iOiIyMDIwLTAyIn0sImdsb2JhbFNjb3JlIjp7Im1pbiI6Ni41fSwicGVyc29uYWxTY29yZSI6eyJtYXgiOjEwLCJtaW4iOjB9LCJyYXRpbmdDb3VudCI6eyJtYXgiOjkwMDcxOTkyNTQ3NDA5OTEsIm1pbiI6MH0sInNjb3JlRGlmZmVyZW5jZSI6eyJtYXgiOjEwLCJtaW4iOi0xMH0sInN1YmplY3REYXRlIjp7Im1heCI6IjIwMjUtMTIiLCJtaW4iOiIyMDAwLTAxIn0sInRhZ3MiOnsiZXhjbHVkZSI6W3siYWxsT2YiOlsi44OJ44Op44OeIl19XSwiaW5jbHVkZSI6W3siYW55T2YiOlsic2YiLCJzdHJhc3NlIl19LHsiYW55T2YiOlsi5pel5bi4Il19XX19LCJpbmNsdWRlTlNGVyI6ZmFsc2UsIm1lcmdlU2VyaWVzIjpmYWxzZSwicG9zaXRpb25LZXlzIjpbInN0YWZmOmFuaW1lOjIiLCJjYXN0OmFuaW1lOmFsbCJdLCJzY29wZSI6InBlcnNvbmFsIiwic3ViamVjdFR5cGUiOiJhbmltZSJ9",
+        "queryDigest": "q1:71a3e9230aadd18df18a30701c192d1e9fe99e2c74fbb09c47282507432c451e"
+      }
+    },
+    {
+      "id": "personal-uid-excluded",
+      "sameDigestAs": "personal-normalization",
+      "submitted": {
+        "scope": "personal",
+        "uid": "Bob",
+        "collectionStatuses": [
+          "completed",
+          "in_progress",
+          "dropped"
+        ],
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2",
+          "cast:anime:all"
+        ],
+        "includeNSFW": false,
+        "mergeSeries": false,
+        "filters": {
+          "subjectDate": {
+            "min": "2000-01",
+            "max": "2025-12"
+          },
+          "collectionUpdatedAt": {
+            "min": "2020-02"
+          },
+          "personalScore": {
+            "min": 0,
+            "max": 10
+          },
+          "globalScore": {
+            "min": 6.5
+          },
+          "scoreDifference": {
+            "min": -10,
+            "max": 10
+          },
+          "ratingCount": {
+            "min": 0,
+            "max": 9007199254740991
+          },
+          "tags": {
+            "include": [
+              {
+                "anyOf": [
+                  "sf",
+                  "strasse"
+                ]
+              },
+              {
+                "anyOf": [
+                  "日常"
+                ]
+              }
+            ],
+            "exclude": [
+              {
+                "allOf": [
+                  "ドラマ"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:anime:2",
+            "subjectType": "anime",
+            "selectable": true
+          },
+          {
+            "key": "cast:anime:all",
+            "subjectType": "anime",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "personal",
+          "uid": "Bob",
+          "collectionStatuses": [
+            "completed",
+            "in_progress",
+            "dropped"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false,
+          "filters": {
+            "subjectDate": {
+              "min": "2000-01",
+              "max": "2025-12"
+            },
+            "collectionUpdatedAt": {
+              "min": "2020-02"
+            },
+            "personalScore": {
+              "min": 0,
+              "max": 10
+            },
+            "globalScore": {
+              "min": 6.5
+            },
+            "scoreDifference": {
+              "min": -10,
+              "max": 10
+            },
+            "ratingCount": {
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "sf",
+                    "strasse"
+                  ]
+                },
+                {
+                  "anyOf": [
+                    "日常"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "ドラマ"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "projection": {
+          "scope": "personal",
+          "collectionStatuses": [
+            "completed",
+            "in_progress",
+            "dropped"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false,
+          "filters": {
+            "subjectDate": {
+              "min": "2000-01",
+              "max": "2025-12"
+            },
+            "collectionUpdatedAt": {
+              "min": "2020-02"
+            },
+            "personalScore": {
+              "min": 0,
+              "max": 10
+            },
+            "globalScore": {
+              "min": 6.5
+            },
+            "scoreDifference": {
+              "min": -10,
+              "max": 10
+            },
+            "ratingCount": {
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "sf",
+                    "strasse"
+                  ]
+                },
+                {
+                  "anyOf": [
+                    "日常"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "ドラマ"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "canonical": "{\"collectionStatuses\":[\"completed\",\"in_progress\",\"dropped\"],\"filters\":{\"collectionUpdatedAt\":{\"min\":\"2020-02\"},\"globalScore\":{\"min\":6.5},\"personalScore\":{\"max\":10,\"min\":0},\"ratingCount\":{\"max\":9007199254740991,\"min\":0},\"scoreDifference\":{\"max\":10,\"min\":-10},\"subjectDate\":{\"max\":\"2025-12\",\"min\":\"2000-01\"},\"tags\":{\"exclude\":[{\"allOf\":[\"ドラマ\"]}],\"include\":[{\"anyOf\":[\"sf\",\"strasse\"]},{\"anyOf\":[\"日常\"]}]}},\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[\"staff:anime:2\",\"cast:anime:all\"],\"scope\":\"personal\",\"subjectType\":\"anime\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22636f6c6c656374696f6e5374617475736573223a5b22636f6d706c65746564222c22696e5f70726f6772657373222c2264726f70706564225d2c2266696c74657273223a7b22636f6c6c656374696f6e557064617465644174223a7b226d696e223a22323032302d3032227d2c22676c6f62616c53636f7265223a7b226d696e223a362e357d2c22706572736f6e616c53636f7265223a7b226d6178223a31302c226d696e223a307d2c22726174696e67436f756e74223a7b226d6178223a393030373139393235343734303939312c226d696e223a307d2c2273636f7265446966666572656e6365223a7b226d6178223a31302c226d696e223a2d31307d2c227375626a65637444617465223a7b226d6178223a22323032352d3132222c226d696e223a22323030302d3031227d2c2274616773223a7b226578636c756465223a5b7b22616c6c4f66223a5b22e38389e383a9e3839e225d7d5d2c22696e636c756465223a5b7b22616e794f66223a5b227366222c2273747261737365225d7d2c7b22616e794f66223a5b22e697a5e5b8b8225d7d5d7d7d2c22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b2273746166663a616e696d653a32222c22636173743a616e696d653a616c6c225d2c2273636f7065223a22706572736f6e616c222c227375626a65637454797065223a22616e696d65227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJjb2xsZWN0aW9uU3RhdHVzZXMiOlsiY29tcGxldGVkIiwiaW5fcHJvZ3Jlc3MiLCJkcm9wcGVkIl0sImZpbHRlcnMiOnsiY29sbGVjdGlvblVwZGF0ZWRBdCI6eyJtaW4iOiIyMDIwLTAyIn0sImdsb2JhbFNjb3JlIjp7Im1pbiI6Ni41fSwicGVyc29uYWxTY29yZSI6eyJtYXgiOjEwLCJtaW4iOjB9LCJyYXRpbmdDb3VudCI6eyJtYXgiOjkwMDcxOTkyNTQ3NDA5OTEsIm1pbiI6MH0sInNjb3JlRGlmZmVyZW5jZSI6eyJtYXgiOjEwLCJtaW4iOi0xMH0sInN1YmplY3REYXRlIjp7Im1heCI6IjIwMjUtMTIiLCJtaW4iOiIyMDAwLTAxIn0sInRhZ3MiOnsiZXhjbHVkZSI6W3siYWxsT2YiOlsi44OJ44Op44OeIl19XSwiaW5jbHVkZSI6W3siYW55T2YiOlsic2YiLCJzdHJhc3NlIl19LHsiYW55T2YiOlsi5pel5bi4Il19XX19LCJpbmNsdWRlTlNGVyI6ZmFsc2UsIm1lcmdlU2VyaWVzIjpmYWxzZSwicG9zaXRpb25LZXlzIjpbInN0YWZmOmFuaW1lOjIiLCJjYXN0OmFuaW1lOmFsbCJdLCJzY29wZSI6InBlcnNvbmFsIiwic3ViamVjdFR5cGUiOiJhbmltZSJ9",
+        "queryDigest": "q1:71a3e9230aadd18df18a30701c192d1e9fe99e2c74fbb09c47282507432c451e"
+      }
+    },
+    {
+      "id": "global-series-staffset",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staffset:anime:core-creators"
+        ],
+        "includeNSFW": true,
+        "mergeSeries": true,
+        "filters": {
+          "subjectDate": {
+            "max": "2026-07"
+          },
+          "globalScore": {
+            "min": 0,
+            "max": 10
+          },
+          "ratingCount": {
+            "min": 0
+          },
+          "tags": {
+            "include": [
+              {
+                "anyOf": [
+                  "Ａction",
+                  "action"
+                ]
+              }
+            ],
+            "exclude": [
+              {
+                "allOf": [
+                  "OVA",
+                  "Special"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staffset:anime:core-creators",
+            "subjectType": "anime",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staffset:anime:core-creators"
+          ],
+          "includeNSFW": true,
+          "mergeSeries": true,
+          "filters": {
+            "subjectDate": {
+              "max": "2026-07"
+            },
+            "globalScore": {
+              "min": 0,
+              "max": 10
+            },
+            "ratingCount": {
+              "min": 0
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "action"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "ova",
+                    "special"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "projection": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staffset:anime:core-creators"
+          ],
+          "includeNSFW": true,
+          "mergeSeries": true,
+          "filters": {
+            "subjectDate": {
+              "max": "2026-07"
+            },
+            "globalScore": {
+              "min": 0,
+              "max": 10
+            },
+            "ratingCount": {
+              "min": 0
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "action"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "ova",
+                    "special"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "canonical": "{\"filters\":{\"globalScore\":{\"max\":10,\"min\":0},\"ratingCount\":{\"min\":0},\"subjectDate\":{\"max\":\"2026-07\"},\"tags\":{\"exclude\":[{\"allOf\":[\"ova\",\"special\"]}],\"include\":[{\"anyOf\":[\"action\"]}]}},\"includeNSFW\":true,\"mergeSeries\":true,\"positionKeys\":[\"staffset:anime:core-creators\"],\"scope\":\"global\",\"subjectType\":\"anime\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b2266696c74657273223a7b22676c6f62616c53636f7265223a7b226d6178223a31302c226d696e223a307d2c22726174696e67436f756e74223a7b226d696e223a307d2c227375626a65637444617465223a7b226d6178223a22323032362d3037227d2c2274616773223a7b226578636c756465223a5b7b22616c6c4f66223a5b226f7661222c227370656369616c225d7d5d2c22696e636c756465223a5b7b22616e794f66223a5b22616374696f6e225d7d5d7d7d2c22696e636c7564654e534657223a747275652c226d65726765536572696573223a747275652c22706f736974696f6e4b657973223a5b2273746166667365743a616e696d653a636f72652d63726561746f7273225d2c2273636f7065223a22676c6f62616c222c227375626a65637454797065223a22616e696d65227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJmaWx0ZXJzIjp7Imdsb2JhbFNjb3JlIjp7Im1heCI6MTAsIm1pbiI6MH0sInJhdGluZ0NvdW50Ijp7Im1pbiI6MH0sInN1YmplY3REYXRlIjp7Im1heCI6IjIwMjYtMDcifSwidGFncyI6eyJleGNsdWRlIjpbeyJhbGxPZiI6WyJvdmEiLCJzcGVjaWFsIl19XSwiaW5jbHVkZSI6W3siYW55T2YiOlsiYWN0aW9uIl19XX19LCJpbmNsdWRlTlNGVyI6dHJ1ZSwibWVyZ2VTZXJpZXMiOnRydWUsInBvc2l0aW9uS2V5cyI6WyJzdGFmZnNldDphbmltZTpjb3JlLWNyZWF0b3JzIl0sInNjb3BlIjoiZ2xvYmFsIiwic3ViamVjdFR5cGUiOiJhbmltZSJ9",
+        "queryDigest": "q1:975ac35886abbf0d4682f42a805051d287194fa931431002258b0d745894f396"
+      }
+    },
+    {
+      "id": "global-safe-position-id",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "book",
+        "positionKeys": [
+          "staff:book:9007199254740991"
+        ]
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:book:9007199254740991",
+            "subjectType": "book",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "global",
+          "subjectType": "book",
+          "positionKeys": [
+            "staff:book:9007199254740991"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "projection": {
+          "scope": "global",
+          "subjectType": "book",
+          "positionKeys": [
+            "staff:book:9007199254740991"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "canonical": "{\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[\"staff:book:9007199254740991\"],\"scope\":\"global\",\"subjectType\":\"book\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b2273746166663a626f6f6b3a39303037313939323534373430393931225d2c2273636f7065223a22676c6f62616c222c227375626a65637454797065223a22626f6f6b227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJpbmNsdWRlTlNGVyI6ZmFsc2UsIm1lcmdlU2VyaWVzIjpmYWxzZSwicG9zaXRpb25LZXlzIjpbInN0YWZmOmJvb2s6OTAwNzE5OTI1NDc0MDk5MSJdLCJzY29wZSI6Imdsb2JhbCIsInN1YmplY3RUeXBlIjoiYm9vayJ9",
+        "queryDigest": "q1:d8ea356823ab3bd48bd08e7cae6fbe0cd9a5e7e3f7739cd5966f6cfac64b311a"
+      }
+    },
+    {
+      "id": "global-three-position-families",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2",
+          "cast:anime:all",
+          "staff:anime:2",
+          "staffset:anime:core-creators",
+          "cast:anime:all"
+        ]
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:anime:2",
+            "subjectType": "anime",
+            "selectable": true
+          },
+          {
+            "key": "cast:anime:all",
+            "subjectType": "anime",
+            "selectable": true
+          },
+          {
+            "key": "staffset:anime:core-creators",
+            "subjectType": "anime",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all",
+            "staffset:anime:core-creators"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "projection": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all",
+            "staffset:anime:core-creators"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "canonical": "{\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[\"staff:anime:2\",\"cast:anime:all\",\"staffset:anime:core-creators\"],\"scope\":\"global\",\"subjectType\":\"anime\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b2273746166663a616e696d653a32222c22636173743a616e696d653a616c6c222c2273746166667365743a616e696d653a636f72652d63726561746f7273225d2c2273636f7065223a22676c6f62616c222c227375626a65637454797065223a22616e696d65227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJpbmNsdWRlTlNGVyI6ZmFsc2UsIm1lcmdlU2VyaWVzIjpmYWxzZSwicG9zaXRpb25LZXlzIjpbInN0YWZmOmFuaW1lOjIiLCJjYXN0OmFuaW1lOmFsbCIsInN0YWZmc2V0OmFuaW1lOmNvcmUtY3JlYXRvcnMiXSwic2NvcGUiOiJnbG9iYWwiLCJzdWJqZWN0VHlwZSI6ImFuaW1lIn0",
+        "queryDigest": "q1:a1555b486b2e7ea839ad8a1faf80f0c5a08d5e77b86e60ee0f4b2b34d0d7216e"
+      }
+    },
+    {
+      "id": "personal-all-statuses-feff-preserved",
+      "submitted": {
+        "scope": "personal",
+        "uid": "﻿Alice﻿",
+        "collectionStatuses": [
+          "on_hold",
+          "dropped",
+          "in_progress",
+          "completed",
+          "on_hold"
+        ],
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ]
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:anime:2",
+            "subjectType": "anime",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "personal",
+          "uid": "﻿Alice﻿",
+          "collectionStatuses": [
+            "completed",
+            "in_progress",
+            "on_hold",
+            "dropped"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "projection": {
+          "scope": "personal",
+          "collectionStatuses": [
+            "completed",
+            "in_progress",
+            "on_hold",
+            "dropped"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "canonical": "{\"collectionStatuses\":[\"completed\",\"in_progress\",\"on_hold\",\"dropped\"],\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[\"staff:anime:2\"],\"scope\":\"personal\",\"subjectType\":\"anime\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22636f6c6c656374696f6e5374617475736573223a5b22636f6d706c65746564222c22696e5f70726f6772657373222c226f6e5f686f6c64222c2264726f70706564225d2c22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b2273746166663a616e696d653a32225d2c2273636f7065223a22706572736f6e616c222c227375626a65637454797065223a22616e696d65227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJjb2xsZWN0aW9uU3RhdHVzZXMiOlsiY29tcGxldGVkIiwiaW5fcHJvZ3Jlc3MiLCJvbl9ob2xkIiwiZHJvcHBlZCJdLCJpbmNsdWRlTlNGVyI6ZmFsc2UsIm1lcmdlU2VyaWVzIjpmYWxzZSwicG9zaXRpb25LZXlzIjpbInN0YWZmOmFuaW1lOjIiXSwic2NvcGUiOiJwZXJzb25hbCIsInN1YmplY3RUeXBlIjoiYW5pbWUifQ",
+        "queryDigest": "q1:ffb84d53eeadd6a5aa0ab1e53eb65318491c0dbc137210254be0ba0c37a44f75"
+      }
+    }
+  ],
+  "negativeCases": [
+    {
+      "id": "global-personal-field",
+      "submitted": {
+        "scope": "global",
+        "uid": "",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ]
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/uid"
+    },
+    {
+      "id": "global-collection-statuses-field",
+      "submitted": {
+        "scope": "global",
+        "collectionStatuses": [],
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ]
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/collectionStatuses"
+    },
+    {
+      "id": "global-collection-updated-filter",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "collectionUpdatedAt": {
+            "min": "2020-01"
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/collectionUpdatedAt"
+    },
+    {
+      "id": "global-personal-score-filter",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "personalScore": {
+            "min": 1
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/personalScore"
+    },
+    {
+      "id": "global-score-difference-filter",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "scoreDifference": {
+            "min": -1
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/scoreDifference"
+    },
+    {
+      "id": "personal-uid-empty-after-trim",
+      "submitted": {
+        "scope": "personal",
+        "uid": "　",
+        "collectionStatuses": [
+          "completed"
+        ],
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ]
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/uid"
+    },
+    {
+      "id": "personal-uid-control",
+      "submitted": {
+        "scope": "personal",
+        "uid": "Alice\u0000",
+        "collectionStatuses": [
+          "completed"
+        ],
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ]
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/uid"
+    },
+    {
+      "id": "global-non-anime-series",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "book",
+        "positionKeys": [
+          "staff:book:9007199254740991"
+        ],
+        "mergeSeries": true
+      },
+      "catalogCase": "global-safe-position-id",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/mergeSeries"
+    },
+    {
+      "id": "position-conflict",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "cast:anime:main",
+          "cast:anime:all"
+        ]
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "cast:anime:main",
+            "subjectType": "anime",
+            "selectable": true
+          },
+          {
+            "key": "cast:anime:all",
+            "subjectType": "anime",
+            "selectable": true
+          }
+        ]
+      },
+      "expectedCode": "POSITION_SELECTION_CONFLICT",
+      "expectedPath": "/positionKeys"
+    },
+    {
+      "id": "position-subject-mismatch",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "book",
+        "positionKeys": [
+          "staff:anime:2"
+        ]
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "POSITION_SUBJECT_TYPE_MISMATCH",
+      "expectedPath": "/positionKeys/0"
+    },
+    {
+      "id": "position-not-found",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:99"
+        ]
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "POSITION_NOT_FOUND",
+      "expectedPath": "/positionKeys/0"
+    },
+    {
+      "id": "position-not-selectable",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:3"
+        ]
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:anime:3",
+            "subjectType": "anime",
+            "selectable": false
+          }
+        ]
+      },
+      "expectedCode": "POSITION_NOT_SELECTABLE",
+      "expectedPath": "/positionKeys/0"
+    },
+    {
+      "id": "unsafe-position-id",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:9007199254740992"
+        ]
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:anime:9007199254740992",
+            "subjectType": "anime",
+            "selectable": true
+          }
+        ]
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/positionKeys/0"
+    },
+    {
+      "id": "malformed-position-key",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "anime:2"
+        ]
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/positionKeys/0"
+    },
+    {
+      "id": "range-inverted",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "globalScore": {
+            "min": 8,
+            "max": 7
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/globalScore"
+    },
+    {
+      "id": "empty-range",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "ratingCount": {}
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/ratingCount"
+    },
+    {
+      "id": "invalid-month",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "subjectDate": {
+            "min": "2025-13"
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/subjectDate/min"
+    },
+    {
+      "id": "month-trailing-text",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "subjectDate": {
+            "max": "2025-12x"
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/subjectDate/max"
+    },
+    {
+      "id": "score-out-of-range",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "globalScore": {
+            "max": 10.1
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/globalScore/max"
+    },
+    {
+      "id": "rating-count-fractional",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "ratingCount": {
+            "min": 0.5
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/ratingCount/min"
+    },
+    {
+      "id": "rating-count-negative",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "ratingCount": {
+            "min": -1
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/ratingCount/min"
+    },
+    {
+      "id": "missing-rating-null",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "globalScore": {
+            "min": null
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/globalScore/min"
+    },
+    {
+      "id": "prototype-filter-wrapper",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "globalScore": {
+            "enabled": true,
+            "value": [
+              "1",
+              "10"
+            ]
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/globalScore/enabled"
+    },
+    {
+      "id": "tag-empty-after-trim",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "tags": {
+            "include": [
+              {
+                "anyOf": [
+                  "　"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/tags/include/0/anyOf/0"
+    },
+    {
+      "id": "tag-ui-delimiter-structure",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "tags": "sf/action+drama"
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/tags"
+    },
+    {
+      "id": "tag-empty-group",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "tags": {
+            "include": [
+              {
+                "anyOf": []
+              }
+            ]
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/tags/include/0/anyOf"
+    },
+    {
+      "id": "prototype-tag-wrapper",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "tags": {
+            "enabled": true,
+            "include": [
+              {
+                "anyOf": [
+                  "sf"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/tags/enabled"
+    },
+    {
+      "id": "tag-group-limit",
+      "generatedTagGroups": 33,
+      "submittedTemplate": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "tags": {
+            "include": []
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/tags/include"
+    },
+    {
+      "id": "tag-token-per-group-limit",
+      "generatedTagTokens": 17,
+      "submittedTemplate": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "tags": {
+            "include": [
+              {
+                "anyOf": []
+              }
+            ]
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/tags/include/0/anyOf"
+    },
+    {
+      "id": "tag-total-token-limit",
+      "generatedTotalTagTokens": {
+        "groups": 17,
+        "tokensPerGroup": 16
+      },
+      "submittedTemplate": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "tags": {
+            "include": []
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/tags"
+    },
+    {
+      "id": "tag-post-unicode-15-1",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "tags": {
+            "include": [
+              {
+                "anyOf": [
+                  "𜰀"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/tags/include/0/anyOf/0"
+    },
+    {
+      "id": "tag-byte-limit",
+      "generatedToken": {
+        "value": "界",
+        "repeat": 86
+      },
+      "submittedTemplate": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "tags": {
+            "include": [
+              {
+                "anyOf": [
+                  "$GENERATED"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/filters/tags/include/0/anyOf/0"
+    },
+    {
+      "id": "uid-utf8-byte-limit",
+      "generatedUid": {
+        "value": "界",
+        "repeat": 86
+      },
+      "submittedTemplate": {
+        "scope": "personal",
+        "uid": "$GENERATED",
+        "collectionStatuses": [
+          "completed"
+        ],
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ]
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/uid"
+    },
+    {
+      "id": "request-byte-limit",
+      "generatedToken": {
+        "value": "a",
+        "repeat": 66000
+      },
+      "submittedTemplate": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "filters": {
+          "tags": {
+            "include": [
+              {
+                "anyOf": [
+                  "$GENERATED"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "REQUEST_TOO_LARGE",
+      "expectedPath": ""
+    },
+    {
+      "id": "undeclared-query-version",
+      "submitted": {
+        "scope": "global",
+        "schemaVersion": 1,
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ]
+      },
+      "catalogCase": "personal-normalization",
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/schemaVersion"
+    }
+  ],
+  "digestExclusionCases": [
+    {
+      "id": "digest-excluded-context-matrix",
+      "queryCase": "personal-normalization",
+      "excludedFields": [
+        "uid",
+        "dataVersion",
+        "operation",
+        "input",
+        "view",
+        "refreshCollection",
+        "sharePath",
+        "shareWorkspace",
+        "search",
+        "sort",
+        "order",
+        "page",
+        "pageSize",
+        "section",
+        "queryRevision",
+        "inputDigest",
+        "collectionDigest",
+        "result",
+        "rank",
+        "statistic"
+      ],
+      "leftContext": {
+        "uid": "Alice",
+        "dataVersion": "dv-a",
+        "operation": "rankings",
+        "input": {
+          "personId": 1
+        },
+        "view": {
+          "sort": "count"
+        },
+        "refreshCollection": false,
+        "sharePath": "/ranking",
+        "shareWorkspace": "ranking",
+        "search": "",
+        "sort": "count",
+        "order": "desc",
+        "page": 1,
+        "pageSize": 10,
+        "section": "works",
+        "queryRevision": 1,
+        "inputDigest": "i1:a",
+        "collectionDigest": "c1:a",
+        "result": "a",
+        "rank": 1,
+        "statistic": "count"
+      },
+      "rightContext": {
+        "uid": "Bob",
+        "dataVersion": "dv-b",
+        "operation": "coStar",
+        "input": {
+          "personId": 2
+        },
+        "view": {
+          "sort": "average"
+        },
+        "refreshCollection": true,
+        "sharePath": "/co-star",
+        "shareWorkspace": "co-star",
+        "search": "creator",
+        "sort": "average",
+        "order": "asc",
+        "page": 2,
+        "pageSize": 20,
+        "section": "characters",
+        "queryRevision": 2,
+        "inputDigest": "i1:b",
+        "collectionDigest": "c1:b",
+        "result": "b",
+        "rank": 2,
+        "statistic": "average"
+      },
+      "expectedQueryDigest": "q1:71a3e9230aadd18df18a30701c192d1e9fe99e2c74fbb09c47282507432c451e"
+    }
+  ]
+}

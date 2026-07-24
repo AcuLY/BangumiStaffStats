@@ -7,29 +7,10 @@
 !.env.example
 !.env.*.example
 
-# Node, Vite, tests
-node_modules/
-dist/
-.vite/
-coverage/
-playwright-report/
-test-results/
-*.tsbuildinfo
-
-# Python producer tooling
-.venv/
-__pycache__/
-*.py[cod]
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-
-# Go test output
-/coverage.out
-
-# Local logs and scratch
-*.log
-/tmp/
+# Query contract tool state; physically absent at candidate handoff
+/contracts/goldens/query/node_modules/
+/contracts/goldens/query/.cache/npm/
+/contracts/goldens/query/.cache/go-build/
+/contracts/goldens/query/.cache/go-mod/
+/contracts/goldens/query/.cache/go-path/
+/contracts/goldens/query/.tmp/

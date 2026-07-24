@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.local/schemas/query/effective-query-v1.schema.json",
+  "title": "EffectiveQueryV1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/EffectivePersonalQueryV1"
+    },
+    {
+      "$ref": "#/$defs/EffectiveGlobalQueryV1"
+    }
+  ],
+  "$defs": {
+    "NormalizedTagTokenV1": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "NormalizedTagFilterV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "include": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "anyOf"
+            ],
+            "properties": {
+              "anyOf": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/NormalizedTagTokenV1"
+                }
+              }
+            }
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "allOf"
+            ],
+            "properties": {
+              "allOf": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/NormalizedTagTokenV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "EffectiveCommonFiltersV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "subjectDate": {
+          "$ref": "shared-query-v1.schema.json#/$defs/MonthRangeV1"
+        },
+        "globalScore": {
+          "$ref": "shared-query-v1.schema.json#/$defs/ScoreRangeV1"
+        },
+        "ratingCount": {
+          "$ref": "shared-query-v1.schema.json#/$defs/RatingCountRangeV1"
+        },
+        "tags": {
+          "$ref": "#/$defs/NormalizedTagFilterV1"
+        }
+      }
+    },
+    "EffectivePersonalFiltersV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "subjectDate": {
+          "$ref": "shared-query-v1.schema.json#/$defs/MonthRangeV1"
+        },
+        "collectionUpdatedAt": {
+          "$ref": "shared-query-v1.schema.json#/$defs/MonthRangeV1"
+        },
+        "personalScore": {
+          "$ref": "shared-query-v1.schema.json#/$defs/ScoreRangeV1"
+        },
+        "globalScore": {
+          "$ref": "shared-query-v1.schema.json#/$defs/ScoreRangeV1"
+        },
+        "scoreDifference": {
+          "$ref": "shared-query-v1.schema.json#/$defs/ScoreDifferenceRangeV1"
+        },
+        "ratingCount": {
+          "$ref": "shared-query-v1.schema.json#/$defs/RatingCountRangeV1"
+        },
+        "tags": {
+          "$ref": "#/$defs/NormalizedTagFilterV1"
+        }
+      }
+    },
+    "EffectivePersonalQueryV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "uid",
+        "collectionStatuses",
+        "subjectType",
+        "positionKeys",
+        "includeNSFW",
+        "mergeSeries"
+      ],
+      "properties": {
+        "scope": {
+          "const": "personal"
+        },
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "collectionStatuses": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "shared-query-v1.schema.json#/$defs/CollectionStatusV1"
+          }
+        },
+        "subjectType": {
+          "$ref": "shared-query-v1.schema.json#/$defs/SubjectTypeV1"
+        },
+        "positionKeys": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
+          }
+        },
+        "includeNSFW": {
+          "type": "boolean"
+        },
+        "mergeSeries": {
+          "type": "boolean"
+        },
+        "filters": {
+          "$ref": "#/$defs/EffectivePersonalFiltersV1"
+        }
+      }
+    },
+    "EffectiveGlobalQueryV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "subjectType",
+        "positionKeys",
+        "includeNSFW",
+        "mergeSeries"
+      ],
+      "properties": {
+        "scope": {
+          "const": "global"
+        },
+        "subjectType": {
+          "$ref": "shared-query-v1.schema.json#/$defs/SubjectTypeV1"
+        },
+        "positionKeys": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
+          }
+        },
+        "includeNSFW": {
+          "type": "boolean"
+        },
+        "mergeSeries": {
+          "type": "boolean"
+        },
+        "filters": {
+          "$ref": "#/$defs/EffectiveCommonFiltersV1"
+        }
+      }
+    }
+  }
+}

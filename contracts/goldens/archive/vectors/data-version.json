@@ -1,0 +1,48 @@
+{
+  "vectorSchemaVersion": 1,
+  "algorithm": "bgmss-archive-data-version-v1",
+  "input": {
+    "archiveRelease": "golden-v1",
+    "archiveDigest": "sha256:f77b9edef31d414daf8e90bf8a6ccdc714171bbef54997f3c695881cae1dd8b9",
+    "commonCommit": "6a8442c17143a870357a5ff812362e8b5cfe9f9d",
+    "commonDigest": "sha256:0649c282e74e319f810f5e9c3f2024221cef8070f24686f1bd2d041114b7eb6b",
+    "manifestSchemaVersion": 1,
+    "sqliteSchemaVersion": 1,
+    "schemaSqlDigest": "sha256:befeb1a6de6a37b50053f187a7f424a1c4eaadcf3d96a717977b65af636578b5",
+    "domainRulesVersion": "domain-v1",
+    "castRulesVersion": "cast-exact-v1",
+    "catalogConfigDigest": "sha256:2b103894453b55d01bcb65b8010a55f54c57cd73e23deca39f4a0a9d2aadc678"
+  },
+  "canonicalPreimage": "bgmss-archive-data-version-v1\narchiveRelease=golden-v1\narchiveDigest=sha256:f77b9edef31d414daf8e90bf8a6ccdc714171bbef54997f3c695881cae1dd8b9\ncommonCommit=6a8442c17143a870357a5ff812362e8b5cfe9f9d\ncommonDigest=sha256:0649c282e74e319f810f5e9c3f2024221cef8070f24686f1bd2d041114b7eb6b\nmanifestSchemaVersion=1\nsqliteSchemaVersion=1\nschemaSqlDigest=sha256:befeb1a6de6a37b50053f187a7f424a1c4eaadcf3d96a717977b65af636578b5\ndomainRulesVersion=domain-v1\ncastRulesVersion=cast-exact-v1\ncatalogConfigDigest=sha256:2b103894453b55d01bcb65b8010a55f54c57cd73e23deca39f4a0a9d2aadc678\n",
+  "canonicalPreimageByteLength": 566,
+  "expectedDataVersion": "dv1-0660e0dcf08e4808dea4a3eee9907c548a4d81cb9380c999db63e15bf2a45bd8",
+  "assertions": {
+    "stableRegeneration": {
+      "expectedDataVersion": "dv1-0660e0dcf08e4808dea4a3eee9907c548a4d81cb9380c999db63e15bf2a45bd8"
+    },
+    "oneFieldMutation": {
+      "field": "archiveRelease",
+      "value": "golden-v1-mutated",
+      "expectedDataVersion": "dv1-a7fb027178faa784560c528c58fb10764819dd661966a77a706f843bf05c193e"
+    },
+    "inputOrderIndependence": {
+      "input": {
+        "catalogConfigDigest": "sha256:2b103894453b55d01bcb65b8010a55f54c57cd73e23deca39f4a0a9d2aadc678",
+        "castRulesVersion": "cast-exact-v1",
+        "domainRulesVersion": "domain-v1",
+        "schemaSqlDigest": "sha256:befeb1a6de6a37b50053f187a7f424a1c4eaadcf3d96a717977b65af636578b5",
+        "sqliteSchemaVersion": 1,
+        "manifestSchemaVersion": 1,
+        "commonDigest": "sha256:0649c282e74e319f810f5e9c3f2024221cef8070f24686f1bd2d041114b7eb6b",
+        "commonCommit": "6a8442c17143a870357a5ff812362e8b5cfe9f9d",
+        "archiveDigest": "sha256:f77b9edef31d414daf8e90bf8a6ccdc714171bbef54997f3c695881cae1dd8b9",
+        "archiveRelease": "golden-v1"
+      },
+      "expectedDataVersion": "dv1-0660e0dcf08e4808dea4a3eee9907c548a4d81cb9380c999db63e15bf2a45bd8"
+    },
+    "catalogMemberReorderEquivalence": {
+      "canonicalCatalogConfigDigest": "sha256:2b103894453b55d01bcb65b8010a55f54c57cd73e23deca39f4a0a9d2aadc678",
+      "expectedDataVersion": "dv1-0660e0dcf08e4808dea4a3eee9907c548a4d81cb9380c999db63e15bf2a45bd8"
+    }
+  }
+}

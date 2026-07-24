@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.local/schemas/query/catalog-context-v1.schema.json",
+  "title": "CatalogContextV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "positions"
+  ],
+  "properties": {
+    "positions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "subjectType",
+          "selectable"
+        ],
+        "properties": {
+          "key": {
+            "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
+          },
+          "subjectType": {
+            "$ref": "shared-query-v1.schema.json#/$defs/SubjectTypeV1"
+          },
+          "selectable": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
