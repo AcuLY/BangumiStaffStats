@@ -43,8 +43,9 @@ func TestProductionPackageDependencies(t *testing.T) {
 		modulePath + "/cmd/api":                       {modulePath + "/internal/app"},
 		modulePath + "/cmd/archive-smoke":             {modulePath + "/internal/archive"},
 		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/httpapi"},
-		modulePath + "/internal/httpapi":              {modulePath + "/internal/httpapi/wire"},
+		modulePath + "/internal/httpapi":              {modulePath + "/internal/httpapi/wire", modulePath + "/internal/observability"},
 		modulePath + "/internal/httpapi/wire":         {},
+		modulePath + "/internal/observability":        {},
 		modulePath + "/internal/query":                {modulePath + "/internal/archive", modulePath + "/internal/cache", modulePath + "/internal/collection"},
 		modulePath + "/internal/archive":              {},
 		modulePath + "/internal/archive/contracttest": {},
@@ -162,8 +163,15 @@ func TestPinnedModuleDeclaration(t *testing.T) {
 	}
 }
 
-func TestFoundationHasNoRouteRegistration(t *testing.T) {
+func TestRuntimeHasExactlyThreeInfrastructureRoutes(t *testing.T) {
 	moduleRoot := findModuleRoot(t)
+	httpapiRoot := filepath.Join(moduleRoot, "internal", "httpapi")
+	allowedRoutes := map[string]string{
+		"/livez":   filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
+		"/readyz":  filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
+		"/metrics": filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
+	}
+	routeCounts := make(map[string]int, len(allowedRoutes))
 	err := filepath.WalkDir(moduleRoot, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -184,13 +192,27 @@ func TestFoundationHasNoRouteRegistration(t *testing.T) {
 			return fmt.Errorf("parse %s: %w", path, err)
 		}
 		ast.Inspect(tree, func(node ast.Node) bool {
+			literal, ok := node.(*ast.BasicLit)
+			if ok && literal.Kind == token.STRING && filepath.Dir(path) == httpapiRoot {
+				var value string
+				if err := json.Unmarshal([]byte(literal.Value), &value); err == nil && strings.HasPrefix(value, "/") {
+					expectedPath, allowed := allowedRoutes[value]
+					if !allowed {
+						t.Errorf("unapproved production route/path literal %q: %s", value, path)
+					} else if path != expectedPath {
+						t.Errorf("runtime route %q appears outside handler: %s", value, path)
+					} else {
+						routeCounts[value]++
+					}
+				}
+			}
 			call, ok := node.(*ast.CallExpr)
 			if !ok {
 				return true
 			}
 			selector, ok := call.Fun.(*ast.SelectorExpr)
 			if ok && (selector.Sel.Name == "Handle" || selector.Sel.Name == "HandleFunc") {
-				t.Errorf("foundation route registration is forbidden: %s", path)
+				t.Errorf("unreviewed route registration API is forbidden: %s", path)
 			}
 			return true
 		})
@@ -198,6 +220,11 @@ func TestFoundationHasNoRouteRegistration(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("walk production Go files: %v", err)
+	}
+	for route := range allowedRoutes {
+		if routeCounts[route] != 1 {
+			t.Errorf("runtime route %q literal count = %d, want 1", route, routeCounts[route])
+		}
 	}
 }
 

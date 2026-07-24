@@ -29,13 +29,14 @@ module/workspace/vendor tree.
 ### Requirement: Package dependencies SHALL follow the approved direction
 
 The foundation SHALL enforce `cmd/api -> app -> {archive,httpapi}`,
-`cmd/archive-smoke -> archive`, `httpapi -> wire`, and
+`cmd/archive-smoke -> archive`, `httpapi -> {observability,wire}`,
+`observability -> standard library`, and
 `query -> {archive,cache,collection}` for later admitted query work.
-`archive`, `query`, `cache`, and `collection` MUST NOT import transport or
-application layers. Production imports outside the standard library SHALL be
-limited to the generated wire runtime and the approved SQLite driver/VFS.
-Cycles, unknown packages, nested modules, and production `workbench` naming
-SHALL be rejected.
+`archive`, `query`, `cache`, `collection`, and `observability` MUST NOT import
+transport or application layers. Production imports outside the standard
+library SHALL remain limited to the generated wire runtime and the approved
+SQLite driver/VFS. Cycles, unknown packages, nested modules, and production
+`workbench` naming SHALL be rejected.
 
 #### Scenario: Foundation graph is valid
 
@@ -139,24 +140,53 @@ not perform external service mutations or operations.
 ### Requirement: The API process SHALL have a bounded lifecycle
 
 The standard-library server SHALL accept a supplied listener and an explicit
-absolute Archive root. It SHALL validate and atomically publish one complete
-Archive store before serving; propagate Archive-load, startup, serve, and
-close failures; and complete context-driven graceful shutdown within five
+absolute Archive root. Before entering `Serve`, it SHALL attempt exactly one
+accepted Archive load. Success SHALL atomically publish the complete store. A
+non-cancellation load failure SHALL close the candidate, emit exactly one
+bounded `archive_load_failed` app/startup event, and then serve only exact
+`GET /livez`, `GET /readyz`, and `GET /metrics` with readiness false for that
+process lifetime; it SHALL NOT retry, reload, fall back, or expose a business
+route. If the process context is canceled during load, startup SHALL emit the
+same bounded event and return without serving.
+
+If the mandatory event writer fails or short-writes, startup SHALL close the
+owned Archive state, propagate that operational failure, and return without
+calling `Serve`; a partial or failed write SHALL NOT authorize an unobservable
+degraded runtime.
+
+The process SHALL propagate listener, non-normal serve, and Store-close
+failures and SHALL complete context-driven graceful shutdown within five
 seconds without leaking goroutines. Shutdown SHALL stop serving before it
-clears readiness and closes the Store. At this stage the mux SHALL define no
-product, health, metrics, readiness, or placeholder route.
+clears readiness and closes any published Store.
+
+#### Scenario: Process starts with a valid Archive and stops
+
+- **WHEN** a loopback server loads a valid Archive, serves all three exact runtime routes, and its context is canceled
+- **THEN** liveness/readiness/metrics reflect the published store, serving stops within the bound, readiness clears, and the Store closes
 
 #### Scenario: Empty process starts and stops
 
-- **WHEN** a loopback server starts with a valid Archive, receives a request, and its context is canceled
-- **THEN** the request SHALL receive the empty-mux 404, serving SHALL stop, readiness SHALL clear, and the Store SHALL close
+- **WHEN** the superseded empty-mux lifecycle expectation is evaluated after the HTTP runtime is admitted
+- **THEN** acceptance SHALL reject empty-mux 404 behavior and require only the three exact runtime routes plus the bounded lifecycle above
 
 #### Scenario: Listener or serve fails
 
-- **WHEN** startup or serving returns a non-normal error
+- **WHEN** listener startup or serving returns a non-normal error
 - **THEN** the application SHALL propagate failure, close any published Store, and the process SHALL exit nonzero
 
 #### Scenario: Archive loading fails
 
-- **WHEN** the explicit Archive root is missing, relative, invalid, incompatible, or canceled before publication
-- **THEN** serving SHALL not begin, readiness SHALL remain false, opened resources SHALL close, and the application SHALL propagate the sanitized failure
+- **WHEN** the explicit Archive root is missing, relative, invalid, incompatible, or otherwise fails with a non-cancellation outcome
+- **THEN** exactly one sanitized startup event SHALL be emitted, `/livez` and `/metrics` SHALL remain available, `/readyz` SHALL remain 503 without dataVersion, and no retry, fallback, business route, or partial Store SHALL exist
+
+#### Scenario: Startup is canceled while loading
+
+- **WHEN** process context cancellation wins before Archive publication
+- **THEN** the candidate SHALL close, one bounded startup event SHALL be emitted, and serving SHALL not begin
+
+#### Scenario: Startup failure cannot be reported
+
+- **WHEN** an Archive load failure occurs but its mandatory event writer fails
+  or short-writes
+- **THEN** startup SHALL close the owned Archive state, return the operational
+  failure, and SHALL NOT begin serving

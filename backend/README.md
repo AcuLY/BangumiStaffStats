@@ -1,8 +1,33 @@
 # Backend
 
-This directory is the production backend module. The process still serves an
-empty `http.ServeMux`, but startup now requires an explicit immutable Archive
-root and publishes its validated read-only SQLite store before serving.
+This directory is the production backend module. Startup requires an explicit
+immutable Archive root and attempts the accepted one-shot load before serving.
+A successful load publishes the validated read-only SQLite store. A load
+failure emits one bounded `archive_load_failed` JSON event. A non-cancellation
+failure serves only the runtime surface permanently not-ready; cancellation
+during loading returns without serving. Neither path retries, falls back,
+reloads, or exposes a business route.
+If the mandatory event writer fails or short-writes, startup closes the owned
+Archive state and returns without serving.
+
+The development runtime has exactly:
+
+```text
+GET /livez
+GET /readyz
+GET /metrics
+```
+
+All three reject other methods. `/readyz` performs one fixed one-second
+`archive_meta` identity read through the published Store. `/metrics` is
+standard-library, low-cardinality Prometheus text instrumentation; its
+production exposure, scrape configuration, retention, alerts, and SLOs remain
+deferred operations work. The reusable HTTP transport generates request IDs,
+uses the shared error envelope, caps strict JSON bodies at 65,536 bytes, and
+requires an endpoint-owned structural validator to accept the exact bounded
+raw JSON before any typed destination assignment. It also contains request
+deadlines, cancellations, and panics without registering a placeholder
+business endpoint.
 
 The module pins Go 1.26.5 and keeps downloaded toolchains, module/build caches,
 temporary files, and binaries below ignored backend-local directories.
@@ -10,6 +35,8 @@ temporary files, and binaries below ignored backend-local directories.
 ```sh
 cd backend
 ./scripts/generate-query-wire.sh --check
+go test ./internal/httpapi -run '^$' \
+  -fuzz '^FuzzDecodeStrictJSON$' -fuzztime=3s
 ./scripts/check.sh
 ```
 

@@ -74,7 +74,8 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
   exit 1
 }
 
-"$go_command" test ./internal/httpapi ./internal/app
+"$go_command" test ./internal/httpapi ./internal/observability ./internal/app
+"$go_command" test ./internal/httpapi -run '^$' -fuzz '^FuzzDecodeStrictJSON$' -fuzztime=3s
 "$go_command" test ./internal/architecture
 "$go_command" test ./internal/httpapi/wire
 "$go_command" test ./internal/archive/contracttest
@@ -125,10 +126,20 @@ internal/archive/state.go
 internal/archive/state_test.go
 internal/archive/store.go
 internal/archive/test_helpers_test.go
+internal/httpapi/handler.go
+internal/httpapi/handler_test.go
+internal/httpapi/middleware.go
+internal/httpapi/middleware_test.go
 internal/httpapi/server.go
 internal/httpapi/server_test.go
+internal/httpapi/transport.go
+internal/httpapi/transport_test.go
 internal/httpapi/wire/query_contract_test.go
 internal/httpapi/wire/query_wire.gen.go
+internal/observability/events.go
+internal/observability/events_test.go
+internal/observability/metrics.go
+internal/observability/metrics_test.go
 scripts/check.sh
 scripts/generate-query-wire.sh
 scripts/prepare-query-wire.mjs'
@@ -156,7 +167,7 @@ if find . -type d \( -name vendor -o -name openspec \) \
   echo "forbidden backend directory found" >&2
   exit 1
 fi
-if grep -R -n -E '(/health|/ready|/metrics|image[-_ ]proxy|upstream client)' \
+if grep -R -n -E '(/api/v1|/health|image[-_ ]proxy|upstream client|update_activated|net/http/pprof)' \
   --include='*.go' --exclude='*_test.go' cmd internal \
   | grep -v 'internal/httpapi/wire/query_wire.gen.go' >/dev/null; then
   echo "deferred route or feature found in production source" >&2

@@ -13,6 +13,14 @@ import (
 // DefaultShutdownTimeout bounds graceful shutdown.
 const DefaultShutdownTimeout = 5 * time.Second
 
+const (
+	defaultReadHeaderTimeout = 5 * time.Second
+	defaultReadTimeout       = 10 * time.Second
+	defaultWriteTimeout      = 35 * time.Second
+	defaultIdleTimeout       = 60 * time.Second
+	defaultMaxHeaderBytes    = 64 * 1024
+)
+
 // Server serves a supplied listener and owns graceful shutdown.
 type Server struct {
 	handler         http.Handler
@@ -27,11 +35,6 @@ func NewServer(handler http.Handler) *Server {
 	}
 }
 
-// NewHandler returns the intentionally empty initial API mux.
-func NewHandler() http.Handler {
-	return http.NewServeMux()
-}
-
 // Serve runs until serving fails or ctx is cancelled.
 func (s *Server) Serve(ctx context.Context, listener net.Listener) error {
 	if ctx == nil {
@@ -43,14 +46,14 @@ func (s *Server) Serve(ctx context.Context, listener net.Listener) error {
 
 	handler := s.handler
 	if handler == nil {
-		handler = NewHandler()
+		handler = http.NotFoundHandler()
 	}
 	shutdownTimeout := s.shutdownTimeout
 	if shutdownTimeout <= 0 {
 		shutdownTimeout = DefaultShutdownTimeout
 	}
 
-	httpServer := &http.Server{Handler: handler}
+	httpServer := newHTTPServer(ctx, handler)
 	serveResult := make(chan error, 1)
 	go func() {
 		serveResult <- httpServer.Serve(listener)
@@ -73,6 +76,20 @@ func (s *Server) Serve(ctx context.Context, listener net.Listener) error {
 			)
 		}
 		return normalizeServeError(<-serveResult)
+	}
+}
+
+func newHTTPServer(processContext context.Context, handler http.Handler) *http.Server {
+	return &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: defaultReadHeaderTimeout,
+		ReadTimeout:       defaultReadTimeout,
+		WriteTimeout:      defaultWriteTimeout,
+		IdleTimeout:       defaultIdleTimeout,
+		MaxHeaderBytes:    defaultMaxHeaderBytes,
+		BaseContext: func(net.Listener) context.Context {
+			return processContext
+		},
 	}
 }
 
