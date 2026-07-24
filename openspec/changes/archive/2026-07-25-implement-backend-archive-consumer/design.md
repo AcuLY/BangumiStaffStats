@@ -4,7 +4,7 @@
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: independent driver review, main semantic audit, targeted/all strict validation, and doctor passed; committed: determined by containing Git history; pushed/released/deployed: no |
+| Status | investigated: complete; specified: complete; implemented: complete; verified: owner, main-agent, and independent acceptance passed with no remaining P0-P2 finding; committed: determined by containing Git history; pushed/released/deployed: no |
 | Owner | Backend owner; main agent owns review and acceptance. |
 | Writable paths | Exactly the apply paths enumerated in `proposal.md`; `go.mod`, `go.sum`, architecture guard, check script, README, app assembly, and `cmd/api` are included only for the admitted driver/startup delta. |
 | Read-only protected inputs | Shared Archive schemas/matrix/goldens, root specs, guides, other code/changes, refs/remotes, hosts, and production. |
@@ -13,8 +13,8 @@
 | Consumes | The corrected and string-hardened root Archive/runtime specs, corrected shared indexed corpus, and caller-supplied root. |
 | Produces | `backend/internal/archive` runtime store, minimal application assembly, and a development-only candidate-smoke CLI. |
 | Dependencies | `contracts-archive-manifest`, `backend-runtime-foundation`, accepted/exited `correct-archive-subject-semantics` and `harden-archive-manifest-string-semantics`, Go `1.26.5`, and driver pins below. |
-| Deliverables | Loader/state/store, startup/shutdown wiring, candidate-smoke CLI, dependency/path guards, tests. |
-| Acceptance | Full indexed corpus, added mutation/path/write/concurrency/lifecycle cases, full/race/vet/build and repository gates. |
+| Deliverables | Loader/state/managed-row store, startup/shutdown wiring, candidate-smoke CLI, raw non-null and exact-integer decoding, root/per-open identity guards, dependency/path guards, tests. |
+| Acceptance | Full indexed corpus; exhaustive null and integer-spelling parity, final-cancel including lock wait, root/VFS rebound, active-row shutdown, mutation/path/write/concurrency/lifecycle cases; full/race/vet/build and repository gates. |
 | Non-goals | HTTP, observability, producer, catalog/query semantics, activation/hot reload/rollback, operations. |
 | Operations deferred | Production root convention, pointer switch, restart, retention, scheduler and deploy. |
 | Stop/rollback conditions | On drift or failure, close only the candidate, publish nothing, preserve protected state, and stop. |
@@ -58,6 +58,10 @@ absolute root plus one validated dataVersion and derives only
 read, create, or publish a pointer.
 `os.Root` plus component `Lstat` rejects escape, symlink, and non-regular
 objects; manifest and database bytes are each hashed from their validated file.
+The absolute root's final component is opened only after an `Lstat`; the opened
+root identity and a post-open `Lstat` must both still match that pre-open
+identity. This closes a rename/symlink/replacement window without rejecting a
+legitimate symlink in an ancestor component.
 The consumer compares the database's file identity, size, and modification time
 before hashing and after SQLite validation, failing if any changes. This uses Go
 1.26.5, which contains the current `os.Root` traversal fix.
@@ -69,6 +73,25 @@ bytes, then perform the one-value strict JSON decode. This rejection precedes
 shape, compatibility, digest, or publication decisions and is covered by
 temporary invalid-byte mutations whose replacement text would otherwise remain
 schema-valid.
+
+Go also decodes JSON `null` into the zero value of an `int64` and a nil map or
+slice. Before typed manifest decoding, the consumer therefore proves that every
+required top-level field and every required field in each `sourceFiles` entry
+is present and non-null, and that every value in `tableCounts` and
+`qualitySummary` is non-null. Exhaustive real-loader mutations cover every
+field/key rather than relying on representative zero-valued cases.
+
+JSON Schema 2020-12 defines `integer` by mathematical value rather than number
+token spelling: a zero-fraction decimal or exponent form such as `1.0` or
+`1e0` remains an integer. Go's direct `int64` decoder rejects those otherwise
+valid spellings, so the consumer first converts every JSON number token outside
+strings to an exact bounded integer representation before typed decoding. The
+conversion follows JSON number grammar, never passes through `float64`, accepts
+only a mathematical integer within the schema's safe range, and fails closed
+for a non-zero fraction, unsafe magnitude, or adversarial exponent. Real-loader
+tests rewrite every pointer/manifest/source/nested-count integer path to a
+zero-fraction spelling and cover exponent, negative-zero, boundary, fraction,
+and overflow cases.
 
 The manifest decoder additionally implements the exited string hardening before
 source accounting: it validates the exact calendar-valid UTC
@@ -122,6 +145,12 @@ busy-timeout, foreign-key, and query-only pragmas. The store owns the database,
 VFS, and roots through close. This ensures SQLite opens the same root-bound
 object that was validated even if a pathname is renamed/rebound, and neither an
 `ATTACH` nor a changed `query_only` pragma can create or write an external file.
+The VFS filesystem accepts only that exact relative filename. On every VFS
+`Open`, it performs pre-open `Lstat`, opens through the validated version root,
+then compares the opened handle and a post-open `Lstat` with the original
+validated SQLite identity, size, and modification time. A mismatch fails the
+connection; validation may never rely only on the first pooled handle or on a
+pathname restored before the final file check.
 
 SQLite documents [`mode=ro`](https://sqlite.org/uri.html) as read-only rather
 than read-write-create and `immutable=1` for files guaranteed not to change;
@@ -144,16 +173,31 @@ identity, missing-file no-create, pathname rebound safety, rejected
 DDL/DML/pragma/attach/multi-statement input, and absence of every external or
 sidecar file.
 
+The raw query boundary returns a Store-owned rows wrapper rather than exposing
+an untracked `database/sql.Rows`. Starting a query registers one active rows
+lifetime; exhaustion or explicit close releases it exactly once. Store close
+first rejects new queries, waits for all active rows to finish, and only then
+closes the database, VFS, version root, and archive root in that order. This is
+required because Go's `DB.Close` may return while an active rows value still
+owns a driver connection, while modernc's VFS close unregisters and frees its
+VFS resources.
+
 ### Publish one complete store
 
 Loading builds a private candidate. A deferred close remains armed through every gate. The pointer-selected runtime path alone may disarm it after a successful compare-and-swap from nil to one immutable `Store`; pointer-free validation returns an owned store that its smoke caller closes and never touches readiness. The state pointer is readiness: nil is not-ready. Competing or second runtime publication loses, closes its candidate, and cannot replace the winner.
+The loader checks context cancellation after any final test hook, after the
+final SQLite identity check, and again while holding the publication lock
+immediately before the single-assignment compare-and-swap. A context canceled
+while waiting for that lock closes outside the lock and never becomes ready.
 Shutdown first stops serving, atomically clears readiness, and closes the winner exactly once; no runtime reload API exists.
 
 ## Risks / Trade-offs
 
 - [Filesystem changes during validation] → immutable layout, one root-bound
-  read-only SQLite VFS, pre/post identity checks, `immutable=1`, pathname
-  rebound tests, and fail-closed close ordering.
+  read-only SQLite VFS, root and per-open pre/post identity checks,
+  `immutable=1`, pathname rebound tests, and fail-closed close ordering.
+- [Shutdown overlaps caller-held rows] → managed row lifetimes reject new
+  queries and drain active rows before VFS/root resources are released.
 - [Compiled contract constants drift] → direct matrix/schema/vector and closed golden tests fail before acceptance.
 - [Fixture sentinel values reject production-sized data] → exact matrix values
   remain minimal-golden assertions; arbitrary candidates use content-independent
@@ -162,11 +206,13 @@ Shutdown first stops serving, atomically clears readiness, and closes the winner
 
 ## Migration Plan
 
-After both Archive contract corrections exit, apply the consumer and pins, wire
-the required root into startup, execute the shared manifest-string vector
-through the runtime decoder, then run all acceptance gates. No data migration,
-activation, deployment, or rollback action occurs; failure leaves the prior
-code candidate unaccepted.
+The consumer and pins were applied only after both Archive contract corrections
+exited. The candidate wires the required root into startup and executes the
+shared manifest-string vector plus the post-audit null/integer/identity/
+cancellation/row-lifetime regressions through the real runtime. Main acceptance reruns all
+material gates before lifecycle finalization. No data migration, activation,
+deployment, or rollback action occurs; any failure leaves the code candidate
+unaccepted.
 
 ## Open Questions
 

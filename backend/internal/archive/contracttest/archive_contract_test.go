@@ -78,6 +78,7 @@ type pointerIdentity struct {
 type compatibilityMatrix struct {
 	MatrixSchemaVersion  int                  `json:"matrixSchemaVersion"`
 	Supported            []compatibilityTuple `json:"supported"`
+	CanonicalSchema      canonicalSchema      `json:"canonicalSchema"`
 	RequiredTables       []string             `json:"requiredTables"`
 	RequiredIndexes      []string             `json:"requiredIndexes"`
 	ValidationPrecedence []struct {
@@ -90,6 +91,13 @@ type compatibilityMatrix struct {
 		SQL             string `json:"sql"`
 		ExpectedInteger int64  `json:"expectedInteger"`
 	} `json:"sentinels"`
+}
+
+type canonicalSchema struct {
+	SchemaSQLDigest string `json:"schemaSqlDigest"`
+	Algorithm       string `json:"algorithm"`
+	Digest          string `json:"digest"`
+	ObjectCount     int    `json:"objectCount"`
 }
 
 type compatibilityTuple struct {
@@ -348,6 +356,9 @@ func tupleSupported(matrix compatibilityMatrix, manifest manifestIdentity, point
 }
 
 func supportedTuple(matrix compatibilityMatrix, manifest manifestIdentity, pointer pointerIdentity) (compatibilityTuple, bool) {
+	if manifest.SchemaSQLDigest != matrix.CanonicalSchema.SchemaSQLDigest {
+		return compatibilityTuple{}, false
+	}
 	for _, candidate := range matrix.Supported {
 		pointerVersionMatches := pointer.PointerSchemaVersion == 0 || candidate.PointerSchemaVersion == pointer.PointerSchemaVersion
 		if pointerVersionMatches &&

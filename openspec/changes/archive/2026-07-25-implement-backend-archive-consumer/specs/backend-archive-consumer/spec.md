@@ -2,7 +2,7 @@
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: independent driver review, main semantic audit, targeted/all strict validation, and doctor passed; committed: determined by containing Git history; pushed/released/deployed: no |
+| Status | investigated: complete; specified: complete; implemented: complete; verified: owner, main-agent, and independent acceptance passed with no remaining P0-P2 finding; committed: determined by containing Git history; pushed/released/deployed: no |
 | Owner | Backend implementation owner; main agent reviews and accepts. |
 | Writable paths | `backend/internal/archive/**`, `backend/internal/app/run.go`, `backend/internal/app/run_test.go`, `backend/cmd/api/main.go`, `backend/cmd/archive-smoke/**`, `backend/go.mod`, `backend/go.sum`, `backend/internal/architecture/dependencies_test.go`, `backend/scripts/check.sh`, `backend/README.md`, and this change's task markers. |
 | Read-only protected inputs | `contracts/**`, root specs, guides, all other code/changes, refs/remotes, hosts, and production. |
@@ -11,13 +11,15 @@
 | Consumes | The accepted `correct-archive-subject-semantics` and `harden-archive-manifest-string-semantics` revisions of `contracts-archive-manifest`, `backend-runtime-foundation`, corrected shared indexed goldens, and one caller-approved Archive root. |
 | Produces | One internal immutable Archive store, atomic readiness state, and development-only pointer-free candidate-smoke CLI. |
 | Dependencies | Completed contract/runtime foundations, accepted/exited `correct-archive-subject-semantics` and `harden-archive-manifest-string-semantics`, Go `1.26.5`, `modernc.org/sqlite v1.54.0`, `modernc.org/libc v1.74.1`. |
-| Deliverables | Strict loader, bounded read pool, state/lifecycle assembly, guards, and tests. |
-| Acceptance | Full corpus plus path/write/concurrency/lifecycle tests and full/race/vet/build/OpenSpec gates. |
+| Deliverables | Strict raw non-null and exact-integer loader, identity-bound bounded read pool, managed query-row lifetimes, state/lifecycle assembly, guards, and tests. |
+| Acceptance | Full corpus plus exhaustive null/integer parity, root/VFS rebound, final-cancel including lock wait, active-row shutdown, path/write/concurrency/lifecycle tests and full/race/vet/build/OpenSpec gates. |
 | Non-goals | HTTP, observability, producer, activation/hot reload/rollback, catalog/query implementation, operations. |
 | Operations deferred | Production roots, pointer switching, restart, scheduling, retention, release and deployment. |
 | Stop/rollback conditions | Any drift or failed gate closes the candidate, publishes nothing, preserves protected state, and stops. |
 
-Dependency direction SHALL be `cmd/api -> app -> archive`; later domain packages MAY depend on `archive`, while `archive` MUST NOT import app or transport.
+Dependency direction SHALL be `cmd/api -> app -> {archive,httpapi}` and
+`cmd/archive-smoke -> archive`; later domain packages MAY depend on `archive`,
+while `archive` MUST NOT import app or transport.
 
 ## ADDED Requirements
 
@@ -36,6 +38,9 @@ dataVersion and derive only
 an `os.Root`; it SHALL NOT require, read, create, or publish `current.json`.
 Both paths SHALL require every component and final object to be contained,
 expected type, regular, and non-symlink.
+For the caller-approved absolute root, the opened root identity and a post-open
+`Lstat` of its final pathname component SHALL both match the pre-open `Lstat`;
+ancestor symlinks MAY remain accepted when that final identity is unchanged.
 
 #### Scenario: A valid pointer selects one version
 
@@ -51,6 +56,11 @@ expected type, regular, and non-symlink.
 
 - **WHEN** input contains an unknown path field, unsafe dataVersion, traversal, absolute/drive/URI segment, symlink, missing object, directory, or special file
 - **THEN** validation SHALL stop before hashing or opening an escaped target and readiness SHALL remain false
+
+#### Scenario: The approved root final component is rebound
+
+- **WHEN** the checked root directory is renamed and its final pathname component becomes a symlink or replacement before `os.OpenRoot` completes
+- **THEN** the opened and post-open identities SHALL fail the pre-open comparison, every opened handle SHALL close, and no candidate SHALL be returned
 
 #### Scenario: Contract JSON contains malformed UTF-8
 
@@ -78,6 +88,15 @@ only Unicode scalar values and be bounded inclusively at 12 through 2048
 scalars, never UTF-8 bytes. The consumer SHALL inspect raw JSON string escapes
 and reject an isolated high or low surrogate before `encoding/json` can replace
 it with U+FFFD; a legal pair SHALL count as one scalar.
+Before typed decoding, every required top-level manifest field and every
+required field of every `sourceFiles` entry SHALL be present and non-null, and
+every `tableCounts` and `qualitySummary` value SHALL be non-null. JSON `null`
+MUST NOT be accepted as a Go integer zero, nil map, nil slice, or empty string.
+Every schema `integer` SHALL follow JSON Schema 2020-12 mathematical-value
+semantics: zero-fraction decimal and exponent spellings, including `1.0` and
+`1e0`, SHALL decode to the same exact integer as `1`. Conversion SHALL NOT use
+binary floating point, round a non-zero fraction, overflow, or accept a value
+outside the JSON-safe schema range.
 
 Manifest, directory, SQLite metadata, and recomputed dataVersion SHALL agree;
 runtime current identity SHALL also agree. The first failure SHALL return the
@@ -126,6 +145,17 @@ full Archive candidate.
 - **AND** impossible time, below/above-bound URL, isolated-surrogate, and malformed-byte cases SHALL return `MANIFEST_SCHEMA_INVALID` before later gates
 - **AND** the isolated Contracts Go probe alone SHALL NOT satisfy this runtime acceptance
 
+#### Scenario: A required manifest value is null
+
+- **WHEN** any required top-level field, any required field of a source entry, or any existing table/quality count is replaced by JSON `null`
+- **THEN** the real candidate loader SHALL return `MANIFEST_SCHEMA_INVALID` before source accounting, compatibility, SQLite opening, or publication
+
+#### Scenario: An integer uses another schema-valid number spelling
+
+- **WHEN** any pointer, manifest, source-accounting, table-count, or quality-count integer is encoded with a zero fractional part or an exponent whose mathematical value is unchanged
+- **THEN** the real decoder and loader SHALL accept the same exact bounded integer without float rounding
+- **AND** a non-integral, unsafe-range, or exponent-overflow value SHALL return the applicable pointer- or manifest-schema outcome before later gates
+
 ### Requirement: SQLite SHALL be opened read-only and bounded
 
 The sole driver SHALL be `modernc.org/sqlite v1.54.0` with resolved
@@ -142,6 +172,10 @@ and owned roots SHALL close once in that order.
 The validated SQLite file identity, size, and modification time SHALL agree
 before hashing and after all SQLite validation; any change SHALL fail before
 publication.
+The VFS filesystem SHALL accept only `bangumi.sqlite`. Every VFS open SHALL
+compare its pre-open path, opened handle, and post-open path with that validated
+identity, size, and modification time; any mismatch SHALL fail that open and
+the candidate before publication even if the approved pathname is restored.
 
 The single `database/sql` pool SHALL use four open/four idle connections and zero age/idle expiry, ping, and verify configured pragmas on four acquired connections before publication.
 `integrity_check(1)` SHALL return exactly one `ok` row and `foreign_key_check` zero rows. The store SHALL expose no mutation API.
@@ -149,6 +183,11 @@ Its only raw query entry SHALL accept one statement of at most 65,536 bytes
 whose first ASCII keyword is `SELECT` or `WITH`, reject `--`, `/*`, `*/`, and
 any semicolon before driver execution with one fixed safe exported
 programming-error sentinel, and keep `query_only` as a second write gate.
+Each accepted raw query SHALL have one Store-owned rows lifetime that releases
+exactly once on exhaustion or close. Store close SHALL reject new queries,
+wait for all active rows to finish, then close the database, VFS, version root,
+and archive root in that order; it MUST NOT free VFS/root resources while an
+active rows value still owns a database connection.
 
 #### Scenario: The database is missing or a write is attempted
 
@@ -165,6 +204,11 @@ programming-error sentinel, and keep `query_only` as a second write gate.
   inode or fail before publication
 - **AND** it SHALL never open the replacement bytes by path
 
+#### Scenario: A later pooled connection sees rebound SQLite bytes
+
+- **WHEN** `bangumi.sqlite` is rebound between any two VFS opens and its approved pathname is restored before final validation
+- **THEN** the per-open identity gate SHALL reject the replacement handle and no mixed-inode pool SHALL publish
+
 #### Scenario: Digest and format both differ
 
 - **WHEN** SQLite bytes have both an incorrect digest and invalid header after
@@ -176,9 +220,18 @@ programming-error sentinel, and keep `query_only` as a second write gate.
 - **WHEN** callers query the published store concurrently under the race detector
 - **THEN** reads SHALL return consistent snapshot data with at most four open connections and no race
 
+#### Scenario: Shutdown overlaps active rows
+
+- **WHEN** shutdown begins while a caller still owns active rows
+- **THEN** new queries SHALL fail, existing rows SHALL remain valid until exhausted or closed, and Store close SHALL not return or release the VFS/roots until that rows lifetime ends
+
 ### Requirement: Publication and shutdown SHALL be atomic
 
 Readiness SHALL be represented by one atomic store pointer and SHALL remain false until every gate succeeds. Publication SHALL be single-assignment: compare-and-swap from nil; a failed or losing candidate SHALL close exactly once and cannot replace a winner.
+Context cancellation SHALL be checked after the final validation hook, after
+the final SQLite identity check, and while holding the state lock immediately
+before runtime publication; a candidate canceled before or while waiting for
+that lock SHALL close outside the lock and SHALL NOT publish.
 Shutdown SHALL first make readiness false and then close the published pool exactly once after serving stops.
 
 #### Scenario: Loading fails before publication
@@ -190,6 +243,11 @@ Shutdown SHALL first make readiness false and then close the published pool exac
 
 - **WHEN** loads, readiness reads, queries, cancellation, and repeated shutdown run concurrently
 - **THEN** at most one complete store SHALL publish, losing resources SHALL close, and shutdown SHALL be idempotent and race-free
+
+#### Scenario: Cancellation wins the final publication window
+
+- **WHEN** the load context is canceled at the final file-check boundary or before the state publication gate
+- **THEN** the candidate SHALL close, return `ARCHIVE_CONTEXT_CANCELED`, and readiness SHALL remain false
 
 ### Requirement: Candidate smoke SHALL be bounded and pointer-free
 
@@ -222,6 +280,14 @@ contract/schema/golden copy SHALL be committed.
 Every indexed manifest-string case SHALL execute through the real Go manifest
 decoder, including exact timestamp arithmetic, scalar counting, raw surrogate
 inspection, and the malformed-byte recipe.
+Tests SHALL exhaustively mutate every required manifest/source field and every
+existing nested count to `null`; rewrite every integer-bearing pointer,
+manifest, source, table-count, and quality-count path to a schema-valid
+zero-fraction spelling; cover exact exponent, negative-zero, safe-boundary,
+fractional, and overflow outcomes; deterministically exercise final-root and
+per-VFS-open rebound windows, final cancellation including a lock wait, and
+shutdown with active rows; and prove no mixed-inode pool or premature VFS/root
+release.
 Acceptance SHALL include targeted/full tests, a separate `go test -race ./...`
 with the host race toolchain, vet, ordinary `CGO_ENABLED=0` build/test,
 architecture/dependency and persistent-inventory guards, strict change/all

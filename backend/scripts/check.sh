@@ -78,21 +78,53 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
 "$go_command" test ./internal/architecture
 "$go_command" test ./internal/httpapi/wire
 "$go_command" test ./internal/archive/contracttest
+"$go_command" test ./internal/archive ./cmd/archive-smoke
 "$go_command" test ./...
 "$go_command" test -race ./...
 "$go_command" vet ./...
-"$go_command" build -o "$temporary_root/bin/api" ./cmd/api
+CGO_ENABLED=0 "$go_command" test ./...
+CGO_ENABLED=0 "$go_command" build -o "$temporary_root/bin/api" ./cmd/api
+CGO_ENABLED=0 "$go_command" build -o "$temporary_root/bin/archive-smoke" ./cmd/archive-smoke
+"$go_command" mod verify
+
+sqlite_version="$("$go_command" list -m -f '{{.Version}}' modernc.org/sqlite)"
+libc_version="$("$go_command" list -m -f '{{.Version}}' modernc.org/libc)"
+if [[ "$sqlite_version" != "v1.54.0" || "$libc_version" != "v1.74.1" ]]; then
+  echo "unexpected SQLite dependency versions: sqlite=$sqlite_version libc=$libc_version" >&2
+  exit 1
+fi
+for license in \
+  "$GOMODCACHE/modernc.org/sqlite@v1.54.0/LICENSE" \
+  "$GOMODCACHE/modernc.org/libc@v1.74.1/LICENSE"; do
+  if [[ ! -f "$license" ]] || ! grep -q 'Redistribution and use in source and binary forms' "$license"; then
+    echo "expected BSD-style dependency license is absent" >&2
+    exit 1
+  fi
+done
 
 expected_inventory='.gitignore
 README.md
 cmd/api/main.go
+cmd/archive-smoke/main.go
+cmd/archive-smoke/main_test.go
 go.mod
 go.sum
 internal/app/run.go
 internal/app/run_test.go
 internal/architecture/dependencies_test.go
+internal/archive/contract.go
 internal/archive/contracttest/archive_contract_test.go
 internal/archive/contracttest/doc.go
+internal/archive/errors.go
+internal/archive/filesystem.go
+internal/archive/golden_test.go
+internal/archive/loader.go
+internal/archive/mutation_test.go
+internal/archive/sqlite.go
+internal/archive/state.go
+internal/archive/state_test.go
+internal/archive/store.go
+internal/archive/test_helpers_test.go
 internal/httpapi/server.go
 internal/httpapi/server_test.go
 internal/httpapi/wire/query_contract_test.go
@@ -124,7 +156,7 @@ if find . -type d \( -name vendor -o -name openspec \) \
   echo "forbidden backend directory found" >&2
   exit 1
 fi
-if grep -R -n -E '(/health|/ready|/metrics|readiness|image[-_ ]proxy|upstream client)' \
+if grep -R -n -E '(/health|/ready|/metrics|image[-_ ]proxy|upstream client)' \
   --include='*.go' --exclude='*_test.go' cmd internal \
   | grep -v 'internal/httpapi/wire/query_wire.gen.go' >/dev/null; then
   echo "deferred route or feature found in production source" >&2

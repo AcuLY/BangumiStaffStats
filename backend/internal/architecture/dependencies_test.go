@@ -41,7 +41,8 @@ func TestProductionPackageDependencies(t *testing.T) {
 
 	allowedInternalImports := map[string][]string{
 		modulePath + "/cmd/api":                       {modulePath + "/internal/app"},
-		modulePath + "/internal/app":                  {modulePath + "/internal/httpapi"},
+		modulePath + "/cmd/archive-smoke":             {modulePath + "/internal/archive"},
+		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/httpapi"},
 		modulePath + "/internal/httpapi":              {modulePath + "/internal/httpapi/wire"},
 		modulePath + "/internal/httpapi/wire":         {},
 		modulePath + "/internal/query":                {modulePath + "/internal/archive", modulePath + "/internal/cache", modulePath + "/internal/collection"},
@@ -76,7 +77,9 @@ func TestProductionPackageDependencies(t *testing.T) {
 				if strings.Contains(imported, ".") {
 					wireRuntime := pkg.ImportPath == modulePath+"/internal/httpapi/wire" &&
 						imported == "github.com/oapi-codegen/runtime"
-					if !wireRuntime {
+					archiveSQLite := pkg.ImportPath == modulePath+"/internal/archive" &&
+						(imported == "modernc.org/sqlite" || imported == "modernc.org/sqlite/vfs")
+					if !wireRuntime && !archiveSQLite {
 						t.Errorf("%s imports unapproved production dependency %s", pkg.ImportPath, imported)
 					}
 				}
@@ -140,9 +143,22 @@ func TestPinnedModuleDeclaration(t *testing.T) {
 	}
 	wantDirect := map[string]string{
 		"github.com/oapi-codegen/runtime": "v1.1.2",
+		"modernc.org/sqlite":              "v1.54.0",
 	}
 	if !mapsEqual(direct, wantDirect) {
 		t.Errorf("direct runtime requirements = %+v, want %+v", direct, wantDirect)
+	}
+	libcVersion := ""
+	for _, requirement := range module.Require {
+		if requirement.Path == "modernc.org/libc" {
+			libcVersion = requirement.Version
+			if !requirement.Indirect {
+				t.Error("modernc.org/libc must remain a resolved indirect dependency")
+			}
+		}
+	}
+	if libcVersion != "v1.74.1" {
+		t.Errorf("modernc.org/libc version = %q, want v1.74.1", libcVersion)
 	}
 }
 

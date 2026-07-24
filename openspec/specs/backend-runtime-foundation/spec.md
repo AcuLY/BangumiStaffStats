@@ -10,7 +10,11 @@ later backend features depend.
 `backend/go.mod` SHALL declare module
 `github.com/AcuLY/BangumiStaffStats/backend`, language `go 1.26.0`, toolchain
 `go1.26.5`, and `oapi-codegen/v2@v2.8.0` as the sole direct development tool.
-There SHALL be no root or nested Go module/workspace/vendor tree.
+Its exact direct runtime requirements SHALL be
+`github.com/oapi-codegen/runtime v1.1.2` and
+`modernc.org/sqlite v1.54.0`; `modernc.org/libc` SHALL remain an indirect
+requirement at exactly `v1.74.1`. There SHALL be no root or nested Go
+module/workspace/vendor tree.
 
 #### Scenario: Foundation uses the approved toolchain
 
@@ -19,41 +23,28 @@ There SHALL be no root or nested Go module/workspace/vendor tree.
 
 #### Scenario: Another module or direct dependency appears
 
-- **WHEN** a root/nested module, workspace, vendor tree, or unapproved direct dependency is present
+- **WHEN** a root/nested module, workspace, vendor tree, unapproved direct dependency, or wrong SQLite/libc version is present
 - **THEN** acceptance SHALL fail
-
-### Requirement: The empty API process SHALL have a bounded lifecycle
-
-The standard-library server SHALL accept a supplied listener, propagate
-startup/serve failures, and complete context-driven graceful shutdown within
-five seconds without leaking goroutines. The initial mux SHALL define no
-product, health, metrics, readiness, or placeholder route.
-
-#### Scenario: Empty process starts and stops
-
-- **WHEN** a loopback server starts, receives a request, and its context is canceled
-- **THEN** the request SHALL receive the empty-mux 404 and shutdown SHALL complete
-
-#### Scenario: Listener or serve fails
-
-- **WHEN** startup or serving returns a non-normal error
-- **THEN** the application SHALL propagate failure and the process SHALL exit nonzero
 
 ### Requirement: Package dependencies SHALL follow the approved direction
 
-The foundation SHALL enforce `cmd -> app -> httpapi -> wire` and reserve
-lower-level query/archive/collection/cache packages from importing transport or
-application layers. Cycles, external packages, nested modules, and production
-`workbench` naming SHALL be rejected.
+The foundation SHALL enforce `cmd/api -> app -> {archive,httpapi}`,
+`cmd/archive-smoke -> archive`, `httpapi -> wire`, and
+`query -> {archive,cache,collection}` for later admitted query work.
+`archive`, `query`, `cache`, and `collection` MUST NOT import transport or
+application layers. Production imports outside the standard library SHALL be
+limited to the generated wire runtime and the approved SQLite driver/VFS.
+Cycles, unknown packages, nested modules, and production `workbench` naming
+SHALL be rejected.
 
 #### Scenario: Foundation graph is valid
 
 - **WHEN** the architecture test inspects the real module
-- **THEN** all current packages SHALL follow the approved direction
+- **THEN** all current packages and external imports SHALL follow the approved direction
 
 #### Scenario: A reverse edge or cycle is introduced
 
-- **WHEN** a package violates the allowed graph
+- **WHEN** a package violates the allowed graph or imports an unapproved production dependency
 - **THEN** the architecture test SHALL fail with the offending edge/package
 
 ### Requirement: Query DTOs SHALL be generated only at the HTTP boundary
@@ -144,3 +135,28 @@ not perform external service mutations or operations.
 
 - **WHEN** backend work attempts push/deploy/production mutation or writes frontend/updater/editor/contracts state
 - **THEN** apply SHALL stop before that mutation
+
+### Requirement: The API process SHALL have a bounded lifecycle
+
+The standard-library server SHALL accept a supplied listener and an explicit
+absolute Archive root. It SHALL validate and atomically publish one complete
+Archive store before serving; propagate Archive-load, startup, serve, and
+close failures; and complete context-driven graceful shutdown within five
+seconds without leaking goroutines. Shutdown SHALL stop serving before it
+clears readiness and closes the Store. At this stage the mux SHALL define no
+product, health, metrics, readiness, or placeholder route.
+
+#### Scenario: Empty process starts and stops
+
+- **WHEN** a loopback server starts with a valid Archive, receives a request, and its context is canceled
+- **THEN** the request SHALL receive the empty-mux 404, serving SHALL stop, readiness SHALL clear, and the Store SHALL close
+
+#### Scenario: Listener or serve fails
+
+- **WHEN** startup or serving returns a non-normal error
+- **THEN** the application SHALL propagate failure, close any published Store, and the process SHALL exit nonzero
+
+#### Scenario: Archive loading fails
+
+- **WHEN** the explicit Archive root is missing, relative, invalid, incompatible, or canceled before publication
+- **THEN** serving SHALL not begin, readiness SHALL remain false, opened resources SHALL close, and the application SHALL propagate the sanitized failure
