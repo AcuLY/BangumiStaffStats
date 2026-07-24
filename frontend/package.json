@@ -1,0 +1,46 @@
+{
+  "name": "@bangumi-staff-stats/frontend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.16.0",
+  "engines": {
+    "node": "24.18.0",
+    "npm": "11.16.0"
+  },
+  "scripts": {
+    "build": "npm run typecheck && vite build",
+    "check": "npm run check:architecture && npm run check:query-wire && npm run test && npm run build && npm run check:artifact",
+    "check:architecture": "node scripts/check-architecture.mjs",
+    "check:artifact": "node scripts/check-production-artifact.mjs",
+    "check:query-wire": "node scripts/check-query-wire-generated.mjs",
+    "cleanup": "node scripts/cleanup-generated.mjs",
+    "dev": "vite --host 127.0.0.1",
+    "generate:query-wire": "node scripts/generate-query-wire.mjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "typecheck": "vue-tsc --build --force"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "naive-ui": "2.44.1",
+    "pinia": "4.0.2",
+    "vue": "3.5.40"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "@types/node": "24.13.3",
+    "@vitejs/plugin-vue": "6.0.8",
+    "@vue/test-utils": "2.4.11",
+    "jsdom": "29.1.1",
+    "typescript": "6.0.2",
+    "vite": "8.1.5",
+    "vitest": "4.1.10",
+    "vue-tsc": "3.3.8"
+  },
+  "overrides": {
+    "js-yaml": "4.3.0"
+  }
+}

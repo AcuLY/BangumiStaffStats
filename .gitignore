@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# Local editor state
+/.vscode/
+
 # Local secrets and environment overrides
 .env
 .env.*

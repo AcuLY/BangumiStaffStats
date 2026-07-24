@@ -1,7 +1,9 @@
 # contracts-archive-manifest Specification
 
 ## Purpose
-TBD - created by archiving change define-archive-manifest-contract. Update Purpose after archive.
+Define the immutable, language-neutral Archive handoff that lets a producer and
+read-only consumers agree on manifest identity, schema and SQLite compatibility,
+dataVersion evidence, pointers, and failure classification.
 ## Requirements
 ### Requirement: One authoritative Archive contract bundle
 The repository SHALL define `contracts-archive-manifest` only through the root OpenSpec capability and the tracked artifacts under `contracts/schemas/archive/**` and `contracts/goldens/archive/**`. `schema.sql`, `archive-manifest.schema.json`, `current-pointer.schema.json`, `data-version-input.schema.json`, `fixture-index.schema.json`, and `compatibility-matrix.json` SHALL be the machine-readable authorities; the closed golden corpus SHALL be the language-neutral producer/consumer evidence. No Python, Go, frontend, nested OpenSpec, or generated model copy SHALL become a second authority.
