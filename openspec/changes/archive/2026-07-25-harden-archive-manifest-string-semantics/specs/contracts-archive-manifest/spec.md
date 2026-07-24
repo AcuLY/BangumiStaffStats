@@ -2,7 +2,7 @@
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; planning strict validation: passed; main-agent review: passed; implemented/runtime-verified/committed/pushed/released/deployed: no |
+| Status | investigated: complete; specified: approved; planning/main review: passed; implemented: complete; Contracts verification: passed; downstream Go/Python runtime verification: pending in their owning changes; committed/pushed/released/deployed: no |
 | Owner | Contracts owner applies only the declared schema/docs/tool/vector paths; main agent reviews dependency ordering and acceptance; runtime owners adapt later. |
 | Writable paths | Planning: this change directory. Apply: exact persistent/disposable paths in `proposal.md`; no root spec, runtime, or other active-change path. |
 | Read-only protected inputs | Higher authorities, root specs, archived/completed/other active changes, accepted baseline goldens, all other Contracts paths, all runtime code/tests, refs/remotes, external systems, hosts, and production. |

@@ -20,7 +20,7 @@ contract must therefore validate the decoded scalar sequence before counting.
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; planning strict validation: passed; main-agent review: passed; implemented/runtime-verified/committed/pushed/released/deployed: no |
+| Status | investigated: complete; specified: approved; planning/main review: passed; implemented: complete; Contracts verification: passed; downstream Go/Python runtime verification: pending in their owning changes; committed/pushed/released/deployed: no |
 | Owner | Contracts owner applies the exact contract/tool/vector paths; main agent reviews, records dependency ordering, and performs final acceptance. Runtime owners adapt later under their existing changes. |
 | Writable paths | Planning: this change directory only. Apply: exactly the persistent and disposable paths listed in `proposal.md`; no runtime or active-change path. |
 | Read-only protected inputs | Product/design/guides/decisions, root specs, archived changes, completed correction artifacts, other active changes, existing 31 golden files, all other Contracts files, all backend/updater/frontend code, refs/remotes, external systems, hosts, and production. |

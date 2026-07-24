@@ -56,7 +56,8 @@
       "type": "string",
       "minLength": 20,
       "maxLength": 32,
-      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$"
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$",
+      "format": "bgmss-utc-generated-at-v1"
     },
     "archiveRelease": {
       "$ref": "#/$defs/token"
@@ -65,7 +66,8 @@
       "type": "string",
       "minLength": 12,
       "maxLength": 2048,
-      "pattern": "^https://[^\\u0000\\r\\n]+$"
+      "pattern": "^https://[^\\u0000\\r\\n]+$",
+      "format": "bgmss-unicode-scalar-url-v1"
     },
     "archiveAssetName": {
       "type": "string",
@@ -87,7 +89,8 @@
       "type": "string",
       "minLength": 12,
       "maxLength": 2048,
-      "pattern": "^https://[^\\u0000\\r\\n]+/subject_staffs\\.yml$"
+      "pattern": "^https://[^\\u0000\\r\\n]+/subject_staffs\\.yml$",
+      "format": "bgmss-unicode-scalar-url-v1"
     },
     "commonSize": {
       "$ref": "#/$defs/nonNegativeInteger"

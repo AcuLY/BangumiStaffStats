@@ -85,6 +85,40 @@ PARTIAL_DATE = re.compile(
     r"^(?P<year>[0-9]{4})(?:-(?P<month>[0-9]{2})(?:-(?P<day>[0-9]{2}))?)?$",
     re.ASCII,
 )
+GENERATED_AT = re.compile(
+    r"^(?P<year>[0-9]{4})-(?P<month>[0-9]{2})-(?P<day>[0-9]{2})"
+    r"T(?P<hour>[0-9]{2}):(?P<minute>[0-9]{2}):(?P<second>[0-9]{2})"
+    r"(?P<fraction>\.[0-9]{1,6})?Z$",
+    re.ASCII,
+)
+MANIFEST_STRING_VECTOR = "vectors/manifest-string-semantics.json"
+MANIFEST_STRING_CASE_IDS = (
+    "generated-at-valid-no-fraction",
+    "generated-at-invalid-fraction-0",
+    "generated-at-valid-fraction-1",
+    "generated-at-valid-fraction-6",
+    "generated-at-invalid-fraction-7",
+    "generated-at-valid-min-year",
+    "generated-at-valid-max-year",
+    "generated-at-invalid-year-zero",
+    "generated-at-invalid-1900-leap-day",
+    "generated-at-valid-2000-leap-day",
+    "generated-at-invalid-impossible-fields",
+    "generated-at-invalid-hour-24",
+    "generated-at-invalid-minute-60",
+    "generated-at-invalid-second-60",
+    "generated-at-invalid-offset",
+    "archive-url-invalid-ascii-min-minus-one",
+    "archive-url-valid-ascii-min",
+    "archive-url-invalid-multibyte-short",
+    "archive-url-valid-multibyte-max",
+    "archive-url-invalid-multibyte-max-plus-one",
+    "common-url-valid-multibyte-max",
+    "common-url-invalid-multibyte-max-plus-one",
+    "archive-url-valid-surrogate-pair",
+    "archive-url-invalid-isolated-high-surrogate",
+    "archive-url-invalid-isolated-low-surrogate",
+)
 SENTINELS = (
     (
         "unknown-position-preserved-without-catalog-placeholder",
@@ -978,6 +1012,277 @@ def vector_document(inputs: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def valid_generated_at(value: str) -> bool:
+    match = GENERATED_AT.fullmatch(value)
+    if match is None:
+        return False
+    year = int(match["year"])
+    month = int(match["month"])
+    day = int(match["day"])
+    hour = int(match["hour"])
+    minute = int(match["minute"])
+    second = int(match["second"])
+    return (
+        1 <= year <= 9999
+        and 1 <= month <= 12
+        and 1 <= day <= days_in_month(year, month)
+        and 0 <= hour <= 23
+        and 0 <= minute <= 59
+        and 0 <= second <= 59
+    )
+
+
+def unicode_scalar_string(value: str) -> bool:
+    return all(not 0xD800 <= ord(character) <= 0xDFFF for character in value)
+
+
+def valid_manifest_url(value: str, field: str) -> bool:
+    if not unicode_scalar_string(value):
+        return False
+    scalar_length = len(value)
+    if (
+        scalar_length < 12
+        or scalar_length > 2048
+        or not value.startswith("https://")
+        or any(character in value for character in ("\0", "\r", "\n"))
+    ):
+        return False
+    return field != "commonSubjectStaffsUrl" or value.endswith("/subject_staffs.yml")
+
+
+def ascii_json_string_literal(value: str) -> str:
+    literal = json.dumps(value, ensure_ascii=True, separators=(",", ":"))
+    return re.sub(
+        r"\\u([0-9a-f]{4})",
+        lambda match: "\\u" + match.group(1).upper(),
+        literal,
+    )
+
+
+def manifest_string_case(
+    case_id: str,
+    field: str,
+    json_string_literal: str,
+    expected: str,
+) -> dict[str, Any]:
+    try:
+        json_string_literal.encode("ascii")
+        value = json.loads(json_string_literal)
+    except (UnicodeEncodeError, json.JSONDecodeError) as error:
+        fail(f"{case_id} JSON string literal is invalid: {error}")
+    if type(value) is not str:
+        fail(f"{case_id} JSON string literal did not decode to a string")
+    scalar_valid = unicode_scalar_string(value)
+    if scalar_valid:
+        scalar_length: int | None = len(value)
+        utf8_byte_length: int | None = len(value.encode("utf-8", errors="strict"))
+    else:
+        scalar_length = None
+        utf8_byte_length = None
+    if field == "generatedAt":
+        actual_valid = scalar_valid and valid_generated_at(value)
+    elif field in ("archiveAssetUrl", "commonSubjectStaffsUrl"):
+        actual_valid = valid_manifest_url(value, field)
+    else:
+        fail(f"{case_id} has unsupported target field {field!r}")
+    actual = "VALID" if actual_valid else "MANIFEST_SCHEMA_INVALID"
+    if actual != expected:
+        fail(f"{case_id} expected {expected}, Python classified {actual}")
+    return {
+        "caseId": case_id,
+        "field": field,
+        "jsonStringLiteral": json_string_literal,
+        "expectedScalarLength": scalar_length,
+        "expectedUtf8ByteLength": utf8_byte_length,
+        "expected": expected,
+    }
+
+
+def manifest_string_vector_document() -> dict[str, Any]:
+    cases = (
+        (
+            "generated-at-valid-no-fraction",
+            "generatedAt",
+            "2024-02-29T23:59:59Z",
+            "VALID",
+        ),
+        (
+            "generated-at-invalid-fraction-0",
+            "generatedAt",
+            "2024-02-29T23:59:59.Z",
+            "MANIFEST_SCHEMA_INVALID",
+        ),
+        (
+            "generated-at-valid-fraction-1",
+            "generatedAt",
+            "2024-02-29T23:59:59.1Z",
+            "VALID",
+        ),
+        (
+            "generated-at-valid-fraction-6",
+            "generatedAt",
+            "2024-02-29T23:59:59.123456Z",
+            "VALID",
+        ),
+        (
+            "generated-at-invalid-fraction-7",
+            "generatedAt",
+            "2024-02-29T23:59:59.1234567Z",
+            "MANIFEST_SCHEMA_INVALID",
+        ),
+        (
+            "generated-at-valid-min-year",
+            "generatedAt",
+            "0001-01-01T00:00:00Z",
+            "VALID",
+        ),
+        (
+            "generated-at-valid-max-year",
+            "generatedAt",
+            "9999-12-31T23:59:59.999999Z",
+            "VALID",
+        ),
+        (
+            "generated-at-invalid-year-zero",
+            "generatedAt",
+            "0000-01-01T00:00:00Z",
+            "MANIFEST_SCHEMA_INVALID",
+        ),
+        (
+            "generated-at-invalid-1900-leap-day",
+            "generatedAt",
+            "1900-02-29T00:00:00Z",
+            "MANIFEST_SCHEMA_INVALID",
+        ),
+        (
+            "generated-at-valid-2000-leap-day",
+            "generatedAt",
+            "2000-02-29T00:00:00Z",
+            "VALID",
+        ),
+        (
+            "generated-at-invalid-impossible-fields",
+            "generatedAt",
+            "2024-13-99T25:61:61Z",
+            "MANIFEST_SCHEMA_INVALID",
+        ),
+        (
+            "generated-at-invalid-hour-24",
+            "generatedAt",
+            "2024-01-01T24:00:00Z",
+            "MANIFEST_SCHEMA_INVALID",
+        ),
+        (
+            "generated-at-invalid-minute-60",
+            "generatedAt",
+            "2024-01-01T23:60:00Z",
+            "MANIFEST_SCHEMA_INVALID",
+        ),
+        (
+            "generated-at-invalid-second-60",
+            "generatedAt",
+            "2024-01-01T23:59:60Z",
+            "MANIFEST_SCHEMA_INVALID",
+        ),
+        (
+            "generated-at-invalid-offset",
+            "generatedAt",
+            "2024-01-01T00:00:00+00:00",
+            "MANIFEST_SCHEMA_INVALID",
+        ),
+        (
+            "archive-url-invalid-ascii-min-minus-one",
+            "archiveAssetUrl",
+            "https://abc",
+            "MANIFEST_SCHEMA_INVALID",
+        ),
+        (
+            "archive-url-valid-ascii-min",
+            "archiveAssetUrl",
+            "https://a.bc",
+            "VALID",
+        ),
+        (
+            "archive-url-invalid-multibyte-short",
+            "archiveAssetUrl",
+            "https://😀",
+            "MANIFEST_SCHEMA_INVALID",
+        ),
+        (
+            "archive-url-valid-multibyte-max",
+            "archiveAssetUrl",
+            "https://" + "a" * 2039 + "😀",
+            "VALID",
+        ),
+        (
+            "archive-url-invalid-multibyte-max-plus-one",
+            "archiveAssetUrl",
+            "https://" + "a" * 2040 + "😀",
+            "MANIFEST_SCHEMA_INVALID",
+        ),
+        (
+            "common-url-valid-multibyte-max",
+            "commonSubjectStaffsUrl",
+            "https://" + "a" * 2020 + "😀/subject_staffs.yml",
+            "VALID",
+        ),
+        (
+            "common-url-invalid-multibyte-max-plus-one",
+            "commonSubjectStaffsUrl",
+            "https://" + "a" * 2021 + "😀/subject_staffs.yml",
+            "MANIFEST_SCHEMA_INVALID",
+        ),
+    )
+    string_cases = [
+        manifest_string_case(
+            case_id,
+            field,
+            ascii_json_string_literal(value),
+            expected,
+        )
+        for case_id, field, value, expected in cases
+    ]
+    string_cases.extend(
+        (
+            manifest_string_case(
+                "archive-url-valid-surrogate-pair",
+                "archiveAssetUrl",
+                '"https://abc\\uD83D\\uDE00"',
+                "VALID",
+            ),
+            manifest_string_case(
+                "archive-url-invalid-isolated-high-surrogate",
+                "archiveAssetUrl",
+                '"https://abc\\uD800"',
+                "MANIFEST_SCHEMA_INVALID",
+            ),
+            manifest_string_case(
+                "archive-url-invalid-isolated-low-surrogate",
+                "archiveAssetUrl",
+                '"https://abc\\uDC00"',
+                "MANIFEST_SCHEMA_INVALID",
+            ),
+        )
+    )
+    if tuple(case["caseId"] for case in string_cases) != MANIFEST_STRING_CASE_IDS:
+        fail("manifest string vector case ids/order drifted")
+    return {
+        "vectorSchemaVersion": 1,
+        "formats": {
+            "generatedAt": "bgmss-utc-generated-at-v1",
+            "url": "bgmss-unicode-scalar-url-v1",
+        },
+        "stringCases": string_cases,
+        "rawByteRecipe": {
+            "caseId": "manifest-invalid-raw-utf8",
+            "field": "archiveAssetUrl",
+            "payloadHex": "C3 28",
+            "retainJsonStringDelimiters": True,
+            "expected": "MANIFEST_SCHEMA_INVALID",
+        },
+    }
+
+
 def generate(root: Path) -> dict[str, Any]:
     if root.exists() and root.is_symlink():
         fail(f"golden root is a symlink: {root}")
@@ -1002,6 +1307,10 @@ def generate(root: Path) -> dict[str, Any]:
         json_bytes(pointer_for(valid_manifest)),
     )
     write_bytes(root / "vectors" / "data-version.json", json_bytes(vector_document(inputs)))
+    write_bytes(
+        root / MANIFEST_STRING_VECTOR,
+        json_bytes(manifest_string_vector_document()),
+    )
 
     invalid_json: dict[str, dict[str, Any]] = {}
     value = copy.deepcopy(valid_manifest)
@@ -1105,6 +1414,11 @@ def generate(root: Path) -> dict[str, Any]:
 
     metadata: dict[str, tuple[str, str, str]] = {
         "vectors/data-version.json": ("data-version-vector", "valid", "VALID"),
+        MANIFEST_STRING_VECTOR: (
+            "manifest-string-semantics-vector",
+            "valid",
+            "VALID",
+        ),
         "valid/minimal/archive-manifest.json": ("minimal-valid", "valid", "VALID"),
         "valid/minimal/current-pointer.json": ("minimal-valid", "valid", "VALID"),
         "valid/minimal/bangumi.sqlite": ("minimal-valid", "valid", "VALID"),
@@ -1216,6 +1530,47 @@ def inventory(root: Path) -> dict[str, bytes]:
     return result
 
 
+def write_manifest_string_vector() -> dict[str, Any]:
+    temp_parent_value = os.environ.get("TMPDIR")
+    if not temp_parent_value:
+        fail("TMPDIR must be explicitly set below contracts/schemas/archive/.tmp")
+    temp_parent = Path(temp_parent_value).resolve()
+    expected_parent = (SCHEMA_ROOT / ".tmp").resolve()
+    if not temp_parent.is_relative_to(expected_parent):
+        fail(f"TMPDIR escapes Archive schema root: {temp_parent}")
+    temp_parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="string-vector-write-", dir=temp_parent) as directory:
+        generated_root = Path(directory) / "archive"
+        report = generate(generated_root)
+        generated = inventory(generated_root)
+        accepted = inventory(GOLDEN_ROOT)
+        prior_paths = set(accepted) - {"index.json", MANIFEST_STRING_VECTOR}
+        if len(prior_paths) != 31:
+            fail(f"accepted baseline must contain exactly 31 prior golden files, got {len(prior_paths)}")
+        expected_generated = prior_paths | {"index.json", MANIFEST_STRING_VECTOR}
+        if set(generated) != expected_generated:
+            fail(
+                "generated manifest-string inventory mismatch: "
+                f"missing={sorted(expected_generated - set(generated))}, "
+                f"extra={sorted(set(generated) - expected_generated)}"
+            )
+        drift = [
+            relative
+            for relative in sorted(prior_paths)
+            if generated[relative] != accepted[relative]
+        ]
+        if drift:
+            fail(f"prior 31 accepted golden bytes drifted: {drift}")
+        write_bytes(GOLDEN_ROOT / MANIFEST_STRING_VECTOR, generated[MANIFEST_STRING_VECTOR])
+        write_bytes(GOLDEN_ROOT / "index.json", generated["index.json"])
+        return {
+            **report,
+            "indexedFiles": 32,
+            "manifestStringVectorDigest": sha256_bytes(generated[MANIFEST_STRING_VECTOR]),
+            "priorGoldenFilesUnchanged": len(prior_paths),
+        }
+
+
 def check_fixtures() -> dict[str, Any]:
     temp_parent_value = os.environ.get("TMPDIR")
     if not temp_parent_value:
@@ -1283,11 +1638,14 @@ def main() -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--self-test", action="store_true")
     mode.add_argument("--write", action="store_true")
+    mode.add_argument("--write-manifest-string-vector", action="store_true")
     mode.add_argument("--check", action="store_true")
     arguments = parser.parse_args()
     try:
         if arguments.self_test:
             report = self_test()
+        elif arguments.write_manifest_string_vector:
+            report = write_manifest_string_vector()
         elif arguments.write:
             report = generate(GOLDEN_ROOT)
         else:

@@ -217,6 +217,13 @@
       "caseId": "data-version-vector",
       "validationStage": "valid",
       "expected": "VALID"
+    },
+    {
+      "path": "vectors/manifest-string-semantics.json",
+      "digest": "sha256:38ec3780a19781d2c428e8014c30afdb92dc26581829a9577c3fd6ea42c18669",
+      "caseId": "manifest-string-semantics-vector",
+      "validationStage": "valid",
+      "expected": "VALID"
     }
   ]
 }

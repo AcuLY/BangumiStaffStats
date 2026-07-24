@@ -18,6 +18,35 @@ The verifier reads every manifest, pointer, index, vector, matrix, schema, and
 tool package JSON file as raw bytes and requires fatal UTF-8 decoding before
 parsing. Replacement-character recovery is not an accepted contract path.
 
+## Manifest string semantics
+
+`generatedAt` uses the named schema format
+`bgmss-utc-generated-at-v1`. Its only accepted spellings are exact UTC
+`YYYY-MM-DDTHH:mm:ssZ` or `YYYY-MM-DDTHH:mm:ss.<fraction>Z`, with 1 through 6
+fraction digits. Year is `0001..9999`; month/day must be a real Gregorian date;
+hour is `00..23`; minute and second are `00..59`. Year 1900 is not leap, year
+2000 is leap, and year 0000, hour 24, minute 60, second 60, fractional precision
+0 or 7, offsets, rollover, and normalization are rejected as
+`MANIFEST_SCHEMA_INVALID`.
+
+Both manifest URL fields use the named schema format
+`bgmss-unicode-scalar-url-v1` while retaining their existing pattern and
+inclusive `minLength: 12` / `maxLength: 2048` keywords. Fatal UTF-8 decoding is
+followed by strict JSON-string validation: a legal high/low surrogate pair
+decodes to one Unicode scalar value, while an isolated high or low surrogate
+escape is rejected rather than replaced with U+FFFD. Bounds count Unicode
+scalar values, never UTF-8 bytes or UTF-16 code units. Consequently
+`https://😀` has 9 scalar values and is too short despite occupying 12 bytes;
+`https://` plus 2039 `a` characters plus `😀` has exactly 2048 scalar values
+and is valid despite occupying 2051 bytes.
+
+The indexed `vectors/manifest-string-semantics.json` is the shared Node,
+Python, and isolated-Go evidence. It fixes 25 JSON-string cases plus one
+ephemeral raw-byte recipe that preserves the `archiveAssetUrl` string
+delimiters and replaces exactly its payload with bytes `C3 28`. The prior 31
+golden paths and bytes remain unchanged; the new vector is the only added
+golden and makes the closed index contain exactly 32 paths.
+
 The digest construction is deliberately acyclic:
 
 ```text
