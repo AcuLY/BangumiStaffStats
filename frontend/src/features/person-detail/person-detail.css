@@ -286,9 +286,9 @@
 .stat-evidence__trigger {
   position: relative;
   display: inline-grid;
-  width: var(--touch-target);
-  height: var(--touch-target);
-  margin: -15px -13px;
+  width: 24px;
+  height: 24px;
+  margin-block: -2px;
   place-items: center;
   border: 0;
   border-radius: 50%;
@@ -306,6 +306,12 @@
   height: 16px;
   border: 1px solid currentColor;
   border-radius: 50%;
+  content: "";
+}
+
+.stat-evidence__trigger::after {
+  position: absolute;
+  inset: -10px;
   content: "";
 }
 
@@ -430,7 +436,8 @@
 }
 
 .person-segmented-control button {
-  min-height: var(--touch-target);
+  position: relative;
+  min-height: 32px;
   padding: 4px 9px;
   border: 0;
   border-radius: 4px;
@@ -438,6 +445,13 @@
   background: transparent;
   font-size: 11px;
   cursor: pointer;
+}
+
+.person-segmented-control button::before {
+  position: absolute;
+  inset-block: -6px;
+  inset-inline: 0;
+  content: "";
 }
 
 .person-segmented-control button[aria-pressed="true"] {
