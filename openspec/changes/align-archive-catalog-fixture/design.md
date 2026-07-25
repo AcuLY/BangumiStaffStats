@@ -23,8 +23,8 @@ bounds rather than cross-table governed catalog meaning.
 |---|---|
 | Status | Reviewed design; implementation and verification pending. |
 | Owner | One implementation agent, followed by main-agent acceptance. |
-| Writable paths | Exact generator/canonical-corpus/test paths plus only the two verifier seal literals, two stale expected outcomes and the co-star participant literals `1/2` → `100/101` in `backend/internal/app/run_test.go`, deletion of the seven obsolete base-normalization SQL statements in `backend/internal/query/archive_loader_test.go`, and one Backend test-inventory line declared in the proposal; no Backend production file. |
-| Read-only protected inputs | Archive/API schemas and verifier logic outside the two seals, producer corpus, Updater compiler, Backend production code, every other `run_test.go` request/expectation/assertion, all producer-test-only query fixture extensions/resealing logic, checker logic outside the one inventory line, frontend, guides, siblings, external state. |
+| Writable paths | Exact generator/canonical-corpus/test paths plus only the two verifier seal literals, two stale expected outcomes and the co-star participant literals `1/2` → `100/101` in `backend/internal/app/run_test.go`, deletion of the seven obsolete base-normalization SQL statements in `backend/internal/query/archive_loader_test.go`, the declared canonical-base corrections in the five service test fixture helpers, and one Backend test-inventory line declared in the proposal; no Backend production file. |
+| Read-only protected inputs | Archive/API schemas and verifier logic outside the two seals, producer corpus, Updater compiler, Backend production code, every other `run_test.go` request/expectation/assertion, all producer-test-only query fixture extensions/resealing logic, all five service tests outside their exact helper corrections, checker logic outside the one inventory line, frontend, guides, siblings, external state. |
 | Deletion complement | None; generated canonical path set must remain exactly the preflight index set. |
 | Mutable refs | None. |
 | Consumes | Canonical rule semantics from `updater-position-catalog` and current Archive/catalog loaders. |
@@ -91,6 +91,27 @@ checked-in base is canonical. They are removed rather than made conditional;
 all producer-test-only additions and bundle resealing remain byte-for-byte
 owned by that test. This makes the helper express only its actual extension
 delta and prevents it from masking future base-fixture drift.
+
+### 4. Preserve service-test intent against the canonical base
+
+All five service fixture helpers were exhaustively audited after the corrected
+base reached the full Backend checker. Ranking, candidates, and partners each
+deliberately need one unsupported cast-main capability to exercise their
+existing negative paths. Because absence is the only valid unsupported
+representation, each helper replaces legacy rule normalization with one exact
+`DELETE` for its own `cast:anime:main` capability, asserts exactly one affected
+row, decrements `tableCounts.catalog_capability` by one, and reseals the copy.
+Partners additionally drops its now-duplicate positive staff capability
+insert and changes the old manifest `+1` to that exact `-1`; its optional
+extra-person mutation remains unchanged.
+
+Person detail needs no delta after the base advertises both required
+capabilities, so its obsolete rewrite call/function and newly unused imports
+are removed and the copied canonical bundle loads directly. Co-star still
+needs its one cast-credit mutation for person 102; it drops only the two legacy
+rule updates, asserts that its retained update affects exactly one row, and
+keeps resealing. No service expectation, production path, schema, corpus, or
+other fixture behavior changes.
 
 ## Dependency Direction
 
