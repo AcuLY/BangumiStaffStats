@@ -1,12 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const distRoot = path.join(frontendRoot, 'dist');
 const maximumInitialJavaScriptGzipBytes = 300 * 1024;
+const expectedBrandHash =
+  'd3d1ca5d14d560f3415dfbcc84b58ece72741a51cf860362d09284ed21aa394a';
 
 function fail(message) {
   throw new Error(message);
@@ -34,6 +37,18 @@ if (htmlFiles.length !== 1 || htmlFiles[0] !== 'index.html') {
 }
 if (files.some((file) => file.endsWith('.map'))) {
   fail('production source maps are forbidden');
+}
+const pngFiles = files.filter((file) => file.endsWith('.png'));
+const approvedBrandFiles = pngFiles.filter((file) => {
+  const hash = createHash('sha256')
+    .update(fs.readFileSync(path.join(distRoot, file)))
+    .digest('hex');
+  return hash === expectedBrandHash;
+});
+if (pngFiles.length !== 1 || approvedBrandFiles.length !== 1) {
+  fail(
+    `production must contain only the approved brand PNG: ${JSON.stringify(pngFiles)}`,
+  );
 }
 if (
   files.some((file) =>
@@ -76,5 +91,5 @@ if (gzipBytes >= maximumInitialJavaScriptGzipBytes) {
 }
 
 console.log(
-  `artifact check passed: ${files.length} files, one HTML, JavaScript gzip ${gzipBytes} bytes`,
+  `artifact check passed: ${files.length} files, one HTML, approved brand, JavaScript gzip ${gzipBytes} bytes`,
 );

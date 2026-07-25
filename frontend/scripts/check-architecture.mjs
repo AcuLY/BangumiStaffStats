@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -14,23 +15,53 @@ const expectedInventory = [
   'package-lock.json',
   'package.json',
   'scripts/check-architecture.mjs',
+  'scripts/check-catalog-wire-generated.mjs',
   'scripts/check-production-artifact.mjs',
   'scripts/check-query-wire-generated.mjs',
+  'scripts/check-query-unicode-generated.mjs',
   'scripts/cleanup-generated.mjs',
+  'scripts/generate-catalog-wire.mjs',
   'scripts/generate-query-wire.mjs',
+  'scripts/generate-query-unicode.mjs',
+  'src/api/adapters/catalog.ts',
   'src/api/adapters/queryWire.ts',
+  'src/api/catalog.ts',
   'src/api/client.ts',
   'src/api/errors.ts',
+  'src/api/generated/catalog/schemas.gen.ts',
+  'src/api/generated/catalog/types.gen.ts',
   'src/api/generated/query-wire/types.gen.ts',
   'src/app/App.vue',
   'src/app/AppProviders.vue',
   'src/app/main.ts',
+  'src/app/routes.ts',
   'src/app/store/runtime.ts',
+  'src/app/theme.ts',
+  'src/assets/brand/bgmss.png',
+  'src/features/catalog/store.ts',
+  'src/features/query/components/AppHeader.vue',
+  'src/features/query/components/PositionSelector.vue',
+  'src/features/query/components/QueryEditor.vue',
+  'src/features/query/components/QueryIcon.vue',
+  'src/features/query/components/QueryWorkspace.vue',
+  'src/features/query/composables/useCompactLayout.ts',
+  'src/features/query/coordinator.ts',
+  'src/features/query/model.ts',
+  'src/features/query/share.ts',
+  'src/features/query/store.ts',
+  'src/features/query/unicode15_1.generated.ts',
   'src/shared/styles/base.css',
   'src/vite-env.d.ts',
+  'tests/api/catalog.contract.test.ts',
   'tests/api/client.test.ts',
   'tests/api/query-wire.contract.test.ts',
   'tests/app/app.mount.test.ts',
+  'tests/app/theme.test.ts',
+  'tests/features/query/coordinator.test.ts',
+  'tests/features/query/components.test.ts',
+  'tests/features/query/fixtures.ts',
+  'tests/features/query/model.test.ts',
+  'tests/features/query/share-routes.test.ts',
   'tests/setup.ts',
   'tsconfig.app.json',
   'tsconfig.json',
@@ -62,6 +93,8 @@ const expectedDevDependencies = {
   vitest: '4.1.10',
   'vue-tsc': '3.3.8',
 };
+const expectedBrandHash =
+  'd3d1ca5d14d560f3415dfbcc84b58ece72741a51cf860362d09284ed21aa394a';
 
 function fail(message) {
   throw new Error(message);
@@ -101,6 +134,14 @@ function walkSource(root) {
 
 function count(source, expression) {
   return [...source.matchAll(expression)].length;
+}
+
+function assertExactFiles(label, actual, expected) {
+  const actualSorted = [...actual].sort();
+  const expectedSorted = [...expected].sort();
+  if (JSON.stringify(actualSorted) !== JSON.stringify(expectedSorted)) {
+    fail(`${label} violation: ${JSON.stringify(actualSorted)}`);
+  }
 }
 
 if (process.version !== 'v24.18.0') {
@@ -160,25 +201,36 @@ const combinedSource = [...sourceByFile.values()].join('\n');
 if (
   count(combinedSource, /\bcreateApp\s*\(/g) !== 1 ||
   count(combinedSource, /\.mount\s*\(/g) !== 1 ||
-  count(combinedSource, /\bcreatePinia\s*\(/g) !== 1 ||
-  count(combinedSource, /\bdefineStore\s*\(/g) !== 1
+  count(combinedSource, /\bcreatePinia\s*\(/g) !== 1
 ) {
-  fail('Vue mount, Pinia root, or bootstrap store does not have one owner');
+  fail('Vue mount or Pinia root does not have one owner');
 }
 
-const generatedImporters = [];
+const queryWireImporters = [];
+const catalogWireImporters = [];
+const storeOwners = [];
 const requestCallers = [];
 const providerOwners = [];
+const brandImporters = [];
 for (const [file, source] of sourceByFile) {
   const relative = path.relative(frontendRoot, file);
   if (/generated\/query-wire/.test(source)) {
-    generatedImporters.push(relative);
+    queryWireImporters.push(relative);
+  }
+  if (/generated\/catalog/.test(source)) {
+    catalogWireImporters.push(relative);
+  }
+  if (/\bdefineStore\s*\(/.test(source)) {
+    storeOwners.push(relative);
   }
   if (/\bfetch(?:Implementation)?\s*\(/.test(source)) {
     requestCallers.push(relative);
   }
   if (/\bNConfigProvider\b/.test(source)) {
     providerOwners.push(relative);
+  }
+  if (/assets\/brand\/bgmss\.png/.test(source)) {
+    brandImporters.push(relative);
   }
   if (
     relative.startsWith('src/shared/') &&
@@ -204,29 +256,46 @@ for (const [file, source] of sourceByFile) {
   if (
     relative.endsWith('.vue') &&
     !relative.endsWith('src/app/App.vue') &&
-    /(?:from|import)\s*\(?\s*['"][^'"]*\/store\//.test(source)
+    /\buse(?:Catalog|Query|Runtime)Store\s*\(/.test(source)
   ) {
-    fail(`leaf component imports a store: ${relative}`);
+    fail(`leaf component instantiates a store: ${relative}`);
   }
 }
 
-if (
-  generatedImporters.length !== 1 ||
-  generatedImporters[0] !== 'src/api/adapters/queryWire.ts'
-) {
-  fail(`generated wire ownership violation: ${JSON.stringify(generatedImporters)}`);
+assertExactFiles('query wire ownership', queryWireImporters, [
+  'src/api/adapters/queryWire.ts',
+  'src/features/query/coordinator.ts',
+  'src/features/query/model.ts',
+  'src/features/query/share.ts',
+]);
+assertExactFiles('catalog wire ownership', catalogWireImporters, [
+  'src/api/adapters/catalog.ts',
+]);
+assertExactFiles('Pinia store ownership', storeOwners, [
+  'src/app/store/runtime.ts',
+  'src/features/catalog/store.ts',
+  'src/features/query/store.ts',
+]);
+assertExactFiles('request ownership', requestCallers, ['src/api/client.ts']);
+assertExactFiles('Naive provider ownership', providerOwners, [
+  'src/app/AppProviders.vue',
+]);
+assertExactFiles('brand ownership', brandImporters, [
+  'src/features/query/components/AppHeader.vue',
+]);
+
+const brandBytes = fs.readFileSync(
+  path.join(frontendRoot, 'src/assets/brand/bgmss.png'),
+);
+const brandHash = createHash('sha256').update(brandBytes).digest('hex');
+if (brandHash !== expectedBrandHash) {
+  fail(`brand asset hash drifted: ${brandHash}`);
 }
 if (
-  requestCallers.length !== 1 ||
-  requestCallers[0] !== 'src/api/client.ts'
+  brandBytes.length < 24 ||
+  brandBytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a'
 ) {
-  fail(`request ownership violation: ${JSON.stringify(requestCallers)}`);
-}
-if (
-  providerOwners.length !== 1 ||
-  providerOwners[0] !== 'src/app/AppProviders.vue'
-) {
-  fail(`Naive provider ownership violation: ${JSON.stringify(providerOwners)}`);
+  fail('brand asset is not the approved PNG');
 }
 
 const handwritten = [...sourceByFile]
@@ -240,6 +309,10 @@ const deniedPatterns = [
   ['prototype workbench', /\b(?:useWorkbench|workbench-data)\b/],
   ['second state system', /\b(?:redux|zustand|vuex|mobx)\b/i],
   ['router', /\bvue-router\b/],
+  [
+    'PositionKey prefix inference',
+    /\.(?:startsWith|match|split|test)\s*\(\s*['"`](?:staff|cast|staffset):/i,
+  ],
   ['statistical formula', /\(\s*n\s*\*\s*[^+]+\+\s*5\s*\*\s*5\s*\)/i],
 ];
 for (const [label, expression] of deniedPatterns) {
@@ -249,5 +322,5 @@ for (const [label, expression] of deniedPatterns) {
 }
 
 console.log(
-  `architecture check passed: ${inventory.length} persistent files, one mount/store/provider/request/wire owner`,
+  `architecture check passed: ${inventory.length} persistent files, one mount/provider/request owner, three stores, approved brand ${brandHash}`,
 );

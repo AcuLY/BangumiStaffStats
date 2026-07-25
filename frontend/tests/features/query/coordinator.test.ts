@@ -1,0 +1,526 @@
+import { createPinia, setActivePinia } from 'pinia';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import {
+  createQueryCoordinator,
+  type OperationRequest,
+  type OperationResponse,
+  type QueryDrivers,
+  unavailableQueryDrivers,
+} from '../../../src/features/query/coordinator';
+import { useQueryStore } from '../../../src/features/query/store';
+import { catalogFixture } from './fixtures';
+
+interface Payload {
+  id: string;
+}
+
+type RankingRequest = Parameters<
+  QueryDrivers<Payload, Payload>['rankings']['execute']
+>[0];
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
+function drivers(
+  rankings: QueryDrivers<Payload, Payload>['rankings']['execute'],
+): QueryDrivers<Payload, Payload> {
+  return {
+    rankings: { execute: rankings },
+    candidates: {
+      async execute(request) {
+        return {
+          payload: { id: String(request.input.positionKey) },
+          requestId: request.requestId,
+        };
+      },
+    },
+  };
+}
+
+function readyStore() {
+  const store = useQueryStore();
+  store.draft.uid = 'luca';
+  store.draft.positionKeys = ['staff:anime:2'];
+  return store;
+}
+
+beforeEach(() => {
+  setActivePinia(createPinia());
+});
+
+describe('query coordinator', () => {
+  it('commits resource, applied query, and monotonic revision together', async () => {
+    const store = readyStore();
+    const execute = vi.fn(
+      async (
+        request: OperationRequest<
+          Readonly<Record<string, never>>,
+          Readonly<Record<string, unknown>>
+        >,
+      ): Promise<OperationResponse<Payload>> => ({
+        payload: { id: 'first' },
+        requestId: request.requestId,
+      }),
+    );
+    const coordinator = createQueryCoordinator(store, drivers(execute as never));
+
+    expect(
+      await coordinator.execute({
+        catalog: catalogFixture(),
+        mode: 'ranking',
+      }),
+    ).toBe(true);
+
+    expect(store.revision).toBe(1);
+    expect(store.applied?.positionKeys).toEqual(['staff:anime:2']);
+    expect(coordinator.rankings).toMatchObject({
+      payload: { id: 'first' },
+      phase: 'ready',
+      revision: 1,
+    });
+    expect(store.dirty).toBe(false);
+
+    expect(
+      await coordinator.execute({
+        catalog: catalogFixture(),
+        mode: 'ranking',
+      }),
+    ).toBe(true);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(store.revision).toBe(1);
+  });
+
+  it('accepts only the latest of two explicitly deferred responses', async () => {
+    const store = readyStore();
+    const firstDeferred = deferred<OperationResponse<Payload>>();
+    const secondDeferred = deferred<OperationResponse<Payload>>();
+    const execute = vi
+      .fn()
+      .mockImplementationOnce(() => firstDeferred.promise)
+      .mockImplementationOnce(() => secondDeferred.promise);
+    const coordinator = createQueryCoordinator(store, drivers(execute));
+    const catalog = catalogFixture();
+
+    const first = coordinator.execute({ catalog, mode: 'ranking' });
+    store.draft.positionKeys = ['staff:anime:101'];
+    const second = coordinator.execute({ catalog, mode: 'ranking' });
+    const secondRequest = execute.mock.calls[1]![0];
+    secondDeferred.resolve({
+      payload: { id: 'new' },
+      requestId: secondRequest.requestId,
+    });
+    expect(await second).toBe(true);
+
+    const firstRequest = execute.mock.calls[0]![0];
+    firstDeferred.resolve({
+      payload: { id: 'old' },
+      requestId: firstRequest.requestId,
+    });
+    expect(await first).toBe(false);
+
+    expect(store.applied?.positionKeys).toEqual(['staff:anime:101']);
+    expect(coordinator.rankings.payload).toEqual({ id: 'new' });
+    expect(store.revision).toBe(1);
+  });
+
+  it('keeps the request snapshot applied when Draft changes during pending', async () => {
+    const store = readyStore();
+    const pending = deferred<OperationResponse<Payload>>();
+    let requestId = '';
+    const execute = vi.fn((request: RankingRequest) => {
+      requestId = request.requestId;
+      return pending.promise;
+    });
+    const coordinator = createQueryCoordinator(store, drivers(execute));
+
+    const request = coordinator.execute({
+      catalog: catalogFixture(),
+      mode: 'ranking',
+    });
+    store.draft.positionKeys = ['staff:anime:101'];
+    pending.resolve({
+      payload: { id: 'snapshot' },
+      requestId,
+    });
+
+    expect(await request).toBe(true);
+    expect(store.applied?.positionKeys).toEqual(['staff:anime:2']);
+    expect(store.dirty).toBe(true);
+  });
+
+  it('replays and persists an accepted candidate input instead of replacing it with the first position', async () => {
+    const store = readyStore();
+    store.draft.positionKeys = ['staff:anime:2', 'staff:anime:101'];
+    const candidateExecute = vi.fn(async (request) => ({
+      payload: { id: String(request.input.positionKey) },
+      requestId: request.requestId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      rankings: drivers(vi.fn()).rankings,
+      candidates: { execute: candidateExecute },
+    });
+
+    await expect(
+      coordinator.execute({
+        candidateInput: { positionKey: 'staff:anime:101' },
+        catalog: catalogFixture(),
+        mode: 'co-star',
+      }),
+    ).resolves.toBe(true);
+
+    expect(candidateExecute).toHaveBeenCalledOnce();
+    expect(candidateExecute.mock.calls[0]![0].input).toEqual({
+      positionKey: 'staff:anime:101',
+    });
+    expect(coordinator.candidates.input).toEqual({
+      positionKey: 'staff:anime:101',
+    });
+    expect(coordinator.candidates.payload).toEqual({
+      id: 'staff:anime:101',
+    });
+  });
+
+  it('rejects a candidate input outside the applied query or catalog capability', async () => {
+    const store = readyStore();
+    const candidateExecute = vi.fn();
+    const coordinator = createQueryCoordinator(store, {
+      rankings: drivers(vi.fn()).rankings,
+      candidates: { execute: candidateExecute },
+    });
+
+    await expect(
+      coordinator.execute({
+        candidateInput: { positionKey: 'staff:anime:101' },
+        catalog: catalogFixture(),
+        mode: 'co-star',
+      }),
+    ).resolves.toBe(false);
+    expect(candidateExecute).not.toHaveBeenCalled();
+    expect(coordinator.candidates.error).toBe(
+      '查询暂时无法完成，请稍后重试',
+    );
+
+    const catalog = catalogFixture();
+    const selected = catalog.positionsByKey.get('staff:anime:2')!;
+    const unsupported = Object.freeze({
+      ...selected,
+      capabilities: Object.freeze(
+        selected.capabilities.filter(
+          (capability) => capability !== 'candidates',
+        ),
+      ),
+    });
+    const positions = Object.freeze(
+      catalog.positions.map((position) =>
+        position.key === unsupported.key ? unsupported : position,
+      ),
+    );
+    const unsupportedCatalog = Object.freeze({
+      ...catalog,
+      positions,
+      positionsByKey: new Map(
+        positions.map((position) => [position.key, position]),
+      ),
+    });
+    await expect(
+      coordinator.execute({
+        candidateInput: { positionKey: 'staff:anime:2' },
+        catalog: unsupportedCatalog,
+        mode: 'co-star',
+      }),
+    ).resolves.toBe(false);
+    expect(candidateExecute).not.toHaveBeenCalled();
+    expect(store.fieldErrors.positionKeys).toBe(
+      '所选职位不适用于当前查询',
+    );
+  });
+
+  it('restores prior usable data after refresh failure and commits stale warning', async () => {
+    const store = readyStore();
+    const execute = vi
+      .fn()
+      .mockImplementationOnce(async (request) => ({
+        payload: { id: 'old' },
+        requestId: request.requestId,
+      }))
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockImplementationOnce(async (request) => ({
+        payload: { id: 'stale' },
+        requestId: request.requestId,
+        warningCodes: ['COLLECTION_STALE'],
+      }));
+    const coordinator = createQueryCoordinator(store, drivers(execute));
+    const catalog = catalogFixture();
+
+    await coordinator.execute({ catalog, mode: 'ranking' });
+    expect(
+      await coordinator.execute({
+        catalog,
+        mode: 'ranking',
+        refreshCollection: true,
+      }),
+    ).toBe(false);
+    expect(coordinator.rankings.payload).toEqual({ id: 'old' });
+    expect(coordinator.rankings.phase).toBe('ready');
+    expect(store.revision).toBe(1);
+    expect(store.dirty).toBe(false);
+    expect(coordinator.lastOperationFeedback.value).toMatchObject({
+      kind: 'error',
+      message: '查询暂时无法完成，请稍后重试',
+      operation: 'rankings',
+    });
+
+    expect(
+      await coordinator.execute({
+        catalog,
+        mode: 'ranking',
+        refreshCollection: true,
+      }),
+    ).toBe(true);
+    expect(coordinator.rankings.payload).toEqual({ id: 'stale' });
+    expect(coordinator.rankings.staleCollection).toBe(true);
+    expect(coordinator.rankings.feedback).toContain('最近一次可用数据');
+    expect(coordinator.lastOperationFeedback.value).toMatchObject({
+      kind: 'warning',
+      operation: 'rankings',
+    });
+    expect(store.revision).toBe(1);
+  });
+
+  it('clears transient operation feedback when a newer request starts and succeeds cleanly', async () => {
+    const store = readyStore();
+    const retry = deferred<OperationResponse<Payload>>();
+    const execute = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockImplementationOnce(() => retry.promise);
+    const coordinator = createQueryCoordinator(store, drivers(execute));
+    const catalog = catalogFixture();
+
+    await expect(
+      coordinator.execute({ catalog, mode: 'ranking' }),
+    ).resolves.toBe(false);
+    expect(coordinator.lastOperationFeedback.value?.kind).toBe('error');
+
+    const pendingRetry = coordinator.execute({ catalog, mode: 'ranking' });
+    expect(coordinator.lastOperationFeedback.value).toBeNull();
+    retry.resolve({
+      payload: { id: 'ready' },
+      requestId: (execute.mock.calls[1]![0] as RankingRequest).requestId,
+    });
+
+    await expect(pendingRetry).resolves.toBe(true);
+    expect(coordinator.lastOperationFeedback.value).toBeNull();
+  });
+
+  it('atomically restores the last ready resource when refresh is cancelled', async () => {
+    const store = readyStore();
+    const refresh = deferred<OperationResponse<Payload>>();
+    const execute = vi
+      .fn()
+      .mockImplementationOnce(async (request: RankingRequest) => ({
+        payload: { id: 'ready' },
+        requestId: request.requestId,
+      }))
+      .mockImplementationOnce(() => refresh.promise);
+    const coordinator = createQueryCoordinator(store, drivers(execute));
+    const catalog = catalogFixture();
+
+    await coordinator.execute({ catalog, mode: 'ranking' });
+    const pendingRefresh = coordinator.execute({
+      catalog,
+      mode: 'ranking',
+      refreshCollection: true,
+    });
+    const refreshRequest = execute.mock.calls[1]![0] as RankingRequest;
+
+    expect(coordinator.rankings.phase).toBe('pending');
+    expect(coordinator.rankings.payload).toEqual({ id: 'ready' });
+
+    coordinator.cancel('ranking');
+    expect(coordinator.rankings).toMatchObject({
+      feedback: '查询已取消',
+      payload: { id: 'ready' },
+      phase: 'ready',
+      revision: 1,
+    });
+    expect(coordinator.pending.value).toBe(false);
+
+    refresh.resolve({
+      payload: { id: 'too-late' },
+      requestId: refreshRequest.requestId,
+    });
+    await expect(pendingRefresh).resolves.toBe(false);
+    expect(coordinator.rankings.payload).toEqual({ id: 'ready' });
+  });
+
+  it('rolls a failed superseding request back to the stable preflight snapshot', async () => {
+    const store = readyStore();
+    const firstPending = deferred<OperationResponse<Payload>>();
+    const secondPending = deferred<OperationResponse<Payload>>();
+    const execute = vi
+      .fn()
+      .mockImplementationOnce(async (request: RankingRequest) => ({
+        payload: { id: 'stable' },
+        requestId: request.requestId,
+      }))
+      .mockImplementationOnce(() => firstPending.promise)
+      .mockImplementationOnce(() => secondPending.promise);
+    const coordinator = createQueryCoordinator(store, drivers(execute));
+    const catalog = catalogFixture();
+
+    await coordinator.execute({ catalog, mode: 'ranking' });
+    const refresh = coordinator.execute({
+      catalog,
+      mode: 'ranking',
+      refreshCollection: true,
+    });
+    store.draft.positionKeys = ['staff:anime:101'];
+    const superseding = coordinator.execute({ catalog, mode: 'ranking' });
+    const firstRequest = execute.mock.calls[1]![0] as RankingRequest;
+
+    secondPending.reject(new Error('offline'));
+    await expect(superseding).resolves.toBe(false);
+    expect(coordinator.rankings).toMatchObject({
+      payload: { id: 'stable' },
+      phase: 'ready',
+      revision: 1,
+    });
+
+    firstPending.resolve({
+      payload: { id: 'stale-refresh' },
+      requestId: firstRequest.requestId,
+    });
+    await expect(refresh).resolves.toBe(false);
+    expect(coordinator.rankings.payload).toEqual({ id: 'stable' });
+    expect(store.applied?.positionKeys).toEqual(['staff:anime:2']);
+    expect(store.dirty).toBe(true);
+  });
+
+  it.each(['ranking', 'co-star'] as const)(
+    'rejects a mismatched response request ID before mutating %s',
+    async (mode) => {
+      const store = readyStore();
+      const driversWithMismatch: QueryDrivers<Payload, Payload> = {
+        rankings: {
+          async execute() {
+            return { payload: { id: 'ranking' }, requestId: '' };
+          },
+        },
+        candidates: {
+          async execute() {
+            return { payload: { id: 'candidate' }, requestId: 'wrong-id' };
+          },
+        },
+      };
+      const coordinator = createQueryCoordinator(store, driversWithMismatch);
+
+      await expect(
+        coordinator.execute({ catalog: catalogFixture(), mode }),
+      ).resolves.toBe(false);
+
+      expect(store.applied).toBeNull();
+      expect(store.revision).toBe(0);
+      const resource =
+        mode === 'ranking' ? coordinator.rankings : coordinator.candidates;
+      expect(resource.payload).toBeNull();
+      expect(resource.phase).toBe('idle');
+      expect(resource.error).toBe('查询暂时无法完成，请稍后重试');
+    },
+  );
+
+  it('keeps a successful commit when the best-effort URL callback throws', async () => {
+    const store = readyStore();
+    const execute = vi.fn(async (request: RankingRequest) => ({
+      payload: { id: 'committed' },
+      requestId: request.requestId,
+    }));
+    const coordinator = createQueryCoordinator(
+      store,
+      drivers(execute),
+      () => {
+        throw new DOMException('blocked', 'SecurityError');
+      },
+    );
+
+    await expect(
+      coordinator.execute({
+        catalog: catalogFixture(),
+        mode: 'ranking',
+      }),
+    ).resolves.toBe(true);
+
+    expect(store.revision).toBe(1);
+    expect(store.applied?.positionKeys).toEqual(['staff:anime:2']);
+    expect(coordinator.rankings).toMatchObject({
+      feedback: '查询已应用，但地址栏同步未完成',
+      payload: { id: 'committed' },
+      phase: 'ready',
+      revision: 1,
+    });
+  });
+
+  it('cancels the originating operation after the visible mode changes', async () => {
+    const store = readyStore();
+    const pendingResponse = deferred<OperationResponse<Payload>>();
+    let rankingRequestId = '';
+    let rankingSignal: AbortSignal | undefined;
+    const execute = vi.fn((request: RankingRequest) => {
+      rankingRequestId = request.requestId;
+      rankingSignal = request.signal;
+      return pendingResponse.promise;
+    });
+    const coordinator = createQueryCoordinator(store, drivers(execute));
+
+    const pending = coordinator.execute({
+      catalog: catalogFixture(),
+      mode: 'ranking',
+    });
+    expect(coordinator.pendingOperation.value).toBe('rankings');
+
+    coordinator.cancelPending();
+    expect(rankingSignal).toBeDefined();
+    expect(rankingSignal!.aborted).toBe(true);
+    expect(coordinator.pending.value).toBe(false);
+    expect(coordinator.pendingOperation.value).toBeNull();
+    expect(coordinator.rankings.phase).toBe('idle');
+    expect(coordinator.rankings.feedback).toBe('查询已取消');
+    expect(coordinator.lastOperationFeedback.value).toEqual({
+      kind: 'status',
+      message: '查询已取消',
+      operation: 'rankings',
+    });
+
+    pendingResponse.resolve({
+      payload: { id: 'late' },
+      requestId: rankingRequestId,
+    });
+    await expect(pending).resolves.toBe(false);
+    expect(store.applied).toBeNull();
+  });
+
+  it('fails closed when production has no registered result driver', async () => {
+    const store = readyStore();
+    const coordinator = createQueryCoordinator(
+      store,
+      unavailableQueryDrivers(),
+    );
+
+    expect(
+      await coordinator.execute({
+        catalog: catalogFixture(),
+        mode: 'ranking',
+      }),
+    ).toBe(false);
+    expect(store.applied).toBeNull();
+    expect(coordinator.rankings.error).toBe('该结果能力尚未接入');
+  });
+});

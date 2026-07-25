@@ -9,11 +9,28 @@ import config from '../openapi-ts.config.mjs';
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = path.resolve(frontendRoot, '..');
-const temporaryRoot = path.join(frontendRoot, '.tmp/query-wire-check');
+const temporaryBase = path.join(frontendRoot, '.tmp/query-wire-check');
+const temporaryRoot = path.join(temporaryBase, 'generated');
 const temporaryFile = path.join(temporaryRoot, 'types.gen.ts');
+const projectionOpenAPI = path.join(
+  temporaryBase,
+  'source/openapi/openapi.yaml',
+);
+const projectionSchemaRoot = path.join(
+  temporaryBase,
+  'source/schemas/query',
+);
 const committedFile = path.join(
   frontendRoot,
   'src/api/generated/query-wire/types.gen.ts',
+);
+const authorityOpenAPI = path.join(
+  repositoryRoot,
+  'contracts/openapi/openapi.yaml',
+);
+const authoritySchemaRoot = path.join(
+  repositoryRoot,
+  'contracts/schemas/query',
 );
 const manifestPath = path.join(
   repositoryRoot,
@@ -36,13 +53,52 @@ function listFiles(root) {
 }
 
 function removeTemporaryRoot() {
-  fs.rmSync(temporaryRoot, { force: true, recursive: true });
-  const disposableRoot = path.dirname(temporaryRoot);
+  fs.rmSync(temporaryBase, { force: true, recursive: true });
+  const disposableRoot = path.dirname(temporaryBase);
   if (
     fs.existsSync(disposableRoot) &&
     fs.readdirSync(disposableRoot).length === 0
   ) {
     fs.rmdirSync(disposableRoot);
+  }
+}
+
+function prepareProjection(componentNames) {
+  const authority = JSON.parse(fs.readFileSync(authorityOpenAPI, 'utf8'));
+  const missing = componentNames.filter(
+    (name) => !authority.components?.schemas?.[name],
+  );
+  if (missing.length > 0) {
+    fail(`query projection is missing components: ${missing.join(', ')}`);
+  }
+  const projection = {
+    openapi: authority.openapi,
+    info: authority.info,
+    servers: authority.servers,
+    paths: {},
+    components: {
+      schemas: Object.fromEntries(
+        Object.entries(authority.components.schemas).filter(([name]) =>
+          componentNames.includes(name),
+        ),
+      ),
+    },
+  };
+  fs.mkdirSync(path.dirname(projectionOpenAPI), { recursive: true });
+  fs.mkdirSync(projectionSchemaRoot, { recursive: true });
+  fs.writeFileSync(
+    projectionOpenAPI,
+    `${JSON.stringify(projection, null, 2)}\n`,
+  );
+  for (const entry of fs.readdirSync(authoritySchemaRoot, {
+    withFileTypes: true,
+  })) {
+    if (entry.isFile() && entry.name.endsWith('.schema.json')) {
+      fs.copyFileSync(
+        path.join(authoritySchemaRoot, entry.name),
+        path.join(projectionSchemaRoot, entry.name),
+      );
+    }
   }
 }
 
@@ -57,8 +113,12 @@ removeTemporaryRoot();
 process.chdir(frontendRoot);
 
 try {
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const names = manifest.openapi.componentSchemas.names;
+  prepareProjection(names);
   await createClient({
     ...config,
+    input: projectionOpenAPI,
     output: {
       ...config.output,
       path: temporaryRoot,
@@ -71,8 +131,6 @@ try {
   }
 
   const source = fs.readFileSync(temporaryFile, 'utf8');
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  const names = manifest.openapi.componentSchemas.names;
   const exports = new Set(
     [...source.matchAll(/^export type ([A-Za-z_$][\w$]*)/gm)].map(
       (match) => match[1],
@@ -94,10 +152,17 @@ try {
     fail('check-mode output contains runtime declarations');
   }
 
-  const expected = fs.readFileSync(committedFile);
-  const actual = fs.readFileSync(temporaryFile);
-  if (!expected.equals(actual)) {
-    fail('generated query wire differs from committed types.gen.ts');
+  const expected = fs.readFileSync(committedFile, 'utf8');
+  const actual = fs.readFileSync(temporaryFile, 'utf8');
+  if (expected !== actual) {
+    const expectedLines = expected.split('\n');
+    const actualLines = actual.split('\n');
+    const line = expectedLines.findIndex(
+      (value, index) => value !== actualLines[index],
+    );
+    fail(
+      `generated query wire differs at line ${line + 1}: expected=${JSON.stringify(expectedLines[line])} actual=${JSON.stringify(actualLines[line])}`,
+    );
   }
 
   console.log(`query wire drift check passed: ${names.length} components`);

@@ -1,11 +1,23 @@
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { createClient } from '@hey-api/openapi-ts';
+
+import config from '../openapi-ts.config.mjs';
+
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = path.resolve(frontendRoot, '..');
+const temporaryBase = path.join(frontendRoot, '.tmp/query-wire-generate');
+const projectionOpenAPI = path.join(
+  temporaryBase,
+  'source/openapi/openapi.yaml',
+);
+const projectionSchemaRoot = path.join(
+  temporaryBase,
+  'source/schemas/query',
+);
 const generatedRoot = path.join(
   frontendRoot,
   'src/api/generated/query-wire',
@@ -15,9 +27,13 @@ const manifestPath = path.join(
   repositoryRoot,
   'contracts/goldens/query/manifest.json',
 );
-const cliPath = path.join(
-  frontendRoot,
-  'node_modules/@hey-api/openapi-ts/bin/run.js',
+const authorityOpenAPI = path.join(
+  repositoryRoot,
+  'contracts/openapi/openapi.yaml',
+);
+const authoritySchemaRoot = path.join(
+  repositoryRoot,
+  'contracts/schemas/query',
 );
 
 function fail(message) {
@@ -68,23 +84,69 @@ function assertGeneratedContract() {
   }
 }
 
+function prepareProjection(componentNames) {
+  fs.rmSync(temporaryBase, { force: true, recursive: true });
+  const authority = JSON.parse(fs.readFileSync(authorityOpenAPI, 'utf8'));
+  const missing = componentNames.filter(
+    (name) => !authority.components?.schemas?.[name],
+  );
+  if (missing.length > 0) {
+    fail(`query projection is missing components: ${missing.join(', ')}`);
+  }
+  const projection = {
+    openapi: authority.openapi,
+    info: authority.info,
+    servers: authority.servers,
+    paths: {},
+    components: {
+      schemas: Object.fromEntries(
+        Object.entries(authority.components.schemas).filter(([name]) =>
+          componentNames.includes(name),
+        ),
+      ),
+    },
+  };
+  fs.mkdirSync(path.dirname(projectionOpenAPI), { recursive: true });
+  fs.mkdirSync(projectionSchemaRoot, { recursive: true });
+  fs.writeFileSync(
+    projectionOpenAPI,
+    `${JSON.stringify(projection, null, 2)}\n`,
+  );
+  for (const entry of fs.readdirSync(authoritySchemaRoot, {
+    withFileTypes: true,
+  })) {
+    if (entry.isFile() && entry.name.endsWith('.schema.json')) {
+      fs.copyFileSync(
+        path.join(authoritySchemaRoot, entry.name),
+        path.join(projectionSchemaRoot, entry.name),
+      );
+    }
+  }
+}
+
 assertExactNode();
 
-const result = spawnSync(
-  process.execPath,
-  [cliPath, '--file', './openapi-ts.config.mjs', '--no-log-file'],
-  {
-    cwd: frontendRoot,
-    env: process.env,
-    stdio: 'inherit',
-  },
-);
-
-if (result.error) {
-  throw result.error;
-}
-if (result.status !== 0) {
-  fail(`openapi-ts exited with status ${String(result.status)}`);
+const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+const componentNames = manifest.openapi.componentSchemas.names;
+prepareProjection(componentNames);
+try {
+  await createClient({
+    ...config,
+    input: projectionOpenAPI,
+    output: {
+      ...config.output,
+      path: generatedRoot,
+    },
+  });
+} finally {
+  fs.rmSync(temporaryBase, { force: true, recursive: true });
+  const disposableRoot = path.dirname(temporaryBase);
+  if (
+    fs.existsSync(disposableRoot) &&
+    fs.readdirSync(disposableRoot).length === 0
+  ) {
+    fs.rmdirSync(disposableRoot);
+  }
 }
 
 assertGeneratedContract();

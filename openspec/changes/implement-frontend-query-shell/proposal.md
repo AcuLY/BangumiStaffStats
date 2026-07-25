@@ -48,9 +48,9 @@ None.
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: main product/design/dependency/path review and strict validation passed; committed/pushed/released/deployed: no |
+| Status | investigated: complete; specified: approved; implemented: complete; verified: unit/contract/type/build/artifact, responsive browser, accessibility, console, and strict OpenSpec gates passed; committed/pushed/released/deployed: no |
 | Owner | One Frontend apply owner; main agent reviews the complete OpenSpec and later accepts any implementation candidate. |
-| Writable paths | Planning: exactly `openspec/changes/implement-frontend-query-shell/**`. Apply: exactly `frontend/package.json`, `frontend/src/app/App.vue`, `frontend/src/app/AppProviders.vue`, `frontend/src/app/routes.ts`, `frontend/src/app/theme.ts`, `frontend/src/assets/brand/bgmss.png`, `frontend/src/api/catalog.ts`, `frontend/src/api/adapters/catalog.ts`, `frontend/src/api/generated/catalog/**`, `frontend/src/features/catalog/**`, `frontend/src/features/query/**`, `frontend/src/shared/styles/base.css`, `frontend/scripts/generate-catalog-wire.mjs`, `frontend/scripts/check-catalog-wire-generated.mjs`, `frontend/scripts/check-architecture.mjs`, `frontend/scripts/check-production-artifact.mjs`, `frontend/tests/api/catalog.contract.test.ts`, `frontend/tests/app/app.mount.test.ts`, `frontend/tests/app/theme.test.ts`, `frontend/tests/features/query/**`, `frontend/ARCHITECTURE.md`, and this change's task markers. |
+| Writable paths | Planning: exactly `openspec/changes/implement-frontend-query-shell/**`. Apply: exactly `frontend/package.json`, `frontend/src/app/App.vue`, `frontend/src/app/AppProviders.vue`, `frontend/src/app/routes.ts`, `frontend/src/app/theme.ts`, `frontend/src/assets/brand/bgmss.png`, `frontend/src/api/catalog.ts`, `frontend/src/api/adapters/catalog.ts`, `frontend/src/api/generated/catalog/**`, `frontend/src/features/catalog/**`, `frontend/src/features/query/**`, `frontend/src/shared/styles/base.css`, `frontend/scripts/generate-catalog-wire.mjs`, `frontend/scripts/check-catalog-wire-generated.mjs`, `frontend/scripts/generate-query-wire.mjs`, `frontend/scripts/check-query-wire-generated.mjs`, `frontend/scripts/generate-query-unicode.mjs`, `frontend/scripts/check-query-unicode-generated.mjs`, `frontend/scripts/check-architecture.mjs`, `frontend/scripts/check-production-artifact.mjs`, `frontend/tests/api/catalog.contract.test.ts`, `frontend/tests/app/app.mount.test.ts`, `frontend/tests/app/theme.test.ts`, `frontend/tests/features/query/**`, `frontend/ARCHITECTURE.md`, and this change's task markers. |
 | Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, `.impeccable/design.json`, `tmp-formal-development/**`, `openspec/specs/**`, every other change/task, `contracts/**`, oracle commit `644b7748674e553f863d0ffd61d029f86fdc0717` including its exact `frontend/public/bgmss.png` brand asset, all frontend files outside the exact apply set, backend/updater code, Git refs/remotes, external services/hosts, and production. |
 | Deletion complement | None; no accepted foundation, generated query wire, prototype evidence, test, or product behavior may be deleted or weakened. |
 | Mutable refs | None; apply shall not stage, commit, sync/archive, switch/amend refs, push, tag, release, or deploy. |
@@ -63,6 +63,5 @@ None.
 | Operations deferred | Production configuration, proxy/server fallback, release, deployment, migration, monitoring, and cutover. |
 | Stop/rollback conditions | Stop on unmet dependency, contract/design/path drift, need for a new dependency or wire, nonempty index, protected-path write, production fixture, or failed gate. Remove only owned disposable output and preserve all accepted state. |
 
-The change touches no other repository or external mutable state. Apply is
-blocked until all artifacts pass strict validation and explicit main-agent
-review and approval.
+The change touches no other repository or external mutable state. The
+implementation candidate has passed main-agent review and acceptance.
