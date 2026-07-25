@@ -14,7 +14,7 @@ the prototype where formal operation boundaries differ.
 
 | Boundary | Declaration |
 |---|---|
-| Status | Specified and main-agent approved; Group 1 may apply after its dependency/ownership preflight, while Group 2 remains gated on partners/co-star handoff. |
+| Status | Specified and main-agent approved. Group 1 is accepted at `9eae3216`; Group 2A may implement the accepted partners contract independently, while Group 2B remains gated on co-star handoff. |
 | Owner | One Frontend implementation agent; main agent audits and accepts. |
 | Writable paths | Exactly the paths declared in `proposal.md`; feature-owned work stays under `frontend/src/features/co-star/**`, with only the listed API, coordinator/share, app, shared primitive, check, architecture, and test integration files mutable. |
 | Read-only protected inputs | Higher authorities, oracle, contracts/backend/updater, contract-owned generated DTOs and generators, non-listed frontend files, other changes, refs/remotes, external repositories, and production state. |
@@ -144,13 +144,14 @@ the prototype where formal operation boundaries differ.
 
 ## Migration Plan
 
-1. Consume the accepted generated DTOs; implement strict adapters/drivers,
-   coordinated resources, candidate rail/drawer, tray, limits, and 0-person
-   state without touching active overlapping shared files.
-2. After exact `expose-partners` and `expose-co-star` handoffs, implement and
-   integrate 1-person partners plus 2–10-person pair/group analysis, share
-   restore, and App/coordinator/shared-file wiring.
-3. Complete focused/full tests and oracle-responsive browser acceptance; roll
+1. Consume the accepted generated candidates DTOs; implement strict
+   adapter/driver, coordinated resource, candidate rail/drawer, tray, limits,
+   and 0-person state without touching active overlapping shared files.
+2. From accepted `expose-partners`, implement the strict partners
+   adapter/resource and 1-person surface without waiting for co-star wire.
+3. After exact `expose-co-star` handoff, implement 2–10-person pair/group
+   analysis, share restore, and App/shared-file integration.
+4. Complete focused/full tests and oracle-responsive browser acceptance; roll
    back by removing new owned files and reverting only this change's shared
    hunks if any gate fails.
 
