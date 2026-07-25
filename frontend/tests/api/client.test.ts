@@ -144,10 +144,20 @@ describe('native fetch API client', () => {
     });
   });
 
-  it('uses an operation-supplied strict decoder for an HTTP error body', async () => {
+  it('uses an operation-supplied strict decoder with immutable bounded response metadata', async () => {
     const client = createApiClient(
       vi.fn<FetchImplementation>(async () =>
-        jsonResponse({ error: { code: 'NOT_READY' } }, 503),
+        new Response(
+          JSON.stringify({ error: { code: 'NOT_READY' } }),
+          {
+            headers: {
+              'content-type': 'application/json',
+              'retry-after': '7',
+              'x-private-detail': 'not exposed as an object',
+            },
+            status: 503,
+          },
+        ),
       ),
     );
     const operationError = new Error('bounded operation failure');
@@ -155,9 +165,17 @@ describe('native fetch API client', () => {
     await expect(
       client.request({
         decode: (value) => value,
-        decodeError(value, status) {
+        decodeError(value, status, metadata) {
           expect(value).toEqual({ error: { code: 'NOT_READY' } });
           expect(status).toBe(503);
+          expect(metadata.status).toBe(503);
+          expect(metadata.header('Retry-After')).toBe('7');
+          expect(metadata.header('retry-after')).toBe('7');
+          expect(metadata.header('missing')).toBeNull();
+          expect(metadata.header('bad header\n')).toBeNull();
+          expect(Object.isFrozen(metadata)).toBe(true);
+          expect(metadata).not.toHaveProperty('headers');
+          expect(metadata).not.toHaveProperty('response');
           return operationError;
         },
         reference: '/api/v1/rankings',

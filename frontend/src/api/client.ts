@@ -7,10 +7,19 @@ export type FetchImplementation = (
 
 export type ResponseDecoder<T> = (value: unknown) => T;
 
+export interface ApiErrorResponseMetadata {
+  readonly status: number;
+  readonly header: (name: string) => string | null;
+}
+
 export interface ApiRequestOptions<T> {
   body?: BodyInit | null;
   decode: ResponseDecoder<T>;
-  decodeError?: (value: unknown, status: number) => Error;
+  decodeError?: (
+    value: unknown,
+    status: number,
+    metadata: ApiErrorResponseMetadata,
+  ) => Error;
   headers?: HeadersInit;
   method?: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';
   reference: string;
@@ -29,6 +38,26 @@ function invalidReference(): never {
     'invalid-reference',
     'The API reference is not a safe relative path',
   );
+}
+
+function errorResponseMetadata(response: Response): ApiErrorResponseMetadata {
+  const headers = new Map<string, string>();
+  response.headers.forEach((value, name) => {
+    headers.set(name.toLowerCase(), value);
+  });
+  return Object.freeze({
+    status: response.status,
+    header(name: string): string | null {
+      try {
+        const normalized = new Headers({ [name]: '' })
+          .keys()
+          .next().value;
+        return normalized ? (headers.get(normalized) ?? null) : null;
+      } catch {
+        return null;
+      }
+    },
+  });
 }
 
 export function assertSafeApiReference(reference: string): string {
@@ -115,7 +144,11 @@ export function createApiClient(
       if (!response.ok) {
         let decodedError: Error;
         try {
-          decodedError = options.decodeError!(value, response.status);
+          decodedError = options.decodeError!(
+            value,
+            response.status,
+            errorResponseMetadata(response),
+          );
         } catch (error) {
           if (error instanceof ApiDecodeError) {
             throw error;

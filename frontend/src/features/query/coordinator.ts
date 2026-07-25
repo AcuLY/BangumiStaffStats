@@ -3,11 +3,14 @@ import { readonly, ref, shallowReactive, type Ref } from 'vue';
 import type {
   CandidatesInputV1,
   CandidatesViewV1,
+  PartnersInputV1,
+  PartnersViewV1,
   PersonDetailInputV1,
   PersonDetailViewV1,
   RankingsViewV1,
 } from '../../api/generated/query-wire/types.gen';
 import { CandidatesApiError } from '../../api/candidates';
+import { PartnersApiError } from '../../api/partners';
 import { RankingsApiError } from '../../api/rankings';
 import { PersonDetailApiError } from '../../api/personDetail';
 import type { CatalogSnapshot } from '../../api/adapters/catalog';
@@ -19,12 +22,17 @@ import {
 } from './model';
 import type { useQueryStore } from './store';
 
-export type QueryOperation = 'candidates' | 'person-detail' | 'rankings';
-type PrimaryQueryOperation = Exclude<QueryOperation, 'person-detail'>;
+export type QueryOperation =
+  | 'candidates'
+  | 'partners'
+  | 'person-detail'
+  | 'rankings';
+type PrimaryQueryOperation = 'candidates' | 'rankings';
 export type ResourcePhase = 'error' | 'idle' | 'pending' | 'ready';
 export type RankingsViewState = Required<RankingsViewV1>;
 export type CandidatesViewState = Required<CandidatesViewV1>;
 export type PersonDetailViewState = Required<PersonDetailViewV1>;
+export type PartnersViewState = Required<PartnersViewV1>;
 
 export interface OperationFeedback {
   readonly kind: 'error' | 'status' | 'warning';
@@ -60,6 +68,7 @@ export interface QueryDrivers<
   RankingPayload,
   CandidatePayload,
   PersonDetailPayload = unknown,
+  PartnersPayload = unknown,
 > {
   readonly candidates: OperationDriver<
     Readonly<CandidatesInputV1>,
@@ -75,6 +84,11 @@ export interface QueryDrivers<
     Readonly<PersonDetailInputV1>,
     Readonly<PersonDetailViewV1>,
     PersonDetailPayload
+  >;
+  readonly partners?: OperationDriver<
+    Readonly<PartnersInputV1>,
+    Readonly<PartnersViewV1>,
+    PartnersPayload
   >;
 }
 
@@ -119,7 +133,12 @@ export class QueryCapabilityUnavailableError extends Error {
   }
 }
 
-export function unavailableQueryDrivers(): QueryDrivers<never, never, never> {
+export function unavailableQueryDrivers(): QueryDrivers<
+  never,
+  never,
+  never,
+  never
+> {
   const unavailable = {
     async execute(): Promise<never> {
       throw new QueryCapabilityUnavailableError();
@@ -127,6 +146,7 @@ export function unavailableQueryDrivers(): QueryDrivers<never, never, never> {
   };
   return {
     candidates: unavailable,
+    partners: unavailable,
     personDetail: unavailable,
     rankings: unavailable,
   };
@@ -142,6 +162,9 @@ function resourceError(error: unknown): string {
   if (error instanceof CandidatesApiError) {
     return error.message;
   }
+  if (error instanceof PartnersApiError) {
+    return error.message;
+  }
   if (error instanceof PersonDetailApiError) {
     return error.message;
   }
@@ -155,9 +178,86 @@ function transactionId(operation: QueryOperation, sequence: number): string {
 function serverRequestId(error: unknown): string | null {
   return error instanceof RankingsApiError ||
     error instanceof CandidatesApiError ||
+    error instanceof PartnersApiError ||
     error instanceof PersonDetailApiError
     ? error.requestId
     : null;
+}
+
+function partnersViewEquals(
+  left: Readonly<PartnersViewState>,
+  right: Readonly<PartnersViewState>,
+): boolean {
+  return (
+    left.search === right.search &&
+    left.sort === right.sort &&
+    left.order === right.order &&
+    left.page === right.page &&
+    left.pageSize === right.pageSize
+  );
+}
+
+function validPartnersView(
+  query: AppliedQuery,
+  view: Readonly<PartnersViewState>,
+): boolean {
+  return (
+    [...view.search].length <= 256 &&
+    ['count', 'average', 'overall', 'preference'].includes(view.sort) &&
+    !(query.scope === 'global' && view.sort === 'preference') &&
+    ['asc', 'desc'].includes(view.order) &&
+    Number.isSafeInteger(view.page) &&
+    view.page >= 1 &&
+    [5, 10, 20].includes(view.pageSize)
+  );
+}
+
+function canonicalPartnersInput(
+  query: AppliedQuery,
+  input: Readonly<PartnersInputV1>,
+): Readonly<PartnersInputV1> | null {
+  const personId = input.source.personId;
+  const positionKeys = input.source.positionKeys.map(String);
+  const queryPositions = new Set(query.positionKeys.map(String));
+  const candidatePositionKey =
+    input.candidatePositionKey === undefined
+      ? undefined
+      : String(input.candidatePositionKey);
+  if (
+    !Number.isSafeInteger(personId) ||
+    personId < 1 ||
+    positionKeys.length === 0 ||
+    new Set(positionKeys).size !== positionKeys.length ||
+    positionKeys.some((positionKey) => !queryPositions.has(positionKey)) ||
+    (candidatePositionKey !== undefined &&
+      !queryPositions.has(candidatePositionKey))
+  ) {
+    return null;
+  }
+  return Object.freeze({
+    source: Object.freeze({
+      personId,
+      positionKeys: Object.freeze([...positionKeys]),
+    }),
+    ...(candidatePositionKey === undefined
+      ? {}
+      : { candidatePositionKey }),
+  }) as Readonly<PartnersInputV1>;
+}
+
+function partnersInputEquals(
+  left: Readonly<PartnersInputV1>,
+  right: Readonly<PartnersInputV1>,
+): boolean {
+  const leftKeys = left.source.positionKeys.map(String);
+  const rightKeys = right.source.positionKeys.map(String);
+  return (
+    left.source.personId === right.source.personId &&
+    String(left.candidatePositionKey ?? '') ===
+      String(right.candidatePositionKey ?? '') &&
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every((positionKey, index) => positionKey === rightKeys[index])
+  );
 }
 
 function candidateViewEquals(
@@ -243,6 +343,7 @@ export interface QueryCoordinator<
   RankingPayload,
   CandidatePayload,
   PersonDetailPayload = unknown,
+  PartnersPayload = unknown,
 > {
   readonly candidates: OperationResource<
     CandidatePayload,
@@ -251,6 +352,8 @@ export interface QueryCoordinator<
   >;
   cancel(mode: QueryMode): void;
   cancelPending(): void;
+  cancelPartners(feedback?: string): void;
+  clearPartners(): void;
   execute(options: {
     candidateInput?: Readonly<CandidatesInputV1>;
     catalog: CatalogSnapshot | null;
@@ -269,6 +372,13 @@ export interface QueryCoordinator<
   executePersonDetailView(
     view: Readonly<PersonDetailViewState>,
   ): Promise<boolean>;
+  executePartners(
+    input: Readonly<PartnersInputV1>,
+    view?: Readonly<PartnersViewState>,
+  ): Promise<boolean>;
+  executePartnersView(
+    view: Readonly<PartnersViewState>,
+  ): Promise<boolean>;
   clearPersonDetail(): void;
   cancelPersonDetail(feedback?: string): void;
   readonly lastOperationFeedback: Readonly<Ref<OperationFeedback | null>>;
@@ -284,30 +394,39 @@ export interface QueryCoordinator<
     PersonDetailInputV1,
     PersonDetailViewState
   >;
+  readonly partners: OperationResource<
+    PartnersPayload,
+    PartnersInputV1,
+    PartnersViewState
+  >;
 }
 
 export function createQueryCoordinator<
   RankingPayload,
   CandidatePayload,
   PersonDetailPayload = unknown,
+  PartnersPayload = unknown,
 >(
   store: QueryStore,
   drivers: QueryDrivers<
     RankingPayload,
     CandidatePayload,
-    PersonDetailPayload
+    PersonDetailPayload,
+    PartnersPayload
   >,
   onSuccessfulQuery?: (query: AppliedQuery) => void,
 ): QueryCoordinator<
   RankingPayload,
   CandidatePayload,
-  PersonDetailPayload
+  PersonDetailPayload,
+  PartnersPayload
 > {
   const lastOperationFeedback = ref<OperationFeedback | null>(null);
   const pending = ref(false);
   const pendingOperation = ref<QueryOperation | null>(null);
   const sequences: Record<QueryOperation, number> = {
     candidates: 0,
+    partners: 0,
     'person-detail': 0,
     rankings: 0,
   };
@@ -387,6 +506,32 @@ export function createQueryCoordinator<
     }),
     viewPending: false,
   });
+  const partners = shallowReactive<
+    OperationResource<PartnersPayload, PartnersInputV1, PartnersViewState>
+  >({
+    acceptedQuery: null,
+    error: null,
+    feedback: null,
+    input: Object.freeze({
+      source: Object.freeze({
+        personId: 0,
+        positionKeys: Object.freeze([]),
+      }),
+    }) as unknown as Readonly<PartnersInputV1>,
+    payload: null,
+    phase: 'idle',
+    requestId: null,
+    revision: 0,
+    staleCollection: false,
+    view: Object.freeze({
+      order: 'desc',
+      page: 1,
+      pageSize: 10,
+      search: '',
+      sort: 'count',
+    }),
+    viewPending: false,
+  });
 
   function operationFor(mode: QueryMode): PrimaryQueryOperation {
     return mode === 'ranking' ? 'rankings' : 'candidates';
@@ -414,6 +559,7 @@ export function createQueryCoordinator<
     resource:
       | typeof rankings
       | typeof candidates
+      | typeof partners
       | typeof personDetail,
     snapshot: ResourceSnapshot,
   ): void {
@@ -469,7 +615,9 @@ export function createQueryCoordinator<
         ? rankings
         : operation === 'candidates'
           ? candidates
-          : personDetail;
+          : operation === 'partners'
+            ? partners
+            : personDetail;
     restoreResource(resource, transaction.snapshot);
     resource.feedback = feedback || null;
     if (feedback) {
@@ -514,6 +662,46 @@ export function createQueryCoordinator<
 
   function cancelPersonDetail(feedback = ''): void {
     cancelOperation('person-detail', feedback);
+  }
+
+  function clearPartners(): void {
+    const transaction = transactions.partners;
+    if (transaction) {
+      sequences.partners += 1;
+      transaction.controller.abort();
+    }
+    controllers.partners?.abort();
+    controllers.partners = undefined;
+    transactions.partners = undefined;
+    partners.acceptedQuery = null;
+    partners.error = null;
+    partners.feedback = null;
+    partners.input = Object.freeze({
+      source: Object.freeze({
+        personId: 0,
+        positionKeys: Object.freeze([]),
+      }),
+    }) as unknown as Readonly<PartnersInputV1>;
+    partners.payload = null;
+    partners.phase = 'idle';
+    partners.requestId = null;
+    partners.revision = 0;
+    partners.staleCollection = false;
+    partners.view = Object.freeze({
+      order: 'desc',
+      page: 1,
+      pageSize: 10,
+      search: '',
+      sort: 'count',
+    });
+    partners.viewPending = false;
+    if (lastOperationFeedback.value?.operation === 'partners') {
+      lastOperationFeedback.value = null;
+    }
+  }
+
+  function cancelPartners(feedback = ''): void {
+    cancelOperation('partners', feedback);
   }
 
   async function execute(options: {
@@ -709,6 +897,9 @@ export function createQueryCoordinator<
           : null;
         candidates.phase = 'ready';
       }
+      if (!sameQuery) {
+        clearPartners();
+      }
       store.commit(query, nextRevision);
       try {
         onSuccessfulQuery?.(query);
@@ -883,6 +1074,301 @@ export function createQueryCoordinator<
         candidates.viewPending = false;
       }
       syncPendingState();
+    }
+  }
+
+  function readyPartnersQuery(): AppliedQuery | null {
+    const query = readyCandidateQuery();
+    if (
+      !query ||
+      !partners.acceptedQuery ||
+      partners.payload === null ||
+      partners.phase !== 'ready' ||
+      partners.revision !== store.revision ||
+      querySignature(partners.acceptedQuery) !== querySignature(query)
+    ) {
+      return null;
+    }
+    return query;
+  }
+
+  async function executePartners(
+    requestedInput: Readonly<PartnersInputV1>,
+    requestedView?: Readonly<PartnersViewState>,
+  ): Promise<boolean> {
+    const query = readyCandidateQuery();
+    if (!query) {
+      partners.error = '请先完成一次共演分析查询';
+      partners.phase = partners.payload ? partners.phase : 'error';
+      publishFeedback('partners', partners.error, 'error');
+      return false;
+    }
+    const input = canonicalPartnersInput(query, requestedInput);
+    if (!input) {
+      partners.error = '合作人物来源身份无效';
+      partners.phase = partners.payload ? partners.phase : 'error';
+      publishFeedback('partners', partners.error, 'error');
+      return false;
+    }
+    if (
+      requestedView &&
+      query.scope === 'global' &&
+      requestedView.sort === 'preference'
+    ) {
+      partners.error = '合作人物视图参数无效';
+      partners.phase = partners.payload ? partners.phase : 'error';
+      publishFeedback('partners', partners.error, 'error');
+      return false;
+    }
+
+    const priorInput = partners.input;
+    const sameSource =
+      priorInput.source.personId === input.source.personId &&
+      priorInput.source.positionKeys.length ===
+        input.source.positionKeys.length &&
+      priorInput.source.positionKeys
+        .map(String)
+        .every(
+          (positionKey, index) =>
+            positionKey === String(input.source.positionKeys[index]),
+        );
+    const baseView: PartnersViewState = {
+      order: requestedView?.order ?? partners.view.order ?? 'desc',
+      page: requestedView?.page ?? partners.view.page ?? 1,
+      pageSize: requestedView?.pageSize ?? partners.view.pageSize ?? 10,
+      search: requestedView?.search ?? partners.view.search ?? '',
+      sort: requestedView?.sort ?? partners.view.sort ?? 'count',
+    };
+    const view = Object.freeze({
+      ...baseView,
+      ...(!sameSource && !requestedView ? { page: 1, search: '' } : {}),
+      ...(String(priorInput.candidatePositionKey ?? '') !==
+        String(input.candidatePositionKey ?? '') &&
+        !requestedView
+        ? { page: 1 }
+        : {}),
+    }) as Readonly<PartnersViewState>;
+    if (!validPartnersView(query, view)) {
+      partners.error = '合作人物视图参数无效';
+      partners.phase = partners.payload ? partners.phase : 'error';
+      publishFeedback('partners', partners.error, 'error');
+      return false;
+    }
+    if (
+      partners.phase === 'ready' &&
+      partners.revision === store.revision &&
+      partnersInputEquals(partners.input, input) &&
+      partnersViewEquals(partners.view, view)
+    ) {
+      return true;
+    }
+
+    const existingTransaction = transactions.partners;
+    controllers.partners?.abort();
+    const controller = new AbortController();
+    controllers.partners = controller;
+    const sequence = ++sequences.partners;
+    const transaction = transactionId('partners', sequence);
+    const snapshot =
+      existingTransaction?.snapshot ?? captureResource(partners);
+    transactions.partners = { controller, sequence, snapshot };
+    const capturedRevision = store.revision;
+    const capturedSignature = querySignature(query);
+
+    partners.acceptedQuery = query;
+    partners.error = null;
+    partners.feedback = null;
+    partners.input = input;
+    partners.phase = 'pending';
+    partners.revision = capturedRevision;
+    partners.view = view;
+    partners.viewPending = false;
+    if (lastOperationFeedback.value?.operation === 'partners') {
+      lastOperationFeedback.value = null;
+    }
+
+    try {
+      if (!drivers.partners) {
+        throw new QueryCapabilityUnavailableError();
+      }
+      const response = await drivers.partners.execute({
+        input,
+        query,
+        refreshCollection: false,
+        sequence,
+        signal: controller.signal,
+        transactionId: transaction,
+        view,
+      });
+      if (
+        sequence !== sequences.partners ||
+        controller.signal.aborted ||
+        controllers.partners !== controller ||
+        store.revision !== capturedRevision ||
+        !store.applied ||
+        querySignature(store.applied) !== capturedSignature ||
+        !partnersInputEquals(partners.input, input)
+      ) {
+        return false;
+      }
+      if (response.transactionId !== transaction) {
+        throw new Error('Response transaction ID does not match the request');
+      }
+
+      partners.acceptedQuery = query;
+      partners.input = input;
+      partners.payload = response.payload;
+      partners.requestId = response.requestId;
+      partners.revision = capturedRevision;
+      partners.staleCollection =
+        response.staleCollection === true ||
+        response.warningCodes?.includes('COLLECTION_STALE') === true;
+      partners.feedback = partners.staleCollection
+        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        : null;
+      partners.error = null;
+      partners.phase = 'ready';
+      partners.view = view;
+      partners.viewPending = false;
+      if (partners.feedback) {
+        publishFeedback('partners', partners.feedback, 'warning');
+      }
+      return true;
+    } catch (error) {
+      if (
+        sequence !== sequences.partners ||
+        controllers.partners !== controller
+      ) {
+        return false;
+      }
+      restoreResource(partners, snapshot);
+      partners.error = controller.signal.aborted
+        ? '合作人物加载已取消'
+        : resourceError(error);
+      if (!partners.requestId) {
+        partners.requestId = serverRequestId(error);
+      }
+      if (partners.payload === null) {
+        partners.acceptedQuery = query;
+        partners.input = input;
+        partners.phase = 'error';
+        partners.revision = capturedRevision;
+        partners.view = view;
+      }
+      publishFeedback('partners', partners.error, 'error');
+      return false;
+    } finally {
+      if (controllers.partners === controller) {
+        controllers.partners = undefined;
+        transactions.partners = undefined;
+        partners.viewPending = false;
+      }
+    }
+  }
+
+  async function executePartnersView(
+    requestedView: Readonly<PartnersViewState>,
+  ): Promise<boolean> {
+    const query = readyPartnersQuery();
+    if (!query) {
+      partners.error = '请先选择一位人物查看合作人物';
+      publishFeedback('partners', partners.error, 'error');
+      return false;
+    }
+    const view = Object.freeze(structuredClone(requestedView));
+    if (!validPartnersView(query, view)) {
+      partners.error = '合作人物视图参数无效';
+      publishFeedback('partners', partners.error, 'error');
+      return false;
+    }
+    if (!partners.viewPending && partnersViewEquals(partners.view, view)) {
+      return true;
+    }
+
+    if (transactions.partners) {
+      cancelOperation('partners', '');
+    }
+    const controller = new AbortController();
+    controllers.partners = controller;
+    const sequence = ++sequences.partners;
+    const transaction = transactionId('partners', sequence);
+    const snapshot = captureResource(partners);
+    transactions.partners = { controller, sequence, snapshot };
+    const capturedRevision = store.revision;
+    const capturedSignature = querySignature(query);
+    const capturedInput = partners.input;
+
+    partners.error = null;
+    partners.feedback = null;
+    partners.view = view;
+    partners.viewPending = true;
+    if (lastOperationFeedback.value?.operation === 'partners') {
+      lastOperationFeedback.value = null;
+    }
+
+    try {
+      if (!drivers.partners) {
+        throw new QueryCapabilityUnavailableError();
+      }
+      const response = await drivers.partners.execute({
+        input: capturedInput,
+        query,
+        refreshCollection: false,
+        sequence,
+        signal: controller.signal,
+        transactionId: transaction,
+        view,
+      });
+      if (
+        sequence !== sequences.partners ||
+        controller.signal.aborted ||
+        controllers.partners !== controller ||
+        store.revision !== capturedRevision ||
+        !store.applied ||
+        querySignature(store.applied) !== capturedSignature ||
+        !partnersInputEquals(partners.input, capturedInput)
+      ) {
+        return false;
+      }
+      if (response.transactionId !== transaction) {
+        throw new Error('Response transaction ID does not match the request');
+      }
+
+      partners.payload = response.payload;
+      partners.requestId = response.requestId;
+      partners.staleCollection =
+        response.staleCollection === true ||
+        response.warningCodes?.includes('COLLECTION_STALE') === true;
+      partners.feedback = partners.staleCollection
+        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        : null;
+      partners.error = null;
+      partners.phase = 'ready';
+      partners.view = view;
+      partners.viewPending = false;
+      if (partners.feedback) {
+        publishFeedback('partners', partners.feedback, 'warning');
+      }
+      return true;
+    } catch (error) {
+      if (
+        sequence !== sequences.partners ||
+        controllers.partners !== controller
+      ) {
+        return false;
+      }
+      restoreResource(partners, snapshot);
+      partners.error = controller.signal.aborted
+        ? '合作人物加载已取消'
+        : resourceError(error);
+      publishFeedback('partners', partners.error, 'error');
+      return false;
+    } finally {
+      if (controllers.partners === controller) {
+        controllers.partners = undefined;
+        transactions.partners = undefined;
+        partners.viewPending = false;
+      }
     }
   }
 
@@ -1266,16 +1752,21 @@ export function createQueryCoordinator<
     cancel,
     cancelPersonDetail,
     cancelPending,
+    cancelPartners,
     candidates,
     clearPersonDetail,
+    clearPartners,
     execute,
     executeCandidateView,
+    executePartners,
+    executePartnersView,
     executePersonDetail,
     executePersonDetailView,
     executeRankingView,
     lastOperationFeedback: readonly(lastOperationFeedback),
     pending: readonly(pending),
     pendingOperation: readonly(pendingOperation),
+    partners,
     personDetail,
     rankings,
   };
