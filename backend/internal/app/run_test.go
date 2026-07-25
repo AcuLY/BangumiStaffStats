@@ -23,7 +23,7 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/httpapi/wire"
 )
 
-func TestRunListenerPublishesArchiveServesThreeRoutesAndStops(t *testing.T) {
+func TestRunListenerPublishesArchiveServesBusinessRoutesAndStops(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -64,6 +64,18 @@ func TestRunListenerPublishesArchiveServesThreeRoutesAndStops(t *testing.T) {
 	unknown := getResponse(t, client, listener, "/api/v1/rankings")
 	if unknown.status != http.StatusMethodNotAllowed {
 		t.Fatalf("business route status = %d", unknown.status)
+	}
+	candidate := postJSONResponse(
+		t,
+		client,
+		listener,
+		"/api/v1/candidates",
+		`{"query":{"scope":"personal","uid":"Alice","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"positionKey":"staff:anime:2"}}`,
+	)
+	if candidate.status != http.StatusServiceUnavailable ||
+		!strings.Contains(candidate.body, `"code":"NOT_READY"`) ||
+		!strings.Contains(candidate.body, `"message":"candidates is not ready"`) {
+		t.Fatalf("candidate runtime = %d %q", candidate.status, candidate.body)
 	}
 
 	cancel()
@@ -475,6 +487,35 @@ func getResponse(t *testing.T, client *http.Client, listener net.Listener, path 
 		t.Fatal(err)
 	}
 	return response{status: httpResponse.StatusCode, body: string(body)}
+}
+
+func postJSONResponse(
+	t *testing.T,
+	client *http.Client,
+	listener net.Listener,
+	path string,
+	body string,
+) response {
+	t.Helper()
+	request, err := http.NewRequest(
+		http.MethodPost,
+		"http://"+listener.Addr().String()+path,
+		strings.NewReader(body),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	httpResponse, err := client.Do(request)
+	if err != nil {
+		t.Fatalf("POST %s: %v", path, err)
+	}
+	defer httpResponse.Body.Close()
+	data, err := io.ReadAll(httpResponse.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return response{status: httpResponse.StatusCode, body: string(data)}
 }
 
 type fakeArchiveRuntime struct {

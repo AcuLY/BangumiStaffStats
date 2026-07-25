@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.local/schemas/candidates/request-v1.schema.json",
+  "title": "CandidatesRequestV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "query",
+    "input"
+  ],
+  "properties": {
+    "query": {
+      "$ref": "../query/shared-query-v1.schema.json"
+    },
+    "input": {
+      "$ref": "../query/operation-components-v1.schema.json#/$defs/CandidatesInputV1"
+    },
+    "view": {
+      "$ref": "../query/operation-components-v1.schema.json#/$defs/CandidatesViewV1"
+    },
+    "refreshCollection": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

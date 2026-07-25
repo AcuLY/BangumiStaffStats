@@ -42,6 +42,7 @@ type middlewareOptions struct {
 	catalogs         CatalogStoreProvider
 	catalogProjector catalogProjector
 	rankings         rankingsExecutor
+	candidates       candidatesExecutor
 }
 
 func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Handler {
@@ -94,6 +95,19 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 				)
 			}
 		}
+		if metricRoute(request) == observability.RouteCandidates {
+			queryTerminal, _ = observability.NewQueryTerminal(
+				requestID,
+				observability.QueryOperationCandidates,
+			)
+			if queryTerminal != nil {
+				identityContext = context.WithValue(
+					identityContext,
+					candidatesTerminalContextKey{},
+					queryTerminal,
+				)
+			}
+		}
 		requestContext, cancel := context.WithTimeoutCause(identityContext, options.requestTimeout, requestDeadlineCause)
 		defer cancel()
 		request = request.WithContext(requestContext)
@@ -123,7 +137,11 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 				snapshot, outcome = finishContextOutcome(
 					recorder,
 					result.contextCause,
-					timeoutResponseForRequest(request, options.rankings),
+					timeoutResponseForRequest(
+						request,
+						options.rankings,
+						options.candidates,
+					),
 				)
 				break
 			}
@@ -135,7 +153,11 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 					abortConnection = true
 				} else {
 					snapshot = recorder.terminate(
-						internalResponseForRequest(request, options.rankings),
+						internalResponseForRequest(
+							request,
+							options.rankings,
+							options.candidates,
+						),
 					)
 					outcome = observability.OutcomePanic
 				}
@@ -147,7 +169,11 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 			snapshot, outcome = finishContextOutcome(
 				recorder,
 				context.Cause(requestContext),
-				timeoutResponseForRequest(request, options.rankings),
+				timeoutResponseForRequest(
+					request,
+					options.rankings,
+					options.candidates,
+				),
 			)
 		}
 
@@ -164,7 +190,8 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 		}
 		if options.events != nil &&
 			(metricRoute(request) == observability.RouteCatalog ||
-				metricRoute(request) == observability.RouteRankings) &&
+				metricRoute(request) == observability.RouteRankings ||
+				metricRoute(request) == observability.RouteCandidates) &&
 			snapshot.committed &&
 			(outcome == observability.OutcomeTimeout ||
 				outcome == observability.OutcomePanic) &&
@@ -247,6 +274,8 @@ func metricRoute(request *http.Request) observability.Route {
 		return observability.RouteCatalog
 	case routeRankings:
 		return observability.RouteRankings
+	case routeCandidates:
+		return observability.RouteCandidates
 	default:
 		if imageRouteCandidate(request) {
 			return observability.RouteImage
@@ -267,6 +296,8 @@ func metricOperation(request *http.Request) observability.Operation {
 		return observability.OperationCatalog
 	case observability.RouteRankings:
 		return observability.OperationRankings
+	case observability.RouteCandidates:
+		return observability.OperationCandidates
 	default:
 		return observability.OperationUnknown
 	}

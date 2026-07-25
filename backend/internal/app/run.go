@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/candidates"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/httpapi"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/ranking"
 )
@@ -161,10 +162,25 @@ func serveRuntime(
 			wrapError("close archive", closeErr),
 		)
 	}
-	handler := dependencies.runtime.HandlerWithDependencies(
+	candidateService, err := candidates.NewService(
+		currentCandidatesStore(dependencies.archive),
+		nil,
+		candidates.DefaultConfig(),
+	)
+	if err != nil {
+		dependencies.runtime.SetLive(false)
+		_ = dependencies.runtime.SetReadiness(false, "")
+		closeErr := dependencies.archive.Close()
+		return errors.Join(
+			fmt.Errorf("create candidates service: %w", err),
+			wrapError("close archive", closeErr),
+		)
+	}
+	handler := dependencies.runtime.HandlerWithQueryDependencies(
 		probe,
 		currentCatalogStore(dependencies.archive),
 		rankings,
+		candidateService,
 	)
 	server := dependencies.server(handler)
 	if server == nil {
@@ -192,6 +208,15 @@ func serveRuntime(
 }
 
 func currentRankingStore(state archiveRuntime) ranking.StoreProvider {
+	return func() (*archive.Store, bool) {
+		if state == nil {
+			return nil, false
+		}
+		return state.Current()
+	}
+}
+
+func currentCandidatesStore(state archiveRuntime) candidates.StoreProvider {
 	return func() (*archive.Store, bool) {
 		if state == nil {
 			return nil, false

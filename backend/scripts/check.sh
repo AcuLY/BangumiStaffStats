@@ -56,6 +56,7 @@ cd "$backend_root"
 "$script_root/generate-query-wire.sh" --check
 "$script_root/generate-catalog-wire.sh" --check
 "$script_root/generate-rankings-wire.sh" --check
+"$script_root/generate-candidates-wire.sh" --check
 
 unformatted="$("$pinned_gofmt" -l cmd internal)"
 if [[ -n "$unformatted" ]]; then
@@ -81,6 +82,7 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
 "$go_command" test ./internal/architecture
 "$go_command" test ./internal/query/...
 "$go_command" test ./internal/ranking
+"$go_command" test ./internal/candidates
 "$go_command" test ./internal/runtimecache
 "$go_command" test ./internal/runtimecache -count=20
 "$go_command" test ./internal/statistics/...
@@ -172,10 +174,28 @@ internal/archive/state.go
 internal/archive/state_test.go
 internal/archive/store.go
 internal/archive/test_helpers_test.go
+internal/candidates/archive.go
+internal/candidates/build.go
+internal/candidates/build_test.go
+internal/candidates/cache.go
+internal/candidates/cache_test.go
+internal/candidates/doc.go
+internal/candidates/errors.go
+internal/candidates/operation.go
+internal/candidates/projection.go
+internal/candidates/request.go
+internal/candidates/service.go
+internal/candidates/service_model.go
+internal/candidates/service_test.go
+internal/candidates/types.go
+internal/candidates/view.go
+internal/candidates/view_test.go
 internal/catalog/catalog.go
 internal/catalog/catalog_test.go
 internal/catalog/store.go
 internal/catalog/store_test.go
+internal/httpapi/candidates_handler.go
+internal/httpapi/candidates_handler_test.go
 internal/httpapi/catalog_handler.go
 internal/httpapi/catalog_handler_test.go
 internal/httpapi/handler.go
@@ -189,6 +209,8 @@ internal/httpapi/server.go
 internal/httpapi/server_test.go
 internal/httpapi/transport.go
 internal/httpapi/transport_test.go
+internal/httpapi/wire/candidates.gen.go
+internal/httpapi/wire/candidates_contract_test.go
 internal/httpapi/wire/catalog.gen.go
 internal/httpapi/wire/catalog_contract_test.go
 internal/httpapi/wire/query_contract_test.go
@@ -252,9 +274,11 @@ internal/statistics/summary.go
 internal/statistics/summary_test.go
 internal/statistics/types.go
 scripts/check.sh
+scripts/generate-candidates-wire.sh
 scripts/generate-catalog-wire.sh
 scripts/generate-query-wire.sh
 scripts/generate-rankings-wire.sh
+scripts/prepare-candidates-wire.mjs
 scripts/prepare-catalog-wire.mjs
 scripts/prepare-query-wire.mjs
 scripts/prepare-rankings-wire.mjs'

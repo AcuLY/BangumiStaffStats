@@ -279,6 +279,77 @@
           }
         }
       }
+    },
+    "/candidates": {
+      "post": {
+        "operationId": "postCandidatesV1",
+        "summary": "Project candidate lists for one ordered query position",
+        "description": "Evaluates every ordered query position independently, returns complete position counts, and projects one deterministic ranked candidate page. Search, sort, order, and pagination are view-only.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidatesRequestV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Complete ordered position counts and the requested current-position candidate page.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidatesSuccessEnvelopeV1"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ResultBadRequestErrorV1"
+          },
+          "403": {
+            "$ref": "#/components/responses/ResultForbiddenErrorV1"
+          },
+          "404": {
+            "$ref": "#/components/responses/ResultNotFoundErrorV1"
+          },
+          "405": {
+            "$ref": "#/components/responses/ResultMethodNotAllowedErrorV1"
+          },
+          "413": {
+            "$ref": "#/components/responses/ResultPayloadTooLargeErrorV1"
+          },
+          "415": {
+            "$ref": "#/components/responses/ResultUnsupportedMediaTypeErrorV1"
+          },
+          "429": {
+            "$ref": "#/components/responses/ResultRateLimitedErrorV1"
+          },
+          "500": {
+            "$ref": "#/components/responses/ResultInternalErrorV1"
+          },
+          "502": {
+            "$ref": "#/components/responses/ResultBadGatewayErrorV1"
+          },
+          "503": {
+            "$ref": "#/components/responses/ResultServiceUnavailableErrorV1"
+          },
+          "504": {
+            "$ref": "#/components/responses/ResultGatewayTimeoutErrorV1"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -330,6 +401,12 @@
       },
       "RankingsSuccessEnvelopeV1": {
         "$ref": "../schemas/rankings/success-envelope-v1.schema.json"
+      },
+      "CandidatesRequestV1": {
+        "$ref": "../schemas/candidates/request-v1.schema.json"
+      },
+      "CandidatesSuccessEnvelopeV1": {
+        "$ref": "../schemas/candidates/success-envelope-v1.schema.json"
       },
       "ResultErrorEnvelopeV1": {
         "$ref": "../schemas/rankings/result-error-envelope-v1.schema.json"

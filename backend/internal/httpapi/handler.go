@@ -31,13 +31,14 @@ type imageFetcher interface {
 }
 
 type routeHandler struct {
-	readiness ReadinessProbe
-	metrics   *observability.Registry
-	images    imageFetcher
-	events    *observability.EventSink
-	catalogs  CatalogStoreProvider
-	project   catalogProjector
-	rankings  rankingsExecutor
+	readiness  ReadinessProbe
+	metrics    *observability.Registry
+	images     imageFetcher
+	events     *observability.EventSink
+	catalogs   CatalogStoreProvider
+	project    catalogProjector
+	rankings   rankingsExecutor
+	candidates candidatesExecutor
 }
 
 // RuntimeObservability owns the HTTP registry and typed event sink while
@@ -84,12 +85,25 @@ func (r *RuntimeObservability) HandlerWithDependencies(
 	catalogs CatalogStoreProvider,
 	rankings rankingsExecutor,
 ) http.Handler {
+	return r.HandlerWithQueryDependencies(readiness, catalogs, rankings, nil)
+}
+
+// HandlerWithQueryDependencies returns the runtime with explicit read-only
+// Catalog, rankings, and candidates services. Nil dependencies leave their
+// routes registered and return stable NOT_READY responses.
+func (r *RuntimeObservability) HandlerWithQueryDependencies(
+	readiness ReadinessProbe,
+	catalogs CatalogStoreProvider,
+	rankings rankingsExecutor,
+	candidates candidatesExecutor,
+) http.Handler {
 	if r == nil {
 		return newHandler(readiness, nil, middlewareOptions{
 			requestTimeout: DefaultRequestTimeout,
 			images:         imageproxy.NewClient(),
 			catalogs:       catalogs,
 			rankings:       rankings,
+			candidates:     candidates,
 		})
 	}
 	return newHandler(readiness, r.metrics, middlewareOptions{
@@ -99,6 +113,7 @@ func (r *RuntimeObservability) HandlerWithDependencies(
 		events:         r.events,
 		catalogs:       catalogs,
 		rankings:       rankings,
+		candidates:     candidates,
 	})
 }
 
@@ -155,13 +170,14 @@ func newHandler(readiness ReadinessProbe, metrics *observability.Registry, optio
 		options.images = imageproxy.NewClient()
 	}
 	return runtimeMiddleware(&routeHandler{
-		readiness: readiness,
-		metrics:   metrics,
-		images:    options.images,
-		events:    options.events,
-		catalogs:  options.catalogs,
-		project:   options.catalogProjector,
-		rankings:  options.rankings,
+		readiness:  readiness,
+		metrics:    metrics,
+		images:     options.images,
+		events:     options.events,
+		catalogs:   options.catalogs,
+		project:    options.catalogProjector,
+		rankings:   options.rankings,
+		candidates: options.candidates,
 	}, options)
 }
 
@@ -190,12 +206,18 @@ func (h *routeHandler) ServeHTTP(writer http.ResponseWriter, request *http.Reque
 		h.writeCatalog(writer, request, requestID)
 	case routeRankings:
 		h.writeRankings(writer, request, requestID)
+	case routeCandidates:
+		h.writeCandidates(writer, request, requestID)
 	default:
 		if strings.HasPrefix(request.URL.Path, routeCatalog+string('/')) {
 			writeError(writer, requestID, catalogNotFoundResponse)
 			return
 		}
 		if strings.HasPrefix(request.URL.Path, routeRankings+string('/')) {
+			writeError(writer, requestID, notFoundResponse)
+			return
+		}
+		if strings.HasPrefix(request.URL.Path, routeCandidates+string('/')) {
 			writeError(writer, requestID, notFoundResponse)
 			return
 		}

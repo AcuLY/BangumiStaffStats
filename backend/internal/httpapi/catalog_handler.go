@@ -77,6 +77,7 @@ var (
 func timeoutResponseForRequest(
 	request *http.Request,
 	rankings rankingsExecutor,
+	candidates candidatesExecutor,
 ) *responseError {
 	if request != nil && request.URL != nil && request.URL.Path == routeCatalog {
 		return &catalogTimeoutResponse
@@ -88,12 +89,20 @@ func timeoutResponseForRequest(
 		}
 		return &response
 	}
+	if request != nil && request.URL != nil && request.URL.Path == routeCandidates {
+		response := candidatesTimeoutResponse
+		if candidates != nil {
+			response.dataVersion = candidates.CurrentDataVersion()
+		}
+		return &response
+	}
 	return &timeoutResponse
 }
 
 func internalResponseForRequest(
 	request *http.Request,
 	rankings rankingsExecutor,
+	candidates candidatesExecutor,
 ) *responseError {
 	if request != nil && request.URL != nil && request.URL.Path == routeCatalog {
 		return &catalogInternalResponse
@@ -108,6 +117,19 @@ func internalResponseForRequest(
 		}
 		if rankings != nil {
 			response.dataVersion = rankings.CurrentDataVersion()
+		}
+		return &response
+	}
+	if request != nil && request.URL != nil && request.URL.Path == routeCandidates {
+		response := responseError{
+			status:       http.StatusInternalServerError,
+			code:         codeInternalError,
+			message:      "candidates is unavailable",
+			retryable:    true,
+			cacheControl: "private, no-store",
+		}
+		if candidates != nil {
+			response.dataVersion = candidates.CurrentDataVersion()
 		}
 		return &response
 	}
