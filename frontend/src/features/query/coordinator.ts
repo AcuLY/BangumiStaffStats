@@ -3,6 +3,8 @@ import { readonly, ref, shallowReactive, type Ref } from 'vue';
 import type {
   CandidatesInputV1,
   CandidatesViewV1,
+  CoStarInputV1,
+  CoStarViewV1,
   PartnersInputV1,
   PartnersViewV1,
   PersonDetailInputV1,
@@ -10,6 +12,7 @@ import type {
   RankingsViewV1,
 } from '../../api/generated/query-wire/types.gen';
 import { CandidatesApiError } from '../../api/candidates';
+import { CoStarApiError } from '../../api/coStar';
 import { PartnersApiError } from '../../api/partners';
 import { RankingsApiError } from '../../api/rankings';
 import { PersonDetailApiError } from '../../api/personDetail';
@@ -24,6 +27,7 @@ import type { useQueryStore } from './store';
 
 export type QueryOperation =
   | 'candidates'
+  | 'co-star'
   | 'partners'
   | 'person-detail'
   | 'rankings';
@@ -31,6 +35,7 @@ type PrimaryQueryOperation = 'candidates' | 'rankings';
 export type ResourcePhase = 'error' | 'idle' | 'pending' | 'ready';
 export type RankingsViewState = Required<RankingsViewV1>;
 export type CandidatesViewState = Required<CandidatesViewV1>;
+export type CoStarViewState = Required<CoStarViewV1>;
 export type PersonDetailViewState = Required<PersonDetailViewV1>;
 export type PartnersViewState = Required<PartnersViewV1>;
 
@@ -69,6 +74,7 @@ export interface QueryDrivers<
   CandidatePayload,
   PersonDetailPayload = unknown,
   PartnersPayload = unknown,
+  CoStarPayload = unknown,
 > {
   readonly candidates: OperationDriver<
     Readonly<CandidatesInputV1>,
@@ -89,6 +95,11 @@ export interface QueryDrivers<
     Readonly<PartnersInputV1>,
     Readonly<PartnersViewV1>,
     PartnersPayload
+  >;
+  readonly coStar?: OperationDriver<
+    Readonly<CoStarInputV1>,
+    Readonly<CoStarViewV1>,
+    CoStarPayload
   >;
 }
 
@@ -137,6 +148,7 @@ export function unavailableQueryDrivers(): QueryDrivers<
   never,
   never,
   never,
+  never,
   never
 > {
   const unavailable = {
@@ -146,6 +158,7 @@ export function unavailableQueryDrivers(): QueryDrivers<
   };
   return {
     candidates: unavailable,
+    coStar: unavailable,
     partners: unavailable,
     personDetail: unavailable,
     rankings: unavailable,
@@ -160,6 +173,9 @@ function resourceError(error: unknown): string {
     return error.message;
   }
   if (error instanceof CandidatesApiError) {
+    return error.message;
+  }
+  if (error instanceof CoStarApiError) {
     return error.message;
   }
   if (error instanceof PartnersApiError) {
@@ -178,10 +194,122 @@ function transactionId(operation: QueryOperation, sequence: number): string {
 function serverRequestId(error: unknown): string | null {
   return error instanceof RankingsApiError ||
     error instanceof CandidatesApiError ||
+    error instanceof CoStarApiError ||
     error instanceof PartnersApiError ||
     error instanceof PersonDetailApiError
     ? error.requestId
     : null;
+}
+
+function coStarViewEquals(
+  left: Readonly<CoStarViewState>,
+  right: Readonly<CoStarViewState>,
+): boolean {
+  return (
+    left.search === right.search &&
+    left.sort === right.sort &&
+    left.order === right.order &&
+    left.page === right.page &&
+    left.pageSize === right.pageSize
+  );
+}
+
+function validCoStarView(
+  query: AppliedQuery,
+  view: Readonly<CoStarViewState>,
+): boolean {
+  return (
+    [...view.search].length <= 256 &&
+    [
+      'collectionUpdatedAt',
+      'globalScore',
+      'personalScore',
+      'seriesSize',
+    ].includes(view.sort) &&
+    !(
+      query.scope === 'global' &&
+      (view.sort === 'personalScore' ||
+        view.sort === 'collectionUpdatedAt')
+    ) &&
+    !(query.mergeSeries !== true && view.sort === 'seriesSize') &&
+    ['asc', 'desc'].includes(view.order) &&
+    Number.isSafeInteger(view.page) &&
+    view.page >= 1 &&
+    [5, 10, 20].includes(view.pageSize)
+  );
+}
+
+function defaultCoStarView(query: AppliedQuery): CoStarViewState {
+  return Object.freeze({
+    order: 'desc',
+    page: 1,
+    pageSize: 10,
+    search: '',
+    sort: query.scope === 'personal' ? 'personalScore' : 'globalScore',
+  });
+}
+
+function canonicalCoStarInput(
+  query: AppliedQuery,
+  input: Readonly<CoStarInputV1>,
+): Readonly<CoStarInputV1> | null {
+  const queryPositions = new Set(query.positionKeys.map(String));
+  if (
+    input.participants.length < 2 ||
+    input.participants.length > 10
+  ) {
+    return null;
+  }
+  const people = new Set<number>();
+  let identityCount = 0;
+  const participants = input.participants.map((participant) => {
+    const personId = participant.personId;
+    const positionKeys = participant.positionKeys.map(String);
+    identityCount += positionKeys.length;
+    if (
+      !Number.isSafeInteger(personId) ||
+      personId < 1 ||
+      people.has(personId) ||
+      positionKeys.length === 0 ||
+      new Set(positionKeys).size !== positionKeys.length ||
+      positionKeys.some((positionKey) => !queryPositions.has(positionKey))
+    ) {
+      return null;
+    }
+    people.add(personId);
+    return Object.freeze({
+      personId,
+      positionKeys: Object.freeze([...positionKeys]),
+    });
+  });
+  if (identityCount > 20 || participants.some((item) => item === null)) {
+    return null;
+  }
+  return Object.freeze({
+    participants: Object.freeze([...participants]),
+  }) as Readonly<CoStarInputV1>;
+}
+
+function coStarInputEquals(
+  left: Readonly<CoStarInputV1>,
+  right: Readonly<CoStarInputV1>,
+): boolean {
+  return (
+    left.participants.length === right.participants.length &&
+    left.participants.every((participant, index) => {
+      const compared = right.participants[index];
+      const keys = participant.positionKeys.map(String);
+      const comparedKeys = compared?.positionKeys.map(String) ?? [];
+      return (
+        participant.personId === compared?.personId &&
+        keys.length === comparedKeys.length &&
+        keys.every(
+          (positionKey, positionIndex) =>
+            positionKey === comparedKeys[positionIndex],
+        )
+      );
+    })
+  );
 }
 
 function partnersViewEquals(
@@ -344,6 +472,7 @@ export interface QueryCoordinator<
   CandidatePayload,
   PersonDetailPayload = unknown,
   PartnersPayload = unknown,
+  CoStarPayload = unknown,
 > {
   readonly candidates: OperationResource<
     CandidatePayload,
@@ -351,8 +480,10 @@ export interface QueryCoordinator<
     CandidatesViewV1
   >;
   cancel(mode: QueryMode): void;
+  cancelCoStar(feedback?: string): void;
   cancelPending(): void;
   cancelPartners(feedback?: string): void;
+  clearCoStar(): void;
   clearPartners(): void;
   execute(options: {
     candidateInput?: Readonly<CandidatesInputV1>;
@@ -363,6 +494,13 @@ export interface QueryCoordinator<
   executeCandidateView(
     input: Readonly<CandidatesInputV1>,
     view: Readonly<CandidatesViewState>,
+  ): Promise<boolean>;
+  executeCoStar(
+    input: Readonly<CoStarInputV1>,
+    view?: Readonly<CoStarViewState>,
+  ): Promise<boolean>;
+  executeCoStarView(
+    view: Readonly<CoStarViewState>,
   ): Promise<boolean>;
   executeRankingView(view: Readonly<RankingsViewState>): Promise<boolean>;
   executePersonDetail(
@@ -389,6 +527,11 @@ export interface QueryCoordinator<
     Record<string, never>,
     RankingsViewState
   >;
+  readonly coStar: OperationResource<
+    CoStarPayload,
+    CoStarInputV1,
+    CoStarViewState
+  >;
   readonly personDetail: OperationResource<
     PersonDetailPayload,
     PersonDetailInputV1,
@@ -406,26 +549,30 @@ export function createQueryCoordinator<
   CandidatePayload,
   PersonDetailPayload = unknown,
   PartnersPayload = unknown,
+  CoStarPayload = unknown,
 >(
   store: QueryStore,
   drivers: QueryDrivers<
     RankingPayload,
     CandidatePayload,
     PersonDetailPayload,
-    PartnersPayload
+    PartnersPayload,
+    CoStarPayload
   >,
   onSuccessfulQuery?: (query: AppliedQuery) => void,
 ): QueryCoordinator<
   RankingPayload,
   CandidatePayload,
   PersonDetailPayload,
-  PartnersPayload
+  PartnersPayload,
+  CoStarPayload
 > {
   const lastOperationFeedback = ref<OperationFeedback | null>(null);
   const pending = ref(false);
   const pendingOperation = ref<QueryOperation | null>(null);
   const sequences: Record<QueryOperation, number> = {
     candidates: 0,
+    'co-star': 0,
     partners: 0,
     'person-detail': 0,
     rankings: 0,
@@ -477,6 +624,29 @@ export function createQueryCoordinator<
       pageSize: 10,
       search: '',
       sort: 'count',
+    }),
+    viewPending: false,
+  });
+  const coStar = shallowReactive<
+    OperationResource<CoStarPayload, CoStarInputV1, CoStarViewState>
+  >({
+    acceptedQuery: null,
+    error: null,
+    feedback: null,
+    input: Object.freeze({
+      participants: Object.freeze([]),
+    }) as unknown as Readonly<CoStarInputV1>,
+    payload: null,
+    phase: 'idle',
+    requestId: null,
+    revision: 0,
+    staleCollection: false,
+    view: Object.freeze({
+      order: 'desc',
+      page: 1,
+      pageSize: 10,
+      search: '',
+      sort: 'globalScore',
     }),
     viewPending: false,
   });
@@ -559,6 +729,7 @@ export function createQueryCoordinator<
     resource:
       | typeof rankings
       | typeof candidates
+      | typeof coStar
       | typeof partners
       | typeof personDetail,
     snapshot: ResourceSnapshot,
@@ -615,6 +786,8 @@ export function createQueryCoordinator<
         ? rankings
         : operation === 'candidates'
           ? candidates
+          : operation === 'co-star'
+            ? coStar
           : operation === 'partners'
             ? partners
             : personDetail;
@@ -662,6 +835,43 @@ export function createQueryCoordinator<
 
   function cancelPersonDetail(feedback = ''): void {
     cancelOperation('person-detail', feedback);
+  }
+
+  function clearCoStar(): void {
+    const transaction = transactions['co-star'];
+    if (transaction) {
+      sequences['co-star'] += 1;
+      transaction.controller.abort();
+    }
+    controllers['co-star']?.abort();
+    controllers['co-star'] = undefined;
+    transactions['co-star'] = undefined;
+    coStar.acceptedQuery = null;
+    coStar.error = null;
+    coStar.feedback = null;
+    coStar.input = Object.freeze({
+      participants: Object.freeze([]),
+    }) as unknown as Readonly<CoStarInputV1>;
+    coStar.payload = null;
+    coStar.phase = 'idle';
+    coStar.requestId = null;
+    coStar.revision = 0;
+    coStar.staleCollection = false;
+    coStar.view = Object.freeze({
+      order: 'desc',
+      page: 1,
+      pageSize: 10,
+      search: '',
+      sort: 'globalScore',
+    });
+    coStar.viewPending = false;
+    if (lastOperationFeedback.value?.operation === 'co-star') {
+      lastOperationFeedback.value = null;
+    }
+  }
+
+  function cancelCoStar(feedback = ''): void {
+    cancelOperation('co-star', feedback);
   }
 
   function clearPartners(): void {
@@ -898,6 +1108,7 @@ export function createQueryCoordinator<
         candidates.phase = 'ready';
       }
       if (!sameQuery) {
+        clearCoStar();
         clearPartners();
       }
       store.commit(query, nextRevision);
@@ -1074,6 +1285,281 @@ export function createQueryCoordinator<
         candidates.viewPending = false;
       }
       syncPendingState();
+    }
+  }
+
+  function readyCoStarQuery(): AppliedQuery | null {
+    const query = readyCandidateQuery();
+    if (
+      !query ||
+      !coStar.acceptedQuery ||
+      coStar.payload === null ||
+      coStar.phase !== 'ready' ||
+      coStar.revision !== store.revision ||
+      querySignature(coStar.acceptedQuery) !== querySignature(query)
+    ) {
+      return null;
+    }
+    return query;
+  }
+
+  async function executeCoStar(
+    requestedInput: Readonly<CoStarInputV1>,
+    requestedView?: Readonly<CoStarViewState>,
+  ): Promise<boolean> {
+    const query = readyCandidateQuery();
+    if (!query) {
+      coStar.error = '请先完成一次共演分析查询';
+      coStar.phase = coStar.payload ? coStar.phase : 'error';
+      publishFeedback('co-star', coStar.error, 'error');
+      return false;
+    }
+    const input = canonicalCoStarInput(query, requestedInput);
+    if (!input) {
+      coStar.error = '共演人物身份无效';
+      coStar.phase = coStar.payload ? coStar.phase : 'error';
+      publishFeedback('co-star', coStar.error, 'error');
+      return false;
+    }
+
+    const sameParticipants = coStarInputEquals(coStar.input, input);
+    const reusableView =
+      coStar.acceptedQuery !== null &&
+      querySignature(coStar.acceptedQuery) === querySignature(query) &&
+      validCoStarView(query, coStar.view)
+        ? coStar.view
+        : defaultCoStarView(query);
+    const view = Object.freeze({
+      order: requestedView?.order ?? reusableView.order,
+      page: requestedView?.page ?? reusableView.page,
+      pageSize: requestedView?.pageSize ?? reusableView.pageSize,
+      search: requestedView?.search ?? reusableView.search,
+      sort: requestedView?.sort ?? reusableView.sort,
+      ...(!sameParticipants && !requestedView
+        ? { page: 1, search: '' }
+        : {}),
+    }) as Readonly<CoStarViewState>;
+    if (!validCoStarView(query, view)) {
+      coStar.error = '共同作品视图参数无效';
+      coStar.phase = coStar.payload ? coStar.phase : 'error';
+      publishFeedback('co-star', coStar.error, 'error');
+      return false;
+    }
+    if (
+      coStar.phase === 'ready' &&
+      coStar.revision === store.revision &&
+      coStarInputEquals(coStar.input, input) &&
+      coStarViewEquals(coStar.view, view)
+    ) {
+      return true;
+    }
+
+    const existingTransaction = transactions['co-star'];
+    controllers['co-star']?.abort();
+    const controller = new AbortController();
+    controllers['co-star'] = controller;
+    const sequence = ++sequences['co-star'];
+    const transaction = transactionId('co-star', sequence);
+    const snapshot =
+      existingTransaction?.snapshot ?? captureResource(coStar);
+    transactions['co-star'] = { controller, sequence, snapshot };
+    const capturedRevision = store.revision;
+    const capturedSignature = querySignature(query);
+
+    coStar.acceptedQuery = query;
+    coStar.error = null;
+    coStar.feedback = null;
+    coStar.input = input;
+    coStar.phase = 'pending';
+    coStar.revision = capturedRevision;
+    coStar.view = view;
+    coStar.viewPending = false;
+    if (lastOperationFeedback.value?.operation === 'co-star') {
+      lastOperationFeedback.value = null;
+    }
+
+    try {
+      if (!drivers.coStar) {
+        throw new QueryCapabilityUnavailableError();
+      }
+      const response = await drivers.coStar.execute({
+        input,
+        query,
+        refreshCollection: false,
+        sequence,
+        signal: controller.signal,
+        transactionId: transaction,
+        view,
+      });
+      if (
+        sequence !== sequences['co-star'] ||
+        controller.signal.aborted ||
+        controllers['co-star'] !== controller ||
+        store.revision !== capturedRevision ||
+        !store.applied ||
+        querySignature(store.applied) !== capturedSignature ||
+        !coStarInputEquals(coStar.input, input)
+      ) {
+        return false;
+      }
+      if (response.transactionId !== transaction) {
+        throw new Error('Response transaction ID does not match the request');
+      }
+
+      coStar.acceptedQuery = query;
+      coStar.input = input;
+      coStar.payload = response.payload;
+      coStar.requestId = response.requestId;
+      coStar.revision = capturedRevision;
+      coStar.staleCollection =
+        response.staleCollection === true ||
+        response.warningCodes?.includes('COLLECTION_STALE') === true;
+      coStar.feedback = coStar.staleCollection
+        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        : null;
+      coStar.error = null;
+      coStar.phase = 'ready';
+      coStar.view = view;
+      coStar.viewPending = false;
+      if (coStar.feedback) {
+        publishFeedback('co-star', coStar.feedback, 'warning');
+      }
+      return true;
+    } catch (error) {
+      if (
+        sequence !== sequences['co-star'] ||
+        controllers['co-star'] !== controller
+      ) {
+        return false;
+      }
+      restoreResource(coStar, snapshot);
+      coStar.error = controller.signal.aborted
+        ? '共演分析加载已取消'
+        : resourceError(error);
+      if (!coStar.requestId) {
+        coStar.requestId = serverRequestId(error);
+      }
+      if (coStar.payload === null) {
+        coStar.acceptedQuery = query;
+        coStar.input = input;
+        coStar.phase = 'error';
+        coStar.revision = capturedRevision;
+        coStar.view = view;
+      }
+      publishFeedback('co-star', coStar.error, 'error');
+      return false;
+    } finally {
+      if (controllers['co-star'] === controller) {
+        controllers['co-star'] = undefined;
+        transactions['co-star'] = undefined;
+        coStar.viewPending = false;
+      }
+    }
+  }
+
+  async function executeCoStarView(
+    requestedView: Readonly<CoStarViewState>,
+  ): Promise<boolean> {
+    const query = readyCoStarQuery();
+    if (!query) {
+      coStar.error = '请先选择至少两位人物进行共演分析';
+      publishFeedback('co-star', coStar.error, 'error');
+      return false;
+    }
+    const view = Object.freeze(structuredClone(requestedView));
+    if (!validCoStarView(query, view)) {
+      coStar.error = '共同作品视图参数无效';
+      publishFeedback('co-star', coStar.error, 'error');
+      return false;
+    }
+    if (!coStar.viewPending && coStarViewEquals(coStar.view, view)) {
+      return true;
+    }
+
+    if (transactions['co-star']) {
+      cancelOperation('co-star', '');
+    }
+    const controller = new AbortController();
+    controllers['co-star'] = controller;
+    const sequence = ++sequences['co-star'];
+    const transaction = transactionId('co-star', sequence);
+    const snapshot = captureResource(coStar);
+    transactions['co-star'] = { controller, sequence, snapshot };
+    const capturedRevision = store.revision;
+    const capturedSignature = querySignature(query);
+    const capturedInput = coStar.input;
+
+    coStar.error = null;
+    coStar.feedback = null;
+    coStar.view = view;
+    coStar.viewPending = true;
+    if (lastOperationFeedback.value?.operation === 'co-star') {
+      lastOperationFeedback.value = null;
+    }
+
+    try {
+      if (!drivers.coStar) {
+        throw new QueryCapabilityUnavailableError();
+      }
+      const response = await drivers.coStar.execute({
+        input: capturedInput,
+        query,
+        refreshCollection: false,
+        sequence,
+        signal: controller.signal,
+        transactionId: transaction,
+        view,
+      });
+      if (
+        sequence !== sequences['co-star'] ||
+        controller.signal.aborted ||
+        controllers['co-star'] !== controller ||
+        store.revision !== capturedRevision ||
+        !store.applied ||
+        querySignature(store.applied) !== capturedSignature ||
+        !coStarInputEquals(coStar.input, capturedInput)
+      ) {
+        return false;
+      }
+      if (response.transactionId !== transaction) {
+        throw new Error('Response transaction ID does not match the request');
+      }
+
+      coStar.payload = response.payload;
+      coStar.requestId = response.requestId;
+      coStar.staleCollection =
+        response.staleCollection === true ||
+        response.warningCodes?.includes('COLLECTION_STALE') === true;
+      coStar.feedback = coStar.staleCollection
+        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        : null;
+      coStar.error = null;
+      coStar.phase = 'ready';
+      coStar.view = view;
+      coStar.viewPending = false;
+      if (coStar.feedback) {
+        publishFeedback('co-star', coStar.feedback, 'warning');
+      }
+      return true;
+    } catch (error) {
+      if (
+        sequence !== sequences['co-star'] ||
+        controllers['co-star'] !== controller
+      ) {
+        return false;
+      }
+      restoreResource(coStar, snapshot);
+      coStar.error = controller.signal.aborted
+        ? '共同作品加载已取消'
+        : resourceError(error);
+      publishFeedback('co-star', coStar.error, 'error');
+      return false;
+    } finally {
+      if (controllers['co-star'] === controller) {
+        controllers['co-star'] = undefined;
+        transactions['co-star'] = undefined;
+        coStar.viewPending = false;
+      }
     }
   }
 
@@ -1750,19 +2236,24 @@ export function createQueryCoordinator<
 
   return {
     cancel,
+    cancelCoStar,
     cancelPersonDetail,
     cancelPending,
     cancelPartners,
     candidates,
+    clearCoStar,
     clearPersonDetail,
     clearPartners,
     execute,
     executeCandidateView,
+    executeCoStar,
+    executeCoStarView,
     executePartners,
     executePartnersView,
     executePersonDetail,
     executePersonDetailView,
     executeRankingView,
+    coStar,
     lastOperationFeedback: readonly(lastOperationFeedback),
     pending: readonly(pending),
     pendingOperation: readonly(pendingOperation),

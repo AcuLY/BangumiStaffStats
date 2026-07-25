@@ -10,6 +10,10 @@ import {
 } from '../../../src/features/query/coordinator';
 import { CandidatesApiError } from '../../../src/api/candidates';
 import { RankingsApiError } from '../../../src/api/rankings';
+import type {
+  CoStarInputV1,
+  CoStarViewV1,
+} from '../../../src/api/generated/query-wire/types.gen';
 import { useQueryStore } from '../../../src/features/query/store';
 import { catalogFixture } from './fixtures';
 
@@ -1176,5 +1180,419 @@ describe('query coordinator', () => {
     ).toBe(false);
     expect(store.applied).toBeNull();
     expect(coordinator.rankings.error).toBe('该结果能力尚未接入');
+  });
+});
+
+type CoStarDrivers = QueryDrivers<
+  Payload,
+  Payload,
+  unknown,
+  unknown,
+  Payload
+>;
+type CoStarRequest = Parameters<
+  NonNullable<CoStarDrivers['coStar']>['execute']
+>[0];
+
+const coStarInput: Readonly<CoStarInputV1> = {
+  participants: [
+    {
+      personId: 1,
+      positionKeys: ['staff:anime:2'],
+    },
+    {
+      personId: 2,
+      positionKeys: ['staff:anime:101'],
+    },
+  ],
+};
+const otherCoStarInput: Readonly<CoStarInputV1> = {
+  participants: [
+    {
+      personId: 2,
+      positionKeys: ['staff:anime:101'],
+    },
+    {
+      personId: 1,
+      positionKeys: ['staff:anime:2'],
+    },
+  ],
+};
+const coStarView: Required<CoStarViewV1> = Object.freeze({
+  order: 'desc',
+  page: 1,
+  pageSize: 10,
+  search: '',
+  sort: 'personalScore',
+});
+
+function coStarDrivers(
+  execute: NonNullable<CoStarDrivers['coStar']>['execute'],
+  candidatesExecute?: CoStarDrivers['candidates']['execute'],
+): CoStarDrivers {
+  return {
+    candidates: {
+      execute:
+        candidatesExecute ??
+        (async (request) => ({
+          payload: { id: 'candidates' },
+          requestId: `server-${request.transactionId}`,
+          transactionId: request.transactionId,
+        })),
+    },
+    coStar: { execute },
+    rankings: {
+      async execute(request) {
+        return {
+          payload: { id: 'rankings' },
+          requestId: `server-${request.transactionId}`,
+          transactionId: request.transactionId,
+        };
+      },
+    },
+  };
+}
+
+async function readyCoStarCoordinator(
+  execute: NonNullable<CoStarDrivers['coStar']>['execute'],
+  candidatesExecute?: CoStarDrivers['candidates']['execute'],
+) {
+  const store = readyStore();
+  store.draft.positionKeys = [
+    'staff:anime:2',
+    'staff:anime:101',
+  ];
+  const coordinator = createQueryCoordinator<
+    Payload,
+    Payload,
+    unknown,
+    unknown,
+    Payload
+  >(store, coStarDrivers(execute, candidatesExecute));
+  await coordinator.execute({
+    catalog: catalogFixture(),
+    mode: 'co-star',
+  });
+  return { coordinator, store };
+}
+
+describe('co-star coordinator resource', () => {
+  it('runs independently with canonical ordered identities and never refreshes collection', async () => {
+    const pending = deferred<OperationResponse<Payload>>();
+    const execute = vi.fn((_request: CoStarRequest) => pending.promise);
+    const { coordinator, store } = await readyCoStarCoordinator(execute);
+    const revision = store.revision;
+
+    const result = coordinator.executeCoStar(coStarInput, coStarView);
+    const request = execute.mock.calls[0]![0] as CoStarRequest;
+    expect(request).toMatchObject({
+      input: coStarInput,
+      query: coordinator.candidates.acceptedQuery,
+      refreshCollection: false,
+      view: coStarView,
+    });
+    expect(request.input).not.toHaveProperty('refreshCollection');
+    expect(coordinator.coStar).toMatchObject({
+      input: coStarInput,
+      phase: 'pending',
+      revision,
+      viewPending: false,
+    });
+    expect(coordinator.pending.value).toBe(false);
+    expect(coordinator.pendingOperation.value).toBeNull();
+
+    pending.resolve({
+      payload: { id: 'co-star-ready' },
+      requestId: 'server-co-star-ready',
+      transactionId: request.transactionId,
+    });
+    await expect(result).resolves.toBe(true);
+    expect(coordinator.coStar).toMatchObject({
+      payload: { id: 'co-star-ready' },
+      phase: 'ready',
+      requestId: 'server-co-star-ready',
+      revision,
+    });
+    expect(store.revision).toBe(revision);
+  });
+
+  it('admits only the latest ordered participant response', async () => {
+    const first = deferred<OperationResponse<Payload>>();
+    const second = deferred<OperationResponse<Payload>>();
+    const execute = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+    const { coordinator } = await readyCoStarCoordinator(execute);
+
+    const firstResult = coordinator.executeCoStar(
+      coStarInput,
+      coStarView,
+    );
+    const firstRequest = execute.mock.calls[0]![0] as CoStarRequest;
+    const secondResult = coordinator.executeCoStar(
+      otherCoStarInput,
+      coStarView,
+    );
+    const secondRequest = execute.mock.calls[1]![0] as CoStarRequest;
+    expect(firstRequest.signal.aborted).toBe(true);
+
+    second.resolve({
+      payload: { id: 'latest-order' },
+      requestId: 'server-latest-order',
+      transactionId: secondRequest.transactionId,
+    });
+    await expect(secondResult).resolves.toBe(true);
+    first.resolve({
+      payload: { id: 'stale-order' },
+      requestId: 'server-stale-order',
+      transactionId: firstRequest.transactionId,
+    });
+    await expect(firstResult).resolves.toBe(false);
+    expect(coordinator.coStar).toMatchObject({
+      input: otherCoStarInput,
+      payload: { id: 'latest-order' },
+      requestId: 'server-latest-order',
+    });
+  });
+
+  it('restores the complete accepted analysis after full failure and cancel', async () => {
+    const failed = deferred<OperationResponse<Payload>>();
+    const canceled = deferred<OperationResponse<Payload>>();
+    const execute = vi
+      .fn()
+      .mockImplementationOnce(async (request: CoStarRequest) => ({
+        payload: { id: 'accepted-analysis' },
+        requestId: 'server-accepted-analysis',
+        transactionId: request.transactionId,
+      }))
+      .mockImplementationOnce(() => failed.promise)
+      .mockImplementationOnce(() => canceled.promise);
+    const { coordinator, store } = await readyCoStarCoordinator(execute);
+    await coordinator.executeCoStar(coStarInput, coStarView);
+    const acceptedInput = coordinator.coStar.input;
+    const acceptedPayload = coordinator.coStar.payload;
+    const acceptedRequestId = coordinator.coStar.requestId;
+    const acceptedView = coordinator.coStar.view;
+    const revision = store.revision;
+
+    const failing = coordinator.executeCoStar(otherCoStarInput, {
+      ...coStarView,
+      page: 2,
+      search: 'replacement',
+    });
+    failed.reject(new Error('offline'));
+    await expect(failing).resolves.toBe(false);
+    expect(coordinator.coStar.input).toBe(acceptedInput);
+    expect(coordinator.coStar.payload).toBe(acceptedPayload);
+    expect(coordinator.coStar.requestId).toBe(acceptedRequestId);
+    expect(coordinator.coStar.view).toBe(acceptedView);
+    expect(coordinator.coStar).toMatchObject({
+      error: '查询暂时无法完成，请稍后重试',
+      phase: 'ready',
+      revision,
+    });
+
+    const canceling = coordinator.executeCoStar(otherCoStarInput, {
+      ...coStarView,
+      search: 'stale',
+    });
+    const canceledRequest = execute.mock.calls[2]![0] as CoStarRequest;
+    coordinator.cancelCoStar();
+    expect(canceledRequest.signal.aborted).toBe(true);
+    expect(coordinator.coStar.input).toBe(acceptedInput);
+    expect(coordinator.coStar.payload).toBe(acceptedPayload);
+    expect(coordinator.coStar.requestId).toBe(acceptedRequestId);
+    expect(coordinator.coStar.view).toBe(acceptedView);
+
+    canceled.resolve({
+      payload: { id: 'must-not-commit' },
+      requestId: 'server-stale-canceled',
+      transactionId: canceledRequest.transactionId,
+    });
+    await expect(canceling).resolves.toBe(false);
+    expect(coordinator.coStar.payload).toBe(acceptedPayload);
+    expect(store.revision).toBe(revision);
+  });
+
+  it('retains accepted core evidence while a work-view request fails', async () => {
+    const viewFailure = deferred<OperationResponse<Payload>>();
+    const execute = vi
+      .fn()
+      .mockImplementationOnce(async (request: CoStarRequest) => ({
+        payload: { id: 'stable-core' },
+        requestId: 'server-stable-core',
+        transactionId: request.transactionId,
+      }))
+      .mockImplementationOnce(() => viewFailure.promise);
+    const { coordinator, store } = await readyCoStarCoordinator(execute);
+    await coordinator.executeCoStar(coStarInput, coStarView);
+
+    const next = coordinator.executeCoStarView({
+      ...coStarView,
+      page: 2,
+      search: '共同',
+    });
+    const request = execute.mock.calls[1]![0] as CoStarRequest;
+    expect(request.refreshCollection).toBe(false);
+    expect(coordinator.coStar).toMatchObject({
+      payload: { id: 'stable-core' },
+      requestId: 'server-stable-core',
+      view: { page: 2, search: '共同' },
+      viewPending: true,
+    });
+
+    viewFailure.reject(new Error('offline'));
+    await expect(next).resolves.toBe(false);
+    expect(coordinator.coStar).toMatchObject({
+      error: '查询暂时无法完成，请稍后重试',
+      payload: { id: 'stable-core' },
+      phase: 'ready',
+      requestId: 'server-stable-core',
+      revision: store.revision,
+      view: coStarView,
+      viewPending: false,
+    });
+  });
+
+  it('clears and aborts pending co-star only after a new candidate revision succeeds', async () => {
+    const staleAnalysis = deferred<OperationResponse<Payload>>();
+    const nextCandidates = deferred<OperationResponse<Payload>>();
+    const coStarExecute = vi.fn(
+      (_request: CoStarRequest) => staleAnalysis.promise,
+    );
+    const candidateExecute = vi
+      .fn()
+      .mockImplementationOnce(
+        async (request: CandidateRequest) => ({
+          payload: { id: 'initial-candidates' },
+          requestId: 'server-initial-candidates',
+          transactionId: request.transactionId,
+        }),
+      )
+      .mockImplementationOnce(() => nextCandidates.promise);
+    const { coordinator, store } = await readyCoStarCoordinator(
+      coStarExecute,
+      candidateExecute,
+    );
+    const pendingAnalysis = coordinator.executeCoStar(
+      coStarInput,
+      coStarView,
+    );
+    const staleRequest = coStarExecute.mock.calls[0]![0] as CoStarRequest;
+
+    store.draft.positionKeys = ['staff:anime:101'];
+    const primary = coordinator.execute({
+      catalog: catalogFixture(),
+      mode: 'co-star',
+    });
+    expect(staleRequest.signal.aborted).toBe(false);
+    const candidateRequest = candidateExecute.mock
+      .calls[1]![0] as CandidateRequest;
+    nextCandidates.resolve({
+      payload: { id: 'new-candidates' },
+      requestId: 'server-new-candidates',
+      transactionId: candidateRequest.transactionId,
+    });
+    await expect(primary).resolves.toBe(true);
+
+    expect(staleRequest.signal.aborted).toBe(true);
+    expect(coordinator.coStar).toMatchObject({
+      acceptedQuery: null,
+      payload: null,
+      phase: 'idle',
+      requestId: null,
+      revision: 0,
+    });
+    staleAnalysis.resolve({
+      payload: { id: 'must-not-commit' },
+      requestId: 'server-stale-analysis',
+      transactionId: staleRequest.transactionId,
+    });
+    await expect(pendingAnalysis).resolves.toBe(false);
+    expect(coordinator.coStar.payload).toBeNull();
+  });
+
+  it('preserves accepted co-star when a new candidate query fails', async () => {
+    const coStarExecute = vi.fn(
+      async (request: CoStarRequest) => ({
+        payload: { id: 'accepted-before-query-failure' },
+        requestId: 'server-accepted-before-query-failure',
+        transactionId: request.transactionId,
+      }),
+    );
+    const candidateExecute = vi
+      .fn()
+      .mockImplementationOnce(
+        async (request: CandidateRequest) => ({
+          payload: { id: 'initial-candidates' },
+          requestId: 'server-initial-candidates',
+          transactionId: request.transactionId,
+        }),
+      )
+      .mockRejectedValueOnce(new Error('candidate failure'));
+    const { coordinator, store } = await readyCoStarCoordinator(
+      coStarExecute,
+      candidateExecute,
+    );
+    await coordinator.executeCoStar(coStarInput, coStarView);
+    const acceptedQuery = coordinator.coStar.acceptedQuery;
+    const acceptedInput = coordinator.coStar.input;
+    const acceptedPayload = coordinator.coStar.payload;
+    const acceptedRequestId = coordinator.coStar.requestId;
+    const acceptedView = coordinator.coStar.view;
+    const revision = store.revision;
+
+    store.draft.positionKeys = ['staff:anime:101'];
+    await expect(
+      coordinator.execute({
+        catalog: catalogFixture(),
+        mode: 'co-star',
+      }),
+    ).resolves.toBe(false);
+
+    expect(coordinator.coStar.acceptedQuery).toBe(acceptedQuery);
+    expect(coordinator.coStar.input).toBe(acceptedInput);
+    expect(coordinator.coStar.payload).toBe(acceptedPayload);
+    expect(coordinator.coStar.requestId).toBe(acceptedRequestId);
+    expect(coordinator.coStar.view).toBe(acceptedView);
+    expect(coordinator.coStar).toMatchObject({
+      phase: 'ready',
+      revision,
+    });
+    expect(store.revision).toBe(revision);
+  });
+
+  it('rejects invalid identities and scope/work-unit sorts before transport', async () => {
+    const execute = vi.fn();
+    const { coordinator } = await readyCoStarCoordinator(execute);
+
+    await expect(
+      coordinator.executeCoStar(
+        {
+          participants: [
+            {
+              personId: 1,
+              positionKeys: ['staff:anime:2'],
+            },
+            {
+              personId: 1,
+              positionKeys: ['staff:anime:101'],
+            },
+          ],
+        },
+        coStarView,
+      ),
+    ).resolves.toBe(false);
+    expect(coordinator.coStar.error).toBe('共演人物身份无效');
+
+    await expect(
+      coordinator.executeCoStar(coStarInput, {
+        ...coStarView,
+        sort: 'seriesSize',
+      }),
+    ).resolves.toBe(false);
+    expect(coordinator.coStar.error).toBe('共同作品视图参数无效');
+    expect(execute).not.toHaveBeenCalled();
   });
 });

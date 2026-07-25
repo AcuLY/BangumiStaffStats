@@ -1,0 +1,370 @@
+import {
+  decodeCoStarError,
+  decodeCoStarPayload,
+  type CoStarPayload,
+  type DeepReadonly,
+} from './adapters/coStar';
+import type {
+  ApiClient,
+  ApiErrorResponseMetadata,
+} from './client';
+import { ApiDecodeError } from './errors';
+import type {
+  CoStarInputV1,
+  CoStarRequestV1,
+  CoStarResultErrorEnvelopeV1,
+  CoStarViewV1,
+  ErrorCodeV1,
+  FieldErrorCodeV1,
+  SharedQueryV1Schema,
+} from './generated/co-star/types.gen';
+
+export class CoStarApiError extends Error {
+  readonly code: ErrorCodeV1;
+  readonly fieldErrors: Readonly<
+    Record<string, readonly FieldErrorCodeV1[]>
+  >;
+  readonly requestId: string;
+  readonly retryable: boolean;
+  readonly retryAfterSeconds: number | null;
+  readonly status: number;
+
+  constructor(
+    envelope: CoStarResultErrorEnvelopeV1,
+    status: number,
+    retryAfterSeconds: number | null = null,
+  ) {
+    super(coStarErrorMessage(envelope.error.code));
+    this.name = 'CoStarApiError';
+    this.code = envelope.error.code;
+    this.fieldErrors = Object.freeze(
+      Object.fromEntries(
+        Object.entries(envelope.error.fieldErrors).map(([path, codes]) => [
+          path,
+          Object.freeze([...codes]),
+        ]),
+      ),
+    );
+    this.requestId = envelope.meta.requestId;
+    this.retryable = envelope.error.retryable;
+    this.retryAfterSeconds = retryAfterSeconds;
+    this.status = status;
+  }
+}
+
+const codesByStatus: Readonly<
+  Partial<Record<number, readonly ErrorCodeV1[]>>
+> = Object.freeze({
+  400: Object.freeze<ErrorCodeV1[]>([
+    'INVALID_JSON',
+    'INVALID_REQUEST',
+    'FIELD_INVALID',
+    'POSITION_SELECTION_CONFLICT',
+    'POSITION_NOT_FOUND',
+    'POSITION_NOT_SELECTABLE',
+    'POSITION_SUBJECT_TYPE_MISMATCH',
+    'CAPABILITY_NOT_AVAILABLE',
+    'PERSON_NOT_IN_QUERY_RESULT',
+    'PARTICIPANT_LIMIT_EXCEEDED',
+    'IDENTITY_LIMIT_EXCEEDED',
+  ]),
+  403: Object.freeze<ErrorCodeV1[]>(['COLLECTION_NOT_PUBLIC']),
+  404: Object.freeze<ErrorCodeV1[]>(['USER_NOT_FOUND', 'ENTITY_NOT_FOUND']),
+  405: Object.freeze<ErrorCodeV1[]>(['INVALID_REQUEST']),
+  413: Object.freeze<ErrorCodeV1[]>(['REQUEST_TOO_LARGE']),
+  415: Object.freeze<ErrorCodeV1[]>(['UNSUPPORTED_MEDIA_TYPE']),
+  429: Object.freeze<ErrorCodeV1[]>(['RATE_LIMITED']),
+  500: Object.freeze<ErrorCodeV1[]>(['INTERNAL_ERROR']),
+  502: Object.freeze<ErrorCodeV1[]>(['UPSTREAM_PROTOCOL_ERROR']),
+  503: Object.freeze<ErrorCodeV1[]>([
+    'SERVER_BUSY',
+    'NOT_READY',
+    'UPSTREAM_UNAVAILABLE',
+  ]),
+  504: Object.freeze<ErrorCodeV1[]>(['UPSTREAM_TIMEOUT']),
+});
+
+export function decodeCoStarRetryAfterSeconds(
+  value: string | null | undefined,
+): number | null {
+  if (!value || !/^(?:[1-9]|[1-5][0-9]|60)$/.test(value)) {
+    return null;
+  }
+  return Number(value);
+}
+
+export function decodeCoStarApiError(
+  value: unknown,
+  status: number,
+  retryAfterHeader?: string | null,
+): CoStarApiError {
+  const envelope = decodeCoStarError(value);
+  if (!codesByStatus[status]?.includes(envelope.error.code)) {
+    throw new ApiDecodeError(
+      'schema-mismatch',
+      'Co-star error status and code do not match the operation contract',
+      {
+        issues: [
+          {
+            keyword: 'status-code',
+            path: '/error/code',
+          },
+        ],
+      },
+    );
+  }
+  return new CoStarApiError(
+    envelope,
+    status,
+    decodeCoStarRetryAfterSeconds(retryAfterHeader),
+  );
+}
+
+export function coStarErrorMessage(code: ErrorCodeV1): string {
+  if (code === 'NOT_READY' || code === 'SERVER_BUSY') {
+    return '共演分析服务正在准备，请稍后重试';
+  }
+  if (
+    code === 'UPSTREAM_TIMEOUT' ||
+    code === 'UPSTREAM_UNAVAILABLE' ||
+    code === 'UPSTREAM_PROTOCOL_ERROR'
+  ) {
+    return '收藏数据暂时不可用，请稍后重试';
+  }
+  if (code === 'RATE_LIMITED') {
+    return '查询过于频繁，请稍后再试';
+  }
+  if (code === 'COLLECTION_NOT_PUBLIC' || code === 'USER_NOT_FOUND') {
+    return '无法读取该用户的公开收藏';
+  }
+  if (
+    code === 'PERSON_NOT_IN_QUERY_RESULT' ||
+    code === 'ENTITY_NOT_FOUND'
+  ) {
+    return '所选人物已不在当前查询结果中，请重新选择';
+  }
+  if (
+    code === 'PARTICIPANT_LIMIT_EXCEEDED' ||
+    code === 'IDENTITY_LIMIT_EXCEEDED'
+  ) {
+    return '所选人物或身份数量超过限制，请调整后重试';
+  }
+  if (
+    code === 'INVALID_JSON' ||
+    code === 'INVALID_REQUEST' ||
+    code === 'FIELD_INVALID' ||
+    code === 'POSITION_SELECTION_CONFLICT' ||
+    code === 'POSITION_NOT_FOUND' ||
+    code === 'POSITION_NOT_SELECTABLE' ||
+    code === 'POSITION_SUBJECT_TYPE_MISMATCH' ||
+    code === 'CAPABILITY_NOT_AVAILABLE'
+  ) {
+    return '当前共演分析查询已不受支持，请重新设置条件';
+  }
+  return '共演分析暂时无法加载，请稍后重试';
+}
+
+export interface CoStarDriverRequest {
+  readonly input: DeepReadonly<CoStarInputV1>;
+  readonly query: DeepReadonly<SharedQueryV1Schema>;
+  readonly refreshCollection: false;
+  readonly signal: AbortSignal;
+  readonly transactionId: string;
+  readonly view: DeepReadonly<CoStarViewV1>;
+}
+
+export interface CoStarDriverResponse {
+  readonly payload: CoStarPayload;
+  readonly requestId: string;
+  readonly staleCollection: boolean;
+  readonly transactionId: string;
+  readonly warningCodes: readonly string[];
+}
+
+export interface CoStarDriver {
+  execute(request: CoStarDriverRequest): Promise<CoStarDriverResponse>;
+}
+
+export interface CoStarRetryRuntime {
+  readonly random?: () => number;
+  readonly wait?: (
+    milliseconds: number,
+    signal: AbortSignal,
+  ) => Promise<void>;
+}
+
+function projectionMismatch(path = '/data'): never {
+  throw new ApiDecodeError(
+    'schema-mismatch',
+    'Co-star response does not match its requested projection',
+    {
+      issues: [
+        {
+          keyword: 'request-response',
+          path,
+        },
+      ],
+    },
+  );
+}
+
+function abortError(): DOMException {
+  return new DOMException('The operation was aborted', 'AbortError');
+}
+
+function waitForRetry(
+  milliseconds: number,
+  signal: AbortSignal,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(abortError());
+      return;
+    }
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const abort = () => {
+      if (timeoutId !== undefined) {
+        globalThis.clearTimeout(timeoutId);
+      }
+      signal.removeEventListener('abort', abort);
+      reject(abortError());
+    };
+    timeoutId = globalThis.setTimeout(() => {
+      signal.removeEventListener('abort', abort);
+      resolve();
+    }, milliseconds);
+    signal.addEventListener('abort', abort, { once: true });
+  });
+}
+
+function boundedJitterMilliseconds(
+  seconds: number,
+  random: () => number,
+): number {
+  const base = seconds * 1_000;
+  const sampled = random();
+  const fraction = Number.isFinite(sampled)
+    ? Math.min(0.999_999, Math.max(0, sampled))
+    : 0;
+  const jitter = Math.floor(Math.min(1_000, base / 10) * fraction);
+  return Math.min(60_000, base + jitter);
+}
+
+function retryableCoStarError(
+  error: unknown,
+): error is CoStarApiError & { retryAfterSeconds: number } {
+  return (
+    error instanceof CoStarApiError &&
+    error.retryable &&
+    error.retryAfterSeconds !== null &&
+    (error.status === 429 || error.code === 'SERVER_BUSY')
+  );
+}
+
+function assertProjection(
+  payload: CoStarPayload,
+  request: CoStarDriverRequest,
+): void {
+  const expectedPage = request.view.page ?? 1;
+  const expectedPageSize = request.view.pageSize ?? 10;
+  const expectedKind =
+    request.input.participants.length === 2 ? 'pair' : 'group';
+  if (
+    payload.scope !== request.query.scope ||
+    payload.data.kind !== expectedKind ||
+    payload.data.workUnit !==
+      (request.query.mergeSeries === true ? 'series' : 'subject') ||
+    payload.pagination.page !== expectedPage ||
+    payload.pagination.pageSize !== expectedPageSize ||
+    payload.data.participants.length !== request.input.participants.length
+  ) {
+    projectionMismatch();
+  }
+
+  payload.data.participants.forEach((participant, index) => {
+    const expected = request.input.participants[index];
+    if (
+      !expected ||
+      participant.person.id !== expected.personId ||
+      participant.positionKeys.length !== expected.positionKeys.length ||
+      participant.positionKeys.some(
+        (positionKey, positionIndex) =>
+          positionKey !== String(expected.positionKeys[positionIndex]),
+      )
+    ) {
+      projectionMismatch(`/data/participants/${index}`);
+    }
+  });
+}
+
+export function createCoStarDriver(
+  client: ApiClient,
+  runtime: CoStarRetryRuntime = {},
+): CoStarDriver {
+  const random = runtime.random ?? Math.random;
+  const wait = runtime.wait ?? waitForRetry;
+  return {
+    async execute(request): Promise<CoStarDriverResponse> {
+      const body: CoStarRequestV1 = {
+        input: structuredClone(request.input) as CoStarInputV1,
+        query: structuredClone(request.query) as SharedQueryV1Schema,
+        view: structuredClone(request.view),
+      };
+      const requestBody = JSON.stringify(body);
+      const requestOnce = () =>
+        client.request({
+          body: requestBody,
+          decode(value) {
+            return decodeCoStarPayload(value, request.query.scope);
+          },
+          decodeError(
+            value,
+            status,
+            metadata: ApiErrorResponseMetadata,
+          ) {
+            return decodeCoStarApiError(
+              value,
+              status,
+              metadata.header('retry-after'),
+            );
+          },
+          headers: {
+            'content-type': 'application/json',
+          },
+          method: 'POST',
+          reference: '/api/v1/co-star',
+          signal: request.signal,
+        });
+
+      let payload: CoStarPayload;
+      try {
+        payload = await requestOnce();
+      } catch (error) {
+        if (!retryableCoStarError(error)) {
+          throw error;
+        }
+        await wait(
+          boundedJitterMilliseconds(
+            error.retryAfterSeconds,
+            random,
+          ),
+          request.signal,
+        );
+        if (request.signal.aborted) {
+          throw abortError();
+        }
+        payload = await requestOnce();
+      }
+
+      assertProjection(payload, request);
+      const warningCodes = payload.collection?.warningCodes ?? [];
+      return Object.freeze({
+        payload,
+        requestId: payload.requestId,
+        staleCollection: payload.collection?.stale === true,
+        transactionId: request.transactionId,
+        warningCodes,
+      });
+    },
+  };
+}
