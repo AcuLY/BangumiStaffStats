@@ -9,7 +9,6 @@ FORM: 已建立的 Operate 世界；桌面使用 Header 下覆盖层，低于 78
 import { NSkeleton } from 'naive-ui';
 import {
   computed,
-  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -64,8 +63,14 @@ const themeOwner = createThemeOwner(targetWindow.document);
 const routeError = ref<string | null>(null);
 const queryWorkspace = ref<InstanceType<typeof QueryWorkspace> | null>(null);
 const selectedPersonId = ref<number | null>(null);
-const personTrigger = ref<HTMLElement | null>(null);
+const drawerOpen = ref(false);
 const compact = useCompactLayout(targetWindow);
+const expandedPersonId = computed(() =>
+  selectedPersonId.value !== null &&
+  (!compact.value || drawerOpen.value)
+    ? selectedPersonId.value
+    : null,
+);
 
 const fetchImplementation =
   targetWindow.fetch?.bind(targetWindow) ??
@@ -171,22 +176,22 @@ function positionDisplay(
 
 function activatePerson(
   personId: number,
-  trigger: HTMLElement,
+  _trigger: HTMLElement,
 ): void {
   selectedPersonId.value = personId;
-  personTrigger.value = trigger;
+  if (compact.value) {
+    drawerOpen.value = true;
+  }
   void coordinator.executePersonDetail(personId);
 }
 
-async function closePersonDetail(): Promise<void> {
-  const trigger = personTrigger.value;
+function closePersonDrawer(): void {
+  drawerOpen.value = false;
+}
+
+function resetPersonDetailSelection(): void {
   selectedPersonId.value = null;
-  personTrigger.value = null;
-  coordinator.clearPersonDetail();
-  await nextTick();
-  if (trigger?.isConnected) {
-    trigger.focus();
-  }
+  drawerOpen.value = false;
 }
 
 async function initialize(): Promise<void> {
@@ -210,17 +215,20 @@ watch(
   () => coordinator.personDetail.phase,
   (phase) => {
     if (phase === 'idle' && selectedPersonId.value !== null) {
-      selectedPersonId.value = null;
-      personTrigger.value = null;
+      resetPersonDetailSelection();
     }
   },
 );
+watch(compact, (isCompact) => {
+  if (!isCompact) {
+    drawerOpen.value = false;
+  }
+});
 watch(
   () => route.mode.value,
   (mode) => {
     if (mode !== 'ranking') {
-      selectedPersonId.value = null;
-      personTrigger.value = null;
+      resetPersonDetailSelection();
       coordinator.clearPersonDetail();
     }
   },
@@ -298,6 +306,7 @@ onBeforeUnmount(() => {
           >
             <ranking-results
               :device-pixel-ratio="targetWindow.devicePixelRatio"
+              :expanded-person-id="expandedPersonId"
               :execute-view="coordinator.executeRankingView"
               :resource="coordinator.rankings"
               :retry="retryRanking"
@@ -308,12 +317,12 @@ onBeforeUnmount(() => {
               :compact="compact"
               :device-pixel-ratio="targetWindow.devicePixelRatio"
               :execute-view="coordinator.executePersonDetailView"
-              :open="selectedPersonId !== null"
+              :open="selectedPersonId !== null && drawerOpen"
               :position-label="positionDisplay"
               :resource="coordinator.personDetail"
               :retry="coordinator.executePersonDetail"
               :target-window="targetWindow"
-              @close="closePersonDetail"
+              @close="closePersonDrawer"
             />
           </div>
 

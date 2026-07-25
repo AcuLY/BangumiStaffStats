@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NScrollbar } from 'naive-ui';
 import {
   nextTick,
   onBeforeUnmount,
@@ -6,6 +7,7 @@ import {
   watch,
 } from 'vue';
 
+import { shellScrollbarThemeOverrides } from '../../../app/themeOverrides';
 import AppIcon from '../../../shared/components/AppIcon.vue';
 import type {
   PersonDetailPayload,
@@ -15,6 +17,9 @@ import type {
 import PersonInspector from './PersonInspector.vue';
 
 interface PersonDetailResource {
+  readonly acceptedQuery: Readonly<{
+    positionKeys: readonly unknown[];
+  }> | null;
   readonly error: string | null;
   readonly feedback: string | null;
   readonly input: Readonly<{ personId: number }>;
@@ -47,6 +52,10 @@ const emit = defineEmits<{
 const dialog = ref<HTMLElement | null>(null);
 const closeButton = ref<HTMLButtonElement | null>(null);
 let previousBodyOverflow: string | null = null;
+let inertRoot: HTMLElement | null = null;
+let previousRootAriaHidden: string | null = null;
+let previousRootInert = false;
+let previousFocus: HTMLElement | null = null;
 
 function restoreBodyScroll(): void {
   if (previousBodyOverflow === null) {
@@ -65,16 +74,69 @@ function lockBodyScroll(): void {
   props.targetWindow.document.body.style.overflow = 'hidden';
 }
 
+function restoreBackgroundInteraction(): void {
+  if (!inertRoot) {
+    return;
+  }
+  inertRoot.inert = previousRootInert;
+  if (previousRootAriaHidden === null) {
+    inertRoot.removeAttribute('aria-hidden');
+  } else {
+    inertRoot.setAttribute('aria-hidden', previousRootAriaHidden);
+  }
+  inertRoot = null;
+  previousRootAriaHidden = null;
+}
+
+function isolateBackgroundInteraction(): void {
+  if (inertRoot) {
+    return;
+  }
+  const root = props.targetWindow.document.getElementById('app');
+  if (!root) {
+    return;
+  }
+  inertRoot = root;
+  previousRootInert = Boolean(root.inert);
+  previousRootAriaHidden = root.getAttribute('aria-hidden');
+  root.inert = true;
+  root.setAttribute('aria-hidden', 'true');
+}
+
+function captureBackgroundFocus(): void {
+  if (previousFocus) {
+    return;
+  }
+  const active = props.targetWindow.document.activeElement;
+  const elementConstructor =
+    props.targetWindow.document.defaultView?.HTMLElement ?? HTMLElement;
+  previousFocus =
+    active instanceof elementConstructor ? active : null;
+}
+
+function restoreBackgroundFocus(): void {
+  const target = previousFocus;
+  previousFocus = null;
+  if (target?.isConnected) {
+    target.focus({ preventScroll: true });
+  }
+}
+
 watch(
   [() => props.compact, () => props.open],
   async ([compact, open]) => {
     if (compact && open) {
+      captureBackgroundFocus();
       lockBodyScroll();
+      isolateBackgroundInteraction();
       await nextTick();
       closeButton.value?.focus();
       return;
     }
     restoreBodyScroll();
+    restoreBackgroundInteraction();
+    await nextTick();
+    restoreBackgroundFocus();
   },
   { immediate: true },
 );
@@ -116,7 +178,39 @@ function onDialogKeydown(event: KeyboardEvent): void {
   }
 }
 
-onBeforeUnmount(restoreBodyScroll);
+function containDrawerWheel(event: WheelEvent): void {
+  if (!event.deltaY) {
+    return;
+  }
+  const elementConstructor =
+    props.targetWindow.document.defaultView?.HTMLElement ?? HTMLElement;
+  const scrollContainer = event
+    .composedPath()
+    .find(
+      (node): node is HTMLElement =>
+        node instanceof elementConstructor &&
+        node.scrollHeight > node.clientHeight,
+    );
+  if (!scrollContainer) {
+    return;
+  }
+  const maxScrollTop =
+    scrollContainer.scrollHeight - scrollContainer.clientHeight;
+  const canScroll =
+    event.deltaY < 0
+      ? scrollContainer.scrollTop > 0
+      : scrollContainer.scrollTop < maxScrollTop - 1;
+  if (!canScroll) {
+    event.preventDefault();
+  }
+  event.stopPropagation();
+}
+
+onBeforeUnmount(() => {
+  restoreBodyScroll();
+  restoreBackgroundInteraction();
+  restoreBackgroundFocus();
+});
 </script>
 
 <template>
@@ -163,16 +257,27 @@ onBeforeUnmount(restoreBodyScroll);
       >
         <header class="person-detail-drawer__bar">
           <strong>人物详情</strong>
-          <button
-            ref="closeButton"
-            type="button"
-            aria-label="关闭人物详情"
+          <span
+            class="person-detail-drawer__close-hit"
             @click="emit('close')"
           >
-            <app-icon name="close" :size="20" />
-          </button>
+            <button
+              ref="closeButton"
+              class="person-detail-drawer__close"
+              type="button"
+              aria-label="关闭人物详情"
+              title="关闭人物详情"
+              @click.stop="emit('close')"
+            >
+              <app-icon name="close" :size="16" />
+            </button>
+          </span>
         </header>
-        <div class="person-detail-drawer__scroll">
+        <n-scrollbar
+          class="person-detail-drawer__scroll"
+          :theme-overrides="shellScrollbarThemeOverrides"
+          @wheel.capture="containDrawerWheel"
+        >
           <person-inspector
             :device-pixel-ratio="devicePixelRatio"
             :execute-view="executeView"
@@ -180,7 +285,7 @@ onBeforeUnmount(restoreBodyScroll);
             :resource="resource"
             :retry="retry"
           />
-        </div>
+        </n-scrollbar>
       </section>
     </div>
   </teleport>

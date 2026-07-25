@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NPopover } from 'naive-ui';
 import {
   onBeforeUnmount,
   onMounted,
@@ -18,12 +19,6 @@ function close(): void {
   open.value = false;
 }
 
-function onDocumentPointerDown(event: PointerEvent): void {
-  if (open.value && !root.value?.contains(event.target as Node)) {
-    close();
-  }
-}
-
 function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape' && open.value) {
     event.preventDefault();
@@ -33,34 +28,44 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 onMounted(() => {
-  document.addEventListener('pointerdown', onDocumentPointerDown);
   document.addEventListener('keydown', onKeydown);
 });
 onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', onDocumentPointerDown);
   document.removeEventListener('keydown', onKeydown);
 });
 </script>
 
 <template>
   <span ref="root" class="stat-evidence">
-    <button
-      class="stat-evidence__trigger"
-      type="button"
-      :aria-label="label"
-      :aria-controls="panelId"
-      :aria-expanded="open"
-      @click="open = !open"
+    <n-popover
+      :show="open"
+      trigger="manual"
+      placement="top-end"
+      :animated="false"
+      style="max-width: min(336px, calc(100dvw - 72px));"
+      content-class="person-stat-evidence__content"
+      @clickoutside="close"
     >
-      i
-    </button>
-    <span
-      v-if="open"
-      :id="panelId"
-      class="stat-evidence__panel"
-      role="status"
-    >
-      <slot />
-    </span>
+      <template #trigger>
+        <button
+          class="stat-evidence__trigger"
+          type="button"
+          :aria-label="label"
+          :aria-controls="panelId"
+          :aria-expanded="open"
+          @mouseenter="open = true"
+          @mouseleave="open = false"
+          @focus="open = true"
+          @blur="open = false"
+          @click.stop="open = true"
+          @keydown.esc.stop.prevent="close"
+        >
+          i
+        </button>
+      </template>
+      <span :id="panelId" class="stat-evidence__panel" role="status">
+        <slot />
+      </span>
+    </n-popover>
   </span>
 </template>

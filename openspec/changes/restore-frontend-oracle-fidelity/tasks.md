@@ -11,10 +11,14 @@ Node commands use `/Users/luca/.nvm/versions/node/v24.18.0/bin`.
   and explicit ownership handoff.
 - [x] 1.2 Restore header and query-editor presentation and interaction while
   preserving production catalog, request, sharing, and resource semantics.
-- [ ] 1.3 Restore ranking and person-inspector presentation and interaction,
+- [x] 1.3 Restore ranking and person-inspector presentation and interaction,
   including responsive Drawer, focus, Escape, inert, and invisible hit areas.
-- [ ] 1.4 Add focused regression tests and run targeted tests, typecheck,
+- [x] 1.4 Add focused regression tests and run targeted tests, typecheck,
   build, `git diff --check`, and strict change validation.
+- [x] 1.5 Resolve acceptance-audit regressions: Drawer close preserves the
+  selected person, profile positions remain stable across work views, timeline
+  points expose 44px hits, character-appearance overflow is fully reachable,
+  narrow ranking layout remains two-line, and Drawer has one scroll owner.
 
 ## 2. Accept compatibility
 

@@ -27,6 +27,7 @@ interface RankingResource {
 const props = withDefaults(
   defineProps<{
     devicePixelRatio?: number;
+    expandedPersonId?: number | null;
     executeView: (view: Readonly<RankingView>) => Promise<boolean>;
     resource: RankingResource;
     retry: () => Promise<boolean>;
@@ -34,6 +35,7 @@ const props = withDefaults(
   }>(),
   {
     devicePixelRatio: 1,
+    expandedPersonId: null,
     selectedPersonId: null,
   },
 );
@@ -133,10 +135,10 @@ onBeforeUnmount(clearSearchTimer);
 
   <section
     v-else-if="payload"
-    class="ranking-surface surface-panel"
+    class="ranking-surface ranking-pane surface-panel"
     :aria-busy="resource.viewPending ? 'true' : undefined"
   >
-    <header class="ranking-surface__header">
+    <header class="ranking-surface__header ranking-controls">
       <ranking-summary :summary="payload.summary" />
       <ranking-toolbar
         :personal="payload.scope === 'personal'"
@@ -158,7 +160,7 @@ onBeforeUnmount(clearSearchTimer);
       {{ resource.error }}
     </p>
 
-    <div class="ranking-surface__body">
+    <div class="ranking-surface__body ranking-list-scroll">
       <div
         v-if="resource.viewPending"
         class="ranking-view-pending"
@@ -171,6 +173,7 @@ onBeforeUnmount(clearSearchTimer);
         <ranked-person-list
           v-if="payload.items.length"
           :device-pixel-ratio="devicePixelRatio"
+          :expanded-person-id="expandedPersonId"
           :items="payload.items"
           :metric-scale="payload.metricScale"
           :personal="payload.scope === 'personal'"

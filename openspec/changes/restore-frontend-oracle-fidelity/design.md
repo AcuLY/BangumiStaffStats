@@ -24,6 +24,12 @@ The following production additions remain:
 3. Person inspector: restore profile hierarchy, tags, charts, item browser,
    Drawer mask/panel treatment, and focus/Escape/background-inert behavior
    without changing person-detail DTOs or request ownership.
+   Closing the compact Drawer changes only its local open state and preserves
+   the selected person and accepted detail. Profile identity copy derives its
+   position line from the accepted query rather than the current server page.
+   Timeline points and overflowed character appearances retain oracle-visible
+   geometry while exposing keyboard/touch-accessible hit and disclosure
+   targets.
 
 ## Implementation Constraints
 

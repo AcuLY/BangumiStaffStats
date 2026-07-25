@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils';
+import { NNumberAnimation, NPagination } from 'naive-ui';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { RankingPayload } from '../../../src/api/adapters/rankings';
@@ -150,7 +151,11 @@ describe('ranking result surface', () => {
     });
 
     expect(wrapper.text()).toContain('共统计到');
-    expect(wrapper.text()).toContain('8');
+    expect(
+      wrapper
+        .findAllComponents(NNumberAnimation)
+        .map((statistic) => statistic.props('to')),
+    ).toEqual([8, 21]);
     expect(wrapper.find('input[name="ranking-search"]').exists()).toBe(true);
     expect(wrapper.find('.ranking-view-pending').exists()).toBe(true);
     expect(wrapper.find('.ranked-person-row').exists()).toBe(false);
@@ -210,7 +215,11 @@ describe('ranking result surface', () => {
 
     expect(wrapper.text()).toContain('没有符合搜索条件的人物');
     expect(wrapper.text()).toContain('共统计到');
-    expect(wrapper.text()).toContain('21');
+    expect(
+      wrapper
+        .findAllComponents(NNumberAnimation)
+        .map((statistic) => statistic.props('to')),
+    ).toEqual([8, 21]);
   });
 });
 
@@ -226,9 +235,13 @@ describe('adaptive pagination', () => {
     });
 
     expect(wrapper.text()).toContain('11—20 / 98');
-    await wrapper.get('button[aria-label="下一页"]').trigger('click');
+    const paginations = wrapper.findAllComponents(NPagination);
+    expect(paginations).toHaveLength(2);
+    paginations[0]!.vm.$emit('update:page', 3);
+    await wrapper.vm.$nextTick();
     expect(wrapper.emitted('page')).toEqual([[3]]);
-    await wrapper.get('.ranking-page-size select').setValue('20');
+    paginations[1]!.vm.$emit('update:page-size', 20);
+    await wrapper.vm.$nextTick();
     expect(wrapper.emitted('pageSize')).toEqual([[20]]);
   });
 });
