@@ -1,0 +1,18 @@
+{
+  "last_attempt": {
+    "time": "2026-07-25T03:04:05.678Z",
+    "status": "no-change",
+    "phase": "complete",
+    "duration_seconds": 3,
+    "dataVersion": "dv1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "error_code": null
+  },
+  "last_success": {
+    "time": "2026-07-25T03:04:05.678Z",
+    "status": "no-change",
+    "phase": "complete",
+    "duration_seconds": 3,
+    "dataVersion": "dv1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "error_code": null
+  }
+}

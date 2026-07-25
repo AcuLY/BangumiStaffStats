@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/update-status/update-status-v1.json",
+  "title": "Bangumi Staff Stats updater terminal status v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "last_attempt",
+    "last_success"
+  ],
+  "properties": {
+    "last_attempt": {
+      "$ref": "#/$defs/terminalRecord"
+    },
+    "last_success": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/successRecord"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "terminalRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "time",
+        "status",
+        "phase",
+        "duration_seconds",
+        "dataVersion",
+        "error_code"
+      ],
+      "properties": {
+        "time": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?!0000)[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\\.[0-9]{1,6})?Z$"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "failed",
+            "canceled",
+            "no-change",
+            "published"
+          ]
+        },
+        "phase": {
+          "$ref": "#/$defs/phase"
+        },
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "dataVersion": {
+          "$ref": "#/$defs/dataVersion"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/errorCode"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "failed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "error_code": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/errorCode"
+                  },
+                  {
+                    "not": {
+                      "const": "CANCELED"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "canceled"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "error_code": {
+                "const": "CANCELED"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "no-change",
+                  "published"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "error_code": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "successRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "time",
+        "status",
+        "phase",
+        "duration_seconds",
+        "dataVersion",
+        "error_code"
+      ],
+      "properties": {
+        "time": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?!0000)[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\\.[0-9]{1,6})?Z$"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "no-change",
+            "published"
+          ]
+        },
+        "phase": {
+          "$ref": "#/$defs/phase"
+        },
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "dataVersion": {
+          "$ref": "#/$defs/dataVersion"
+        },
+        "error_code": {
+          "type": "null"
+        }
+      }
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "preflight",
+        "acquisition",
+        "identity",
+        "build",
+        "manifest",
+        "smoke",
+        "publication",
+        "complete"
+      ]
+    },
+    "dataVersion": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^dv1-[0-9a-f]{64}$"
+        }
+      ]
+    },
+    "errorCode": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$"
+    }
+  }
+}

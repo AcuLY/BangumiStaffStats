@@ -19,14 +19,14 @@
 
 ## 1. Contracts owner — shared status contract
 
-- [ ] 1.1 Preflight branch, HEAD, dirty paths, exact writable inventory, completed
+- [x] 1.1 Preflight branch, HEAD, dirty paths, exact writable inventory, completed
   artifact status, strict validation, and main-agent approval; stop without
   edits on any mismatch.
-- [ ] 1.2 Implement the closed status and golden-index schemas, exact five-case
+- [x] 1.2 Implement the closed status and golden-index schemas, exact five-case
   bundle, deterministic contained-file verifier, and locked verifier package
   using only group-1 paths; add the local `.gitignore` with exactly
   `.cache/`, `.tmp/`, and `tooling/node_modules/`.
-- [ ] 1.3 Run `npm ci --prefix contracts/schemas/update-status/tooling`,
+- [x] 1.3 Run `npm ci --prefix contracts/schemas/update-status/tooling`,
   `npm --prefix contracts/schemas/update-status/tooling run verify`, rerun the
   verifier for determinism, remove only generated owned tool residue, prove
   `.cache/`, `.tmp/`, and `tooling/node_modules/` are absent, confirm the
