@@ -53,6 +53,25 @@ function identity(
 }
 
 describe('co-star input and view model', () => {
+  it('keeps generated DTO ownership behind the strict adapter', () => {
+    const source = fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        'frontend/src/features/co-star/coStar.ts',
+      ),
+      'utf8',
+    );
+
+    expect(source).not.toContain('/api/generated/');
+    expect(source).not.toContain('../../api/generated/');
+    expect(source).toContain(
+      "CoStarData['participants'][number]",
+    );
+    expect(source).toContain(
+      "CoStarGroupData['matrix']['pairs'][number]['metrics']",
+    );
+  });
+
   it('preserves selected person and identity order without adding refresh state', () => {
     const selection = createCoStarSelection([
       identity(2, 'staff:anime:2'),

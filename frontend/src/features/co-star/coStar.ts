@@ -1,12 +1,7 @@
 import type {
   CoStarData,
   CoStarPayload,
-  DeepReadonly,
 } from '../../api/adapters/coStar';
-import type {
-  MatrixMetricsV1,
-  ParticipantV1,
-} from '../../api/generated/co-star/types.gen';
 import type { CoStarViewState } from '../query/coordinator';
 import type { SelectedPerson } from './model';
 
@@ -19,8 +14,13 @@ export interface CoStarInput {
 
 export type CoStarView = CoStarViewState;
 export type CoStarSort = CoStarView['sort'];
-export type CoStarParticipant = DeepReadonly<ParticipantV1>;
-export type CoStarMatrixMetrics = DeepReadonly<MatrixMetricsV1>;
+type CoStarGroupData = Extract<
+  CoStarData,
+  { readonly kind: 'group' }
+>;
+export type CoStarParticipant = CoStarData['participants'][number];
+export type CoStarMatrixMetrics =
+  CoStarGroupData['matrix']['pairs'][number]['metrics'];
 export type CoStarWorkItem = CoStarData['items'][number];
 export type CoStarRatingDataset = CoStarData['ratings']['datasets'][number];
 export type CoStarRatingDistribution = CoStarRatingDataset['global'];
@@ -166,7 +166,7 @@ function pairKey(leftPersonId: number, rightPersonId: number): string {
  * No metric, ranking, leader, or aggregate is derived here.
  */
 export function projectCoStarMatrix(
-  data: Extract<CoStarData, { readonly kind: 'group' }>,
+  data: CoStarGroupData,
 ): readonly CoStarMatrixRow[] {
   const pairs = new Map(
     data.matrix.pairs.map((pair) => [

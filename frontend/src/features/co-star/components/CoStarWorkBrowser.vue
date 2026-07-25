@@ -65,6 +65,11 @@ const densityMode = ref<'compact' | 'detailed'>('detailed');
 const search = ref(props.view.search);
 const searchInput = ref<InputInst | null>(null);
 const visibleSeriesInfoKey = ref<string | null>(null);
+const CAST_ROLE_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  主役: '主角',
+  配角: '配角',
+  客串: '客串',
+});
 let searchTimer: number | undefined;
 
 const compact = computed(() => densityMode.value === 'compact');
@@ -199,7 +204,9 @@ function contributionLabel(
 ): string {
   if (credit.kind === 'cast') {
     const character = credit.character.nameCN ?? credit.character.name;
-    return `${character} · ${credit.roleLabel}${
+    const mappedRole = CAST_ROLE_LABELS[credit.roleLabel];
+    const identity = mappedRole ? `声优（${mappedRole}）` : '声优';
+    return `${identity}：${character}${
       'workCount' in credit ? ` · ${credit.workCount} 部` : ''
     }`;
   }
@@ -248,7 +255,10 @@ defineExpose({ focusUnit });
 </script>
 
 <template>
-  <div class="subject-work-browser co-star-work-browser">
+  <div
+    class="subject-work-browser co-star-work-browser"
+    :aria-busy="pending ? 'true' : undefined"
+  >
     <div
       class="section-heading co-star-section-heading subject-work-browser__heading"
     >
@@ -707,6 +717,7 @@ defineExpose({ focusUnit });
     <adaptive-pagination
       v-if="total > 5"
       class="co-star-work-pagination"
+      :aria-busy="pending ? 'true' : undefined"
       :aria-label="
         workUnit === 'series' ? '共同系列分页' : '共同作品分页'
       "

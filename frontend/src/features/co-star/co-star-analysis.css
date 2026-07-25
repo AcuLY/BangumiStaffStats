@@ -523,24 +523,45 @@
   border-top: 1px solid var(--divider);
 }
 
+.co-star-matrix-block--standalone {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .co-star-matrix-scroll {
   min-width: 0;
   max-width: 100%;
+  overflow-x: clip;
+  overflow-y: hidden;
+}
+
+.matrix-details--scrollable .co-star-matrix-scroll {
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scrollbar-width: thin;
 }
 
 .co-star-matrix-table {
-  width: max(100%, calc((var(--matrix-size) + 1) * 144px));
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
   border-spacing: 1px;
   background: var(--divider);
   font-size: 12px;
 }
 
+.co-star-matrix-table tr > :first-child {
+  width: clamp(84px, 22%, 112px);
+}
+
+.matrix-details--scrollable .co-star-matrix-table {
+  min-width: calc(112px + var(--matrix-size, 5) * 104px);
+}
+
 .co-star-matrix-table th,
 .co-star-matrix-table td {
-  min-width: 132px;
+  min-width: 0;
   padding: var(--space-3);
   background: var(--surface);
   text-align: left;

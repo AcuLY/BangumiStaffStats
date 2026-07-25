@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import {
   NCheckbox,
   NRadioGroup,
@@ -22,8 +22,10 @@ import {
   type CoStarRatingDataset,
   type CoStarResource,
   type CoStarView,
+  type CoStarWorkItem,
 } from '../../../src/features/co-star/coStar';
 import CoStarRatings from '../../../src/features/co-star/components/CoStarRatings.vue';
+import CoStarWorkBrowser from '../../../src/features/co-star/components/CoStarWorkBrowser.vue';
 import { createCoStarSelection } from '../../../src/features/co-star/selection';
 
 const repositoryRoot = path.resolve(
@@ -62,8 +64,9 @@ function setup(
   name: GoldenName,
   scope: 'global' | 'personal',
   patch: Partial<CoStarResource> = {},
+  acceptedOverride?: CoStarPayload,
 ) {
-  const accepted = payload(name, scope);
+  const accepted = acceptedOverride ?? payload(name, scope);
   const selection = createCoStarSelection(
     accepted.data.participants.flatMap((participant) =>
       participant.positionKeys.map((positionKey) => ({
@@ -124,24 +127,44 @@ function setup(
   };
 }
 
-function ratingComparisonSetup(scope: 'global' | 'personal' = 'global') {
+interface TimelineFixture {
+  readonly average: number;
+  readonly count: number;
+  readonly quarter: number;
+  readonly year: number;
+}
+
+function ratingComparisonSetup(
+  scope: 'global' | 'personal' = 'global',
+  timelineFixture?: readonly TimelineFixture[],
+) {
   const accepted = payload('global', 'global');
   const datasets = accepted.data.ratings.datasets.map(
     (dataset, datasetIndex) => {
-      const timeline = Object.freeze([
-        Object.freeze({
-          average: 720 + datasetIndex * 10,
-          count: datasetIndex + 1,
-          quarter: 1,
-          year: 2024,
-        }),
-        Object.freeze({
-          average: 760 + datasetIndex * 10,
-          count: datasetIndex + 2,
-          quarter: 2,
-          year: 2024,
-        }),
-      ]);
+      const timeline = Object.freeze(
+        (
+          timelineFixture ?? [
+            {
+              average: 720,
+              count: 1,
+              quarter: 1,
+              year: 2024,
+            },
+            {
+              average: 760,
+              count: 2,
+              quarter: 2,
+              year: 2024,
+            },
+          ]
+        ).map((entry) =>
+          Object.freeze({
+            ...entry,
+            average: entry.average + datasetIndex * 10,
+            count: entry.count + datasetIndex,
+          }),
+        ),
+      );
       const global = Object.freeze({
         ...dataset.global,
         timeline,
@@ -165,6 +188,44 @@ function ratingComparisonSetup(scope: 'global' | 'personal' = 'global') {
       workUnit: 'subject',
     },
   });
+}
+
+function groupPayloadWithParticipantCount(count: 3 | 4 | 5): CoStarPayload {
+  const accepted = payload('group', 'global');
+  if (accepted.data.kind !== 'group') {
+    throw new Error('Expected group golden');
+  }
+  const template = accepted.data.participants[0]!;
+  const pairMetrics = accepted.data.matrix.pairs[0]!.metrics;
+  const participants = Array.from({ length: count }, (_, index) =>
+    accepted.data.participants[index] ??
+    Object.freeze({
+      metrics: template.metrics,
+      person: Object.freeze({
+        id: index + 1,
+        name: `Person ${index + 1}`,
+        nameCN: null,
+      }),
+      positionKeys: Object.freeze(['staff:anime:3']),
+    }),
+  );
+  const pairs = participants.flatMap((left, leftIndex) =>
+    participants.slice(leftIndex + 1).map((right) =>
+      Object.freeze({
+        leftPersonId: left.person.id,
+        metrics: pairMetrics,
+        rightPersonId: right.person.id,
+      }),
+    ),
+  );
+  return Object.freeze({
+    ...accepted,
+    data: Object.freeze({
+      ...accepted.data,
+      matrix: Object.freeze({ pairs: Object.freeze(pairs) }),
+      participants: Object.freeze(participants),
+    }),
+  }) as CoStarPayload;
 }
 
 afterEach(() => {
@@ -208,6 +269,8 @@ describe('pair and group co-star surface', () => {
     expect(
       wrapper.findAll('[data-provenance="exact"]').length,
     ).toBeGreaterThan(0);
+    expect(wrapper.text()).toContain('声优（主角）：主角 · 1 部');
+    expect(wrapper.text()).not.toContain('主角 · 主役');
     expect(wrapper.text()).not.toContain('最佳组合');
     expect(wrapper.text()).not.toContain('最佳搭档');
   });
@@ -224,6 +287,9 @@ describe('pair and group co-star surface', () => {
     expect(wrapper.findAll('.co-star-participant-card')).toHaveLength(3);
     expect(wrapper.text()).toContain('没有共同作品');
     expect(wrapper.find('.co-star-matrix-table').exists()).toBe(true);
+    expect(wrapper.get('.co-star-matrix-block').classes()).toContain(
+      'co-star-matrix-block--standalone',
+    );
     expect(wrapper.findAll('.co-star-matrix-table tbody tr')).toHaveLength(
       3,
     );
@@ -234,33 +300,72 @@ describe('pair and group co-star surface', () => {
       false,
     );
     expect(wrapper.text()).toContain('共同 1 部');
-    expect(wrapper.text()).toContain('没有可用于比较的评分');
-    expect(wrapper.find('.co-star-ready-empty').text()).toBe(
-      '没有共同作品',
-    );
+    expect(wrapper.find('.rating-distribution-panel').exists()).toBe(false);
+    expect(wrapper.find('.co-star-tag-domain').exists()).toBe(false);
+    expect(wrapper.find('.preference-domain').exists()).toBe(false);
+    expect(wrapper.find('.co-star-work-browser').exists()).toBe(false);
+    expect(wrapper.find('.co-star-ready-empty').exists()).toBe(false);
+    expect(wrapper.findAll('.co-star-common-empty')).toHaveLength(1);
   });
 
-  it('retains personal zero evidence and structural personal sections', () => {
+  it('retains pair participants and one ready empty state without empty detail sections', () => {
     const { payload: accepted, wrapper } = setup(
       'personal',
       'personal',
     );
     expect(accepted.data).toHaveProperty('preference.score', null);
-    expect(wrapper.find('.preference-domain').exists()).toBe(true);
-    expect(wrapper.text()).toContain('相对偏好');
-    expect(wrapper.text()).toContain('有效证据 0');
-    expect(wrapper.text()).toContain('偏好分');
+    expect(wrapper.findAll('.co-star-participant-card')).toHaveLength(2);
     expect(wrapper.text()).toContain('没有共同作品');
-    expect(wrapper.text()).toContain('暂无可用标签');
+    expect(wrapper.findAll('.co-star-common-empty')).toHaveLength(1);
+    expect(wrapper.find('.co-star-tag-domain').exists()).toBe(false);
+    expect(wrapper.find('.rating-domain').exists()).toBe(false);
+    expect(wrapper.find('.preference-domain').exists()).toBe(false);
+    expect(wrapper.find('.co-star-work-browser').exists()).toBe(false);
     expect(wrapper.find('.co-star-matrix-table').exists()).toBe(false);
   });
+
+  it.each([3, 4, 5] as const)(
+    'uses adaptive matrix density for %i participants and scrolls only at five',
+    (count) => {
+      const accepted = groupPayloadWithParticipantCount(count);
+      const { wrapper } = setup(
+        'group',
+        'global',
+        {},
+        accepted,
+      );
+      const details = wrapper.get('.matrix-details');
+      const viewport = wrapper.get('.co-star-matrix-scroll');
+
+      expect(
+        wrapper.findAll('.co-star-matrix-table tbody tr'),
+      ).toHaveLength(count);
+      expect(details.classes().includes('matrix-details--scrollable')).toBe(
+        count >= 5,
+      );
+      expect(viewport.attributes('tabindex')).toBe(
+        count >= 5 ? '0' : undefined,
+      );
+    },
+  );
 });
 
 describe('co-star local request boundaries', () => {
   it('retains all accepted core sections while only work rows are view-pending', () => {
-    const { wrapper } = setup('global', 'global', {
-      viewPending: true,
-    });
+    const accepted = payload('global', 'global');
+    const pagedPayload = Object.freeze({
+      ...accepted,
+      pagination: Object.freeze({
+        ...accepted.pagination,
+        total: 12,
+      }),
+    }) as CoStarPayload;
+    const { wrapper } = setup(
+      'global',
+      'global',
+      { viewPending: true },
+      pagedPayload,
+    );
 
     expect(wrapper.findAll('.co-star-participant-card')).toHaveLength(2);
     expect(wrapper.find('.co-star-summary-grid').exists()).toBe(true);
@@ -268,7 +373,16 @@ describe('co-star local request boundaries', () => {
     expect(wrapper.find('.horizontal-distribution').exists()).toBe(true);
     expect(wrapper.find('.co-star-work-row').exists()).toBe(false);
     expect(wrapper.find('.co-star-work-skeletons').exists()).toBe(true);
-    expect(wrapper.get('article').attributes('aria-busy')).toBe('true');
+    expect(wrapper.get('article').attributes('aria-busy')).toBeUndefined();
+    expect(
+      wrapper.get('.co-star-work-browser').attributes('aria-busy'),
+    ).toBe('true');
+    expect(
+      wrapper.get('.co-star-work-list-boundary').attributes('aria-busy'),
+    ).toBe('true');
+    expect(
+      wrapper.get('.co-star-work-pagination').attributes('aria-busy'),
+    ).toBe('true');
   });
 
   it('shows bounded full skeleton and stable initial error states', async () => {
@@ -280,6 +394,9 @@ describe('co-star local request boundaries', () => {
     expect(
       pending.wrapper.findAll('.co-star-participant-skeletons > span'),
     ).toHaveLength(2);
+    expect(pending.wrapper.get('article').attributes('aria-busy')).toBe(
+      'true',
+    );
     expect(pending.wrapper.find('.co-star-work-skeletons').exists()).toBe(
       false,
     );
@@ -425,6 +542,11 @@ describe('co-star rating comparison interactions', () => {
     expect(chart.attributes('viewBox')).toBe('0 0 360 236');
     expect(chart.attributes('preserveAspectRatio')).toBeUndefined();
     expect(
+      wrapper
+        .findAll('.rating-time-chart__quarter-label')
+        .map((label) => Number(label.attributes('x'))),
+    ).toEqual([112, 268]);
+    expect(
       wrapper.findAll('.comparison-time-chart__series'),
     ).toHaveLength(3);
 
@@ -461,7 +583,7 @@ describe('co-star rating comparison interactions', () => {
     );
   });
 
-  it('keeps common on slot one and stably wraps the tenth person to person slot two', () => {
+  it('keeps common on slot one and wraps the tenth person to slot one', () => {
     const accepted = payload('global', 'global');
     const template = accepted.data.ratings.datasets[0]!;
     const datasets = Array.from({ length: 11 }, (_, index) =>
@@ -492,7 +614,198 @@ describe('co-star rating comparison interactions', () => {
     expect(colors).toHaveLength(11);
     expect(new Set(colors).size).toBe(10);
     expect(colors[0]).not.toBe(colors[1]);
-    expect(colors[10]).toBe(colors[1]);
+    expect(colors[10]).toBe(colors[0]);
+  });
+
+  it('uses measured plot width to hide crowded quarters and keep year labels 52px apart', async () => {
+    vi.spyOn(
+      HTMLElement.prototype,
+      'getBoundingClientRect',
+    ).mockReturnValue({
+      bottom: 236,
+      height: 236,
+      left: 0,
+      right: 280,
+      toJSON: () => ({}),
+      top: 0,
+      width: 280,
+      x: 0,
+      y: 0,
+    });
+    const timeline = Array.from({ length: 32 }, (_, index) => ({
+      average: 700 + (index % 4) * 10,
+      count: 1,
+      quarter: (index % 4) + 1,
+      year: 2017 + Math.floor(index / 4),
+    }));
+    const wrapper = ratingComparisonSetup('global', timeline);
+    const modeControl = wrapper
+      .findAllComponents(NRadioGroup)
+      .find(
+        (control) =>
+          control.attributes('aria-label') === '评分图表维度',
+      );
+
+    modeControl!.vm.$emit('update:value', 'time');
+    await nextTick();
+    await flushPromises();
+
+    expect(wrapper.get('.comparison-time-chart').attributes('viewBox')).toBe(
+      '0 0 280 236',
+    );
+    expect(
+      wrapper.findAll('.rating-time-chart__quarter-label'),
+    ).toHaveLength(0);
+    const yearPositions = wrapper
+      .findAll('.rating-time-chart__year-label')
+      .map((label) => Number(label.attributes('x')));
+    expect(yearPositions.length).toBeGreaterThan(1);
+    expect(
+      yearPositions
+        .slice(1)
+        .every(
+          (position, index) =>
+            position - yearPositions[index]! >= 52,
+        ),
+    ).toBe(true);
+  });
+});
+
+describe('co-star contribution copy', () => {
+  it('maps server cast roles and appends work counts only for series credits', () => {
+    const accepted = payload('global', 'global');
+    const seriesItem = accepted.data.items[0];
+    if (!seriesItem || seriesItem.kind !== 'series') {
+      throw new Error('Expected series work golden');
+    }
+    const castCredit = seriesItem.participants
+      .flatMap((participant) => participant.credits)
+      .find((credit) => credit.kind === 'cast');
+    if (!castCredit) {
+      throw new Error('Expected cast credit');
+    }
+    const subjectParticipants = seriesItem.participants.map(
+      (participant) => ({
+        credits: participant.credits.map((credit) => {
+          const { workCount: _workCount, ...subjectCredit } = credit;
+          return subjectCredit;
+        }),
+        personId: participant.personId,
+      }),
+    );
+    const castParticipant = subjectParticipants.find(
+      (participant) =>
+        participant.personId ===
+        seriesItem.participants.find((participant) =>
+          participant.credits.some((credit) => credit.kind === 'cast'),
+        )?.personId,
+    );
+    const {
+      workCount: _castWorkCount,
+      ...subjectCastCredit
+    } = castCredit;
+    castParticipant?.credits.push(
+      {
+        ...subjectCastCredit,
+        character: Object.freeze({
+          id: 202,
+          key: 'character:202',
+          name: 'Supporting Role',
+          nameCN: '配角角色',
+        }),
+        roleLabel: '配角',
+        roleType: 2,
+      } as never,
+      {
+        ...subjectCastCredit,
+        character: Object.freeze({
+          id: 203,
+          key: 'character:203',
+          name: 'Guest Role',
+          nameCN: '客串角色',
+        }),
+        roleLabel: '客串',
+        roleType: 3,
+      } as never,
+      {
+        ...subjectCastCredit,
+        character: Object.freeze({
+          id: 204,
+          key: 'character:204',
+          name: 'Unknown Role',
+          nameCN: '未知角色',
+        }),
+        roleLabel: '其他',
+        roleType: 4,
+      } as never,
+    );
+    const subjectItem = Object.freeze({
+      globalScore: seriesItem.globalScore,
+      key: `subject:${seriesItem.representative.id}`,
+      kind: 'subject',
+      metaTags: Object.freeze([]),
+      participants: Object.freeze(subjectParticipants),
+      subject: seriesItem.representative,
+    }) as unknown as CoStarWorkItem;
+    const wrapper = mount(CoStarWorkBrowser, {
+      props: {
+        error: null,
+        executeView: vi.fn(async () => true),
+        items: [subjectItem],
+        page: 1,
+        pageSize: 10,
+        participants: accepted.data.participants,
+        pending: false,
+        positionLabel,
+        retry: vi.fn(),
+        scope: 'global',
+        total: 1,
+        view: defaultCoStarView('global'),
+        workUnit: 'subject',
+      },
+    });
+
+    expect(wrapper.text()).toContain('声优（主角）：主角');
+    expect(wrapper.text()).toContain('声优（配角）：配角角色');
+    expect(wrapper.text()).toContain('声优（客串）：客串角色');
+    expect(wrapper.text()).toContain('声优：未知角色');
+    expect(wrapper.text()).not.toContain('声优（主角）：主角 · 1 部');
+    expect(wrapper.text()).not.toContain('声优：未知角色 ·');
+  });
+});
+
+describe('co-star oracle layout contracts', () => {
+  it('keeps desktop candidates in page flow and reserves matrix scrolling for five people', () => {
+    const pickerCss = fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        'frontend/src/features/co-star/co-star.css',
+      ),
+      'utf8',
+    );
+    const analysisCss = fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        'frontend/src/features/co-star/co-star-analysis.css',
+      ),
+      'utf8',
+    );
+
+    expect(pickerCss).toMatch(
+      /@media \(width >= 780px\)[\s\S]*?\.co-star-candidate-rail\s*\{[^}]*height:\s*auto;[^}]*max-height:\s*none;[^}]*overflow:\s*visible;/,
+    );
+    expect(pickerCss).toMatch(
+      /\.candidate-picker:not\(\.is-drawer\) \.candidate-list,[\s\S]*?overflow-y:\s*visible;/,
+    );
+    expect(analysisCss).toMatch(
+      /\.co-star-matrix-scroll\s*\{[^}]*overflow-x:\s*clip;/,
+    );
+    expect(analysisCss).toMatch(
+      /\.matrix-details--scrollable \.co-star-matrix-scroll\s*\{[^}]*overflow-x:\s*auto;/,
+    );
+    expect(analysisCss).toMatch(
+      /\.matrix-details--scrollable \.co-star-matrix-table\s*\{[^}]*min-width:\s*calc\(112px \+ var\(--matrix-size, 5\) \* 104px\);/,
+    );
   });
 });
 
@@ -521,6 +834,10 @@ describe('personal preference navigation', () => {
         preference: Object.freeze({
           ...accepted.data.preference,
           preferred: Object.freeze([preferred]),
+        }),
+        summary: Object.freeze({
+          ...accepted.data.summary,
+          commonWorkCount: 1,
         }),
       }),
     }) as CoStarPayload;

@@ -67,6 +67,8 @@ const TIME_TOP = 18;
 const TIME_BOTTOM = 194;
 const TIME_LEFT = 34;
 const TIME_RIGHT = 14;
+const MIN_QUARTER_LABEL_WIDTH = 24;
+const MIN_YEAR_LABEL_GAP = 52;
 const SCORE_COLORS = [
   'var(--co-star-series-1)',
   'var(--co-star-series-2)',
@@ -154,7 +156,7 @@ const displayDatasets = computed<readonly DisplayDataset[]>(() => {
     const paletteIndex =
       dataset.kind === 'common'
         ? 0
-        : 1 + (participantIndex++ % (SCORE_COLORS.length - 1));
+        : (participantIndex++ + 1) % SCORE_COLORS.length;
     const distribution =
       source.value === 'personal' && 'personal' in dataset
         ? dataset.personal
@@ -293,14 +295,19 @@ const lastTimelineQuarter = computed(
 const timelineQuarterCount = computed(
   () => lastTimelineQuarter.value - firstTimelineQuarter.value + 1,
 );
+const timelinePlotWidth = computed(() =>
+  Math.max(1, timelineWidth.value - TIME_LEFT - TIME_RIGHT),
+);
+const timelineQuarterWidth = computed(
+  () => timelinePlotWidth.value / timelineQuarterCount.value,
+);
 const timelineX = (entry: TimelineEntry): number => {
   const index = entry.year * 4 + entry.quarter - 1;
-  const range = lastTimelineQuarter.value - firstTimelineQuarter.value;
-  return range === 0
-    ? (TIME_LEFT + timelineWidth.value - TIME_RIGHT) / 2
-    : TIME_LEFT +
-        ((index - firstTimelineQuarter.value) / range) *
-          (timelineWidth.value - TIME_LEFT - TIME_RIGHT);
+  return (
+    TIME_LEFT +
+    (index - firstTimelineQuarter.value + 0.5) *
+      timelineQuarterWidth.value
+  );
 };
 const timelineY = (average: number): number =>
   TIME_TOP +
@@ -351,7 +358,16 @@ const timelineYears = computed(() => {
   }
   const firstYear = Math.floor(firstTimelineQuarter.value / 4);
   const lastYear = Math.floor(lastTimelineQuarter.value / 4);
-  return Array.from(
+  const yearCount = lastYear - firstYear + 1;
+  const maximumLabelCount = Math.max(
+    2,
+    Math.floor(timelinePlotWidth.value / MIN_YEAR_LABEL_GAP),
+  );
+  const labelInterval = Math.max(
+    1,
+    Math.ceil(yearCount / maximumLabelCount),
+  );
+  const years = Array.from(
     { length: lastYear - firstYear + 1 },
     (_, index) => {
       const year = firstYear + index;
@@ -363,42 +379,66 @@ const timelineYears = computed(() => {
         lastTimelineQuarter.value,
         year * 4 + 3,
       );
-      const midpoint = (firstQuarter + lastQuarter) / 2;
-      const range =
-        lastTimelineQuarter.value - firstTimelineQuarter.value;
-      const x =
-        range === 0
-          ? (TIME_LEFT + timelineWidth.value - TIME_RIGHT) / 2
-          : TIME_LEFT +
-            ((midpoint - firstTimelineQuarter.value) / range) *
-              (timelineWidth.value - TIME_LEFT - TIME_RIGHT);
-      return { key: year, label: year, x };
+      const startOffset =
+        firstQuarter - firstTimelineQuarter.value;
+      const endOffset =
+        lastQuarter - firstTimelineQuarter.value + 1;
+      return {
+        key: year,
+        label: year,
+        lineX:
+          TIME_LEFT +
+          startOffset * timelineQuarterWidth.value,
+        showLabel: false,
+        x:
+          TIME_LEFT +
+          ((startOffset + endOffset) / 2) *
+            timelineQuarterWidth.value,
+      };
+    },
+  );
+  let previousLabelIndex = -1;
+  for (let index = 0; index < years.length; index += 1) {
+    const isLast = index === years.length - 1;
+    const isCandidate =
+      index === 0 || isLast || index % labelInterval === 0;
+    if (!isCandidate) {
+      continue;
+    }
+    if (
+      isLast &&
+      previousLabelIndex >= 0 &&
+      years[index]!.x - years[previousLabelIndex]!.x <
+        MIN_YEAR_LABEL_GAP
+    ) {
+      years[previousLabelIndex]!.showLabel = false;
+    }
+    years[index]!.showLabel = true;
+    previousLabelIndex = index;
+  }
+  return years;
+});
+const timelineSeasonLabels = computed(() => {
+  if (
+    !timelineQuarterIndices.value.length ||
+    timelineQuarterWidth.value < MIN_QUARTER_LABEL_WIDTH
+  ) {
+    return [];
+  }
+  return Array.from(
+    { length: timelineQuarterCount.value },
+    (_, index) => {
+      const quarterIndex = firstTimelineQuarter.value + index;
+      return {
+        key: quarterIndex,
+        label: seasonLabel((quarterIndex % 4) + 1),
+        x:
+          TIME_LEFT +
+          (index + 0.5) * timelineQuarterWidth.value,
+      };
     },
   );
 });
-const timelineSeasonLabels = computed(() =>
-  timelineQuarterCount.value <= 12
-    ? Array.from(
-        { length: timelineQuarterCount.value },
-        (_, index) => {
-          const quarterIndex = firstTimelineQuarter.value + index;
-          const range =
-            lastTimelineQuarter.value - firstTimelineQuarter.value;
-          const x =
-            range === 0
-              ? (TIME_LEFT + timelineWidth.value - TIME_RIGHT) / 2
-              : TIME_LEFT +
-                (index / range) *
-                  (timelineWidth.value - TIME_LEFT - TIME_RIGHT);
-          return {
-            key: quarterIndex,
-            label: seasonLabel((quarterIndex % 4) + 1),
-            x,
-          };
-        },
-      )
-    : [],
-);
 const timelineLabel = computed(
   () =>
     `${sourceLabel.value}时间对比；折线表示当前勾选系列的季度均分。` +
@@ -775,14 +815,23 @@ onBeforeUnmount(() => timelineResizeObserver?.disconnect());
                 text-anchor="end"
               >{{ score }}</text>
             </template>
-            <text
-              v-for="year in timelineYears"
-              :key="year.key"
-              class="rating-time-chart__year-label"
-              :x="year.x"
-              y="228"
-              text-anchor="middle"
-            >{{ year.label }}</text>
+            <template v-for="year in timelineYears" :key="year.key">
+              <line
+                v-if="year.showLabel"
+                class="rating-time-chart__quarter-line is-year"
+                :x1="year.lineX"
+                :x2="year.lineX"
+                :y1="TIME_TOP"
+                :y2="TIME_BOTTOM"
+              />
+              <text
+                v-if="year.showLabel"
+                class="rating-time-chart__year-label"
+                :x="year.x"
+                y="228"
+                text-anchor="middle"
+              >{{ year.label }}</text>
+            </template>
             <text
               v-for="quarter in timelineSeasonLabels"
               :key="quarter.key"

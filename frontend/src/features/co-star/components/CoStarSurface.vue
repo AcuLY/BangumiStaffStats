@@ -113,9 +113,6 @@ const personalData = computed<CoStarPersonalData | null>(() => {
     : null;
 });
 const fullPending = computed(() => props.resource.phase === 'pending');
-const listPending = computed(
-  () => fullPending.value || props.resource.viewPending,
-);
 const matrixRows = computed(() => {
   const value = data.value;
   return value?.kind === 'group' ? projectCoStarMatrix(value) : [];
@@ -259,7 +256,7 @@ onMounted(ensureAnalysis);
     class="analysis-dashboard analysis-dashboard--unified co-star-surface surface-panel"
     aria-label="共演分析"
     :data-analysis-mode="people.length > 2 ? 'group' : 'pair'"
-    :aria-busy="listPending ? 'true' : undefined"
+    :aria-busy="fullPending ? 'true' : undefined"
   >
     <p class="sr-only" role="status" aria-live="polite">
       {{ statusMessage }}
@@ -385,6 +382,7 @@ onMounted(ensureAnalysis);
       </section>
 
       <section
+        v-if="data.summary.commonWorkCount > 0"
         class="analysis-section analysis-domain co-star-tag-domain"
         aria-labelledby="co-star-tags-title"
       >
@@ -419,10 +417,15 @@ onMounted(ensureAnalysis);
       </section>
 
       <section
+        v-if="
+          data.summary.commonWorkCount > 0 ||
+          data.kind === 'group'
+        "
         class="analysis-section analysis-domain rating-domain"
         aria-label="评分表现"
       >
         <co-star-ratings
+          v-if="data.summary.commonWorkCount > 0"
           :datasets="data.ratings.datasets"
           :participants="data.participants"
           :scope="scope"
@@ -432,13 +435,26 @@ onMounted(ensureAnalysis);
         <div
           v-if="data.kind === 'group'"
           class="analysis-domain__block co-star-matrix-block"
+          :class="{
+            'co-star-matrix-block--standalone':
+              data.summary.commonWorkCount === 0,
+          }"
           aria-labelledby="matrix-title"
         >
           <div class="section-heading section-heading--compact">
             <div><h3 id="matrix-title">组合评分对比</h3></div>
           </div>
-          <div class="matrix-details matrix-details--direct">
-            <div class="co-star-matrix-scroll" tabindex="0">
+          <div
+            class="matrix-details matrix-details--direct"
+            :class="{
+              'matrix-details--scrollable':
+                data.participants.length >= 5,
+            }"
+          >
+            <div
+              class="co-star-matrix-scroll"
+              :tabindex="data.participants.length >= 5 ? 0 : undefined"
+            >
               <table
                 class="matrix-table co-star-matrix-table"
                 :style="{ '--matrix-size': data.participants.length }"
@@ -504,7 +520,7 @@ onMounted(ensureAnalysis);
       </section>
 
       <section
-        v-if="personalData"
+        v-if="personalData && data.summary.commonWorkCount > 0"
         class="analysis-section analysis-domain preference-domain"
         aria-labelledby="co-star-preference-title"
       >
@@ -664,6 +680,7 @@ onMounted(ensureAnalysis);
       </section>
 
       <section
+        v-if="data.summary.commonWorkCount > 0"
         class="analysis-section shared-works-section"
         aria-labelledby="co-star-common-works-title"
       >

@@ -818,6 +818,29 @@
   }
 }
 
+@media (width >= 780px) {
+  .co-star-candidate-rail {
+    height: auto;
+    min-height: 680px;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .candidate-picker:not(.is-drawer) {
+    height: auto;
+    min-height: 680px;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .candidate-picker:not(.is-drawer) .candidate-list,
+  .candidate-picker:not(.is-drawer) .candidate-row-skeletons {
+    overflow-y: visible;
+    overscroll-behavior-y: auto;
+    scrollbar-gutter: auto;
+  }
+}
+
 @media (width < 780px) {
   .co-star-mobile-entry {
     display: grid;
