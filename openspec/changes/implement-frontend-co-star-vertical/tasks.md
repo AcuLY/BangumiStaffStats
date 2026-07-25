@@ -25,10 +25,10 @@ Use Node through
 
 ## 1. Candidate, identity, and resource foundation
 
-- [ ] 1.1 Preflight: record `git branch --show-current`, `git rev-parse HEAD`, and `git status --short`; confirm branch `codex/formal-rewrite`, reviewed strict-valid artifacts, accepted `expose-candidates`, available deterministic candidates DTOs, and no active owner on the exact Group 1 paths; stop without cleanup on any mismatch.
-- [ ] 1.2 Implement and test the strict candidates adapter/driver plus coordinator resource sequence, cancellation, revision, stale-response, metadata, scope omission, and view-only request behavior using only contract-owned generated DTOs.
-- [ ] 1.3 Implement `features/co-star` models/state and the oracle-preserving desktop rail/mobile Drawer, selected-identity tray, 10-person/20-identity limits, candidate position/count/search/sort/rank/pagination states, and the 0-person analysis state without frontend statistics.
-- [ ] 1.4 Verify Group 1 with `npm run check:candidates-wire`, focused candidates/co-star/coordinator Vitest files, `npm run typecheck`, `git diff --check`, and `openspec validate implement-frontend-co-star-vertical --type change --strict --no-interactive`; record investigated/implemented/verified separately and hand off only declared unstaged paths.
+- [x] 1.1 Preflight: record `git branch --show-current`, `git rev-parse HEAD`, and `git status --short`; confirm branch `codex/formal-rewrite`, reviewed strict-valid artifacts, accepted `expose-candidates`, available deterministic candidates DTOs, and no active owner on the exact Group 1 paths; stop without cleanup on any mismatch.
+- [x] 1.2 Implement and test the strict candidates adapter/driver plus coordinator resource sequence, cancellation, revision, stale-response, metadata, scope omission, and view-only request behavior using only contract-owned generated DTOs.
+- [x] 1.3 Implement `features/co-star` models/state and the oracle-preserving desktop rail/mobile Drawer, selected-identity tray, 10-person/20-identity limits, candidate position/count/search/sort/rank/pagination states, and the 0-person analysis state without frontend statistics.
+- [x] 1.4 Verify Group 1 with `npm run check:candidates-wire`, focused candidates/co-star/coordinator Vitest files, `npm run typecheck`, `git diff --check`, and `openspec validate implement-frontend-co-star-vertical --type change --strict --no-interactive`; record investigated/implemented/verified separately and hand off only declared unstaged paths.
 
 ## 2. Partners, pair/group, share, and App integration
 

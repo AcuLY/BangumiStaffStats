@@ -31,10 +31,12 @@ const expectedInventory = [
   'scripts/generate-query-wire.mjs',
   'scripts/generate-rankings-wire.mjs',
   'scripts/generate-query-unicode.mjs',
+  'src/api/adapters/candidates.ts',
   'src/api/adapters/catalog.ts',
   'src/api/adapters/personDetail.ts',
   'src/api/adapters/queryWire.ts',
   'src/api/adapters/rankings.ts',
+  'src/api/candidates.ts',
   'src/api/catalog.ts',
   'src/api/client.ts',
   'src/api/errors.ts',
@@ -59,6 +61,14 @@ const expectedInventory = [
   'src/app/theme.ts',
   'src/assets/brand/bgmss.png',
   'src/features/catalog/store.ts',
+  'src/features/co-star/co-star.css',
+  'src/features/co-star/components/CandidatePicker.vue',
+  'src/features/co-star/components/CoStarEmptyState.vue',
+  'src/features/co-star/components/CoStarIcon.vue',
+  'src/features/co-star/components/CoStarWorkspace.vue',
+  'src/features/co-star/components/MobileCandidateEntry.vue',
+  'src/features/co-star/model.ts',
+  'src/features/co-star/selection.ts',
   'src/features/person-detail/components/PersonDetailSurface.vue',
   'src/features/person-detail/components/PersonInspector.vue',
   'src/features/person-detail/components/PersonItemBrowser.vue',
@@ -92,6 +102,7 @@ const expectedInventory = [
   'src/shared/styles/base.css',
   'src/vite-env.d.ts',
   'tests/api/catalog.contract.test.ts',
+  'tests/api/candidates.test.ts',
   'tests/api/client.test.ts',
   'tests/api/person-detail.test.ts',
   'tests/api/query-wire.contract.test.ts',
@@ -102,6 +113,8 @@ const expectedInventory = [
   'tests/features/person-detail/components.test.ts',
   'tests/features/person-detail/coordinator.test.ts',
   'tests/features/person-detail/model.test.ts',
+  'tests/features/co-star/components.test.ts',
+  'tests/features/co-star/model.test.ts',
   'tests/features/query/coordinator.test.ts',
   'tests/features/query/components.test.ts',
   'tests/features/query/fixtures.ts',
@@ -256,6 +269,7 @@ if (
 
 const queryWireImporters = [];
 const catalogWireImporters = [];
+const candidatesWireImporters = [];
 const personDetailWireImporters = [];
 const partnersWireImporters = [];
 const rankingsWireImporters = [];
@@ -270,6 +284,9 @@ for (const [file, source] of sourceByFile) {
   }
   if (/generated\/catalog/.test(source)) {
     catalogWireImporters.push(relative);
+  }
+  if (/generated\/candidates/.test(source)) {
+    candidatesWireImporters.push(relative);
   }
   if (/generated\/person-detail/.test(source)) {
     personDetailWireImporters.push(relative);
@@ -309,7 +326,8 @@ for (const [file, source] of sourceByFile) {
   }
   if (
     relative.endsWith('.vue') &&
-    (/\bfetch\s*\(/.test(source) || /generated\/query-wire/.test(source))
+    (/\bfetch\s*\(/.test(source) ||
+      /generated\/(?:query-wire|candidates)/.test(source))
   ) {
     fail(`component bypasses API ownership: ${relative}`);
   }
@@ -330,6 +348,10 @@ assertExactFiles('query wire ownership', queryWireImporters, [
 ]);
 assertExactFiles('catalog wire ownership', catalogWireImporters, [
   'src/api/adapters/catalog.ts',
+]);
+assertExactFiles('candidates wire ownership', candidatesWireImporters, [
+  'src/api/adapters/candidates.ts',
+  'src/api/candidates.ts',
 ]);
 assertExactFiles('person-detail wire ownership', personDetailWireImporters, [
   'src/api/adapters/personDetail.ts',

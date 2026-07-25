@@ -7,6 +7,7 @@ import type {
   PersonDetailViewV1,
   RankingsViewV1,
 } from '../../api/generated/query-wire/types.gen';
+import { CandidatesApiError } from '../../api/candidates';
 import { RankingsApiError } from '../../api/rankings';
 import { PersonDetailApiError } from '../../api/personDetail';
 import type { CatalogSnapshot } from '../../api/adapters/catalog';
@@ -22,6 +23,7 @@ export type QueryOperation = 'candidates' | 'person-detail' | 'rankings';
 type PrimaryQueryOperation = Exclude<QueryOperation, 'person-detail'>;
 export type ResourcePhase = 'error' | 'idle' | 'pending' | 'ready';
 export type RankingsViewState = Required<RankingsViewV1>;
+export type CandidatesViewState = Required<CandidatesViewV1>;
 export type PersonDetailViewState = Required<PersonDetailViewV1>;
 
 export interface OperationFeedback {
@@ -94,6 +96,7 @@ interface ResourceSnapshot {
   readonly acceptedQuery: AppliedQuery | null;
   readonly error: string | null;
   readonly feedback: string | null;
+  readonly input: unknown;
   readonly payload: unknown;
   readonly phase: ResourcePhase;
   readonly requestId: string | null;
@@ -136,6 +139,9 @@ function resourceError(error: unknown): string {
   if (error instanceof RankingsApiError) {
     return error.message;
   }
+  if (error instanceof CandidatesApiError) {
+    return error.message;
+  }
   if (error instanceof PersonDetailApiError) {
     return error.message;
   }
@@ -148,9 +154,38 @@ function transactionId(operation: QueryOperation, sequence: number): string {
 
 function serverRequestId(error: unknown): string | null {
   return error instanceof RankingsApiError ||
+    error instanceof CandidatesApiError ||
     error instanceof PersonDetailApiError
     ? error.requestId
     : null;
+}
+
+function candidateViewEquals(
+  left: Readonly<CandidatesViewState>,
+  right: Readonly<CandidatesViewState>,
+): boolean {
+  return (
+    left.search === right.search &&
+    left.sort === right.sort &&
+    left.order === right.order &&
+    left.page === right.page &&
+    left.pageSize === right.pageSize
+  );
+}
+
+function validCandidateView(
+  query: AppliedQuery,
+  view: Readonly<CandidatesViewState>,
+): boolean {
+  return (
+    [...view.search].length <= 256 &&
+    ['count', 'average', 'globalAverage'].includes(view.sort) &&
+    !(query.scope === 'global' && view.sort === 'globalAverage') &&
+    ['asc', 'desc'].includes(view.order) &&
+    Number.isSafeInteger(view.page) &&
+    view.page >= 1 &&
+    [5, 10, 20].includes(view.pageSize)
+  );
 }
 
 function defaultPersonDetailView(
@@ -222,6 +257,10 @@ export interface QueryCoordinator<
     mode: QueryMode;
     refreshCollection?: boolean;
   }): Promise<boolean>;
+  executeCandidateView(
+    input: Readonly<CandidatesInputV1>,
+    view: Readonly<CandidatesViewState>,
+  ): Promise<boolean>;
   executeRankingView(view: Readonly<RankingsViewState>): Promise<boolean>;
   executePersonDetail(
     personId: number,
@@ -360,6 +399,7 @@ export function createQueryCoordinator<
       acceptedQuery: resource.acceptedQuery,
       error: resource.error,
       feedback: resource.feedback,
+      input: resource.input,
       payload: resource.payload,
       phase: resource.phase,
       requestId: resource.requestId,
@@ -380,6 +420,7 @@ export function createQueryCoordinator<
     resource.acceptedQuery = snapshot.acceptedQuery;
     resource.error = snapshot.error;
     resource.feedback = snapshot.feedback;
+    resource.input = snapshot.input as never;
     resource.payload = snapshot.payload as never;
     resource.phase = snapshot.phase;
     resource.requestId = snapshot.requestId;
@@ -522,6 +563,37 @@ export function createQueryCoordinator<
     const sameQuery =
       store.applied !== null &&
       querySignature(store.applied) === querySignature(query);
+    let nextCandidateView: Readonly<CandidatesViewState> | null = null;
+    if (operation === 'candidates') {
+      const priorScope = candidates.acceptedQuery?.scope;
+      const currentCandidateView: CandidatesViewState = {
+        order: candidates.view.order ?? 'desc',
+        page: candidates.view.page ?? 1,
+        pageSize: candidates.view.pageSize ?? 10,
+        search: candidates.view.search ?? '',
+        sort: candidates.view.sort ?? 'count',
+      };
+      const nextSort =
+        query.scope === 'global' &&
+        currentCandidateView.sort === 'globalAverage'
+          ? 'average'
+          : query.scope === 'personal' &&
+              priorScope === 'global' &&
+              currentCandidateView.sort === 'average'
+            ? 'globalAverage'
+            : currentCandidateView.sort;
+      const candidateView = Object.freeze({
+        ...currentCandidateView,
+        ...(!sameQuery ? { page: 1, search: '' } : {}),
+        sort: nextSort,
+      });
+      if (!validCandidateView(query, candidateView)) {
+        candidates.error = '候选人物视图参数无效';
+        publishFeedback('candidates', candidates.error, 'error');
+        return false;
+      }
+      nextCandidateView = candidateView;
+    }
     if (
       sameQuery &&
       resource.revision === store.revision &&
@@ -551,6 +623,12 @@ export function createQueryCoordinator<
     resource.viewPending = false;
     resource.error = null;
     resource.feedback = null;
+    if (nextCandidateInput) {
+      candidates.input = nextCandidateInput;
+    }
+    if (nextCandidateView) {
+      candidates.view = nextCandidateView;
+    }
     lastOperationFeedback.value = null;
     syncPendingState();
 
@@ -664,6 +742,145 @@ export function createQueryCoordinator<
       if (controllers[operation] === controller) {
         controllers[operation] = undefined;
         transactions[operation] = undefined;
+      }
+      syncPendingState();
+    }
+  }
+
+  function readyCandidateQuery(): AppliedQuery | null {
+    if (
+      !store.applied ||
+      !candidates.acceptedQuery ||
+      candidates.payload === null ||
+      candidates.phase !== 'ready' ||
+      candidates.revision !== store.revision ||
+      querySignature(candidates.acceptedQuery) !== querySignature(store.applied)
+    ) {
+      return null;
+    }
+    return candidates.acceptedQuery;
+  }
+
+  async function executeCandidateView(
+    input: Readonly<CandidatesInputV1>,
+    view: Readonly<CandidatesViewState>,
+  ): Promise<boolean> {
+    const query = readyCandidateQuery();
+    if (!query) {
+      candidates.error = '请先完成一次共演分析查询';
+      publishFeedback('candidates', candidates.error, 'error');
+      return false;
+    }
+    if (
+      !query.positionKeys.map(String).includes(String(input.positionKey))
+    ) {
+      candidates.error = '候选职位不在已应用查询中';
+      publishFeedback('candidates', candidates.error, 'error');
+      return false;
+    }
+    if (!validCandidateView(query, view)) {
+      candidates.error = '候选人物视图参数无效';
+      publishFeedback('candidates', candidates.error, 'error');
+      return false;
+    }
+    if (
+      !candidates.viewPending &&
+      String(candidates.input.positionKey) === String(input.positionKey) &&
+      candidateViewEquals(
+        candidates.view as Readonly<CandidatesViewState>,
+        view,
+      )
+    ) {
+      return true;
+    }
+
+    if (transactions.candidates) {
+      cancelOperation('candidates', '');
+    }
+    const controller = new AbortController();
+    controllers.candidates = controller;
+    const sequence = ++sequences.candidates;
+    const transaction = transactionId('candidates', sequence);
+    const snapshot = captureResource(candidates);
+    transactions.candidates = { controller, sequence, snapshot };
+    const capturedRevision = store.revision;
+    const capturedSignature = querySignature(query);
+    const nextInput = Object.freeze(
+      structuredClone(input),
+    ) as Readonly<CandidatesInputV1>;
+    const nextView = Object.freeze(
+      structuredClone(view),
+    ) as Readonly<CandidatesViewState>;
+
+    candidates.error = null;
+    candidates.feedback = null;
+    candidates.input = nextInput;
+    candidates.view = nextView;
+    candidates.viewPending = true;
+    if (lastOperationFeedback.value?.operation === 'candidates') {
+      lastOperationFeedback.value = null;
+    }
+    syncPendingState();
+
+    try {
+      const response = await drivers.candidates.execute({
+        input: nextInput,
+        query,
+        refreshCollection: false,
+        sequence,
+        signal: controller.signal,
+        transactionId: transaction,
+        view: nextView,
+      });
+      if (
+        sequence !== sequences.candidates ||
+        controller.signal.aborted ||
+        controllers.candidates !== controller ||
+        store.revision !== capturedRevision ||
+        !store.applied ||
+        querySignature(store.applied) !== capturedSignature
+      ) {
+        return false;
+      }
+      if (response.transactionId !== transaction) {
+        throw new Error('Response transaction ID does not match the request');
+      }
+
+      candidates.payload = response.payload;
+      candidates.requestId = response.requestId;
+      candidates.staleCollection =
+        response.staleCollection === true ||
+        response.warningCodes?.includes('COLLECTION_STALE') === true;
+      candidates.feedback = candidates.staleCollection
+        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        : null;
+      candidates.error = null;
+      candidates.phase = 'ready';
+      candidates.viewPending = false;
+      if (candidates.feedback) {
+        publishFeedback('candidates', candidates.feedback, 'warning');
+      }
+      return true;
+    } catch (error) {
+      if (
+        sequence !== sequences.candidates ||
+        controllers.candidates !== controller
+      ) {
+        return false;
+      }
+      restoreResource(candidates, snapshot);
+      candidates.error = controller.signal.aborted
+        ? '候选人物加载已取消'
+        : resourceError(error);
+      candidates.requestId =
+        serverRequestId(error) ?? candidates.requestId;
+      publishFeedback('candidates', candidates.error, 'error');
+      return false;
+    } finally {
+      if (controllers.candidates === controller) {
+        controllers.candidates = undefined;
+        transactions.candidates = undefined;
+        candidates.viewPending = false;
       }
       syncPendingState();
     }
@@ -1052,6 +1269,7 @@ export function createQueryCoordinator<
     candidates,
     clearPersonDetail,
     execute,
+    executeCandidateView,
     executePersonDetail,
     executePersonDetailView,
     executeRankingView,

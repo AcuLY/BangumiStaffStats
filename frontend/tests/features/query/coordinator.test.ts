@@ -8,6 +8,7 @@ import {
   type QueryDrivers,
   unavailableQueryDrivers,
 } from '../../../src/features/query/coordinator';
+import { CandidatesApiError } from '../../../src/api/candidates';
 import { RankingsApiError } from '../../../src/api/rankings';
 import { useQueryStore } from '../../../src/features/query/store';
 import { catalogFixture } from './fixtures';
@@ -18,6 +19,9 @@ interface Payload {
 
 type RankingRequest = Parameters<
   QueryDrivers<Payload, Payload>['rankings']['execute']
+>[0];
+type CandidateRequest = Parameters<
+  QueryDrivers<Payload, Payload>['candidates']['execute']
 >[0];
 
 function deferred<T>() {
@@ -163,6 +167,64 @@ describe('query coordinator', () => {
     expect(store.dirty).toBe(true);
   });
 
+  it('admits only the latest revision-bound candidates application', async () => {
+    const store = readyStore();
+    const firstDeferred = deferred<OperationResponse<Payload>>();
+    const secondDeferred = deferred<OperationResponse<Payload>>();
+    const candidateExecute = vi
+      .fn()
+      .mockImplementationOnce(() => firstDeferred.promise)
+      .mockImplementationOnce(() => secondDeferred.promise);
+    const coordinator = createQueryCoordinator(store, {
+      rankings: drivers(vi.fn()).rankings,
+      candidates: { execute: candidateExecute },
+    });
+    const catalog = catalogFixture();
+
+    const first = coordinator.execute({
+      candidateInput: { positionKey: 'staff:anime:2' },
+      catalog,
+      mode: 'co-star',
+    });
+    const firstRequest = candidateExecute.mock
+      .calls[0]![0] as CandidateRequest;
+    store.draft.positionKeys = ['staff:anime:101'];
+    const second = coordinator.execute({
+      candidateInput: { positionKey: 'staff:anime:101' },
+      catalog,
+      mode: 'co-star',
+    });
+    const secondRequest = candidateExecute.mock
+      .calls[1]![0] as CandidateRequest;
+    expect(firstRequest.signal.aborted).toBe(true);
+    expect(coordinator.candidates).toMatchObject({
+      input: { positionKey: 'staff:anime:101' },
+      phase: 'pending',
+    });
+
+    secondDeferred.resolve({
+      payload: { id: 'new-candidates' },
+      requestId: 'server-new-candidates',
+      transactionId: secondRequest.transactionId,
+    });
+    await expect(second).resolves.toBe(true);
+    firstDeferred.resolve({
+      payload: { id: 'old-candidates' },
+      requestId: 'server-old-candidates',
+      transactionId: firstRequest.transactionId,
+    });
+    await expect(first).resolves.toBe(false);
+
+    expect(store.applied?.positionKeys).toEqual(['staff:anime:101']);
+    expect(store.revision).toBe(1);
+    expect(coordinator.candidates).toMatchObject({
+      input: { positionKey: 'staff:anime:101' },
+      payload: { id: 'new-candidates' },
+      requestId: 'server-new-candidates',
+      revision: 1,
+    });
+  });
+
   it('replays and persists an accepted candidate input instead of replacing it with the first position', async () => {
     const store = readyStore();
     store.draft.positionKeys = ['staff:anime:2', 'staff:anime:101'];
@@ -193,6 +255,55 @@ describe('query coordinator', () => {
     });
     expect(coordinator.candidates.payload).toEqual({
       id: 'staff:anime:101',
+    });
+  });
+
+  it('shows the requested primary candidate input while pending and rolls it back on failure', async () => {
+    const store = readyStore();
+    store.draft.positionKeys = ['staff:anime:2', 'staff:anime:101'];
+    const rejected = deferred<OperationResponse<Payload>>();
+    const candidateExecute = vi
+      .fn()
+      .mockImplementationOnce(async (request: CandidateRequest) => ({
+        payload: { id: 'accepted-position' },
+        requestId: 'server-accepted-position',
+        transactionId: request.transactionId,
+      }))
+      .mockImplementationOnce(() => rejected.promise);
+    const coordinator = createQueryCoordinator(store, {
+      rankings: drivers(vi.fn()).rankings,
+      candidates: { execute: candidateExecute },
+    });
+    const catalog = catalogFixture();
+
+    await coordinator.execute({
+      candidateInput: { positionKey: 'staff:anime:2' },
+      catalog,
+      mode: 'co-star',
+    });
+    const acceptedView = coordinator.candidates.view;
+    const pending = coordinator.execute({
+      candidateInput: { positionKey: 'staff:anime:101' },
+      catalog,
+      mode: 'co-star',
+    });
+
+    expect(coordinator.candidates).toMatchObject({
+      input: { positionKey: 'staff:anime:101' },
+      payload: { id: 'accepted-position' },
+      phase: 'pending',
+      requestId: 'server-accepted-position',
+    });
+
+    rejected.reject(new Error('candidate position failed'));
+    await expect(pending).resolves.toBe(false);
+    expect(coordinator.candidates).toMatchObject({
+      error: '查询暂时无法完成，请稍后重试',
+      input: { positionKey: 'staff:anime:2' },
+      payload: { id: 'accepted-position' },
+      phase: 'ready',
+      requestId: 'server-accepted-position',
+      view: acceptedView,
     });
   });
 
@@ -606,6 +717,271 @@ describe('query coordinator', () => {
     });
     await expect(pending).resolves.toBe(false);
     expect(store.applied).toBeNull();
+  });
+
+  it('runs a candidate view transaction without changing Applied or revision', async () => {
+    const store = readyStore();
+    store.draft.positionKeys = ['staff:anime:2', 'staff:anime:101'];
+    const pendingView = deferred<OperationResponse<Payload>>();
+    const candidateExecute = vi
+      .fn()
+      .mockImplementationOnce(async (request: CandidateRequest) => ({
+        payload: { id: 'core' },
+        requestId: 'server-candidate-core',
+        transactionId: request.transactionId,
+      }))
+      .mockImplementationOnce(() => pendingView.promise);
+    const coordinator = createQueryCoordinator(store, {
+      rankings: drivers(vi.fn()).rankings,
+      candidates: { execute: candidateExecute },
+    });
+    const catalog = catalogFixture();
+
+    await coordinator.execute({
+      candidateInput: { positionKey: 'staff:anime:2' },
+      catalog,
+      mode: 'co-star',
+    });
+    const applied = store.applied;
+    const revision = store.revision;
+    const viewRequest = coordinator.executeCandidateView(
+      { positionKey: 'staff:anime:101' },
+      {
+        order: 'asc',
+        page: 1,
+        pageSize: 20,
+        search: '林',
+        sort: 'globalAverage',
+      },
+    );
+    const request = candidateExecute.mock.calls[1]![0] as CandidateRequest;
+
+    expect(request.query).toBe(coordinator.candidates.acceptedQuery);
+    expect(request.refreshCollection).toBe(false);
+    expect(request.input.positionKey).toBe('staff:anime:101');
+    expect(request.view).toEqual({
+      order: 'asc',
+      page: 1,
+      pageSize: 20,
+      search: '林',
+      sort: 'globalAverage',
+    });
+    expect(coordinator.candidates).toMatchObject({
+      input: { positionKey: 'staff:anime:101' },
+      payload: { id: 'core' },
+      phase: 'ready',
+      requestId: 'server-candidate-core',
+      viewPending: true,
+    });
+    expect(store.applied).toBe(applied);
+    expect(store.revision).toBe(revision);
+
+    pendingView.resolve({
+      payload: { id: 'searched' },
+      requestId: 'server-candidate-view',
+      staleCollection: true,
+      transactionId: request.transactionId,
+      warningCodes: ['COLLECTION_STALE'],
+    });
+    await expect(viewRequest).resolves.toBe(true);
+    expect(coordinator.candidates).toMatchObject({
+      feedback: '收藏刷新未完成，当前显示最近一次可用数据',
+      input: { positionKey: 'staff:anime:101' },
+      payload: { id: 'searched' },
+      requestId: 'server-candidate-view',
+      revision,
+      staleCollection: true,
+      view: { search: '林' },
+      viewPending: false,
+    });
+    expect(store.applied).toBe(applied);
+    expect(store.revision).toBe(revision);
+  });
+
+  it('admits only the latest superseding candidate view response', async () => {
+    const store = readyStore();
+    const firstView = deferred<OperationResponse<Payload>>();
+    const secondView = deferred<OperationResponse<Payload>>();
+    const candidateExecute = vi
+      .fn()
+      .mockImplementationOnce(async (request: CandidateRequest) => ({
+        payload: { id: 'core' },
+        requestId: 'server-candidate-core',
+        transactionId: request.transactionId,
+      }))
+      .mockImplementationOnce(() => firstView.promise)
+      .mockImplementationOnce(() => secondView.promise);
+    const coordinator = createQueryCoordinator(store, {
+      rankings: drivers(vi.fn()).rankings,
+      candidates: { execute: candidateExecute },
+    });
+    await coordinator.execute({
+      catalog: catalogFixture(),
+      mode: 'co-star',
+    });
+
+    const first = coordinator.executeCandidateView(
+      coordinator.candidates.input,
+      {
+        ...coordinator.candidates.view,
+        search: '旧',
+      } as never,
+    );
+    const firstRequest = candidateExecute.mock
+      .calls[1]![0] as CandidateRequest;
+    const second = coordinator.executeCandidateView(
+      coordinator.candidates.input,
+      {
+        ...coordinator.candidates.view,
+        search: '新',
+      } as never,
+    );
+    const secondRequest = candidateExecute.mock
+      .calls[2]![0] as CandidateRequest;
+    expect(firstRequest.signal.aborted).toBe(true);
+
+    secondView.resolve({
+      payload: { id: 'new' },
+      requestId: 'server-candidate-new',
+      transactionId: secondRequest.transactionId,
+    });
+    await expect(second).resolves.toBe(true);
+    firstView.resolve({
+      payload: { id: 'old' },
+      requestId: 'server-candidate-old',
+      transactionId: firstRequest.transactionId,
+    });
+    await expect(first).resolves.toBe(false);
+
+    expect(coordinator.candidates).toMatchObject({
+      payload: { id: 'new' },
+      requestId: 'server-candidate-new',
+      revision: 1,
+      view: { search: '新' },
+      viewPending: false,
+    });
+    expect(store.revision).toBe(1);
+  });
+
+  it('rolls a failed or cancelled candidate view back to the accepted page', async () => {
+    const store = readyStore();
+    store.draft.positionKeys = ['staff:anime:2', 'staff:anime:101'];
+    const pendingView = deferred<OperationResponse<Payload>>();
+    const candidateExecute = vi
+      .fn()
+      .mockImplementationOnce(async (request: CandidateRequest) => ({
+        payload: { id: 'stable' },
+        requestId: 'server-candidate-stable',
+        transactionId: request.transactionId,
+      }))
+      .mockImplementationOnce(() => pendingView.promise);
+    const coordinator = createQueryCoordinator(store, {
+      rankings: drivers(vi.fn()).rankings,
+      candidates: { execute: candidateExecute },
+    });
+    await coordinator.execute({
+      candidateInput: { positionKey: 'staff:anime:2' },
+      catalog: catalogFixture(),
+      mode: 'co-star',
+    });
+
+    const request = coordinator.executeCandidateView(
+      { positionKey: 'staff:anime:101' },
+      {
+        ...coordinator.candidates.view,
+        page: 2,
+      } as never,
+    );
+    const candidateRequest = candidateExecute.mock
+      .calls[1]![0] as CandidateRequest;
+    coordinator.cancel('co-star');
+
+    expect(candidateRequest.signal.aborted).toBe(true);
+    expect(coordinator.candidates).toMatchObject({
+      feedback: '查询已取消',
+      input: { positionKey: 'staff:anime:2' },
+      payload: { id: 'stable' },
+      phase: 'ready',
+      requestId: 'server-candidate-stable',
+      view: { page: 1 },
+      viewPending: false,
+    });
+    pendingView.resolve({
+      payload: { id: 'late' },
+      requestId: 'server-candidate-late',
+      transactionId: candidateRequest.transactionId,
+    });
+    await expect(request).resolves.toBe(false);
+    expect(coordinator.candidates.payload).toEqual({ id: 'stable' });
+  });
+
+  it('rejects invalid candidate view scope and records strict server errors', async () => {
+    const store = readyStore();
+    store.draft.scope = 'global';
+    store.draft.positionKeys = ['staff:anime:2', 'staff:anime:101'];
+    const candidateExecute = vi
+      .fn()
+      .mockImplementationOnce(async (request: CandidateRequest) => ({
+        payload: { id: 'global' },
+        requestId: 'server-candidate-global',
+        transactionId: request.transactionId,
+      }))
+      .mockImplementationOnce(async () => {
+        throw new CandidatesApiError(
+          {
+            error: {
+              code: 'NOT_READY',
+              fieldErrors: {},
+              message: 'not ready',
+              retryable: true,
+            },
+            meta: {
+              requestId: 'server-candidate-not-ready',
+            },
+          },
+          503,
+        );
+      });
+    const coordinator = createQueryCoordinator(store, {
+      rankings: drivers(vi.fn()).rankings,
+      candidates: { execute: candidateExecute },
+    });
+    await coordinator.execute({
+      catalog: catalogFixture(),
+      mode: 'co-star',
+    });
+
+    await expect(
+      coordinator.executeCandidateView(coordinator.candidates.input, {
+        order: 'desc',
+        page: 1,
+        pageSize: 10,
+        search: '',
+        sort: 'globalAverage',
+      }),
+    ).resolves.toBe(false);
+    expect(candidateExecute).toHaveBeenCalledTimes(1);
+    expect(coordinator.candidates.error).toBe('候选人物视图参数无效');
+
+    await expect(
+      coordinator.executeCandidateView(
+        { positionKey: 'staff:anime:101' },
+        {
+          order: 'desc',
+          page: 2,
+          pageSize: 10,
+          search: '',
+          sort: 'average',
+        },
+      ),
+    ).resolves.toBe(false);
+    expect(coordinator.candidates).toMatchObject({
+      error: '候选人物服务正在准备，请稍后重试',
+      input: { positionKey: 'staff:anime:2' },
+      payload: { id: 'global' },
+      requestId: 'server-candidate-not-ready',
+      view: { page: 1 },
+    });
   });
 
   it('runs a view-only ranking transaction without changing Applied or revision', async () => {
