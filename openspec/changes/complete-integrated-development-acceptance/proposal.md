@@ -1,0 +1,238 @@
+## Why
+
+All production capabilities and their immutable development artifacts are
+accepted independently, but the repository still lacks one repeatable,
+read-only decision that proves those exact parts work together. This final
+development change adds that decision without repairing product code or
+starting release, deployment, activation, or production operations.
+
+## What Changes
+
+- Add one Contracts-owned local harness that fails closed while orchestrating
+  the existing Go, Python, TypeScript, schema/golden, artifact, and race gates.
+- Exercise an accepted full inactive Archive through a disposable local
+  current-pointer copy, the real packaged Backend API, the immutable Updater
+  artifact, and the packaged Frontend; no production entry may import a
+  fixture, prototype module, or test adapter.
+- Run real global-scope API/UI journeys for ranking, candidates, person detail,
+  partners, and co-star, including cancellation/latest-response and resource
+  state checks already exposed by the production application.
+- Compare the packaged Frontend with fixed oracle commit
+  `644b7748674e553f863d0ffd61d029f86fdc0717` through a parallel shadow run,
+  machine-readable DOM/geometry/style/interaction goldens, and bounded
+  screenshot differences. Only an exception explicitly mapped to
+  `PRODUCT.md`, `DESIGN.md`, or an accepted capability may pass.
+- Run the Light/Dark browser matrix at 360, 390, 779, 780, 1024, and 1440
+  pixels, with keyboard/focus, Drawer/scroll, overflow, duplicate-ID,
+  console/unhandled-rejection, failed-resource, and network-origin checks.
+- Characterize full-Archive startup, representative global queries, browser
+  journeys, CPU, peak memory, and output sizes with reviewed development
+  budgets. Emit a strict machine-readable result document, but keep every run
+  result, screenshot, trace, process file, and copied Archive byte untracked
+  and disposable.
+- Make every failed matrix cell block the final development-acceptance verdict
+  and point back to the owning capability. The harness never edits a failed
+  owner and never weakens an expectation in order to pass.
+
+## Capabilities
+
+### New Capabilities
+
+- `contracts-development-acceptance`: the final read-only development
+  acceptance matrix, input attestation, full-Archive/API/UI/oracle/browser
+  orchestration, development performance characterization, result schema, and
+  fail-closed verdict.
+
+### Modified Capabilities
+
+None.
+
+## Impact
+
+### Status
+
+- investigated: complete
+- specified: complete
+- implemented: no
+- verified: no
+- committed: no
+- pushed: no
+- released: no
+- deployed: no
+
+### Owner
+
+- Specification: one OpenSpec subagent; the main agent reviews and may amend.
+- Apply: one Contracts acceptance implementation agent.
+- Final acceptance, task markers, repository lifecycle, and the final status
+  statement: main agent.
+
+### Writable paths
+
+- OpenSpec lifecycle only:
+  `openspec/changes/complete-integrated-development-acceptance/.openspec.yaml`,
+  `openspec/changes/complete-integrated-development-acceptance/proposal.md`,
+  `openspec/changes/complete-integrated-development-acceptance/design.md`,
+  `openspec/changes/complete-integrated-development-acceptance/tasks.md`, and
+  `openspec/changes/complete-integrated-development-acceptance/specs/**`.
+  The apply owner SHALL NOT edit these paths.
+- Apply implementation: only `contracts/acceptance/**`.
+- Generated local state and evidence: only the ignored
+  `contracts/acceptance/.tmp/**` root, which SHALL be absent at handoff.
+
+### Read-only protected inputs
+
+- All tracked and untracked repository paths outside this change's OpenSpec
+  files and `contracts/acceptance/**`, including `PRODUCT.md`, `DESIGN.md`,
+  `.impeccable/**`, `tmp-formal-development/**`, `.github/**`,
+  `backend/**`, `updater/**`, `frontend/**`, `contracts/artifacts/**`,
+  `contracts/openapi/**`, `contracts/schemas/**`, `contracts/goldens/**`,
+  `openspec/specs/**`, and every sibling active or archived change.
+- Oracle commit `644b7748674e553f863d0ffd61d029f86fdc0717`,
+  the clean accepted candidate revision/tree, the three component artifact
+  roots, their compatibility manifest, and the caller-supplied full inactive
+  Archive.
+- Git refs/remotes, external repositories, registries, releases,
+  deployments, hosts, services, secrets, production paths, production state,
+  and the public Internet.
+
+### Deletion complement
+
+None. Apply may replace files only within `contracts/acceptance/**` and SHALL
+NOT delete, move, clean, or rewrite a protected input. Cleanup may remove only
+one run root that the harness itself created below
+`contracts/acceptance/.tmp/**`.
+
+### Mutable refs
+
+None.
+
+### Consumes
+
+- The completed and archived `produce-development-artifacts` capability,
+  including three accepted component artifact roots and their strict
+  compatibility manifest from one clean revision/tree and target platform.
+- A caller-supplied, immutable, inactive full Archive candidate produced by the
+  accepted Updater, plus its dataVersion, manifest, and SQLite identities.
+- Existing component checks, cross-language contract verifiers, Archive/API
+  goldens, OpenAPI, race gates, production routes, fixed oracle commit,
+  `PRODUCT.md`, `DESIGN.md`, and the accepted frontend capability specs.
+- Pinned Go, Python/uv, Node/npm, Docker/BuildKit, and a separately locked
+  browser-test runtime owned only by `contracts/acceptance/**`.
+
+### Produces
+
+- A tracked, versioned acceptance matrix; strict input, result, exception, and
+  development-budget schemas; a local CLI/orchestrator; focused harness tests;
+  and documentation, all below `contracts/acceptance/**`.
+- For each run, one canonical machine-readable result and diagnostic
+  screenshots/traces below the ignored run root. Results identify source/tree,
+  artifact manifest, Archive, oracle, toolchain, browser, host profile,
+  commands, durations, memory, byte counts, and every pass/fail/skip decision.
+- Only a fully green run may emit the exact verdict
+  `development-accepted-operations-pending`.
+
+### Dependencies
+
+The sole exact direct dependency is `produce-development-artifacts`. It SHALL
+be completed and archived before apply. Its transitive closure supplies every
+earlier Backend, Updater, Frontend, and Contracts capability; no wave alias or
+additional direct edge is introduced. Apply is also blocked if any other
+active change or dirty product-code candidate exists at admission.
+
+### Deliverables
+
+- Contracts-owned CLI, schemas, matrix, oracle exception registry, browser
+  scenarios, development performance budgets, tests, README, and pinned local
+  acceptance dependencies under `contracts/acceptance/**`.
+- A read-only orchestration path for existing contract/component/race gates,
+  accepted artifacts, a full inactive Archive, real Backend API, immutable
+  Updater artifact, packaged Frontend, oracle shadow, and browser matrix.
+- No committed run result, screenshot, trace, Archive copy, tool cache,
+  browser binary, build output, process file, or credential.
+
+### Acceptance
+
+- The exact dependency is archived; the candidate checkout is clean and
+  attested; all three component statements and the compatibility manifest bind
+  the same accepted source revision/tree and target; the full Archive is
+  immutable and compatible.
+- Existing cross-language contract, component full-check, artifact-only smoke,
+  Go race, and strict OpenSpec gates pass without source mutation.
+- The harness runs the immutable Updater artifact checks and starts the
+  packaged Backend against a disposable read-only copy of the supplied full
+  Archive. Health, readiness, metrics, catalog, ranking, candidates, person
+  detail, partners, co-star, cancellation, and shutdown checks pass against
+  real process boundaries.
+- The packaged Frontend alone drives the accepted real Backend routes. The
+  production bundle contains no fixture/prototype/test import, no frontend
+  statistical authority, and no direct Bangumi API/image-upstream request.
+- Oracle shadow/golden and browser matrix cells pass at all required
+  viewport/theme/state combinations. Approved additions are isolated by
+  explicit exception records; unclassified appearance, interaction, copy,
+  state, focus, or responsive drift fails.
+- Development budgets and measurements are complete and machine-readable.
+  They characterize the reviewed machine and full Archive only; they are not
+  production SLOs or capacity claims.
+- Any command failure, timeout, unexpected skip, missing evidence, input or
+  output mutation, network escape, residual process/container/file, schema
+  violation, or matrix failure prevents the green verdict.
+- Focused harness tests, a negative/tamper suite, strict OpenSpec validation,
+  exact-path/residue audits, and `git diff --check` pass.
+
+### Behavior classification
+
+- `NEW_CAPABILITY`: the read-only integrated development-acceptance harness,
+  matrix, schemas, budgets, evidence format, and verdict.
+- `PRESERVE_ORACLE`: all existing frontend appearance, interaction, copy,
+  state, focus, and responsive behavior remains governed by oracle
+  `644b7748674e553f863d0ffd61d029f86fdc0717`.
+- `INTENTIONAL_DELTA`: none. Existing approved production additions are
+  exception inputs, not new deltas created by this change.
+
+### Non-goals
+
+- Any fix, refactor, test addition, dependency change, generated-wire update,
+  schema/golden change, API behavior change, or frontend behavior/style change
+  outside `contracts/acceptance/**`.
+- Downloading or producing a new upstream Archive as part of the final
+  decision, exercising personal queries that require mutable public-network
+  state, or treating a tiny checked-in fixture as the full-Archive gate.
+- Signing, publication, release, deployment, production activation,
+  production load testing, production resource sizing, SLO certification, or
+  a claim that operations or production readiness is complete.
+
+### Operations deferred
+
+Production Compose, nginx/systemd/timers, `/srv`, users, permissions, TLS,
+secrets, real `current.json` activation, restart/readiness rollback, cleanup
+and `update_activated`, registry/release/deploy/SSH, production
+scrape/alert/retention/SLO, cutover, observation windows, migration, rollback
+drills, and legacy removal.
+
+### Stop/rollback conditions
+
+Stop before apply if the dependency is active/unaccepted, another active
+change exists, the candidate or protected input is dirty, the full Archive or
+artifact set is absent/incompatible/mutable, the main agent has not approved
+all four strict-valid artifacts, or implementation would need an undeclared
+path, dependency, network, ref, or external-state mutation. Stop during apply
+or acceptance on product/source mutation, fixture-backed production behavior,
+oracle drift, unexpected network access, residual state, unbounded benchmark,
+deployment/activation behavior, or an attempt to turn a failed cell into a
+pass by editing another owner. Rollback deletes only this change's uncommitted
+files and its own ignored run root; it never resets or cleans the repository.
+
+### External state
+
+The harness may create bounded loopback listeners and disposable local
+processes/containers, read local Docker state, and read the declared full
+Archive and immutable artifact roots. It SHALL NOT contact the public Internet
+or mutate another repository, ref, remote, registry, service, host,
+production path, or production state. Any push, pull request, tag, release,
+deployment, host mutation, Archive activation, or later operations change
+requires separate explicit authorization.
+
+Apply is blocked until proposal, specs, design, and tasks are complete, pass
+strict validation, and are explicitly reviewed and approved by the main
+agent.

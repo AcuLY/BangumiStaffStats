@@ -1,0 +1,411 @@
+# contracts-development-acceptance Specification
+
+## Capability Boundary
+
+| Field | Declaration |
+|---|---|
+| Status | investigated: complete; specified: complete; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
+| Owner | One Contracts acceptance apply agent implements only this capability; the main agent reviews the specification and owns final acceptance and repository lifecycle. |
+| Writable paths | Apply: only `contracts/acceptance/**`. OpenSpec lifecycle: only this change's `.openspec.yaml`, proposal, design, tasks, and `specs/**`; apply cannot edit them. Generated evidence: only ignored `contracts/acceptance/.tmp/**`, absent at handoff. |
+| Read-only protected inputs | Every path outside the exact owned paths, especially Backend/Updater/Frontend source/tests/build definitions, existing Contracts artifacts/schemas/goldens/OpenAPI, root documents/config, `.impeccable/**`, root specs and sibling changes; fixed oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; accepted candidate/artifact/full-Archive inputs; external repositories, refs/remotes, registries, hosts, services, secrets, production state, and public Internet. |
+| Deletion complement | None. Cleanup may delete only one harness-created run root below `contracts/acceptance/.tmp/**` after exact containment, type, and ownership validation. |
+| Mutable refs | None. |
+| Consumes | Archived `produce-development-artifacts`; one clean accepted revision/tree; three component artifact roots and compatibility manifest; caller-supplied official full inactive Archive; existing component/contract/race/artifact commands; fixed oracle; pinned local toolchains/browser. |
+| Produces | A versioned closed matrix, strict input/result/budget/exception schemas, local orchestrator, browser scenarios, focused/negative tests, README, and ignored per-run evidence. Only a complete green result emits `development-accepted-operations-pending`. |
+| Dependencies | Sole exact direct dependency: `produce-development-artifacts`, completed and archived. Apply also requires no other active change and no dirty product candidate. |
+| Deliverables | Only tracked source/config/schema/test/lock/docs below `contracts/acceptance/**`; no generated run result, screenshot, trace, browser, cache, Archive copy, process file, or credential. |
+| Acceptance | Immutable-input attestation; existing cross-language/component/race/artifact gates; full-Archive disposable runtime; immutable Updater artifact checks; packaged Backend/API/Frontend E2E; oracle shadow/golden and browser matrix; bounded development performance; negative/tamper/timeout/network/residue gates; strict OpenSpec/exact-path/residue/diff checks. |
+| Non-goals | Product fixes/refactors/tests/dependency changes outside the owner, new API/UI behavior, Archive acquisition/production, live personal-network E2E, release/deploy/activation, production load/resource/SLO/readiness claims. |
+| Operations deferred | Production Compose/nginx/systemd/timers, users/paths/permissions/TLS/secrets, real pointer activation/restart/rollback/cleanup/`update_activated`, registry/release/deploy/SSH, production monitoring/SLO, cutover/observation/migration/rollback drill/legacy removal. |
+| Stop/rollback conditions | Stop on an unarchived dependency, another active change, dirty/mixed/mutable/missing input, unreviewed artifacts, path overlap, undeclared dependency/network/state, protected mutation, fixture-backed production path, oracle drift, timeout, residue, unbounded benchmark, or owner-repair attempt. Roll back only uncommitted owned files and the validated owned run root. |
+
+## ADDED Requirements
+
+### Requirement: Admission SHALL bind one clean accepted candidate
+
+The acceptance CLI SHALL require one strict input document and SHALL attest the
+clean candidate revision/tree, Backend/Updater/Frontend component roots,
+compatibility manifest, full inactive Archive version, fixed oracle, exact
+toolchain executables, and browser identity before it starts an expensive
+gate. All three component statements and the compatibility manifest SHALL name
+the same candidate revision/tree and target platform. The dependency
+`produce-development-artifacts` SHALL be archived, no other active change
+SHALL exist, and no product path SHALL be dirty.
+
+The CLI SHALL reject unknown input fields, duplicate JSON keys, unsafe or
+relative paths, symlinks, special files, mixed identities, mutable inputs,
+untracked non-ignored candidate paths, non-stage-zero index entries,
+`assume-unchanged`/`skip-worktree`, Git replacement refs, or an input whose
+raw tracked blobs/executable modes do not equal the named tree.
+
+#### Scenario: Accepted immutable inputs are admitted
+
+- **WHEN** one clean candidate, three validated component roots, their exact
+  compatibility manifest, one valid full inactive Archive, fixed oracle, and
+  pinned local tools all agree
+- **THEN** the CLI SHALL record their content identities and proceed to the
+  closed acceptance matrix
+
+#### Scenario: A candidate or input identity is ambiguous
+
+- **WHEN** any source/tree/platform/manifest/Archive/tool identity disagrees,
+  an input can change during admission, or Git state can hide a different
+  byte/mode
+- **THEN** admission SHALL fail before starting a component, container, API, or
+  browser process
+
+### Requirement: The matrix and result SHALL be closed and machine-readable
+
+`contracts/acceptance/**` SHALL define one versioned, closed acceptance matrix
+and strict schemas for input, result, development budgets, and oracle
+exceptions. Every required cell SHALL have a stable ID, phase, owning
+capability, fixed command or scenario ID, required inputs, timeout, and
+evidence fields. Runtime input SHALL NOT add a command, assertion, exception,
+threshold, route, or matrix cell.
+
+The canonical result SHALL identify the candidate tree, compatibility
+manifest, component statements, full Archive, oracle, toolchains, browser,
+machine profile, budgets, exact matrix version, cell status/duration/evidence,
+input/output seals, and final verdict. Required cells SHALL be exactly
+`pass|fail|blocked`; they SHALL never be skipped. A fail-fast run SHALL mark
+every unrun dependent cell `blocked` by the originating failure. Result
+evidence SHALL use run-relative paths and SHA-256 without absolute paths,
+usernames, secrets, raw response bodies, or unbounded logs.
+
+#### Scenario: Every required cell passes
+
+- **WHEN** the canonical result contains the exact closed cell set, every cell
+  is `pass`, all seals and cleanup checks pass, and the result validates
+- **THEN** the only green verdict SHALL be
+  `development-accepted-operations-pending`
+
+#### Scenario: A cell fails or evidence is missing
+
+- **WHEN** one cell fails, times out, is absent, has invalid evidence, or cannot
+  run because a prior cell failed
+- **THEN** the result SHALL record `fail` or `blocked`, exit nonzero, and SHALL
+  NOT emit a green verdict
+
+### Requirement: Existing owner gates SHALL remain authoritative
+
+The harness SHALL invoke the existing cross-language Contracts verifiers,
+Backend full check including race/vet/build, Updater
+pytest/mypy/Ruff/locked-build gates, Frontend
+wire/architecture/unit/type/build/artifact gates, component artifact
+validators, and compatibility coordinator smoke. The matrix SHALL name the
+owner capability for each gate and SHALL use fixed repository-owned
+entrypoints, sanitized environments, bounded output, and timeouts.
+
+Before running a source gate, the harness SHALL create a no-hardlink local
+clone below its owned run root, check out the exact candidate detached, and
+re-attest its revision/tree and tracked blob/mode inventory. Every disposable
+source-gate write, including `node_modules`, virtual environments, `dist`,
+`.cache`, `.tmp`, generated checks, and artifact coordinator state, SHALL stay
+inside that clone. The live repository SHALL remain read-only and SHALL gain no
+worktree metadata, ref, index, cache, or generated file.
+
+Acceptance-owned tests SHALL cover only orchestration, schema, command closure,
+redaction, failure/timeout propagation, input immutability, network/process
+policy, oracle-exception validation, canonical results, and residue. They
+SHALL NOT copy or replace query, statistics, API, Archive, or frontend business
+expected values.
+
+#### Scenario: An existing owner gate succeeds
+
+- **WHEN** its accepted entrypoint exits successfully in the isolated clone
+  without changing a protected live input
+- **THEN** the harness SHALL record the bounded command identity and evidence
+  digest as that matrix cell's pass
+
+#### Scenario: An owner gate fails
+
+- **WHEN** an existing contract, test, race, build, artifact, or smoke
+  entrypoint exits nonzero, times out, mutates input, or emits invalid evidence
+- **THEN** the harness SHALL attribute the failure to that owner and stop
+  without editing or weakening its implementation or expectations
+
+### Requirement: A full inactive Archive SHALL be proven without mutating it
+
+The full-Archive input SHALL be a regular non-symlink version directory
+containing exact `manifest.json` and `bangumi.sqlite` bytes from an official
+complete seven-source Archive release produced by the accepted Updater. The
+harness SHALL validate the Archive contract, manifest/SQLite/schema/dataVersion
+digests, official release/common identities, complete source accounting,
+generator compatibility, and real Go consumer acceptance. It SHALL reject
+known minimal fixtures, synthetic producer cases, missing sources, and any
+input that changes before cleanup completes.
+
+For runtime only, the harness SHALL byte-copy the validated version into one
+owned run root, derive a canonical `current.json`, make the complete copy
+read-only, and mount only that copy. Hard links, symlinks, writes beside the
+input, and reuse of a production/current activation root are forbidden.
+
+#### Scenario: Official full Archive is accepted
+
+- **WHEN** the supplied inactive version passes all Contracts and real Go
+  consumer gates and its seven official source accounts are complete
+- **THEN** a byte-identical disposable activation copy SHALL be created below
+  the owned run root and the source SHALL remain unchanged
+
+#### Scenario: Minimal, synthetic, damaged, or mutable Archive is supplied
+
+- **WHEN** the input matches a checked-in minimal/synthetic identity, omits a
+  source, violates any manifest/SQLite gate, is linked, or changes during the
+  run
+- **THEN** full-Archive acceptance SHALL fail and no supplied or production
+  pointer SHALL be created or modified
+
+### Requirement: Immutable Updater and packaged Backend SHALL run at real boundaries
+
+The accepted Updater artifact SHALL run its terminating `doctor` and
+`contract-check` commands in a read-only, non-root, networkless environment
+against accepted Contracts. It SHALL write only bounded temporary interpreter
+state and SHALL leave no process/container/file residue.
+
+The packaged Backend artifact SHALL start as non-root with a read-only root
+filesystem, dropped capabilities, bounded tmpfs, internal local network, and
+the disposable full Archive mounted read-only. It SHALL become live and ready,
+export the expected metrics/dataVersion, serve catalog/rankings/candidates/
+person-detail/partners/co-star from the real Archive, honor request limits and
+cancellation, and terminate cleanly.
+
+#### Scenario: Real artifact runtime succeeds
+
+- **WHEN** the accepted Updater and Backend artifacts run against the accepted
+  Contracts and disposable full Archive
+- **THEN** terminating Updater checks and Backend health/readiness/metrics plus
+  representative global API journeys SHALL pass without importing product
+  source at runtime
+
+#### Scenario: Runtime escapes its boundary
+
+- **WHEN** either artifact runs as root, writes a protected/input path, imports
+  source, contacts an external network, leaves a process/container, or fails
+  readiness/API/shutdown evidence
+- **THEN** integrated acceptance SHALL fail even if its command exits zero
+
+### Requirement: Packaged Frontend E2E SHALL use only the real Backend
+
+The frontend server SHALL expose only the accepted packaged static artifact
+and SHALL reverse-proxy same-origin `/api/**` to the packaged Backend. Browser
+journeys SHALL cover `/`, `/ranking`, and `/co-star`; dynamic catalog and
+query application; ranking/candidates selection; person detail; partners;
+pair and group co-star; search/sort/page/view changes; loading/error/empty
+resource states available without fixture injection; cancellation/latest
+response; theme/mode transitions; and share behavior.
+
+The runtime bundle SHALL contain no prototype/fixture/test import, frontend
+statistics authority, alternate request/state layer, or direct Bangumi
+upstream. Runtime request and response validation SHALL use the accepted
+OpenAPI and API goldens; person/position IDs SHALL be selected from live global
+responses. Personal scope SHALL remain in existing component/contract gates
+and SHALL NOT make final E2E depend on mutable public collection state.
+
+#### Scenario: Global real-data journey succeeds
+
+- **WHEN** a browser drives the packaged SPA through the same-origin server and
+  chooses valid entities from live full-Archive responses
+- **THEN** every visible state and operation SHALL be backed by the packaged
+  real Backend and validated against accepted contracts
+
+#### Scenario: A production journey uses a fixture or upstream
+
+- **WHEN** the browser or bundle imports a prototype/fixture/test adapter,
+  calculates authoritative statistics, bypasses the packaged Backend, or
+  requests a non-loopback/public origin
+- **THEN** integrated acceptance SHALL fail before that response can establish
+  a pass
+
+### Requirement: Preserved frontend behavior SHALL be compared with the fixed oracle
+
+The harness SHALL materialize the oracle from Git commit
+`644b7748674e553f863d0ffd61d029f86fdc0717` without moving a ref or creating a
+Git worktree, and SHALL build it only from locked locally pre-provisioned
+bytes. Candidate and oracle SHALL run in the same attested browser, locale,
+timezone, DPR, font set, motion preference, theme, viewport, and seeded clock.
+
+For shared states, the harness SHALL compare normalized role/name/state DOM
+snapshots, geometry, typography, colors, borders, radius, shadow, visibility,
+focus, overflow, scroll ownership, responsive transitions, action traces, and
+paired screenshots. The exception registry SHALL permit only exact
+selector/property/state or rectangular dynamic masks mapped to a governing
+`PRODUCT.md`, `DESIGN.md`, or accepted capability requirement. Wildcards,
+whole-page masks, runtime exceptions, changed thresholds, and unresolvable
+authorities SHALL fail. Dynamic data slots MAY mask content pixels only; their
+geometry, hierarchy, formatting, and interaction SHALL remain compared.
+
+#### Scenario: Preserved surface matches
+
+- **WHEN** the same shared route/state is rendered in the candidate and oracle
+  under one matrix cell
+- **THEN** every unexcepted semantic, geometry, style, interaction, focus,
+  responsive, and bounded screenshot comparison SHALL pass
+
+#### Scenario: An unclassified difference appears
+
+- **WHEN** appearance, copy, state, interaction, focus, scroll, responsive
+  behavior, or screenshot bytes differ outside one exact approved exception
+- **THEN** the oracle cell SHALL fail; reviewer preference or a newly generated
+  candidate golden SHALL NOT waive it
+
+### Requirement: The complete browser matrix SHALL be fail-closed
+
+Light and Dark contexts at 360, 390, 779, 780, 1024, and 1440 CSS pixels SHALL
+cover shared query, ranking, person inspector/Drawer, co-star, loading/error/
+empty, and approved-addition states. The matrix SHALL verify keyboard-only
+operation, visible focus, focus return, Escape close, mask/inert/background
+behavior, tooltip, scroll ownership/chaining, reduced motion, horizontal
+overflow, duplicate IDs, accessible names, console errors/warnings, unhandled
+rejections, failed resources, and every network request.
+
+The network allowlist SHALL contain only the declared loopback frontend origin
+and its same-origin packaged API/image routes. A console error, unhandled
+rejection, failed resource, direct `api.bgm.tv`/image request, analytics or
+other public request, unexpected horizontal overflow, duplicate ID, or missing
+required focus/accessibility evidence SHALL fail its cell.
+
+One exact SafeImage failure-state cell MAY abort same-origin
+`/api/v1/images/bangumi/**` requests without fulfilling or rewriting them. The
+cell SHALL record those aborts separately and pass only when affected images
+reach the accepted stable error state without layout shift, console error,
+retry escape, or direct upstream request. No other failed resource or
+intercepted response is permitted.
+
+#### Scenario: Required viewport and theme matrix is clean
+
+- **WHEN** every required route/state runs at all twelve viewport/theme
+  combinations with both default and reduced-motion contexts where applicable
+- **THEN** interaction, accessibility, console, resource, network, overflow,
+  and oracle evidence SHALL all pass
+
+#### Scenario: Browser evidence is incomplete
+
+- **WHEN** one required viewport/theme/state is omitted, browser automation
+  cannot inspect it, or a required error/network/focus check is missing
+- **THEN** the matrix SHALL fail rather than skip or infer that cell
+
+### Requirement: Development performance budgets SHALL be bounded and explicit
+
+A versioned `budgets.json` SHALL define immutable development-only commands,
+machine profiles, measurement units, timeouts, and hard ceilings. Runtime input
+SHALL NOT learn, widen, or override a budget. At minimum:
+
+- reachable initial Frontend JavaScript gzip SHALL remain below 300 KiB;
+- the Backend query test binary SHALL remain at or below 16 MiB;
+- observed cache logical bytes/items SHALL remain within accepted cache
+  capability budgets;
+- every representative API request SHALL finish below the existing 30-second
+  hard request bound;
+- full-Archive readiness, browser journeys, component gates, and the complete
+  suite SHALL each have finite reviewed timeouts.
+
+The result SHALL record the full Archive source/table counts and byte sizes;
+artifact/compressed sizes; cold readiness and shutdown; cold/warm global API
+durations/response bytes; Backend CPU/peak memory/cache/request metrics;
+browser ready/action durations, transferred bytes, requests and DOM size; and
+the OS/architecture/CPU/memory class, Docker, toolchain, and browser versions.
+Machine-sensitive verdicts SHALL use one reviewed named profile. The output
+SHALL call itself development characterization and SHALL NOT claim a
+production SLO, capacity, resource limit, or readiness result.
+
+#### Scenario: Measurements fit the reviewed development profile
+
+- **WHEN** every required measurement is finite, complete, correctly unitized,
+  and within its invariant or named-profile ceiling
+- **THEN** the performance cells SHALL pass and record the exact machine/input
+  identities
+
+#### Scenario: Budget evidence is absent or exceeded
+
+- **WHEN** a required measurement is missing/non-finite, a command is
+  unbounded, a hard/profile ceiling is exceeded, or runtime input changes a
+  threshold
+- **THEN** development acceptance SHALL fail without reclassifying the result
+  as a production benchmark
+
+### Requirement: Browser automation SHALL be acceptance-only and pinned
+
+The capability MAY add exactly one direct development dependency,
+`@playwright/test`, under `contracts/acceptance/**`, pinned exactly with a
+locked transitive closure. It SHALL own browser control, contexts,
+console/network inspection, screenshots, and timeouts and SHALL contribute
+zero Backend, Updater, Frontend runtime, or production bundle bytes. Browser
+binaries SHALL be pre-provisioned version-attested inputs; install-time or
+run-time browser download is forbidden.
+
+Acceptance SHALL verify the direct-dependency allowlist, lockfile, licenses,
+no install scripts, `npm ci --ignore-scripts`, local cache containment, focused
+tests, and zero product-manifest/bundle change. No second browser/visual-diff
+library, application state/request layer, or statistical library is
+authorized.
+
+#### Scenario: Pinned acceptance dependency is used
+
+- **WHEN** the harness installs and runs its locked acceptance package from the
+  owned temporary root
+- **THEN** only the reviewed Playwright dependency and pre-provisioned browser
+  SHALL be used, with no production byte or manifest change
+
+#### Scenario: Dependency or browser escapes the admission contract
+
+- **WHEN** a package is unpinned/unlocked, has an install script, adds another
+  direct browser stack, downloads a browser, writes outside the run root, or
+  affects a product bundle
+- **THEN** dependency acceptance SHALL fail before browser cells run
+
+### Requirement: Failure, cleanup, and handoff SHALL preserve all inputs
+
+Every child process SHALL run in a separately controllable process group or
+uniquely named container with a sanitized environment, finite timeout, bounded
+output, graceful-stop window, and bounded forced cleanup. The harness SHALL
+inventory listeners, processes, containers, images, networks, mounts, and run
+files before/after. It SHALL snapshot supplied artifacts/Archive and protected
+tracked paths before execution and re-seal them after cleanup.
+
+Any command failure, timeout, unexpected signal/skip, invalid result,
+protected/input mutation, external network attempt, or residual state SHALL
+block a green verdict. Generated result/log/screenshot/trace/profile/Archive
+copies SHALL remain below ignored `contracts/acceptance/.tmp/**`; none SHALL be
+tracked or present at implementation handoff. Cleanup SHALL validate one exact
+owned run root and SHALL NOT perform broad recursive repository cleanup.
+
+#### Scenario: Failed run cleans up safely
+
+- **WHEN** any cell fails or times out after processes or containers start
+- **THEN** bounded cleanup SHALL run, the result SHALL preserve sanitized
+  failure evidence, all inputs SHALL re-seal unchanged, and the command SHALL
+  exit nonzero
+
+#### Scenario: Functional cells pass but residue remains
+
+- **WHEN** a process, container, network, image, listener, temporary path,
+  tracked result, or changed input remains
+- **THEN** the residue/final-seal cell SHALL fail and no green verdict SHALL be
+  emitted
+
+### Requirement: Development completion SHALL not claim operations completion
+
+Only after every required matrix cell passes, the canonical result validates,
+all inputs re-seal, and residue is absent MAY the project report:
+“正式新版开发验收完成；运维、发布、部署、生产迁移和旧系统退役尚未开始。”
+
+The final report SHALL separately state `specified`, `implemented`,
+`verified`, `committed`, `pushed`, `released`, and `deployed`. Passing this
+capability SHALL NOT authorize or imply a push, release, registry operation,
+deployment, host mutation, real Archive activation, production observation,
+or operations change.
+
+#### Scenario: Final development acceptance is green
+
+- **WHEN** the exact result verdict is
+  `development-accepted-operations-pending` and repository lifecycle evidence
+  is reported separately
+- **THEN** development MAY be marked complete while released and deployed
+  remain false unless separately performed and authorized
+
+#### Scenario: Operations language is inferred from development evidence
+
+- **WHEN** a report describes the result as production-ready, deployed,
+  activated, SLO-certified, or operations-complete
+- **THEN** the report SHALL be rejected even if every development matrix cell
+  passed
