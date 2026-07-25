@@ -2,7 +2,7 @@
 
 | Boundary | Declaration |
 |---|---|
-| Status | Investigated, specified, implemented, and verified: complete. Apply was admitted at `153dff7fb4c134f0871d7f4ac15950b7fecffd71`; committed, pushed, released, and deployed: no. |
+| Status | Investigated, specified, implemented, verified, and committed at `a0edd1c0`: complete. Pushed, released, and deployed: no. |
 | Owner | Main agent admits and accepts; one Frontend implementation owner writes the bounded candidate; one separate Impeccable reviewer is read-only. |
 | Writable paths | Proven hunks under `frontend/src/**`; corresponding `frontend/tests/**`; only `frontend/scripts/check-architecture.mjs`, `frontend/scripts/check-production-artifact.mjs`, `frontend/index.html`, and `frontend/vite.config.ts` when a failing gate requires them; exact `.impeccable/design.json` last; this change's task markers. |
 | Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, oracle, all other `.impeccable/**`, formal guides, contracts/backend/updater/generated DTOs and generators, manifests/lockfile, other OpenSpec artifacts, refs/remotes, external repositories, and operations state. |
@@ -43,4 +43,4 @@
 ## 4. Main Agent — Acceptance and Lifecycle
 
 - [x] 4.1 Audit every task result, reviewer finding, command output, matrix record, and owned diff; resolve P0/P1 through the smallest reopened task and revalidation, then record implemented/verified status separately from committed/pushed/released/deployed.
-- [ ] 4.2 Rerun `openspec validate harden-frontend-design-and-accessibility --strict` and `openspec validate --all --strict`; after acceptance, perform only narrow staging/commit and OpenSpec sync/archive lifecycle actions, leaving push, release, and deployment false unless separately authorized.
+- [x] 4.2 Rerun `openspec validate harden-frontend-design-and-accessibility --strict` and `openspec validate --all --strict`; after acceptance, perform only narrow staging/commit and OpenSpec sync/archive lifecycle actions, leaving push, release, and deployment false unless separately authorized. The accepted implementation was committed at `a0edd1c0`; push, release, and deployment remain false.
