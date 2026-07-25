@@ -1,0 +1,458 @@
+{
+  "caseFileVersion": 1,
+  "kind": "scope-filter-matrix",
+  "fixture": "fixtures/anime-domain-v1.json",
+  "cases": [
+    {
+      "caseId": "personal-normalized-complete-filter-matrix",
+      "outcome": "success",
+      "coverage": [
+        "scope-personal",
+        "collection-status",
+        "collection-isolation",
+        "nsfw-false",
+        "date-year-month-day-precision",
+        "missing-global-score",
+        "missing-personal-score",
+        "collection-updated-at",
+        "rating-count",
+        "public-meta-personal-tags",
+        "tag-include-and-or",
+        "tag-exclude-or-and"
+      ],
+      "domain": "filters",
+      "querySource": {
+        "kind": "sharedQueryVector",
+        "path": "contracts/goldens/query/cases/queries.json",
+        "caseId": "personal-normalization"
+      },
+      "expected": {
+        "effectiveQuery": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed",
+            "in_progress",
+            "dropped"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false,
+          "filters": {
+            "subjectDate": {
+              "min": "2000-01",
+              "max": "2025-12"
+            },
+            "collectionUpdatedAt": {
+              "min": "2020-02"
+            },
+            "personalScore": {
+              "min": 0,
+              "max": 10
+            },
+            "globalScore": {
+              "min": 6.5
+            },
+            "scoreDifference": {
+              "min": -10,
+              "max": 10
+            },
+            "ratingCount": {
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "sf",
+                    "strasse"
+                  ]
+                },
+                {
+                  "anyOf": [
+                    "日常"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "ドラマ"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "queryDigest": "q1:71a3e9230aadd18df18a30701c192d1e9fe99e2c74fbb09c47282507432c451e",
+        "collectionAccessCount": 1,
+        "eligibleSubjectIds": [
+          101,
+          102
+        ],
+        "positionResults": [
+          {
+            "positionKey": "staff:anime:2",
+            "candidatePersonIds": [
+              201
+            ],
+            "candidateSubjectIds": [
+              101,
+              102
+            ],
+            "contributions": [
+              {
+                "positionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 101,
+                "personId": 201,
+                "positionId": 2
+              },
+              {
+                "positionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 102,
+                "personId": 201,
+                "positionId": 2
+              }
+            ]
+          },
+          {
+            "positionKey": "cast:anime:all",
+            "candidatePersonIds": [],
+            "candidateSubjectIds": [],
+            "contributions": []
+          }
+        ],
+        "rankingPeople": [],
+        "participatingSubjectIds": [],
+        "participantSets": []
+      }
+    },
+    {
+      "caseId": "global-filter-matrix-no-collection-access",
+      "outcome": "success",
+      "coverage": [
+        "scope-global",
+        "global-no-collection-access",
+        "nsfw-true",
+        "date-month-day-precision",
+        "missing-global-score",
+        "rating-count-zero",
+        "normalized-exact-tags",
+        "tag-exclude-all-of"
+      ],
+      "domain": "filters",
+      "querySource": {
+        "kind": "inline",
+        "submitted": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ],
+          "includeNSFW": true,
+          "mergeSeries": false,
+          "filters": {
+            "subjectDate": {
+              "max": "2026-07"
+            },
+            "globalScore": {
+              "min": 0,
+              "max": 10
+            },
+            "ratingCount": {
+              "min": 0
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "global-action"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "ova",
+                    "special"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "expected": {
+        "effectiveQuery": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ],
+          "includeNSFW": true,
+          "mergeSeries": false,
+          "filters": {
+            "subjectDate": {
+              "max": "2026-07"
+            },
+            "globalScore": {
+              "min": 0,
+              "max": 10
+            },
+            "ratingCount": {
+              "min": 0
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "global-action"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "ova",
+                    "special"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "queryDigest": "q1:0cf6e1702b8db9c50d8f0e71f47b447c3d2e8b182bc2d772ce89c16db41b0458",
+        "collectionAccessCount": 0,
+        "eligibleSubjectIds": [
+          120,
+          121
+        ],
+        "positionResults": [
+          {
+            "positionKey": "staff:anime:2",
+            "candidatePersonIds": [
+              201
+            ],
+            "candidateSubjectIds": [
+              120,
+              121
+            ],
+            "contributions": [
+              {
+                "positionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 120,
+                "personId": 201,
+                "positionId": 2
+              },
+              {
+                "positionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 121,
+                "personId": 201,
+                "positionId": 2
+              }
+            ]
+          }
+        ],
+        "rankingPeople": [
+          {
+            "personId": 201,
+            "subjectIds": [
+              120,
+              121
+            ]
+          }
+        ],
+        "participatingSubjectIds": [
+          120,
+          121
+        ],
+        "participantSets": []
+      }
+    },
+    {
+      "caseId": "personal-filter-inclusive-boundaries",
+      "outcome": "success",
+      "coverage": [
+        "personal-score-min-max",
+        "global-score-min-max",
+        "score-difference-min-max",
+        "rating-count-min-max",
+        "subject-date-min-max",
+        "collection-date-min-max"
+      ],
+      "domain": "filters",
+      "querySource": {
+        "kind": "inline",
+        "submitted": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false,
+          "filters": {
+            "subjectDate": {
+              "min": "2000-01",
+              "max": "2025-12"
+            },
+            "collectionUpdatedAt": {
+              "min": "2020-02",
+              "max": "2025-12"
+            },
+            "personalScore": {
+              "min": 7,
+              "max": 9
+            },
+            "globalScore": {
+              "min": 6,
+              "max": 9
+            },
+            "scoreDifference": {
+              "min": 1,
+              "max": 2
+            },
+            "ratingCount": {
+              "min": 2,
+              "max": 4
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "action"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "drama"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "expected": {
+        "effectiveQuery": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false,
+          "filters": {
+            "subjectDate": {
+              "min": "2000-01",
+              "max": "2025-12"
+            },
+            "collectionUpdatedAt": {
+              "min": "2020-02",
+              "max": "2025-12"
+            },
+            "personalScore": {
+              "min": 7,
+              "max": 9
+            },
+            "globalScore": {
+              "min": 6,
+              "max": 9
+            },
+            "scoreDifference": {
+              "min": 1,
+              "max": 2
+            },
+            "ratingCount": {
+              "min": 2,
+              "max": 4
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "action"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "drama"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "queryDigest": "q1:a159da427b24aaffef2c5083bff6954b3691abfeb59bf8971fff9f9ea9831b9c",
+        "collectionAccessCount": 1,
+        "eligibleSubjectIds": [
+          130,
+          136
+        ],
+        "positionResults": [
+          {
+            "positionKey": "staff:anime:2",
+            "candidatePersonIds": [
+              201
+            ],
+            "candidateSubjectIds": [
+              130,
+              136
+            ],
+            "contributions": [
+              {
+                "positionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 130,
+                "personId": 201,
+                "positionId": 2
+              },
+              {
+                "positionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 136,
+                "personId": 201,
+                "positionId": 2
+              }
+            ]
+          }
+        ],
+        "rankingPeople": [
+          {
+            "personId": 201,
+            "subjectIds": [
+              130,
+              136
+            ]
+          }
+        ],
+        "participatingSubjectIds": [
+          130,
+          136
+        ],
+        "participantSets": []
+      }
+    }
+  ]
+}

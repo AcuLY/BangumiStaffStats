@@ -4,7 +4,7 @@
   "info": {
     "title": "Bangumi Staff Statistics Shared Contracts",
     "version": "1.0.0",
-    "description": "Wave 1 shared query components. Business endpoint paths and result DTOs are intentionally deferred.",
+    "description": "Shared query contracts and the input-free dynamic catalog endpoint.",
     "license": {
       "name": "MIT",
       "identifier": "MIT"
@@ -16,7 +16,200 @@
       "description": "Version 1 API family"
     }
   ],
-  "paths": {},
+  "paths": {
+    "/catalog": {
+      "get": {
+        "operationId": "getCatalogV1",
+        "summary": "Read the current dynamic position catalog",
+        "description": "Returns one deterministic projection of the currently published Archive Store. The operation accepts no parameters and no request body.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The current catalog.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Catalog responses must be revalidated.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-cache"
+                }
+              },
+              "X-Request-ID": {
+                "description": "Opaque request correlation identifier.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSuccessEnvelopeV1"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A query parameter or non-empty body was supplied.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Errors must not be cached.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "Opaque request correlation identifier.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "The catalog route supports GET only.",
+            "headers": {
+              "Allow": {
+                "description": "The only supported method.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "GET"
+                }
+              },
+              "Cache-Control": {
+                "description": "Errors must not be cached.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "Opaque request correlation identifier.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The published catalog is corrupt or projection failed.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Errors must not be cached.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "Opaque request correlation identifier.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No Archive Store has been published.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Errors must not be cached.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "Opaque request correlation identifier.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The request deadline elapsed before a response was committed.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Errors must not be cached.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "Opaque request correlation identifier.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "components": {
     "schemas": {
       "SharedQueryV1": {
@@ -69,6 +262,769 @@
       },
       "CoStarShareWorkspaceV1": {
         "$ref": "../schemas/query/share-payload-v1.schema.json#/$defs/CoStarWorkspaceV1"
+      },
+      "CatalogSubjectTypeKeyV1": {
+        "type": "string",
+        "enum": [
+          "book",
+          "anime",
+          "music",
+          "game",
+          "real"
+        ]
+      },
+      "CatalogOperationV1": {
+        "type": "string",
+        "enum": [
+          "rankings",
+          "candidates",
+          "personDetail",
+          "partners",
+          "coStar"
+        ]
+      },
+      "CatalogScopeV1": {
+        "type": "string",
+        "enum": [
+          "personal",
+          "global"
+        ]
+      },
+      "CatalogSectionV1": {
+        "type": "string",
+        "enum": [
+          "works",
+          "characters"
+        ]
+      },
+      "CatalogOperationApplicabilityV1": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation"
+            ],
+            "properties": {
+              "operation": {
+                "type": "string",
+                "enum": [
+                  "rankings",
+                  "candidates",
+                  "partners",
+                  "coStar"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation",
+              "sections"
+            ],
+            "properties": {
+              "operation": {
+                "const": "personDetail"
+              },
+              "sections": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 2,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/components/schemas/CatalogSectionV1"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CatalogPositionCapabilityNameV1": {
+        "type": "string",
+        "enum": [
+          "rankings",
+          "candidates",
+          "personDetail",
+          "partners",
+          "coStar"
+        ]
+      },
+      "CatalogLocalizedNamesV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cn",
+          "en",
+          "jp"
+        ],
+        "properties": {
+          "cn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "en": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "jp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 255
+          }
+        }
+      },
+      "CatalogSubjectTypeV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "label"
+        ],
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        }
+      },
+      "CatalogStaffPositionV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "kind",
+          "subjectType",
+          "label",
+          "names",
+          "categories",
+          "displayOrder",
+          "capabilities",
+          "status",
+          "positionId"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^staff:(book|anime|music|game|real):[1-9][0-9]*$"
+          },
+          "kind": {
+            "const": "staff"
+          },
+          "subjectType": {
+            "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "names": {
+            "$ref": "#/components/schemas/CatalogLocalizedNamesV1"
+          },
+          "categories": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+            }
+          },
+          "displayOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "capabilities": {
+            "type": "array",
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogPositionCapabilityNameV1"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "selectable",
+              "hidden"
+            ]
+          },
+          "positionId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "CatalogCastPositionV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "kind",
+          "subjectType",
+          "label",
+          "names",
+          "categories",
+          "displayOrder",
+          "capabilities",
+          "status",
+          "exclusiveGroup",
+          "roleScope"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^cast:(anime|game):(main|all)$"
+          },
+          "kind": {
+            "const": "cast"
+          },
+          "subjectType": {
+            "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "names": {
+            "$ref": "#/components/schemas/CatalogLocalizedNamesV1"
+          },
+          "categories": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+            }
+          },
+          "displayOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "capabilities": {
+            "type": "array",
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogPositionCapabilityNameV1"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "selectable",
+              "hidden"
+            ]
+          },
+          "exclusiveGroup": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96
+          },
+          "roleScope": {
+            "type": "string",
+            "enum": [
+              "main",
+              "all"
+            ]
+          }
+        }
+      },
+      "CatalogStaffSetPositionV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "kind",
+          "subjectType",
+          "label",
+          "names",
+          "categories",
+          "displayOrder",
+          "capabilities",
+          "status",
+          "memberKeys"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^staffset:(book|anime|music|game|real):[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "kind": {
+            "const": "staffSet"
+          },
+          "subjectType": {
+            "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "names": {
+            "$ref": "#/components/schemas/CatalogLocalizedNamesV1"
+          },
+          "categories": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+            }
+          },
+          "displayOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "capabilities": {
+            "type": "array",
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogPositionCapabilityNameV1"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "selectable",
+              "hidden"
+            ]
+          },
+          "memberKeys": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 256,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96,
+              "pattern": "^staff:(book|anime|music|game|real):[1-9][0-9]*$"
+            }
+          }
+        }
+      },
+      "CatalogPositionV1": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CatalogStaffPositionV1"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogCastPositionV1"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogStaffSetPositionV1"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "staff": "#/components/schemas/CatalogStaffPositionV1",
+            "cast": "#/components/schemas/CatalogCastPositionV1",
+            "staffSet": "#/components/schemas/CatalogStaffSetPositionV1"
+          }
+        }
+      },
+    "CatalogGroupV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "kind",
+          "subjectType",
+          "label",
+          "displayOrder",
+          "positionKeys"
+        ],
+        "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "bangumi",
+              "shortcut",
+              "custom",
+              "fallback"
+            ]
+          },
+          "subjectType": {
+            "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "displayOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "positionKeys": {
+            "type": "array",
+            "maxItems": 10000,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96
+            }
+          }
+        }
+      },
+    "CatalogSelectionRuleV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "kind",
+          "positionKey",
+          "value"
+        ],
+        "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 101
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "exactStaff",
+              "exactCast",
+              "staffSetUnion"
+            ]
+          },
+          "positionKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 7423
+          }
+        }
+      },
+      "CatalogFilterCapabilityV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "scopes",
+          "subjectTypes",
+          "applications"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": [
+              "includeNSFW",
+              "mergeSeries",
+              "subjectDate",
+              "globalScore",
+              "ratingCount",
+              "tags",
+              "collectionUpdatedAt",
+              "personalScore",
+              "scoreDifference"
+            ]
+          },
+          "scopes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogScopeV1"
+            }
+          },
+          "subjectTypes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+            }
+          },
+          "applications": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogOperationApplicabilityV1"
+            }
+          }
+        }
+      },
+      "CatalogRootSortCapabilityV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "field",
+          "scopes",
+          "subjectTypes",
+          "requiresMergeSeries"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "rankings",
+              "candidates",
+              "partners",
+              "coStar"
+            ]
+          },
+          "field": {
+            "type": "string",
+            "enum": [
+              "count",
+              "average",
+              "overall",
+              "preference",
+              "globalAverage",
+              "globalScore",
+              "personalScore",
+              "collectionUpdatedAt",
+              "seriesSize",
+              "role",
+              "workCount",
+              "name"
+            ]
+          },
+          "scopes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogScopeV1"
+            }
+          },
+          "subjectTypes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+            }
+          },
+          "requiresMergeSeries": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogSectionSortCapabilityV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "section",
+          "field",
+          "scopes",
+          "subjectTypes",
+          "requiresMergeSeries"
+        ],
+        "properties": {
+          "operation": {
+            "const": "personDetail"
+          },
+          "section": {
+            "$ref": "#/components/schemas/CatalogSectionV1"
+          },
+          "field": {
+            "type": "string",
+            "enum": [
+              "globalScore",
+              "personalScore",
+              "collectionUpdatedAt",
+              "seriesSize",
+              "role",
+              "workCount",
+              "name"
+            ]
+          },
+          "scopes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogScopeV1"
+            }
+          },
+          "subjectTypes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+            }
+          },
+          "requiresMergeSeries": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogSortCapabilityV1": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CatalogRootSortCapabilityV1"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogSectionSortCapabilityV1"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "operation",
+          "mapping": {
+            "rankings": "#/components/schemas/CatalogRootSortCapabilityV1",
+            "candidates": "#/components/schemas/CatalogRootSortCapabilityV1",
+            "personDetail": "#/components/schemas/CatalogSectionSortCapabilityV1",
+            "partners": "#/components/schemas/CatalogRootSortCapabilityV1",
+            "coStar": "#/components/schemas/CatalogRootSortCapabilityV1"
+          }
+        }
+      },
+      "CatalogDataV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subjectTypes",
+          "positions",
+          "groups",
+          "selectionRules",
+          "filterCapabilities",
+          "sortCapabilities"
+        ],
+        "properties": {
+          "subjectTypes": {
+            "type": "array",
+            "minItems": 5,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogSubjectTypeV1"
+            }
+          },
+          "positions": {
+            "type": "array",
+            "maxItems": 50260,
+            "items": {
+              "$ref": "#/components/schemas/CatalogPositionV1"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "maxItems": 50260,
+            "items": {
+              "$ref": "#/components/schemas/CatalogGroupV1"
+            }
+          },
+          "selectionRules": {
+            "type": "array",
+            "maxItems": 50260,
+            "items": {
+              "$ref": "#/components/schemas/CatalogSelectionRuleV1"
+            }
+          },
+          "filterCapabilities": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/CatalogFilterCapabilityV1"
+            }
+          },
+          "sortCapabilities": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "$ref": "#/components/schemas/CatalogSortCapabilityV1"
+            }
+          }
+        }
+      },
+      "CatalogMetaV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requestId",
+          "dataVersion"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "dataVersion": {
+            "type": "string",
+            "minLength": 68,
+            "maxLength": 68,
+            "pattern": "^dv1-[0-9a-f]{64}$"
+          }
+        }
+      },
+      "CatalogSuccessEnvelopeV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "meta",
+          "data"
+        ],
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/CatalogMetaV1"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogDataV1"
+          }
+        }
       }
     },
     "responses": {

@@ -1,0 +1,114 @@
+{
+  "caseFileVersion": 1,
+  "kind": "bounded-oracle-provenance",
+  "cases": [
+    {
+      "caseId": "actual-participation-442-not-candidate-449",
+      "outcome": "success",
+      "coverage": [
+        "bounded-442-not-449",
+        "actual-credit-participation",
+        "candidate-scope-not-statistic-denominator",
+        "no-bulk-personal-fixture"
+      ],
+      "querySource": {
+        "kind": "inline",
+        "submitted": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        }
+      },
+      "syntheticFacts": {
+        "eligibleSubjectIds": {
+          "inclusiveRange": [
+            1,
+            449
+          ]
+        },
+        "staffContribution": {
+          "positionKey": "staff:anime:2",
+          "positionId": 2,
+          "personId": 44901,
+          "subjectIds": {
+            "inclusiveRange": [
+              1,
+              442
+            ]
+          }
+        }
+      },
+      "expected": {
+        "effectiveQuery": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "queryDigest": "q1:6c63036c0ae6fea34a11d19b8f8745f1e8344675509c5bf44a051748eca3f724",
+        "eligibleSubjectIds": {
+          "inclusiveRange": [
+            1,
+            449
+          ],
+          "count": 449
+        },
+        "candidatePersonIds": [
+          44901
+        ],
+        "candidateSubjectIds": {
+          "inclusiveRange": [
+            1,
+            442
+          ],
+          "count": 442
+        },
+        "rankingPeople": [
+          {
+            "personId": 44901,
+            "subjectIds": {
+              "inclusiveRange": [
+                1,
+                442
+              ],
+              "count": 442
+            }
+          }
+        ],
+        "participatingSubjectIds": {
+          "inclusiveRange": [
+            1,
+            442
+          ],
+          "count": 442
+        },
+        "nonParticipatingEligibleSubjectIds": [
+          443,
+          444,
+          445,
+          446,
+          447,
+          448,
+          449
+        ]
+      },
+      "oracleProvenance": {
+        "commit": "644b7748674e553f863d0ffd61d029f86fdc0717",
+        "paths": [
+          "frontend/public/workbench-data/co-star-snapshot.json",
+          "frontend/src/workbench/composables/useWorkbench.ts"
+        ],
+        "observedCandidateCount": 449,
+        "actualParticipatingCount": 442,
+        "classification": "INTENTIONAL_DELTA",
+        "decision": "COUNT-001",
+        "bulkFixtureCopied": false
+      }
+    }
+  ]
+}
