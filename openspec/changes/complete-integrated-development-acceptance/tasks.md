@@ -33,8 +33,10 @@ commit, push, sync, archive, or update task markers.
   active change, all four artifacts are strict-valid and main-agent approved,
   no protected product path or harness/control checkout is dirty, and
   `contracts/acceptance/**` has no conflicting owner. Record the distinct
-  product-candidate identity named by the artifacts and stop without mutation
-  on mismatch.
+  product-candidate identity named by the artifacts, the immutable cache
+  preparation revision separately from that candidate, allow that revision
+  difference only through the same exact 16-authority proof, and stop without
+  mutation on every other mismatch.
 - [ ] 1.2 Create only `contracts/acceptance/{bin,lib,schemas,test,browser}/`,
   a README, a narrow `.gitignore` for `.tmp/`, and the acceptance-only
   `package.json`/lock. Pin exactly one direct development dependency
@@ -52,11 +54,17 @@ commit, push, sync, archive, or update task markers.
   JSON writing plus schemas for acceptance input, result, budgets, oracle
   exceptions, and matrix. Reject unknown fields, unsafe/absolute evidence
   paths, non-finite numbers, invalid units, duplicate IDs, and undeclared
-  statuses.
+  statuses. Require the result's closed cache-compatibility identity to bind
+  the preparation/product/harness/oracle revisions, exact authority counts,
+  cache seals, and canonical evidence digest without adding an input override.
 - [ ] 2.2 Define the closed `matrix.json` with stable admission, owner-gate,
   artifact, full-Archive, runtime, API, browser/oracle, performance, and
   residue cell IDs; give every cell one owner capability, fixed command or
-  scenario ID, required inputs/evidence, and finite timeout.
+  scenario ID, required inputs/evidence, and finite timeout. Require
+  `admission.sources` to bind the `preAdmission` cache-compatibility phase and
+  the final residue/seal cell to bind `postCleanup`; require the result
+  descriptor to store the evidence path/file digest and both phase digests,
+  then update the matrix canonical digest.
 - [ ] 2.3 Define `budgets.json` with the existing `<300 KiB` reachable initial
   JavaScript, `<=16 MiB` query-test binary, accepted cache logical bounds,
   `<30s` API hard bound, and finite readiness/browser/gate/suite limits; include
@@ -80,7 +88,10 @@ commit, push, sync, archive, or update task markers.
   compatibility manifest. Prove the two trees differ only in
   `contracts/acceptance/**` and reviewed OpenSpec lifecycle paths while all
   protected product/artifact implementation blobs and modes remain identical.
-  Add focused mixed/tampered/dirty/link/forbidden-diff negative tests.
+  Add a closed raw-Git-blob reader for the exact 16 cache dependency
+  authorities with replacement refs/lazy fetch disabled and fixed `100644`
+  mode; add focused mixed/tampered/dirty/link/forbidden-diff/missing-object
+  negative tests.
 - [ ] 3.2 Implement the owned run-root allocator and exact cleanup policy with
   canonical containment, no-symlink directory walk, recorded ownership marker,
   bounded unique ID, sanitized environment, no inherited injection variables,
@@ -104,8 +115,15 @@ commit, push, sync, archive, or update task markers.
   in place, cross-bind fixed executables and the `go`/`gofmt` frozen mirror,
   deny writes to every admitted runtime root, and re-seal after each owning
   gate; enforce offline package-manager modes plus host/Docker network denial;
-  record exact exit/duration/evidence digests without copying business
-  assertions or misreporting an in-place closure as copied.
+  before any seed/process, prove all 13 package locks, `backend/go.mod`,
+  `backend/go.sum`, and `updater/uv.lock` across the preparation commit,
+  accepted owner commits, frozen bytes, and npm/Go/uv authority documents;
+  enforce the actual directed manifest-to-validation/plan bindings, record the
+  canonical `preAdmission` evidence, repeat it as `postCleanup`, and bind both
+  phases through the final evidence descriptor; record exact
+  exit/duration/evidence digests without copying business assertions or
+  misreporting an in-place closure, Go-validation scope, or absent frozen
+  uv-lock byte.
 
 ## 4. Full Archive and packaged runtime
 
@@ -190,14 +208,21 @@ commit, push, sync, archive, or update task markers.
   dependency/license/inventory checks, separate Query-golden legacy-tool
   attestation, sealed-cache closure/copy/reseal checks, unit tests,
   tamper/dirty/link/timeout/network/residue negatives, and coverage of every
-  matrix/result/error state. Record exact commands and exits.
+  matrix/result/error state. Cover earlier-equal and earlier-different
+  preparation revisions plus drift/missing/duplicate/extra/reordered/wrong
+  owner or mode for each package-lock owner, Go pair, uv dual authority,
+  missing source object, directed-reference tamper, missing/reordered/
+  inconsistent `preAdmission` or `postCleanup` phase, pre/post mutation, and
+  result/evidence-file/phase-digest mismatch. Record exact commands and exits.
 - [ ] 7.2 Run a focused local orchestration smoke with accepted existing
   fixtures/artifact inputs only to prove control flow and failure attribution;
   label it non-final and do not let a minimal fixture satisfy the full-Archive
   matrix cell.
 - [ ] 7.3 With main-agent-selected accepted component roots and one official
   full inactive Archive, run the complete CLI, validate the canonical result,
-  require every matrix cell pass and exact verdict
+  prove the immutable earlier-prepared cache against the final committed
+  product/harness/oracle authority blobs, require every matrix cell pass and
+  exact verdict
   `development-accepted-operations-pending`, then remove all run output before
   handoff.
 - [ ] 7.4 Re-run strict validation for this change and all OpenSpec items,
@@ -209,8 +234,9 @@ commit, push, sync, archive, or update task markers.
 
 - [ ] 8.1 Main agent audits the implementation against all four artifacts,
   verifies only `contracts/acceptance/**` changed, independently checks command
-  closure, artifact/full-Archive identities, canonical result, oracle evidence,
-  browser matrix, budgets, negative coverage, cleanup, and zero product/ref/
+  closure, exact 16-file cache compatibility and its pre/post evidence,
+  artifact/full-Archive identities, canonical result, oracle evidence, browser
+  matrix, budgets, negative coverage, cleanup, and zero product/ref/
   external-state mutation; route any owner defect back without fixing it here.
 - [ ] 8.2 After zero P0/P1 findings and focused harness verification, main agent
   commits the exact reviewed acceptance implementation. From that clean

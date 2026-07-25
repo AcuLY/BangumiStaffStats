@@ -140,8 +140,15 @@ None.
 - Caller-provisioned, immutable dependency caches whose complete lockfile
   closure and content seals are attested before the networkless acceptance
   matrix starts, plus independently attested exact tool paths and runtime
-  closures. Cache acquisition is outside the harness and is not acceptance
-  evidence.
+  closures. A cache MAY have been prepared from an earlier product revision;
+  its recorded revision is preparation provenance, never the current product
+  identity. Such a cache is reusable only when admission proves the exact
+  byte/mode compatibility of the closed 16-file dependency authority:
+  13 package locks (11 product, one harness, one fixed oracle),
+  `backend/go.mod`, `backend/go.sum`, and `updater/uv.lock`, including their
+  frozen npm inventory and Go/uv validation/closure-plan bindings. Cache
+  acquisition remains outside the harness; this compatibility attestation is
+  required acceptance evidence.
 - Exact non-system tool distributions SHALL have complete canonical runtime
   roots, inventories, content seals, and write-denial boundaries. This
   includes both installed npm package roots and the admitted CPython
@@ -169,8 +176,9 @@ None.
 - For each run, one canonical machine-readable result and diagnostic
   screenshots/traces below the ignored run root. Results identify both the
   product-candidate and harness/control revision/tree, artifact manifest,
-  Archive, oracle, toolchain, browser, host profile, commands, durations,
-  memory, byte counts, and every pass/fail/blocked decision.
+  Archive, oracle, toolchain, browser, cache preparation provenance and
+  current-candidate compatibility evidence, host profile, commands,
+  durations, memory, byte counts, and every pass/fail/blocked decision.
 - Only a fully green run may emit the exact verdict
   `development-accepted-operations-pending`.
 
@@ -203,6 +211,16 @@ or a dirty harness/control checkout exists at admission.
   component statements and the compatibility manifest bind the same accepted
   product-candidate revision/tree and target; the full Archive is immutable
   and compatible.
+- Before any cache copy, install, component, container, API, or browser
+  process, the harness proves the exact closed 16-file dependency authority
+  across the immutable preparation commit, accepted product/harness/oracle
+  commits, frozen cache bytes, and npm/Go/uv authority documents. It records
+  preparation and current revisions in one canonical evidence envelope with
+  distinct pre-admission and post-cleanup authority-set digests; the result
+  binds the envelope's external file digest. It never rewrites or relabels the
+  frozen cache manifest. A pre-admission missing object, wrong
+  owner/path/mode/count/order, or byte/digest disagreement fails before any
+  process; a post-cleanup disagreement blocks all later work and the verdict.
 - Existing cross-language contract, component full-check, artifact-only smoke,
   Go race, and strict OpenSpec gates pass without source mutation.
 - The harness runs the immutable Updater artifact checks and starts the

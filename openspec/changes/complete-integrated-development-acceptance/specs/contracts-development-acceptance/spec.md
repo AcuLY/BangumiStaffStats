@@ -67,6 +67,96 @@ closure and content seals recorded before and after use.
 - **THEN** admission SHALL fail before starting a component, container, API, or
   browser process
 
+### Requirement: An earlier prepared cache MAY be reused only by exact dependency-authority compatibility
+
+The frozen cache manifest's product revision SHALL be interpreted only as the
+immutable `preparedFromRevision` that supplied the cache's dependency
+authorities. It SHALL NOT replace the accepted product identity, authorize a
+caller compatibility override, or be rewritten/relabelled for a later
+candidate. Whether preparation and accepted revisions match or differ, the
+harness SHALL perform the same compatibility proof before any cache copy,
+package installation, component, container, API, or browser process and SHALL
+repeat it after cleanup.
+
+The proof SHALL use raw regular `100644` Git blobs from exact object IDs with
+replacement refs and lazy fetching disabled. It SHALL admit exactly 16
+dependency files:
+
+- 11 product locks mapped from frozen
+  `locks/product/<repo-path>/package-lock.json` to that exact repository path
+  in both preparation and accepted-product commits;
+- frozen `locks/harness/contracts/acceptance/package-lock.json` mapped to the
+  accepted harness/control `contracts/acceptance/package-lock.json`;
+- frozen `locks/oracle/frontend/package-lock.json` mapped to the fixed
+  oracle's `frontend/package-lock.json`;
+- product `backend/go.mod` and `backend/go.sum`; and
+- product `updater/uv.lock`.
+
+Preparation and accepted-product Git trees SHALL have the exact same 11
+product-lock path set; the accepted harness/control tree SHALL add exactly its
+one acceptance lock; the fixed oracle's admitted lock set SHALL be exactly its
+frontend lock. The manifest declaration and canonical npm-lock-inventory
+arrays SHALL contain the same exact 13 records in the same order with matching
+path, digest, package count, and integrity count. The manifest SHALL bind the
+inventory path/byte-count/digest; the inventory SHALL bind the preparation and
+fixed-oracle revisions. Every lock SHALL equal its frozen byte and its
+appropriate preparation/accepted owner blob.
+
+The Go pair SHALL separately equal the preparation blob, exact frozen
+`go/backend/*` byte, and accepted-product blob. The manifest-bound Go
+validation document SHALL identify the preparation revision and bind its
+actual `backend/go.sum` path/digest; it SHALL NOT be treated as a `go.mod`
+authority. The uv lock SHALL equal the preparation and accepted-product blobs.
+The manifest SHALL separately bind the uv validation document and closure plan
+by exact path/byte-count/digest; the validation document SHALL bind the plan by
+path/digest; and both documents SHALL agree on preparation revision, uv-lock
+path, and uv-lock digest. No self-digest, nonexistent reverse reference, or
+frozen uv-lock copy may be claimed.
+
+One canonical run-relative evidence envelope SHALL contain distinct
+`preAdmission` and `postCleanup` phases. Each phase SHALL record the four
+revisions, exact counts, each authority's logical owner/path, tree mode, blob
+OID, byte digest/comparison, immutable manifest/root seals, and its own
+`authoritySetSha256`. The envelope SHALL NOT contain its own file digest.
+`admission.sources` SHALL bind the pre-admission phase, the final
+residue/seal cell SHALL bind the post-cleanup phase, and the canonical result
+SHALL record the envelope path plus externally computed `evidenceSha256`, both
+phase digests, and the same revisions.
+
+#### Scenario: Earlier preparation remains authoritative
+
+- **WHEN** the immutable cache was prepared from a different product revision
+  but all 16 closed authorities and every npm/Go/uv binding are exactly equal
+  to the accepted product, harness, and oracle authorities before and after
+  the run
+- **THEN** admission SHALL record the distinct preparation and current
+  identities plus canonical compatibility evidence and MAY use the sealed
+  dependency closure offline
+
+#### Scenario: Preparation and candidate revisions are identical
+
+- **WHEN** the cache preparation revision equals the accepted product revision
+- **THEN** the same 16-authority proof SHALL still run and revision equality
+  alone SHALL NOT substitute for byte, mode, count, mapping, and digest checks
+
+#### Scenario: A cache authority is stale or ambiguous
+
+- **WHEN** any declared lock, Go file, uv lock, source object, mode, owner/path
+  mapping, frozen copy, inventory record, validation record, directed
+  closure-plan binding, count/order, or pre-admission seal is missing, added,
+  duplicated, reordered, changed, unreadable, linked, or inconsistent
+- **THEN** admission SHALL fail closed before copying cache bytes or starting
+  an expensive process and SHALL NOT rewrite the frozen manifest or emit a
+  green verdict
+
+#### Scenario: A cache authority changes after admission
+
+- **WHEN** the post-cleanup compatibility phase differs from pre-admission or
+  finds a missing, changed, unreadable, linked, or inconsistent source/cache
+  authority or seal
+- **THEN** no later process SHALL start, final verification SHALL fail, and no
+  green verdict SHALL be emitted
+
 ### Requirement: The matrix and result SHALL be closed and machine-readable
 
 `contracts/acceptance/**` SHALL define one versioned, closed acceptance matrix
@@ -78,8 +168,10 @@ threshold, route, or matrix cell.
 
 The canonical result SHALL identify both product-candidate and harness/control
 revision/tree identities, compatibility manifest, component statements, full
-Archive, oracle, toolchains, browser, machine profile, budgets, exact matrix
-version, cell status/duration/evidence, input/output seals, and final verdict.
+Archive, oracle, toolchains, browser, cache preparation provenance and the
+required compatibility identity/evidence digest, machine profile, budgets,
+exact matrix version, cell status/duration/evidence, input/output seals, and
+final verdict.
 Required cells SHALL be exactly `pass|fail|blocked`; they SHALL never be
 skipped. A fail-fast run SHALL mark every unrun dependent cell `blocked` by the
 originating failure. Result evidence SHALL use run-relative paths and SHA-256

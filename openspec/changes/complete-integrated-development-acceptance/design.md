@@ -170,6 +170,80 @@ non-symlink bytes, content seals, and read-only cache inputs. The harness
 copies the required package/module/browser cache bytes with new inodes into
 its owned run root, applies offline package-manager settings plus host/Docker
 network denial, and verifies source and copied cache seals after the run.
+
+The cache manifest's recorded product revision is the immutable
+`preparedFromRevision`: it explains which commit supplied the dependency
+authorities when the cache was built, but it neither labels nor replaces the
+accepted product candidate. The manifest is never rewritten, rebased, copied
+under a new identity, or supplemented by a caller-provided compatibility
+boolean. Whether the prepared and accepted revisions match or differ,
+admission executes the same closed compatibility proof before copying cache
+bytes or launching any process.
+
+That proof reads raw regular `100644` Git blobs from exact object IDs with
+replacement refs and lazy fetching disabled. Its authority set contains
+exactly 16 files. The exact mappings are:
+
+- the 11 product locks at frozen
+  `locks/product/<repo-path>/package-lock.json`, mapped to the same
+  `<repo-path>/package-lock.json` in both preparation and accepted-product
+  commits;
+- frozen
+  `locks/harness/contracts/acceptance/package-lock.json`, mapped only to
+  `contracts/acceptance/package-lock.json` in the accepted harness/control
+  commit;
+- frozen `locks/oracle/frontend/package-lock.json`, mapped only to
+  `frontend/package-lock.json` in the fixed oracle commit;
+- product `backend/go.mod` and `backend/go.sum`; and
+- product `updater/uv.lock`.
+
+The preparation and accepted-product trees SHALL each contain exactly the same
+11 product package-lock paths. The accepted harness/control tree SHALL contain
+those same 11 plus exactly its acceptance lock, and the fixed oracle's admitted
+lock set SHALL be exactly its frontend lock. The manifest lock declaration and
+canonical npm-lock-inventory arrays SHALL each contain the exact same 13
+entries in the same order with the same path, digest, package count, and
+integrity count. The manifest SHALL bind the inventory's exact relative path,
+byte count, and SHA-256; the inventory SHALL bind
+`productRevision=preparedFromRevision` and the fixed oracle revision. Every
+lock byte SHALL equal its frozen copy and appropriate preparation/accepted
+owner Git blob.
+
+The Go pair SHALL separately equal its preparation blob, exact frozen
+`go/backend/{go.mod,go.sum}` byte, and accepted-product blob. The manifest
+SHALL bind the frozen Go-validation document; that document SHALL identify
+`candidateRevision=preparedFromRevision` and bind only its actual
+`goSumPath=backend/go.sum` and matching digest. It SHALL NOT be represented as
+an authority over `go.mod`.
+
+The uv lock SHALL equal the preparation and accepted-product blobs. The
+manifest SHALL separately bind the uv-validation document and closure plan by
+exact relative path, byte count, and SHA-256. The validation document SHALL
+bind the plan by its exact path and SHA-256. The validation document and plan
+SHALL agree on `candidateRevision=preparedFromRevision`,
+`lockPath=updater/uv.lock`, and the lock digest. Neither document is required
+to contain a self-digest or a reverse reference that its immutable bytes do
+not provide. Because no frozen uv-lock copy exists, evidence SHALL describe
+this as preparation-to-accepted byte equality plus directed dual frozen
+digest authority, not as a copied lock byte.
+
+Missing/unreadable source objects, duplicate/extra/reordered declarations,
+wrong owner/path/mode, source symlinks, count drift, authority-reference
+tampering, or any byte/digest disagreement fails admission before cache copy,
+package installation, component execution, container, API, or browser work.
+
+The orchestrator writes one final canonical run-relative compatibility
+evidence envelope with distinct `preAdmission` and `postCleanup` phases. Each
+phase records the four revisions, exact authority counts, every authority's
+logical owner/path, Git tree mode, blob OID, byte digest and comparison, the
+immutable manifest/root seals, and its own `authoritySetSha256`. The envelope
+does not contain its own file digest. Matrix evidence descriptors bind the
+pre-admission phase from `admission.sources` and the post-cleanup phase from
+the final residue/seal cell; the canonical result records the envelope's
+run-relative path and externally computed `evidenceSha256` plus both phase
+digests and the same revisions. A post-cleanup mismatch cannot undo completed
+work, but it blocks the final verdict and any later process launch.
+
 Exact tool executables and the runtime files they load are admitted separately
 and re-sealed after use. For every non-system runtime distribution, the
 harness derives one exact canonical root, inventories directory/file modes,
@@ -199,6 +273,9 @@ hermetic new-inode tool closure. Any missing, linked, special, changed, or
 newly created runtime entry blocks acceptance.
 
 Cache provisioning is not a matrix cell or evidence of product acceptance.
+The admission-time and final cache-to-source compatibility attestations are
+matrix evidence; they prove only that the prepared dependency closure remains
+exactly authoritative for the accepted candidate.
 
 The full Archive gate accepts only a version directory containing regular,
 non-symlink `manifest.json` and `bangumi.sqlite` plus a separately supplied
