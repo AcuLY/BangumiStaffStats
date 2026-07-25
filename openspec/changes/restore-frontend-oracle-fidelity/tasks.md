@@ -6,10 +6,10 @@ Node commands use `/Users/luca/.nvm/versions/node/v24.18.0/bin`.
 
 ## 1. Restore existing surfaces
 
-- [ ] 1.1 Record branch/HEAD/dirty state and the audit matrix; confirm oracle
+- [x] 1.1 Record branch/HEAD/dirty state and the audit matrix; confirm oracle
   `644b7748674e553f863d0ffd61d029f86fdc0717`, reviewed strict-valid artifacts,
   and explicit ownership handoff.
-- [ ] 1.2 Restore header and query-editor presentation and interaction while
+- [x] 1.2 Restore header and query-editor presentation and interaction while
   preserving production catalog, request, sharing, and resource semantics.
 - [ ] 1.3 Restore ranking and person-inspector presentation and interaction,
   including responsive Drawer, focus, Escape, inert, and invisible hit areas.

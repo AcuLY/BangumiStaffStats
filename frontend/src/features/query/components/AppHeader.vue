@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { NButton, NButtonGroup, NInput, NPopover } from 'naive-ui';
+import { NButton, NInput, NPopover, NTab, NTabs } from 'naive-ui';
 import { computed, onBeforeUnmount, ref } from 'vue';
 
 import brandMark from '../../../assets/brand/bgmss.png';
 import type { AppTheme } from '../../../app/theme';
 import type { QueryCoordinator } from '../coordinator';
+import { useCompactLayout } from '../composables/useCompactLayout';
 import { querySignature, type QueryMode } from '../model';
 import {
   copyShareUrl,
@@ -27,6 +28,11 @@ const props = defineProps<{
 const copied = ref(false);
 const fallbackOpen = ref(false);
 const fallbackLink = ref('');
+const compact = useCompactLayout(props.targetWindow);
+const modeControlSize = computed(() => (compact.value ? 'small' : 'medium'));
+const headerActionThemeOverrides = computed(() =>
+  compact.value ? undefined : { heightMedium: '38px' },
+);
 let copiedTimer: number | undefined;
 
 const modes: readonly { label: string; value: QueryMode }[] = [
@@ -110,6 +116,20 @@ async function share(): Promise<void> {
   }, 1500);
 }
 
+function activateMode(value: string | number, focus = false): void {
+  if (value !== 'ranking' && value !== 'co-star') {
+    return;
+  }
+  props.navigate(value);
+  if (focus) {
+    props.targetWindow.requestAnimationFrame(() =>
+      props.targetWindow.document
+        .querySelector<HTMLElement>(`#mode-tab-${value}`)
+        ?.focus(),
+    );
+  }
+}
+
 function onModeKeydown(event: KeyboardEvent, index: number): void {
   let next = index;
   if (event.key === 'ArrowRight') {
@@ -126,12 +146,7 @@ function onModeKeydown(event: KeyboardEvent, index: number): void {
   event.preventDefault();
   const mode = modes[next];
   if (mode) {
-    props.navigate(mode.value);
-    props.targetWindow.requestAnimationFrame(() =>
-      props.targetWindow.document
-        .querySelector<HTMLElement>(`#mode-tab-${mode.value}`)
-        ?.focus(),
-    );
+    activateMode(mode.value, true);
   }
 }
 
@@ -142,79 +157,95 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-header__bar">
-    <a class="app-brand" href="/ranking" aria-label="Bangumi Staff Statistics 首页">
-      <img :src="brandMark" class="app-brand__mark" alt="" width="32" height="32" />
+    <a
+      class="app-brand"
+      href="/ranking"
+      aria-label="Bangumi Staff Statistics 人物工作台首页"
+      translate="no"
+    >
+      <img :src="brandMark" class="app-brand__mark" alt="" width="28" height="28" />
       <span class="app-brand__name" translate="no">Bangumi Staff Statistics</span>
     </a>
 
-    <nav class="mode-tabs" role="tablist" aria-label="分析模式">
-      <n-button-group>
-        <n-button
+    <nav class="mode-tabs" role="tablist" aria-label="工作台模式">
+      <n-tabs
+        type="segment"
+        :size="modeControlSize"
+        :value="mode"
+        @update:value="activateMode"
+      >
+        <n-tab
           v-for="(item, index) in modes"
           :id="`mode-tab-${item.value}`"
           :key="item.value"
-          :type="mode === item.value ? 'primary' : 'default'"
-          :secondary="mode === item.value"
-          attr-type="button"
+          :name="item.value"
           role="tab"
           :aria-selected="mode === item.value"
+          :aria-controls="`mode-panel-${item.value}`"
           :tabindex="mode === item.value ? 0 : -1"
-          @click="navigate(item.value)"
           @keydown="onModeKeydown($event, index)"
         >
           {{ item.label }}
-        </n-button>
-      </n-button-group>
+        </n-tab>
+      </n-tabs>
     </nav>
 
-    <n-popover
-      v-model:show="fallbackOpen"
-      trigger="manual"
-      placement="bottom-end"
-      :show-arrow="false"
-      class="share-fallback"
-    >
-      <template #trigger>
-        <n-button
-          class="header-icon-action share-action"
-          quaternary
-          circle
-          attr-type="button"
-          :disabled="shareDisabled"
-          aria-label="复制当前查询链接"
-          title="复制当前查询链接"
-          @click="share"
-        >
-          <template #icon>
-            <query-icon :name="copied ? 'check' : 'share'" />
-          </template>
-        </n-button>
-      </template>
-      <div class="share-fallback__content">
-        <strong>复制当前查询链接</strong>
-        <n-input
-          :value="fallbackLink"
-          readonly
-          aria-label="当前查询链接"
-          @focus="($event.target as HTMLInputElement).select()"
-        />
-      </div>
-    </n-popover>
+    <span class="header-action-slot share-action">
+      <n-popover
+        v-model:show="fallbackOpen"
+        trigger="manual"
+        placement="bottom-end"
+        :show-arrow="false"
+        class="share-fallback"
+      >
+        <template #trigger>
+          <n-button
+            class="header-icon-action"
+            size="medium"
+            :theme-overrides="headerActionThemeOverrides"
+            quaternary
+            circle
+            attr-type="button"
+            :disabled="shareDisabled"
+            aria-label="复制当前查询链接"
+            title="复制当前查询链接"
+            @click="share"
+          >
+            <template #icon>
+              <query-icon :name="copied ? 'check' : 'share'" />
+            </template>
+          </n-button>
+        </template>
+        <div class="share-fallback__content">
+          <strong>复制当前查询链接</strong>
+          <n-input
+            :value="fallbackLink"
+            readonly
+            aria-label="当前查询链接"
+            @focus="($event.target as HTMLInputElement).select()"
+          />
+        </div>
+      </n-popover>
+    </span>
 
-    <n-button
-      class="header-icon-action theme-action"
-      quaternary
-      circle
-      attr-type="button"
-      :aria-pressed="theme === 'dark'"
-      :aria-label="theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
-      :title="theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
-      @click="toggleTheme"
-    >
-      <template #icon>
-        <query-icon :name="theme === 'dark' ? 'sun' : 'moon'" />
-      </template>
-    </n-button>
+    <span class="header-action-slot theme-action">
+      <n-button
+        class="header-icon-action"
+        size="medium"
+        :theme-overrides="headerActionThemeOverrides"
+        quaternary
+        circle
+        attr-type="button"
+        :aria-pressed="theme === 'dark'"
+        :aria-label="theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
+        :title="theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
+        @click="toggleTheme"
+      >
+        <template #icon>
+          <query-icon :name="theme === 'dark' ? 'sun' : 'moon'" :size="18" />
+        </template>
+      </n-button>
+    </span>
 
     <span class="sr-only" role="status" aria-live="polite">
       {{ copied ? '查询链接已复制' : '' }}

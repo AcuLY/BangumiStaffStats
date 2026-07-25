@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia';
 import { flushPromises, mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '../../../src/app/App.vue';
 import type { CatalogApi } from '../../../src/api/catalog';
@@ -19,6 +19,27 @@ import { catalogFixture } from './fixtures';
 
 interface CandidatePayload {
   id: string;
+}
+
+const originalMatchMedia = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+
+function installMatchMedia(
+  matches: (query: string) => boolean,
+): void {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn(
+      (media: string) =>
+        ({
+          addEventListener: vi.fn(),
+          dispatchEvent: vi.fn(() => true),
+          matches: matches(media),
+          media,
+          onchange: null,
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    ),
+  });
 }
 
 function rankingPayload(requestId: string): RankingPayload {
@@ -85,6 +106,14 @@ beforeEach(() => {
   setActivePinia(createPinia());
 });
 
+afterEach(() => {
+  if (originalMatchMedia) {
+    Object.defineProperty(window, 'matchMedia', originalMatchMedia);
+  } else {
+    Reflect.deleteProperty(window, 'matchMedia');
+  }
+});
+
 describe('query shell components', () => {
   it('keeps the last successful share enabled while a refresh is pending', async () => {
     const store = validStore();
@@ -132,6 +161,28 @@ describe('query shell components', () => {
         'disabled',
       ),
     ).toBeUndefined();
+    expect(wrapper.get('.app-brand').attributes('aria-label')).toBe(
+      'Bangumi Staff Statistics 人物工作台首页',
+    );
+    expect(wrapper.get('.app-brand__mark').attributes()).toMatchObject({
+      height: '28',
+      width: '28',
+    });
+    expect(wrapper.get('.mode-tabs .n-tabs').classes()).toContain(
+      'n-tabs--segment-type',
+    );
+    expect(
+      wrapper.get('#mode-tab-ranking').attributes('aria-controls'),
+    ).toBe('mode-panel-ranking');
+    expect(
+      wrapper.get('#mode-tab-co-star').attributes('aria-controls'),
+    ).toBe('mode-panel-co-star');
+    expect(
+      (
+        wrapper.get('button[aria-label="复制当前查询链接"]')
+          .element as HTMLElement
+      ).style.getPropertyValue('--n-height'),
+    ).toBe('38px');
 
     coordinator.cancelPending();
     resolveRefresh({
@@ -272,25 +323,205 @@ describe('query shell components', () => {
     const uid = wrapper.get('input[name="userId"]');
     expect(document.activeElement).toBe(uid.element);
     expect(uid.attributes('aria-invalid')).toBe('true');
-    expect(uid.attributes('aria-describedby')).toBe('query-error-uid');
+    expect(uid.attributes('aria-describedby')).toBe(
+      'query-user-id-help query-error-uid',
+    );
     expect(wrapper.get('#query-error-uid').text()).not.toBe('');
     const uidFrame = uid.element.closest<HTMLElement>('.n-input')!;
     const sourceGroup = wrapper.get('.query-source-switch');
     const sourceLabel = wrapper.get('.n-radio-button');
-    expect(uidFrame.style.getPropertyValue('--n-height')).toBe('44px');
+    expect(uidFrame.style.getPropertyValue('--n-height')).toBe('34px');
     expect(
       (sourceGroup.element as HTMLElement).style.getPropertyValue('--n-height'),
-    ).toBe('44px');
+    ).toBe('34px');
+    expect(
+      (sourceGroup.element as HTMLElement).style.getPropertyValue(
+        '--n-button-color-active',
+      ),
+    ).toBe('#C82A70');
+    expect(
+      (sourceGroup.element as HTMLElement).style.getPropertyValue(
+        '--n-button-text-color-active',
+      ),
+    ).toBe('#FFFFFF');
+    expect(
+      (
+        wrapper.get('.mode-tabs .n-tabs').element as HTMLElement
+      ).style.getPropertyValue('--n-tab-color-segment'),
+    ).toBe('#C82A70');
     expect(sourceLabel.classes()).toContain('n-radio-button');
 
     const disclosure = wrapper.get(
-      'button[aria-controls="query-advanced-panel"]',
+      'button[aria-controls="query-advanced-options"]',
     );
     expect(disclosure.attributes('aria-expanded')).toBe('false');
     await disclosure.trigger('click');
     expect(disclosure.attributes('aria-expanded')).toBe('true');
-    expect(wrapper.find('#query-advanced-panel').exists()).toBe(true);
+    expect(wrapper.find('#query-advanced-options').exists()).toBe(true);
     expect(store.fieldErrors).toHaveProperty('uid');
+    wrapper.unmount();
+  });
+
+  it('preserves contextual help and oracle tag controls', async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+
+    const uidHelp = wrapper.get('.field-help-trigger');
+    expect(uidHelp.attributes('aria-expanded')).toBe('false');
+    await uidHelp.trigger('focus');
+    expect(uidHelp.attributes('aria-expanded')).toBe('true');
+    await uidHelp.trigger('keydown', { key: 'Escape' });
+    expect(uidHelp.attributes('aria-expanded')).toBe('false');
+
+    await wrapper
+      .get('button[aria-controls="query-advanced-options"]')
+      .trigger('click');
+    const mergeHelp = wrapper.get(
+      'button[aria-label^="合并续作说明："]',
+    );
+    await mergeHelp.trigger('mouseenter');
+    expect(mergeHelp.attributes('aria-expanded')).toBe('true');
+    await mergeHelp.trigger('mouseleave');
+    expect(mergeHelp.attributes('aria-expanded')).toBe('false');
+
+    await wrapper
+      .get('[role="switch"][aria-label="正向标签"]')
+      .trigger('click');
+    await nextTick();
+    expect(wrapper.find('.query-tags').exists()).toBe(true);
+    expect(wrapper.find('button[aria-label="添加正向标签"]').exists()).toBe(
+      true,
+    );
+
+    const summary = wrapper.get('.query-summary');
+    await summary.trigger('pointerdown');
+    await summary.trigger('click');
+    await nextTick();
+    await summary.trigger('click');
+    await nextTick();
+    expect(
+      wrapper
+        .get('button[aria-controls="query-advanced-options"]')
+        .attributes('aria-expanded'),
+    ).toBe('true');
+    wrapper.unmount();
+  });
+
+  it('autofocuses the personal UID only with a desktop fine pointer', async () => {
+    installMatchMedia(
+      (query) => query === '(width >= 780px) and (pointer: fine)',
+    );
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+    await nextTick();
+
+    expect(document.activeElement).toBe(
+      wrapper.get('input[name="userId"]').element,
+    );
+    wrapper.unmount();
+  });
+
+  it('moves validation focus into collection and advanced range controls', async () => {
+    window.history.replaceState({}, '', '/ranking?user=luca');
+    installMatchMedia(() => false);
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = validStore();
+    store.draft.collectionStatuses = [];
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+
+    await wrapper.get('#query-editor').trigger('submit');
+    await flushPromises();
+    expect(
+      (document.activeElement as HTMLElement).matches(
+        '.field--collections :is([role="checkbox"], input[type="checkbox"])',
+      ),
+    ).toBe(true);
+
+    store.draft.collectionStatuses = ['completed'];
+    store.draft.personalScore.enabled = true;
+    store.draft.personalScore.min = '';
+    store.draft.personalScore.max = '';
+    await wrapper.get('#query-editor').trigger('submit');
+    await flushPromises();
+    expect((document.activeElement as HTMLInputElement).name).toBe(
+      'userRateMin',
+    );
+    expect(
+      wrapper
+        .get('button[aria-controls="query-advanced-options"]')
+        .attributes('aria-expanded'),
+    ).toBe('true');
+    wrapper.unmount();
+  });
+
+  it('releases pointer focus but restores keyboard focus on compact close', async () => {
+    installMatchMedia((query) => query === '(width < 780px)');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+    await nextTick();
+
+    const summary = wrapper.get('.query-summary');
+    const uid = wrapper.get('input[name="userId"]');
+    expect(document.activeElement).not.toBe(uid.element);
+
+    await summary.trigger('pointerdown');
+    await summary.trigger('click');
+    await nextTick();
+    expect(wrapper.find('.query-editor-overlay').exists()).toBe(false);
+    expect(document.activeElement).not.toBe(summary.element);
+
+    await summary.trigger('click');
+    await nextTick();
+    const reopenedUid = wrapper.get('input[name="userId"]');
+    (reopenedUid.element as HTMLInputElement).focus();
+    await wrapper.get('#query-editor').trigger('keydown', { key: 'Escape' });
+    await nextTick();
+    expect(wrapper.find('.query-editor-overlay').exists()).toBe(false);
+    expect(document.activeElement).toBe(summary.element);
     wrapper.unmount();
   });
 

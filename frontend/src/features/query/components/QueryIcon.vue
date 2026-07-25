@@ -4,7 +4,9 @@ defineProps<{
     | 'check'
     | 'chevron'
     | 'edit'
+    | 'info'
     | 'moon'
+    | 'plus'
     | 'search'
     | 'share'
     | 'sun';
@@ -40,6 +42,14 @@ defineProps<{
     <template v-else-if="name === 'search'">
       <circle cx="10.7" cy="10.7" r="6.4" />
       <path d="m15.5 15.5 4.2 4.2" />
+    </template>
+    <template v-else-if="name === 'plus'">
+      <path d="M12 6v12M6 12h12" />
+    </template>
+    <template v-else-if="name === 'info'">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v6" />
+      <circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none" />
     </template>
     <template v-else-if="name === 'chevron'">
       <path d="m7 9.5 5 5 5-5" />

@@ -1,32 +1,34 @@
 <script setup lang="ts">
 import {
   NButton,
-  NEmpty,
-  NInput,
-  NPopover,
+  NSelect,
   NSkeleton,
   NTag,
+  type SelectGroupOption,
+  type SelectOption,
 } from 'naive-ui';
-import { computed, ref } from 'vue';
+import { computed, h, ref } from 'vue';
 
 import type {
   CatalogGroup,
   CatalogPosition,
   PositionKey,
-  SubjectType,
 } from '../../../api/adapters/catalog';
 import type { CatalogPhase } from '../../catalog/store';
-import { useCompactLayout } from '../composables/useCompactLayout';
+import {
+  querySelectThemeOverrides,
+  type QueryControlSize,
+} from './controlTheme';
 
 const props = defineProps<{
+  controlSize: QueryControlSize;
   disabled?: boolean;
   error?: string;
   groups: readonly CatalogGroup[];
   modelValue: readonly PositionKey[];
   phase: CatalogPhase;
+  placeholder: string;
   positions: readonly CatalogPosition[];
-  subjectType: SubjectType;
-  targetWindow: Window;
 }>();
 
 const emit = defineEmits<{
@@ -34,65 +36,117 @@ const emit = defineEmits<{
   'update:modelValue': [value: PositionKey[]];
 }>();
 
-const compact = useCompactLayout(props.targetWindow);
-const open = ref(false);
-const search = ref('');
+type FocusableControl = { focus: () => void };
+interface PositionOption extends SelectOption {
+  searchText: string;
+}
 
-const selected = computed(() => new Set(props.modelValue));
+const select = ref<FocusableControl>();
 const positionByKey = computed(
   () => new Map(props.positions.map((position) => [position.key, position])),
 );
-const selectedPositions = computed(() =>
-  props.modelValue
-    .map((key) => positionByKey.value.get(key))
-    .filter((position): position is CatalogPosition => Boolean(position)),
-);
-const filtered = computed(() => {
-  const term = search.value.trim().toLocaleLowerCase();
-  if (!term) {
-    return [];
+const selectOptions = computed<Array<PositionOption | SelectGroupOption>>(() => {
+  const included = new Set<PositionKey>();
+  const groups = props.groups
+    .map((group): SelectGroupOption | null => {
+      const children = group.positionKeys
+        .map((key) => positionByKey.value.get(key))
+        .filter(
+          (position): position is CatalogPosition =>
+            Boolean(position) && position!.selectable,
+        )
+        .map(toOption);
+      children.forEach((option) => included.add(option.value as PositionKey));
+      return children.length
+        ? {
+            type: 'group',
+            key: group.key,
+            label: group.label,
+            children,
+          }
+        : null;
+    })
+    .filter((group): group is SelectGroupOption => Boolean(group));
+  const remaining = props.positions
+    .filter((position) => position.selectable && !included.has(position.key))
+    .map(toOption);
+  if (remaining.length) {
+    groups.push({
+      type: 'group',
+      key: 'other',
+      label: '其他职位',
+      children: remaining,
+    });
   }
-  return props.positions.filter((position) =>
-    [position.label, position.names.cn, position.names.en, position.names.jp]
-      .filter((value): value is string => Boolean(value))
-      .some((value) => value.toLocaleLowerCase().includes(term)),
-  );
+  return groups;
 });
 
-function groupPositions(group: CatalogGroup): readonly CatalogPosition[] {
-  return group.positionKeys
-    .map((key) => positionByKey.value.get(key))
-    .filter(
-      (position): position is CatalogPosition =>
-        Boolean(position) && position!.selectable,
-    );
+function toOption(position: CatalogPosition): PositionOption {
+  return {
+    label: position.label,
+    value: position.key,
+    searchText: [
+      position.label,
+      position.names.cn,
+      position.names.en,
+      position.names.jp,
+      ...position.categories,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join('\n')
+      .toLocaleLowerCase(),
+  };
 }
 
-function toggle(position: CatalogPosition): void {
-  const next = [...props.modelValue];
-  const index = next.indexOf(position.key);
-  if (index >= 0) {
-    next.splice(index, 1);
-  } else {
-    if (position.exclusiveGroup) {
-      for (let cursor = next.length - 1; cursor >= 0; cursor -= 1) {
-        const current = positionByKey.value.get(next[cursor] ?? '');
-        if (current?.exclusiveGroup === position.exclusiveGroup) {
-          next.splice(cursor, 1);
-        }
-      }
-    }
-    next.push(position.key);
-  }
-  emit('update:modelValue', next);
-}
-
-function remove(key: PositionKey): void {
-  emit(
-    'update:modelValue',
-    props.modelValue.filter((value) => value !== key),
+function filterPosition(pattern: string, option: SelectOption): boolean {
+  const candidate = option as Partial<PositionOption>;
+  return (
+    candidate.searchText?.includes(pattern.trim().toLocaleLowerCase()) ??
+    String(option.label ?? '')
+      .toLocaleLowerCase()
+      .includes(pattern.trim().toLocaleLowerCase())
   );
 }
+
+function updateSelection(value: string[]): void {
+  const next = value as PositionKey[];
+  const added = next.find((key) => !props.modelValue.includes(key));
+  const exclusiveGroup = added
+    ? positionByKey.value.get(added)?.exclusiveGroup
+    : undefined;
+  const normalized = exclusiveGroup
+    ? next.filter(
+        (key) =>
+          key === added ||
+          positionByKey.value.get(key)?.exclusiveGroup !== exclusiveGroup,
+      )
+    : next;
+  emit('update:modelValue', [...new Set(normalized)]);
+}
+
+function renderTag({
+  option,
+  handleClose,
+}: {
+  option: SelectOption;
+  handleClose: () => void;
+}) {
+  return h(
+    NTag,
+    {
+      type: 'primary',
+      size: props.controlSize,
+      closable: !option.disabled,
+      disabled: props.disabled || Boolean(option.disabled),
+      internalCloseIsButtonTag: false,
+      internalCloseFocusable: false,
+      onClose: handleClose,
+    },
+    { default: () => String(option.label ?? option.value ?? '') },
+  );
+}
+
+defineExpose({ focus: () => select.value?.focus() });
 </script>
 
 <template>
@@ -119,156 +173,39 @@ function remove(key: PositionKey): void {
       role="alert"
     >
       <span>职位目录暂时无法加载</span>
-      <n-button size="small" secondary attr-type="button" @click="emit('retry')">
+      <n-button
+        :size="controlSize"
+        secondary
+        attr-type="button"
+        @click="emit('retry')"
+      >
         重新加载
       </n-button>
     </div>
-    <template v-else>
-      <div class="position-selector__selected" aria-live="polite">
-        <n-tag
-          v-for="position in selectedPositions"
-          :key="position.key"
-          type="primary"
-          closable
-          :disabled="disabled"
-          @close="remove(position.key)"
-        >
-          {{ position.label }}
-        </n-tag>
-        <span v-if="selectedPositions.length === 0" class="position-selector__placeholder">
-          选择职位
-        </span>
-      </div>
-
-      <n-button
-        v-if="compact"
-        class="position-selector__trigger"
-        block
-        secondary
-        attr-type="button"
-        :disabled="disabled"
-        :aria-expanded="open"
-        :aria-describedby="error ? 'query-error-position-keys' : undefined"
-        aria-controls="position-selector-panel"
-        @click="open = !open"
-      >
-        {{ open ? '收起职位' : '浏览职位' }}
-      </n-button>
-
-      <n-popover
-        v-else
-        v-model:show="open"
-        trigger="click"
-        placement="bottom-start"
-        :width="560"
-        :show-arrow="false"
-      >
-        <template #trigger>
-          <n-button
-            class="position-selector__trigger"
-            secondary
-            attr-type="button"
-            :disabled="disabled"
-          >
-            浏览职位
-          </n-button>
-        </template>
-        <div class="position-selector-popover">
-          <n-input
-            v-model:value="search"
-            clearable
-            placeholder="搜索职位"
-            aria-label="搜索职位"
-          />
-          <div class="position-selector__catalog">
-            <template v-if="search.trim()">
-              <button
-                v-for="position in filtered"
-                :key="position.key"
-                class="position-option"
-                :class="{ 'is-selected': selected.has(position.key) }"
-                type="button"
-                :aria-pressed="selected.has(position.key)"
-                @click="toggle(position)"
-              >
-                <span>{{ position.label }}</span>
-                <small>{{ position.categories.join(' / ') || '其他职位' }}</small>
-              </button>
-              <n-empty
-                v-if="filtered.length === 0"
-                size="small"
-                description="没有符合搜索条件的职位"
-              />
-            </template>
-            <section
-              v-for="group in groups"
-              v-else
-              :key="group.key"
-              class="position-group"
-            >
-              <h4>{{ group.label }}</h4>
-              <div class="position-group__items">
-                <button
-                  v-for="position in groupPositions(group)"
-                  :key="position.key"
-                  class="position-option"
-                  :class="{ 'is-selected': selected.has(position.key) }"
-                  type="button"
-                  :aria-pressed="selected.has(position.key)"
-                  @click="toggle(position)"
-                >
-                  {{ position.label }}
-                </button>
-              </div>
-            </section>
-          </div>
-        </div>
-      </n-popover>
-
-      <div
-        v-if="compact && open"
-        id="position-selector-panel"
-        class="position-selector-inline"
-      >
-        <n-input
-          v-model:value="search"
-          clearable
-          placeholder="搜索职位"
-          aria-label="搜索职位"
-        />
-        <div class="position-selector__catalog">
-          <template v-if="search.trim()">
-            <button
-              v-for="position in filtered"
-              :key="position.key"
-              class="position-option"
-              :class="{ 'is-selected': selected.has(position.key) }"
-              type="button"
-              :aria-pressed="selected.has(position.key)"
-              @click="toggle(position)"
-            >
-              {{ position.label }}
-            </button>
-          </template>
-          <section v-for="group in groups" v-else :key="group.key" class="position-group">
-            <h4>{{ group.label }}</h4>
-            <div class="position-group__items">
-              <button
-                v-for="position in groupPositions(group)"
-                :key="position.key"
-                class="position-option"
-                :class="{ 'is-selected': selected.has(position.key) }"
-                type="button"
-                :aria-pressed="selected.has(position.key)"
-                @click="toggle(position)"
-              >
-                {{ position.label }}
-              </button>
-            </div>
-          </section>
-        </div>
-      </div>
-    </template>
+    <n-select
+      v-else
+      ref="select"
+      class="query-position-select"
+      multiple
+      filterable
+      :value="[...modelValue]"
+      :options="selectOptions"
+      :filter="filterPosition"
+      :render-tag="renderTag"
+      :size="controlSize"
+      :menu-size="controlSize"
+      :theme-overrides="querySelectThemeOverrides"
+      :status="error ? 'error' : undefined"
+      :disabled="disabled"
+      :placeholder="placeholder"
+      :input-props="{
+        name: 'positionKeys',
+        'aria-labelledby': 'query-position-control-label',
+        'aria-invalid': Boolean(error),
+        'aria-describedby': error ? 'query-error-position-keys' : undefined,
+      }"
+      @update:value="updateSelection"
+    />
     <small
       v-if="error"
       id="query-error-position-keys"

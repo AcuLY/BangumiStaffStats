@@ -27,8 +27,12 @@ const props = defineProps<{
 
 const editing = ref(props.queryStore.applied === null);
 const compact = useCompactLayout(props.targetWindow);
+const expandedQuerySections = ref<string[]>([]);
+const queryEditor = ref<InstanceType<typeof QueryEditor> | null>(null);
 const summaryButton = ref<HTMLButtonElement | null>(null);
 const overlayTop = ref(0);
+let restoreSummaryFocus = true;
+let summaryPointerActivated = false;
 
 const resource = computed(() =>
   props.coordinator.pendingOperation.value === 'rankings'
@@ -44,6 +48,7 @@ const summary = computed(() =>
     ? summarizeQuery(props.queryStore.applied, props.catalogStore.snapshot)
     : ['暂无查询'],
 );
+const summaryText = computed(() => summary.value.join(' · '));
 const mergeSeriesAvailable = computed(() => {
   const operation = props.mode === 'ranking' ? 'rankings' : 'candidates';
   return (
@@ -72,19 +77,54 @@ function focusEditorTarget(selector: string): void {
     ?.focus();
 }
 
+function canAutoFocusEditor(): boolean {
+  if (
+    props.queryStore.draft.scope === 'global' ||
+    typeof props.targetWindow.matchMedia !== 'function'
+  ) {
+    return false;
+  }
+  return props.targetWindow
+    .matchMedia('(width >= 780px) and (pointer: fine)')
+    .matches;
+}
+
 async function openEditor(): Promise<void> {
   syncOverlayTop();
   editing.value = true;
   await nextTick();
-  focusEditorTarget(':is([name="userId"], [name="subjectType"])');
+  if (canAutoFocusEditor()) {
+    focusEditorTarget('[name="userId"]');
+  }
 }
 
-function closeEditor(): void {
+function closeEditor(restoreFocus = true): void {
   if (props.coordinator.pending.value) {
     return;
   }
+  restoreSummaryFocus = restoreFocus;
   editing.value = false;
-  props.targetWindow.requestAnimationFrame(() => summaryButton.value?.focus());
+}
+
+function markSummaryPointerActivation(): void {
+  summaryPointerActivated = true;
+}
+
+function clearSummaryPointerActivation(): void {
+  summaryPointerActivated = false;
+}
+
+function toggleEditor(event: MouseEvent): void {
+  const pointerActivated = summaryPointerActivated || event.detail > 0;
+  summaryPointerActivated = false;
+  if (editing.value) {
+    closeEditor(!pointerActivated);
+  } else {
+    void openEditor();
+  }
+  if (pointerActivated) {
+    summaryButton.value?.blur();
+  }
 }
 
 async function execute(refreshCollection = false): Promise<void> {
@@ -93,15 +133,32 @@ async function execute(refreshCollection = false): Promise<void> {
     mode: props.mode,
     refreshCollection,
   });
+  restoreSummaryFocus = true;
   editing.value = !accepted;
   if (!accepted) {
     await nextTick();
-    focusEditorTarget(
-      ':is(input[aria-invalid="true"], select[aria-invalid="true"], [data-query-invalid="true"], [name="userId"], [name="subjectType"])',
-    );
+    await nextTick();
+    await queryEditor.value?.focusFirstInvalidField();
   }
 }
 
+watch(
+  editing,
+  async (isEditing) => {
+    await nextTick();
+    if (isEditing) {
+      syncOverlayTop();
+      return;
+    }
+    if (
+      restoreSummaryFocus &&
+      props.targetWindow.document.activeElement !== summaryButton.value
+    ) {
+      summaryButton.value?.focus();
+    }
+    restoreSummaryFocus = true;
+  },
+);
 watch(
   () => props.queryStore.applied,
   (applied) => {
@@ -124,8 +181,8 @@ onMounted(async () => {
   props.targetWindow.addEventListener('resize', syncOverlayTop);
   await nextTick();
   syncOverlayTop();
-  if (editing.value) {
-    focusEditorTarget(':is([name="userId"], [name="subjectType"])');
+  if (editing.value && canAutoFocusEditor()) {
+    focusEditorTarget('[name="userId"]');
   }
 });
 
@@ -137,38 +194,71 @@ defineExpose({ openEditor });
 </script>
 
 <template>
-  <section class="query-workspace" aria-labelledby="query-workspace-title">
-    <h1 id="query-workspace-title" class="sr-only">
+  <section
+    class="query-workspace"
+    :aria-labelledby="editing ? 'query-editor-title' : 'query-title'"
+  >
+    <h1 v-if="!editing" id="query-title" class="sr-only">
       {{ queryStore.applied ? '当前查询' : '查询设置' }}
     </h1>
     <button
       ref="summaryButton"
-      class="query-summary"
+      class="query-summary header-edit-card"
       :class="{ 'is-editing': editing }"
       type="button"
+      :aria-label="
+        editing
+          ? '收起查询条件'
+          : coordinator.pending.value
+            ? '查询中，打开查询面板以取消'
+            : queryStore.applied
+              ? `编辑查询条件：${summaryText}`
+              : '设置首次查询条件'
+      "
       :aria-expanded="editing"
       :aria-busy="coordinator.pending.value"
       aria-controls="query-editor"
-      @click="editing ? closeEditor() : openEditor()"
+      @pointerdown="markSummaryPointerActivation"
+      @pointercancel="clearSummaryPointerActivation"
+      @click="toggleEditor"
     >
       <template v-if="editing">
-        <span id="query-editor-title" class="query-editor__title">编辑查询</span>
-        <span class="query-summary__action" aria-hidden="true">
-          <query-icon name="chevron" />
+        <span
+          id="query-editor-title"
+          class="query-editor__title"
+          role="heading"
+          aria-level="2"
+        >
+          编辑查询
+        </span>
+        <span
+          class="query-editor__collapse header-edit-card__action"
+          aria-hidden="true"
+        >
+          <query-icon name="chevron" :size="18" />
         </span>
       </template>
       <template v-else>
-        <span class="query-summary__copy">
-          <span
-            v-for="(part, index) in summary"
-            :key="`${index}-${part}`"
-            class="query-summary__value"
-          >
-            {{ part }}
+        <span class="query-summary__stages">
+          <span class="query-summary__stage">
+            <span class="query-summary__stage-copy">
+              <strong class="query-summary__copy">
+                <span
+                  v-for="(part, index) in summary"
+                  :key="`${index}-${part}`"
+                  class="query-summary__value"
+                >
+                  {{ part }}
+                </span>
+              </strong>
+            </span>
           </span>
         </span>
-        <span class="query-summary__action" aria-hidden="true">
-          <query-icon name="edit" />
+        <span
+          class="query-summary__action header-edit-card__action"
+          aria-hidden="true"
+        >
+          <query-icon :name="queryStore.applied ? 'edit' : 'search'" :size="18" />
         </span>
       </template>
     </button>
@@ -179,21 +269,25 @@ defineExpose({ openEditor });
           v-if="editing"
           class="query-editor-overlay"
           :style="{ '--query-overlay-top': `${overlayTop}px` }"
-        >
-          <query-editor
+          >
+            <query-editor
+              ref="queryEditor"
+              v-model:expanded-sections="expandedQuerySections"
             :catalog-phase="catalogStore.phase"
+            :compact="compact"
+            :dirty="queryStore.dirty"
             :disabled="coordinator.pending.value"
             :draft="queryStore.draft"
             :errors="queryStore.fieldErrors"
             :groups="catalogStore.snapshot?.groups ?? []"
+            :has-applied-query="Boolean(queryStore.applied)"
             :merge-series-available="mergeSeriesAvailable"
             :mode="mode"
             :positions="catalogStore.positions"
             :status-message="resource.error ?? resource.feedback"
             :subject-types="catalogStore.subjectTypes"
-            :target-window="targetWindow"
             @cancel="coordinator.cancelPending()"
-            @close="closeEditor"
+            @close="closeEditor()"
             @refresh="execute(true)"
             @restore="queryStore.restoreDraft"
             @retry-catalog="retryCatalog"
