@@ -45,7 +45,12 @@ Use Node through
   intercepted built-module 503 causes a fresh 200 recovery attempt while
   preserving route/restorable intent; do not accept a unit-only loader swap
   that reuses the browser's rejected module map entry.
-- [ ] 2.10 Verify Group 2B with `npm run check:co-star-wire`, focused API/co-star/query-share/App Vitest files, `npm run typecheck`, `npm run build`, `git diff --check`, and strict change validation; stop and retain the last accepted surfaces on any failure.
+- [ ] 2.10 Preserve the latest candidate search/sort/order/page/page-size intent
+  entered during a same-query collection refresh, issue no old-snapshot view
+  request or false readiness error while primary is pending, and after success
+  replay exactly one latest differing view on the refreshed snapshot; cover
+  superseded intermediate edits and stale/error cleanup.
+- [ ] 2.11 Verify Group 2B with `npm run check:co-star-wire`, focused API/co-star/query-share/App Vitest files, `npm run typecheck`, `npm run build`, `git diff --check`, and strict change validation; stop and retain the last accepted surfaces on any failure.
 
 ## 3. Integrated development acceptance
 

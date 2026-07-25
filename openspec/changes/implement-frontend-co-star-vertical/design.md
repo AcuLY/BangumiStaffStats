@@ -105,6 +105,17 @@ the prototype where formal operation boundaries differ.
    partners/co-star or any view-only request. Whole-page loading and response
    clearing were rejected because they violate PRODUCT continuity.
 
+   A same-query explicit collection refresh does not disable the still-visible
+   candidate controls. Candidate search/sort/page edits made while the primary
+   request is pending therefore become the latest candidate-view intent
+   instead of producing a false “先完成查询” error. The primary success commits
+   its refreshed snapshot first, then replays exactly the latest intent once
+   when it differs from that response's view. Superseded intermediate intents
+   never request or commit; the replay clears any obsolete view error. This is
+   the candidate equivalent of completion-time partners/co-star intent replay
+   and preserves the prototype's usable controls and visible text/result
+   agreement.
+
    The shared client exposes only immutable `status` plus a read-only header
    accessor to operation error decoders. Partners/co-star accept only canonical
    integer `Retry-After` values from 1–60 seconds and may perform at most one

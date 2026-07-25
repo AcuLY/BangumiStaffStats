@@ -89,6 +89,17 @@ partners/co-star view changes SHALL not advance queryRevision.
 - **THEN** the candidate result, Applied Query, and new revision SHALL commit atomically
 - **AND** prior selected identities and analysis SHALL clear exactly once
 
+#### Scenario: Candidate view changes during a same-query refresh
+- **WHEN** collection refresh is pending for the current applied co-star query
+  and the user changes candidate search, sort, order, page, or page size
+- **THEN** the still-usable controls SHALL retain only the latest candidate-view
+  intent without sending a request against the old snapshot or showing a false
+  query-readiness error
+- **AND** after primary success the refreshed candidate response SHALL commit
+  first, then exactly one request for the latest differing view SHALL run
+- **AND** its completion SHALL make the visible controls, candidate rows, and
+  local error state agree on the refreshed snapshot
+
 ### Requirement: Candidate picker and tray SHALL provide one complete identity owner
 
 At 780px and above, `/co-star` SHALL show the candidate picker as a desktop rail
