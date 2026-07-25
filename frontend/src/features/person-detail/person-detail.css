@@ -286,9 +286,9 @@
 .stat-evidence__trigger {
   position: relative;
   display: inline-grid;
-  width: 28px;
-  height: 28px;
-  margin: -7px -5px;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  margin: -15px -13px;
   place-items: center;
   border: 0;
   border-radius: 50%;
@@ -430,7 +430,7 @@
 }
 
 .person-segmented-control button {
-  min-height: 32px;
+  min-height: var(--touch-target);
   padding: 4px 9px;
   border: 0;
   border-radius: 4px;
