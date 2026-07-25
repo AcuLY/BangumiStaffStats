@@ -41,6 +41,7 @@ type middlewareOptions struct {
 	events           *observability.EventSink
 	catalogs         CatalogStoreProvider
 	catalogProjector catalogProjector
+	rankings         rankingsExecutor
 }
 
 func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Handler {
@@ -66,17 +67,30 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 		recorder.Header().Set(requestIDHeader, requestID)
 
 		identityContext := context.WithValue(request.Context(), requestIDContextKey{}, requestID)
-		var catalogTerminal *observability.QueryTerminal
+		var queryTerminal *observability.QueryTerminal
 		if metricRoute(request) == observability.RouteCatalog {
-			catalogTerminal, _ = observability.NewQueryTerminal(
+			queryTerminal, _ = observability.NewQueryTerminal(
 				requestID,
 				observability.QueryOperationCatalog,
 			)
-			if catalogTerminal != nil {
+			if queryTerminal != nil {
 				identityContext = context.WithValue(
 					identityContext,
 					catalogTerminalContextKey{},
-					catalogTerminal,
+					queryTerminal,
+				)
+			}
+		}
+		if metricRoute(request) == observability.RouteRankings {
+			queryTerminal, _ = observability.NewQueryTerminal(
+				requestID,
+				observability.QueryOperationRankings,
+			)
+			if queryTerminal != nil {
+				identityContext = context.WithValue(
+					identityContext,
+					rankingsTerminalContextKey{},
+					queryTerminal,
 				)
 			}
 		}
@@ -109,7 +123,7 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 				snapshot, outcome = finishContextOutcome(
 					recorder,
 					result.contextCause,
-					timeoutResponseForRequest(request),
+					timeoutResponseForRequest(request, options.rankings),
 				)
 				break
 			}
@@ -120,7 +134,9 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 					outcome = observability.OutcomeError
 					abortConnection = true
 				} else {
-					snapshot = recorder.terminate(&internalResponse)
+					snapshot = recorder.terminate(
+						internalResponseForRequest(request, options.rankings),
+					)
 					outcome = observability.OutcomePanic
 				}
 				break
@@ -131,7 +147,7 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 			snapshot, outcome = finishContextOutcome(
 				recorder,
 				context.Cause(requestContext),
-				timeoutResponseForRequest(request),
+				timeoutResponseForRequest(request, options.rankings),
 			)
 		}
 
@@ -147,13 +163,14 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 			})
 		}
 		if options.events != nil &&
-			metricRoute(request) == observability.RouteCatalog &&
+			(metricRoute(request) == observability.RouteCatalog ||
+				metricRoute(request) == observability.RouteRankings) &&
 			snapshot.committed &&
 			(outcome == observability.OutcomeTimeout ||
 				outcome == observability.OutcomePanic) &&
-			catalogTerminal != nil {
+			queryTerminal != nil {
 			if snapshot.status >= 200 && snapshot.status <= 399 {
-				event, eventErr := catalogTerminal.Complete(
+				event, eventErr := queryTerminal.Complete(
 					time.Since(startedAt),
 					snapshot.bytes,
 				)
@@ -165,7 +182,7 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 				if outcome == observability.OutcomeTimeout {
 					code = observability.QueryErrorUpstreamTimeout
 				}
-				event, eventErr := catalogTerminal.Reject(
+				event, eventErr := queryTerminal.Reject(
 					snapshot.status,
 					code,
 					nil,
@@ -228,6 +245,8 @@ func metricRoute(request *http.Request) observability.Route {
 		return observability.RouteMetrics
 	case routeCatalog:
 		return observability.RouteCatalog
+	case routeRankings:
+		return observability.RouteRankings
 	default:
 		if imageRouteCandidate(request) {
 			return observability.RouteImage
@@ -246,6 +265,8 @@ func metricOperation(request *http.Request) observability.Operation {
 		return observability.OperationImage
 	case observability.RouteCatalog:
 		return observability.OperationCatalog
+	case observability.RouteRankings:
+		return observability.OperationRankings
 	default:
 		return observability.OperationUnknown
 	}
@@ -254,6 +275,9 @@ func metricOperation(request *http.Request) observability.Operation {
 func metricMethod(request *http.Request) observability.Method {
 	if request != nil && request.Method == http.MethodGet {
 		return observability.MethodGET
+	}
+	if request != nil && request.Method == http.MethodPost {
+		return observability.MethodPOST
 	}
 	return observability.MethodOther
 }
@@ -418,7 +442,7 @@ func (w *commitWriter) terminate(response *responseError) responseSnapshot {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if !w.terminal && !w.committed && response != nil {
-		w.resetForError()
+		w.resetForError(*response)
 		data := errorEnvelopeBytes(w.requestID, *response)
 		w.writer.WriteHeader(response.status)
 		w.committed = true
@@ -434,12 +458,16 @@ func (w *commitWriter) terminate(response *responseError) responseSnapshot {
 	}
 }
 
-func (w *commitWriter) resetForError() {
+func (w *commitWriter) resetForError(response responseError) {
 	header := w.writer.Header()
 	for name := range header {
 		header.Del(name)
 	}
 	header.Set(requestIDHeader, w.requestID)
 	header.Set("Content-Type", "application/json")
-	header.Set("Cache-Control", "no-store")
+	cacheControl := response.cacheControl
+	if cacheControl == "" {
+		cacheControl = "no-store"
+	}
+	header.Set("Cache-Control", cacheControl)
 }

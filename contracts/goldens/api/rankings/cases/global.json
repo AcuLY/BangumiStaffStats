@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "kind": "rankings-global-success-cases",
+  "cases": [
+    {
+      "id": "global-average-missing-last",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "view": {
+          "sort": "average",
+          "order": "asc",
+          "page": 1,
+          "pageSize": 10
+        }
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-rankings-global"
+        },
+        "body": {
+          "data": {
+            "summary": {
+              "personCount": 3,
+              "workUnit": "subject",
+              "workCount": 9
+            },
+            "metricScale": {
+              "metric": "average",
+              "kind": "linear",
+              "max": 850
+            },
+            "items": [
+              {
+                "rank": 1,
+                "person": {
+                  "id": 2,
+                  "name": "Alpha",
+                  "nameCN": null
+                },
+                "workCount": 2,
+                "average": 700,
+                "overall": 557
+              },
+              {
+                "rank": 2,
+                "person": {
+                  "id": 9,
+                  "name": "Beta",
+                  "nameCN": "贝塔"
+                },
+                "workCount": 5,
+                "average": 850,
+                "overall": 675
+              },
+              {
+                "rank": 3,
+                "person": {
+                  "id": 11,
+                  "name": "No ratings",
+                  "nameCN": null
+                },
+                "workCount": 2,
+                "average": null,
+                "overall": null
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-rankings-global",
+            "dataVersion": "dv1-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 3
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "global-out-of-range-empty-page",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "book",
+          "positionKeys": [
+            "staff:book:1"
+          ]
+        },
+        "view": {
+          "page": 9007199254740991,
+          "pageSize": 20
+        }
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-rankings-empty"
+        },
+        "body": {
+          "data": {
+            "summary": {
+              "personCount": 0,
+              "workUnit": "subject",
+              "workCount": 0
+            },
+            "metricScale": {
+              "metric": "count",
+              "kind": "linear",
+              "max": null
+            },
+            "items": []
+          },
+          "meta": {
+            "requestId": "req-rankings-empty",
+            "dataVersion": "dv1-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "pagination": {
+              "page": 9007199254740991,
+              "pageSize": 20,
+              "total": 0
+            }
+          }
+        }
+      }
+    }
+  ]
+}

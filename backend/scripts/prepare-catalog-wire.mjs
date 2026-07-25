@@ -65,7 +65,6 @@ if (fs.existsSync(projectionRoot)) {
 
 const authority = JSON.parse(readRegular(authorityOpenAPI).toString("utf8"));
 assert.equal(authority.openapi, "3.1.0");
-assert.deepEqual(Object.keys(authority.paths ?? {}).sort(), ["/catalog"]);
 assert.equal(authority.paths["/catalog"]?.get?.operationId, "getCatalogV1");
 const selected = collectComponents(authority);
 assert.deepEqual(selected, expectedComponents);
@@ -76,7 +75,11 @@ fs.mkdirSync(sourceOpenAPI, { recursive: true });
 fs.mkdirSync(sourceSchemas, { recursive: true });
 const projection = {
   openapi: authority.openapi,
-  info: authority.info,
+  info: {
+    ...authority.info,
+    description:
+      "Shared query contracts and the input-free dynamic catalog endpoint.",
+  },
   paths: {
     "/catalog": {
       get: {

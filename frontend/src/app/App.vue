@@ -11,7 +11,10 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { createCatalogApi, type CatalogApi } from '../api/catalog';
 import { createApiClient } from '../api/client';
+import { createRankingsDriver } from '../api/rankings';
 import { useCatalogStore } from '../features/catalog/store';
+import RankingResults from '../features/ranking/components/RankingResults.vue';
+import type { RankingPayload } from '../api/adapters/rankings';
 import AppHeader from '../features/query/components/AppHeader.vue';
 import QueryIcon from '../features/query/components/QueryIcon.vue';
 import QueryWorkspace from '../features/query/components/QueryWorkspace.vue';
@@ -30,7 +33,7 @@ import { createThemeOwner } from './theme';
 
 interface AppServices {
   readonly catalogApi: CatalogApi;
-  readonly drivers: QueryDrivers<unknown, unknown>;
+  readonly drivers: QueryDrivers<RankingPayload, unknown>;
   readonly targetWindow: Window;
 }
 
@@ -53,10 +56,16 @@ const fetchImplementation =
   (async () => {
     throw new TypeError('Fetch is unavailable');
   });
+const apiClient = createApiClient(fetchImplementation);
 const catalogApi =
   props.services?.catalogApi ??
-  createCatalogApi(createApiClient(fetchImplementation));
-const drivers = props.services?.drivers ?? unavailableQueryDrivers();
+  createCatalogApi(apiClient);
+const unavailableDrivers = unavailableQueryDrivers();
+const drivers: QueryDrivers<RankingPayload, unknown> =
+  props.services?.drivers ?? {
+    candidates: unavailableDrivers.candidates,
+    rankings: createRankingsDriver(apiClient),
+  };
 const coordinator = createQueryCoordinator(queryStore, drivers, (query) => {
   route.updateSuccessfulQuery(query);
   routeError.value = null;
@@ -73,9 +82,13 @@ const operationFeedback = computed(
 
 function installShareWorkspace(payload: SharePayload): void {
   if (payload.workspace.kind === 'ranking') {
-    coordinator.rankings.view = Object.freeze(
-      structuredClone(payload.workspace.rankingsView),
-    );
+    coordinator.rankings.view = Object.freeze({
+      order: payload.workspace.rankingsView.order ?? 'desc',
+      page: payload.workspace.rankingsView.page ?? 1,
+      pageSize: payload.workspace.rankingsView.pageSize ?? 10,
+      search: payload.workspace.rankingsView.search ?? '',
+      sort: payload.workspace.rankingsView.sort ?? 'count',
+    });
     return;
   }
   coordinator.candidates.input = Object.freeze(
@@ -101,6 +114,13 @@ async function replayShare(payload: SharePayload): Promise<boolean> {
 
 async function loadCatalog(): Promise<boolean> {
   return catalogStore.load(catalogApi);
+}
+
+async function retryRanking(): Promise<boolean> {
+  return coordinator.execute({
+    catalog: catalogStore.snapshot,
+    mode: 'ranking',
+  });
 }
 
 async function initialize(): Promise<void> {
@@ -180,8 +200,21 @@ onBeforeUnmount(() => {
             {{ routeError }}
           </p>
 
+          <ranking-results
+            v-if="
+              route.mode.value === 'ranking' &&
+              (coordinator.rankings.phase === 'pending' ||
+                coordinator.rankings.payload !== null ||
+                coordinator.rankings.error !== null)
+            "
+            :device-pixel-ratio="targetWindow.devicePixelRatio"
+            :execute-view="coordinator.executeRankingView"
+            :resource="coordinator.rankings"
+            :retry="retryRanking"
+          />
+
           <section
-            v-if="activeResource.phase === 'pending'"
+            v-else-if="activeResource.phase === 'pending'"
             class="query-result-state surface-panel"
             aria-busy="true"
             aria-live="polite"

@@ -164,12 +164,23 @@ func TestRouterRejectsUnknownAndWrongMethodWithExactEnvelope(t *testing.T) {
 		metrics:        metrics,
 	})
 
-	for _, path := range []string{"/", "/livez/", "/api/v1/rankings", "/health", "/not-a-route/private-token"} {
+	for _, path := range []string{"/", "/livez/", "/health", "/not-a-route/private-token"} {
 		response := performRequest(handler, http.MethodGet, path)
 		assertErrorResponse(t, response, http.StatusNotFound, codeEntityNotFound, false)
 		if strings.Contains(response.Body.String(), path) || strings.Contains(response.Body.String(), "private-token") {
 			t.Fatalf("unknown response leaked path: %q", response.Body.String())
 		}
+	}
+	rankings := performRequest(handler, http.MethodGet, routeRankings)
+	assertRankingsError(
+		t,
+		rankings,
+		http.StatusMethodNotAllowed,
+		codeInvalidRequest,
+		"method not allowed",
+	)
+	if rankings.Header().Get("Allow") != http.MethodPost {
+		t.Fatalf("rankings Allow = %q", rankings.Header().Get("Allow"))
 	}
 	for _, path := range []string{"/livez", "/readyz", "/metrics"} {
 		response := performRequest(handler, http.MethodPost, path)

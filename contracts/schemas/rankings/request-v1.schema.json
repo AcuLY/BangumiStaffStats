@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.local/schemas/rankings/request-v1.schema.json",
+  "title": "RankingsRequestV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "query"
+  ],
+  "properties": {
+    "query": {
+      "$ref": "../query/shared-query-v1.schema.json"
+    },
+    "view": {
+      "$ref": "../query/operation-components-v1.schema.json#/$defs/RankingsViewV1"
+    },
+    "refreshCollection": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

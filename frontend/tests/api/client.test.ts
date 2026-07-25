@@ -144,6 +144,63 @@ describe('native fetch API client', () => {
     });
   });
 
+  it('uses an operation-supplied strict decoder for an HTTP error body', async () => {
+    const client = createApiClient(
+      vi.fn<FetchImplementation>(async () =>
+        jsonResponse({ error: { code: 'NOT_READY' } }, 503),
+      ),
+    );
+    const operationError = new Error('bounded operation failure');
+
+    await expect(
+      client.request({
+        decode: (value) => value,
+        decodeError(value, status) {
+          expect(value).toEqual({ error: { code: 'NOT_READY' } });
+          expect(status).toBe(503);
+          return operationError;
+        },
+        reference: '/api/v1/rankings',
+      }),
+    ).rejects.toBe(operationError);
+  });
+
+  it('rejects invalid JSON and invalid shape from an HTTP error decoder', async () => {
+    const invalidJson = createApiClient(
+      vi.fn<FetchImplementation>(
+        async () => new Response('{', { status: 503 }),
+      ),
+    );
+    await expect(
+      invalidJson.request({
+        decode: (value) => value,
+        decodeError: () => new Error('unused'),
+        reference: '/api/v1/rankings',
+      }),
+    ).rejects.toMatchObject({
+      kind: 'invalid-json',
+      name: 'ApiDecodeError',
+    });
+
+    const invalidShape = createApiClient(
+      vi.fn<FetchImplementation>(async () =>
+        jsonResponse({ unexpected: true }, 503),
+      ),
+    );
+    await expect(
+      invalidShape.request({
+        decode: (value) => value,
+        decodeError() {
+          throw new TypeError('schema mismatch');
+        },
+        reference: '/api/v1/rankings',
+      }),
+    ).rejects.toMatchObject({
+      kind: 'schema-mismatch',
+      name: 'ApiDecodeError',
+    });
+  });
+
   it('keeps JSON and decoder failures in bounded decode categories', async () => {
     const invalidJsonClient = createApiClient(
       vi.fn<FetchImplementation>(

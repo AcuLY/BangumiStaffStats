@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.local/schemas/rankings/result-error-envelope-v1.schema.json",
+  "title": "ResultErrorEnvelopeV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "error",
+    "meta"
+  ],
+  "properties": {
+    "error": {
+      "$ref": "#/$defs/ErrorV1"
+    },
+    "meta": {
+      "$ref": "#/$defs/ErrorMetaV1"
+    }
+  },
+  "$defs": {
+    "ErrorCodeV1": {
+      "type": "string",
+      "enum": [
+        "INVALID_JSON",
+        "INVALID_REQUEST",
+        "FIELD_INVALID",
+        "POSITION_SELECTION_CONFLICT",
+        "POSITION_NOT_FOUND",
+        "POSITION_NOT_SELECTABLE",
+        "POSITION_SUBJECT_TYPE_MISMATCH",
+        "CAPABILITY_NOT_AVAILABLE",
+        "PERSON_NOT_IN_QUERY_RESULT",
+        "PARTICIPANT_LIMIT_EXCEEDED",
+        "IDENTITY_LIMIT_EXCEEDED",
+        "COLLECTION_NOT_PUBLIC",
+        "USER_NOT_FOUND",
+        "ENTITY_NOT_FOUND",
+        "REQUEST_TOO_LARGE",
+        "UNSUPPORTED_MEDIA_TYPE",
+        "RATE_LIMITED",
+        "SERVER_BUSY",
+        "NOT_READY",
+        "UPSTREAM_TIMEOUT",
+        "UPSTREAM_UNAVAILABLE",
+        "UPSTREAM_PROTOCOL_ERROR",
+        "INTERNAL_ERROR"
+      ]
+    },
+    "FieldErrorCodeV1": {
+      "type": "string",
+      "enum": [
+        "REQUIRED",
+        "UNKNOWN_FIELD",
+        "INVALID_TYPE",
+        "INVALID_FORMAT",
+        "INVALID_UNICODE",
+        "OUT_OF_RANGE",
+        "DUPLICATE",
+        "LIMIT_EXCEEDED",
+        "VALUE_CONFLICT",
+        "UNSUPPORTED_VALUE",
+        "POSITION_SELECTION_CONFLICT",
+        "POSITION_NOT_FOUND",
+        "POSITION_NOT_SELECTABLE",
+        "POSITION_SUBJECT_TYPE_MISMATCH",
+        "CAPABILITY_NOT_AVAILABLE",
+        "PERSON_NOT_IN_QUERY_RESULT",
+        "PARTICIPANT_LIMIT_EXCEEDED",
+        "IDENTITY_LIMIT_EXCEEDED"
+      ]
+    },
+    "FieldErrorsV1": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^/(?:query|scope|uid|collectionStatuses|subjectType|positionKeys|includeNSFW|mergeSeries|filters|catalog|operation|input|view|refreshCollection|workspace|error|meta)(?:/(?:[A-Za-z0-9_.-]|~0|~1)+)*$"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/FieldErrorCodeV1"
+        }
+      }
+    },
+    "ErrorV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message",
+        "retryable",
+        "fieldErrors"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/ErrorCodeV1"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "fieldErrors": {
+          "$ref": "#/$defs/FieldErrorsV1"
+        }
+      }
+    },
+    "OpaqueIdentifierV1": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "ErrorMetaV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId"
+      ],
+      "properties": {
+        "requestId": {
+          "$ref": "#/$defs/OpaqueIdentifierV1"
+        },
+        "dataVersion": {
+          "$ref": "#/$defs/OpaqueIdentifierV1"
+        }
+      }
+    }
+  }
+}

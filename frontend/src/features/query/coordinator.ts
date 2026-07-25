@@ -5,6 +5,7 @@ import type {
   CandidatesViewV1,
   RankingsViewV1,
 } from '../../api/generated/query-wire/types.gen';
+import { RankingsApiError } from '../../api/rankings';
 import type { CatalogSnapshot } from '../../api/adapters/catalog';
 import {
   type AppliedQuery,
@@ -16,6 +17,7 @@ import type { useQueryStore } from './store';
 
 export type QueryOperation = 'candidates' | 'rankings';
 export type ResourcePhase = 'error' | 'idle' | 'pending' | 'ready';
+export type RankingsViewState = Required<RankingsViewV1>;
 
 export interface OperationFeedback {
   readonly kind: 'error' | 'status' | 'warning';
@@ -28,13 +30,14 @@ export interface OperationResponse<Payload> {
   readonly requestId: string;
   readonly staleCollection?: boolean;
   readonly warningCodes?: readonly string[];
+  readonly transactionId: string;
 }
 
 export interface OperationRequest<Input, View> {
   readonly input: Input;
   readonly query: AppliedQuery;
   readonly refreshCollection: boolean;
-  readonly requestId: string;
+  readonly transactionId: string;
   readonly sequence: number;
   readonly signal: AbortSignal;
   readonly view: View;
@@ -70,6 +73,7 @@ export interface OperationResource<Payload, Input, View> {
   revision: number;
   staleCollection: boolean;
   view: Readonly<View>;
+  viewPending: boolean;
 }
 
 interface ResourceSnapshot {
@@ -81,6 +85,8 @@ interface ResourceSnapshot {
   readonly requestId: string | null;
   readonly revision: number;
   readonly staleCollection: boolean;
+  readonly view: unknown;
+  readonly viewPending: boolean;
 }
 
 interface OperationTransaction {
@@ -112,11 +118,18 @@ function resourceError(error: unknown): string {
   if (error instanceof QueryCapabilityUnavailableError) {
     return error.message;
   }
+  if (error instanceof RankingsApiError) {
+    return error.message;
+  }
   return '查询暂时无法完成，请稍后重试';
 }
 
-function requestId(operation: QueryOperation, sequence: number): string {
+function transactionId(operation: QueryOperation, sequence: number): string {
   return `${operation}-${sequence.toString(36)}`;
+}
+
+function serverRequestId(error: unknown): string | null {
+  return error instanceof RankingsApiError ? error.requestId : null;
 }
 
 type QueryStore = ReturnType<typeof useQueryStore>;
@@ -135,13 +148,14 @@ export interface QueryCoordinator<RankingPayload, CandidatePayload> {
     mode: QueryMode;
     refreshCollection?: boolean;
   }): Promise<boolean>;
+  executeRankingView(view: Readonly<RankingsViewState>): Promise<boolean>;
   readonly lastOperationFeedback: Readonly<Ref<OperationFeedback | null>>;
   readonly pending: Readonly<Ref<boolean>>;
   readonly pendingOperation: Readonly<Ref<QueryOperation | null>>;
   readonly rankings: OperationResource<
     RankingPayload,
     Record<string, never>,
-    RankingsViewV1
+    RankingsViewState
   >;
 }
 
@@ -165,7 +179,7 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
     OperationResource<
       RankingPayload,
       Record<string, never>,
-      RankingsViewV1
+      RankingsViewState
     >
   >({
     acceptedQuery: null,
@@ -184,6 +198,7 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
       search: '',
       sort: 'count',
     }),
+    viewPending: false,
   });
   const candidates = shallowReactive<
     OperationResource<CandidatePayload, CandidatesInputV1, CandidatesViewV1>
@@ -204,6 +219,7 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
       search: '',
       sort: 'count',
     }),
+    viewPending: false,
   });
 
   function operationFor(mode: QueryMode): QueryOperation {
@@ -222,6 +238,8 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
       requestId: resource.requestId,
       revision: resource.revision,
       staleCollection: resource.staleCollection,
+      view: resource.view,
+      viewPending: resource.viewPending,
     };
   }
 
@@ -239,6 +257,8 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
     resource.requestId = snapshot.requestId;
     resource.revision = snapshot.revision;
     resource.staleCollection = snapshot.staleCollection;
+    resource.view = snapshot.view as never;
+    resource.viewPending = snapshot.viewPending;
   }
 
   function syncPendingState(): void {
@@ -277,8 +297,10 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
     transactions[operation] = undefined;
     const resource = operation === 'rankings' ? rankings : candidates;
     restoreResource(resource, transaction.snapshot);
-    resource.feedback = feedback;
-    publishFeedback(operation, feedback, 'status');
+    resource.feedback = feedback || null;
+    if (feedback) {
+      publishFeedback(operation, feedback, 'status');
+    }
     syncPendingState();
   }
 
@@ -314,6 +336,28 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
       operation === 'rankings' ? 'candidates' : 'rankings';
     cancelOperation(otherOperation, '查询已由其他模式替代');
     const resource = operation === 'rankings' ? rankings : candidates;
+    let nextCandidateInput: Readonly<CandidatesInputV1> | null = null;
+    if (operation === 'candidates') {
+      const requestedPosition =
+        options.candidateInput?.positionKey ?? query.positionKeys[0];
+      const candidatePosition = options.catalog?.positionsByKey.get(
+        String(requestedPosition),
+      );
+      if (
+        !query.positionKeys.includes(requestedPosition) ||
+        !candidatePosition ||
+        !candidatePosition.selectable ||
+        candidatePosition.subjectType !== query.subjectType ||
+        !candidatePosition.capabilities.includes('candidates')
+      ) {
+        candidates.error = '查询暂时无法完成，请稍后重试';
+        publishFeedback('candidates', candidates.error, 'error');
+        return false;
+      }
+      nextCandidateInput = Object.freeze({
+        positionKey: requestedPosition,
+      }) as Readonly<CandidatesInputV1>;
+    }
     const sameQuery =
       store.applied !== null &&
       querySignature(store.applied) === querySignature(query);
@@ -321,6 +365,8 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
       sameQuery &&
       resource.revision === store.revision &&
       resource.phase === 'ready' &&
+      (operation !== 'candidates' ||
+        candidates.input.positionKey === nextCandidateInput?.positionKey) &&
       options.refreshCollection !== true
     ) {
       resource.feedback = '查询条件没有变化';
@@ -333,16 +379,16 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
     const controller = new AbortController();
     controllers[operation] = controller;
     const sequence = ++sequences[operation];
-    const id = requestId(operation, sequence);
+    const transaction = transactionId(operation, sequence);
     const snapshot =
       existingTransaction?.snapshot ??
       captureResource(resource as OperationResource<unknown, unknown, unknown>);
     transactions[operation] = { controller, sequence, snapshot };
 
     resource.phase = 'pending';
+    resource.viewPending = false;
     resource.error = null;
     resource.feedback = null;
-    resource.requestId = id;
     lastOperationFeedback.value = null;
     syncPendingState();
 
@@ -351,13 +397,20 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
     const nextRevision = sameQuery ? store.revision : store.revision + 1;
     try {
       if (operation === 'rankings') {
+        if (query.scope === 'global' && rankings.view.sort === 'preference') {
+          rankings.view = Object.freeze({
+            ...rankings.view,
+            page: 1,
+            sort: 'count',
+          });
+        }
         const response = await drivers.rankings.execute({
           input: rankings.input,
           query,
           refreshCollection,
-          requestId: id,
           sequence,
           signal: controller.signal,
+          transactionId: transaction,
           view: rankings.view,
         });
         if (
@@ -367,8 +420,8 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
         ) {
           return false;
         }
-        if (response.requestId !== id) {
-          throw new Error('Response request ID does not match the request');
+        if (response.transactionId !== transaction) {
+          throw new Error('Response transaction ID does not match the request');
         }
         rankings.payload = response.payload;
         rankings.requestId = response.requestId;
@@ -381,33 +434,16 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
           ? '收藏刷新未完成，当前显示最近一次可用数据'
           : null;
         rankings.phase = 'ready';
+        rankings.viewPending = false;
       } else {
-        const requestedPosition =
-          options.candidateInput?.positionKey ?? query.positionKeys[0];
-        const candidatePosition = options.catalog?.positionsByKey.get(
-          String(requestedPosition),
-        );
-        if (
-          !query.positionKeys.includes(requestedPosition) ||
-          !candidatePosition ||
-          !candidatePosition.selectable ||
-          candidatePosition.subjectType !== query.subjectType ||
-          !candidatePosition.capabilities.includes('candidates')
-        ) {
-          throw new Error(
-            'Candidate input is outside the applied query or unavailable',
-          );
-        }
-        const input = Object.freeze({
-          positionKey: requestedPosition,
-        }) as Readonly<CandidatesInputV1>;
+        const input = nextCandidateInput!;
         const response = await drivers.candidates.execute({
           input,
           query,
           refreshCollection,
-          requestId: id,
           sequence,
           signal: controller.signal,
+          transactionId: transaction,
           view: candidates.view,
         });
         if (
@@ -417,8 +453,8 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
         ) {
           return false;
         }
-        if (response.requestId !== id) {
-          throw new Error('Response request ID does not match the request');
+        if (response.transactionId !== transaction) {
+          throw new Error('Response transaction ID does not match the request');
         }
         candidates.input = input;
         candidates.payload = response.payload;
@@ -459,6 +495,7 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
       resource.error = controller.signal.aborted
         ? '查询已取消'
         : resourceError(error);
+      resource.requestId = serverRequestId(error) ?? resource.requestId;
       publishFeedback(operation, resource.error, 'error');
       return false;
     } finally {
@@ -470,11 +507,132 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
     }
   }
 
+  async function executeRankingView(
+    view: Readonly<RankingsViewState>,
+  ): Promise<boolean> {
+    if (
+      !store.applied ||
+      !rankings.acceptedQuery ||
+      rankings.payload === null ||
+      rankings.phase !== 'ready' ||
+      rankings.revision !== store.revision ||
+      querySignature(rankings.acceptedQuery) !== querySignature(store.applied)
+    ) {
+      rankings.error = '请先完成一次人物排行查询';
+      publishFeedback('rankings', rankings.error, 'error');
+      return false;
+    }
+    if (store.applied.scope === 'global' && view.sort === 'preference') {
+      rankings.error = '全站排行不支持相对偏好排序';
+      publishFeedback('rankings', rankings.error, 'error');
+      return false;
+    }
+    if (
+      !Number.isSafeInteger(view.page) ||
+      view.page < 1 ||
+      ![5, 10, 20].includes(view.pageSize) ||
+      !['count', 'average', 'overall', 'preference'].includes(view.sort) ||
+      !['asc', 'desc'].includes(view.order) ||
+      [...view.search].length > 256
+    ) {
+      rankings.error = '排行视图参数无效';
+      publishFeedback('rankings', rankings.error, 'error');
+      return false;
+    }
+    if (
+      !rankings.viewPending &&
+      rankings.view.search === view.search &&
+      rankings.view.sort === view.sort &&
+      rankings.view.order === view.order &&
+      rankings.view.page === view.page &&
+      rankings.view.pageSize === view.pageSize
+    ) {
+      return true;
+    }
+
+    if (transactions.rankings) {
+      cancelOperation('rankings', '');
+    }
+    const controller = new AbortController();
+    controllers.rankings = controller;
+    const sequence = ++sequences.rankings;
+    const transaction = transactionId('rankings', sequence);
+    const snapshot = captureResource(rankings);
+    transactions.rankings = { controller, sequence, snapshot };
+
+    rankings.error = null;
+    rankings.feedback = null;
+    rankings.view = Object.freeze(structuredClone(view));
+    rankings.viewPending = true;
+    lastOperationFeedback.value = null;
+    syncPendingState();
+
+    try {
+      const response = await drivers.rankings.execute({
+        input: rankings.input,
+        query: rankings.acceptedQuery,
+        refreshCollection: false,
+        sequence,
+        signal: controller.signal,
+        transactionId: transaction,
+        view: rankings.view,
+      });
+      if (
+        sequence !== sequences.rankings ||
+        controller.signal.aborted ||
+        controllers.rankings !== controller
+      ) {
+        return false;
+      }
+      if (response.transactionId !== transaction) {
+        throw new Error('Response transaction ID does not match the request');
+      }
+
+      rankings.payload = response.payload;
+      rankings.requestId = response.requestId;
+      rankings.staleCollection =
+        response.staleCollection === true ||
+        response.warningCodes?.includes('COLLECTION_STALE') === true;
+      rankings.feedback = rankings.staleCollection
+        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        : null;
+      rankings.error = null;
+      rankings.phase = 'ready';
+      rankings.viewPending = false;
+      if (rankings.feedback) {
+        publishFeedback('rankings', rankings.feedback, 'warning');
+      }
+      return true;
+    } catch (error) {
+      if (
+        sequence !== sequences.rankings ||
+        controllers.rankings !== controller
+      ) {
+        return false;
+      }
+      restoreResource(rankings, snapshot);
+      rankings.error = controller.signal.aborted
+        ? '查询已取消'
+        : resourceError(error);
+      rankings.requestId = serverRequestId(error) ?? rankings.requestId;
+      publishFeedback('rankings', rankings.error, 'error');
+      return false;
+    } finally {
+      if (controllers.rankings === controller) {
+        controllers.rankings = undefined;
+        transactions.rankings = undefined;
+        rankings.viewPending = false;
+      }
+      syncPendingState();
+    }
+  }
+
   return {
     cancel,
     cancelPending,
     candidates,
     execute,
+    executeRankingView,
     lastOperationFeedback: readonly(lastOperationFeedback),
     pending: readonly(pending),
     pendingOperation: readonly(pendingOperation),

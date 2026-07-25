@@ -33,11 +33,13 @@ const (
 )
 
 type responseError struct {
-	status      int
-	code        errorCode
-	message     string
-	retryable   bool
-	fieldErrors map[string][]fieldErrorCode
+	status       int
+	code         errorCode
+	message      string
+	retryable    bool
+	fieldErrors  map[string][]fieldErrorCode
+	dataVersion  string
+	cacheControl string
 }
 
 var (
@@ -227,7 +229,11 @@ func writeError(writer http.ResponseWriter, requestID string, response responseE
 	data := errorEnvelopeBytes(requestID, response)
 	header := writer.Header()
 	header.Set("Content-Type", "application/json")
-	header.Set("Cache-Control", "no-store")
+	cacheControl := response.cacheControl
+	if cacheControl == "" {
+		cacheControl = "no-store"
+	}
+	header.Set("Cache-Control", cacheControl)
 	writer.WriteHeader(response.status)
 	_, _ = writer.Write(data)
 }
@@ -242,6 +248,10 @@ func errorEnvelopeBytes(requestID string, response responseError) []byte {
 		envelope.Error.FieldErrors[path] = append([]wire.ErrorEnvelopeV1ErrorFieldErrors(nil), values...)
 	}
 	envelope.Meta.RequestId = requestID
+	if response.dataVersion != "" {
+		value := response.dataVersion
+		envelope.Meta.DataVersion = &value
+	}
 	data, err := json.Marshal(envelope)
 	if err != nil {
 		panic("fixed error envelope cannot be encoded")

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '../../../src/app/App.vue';
 import type { CatalogApi } from '../../../src/api/catalog';
+import type { RankingPayload } from '../../../src/api/adapters/rankings';
 import AppHeader from '../../../src/features/query/components/AppHeader.vue';
 import {
   createQueryCoordinator,
@@ -16,8 +17,32 @@ import { createShareUrl } from '../../../src/features/query/share';
 import { useQueryStore } from '../../../src/features/query/store';
 import { catalogFixture } from './fixtures';
 
-interface Payload {
+interface CandidatePayload {
   id: string;
+}
+
+function rankingPayload(requestId: string): RankingPayload {
+  return Object.freeze({
+    dataVersion: `dv1-${'c'.repeat(64)}`,
+    items: Object.freeze([]),
+    metricScale: Object.freeze({
+      kind: 'linear',
+      max: null,
+      metric: 'count',
+    }),
+    pagination: Object.freeze({
+      page: 1,
+      pageSize: 10,
+      total: 0,
+    }),
+    requestId,
+    scope: 'personal',
+    summary: Object.freeze({
+      personCount: 0,
+      workCount: 0,
+      workUnit: 'subject',
+    }),
+  });
 }
 
 function validStore() {
@@ -36,15 +61,19 @@ function catalogApi(): CatalogApi {
 }
 
 function drivers(
-  execute: QueryDrivers<Payload, Payload>['rankings']['execute'],
-): QueryDrivers<Payload, Payload> {
+  execute: QueryDrivers<
+    RankingPayload,
+    CandidatePayload
+  >['rankings']['execute'],
+): QueryDrivers<RankingPayload, CandidatePayload> {
   return {
     rankings: { execute },
     candidates: {
       async execute(request) {
         return {
           payload: { id: 'candidate' },
-          requestId: request.requestId,
+          requestId: `server-${request.transactionId}`,
+          transactionId: request.transactionId,
         };
       },
     },
@@ -59,18 +88,19 @@ beforeEach(() => {
 describe('query shell components', () => {
   it('keeps the last successful share enabled while a refresh is pending', async () => {
     const store = validStore();
-    let resolveRefresh!: (response: OperationResponse<Payload>) => void;
-    let refreshRequestId = '';
+    let resolveRefresh!: (response: OperationResponse<RankingPayload>) => void;
+    let refreshTransactionId = '';
     const execute = vi
       .fn()
       .mockImplementationOnce(async (request) => ({
-        payload: { id: 'ready' },
-        requestId: request.requestId,
+        payload: rankingPayload(`server-${request.transactionId}`),
+        requestId: `server-${request.transactionId}`,
+        transactionId: request.transactionId,
       }))
       .mockImplementationOnce(
         (request) =>
-          new Promise<OperationResponse<Payload>>((resolve) => {
-            refreshRequestId = request.requestId;
+          new Promise<OperationResponse<RankingPayload>>((resolve) => {
+            refreshTransactionId = request.transactionId;
             resolveRefresh = resolve;
           }),
       );
@@ -105,8 +135,9 @@ describe('query shell components', () => {
 
     coordinator.cancelPending();
     resolveRefresh({
-      payload: { id: 'late' },
-      requestId: refreshRequestId,
+      payload: rankingPayload('server-late'),
+      requestId: 'server-late',
+      transactionId: refreshTransactionId,
     });
     await refresh;
     wrapper.unmount();
@@ -118,8 +149,9 @@ describe('query shell components', () => {
     setActivePinia(pinia);
     const store = validStore();
     const resultDrivers = drivers(async (request) => ({
-      payload: { id: 'stale' },
-      requestId: request.requestId,
+      payload: rankingPayload(`server-${request.transactionId}`),
+      requestId: `server-${request.transactionId}`,
+      transactionId: request.transactionId,
       warningCodes: ['COLLECTION_STALE'],
     }));
     const wrapper = mount(App, {
@@ -184,7 +216,8 @@ describe('query shell components', () => {
     const store = useQueryStore();
     const candidateExecute = vi.fn(async (request) => ({
       payload: { id: String(request.input.positionKey) },
-      requestId: request.requestId,
+      requestId: `server-${request.transactionId}`,
+      transactionId: request.transactionId,
     }));
     const wrapper = mount(App, {
       attachTo: document.body,
@@ -269,7 +302,7 @@ describe('query shell components', () => {
     let rankingSignal: AbortSignal | undefined;
     const resultDrivers = drivers(
       (request) =>
-        new Promise<OperationResponse<Payload>>((_resolve, reject) => {
+        new Promise<OperationResponse<RankingPayload>>((_resolve, reject) => {
           rankingSignal = request.signal;
           request.signal.addEventListener(
             'abort',
@@ -323,7 +356,7 @@ describe('query shell components', () => {
     let rejectRanking!: (error: unknown) => void;
     const resultDrivers = drivers(
       () =>
-        new Promise<OperationResponse<Payload>>((_resolve, reject) => {
+        new Promise<OperationResponse<RankingPayload>>((_resolve, reject) => {
           rejectRanking = reject;
         }),
     );

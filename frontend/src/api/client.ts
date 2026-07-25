@@ -10,6 +10,7 @@ export type ResponseDecoder<T> = (value: unknown) => T;
 export interface ApiRequestOptions<T> {
   body?: BodyInit | null;
   decode: ResponseDecoder<T>;
+  decodeError?: (value: unknown, status: number) => Error;
   headers?: HeadersInit;
   method?: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';
   reference: string;
@@ -92,7 +93,7 @@ export function createApiClient(
         );
       }
 
-      if (!response.ok) {
+      if (!response.ok && !options.decodeError) {
         throw new ApiTransportError(
           'http-status',
           `The API returned HTTP ${response.status}`,
@@ -109,6 +110,29 @@ export function createApiClient(
           'The API response is not valid JSON',
           { cause: error },
         );
+      }
+
+      if (!response.ok) {
+        let decodedError: Error;
+        try {
+          decodedError = options.decodeError!(value, response.status);
+        } catch (error) {
+          if (error instanceof ApiDecodeError) {
+            throw error;
+          }
+          throw new ApiDecodeError(
+            'schema-mismatch',
+            'The API error response does not match its wire contract',
+            { cause: error },
+          );
+        }
+        if (!(decodedError instanceof Error)) {
+          throw new ApiDecodeError(
+            'schema-mismatch',
+            'The API error decoder did not return an Error',
+          );
+        }
+        throw decodedError;
       }
 
       try {

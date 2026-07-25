@@ -103,7 +103,6 @@ function prepareProjection(root) {
     readRegularFile(authorityOpenAPI).toString("utf8"),
   );
   assert.equal(authority.openapi, "3.1.0");
-  assert.deepEqual(Object.keys(authority.paths ?? {}).sort(), ["/catalog"]);
   assert(authority.paths["/catalog"]?.get, "catalog operation is missing");
   assert.deepEqual(
     expectedPublicComponents.filter(
@@ -116,12 +115,27 @@ function prepareProjection(root) {
   openAPI.info.description =
     "Wave 1 shared query components. Business endpoint paths and result DTOs are intentionally deferred.";
   openAPI.paths = {};
-  openAPI.components.schemas = Object.fromEntries(
-    expectedPublicComponents.map((name) => [
-      name,
-      authority.components.schemas[name],
-    ]),
-  );
+  openAPI.components = {
+    schemas: Object.fromEntries(
+      expectedPublicComponents.map((name) => [
+        name,
+        authority.components.schemas[name],
+      ]),
+    ),
+    responses: Object.fromEntries(
+      [
+        "BadRequestErrorV1",
+        "ForbiddenErrorV1",
+        "NotFoundErrorV1",
+        "PayloadTooLargeErrorV1",
+        "UnsupportedMediaTypeErrorV1",
+        "RateLimitedErrorV1",
+        "ServiceUnavailableErrorV1",
+        "GatewayTimeoutErrorV1",
+        "InternalErrorV1",
+      ].map((name) => [name, authority.components.responses[name]]),
+    ),
+  };
   const openAPIBytes = Buffer.from(`${JSON.stringify(openAPI, null, 2)}\n`);
   fs.writeFileSync(path.join(sourceOpenAPIRoot, "openapi.yaml"), openAPIBytes);
 

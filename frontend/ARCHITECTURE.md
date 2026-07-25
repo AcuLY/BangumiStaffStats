@@ -14,9 +14,12 @@ App.vue
   -> api/client.ts (the only fetch owner)
      -> api/catalog.ts
         -> api/adapters/catalog.ts (strict catalog boundary)
+     -> api/rankings.ts
+        -> api/adapters/rankings.ts (strict success/error boundary)
   -> features/catalog/store.ts (catalog lifecycle)
   -> features/query/store.ts (Draft / Applied / revision)
   -> features/query/coordinator.ts (operation transactions)
+  -> features/ranking (view state and result presentation)
   -> app/routes.ts + app/theme.ts (History/share and theme owners)
 ```
 
@@ -28,14 +31,25 @@ Pinia and Naive UI remain the only application state and component systems.
 
 The runtime, catalog, and query stores have separate ownership. The query
 coordinator owns cancellation, latest-response admission, stable rollback, and
-the atomic Applied/revision commit. Production injects no result fixture: until
-a result driver is registered, result execution fails closed.
+the atomic Applied/revision commit. Ranking view requests reuse that transaction
+sequence without committing Applied Query or advancing revision. Production
+injects no result fixture: unavailable result capabilities fail closed.
 
 The shared OpenAPI and JSON Schemas under `../contracts` are read-only
 authorities. Generated catalog values cross `api/adapters/catalog.ts`; generated
 query values are confined to the query adapter/model/coordinator/share boundary.
+Generated rankings values cross `api/adapters/rankings.ts` and never enter a
+component. The rankings port separates the local transaction ID used for
+latest-response admission from the server request ID stored for result/error
+correlation.
 PositionKey is opaque application data: the frontend validates references and
 capabilities but never derives meaning from its string prefix.
+
+`features/ranking` renders backend rank, complete summary, metric scale, and
+pagination without recomputation. `shared/components/SafeImage.vue` accepts only
+derived same-origin proxy candidates, retains a stable 3:4 box, advances
+bounded per-source failures/timeouts, and distinguishes loading, loaded,
+missing, and error states.
 
 The Header is the only owner of the approved 64×64 RGBA brand mark at
 `src/assets/brand/bgmss.png` (SHA-256

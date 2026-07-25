@@ -32,7 +32,7 @@
     },
     {
       "path": "generation.json",
-      "sha256": "07d05178bf48e22a3fcb00b9dd79bce408ee7ddc2f7f77ba5f76ed4ed12d9416",
+      "sha256": "e6aeddb682c0885928f7f06777a0109b5da722b1562f5592c61a46a66c4a3d0f",
       "caseId": "catalog-generation-evidence",
       "kind": "generation-authority",
       "outcome": "deterministic-compile"
@@ -53,7 +53,7 @@
     },
     {
       "path": "verify.mjs",
-      "sha256": "606a8560483222a2163dd189f78ca3fbf6e59b019e64d2be4e5715f5b4793fae",
+      "sha256": "10a0fd655733e4ebb9fdb6c09135c8ae5be91d1b53a1ab3800b16c61e05ca32a",
       "caseId": "catalog-strict-verifier",
       "kind": "verification-authority",
       "outcome": "fail-closed"

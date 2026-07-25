@@ -33,7 +33,6 @@
   },
   "openapi": {
     "path": "contracts/openapi/openapi.yaml",
-    "sha256": "679e7ee3586845863ab568eedf6e437f7857fadb2c7262ad5935f1f7f1748cd3",
     "operationId": "getCatalogV1",
     "responses": [
       "200",
@@ -46,6 +45,7 @@
   },
   "projection": {
     "path": "/catalog",
+    "sha256": "c9cc22ccdd45fd9e02537035a01803ceecc459e712bfcc2bc69936df4757ad7a",
     "components": [
       "CatalogCastPositionV1",
       "CatalogDataV1",

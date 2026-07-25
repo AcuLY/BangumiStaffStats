@@ -67,8 +67,8 @@ const expectedCatalogComponents = [
 ];
 const expectedQueryComponentSeal =
   "58f20d1c145c50215839d8dc781d147c46dcdd35ee68698e84fa6d662016d6db";
-const expectedResponseSeal =
-  "ecca6c49f0a552fe7614ce1765b5952b68a7163d82630da5f64c4253f23280f6";
+const expectedCatalogResponseSeal =
+  "b9e8ccdc7f42acb695818ee080d34668d0b82189d033bf77349f3475abdcfa44";
 const queryComponentNames = [
   "CandidatesInputV1",
   "CandidatesViewV1",
@@ -761,7 +761,7 @@ function verifyInvalidMatrix(document, base, validators) {
 
 function verifyOpenapi(openapi) {
   assert.equal(openapi.openapi, "3.1.0");
-  assert.deepEqual(Object.keys(openapi.paths).sort(), ["/catalog"]);
+  assert(openapi.paths["/catalog"], "catalog authority path");
   const operation = openapi.paths["/catalog"].get;
   assert(operation);
   assert.deepEqual(operation.security, []);
@@ -831,9 +831,9 @@ function verifyOpenapi(openapi) {
     "shared query component seal",
   );
   assert.equal(
-    semanticDigest(openapi.components.responses),
-    expectedResponseSeal,
-    "shared response seal",
+    semanticDigest(openapi.paths["/catalog"].get.responses),
+    expectedCatalogResponseSeal,
+    "catalog response seal",
   );
 }
 
@@ -935,7 +935,11 @@ function generateCatalog(openapi, generation) {
     fs.mkdirSync(sourceSchemas, { recursive: true });
     const projection = {
       openapi: openapi.openapi,
-      info: openapi.info,
+      info: {
+        ...openapi.info,
+        description:
+          "Shared query contracts and the input-free dynamic catalog endpoint.",
+      },
       paths: { "/catalog": openapi.paths["/catalog"] },
       components: {
         schemas: Object.fromEntries(
@@ -1025,8 +1029,35 @@ function verifyGeneration(openapi) {
   assert.equal(generation.tools.redocly.version, "2.40.0");
   assert.equal(generation.tools.oapiCodegen.version, "2.8.0");
   assert.equal(generation.tools.oapiRuntime.version, "1.1.2");
-  assert.equal(generation.openapi.sha256, sha256(readRegular(openapiPath)));
   assert.deepEqual(generation.openapi.responses, ["200", "400", "405", "500", "503", "504"]);
+  const componentNames = collectInternalComponents(openapi);
+  const ownedProjection = {
+    openapi: openapi.openapi,
+    info: {
+      ...openapi.info,
+      description:
+        "Shared query contracts and the input-free dynamic catalog endpoint.",
+    },
+    paths: {
+      "/catalog": {
+        get: {
+          ...openapi.paths["/catalog"].get,
+          responses: {
+            "200": openapi.paths["/catalog"].get.responses["200"],
+          },
+        },
+      },
+    },
+    components: {
+      schemas: Object.fromEntries(
+        componentNames.map((name) => [name, openapi.components.schemas[name]]),
+      ),
+    },
+  };
+  assert.equal(
+    generation.projection.sha256,
+    sha256(Buffer.from(`${JSON.stringify(ownedProjection, null, 2)}\n`)),
+  );
   run(path.join(goldenRoot, "node_modules/.bin/redocly"), [
     "lint",
     openapiPath,

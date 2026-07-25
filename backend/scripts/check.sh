@@ -55,6 +55,7 @@ cd "$backend_root"
 
 "$script_root/generate-query-wire.sh" --check
 "$script_root/generate-catalog-wire.sh" --check
+"$script_root/generate-rankings-wire.sh" --check
 
 unformatted="$("$pinned_gofmt" -l cmd internal)"
 if [[ -n "$unformatted" ]]; then
@@ -79,6 +80,7 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
 "$go_command" test ./internal/httpapi -run '^$' -fuzz '^FuzzDecodeStrictJSON$' -fuzztime=3s
 "$go_command" test ./internal/architecture
 "$go_command" test ./internal/query/...
+"$go_command" test ./internal/ranking
 "$go_command" test ./internal/runtimecache
 "$go_command" test ./internal/runtimecache -count=20
 "$go_command" test ./internal/statistics/...
@@ -181,6 +183,8 @@ internal/httpapi/handler_test.go
 internal/httpapi/image_handler_test.go
 internal/httpapi/middleware.go
 internal/httpapi/middleware_test.go
+internal/httpapi/rankings_handler.go
+internal/httpapi/rankings_handler_test.go
 internal/httpapi/server.go
 internal/httpapi/server_test.go
 internal/httpapi/transport.go
@@ -189,6 +193,8 @@ internal/httpapi/wire/catalog.gen.go
 internal/httpapi/wire/catalog_contract_test.go
 internal/httpapi/wire/query_contract_test.go
 internal/httpapi/wire/query_wire.gen.go
+internal/httpapi/wire/rankings.gen.go
+internal/httpapi/wire/rankings_contract_test.go
 internal/imageproxy/client.go
 internal/imageproxy/client_test.go
 internal/observability/events.go
@@ -204,6 +210,13 @@ internal/query/normalize.go
 internal/query/normalize_test.go
 internal/query/unicode_assigned_15_1.go
 internal/query/unicode_assigned_15_1_test.go
+internal/ranking/clone.go
+internal/ranking/errors.go
+internal/ranking/model.go
+internal/ranking/service.go
+internal/ranking/service_test.go
+internal/ranking/store.go
+internal/ranking/view.go
 internal/runtimecache/collection.go
 internal/runtimecache/collection_test.go
 internal/runtimecache/concurrency_test.go
@@ -241,8 +254,10 @@ internal/statistics/types.go
 scripts/check.sh
 scripts/generate-catalog-wire.sh
 scripts/generate-query-wire.sh
+scripts/generate-rankings-wire.sh
 scripts/prepare-catalog-wire.mjs
-scripts/prepare-query-wire.mjs'
+scripts/prepare-query-wire.mjs
+scripts/prepare-rankings-wire.mjs'
 actual_inventory="$(
   find . -type f \
     -not -path './.cache/*' \

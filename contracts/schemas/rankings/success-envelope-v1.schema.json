@@ -1,0 +1,587 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.local/schemas/rankings/success-envelope-v1.schema.json",
+  "title": "RankingsSuccessEnvelopeV1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/PersonalRankingsSuccessEnvelopeV1"
+    },
+    {
+      "$ref": "#/$defs/GlobalRankingsSuccessEnvelopeV1"
+    }
+  ],
+  "$defs": {
+    "JsonSafeNonNegativeIntegerV1": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "JsonSafePositiveIntegerV1": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "OpaqueIdentifierV1": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "DataVersionV1": {
+      "type": "string",
+      "minLength": 68,
+      "maxLength": 68,
+      "pattern": "^dv1-[0-9a-f]{64}$"
+    },
+    "HundredthsV1": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "CanonicalIntegerStringV1": {
+      "type": "string",
+      "pattern": "^(?:0|-?[1-9][0-9]*)$",
+      "maxLength": 4096
+    },
+    "CanonicalPositiveIntegerStringV1": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$",
+      "maxLength": 4096
+    },
+    "CanonicalNonNegativeIntegerStringV1": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)$",
+      "maxLength": 4096
+    },
+    "RationalV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "properties": {
+        "numerator": {
+          "$ref": "#/$defs/CanonicalIntegerStringV1"
+        },
+        "denominator": {
+          "$ref": "#/$defs/CanonicalPositiveIntegerStringV1"
+        }
+      }
+    },
+    "NonNegativeRationalV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "properties": {
+        "numerator": {
+          "$ref": "#/$defs/CanonicalNonNegativeIntegerStringV1"
+        },
+        "denominator": {
+          "$ref": "#/$defs/CanonicalPositiveIntegerStringV1"
+        }
+      }
+    },
+    "PersonReferenceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "nameCN"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "nameCN": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "PreferenceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "comparableCount",
+        "comparableSeriesCount",
+        "effectiveEvidence",
+        "mean",
+        "evidenceWeight",
+        "score"
+      ],
+      "properties": {
+        "comparableCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "comparableSeriesCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "effectiveEvidence": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "mean": {
+          "$ref": "#/$defs/RationalV1"
+        },
+        "evidenceWeight": {
+          "$ref": "#/$defs/NonNegativeRationalV1"
+        },
+        "score": {
+          "$ref": "#/$defs/RationalV1"
+        }
+      }
+    },
+    "RankingsSummaryV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "personCount",
+        "workUnit",
+        "workCount"
+      ],
+      "properties": {
+        "personCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "workUnit": {
+          "type": "string",
+          "enum": [
+            "subject",
+            "series"
+          ]
+        },
+        "workCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "characterCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        }
+      }
+    },
+    "CountMetricScaleV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric",
+        "kind",
+        "max"
+      ],
+      "properties": {
+        "metric": {
+          "const": "count"
+        },
+        "kind": {
+          "const": "linear"
+        },
+        "max": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "HundredthsMetricScaleV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric",
+        "kind",
+        "max"
+      ],
+      "properties": {
+        "metric": {
+          "type": "string",
+          "enum": [
+            "average",
+            "overall"
+          ]
+        },
+        "kind": {
+          "const": "linear"
+        },
+        "max": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/HundredthsV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "PreferenceMetricScaleV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric",
+        "kind",
+        "max"
+      ],
+      "properties": {
+        "metric": {
+          "const": "preference"
+        },
+        "kind": {
+          "const": "linear"
+        },
+        "max": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NonNegativeRationalV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "RankingsMetricScaleV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/CountMetricScaleV1"
+        },
+        {
+          "$ref": "#/$defs/HundredthsMetricScaleV1"
+        },
+        {
+          "$ref": "#/$defs/PreferenceMetricScaleV1"
+        }
+      ]
+    },
+    "GlobalRankingsMetricScaleV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/CountMetricScaleV1"
+        },
+        {
+          "$ref": "#/$defs/HundredthsMetricScaleV1"
+        }
+      ]
+    },
+    "GlobalRankingItemV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rank",
+        "person",
+        "workCount",
+        "average",
+        "overall"
+      ],
+      "properties": {
+        "rank": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "person": {
+          "$ref": "#/$defs/PersonReferenceV1"
+        },
+        "workCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "average": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/HundredthsV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "overall": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/HundredthsV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "PersonalRankingItemV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rank",
+        "person",
+        "workCount",
+        "average",
+        "overall",
+        "preference"
+      ],
+      "properties": {
+        "rank": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "person": {
+          "$ref": "#/$defs/PersonReferenceV1"
+        },
+        "workCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "average": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/HundredthsV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "overall": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/HundredthsV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preference": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PreferenceV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "GlobalRankingsDataV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "metricScale",
+        "items"
+      ],
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/RankingsSummaryV1"
+        },
+        "metricScale": {
+          "$ref": "#/$defs/GlobalRankingsMetricScaleV1"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/GlobalRankingItemV1"
+          }
+        }
+      }
+    },
+    "PersonalRankingsDataV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "metricScale",
+        "items"
+      ],
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/RankingsSummaryV1"
+        },
+        "metricScale": {
+          "$ref": "#/$defs/RankingsMetricScaleV1"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/PersonalRankingItemV1"
+          }
+        }
+      }
+    },
+    "PaginationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "properties": {
+        "page": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "pageSize": {
+          "type": "integer",
+          "enum": [
+            5,
+            10,
+            20
+          ]
+        },
+        "total": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        }
+      }
+    },
+    "FreshCollectionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fetchedAt",
+        "stale",
+        "warningCodes"
+      ],
+      "properties": {
+        "fetchedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stale": {
+          "const": false
+        },
+        "warningCodes": {
+          "type": "array",
+          "maxItems": 0
+        }
+      }
+    },
+    "StaleCollectionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fetchedAt",
+        "stale",
+        "warningCodes"
+      ],
+      "properties": {
+        "fetchedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stale": {
+          "const": true
+        },
+        "warningCodes": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "COLLECTION_STALE"
+            }
+          ],
+          "minItems": 1,
+          "maxItems": 1
+        }
+      }
+    },
+    "CollectionFreshnessV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/FreshCollectionV1"
+        },
+        {
+          "$ref": "#/$defs/StaleCollectionV1"
+        }
+      ]
+    },
+    "GlobalRankingsMetaV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "dataVersion",
+        "pagination"
+      ],
+      "properties": {
+        "requestId": {
+          "$ref": "#/$defs/OpaqueIdentifierV1"
+        },
+        "dataVersion": {
+          "$ref": "#/$defs/DataVersionV1"
+        },
+        "pagination": {
+          "$ref": "#/$defs/PaginationV1"
+        }
+      }
+    },
+    "PersonalRankingsMetaV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "dataVersion",
+        "pagination",
+        "collection"
+      ],
+      "properties": {
+        "requestId": {
+          "$ref": "#/$defs/OpaqueIdentifierV1"
+        },
+        "dataVersion": {
+          "$ref": "#/$defs/DataVersionV1"
+        },
+        "pagination": {
+          "$ref": "#/$defs/PaginationV1"
+        },
+        "collection": {
+          "$ref": "#/$defs/CollectionFreshnessV1"
+        }
+      }
+    },
+    "GlobalRankingsSuccessEnvelopeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data",
+        "meta"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/GlobalRankingsDataV1"
+        },
+        "meta": {
+          "$ref": "#/$defs/GlobalRankingsMetaV1"
+        }
+      }
+    },
+    "PersonalRankingsSuccessEnvelopeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data",
+        "meta"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/PersonalRankingsDataV1"
+        },
+        "meta": {
+          "$ref": "#/$defs/PersonalRankingsMetaV1"
+        }
+      }
+    }
+  }
+}

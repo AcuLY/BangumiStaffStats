@@ -12,6 +12,7 @@ import (
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/httpapi"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/ranking"
 )
 
 const readinessQuery = "SELECT data_version FROM archive_meta WHERE singleton = 1"
@@ -146,9 +147,24 @@ func serveRuntime(
 	dependencies runDependencies,
 	probe httpapi.ReadinessProbe,
 ) error {
-	handler := dependencies.runtime.HandlerWithCatalog(
+	rankings, err := ranking.NewService(
+		currentRankingStore(dependencies.archive),
+		nil,
+		ranking.DefaultConfig(),
+	)
+	if err != nil {
+		dependencies.runtime.SetLive(false)
+		_ = dependencies.runtime.SetReadiness(false, "")
+		closeErr := dependencies.archive.Close()
+		return errors.Join(
+			fmt.Errorf("create rankings service: %w", err),
+			wrapError("close archive", closeErr),
+		)
+	}
+	handler := dependencies.runtime.HandlerWithDependencies(
 		probe,
 		currentCatalogStore(dependencies.archive),
+		rankings,
 	)
 	server := dependencies.server(handler)
 	if server == nil {
@@ -173,6 +189,15 @@ func serveRuntime(
 		closeErr = fmt.Errorf("close archive: %w", closeErr)
 	}
 	return errors.Join(serveErr, closeErr)
+}
+
+func currentRankingStore(state archiveRuntime) ranking.StoreProvider {
+	return func() (*archive.Store, bool) {
+		if state == nil {
+			return nil, false
+		}
+		return state.Current()
+	}
 }
 
 func currentCatalogStore(state archiveRuntime) httpapi.CatalogStoreProvider {

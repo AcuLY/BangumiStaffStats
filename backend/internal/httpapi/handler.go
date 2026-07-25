@@ -37,6 +37,7 @@ type routeHandler struct {
 	events    *observability.EventSink
 	catalogs  CatalogStoreProvider
 	project   catalogProjector
+	rankings  rankingsExecutor
 }
 
 // RuntimeObservability owns the HTTP registry and typed event sink while
@@ -72,11 +73,23 @@ func (r *RuntimeObservability) HandlerWithCatalog(
 	readiness ReadinessProbe,
 	catalogs CatalogStoreProvider,
 ) http.Handler {
+	return r.HandlerWithDependencies(readiness, catalogs, nil)
+}
+
+// HandlerWithDependencies returns the runtime with explicit read-only Catalog
+// and rankings services. Nil dependencies leave their routes registered and
+// return stable NOT_READY responses.
+func (r *RuntimeObservability) HandlerWithDependencies(
+	readiness ReadinessProbe,
+	catalogs CatalogStoreProvider,
+	rankings rankingsExecutor,
+) http.Handler {
 	if r == nil {
 		return newHandler(readiness, nil, middlewareOptions{
 			requestTimeout: DefaultRequestTimeout,
 			images:         imageproxy.NewClient(),
 			catalogs:       catalogs,
+			rankings:       rankings,
 		})
 	}
 	return newHandler(readiness, r.metrics, middlewareOptions{
@@ -85,6 +98,7 @@ func (r *RuntimeObservability) HandlerWithCatalog(
 		images:         imageproxy.NewClient(),
 		events:         r.events,
 		catalogs:       catalogs,
+		rankings:       rankings,
 	})
 }
 
@@ -147,6 +161,7 @@ func newHandler(readiness ReadinessProbe, metrics *observability.Registry, optio
 		events:    options.events,
 		catalogs:  options.catalogs,
 		project:   options.catalogProjector,
+		rankings:  options.rankings,
 	}, options)
 }
 
@@ -173,9 +188,15 @@ func (h *routeHandler) ServeHTTP(writer http.ResponseWriter, request *http.Reque
 		h.writeMetrics(writer, requestID)
 	case routeCatalog:
 		h.writeCatalog(writer, request, requestID)
+	case routeRankings:
+		h.writeRankings(writer, request, requestID)
 	default:
 		if strings.HasPrefix(request.URL.Path, routeCatalog+string('/')) {
 			writeError(writer, requestID, catalogNotFoundResponse)
+			return
+		}
+		if strings.HasPrefix(request.URL.Path, routeRankings+string('/')) {
+			writeError(writer, requestID, notFoundResponse)
 			return
 		}
 		if imageRouteCandidate(request) {

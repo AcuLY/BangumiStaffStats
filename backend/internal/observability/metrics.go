@@ -19,23 +19,25 @@ import (
 type Route string
 
 const (
-	RouteLivez   Route = "livez"
-	RouteReadyz  Route = "readyz"
-	RouteMetrics Route = "metrics"
-	RouteImage   Route = "image"
-	RouteCatalog Route = "catalog"
-	RouteUnknown Route = "unknown"
+	RouteLivez    Route = "livez"
+	RouteReadyz   Route = "readyz"
+	RouteMetrics  Route = "metrics"
+	RouteImage    Route = "image"
+	RouteCatalog  Route = "catalog"
+	RouteRankings Route = "rankings"
+	RouteUnknown  Route = "unknown"
 )
 
 // Operation is a closed runtime operation label.
 type Operation string
 
 const (
-	OperationHealth  Operation = "health"
-	OperationMetrics Operation = "metrics"
-	OperationImage   Operation = "image"
-	OperationCatalog Operation = "catalog"
-	OperationUnknown Operation = "unknown"
+	OperationHealth   Operation = "health"
+	OperationMetrics  Operation = "metrics"
+	OperationImage    Operation = "image"
+	OperationCatalog  Operation = "catalog"
+	OperationRankings Operation = "rankings"
+	OperationUnknown  Operation = "unknown"
 )
 
 // Method is a closed HTTP method label.
@@ -43,6 +45,7 @@ type Method string
 
 const (
 	MethodGET   Method = "GET"
+	MethodPOST  Method = "POST"
 	MethodOther Method = "other"
 )
 
@@ -216,7 +219,9 @@ func validateObservation(observation RequestObservation) error {
 	if !validRouteOperation(observation.Route, observation.Operation) {
 		return errors.New("observability: invalid route or operation")
 	}
-	if observation.Method != MethodGET && observation.Method != MethodOther {
+	if observation.Method != MethodGET &&
+		observation.Method != MethodPOST &&
+		observation.Method != MethodOther {
 		return errors.New("observability: invalid method")
 	}
 	switch observation.StatusClass {
@@ -251,6 +256,8 @@ func validRouteOperation(route Route, operation Operation) bool {
 		return operation == OperationImage
 	case RouteCatalog:
 		return operation == OperationCatalog
+	case RouteRankings:
+		return operation == OperationRankings
 	case RouteUnknown:
 		return operation == OperationUnknown
 	default:

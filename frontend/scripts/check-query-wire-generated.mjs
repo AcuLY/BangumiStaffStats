@@ -73,7 +73,11 @@ function prepareProjection(componentNames) {
   }
   const projection = {
     openapi: authority.openapi,
-    info: authority.info,
+    info: {
+      ...authority.info,
+      description:
+        'Wave 1 shared query components. Business endpoint paths and result DTOs are intentionally deferred.',
+    },
     servers: authority.servers,
     paths: {},
     components: {

@@ -4,7 +4,7 @@
   "info": {
     "title": "Bangumi Staff Statistics Shared Contracts",
     "version": "1.0.0",
-    "description": "Shared query contracts and the input-free dynamic catalog endpoint.",
+    "description": "Shared query contracts, dynamic catalog, and read-only rankings endpoint.",
     "license": {
       "name": "MIT",
       "identifier": "MIT"
@@ -208,6 +208,77 @@
           }
         }
       }
+    },
+    "/rankings": {
+      "post": {
+        "operationId": "postRankingsV1",
+        "summary": "Project one immutable query result into a rankings page",
+        "description": "Evaluates one personal or global shared query and projects a deterministic ranked page. Search, sort, order, and pagination are view-only.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RankingsRequestV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The complete-core summary and requested rankings page.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RankingsSuccessEnvelopeV1"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ResultBadRequestErrorV1"
+          },
+          "403": {
+            "$ref": "#/components/responses/ResultForbiddenErrorV1"
+          },
+          "404": {
+            "$ref": "#/components/responses/ResultNotFoundErrorV1"
+          },
+          "405": {
+            "$ref": "#/components/responses/ResultMethodNotAllowedErrorV1"
+          },
+          "413": {
+            "$ref": "#/components/responses/ResultPayloadTooLargeErrorV1"
+          },
+          "415": {
+            "$ref": "#/components/responses/ResultUnsupportedMediaTypeErrorV1"
+          },
+          "429": {
+            "$ref": "#/components/responses/ResultRateLimitedErrorV1"
+          },
+          "500": {
+            "$ref": "#/components/responses/ResultInternalErrorV1"
+          },
+          "502": {
+            "$ref": "#/components/responses/ResultBadGatewayErrorV1"
+          },
+          "503": {
+            "$ref": "#/components/responses/ResultServiceUnavailableErrorV1"
+          },
+          "504": {
+            "$ref": "#/components/responses/ResultGatewayTimeoutErrorV1"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -253,6 +324,15 @@
       },
       "ErrorEnvelopeV1": {
         "$ref": "../schemas/query/error-envelope-v1.schema.json"
+      },
+      "RankingsRequestV1": {
+        "$ref": "../schemas/rankings/request-v1.schema.json"
+      },
+      "RankingsSuccessEnvelopeV1": {
+        "$ref": "../schemas/rankings/success-envelope-v1.schema.json"
+      },
+      "ResultErrorEnvelopeV1": {
+        "$ref": "../schemas/rankings/result-error-envelope-v1.schema.json"
       },
       "SharePayloadV1": {
         "$ref": "../schemas/query/share-payload-v1.schema.json"
@@ -1027,6 +1107,25 @@
         }
       }
     },
+    "headers": {
+      "PrivateNoStoreV1": {
+        "description": "Read-only result responses are private and must not be stored.",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "const": "private, no-store"
+        }
+      },
+      "RequestIDV1": {
+        "description": "Opaque request correlation identifier.",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
     "responses": {
       "BadRequestErrorV1": {
         "description": "Invalid JSON, request shape, field value, position selection, capability, query-result identity, participant count, or identity count.",
@@ -1155,6 +1254,271 @@
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultBadRequestErrorV1": {
+        "description": "Invalid JSON, request shape, query, view, or field value.",
+        "x-error-codes": [
+          "INVALID_JSON",
+          "INVALID_REQUEST",
+          "FIELD_INVALID",
+          "POSITION_SELECTION_CONFLICT",
+          "POSITION_NOT_FOUND",
+          "POSITION_NOT_SELECTABLE",
+          "POSITION_SUBJECT_TYPE_MISMATCH",
+          "CAPABILITY_NOT_AVAILABLE"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultForbiddenErrorV1": {
+        "description": "The requested collection is not public.",
+        "x-error-codes": [
+          "COLLECTION_NOT_PUBLIC"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultNotFoundErrorV1": {
+        "description": "The requested user or entity does not exist.",
+        "x-error-codes": [
+          "USER_NOT_FOUND",
+          "ENTITY_NOT_FOUND"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultMethodNotAllowedErrorV1": {
+        "description": "The result route supports POST only.",
+        "x-error-codes": [
+          "INVALID_REQUEST"
+        ],
+        "headers": {
+          "Allow": {
+            "description": "The only supported method.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "POST"
+            }
+          },
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultPayloadTooLargeErrorV1": {
+        "description": "The request exceeds the transport limit.",
+        "x-error-codes": [
+          "REQUEST_TOO_LARGE"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultUnsupportedMediaTypeErrorV1": {
+        "description": "The request media type is unsupported.",
+        "x-error-codes": [
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultRateLimitedErrorV1": {
+        "description": "The caller has exceeded the request rate.",
+        "x-error-codes": [
+          "RATE_LIMITED"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          },
+          "Retry-After": {
+            "description": "Bounded delay before another request.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultInternalErrorV1": {
+        "description": "An unexpected internal failure occurred.",
+        "x-error-codes": [
+          "INTERNAL_ERROR"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultBadGatewayErrorV1": {
+        "description": "The upstream returned an invalid protocol response or undecodable payload.",
+        "x-error-codes": [
+          "UPSTREAM_PROTOCOL_ERROR"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultServiceUnavailableErrorV1": {
+        "description": "The service is busy, not ready, or an upstream is temporarily unavailable.",
+        "x-error-codes": [
+          "SERVER_BUSY",
+          "NOT_READY",
+          "UPSTREAM_UNAVAILABLE"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          },
+          "Retry-After": {
+            "description": "Delay before retrying when the failure has a known bounded wait.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultGatewayTimeoutErrorV1": {
+        "description": "The request or upstream operation timed out.",
+        "x-error-codes": [
+          "UPSTREAM_TIMEOUT"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
             }
           }
         }

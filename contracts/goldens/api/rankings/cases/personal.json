@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "kind": "rankings-personal-success-cases",
+  "cases": [
+    {
+      "id": "personal-preference-rank-before-search",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed",
+            "in_progress"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "view": {
+          "search": "林",
+          "sort": "preference",
+          "order": "desc",
+          "page": 1,
+          "pageSize": 10
+        }
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-rankings-personal-search"
+        },
+        "body": {
+          "data": {
+            "summary": {
+              "personCount": 8,
+              "workUnit": "subject",
+              "workCount": 21
+            },
+            "metricScale": {
+              "metric": "preference",
+              "kind": "linear",
+              "max": {
+                "numerator": "3",
+                "denominator": "5"
+              }
+            },
+            "items": [
+              {
+                "rank": 2,
+                "person": {
+                  "id": 12,
+                  "name": "Hayashi Akira",
+                  "nameCN": "林明"
+                },
+                "workCount": 7,
+                "average": 825,
+                "overall": 677,
+                "preference": {
+                  "comparableCount": 6,
+                  "comparableSeriesCount": 6,
+                  "effectiveEvidence": 6,
+                  "mean": {
+                    "numerator": "1",
+                    "denominator": "2"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "6",
+                    "denominator": "11"
+                  },
+                  "score": {
+                    "numerator": "3",
+                    "denominator": "11"
+                  }
+                }
+              },
+              {
+                "rank": 8,
+                "person": {
+                  "id": 81,
+                  "name": "Lin",
+                  "nameCN": null
+                },
+                "workCount": 1,
+                "average": null,
+                "overall": null,
+                "preference": null
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-rankings-personal-search",
+            "dataVersion": "dv1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 2
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T08:00:00Z",
+              "stale": false,
+              "warningCodes": []
+            }
+          }
+        }
+      },
+      "assertions": {
+        "completeRanks": [
+          2,
+          8
+        ],
+        "preSearchPersonCount": 8,
+        "preSearchScaleAbsoluteMaximum": {
+          "numerator": "3",
+          "denominator": "5"
+        }
+      }
+    },
+    {
+      "id": "personal-cast-series-stale",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "cast:anime:all"
+          ],
+          "mergeSeries": true
+        },
+        "view": {
+          "sort": "count",
+          "page": 1,
+          "pageSize": 5
+        },
+        "refreshCollection": true
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-rankings-personal-cast"
+        },
+        "body": {
+          "data": {
+            "summary": {
+              "personCount": 1,
+              "workUnit": "series",
+              "workCount": 1,
+              "characterCount": 4
+            },
+            "metricScale": {
+              "metric": "count",
+              "kind": "linear",
+              "max": 1
+            },
+            "items": [
+              {
+                "rank": 1,
+                "person": {
+                  "id": 5,
+                  "name": "Voice Actor",
+                  "nameCN": "声优"
+                },
+                "workCount": 1,
+                "average": 900,
+                "overall": 567,
+                "preference": null
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-rankings-personal-cast",
+            "dataVersion": "dv1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "pagination": {
+              "page": 1,
+              "pageSize": 5,
+              "total": 1
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T08:05:00Z",
+              "stale": true,
+              "warningCodes": [
+                "COLLECTION_STALE"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

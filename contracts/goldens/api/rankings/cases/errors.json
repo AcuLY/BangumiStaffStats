@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "kind": "rankings-error-cases",
+  "cases": [
+    {
+      "id": "global-preference-rejected",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/rankings",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "view": {
+            "sort": "preference"
+          }
+        }
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-rankings-global-preference"
+        },
+        "body": {
+          "error": {
+            "code": "FIELD_INVALID",
+            "message": "rankings view is invalid",
+            "retryable": false,
+            "fieldErrors": {
+              "/view/sort": [
+                "UNSUPPORTED_VALUE"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-rankings-global-preference"
+          }
+        }
+      }
+    },
+    {
+      "id": "global-refresh-rejected",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/rankings",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "refreshCollection": true
+        }
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-rankings-global-refresh"
+        },
+        "body": {
+          "error": {
+            "code": "FIELD_INVALID",
+            "message": "refreshCollection requires personal scope",
+            "retryable": false,
+            "fieldErrors": {
+              "/refreshCollection": [
+                "VALUE_CONFLICT"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-rankings-global-refresh"
+          }
+        }
+      }
+    },
+    {
+      "id": "unknown-top-level-field-rejected",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/rankings",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "mode": "ranking"
+        }
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-rankings-unknown-field"
+        },
+        "body": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "rankings request is invalid",
+            "retryable": false,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-rankings-unknown-field"
+          }
+        }
+      }
+    },
+    {
+      "id": "wrong-method-rejected",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/rankings"
+      },
+      "expected": {
+        "status": 405,
+        "headers": {
+          "Allow": "POST",
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-rankings-method"
+        },
+        "body": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "method not allowed",
+            "retryable": false,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-rankings-method"
+          }
+        }
+      }
+    },
+    {
+      "id": "second-document-rejected",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/rankings",
+        "bodyUtf8": "{\"query\":{\"scope\":\"global\",\"subjectType\":\"anime\",\"positionKeys\":[\"staff:anime:2\"]}} {}"
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-rankings-second-document"
+        },
+        "body": {
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "request body must contain one JSON document",
+            "retryable": false,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-rankings-second-document"
+          }
+        }
+      }
+    },
+    {
+      "id": "store-not-ready",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/rankings",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          }
+        }
+      },
+      "fault": "no-published-store",
+      "expected": {
+        "status": 503,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-rankings-not-ready"
+        },
+        "body": {
+          "error": {
+            "code": "NOT_READY",
+            "message": "rankings is not ready",
+            "retryable": true,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-rankings-not-ready"
+          }
+        }
+      }
+    },
+    {
+      "id": "upstream-protocol-rejected",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/rankings",
+        "body": {
+          "query": {
+            "scope": "personal",
+            "uid": "Alice",
+            "collectionStatuses": [
+              "completed"
+            ],
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          }
+        }
+      },
+      "fault": "collection-decode",
+      "expected": {
+        "status": 502,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-rankings-protocol"
+        },
+        "body": {
+          "error": {
+            "code": "UPSTREAM_PROTOCOL_ERROR",
+            "message": "collection response is invalid",
+            "retryable": true,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-rankings-protocol",
+            "dataVersion": "dv1-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      }
+    },
+    {
+      "id": "deadline-before-commit",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/rankings",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          }
+        }
+      },
+      "fault": "deadline-before-response-commit",
+      "expected": {
+        "status": 504,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-rankings-timeout"
+        },
+        "body": {
+          "error": {
+            "code": "UPSTREAM_TIMEOUT",
+            "message": "rankings request timed out",
+            "retryable": true,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-rankings-timeout",
+            "dataVersion": "dv1-ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          }
+        }
+      }
+    }
+  ]
+}

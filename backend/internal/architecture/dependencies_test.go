@@ -42,13 +42,14 @@ func TestProductionPackageDependencies(t *testing.T) {
 	allowedInternalImports := map[string][]string{
 		modulePath + "/cmd/api":                       {modulePath + "/internal/app"},
 		modulePath + "/cmd/archive-smoke":             {modulePath + "/internal/archive"},
-		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/httpapi"},
+		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/httpapi", modulePath + "/internal/ranking"},
 		modulePath + "/internal/catalog":              {modulePath + "/internal/archive", modulePath + "/internal/httpapi/wire"},
-		modulePath + "/internal/httpapi":              {modulePath + "/internal/archive", modulePath + "/internal/catalog", modulePath + "/internal/httpapi/wire", modulePath + "/internal/imageproxy", modulePath + "/internal/observability"},
+		modulePath + "/internal/httpapi":              {modulePath + "/internal/archive", modulePath + "/internal/catalog", modulePath + "/internal/httpapi/wire", modulePath + "/internal/imageproxy", modulePath + "/internal/observability", modulePath + "/internal/ranking"},
 		modulePath + "/internal/httpapi/wire":         {},
 		modulePath + "/internal/imageproxy":           {},
 		modulePath + "/internal/observability":        {},
 		modulePath + "/internal/query":                {modulePath + "/internal/archive"},
+		modulePath + "/internal/ranking":              {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
 		modulePath + "/internal/runtimecache":         {},
 		modulePath + "/internal/statistics":           {modulePath + "/internal/archive", modulePath + "/internal/query"},
 		modulePath + "/internal/archive":              {},
@@ -87,9 +88,11 @@ func TestProductionPackageDependencies(t *testing.T) {
 					queryNormalization := pkg.ImportPath == modulePath+"/internal/query" &&
 						(imported == "github.com/gowebpki/jcs" ||
 							strings.HasPrefix(imported, "golang.org/x/text/"))
+					rankingNormalization := pkg.ImportPath == modulePath+"/internal/ranking" &&
+						strings.HasPrefix(imported, "golang.org/x/text/")
 					runtimeCache := pkg.ImportPath == modulePath+"/internal/runtimecache" &&
 						imported == "golang.org/x/sync/singleflight"
-					if !wireRuntime && !archiveSQLite && !queryNormalization && !runtimeCache {
+					if !wireRuntime && !archiveSQLite && !queryNormalization && !rankingNormalization && !runtimeCache {
 						t.Errorf("%s imports unapproved production dependency %s", pkg.ImportPath, imported)
 					}
 				}
@@ -184,6 +187,7 @@ func TestRuntimeHasExactApprovedRoutes(t *testing.T) {
 		"/metrics":                filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
 		"/api/v1/images/bangumi/": filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
 		"/api/v1/catalog":         filepath.Join(moduleRoot, "internal", "httpapi", "catalog_handler.go"),
+		"/api/v1/rankings":        filepath.Join(moduleRoot, "internal", "httpapi", "rankings_handler.go"),
 	}
 	routeCounts := make(map[string]int, len(allowedRoutes))
 	err := filepath.WalkDir(moduleRoot, func(path string, entry os.DirEntry, walkErr error) error {
@@ -209,7 +213,11 @@ func TestRuntimeHasExactApprovedRoutes(t *testing.T) {
 			literal, ok := node.(*ast.BasicLit)
 			if ok && literal.Kind == token.STRING && filepath.Dir(path) == httpapiRoot {
 				var value string
-				if err := json.Unmarshal([]byte(literal.Value), &value); err == nil && strings.HasPrefix(value, "/") {
+				if err := json.Unmarshal([]byte(literal.Value), &value); err == nil &&
+					(strings.HasPrefix(value, "/api/") ||
+						value == "/livez" ||
+						value == "/readyz" ||
+						value == "/metrics") {
 					expectedPath, allowed := allowedRoutes[value]
 					if !allowed {
 						t.Errorf("unapproved production route/path literal %q: %s", value, path)

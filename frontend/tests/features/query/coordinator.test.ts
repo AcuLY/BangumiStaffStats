@@ -8,6 +8,7 @@ import {
   type QueryDrivers,
   unavailableQueryDrivers,
 } from '../../../src/features/query/coordinator';
+import { RankingsApiError } from '../../../src/api/rankings';
 import { useQueryStore } from '../../../src/features/query/store';
 import { catalogFixture } from './fixtures';
 
@@ -38,7 +39,8 @@ function drivers(
       async execute(request) {
         return {
           payload: { id: String(request.input.positionKey) },
-          requestId: request.requestId,
+          requestId: `server-${request.transactionId}`,
+          transactionId: request.transactionId,
         };
       },
     },
@@ -67,7 +69,8 @@ describe('query coordinator', () => {
         >,
       ): Promise<OperationResponse<Payload>> => ({
         payload: { id: 'first' },
-        requestId: request.requestId,
+        requestId: `server-${request.transactionId}`,
+        transactionId: request.transactionId,
       }),
     );
     const coordinator = createQueryCoordinator(store, drivers(execute as never));
@@ -84,6 +87,7 @@ describe('query coordinator', () => {
     expect(coordinator.rankings).toMatchObject({
       payload: { id: 'first' },
       phase: 'ready',
+      requestId: 'server-rankings-1',
       revision: 1,
     });
     expect(store.dirty).toBe(false);
@@ -115,14 +119,16 @@ describe('query coordinator', () => {
     const secondRequest = execute.mock.calls[1]![0];
     secondDeferred.resolve({
       payload: { id: 'new' },
-      requestId: secondRequest.requestId,
+      requestId: 'server-second',
+      transactionId: secondRequest.transactionId,
     });
     expect(await second).toBe(true);
 
     const firstRequest = execute.mock.calls[0]![0];
     firstDeferred.resolve({
       payload: { id: 'old' },
-      requestId: firstRequest.requestId,
+      requestId: 'server-first',
+      transactionId: firstRequest.transactionId,
     });
     expect(await first).toBe(false);
 
@@ -134,9 +140,9 @@ describe('query coordinator', () => {
   it('keeps the request snapshot applied when Draft changes during pending', async () => {
     const store = readyStore();
     const pending = deferred<OperationResponse<Payload>>();
-    let requestId = '';
+    let transactionId = '';
     const execute = vi.fn((request: RankingRequest) => {
-      requestId = request.requestId;
+      transactionId = request.transactionId;
       return pending.promise;
     });
     const coordinator = createQueryCoordinator(store, drivers(execute));
@@ -148,7 +154,8 @@ describe('query coordinator', () => {
     store.draft.positionKeys = ['staff:anime:101'];
     pending.resolve({
       payload: { id: 'snapshot' },
-      requestId,
+      requestId: 'server-snapshot',
+      transactionId,
     });
 
     expect(await request).toBe(true);
@@ -161,7 +168,8 @@ describe('query coordinator', () => {
     store.draft.positionKeys = ['staff:anime:2', 'staff:anime:101'];
     const candidateExecute = vi.fn(async (request) => ({
       payload: { id: String(request.input.positionKey) },
-      requestId: request.requestId,
+      requestId: `server-${request.transactionId}`,
+      transactionId: request.transactionId,
     }));
     const coordinator = createQueryCoordinator(store, {
       rankings: drivers(vi.fn()).rankings,
@@ -186,6 +194,81 @@ describe('query coordinator', () => {
     expect(coordinator.candidates.payload).toEqual({
       id: 'staff:anime:101',
     });
+  });
+
+  it('treats a candidate position change as a view request, not a same-query no-op', async () => {
+    const store = readyStore();
+    store.draft.positionKeys = ['staff:anime:2', 'staff:anime:101'];
+    const candidateExecute = vi.fn(async (request) => ({
+      payload: { id: String(request.input.positionKey) },
+      requestId: `server-${request.transactionId}`,
+      transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      rankings: drivers(vi.fn()).rankings,
+      candidates: { execute: candidateExecute },
+    });
+    const catalog = catalogFixture();
+
+    await coordinator.execute({
+      candidateInput: { positionKey: 'staff:anime:2' },
+      catalog,
+      mode: 'co-star',
+    });
+    await coordinator.execute({
+      candidateInput: { positionKey: 'staff:anime:101' },
+      catalog,
+      mode: 'co-star',
+    });
+
+    expect(candidateExecute).toHaveBeenCalledTimes(2);
+    expect(candidateExecute.mock.calls[1]![0].input).toEqual({
+      positionKey: 'staff:anime:101',
+    });
+    expect(coordinator.candidates.input.positionKey).toBe(
+      'staff:anime:101',
+    );
+    expect(coordinator.candidates.payload).toEqual({
+      id: 'staff:anime:101',
+    });
+    expect(store.revision).toBe(1);
+  });
+
+  it('rejects an invalid candidate position before the same-query no-op', async () => {
+    const store = readyStore();
+    const candidateExecute = vi.fn(async (request) => ({
+      payload: { id: String(request.input.positionKey) },
+      requestId: `server-${request.transactionId}`,
+      transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      rankings: drivers(vi.fn()).rankings,
+      candidates: { execute: candidateExecute },
+    });
+    const catalog = catalogFixture();
+
+    await coordinator.execute({
+      candidateInput: { positionKey: 'staff:anime:2' },
+      catalog,
+      mode: 'co-star',
+    });
+    await expect(
+      coordinator.execute({
+        candidateInput: { positionKey: 'staff:anime:101' },
+        catalog,
+        mode: 'co-star',
+      }),
+    ).resolves.toBe(false);
+
+    expect(candidateExecute).toHaveBeenCalledTimes(1);
+    expect(coordinator.candidates.input.positionKey).toBe('staff:anime:2');
+    expect(coordinator.candidates.payload).toEqual({
+      id: 'staff:anime:2',
+    });
+    expect(coordinator.candidates.error).toBe(
+      '查询暂时无法完成，请稍后重试',
+    );
+    expect(store.revision).toBe(1);
   });
 
   it('rejects a candidate input outside the applied query or catalog capability', async () => {
@@ -249,12 +332,14 @@ describe('query coordinator', () => {
       .fn()
       .mockImplementationOnce(async (request) => ({
         payload: { id: 'old' },
-        requestId: request.requestId,
+        requestId: `server-${request.transactionId}`,
+        transactionId: request.transactionId,
       }))
       .mockRejectedValueOnce(new Error('offline'))
       .mockImplementationOnce(async (request) => ({
         payload: { id: 'stale' },
-        requestId: request.requestId,
+        requestId: `server-${request.transactionId}`,
+        transactionId: request.transactionId,
         warningCodes: ['COLLECTION_STALE'],
       }));
     const coordinator = createQueryCoordinator(store, drivers(execute));
@@ -314,7 +399,9 @@ describe('query coordinator', () => {
     expect(coordinator.lastOperationFeedback.value).toBeNull();
     retry.resolve({
       payload: { id: 'ready' },
-      requestId: (execute.mock.calls[1]![0] as RankingRequest).requestId,
+      requestId: 'server-ready',
+      transactionId: (execute.mock.calls[1]![0] as RankingRequest)
+        .transactionId,
     });
 
     await expect(pendingRetry).resolves.toBe(true);
@@ -328,7 +415,8 @@ describe('query coordinator', () => {
       .fn()
       .mockImplementationOnce(async (request: RankingRequest) => ({
         payload: { id: 'ready' },
-        requestId: request.requestId,
+        requestId: `server-${request.transactionId}`,
+        transactionId: request.transactionId,
       }))
       .mockImplementationOnce(() => refresh.promise);
     const coordinator = createQueryCoordinator(store, drivers(execute));
@@ -356,7 +444,8 @@ describe('query coordinator', () => {
 
     refresh.resolve({
       payload: { id: 'too-late' },
-      requestId: refreshRequest.requestId,
+      requestId: 'server-too-late',
+      transactionId: refreshRequest.transactionId,
     });
     await expect(pendingRefresh).resolves.toBe(false);
     expect(coordinator.rankings.payload).toEqual({ id: 'ready' });
@@ -370,7 +459,8 @@ describe('query coordinator', () => {
       .fn()
       .mockImplementationOnce(async (request: RankingRequest) => ({
         payload: { id: 'stable' },
-        requestId: request.requestId,
+        requestId: `server-${request.transactionId}`,
+        transactionId: request.transactionId,
       }))
       .mockImplementationOnce(() => firstPending.promise)
       .mockImplementationOnce(() => secondPending.promise);
@@ -397,7 +487,8 @@ describe('query coordinator', () => {
 
     firstPending.resolve({
       payload: { id: 'stale-refresh' },
-      requestId: firstRequest.requestId,
+      requestId: 'server-stale-refresh',
+      transactionId: firstRequest.transactionId,
     });
     await expect(refresh).resolves.toBe(false);
     expect(coordinator.rankings.payload).toEqual({ id: 'stable' });
@@ -406,18 +497,26 @@ describe('query coordinator', () => {
   });
 
   it.each(['ranking', 'co-star'] as const)(
-    'rejects a mismatched response request ID before mutating %s',
+    'rejects a mismatched response transaction ID before mutating %s',
     async (mode) => {
       const store = readyStore();
       const driversWithMismatch: QueryDrivers<Payload, Payload> = {
         rankings: {
           async execute() {
-            return { payload: { id: 'ranking' }, requestId: '' };
+            return {
+              payload: { id: 'ranking' },
+              requestId: 'server-ranking',
+              transactionId: '',
+            };
           },
         },
         candidates: {
           async execute() {
-            return { payload: { id: 'candidate' }, requestId: 'wrong-id' };
+            return {
+              payload: { id: 'candidate' },
+              requestId: 'server-candidate',
+              transactionId: 'wrong-id',
+            };
           },
         },
       };
@@ -441,7 +540,8 @@ describe('query coordinator', () => {
     const store = readyStore();
     const execute = vi.fn(async (request: RankingRequest) => ({
       payload: { id: 'committed' },
-      requestId: request.requestId,
+      requestId: `server-${request.transactionId}`,
+      transactionId: request.transactionId,
     }));
     const coordinator = createQueryCoordinator(
       store,
@@ -471,10 +571,10 @@ describe('query coordinator', () => {
   it('cancels the originating operation after the visible mode changes', async () => {
     const store = readyStore();
     const pendingResponse = deferred<OperationResponse<Payload>>();
-    let rankingRequestId = '';
+    let rankingTransactionId = '';
     let rankingSignal: AbortSignal | undefined;
     const execute = vi.fn((request: RankingRequest) => {
-      rankingRequestId = request.requestId;
+      rankingTransactionId = request.transactionId;
       rankingSignal = request.signal;
       return pendingResponse.promise;
     });
@@ -501,10 +601,188 @@ describe('query coordinator', () => {
 
     pendingResponse.resolve({
       payload: { id: 'late' },
-      requestId: rankingRequestId,
+      requestId: 'server-late',
+      transactionId: rankingTransactionId,
     });
     await expect(pending).resolves.toBe(false);
     expect(store.applied).toBeNull();
+  });
+
+  it('runs a view-only ranking transaction without changing Applied or revision', async () => {
+    const store = readyStore();
+    const pendingView = deferred<OperationResponse<Payload>>();
+    const execute = vi
+      .fn()
+      .mockImplementationOnce(async (request: RankingRequest) => ({
+        payload: { id: 'core' },
+        requestId: 'server-core',
+        transactionId: request.transactionId,
+      }))
+      .mockImplementationOnce(() => pendingView.promise);
+    const coordinator = createQueryCoordinator(store, drivers(execute));
+
+    await coordinator.execute({
+      catalog: catalogFixture(),
+      mode: 'ranking',
+    });
+    const applied = store.applied;
+    const revision = store.revision;
+    const viewRequest = coordinator.executeRankingView({
+      ...coordinator.rankings.view,
+      page: 1,
+      search: '林',
+    });
+    const request = execute.mock.calls[1]![0] as RankingRequest;
+
+    expect(request.query).toBe(coordinator.rankings.acceptedQuery);
+    expect(request.refreshCollection).toBe(false);
+    expect(request.view.search).toBe('林');
+    expect(coordinator.rankings).toMatchObject({
+      payload: { id: 'core' },
+      phase: 'ready',
+      requestId: 'server-core',
+      viewPending: true,
+    });
+    expect(store.applied).toBe(applied);
+    expect(store.revision).toBe(revision);
+
+    pendingView.resolve({
+      payload: { id: 'searched' },
+      requestId: 'server-view-search',
+      transactionId: request.transactionId,
+    });
+    await expect(viewRequest).resolves.toBe(true);
+    expect(coordinator.rankings).toMatchObject({
+      payload: { id: 'searched' },
+      phase: 'ready',
+      requestId: 'server-view-search',
+      revision,
+      view: { search: '林' },
+      viewPending: false,
+    });
+    expect(store.applied).toBe(applied);
+    expect(store.revision).toBe(revision);
+  });
+
+  it('admits only the latest superseding ranking view response', async () => {
+    const store = readyStore();
+    const firstView = deferred<OperationResponse<Payload>>();
+    const secondView = deferred<OperationResponse<Payload>>();
+    const execute = vi
+      .fn()
+      .mockImplementationOnce(async (request: RankingRequest) => ({
+        payload: { id: 'core' },
+        requestId: 'server-core',
+        transactionId: request.transactionId,
+      }))
+      .mockImplementationOnce(() => firstView.promise)
+      .mockImplementationOnce(() => secondView.promise);
+    const coordinator = createQueryCoordinator(store, drivers(execute));
+    await coordinator.execute({
+      catalog: catalogFixture(),
+      mode: 'ranking',
+    });
+
+    const first = coordinator.executeRankingView({
+      ...coordinator.rankings.view,
+      search: '旧',
+    });
+    const firstRequest = execute.mock.calls[1]![0] as RankingRequest;
+    const second = coordinator.executeRankingView({
+      ...coordinator.rankings.view,
+      search: '新',
+    });
+    const secondRequest = execute.mock.calls[2]![0] as RankingRequest;
+    expect(firstRequest.signal.aborted).toBe(true);
+
+    secondView.resolve({
+      payload: { id: 'new' },
+      requestId: 'server-new',
+      transactionId: secondRequest.transactionId,
+    });
+    await expect(second).resolves.toBe(true);
+    firstView.resolve({
+      payload: { id: 'old' },
+      requestId: 'server-old',
+      transactionId: firstRequest.transactionId,
+    });
+    await expect(first).resolves.toBe(false);
+
+    expect(coordinator.rankings).toMatchObject({
+      payload: { id: 'new' },
+      requestId: 'server-new',
+      revision: 1,
+      view: { search: '新' },
+      viewPending: false,
+    });
+    expect(store.revision).toBe(1);
+  });
+
+  it('rolls a failed view request back without erasing its ready ranking', async () => {
+    const store = readyStore();
+    const execute = vi
+      .fn()
+      .mockImplementationOnce(async (request: RankingRequest) => ({
+        payload: { id: 'stable' },
+        requestId: 'server-stable',
+        transactionId: request.transactionId,
+      }))
+      .mockRejectedValueOnce(new Error('offline'));
+    const coordinator = createQueryCoordinator(store, drivers(execute));
+    await coordinator.execute({
+      catalog: catalogFixture(),
+      mode: 'ranking',
+    });
+
+    await expect(
+      coordinator.executeRankingView({
+        ...coordinator.rankings.view,
+        page: 2,
+      }),
+    ).resolves.toBe(false);
+
+    expect(coordinator.rankings).toMatchObject({
+      error: '查询暂时无法完成，请稍后重试',
+      payload: { id: 'stable' },
+      phase: 'ready',
+      requestId: 'server-stable',
+      revision: 1,
+      view: { page: 1 },
+      viewPending: false,
+    });
+    expect(store.revision).toBe(1);
+  });
+
+  it('stores a strictly decoded server request ID for ranking errors', async () => {
+    const store = readyStore();
+    const execute = vi.fn(async () => {
+      throw new RankingsApiError(
+        {
+          error: {
+            code: 'NOT_READY',
+            fieldErrors: {},
+            message: 'not ready',
+            retryable: true,
+          },
+          meta: {
+            requestId: 'server-not-ready',
+          },
+        },
+        503,
+      );
+    });
+    const coordinator = createQueryCoordinator(store, drivers(execute));
+
+    await expect(
+      coordinator.execute({
+        catalog: catalogFixture(),
+        mode: 'ranking',
+      }),
+    ).resolves.toBe(false);
+    expect(coordinator.rankings).toMatchObject({
+      error: '排行服务正在准备，请稍后重试',
+      requestId: 'server-not-ready',
+    });
   });
 
   it('fails closed when production has no registered result driver', async () => {

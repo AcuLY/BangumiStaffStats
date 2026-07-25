@@ -18,19 +18,25 @@ const expectedInventory = [
   'scripts/check-catalog-wire-generated.mjs',
   'scripts/check-production-artifact.mjs',
   'scripts/check-query-wire-generated.mjs',
+  'scripts/check-rankings-wire-generated.mjs',
   'scripts/check-query-unicode-generated.mjs',
   'scripts/cleanup-generated.mjs',
   'scripts/generate-catalog-wire.mjs',
   'scripts/generate-query-wire.mjs',
+  'scripts/generate-rankings-wire.mjs',
   'scripts/generate-query-unicode.mjs',
   'src/api/adapters/catalog.ts',
   'src/api/adapters/queryWire.ts',
+  'src/api/adapters/rankings.ts',
   'src/api/catalog.ts',
   'src/api/client.ts',
   'src/api/errors.ts',
   'src/api/generated/catalog/schemas.gen.ts',
   'src/api/generated/catalog/types.gen.ts',
   'src/api/generated/query-wire/types.gen.ts',
+  'src/api/generated/rankings/schemas.gen.ts',
+  'src/api/generated/rankings/types.gen.ts',
+  'src/api/rankings.ts',
   'src/app/App.vue',
   'src/app/AppProviders.vue',
   'src/app/main.ts',
@@ -50,19 +56,35 @@ const expectedInventory = [
   'src/features/query/share.ts',
   'src/features/query/store.ts',
   'src/features/query/unicode15_1.generated.ts',
+  'src/features/ranking/components/AdaptivePagination.vue',
+  'src/features/ranking/components/RankedPersonList.vue',
+  'src/features/ranking/components/RankingResults.vue',
+  'src/features/ranking/components/RankingSummary.vue',
+  'src/features/ranking/components/RankingToolbar.vue',
+  'src/features/ranking/components/SortDirectionButton.vue',
+  'src/features/ranking/format.ts',
+  'src/features/ranking/model.ts',
+  'src/shared/components/AppIcon.vue',
+  'src/shared/components/SafeImage.vue',
+  'src/shared/media/bangumiImage.ts',
   'src/shared/styles/base.css',
   'src/vite-env.d.ts',
   'tests/api/catalog.contract.test.ts',
   'tests/api/client.test.ts',
   'tests/api/query-wire.contract.test.ts',
+  'tests/api/rankings.test.ts',
   'tests/app/app.mount.test.ts',
+  'tests/app/rankings.integration.test.ts',
   'tests/app/theme.test.ts',
   'tests/features/query/coordinator.test.ts',
   'tests/features/query/components.test.ts',
   'tests/features/query/fixtures.ts',
   'tests/features/query/model.test.ts',
   'tests/features/query/share-routes.test.ts',
+  'tests/features/ranking/components.test.ts',
+  'tests/features/ranking/model.test.ts',
   'tests/setup.ts',
+  'tests/shared/SafeImage.test.ts',
   'tsconfig.app.json',
   'tsconfig.json',
   'tsconfig.node.json',
@@ -208,6 +230,7 @@ if (
 
 const queryWireImporters = [];
 const catalogWireImporters = [];
+const rankingsWireImporters = [];
 const storeOwners = [];
 const requestCallers = [];
 const providerOwners = [];
@@ -219,6 +242,9 @@ for (const [file, source] of sourceByFile) {
   }
   if (/generated\/catalog/.test(source)) {
     catalogWireImporters.push(relative);
+  }
+  if (/generated\/rankings/.test(source)) {
+    rankingsWireImporters.push(relative);
   }
   if (/\bdefineStore\s*\(/.test(source)) {
     storeOwners.push(relative);
@@ -270,6 +296,10 @@ assertExactFiles('query wire ownership', queryWireImporters, [
 ]);
 assertExactFiles('catalog wire ownership', catalogWireImporters, [
   'src/api/adapters/catalog.ts',
+]);
+assertExactFiles('rankings wire ownership', rankingsWireImporters, [
+  'src/api/adapters/rankings.ts',
+  'src/api/rankings.ts',
 ]);
 assertExactFiles('Pinia store ownership', storeOwners, [
   'src/app/store/runtime.ts',

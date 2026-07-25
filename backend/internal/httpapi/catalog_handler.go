@@ -74,11 +74,44 @@ var (
 	}
 )
 
-func timeoutResponseForRequest(request *http.Request) *responseError {
+func timeoutResponseForRequest(
+	request *http.Request,
+	rankings rankingsExecutor,
+) *responseError {
 	if request != nil && request.URL != nil && request.URL.Path == routeCatalog {
 		return &catalogTimeoutResponse
 	}
+	if request != nil && request.URL != nil && request.URL.Path == routeRankings {
+		response := rankingsTimeoutResponse
+		if rankings != nil {
+			response.dataVersion = rankings.CurrentDataVersion()
+		}
+		return &response
+	}
 	return &timeoutResponse
+}
+
+func internalResponseForRequest(
+	request *http.Request,
+	rankings rankingsExecutor,
+) *responseError {
+	if request != nil && request.URL != nil && request.URL.Path == routeCatalog {
+		return &catalogInternalResponse
+	}
+	if request != nil && request.URL != nil && request.URL.Path == routeRankings {
+		response := responseError{
+			status:       http.StatusInternalServerError,
+			code:         codeInternalError,
+			message:      "rankings is unavailable",
+			retryable:    true,
+			cacheControl: "private, no-store",
+		}
+		if rankings != nil {
+			response.dataVersion = rankings.CurrentDataVersion()
+		}
+		return &response
+	}
+	return &internalResponse
 }
 
 func catalogTerminalFromContext(ctx context.Context) *observability.QueryTerminal {

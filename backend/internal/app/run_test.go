@@ -58,12 +58,12 @@ func TestRunListenerPublishesArchiveServesThreeRoutesAndStops(t *testing.T) {
 		!strings.Contains(metricResponse.body, "bgmss_current_snapshot_info{") {
 		t.Fatalf("metrics = %d %q", metricResponse.status, metricResponse.body)
 	}
-	unknown := getResponse(t, client, listener, "/api/v1/rankings")
-	if unknown.status != http.StatusNotFound {
-		t.Fatalf("business route status = %d", unknown.status)
-	}
 	if events.Len() != 0 {
 		t.Fatalf("successful startup emitted event: %q", events.String())
+	}
+	unknown := getResponse(t, client, listener, "/api/v1/rankings")
+	if unknown.status != http.StatusMethodNotAllowed {
+		t.Fatalf("business route status = %d", unknown.status)
 	}
 
 	cancel()
