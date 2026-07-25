@@ -4,7 +4,7 @@
 |---|---|
 | Status | Integration acceptance amendment; implementation pending. |
 | Owner | Backend test implementation agent. |
-| Writable paths | `backend/internal/catalog/*_test.go` and `backend/internal/app/run_test.go` only. |
+| Writable paths | `backend/internal/catalog/*_test.go` and new `backend/internal/app/catalog_archive_integration_test.go` only. |
 | Read-only protected inputs | Backend production code, canonical Archive fixture, schemas/goldens/verifiers, Updater, frontend, external state. |
 | Deletion complement | No deletion or disposable residue. |
 | Mutable refs | None. |

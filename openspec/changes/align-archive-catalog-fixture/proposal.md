@@ -39,7 +39,7 @@ None.
 |---|---|
 | Status | Runtime defect reproduced; specified and main-agent reviewed after strict validation. Implementation/verification/commit/archive remain pending. |
 | Owner | One bounded implementation agent; main agent reviews the spec, exact candidate, and acceptance. |
-| Writable paths | `contracts/schemas/archive/tooling/build_sqlite_fixtures.py`; the existing generator-owned canonical paths under `contracts/goldens/archive/{valid/minimal,invalid/bundles,invalid/json,vectors}` and `contracts/goldens/archive/index.json`; `backend/internal/catalog/*_test.go`; `backend/internal/app/run_test.go`; this change's task markers. |
+| Writable paths | `contracts/schemas/archive/tooling/build_sqlite_fixtures.py`; the existing generator-owned canonical paths under `contracts/goldens/archive/{valid/minimal,invalid/bundles,invalid/json,vectors}` and `contracts/goldens/archive/index.json`; `backend/internal/catalog/*_test.go`; new `backend/internal/app/catalog_archive_integration_test.go`; this change's task markers. |
 | Read-only protected inputs | Archive schemas/verifier, producer corpus, catalog API schemas/goldens, governed Updater compiler/tests, Backend production code including `backend/internal/catalog/store.go`, frontend, guides, sibling changes, external repositories, and staged frontend work. |
 | Deletion complement | No deletion, rename, extra fixture path, unindexed artifact, cache, temp file, or generated residue. |
 | Mutable refs | None. |
