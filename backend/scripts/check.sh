@@ -6,22 +6,34 @@ backend_root="$(CDPATH= cd -- "$script_root/.." && pwd)"
 cache_root="$backend_root/.cache"
 temporary_root="$backend_root/.tmp"
 
+# shellcheck source=check-toolchain-mode.sh
+source "$script_root/check-toolchain-mode.sh"
+bgmss_select_check_toolchain_mode "$backend_root"
+
 cleanup() {
-  if [[ -d "$cache_root" ]]; then
-    chmod -R u+w "$cache_root" 2>/dev/null || true
-  fi
-  rm -rf -- "$cache_root" "$temporary_root"
+  bgmss_cleanup_check_state
 }
-trap cleanup EXIT
-cleanup
-mkdir -p \
-  "$cache_root/go-build" \
-  "$cache_root/go-mod" \
-  "$cache_root/go-path" \
-  "$cache_root/npm" \
-  "$temporary_root/home" \
-  "$temporary_root/system" \
-  "$temporary_root/bin"
+bgmss_install_check_traps
+
+if [[ "$BGMSS_CHECK_TOOLCHAIN_MODE" == 'ordinary' ]]; then
+  cleanup
+  mkdir -p \
+    "$cache_root/go-build" \
+    "$cache_root/go-mod" \
+    "$cache_root/go-path" \
+    "$cache_root/npm" \
+    "$temporary_root/home" \
+    "$temporary_root/system" \
+    "$temporary_root/bin"
+else
+  mkdir -p \
+    "$cache_root/go-build" \
+    "$cache_root/go-path" \
+    "$cache_root/npm" \
+    "$temporary_root/home" \
+    "$temporary_root/system" \
+    "$temporary_root/bin"
+fi
 
 export HOME="$temporary_root/home"
 export TMPDIR="$temporary_root/system"
@@ -30,25 +42,34 @@ export GOMODCACHE="$cache_root/go-mod"
 export GOPATH="$cache_root/go-path"
 export GOENV=off
 export GOWORK=off
-export GOTOOLCHAIN=go1.26.5+auto
+if [[ "$BGMSS_CHECK_TOOLCHAIN_MODE" == 'acceptance' ]]; then
+  export GOTOOLCHAIN=local
+else
+  export GOTOOLCHAIN=go1.26.5+auto
+fi
 export npm_config_cache="$cache_root/npm"
 export npm_config_update_notifier=false
 export REDOCLY_TELEMETRY=off
 
-go_command="${GO_BOOTSTRAP:-$(command -v go || true)}"
-if [[ -z "$go_command" ]]; then
-  echo "go is required" >&2
-  exit 1
-fi
-if [[ "$("$go_command" env GOVERSION)" != "go1.26.5" ]]; then
-  echo "Go 1.26.5 is required" >&2
-  exit 1
-fi
-selected_go_root="$("$go_command" env GOROOT)"
-pinned_gofmt="$selected_go_root/bin/gofmt"
-if [[ ! -x "$pinned_gofmt" || "$selected_go_root" != "$cache_root/go-mod/"*go1.26.5* ]]; then
-  echo "Go 1.26.5 GOROOT is not contained in the backend module cache: $selected_go_root" >&2
-  exit 1
+if [[ "$BGMSS_CHECK_TOOLCHAIN_MODE" == 'acceptance' ]]; then
+  go_command="$BGMSS_CHECK_GO_COMMAND"
+  pinned_gofmt="$BGMSS_CHECK_GOFMT_COMMAND"
+else
+  go_command="${GO_BOOTSTRAP:-$(command -v go || true)}"
+  if [[ -z "$go_command" ]]; then
+    echo "go is required" >&2
+    exit 1
+  fi
+  if [[ "$("$go_command" env GOVERSION)" != "go1.26.5" ]]; then
+    echo "Go 1.26.5 is required" >&2
+    exit 1
+  fi
+  selected_go_root="$("$go_command" env GOROOT)"
+  pinned_gofmt="$selected_go_root/bin/gofmt"
+  if [[ ! -x "$pinned_gofmt" || "$selected_go_root" != "$cache_root/go-mod/"*go1.26.5* ]]; then
+    echo "Go 1.26.5 GOROOT is not contained in the backend module cache: $selected_go_root" >&2
+    exit 1
+  fi
 fi
 
 cd "$backend_root"
@@ -376,6 +397,8 @@ internal/statistics/source_test.go
 internal/statistics/summary.go
 internal/statistics/summary_test.go
 internal/statistics/types.go
+scripts/check-toolchain-mode-test.sh
+scripts/check-toolchain-mode.sh
 scripts/check.sh
 scripts/generate-candidates-wire.sh
 scripts/generate-catalog-wire.sh
@@ -391,30 +414,54 @@ scripts/prepare-partners-wire.mjs
 scripts/prepare-person-detail-wire.mjs
 scripts/prepare-query-wire.mjs
 scripts/prepare-rankings-wire.mjs'
-actual_inventory="$(
-  find . -type f \
-    -not -path './.cache/*' \
-    -not -path './.tmp/*' \
-    -not -path './build/.tmp/*' \
-    -print |
-    sed 's#^\./##' |
-    LC_ALL=C sort
-)"
+if [[ "$BGMSS_CHECK_TOOLCHAIN_MODE" == 'acceptance' ]]; then
+  actual_inventory="$(
+    find . \
+      \( -path './.cache' -o -path './.tmp' -o -path './build/.tmp' \) -prune \
+      -o -type f -print |
+      sed 's#^\./##' |
+      LC_ALL=C sort
+  )"
+else
+  actual_inventory="$(
+    find . -type f \
+      -not -path './.cache/*' \
+      -not -path './.tmp/*' \
+      -not -path './build/.tmp/*' \
+      -print |
+      sed 's#^\./##' |
+      LC_ALL=C sort
+  )"
+fi
 if [[ "$actual_inventory" != "$expected_inventory" ]]; then
   echo "unexpected persistent backend inventory:" >&2
   diff -u <(printf '%s\n' "$expected_inventory") <(printf '%s\n' "$actual_inventory") >&2 || true
   exit 1
 fi
 
-if find . -type f \( -name 'go.work' -o -name '*.sqlite' -o -name '*.db' -o -name '*.out' \) \
-  -not -path './.cache/*' -not -path './.tmp/*' | grep -q .; then
-  echo "forbidden backend artifact found" >&2
-  exit 1
-fi
-if find . -type d \( -name vendor -o -name openspec \) \
-  -not -path './.cache/*' -not -path './.tmp/*' | grep -q .; then
-  echo "forbidden backend directory found" >&2
-  exit 1
+if [[ "$BGMSS_CHECK_TOOLCHAIN_MODE" == 'acceptance' ]]; then
+  if find . \( -path './.cache' -o -path './.tmp' \) -prune -o \
+    -type f \( -name 'go.work' -o -name '*.sqlite' -o -name '*.db' -o -name '*.out' \) \
+    -print | grep -q .; then
+    echo "forbidden backend artifact found" >&2
+    exit 1
+  fi
+  if find . \( -path './.cache' -o -path './.tmp' \) -prune -o \
+    -type d \( -name vendor -o -name openspec \) -print | grep -q .; then
+    echo "forbidden backend directory found" >&2
+    exit 1
+  fi
+else
+  if find . -type f \( -name 'go.work' -o -name '*.sqlite' -o -name '*.db' -o -name '*.out' \) \
+    -not -path './.cache/*' -not -path './.tmp/*' | grep -q .; then
+    echo "forbidden backend artifact found" >&2
+    exit 1
+  fi
+  if find . -type d \( -name vendor -o -name openspec \) \
+    -not -path './.cache/*' -not -path './.tmp/*' | grep -q .; then
+    echo "forbidden backend directory found" >&2
+    exit 1
+  fi
 fi
 if grep -R -n -E '(/health|/proxy|ProxyFromEnvironment|update_activated|net/http/pprof)' \
   --include='*.go' --exclude='*_test.go' cmd internal \
@@ -434,9 +481,13 @@ if [[ "$(printf '%s\n' "$image_route_literals" | wc -l | tr -d ' ')" != "1" ]] |
 fi
 
 cleanup
-trap - EXIT
-if [[ -e "$cache_root" || -e "$temporary_root" ]]; then
-  echo "backend disposable state remains" >&2
-  exit 1
+trap - EXIT INT TERM
+if [[ "$BGMSS_CHECK_TOOLCHAIN_MODE" == 'acceptance' ]]; then
+  bgmss_acceptance_disposable_roots_absent
+else
+  if [[ -e "$cache_root" || -e "$temporary_root" ]]; then
+    echo "backend disposable state remains" >&2
+    exit 1
+  fi
 fi
 echo "backend checks passed"

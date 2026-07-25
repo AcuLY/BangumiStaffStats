@@ -53,7 +53,12 @@ export GOMODCACHE="$cache_root/go-mod"
 export GOPATH="$cache_root/go-path"
 export GOENV=off
 export GOWORK=off
-export GOTOOLCHAIN=go1.26.5+auto
+if [[ "${BGMSS_ACCEPTANCE_GOROOT+x}" == 'x' &&
+  "$BGMSS_ACCEPTANCE_GOROOT" == "$cache_root/go-mod/golang.org/toolchain@v0.0.1-go1.26.5.darwin-arm64" ]]; then
+  export GOTOOLCHAIN=local
+else
+  export GOTOOLCHAIN=go1.26.5+auto
+fi
 export npm_config_cache="$cache_root/npm"
 export npm_config_update_notifier=false
 export REDOCLY_TELEMETRY=off

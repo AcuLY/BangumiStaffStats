@@ -17,43 +17,43 @@
 
 ## 1. Backend gate implementation
 
-- [ ] 1.1 Preflight `codex/formal-rewrite`, record the reviewed spec commit and
+- [x] 1.1 Preflight `codex/formal-rewrite`, record the reviewed spec commit and
   exact HEAD, allow only the already-reviewed untracked
   `contracts/acceptance/**` handoff plus this change, prove
   `backend/scripts/check.sh` unchanged from that HEAD, and stop on any other
   dirty path or active writer.
-- [ ] 1.2 Add a focused shell helper and contract test; wire the exact
+- [x] 1.2 Add a focused shell helper and contract test; wire the exact
   set-versus-unset `BGMSS_ACCEPTANCE_GOROOT` fixed-path admission,
   cache/GOROOT/bin/file/link/executable/version/architecture/conflict checks,
   exported child binding, and mode-specific cleanup into
   `backend/scripts/check.sh`; update only the persistent inventory entries
   required by the two new scripts.
-- [ ] 1.3 Make only the `GOTOOLCHAIN` assignment in the seven wire-generator
+- [x] 1.3 Make only the `GOTOOLCHAIN` assignment in the seven wire-generator
   scripts select `local` when the exact acceptance variable is present and
   retain `go1.26.5+auto` otherwise; prove each still selects the exported
   admitted `GO_BOOTSTRAP`.
-- [ ] 1.4 Run the focused committed shell contract test, including rejection
+- [x] 1.4 Run the focused committed shell contract test, including rejection
   before product checks for set-empty, partial, relative, dot-segment, trailing,
   out-of-root, symlink-component, linked executable, wrong-version,
   caller presence of `GO_BOOTSTRAP` including set-empty, and stale writable
   directories or dangling exact-root symlinks, proving the supplied closure
   and outside sentinels remain unchanged.
-- [ ] 1.5 In the focused fixture, inject a post-admission command failure plus
+- [x] 1.5 In the focused fixture, inject a post-admission command failure plus
   trappable SIGTERM and SIGINT cases; prove each original nonzero or
   signal-derived status, exact disposable-root cleanup, unchanged outside
   sentinel, and unchanged final closure seal.
-- [ ] 1.6 Run the ordinary full `cd backend && ./scripts/check.sh` regression
+- [x] 1.6 Run the ordinary full `cd backend && ./scripts/check.sh` regression
   with the pinned bootstrap and prove `.cache`/`.tmp` are absent afterward.
-- [ ] 1.7 Preseed a fresh complete module/toolchain closure with the exact
+- [x] 1.7 Preseed a fresh complete module/toolchain closure with the exact
   cache-root `.seed-complete` witness and admitted
   Go 1.26.5 GOROOT, record its byte/inode/mode/link seal, run the full gate
   under outer network and closure-write denial, prove all child generators
   bind the exact admitted Go, and compare post-gate plus unconditional-final
   seals on success.
-- [ ] 1.8 Force one post-admission command failure under the same protections;
+- [x] 1.8 Force one post-admission command failure under the same protections;
   prove the original nonzero status, exact disposable-root cleanup, unchanged
   outside sentinels, and unchanged final closure seal.
-- [ ] 1.9 Run the repository persistent-inventory check,
+- [x] 1.9 Run the repository persistent-inventory check,
   `git diff --check -- backend/scripts
   openspec/changes/admit-preseeded-backend-toolchain`,
   `openspec validate admit-preseeded-backend-toolchain --strict`,
@@ -64,7 +64,7 @@
 
 ## 2. Main-agent acceptance and lifecycle
 
-- [ ] 2.1 Audit the exact diff and all evidence, rerun proportional negative,
+- [x] 2.1 Audit the exact diff and all evidence, rerun proportional negative,
   ordinary, sealed-success, failure-cleanup, final-reseal, inventory,
   `git diff --check`, and strict OpenSpec gates; stop on any discrepancy.
 - [ ] 2.2 Commit and push the accepted prerequisite, sync its delta to the main
