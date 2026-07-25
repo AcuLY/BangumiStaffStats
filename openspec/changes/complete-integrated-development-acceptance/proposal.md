@@ -89,9 +89,11 @@ None.
   `contracts/openapi/**`, `contracts/schemas/**`, `contracts/goldens/**`,
   `openspec/specs/**`, and every sibling active or archived change.
 - Oracle commit `644b7748674e553f863d0ffd61d029f86fdc0717`,
-  the clean accepted candidate revision/tree, the three component artifact
+  the clean accepted product-candidate revision/tree named by the artifacts,
+  the later clean harness/control revision/tree, the three component artifact
   roots, their compatibility manifest, and the caller-supplied full inactive
-  Archive.
+  Archive. The two repository identities are distinct and both are immutable
+  inputs.
 - Git refs/remotes, external repositories, registries, releases,
   deployments, hosts, services, secrets, production paths, production state,
   and the public Internet.
@@ -111,7 +113,12 @@ None.
 
 - The completed and archived `produce-development-artifacts` capability,
   including three accepted component artifact roots and their strict
-  compatibility manifest from one clean revision/tree and target platform.
+  compatibility manifest from one clean product-candidate revision/tree and
+  target platform.
+- One later clean harness/control revision/tree containing only the accepted
+  `contracts/acceptance/**` implementation and OpenSpec lifecycle changes on
+  top of that product candidate. Every protected product and artifact
+  implementation blob/mode SHALL still equal the candidate.
 - A caller-supplied, immutable, inactive full Archive candidate produced by the
   accepted Updater, plus its dataVersion, manifest, and SQLite identities.
 - Existing component checks, cross-language contract verifiers, Archive/API
@@ -126,9 +133,10 @@ None.
   development-budget schemas; a local CLI/orchestrator; focused harness tests;
   and documentation, all below `contracts/acceptance/**`.
 - For each run, one canonical machine-readable result and diagnostic
-  screenshots/traces below the ignored run root. Results identify source/tree,
-  artifact manifest, Archive, oracle, toolchain, browser, host profile,
-  commands, durations, memory, byte counts, and every pass/fail/skip decision.
+  screenshots/traces below the ignored run root. Results identify both the
+  product-candidate and harness/control revision/tree, artifact manifest,
+  Archive, oracle, toolchain, browser, host profile, commands, durations,
+  memory, byte counts, and every pass/fail/blocked decision.
 - Only a fully green run may emit the exact verdict
   `development-accepted-operations-pending`.
 
@@ -138,7 +146,8 @@ The sole exact direct dependency is `produce-development-artifacts`. It SHALL
 be completed and archived before apply. Its transitive closure supplies every
 earlier Backend, Updater, Frontend, and Contracts capability; no wave alias or
 additional direct edge is introduced. Apply is also blocked if any other
-active change or dirty product-code candidate exists at admission.
+active change besides this acceptance change, a dirty product-code candidate,
+or a dirty harness/control checkout exists at admission.
 
 ### Deliverables
 
@@ -153,10 +162,13 @@ active change or dirty product-code candidate exists at admission.
 
 ### Acceptance
 
-- The exact dependency is archived; the candidate checkout is clean and
-  attested; all three component statements and the compatibility manifest bind
-  the same accepted source revision/tree and target; the full Archive is
-  immutable and compatible.
+- The exact dependency is archived in the harness/control revision; both
+  repository identities are clean and attested; the harness/control revision
+  differs from the accepted product candidate only in
+  `contracts/acceptance/**` and reviewed OpenSpec lifecycle paths; all three
+  component statements and the compatibility manifest bind the same accepted
+  product-candidate revision/tree and target; the full Archive is immutable
+  and compatible.
 - Existing cross-language contract, component full-check, artifact-only smoke,
   Go race, and strict OpenSpec gates pass without source mutation.
 - The harness runs the immutable Updater artifact checks and starts the

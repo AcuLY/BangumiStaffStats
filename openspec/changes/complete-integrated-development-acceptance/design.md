@@ -67,9 +67,9 @@ The relevant existing boundaries are:
 | Read-only protected inputs | Every repository path outside the exact owned paths, including all Backend/Updater/Frontend code and tests, artifact code, existing Contracts schemas/goldens/OpenAPI, root documents/config, `.impeccable/**`, root specs and sibling changes; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; accepted artifact/full-Archive inputs; external repositories, refs/remotes, registries, hosts, services, secrets, production paths/state, and public Internet. |
 | Deletion complement | None. Only one harness-created run directory below `contracts/acceptance/.tmp/**` may be removed by exact path after containment/type/ownership checks. |
 | Mutable refs | None. |
-| Consumes | Archived `produce-development-artifacts`; one clean accepted source revision/tree; three accepted component roots and their compatibility manifest; one caller-supplied official full inactive Archive; fixed oracle; existing contract/golden/component/race/artifact commands; pinned local toolchains and browser runtime. |
+| Consumes | Archived `produce-development-artifacts`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three accepted component roots and their compatibility manifest; one caller-supplied official full inactive Archive; fixed oracle; existing contract/golden/component/race/artifact commands; pinned local toolchains and browser runtime. |
 | Produces | Versioned acceptance input/result/budget/exception schemas, a closed matrix, local orchestrator, browser journeys, focused/negative tests, README, and ignored per-run evidence. Only a green complete matrix emits `development-accepted-operations-pending`. |
-| Dependencies | Sole exact direct dependency: `produce-development-artifacts`, completed and archived. Its transitive closure supplies all component capabilities. Apply additionally requires no other active change or dirty product candidate. |
+| Dependencies | Sole exact direct dependency: `produce-development-artifacts`, completed and archived. Its transitive closure supplies all component capabilities. Apply additionally requires no active change besides this acceptance change, no dirty product candidate, and no dirty harness/control checkout. |
 | Deliverables | Only `contracts/acceptance/**`: CLI and libraries, schemas, matrix, oracle-exception registry, browser scenarios, development budgets, tests, package manifest/lock, README, and narrow `.gitignore`. No run output is committed. |
 | Acceptance | Clean/immutable input attestation; existing contract/component/race/artifact gates; full-Archive temporary activation copy; immutable Updater artifact checks; packaged Backend API/UI E2E; fixed-oracle shadow/golden comparison; required browser matrix; bounded performance measurements; tamper/timeout/network/residue negatives; strict OpenSpec/exact-path/residue/diff checks. |
 | Non-goals | Product or existing-test fixes, dependency changes outside this owner, new product behavior, full-Archive acquisition, personal live-network E2E, signing/publication/release/deploy/activation, production benchmarks/resource sizing/SLO/readiness claims. |
@@ -126,7 +126,8 @@ or distinguish failed, blocked, and missing evidence.
 
 The CLI consumes an explicit input document naming:
 
-- the clean candidate revision/tree;
+- the clean accepted product-candidate revision/tree named by the artifacts;
+- the later clean harness/control revision/tree that contains this harness;
 - Backend, Updater, and Frontend artifact roots;
 - the assembled compatibility manifest;
 - one full inactive Archive version root;
@@ -136,16 +137,23 @@ The CLI consumes an explicit input document naming:
 It reuses the artifact validator and Git checkout identity logic created by the
 dependency instead of copying their schema rules. It verifies all three
 component statements share the candidate revision/tree and target, and the
-compatibility manifest digest names exactly those statements.
+compatibility manifest digest names exactly those statements. It separately
+attests the harness/control checkout and proves that its diff from the product
+candidate is confined to `contracts/acceptance/**` and the reviewed OpenSpec
+lifecycle paths. Every protected product and artifact implementation
+blob/mode SHALL be identical in the two trees. Dependency archival and the
+sole-active-change rule are evaluated in the harness/control revision, not in
+the earlier product-candidate planning snapshot.
 
 After admission it creates one local, no-hardlink clone below the run root,
 checks out the exact candidate detached, and verifies its revision/tree and
 tracked blob/mode inventory again. Existing gates that legitimately create
 `node_modules`, `dist`, `.cache`, `.tmp`, virtual environments, or generated
-checks run only in that clone. The live repository remains an attested
-read-only control input. The clone also gives the artifact coordinator the
-real Git object identity it requires without adding a worktree or
-administrative record to the live repository.
+checks run only in that clone. The clean live harness/control checkout remains
+an independently identified, attested read-only input and executes only the
+acceptance-owned orchestrator. The clone gives the artifact coordinator the
+real product-candidate Git object identity it requires without adding a
+worktree or administrative record to the live repository.
 
 The full Archive gate accepts only a version directory containing regular,
 non-symlink `manifest.json` and `bangumi.sqlite` from the official seven-file
@@ -412,13 +420,15 @@ This is a development-only additive harness, so there is no runtime migration.
    sibling active change remains, and the main agent approves all four
    strict-valid artifacts.
 2. Implement and test only `contracts/acceptance/**`.
-3. Run focused negative tests with synthetic harness inputs, then the complete
-   final matrix against accepted component artifacts and a caller-supplied
-   full inactive Archive.
+3. Run focused negative tests with synthetic harness inputs.
 4. Main agent audits exact paths, dependency closure, result semantics,
    protected-input seals, residue, browser evidence, and performance profile.
-5. Commit only source/config/schema/test files. Remove all ignored run output,
-   then sync/archive this change.
+5. Commit only the reviewed harness source/config/schema/test files, then run
+   the complete final matrix from that clean harness/control commit against
+   the accepted product-candidate artifacts and caller-supplied full inactive
+   Archive.
+6. After the green matrix, update lifecycle records in a separate commit,
+   remove all ignored run output, then sync/archive this change.
 
 Rollback before commit deletes only uncommitted
 `contracts/acceptance/**` files and the validated owned `.tmp` root. After

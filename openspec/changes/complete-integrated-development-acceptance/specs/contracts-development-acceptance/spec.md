@@ -10,9 +10,9 @@
 | Read-only protected inputs | Every path outside the exact owned paths, especially Backend/Updater/Frontend source/tests/build definitions, existing Contracts artifacts/schemas/goldens/OpenAPI, root documents/config, `.impeccable/**`, root specs and sibling changes; fixed oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; accepted candidate/artifact/full-Archive inputs; external repositories, refs/remotes, registries, hosts, services, secrets, production state, and public Internet. |
 | Deletion complement | None. Cleanup may delete only one harness-created run root below `contracts/acceptance/.tmp/**` after exact containment, type, and ownership validation. |
 | Mutable refs | None. |
-| Consumes | Archived `produce-development-artifacts`; one clean accepted revision/tree; three component artifact roots and compatibility manifest; caller-supplied official full inactive Archive; existing component/contract/race/artifact commands; fixed oracle; pinned local toolchains/browser. |
+| Consumes | Archived `produce-development-artifacts`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three component artifact roots and compatibility manifest; caller-supplied official full inactive Archive; existing component/contract/race/artifact commands; fixed oracle; pinned local toolchains/browser. |
 | Produces | A versioned closed matrix, strict input/result/budget/exception schemas, local orchestrator, browser scenarios, focused/negative tests, README, and ignored per-run evidence. Only a complete green result emits `development-accepted-operations-pending`. |
-| Dependencies | Sole exact direct dependency: `produce-development-artifacts`, completed and archived. Apply also requires no other active change and no dirty product candidate. |
+| Dependencies | Sole exact direct dependency: `produce-development-artifacts`, completed and archived. Apply also requires no active change besides this acceptance change, no dirty product candidate, and no dirty harness/control checkout. |
 | Deliverables | Only tracked source/config/schema/test/lock/docs below `contracts/acceptance/**`; no generated run result, screenshot, trace, browser, cache, Archive copy, process file, or credential. |
 | Acceptance | Immutable-input attestation; existing cross-language/component/race/artifact gates; full-Archive disposable runtime; immutable Updater artifact checks; packaged Backend/API/Frontend E2E; oracle shadow/golden and browser matrix; bounded development performance; negative/tamper/timeout/network/residue gates; strict OpenSpec/exact-path/residue/diff checks. |
 | Non-goals | Product fixes/refactors/tests/dependency changes outside the owner, new API/UI behavior, Archive acquisition/production, live personal-network E2E, release/deploy/activation, production load/resource/SLO/readiness claims. |
@@ -21,16 +21,24 @@
 
 ## ADDED Requirements
 
-### Requirement: Admission SHALL bind one clean accepted candidate
+### Requirement: Admission SHALL bind product and harness identities
 
 The acceptance CLI SHALL require one strict input document and SHALL attest the
-clean candidate revision/tree, Backend/Updater/Frontend component roots,
-compatibility manifest, full inactive Archive version, fixed oracle, exact
-toolchain executables, and browser identity before it starts an expensive
-gate. All three component statements and the compatibility manifest SHALL name
-the same candidate revision/tree and target platform. The dependency
-`produce-development-artifacts` SHALL be archived, no other active change
-SHALL exist, and no product path SHALL be dirty.
+clean accepted product-candidate revision/tree named by the artifacts, the
+later clean harness/control revision/tree containing this acceptance
+implementation, Backend/Updater/Frontend component roots, compatibility
+manifest, full inactive Archive version, fixed oracle, exact toolchain
+executables, and browser identity before it starts an expensive gate. All
+three component statements and the compatibility manifest SHALL name the same
+product-candidate revision/tree and target platform.
+
+The harness/control tree MAY differ from the product candidate only below
+`contracts/acceptance/**` and the reviewed OpenSpec lifecycle paths needed to
+record artifact archival and this acceptance change. Every protected product
+and artifact implementation blob and executable mode SHALL be identical
+between the two trees. The dependency `produce-development-artifacts` SHALL be
+archived in the harness/control tree, no other active change besides this
+acceptance change SHALL exist there, and neither checkout SHALL be dirty.
 
 The CLI SHALL reject unknown input fields, duplicate JSON keys, unsafe or
 relative paths, symlinks, special files, mixed identities, mutable inputs,
@@ -40,9 +48,10 @@ raw tracked blobs/executable modes do not equal the named tree.
 
 #### Scenario: Accepted immutable inputs are admitted
 
-- **WHEN** one clean candidate, three validated component roots, their exact
-  compatibility manifest, one valid full inactive Archive, fixed oracle, and
-  pinned local tools all agree
+- **WHEN** one clean product candidate, one clean compatible harness/control
+  revision, three validated component roots, their exact compatibility
+  manifest, one valid full inactive Archive, fixed oracle, and pinned local
+  tools all agree
 - **THEN** the CLI SHALL record their content identities and proceed to the
   closed acceptance matrix
 
@@ -63,14 +72,15 @@ capability, fixed command or scenario ID, required inputs, timeout, and
 evidence fields. Runtime input SHALL NOT add a command, assertion, exception,
 threshold, route, or matrix cell.
 
-The canonical result SHALL identify the candidate tree, compatibility
-manifest, component statements, full Archive, oracle, toolchains, browser,
-machine profile, budgets, exact matrix version, cell status/duration/evidence,
-input/output seals, and final verdict. Required cells SHALL be exactly
-`pass|fail|blocked`; they SHALL never be skipped. A fail-fast run SHALL mark
-every unrun dependent cell `blocked` by the originating failure. Result
-evidence SHALL use run-relative paths and SHA-256 without absolute paths,
-usernames, secrets, raw response bodies, or unbounded logs.
+The canonical result SHALL identify both product-candidate and harness/control
+revision/tree identities, compatibility manifest, component statements, full
+Archive, oracle, toolchains, browser, machine profile, budgets, exact matrix
+version, cell status/duration/evidence, input/output seals, and final verdict.
+Required cells SHALL be exactly `pass|fail|blocked`; they SHALL never be
+skipped. A fail-fast run SHALL mark every unrun dependent cell `blocked` by the
+originating failure. Result evidence SHALL use run-relative paths and SHA-256
+without absolute paths, usernames, secrets, raw response bodies, or unbounded
+logs.
 
 #### Scenario: Every required cell passes
 
@@ -101,8 +111,9 @@ clone below its owned run root, check out the exact candidate detached, and
 re-attest its revision/tree and tracked blob/mode inventory. Every disposable
 source-gate write, including `node_modules`, virtual environments, `dist`,
 `.cache`, `.tmp`, generated checks, and artifact coordinator state, SHALL stay
-inside that clone. The live repository SHALL remain read-only and SHALL gain no
-worktree metadata, ref, index, cache, or generated file.
+inside that clone. The live harness/control checkout SHALL remain clean and
+read-only and SHALL gain no worktree metadata, ref, index, cache, or generated
+file.
 
 Acceptance-owned tests SHALL cover only orchestration, schema, command closure,
 redaction, failure/timeout propagation, input immutability, network/process

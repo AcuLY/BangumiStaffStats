@@ -8,7 +8,7 @@
 | Read-only protected inputs | Every other repository path, including Backend/Updater/Frontend source/tests/build definitions, existing Contracts artifacts/schemas/goldens/OpenAPI, `.github/**`, root docs/config, `.impeccable/**`, root specs and sibling changes; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; accepted artifacts/full Archive; external repositories, refs/remotes, registries, hosts, services, secrets, production state, and public Internet. |
 | Deletion complement | None. The harness may remove only one exact run root that it created below `contracts/acceptance/.tmp/**` after containment/type/ownership checks. |
 | Mutable refs | None. |
-| Consumes | Archived `produce-development-artifacts`; one clean accepted revision/tree; three accepted component roots and compatibility manifest; caller-supplied official full inactive Archive; fixed oracle; existing gates; pinned local toolchains/browser. |
+| Consumes | Archived `produce-development-artifacts`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three accepted component roots and compatibility manifest; caller-supplied official full inactive Archive; fixed oracle; existing gates; pinned local toolchains/browser. |
 | Produces | Tracked acceptance CLI/libraries, schemas, matrix, budgets, exception registry, browser scenarios, tests, README, package/lock, and `.gitignore`; ignored canonical per-run result/evidence only. |
 | Dependencies | Sole exact direct dependency `produce-development-artifacts`, completed and archived. Apply additionally requires no sibling active change and no dirty product candidate. |
 | Deliverables | Only `contracts/acceptance/**`; no product change and no committed run output/cache/browser/Archive copy. |
@@ -25,12 +25,15 @@ commit, push, sync, archive, or update task markers.
 
 ## 1. Apply admission and owned skeleton
 
-- [ ] 1.1 Record branch, exact `HEAD`, tree, index/worktree/untracked state, active
+- [ ] 1.1 Record branch, exact harness/control `HEAD`, tree,
+  index/worktree/untracked state, active
   OpenSpec list, tool versions, and owned-path preimage; verify
   `produce-development-artifacts` is completed/archived, this is the only
   active change, all four artifacts are strict-valid and main-agent approved,
-  no protected product path is dirty, and `contracts/acceptance/**` has no
-  conflicting owner. Stop without mutation on mismatch.
+  no protected product path or harness/control checkout is dirty, and
+  `contracts/acceptance/**` has no conflicting owner. Record the distinct
+  product-candidate identity named by the artifacts and stop without mutation
+  on mismatch.
 - [ ] 1.2 Create only `contracts/acceptance/{bin,lib,schemas,test,browser}/`,
   a README, a narrow `.gitignore` for `.tmp/`, and the acceptance-only
   `package.json`/lock. Pin exactly one direct development dependency
@@ -70,18 +73,21 @@ commit, push, sync, archive, or update task markers.
 ## 3. Immutable admission and isolated gate runner
 
 - [ ] 3.1 Reuse the dependency's artifact and Git-checkout validators to attest
-  exact candidate revision/tree/blob modes, stage-zero index, hidden Git bits,
+  the exact product-candidate revision/tree/blob modes, the distinct clean
+  harness/control revision/tree, stage-zero indexes, hidden Git bits,
   replacement refs, untracked state, three component statements, target, and
-  compatibility manifest. Add focused mixed/tampered/dirty/link negative
-  tests.
+  compatibility manifest. Prove the two trees differ only in
+  `contracts/acceptance/**` and reviewed OpenSpec lifecycle paths while all
+  protected product/artifact implementation blobs and modes remain identical.
+  Add focused mixed/tampered/dirty/link/forbidden-diff negative tests.
 - [ ] 3.2 Implement the owned run-root allocator and exact cleanup policy with
   canonical containment, no-symlink directory walk, recorded ownership marker,
   bounded unique ID, sanitized environment, no inherited injection variables,
   output limits, and postcondition checks.
 - [ ] 3.3 Materialize a no-hardlink local clone below the run root, detach it at
   the exact accepted candidate, re-attest its tree/blob/mode inventory, and
-  prove no live-repository worktree metadata, ref, index, cache, or generated
-  path changes.
+  prove the live harness/control checkout gains no worktree metadata, ref,
+  index, cache, generated path, or dirty state.
 - [ ] 3.4 Implement the fixed command registry/process runner with explicit
   executables/arguments/cwds/environments, process groups, timeouts, graceful
   stop, bounded forced cleanup, and stable owner attribution. No input or
@@ -189,10 +195,13 @@ commit, push, sync, archive, or update task markers.
   closure, artifact/full-Archive identities, canonical result, oracle evidence,
   browser matrix, budgets, negative coverage, cleanup, and zero product/ref/
   external-state mutation; route any owner defect back without fixing it here.
-- [ ] 8.2 Only after zero P0/P1 findings and a complete green matrix, main agent
-  updates task/status markers, commits the exact accepted source, re-runs
-  strict validation/residue checks from that commit, and separately records
-  whether it was pushed. Released and deployed remain false.
+- [ ] 8.2 After zero P0/P1 findings and focused harness verification, main agent
+  commits the exact reviewed acceptance implementation. From that clean
+  harness/control revision, run the complete matrix against the separately
+  identified product candidate. Only after a green matrix, update task/status
+  markers in a separate lifecycle commit, re-run strict validation/residue
+  checks, and separately record whether it was pushed. Released and deployed
+  remain false.
 - [ ] 8.3 Main agent syncs/archives this change only after the accepted commit
   exists and final verification remains green, then reports:
   “正式新版开发验收完成；运维、发布、部署、生产迁移和旧系统退役尚未开始。”
