@@ -34,5 +34,5 @@ product additions.
 | Protected paths | `frontend/src/features/co-star/**`, candidate/partners/co-star APIs and adapters, query coordinator/share semantics, backend/contracts/updater, generated DTOs, dependencies/lockfiles, external repositories, refs/remotes, and operations state. |
 | Oracle | Commit `644b7748674e553f863d0ffd61d029f86fdc0717`, under `frontend/src/workbench/**`. |
 | Higher-authority exceptions | Explicit `PRODUCT.md`, `DESIGN.md`, accepted OpenSpec, and production-state additions override the oracle only for the named capability; they do not authorize unrelated visual or interaction changes. |
-| Acceptance | Targeted/full frontend gates plus Light/Dark browser comparison at 360, 390, 779, 780, 1024, and 1440px, including keyboard, focus return, Escape, inert/mask behavior, overflow, console, and failed-resource checks. |
+| Acceptance | Targeted/full frontend gates plus Light/Dark browser comparison at 360, 390, 779, 780, 1024, and 1440px, including keyboard, focus return, Escape, inert/mask behavior, overflow, console, failed-resource checks, and proof that deferred person-detail state is invisible until a person is actually selected/opened. |
 | Non-goals | New design direction, backend/API/statistics/state changes, co-star implementation, dependency upgrades, prototype deletion, or operations work. |

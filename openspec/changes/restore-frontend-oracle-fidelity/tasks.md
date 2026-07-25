@@ -19,6 +19,9 @@ Node commands use `/Users/luca/.nvm/versions/node/v24.18.0/bin`.
   selected person, profile positions remain stable across work views, timeline
   points expose 44px hits, character-appearance overflow is fully reachable,
   narrow ranking layout remains two-line, and Drawer has one scroll owner.
+- [ ] 1.6 Keep deferred person-detail loading/error presentation invisible
+  until a person is actually selected and, on compact layouts, the Drawer is
+  open; hidden preloading may continue and must not alter ranking geometry.
 
 ## 2. Accept compatibility
 

@@ -50,7 +50,13 @@ Use Node through
   request or false readiness error while primary is pending, and after success
   replay exactly one latest differing view on the refreshed snapshot; cover
   superseded intermediate edits and stale/error cleanup.
-- [ ] 2.11 Verify Group 2B with `npm run check:co-star-wire`, focused API/co-star/query-share/App Vitest files, `npm run typecheck`, `npm run build`, `git diff --check`, and strict change validation; stop and retain the last accepted surfaces on any failure.
+- [ ] 2.11 For still-visible partners/co-star/person-detail controls during
+  same-query primary refresh, queue only the latest complete compound view,
+  send no old-snapshot request or false prerequisite error, then on primary
+  success rerun exactly once and restore accepted ownership even for unchanged
+  fields; on primary failure restore the prior accepted child and discard the
+  queue. Do not change the approved rankings core-loading presentation.
+- [ ] 2.12 Verify Group 2B with `npm run check:co-star-wire`, focused API/co-star/query-share/App Vitest files, `npm run typecheck`, `npm run build`, `git diff --check`, and strict change validation; stop and retain the last accepted surfaces on any failure.
 
 ## 3. Integrated development acceptance
 

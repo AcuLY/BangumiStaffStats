@@ -30,6 +30,11 @@ The following production additions remain:
    Timeline points and overflowed character appearances retain oracle-visible
    geometry while exposing keyboard/touch-accessible hit and disclosure
    targets.
+   Deferred person-detail code may preload after ranking data arrives, but its
+   loading/error state is not a ranking result and SHALL remain visually absent
+   until a person is selected (and, on compact layouts, its Drawer is open).
+   Selecting a person then exposes the local real loading/error state without
+   replacing the ranking surface.
 
 ## Implementation Constraints
 

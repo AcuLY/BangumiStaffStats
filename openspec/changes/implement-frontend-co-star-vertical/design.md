@@ -116,6 +116,23 @@ the prototype where formal operation boundaries differ.
    and preserves the prototype's usable controls and visible text/result
    agreement.
 
+   Still-visible partners, co-star, and person-detail controls follow the same
+   rule during their owning candidates/rankings primary refresh. Each edit
+   merges from the latest locally presented full view, replaces the queued
+   intent, sends no old-snapshot request, and publishes no false
+   “先选择/先完成查询” error. Primary success invalidates the prior child
+   acceptance and reruns exactly the latest complete intent once on the new
+   accepted snapshot, even when the final view fields equal the prior accepted
+   view; the rerun must restore accepted input/query/view/revision ownership
+   rather than short-circuit as a no-op. Primary failure/cancellation discards
+   queued edits and restores the prior accepted child. Superseded intermediate
+   search→sort→order/page edits never request or commit.
+
+   A rankings primary refresh remains the already approved core-result pending
+   state: its ranking controls are not a still-visible child surface and this
+   change does not redesign that loading presentation or invent ranking-view
+   input while the controls are absent.
+
    The shared client exposes only immutable `status` plus a read-only header
    accessor to operation error decoders. Partners/co-star accept only canonical
    integer `Retry-After` values from 1–60 seconds and may perform at most one

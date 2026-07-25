@@ -41,6 +41,13 @@ interaction behavior.
 - **AND** background content SHALL be inert
 - **AND** closing by the supported action SHALL restore focus correctly
 
+#### Scenario: Person-detail code preloads without a selection
+- **WHEN** ranking data is present and the deferred person-detail module is
+  loading or has failed but no person is selected
+- **THEN** no person-detail loading/error panel SHALL be visible
+- **AND** the ranking surface SHALL retain its oracle-compatible hierarchy
+- **AND** selecting a person SHALL then expose only the local real detail state
+
 ### Requirement: Fidelity SHALL be regression-tested
 
 Compatibility SHALL be verified against the fixed oracle rather than reviewer

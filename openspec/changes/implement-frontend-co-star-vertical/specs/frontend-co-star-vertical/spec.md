@@ -100,6 +100,26 @@ partners/co-star view changes SHALL not advance queryRevision.
 - **AND** its completion SHALL make the visible controls, candidate rows, and
   local error state agree on the refreshed snapshot
 
+#### Scenario: A dependent view changes during its primary refresh
+- **WHEN** a same-query candidates or rankings refresh is pending and the user
+  changes still-visible partners, co-star, or person-detail search, sort,
+  order, section, page, or page size controls
+- **THEN** no dependent request SHALL run against the old snapshot and no false
+  prerequisite/readiness error SHALL be published
+- **AND** compound edits SHALL merge from the latest locally presented complete
+  view so a later sort/order/page edit does not erase an earlier search/section
+- **AND** primary success SHALL invalidate the prior child acceptance and run
+  exactly the latest complete intent once on the accepted snapshot, including
+  when its fields equal the prior accepted view
+- **AND** the completion SHALL restore accepted input/query/view/revision
+  ownership and make controls, result, share state, and local error agree
+
+#### Scenario: A primary refresh with queued child intent fails
+- **WHEN** the same-query primary refresh fails or is canceled before commit
+- **THEN** the queued dependent intent SHALL send no request
+- **AND** the prior accepted child payload, full view, share state, and error
+  boundary SHALL be restored without a stale completion
+
 ### Requirement: Candidate picker and tray SHALL provide one complete identity owner
 
 At 780px and above, `/co-star` SHALL show the candidate picker as a desktop rail
