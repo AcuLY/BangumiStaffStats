@@ -81,6 +81,7 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
 }
 
 "$go_command" test ./internal/httpapi ./internal/observability ./internal/app
+"$go_command" test ./internal/publiccollection
 "$go_command" test ./internal/httpapi -run '^$' -fuzz '^FuzzDecodeStrictJSON$' -fuzztime=3s
 "$go_command" test ./internal/architecture
 "$go_command" test ./internal/query/...
@@ -154,6 +155,25 @@ fi
 if [[ ! -f "$sync_license" ]] ||
   ! grep -q 'Redistribution and use in source and binary forms' "$sync_license"; then
   echo "expected BSD-style x/sync license is absent" >&2
+  exit 1
+fi
+
+collection_version="$("$go_command" list -m -f '{{.Version}}' github.com/AcuLY/bangumi-collection-go)"
+time_version="$("$go_command" list -m -f '{{.Version}}' golang.org/x/time)"
+if [[ "$collection_version" != "v0.1.0" || "$time_version" != "v0.15.0" ]]; then
+  echo "unexpected public collection dependency versions: collection=$collection_version time=$time_version" >&2
+  exit 1
+fi
+collection_directory="$("$go_command" list -m -f '{{.Dir}}' github.com/AcuLY/bangumi-collection-go)"
+time_directory="$("$go_command" list -m -f '{{.Dir}}' golang.org/x/time)"
+if [[ ! -f "$collection_directory/LICENSE" ]] ||
+  ! grep -q 'Permission is hereby granted' "$collection_directory/LICENSE"; then
+  echo "expected MIT public collection client license is absent" >&2
+  exit 1
+fi
+if [[ ! -f "$time_directory/LICENSE" ]] ||
+  ! grep -q 'Redistribution and use in source and binary forms' "$time_directory/LICENSE"; then
+  echo "expected BSD-style x/time license is absent" >&2
   exit 1
 fi
 
@@ -288,6 +308,9 @@ internal/persondetail/service_test.go
 internal/persondetail/types.go
 internal/persondetail/view.go
 internal/persondetail/view_test.go
+internal/publiccollection/source.go
+internal/publiccollection/source_test.go
+internal/publiccollection/transport_test.go
 internal/query/archive_loader.go
 internal/query/archive_loader_test.go
 internal/query/evaluate.go

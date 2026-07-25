@@ -17,6 +17,7 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/observability"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/partners"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/persondetail"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/publiccollection"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/ranking"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 )
@@ -85,9 +86,11 @@ func RunListenerWithOptions(
 			return fmt.Errorf("configure update status: %w", err)
 		}
 	}
+	collectionSource := publiccollection.New()
 	return runListener(ctx, listener, archiveRoot, runDependencies{
-		archive: new(archive.State),
-		runtime: runtimeObservability,
+		archive:     new(archive.State),
+		collections: collectionSource,
+		runtime:     runtimeObservability,
 		server: func(handler http.Handler) servingRuntime {
 			return httpapi.NewServer(handler)
 		},
@@ -104,10 +107,20 @@ type servingRuntime interface {
 	Serve(context.Context, net.Listener) error
 }
 
+type collectionProvider interface {
+	Fetch(
+		context.Context,
+		string,
+		string,
+		[]string,
+	) (runtimecache.CollectionSnapshot, error)
+}
+
 type runDependencies struct {
-	archive archiveRuntime
-	runtime *httpapi.RuntimeObservability
-	server  func(http.Handler) servingRuntime
+	archive     archiveRuntime
+	collections collectionProvider
+	runtime     *httpapi.RuntimeObservability
+	server      func(http.Handler) servingRuntime
 }
 
 func runListener(
@@ -119,7 +132,10 @@ func runListener(
 	if ctx == nil {
 		return fmt.Errorf("run listener: nil context")
 	}
-	if dependencies.archive == nil || dependencies.runtime == nil || dependencies.server == nil {
+	if dependencies.archive == nil ||
+		dependencies.collections == nil ||
+		dependencies.runtime == nil ||
+		dependencies.server == nil {
 		return fmt.Errorf("run listener: incomplete dependencies")
 	}
 
@@ -191,7 +207,10 @@ func serveRuntime(
 	dependencies runDependencies,
 	probe httpapi.ReadinessProbe,
 ) error {
-	services, err := newQueryServices(dependencies.archive)
+	services, err := newQueryServices(
+		dependencies.archive,
+		dependencies.collections,
+	)
 	if err != nil {
 		dependencies.runtime.SetLive(false)
 		_ = dependencies.runtime.SetReadiness(false, "")
@@ -252,7 +271,13 @@ type queryServices struct {
 	coStar       *costar.Service
 }
 
-func newQueryServices(archiveState archiveRuntime) (queryServices, error) {
+func newQueryServices(
+	archiveState archiveRuntime,
+	collections collectionProvider,
+) (queryServices, error) {
+	if archiveState == nil || collections == nil {
+		return queryServices{}, errors.New("create query services: incomplete dependencies")
+	}
 	bindings, err := queryResultBindings()
 	if err != nil {
 		return queryServices{}, err
@@ -266,7 +291,7 @@ func newQueryServices(archiveState archiveRuntime) (queryServices, error) {
 	}
 	rankings, err := ranking.NewServiceWithRuntime(
 		currentRankingStore(archiveState),
-		nil,
+		collections,
 		queryRuntime,
 	)
 	if err != nil {
@@ -274,7 +299,7 @@ func newQueryServices(archiveState archiveRuntime) (queryServices, error) {
 	}
 	candidateService, err := candidates.NewServiceWithRuntime(
 		currentCandidatesStore(archiveState),
-		nil,
+		collections,
 		queryRuntime,
 	)
 	if err != nil {
@@ -282,7 +307,7 @@ func newQueryServices(archiveState archiveRuntime) (queryServices, error) {
 	}
 	personDetailService, err := persondetail.NewServiceWithRuntime(
 		currentPersonDetailStore(archiveState),
-		nil,
+		collections,
 		queryRuntime,
 	)
 	if err != nil {
@@ -290,7 +315,7 @@ func newQueryServices(archiveState archiveRuntime) (queryServices, error) {
 	}
 	partnersService, err := partners.NewServiceWithRuntime(
 		currentPartnersStore(archiveState),
-		nil,
+		collections,
 		queryRuntime,
 	)
 	if err != nil {
@@ -298,7 +323,7 @@ func newQueryServices(archiveState archiveRuntime) (queryServices, error) {
 	}
 	coStarService, err := costar.NewServiceWithRuntime(
 		currentCoStarStore(archiveState),
-		nil,
+		collections,
 		queryRuntime,
 	)
 	if err != nil {

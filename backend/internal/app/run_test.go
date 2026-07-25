@@ -21,10 +21,12 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/httpapi"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/httpapi/wire"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 )
 
 func TestNewQueryServicesPassesOneRuntimeToAllFiveOperations(t *testing.T) {
-	services, err := newQueryServices(new(fakeArchiveRuntime))
+	collections := new(recordingCollectionProvider)
+	services, err := newQueryServices(new(fakeArchiveRuntime), collections)
 	if err != nil {
 		t.Fatalf("newQueryServices: %v", err)
 	}
@@ -41,6 +43,9 @@ func TestNewQueryServicesPassesOneRuntimeToAllFiveOperations(t *testing.T) {
 		queryRuntime.CollectionCache() {
 		t.Fatal("app assembly did not preserve collection cache identity")
 	}
+	if len(collections.snapshotCalls()) != 0 {
+		t.Fatal("app assembly contacted the collection source")
+	}
 	stats := queryRuntime.Stats()
 	if stats.Executor.Running != 0 ||
 		stats.Executor.Queued != 0 ||
@@ -48,6 +53,17 @@ func TestNewQueryServicesPassesOneRuntimeToAllFiveOperations(t *testing.T) {
 		stats.CollectionNegative.Items != 0 ||
 		stats.Result.Items != 0 {
 		t.Fatalf("assembly mutated empty process resources: %+v", stats)
+	}
+}
+
+func TestNewQueryServicesRejectsMissingCollectionDependencies(t *testing.T) {
+	t.Parallel()
+
+	if _, err := newQueryServices(nil, new(recordingCollectionProvider)); err == nil {
+		t.Fatal("newQueryServices accepted a nil Archive provider")
+	}
+	if _, err := newQueryServices(new(fakeArchiveRuntime), nil); err == nil {
+		t.Fatal("newQueryServices accepted a nil collection provider")
 	}
 }
 
@@ -60,7 +76,19 @@ func TestRunListenerPublishesArchiveServesBusinessRoutesAndStops(t *testing.T) {
 	var events bytes.Buffer
 	runtimeObservability := testRuntimeObservability(t, &events)
 	state := new(archive.State)
-	dependencies := networkDependencies(state, runtimeObservability)
+	collectionFailure, err := runtimecache.NewCollectionFailure(
+		runtimecache.FailureOther,
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	collections := &recordingCollectionProvider{err: collectionFailure}
+	dependencies := networkDependencies(
+		state,
+		runtimeObservability,
+		collections,
+	)
 	archiveRoot := arrangeArchive(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	result := make(chan error, 1)
@@ -101,50 +129,117 @@ func TestRunListenerPublishesArchiveServesBusinessRoutesAndStops(t *testing.T) {
 	if unknown.status != http.StatusMethodNotAllowed {
 		t.Fatalf("business route status = %d", unknown.status)
 	}
-	candidate := postJSONResponse(
-		t,
-		client,
-		listener,
-		"/api/v1/candidates",
-		`{"query":{"scope":"personal","uid":"Alice","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"positionKey":"staff:anime:2"}}`,
-	)
-	if candidate.status != http.StatusServiceUnavailable ||
-		!strings.Contains(candidate.body, `"code":"NOT_READY"`) ||
-		!strings.Contains(candidate.body, `"message":"candidates is not ready"`) {
-		t.Fatalf("candidate runtime = %d %q", candidate.status, candidate.body)
+
+	personalRoutes := []struct {
+		name string
+		path string
+		uid  string
+		body string
+	}{
+		{
+			name: "rankings",
+			path: "/api/v1/rankings",
+			uid:  "RankingsUser",
+			body: `{"query":{"scope":"personal","uid":"RankingsUser","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2"]}}`,
+		},
+		{
+			name: "candidates",
+			path: "/api/v1/candidates",
+			uid:  "CandidatesUser",
+			body: `{"query":{"scope":"personal","uid":"CandidatesUser","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"positionKey":"staff:anime:2"}}`,
+		},
+		{
+			name: "person detail",
+			path: "/api/v1/person-detail",
+			uid:  "PersonDetailUser",
+			body: `{"query":{"scope":"personal","uid":"PersonDetailUser","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"personId":100}}`,
+		},
+		{
+			name: "partners",
+			path: "/api/v1/partners",
+			uid:  "PartnersUser",
+			body: `{"query":{"scope":"personal","uid":"PartnersUser","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"source":{"personId":100,"positionKeys":["staff:anime:2"]}}}`,
+		},
+		{
+			name: "co-star",
+			path: "/api/v1/co-star",
+			uid:  "CoStarUser",
+			body: `{"query":{"scope":"personal","uid":"CoStarUser","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2","cast:anime:main"]},"input":{"participants":[{"personId":100,"positionKeys":["staff:anime:2"]},{"personId":101,"positionKeys":["cast:anime:main"]}]}}`,
+		},
 	}
-	partnersResponse := postJSONResponse(
-		t,
-		client,
-		listener,
-		"/api/v1/partners",
-		`{"query":{"scope":"personal","uid":"Alice","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"source":{"personId":1,"positionKeys":["staff:anime:2"]}}}`,
-	)
-	if partnersResponse.status != http.StatusServiceUnavailable ||
-		!strings.Contains(partnersResponse.body, `"code":"NOT_READY"`) ||
-		!strings.Contains(partnersResponse.body, `"message":"partners is not ready"`) {
-		t.Fatalf(
-			"partners runtime = %d %q",
-			partnersResponse.status,
-			partnersResponse.body,
+	for _, route := range personalRoutes {
+		response := postJSONResponse(
+			t,
+			client,
+			listener,
+			route.path,
+			route.body,
 		)
+		if response.status != http.StatusServiceUnavailable ||
+			!strings.Contains(response.body, `"code":"UPSTREAM_UNAVAILABLE"`) ||
+			!strings.Contains(response.body, `"message":"collection is unavailable"`) {
+			t.Fatalf(
+				"%s personal runtime = %d %q",
+				route.name,
+				response.status,
+				response.body,
+			)
+		}
 	}
-	coStarResponse := postJSONResponse(
-		t,
-		client,
-		listener,
-		"/api/v1/co-star",
-		`{"query":{"scope":"personal","uid":"Alice","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"participants":[{"personId":100,"positionKeys":["staff:anime:2"]},{"personId":101,"positionKeys":["staff:anime:2"]}]}}`,
-	)
-	if coStarResponse.status != http.StatusServiceUnavailable ||
-		!strings.Contains(coStarResponse.body, `"code":"NOT_READY"`) ||
-		!strings.Contains(coStarResponse.body, `"message":"co-star is not ready"`) {
-		t.Fatalf(
-			"co-star runtime = %d %q",
-			coStarResponse.status,
-			coStarResponse.body,
+	assertCollectionCalls(t, collections.snapshotCalls(), personalRoutes)
+
+	globalRoutes := []struct {
+		name string
+		path string
+		body string
+	}{
+		{
+			name: "rankings",
+			path: "/api/v1/rankings",
+			body: `{"query":{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}}`,
+		},
+		{
+			name: "candidates",
+			path: "/api/v1/candidates",
+			body: `{"query":{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"positionKey":"staff:anime:2"}}`,
+		},
+		{
+			name: "person detail",
+			path: "/api/v1/person-detail",
+			body: `{"query":{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"personId":100}}`,
+		},
+		{
+			name: "partners",
+			path: "/api/v1/partners",
+			body: `{"query":{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"source":{"personId":100,"positionKeys":["staff:anime:2"]}}}`,
+		},
+		{
+			name: "co-star",
+			path: "/api/v1/co-star",
+			body: `{"query":{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2","cast:anime:main"]},"input":{"participants":[{"personId":100,"positionKeys":["staff:anime:2"]},{"personId":101,"positionKeys":["cast:anime:main"]}]}}`,
+		},
+	}
+	for _, route := range globalRoutes {
+		response := postJSONResponse(
+			t,
+			client,
+			listener,
+			route.path,
+			route.body,
 		)
+		if response.status != http.StatusOK {
+			t.Fatalf(
+				"%s global runtime = %d %q",
+				route.name,
+				response.status,
+				response.body,
+			)
+		}
 	}
+	if calls := collections.snapshotCalls(); len(calls) != len(personalRoutes) {
+		t.Fatalf("global routes changed collection calls: %#v", calls)
+	}
+
 	coStarNotFoundResponse := postJSONResponse(
 		t,
 		client,
@@ -161,6 +256,9 @@ func TestRunListenerPublishesArchiveServesBusinessRoutesAndStops(t *testing.T) {
 			coStarNotFoundResponse.status,
 			coStarNotFoundResponse.body,
 		)
+	}
+	if calls := collections.snapshotCalls(); len(calls) != len(personalRoutes) {
+		t.Fatalf("global not-found route changed collection calls: %#v", calls)
 	}
 
 	cancel()
@@ -285,8 +383,9 @@ func TestRunListenerArchiveFailureNeverConsultsLaterState(t *testing.T) {
 	var events bytes.Buffer
 	runtimeObservability := testRuntimeObservability(t, &events)
 	err := runListener(context.Background(), nil, "/unused", runDependencies{
-		archive: state,
-		runtime: runtimeObservability,
+		archive:     state,
+		collections: emptyCollectionProvider(),
+		runtime:     runtimeObservability,
 		server: func(handler http.Handler) servingRuntime {
 			return servingRuntimeFunc(func(context.Context, net.Listener) error {
 				request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
@@ -325,8 +424,9 @@ func TestRunListenerCancellationDuringLoadEmitsOneEventAndNeverServes(t *testing
 	runtimeObservability := testRuntimeObservability(t, &events)
 	var serverCalls atomic.Int64
 	dependencies := runDependencies{
-		archive: state,
-		runtime: runtimeObservability,
+		archive:     state,
+		collections: emptyCollectionProvider(),
+		runtime:     runtimeObservability,
 		server: func(http.Handler) servingRuntime {
 			serverCalls.Add(1)
 			return immediateServer{}
@@ -384,8 +484,9 @@ func TestRunListenerCancellationDuringLoadPropagatesCleanupFailures(t *testing.T
 	result := make(chan error, 1)
 	go func() {
 		result <- runListener(ctx, nil, "/unused", runDependencies{
-			archive: state,
-			runtime: runtimeObservability,
+			archive:     state,
+			collections: emptyCollectionProvider(),
+			runtime:     runtimeObservability,
 			server: func(http.Handler) servingRuntime {
 				serverCalls.Add(1)
 				return immediateServer{}
@@ -438,8 +539,9 @@ func TestRunListenerArchiveFailureEventWriteFailureClosesAndNeverServes(t *testi
 			var serverCalls atomic.Int64
 
 			err := runListener(context.Background(), nil, "/unused", runDependencies{
-				archive: state,
-				runtime: runtimeObservability,
+				archive:     state,
+				collections: emptyCollectionProvider(),
+				runtime:     runtimeObservability,
 				server: func(http.Handler) servingRuntime {
 					serverCalls.Add(1)
 					return immediateServer{}
@@ -488,8 +590,9 @@ func TestRunListenerStopsServingBeforeArchiveClose(t *testing.T) {
 	var events bytes.Buffer
 	runtimeObservability := testRuntimeObservability(t, &events)
 	err := runListener(context.Background(), nil, "/unused", runDependencies{
-		archive: state,
-		runtime: runtimeObservability,
+		archive:     state,
+		collections: emptyCollectionProvider(),
+		runtime:     runtimeObservability,
 		server: func(http.Handler) servingRuntime {
 			return immediateServer{onStop: func() { stopped.Store(true) }}
 		},
@@ -549,13 +652,121 @@ func TestRunListenerWithOptionsRejectsUnsafeUpdateStatusPath(t *testing.T) {
 func networkDependencies(
 	state archiveRuntime,
 	runtimeObservability *httpapi.RuntimeObservability,
+	collectionSources ...collectionProvider,
 ) runDependencies {
+	collections := emptyCollectionProvider()
+	if len(collectionSources) > 0 {
+		collections = collectionSources[0]
+	}
 	return runDependencies{
-		archive: state,
-		runtime: runtimeObservability,
+		archive:     state,
+		collections: collections,
+		runtime:     runtimeObservability,
 		server: func(handler http.Handler) servingRuntime {
 			return httpapi.NewServer(handler)
 		},
+	}
+}
+
+type collectionProviderFunc func(
+	context.Context,
+	string,
+	string,
+	[]string,
+) (runtimecache.CollectionSnapshot, error)
+
+func (function collectionProviderFunc) Fetch(
+	ctx context.Context,
+	uid string,
+	subjectType string,
+	statuses []string,
+) (runtimecache.CollectionSnapshot, error) {
+	return function(ctx, uid, subjectType, statuses)
+}
+
+func emptyCollectionProvider() collectionProvider {
+	return collectionProviderFunc(func(
+		context.Context,
+		string,
+		string,
+		[]string,
+	) (runtimecache.CollectionSnapshot, error) {
+		return runtimecache.CollectionSnapshot{
+			Items: []runtimecache.CollectionItem{},
+		}, nil
+	})
+}
+
+type collectionCall struct {
+	uid         string
+	subjectType string
+	statuses    []string
+}
+
+type recordingCollectionProvider struct {
+	mu sync.Mutex
+
+	calls []collectionCall
+	err   error
+}
+
+func (provider *recordingCollectionProvider) Fetch(
+	_ context.Context,
+	uid string,
+	subjectType string,
+	statuses []string,
+) (runtimecache.CollectionSnapshot, error) {
+	provider.mu.Lock()
+	defer provider.mu.Unlock()
+	provider.calls = append(provider.calls, collectionCall{
+		uid:         uid,
+		subjectType: subjectType,
+		statuses:    append([]string(nil), statuses...),
+	})
+	if provider.err != nil {
+		return runtimecache.CollectionSnapshot{}, provider.err
+	}
+	return runtimecache.CollectionSnapshot{
+		Items: []runtimecache.CollectionItem{},
+	}, nil
+}
+
+func (provider *recordingCollectionProvider) snapshotCalls() []collectionCall {
+	provider.mu.Lock()
+	defer provider.mu.Unlock()
+	result := append([]collectionCall(nil), provider.calls...)
+	for index := range result {
+		result[index].statuses = append([]string(nil), result[index].statuses...)
+	}
+	return result
+}
+
+func assertCollectionCalls(
+	t *testing.T,
+	calls []collectionCall,
+	routes []struct {
+		name string
+		path string
+		uid  string
+		body string
+	},
+) {
+	t.Helper()
+	if len(calls) != len(routes) {
+		t.Fatalf("collection calls = %#v, want %d calls", calls, len(routes))
+	}
+	for index, call := range calls {
+		if call.uid != routes[index].uid ||
+			call.subjectType != "anime" ||
+			len(call.statuses) != 1 ||
+			call.statuses[0] != "completed" {
+			t.Fatalf(
+				"collection call %d = %#v, want uid %q anime completed",
+				index,
+				call,
+				routes[index].uid,
+			)
+		}
 	}
 }
 

@@ -28,7 +28,7 @@ run without fixtures or credentials.
 
 | Boundary | Declaration |
 |---|---|
-| Status | Investigated/specified/main-agent reviewed: complete; dependency publication/implemented/verified/committed: no. Apply is gated on a public immutable `v0.1.0`. |
+| Status | Investigated, specified, main-agent reviewed, dependency publication, implemented, verified, and committed: complete. Pushed, released, and deployed for the main repository: no. |
 | Owner | One backend implementation agent after `expose-co-star` releases shared app wiring; main agent owns spec edits and acceptance. |
 | Writable paths | `backend/internal/publiccollection/**`, `backend/internal/app/run.go`, `backend/internal/app/run_test.go`, `backend/go.mod`, `backend/go.sum`, narrowly required backend architecture/check inventory, and this change's task markers. |
 | Read-only protected inputs | External repository worktree and refs during main-repo apply; external client source/tag; existing service/cache/query/statistics packages; contracts/frontend/updater; other OpenSpec changes; remotes and operations state. |

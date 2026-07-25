@@ -42,7 +42,7 @@ func TestProductionPackageDependencies(t *testing.T) {
 	allowedInternalImports := map[string][]string{
 		modulePath + "/cmd/api":                       {modulePath + "/internal/app"},
 		modulePath + "/cmd/archive-smoke":             {modulePath + "/internal/archive"},
-		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/costar", modulePath + "/internal/httpapi", modulePath + "/internal/observability", modulePath + "/internal/partners", modulePath + "/internal/persondetail", modulePath + "/internal/ranking", modulePath + "/internal/runtimecache"},
+		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/costar", modulePath + "/internal/httpapi", modulePath + "/internal/observability", modulePath + "/internal/partners", modulePath + "/internal/persondetail", modulePath + "/internal/publiccollection", modulePath + "/internal/ranking", modulePath + "/internal/runtimecache"},
 		modulePath + "/internal/candidates":           {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
 		modulePath + "/internal/catalog":              {modulePath + "/internal/archive", modulePath + "/internal/httpapi/wire"},
 		modulePath + "/internal/costar":               {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
@@ -52,6 +52,7 @@ func TestProductionPackageDependencies(t *testing.T) {
 		modulePath + "/internal/observability":        {},
 		modulePath + "/internal/partners":             {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
 		modulePath + "/internal/persondetail":         {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
+		modulePath + "/internal/publiccollection":     {modulePath + "/internal/runtimecache"},
 		modulePath + "/internal/query":                {modulePath + "/internal/archive"},
 		modulePath + "/internal/querytiming":          {},
 		modulePath + "/internal/ranking":              {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
@@ -105,10 +106,12 @@ func TestProductionPackageDependencies(t *testing.T) {
 						strings.HasPrefix(imported, "golang.org/x/text/")
 					runtimeCache := pkg.ImportPath == modulePath+"/internal/runtimecache" &&
 						imported == "golang.org/x/sync/singleflight"
+					publicCollection := pkg.ImportPath == modulePath+"/internal/publiccollection" &&
+						imported == "github.com/AcuLY/bangumi-collection-go"
 					if !wireRuntime && !archiveSQLite && !queryNormalization &&
 						!rankingNormalization && !candidatesNormalization &&
 						!personDetailNormalization && !partnersNormalization &&
-						!coStarNormalization && !runtimeCache {
+						!coStarNormalization && !runtimeCache && !publicCollection {
 						t.Errorf("%s imports unapproved production dependency %s", pkg.ImportPath, imported)
 					}
 				}
@@ -141,7 +144,8 @@ func TestPinnedModuleDeclaration(t *testing.T) {
 			Version  string
 			Indirect bool
 		}
-		Tool []struct {
+		Replace []json.RawMessage
+		Tool    []struct {
 			Path string
 		}
 	}
@@ -160,6 +164,9 @@ func TestPinnedModuleDeclaration(t *testing.T) {
 	if len(module.Tool) != 1 || module.Tool[0].Path != "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen" {
 		t.Errorf("unexpected tool declarations: %+v", module.Tool)
 	}
+	if len(module.Replace) != 0 {
+		t.Errorf("module replacements are forbidden: %+v", module.Replace)
+	}
 
 	direct := make(map[string]string)
 	for _, requirement := range module.Require {
@@ -171,11 +178,12 @@ func TestPinnedModuleDeclaration(t *testing.T) {
 		}
 	}
 	wantDirect := map[string]string{
-		"github.com/oapi-codegen/runtime": "v1.1.2",
-		"github.com/gowebpki/jcs":         "v1.0.1",
-		"golang.org/x/sync":               "v0.22.0",
-		"golang.org/x/text":               "v0.40.0",
-		"modernc.org/sqlite":              "v1.54.0",
+		"github.com/AcuLY/bangumi-collection-go": "v0.1.0",
+		"github.com/oapi-codegen/runtime":        "v1.1.2",
+		"github.com/gowebpki/jcs":                "v1.0.1",
+		"golang.org/x/sync":                      "v0.22.0",
+		"golang.org/x/text":                      "v0.40.0",
+		"modernc.org/sqlite":                     "v1.54.0",
 	}
 	if !mapsEqual(direct, wantDirect) {
 		t.Errorf("direct runtime requirements = %+v, want %+v", direct, wantDirect)

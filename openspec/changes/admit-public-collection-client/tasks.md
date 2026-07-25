@@ -14,15 +14,15 @@
 
 ## 1. Admit and apply
 
-- [ ] 1.1 Record branch/HEAD/dirty state; verify public `v0.1.0` resolves to the
+- [x] 1.1 Record branch/HEAD/dirty state; verify public `v0.1.0` resolves to the
   accepted external commit, the module is immutable, co-star has released app
   wiring, this change is strict-valid, and no local replace is needed.
-- [ ] 1.2 Implement the narrow adapter with exact enum/field/empty behavior,
+- [x] 1.2 Implement the narrow adapter with exact enum/field/empty behavior,
   defensive immutable copying, pre-transport input validation, duplicate
   rejection, and the complete sanitized failure matrix.
-- [ ] 1.3 Pin `v0.1.0` in the formal module and assemble one source for all five
+- [x] 1.3 Pin `v0.1.0` in the formal module and assemble one source for all five
   services; inject fakes in app tests and prove global scope makes no call.
-- [ ] 1.4 Run focused adapter/app/service contract tests, `go test -race ./...`,
+- [x] 1.4 Run focused adapter/app/service contract tests, `go test -race ./...`,
   `go vet ./...`, module/check inventories, `git diff --check`, and strict
   OpenSpec validation; leave the accepted candidate unstaged for main-agent
   commit/archive.
