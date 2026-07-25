@@ -10,7 +10,7 @@
 | Read-only protected inputs | Every path outside the exact owned paths, especially Backend/Updater/Frontend source/tests/build definitions, existing Contracts artifacts/schemas/goldens/OpenAPI, root documents/config, `.impeccable/**`, root specs and sibling changes; fixed oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; accepted candidate/artifact/full-Archive inputs; external repositories, refs/remotes, registries, hosts, services, secrets, production state, and public Internet. |
 | Deletion complement | None. Cleanup may delete only one harness-created run root below `contracts/acceptance/.tmp/**` after exact containment, type, and ownership validation. |
 | Mutable refs | None. |
-| Consumes | Archived `produce-development-artifacts`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three component artifact roots and compatibility manifest; caller-supplied official full inactive Archive; existing component/contract/race/artifact commands; fixed oracle; pinned local toolchains/browser. |
+| Consumes | Archived `produce-development-artifacts`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three component artifact roots and compatibility manifest; caller-supplied official full inactive Archive; existing component/contract/race/artifact commands; fixed oracle; pinned current and historical-golden toolchains; caller-provisioned sealed caches; pinned browser. |
 | Produces | A versioned closed matrix, strict input/result/budget/exception schemas, local orchestrator, browser scenarios, focused/negative tests, README, and ignored per-run evidence. Only a complete green result emits `development-accepted-operations-pending`. |
 | Dependencies | Sole exact direct dependency: `produce-development-artifacts`, completed and archived. Apply also requires no active change besides this acceptance change, no dirty product candidate, and no dirty harness/control checkout. |
 | Deliverables | Only tracked source/config/schema/test/lock/docs below `contracts/acceptance/**`; no generated run result, screenshot, trace, browser, cache, Archive copy, process file, or credential. |
@@ -27,10 +27,12 @@ The acceptance CLI SHALL require one strict input document and SHALL attest the
 clean accepted product-candidate revision/tree named by the artifacts, the
 later clean harness/control revision/tree containing this acceptance
 implementation, Backend/Updater/Frontend component roots, compatibility
-manifest, full inactive Archive version, fixed oracle, exact toolchain
-executables, and browser identity before it starts an expensive gate. All
-three component statements and the compatibility manifest SHALL name the same
-product-candidate revision/tree and target platform.
+manifest, full inactive Archive version, fixed oracle, exact current
+toolchain executables, exact historical Query-golden Node/npm/Go/gofmt
+executables, sealed dependency/tool caches, and browser identity before it
+starts an expensive gate. All three component statements and the compatibility
+manifest SHALL name the same product-candidate revision/tree and target
+platform.
 
 The harness/control tree MAY differ from the product candidate only below
 `contracts/acceptance/**` and the reviewed OpenSpec lifecycle paths needed to
@@ -44,14 +46,16 @@ The CLI SHALL reject unknown input fields, duplicate JSON keys, unsafe or
 relative paths, symlinks, special files, mixed identities, mutable inputs,
 untracked non-ignored candidate paths, non-stage-zero index entries,
 `assume-unchanged`/`skip-worktree`, Git replacement refs, or an input whose
-raw tracked blobs/executable modes do not equal the named tree.
+raw tracked blobs/executable modes do not equal the named tree. Cache inputs
+SHALL be regular, non-symlink, read-only trees with a complete exact lockfile
+closure and content seals recorded before and after use.
 
 #### Scenario: Accepted immutable inputs are admitted
 
 - **WHEN** one clean product candidate, one clean compatible harness/control
   revision, three validated component roots, their exact compatibility
-  manifest, one valid full inactive Archive, fixed oracle, and pinned local
-  tools all agree
+  manifest, one valid full inactive Archive, fixed oracle, current and
+  historical-golden tools, sealed caches, and pinned browser all agree
 - **THEN** the CLI SHALL record their content identities and proceed to the
   closed acceptance matrix
 
@@ -105,6 +109,23 @@ wire/architecture/unit/type/build/artifact gates, component artifact
 validators, and compatibility coordinator smoke. The matrix SHALL name the
 owner capability for each gate and SHALL use fixed repository-owned
 entrypoints, sanitized environments, bounded output, and timeouts.
+
+When an authoritative owner gate fixes a historical toolchain identity that
+differs from the current product toolchain, the harness SHALL attest, record,
+and invoke that exact historical executable set for that gate. Specifically,
+the Query golden's Node 24.16/npm 11.13/Go 1.25.4 identities SHALL remain
+distinct from the current Frontend Node 24.18/npm 11.16 and Backend Go 1.26.5
+identities. The harness SHALL NOT rewrite the golden, substitute another tool,
+or omit either family from the canonical result.
+
+All package/module/tool bytes used by owner gates SHALL come from
+caller-provisioned sealed cache inputs. The caller MAY prepare those exact
+lockfile-pinned bytes before admission outside the harness, but cache
+acquisition is not an acceptance cell and SHALL write no repository or
+production path. After admission the harness SHALL copy required bytes with
+new inodes into the owned run root, use package-manager offline modes, enforce
+host/Docker network denial, and re-seal both the source caches and copies. No
+matrix cell may contact a public registry or other public origin.
 
 Before running a source gate, the harness SHALL create a no-hardlink local
 clone below its owned run root, check out the exact candidate detached, and
@@ -345,10 +366,10 @@ binaries SHALL be pre-provisioned version-attested inputs; install-time or
 run-time browser download is forbidden.
 
 Acceptance SHALL verify the direct-dependency allowlist, lockfile, licenses,
-no install scripts, `npm ci --ignore-scripts`, local cache containment, focused
-tests, and zero product-manifest/bundle change. No second browser/visual-diff
-library, application state/request layer, or statistical library is
-authorized.
+no install scripts, offline `npm ci --ignore-scripts`, local cache containment,
+focused tests, and zero product-manifest/bundle change. No second
+browser/visual-diff library, application state/request layer, or statistical
+library is authorized.
 
 #### Scenario: Pinned acceptance dependency is used
 

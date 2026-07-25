@@ -124,8 +124,14 @@ None.
 - Existing component checks, cross-language contract verifiers, Archive/API
   goldens, OpenAPI, race gates, production routes, fixed oracle commit,
   `PRODUCT.md`, `DESIGN.md`, and the accepted frontend capability specs.
-- Pinned Go, Python/uv, Node/npm, Docker/BuildKit, and a separately locked
-  browser-test runtime owned only by `contracts/acceptance/**`.
+- Pinned current Go, Python/uv, Node/npm, Docker/BuildKit, the exact historical
+  Node/npm/Go identities still mandated by the authoritative Query golden, and
+  a separately locked browser-test runtime owned only by
+  `contracts/acceptance/**`.
+- Caller-provisioned, immutable dependency/tool caches whose complete
+  lockfile closure and content seals are attested before the networkless
+  acceptance matrix starts. Cache acquisition is outside the harness and is
+  not acceptance evidence.
 
 ### Produces
 
@@ -239,11 +245,15 @@ files and its own ignored run root; it never resets or cleans the repository.
 
 The harness may create bounded loopback listeners and disposable local
 processes/containers, read local Docker state, and read the declared full
-Archive and immutable artifact roots. It SHALL NOT contact the public Internet
-or mutate another repository, ref, remote, registry, service, host,
-production path, or production state. Any push, pull request, tag, release,
-deployment, host mutation, Archive activation, or later operations change
-requires separate explicit authorization.
+Archive, immutable artifact roots, and caller-provisioned sealed caches. The
+harness and every matrix cell SHALL NOT contact the public Internet or mutate
+another repository, ref, remote, registry, service, host, production path, or
+production state. Preparing the exact lockfile-pinned cache before admission
+is a separate caller-owned tooling prerequisite; it SHALL write no repository
+or production path and SHALL be frozen before its identity becomes an input.
+Any push, pull request, tag, release, deployment, host mutation, Archive
+activation, or later operations change requires separate explicit
+authorization.
 
 Apply is blocked until proposal, specs, design, and tasks are complete, pass
 strict validation, and are explicitly reviewed and approved by the main

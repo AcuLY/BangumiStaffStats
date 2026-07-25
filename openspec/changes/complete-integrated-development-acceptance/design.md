@@ -67,7 +67,7 @@ The relevant existing boundaries are:
 | Read-only protected inputs | Every repository path outside the exact owned paths, including all Backend/Updater/Frontend code and tests, artifact code, existing Contracts schemas/goldens/OpenAPI, root documents/config, `.impeccable/**`, root specs and sibling changes; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; accepted artifact/full-Archive inputs; external repositories, refs/remotes, registries, hosts, services, secrets, production paths/state, and public Internet. |
 | Deletion complement | None. Only one harness-created run directory below `contracts/acceptance/.tmp/**` may be removed by exact path after containment/type/ownership checks. |
 | Mutable refs | None. |
-| Consumes | Archived `produce-development-artifacts`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three accepted component roots and their compatibility manifest; one caller-supplied official full inactive Archive; fixed oracle; existing contract/golden/component/race/artifact commands; pinned local toolchains and browser runtime. |
+| Consumes | Archived `produce-development-artifacts`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three accepted component roots and their compatibility manifest; one caller-supplied official full inactive Archive; fixed oracle; existing contract/golden/component/race/artifact commands; pinned current and historical-golden toolchains; caller-provisioned sealed caches; pinned browser runtime. |
 | Produces | Versioned acceptance input/result/budget/exception schemas, a closed matrix, local orchestrator, browser journeys, focused/negative tests, README, and ignored per-run evidence. Only a green complete matrix emits `development-accepted-operations-pending`. |
 | Dependencies | Sole exact direct dependency: `produce-development-artifacts`, completed and archived. Its transitive closure supplies all component capabilities. Apply additionally requires no active change besides this acceptance change, no dirty product candidate, and no dirty harness/control checkout. |
 | Deliverables | Only `contracts/acceptance/**`: CLI and libraries, schemas, matrix, oracle-exception registry, browser scenarios, development budgets, tests, package manifest/lock, README, and narrow `.gitignore`. No run output is committed. |
@@ -132,7 +132,9 @@ The CLI consumes an explicit input document naming:
 - the assembled compatibility manifest;
 - one full inactive Archive version root;
 - the fixed oracle commit;
-- exact executables and browser channel.
+- exact current executables, the separate historical Query-golden
+  Node/npm/Go/gofmt executables, immutable dependency/tool cache roots and
+  their seals, and the browser channel.
 
 It reuses the artifact validator and Git checkout identity logic created by the
 dependency instead of copying their schema rules. It verifies all three
@@ -154,6 +156,21 @@ an independently identified, attested read-only input and executes only the
 acceptance-owned orchestrator. The clone gives the artifact coordinator the
 real product-candidate Git object identity it requires without adding a
 worktree or administrative record to the live repository.
+
+The Query golden remains authoritative even though it intentionally records an
+older Node/npm/Go toolchain than the current Frontend and Backend gates. The
+harness therefore admits and records both toolchain families and invokes each
+owner with its exact required family; it never rewrites the golden, substitutes
+the current tools, or hides the historical identity.
+
+All owner installs are offline. Before admission, the caller may provision one
+dedicated cache from the exact repository lockfiles and pinned toolchain
+artifacts. Admission requires complete closure, regular non-symlink bytes,
+content seals, and read-only inputs. The harness copies only required bytes
+with new inodes into its owned run root, applies offline package-manager
+settings plus host/Docker network denial, and verifies source and copied cache
+seals after the run. Cache provisioning is not a matrix cell or evidence of
+product acceptance.
 
 The full Archive gate accepts only a version directory containing regular,
 non-symlink `manifest.json` and `bangumi.sqlite` from the official seven-file
@@ -314,11 +331,11 @@ Alternatives considered:
 - Cypress or a second visual-diff stack: larger duplicate runtime and no value
   over the single Playwright owner.
 
-The lockfile, `npm ci --ignore-scripts`, package license, dependency inventory,
-no-install-script policy, exact direct-dependency allowlist, harness unit
-tests, and proof of zero production-bundle impact are mandatory acceptance
-gates. The local Node module and browser cache live only below the ignored run
-root and are absent at handoff.
+The lockfile, offline `npm ci --ignore-scripts`, package license, dependency
+inventory, no-install-script policy, exact direct-dependency allowlist,
+harness unit tests, and proof of zero production-bundle impact are mandatory
+acceptance gates. The local Node module and browser cache live only below the
+ignored run root and are absent at handoff.
 
 ### 8. Treat performance as bounded development characterization
 

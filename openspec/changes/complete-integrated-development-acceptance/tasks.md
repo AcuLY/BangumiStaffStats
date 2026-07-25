@@ -8,7 +8,7 @@
 | Read-only protected inputs | Every other repository path, including Backend/Updater/Frontend source/tests/build definitions, existing Contracts artifacts/schemas/goldens/OpenAPI, `.github/**`, root docs/config, `.impeccable/**`, root specs and sibling changes; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; accepted artifacts/full Archive; external repositories, refs/remotes, registries, hosts, services, secrets, production state, and public Internet. |
 | Deletion complement | None. The harness may remove only one exact run root that it created below `contracts/acceptance/.tmp/**` after containment/type/ownership checks. |
 | Mutable refs | None. |
-| Consumes | Archived `produce-development-artifacts`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three accepted component roots and compatibility manifest; caller-supplied official full inactive Archive; fixed oracle; existing gates; pinned local toolchains/browser. |
+| Consumes | Archived `produce-development-artifacts`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three accepted component roots and compatibility manifest; caller-supplied official full inactive Archive; fixed oracle; existing gates; pinned current and historical-golden toolchains; caller-provisioned sealed caches; pinned browser. |
 | Produces | Tracked acceptance CLI/libraries, schemas, matrix, budgets, exception registry, browser scenarios, tests, README, package/lock, and `.gitignore`; ignored canonical per-run result/evidence only. |
 | Dependencies | Sole exact direct dependency `produce-development-artifacts`, completed and archived. Apply additionally requires no sibling active change and no dirty product candidate. |
 | Deliverables | Only `contracts/acceptance/**`; no product change and no committed run output/cache/browser/Archive copy. |
@@ -27,7 +27,8 @@ commit, push, sync, archive, or update task markers.
 
 - [ ] 1.1 Record branch, exact harness/control `HEAD`, tree,
   index/worktree/untracked state, active
-  OpenSpec list, tool versions, and owned-path preimage; verify
+  OpenSpec list, current and historical Query-golden tool versions, sealed
+  cache identities, and owned-path preimage; verify
   `produce-development-artifacts` is completed/archived, this is the only
   active change, all four artifacts are strict-valid and main-agent approved,
   no protected product path or harness/control checkout is dirty, and
@@ -95,8 +96,11 @@ commit, push, sync, archive, or update task markers.
 - [ ] 3.5 Wire existing Contracts verifiers, `backend/scripts/check.sh`,
   Updater pytest/mypy/Ruff/locked-build gates, Frontend full check, component
   artifact validators, and compatibility coordinator smoke to run only inside
-  the isolated clone; record exact exit/duration/evidence digests without
-  copying business assertions.
+  the isolated clone; use the historical Query-golden tools separately from
+  the current product tools; seed only exact lockfile/tool bytes from sealed
+  caller caches with new inodes; enforce offline package-manager modes plus
+  host/Docker network denial; record exact exit/duration/evidence digests
+  without copying business assertions.
 
 ## 4. Full Archive and packaged runtime
 
@@ -170,10 +174,12 @@ commit, push, sync, archive, or update task markers.
 
 ## 7. Apply-owner verification and handoff
 
-- [ ] 7.1 Run the acceptance package fresh-install gate with Node 24.18.0/npm
-  11.16.0, install scripts disabled, exact dependency/license/inventory checks,
-  unit tests, tamper/dirty/link/timeout/network/residue negatives, and coverage
-  of every matrix/result/error state. Record exact commands and exits.
+- [ ] 7.1 Run the acceptance package offline fresh-install gate with Node
+  24.18.0/npm 11.16.0, install scripts disabled, exact
+  dependency/license/inventory checks, separate Query-golden legacy-tool
+  attestation, sealed-cache closure/copy/reseal checks, unit tests,
+  tamper/dirty/link/timeout/network/residue negatives, and coverage of every
+  matrix/result/error state. Record exact commands and exits.
 - [ ] 7.2 Run a focused local orchestration smoke with accepted existing
   fixtures/artifact inputs only to prove control flow and failure attribution;
   label it non-final and do not let a minimal fixture satisfy the full-Archive
