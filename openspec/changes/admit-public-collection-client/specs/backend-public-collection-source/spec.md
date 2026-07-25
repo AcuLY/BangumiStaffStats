@@ -2,9 +2,9 @@
 
 ### Requirement: Production SHALL use the fixed public collection client
 
-The backend SHALL consume
-`github.com/AcuLY/bangumi-collection-go/collection` at immutable tag `v0.1.0`
-through one internal anonymous adapter, with no module replacement.
+The backend SHALL consume package `collection` from module
+`github.com/AcuLY/bangumi-collection-go` at immutable tag `v0.1.0` through one
+internal anonymous adapter, with no module replacement.
 
 #### Scenario: Production runtime starts
 

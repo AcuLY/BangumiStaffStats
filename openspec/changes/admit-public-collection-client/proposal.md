@@ -8,9 +8,9 @@ run without fixtures or credentials.
 
 ## What Changes
 
-- Add one thin backend adapter from
-  `github.com/AcuLY/bangumi-collection-go/collection` `v0.1.0` to the internal
-  immutable collection snapshot.
+- Add one thin backend adapter from package `collection` at module
+  `github.com/AcuLY/bangumi-collection-go` `v0.1.0` to the internal immutable
+  collection snapshot.
 - Map closed subject/status enums, every DTO field, and sanitized upstream
   failures without leaking external types into handlers or caches.
 - Construct one concurrency-safe anonymous client for the process and wire the
