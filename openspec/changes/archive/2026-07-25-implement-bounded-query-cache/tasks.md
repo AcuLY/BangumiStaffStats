@@ -11,4 +11,4 @@
 ## 3. Acceptance
 
 - [x] 3.1 Add focused deterministic, concurrency, cancellation, stale, negative, oversize, eviction, refresh, digest, and race tests.
-- [ ] 3.2 Run focused tests, repeated tests, race, vet, build, full backend check, strict OpenSpec, and diff/hygiene gates; leave an unstaged candidate.
+- [x] 3.2 Run focused tests, repeated tests, race, vet, build, full backend check, strict OpenSpec, and diff/hygiene gates; leave an unstaged candidate.
