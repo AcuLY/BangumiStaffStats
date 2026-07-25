@@ -23,6 +23,11 @@
 /contracts/goldens/api/catalog/.cache/
 /contracts/goldens/api/catalog/.tmp/
 
+# Rankings API golden tool state; physically absent at candidate handoff
+/contracts/goldens/api/rankings/node_modules/
+/contracts/goldens/api/rankings/.cache/
+/contracts/goldens/api/rankings/.tmp/
+
 # Archive contract tool state
 /contracts/schemas/archive/.cache/
 /contracts/schemas/archive/.tmp/
