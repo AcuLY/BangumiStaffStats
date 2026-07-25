@@ -18,6 +18,46 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 )
 
+func TestServiceConstructorsPreserveIsolationAndSharedRuntimeIdentity(t *testing.T) {
+	isolated, err := NewService(nil, nil, DefaultConfig())
+	if err != nil {
+		t.Fatalf("isolated NewService: %v", err)
+	}
+	binding, err := ResultBinding()
+	if err != nil {
+		t.Fatal(err)
+	}
+	queryRuntime, err := runtimecache.NewQueryRuntime(
+		runtimecache.DefaultQueryRuntimeConfig(),
+		binding,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shared, err := NewServiceWithRuntime(nil, nil, queryRuntime)
+	if err != nil {
+		t.Fatalf("NewServiceWithRuntime: %v", err)
+	}
+	sharedAgain, err := NewServiceWithRuntime(nil, nil, queryRuntime)
+	if err != nil {
+		t.Fatalf("second NewServiceWithRuntime: %v", err)
+	}
+	if isolated.QueryRuntime() == nil ||
+		isolated.QueryRuntime() == queryRuntime ||
+		isolated.collection != isolated.QueryRuntime().CollectionCache() {
+		t.Fatal("compatibility constructor did not own one isolated runtime")
+	}
+	if shared.QueryRuntime() != queryRuntime ||
+		shared.collection != queryRuntime.CollectionCache() {
+		t.Fatal("shared constructor did not retain the supplied runtime")
+	}
+	if shared.results == nil ||
+		sharedAgain.results == nil ||
+		sharedAgain.results.values != shared.results.values {
+		t.Fatal("shared constructors did not reuse the canonical result store")
+	}
+}
+
 func TestServiceExecutesGlobalPartnersWithoutCollection(t *testing.T) {
 	store := loadPartnerArchive(t)
 	var collectionCalls atomic.Int64

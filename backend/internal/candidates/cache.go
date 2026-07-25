@@ -12,6 +12,15 @@ type Store struct {
 	values *runtimecache.ResultStore[Core]
 }
 
+// ResultBinding returns the opaque canonical cache policy for candidates.
+func ResultBinding() (runtimecache.ResultBinding, error) {
+	return runtimecache.NewResultBinding(
+		runtimecache.OperationCandidatesV1,
+		CloneCore,
+		coreCost,
+	)
+}
+
 // NewStore constructs one typed candidate core cache.
 func NewStore(
 	config runtimecache.ResultConfig,
@@ -22,6 +31,19 @@ func NewStore(
 		executor,
 		CloneCore,
 		coreCost,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{values: values}, nil
+}
+
+// NewSharedStore constructs a typed candidate facade over one process result
+// pool and executor.
+func NewSharedStore(queryRuntime *runtimecache.QueryRuntime) (*Store, error) {
+	values, err := runtimecache.NewSharedResultStore[Core](
+		queryRuntime,
+		runtimecache.OperationCandidatesV1,
 	)
 	if err != nil {
 		return nil, err

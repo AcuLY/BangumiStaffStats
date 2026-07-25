@@ -17,6 +17,7 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/partners"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/persondetail"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/ranking"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 )
 
 const readinessQuery = "SELECT data_version FROM archive_meta WHERE singleton = 1"
@@ -151,84 +152,21 @@ func serveRuntime(
 	dependencies runDependencies,
 	probe httpapi.ReadinessProbe,
 ) error {
-	rankings, err := ranking.NewService(
-		currentRankingStore(dependencies.archive),
-		nil,
-		ranking.DefaultConfig(),
-	)
+	services, err := newQueryServices(dependencies.archive)
 	if err != nil {
 		dependencies.runtime.SetLive(false)
 		_ = dependencies.runtime.SetReadiness(false, "")
 		closeErr := dependencies.archive.Close()
-		return errors.Join(
-			fmt.Errorf("create rankings service: %w", err),
-			wrapError("close archive", closeErr),
-		)
-	}
-	candidateService, err := candidates.NewService(
-		currentCandidatesStore(dependencies.archive),
-		nil,
-		candidates.DefaultConfig(),
-	)
-	if err != nil {
-		dependencies.runtime.SetLive(false)
-		_ = dependencies.runtime.SetReadiness(false, "")
-		closeErr := dependencies.archive.Close()
-		return errors.Join(
-			fmt.Errorf("create candidates service: %w", err),
-			wrapError("close archive", closeErr),
-		)
-	}
-	personDetailService, err := persondetail.NewService(
-		currentPersonDetailStore(dependencies.archive),
-		nil,
-		persondetail.DefaultConfig(),
-	)
-	if err != nil {
-		dependencies.runtime.SetLive(false)
-		_ = dependencies.runtime.SetReadiness(false, "")
-		closeErr := dependencies.archive.Close()
-		return errors.Join(
-			fmt.Errorf("create person detail service: %w", err),
-			wrapError("close archive", closeErr),
-		)
-	}
-	partnersService, err := partners.NewService(
-		currentPartnersStore(dependencies.archive),
-		nil,
-		partners.DefaultConfig(),
-	)
-	if err != nil {
-		dependencies.runtime.SetLive(false)
-		_ = dependencies.runtime.SetReadiness(false, "")
-		closeErr := dependencies.archive.Close()
-		return errors.Join(
-			fmt.Errorf("create partners service: %w", err),
-			wrapError("close archive", closeErr),
-		)
-	}
-	coStarService, err := costar.NewService(
-		currentCoStarStore(dependencies.archive),
-		nil,
-		costar.DefaultConfig(),
-	)
-	if err != nil {
-		dependencies.runtime.SetLive(false)
-		_ = dependencies.runtime.SetReadiness(false, "")
-		closeErr := dependencies.archive.Close()
-		return errors.Join(
-			fmt.Errorf("create co-star service: %w", err),
-			wrapError("close archive", closeErr),
-		)
+		return errors.Join(err, wrapError("close archive", closeErr))
 	}
 	handler := dependencies.runtime.HandlerWithCoStarDependencies(
 		probe,
 		currentCatalogStore(dependencies.archive),
-		rankings,
-		candidateService,
-		personDetailService,
-		partnersService,
-		coStarService,
+		services.rankings,
+		services.candidates,
+		services.personDetail,
+		services.partners,
+		services.coStar,
 	)
 	server := dependencies.server(handler)
 	if server == nil {
@@ -253,6 +191,97 @@ func serveRuntime(
 		closeErr = fmt.Errorf("close archive: %w", closeErr)
 	}
 	return errors.Join(serveErr, closeErr)
+}
+
+type queryServices struct {
+	rankings     *ranking.Service
+	candidates   *candidates.Service
+	personDetail *persondetail.Service
+	partners     *partners.Service
+	coStar       *costar.Service
+}
+
+func newQueryServices(archiveState archiveRuntime) (queryServices, error) {
+	bindings, err := queryResultBindings()
+	if err != nil {
+		return queryServices{}, err
+	}
+	queryRuntime, err := runtimecache.NewQueryRuntime(
+		runtimecache.DefaultQueryRuntimeConfig(),
+		bindings...,
+	)
+	if err != nil {
+		return queryServices{}, fmt.Errorf("create process query runtime: %w", err)
+	}
+	rankings, err := ranking.NewServiceWithRuntime(
+		currentRankingStore(archiveState),
+		nil,
+		queryRuntime,
+	)
+	if err != nil {
+		return queryServices{}, fmt.Errorf("create rankings service: %w", err)
+	}
+	candidateService, err := candidates.NewServiceWithRuntime(
+		currentCandidatesStore(archiveState),
+		nil,
+		queryRuntime,
+	)
+	if err != nil {
+		return queryServices{}, fmt.Errorf("create candidates service: %w", err)
+	}
+	personDetailService, err := persondetail.NewServiceWithRuntime(
+		currentPersonDetailStore(archiveState),
+		nil,
+		queryRuntime,
+	)
+	if err != nil {
+		return queryServices{}, fmt.Errorf("create person detail service: %w", err)
+	}
+	partnersService, err := partners.NewServiceWithRuntime(
+		currentPartnersStore(archiveState),
+		nil,
+		queryRuntime,
+	)
+	if err != nil {
+		return queryServices{}, fmt.Errorf("create partners service: %w", err)
+	}
+	coStarService, err := costar.NewServiceWithRuntime(
+		currentCoStarStore(archiveState),
+		nil,
+		queryRuntime,
+	)
+	if err != nil {
+		return queryServices{}, fmt.Errorf("create co-star service: %w", err)
+	}
+	return queryServices{
+		rankings:     rankings,
+		candidates:   candidateService,
+		personDetail: personDetailService,
+		partners:     partnersService,
+		coStar:       coStarService,
+	}, nil
+}
+
+func queryResultBindings() ([]runtimecache.ResultBinding, error) {
+	factories := []struct {
+		name  string
+		build func() (runtimecache.ResultBinding, error)
+	}{
+		{name: "rankings", build: ranking.ResultBinding},
+		{name: "candidates", build: candidates.ResultBinding},
+		{name: "person detail", build: persondetail.ResultBinding},
+		{name: "partners", build: partners.ResultBinding},
+		{name: "co-star", build: costar.ResultBinding},
+	}
+	bindings := make([]runtimecache.ResultBinding, 0, len(factories))
+	for _, factory := range factories {
+		binding, err := factory.build()
+		if err != nil {
+			return nil, fmt.Errorf("create %s result binding: %w", factory.name, err)
+		}
+		bindings = append(bindings, binding)
+	}
+	return bindings, nil
 }
 
 func currentRankingStore(state archiveRuntime) ranking.StoreProvider {

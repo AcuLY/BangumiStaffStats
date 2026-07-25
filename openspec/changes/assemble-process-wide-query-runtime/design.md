@@ -15,7 +15,7 @@ provider remains a separate injected dependency and may be nil.
 
 | Boundary | Declaration |
 |---|---|
-| Status | strict-valid and main-agent approved; apply authorized |
+| Status | strict-valid, main-agent approved, implemented, and verified; commit pending |
 | Owner | One Backend implementation agent; main agent reviews the specification and accepts the candidate. |
 | Writable paths | `backend/internal/runtimecache/result.go`, `backend/internal/runtimecache/result_test.go`, new `backend/internal/runtimecache/runtime.go`, new `backend/internal/runtimecache/runtime_test.go`, `backend/internal/ranking/{service.go,service_test.go}`, `backend/internal/{candidates,persondetail,partners,costar}/{cache.go,service.go,service_test.go}`, `backend/internal/app/{run.go,run_test.go}`, `backend/internal/architecture/dependencies_test.go`, `backend/README.md`, and this change's task markers |
 | Read-only protected inputs | `runtimecache` collection/LRU/executor/detached/error files and tests; every other Backend file; Contracts, Updater, Frontend, oracle/guides, sibling changes, refs/remotes, external repositories/services/hosts |

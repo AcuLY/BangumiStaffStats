@@ -23,6 +23,33 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/httpapi/wire"
 )
 
+func TestNewQueryServicesPassesOneRuntimeToAllFiveOperations(t *testing.T) {
+	services, err := newQueryServices(new(fakeArchiveRuntime))
+	if err != nil {
+		t.Fatalf("newQueryServices: %v", err)
+	}
+	queryRuntime := services.rankings.QueryRuntime()
+	if queryRuntime == nil ||
+		services.candidates.QueryRuntime() != queryRuntime ||
+		services.personDetail.QueryRuntime() != queryRuntime ||
+		services.partners.QueryRuntime() != queryRuntime ||
+		services.coStar.QueryRuntime() != queryRuntime {
+		t.Fatal("app assembly did not pass one runtime to all five services")
+	}
+	if services.candidates.QueryRuntime().CollectionCache() !=
+		queryRuntime.CollectionCache() {
+		t.Fatal("app assembly did not preserve collection cache identity")
+	}
+	stats := queryRuntime.Stats()
+	if stats.Executor.Running != 0 ||
+		stats.Executor.Queued != 0 ||
+		stats.CollectionPositive.Items != 0 ||
+		stats.CollectionNegative.Items != 0 ||
+		stats.Result.Items != 0 {
+		t.Fatalf("assembly mutated empty process resources: %+v", stats)
+	}
+}
+
 func TestRunListenerPublishesArchiveServesBusinessRoutesAndStops(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

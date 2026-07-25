@@ -13,6 +13,15 @@ type Store struct {
 	values *runtimecache.ResultStore[Core]
 }
 
+// ResultBinding returns the opaque canonical cache policy for person detail.
+func ResultBinding() (runtimecache.ResultBinding, error) {
+	return runtimecache.NewResultBinding(
+		runtimecache.OperationPersonDetailV1,
+		CloneCore,
+		coreCost,
+	)
+}
+
 // NewStore constructs one typed person-detail cache.
 func NewStore(
 	config runtimecache.ResultConfig,
@@ -23,6 +32,19 @@ func NewStore(
 		executor,
 		CloneCore,
 		coreCost,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{values: values}, nil
+}
+
+// NewSharedStore constructs a typed person-detail facade over one process
+// result pool and executor.
+func NewSharedStore(queryRuntime *runtimecache.QueryRuntime) (*Store, error) {
+	values, err := runtimecache.NewSharedResultStore[Core](
+		queryRuntime,
+		runtimecache.OperationPersonDetailV1,
 	)
 	if err != nil {
 		return nil, err

@@ -78,22 +78,32 @@ no HTTP shape, search, pagination, cache, network fetch, write-capable SQL, or
 global mutable publication.
 
 `internal/runtimecache` is the production in-process resource boundary for
-read-only query work. Its shared weighted-LRU kernel enforces exact retained
-cost, item, and per-item limits while cloning every published and returned
-value. Collection keys retain only a one-way UID digest plus canonical subject
-type/statuses; positive values carry a canonical `c1:` digest and exact
-fresh/fallback metadata. Only timeout, network, 429, and upstream 5xx outcomes
-may use the extra 30-minute stale window. Not-found and forbidden outcomes
-invalidate an old positive value and are negative-cached for two minutes and
-30 seconds respectively.
+read-only query work. The `internal/app` composition root constructs one
+`QueryRuntime` and shares it with rankings, candidates, person detail,
+partners, and co-star. It owns one collection cache (including the negative
+cache), one result pool, and one executor. Its weighted-LRU kernel enforces
+exact retained cost, item, and per-item limits while cloning every published
+and returned value. Collection keys retain only a one-way UID digest plus
+canonical subject type/statuses; positive values carry a canonical `c1:`
+digest and exact fresh/fallback metadata. Only timeout, network, 429, and
+upstream 5xx outcomes may use the extra 30-minute stale window. Not-found and
+forbidden outcomes invalidate an old positive value and are negative-cached
+for two minutes and 30 seconds respectively.
 
-Result stores use global/personal semantic keys containing the versioned
+Typed result stores use global/personal semantic keys containing the versioned
 operation, Archive `dataVersion`, `queryDigest`, operation `inputDigest`, and a
-collection digest only for personal scope. View search, sorting, ordering, and
-pagination cannot enter these key types. Same-key loads run through independent
-detached `singleflight` groups; expensive different-key work shares an
-executor with at most two running and eight queued tasks. A full queue returns
-typed `SERVER_BUSY` with retry guidance. This package contains no HTTP,
+collection digest only for personal scope. Their heterogeneous cores share one
+global LRU with a 190 MiB/512-item process budget and a 32 MiB per-item limit;
+the budget is not divided among operations. Before the runtime is exposed,
+each domain contributes one opaque canonical binding that fixes its operation,
+core type, clone function, cost function, and detached same-key load group.
+Facades can only consume that immutable binding; they cannot register or
+replace policy. View search, sorting, ordering, and pagination cannot enter
+these key types. Expensive different-key work shares the process executor with
+at most two running and eight queued tasks. A full queue returns typed
+`SERVER_BUSY` with retry guidance. `QueryRuntime.Stats` is the single aggregate
+resource snapshot. A typed store's result statistics alias that same shared
+pool and must not be summed across services. This package contains no HTTP,
 external collection client, Archive access, statistics formula, persistence,
 or operations behavior.
 

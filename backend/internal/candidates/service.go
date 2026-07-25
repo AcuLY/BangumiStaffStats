@@ -19,32 +19,57 @@ type Service struct {
 	collections CollectionProvider
 	collection  *runtimecache.CollectionCache
 	results     *Store
+	runtime     *runtimecache.QueryRuntime
 }
 
-// NewService constructs an empty production candidate service.
+// NewService constructs an isolated candidate service for focused tests and
+// non-process use. Production app assembly uses NewServiceWithRuntime.
 func NewService(
 	stores StoreProvider,
 	collections CollectionProvider,
 	config Config,
 ) (*Service, error) {
-	executor, err := runtimecache.NewExecutor(config.Executor)
+	binding, err := ResultBinding()
 	if err != nil {
-		return nil, fmt.Errorf("candidates: create executor: %w", err)
+		return nil, fmt.Errorf("candidates: create result binding: %w", err)
 	}
-	collectionCache, err := runtimecache.NewCollectionCache(config.Collection)
+	queryRuntime, err := runtimecache.NewQueryRuntime(runtimecache.QueryRuntimeConfig{
+		Executor:   config.Executor,
+		Collection: config.Collection,
+		Result:     config.Result,
+	}, binding)
 	if err != nil {
-		return nil, fmt.Errorf("candidates: create collection cache: %w", err)
+		return nil, fmt.Errorf("candidates: create query runtime: %w", err)
 	}
-	resultStore, err := NewStore(config.Result, executor)
+	return NewServiceWithRuntime(stores, collections, queryRuntime)
+}
+
+// NewServiceWithRuntime constructs a candidate service on shared process
+// resources.
+func NewServiceWithRuntime(
+	stores StoreProvider,
+	collections CollectionProvider,
+	queryRuntime *runtimecache.QueryRuntime,
+) (*Service, error) {
+	resultStore, err := NewSharedStore(queryRuntime)
 	if err != nil {
 		return nil, fmt.Errorf("candidates: create result cache: %w", err)
 	}
 	return &Service{
 		stores:      stores,
 		collections: collections,
-		collection:  collectionCache,
+		collection:  queryRuntime.CollectionCache(),
 		results:     resultStore,
+		runtime:     queryRuntime,
 	}, nil
+}
+
+// QueryRuntime returns the resource owner used by this service.
+func (service *Service) QueryRuntime() *runtimecache.QueryRuntime {
+	if service == nil {
+		return nil
+	}
+	return service.runtime
 }
 
 // CurrentDataVersion returns the currently published Archive identity without

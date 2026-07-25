@@ -39,7 +39,7 @@ None.
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated/specified/main-agent reviewed: complete; apply is authorized. Implemented/verified/committed/pushed/released/deployed: no |
+| Status | investigated/specified/main-agent reviewed/implemented/verified: complete; commit pending. Pushed/released/deployed: no |
 | Owner | One Backend implementation agent after main-agent specification approval. |
 | Writable paths | `backend/internal/runtimecache/result.go`, `backend/internal/runtimecache/result_test.go`, new `backend/internal/runtimecache/runtime.go`, new `backend/internal/runtimecache/runtime_test.go`, `backend/internal/ranking/{service.go,service_test.go}`, `backend/internal/{candidates,persondetail,partners,costar}/{cache.go,service.go,service_test.go}`, `backend/internal/app/{run.go,run_test.go}`, `backend/internal/architecture/dependencies_test.go`, `backend/README.md`, and this change's task markers |
 | Read-only protected inputs | Existing collection/LRU/executor/detached/error implementations and tests; all other Backend files; all Contracts, Updater, Frontend, guide/oracle, other OpenSpec change, Git ref/remote, external-repository, host, and service state |

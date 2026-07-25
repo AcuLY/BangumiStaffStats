@@ -13,12 +13,34 @@ type Store struct {
 	values *runtimecache.ResultStore[Core]
 }
 
+// ResultBinding returns the opaque canonical cache policy for co-star.
+func ResultBinding() (runtimecache.ResultBinding, error) {
+	return runtimecache.NewResultBinding(
+		runtimecache.OperationCoStarV1,
+		CloneCore,
+		coreCost,
+	)
+}
+
 // NewStore constructs one typed complete-core cache.
 func NewStore(
 	config runtimecache.ResultConfig,
 	executor *runtimecache.Executor,
 ) (*Store, error) {
 	values, err := runtimecache.NewResultStore(config, executor, CloneCore, coreCost)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{values: values}, nil
+}
+
+// NewSharedStore constructs a typed co-star facade over one process result
+// pool and executor.
+func NewSharedStore(queryRuntime *runtimecache.QueryRuntime) (*Store, error) {
+	values, err := runtimecache.NewSharedResultStore[Core](
+		queryRuntime,
+		runtimecache.OperationCoStarV1,
+	)
 	if err != nil {
 		return nil, err
 	}

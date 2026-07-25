@@ -3,8 +3,10 @@ package runtimecache
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -251,6 +253,727 @@ func TestResultStoreWaiterCancellationDoesNotCancelComputation(t *testing.T) {
 	if calls.Load() != 1 {
 		t.Fatalf("compute calls = %d", calls.Load())
 	}
+}
+
+func TestSharedResultStoreRequiresPreRegisteredOperationAndMatchingKeys(t *testing.T) {
+	config := DefaultQueryRuntimeConfig()
+	config.Result = ResultConfig{
+		Limits:      Limits{MaxCost: 128, MaxItems: 2, MaxItemCost: 128},
+		LoadTimeout: time.Second,
+	}
+	rankingBinding := mustResultBinding(
+		t,
+		OperationRankingsV1,
+		cloneResultCore,
+		func(resultCore) int64 { return 8 },
+	)
+	queryRuntime, err := NewQueryRuntime(config, rankingBinding)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cores, err := NewSharedResultStore[resultCore](
+		queryRuntime,
+		OperationRankingsV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidateKey := resultKeyForOperation(t, OperationCandidatesV1, 99)
+	if _, err := cores.GetOrCompute(
+		context.Background(),
+		candidateKey,
+		func(context.Context) (resultCore, error) {
+			return resultCore{IDs: []int64{2}}, nil
+		},
+	); err == nil {
+		t.Fatal("operation-mismatched shared facade accepted a key")
+	} else if code, ok := ErrorCode(err); !ok || code != CodeInvalidInput {
+		t.Fatalf("operation mismatch = %v, code=%q, ok=%t", err, code, ok)
+	}
+
+	unboundRuntime, err := NewQueryRuntime(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewSharedResultStore[resultCore](
+		unboundRuntime,
+		OperationRankingsV1,
+	); err == nil {
+		t.Fatal("facade consumed an absent binding")
+	} else if code, ok := ErrorCode(err); !ok || code != CodeInvalidInput {
+		t.Fatalf("absent binding = %v, code=%q, ok=%t", err, code, ok)
+	}
+}
+
+func TestQueryRuntimeRejectsDuplicateAndConflictingBindings(t *testing.T) {
+	rankingBinding := mustResultBinding(
+		t,
+		OperationRankingsV1,
+		cloneResultCore,
+		func(resultCore) int64 { return 8 },
+	)
+	conflictingType := mustResultBinding(
+		t,
+		OperationRankingsV1,
+		func(value string) string { return value },
+		func(string) int64 { return 8 },
+	)
+	conflictingPolicy := mustResultBinding(
+		t,
+		OperationRankingsV1,
+		func(value resultCore) resultCore {
+			return resultCore{IDs: append([]int64{99}, value.IDs...)}
+		},
+		func(resultCore) int64 { return 16 },
+	)
+	tests := []struct {
+		name   string
+		second ResultBinding
+	}{
+		{name: "duplicate", second: rankingBinding},
+		{name: "type", second: conflictingType},
+		{name: "clone-and-cost", second: conflictingPolicy},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := NewQueryRuntime(
+				DefaultQueryRuntimeConfig(),
+				rankingBinding,
+				test.second,
+			); err == nil {
+				t.Fatal("duplicate operation binding was accepted")
+			} else if code, ok := ErrorCode(err); !ok || code != CodeInvalidInput {
+				t.Fatalf("duplicate binding = %v, code=%q, ok=%t", err, code, ok)
+			}
+		})
+	}
+}
+
+func TestSharedResultStoreWrongTypeFirstCannotPolluteCanonicalBinding(t *testing.T) {
+	rankingBinding := mustResultBinding(
+		t,
+		OperationRankingsV1,
+		cloneResultCore,
+		func(resultCore) int64 { return 8 },
+	)
+	queryRuntime, err := NewQueryRuntime(
+		DefaultQueryRuntimeConfig(),
+		rankingBinding,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := queryRuntime.Stats().Result
+	if _, err := NewSharedResultStore[string](
+		queryRuntime,
+		OperationRankingsV1,
+	); err == nil {
+		t.Fatal("wrong typed facade was constructed first")
+	} else if code, ok := ErrorCode(err); !ok || code != CodeInvalidInput {
+		t.Fatalf("wrong-type-first = %v, code=%q, ok=%t", err, code, ok)
+	}
+	if after := queryRuntime.Stats().Result; after != before {
+		t.Fatalf("wrong-type-first changed cache state: before=%+v after=%+v", before, after)
+	}
+
+	cores, err := NewSharedResultStore[resultCore](
+		queryRuntime,
+		OperationRankingsV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := mustResultKey(t, "e")
+	want := resultCore{IDs: []int64{7}}
+	if _, err := cores.GetOrCompute(
+		context.Background(),
+		key,
+		func(context.Context) (resultCore, error) { return want, nil },
+	); err != nil {
+		t.Fatal(err)
+	}
+	sameType, err := NewSharedResultStore[resultCore](
+		queryRuntime,
+		OperationRankingsV1,
+	)
+	if err != nil {
+		t.Fatalf("same typed facade: %v", err)
+	}
+	if sameType.pool != cores.pool {
+		t.Fatal("same typed facade did not reuse the canonical operation pool")
+	}
+	cached, found := cores.Get(key)
+	if !found || !slices.Equal(cached.IDs, want.IDs) {
+		t.Fatalf("correct cached value changed: %+v, found=%t", cached, found)
+	}
+}
+
+func TestSharedResultStoreConcurrentConstructionUsesImmutableBindings(t *testing.T) {
+	rankingBinding := mustResultBinding(
+		t,
+		OperationRankingsV1,
+		cloneResultCore,
+		func(resultCore) int64 { return 8 },
+	)
+	queryRuntime, err := NewQueryRuntime(
+		DefaultQueryRuntimeConfig(),
+		rankingBinding,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := NewSharedResultStore[resultCore](
+		queryRuntime,
+		OperationRankingsV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type construction struct {
+		correct bool
+		store   *ResultStore[resultCore]
+		err     error
+	}
+	results := make(chan construction, 64)
+	var group sync.WaitGroup
+	for index := 0; index < 32; index++ {
+		group.Add(2)
+		go func() {
+			defer group.Done()
+			store, err := NewSharedResultStore[resultCore](
+				queryRuntime,
+				OperationRankingsV1,
+			)
+			results <- construction{correct: true, store: store, err: err}
+		}()
+		go func() {
+			defer group.Done()
+			_, err := NewSharedResultStore[string](
+				queryRuntime,
+				OperationRankingsV1,
+			)
+			results <- construction{err: err}
+		}()
+	}
+	group.Wait()
+	close(results)
+	for result := range results {
+		if result.correct && result.err != nil {
+			t.Fatalf("canonical facade construction = %v", result.err)
+		}
+		if result.correct && result.store != canonical {
+			t.Fatal("concurrent canonical facade did not reuse the registered store")
+		}
+		if !result.correct {
+			if code, ok := ErrorCode(result.err); !ok || code != CodeInvalidInput {
+				t.Fatalf(
+					"concurrent wrong facade = %v, code=%q, ok=%t",
+					result.err,
+					code,
+					ok,
+				)
+			}
+		}
+	}
+	if stats := queryRuntime.Stats().Result; stats != (LRUStats{}) {
+		t.Fatalf("facade construction changed cache state: %+v", stats)
+	}
+}
+
+func TestSharedResultStoreRepeatedFacadesReuseDetachedGroup(t *testing.T) {
+	rankingBinding := mustResultBinding(
+		t,
+		OperationRankingsV1,
+		cloneResultCore,
+		func(resultCore) int64 { return 8 },
+	)
+	queryRuntime, err := NewQueryRuntime(
+		DefaultQueryRuntimeConfig(),
+		rankingBinding,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := NewSharedResultStore[resultCore](
+		queryRuntime,
+		OperationRankingsV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := NewSharedResultStore[resultCore](
+		queryRuntime,
+		OperationRankingsV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second || first.loads == nil || second.loads != first.loads {
+		t.Fatal("repeated facade did not reuse the canonical detached group")
+	}
+}
+
+func TestQueryRuntimeOwnsOneResourceSetAndExactDefaultBudgets(t *testing.T) {
+	rankingBinding := mustResultBinding(
+		t,
+		OperationRankingsV1,
+		cloneResultCore,
+		func(value resultCore) int64 { return int64(len(value.IDs) * 8) },
+	)
+	candidateBinding := mustResultBinding(
+		t,
+		OperationCandidatesV1,
+		func(value string) string { return value },
+		func(value string) int64 { return int64(len(value)) },
+	)
+	queryRuntime, err := NewQueryRuntime(
+		DefaultQueryRuntimeConfig(),
+		rankingBinding,
+		candidateBinding,
+	)
+	if err != nil {
+		t.Fatalf("NewQueryRuntime: %v", err)
+	}
+	rankings, err := NewSharedResultStore[resultCore](
+		queryRuntime,
+		OperationRankingsV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidates, err := NewSharedResultStore[string](
+		queryRuntime,
+		OperationCandidatesV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rankings.pool != queryRuntime.results ||
+		candidates.pool != queryRuntime.results ||
+		rankings.executor != queryRuntime.executor ||
+		candidates.executor != queryRuntime.executor {
+		t.Fatal("typed stores did not share one result pool and executor")
+	}
+	if queryRuntime.CollectionCache() != queryRuntime.collection {
+		t.Fatal("runtime did not expose its one collection cache")
+	}
+	if queryRuntime.results.values.limits != (Limits{
+		MaxCost: 190 * megabyte, MaxItems: 512, MaxItemCost: 32 * megabyte,
+	}) {
+		t.Fatalf("result limits = %+v", queryRuntime.results.values.limits)
+	}
+	if queryRuntime.collection.positive.limits != (Limits{
+		MaxCost: 64 * megabyte, MaxItems: 4096, MaxItemCost: 8 * megabyte,
+	}) {
+		t.Fatalf("positive limits = %+v", queryRuntime.collection.positive.limits)
+	}
+	if queryRuntime.collection.negative.limits != (Limits{
+		MaxCost: 2 * megabyte, MaxItems: 4096, MaxItemCost: 4096,
+	}) {
+		t.Fatalf("negative limits = %+v", queryRuntime.collection.negative.limits)
+	}
+	stats := queryRuntime.Stats()
+	if stats != (QueryRuntimeStats{}) ||
+		rankings.Stats() != stats.Result ||
+		candidates.Stats() != stats.Result {
+		t.Fatalf("initial aggregate stats = %+v", stats)
+	}
+}
+
+func TestQueryRuntimeResultPoolUsesGlobalCapacityAndCrossOperationLRU(t *testing.T) {
+	config := DefaultQueryRuntimeConfig()
+	config.Result = ResultConfig{
+		Limits:      Limits{MaxCost: 100, MaxItems: 3, MaxItemCost: 60},
+		LoadTimeout: time.Second,
+	}
+	rankingBinding := mustResultBinding(
+		t,
+		OperationRankingsV1,
+		cloneResultCore,
+		func(value resultCore) int64 { return int64(len(value.IDs) * 8) },
+	)
+	candidateBinding := mustResultBinding(
+		t,
+		OperationCandidatesV1,
+		func(value string) string { return value },
+		func(value string) int64 { return int64(len(value)) },
+	)
+	queryRuntime, err := NewQueryRuntime(config, rankingBinding, candidateBinding)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rankings, err := NewSharedResultStore[resultCore](
+		queryRuntime,
+		OperationRankingsV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidates, err := NewSharedResultStore[string](
+		queryRuntime,
+		OperationCandidatesV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rankingKey := resultKeyForOperation(t, OperationRankingsV1, 1)
+	candidateA := resultKeyForOperation(t, OperationCandidatesV1, 2)
+	candidateB := resultKeyForOperation(t, OperationCandidatesV1, 3)
+	value, err := rankings.GetOrCompute(
+		context.Background(),
+		rankingKey,
+		func(context.Context) (resultCore, error) {
+			return resultCore{IDs: []int64{1, 2, 3, 4, 5}}, nil
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fortyBytes := strings.Repeat("x", 40)
+	if _, err := candidates.GetOrCompute(
+		context.Background(),
+		candidateA,
+		func(context.Context) (string, error) { return fortyBytes, nil },
+	); err != nil {
+		t.Fatal(err)
+	}
+	value.IDs[0] = 99
+	if cached, found := rankings.Get(rankingKey); !found ||
+		!slices.Equal(cached.IDs, []int64{1, 2, 3, 4, 5}) {
+		t.Fatalf("immutable core = %+v, found=%t", cached, found)
+	}
+	if _, err := candidates.GetOrCompute(
+		context.Background(),
+		candidateB,
+		func(context.Context) (string, error) { return fortyBytes, nil },
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, found := candidates.Get(candidateA); found {
+		t.Fatal("global LRU retained the colder cross-operation entry")
+	}
+	if _, found := rankings.Get(rankingKey); !found {
+		t.Fatal("global LRU evicted the promoted ranking entry")
+	}
+	stats := queryRuntime.Stats()
+	if stats.Result.Items != 2 ||
+		stats.Result.Cost != 80 ||
+		stats.Result.Evictions != 1 ||
+		rankings.Stats() != stats.Result ||
+		candidates.Stats() != stats.Result {
+		t.Fatalf("aggregate result stats = %+v", stats.Result)
+	}
+}
+
+func TestQueryRuntimeResultPoolEnforcesOneCrossOperationItemLimit(t *testing.T) {
+	config := DefaultQueryRuntimeConfig()
+	config.Result = ResultConfig{
+		Limits:      Limits{MaxCost: 1000, MaxItems: 2, MaxItemCost: 500},
+		LoadTimeout: time.Second,
+	}
+	rankingBinding := mustResultBinding(
+		t,
+		OperationRankingsV1,
+		cloneResultCore,
+		func(resultCore) int64 { return 8 },
+	)
+	candidateBinding := mustResultBinding(
+		t,
+		OperationCandidatesV1,
+		func(value string) string { return value },
+		func(string) int64 { return 8 },
+	)
+	queryRuntime, err := NewQueryRuntime(config, rankingBinding, candidateBinding)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rankings, err := NewSharedResultStore[resultCore](
+		queryRuntime,
+		OperationRankingsV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidates, err := NewSharedResultStore[string](
+		queryRuntime,
+		OperationCandidatesV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldRanking := resultKeyForOperation(t, OperationRankingsV1, 40)
+	candidate := resultKeyForOperation(t, OperationCandidatesV1, 41)
+	newRanking := resultKeyForOperation(t, OperationRankingsV1, 42)
+	if _, err := rankings.GetOrCompute(
+		context.Background(),
+		oldRanking,
+		func(context.Context) (resultCore, error) {
+			return resultCore{IDs: []int64{1}}, nil
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := candidates.GetOrCompute(
+		context.Background(),
+		candidate,
+		func(context.Context) (string, error) { return "candidate", nil },
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rankings.GetOrCompute(
+		context.Background(),
+		newRanking,
+		func(context.Context) (resultCore, error) {
+			return resultCore{IDs: []int64{2}}, nil
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, found := rankings.Get(oldRanking); found {
+		t.Fatal("global item limit did not evict the cross-operation LRU")
+	}
+	stats := queryRuntime.Stats().Result
+	if stats.Items != 2 || stats.Cost != 16 || stats.Evictions != 1 {
+		t.Fatalf("global item-limit stats = %+v", stats)
+	}
+}
+
+func TestQueryRuntimeSharesCollectionPositiveNegativeAndDetachedLoad(t *testing.T) {
+	config := DefaultQueryRuntimeConfig()
+	config.Collection.Now = func() time.Time {
+		return time.Date(2026, 7, 25, 12, 0, 0, 0, time.UTC)
+	}
+	queryRuntime, err := NewQueryRuntime(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache := queryRuntime.CollectionCache()
+	alias := queryRuntime.CollectionCache()
+	if cache == nil || alias != cache || alias.loads != cache.loads {
+		t.Fatal("runtime did not retain one collection and detached-load owner")
+	}
+	key, err := NewCollectionKey("Alice", "anime", []string{"completed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var calls atomic.Int64
+	fetch := func(ctx context.Context) (CollectionSnapshot, error) {
+		calls.Add(1)
+		return CollectionSnapshot{Items: []CollectionItem{}}, nil
+	}
+	if _, err := cache.Get(context.Background(), key, false, fetch); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := alias.Get(context.Background(), key, false, fetch); err != nil {
+		t.Fatal(err)
+	}
+	notFoundKey, err := NewCollectionKey(
+		"Missing",
+		"anime",
+		[]string{"completed"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	notFound, err := NewCollectionFailure(FailureNotFound, errors.New("not found"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var notFoundCalls atomic.Int64
+	for index := 0; index < 2; index++ {
+		_, callErr := []*CollectionCache{cache, alias}[index].Get(
+			context.Background(),
+			notFoundKey,
+			false,
+			func(context.Context) (CollectionSnapshot, error) {
+				notFoundCalls.Add(1)
+				return CollectionSnapshot{}, notFound
+			},
+		)
+		var failure *CollectionFailure
+		if !errors.As(callErr, &failure) || failure.Kind() != FailureNotFound {
+			t.Fatalf("not-found call %d = %v", index, callErr)
+		}
+	}
+	stats := queryRuntime.Stats()
+	if calls.Load() != 1 ||
+		notFoundCalls.Load() != 1 ||
+		stats.CollectionPositive.Items != 1 ||
+		stats.CollectionNegative.Items != 1 ||
+		stats.Result.Items != 0 ||
+		stats.Executor.Started != 0 {
+		t.Fatalf("aggregate collection stats = %+v", stats)
+	}
+}
+
+func TestQueryRuntimeExecutorBoundsMixedOperationsTogether(t *testing.T) {
+	rankingBinding := mustResultBinding(
+		t,
+		OperationRankingsV1,
+		cloneResultCore,
+		func(resultCore) int64 { return 8 },
+	)
+	candidateBinding := mustResultBinding(
+		t,
+		OperationCandidatesV1,
+		func(value string) string { return value },
+		func(string) int64 { return 8 },
+	)
+	coStarBinding := mustResultBinding(
+		t,
+		OperationCoStarV1,
+		func(value string) string { return value },
+		func(string) int64 { return 8 },
+	)
+	queryRuntime, err := NewQueryRuntime(
+		DefaultQueryRuntimeConfig(),
+		rankingBinding,
+		candidateBinding,
+		coStarBinding,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rankings, err := NewSharedResultStore[resultCore](
+		queryRuntime,
+		OperationRankingsV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidates, err := NewSharedResultStore[string](
+		queryRuntime,
+		OperationCandidatesV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	coStar, err := NewSharedResultStore[string](
+		queryRuntime,
+		OperationCoStarV1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rankingKeys := make([]ResultKey, 5)
+	candidateKeys := make([]ResultKey, 5)
+	for index := 0; index < 5; index++ {
+		rankingKeys[index] = resultKeyForOperation(
+			t,
+			OperationRankingsV1,
+			10+index*2,
+		)
+		candidateKeys[index] = resultKeyForOperation(
+			t,
+			OperationCandidatesV1,
+			11+index*2,
+		)
+	}
+
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseAll := func() { releaseOnce.Do(func() { close(release) }) }
+	defer releaseAll()
+	started := make(chan struct{}, 10)
+	outcomes := make(chan error, 10)
+	for index := 0; index < 5; index++ {
+		index := index
+		go func() {
+			_, callErr := rankings.GetOrCompute(
+				context.Background(),
+				rankingKeys[index],
+				func(context.Context) (resultCore, error) {
+					started <- struct{}{}
+					<-release
+					return resultCore{IDs: []int64{int64(index)}}, nil
+				},
+			)
+			outcomes <- callErr
+		}()
+		go func() {
+			_, callErr := candidates.GetOrCompute(
+				context.Background(),
+				candidateKeys[index],
+				func(context.Context) (string, error) {
+					started <- struct{}{}
+					<-release
+					return fmt.Sprintf("candidate-%d", index), nil
+				},
+			)
+			outcomes <- callErr
+		}()
+	}
+	waitFor(t, time.Second, func() bool {
+		stats := queryRuntime.Stats().Executor
+		return stats.Running == 2 &&
+			stats.Queued == 8 &&
+			len(started) == 2
+	})
+	if len(started) != 2 {
+		t.Fatalf("started work = %d, want 2", len(started))
+	}
+	var overflowStarted atomic.Bool
+	_, err = coStar.GetOrCompute(
+		context.Background(),
+		resultKeyForOperation(t, OperationCoStarV1, 30),
+		func(context.Context) (string, error) {
+			overflowStarted.Store(true)
+			return "overflow", nil
+		},
+	)
+	if code, ok := ErrorCode(err); !ok || code != CodeServerBusy {
+		t.Fatalf("overflow = %v, code=%q, ok=%t", err, code, ok)
+	}
+	if overflowStarted.Load() {
+		t.Fatal("overflow computation started")
+	}
+	releaseAll()
+	for index := 0; index < 10; index++ {
+		if callErr := <-outcomes; callErr != nil {
+			t.Fatal(callErr)
+		}
+	}
+	stats := queryRuntime.Stats()
+	if stats.Executor.Running != 0 ||
+		stats.Executor.Queued != 0 ||
+		stats.Executor.Started != 10 ||
+		stats.Executor.Rejected != 1 ||
+		stats.Result.Items != 10 {
+		t.Fatalf("final aggregate stats = %+v", stats)
+	}
+}
+
+func resultKeyForOperation(
+	t *testing.T,
+	operation Operation,
+	identity int,
+) ResultKey {
+	t.Helper()
+	key, err := NewGlobalResultKey(
+		operation,
+		fmt.Sprintf("dv1-%064x", identity),
+		"q1:"+strings.Repeat("f", 64),
+		EmptyInputDigestV1,
+	)
+	if err != nil {
+		t.Fatalf("NewGlobalResultKey: %v", err)
+	}
+	return key
+}
+
+func mustResultBinding[V any](
+	t *testing.T,
+	operation Operation,
+	clone CloneFunc[V],
+	cost CostFunc[V],
+) ResultBinding {
+	t.Helper()
+	binding, err := NewResultBinding(operation, clone, cost)
+	if err != nil {
+		t.Fatalf("NewResultBinding: %v", err)
+	}
+	return binding
 }
 
 func mustResultKey(t *testing.T, fill string) ResultKey {

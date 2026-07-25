@@ -42,7 +42,7 @@ func TestProductionPackageDependencies(t *testing.T) {
 	allowedInternalImports := map[string][]string{
 		modulePath + "/cmd/api":                       {modulePath + "/internal/app"},
 		modulePath + "/cmd/archive-smoke":             {modulePath + "/internal/archive"},
-		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/costar", modulePath + "/internal/httpapi", modulePath + "/internal/partners", modulePath + "/internal/persondetail", modulePath + "/internal/ranking"},
+		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/costar", modulePath + "/internal/httpapi", modulePath + "/internal/partners", modulePath + "/internal/persondetail", modulePath + "/internal/ranking", modulePath + "/internal/runtimecache"},
 		modulePath + "/internal/candidates":           {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
 		modulePath + "/internal/catalog":              {modulePath + "/internal/archive", modulePath + "/internal/httpapi/wire"},
 		modulePath + "/internal/costar":               {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},

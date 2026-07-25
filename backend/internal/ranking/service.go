@@ -29,6 +29,15 @@ func DefaultConfig() Config {
 	}
 }
 
+// ResultBinding returns the opaque canonical cache policy for rankings.
+func ResultBinding() (runtimecache.ResultBinding, error) {
+	return runtimecache.NewResultBinding(
+		runtimecache.OperationRankingsV1,
+		cloneCore,
+		coreCost,
+	)
+}
+
 // Service owns immutable rankings cores and their admitted collection/cache
 // boundaries.
 type Service struct {
@@ -36,6 +45,7 @@ type Service struct {
 	collections CollectionProvider
 	collection  *runtimecache.CollectionCache
 	results     *runtimecache.ResultStore[core]
+	runtime     *runtimecache.QueryRuntime
 }
 
 // CurrentDataVersion returns the currently published Archive identity without
@@ -51,25 +61,38 @@ func (service *Service) CurrentDataVersion() string {
 	return store.Identity().DataVersion
 }
 
-// NewService constructs an empty production service.
+// NewService constructs an isolated service for focused tests and non-process
+// use. Production app assembly uses NewServiceWithRuntime.
 func NewService(
 	stores StoreProvider,
 	collections CollectionProvider,
 	config Config,
 ) (*Service, error) {
-	executor, err := runtimecache.NewExecutor(config.Executor)
+	binding, err := ResultBinding()
 	if err != nil {
-		return nil, fmt.Errorf("ranking: create executor: %w", err)
+		return nil, fmt.Errorf("ranking: create result binding: %w", err)
 	}
-	collectionCache, err := runtimecache.NewCollectionCache(config.Collection)
+	queryRuntime, err := runtimecache.NewQueryRuntime(runtimecache.QueryRuntimeConfig{
+		Executor:   config.Executor,
+		Collection: config.Collection,
+		Result:     config.Result,
+	}, binding)
 	if err != nil {
-		return nil, fmt.Errorf("ranking: create collection cache: %w", err)
+		return nil, fmt.Errorf("ranking: create query runtime: %w", err)
 	}
-	resultStore, err := runtimecache.NewResultStore(
-		config.Result,
-		executor,
-		cloneCore,
-		coreCost,
+	return NewServiceWithRuntime(stores, collections, queryRuntime)
+}
+
+// NewServiceWithRuntime constructs a service on the process-wide query
+// resources supplied by app assembly.
+func NewServiceWithRuntime(
+	stores StoreProvider,
+	collections CollectionProvider,
+	queryRuntime *runtimecache.QueryRuntime,
+) (*Service, error) {
+	resultStore, err := runtimecache.NewSharedResultStore[core](
+		queryRuntime,
+		runtimecache.OperationRankingsV1,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("ranking: create result cache: %w", err)
@@ -77,9 +100,19 @@ func NewService(
 	return &Service{
 		stores:      stores,
 		collections: collections,
-		collection:  collectionCache,
+		collection:  queryRuntime.CollectionCache(),
 		results:     resultStore,
+		runtime:     queryRuntime,
 	}, nil
+}
+
+// QueryRuntime returns the resource owner used by this service. App and tests
+// use pointer identity to prove process-wide assembly.
+func (service *Service) QueryRuntime() *runtimecache.QueryRuntime {
+	if service == nil {
+		return nil
+	}
+	return service.runtime
 }
 
 // Execute evaluates one semantic query and projects one independent view.

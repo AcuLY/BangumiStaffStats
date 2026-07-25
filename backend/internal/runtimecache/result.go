@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -164,17 +165,147 @@ func DefaultResultConfig() ResultConfig {
 // CostFunc returns a complete retained-cost estimate for one typed core.
 type CostFunc[V any] func(V) int64
 
-// ResultStore owns one typed immutable pre-view core cache and an independent
-// same-key singleflight group. Multiple stores share one Executor.
-type ResultStore[V any] struct {
-	cache    *WeightedLRU[ResultKey, V]
-	loads    *DetachedGroup[ResultKey, V]
-	executor *Executor
-	clone    CloneFunc[V]
-	cost     CostFunc[V]
+// ResultBinding is an opaque canonical operation policy supplied before a
+// QueryRuntime is exposed. It fixes the core type, clone, and retained-cost
+// behavior used by every facade for that operation.
+type ResultBinding struct {
+	operation Operation
+	valueType reflect.Type
+	factory   func(*resultPool, time.Duration, *Executor) (any, error)
+	store     any
 }
 
-// NewResultStore constructs an empty typed core store.
+// NewResultBinding constructs one canonical operation policy.
+func NewResultBinding[V any](
+	operation Operation,
+	clone CloneFunc[V],
+	cost CostFunc[V],
+) (ResultBinding, error) {
+	valueType := reflect.TypeFor[V]()
+	if !versionedOperationPattern.MatchString(string(operation)) ||
+		valueType == nil ||
+		clone == nil ||
+		cost == nil {
+		return ResultBinding{}, outcome(CodeInvalidInput)
+	}
+	return ResultBinding{
+		operation: operation,
+		valueType: valueType,
+		factory: func(
+			pool *resultPool,
+			loadTimeout time.Duration,
+			executor *Executor,
+		) (any, error) {
+			return newResultStore(
+				pool,
+				loadTimeout,
+				executor,
+				operation,
+				clone,
+				cost,
+			)
+		},
+	}, nil
+}
+
+type pooledResult struct {
+	value     any
+	valueType reflect.Type
+	clone     func(any) (any, bool)
+}
+
+type resultPool struct {
+	values *WeightedLRU[ResultKey, pooledResult]
+}
+
+func newResultPool(limits Limits) (*resultPool, error) {
+	values, err := NewWeightedLRU[ResultKey, pooledResult](
+		limits,
+		func(entry pooledResult) pooledResult {
+			if entry.clone == nil {
+				return pooledResult{}
+			}
+			cloned, ok := entry.clone(entry.value)
+			if !ok {
+				return pooledResult{}
+			}
+			entry.value = cloned
+			return entry
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &resultPool{values: values}, nil
+}
+
+func resultPoolGet[V any](
+	pool *resultPool,
+	key ResultKey,
+	valueType reflect.Type,
+) (V, bool) {
+	var zero V
+	if pool == nil || valueType == nil {
+		return zero, false
+	}
+	entry, found := pool.values.Get(key)
+	if !found || entry.valueType != valueType {
+		return zero, false
+	}
+	value, ok := entry.value.(V)
+	if !ok {
+		return zero, false
+	}
+	return value, true
+}
+
+func resultPoolPut[V any](
+	pool *resultPool,
+	key ResultKey,
+	value V,
+	valueType reflect.Type,
+	clone CloneFunc[V],
+	cost int64,
+) bool {
+	if pool == nil || valueType == nil || clone == nil {
+		return false
+	}
+	return pool.values.Put(key, pooledResult{
+		value:     value,
+		valueType: valueType,
+		clone: func(candidate any) (any, bool) {
+			typed, ok := candidate.(V)
+			if !ok {
+				return nil, false
+			}
+			return clone(typed), true
+		},
+	}, cost)
+}
+
+func (pool *resultPool) stats() LRUStats {
+	if pool == nil {
+		return LRUStats{}
+	}
+	return pool.values.Stats()
+}
+
+// ResultStore owns one typed immutable pre-view core facade and one
+// operation-scoped same-key singleflight group. A QueryRuntime creates the
+// canonical store once; repeated facades reuse it while different operations
+// share the process pool and Executor.
+type ResultStore[V any] struct {
+	pool      *resultPool
+	loads     *DetachedGroup[ResultKey, V]
+	executor  *Executor
+	clone     CloneFunc[V]
+	cost      CostFunc[V]
+	valueType reflect.Type
+	operation Operation
+}
+
+// NewResultStore constructs an isolated typed core store for focused tests and
+// non-process use.
 func NewResultStore[V any](
 	config ResultConfig,
 	executor *Executor,
@@ -188,33 +319,78 @@ func NewResultStore[V any](
 		cost == nil {
 		return nil, outcome(CodeInvalidInput)
 	}
-	cache, err := NewWeightedLRU[ResultKey, V](config.Limits, clone)
+	pool, err := newResultPool(config.Limits)
 	if err != nil {
 		return nil, err
 	}
+	return newResultStore(pool, config.LoadTimeout, executor, "", clone, cost)
+}
+
+// NewSharedResultStore constructs one typed facade over a QueryRuntime's
+// process-wide result pool and executor.
+func NewSharedResultStore[V any](
+	runtime *QueryRuntime,
+	operation Operation,
+) (*ResultStore[V], error) {
+	if runtime == nil ||
+		runtime.results == nil ||
+		runtime.executor == nil ||
+		!versionedOperationPattern.MatchString(string(operation)) {
+		return nil, outcome(CodeInvalidInput)
+	}
+	binding, found := runtime.resultBindings[operation]
+	if !found || binding.valueType != reflect.TypeFor[V]() {
+		return nil, outcome(CodeInvalidInput)
+	}
+	store, ok := binding.store.(*ResultStore[V])
+	if !ok || store == nil {
+		return nil, outcome(CodeInvalidInput)
+	}
+	return store, nil
+}
+
+func newResultStore[V any](
+	pool *resultPool,
+	loadTimeout time.Duration,
+	executor *Executor,
+	operation Operation,
+	clone CloneFunc[V],
+	cost CostFunc[V],
+) (*ResultStore[V], error) {
+	if pool == nil ||
+		loadTimeout <= 0 ||
+		executor == nil ||
+		clone == nil ||
+		cost == nil {
+		return nil, outcome(CodeInvalidInput)
+	}
 	loads, err := NewDetachedGroup[ResultKey, V](
-		config.LoadTimeout,
+		loadTimeout,
 		ResultKey.String,
 	)
 	if err != nil {
 		return nil, err
 	}
 	return &ResultStore[V]{
-		cache:    cache,
-		loads:    loads,
-		executor: executor,
-		clone:    clone,
-		cost:     cost,
+		pool:      pool,
+		loads:     loads,
+		executor:  executor,
+		clone:     clone,
+		cost:      cost,
+		valueType: reflect.TypeFor[V](),
+		operation: operation,
 	}, nil
 }
 
 // Get returns an ownership-safe core.
 func (store *ResultStore[V]) Get(key ResultKey) (V, bool) {
 	var zero V
-	if store == nil || key.scope == 0 {
+	if store == nil ||
+		key.scope == 0 ||
+		(store.operation != "" && key.operation != store.operation) {
 		return zero, false
 	}
-	return store.cache.Get(key)
+	return resultPoolGet[V](store.pool, key, store.valueType)
 }
 
 // GetOrCompute returns a cached core or performs one detached, admitted,
@@ -226,15 +402,19 @@ func (store *ResultStore[V]) GetOrCompute(
 	compute func(context.Context) (V, error),
 ) (V, error) {
 	var zero V
-	if store == nil || ctx == nil || key.scope == 0 || compute == nil {
+	if store == nil ||
+		ctx == nil ||
+		key.scope == 0 ||
+		(store.operation != "" && key.operation != store.operation) ||
+		compute == nil {
 		return zero, outcome(CodeInvalidInput)
 	}
-	if value, found := store.cache.Get(key); found {
+	if value, found := resultPoolGet[V](store.pool, key, store.valueType); found {
 		return value, nil
 	}
 
 	value, err := store.loads.Do(ctx, key, func(workerContext context.Context) (V, error) {
-		if cached, found := store.cache.Get(key); found {
+		if cached, found := resultPoolGet[V](store.pool, key, store.valueType); found {
 			return cached, nil
 		}
 		var computed V
@@ -248,7 +428,7 @@ func (store *ResultStore[V]) GetOrCompute(
 		}
 		retainedCost := store.cost(computed)
 		if retainedCost >= 0 {
-			store.cache.Put(key, computed, retainedCost)
+			resultPoolPut(store.pool, key, computed, store.valueType, store.clone, retainedCost)
 		}
 		return computed, nil
 	})
@@ -258,10 +438,121 @@ func (store *ResultStore[V]) GetOrCompute(
 	return store.clone(value), nil
 }
 
-// Stats returns the underlying weighted-cache snapshot.
+// Stats returns the underlying result-pool snapshot. For a shared QueryRuntime
+// this is the same process-wide snapshot for every typed facade and must not be
+// summed across services.
 func (store *ResultStore[V]) Stats() LRUStats {
 	if store == nil {
 		return LRUStats{}
 	}
-	return store.cache.Stats()
+	return store.pool.stats()
+}
+
+// QueryRuntimeConfig defines the process-wide query resource policy.
+type QueryRuntimeConfig struct {
+	Executor   ExecutorConfig
+	Collection CollectionConfig
+	Result     ResultConfig
+}
+
+// DefaultQueryRuntimeConfig returns the approved production process policy.
+func DefaultQueryRuntimeConfig() QueryRuntimeConfig {
+	return QueryRuntimeConfig{
+		Executor:   DefaultExecutorConfig(),
+		Collection: DefaultCollectionConfig(),
+		Result:     DefaultResultConfig(),
+	}
+}
+
+// QueryRuntime owns the resources shared by every production query operation.
+// It deliberately contains neither an Archive store nor a collection provider.
+type QueryRuntime struct {
+	executor       *Executor
+	collection     *CollectionCache
+	results        *resultPool
+	resultBindings map[Operation]ResultBinding
+}
+
+// QueryRuntimeStats is the one non-additive process resource snapshot.
+type QueryRuntimeStats struct {
+	Executor           ExecutorStats
+	CollectionPositive LRUStats
+	CollectionNegative LRUStats
+	Result             LRUStats
+}
+
+// NewQueryRuntime constructs one empty process resource owner after validating
+// every canonical result binding. Duplicate operations are always invalid,
+// including otherwise identical policies.
+func NewQueryRuntime(
+	config QueryRuntimeConfig,
+	bindings ...ResultBinding,
+) (*QueryRuntime, error) {
+	if !config.Result.Limits.valid() || config.Result.LoadTimeout <= 0 {
+		return nil, outcome(CodeInvalidInput)
+	}
+	resultBindings := make(map[Operation]ResultBinding, len(bindings))
+	for _, binding := range bindings {
+		if !versionedOperationPattern.MatchString(string(binding.operation)) ||
+			binding.valueType == nil ||
+			binding.factory == nil {
+			return nil, outcome(CodeInvalidInput)
+		}
+		if _, duplicate := resultBindings[binding.operation]; duplicate {
+			return nil, outcome(CodeInvalidInput)
+		}
+		resultBindings[binding.operation] = binding
+	}
+	executor, err := NewExecutor(config.Executor)
+	if err != nil {
+		return nil, err
+	}
+	collection, err := NewCollectionCache(config.Collection)
+	if err != nil {
+		return nil, err
+	}
+	results, err := newResultPool(config.Result.Limits)
+	if err != nil {
+		return nil, err
+	}
+	for operation, binding := range resultBindings {
+		store, buildErr := binding.factory(
+			results,
+			config.Result.LoadTimeout,
+			executor,
+		)
+		if buildErr != nil {
+			return nil, buildErr
+		}
+		binding.store = store
+		resultBindings[operation] = binding
+	}
+	return &QueryRuntime{
+		executor:       executor,
+		collection:     collection,
+		results:        results,
+		resultBindings: resultBindings,
+	}, nil
+}
+
+// CollectionCache returns the single collection/negative-cache owner.
+func (runtime *QueryRuntime) CollectionCache() *CollectionCache {
+	if runtime == nil {
+		return nil
+	}
+	return runtime.collection
+}
+
+// Stats returns each shared resource exactly once. Typed store Stats methods
+// alias Result and must not be added to this snapshot.
+func (runtime *QueryRuntime) Stats() QueryRuntimeStats {
+	if runtime == nil {
+		return QueryRuntimeStats{}
+	}
+	return QueryRuntimeStats{
+		Executor:           runtime.executor.Stats(),
+		CollectionPositive: runtime.collection.PositiveStats(),
+		CollectionNegative: runtime.collection.NegativeStats(),
+		Result:             runtime.results.stats(),
+	}
 }
