@@ -19,6 +19,10 @@ are view projection and must not re-run the core or change summary/ranks.
 - `rank` is assigned after complete-set sorting and before search/page.
 - Personal response includes collection freshness; global response omits both
   collection metadata and preference properties.
+- Query, catalog, and rankings generators each select their owned operation or
+  component graph before hashing and generation. Evidence hashes the canonical
+  capability projection, never the complete shared OpenAPI document, so adding
+  an unrelated operation cannot mutate or invalidate an accepted projection.
 
 ## Service decisions
 

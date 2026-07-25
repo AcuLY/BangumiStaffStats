@@ -1,7 +1,7 @@
 ## 1. Contract
 
 - [ ] 1.1 Define closed rankings schemas/OpenAPI operation, success/error envelopes, and deterministic personal/global goldens.
-- [ ] 1.2 Add isolated backend/frontend rankings generation and drift checks; update only exact authority-hash evidence required by the existing query/catalog projections.
+- [ ] 1.2 Add isolated backend/frontend rankings generation and drift checks; migrate existing query/catalog evidence to hashes of their exact capability projections so unrelated authority paths/components no longer cause drift.
 
 ## 2. Backend core
 
