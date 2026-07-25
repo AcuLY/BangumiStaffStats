@@ -12,4 +12,4 @@
 ## 3. Integration and acceptance
 
 - [x] 3.1 After rankings handoff, add strict handler, route/runtime wiring, telemetry, and transport tests.
-- [ ] 3.2 Pass goldens, focused/repeated/race, vet, build, full backend/generation, prior-projection, strict OpenSpec, and hygiene gates.
+- [x] 3.2 Pass goldens, focused/repeated/race, vet, build, full backend/generation, prior-projection, strict OpenSpec, and hygiene gates.
