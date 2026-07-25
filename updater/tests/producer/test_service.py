@@ -7,6 +7,7 @@ import io
 import json
 import os
 import shutil
+import sqlite3
 import sys
 import time
 import zipfile
@@ -442,29 +443,149 @@ def test_complete_public_source_reaches_real_go_consumer_when_explicitly_supplie
     if executable is None or archive is None or common is None:
         pytest.skip("set all BGMSS complete-source gate paths")
 
-    case = _case(contracts_root)
-    inputs = cast(dict[str, object], case["inputs"])
-    identity = cast(dict[str, object], inputs["identity"])
-    catalog_path = tmp_path / "catalog.json"
-    catalog_path.write_bytes(_full_source_catalog(case))
-    result = produce(
-        ProduceRequest(
-            output_root=tmp_path,
+    catalog_path = (
+        Path(__file__).resolve().parents[2] / "config" / "catalog" / "display-v1.yaml"
+    ).resolve(strict=True)
+
+    def request(output_root: Path) -> ProduceRequest:
+        return ProduceRequest(
+            output_root=output_root,
             contracts_root=contracts_root,
             catalog_config=catalog_path,
-            common_commit=cast(str, identity["commonCommit"]),
+            common_commit="6a8442c17143a870357a5ff812362e8b5cfe9f9d",
             archive_smoke=Path(executable).resolve(strict=True),
             generated_at="2026-07-25T00:00:00Z",
-        ),
-        client=_FileClient(
-            Path(archive).resolve(strict=True),
-            Path(common).resolve(strict=True),
-        ),
+        )
+
+    client = _FileClient(
+        Path(archive).resolve(strict=True),
+        Path(common).resolve(strict=True),
+    )
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first_root.mkdir()
+    second_root.mkdir()
+    result = produce(
+        request(first_root),
+        client=client,
+    )
+    independent = produce(
+        request(second_root),
+        client=client,
     )
     assert result.status == "published"
-    version_root = tmp_path / "versions" / result.data_version
+    assert independent.status == "published"
+    assert independent.data_version == result.data_version
+    assert independent.quality_report == result.quality_report
+    assert json.dumps(
+        independent.quality_report,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ) == json.dumps(
+        result.quality_report,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    version_root = first_root / "versions" / result.data_version
+    independent_root = second_root / "versions" / independent.data_version
     assert sorted(path.name for path in version_root.iterdir()) == [
         "bangumi.sqlite",
         "manifest.json",
     ]
-    assert not (tmp_path / "current.json").exists()
+    assert sorted(path.name for path in independent_root.iterdir()) == [
+        "bangumi.sqlite",
+        "manifest.json",
+    ]
+    assert not (first_root / "current.json").exists()
+    assert not (second_root / "current.json").exists()
+    assert (independent_root / "manifest.json").read_bytes() == (
+        version_root / "manifest.json"
+    ).read_bytes()
+    manifest = cast(
+        dict[str, object],
+        json.loads((version_root / "manifest.json").read_bytes()),
+    )
+    assert manifest["catalogConfigDigest"] == (
+        "sha256:eb668803447994a96f1c50a5df306d93abf26c8ba6c5aeaba69884b0a0639dbd"
+    )
+    table_counts = cast(dict[str, int], manifest["tableCounts"])
+    assert table_counts["staff_position"] == 246
+    assert table_counts["catalog_position"] == 250
+    assert table_counts["staff_set"] == 0
+    assert table_counts["staff_set_member"] == 0
+    source_files = {
+        cast(str, item["name"]): item
+        for item in cast(list[dict[str, object]], manifest["sourceFiles"])
+    }
+    assert {
+        name: cast(int, source_files[name]["invalid"])
+        for name in (
+            "subject-persons.jsonlines",
+            "subject-characters.jsonlines",
+            "person-characters.jsonlines",
+            "subject-relations.jsonlines",
+        )
+    } == {
+        "subject-persons.jsonlines": 7850,
+        "subject-characters.jsonlines": 831,
+        "person-characters.jsonlines": 372,
+        "subject-relations.jsonlines": 7246,
+    }
+    quality_report = result.quality_report
+    assert quality_report is not None
+    quality_counts = cast(dict[str, int], quality_report["counts"])
+    manifest_quality = cast(dict[str, int], manifest["qualitySummary"])
+    assert quality_counts == {
+        key: manifest_quality[key]
+        for key in (
+            "NO_CHARACTERS",
+            "NO_CAST_RELATIONS",
+            "FILTERED_BY_VALID_CV",
+        )
+    }
+    unknown_positions = cast(
+        list[dict[str, object]],
+        quality_report["unknownStaffPositionIds"],
+    )
+    assert (
+        sum(cast(int, item["count"]) for item in unknown_positions)
+        == (manifest_quality["UNKNOWN_STAFF_POSITION"])
+    )
+    role_inventory = cast(list[dict[str, int]], quality_report["roleInventory"])
+    assert [item["roleType"] for item in role_inventory] == [1, 2, 3, 4, 5, 6]
+    assert all(item["count"] > 0 for item in role_inventory)
+    assert quality_counts["FILTERED_BY_VALID_CV"] > 0
+    samples = cast(dict[str, list[dict[str, object]]], quality_report["samples"])
+    for key, count in quality_counts.items():
+        assert len(samples[key]) == min(count, 100)
+    connection = sqlite3.connect(version_root / "bangumi.sqlite")
+    try:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM cast_credit WHERE subject_type NOT IN ('anime','game')"
+        ).fetchone() == (0,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM catalog_position "
+            "WHERE position_key IN ("
+            "'staff:anime:101','staff:anime:102','staff:anime:103',"
+            "'staff:anime:104','staff:anime:105','staff:anime:106') "
+            "AND position_kind = 'staff'"
+        ).fetchone() == (6,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM staff_credit "
+            "WHERE subject_type = 'anime' AND subject_id = 9717 "
+            "AND person_id = 6756 AND position_id = 104"
+        ).fetchone() == (1,)
+        for subject_type in ("anime", "game"):
+            common_order = connection.execute(
+                "SELECT display_order FROM catalog_group WHERE group_key = ?",
+                (f"bangumi:{subject_type}:music",),
+            ).fetchone()
+            cast_order = connection.execute(
+                "SELECT display_order FROM catalog_group WHERE group_key = ?",
+                (f"shortcut:{subject_type}:cast",),
+            ).fetchone()
+            assert common_order is not None
+            assert cast_order == (common_order[0] + 10,)
+        assert connection.execute("SELECT COUNT(*) FROM staff_set").fetchone() == (0,)
+    finally:
+        connection.close()

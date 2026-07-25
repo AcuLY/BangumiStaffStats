@@ -16,6 +16,16 @@ from urllib.parse import quote
 
 import yaml
 
+from bangumi_staff_stats_updater.catalog.common import parse_common_catalog
+from bangumi_staff_stats_updater.catalog.compiler import CompiledCatalog, compile_catalog
+from bangumi_staff_stats_updater.catalog.config import load_canonical_configuration
+from bangumi_staff_stats_updater.catalog.errors import CatalogError
+from bangumi_staff_stats_updater.catalog.sqlite_adapter import (
+    compile_quality_report,
+    insert_compiled_catalog,
+    validate_derivation_closure,
+)
+
 from .manifest import canonical_json_bytes, data_version, digest_bytes, digest_file
 from .model import (
     LOGICAL_ROWS_ALGORITHM,
@@ -154,6 +164,42 @@ class _CatalogGroup:
 class _Catalog:
     positions: tuple[_CatalogPosition, ...]
     groups: tuple[_CatalogGroup, ...]
+
+
+def _catalog_view(compiled: CompiledCatalog) -> _Catalog:
+    positions: list[_CatalogPosition] = []
+    for item in compiled.positions:
+        if item.rule_kind == "exactStaff":
+            selection_rule = f"positionId={item.rule_value}"
+        elif item.rule_kind == "exactCast":
+            selection_rule = f"roleType={item.rule_value}"
+        else:
+            selection_rule = f"staffSetUnion:{item.position_key}"
+        positions.append(
+            _CatalogPosition(
+                item.position_key,
+                item.subject_type,
+                item.position_kind,
+                item.label,
+                item.display_order,
+                True,
+                item.capabilities,
+                selection_rule,
+            )
+        )
+    return _Catalog(
+        tuple(positions),
+        tuple(
+            _CatalogGroup(
+                item.group_key,
+                item.subject_type,
+                item.label,
+                item.display_order,
+                item.position_keys,
+            )
+            for item in compiled.groups
+        ),
+    )
 
 
 @dataclass(slots=True)
@@ -371,7 +417,11 @@ def _known_optional_shape(source_name: str, record: Mapping[str, object]) -> Non
             _bounded_text(value, 255)
 
 
-def _record_shape(source_name: str, record: Mapping[str, object]) -> None:
+def _record_shape(
+    source_name: str,
+    record: Mapping[str, object],
+    governed_catalog: bool = False,
+) -> None:
     keys = frozenset(record)
     if not keys.issubset(_RECORD_FIELDS[source_name]):
         _fail("SOURCE_RECORD_UNKNOWN_FIELD")
@@ -409,6 +459,11 @@ def _record_shape(source_name: str, record: Mapping[str, object]) -> None:
     elif source_name == "subject-characters.jsonlines":
         _positive_integer(record.get("subject_id"))
         _positive_integer(record.get("character_id"))
+        raw_role = record.get("type")
+        if governed_catalog and (
+            isinstance(raw_role, bool) or not isinstance(raw_role, int) or not 1 <= raw_role <= 6
+        ):
+            _fail("UNKNOWN_CAST_ROLE")
         role = _positive_integer(record.get("type"))
         if role > 6:
             _fail("SOURCE_RECORD_MALFORMED")
@@ -960,6 +1015,7 @@ def _apply_record(
     source_name: str,
     record: Mapping[str, object],
     common_identities: set[tuple[int, int]],
+    governed_catalog: bool,
 ) -> tuple[str, int]:
     if source_name == "subject.jsonlines":
         _insert_subject(connection, record)
@@ -1014,19 +1070,26 @@ def _apply_record(
             "WHERE subject_id = ? AND character_id = ?",
             (subject_id, character_id),
         ).fetchone()
-        if (
-            subject_type is None
-            or role is None
-            or not _person_exists(connection, person_id)
-            or not _character_exists(connection, character_id)
-        ):
+        if subject_type is None:
             return "invalid", 0
+        if not _person_exists(connection, person_id):
+            return "invalid", 0
+        if not _character_exists(connection, character_id):
+            return "invalid", 0
+        if role is None:
+            return "invalid", 0
+        connection.execute(
+            "INSERT INTO temp.exact_cast_edge VALUES (?, ?, ?, ?, ?, ?)",
+            (subject_type, subject_id, person_id, character_id, role[0], role[1]),
+        )
         eligible = connection.execute(
             "SELECT 1 FROM temp.eligible_staff_person WHERE person_id = ?",
             (person_id,),
         ).fetchone()
         if eligible is None:
-            return "imported", 1
+            return ("imported", int(not governed_catalog or subject_type in {"anime", "game"}))
+        if governed_catalog and subject_type not in {"anime", "game"}:
+            return "imported", 0
         connection.execute(
             "INSERT INTO cast_credit VALUES (?, ?, ?, ?, ?, ?, 1, 'exact')",
             (subject_type, subject_id, person_id, character_id, role[0], role[1]),
@@ -1081,6 +1144,15 @@ def _open_database(path: Path, schema_sql: str) -> sqlite3.Connection:
             CREATE TEMP TABLE eligible_staff_person (
               person_id INTEGER NOT NULL PRIMARY KEY
             ) STRICT;
+            CREATE TEMP TABLE exact_cast_edge (
+              subject_type TEXT NOT NULL,
+              subject_id INTEGER NOT NULL,
+              person_id INTEGER NOT NULL,
+              character_id INTEGER NOT NULL,
+              role_type INTEGER NOT NULL,
+              sort_order INTEGER NOT NULL,
+              PRIMARY KEY (subject_type, subject_id, person_id, character_id)
+            ) STRICT;
             """
         )
         return connection
@@ -1123,6 +1195,7 @@ def _classify_sources(
     sources: tuple[SourceInput, ...],
     common_identities: set[tuple[int, int]],
     cancelled: Callable[[], bool],
+    governed_catalog: bool = False,
 ) -> tuple[tuple[SourceAccounting, ...], int, ProducerError | None]:
     accounting = tuple(
         SourceAccounting(source.name, source.size, source.digest) for source in sources
@@ -1143,7 +1216,7 @@ def _classify_sources(
                 if not terminated or not data:
                     _fail("SOURCE_RECORD_MALFORMED")
                 record = _parse_json_line(data)
-                _record_shape(source.name, record)
+                _record_shape(source.name, record, governed_catalog)
                 identity = _record_identity(source.name, record)
                 record_hash = _record_digest(record)
                 seen = connection.execute(
@@ -1171,6 +1244,7 @@ def _classify_sources(
                     source.name,
                     record,
                     common_identities,
+                    governed_catalog,
                 )
                 setattr(evidence, classification, getattr(evidence, classification) + 1)
                 filtered_by_valid_cv += filtered
@@ -1571,8 +1645,24 @@ def build_database(
         raise ProducerError("CONTRACT_INPUT_INVALID") from error
     if digest_bytes(schema_bytes) != identity.schema_sql_digest:
         _fail("SCHEMA_DIGEST_MISMATCH")
-    common_positions, categories = _parse_common(common_bytes)
-    catalog = _parse_catalog(catalog_bytes)
+    catalog_document = _read_document(catalog_bytes, "CATALOG_CONFIG_INVALID")
+    governed_catalog = set(catalog_document) == {"display", "staffSets"}
+    compiled_catalog: CompiledCatalog | None = None
+    common_positions: tuple[_CommonPosition, ...] = ()
+    categories: tuple[_Category, ...] = ()
+    if governed_catalog:
+        try:
+            configuration = load_canonical_configuration(catalog_bytes, contracts_root)
+            compiled_catalog = compile_catalog(
+                parse_common_catalog(common_bytes),
+                configuration,
+            )
+            catalog = _catalog_view(compiled_catalog)
+        except CatalogError as error:
+            _fail(error.code, evidence=error.evidence)
+    else:
+        common_positions, categories = _parse_common(common_bytes)
+        catalog = _parse_catalog(catalog_bytes)
     version = data_version(identity)
     destination.parent.mkdir(parents=True, exist_ok=True)
     connection = _open_database(destination, schema_sql)
@@ -1592,18 +1682,26 @@ def build_database(
                 identity.catalog_config_digest,
             ),
         )
-        common_identities = _insert_common(
-            connection,
-            common_positions,
-            categories,
-            identity.common_commit,
-        )
-        _insert_catalog(connection, catalog)
+        if compiled_catalog is None:
+            common_identities = _insert_common(
+                connection,
+                common_positions,
+                categories,
+                identity.common_commit,
+            )
+            _insert_catalog(connection, catalog)
+        else:
+            common_identities = insert_compiled_catalog(
+                connection,
+                compiled_catalog,
+                identity.common_commit,
+            )
         accounting, filtered_by_valid_cv, failure = _classify_sources(
             connection,
             ordered_sources,
             common_identities,
             cancelled,
+            governed_catalog,
         )
         connection.commit()
         guard.check()
@@ -1611,11 +1709,23 @@ def build_database(
             failure.evidence = accounting
             raise failure
         unresolved = sum(item.unresolved for item in accounting)
-        quality_summary = _quality_summary(
-            connection,
-            filtered_by_valid_cv,
-            unresolved,
-        )
+        quality_report: dict[str, object] | None = None
+        if governed_catalog:
+            validate_derivation_closure(connection)
+            quality_report = compile_quality_report(connection, contracts_root)
+            quality_counts = cast(dict[str, int], quality_report["counts"])
+            quality_summary = {
+                "NO_CHARACTERS": quality_counts["NO_CHARACTERS"],
+                "NO_CAST_RELATIONS": quality_counts["NO_CAST_RELATIONS"],
+                "FILTERED_BY_VALID_CV": quality_counts["FILTERED_BY_VALID_CV"],
+                "UNKNOWN_STAFF_POSITION": unresolved,
+            }
+        else:
+            quality_summary = _quality_summary(
+                connection,
+                filtered_by_valid_cv,
+                unresolved,
+            )
         table_counts = _table_counts(connection)
         logical_digests = _logical_digests(connection, catalog, cancelled)
         if tuple(quality_summary) != QUALITY_NAMES or tuple(table_counts) != TABLE_NAMES:
@@ -1629,6 +1739,8 @@ def build_database(
         connection.execute("PRAGMA optimize")
         connection.commit()
         guard.check()
+    except CatalogError as error:
+        raise ProducerError(error.code, evidence=error.evidence) from error
     except sqlite3.Error as error:
         if guard.interruption is not None:
             raise guard.interruption from error
@@ -1657,4 +1769,5 @@ def build_database(
         table_counts,
         quality_summary,
         logical_digests,
+        quality_report,
     )

@@ -215,6 +215,15 @@ corpus SHALL enumerate every admitted raw numeric role and count from
 complete-source evidence; unknown values SHALL block. This change SHALL NOT
 choose a mapping, alter root authority, or collapse values.
 
+The Archive producer's existing admission contract remains authoritative for
+raw relationship records. A syntactically valid relationship whose required
+Archive identity is absent SHALL be counted exactly once as source `invalid`,
+excluded from logical/SQLite rows, and SHALL NOT by itself fail an otherwise
+valid candidate. Catalog/cast derivation SHALL consume only the admitted rows;
+it SHALL neither reclassify those excluded raw records nor create placeholder
+entities. A dangling reference found inside the admitted derivation projection
+is an internal closure violation and SHALL remain blocking.
+
 #### Scenario: Global whitelist and exact join succeed
 - **WHEN** a person has any valid `subject-persons` record and an exact same-subject person/character relation on an anime or game subject
 - **THEN** one eligible exact cast row SHALL be emitted
@@ -224,6 +233,11 @@ choose a mapping, alter root authority, or collapse values.
 - **WHEN** the same Character ID has a person relation only on a related or series work
 - **THEN** the target work SHALL receive no cast row
 - **AND** no relation traversal, series merge, or candidate inference SHALL run
+
+#### Scenario: A raw relationship references an absent Archive identity
+- **WHEN** the Archive producer classifies that syntactically valid physical line as source `invalid`
+- **THEN** the line SHALL remain excluded from the admitted derivation projection without failing the otherwise valid candidate
+- **AND** its exact accounting SHALL remain visible in the Archive source evidence
 
 #### Scenario: Role authority drifts
 - **WHEN** schema, producer, or consumer no longer matches the exited raw-domain authority, or an observed numeric role is outside `1..6`
@@ -244,7 +258,8 @@ not authorize inference.
 The manifest counts SHALL exactly equal recomputation. Bounded detailed
 evidence SHALL include deterministic totals and sorted samples sufficient to
 distinguish the three classes without publishing an unbounded report.
-Malformed/conflicting relations, bad references, unmapped roles, missing
+Malformed/conflicting admitted relations, phantom references inside the
+admitted derivation projection, unmapped roles, missing
 required classifications, count mismatch, configured complete-source bound
 failure, or nondeterministic samples SHALL block the snapshot. A declared
 non-zero source gap inside accepted bounds SHALL remain visible but SHALL not

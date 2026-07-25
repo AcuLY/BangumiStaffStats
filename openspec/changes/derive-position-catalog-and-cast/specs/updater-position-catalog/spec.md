@@ -123,6 +123,14 @@ including official 101–106. `cast:*:main` SHALL select raw role `1` as a stric
 subset of `cast:*:all`, and same-type main/all SHALL share the canonical
 exclusive rule identity.
 
+Updater SHALL preserve the accepted Archive producer classification boundary:
+a syntactically valid raw relationship with an absent required Archive
+identity SHALL be counted once as source `invalid` and excluded before
+catalog/cast derivation, without becoming a fatal governed-catalog error.
+Derivation SHALL operate only on imported logical rows. Missing references
+inside those admitted rows indicate an internal closure defect and SHALL
+remain blocking; no placeholder or inferred edge may repair either case.
+
 #### Scenario: Exact cast survives global whitelist
 - **WHEN** a globally eligible person has a same-subject person/character edge on a valid anime/game subject
 - **THEN** Updater SHALL emit one exact eligible cast row
@@ -138,6 +146,11 @@ exclusive rule identity.
 - **THEN** the staff record SHALL produce only `staff:anime:104`
 - **AND** cast SHALL derive only from the exact character join under `cast:*`
 
+#### Scenario: Upstream relationship identity is absent
+- **WHEN** a syntactically valid raw relationship refers to an absent subject, person, character, or required exact pairing
+- **THEN** Updater SHALL retain the Archive source `invalid` accounting and exclude the row
+- **AND** the otherwise valid governed candidate SHALL continue without a fabricated catalog/cast row
+
 ### Requirement: Quality evidence SHALL distinguish accepted gaps from blocking faults
 
 Updater SHALL recompute `NO_CHARACTERS`, `NO_CAST_RELATIONS`, and
@@ -147,7 +160,26 @@ samples outside the closed version pair. Non-zero accepted missing-source
 classes SHALL remain explicit diagnostics and SHALL never trigger cross-work
 inference.
 
-Malformed/conflicting relations, invalid references, unknown role mapping,
+On a fresh governed build, the core Python `produce` API SHALL return the
+strict Contracts-valid quality report on its bounded `ProduceResult` evidence;
+the report SHALL NOT enter `manifest.json`, `bangumi.sqlite`, dataVersion, or
+the stable bounded CLI success document. A no-change result MAY omit the report
+because the closed immutable pair intentionally does not persist it. The
+complete-source acceptance gate SHALL consume the fresh-build return value
+directly and prove deterministic report equality across independent output
+roots. Fatal quality failures SHALL retain only bounded structured evidence on
+the in-process producer error and SHALL publish neither a candidate nor a
+report file.
+
+The complete inventory of unknown staff-position identities is bounded at
+1,000 distinct `(subjectType, positionId)` pairs. Updater SHALL count that
+cardinality before materializing the ordered inventory; exactly 1,000 is
+accepted, while 1,001 or more SHALL fail with a stable bounded error before
+manifest finalization. It SHALL never truncate the inventory or derive the
+manifest's exact `UNKNOWN_STAFF_POSITION` row count from a truncated sample.
+
+Malformed/conflicting admitted relations, phantom references in admitted
+derivation rows, unknown role mapping,
 missing quality classes, count/sample mismatch, non-determinism, or a declared
 complete-source bound/sentinel failure SHALL be blocking. The complete-source
 gate SHALL report structured common additions/renames/category changes/
@@ -157,8 +189,13 @@ candidate.
 
 #### Scenario: Accepted missing data is present
 - **WHEN** a complete source contains subjects without characters, without exact cast relations, or filtered only by `valid_cv` within reviewed bounds
-- **THEN** exact counts and bounded samples SHALL be published as diagnostic evidence
+- **THEN** exact counts and bounded samples SHALL be returned as fresh-build diagnostic evidence
 - **AND** no inferred row SHALL be added
+
+#### Scenario: Unknown-position identity inventory reaches its bound
+- **WHEN** the admitted credits contain exactly 1,000 distinct unknown staff-position identities
+- **THEN** the complete ordered inventory and exact manifest row count SHALL be produced
+- **AND** one additional distinct identity SHALL instead block without truncation or publication
 
 #### Scenario: Blocking quality invariant fails
 - **WHEN** a relation/mapping/reference/configuration invariant or a declared complete-source bound fails

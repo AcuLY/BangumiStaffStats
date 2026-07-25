@@ -1,0 +1,1 @@
+"""Catalog compiler tests."""

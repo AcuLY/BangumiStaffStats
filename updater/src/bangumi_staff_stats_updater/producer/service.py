@@ -22,6 +22,8 @@ from bangumi_staff_stats_updater.archive_contract import (
     ContractInputError,
     check_contracts,
 )
+from bangumi_staff_stats_updater.catalog.config import load_configuration
+from bangumi_staff_stats_updater.catalog.errors import CatalogError
 
 from .acquisition import AcquiredInputs, AcquisitionClient, acquire
 from .builder import build_database
@@ -60,6 +62,7 @@ class ProduceResult:
     data_version: str
     manifest_digest: str
     sqlite_digest: str
+    quality_report: dict[str, object] | None = None
 
     def as_json(self) -> dict[str, object]:
         """Return the stable CLI field names."""
@@ -90,8 +93,13 @@ def _regular_file(path: Path, code: str, *, executable: bool = False) -> Path:
     return resolved
 
 
-def _read_config(path: Path) -> bytes:
+def _read_config(path: Path, contracts_root: Path) -> bytes:
     resolved = _regular_file(path, "CATALOG_CONFIG_INVALID")
+    if resolved.name == "display-v1.yaml":
+        try:
+            return load_configuration(resolved, contracts_root).canonical_bytes
+        except CatalogError as error:
+            raise ProducerError(error.code, evidence=error.evidence) from error
     try:
         if resolved.stat().st_size <= 0 or resolved.stat().st_size > _MAX_CONFIG_BYTES:
             raise ProducerError("CATALOG_CONFIG_INVALID")
@@ -293,7 +301,7 @@ def produce(
         check_contracts(contracts_root)
     except (ContractInputError, ContractExpectationError) as error:
         raise ProducerError("CONTRACT_INPUT_INVALID") from error
-    catalog_bytes = _read_config(request.catalog_config)
+    catalog_bytes = _read_config(request.catalog_config, contracts_root)
     smoke = _regular_file(request.archive_smoke, "GO_SMOKE_INVALID", executable=True)
     verify_manifest_string_vectors(contracts_root)
 
@@ -348,6 +356,12 @@ def produce(
         staging.prepare_publication(version)
         if cancelled():
             raise ProducerError("CANCELED")
-        result = ProduceResult("published", version, manifest_digest, sqlite_digest)
+        result = ProduceResult(
+            "published",
+            version,
+            manifest_digest,
+            sqlite_digest,
+            build.quality_report,
+        )
         staging.publish(version)
         return result

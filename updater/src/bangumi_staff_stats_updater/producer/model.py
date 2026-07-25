@@ -141,3 +141,4 @@ class BuildResult:
     table_counts: dict[str, int]
     quality_summary: dict[str, int]
     logical_digests: dict[str, str]
+    quality_report: dict[str, object] | None = None
