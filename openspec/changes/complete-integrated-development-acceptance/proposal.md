@@ -128,10 +128,17 @@ None.
   Node/npm/Go identities still mandated by the authoritative Query golden, and
   a separately locked browser-test runtime owned only by
   `contracts/acceptance/**`.
-- Caller-provisioned, immutable dependency/tool caches whose complete
-  lockfile closure and content seals are attested before the networkless
-  acceptance matrix starts. Cache acquisition is outside the harness and is
-  not acceptance evidence.
+- Caller-provisioned, immutable dependency caches whose complete lockfile
+  closure and content seals are attested before the networkless acceptance
+  matrix starts, plus independently attested exact tool paths and runtime
+  closures. Cache acquisition is outside the harness and is not acceptance
+  evidence.
+- One reviewed exception for the authoritative Query golden's hard-coded
+  `/opt/homebrew/Cellar/go/1.25.4/libexec` runtime closure. The harness SHALL
+  inventory and seal the complete GOROOT, cross-bind its `go`/`gofmt` bytes to
+  the frozen cache mirror, deny writes to that tree while the gate runs, and
+  re-seal it afterward. It SHALL NOT claim that this owner-fixed tool closure
+  was copied to a new inode or substitute another path.
 
 ### Produces
 

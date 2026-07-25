@@ -97,10 +97,13 @@ commit, push, sync, archive, or update task markers.
   Updater pytest/mypy/Ruff/locked-build gates, Frontend full check, component
   artifact validators, and compatibility coordinator smoke to run only inside
   the isolated clone; use the historical Query-golden tools separately from
-  the current product tools; seed only exact lockfile/tool bytes from sealed
-  caller caches with new inodes; enforce offline package-manager modes plus
-  host/Docker network denial; record exact exit/duration/evidence digests
-  without copying business assertions.
+  the current product tools; seed only exact package/module/browser bytes from
+  sealed caller caches with new inodes; fully inventory/seal the Query
+  golden's owner-fixed historical GOROOT in place, cross-bind `go`/`gofmt` to
+  the frozen mirror, deny writes to that GOROOT, and re-seal it after the gate;
+  enforce offline package-manager modes plus host/Docker network denial;
+  record exact exit/duration/evidence digests without copying business
+  assertions or misreporting the historical GOROOT as a copied closure.
 
 ## 4. Full Archive and packaged runtime
 

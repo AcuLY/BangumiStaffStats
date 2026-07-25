@@ -118,14 +118,44 @@ distinct from the current Frontend Node 24.18/npm 11.16 and Backend Go 1.26.5
 identities. The harness SHALL NOT rewrite the golden, substitute another tool,
 or omit either family from the canonical result.
 
-All package/module/tool bytes used by owner gates SHALL come from
+All package/module/browser bytes used by owner gates SHALL come from
 caller-provisioned sealed cache inputs. The caller MAY prepare those exact
 lockfile-pinned bytes before admission outside the harness, but cache
 acquisition is not an acceptance cell and SHALL write no repository or
-production path. After admission the harness SHALL copy required bytes with
-new inodes into the owned run root, use package-manager offline modes, enforce
-host/Docker network denial, and re-seal both the source caches and copies. No
-matrix cell may contact a public registry or other public origin.
+production path. After admission the harness SHALL copy required cache bytes
+with new inodes into the owned run root, use package-manager offline modes,
+enforce host/Docker network denial, and re-seal both the source caches and
+copies. Exact tool executables and their runtime closures SHALL be
+independently attested and re-sealed. No matrix cell may contact a public
+registry or other public origin.
+
+Because the authoritative Query golden hard-codes
+`/opt/homebrew/Cellar/go/1.25.4/libexec/bin/{go,gofmt}` and clears injected
+environment, its complete canonical historical GOROOT MAY be invoked in place
+as the sole reviewed exception to copied tool closures. Before the Query gate,
+the harness SHALL inventory every directory and regular file in that GOROOT,
+reject symlinks, hard links, and special entries, content-seal the complete
+tree, and cross-bind the two executable digests to the frozen cache mirror.
+The outer gate sandbox SHALL deny writes to the entire GOROOT and deny
+network. After the gate, the complete inventory and content seal SHALL match
+exactly. The result SHALL identify this as an owner-fixed in-place exception
+and SHALL NOT claim a copied, read-only-source, or hermetic new-inode
+historical tool closure.
+
+#### Scenario: The owner-fixed historical GOROOT remains sealed
+
+- **WHEN** the Query golden runs its hard-coded Go 1.25.4 code-generation,
+  formatting, and compile commands
+- **THEN** the complete pre/post GOROOT inventory and digest SHALL match, its
+  `go`/`gofmt` bytes SHALL match the frozen mirror, and the sandbox SHALL have
+  denied GOROOT writes and public network access
+
+#### Scenario: The historical tool exception is widened or misreported
+
+- **WHEN** another tool path uses the exception, the GOROOT contains a link or
+  special entry, any GOROOT byte/mode/path changes, the mirror digest differs,
+  or evidence describes the in-place tree as a copied hermetic closure
+- **THEN** the owner gate and final verdict SHALL fail
 
 Before running a source gate, the harness SHALL create a no-hardlink local
 clone below its owned run root, check out the exact candidate detached, and

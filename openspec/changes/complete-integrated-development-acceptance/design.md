@@ -165,12 +165,29 @@ the current tools, or hides the historical identity.
 
 All owner installs are offline. Before admission, the caller may provision one
 dedicated cache from the exact repository lockfiles and pinned toolchain
-artifacts. Admission requires complete closure, regular non-symlink bytes,
-content seals, and read-only inputs. The harness copies only required bytes
-with new inodes into its owned run root, applies offline package-manager
-settings plus host/Docker network denial, and verifies source and copied cache
-seals after the run. Cache provisioning is not a matrix cell or evidence of
-product acceptance.
+artifacts. Admission requires complete dependency closure, regular
+non-symlink bytes, content seals, and read-only cache inputs. The harness
+copies the required package/module/browser cache bytes with new inodes into
+its owned run root, applies offline package-manager settings plus host/Docker
+network denial, and verifies source and copied cache seals after the run.
+Exact tool executables and the runtime files they load are admitted separately
+and re-sealed after use.
+
+The authoritative Query golden is one reviewed exception to copied tool
+closures: it hard-codes
+`/opt/homebrew/Cellar/go/1.25.4/libexec/bin/{go,gofmt}`, clears its child
+environment, and actually runs code generation and compilation. Rewriting the
+golden or substituting the frozen two-binary mirror would violate the owner
+gate, while that mirror cannot execute without the original GOROOT. The
+harness therefore inventories and content-seals the complete canonical
+historical GOROOT, cross-binds its `go` and `gofmt` digests to the frozen
+mirror, runs the Query gate under an outer sandbox that denies writes to the
+entire GOROOT and denies network, then re-inventories and re-seals the tree.
+The result records this owner-fixed in-place exception and SHALL NOT describe
+it as a copied or hermetic new-inode tool closure. Any missing, linked,
+special, changed, or newly created GOROOT entry blocks acceptance.
+
+Cache provisioning is not a matrix cell or evidence of product acceptance.
 
 The full Archive gate accepts only a version directory containing regular,
 non-symlink `manifest.json` and `bangumi.sqlite` from the official seven-file
