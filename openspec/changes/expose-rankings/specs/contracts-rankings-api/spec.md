@@ -1,0 +1,60 @@
+## ADDED Requirements
+
+### Requirement: Rankings SHALL have one closed versioned wire contract
+
+The contract SHALL define `POST /api/v1/rankings` with a JSON body containing
+required `query`, optional `view`, and optional `refreshCollection`, and SHALL
+reject every unknown member. Rankings SHALL not accept `input`, mode, requestId,
+queryRevision, dataVersion, theme, or UI state.
+
+View defaults SHALL be search `""`, sort `count`, order `desc`, page `1`, and
+pageSize `10`. Sort SHALL be `count|average|overall|preference`; preference SHALL
+be rejected for global scope. Page size SHALL be exactly `5|10|20`.
+`refreshCollection=true` SHALL be allowed only for personal rankings.
+
+Average and overall SHALL cross the wire as nullable integer hundredths.
+Preference SHALL retain canonical base-10 rational numerator/denominator strings
+and its comparable/effective evidence counts. Missing evidence SHALL be null,
+never zero. Person references SHALL contain only positive ID, name, and optional
+Chinese name; arbitrary image URLs SHALL not enter the DTO.
+
+#### Scenario: A global request asks for preference
+- **WHEN** a global rankings request selects preference sort
+- **THEN** the contract SHALL reject the view with a stable field error
+
+#### Scenario: A personal row has no rating evidence
+- **WHEN** an eligible person has no valid personal rating evidence
+- **THEN** average, overall, and preference SHALL be null rather than zero
+
+### Requirement: Rankings response SHALL separate complete core from view
+
+The success data SHALL contain complete-core `summary`, pre-search
+`metricScale`, and the current page `items`. Summary SHALL include personCount,
+`workUnit=subject|series`, the global unique matched work/series count, and
+characterCount exactly when the selected query has cast capability.
+
+Each item SHALL contain complete-set rank, person reference, workCount,
+nullable average and overall hundredths, and personal preference only in
+personal scope. Metadata SHALL contain requestId, dataVersion, pagination, and
+collection freshness only in personal scope. Global responses SHALL omit
+preference and collection members rather than emitting null placeholders.
+
+#### Scenario: Search narrows the list
+- **WHEN** search matches only people whose complete ranks are 2 and 8
+- **THEN** items SHALL retain ranks 2 and 8, pagination total SHALL be 2, and summary/scale SHALL remain those of the complete unsearched core
+
+#### Scenario: Page is beyond the result
+- **WHEN** a valid page starts after the searched result set
+- **THEN** the endpoint SHALL return 200 with an empty items array and the unchanged total
+
+### Requirement: Rankings contract SHALL remain reproducible across languages
+
+The repository SHALL contain deterministic personal/global success and failure
+goldens consumed by Go and TypeScript contract checks. Generated rankings
+models SHALL be isolated from existing query-only and catalog-only projections,
+and changing the shared OpenAPI authority SHALL update pinned generation
+evidence without broadening either prior projection.
+
+#### Scenario: Contract generation is repeated
+- **WHEN** Go and TypeScript rankings generators run twice from identical pinned inputs
+- **THEN** inventories and bytes SHALL be identical and prior query/catalog projections SHALL remain unchanged
