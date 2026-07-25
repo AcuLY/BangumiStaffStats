@@ -171,21 +171,32 @@ copies the required package/module/browser cache bytes with new inodes into
 its owned run root, applies offline package-manager settings plus host/Docker
 network denial, and verifies source and copied cache seals after the run.
 Exact tool executables and the runtime files they load are admitted separately
-and re-sealed after use.
+and re-sealed after use. For every non-system runtime distribution, the
+harness derives one exact canonical root, inventories directory/file modes,
+file sizes and digests, and safe internal symlink targets where the
+distribution requires them. It rejects hard links, special entries, escaping
+links, missing/new entries, and any pre/post difference. The owning gate runs
+under an outer sandbox that denies writes to each admitted runtime root.
+Installed current/historical npm package roots and the admitted CPython
+distribution are part of this rule; hashing only `npm-cli.js` or the Python
+launcher is insufficient. Platform libraries below `/System/Library` and
+`/usr/lib` are bound to the recorded macOS development profile rather than
+misreported as copied tool bytes.
 
 The authoritative Query golden is one reviewed exception to copied tool
-closures: it hard-codes
-`/opt/homebrew/Cellar/go/1.25.4/libexec/bin/{go,gofmt}`, clears its child
-environment, and actually runs code generation and compilation. Rewriting the
-golden or substituting the frozen two-binary mirror would violate the owner
-gate, while that mirror cannot execute without the original GOROOT. The
-harness therefore inventories and content-seals the complete canonical
-historical GOROOT, cross-binds its `go` and `gofmt` digests to the frozen
-mirror, runs the Query gate under an outer sandbox that denies writes to the
-entire GOROOT and denies network, then re-inventories and re-seals the tree.
-The result records this owner-fixed in-place exception and SHALL NOT describe
-it as a copied or hermetic new-inode tool closure. Any missing, linked,
-special, changed, or newly created GOROOT entry blocks acceptance.
+closures: it hard-codes the exact Node 24.16 executable identity and
+`/opt/homebrew/Cellar/go/1.25.4/libexec/bin/{go,gofmt}`, clears child
+environments, and actually runs npm-backed code generation and Go
+compilation. Rewriting the golden or substituting the frozen two-binary Go
+mirror would violate the owner gate, while that mirror cannot execute without
+the original GOROOT. The harness therefore inventories and content-seals the
+complete canonical historical npm package root and GOROOT, cross-binds the
+fixed executables and the `go`/`gofmt` cache mirror, runs the Query gate under
+an outer sandbox that denies writes to both runtime roots and denies network,
+then re-inventories and re-seals both trees. The result records this
+owner-fixed in-place exception and SHALL NOT describe it as a copied or
+hermetic new-inode tool closure. Any missing, linked, special, changed, or
+newly created runtime entry blocks acceptance.
 
 Cache provisioning is not a matrix cell or evidence of product acceptance.
 

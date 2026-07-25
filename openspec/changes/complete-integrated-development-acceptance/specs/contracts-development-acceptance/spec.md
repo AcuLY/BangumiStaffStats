@@ -126,35 +126,46 @@ production path. After admission the harness SHALL copy required cache bytes
 with new inodes into the owned run root, use package-manager offline modes,
 enforce host/Docker network denial, and re-seal both the source caches and
 copies. Exact tool executables and their runtime closures SHALL be
-independently attested and re-sealed. No matrix cell may contact a public
-registry or other public origin.
+independently attested and re-sealed. Every non-system tool distribution root
+SHALL have a complete canonical inventory of directory/file modes, file sizes
+and digests, and any required safe internal symlink targets. Hard links,
+special entries, escaping links, missing/new entries, and pre/post differences
+SHALL fail. Each owner gate SHALL run under an outer sandbox that denies
+writes to its admitted runtime roots. Both installed npm package roots and the
+admitted CPython distribution are runtime closures; a launcher-file digest
+alone SHALL NOT identify either tool. macOS platform libraries below
+`/System/Library` and `/usr/lib` are bound to the recorded development profile
+and SHALL NOT be described as copied tool bytes. No matrix cell may contact a
+public registry or other public origin.
 
 Because the authoritative Query golden hard-codes
-`/opt/homebrew/Cellar/go/1.25.4/libexec/bin/{go,gofmt}` and clears injected
-environment, its complete canonical historical GOROOT MAY be invoked in place
-as the sole reviewed exception to copied tool closures. Before the Query gate,
-the harness SHALL inventory every directory and regular file in that GOROOT,
-reject symlinks, hard links, and special entries, content-seal the complete
-tree, and cross-bind the two executable digests to the frozen cache mirror.
-The outer gate sandbox SHALL deny writes to the entire GOROOT and deny
-network. After the gate, the complete inventory and content seal SHALL match
-exactly. The result SHALL identify this as an owner-fixed in-place exception
-and SHALL NOT claim a copied, read-only-source, or hermetic new-inode
-historical tool closure.
+Node 24.16/npm 11.13 and
+`/opt/homebrew/Cellar/go/1.25.4/libexec/bin/{go,gofmt}`, and clears injected
+environment, those complete canonical historical runtime roots MAY be invoked
+in place as the sole reviewed owner-fixed exception to copied tool closures.
+Before the Query gate, the harness SHALL inventory the complete historical npm
+package root and every directory and regular file in that GOROOT, reject hard
+links and special entries, content-seal both trees, and cross-bind the fixed
+executables plus the `go`/`gofmt` frozen cache mirror. The outer gate sandbox
+SHALL deny writes to both runtime roots and deny network. After the gate, both
+complete inventories and content seals SHALL match exactly. The result SHALL
+identify this as an owner-fixed in-place exception and SHALL NOT claim a
+copied, read-only-source, or hermetic new-inode historical tool closure.
 
 #### Scenario: The owner-fixed historical GOROOT remains sealed
 
-- **WHEN** the Query golden runs its hard-coded Go 1.25.4 code-generation,
-  formatting, and compile commands
-- **THEN** the complete pre/post GOROOT inventory and digest SHALL match, its
-  `go`/`gofmt` bytes SHALL match the frozen mirror, and the sandbox SHALL have
-  denied GOROOT writes and public network access
+- **WHEN** the Query golden runs its hard-coded Node/npm and Go 1.25.4
+  code-generation, formatting, and compile commands
+- **THEN** the complete pre/post historical npm and GOROOT inventories and
+  digests SHALL match, `go`/`gofmt` SHALL match the frozen mirror, and the
+  sandbox SHALL have denied runtime-root writes and public network access
 
 #### Scenario: The historical tool exception is widened or misreported
 
-- **WHEN** another tool path uses the exception, the GOROOT contains a link or
-  special entry, any GOROOT byte/mode/path changes, the mirror digest differs,
-  or evidence describes the in-place tree as a copied hermetic closure
+- **WHEN** another tool path uses the owner-fixed exception, an admitted
+  runtime contains an escaping link, hard link, or special entry, any runtime
+  byte/mode/path changes, the mirror digest differs, or evidence describes an
+  in-place tree as a copied hermetic closure
 - **THEN** the owner gate and final verdict SHALL fail
 
 Before running a source gate, the harness SHALL create a no-hardlink local

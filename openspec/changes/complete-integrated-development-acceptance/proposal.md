@@ -133,12 +133,17 @@ None.
   matrix starts, plus independently attested exact tool paths and runtime
   closures. Cache acquisition is outside the harness and is not acceptance
   evidence.
-- One reviewed exception for the authoritative Query golden's hard-coded
-  `/opt/homebrew/Cellar/go/1.25.4/libexec` runtime closure. The harness SHALL
-  inventory and seal the complete GOROOT, cross-bind its `go`/`gofmt` bytes to
-  the frozen cache mirror, deny writes to that tree while the gate runs, and
-  re-seal it afterward. It SHALL NOT claim that this owner-fixed tool closure
-  was copied to a new inode or substitute another path.
+- Exact non-system tool distributions SHALL have complete canonical runtime
+  roots, inventories, content seals, and write-denial boundaries. This
+  includes both installed npm package roots and the admitted CPython
+  distribution, not only their launcher files.
+- One reviewed owner-fixed exception covers the authoritative Query golden's
+  hard-coded Node 24.16/npm 11.13 paths and
+  `/opt/homebrew/Cellar/go/1.25.4/libexec` GOROOT. The harness SHALL inventory
+  and seal those complete runtime roots, cross-bind `go`/`gofmt` to the frozen
+  cache mirror, deny writes while the gate runs, and re-seal afterward. It
+  SHALL NOT claim that these owner-fixed closures were copied to new inodes or
+  substitute other paths.
 
 ### Produces
 

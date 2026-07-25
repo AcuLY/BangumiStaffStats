@@ -98,12 +98,14 @@ commit, push, sync, archive, or update task markers.
   artifact validators, and compatibility coordinator smoke to run only inside
   the isolated clone; use the historical Query-golden tools separately from
   the current product tools; seed only exact package/module/browser bytes from
-  sealed caller caches with new inodes; fully inventory/seal the Query
-  golden's owner-fixed historical GOROOT in place, cross-bind `go`/`gofmt` to
-  the frozen mirror, deny writes to that GOROOT, and re-seal it after the gate;
-  enforce offline package-manager modes plus host/Docker network denial;
+  sealed caller caches with new inodes; fully inventory/seal all non-system
+  runtime roots, including current/historical npm and CPython; fully
+  inventory/seal the Query golden's owner-fixed historical npm root and GOROOT
+  in place, cross-bind fixed executables and the `go`/`gofmt` frozen mirror,
+  deny writes to every admitted runtime root, and re-seal after each owning
+  gate; enforce offline package-manager modes plus host/Docker network denial;
   record exact exit/duration/evidence digests without copying business
-  assertions or misreporting the historical GOROOT as a copied closure.
+  assertions or misreporting an in-place closure as copied.
 
 ## 4. Full Archive and packaged runtime
 
