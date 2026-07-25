@@ -29,6 +29,22 @@ fixed-point arithmetic for aggregation, truncation, half-up rounding, equality,
 and ordering. It SHALL normalize negative zero to zero and SHALL NOT read
 deprecated `globalScorePrior` or `votePriorCount`.
 
+Accepted Query facts currently expose source scores as Go `float64`. The
+statistics boundary SHALL convert each finite value exactly once through Go's
+shortest round-trip base-10 representation
+`strconv.FormatFloat(value, 'f', -1, 64)` and parse that representation into
+the exact arithmetic type. It SHALL NOT treat the IEEE-754 significand as the
+intended decimal, multiply a binary float by 100 before normalization, or use
+binary floating-point for a later aggregate.
+
+Exact rational evidence SHALL remain valid for every accepted score and
+bounded observation count even when its reduced numerator or denominator
+exceeds `int64` or the interoperable JSON safe-integer range. The exported
+rational representation and its JSON form SHALL therefore use canonical
+base-10 numerator and positive-denominator strings, reduced to lowest terms
+with zero represented as `0/1`; consumers SHALL NOT receive precision-losing
+JSON numbers.
+
 Average, valid-unit count, overall, explicit 1–10 `ratingCount`, rating
 distribution, and quarterly timeline SHALL reproduce
 `contracts-statistics-goldens`. No consumer SHALL need to correct `8.20`,
@@ -45,6 +61,10 @@ distribution, and quarterly timeline SHALL reproduce
 #### Scenario: Exact decimal sentinels are evaluated
 - **WHEN** mathematical `8.20`, `[6,7,7]`, and exact overall half-rounding boundaries are evaluated repeatedly
 - **THEN** average, timeline, overall, equality, and sort values SHALL match the exact corpus on every run
+
+#### Scenario: A valid score produces a large reduced rational
+- **WHEN** shortest-decimal score evidence reduces to a numerator or denominator beyond an interoperable JSON integer range
+- **THEN** evaluation and comparison SHALL remain exact and its canonical string rational SHALL round-trip without overflow or precision loss
 
 ### Requirement: Series aggregation SHALL use stable connected components and actual participation
 

@@ -101,10 +101,14 @@ planned.
 
 Average is `floor(sum/count, 2 decimals)`. Overall is computed from that
 normalized average as `(n*average+25)/(n+5)` and rounded positive-half-up to two
-decimals. Preference retains an exact rational mean and weight; formatting to
-two decimals belongs to a later transport/presentation projection. All
-unrated/invalid boundaries happen before aggregation, and zero evidence remains
-distinct from exact neutral evidence.
+decimals. Preference retains an arbitrary-precision exact rational mean and
+weight. Exported rational members and JSON use canonical reduced base-10
+strings so valid shortest-decimal inputs cannot overflow `int64` or lose
+precision in JavaScript; formatting to two decimals belongs to a later
+transport/presentation projection. The bounded golden corpus may use JSON
+safe-integer members as compact expectations without imposing that bound on
+production values. All unrated/invalid boundaries happen before aggregation,
+and zero evidence remains distinct from exact neutral evidence.
 
 Alternatives rejected:
 

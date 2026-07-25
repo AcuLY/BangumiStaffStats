@@ -79,6 +79,13 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
 "$go_command" test ./internal/httpapi -run '^$' -fuzz '^FuzzDecodeStrictJSON$' -fuzztime=3s
 "$go_command" test ./internal/architecture
 "$go_command" test ./internal/query/...
+"$go_command" test ./internal/statistics/...
+"$go_command" test ./internal/statistics/... -count=20
+"$go_command" test ./internal/statistics -run '^$' -fuzz '^FuzzDecimalBoundary$' -fuzztime=3s
+"$go_command" test ./internal/statistics -run '^$' -fuzz '^FuzzSortPersonAverage$' -fuzztime=3s
+"$go_command" test ./internal/statistics -run '^$' \
+  -bench '^(BenchmarkEvaluateRatings|BenchmarkBuildSeriesIndex|BenchmarkSortPeople)$' \
+  -benchtime=1x -benchmem
 "$go_command" test ./internal/httpapi/wire
 "$go_command" test ./internal/archive/contracttest
 "$go_command" test ./internal/archive ./cmd/archive-smoke
@@ -188,6 +195,29 @@ internal/query/normalize.go
 internal/query/normalize_test.go
 internal/query/unicode_assigned_15_1.go
 internal/query/unicode_assigned_15_1_test.go
+internal/statistics/archive_integration_test.go
+internal/statistics/benchmark_test.go
+internal/statistics/decimal.go
+internal/statistics/decimal_test.go
+internal/statistics/doc.go
+internal/statistics/errors.go
+internal/statistics/evaluator.go
+internal/statistics/evaluator_test.go
+internal/statistics/golden_test.go
+internal/statistics/preference.go
+internal/statistics/preference_test.go
+internal/statistics/property_test.go
+internal/statistics/rating.go
+internal/statistics/rating_test.go
+internal/statistics/series.go
+internal/statistics/series_test.go
+internal/statistics/sort.go
+internal/statistics/sort_test.go
+internal/statistics/source.go
+internal/statistics/source_test.go
+internal/statistics/summary.go
+internal/statistics/summary_test.go
+internal/statistics/types.go
 scripts/check.sh
 scripts/generate-catalog-wire.sh
 scripts/generate-query-wire.sh

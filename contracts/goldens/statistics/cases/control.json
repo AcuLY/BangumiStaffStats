@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "caseKind": "contract-control",
+  "cases": [
+    {
+      "id": "statistics-corpus-closed-exact-control",
+      "behaviorClass": "NEW_CAPABILITY",
+      "authorityRefs": ["query-result-handoff", "query-score-types", "statistics-golden-spec"],
+      "coverage": ["closed-inventory", "hash-index", "reduced-rationals", "language-neutral-json"],
+      "input": {
+        "rationalExamples": [
+          {"numerator": 0, "denominator": 1},
+          {"numerator": -2, "denominator": 3},
+          {"numerator": 5, "denominator": 7}
+        ]
+      },
+      "expected": {
+        "bulkFixtureCopied": false,
+        "personalFixtureCopied": false,
+        "runtimeDependencies": []
+      }
+    }
+  ]
+}

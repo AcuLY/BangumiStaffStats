@@ -49,6 +49,7 @@ func TestProductionPackageDependencies(t *testing.T) {
 		modulePath + "/internal/imageproxy":           {},
 		modulePath + "/internal/observability":        {},
 		modulePath + "/internal/query":                {modulePath + "/internal/archive"},
+		modulePath + "/internal/statistics":           {modulePath + "/internal/archive", modulePath + "/internal/query"},
 		modulePath + "/internal/archive":              {},
 		modulePath + "/internal/archive/contracttest": {},
 		modulePath + "/internal/cache":                {},

@@ -1,0 +1,245 @@
+{
+  "schemaVersion": 1,
+  "caseKind": "rating",
+  "sourceNumberNormalization": "finite-json-number-to-shortest-decimal-before-exact-arithmetic",
+  "cases": [
+    {
+      "id": "rating-empty-input",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-rating-002"],
+      "coverage": ["empty-input", "ten-distribution-buckets"],
+      "input": {"mode": "subject", "units": []},
+      "expected": {
+        "unitCount": 0,
+        "ratedUnitCount": 0,
+        "averageHundredths": null,
+        "overallHundredths": null,
+        "distribution": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "timeline": []
+      }
+    },
+    {
+      "id": "rating-all-unrated",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-rating-002"],
+      "coverage": ["zero-unrated", "null-unrated", "missing-unrated", "all-unrated"],
+      "input": {
+        "mode": "subject",
+        "units": [
+          {"unitId": 101, "rating": 0},
+          {"unitId": 102, "rating": null},
+          {"unitId": 103}
+        ]
+      },
+      "expected": {
+        "unitCount": 3,
+        "ratedUnitCount": 0,
+        "averageHundredths": null,
+        "overallHundredths": null,
+        "distribution": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "timeline": []
+      }
+    },
+    {
+      "id": "rating-invalid-sentinels",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-rating-002", "dr-backend-001"],
+      "coverage": ["below-range-error", "above-range-error", "non-finite-error", "no-partial-result"],
+      "input": {
+        "variants": [
+          {"variantId": "below", "rating": 0.99},
+          {"variantId": "above", "rating": 10.01},
+          {"variantId": "negative", "rating": -1},
+          {"variantId": "nan", "rating": {"sentinel": "NaN"}},
+          {"variantId": "positive-infinity", "rating": {"sentinel": "PositiveInfinity"}},
+          {"variantId": "negative-infinity", "rating": {"sentinel": "NegativeInfinity"}}
+        ]
+      },
+      "expected": {"errorCode": "STATISTICS_SCORE_INVALID", "publishPartial": false}
+    },
+    {
+      "id": "rating-mixed-rated-unrated",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-rating-002", "dr-backend-001"],
+      "coverage": ["mixed-rated-unrated", "valid-unit-overall-weight"],
+      "input": {
+        "mode": "subject",
+        "units": [
+          {"unitId": 191, "rating": 8},
+          {"unitId": 192, "rating": 0},
+          {"unitId": 193, "rating": null},
+          {"unitId": 194}
+        ]
+      },
+      "expected": {
+        "unitCount": 4,
+        "ratedUnitCount": 1,
+        "averageHundredths": 800,
+        "overallHundredths": 550,
+        "distribution": [0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+        "timeline": []
+      }
+    },
+    {
+      "id": "rating-exact-8-20",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-rating-001", "dr-timeline-001"],
+      "coverage": ["exact-8.20", "one-rated", "average-floor", "subject-timeline"],
+      "input": {
+        "mode": "subject",
+        "units": [{"unitId": 201, "rating": 8.20, "date": "2024-01-15"}],
+        "ratingCountBuckets": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      },
+      "expected": {
+        "unitCount": 1,
+        "ratedUnitCount": 1,
+        "averageHundredths": 820,
+        "overallHundredths": 553,
+        "ratingCount": 0,
+        "distribution": [0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+        "timeline": [{"year": 2024, "quarter": 1, "ratedUnitCount": 1, "averageHundredths": 820}]
+      }
+    },
+    {
+      "id": "rating-average-floor",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-rating-001"],
+      "coverage": ["average-floor", "overall-positive-half-up"],
+      "input": {
+        "mode": "subject",
+        "units": [
+          {"unitId": 211, "rating": 1},
+          {"unitId": 212, "rating": 2},
+          {"unitId": 213, "rating": 2}
+        ]
+      },
+      "expected": {
+        "unitCount": 3,
+        "ratedUnitCount": 3,
+        "averageHundredths": 166,
+        "overallHundredths": 375,
+        "distribution": [1, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+        "timeline": []
+      }
+    },
+    {
+      "id": "rating-quarter-6-7-7",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-rating-001", "dr-timeline-001"],
+      "coverage": ["exact-6.66", "quarterly-precision", "month-and-day-precision"],
+      "input": {
+        "mode": "subject",
+        "units": [
+          {"unitId": 221, "rating": 6, "date": "2024-01"},
+          {"unitId": 222, "rating": 7, "date": "2024-02-29"},
+          {"unitId": 223, "rating": 7, "date": "2024-03-31"}
+        ]
+      },
+      "expected": {
+        "unitCount": 3,
+        "ratedUnitCount": 3,
+        "averageHundredths": 666,
+        "overallHundredths": 562,
+        "distribution": [0, 0, 0, 0, 0, 1, 2, 0, 0, 0],
+        "timeline": [{"year": 2024, "quarter": 1, "ratedUnitCount": 3, "averageHundredths": 666}]
+      }
+    },
+    {
+      "id": "rating-overall-half-up-boundary",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-rating-001", "dr-backend-001"],
+      "coverage": ["overall-exact-half-up", "five-neutral-units"],
+      "input": {"mode": "subject", "units": [{"unitId": 231, "rating": 1.01}]},
+      "expected": {
+        "unitCount": 1,
+        "ratedUnitCount": 1,
+        "averageHundredths": 101,
+        "overallHundredths": 434,
+        "neutralPrior": {"unitCount": 5, "scoreHundredths": 500},
+        "distribution": [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "timeline": []
+      }
+    },
+    {
+      "id": "rating-five-neutral-prior",
+      "behaviorClass": "PRESERVE_ORACLE",
+      "authorityRefs": ["oracle-644b7748"],
+      "coverage": ["five-neutral-units", "valid-unit-overall-weight"],
+      "input": {"mode": "subject", "units": [{"unitId": 241, "rating": 10}]},
+      "expected": {
+        "unitCount": 1,
+        "ratedUnitCount": 1,
+        "averageHundredths": 1000,
+        "overallHundredths": 583,
+        "neutralPrior": {"unitCount": 5, "scoreHundredths": 500},
+        "distribution": [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        "timeline": []
+      }
+    },
+    {
+      "id": "rating-distribution-boundaries-and-count",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-distribution-001", "dr-rating-count-001"],
+      "coverage": ["distribution-.5-up", "edge-buckets", "explicit-rating-count-1-through-10"],
+      "input": {
+        "mode": "subject",
+        "units": [
+          {"unitId": 251, "rating": 1.49},
+          {"unitId": 252, "rating": 1.50},
+          {"unitId": 253, "rating": 2.49},
+          {"unitId": 254, "rating": 2.50},
+          {"unitId": 255, "rating": 9.49},
+          {"unitId": 256, "rating": 9.50},
+          {"unitId": 257, "rating": 10}
+        ],
+        "ratingCountBuckets": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      },
+      "expected": {
+        "unitCount": 7,
+        "ratedUnitCount": 7,
+        "averageHundredths": 528,
+        "overallHundredths": 516,
+        "ratingCount": 55,
+        "distribution": [1, 2, 1, 0, 0, 0, 0, 0, 1, 2],
+        "timeline": []
+      }
+    },
+    {
+      "id": "rating-subject-timeline-precision",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-timeline-001"],
+      "coverage": ["year-only-excluded", "missing-date-excluded", "subject-only-timeline"],
+      "input": {
+        "mode": "subject",
+        "units": [
+          {"unitId": 261, "rating": 6, "date": "2024-04"},
+          {"unitId": 262, "rating": 7, "date": "2024-05-20"},
+          {"unitId": 263, "rating": 7, "date": "2024-06-30"},
+          {"unitId": 264, "rating": 9, "date": "2024"},
+          {"unitId": 265, "rating": 8}
+        ]
+      },
+      "expected": {
+        "unitCount": 5,
+        "ratedUnitCount": 5,
+        "averageHundredths": 740,
+        "overallHundredths": 620,
+        "distribution": [0, 0, 0, 0, 0, 1, 2, 1, 1, 0],
+        "timeline": [{"year": 2024, "quarter": 2, "ratedUnitCount": 3, "averageHundredths": 666}]
+      }
+    },
+    {
+      "id": "rating-count-invalid",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-rating-count-001"],
+      "coverage": ["rating-count-nonnegative-integers", "no-partial-result"],
+      "input": {
+        "variants": [
+          {"variantId": "negative", "ratingCountBuckets": [0, 0, 0, 0, -1, 0, 0, 0, 0, 0]},
+          {"variantId": "fractional", "ratingCountBuckets": [0, 0, 0, 0, 1.5, 0, 0, 0, 0, 0]}
+        ]
+      },
+      "expected": {"errorCode": "STATISTICS_RATING_COUNT_INVALID", "publishPartial": false}
+    }
+  ]
+}

@@ -61,11 +61,29 @@ sort, paginate, cache, fetch a collection, or expose an HTTP endpoint.
 `mergeSeries` remains part of Effective Query and its digest for the later
 statistics layer, but does not change these raw Subject sets.
 
+`internal/statistics` is the production post-query domain authority. It binds
+one immutable series index to the Archive `dataVersion`, derives anime
+connected components and versioned representative order, materializes subject
+or series units from the accepted raw Subject sets, and computes exact global
+and personal rating summaries, preference evidence, distributions, subject
+timelines, de-duplicated summaries, and named strict total-order indexes.
+Source `float64` scores cross the boundary once through Go's shortest
+round-trip decimal representation; all later aggregation, floor, half-up
+rounding, equality, and preference work is exact standard-library rational
+arithmetic. Reduced rational evidence uses canonical base-10 numerator and
+positive-denominator strings in memory and JSON, so it does not inherit
+`int64` or JavaScript safe-integer limits. Global evaluation never reads
+personal facts. The package exposes
+no HTTP shape, search, pagination, cache, network fetch, write-capable SQL, or
+global mutable publication.
+
 ```sh
 cd backend
 ./scripts/generate-query-wire.sh --check
 ./scripts/generate-catalog-wire.sh --check
 go test ./internal/query/...
+go test ./internal/statistics/...
+go test ./internal/statistics/... -count=20
 go test ./internal/catalog ./internal/httpapi/wire
 go test ./internal/httpapi -run '^$' \
   -fuzz '^FuzzDecodeStrictJSON$' -fuzztime=3s

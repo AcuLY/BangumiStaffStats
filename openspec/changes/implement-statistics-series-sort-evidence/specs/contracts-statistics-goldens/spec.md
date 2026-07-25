@@ -26,6 +26,9 @@ outputs; a versioned top-level index SHALL enumerate every file, SHA-256, case
 identifier, behavior classification, and authority reference. Decimal
 expectations SHALL use integers and reduced rational numerator/denominator
 pairs where binary floating-point JSON numbers cannot express exact evidence.
+This bounded corpus SHALL keep rational members within the interoperable JSON
+safe-integer range; it does not limit the magnitude of exact rational evidence
+that the production Backend may derive from otherwise valid score inputs.
 The corpus SHALL contain no production UID, credential, bulk oracle fixture,
 runtime import, generated OpenSpec root, or host-specific path.
 
@@ -150,7 +153,7 @@ shuffled inputs, and pagination-boundary-sized sets for every approved order:
   count descending, average descending, Person ID ascending;
 - work/series selected metric: valid primary first, selected metric primary,
   global score descending, Subject/Series ID ascending;
-- person combinations: common count descending, current-mode average
+- person combinations: common count primary, current-mode average
   descending with missing last, sorted Person-ID tuple ascending.
 
 Only the selected primary metric SHALL change direction. Missing primary values
