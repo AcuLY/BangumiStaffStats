@@ -97,8 +97,8 @@
     {
       "id": "statistics-golden-spec",
       "kind": "APPROVED_SPEC",
-      "reference": "openspec/changes/implement-statistics-series-sort-evidence/specs/contracts-statistics-goldens/spec.md",
-      "sha256": "08a00ea1e4fccf2e034d4997b6adaf453158cf89d9c08d1e0526632ad95039a9"
+      "reference": "openspec/specs/contracts-statistics-goldens/spec.md",
+      "sha256": "3d4a98e0295414403f3373a1b63fc1c4bf4187886c26882ddd25ecdf312fb9ce"
     }
   ],
   "files": [
