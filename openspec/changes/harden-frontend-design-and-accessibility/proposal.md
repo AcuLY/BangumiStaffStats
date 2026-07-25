@@ -38,7 +38,7 @@ None.
 
 | Boundary | Declaration |
 |---|---|
-| Status | Investigated: complete. Specified/main-agent reviewed: complete. Implemented, verified, committed, pushed, released, and deployed: no. |
+| Status | Investigated, specified, implemented, and verified: complete. Committed, pushed, released, and deployed: no. |
 | Owner | One Frontend implementation agent owns the bounded source/test corrections, browser matrix, and final sidecar regeneration after admission. A separate read-only Impeccable finish reviewer checks rendered evidence; the main agent owns decisions, spec edits, lifecycle coordination, and final acceptance. |
 | Writable paths | Evidence-backed hunks under `frontend/src/**`; corresponding tests under `frontend/tests/**`; only `frontend/scripts/check-architecture.mjs`, `frontend/scripts/check-production-artifact.mjs`, `frontend/index.html`, and `frontend/vite.config.ts` when a failing acceptance gate proves they are required; exact file `.impeccable/design.json` after all code/browser gates pass; and this change's task markers. |
 | Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, `.impeccable/surfaces/route.md`, every other `.impeccable/**` path, `.agents/skills/impeccable/**`, oracle commit `644b7748674e553f863d0ffd61d029f86fdc0717`, `tmp-formal-development/**`, `contracts/**`, `backend/**`, `updater/**`, generated DTOs and generators, `frontend/package.json`, `frontend/package-lock.json`, other OpenSpec changes/specs, external repositories, refs/remotes, and operations or production state. |
@@ -54,6 +54,7 @@ None.
 | Stop/rollback conditions | Stop before apply when either direct dependency is not archived, another frontend owner overlaps, the oracle conflicts with higher authority, a difference lacks rendered evidence, a fix needs an undeclared path/dependency/public behavior, or sidecar regeneration would precede final acceptance. Stop and amend the spec rather than redesigning, changing protected authority, coupling to private library DOM, or mutating external state. Roll back only owned hunks/new tests and restore the exact sidecar preimage if its validation fails. |
 | External state | This change touches no other repository or external state. Pull request, push, tag, release, deployment, host mutation, and production activation require separate explicit authorization. |
 
-Apply is approved as specified but remains blocked until every direct
-dependency is verified, committed, and archived and all overlapping frontend
-owners have exited.
+Apply is approved and admitted at
+`153dff7fb4c134f0871d7f4ac15950b7fecffd71`: every direct dependency is
+verified, committed, and archived, and all overlapping frontend owners have
+exited.
