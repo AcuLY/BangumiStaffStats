@@ -115,7 +115,7 @@ None. This change does not create, move, push, or tag a ref.
 ### Consumes
 
 - The clean committed source tree and pinned Go, Python/uv, Node/npm, and Vite
-  inputs established by the nineteen direct dependencies below.
+  inputs established by the twenty direct dependencies below.
 - The accepted Archive manifest/current-pointer schemas and valid minimal local
   Archive fixture, the OpenAPI document, package/module lock data, and existing
   component test/build commands.
@@ -153,9 +153,10 @@ The exact direct dependencies are:
 14. `expose-partners`
 15. `expose-co-star`
 16. `implement-frontend-query-shell`
-17. `implement-frontend-ranking-vertical`
-18. `implement-frontend-co-star-vertical`
-19. `harden-frontend-design-and-accessibility`
+17. `implement-frontend-ranking-results`
+18. `implement-frontend-person-inspector`
+19. `implement-frontend-co-star-vertical`
+20. `harden-frontend-design-and-accessibility`
 
 These are the exact DAG edges and SHALL NOT be replaced by a wave or aggregate
 alias. Apply is additionally blocked until every active change at admission is

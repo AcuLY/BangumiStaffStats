@@ -10,7 +10,7 @@
 | Mutable refs | None. |
 | Consumes | Approved strict-valid four-artifact change; completed dependency trees; clean accepted candidate snapshot; pinned component toolchains/locks; accepted Archive/OpenAPI contracts and valid-minimal fixture; existing component quality gates. |
 | Produces | Three immutable component artifact sets with checksums/SBOM/statements, one compatibility manifest, artifact-only local smoke, and test/build-only CI. |
-| Dependencies | Exact direct IDs: `produce-immutable-archive`, `derive-position-catalog-and-cast`, `implement-backend-archive-consumer`, `implement-backend-http-and-observability`, `implement-image-proxy`, `implement-query-result-set`, `implement-statistics-series-sort-evidence`, `expose-dynamic-catalog`, `admit-public-collection-client`, `implement-bounded-query-cache`, `expose-rankings`, `expose-candidates`, `expose-person-detail`, `expose-partners`, `expose-co-star`, `implement-frontend-query-shell`, `implement-frontend-ranking-vertical`, `implement-frontend-co-star-vertical`, `harden-frontend-design-and-accessibility`. All active changes at admission must also be completed/archived; when specified these are `complete-backend-development-observability`, `implement-frontend-co-star-vertical`, `restore-frontend-oracle-fidelity`, and `admit-public-collection-client`. |
+| Dependencies | Exact direct IDs: `produce-immutable-archive`, `derive-position-catalog-and-cast`, `implement-backend-archive-consumer`, `implement-backend-http-and-observability`, `implement-image-proxy`, `implement-query-result-set`, `implement-statistics-series-sort-evidence`, `expose-dynamic-catalog`, `admit-public-collection-client`, `implement-bounded-query-cache`, `expose-rankings`, `expose-candidates`, `expose-person-detail`, `expose-partners`, `expose-co-star`, `implement-frontend-query-shell`, `implement-frontend-ranking-results`, `implement-frontend-person-inspector`, `implement-frontend-co-star-vertical`, `harden-frontend-design-and-accessibility`. All active changes at admission must also be completed/archived; when specified these are `complete-backend-development-observability`, `implement-frontend-co-star-vertical`, `restore-frontend-oracle-fidelity`, and `admit-public-collection-client`. |
 | Deliverables | Two digest-pinned Dockerfiles; owner-local deterministic build/checksum/SBOM/statement/smoke helpers and tests; exact frontend build-config changes; Contracts schemas/fixtures/validators/assembler/coordinator; `.github/workflows/ci.yml`; ignored local outputs only. |
 | Acceptance | Existing full component gates; two clean identical builds; checksum/SBOM/manifest positive and negative gates; artifact-only updater/API/frontend smoke; proportional packaged-frontend browser smoke; CI static policy audit; strict OpenSpec; exact-path/residue/diff checks. |
 | Non-goals | Product/source behavior changes, dependency upgrades, signing/publication, Compose, release/deploy, activation, production configuration, or production claims. |
@@ -19,7 +19,7 @@
 
 ## 1. Main-agent admission and path leases
 
-- [ ] 1.1 Record the current branch and HEAD; prove each of the exact nineteen
+- [ ] 1.1 Record the current branch and HEAD; prove each of the exact twenty
   direct dependency changes has completed its exit gate and every active change
   is completed/archived. Stop without apply on any missing dependency, active
   implementation, unapproved external-client admission, or authority conflict.
