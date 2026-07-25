@@ -146,7 +146,10 @@ func serveRuntime(
 	dependencies runDependencies,
 	probe httpapi.ReadinessProbe,
 ) error {
-	handler := dependencies.runtime.Handler(probe)
+	handler := dependencies.runtime.HandlerWithCatalog(
+		probe,
+		currentCatalogStore(dependencies.archive),
+	)
 	server := dependencies.server(handler)
 	if server == nil {
 		dependencies.runtime.SetLive(false)
@@ -170,6 +173,15 @@ func serveRuntime(
 		closeErr = fmt.Errorf("close archive: %w", closeErr)
 	}
 	return errors.Join(serveErr, closeErr)
+}
+
+func currentCatalogStore(state archiveRuntime) httpapi.CatalogStoreProvider {
+	return func() (*archive.Store, bool) {
+		if state == nil {
+			return nil, false
+		}
+		return state.Current()
+	}
 }
 
 func readinessProbe(state archiveRuntime) httpapi.ReadinessProbe {

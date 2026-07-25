@@ -35,6 +35,8 @@ type routeHandler struct {
 	metrics   *observability.Registry
 	images    imageFetcher
 	events    *observability.EventSink
+	catalogs  CatalogStoreProvider
+	project   catalogProjector
 }
 
 // RuntimeObservability owns the HTTP registry and typed event sink while
@@ -59,16 +61,30 @@ func NewRuntimeObservability(eventWriter io.Writer) (*RuntimeObservability, erro
 	}, nil
 }
 
-// Handler returns the exact three-route runtime handler.
+// Handler returns the runtime handler with Catalog registered but not ready.
 func (r *RuntimeObservability) Handler(readiness ReadinessProbe) http.Handler {
+	return r.HandlerWithCatalog(readiness, nil)
+}
+
+// HandlerWithCatalog returns the runtime with the exact read-only catalog
+// Store provider. A nil provider keeps the route registered but not ready.
+func (r *RuntimeObservability) HandlerWithCatalog(
+	readiness ReadinessProbe,
+	catalogs CatalogStoreProvider,
+) http.Handler {
 	if r == nil {
-		return NewHandler(readiness, nil)
+		return newHandler(readiness, nil, middlewareOptions{
+			requestTimeout: DefaultRequestTimeout,
+			images:         imageproxy.NewClient(),
+			catalogs:       catalogs,
+		})
 	}
 	return newHandler(readiness, r.metrics, middlewareOptions{
 		requestTimeout: DefaultRequestTimeout,
 		metrics:        r.metrics,
 		images:         imageproxy.NewClient(),
 		events:         r.events,
+		catalogs:       catalogs,
 	})
 }
 
@@ -109,8 +125,8 @@ func (r *RuntimeObservability) RenderPrometheus() ([]byte, error) {
 	return r.metrics.RenderPrometheus()
 }
 
-// NewHandler returns the complete infrastructure-only handler. It registers
-// exactly the liveness, readiness, and metrics routes.
+// NewHandler returns the complete handler with Catalog registered but not
+// ready and the infrastructure/image routes unchanged.
 func NewHandler(readiness ReadinessProbe, metrics *observability.Registry) http.Handler {
 	return newHandler(readiness, metrics, middlewareOptions{
 		requestTimeout: DefaultRequestTimeout,
@@ -129,6 +145,8 @@ func newHandler(readiness ReadinessProbe, metrics *observability.Registry, optio
 		metrics:   metrics,
 		images:    options.images,
 		events:    options.events,
+		catalogs:  options.catalogs,
+		project:   options.catalogProjector,
 	}, options)
 }
 
@@ -153,7 +171,13 @@ func (h *routeHandler) ServeHTTP(writer http.ResponseWriter, request *http.Reque
 			return
 		}
 		h.writeMetrics(writer, requestID)
+	case routeCatalog:
+		h.writeCatalog(writer, request, requestID)
 	default:
+		if strings.HasPrefix(request.URL.Path, routeCatalog+string('/')) {
+			writeError(writer, requestID, catalogNotFoundResponse)
+			return
+		}
 		if imageRouteCandidate(request) {
 			if request.Method != http.MethodGet {
 				writeWrongMethod(writer, requestID)

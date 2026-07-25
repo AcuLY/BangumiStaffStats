@@ -15,23 +15,23 @@ const expectedSchemas = [
 ];
 
 const expectedPublicComponents = [
+  "SharedQueryV1",
+  "EffectiveQueryV1",
+  "QueryDigestProjectionV1",
+  "CatalogContextV1",
+  "RankingsViewV1",
   "CandidatesInputV1",
   "CandidatesViewV1",
-  "CatalogContextV1",
-  "CoStarInputV1",
-  "CoStarShareWorkspaceV1",
-  "CoStarViewV1",
-  "EffectiveQueryV1",
-  "ErrorEnvelopeV1",
-  "PartnersInputV1",
-  "PartnersViewV1",
   "PersonDetailInputV1",
   "PersonDetailViewV1",
-  "QueryDigestProjectionV1",
-  "RankingShareWorkspaceV1",
-  "RankingsViewV1",
+  "PartnersInputV1",
+  "PartnersViewV1",
+  "CoStarInputV1",
+  "CoStarViewV1",
+  "ErrorEnvelopeV1",
   "SharePayloadV1",
-  "SharedQueryV1",
+  "RankingShareWorkspaceV1",
+  "CoStarShareWorkspaceV1",
 ];
 
 const forbiddenBundleKeywords = [
@@ -99,15 +99,30 @@ function prepareProjection(root) {
     .sort();
   assert.deepEqual(schemaNames, expectedSchemas, "query schema inventory");
 
-  const openAPIBytes = readRegularFile(authorityOpenAPI);
-  const openAPI = JSON.parse(openAPIBytes.toString("utf8"));
-  assert.equal(openAPI.openapi, "3.1.0");
-  assert.deepEqual(openAPI.paths, {});
-  assert.deepEqual(
-    Object.keys(openAPI.components?.schemas ?? {}).sort(),
-    expectedPublicComponents,
-    "OpenAPI public component inventory",
+  const authority = JSON.parse(
+    readRegularFile(authorityOpenAPI).toString("utf8"),
   );
+  assert.equal(authority.openapi, "3.1.0");
+  assert.deepEqual(Object.keys(authority.paths ?? {}).sort(), ["/catalog"]);
+  assert(authority.paths["/catalog"]?.get, "catalog operation is missing");
+  assert.deepEqual(
+    expectedPublicComponents.filter(
+      (name) => !Object.hasOwn(authority.components?.schemas ?? {}, name),
+    ),
+    [],
+    "OpenAPI query component inventory",
+  );
+  const openAPI = structuredClone(authority);
+  openAPI.info.description =
+    "Wave 1 shared query components. Business endpoint paths and result DTOs are intentionally deferred.";
+  openAPI.paths = {};
+  openAPI.components.schemas = Object.fromEntries(
+    expectedPublicComponents.map((name) => [
+      name,
+      authority.components.schemas[name],
+    ]),
+  );
+  const openAPIBytes = Buffer.from(`${JSON.stringify(openAPI, null, 2)}\n`);
   fs.writeFileSync(path.join(sourceOpenAPIRoot, "openapi.yaml"), openAPIBytes);
 
   const documents = new Map([

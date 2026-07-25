@@ -54,6 +54,7 @@ fi
 cd "$backend_root"
 
 "$script_root/generate-query-wire.sh" --check
+"$script_root/generate-catalog-wire.sh" --check
 
 unformatted="$("$pinned_gofmt" -l cmd internal)"
 if [[ -n "$unformatted" ]]; then
@@ -77,16 +78,25 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
 "$go_command" test ./internal/httpapi ./internal/observability ./internal/app
 "$go_command" test ./internal/httpapi -run '^$' -fuzz '^FuzzDecodeStrictJSON$' -fuzztime=3s
 "$go_command" test ./internal/architecture
+"$go_command" test ./internal/query/...
 "$go_command" test ./internal/httpapi/wire
 "$go_command" test ./internal/archive/contracttest
 "$go_command" test ./internal/archive ./cmd/archive-smoke
 "$go_command" test ./...
 "$go_command" test -race ./...
 "$go_command" vet ./...
+"$go_command" build ./...
 CGO_ENABLED=0 "$go_command" test ./...
 CGO_ENABLED=0 "$go_command" build -o "$temporary_root/bin/api" ./cmd/api
 CGO_ENABLED=0 "$go_command" build -o "$temporary_root/bin/archive-smoke" ./cmd/archive-smoke
+CGO_ENABLED=0 "$go_command" test -c -o "$temporary_root/bin/query.test" ./internal/query
 "$go_command" mod verify
+
+query_test_size="$(wc -c < "$temporary_root/bin/query.test" | tr -d '[:space:]')"
+if [[ "$query_test_size" -gt 16777216 ]]; then
+  echo "query test binary exceeds reviewed 16 MiB budget: $query_test_size bytes" >&2
+  exit 1
+fi
 
 sqlite_version="$("$go_command" list -m -f '{{.Version}}' modernc.org/sqlite)"
 libc_version="$("$go_command" list -m -f '{{.Version}}' modernc.org/libc)"
@@ -102,6 +112,24 @@ for license in \
     exit 1
   fi
 done
+
+jcs_version="$("$go_command" list -m -f '{{.Version}}' github.com/gowebpki/jcs)"
+text_version="$("$go_command" list -m -f '{{.Version}}' golang.org/x/text)"
+if [[ "$jcs_version" != "v1.0.1" || "$text_version" != "v0.40.0" ]]; then
+  echo "unexpected query dependency versions: jcs=$jcs_version text=$text_version" >&2
+  exit 1
+fi
+jcs_license="$GOMODCACHE/github.com/gowebpki/jcs@v1.0.1/LICENSE"
+text_license="$GOMODCACHE/golang.org/x/text@v0.40.0/LICENSE"
+if [[ ! -f "$jcs_license" ]] || ! grep -q 'Apache License' "$jcs_license"; then
+  echo "expected Apache-2.0 JCS license is absent" >&2
+  exit 1
+fi
+if [[ ! -f "$text_license" ]] ||
+  ! grep -q 'Redistribution and use in source and binary forms' "$text_license"; then
+  echo "expected BSD-style x/text license is absent" >&2
+  exit 1
+fi
 
 expected_inventory='.gitignore
 README.md
@@ -126,6 +154,12 @@ internal/archive/state.go
 internal/archive/state_test.go
 internal/archive/store.go
 internal/archive/test_helpers_test.go
+internal/catalog/catalog.go
+internal/catalog/catalog_test.go
+internal/catalog/store.go
+internal/catalog/store_test.go
+internal/httpapi/catalog_handler.go
+internal/httpapi/catalog_handler_test.go
 internal/httpapi/handler.go
 internal/httpapi/handler_test.go
 internal/httpapi/image_handler_test.go
@@ -135,6 +169,8 @@ internal/httpapi/server.go
 internal/httpapi/server_test.go
 internal/httpapi/transport.go
 internal/httpapi/transport_test.go
+internal/httpapi/wire/catalog.gen.go
+internal/httpapi/wire/catalog_contract_test.go
 internal/httpapi/wire/query_contract_test.go
 internal/httpapi/wire/query_wire.gen.go
 internal/imageproxy/client.go
@@ -143,8 +179,19 @@ internal/observability/events.go
 internal/observability/events_test.go
 internal/observability/metrics.go
 internal/observability/metrics_test.go
+internal/query/archive_loader.go
+internal/query/archive_loader_test.go
+internal/query/evaluate.go
+internal/query/golden_test.go
+internal/query/model.go
+internal/query/normalize.go
+internal/query/normalize_test.go
+internal/query/unicode_assigned_15_1.go
+internal/query/unicode_assigned_15_1_test.go
 scripts/check.sh
+scripts/generate-catalog-wire.sh
 scripts/generate-query-wire.sh
+scripts/prepare-catalog-wire.mjs
 scripts/prepare-query-wire.mjs'
 actual_inventory="$(
   find . -type f \

@@ -43,11 +43,12 @@ func TestProductionPackageDependencies(t *testing.T) {
 		modulePath + "/cmd/api":                       {modulePath + "/internal/app"},
 		modulePath + "/cmd/archive-smoke":             {modulePath + "/internal/archive"},
 		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/httpapi"},
-		modulePath + "/internal/httpapi":              {modulePath + "/internal/httpapi/wire", modulePath + "/internal/imageproxy", modulePath + "/internal/observability"},
+		modulePath + "/internal/catalog":              {modulePath + "/internal/archive", modulePath + "/internal/httpapi/wire"},
+		modulePath + "/internal/httpapi":              {modulePath + "/internal/archive", modulePath + "/internal/catalog", modulePath + "/internal/httpapi/wire", modulePath + "/internal/imageproxy", modulePath + "/internal/observability"},
 		modulePath + "/internal/httpapi/wire":         {},
 		modulePath + "/internal/imageproxy":           {},
 		modulePath + "/internal/observability":        {},
-		modulePath + "/internal/query":                {modulePath + "/internal/archive", modulePath + "/internal/cache", modulePath + "/internal/collection"},
+		modulePath + "/internal/query":                {modulePath + "/internal/archive"},
 		modulePath + "/internal/archive":              {},
 		modulePath + "/internal/archive/contracttest": {},
 		modulePath + "/internal/cache":                {},
@@ -81,7 +82,10 @@ func TestProductionPackageDependencies(t *testing.T) {
 						imported == "github.com/oapi-codegen/runtime"
 					archiveSQLite := pkg.ImportPath == modulePath+"/internal/archive" &&
 						(imported == "modernc.org/sqlite" || imported == "modernc.org/sqlite/vfs")
-					if !wireRuntime && !archiveSQLite {
+					queryNormalization := pkg.ImportPath == modulePath+"/internal/query" &&
+						(imported == "github.com/gowebpki/jcs" ||
+							strings.HasPrefix(imported, "golang.org/x/text/"))
+					if !wireRuntime && !archiveSQLite && !queryNormalization {
 						t.Errorf("%s imports unapproved production dependency %s", pkg.ImportPath, imported)
 					}
 				}
@@ -145,6 +149,8 @@ func TestPinnedModuleDeclaration(t *testing.T) {
 	}
 	wantDirect := map[string]string{
 		"github.com/oapi-codegen/runtime": "v1.1.2",
+		"github.com/gowebpki/jcs":         "v1.0.1",
+		"golang.org/x/text":               "v0.40.0",
 		"modernc.org/sqlite":              "v1.54.0",
 	}
 	if !mapsEqual(direct, wantDirect) {
@@ -172,6 +178,7 @@ func TestRuntimeHasExactApprovedRoutes(t *testing.T) {
 		"/readyz":                 filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
 		"/metrics":                filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
 		"/api/v1/images/bangumi/": filepath.Join(moduleRoot, "internal", "httpapi", "handler.go"),
+		"/api/v1/catalog":         filepath.Join(moduleRoot, "internal", "httpapi", "catalog_handler.go"),
 	}
 	routeCounts := make(map[string]int, len(allowedRoutes))
 	err := filepath.WalkDir(moduleRoot, func(path string, entry os.DirEntry, walkErr error) error {

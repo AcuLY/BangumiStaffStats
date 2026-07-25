@@ -34,11 +34,13 @@ func RequestIDFromContext(ctx context.Context) (string, bool) {
 }
 
 type middlewareOptions struct {
-	requestTimeout time.Duration
-	requestID      func() string
-	metrics        *observability.Registry
-	images         imageFetcher
-	events         *observability.EventSink
+	requestTimeout   time.Duration
+	requestID        func() string
+	metrics          *observability.Registry
+	images           imageFetcher
+	events           *observability.EventSink
+	catalogs         CatalogStoreProvider
+	catalogProjector catalogProjector
 }
 
 func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Handler {
@@ -64,6 +66,20 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 		recorder.Header().Set(requestIDHeader, requestID)
 
 		identityContext := context.WithValue(request.Context(), requestIDContextKey{}, requestID)
+		var catalogTerminal *observability.QueryTerminal
+		if metricRoute(request) == observability.RouteCatalog {
+			catalogTerminal, _ = observability.NewQueryTerminal(
+				requestID,
+				observability.QueryOperationCatalog,
+			)
+			if catalogTerminal != nil {
+				identityContext = context.WithValue(
+					identityContext,
+					catalogTerminalContextKey{},
+					catalogTerminal,
+				)
+			}
+		}
 		requestContext, cancel := context.WithTimeoutCause(identityContext, options.requestTimeout, requestDeadlineCause)
 		defer cancel()
 		request = request.WithContext(requestContext)
@@ -90,7 +106,11 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 		select {
 		case result := <-handlerDone:
 			if result.contextCause != nil {
-				snapshot, outcome = finishContextOutcome(recorder, result.contextCause)
+				snapshot, outcome = finishContextOutcome(
+					recorder,
+					result.contextCause,
+					timeoutResponseForRequest(request),
+				)
 				break
 			}
 			if result.panicValue != nil {
@@ -108,7 +128,11 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 			snapshot = recorder.finish()
 			outcome = outcomeForStatus(snapshot.status)
 		case <-requestContext.Done():
-			snapshot, outcome = finishContextOutcome(recorder, context.Cause(requestContext))
+			snapshot, outcome = finishContextOutcome(
+				recorder,
+				context.Cause(requestContext),
+				timeoutResponseForRequest(request),
+			)
 		}
 
 		if options.metrics != nil {
@@ -121,6 +145,37 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 				Duration:      time.Since(startedAt),
 				ResponseBytes: snapshot.bytes,
 			})
+		}
+		if options.events != nil &&
+			metricRoute(request) == observability.RouteCatalog &&
+			snapshot.committed &&
+			(outcome == observability.OutcomeTimeout ||
+				outcome == observability.OutcomePanic) &&
+			catalogTerminal != nil {
+			if snapshot.status >= 200 && snapshot.status <= 399 {
+				event, eventErr := catalogTerminal.Complete(
+					time.Since(startedAt),
+					snapshot.bytes,
+				)
+				if eventErr == nil {
+					_ = options.events.Emit(event)
+				}
+			} else {
+				code := observability.QueryErrorInternal
+				if outcome == observability.OutcomeTimeout {
+					code = observability.QueryErrorUpstreamTimeout
+				}
+				event, eventErr := catalogTerminal.Reject(
+					snapshot.status,
+					code,
+					nil,
+					0,
+					time.Since(startedAt),
+				)
+				if eventErr == nil {
+					_ = options.events.Emit(event)
+				}
+			}
 		}
 		if outcome == observability.OutcomeCanceled && !snapshot.committed {
 			panic(http.ErrAbortHandler)
@@ -136,9 +191,16 @@ func panicError(value any) error {
 	return err
 }
 
-func finishContextOutcome(recorder *commitWriter, cause error) (responseSnapshot, observability.Outcome) {
+func finishContextOutcome(
+	recorder *commitWriter,
+	cause error,
+	timeout *responseError,
+) (responseSnapshot, observability.Outcome) {
 	if errors.Is(cause, requestDeadlineCause) {
-		return recorder.terminate(&timeoutResponse), observability.OutcomeTimeout
+		if timeout == nil {
+			timeout = &timeoutResponse
+		}
+		return recorder.terminate(timeout), observability.OutcomeTimeout
 	}
 	return recorder.terminate(nil), observability.OutcomeCanceled
 }
@@ -164,6 +226,8 @@ func metricRoute(request *http.Request) observability.Route {
 		return observability.RouteReadyz
 	case routeMetrics:
 		return observability.RouteMetrics
+	case routeCatalog:
+		return observability.RouteCatalog
 	default:
 		if imageRouteCandidate(request) {
 			return observability.RouteImage
@@ -180,6 +244,8 @@ func metricOperation(request *http.Request) observability.Operation {
 		return observability.OperationMetrics
 	case observability.RouteImage:
 		return observability.OperationImage
+	case observability.RouteCatalog:
+		return observability.OperationCatalog
 	default:
 		return observability.OperationUnknown
 	}

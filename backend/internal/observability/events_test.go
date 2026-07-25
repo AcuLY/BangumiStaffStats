@@ -225,6 +225,38 @@ func TestEventSinkRejectsEmptyAndShortWrites(t *testing.T) {
 	}
 }
 
+func TestCatalogTerminalUsesClosedOperationWithoutCatalogValues(t *testing.T) {
+	var output bytes.Buffer
+	terminal, err := NewQueryTerminal("catalog-safe-id", QueryOperationCatalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event, err := terminal.Reject(
+		500,
+		QueryErrorInternal,
+		nil,
+		0,
+		5*time.Millisecond,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := NewEventSink(&output).Emit(event); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), `"operation":"catalog"`) ||
+		!strings.Contains(output.String(), `"error_code":"INTERNAL_ERROR"`) {
+		t.Fatalf("catalog event = %q", output.String())
+	}
+	for _, forbidden := range []string{
+		"dataVersion", "position", "group", "capability", "SELECT", "/archive/",
+	} {
+		if strings.Contains(output.String(), forbidden) {
+			t.Fatalf("catalog event contains %q", forbidden)
+		}
+	}
+}
+
 func TestImageEventIsClosedAndContainsNoImageIdentity(t *testing.T) {
 	var output bytes.Buffer
 	sink := NewEventSink(&output)

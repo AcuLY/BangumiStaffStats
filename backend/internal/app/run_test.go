@@ -126,12 +126,16 @@ func TestRunListenerArchiveFailureServesRuntimeAndImagePermanentlyNotReady(t *te
 		strings.Contains(metricResponse.body, "bgmss_current_snapshot_info{") {
 		t.Fatalf("metrics = %d %q", metricResponse.status, metricResponse.body)
 	}
-	if response := getResponse(t, client, listener, "/api/v1/catalog"); response.status != http.StatusNotFound {
-		t.Fatalf("business route status = %d", response.status)
+	catalogResponse := getResponse(t, client, listener, "/api/v1/catalog")
+	if catalogResponse.status != http.StatusServiceUnavailable ||
+		!strings.Contains(catalogResponse.body, `"code":"NOT_READY"`) {
+		t.Fatalf("catalog route = %d %q", catalogResponse.status, catalogResponse.body)
 	}
-	if strings.Count(events.String(), "\n") != 1 ||
+	if strings.Count(events.String(), "\n") != 2 ||
 		!strings.Contains(events.String(), `"event":"archive_load_failed"`) ||
-		!strings.Contains(events.String(), `"error_code":"ARCHIVE_ROOT_INVALID"`) {
+		!strings.Contains(events.String(), `"error_code":"ARCHIVE_ROOT_INVALID"`) ||
+		!strings.Contains(events.String(), `"event":"query_rejected"`) ||
+		!strings.Contains(events.String(), `"operation":"catalog"`) {
 		t.Fatalf("startup event = %q", events.String())
 	}
 
@@ -147,7 +151,7 @@ func TestRunListenerArchiveFailureServesRuntimeAndImagePermanentlyNotReady(t *te
 		!strings.Contains(imageResponse.body, `"code":"INVALID_REQUEST"`) {
 		t.Fatalf("image route = %d %q", imageResponse.status, imageResponse.body)
 	}
-	if strings.Count(events.String(), "\n") != 2 ||
+	if strings.Count(events.String(), "\n") != 3 ||
 		!strings.Contains(events.String(), `"event":"image_proxy_completed"`) ||
 		!strings.Contains(events.String(), `"outcome":"rejected"`) {
 		t.Fatalf("image event = %q", events.String())
@@ -157,7 +161,7 @@ func TestRunListenerArchiveFailureServesRuntimeAndImagePermanentlyNotReady(t *te
 	if response := getResponse(t, client, listener, "/readyz"); response.status != http.StatusServiceUnavailable {
 		t.Fatalf("second ready status = %d", response.status)
 	}
-	if strings.Count(events.String(), "\n") != 2 {
+	if strings.Count(events.String(), "\n") != 3 {
 		t.Fatalf("terminal events changed unexpectedly: %q", events.String())
 	}
 

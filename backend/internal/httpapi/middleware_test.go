@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,81 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/httpapi/wire"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/observability"
 )
+
+func TestCatalogTerminalIsSharedAcrossHandlerAndDeadlineAfterCommit(t *testing.T) {
+	var events bytes.Buffer
+	sink := observability.NewEventSink(&events)
+	terminalEmitted := make(chan struct{})
+	releaseHandler := make(chan struct{})
+	handlerDone := make(chan struct{})
+	handler := runtimeMiddleware(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		defer close(handlerDone)
+		terminal := catalogTerminalFromContext(request.Context())
+		if terminal == nil {
+			t.Error("catalog terminal absent from request context")
+			return
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		writer.WriteHeader(http.StatusOK)
+		written, err := writer.Write([]byte(`{"data":{},"meta":{"requestId":"shared-terminal-id"}}`))
+		if err != nil {
+			t.Errorf("write response: %v", err)
+			return
+		}
+		event, err := terminal.Complete(time.Millisecond, int64(written))
+		if err != nil {
+			t.Errorf("complete terminal: %v", err)
+			return
+		}
+		if err := sink.Emit(event); err != nil {
+			t.Errorf("emit terminal: %v", err)
+			return
+		}
+		close(terminalEmitted)
+		<-releaseHandler
+	}), middlewareOptions{
+		requestTimeout: time.Hour,
+		requestID:      func() string { return "shared-terminal-id" },
+		events:         sink,
+	})
+
+	requestContext, cancel := context.WithCancelCause(context.Background())
+	request := httptest.NewRequest(http.MethodGet, routeCatalog, nil).WithContext(requestContext)
+	response := httptest.NewRecorder()
+	returned := make(chan struct{})
+	go func() {
+		defer close(returned)
+		handler.ServeHTTP(response, request)
+	}()
+	select {
+	case <-terminalEmitted:
+	case <-time.After(time.Second):
+		t.Fatal("handler did not commit and emit its terminal")
+	}
+	cancel(requestDeadlineCause)
+	select {
+	case <-returned:
+	case <-time.After(time.Second):
+		t.Fatal("middleware did not observe the forced deadline")
+	}
+	close(releaseHandler)
+	select {
+	case <-handlerDone:
+	case <-time.After(time.Second):
+		t.Fatal("handler did not exit after release")
+	}
+
+	if response.Code != http.StatusOK ||
+		strings.Count(events.String(), "\n") != 1 ||
+		!strings.Contains(events.String(), `"event":"query_completed"`) ||
+		!strings.Contains(events.String(), `"request_id":"shared-terminal-id"`) {
+		t.Fatalf(
+			"shared terminal response=%d events=%q",
+			response.Code,
+			events.String(),
+		)
+	}
+}
 
 func TestMiddlewareReplacesInboundRequestIDBeforeCommit(t *testing.T) {
 	metrics := newTestMetrics(t)
