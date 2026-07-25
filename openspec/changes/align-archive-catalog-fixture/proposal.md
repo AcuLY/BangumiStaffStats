@@ -1,19 +1,20 @@
 ## Why
 
 The canonical Archive `valid/minimal` bundle passes Archive loading and makes
-the process ready, but its catalog rows still contain superseded fixture-only
-semantics: legacy rule identities/values, cast-to-cast position membership,
-and an invalid featured-group key. The governed Updater and strict Backend
-catalog projection use the accepted canonical shapes, so a real application
-started from this supposedly valid bundle returns 500 from
-`GET /api/v1/catalog`. Unit suites miss the defect because Archive and catalog
-tests do not cross the actual fixture boundary.
+the process ready, but its handcrafted catalog rows predate the governed
+Updater row algorithms. They retain legacy rules, cast-to-cast membership,
+old cast presentation/order, incomplete capabilities, an invalid featured
+group identity/member order, and omit the group for the fixture's own common
+category. The strict Backend catalog projection rejects the first structural
+contradiction, so a real application started from this supposedly valid bundle
+returns 500 from `GET /api/v1/catalog`. Unit suites miss the defect because
+Archive and catalog tests do not cross the actual fixture boundary.
 
 ## What Changes
 
-- Correct only the canonical Archive fixture generator's staff/cast selection
-  rules, ordinary-position membership, and featured-group identity to match
-  the accepted `updater-position-catalog` authority.
+- Correct only the canonical Archive fixture generator's catalog rows for the
+  existing three anime positions, one common category, and compact featured
+  group by applying the accepted `updater-position-catalog` row algorithms.
 - Deterministically rebuild the generator-owned canonical Archive corpus,
   identities, manifests, vectors, and closed root index.
 - Add a Backend integration test that loads the unmodified canonical minimal
@@ -41,8 +42,8 @@ None.
 |---|---|
 | Status | Runtime defect reproduced; specified and main-agent reviewed after strict validation. Implementation/verification/commit/archive remain pending. |
 | Owner | One bounded implementation agent; main agent reviews the spec, exact candidate, and acceptance. |
-| Writable paths | `contracts/schemas/archive/tooling/build_sqlite_fixtures.py`; the existing generator-owned canonical paths under `contracts/goldens/archive/{valid/minimal,invalid/bundles,invalid/json,vectors}` and `contracts/goldens/archive/index.json`; `backend/internal/catalog/*_test.go`; new `backend/internal/app/catalog_archive_integration_test.go`; this change's task markers. |
-| Read-only protected inputs | Archive schemas/verifier, producer corpus, catalog API schemas/goldens, governed Updater compiler/tests, Backend production code including `backend/internal/catalog/store.go`, frontend, guides, sibling changes, external repositories, and staged frontend work. |
+| Writable paths | `contracts/schemas/archive/tooling/build_sqlite_fixtures.py`; only the two canonical-index/table seal literals in `contracts/schemas/archive/tooling/verify.mjs`; the existing generator-owned canonical paths under `contracts/goldens/archive/{valid/minimal,invalid/bundles,invalid/json,vectors}` and `contracts/goldens/archive/index.json`; `backend/internal/catalog/*_test.go`; new `backend/internal/app/catalog_archive_integration_test.go`; only the new-test inventory line in `backend/scripts/check.sh`; this change's task markers. |
+| Read-only protected inputs | Archive schemas and all verifier logic except the two exact seal literals, producer corpus, catalog API schemas/goldens, governed Updater compiler/tests, Backend production code including `backend/internal/catalog/store.go`, all other Backend checker logic, frontend, guides, sibling changes, external repositories, and staged frontend work. |
 | Deletion complement | No deletion, rename, extra fixture path, unindexed artifact, cache, temp file, or generated residue. |
 | Mutable refs | None. |
 | Consumes | Accepted Archive schema/generator, `updater-position-catalog` canonical rule semantics, Backend Archive consumer, catalog projector, and catalog wire/goldens. |

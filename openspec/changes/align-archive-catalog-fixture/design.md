@@ -1,15 +1,21 @@
 ## Context
 
-`contracts/goldens/archive/valid/minimal/bangumi.sqlite` currently stores
-`select:staff:*` plus `positionId=*` and `select:cast:*` plus `roleType=*`;
-it also makes `cast:anime:main` a member of the ordinary
-`cast:anime:all` position and names its shortcut `featured:anime`. The exited
-`updater-position-catalog` compiler instead stores `rule:staff:*` plus the
-numeric value, `exclusive:cast:{type}` plus `1|1..6`, no member rows for
-ordinary staff/cast positions, and `shortcut:{type}:featured`. Backend catalog
-validation intentionally requires these canonical invariants. Archive loading
-cannot detect the semantic mismatch because the Archive tables close field
-shape and bounds rather than the cross-table governed catalog semantics.
+`contracts/goldens/archive/valid/minimal/bangumi.sqlite` is a bounded synthetic
+Archive with three anime positions, the common `production` category, and a
+compact featured group. Its catalog rows currently predate the exited
+`updater-position-catalog` algorithms: legacy selection rules, cast-to-cast
+membership, old cast labels/names/order, capability subsets, an unnamespaced
+featured key with 10-based member order, and no Bangumi group for the stored
+common category.
+
+The governed row algorithms instead use canonical rules; empty member lists
+for ordinary staff/cast positions; `声优（仅主役）`/`声优` with null
+non-Chinese cast names and 10-step order; all five fixed capabilities for
+these selectable staff/cast positions; `shortcut:anime:featured`; zero-based
+group-member order; and `bangumi:anime:production`. Backend catalog validation
+intentionally requires the structural invariants. Archive loading cannot
+detect the semantic mismatch because the Archive tables close field shape and
+bounds rather than cross-table governed catalog meaning.
 
 ## Change Boundary
 
@@ -17,8 +23,8 @@ shape and bounds rather than the cross-table governed catalog semantics.
 |---|---|
 | Status | Reviewed design; implementation and verification pending. |
 | Owner | One implementation agent, followed by main-agent acceptance. |
-| Writable paths | Exact generator/canonical-corpus/test paths declared in the proposal; no Backend production file. |
-| Read-only protected inputs | Archive/API schemas and verifiers, producer corpus, Updater compiler, Backend production code, frontend, guides, siblings, external state. |
+| Writable paths | Exact generator/canonical-corpus/test paths plus only the two verifier seal literals and one Backend test-inventory line declared in the proposal; no Backend production file. |
+| Read-only protected inputs | Archive/API schemas and verifier logic outside the two seals, producer corpus, Updater compiler, Backend production code/checker logic outside the one inventory line, frontend, guides, siblings, external state. |
 | Deletion complement | None; generated canonical path set must remain exactly the preflight index set. |
 | Mutable refs | None. |
 | Consumes | Canonical rule semantics from `updater-position-catalog` and current Archive/catalog loaders. |
@@ -32,15 +38,21 @@ shape and bounds rather than the cross-table governed catalog semantics.
 
 ## Decisions
 
-### 1. Correct the complete stale fixture shape, not the strict consumer
+### 1. Apply governed row algorithms to the bounded fixture
 
 The governed Updater is the Archive producer authority for catalog rows.
 Backend already validates its canonical rule identity/value form and its unit
-tests reject alternatives. The fixture generator will emit the same rule form,
-remove the obsolete cast-to-cast `catalog_position_member` row, and use the
-canonical shortcut group key. These are one fixture-coherence correction;
-ordinary staff/cast positions remain memberless and only staff sets own
-position-member rows. `backend/internal/catalog/store.go` remains
+tests reject alternatives. The fixture generator will apply the same
+position, member, group, group-member, capability, and selection-rule
+algorithms to the fixture's already declared three positions, one common
+category, and compact featured membership.
+
+This is bounded row parity, not a request to run the full production
+`CatalogConfiguration`: the tiny fixture intentionally lacks the complete
+five-type common source, full featured references, and cast anchor required by
+that configuration. No game/full-production entities are invented. The
+existing synthetic semantic inputs remain authoritative; only their stale row
+realization is corrected. `backend/internal/catalog/store.go` remains
 byte-identical.
 
 ### 2. Regenerate all and only the closed canonical corpus
@@ -50,7 +62,10 @@ pointer, derived negative bundles/vectors, and root index. The existing
 generator must rebuild every affected canonical byte instead of hand-patching
 binary or JSON output. The preflight root-index path set is the exact permitted
 output inventory; `producer/**` is separate and protected. A second clean
-generation must be byte-identical.
+generation must be byte-identical. Only after the final root index and sorted
+path/digest table are fixed may their two computed seal literals replace the
+old constants in the Archive verifier; no verifier branch, algorithm, input,
+or failure behavior changes.
 
 ### 3. Add an actual component-boundary regression
 
@@ -58,7 +73,9 @@ The test loads the checked-in `valid/minimal` bundle without SQL mutation,
 projects catalog data, and exercises the application catalog route. It asserts
 ready 200 and catalog 200 with the Store dataVersion and schema-valid canonical
 API rules. This prevents separate Archive/catalog unit fixtures from drifting
-again.
+again. The new test remains in a disjoint file, and only its exact path is
+added to the Backend checker's closed source inventory; no checker logic or
+existing dirty test file is changed.
 
 ## Dependency Direction
 

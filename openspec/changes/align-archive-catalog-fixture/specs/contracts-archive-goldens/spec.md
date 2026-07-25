@@ -4,8 +4,8 @@
 |---|---|
 | Status | Modified contract evidence; implementation pending. |
 | Owner | Contracts fixture implementation agent. |
-| Writable paths | Canonical fixture builder and its existing 32-path canonical corpus/index only. |
-| Read-only protected inputs | Archive schemas/verifier, `producer/**`, Updater compiler, Backend, frontend, external state. |
+| Writable paths | Canonical fixture builder, its existing 32-path canonical corpus/index, and only the two resulting canonical seal literals in the Archive verifier. |
+| Read-only protected inputs | Archive schemas and all verifier logic outside the two seals, `producer/**`, Updater compiler, Backend, frontend, external state. |
 | Deletion complement | No path deletion/addition/rename or disposable residue. |
 | Mutable refs | None. |
 | Consumes | Accepted Archive schemas and governed Updater catalog rule semantics. |
@@ -23,15 +23,25 @@
 
 The canonical 32-path Archive corpus SHALL remain a closed generator-owned
 inventory, but its prior byte seal is superseded by this reviewed correction.
-`valid/minimal` SHALL use the exact canonical `catalog_selection_rule`
-identity/value semantics produced by the accepted `updater-position-catalog`
-compiler: exact staff uses `rule:{positionKey}` and the numeric ID string;
-same-type cast main/all use `exclusive:cast:{subjectType}` and `1|1..6`.
-Ordinary staff and cast positions SHALL have no
-`catalog_position_member` rows; that table represents only the sorted exact
-staff membership of a `staffSet`. The minimal featured shortcut SHALL use the
-canonical key `shortcut:anime:featured`, not the obsolete untyped
-`featured:anime` key.
+For its existing three anime positions, common `production` category, and
+compact featured members, `valid/minimal` SHALL apply the exact bounded row
+algorithms of the accepted `updater-position-catalog` compiler/SQLite adapter:
+
+- exact staff uses `rule:{positionKey}` and the numeric ID string; same-type
+  cast main/all use `exclusive:cast:{subjectType}` and `1|1..6`;
+- ordinary staff and cast positions have no `catalog_position_member` rows;
+  that table represents only sorted exact-staff membership of a `staffSet`;
+- cast main/all use governed labels/names and 10-step display order;
+- every selectable fixture staff/cast position has all five fixed capabilities
+  in canonical order;
+- the compact featured group is `shortcut:anime:featured`, and the stored
+  common category produces `bangumi:anime:production`; and
+- group members use the SQLite adapter's deterministic zero-based display
+  order.
+
+This bounded fixture SHALL NOT be expanded into the full production
+configuration or invent missing five-type common positions, game cast,
+complete featured references, or a cast-anchor group.
 
 The fixture builder SHALL regenerate every affected SQLite, manifest, pointer,
 dataVersion vector, negative bundle, and root-index digest from source
@@ -40,20 +50,28 @@ canonical path set, mutate `producer/**`, or relax Archive/catalog validation.
 Two complete regenerations SHALL be byte-identical and every indexed artifact
 SHALL retain its declared validation-stage outcome.
 
+After the final corpus is sealed, the verifier's exact canonical-root-index
+SHA-256 and sorted `<path><TAB><digest><LF>` table SHA-256 literals SHALL be
+updated to their independently recomputed values. No verifier algorithm,
+inventory rule, semantic check, input, error condition, or producer seal SHALL
+change.
+
 #### Scenario: The valid minimal bundle is regenerated
 
 - **WHEN** the canonical builder emits the minimal catalog and reseals all
   identity-bearing outputs
-- **THEN** its staff/cast rules, ordinary-position membership, and shortcut
-  identity match the governed Updater compiler exactly
+- **THEN** every position/member/group/group-member/capability/rule row for the
+  bounded fixture matches the governed Updater row algorithms
 - **AND** the closed canonical inventory and all positive/negative verifier
   outcomes pass without adding or removing a path
 
 #### Scenario: A fixture-only legacy row or manual patch remains
 
-- **WHEN** a rule uses `select:*`, `positionId=*`, or `roleType=*`, or a
-  cast position contains another cast position, a shortcut lacks the
-  `shortcut:` namespace, or a generated identity is edited outside
-  deterministic regeneration
+- **WHEN** a rule uses `select:*`, `positionId=*`, or `roleType=*`; a cast
+  position contains another cast position; a cast label/name/order or
+  capability row differs from the governed bounded projection; a shortcut
+  lacks the `shortcut:` namespace; the stored common category lacks its
+  Bangumi group; member order is not zero-based; or a generated identity is
+  edited outside deterministic regeneration
 - **THEN** Contracts acceptance SHALL fail before Backend handoff
 - **AND** Backend SHALL not be broadened to normalize the stale evidence

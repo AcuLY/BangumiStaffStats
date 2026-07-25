@@ -4,8 +4,8 @@
 |---|---|
 | Status | Integration acceptance amendment; implementation pending. |
 | Owner | Backend test implementation agent. |
-| Writable paths | `backend/internal/catalog/*_test.go` and new `backend/internal/app/catalog_archive_integration_test.go` only. |
-| Read-only protected inputs | Backend production code, canonical Archive fixture, schemas/goldens/verifiers, Updater, frontend, external state. |
+| Writable paths | `backend/internal/catalog/*_test.go`, new `backend/internal/app/catalog_archive_integration_test.go`, and only that new path's inventory line in `backend/scripts/check.sh`. |
+| Read-only protected inputs | Backend production code and all checker logic outside the one inventory line, canonical Archive fixture, schemas/goldens/verifiers, Updater, frontend, external state. |
 | Deletion complement | No deletion or disposable residue. |
 | Mutable refs | None. |
 | Consumes | Corrected checked-in canonical Archive bundle and existing catalog runtime. |
@@ -27,12 +27,14 @@ the real Archive consumer without first rewriting any SQLite row. The loaded
 Store SHALL project successfully through `catalog.Project`, and application
 integration SHALL prove `/readyz` returns 200 and `GET /api/v1/catalog`
 returns a strict 200 envelope with the same Store dataVersion and canonical
-API rule projection.
+API projection for the bounded governed positions, groups, capabilities, and
+rules. The Backend checker's closed inventory SHALL include the new disjoint
+integration-test path; no checker logic or existing test file is changed.
 
-The test SHALL fail if Contracts again emits a rule identity/value shape that
-the governed Updater does not produce. Backend's existing rejection of the
-superseded fixture-only rule form SHALL remain intact; no compatibility
-normalizer or alternate dialect is admitted.
+The test SHALL fail if Contracts again emits a governed catalog row shape that
+the bounded fixture contract does not permit. Backend's existing rejection of
+the superseded fixture-only rule/member/group forms SHALL remain intact; no
+compatibility normalizer or alternate dialect is admitted.
 
 #### Scenario: The checked-in minimal Archive crosses the runtime boundary
 

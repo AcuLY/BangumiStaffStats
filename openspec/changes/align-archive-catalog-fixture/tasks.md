@@ -4,8 +4,8 @@
 |---|---|
 | Status | Main-agent reviewed after strict validation; apply pending. |
 | Owner | One implementation agent; main agent owns acceptance/lifecycle. |
-| Writable paths | Exact generator/canonical-corpus/Backend-test paths and these task markers from the proposal. |
-| Read-only protected inputs | Schemas/verifiers, producer corpus, Updater compiler, Backend production code, frontend/staged work, guides, siblings, external state. |
+| Writable paths | Exact generator/canonical-corpus/Backend-test paths, two verifier seal literals, one Backend inventory line, and these task markers from the proposal. |
+| Read-only protected inputs | Schemas and verifier logic outside the two seals, producer corpus, Updater compiler, Backend production code/checker logic outside the inventory line, frontend/staged work, guides, siblings, external state. |
 | Deletion complement | No deletion, rename, path-set growth, cache/temp/generated residue. |
 | Mutable refs | None. |
 | Consumes | Current canonical corpus and accepted Updater/catalog semantics. |
@@ -22,22 +22,27 @@
 - [ ] 1.1 Record branch, HEAD, exact staged/unstaged paths, canonical index path
   set/digest, and protected sibling work; confirm reviewed strict-valid
   artifacts and stop on any writable overlap.
-- [ ] 1.2 Change only the canonical fixture builder's staff/cast rule
-  identities/values, obsolete cast-to-cast position membership, and featured
-  shortcut group key to the governed Updater form; regenerate all and only
-  existing canonical indexed outputs, never hand-editing SQLite or derived
-  identities.
+- [ ] 1.2 Change only the canonical fixture builder's catalog rows for its
+  existing three anime positions, `production` category, and compact featured
+  members: canonical cast presentation/order, empty ordinary membership, all
+  five capabilities, featured/category groups with zero-based members, and
+  canonical selection rules. Do not expand to the full production
+  configuration. Regenerate all and only existing canonical indexed outputs,
+  never hand-editing SQLite or derived identities.
 - [ ] 1.3 Run the Archive generator/verifier twice from clean disposable
   output state and prove byte-identical replay, exact closed path inventory,
-  valid manifests/pointers/digests/dataVersion/table counts, and zero
-  `producer/**` or schema/verifier drift.
+  valid manifests/pointers/digests/dataVersion/table counts, then update only
+  the verifier's two computed canonical seal literals and prove zero
+  `producer/**`, schema, or other verifier drift.
 
 ## 2. Prove the real Backend boundary
 
 - [ ] 2.1 Add a focused test that loads checked-in `valid/minimal` without
   rewriting SQL, calls catalog projection and/or the application route, and
   proves `/readyz` 200 plus `/api/v1/catalog` 200 with matching dataVersion,
-  canonical API rules, no legacy acceptance, and strict envelope validation.
+  the exact bounded governed position/group/capability/rule projection, no
+  legacy acceptance, and strict envelope validation. Add only that new test
+  path to the Backend checker's closed inventory.
 - [ ] 2.2 Run targeted Archive/catalog/app tests repeatedly and under `-race`,
   all catalog/Archive contract verifiers, `backend/scripts/check.sh`, runtime
   smoke against a copied unmodified bundle, `git diff --check`, and strict
