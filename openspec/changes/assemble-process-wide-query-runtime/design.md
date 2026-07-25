@@ -79,10 +79,14 @@ make isolated/race tests order-dependent.
 
 The shared pool uses the existing `WeightedLRU` with `ResultKey` and a private
 entry envelope containing a retained value plus its ownership-safe clone
-function/type identity. `ResultStore[V]` remains the typed facade and continues
-to own its same-key detached group, cost function, and clone function. It
-publishes and retrieves only its own `V`; an impossible type mismatch fails
-closed and never panics or cross-casts a result.
+function/type identity. Before the runtime is exposed, app construction
+supplies one opaque canonical result binding from each of the five domain
+packages. Each binding fixes operation, value type, clone function, and cost
+function. `ResultStore[V]` remains the typed facade and can consume only a
+pre-registered binding whose operation and `V` match; it cannot supply or
+replace clone/cost policy at facade construction. An absent, duplicate, or
+mismatched binding fails construction before any cache access, never panics,
+and never cross-casts a result.
 
 Because `ResultKey` contains the versioned operation, one global LRU can hold
 all five types without collisions. Eviction order and the 190 MiB/512 counters
@@ -147,8 +151,10 @@ matching alone is not sufficient acceptance evidence.
 ## Risks / Trade-offs
 
 - [A private heterogeneous entry could be read through the wrong typed facade]
-  → Preserve operation in every key, attach private type identity, and test
-  fail-closed mismatch behavior under no panic.
+  → Pre-register the five canonical operation/type/clone/cost bindings at
+  runtime construction, preserve operation and private type identity in every
+  entry, and test wrong-type-first, duplicate/conflicting binding, concurrent
+  construction, and fail-closed read behavior under no panic.
 - [A compatibility constructor could be used accidentally by production]
   → Give the shared constructor an explicit name, use only it in app assembly,
   and add an app-level identity test.

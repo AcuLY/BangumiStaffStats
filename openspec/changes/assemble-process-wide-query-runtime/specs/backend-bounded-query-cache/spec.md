@@ -163,7 +163,13 @@ responses. All five typed facades SHALL publish into one process-wide result
 LRU, whose operation-bearing keys provide cross-type separation. Cache hits and
 misses SHALL return behaviorally identical results. Per-operation cost
 functions and ownership-safe clones SHALL remain authoritative for each typed
-core while global LRU accounting SHALL use their retained-cost results.
+core while global LRU accounting SHALL use their retained-cost results. The
+runtime SHALL accept exactly one canonical binding per operation before facade
+construction; that binding fixes the operation, core type, clone, and cost
+policy. Facades SHALL NOT replace those policies. An absent, duplicate, or
+mismatched binding—including a wrong type offered before the canonical
+facade—SHALL fail closed without panic, replacement, statistic drift, or cache
+promotion.
 
 #### Scenario: Two views address one core
 - **WHEN** only search, sort, order, or pagination differs
@@ -176,3 +182,8 @@ core while global LRU accounting SHALL use their retained-cost results.
 #### Scenario: Different operations share capacity without sharing values
 - **WHEN** two typed stores use equal data/query/input digest strings under different versioned operations
 - **THEN** their values SHALL occupy distinct keys in one global LRU and neither typed facade SHALL read or cast the other's core
+
+#### Scenario: A wrong facade is constructed first
+- **WHEN** a facade type does not match the operation's canonical runtime binding, or a second binding conflicts in type, clone, or cost policy
+- **THEN** construction SHALL fail before cache access even if no correct facade has yet been constructed
+- **AND** the canonical facade SHALL remain constructible with unchanged cache contents, LRU order, and statistics
