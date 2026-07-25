@@ -178,7 +178,20 @@ if [[ ! -f "$time_directory/LICENSE" ]] ||
 fi
 
 expected_inventory='.gitignore
+Dockerfile
 README.md
+build/.gitignore
+build/README.md
+build/artifact.go
+build/artifact_test.go
+build/build.sh
+build/check.sh
+build/path-policy.sh
+build/smoke.sh
+build/source-policy-test.sh
+build/source-policy.sh
+build/test.sh
+build/toolchain-policy.sh
 cmd/api/main.go
 cmd/archive-smoke/main.go
 cmd/archive-smoke/main_test.go
@@ -382,6 +395,7 @@ actual_inventory="$(
   find . -type f \
     -not -path './.cache/*' \
     -not -path './.tmp/*' \
+    -not -path './build/.tmp/*' \
     -print |
     sed 's#^\./##' |
     LC_ALL=C sort

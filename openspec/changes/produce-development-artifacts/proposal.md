@@ -45,8 +45,9 @@ None.
 ### Status
 
 - investigated: complete
-- specified: main-agent approved after all four artifacts passed strict
-  validation
+- specified and apply-admitted: main-agent approved at
+  `665c300f10c2ba572caede29951e63ea2349da7c` after the change and all 44 items
+  passed strict validation
 - implemented: no
 - verified: no
 - committed: no
@@ -75,12 +76,15 @@ None.
   `openspec/changes/produce-development-artifacts/specs/**`. Apply agents SHALL
   NOT edit these paths.
 - Backend group:
-  `backend/Dockerfile` and `backend/build/**`.
+  `backend/Dockerfile`, `backend/build/**`, and only the persistent-inventory
+  handling in `backend/scripts/check.sh`.
 - Updater group:
   `updater/Dockerfile` and `updater/build/**`.
 - Frontend/Contracts group:
   `frontend/build/**`, `frontend/package.json`, `frontend/vite.config.ts`,
-  `contracts/artifacts/**`, and `.github/workflows/ci.yml`.
+  only the persistent-inventory handling in
+  `frontend/scripts/check-architecture.mjs`, `contracts/artifacts/**`, and
+  `.github/workflows/ci.yml`.
 - Generated local outputs SHALL stay below the owner-controlled ignored
   `backend/build/.tmp/**`, `updater/build/.tmp/**`,
   `frontend/build/.tmp/**`, or `contracts/artifacts/.tmp/**` roots created by
@@ -96,10 +100,11 @@ None.
   repository configuration outside this change.
 - `contracts/openapi/openapi.yaml`, `contracts/schemas/**`, and
   `contracts/goldens/**`.
-- All `backend/**` except `backend/Dockerfile` and `backend/build/**`; all
+- All `backend/**` except `backend/Dockerfile`, `backend/build/**`, and the
+  declared inventory-only hunk in `backend/scripts/check.sh`; all
   `updater/**` except `updater/Dockerfile` and `updater/build/**`; all
-  `frontend/**` except the three exact frontend paths/prefixes declared writable
-  above.
+  `frontend/**` except the declared frontend paths/prefixes and the
+  inventory-only hunk in `frontend/scripts/check-architecture.mjs`.
 - The external `bangumi-collection-go` repository, remote refs, registries,
   releases, deployments, hosts, services, secrets, and production state.
 
@@ -186,7 +191,10 @@ master-plan DAG edge.
 - Two clean builds with the same source revision, target platform, pinned
   toolchain, and declared inputs produce byte-identical component artifacts,
   checksum inventories, and SBOMs; a changed source or declared compatibility
-  input changes the bound statement.
+  input changes the bound statement. Every acceptance-capable producer derives
+  revision/tree/epoch from the canonical checkout it actually reads and fails
+  before output when `HEAD`, the index, tracked worktree, untracked non-ignored
+  paths, or a supplied identity disagree.
 - Checksums are sorted, relative-path-only, complete, and verified before use.
   Every SPDX document is deterministic, validates offline, describes the
   artifact named by its digest, and includes the locked runtime dependency
@@ -198,7 +206,10 @@ master-plan DAG edge.
 - Local smoke runs only from assembled artifacts and read-only contract
   fixtures: updater `doctor`/contract check, API startup plus
   `/livez`/`/readyz`/`/metrics`, and static frontend entry/asset serving all
-  pass without importing product source or activating an Archive.
+  pass without importing product source or activating an Archive. Before using
+  checked-in smoke helpers, validators, or fixtures, the coordinator proves
+  their clean checkout revision/tree equals the assembled manifest and each
+  control-plane path is a tracked regular non-symlink file from that tree.
 - CI has read-only repository permission, runs test/build/local-smoke only,
   performs no registry login or push, and contains no release, deploy,
   environment, production credential, or activation step.

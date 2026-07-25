@@ -10,6 +10,12 @@ const expectedInventory = [
   '.gitignore',
   'ARCHITECTURE.md',
   'README.md',
+  'build/.gitignore',
+  'build/README.md',
+  'build/artifact.mjs',
+  'build/check.mjs',
+  'build/smoke.mjs',
+  'build/test.mjs',
   'index.html',
   'openapi-ts.config.mjs',
   'package-lock.json',
@@ -205,6 +211,9 @@ function walkPersistent(root, relative = '') {
   for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
     const child = path.posix.join(relative, entry.name);
     if (relative === '' && disposableRoots.has(entry.name)) {
+      continue;
+    }
+    if (relative === 'build' && entry.name === '.tmp') {
       continue;
     }
     if (entry.isDirectory()) {

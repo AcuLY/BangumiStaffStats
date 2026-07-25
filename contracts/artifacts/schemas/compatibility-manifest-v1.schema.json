@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AcuLY/BangumiStaffStats/contracts/artifacts/compatibility-manifest-v1.schema.json",
+  "title": "Bangumi Staff Statistics compatibility manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "source",
+    "target",
+    "compatibility",
+    "components"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "source": {
+      "$ref": "component-statement-v1.schema.json#/$defs/source"
+    },
+    "target": {
+      "$ref": "component-statement-v1.schema.json#/$defs/target"
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archive", "openapiDigest"],
+      "properties": {
+        "archive": {
+          "$ref": "component-statement-v1.schema.json#/$defs/archiveCompatibility"
+        },
+        "openapiDigest": {
+          "$ref": "component-statement-v1.schema.json#/$defs/digest"
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/component"
+      }
+    }
+  },
+  "$defs": {
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component",
+        "statement",
+        "artifacts",
+        "artifactSetDigest",
+        "checksumInventory",
+        "sbom"
+      ],
+      "properties": {
+        "component": {
+          "enum": ["backend", "frontend", "updater"]
+        },
+        "statement": {
+          "$ref": "component-statement-v1.schema.json#/$defs/evidence"
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "component-statement-v1.schema.json#/$defs/artifact"
+          }
+        },
+        "artifactSetDigest": {
+          "$ref": "component-statement-v1.schema.json#/$defs/digest"
+        },
+        "checksumInventory": {
+          "$ref": "component-statement-v1.schema.json#/$defs/evidence"
+        },
+        "sbom": {
+          "$ref": "component-statement-v1.schema.json#/$defs/sbomEvidence"
+        }
+      }
+    }
+  }
+}

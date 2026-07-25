@@ -45,9 +45,9 @@ images, but cannot publish, deploy, configure, schedule, or activate them.
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: main-agent approved after strict validation; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
+| Status | investigated and specified: complete; apply admitted at `665c300f10c2ba572caede29951e63ea2349da7c`; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
 | Owner | Apply group A owns Backend; group B owns Updater; group C owns Frontend/Contracts and alone assembles the manifest. Main agent owns admission, task markers, audit, acceptance, and repository lifecycle. |
-| Writable paths | A: `backend/Dockerfile`, `backend/build/**`. B: `updater/Dockerfile`, `updater/build/**`. C: `frontend/build/**`, `frontend/package.json`, `frontend/vite.config.ts`, `contracts/artifacts/**`, `.github/workflows/ci.yml`. OpenSpec lifecycle: only this change's `.openspec.yaml`, proposal, design, tasks, and `specs/**`; apply agents cannot edit them. |
+| Writable paths | A: `backend/Dockerfile`, `backend/build/**`, and only persistent-inventory handling in `backend/scripts/check.sh`. B: `updater/Dockerfile`, `updater/build/**`. C: `frontend/build/**`, `frontend/package.json`, `frontend/vite.config.ts`, only persistent-inventory handling in `frontend/scripts/check-architecture.mjs`, `contracts/artifacts/**`, `.github/workflows/ci.yml`. OpenSpec lifecycle: only this change's `.openspec.yaml`, proposal, design, tasks, and `specs/**`; apply agents cannot edit them. |
 | Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, all `tmp-formal-development/**`, oracle `644b7748674e553f863d0ffd61d029f86fdc0717`, root config, root specs and sibling changes, `contracts/openapi/openapi.yaml`, `contracts/schemas/**`, `contracts/goldens/**`, every Backend/Updater/Frontend path not explicitly writable, external repositories, refs/remotes, registries, hosts, services, secrets, and production state. |
 | Deletion complement | None. No protected file may be deleted or moved. |
 | Mutable refs | None. |
@@ -98,6 +98,23 @@ format requires it. Tar entries are sorted and normalized; gzip headers, file
 modes, UID/GID, and mtimes are fixed; Go uses reproducible link/path settings;
 wheel and Vite inputs are lock-frozen.
 
+An acceptance-capable producer SHALL derive the source revision and tree from
+the canonical checkout it actually reads. Before copying source, building, or
+publishing, it SHALL prove that `HEAD`, `HEAD^{tree}`, the index, tracked
+worktree, and all untracked non-ignored paths describe one clean candidate.
+That proof compares every tracked path's raw worktree bytes and executable
+mode with the exact Git blob/mode, rejects `assume-unchanged`,
+`skip-worktree`, and non-stage-zero index entries, and cannot be weakened by
+repository-local attributes, filters, exclude configuration, or an untracked
+ignore-control file. Source snapshots are materialized only from tracked
+regular blobs in that candidate; ignored live-worktree files never enter them.
+Caller-supplied revision, tree, or epoch values may only restate and exactly
+match that derived identity; they cannot override it. Ignored owner-local
+cache/output roots do not make the candidate dirty. A mismatch fails before
+artifact output is created. Pure packaging functions may accept synthetic
+fixtures for focused tests, but their output is not acceptance evidence unless
+the production entrypoint has completed this checkout attestation.
+
 Outputs are published locally only after validation into an owner-controlled
 content-addressed directory. An existing content address with different bytes
 is a hard failure; scripts never overwrite it. Generated output stays under
@@ -109,9 +126,9 @@ checksums and compatibility manifests would not identify one immutable input.
 ### 3. Package the native deliverable and verify a pinned container definition
 
 Backend emits a reproducible API binary bundle and local OCI image archive.
-Its multi-stage Dockerfile pins every base by digest, contains no source or
-build tool in the runtime stage, runs as a non-root user, and accepts the
-Archive as a read-only runtime input.
+Its multi-stage Dockerfile pins every base by a literal, non-overridable
+digest in each `FROM`, contains no source or build tool in the runtime stage,
+runs as a non-root user, and accepts the Archive as a read-only runtime input.
 
 Updater emits a reproducible wheel/bundle and local OCI image archive. Its
 multi-stage Dockerfile likewise pins bases, installs the locked wheel/runtime
@@ -178,6 +195,16 @@ Smoke rejects source-tree module imports, source mounts, undeclared network
 access, artifact modification, fixture escape, and residual processes/files.
 It does not run updater `produce`, activate data, or claim production readiness.
 
+The coordinator itself is a checked-in test harness, not a distributed product
+artifact. Before it uses any checked-in smoke helper, validator, or accepted
+fixture, it SHALL prove that the canonical checkout is clean, that its
+`HEAD`/tree equal the assembled manifest source identity, and that every such
+control-plane path is a tracked regular non-symlink file from that tree.
+Changing a helper or fixture without rebuilding the candidate therefore fails
+before smoke. Product subprocesses still run from disposable working
+directories with product source absent from import/search paths and without
+source mounts.
+
 Alternative considered: use Docker Compose. Rejected because Compose topology,
 service policy, and production-like orchestration are explicitly deferred.
 
@@ -201,12 +228,16 @@ this change.
 ### 8. Frontend build changes cannot redesign the product
 
 Frontend changes are restricted to `frontend/build/**`, `package.json` scripts,
-and deterministic Vite build settings. The package lock remains a read-only
-reproducibility input. They may not edit `index.html`, Vue, CSS, assets, tests,
-route behavior, API clients, or product dependencies. The existing
-unit/type/build/artifact checks and accepted oracle/design matrix remain the
-preservation evidence; this change adds only artifact-byte and static-serving
-checks. There is no intentional visual or interaction delta.
+deterministic Vite build settings, and the exact persistent-inventory handling
+in `scripts/check-architecture.mjs`. The inventory-only amendment must list
+every tracked build file exactly and ignore only generated `build/.tmp/**`; it
+cannot weaken dependency, source, HTML, architecture, or product gates. The
+package lock remains a read-only reproducibility input. The owner may not edit
+`index.html`, Vue, CSS, assets, tests, route behavior, API clients, or product
+dependencies. The existing unit/type/build/artifact checks and accepted
+oracle/design matrix remain the preservation evidence; this change adds only
+artifact-byte and static-serving checks. There is no intentional visual or
+interaction delta.
 
 ## Risks / Trade-offs
 

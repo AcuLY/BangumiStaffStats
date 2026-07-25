@@ -112,6 +112,25 @@ The smoke SHALL NOT import or mount product source, modify an existing Archive
 root or pointer, run updater `produce`, activate an Archive, use Compose, or
 make undeclared external network requests.
 
+The checked-in coordinator, smoke helpers, validators, and accepted fixture are
+test control-plane inputs. Before invoking them, the coordinator SHALL prove
+that their canonical checkout is clean, its `HEAD` and tree exactly equal the
+assembled manifest source identity, and every invoked control-plane path is a
+tracked regular non-symlink file from that tree. A dirty, substituted, or
+mismatched helper/fixture SHALL fail before a product process starts.
+The clean-checkout proof SHALL compare raw Git blob bytes and executable modes,
+reject content-hiding `assume-unchanged` and `skip-worktree` flags, and remain unaffected by repository-local
+attributes, filters, exclude configuration, or an untracked ignore-control
+file.
+Product subprocesses SHALL use disposable working directories with product source
+absent from import/search paths and no source mount.
+The coordinator SHALL invoke each attested smoke helper successfully under its
+sanitized environment, including `PYTHONSAFEPATH=1` and without ambient
+`PYTHONPATH`. A Python helper MAY load only its attested sibling control-plane
+modules by an explicit path derived from the helper's own real location; it
+SHALL NOT make `updater/src`, the repository root, or any product-source
+directory importable.
+
 #### Scenario: An assembled compatible set is smoked
 
 - **WHEN** the coordinator is run from outside the source tree with the source
@@ -127,6 +146,22 @@ make undeclared external network requests.
 - **THEN** smoke fails, performs bounded cleanup, and reports no successful
   artifact set
 
+#### Scenario: The coordinator launches the Updater smoke with a sanitized environment
+
+- **WHEN** the coordinator invokes the checked-in Updater smoke helper from a
+  disposable working directory with `PYTHONSAFEPATH=1`, no ambient
+  `PYTHONPATH`, and product source absent from import paths
+- **THEN** the helper resolves only its attested sibling control-plane module
+  and completes the immutable Updater artifact smoke
+
+#### Scenario: The smoke control plane differs from the assembled candidate
+
+- **WHEN** the checkout is dirty, its revision/tree differs from the manifest,
+  or an invoked helper, validator, or accepted fixture is untracked, a symlink,
+  or differs from `HEAD`
+- **THEN** the coordinator fails before starting updater, API, or frontend
+  smoke and emits no successful compatibility result
+
 ### Requirement: CI SHALL test and build without publication authority
 
 The repository SHALL contain one GitHub Actions CI workflow with `contents:
@@ -136,14 +171,17 @@ Container output SHALL remain local with `push=false`. The workflow SHALL have
 no write permission, OIDC, secret-dependent step, environment, registry login,
 package/release upload, tag, release, deploy, SSH, production host, or
 activation action.
+Its final residue gate SHALL cover all four owned artifact roots and fail for
+every untracked or generated path outside their tracked files and declared
+`.tmp/**` subtrees.
 
 #### Scenario: CI policy is audited
 
 - **WHEN** Contracts tests parse the workflow permissions, triggers, actions,
   commands, environments, and data flow
 - **THEN** only test/build/local-smoke behavior is accepted and any
-  publication, release, deployment, credential, or activation authority fails
-  the test
+  publication, release, deployment, credential, activation authority, or
+  undeclared non-temporary residue fails the test
 
 ### Requirement: Artifact compatibility SHALL remain development-only
 

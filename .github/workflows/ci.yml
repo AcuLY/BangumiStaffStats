@@ -1,0 +1,205 @@
+name: development-artifacts
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: development-artifacts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: test, build, assemble, and smoke locally
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out the candidate without stored credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Install exact Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: 1.26.5
+          check-latest: false
+          cache: false
+
+      - name: Install exact Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.18.0
+          check-latest: false
+
+      - name: Install exact npm
+        shell: bash
+        run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Install exact uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
+        with:
+          version: 0.11.32
+          enable-cache: false
+
+      - name: Create a local-only BuildKit builder
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        with:
+          version: v0.34.1
+          driver-opts: image=docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368
+
+      - name: Verify exact toolchains
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = "v24.18.0"
+          test "$(npm --version)" = "11.16.0"
+          test "$(go version | awk '{print $3}')" = "go1.26.5"
+          test "$(uv --version)" = "uv 0.11.32"
+          test "$(docker buildx version | awk '{print $2}')" = "v0.34.1"
+          buildx_state="$(docker buildx ls --format '{{json .}}')"
+          BUILDX_STATE="$buildx_state" node <<'NODE'
+          const expectedImage =
+            'docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368';
+          const records = process.env.BUILDX_STATE
+            .split('\n')
+            .filter(Boolean)
+            .map((line) => JSON.parse(line));
+          const current = new Map();
+          for (const record of records.filter((entry) => entry.Current === true)) {
+            const previous = current.get(record.Name);
+            if (previous && JSON.stringify(previous) !== JSON.stringify(record)) {
+              throw new Error(`conflicting current builder records for ${record.Name}`);
+            }
+            current.set(record.Name, record);
+          }
+          if (current.size !== 1) {
+            throw new Error(`expected one current builder, received ${current.size}`);
+          }
+          const [builder] = current.values();
+          if (builder.Driver !== 'docker-container') {
+            throw new Error(`unexpected current builder driver ${builder.Driver}`);
+          }
+          if (!Array.isArray(builder.Nodes) || builder.Nodes.length === 0) {
+            throw new Error('current builder has no nodes');
+          }
+          for (const node of builder.Nodes) {
+            if (node.Version !== 'v0.27.1') {
+              throw new Error(`unexpected BuildKit version ${node.Version}`);
+            }
+            if (node.DriverOpts?.image !== expectedImage) {
+              throw new Error(`unexpected BuildKit image ${node.DriverOpts?.image}`);
+            }
+          }
+          NODE
+
+      - name: Run Backend source gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd backend
+          ./scripts/check.sh
+
+      - name: Prepare and verify the exact Updater environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd updater
+          export UV_CACHE_DIR="$PWD/.cache/uv"
+          export UV_PYTHON_INSTALL_DIR="$PWD/.tmp/python"
+          export PYTHONDONTWRITEBYTECODE=1
+          export PYTHONPYCACHEPREFIX="$PWD/build/.tmp/pycache"
+          uv python install 3.14.6
+          uv sync --frozen --python 3.14.6
+          uv run --frozen pytest
+          uv run --frozen mypy src tests
+          uv run --frozen ruff check .
+          uv run --frozen ruff format --check .
+          uv export --frozen --offline --only-dev --no-emit-project \
+            --no-annotate --no-header --output-file .tmp/build-constraints.txt
+          uv lock --check --offline
+          uv build --offline --wheel --python 3.14.6 --out-dir .tmp/dist \
+            --build-constraints .tmp/build-constraints.txt --require-hashes \
+            --no-create-gitignore
+
+      - name: Run Frontend source and production-artifact gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd frontend
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run check
+
+      - name: Run Contracts and CI policy gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test contracts/artifacts/test/*.test.mjs
+          node contracts/artifacts/bin/artifacts.mjs verify-component \
+            contracts/artifacts/fixtures/positive/backend backend
+          node contracts/artifacts/bin/artifacts.mjs verify-component \
+            contracts/artifacts/fixtures/positive/updater updater
+          node contracts/artifacts/bin/artifacts.mjs verify-component \
+            contracts/artifacts/fixtures/positive/frontend frontend
+
+      - name: Build twice, assemble, and smoke only local artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p \
+            backend/build/.tmp \
+            updater/build/.tmp \
+            frontend/build/.tmp
+
+          backend/build/check.sh --target-arch amd64 \
+            | tee backend/build/.tmp/ci-check.log
+          backend_root="$(
+            sed -n 's/^BACKEND_ARTIFACT_ROOT=//p' \
+              backend/build/.tmp/ci-check.log | tail -n 1
+          )"
+          test -n "$backend_root"
+
+          (
+            cd updater
+            export PYTHONDONTWRITEBYTECODE=1
+            export PYTHONPYCACHEPREFIX="$PWD/build/.tmp/pycache"
+            .venv/bin/python build/check.py \
+              --python "$PWD/.venv/bin/python" \
+              --uv "$(command -v uv)" \
+              --docker "$(command -v docker)" \
+              --contracts-root "$PWD/../contracts" \
+              --target linux/amd64
+          ) | tee updater/build/.tmp/ci-check.log
+          updater_root="$(
+            sed -n 's/^updater artifact accepted at //p' \
+              updater/build/.tmp/ci-check.log | tail -n 1
+          )"
+          test -n "$updater_root"
+
+          (
+            cd frontend
+            npm run artifact:check -- --target-arch amd64
+          ) | tee frontend/build/.tmp/ci-check.log
+          frontend_root="$(
+            sed -n 's/^FRONTEND_ARTIFACT_ROOT=//p' \
+              frontend/build/.tmp/ci-check.log | tail -n 1
+          )"
+          test -n "$frontend_root"
+
+          node contracts/artifacts/bin/coordinator.mjs smoke \
+            --backend "$backend_root" \
+            --updater "$updater_root" \
+            --frontend "$frontend_root" \
+            --docker "$(command -v docker)" \
+            --python "$PWD/updater/.venv/bin/python"
+
+      - name: Audit generated residue and diff hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          node contracts/artifacts/bin/residue.mjs
+          git diff --check

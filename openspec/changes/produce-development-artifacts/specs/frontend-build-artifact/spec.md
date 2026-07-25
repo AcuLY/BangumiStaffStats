@@ -4,14 +4,14 @@
 |---|---|
 | Status | investigated: complete; specified: complete after strict validation; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
 | Owner | Frontend owner within the combined Frontend/Contracts apply group. |
-| Writable paths | `frontend/build/**`, `frontend/package.json`, and `frontend/vite.config.ts`; generated output only below ignored `frontend/build/.tmp/**`. |
-| Read-only protected inputs | Root authorities/OpenSpec outside this change; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; `contracts/**`; `frontend/index.html`, `frontend/src/**`, `frontend/public/**`, `frontend/tests/**`, `frontend/scripts/**`, `frontend/ARCHITECTURE.md`, `frontend/README.md`, all tsconfig/OpenAPI config, all Backend/Updater paths, external repositories/state. |
+| Writable paths | `frontend/build/**`, `frontend/package.json`, `frontend/vite.config.ts`, and only persistent-inventory handling in `frontend/scripts/check-architecture.mjs`; generated output only below ignored `frontend/build/.tmp/**`. |
+| Read-only protected inputs | Root authorities/OpenSpec outside this change; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; `contracts/**`; `frontend/index.html`, `frontend/src/**`, `frontend/public/**`, `frontend/tests/**`, every `frontend/scripts/**` hunk outside the exact inventory amendment, `frontend/ARCHITECTURE.md`, `frontend/README.md`, all tsconfig/OpenAPI config, all Backend/Updater paths, external repositories/state. |
 | Deletion complement | None. |
 | Mutable refs | None. |
 | Consumes | Clean candidate Frontend source/assets, package lock, Node 24.18.0, npm 11.16.0, Vite configuration, accepted OpenAPI, Contracts statement schema, and existing Frontend type/test/build/artifact checks. |
 | Produces | Reproducible static tar artifact, checksum inventory, SPDX SBOM, Frontend component statement, and static artifact smoke helpers. |
 | Dependencies | Exact direct IDs: `produce-immutable-archive`, `derive-position-catalog-and-cast`, `implement-backend-archive-consumer`, `implement-backend-http-and-observability`, `implement-image-proxy`, `implement-query-result-set`, `implement-statistics-series-sort-evidence`, `expose-dynamic-catalog`, `admit-public-collection-client`, `implement-bounded-query-cache`, `expose-rankings`, `expose-candidates`, `expose-person-detail`, `expose-partners`, `expose-co-star`, `implement-frontend-query-shell`, `implement-frontend-ranking-results`, `implement-frontend-person-inspector`, `implement-frontend-co-star-vertical`, `harden-frontend-design-and-accessibility`; all active changes must also be completed/archived before apply. |
-| Deliverables | Deterministic build/checksum/SBOM/statement/reproducibility/static-smoke helpers, local-output ignore rules, and only necessary package/Vite build-setting edits. |
+| Deliverables | Deterministic build/checksum/SBOM/statement/reproducibility/static-smoke helpers, local-output ignore rules, only necessary package/Vite build-setting edits, and an exact persistent-inventory update that admits only those tracked build files plus generated `build/.tmp/**`. |
 | Acceptance | Existing architecture/wire/type/unit/build/artifact gates and accepted oracle/design evidence; two clean byte-identical builds; offline evidence validation; source-free loopback static smoke; exact paths/residue/diff checks. |
 | Non-goals | Any Vue/CSS/asset/index/test/API/route behavior edit, product dependency addition/upgrade, web-server image, hosting/CDN config, registry/release/deploy, or redesign. |
 | Operations deferred | Static hosting/reverse proxy/CDN/cache policy, production paths/secrets/TLS, registry/release/deploy/SSH, monitoring/SLO, preview/cutover/migration/retirement. |
@@ -27,6 +27,16 @@ Frontend SHALL produce a byte-identical normalized static tar artifact across
 two isolated `npm ci` builds. Archive paths, timestamps, UID/GID, modes, entry
 order, and compression headers SHALL be normalized. Final local output SHALL be
 content-addressed and SHALL never be overwritten with different bytes.
+The acceptance-capable build entrypoint SHALL derive revision/tree from the
+canonical checkout it actually copies, require a clean matching index, tracked
+worktree, and untracked non-ignored set, and reject any caller identity that
+does not exactly restate that derived candidate before writing output. Clean
+verification SHALL compare raw worktree bytes and executable modes with every
+stage-zero Git tree/index entry, reject content-hiding `assume-unchanged` and
+`skip-worktree` flags, and ignore no drift
+because of local attributes, filters, exclude configuration, or an untracked
+ignore-control file. The copied source SHALL contain only tracked regular blobs
+from that exact candidate.
 
 #### Scenario: Frontend is rebuilt from identical inputs
 
@@ -41,6 +51,13 @@ content-addressed and SHALL never be overwritten with different bytes.
   built file inventory differs between isolated builds
 - **THEN** packaging fails without updating dependencies or accepting partial
   output
+
+#### Scenario: Frontend source differs from its declared candidate
+
+- **WHEN** `HEAD`, `HEAD^{tree}`, the index, tracked Frontend source, an
+  untracked non-ignored path, or a supplied source identity disagrees
+- **THEN** the build fails before copying source or creating an artifact and
+  cannot emit a statement that claims the clean `HEAD`
 
 ### Requirement: Packaging SHALL preserve the accepted frontend behavior
 

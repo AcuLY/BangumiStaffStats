@@ -27,6 +27,16 @@ SHALL produce a byte-identical wheel/bundle and local OCI image archive across
 two isolated builds. Wheel/archive paths, timestamps, UID/GID, modes, entry
 order, and compression headers SHALL be normalized. Final local output SHALL be
 content-addressed and SHALL never be overwritten with different bytes.
+The acceptance-capable build entrypoint SHALL derive revision/tree/epoch from
+the canonical checkout it actually snapshots, require a clean matching index,
+tracked worktree, and untracked non-ignored set, and reject caller identity
+overrides that do not exactly restate that derived candidate before writing
+output. Clean verification SHALL compare raw worktree bytes and executable
+modes with every stage-zero Git tree/index entry, reject content-hiding
+`assume-unchanged` and `skip-worktree` flags, and ignore no drift because of local attributes, filters, or exclude
+configuration or an untracked ignore-control file. The source snapshot SHALL
+contain only tracked regular blobs from that exact candidate; ignored
+live-worktree files SHALL NOT affect or enter the artifact.
 
 #### Scenario: Updater is rebuilt from identical inputs
 
@@ -41,6 +51,13 @@ content-addressed and SHALL never be overwritten with different bytes.
   cache or resolved package metadata disagrees with `uv.lock`
 - **THEN** it fails without loosening pins, rewriting the lock, or publishing a
   partial artifact
+
+#### Scenario: Updater source differs from its declared candidate
+
+- **WHEN** `HEAD`, `HEAD^{tree}`, the index, tracked Updater source, an
+  untracked non-ignored path, or a caller-supplied source identity disagrees
+- **THEN** the build fails before copying source or creating an artifact and
+  cannot emit a statement that claims the clean `HEAD`
 
 ### Requirement: The Updater runtime image SHALL remain one-shot
 

@@ -2,9 +2,9 @@
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: main-agent approved after strict validation; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
+| Status | investigated and specified: complete; apply admitted on `codex/formal-rewrite` at `665c300f10c2ba572caede29951e63ea2349da7c`; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
 | Owner | Main agent admits/reviews/marks/lifecycles the change. Apply group A owns Backend, B owns Updater, and C owns Frontend/Contracts. Apply agents do not edit OpenSpec artifacts, stage, commit, or mutate refs/remotes. |
-| Writable paths | A: `backend/Dockerfile`, `backend/build/**`. B: `updater/Dockerfile`, `updater/build/**`. C: `frontend/build/**`, `frontend/package.json`, `frontend/vite.config.ts`, `contracts/artifacts/**`, `.github/workflows/ci.yml`. Main-agent lifecycle only: this change's `.openspec.yaml`, proposal, design, tasks, and `specs/**`. Generated local output stays below each owned build/artifact `.tmp/**`. |
+| Writable paths | A: `backend/Dockerfile`, `backend/build/**`, and only the persistent-inventory handling in `backend/scripts/check.sh`. B: `updater/Dockerfile`, `updater/build/**`. C: `frontend/build/**`, `frontend/package.json`, `frontend/vite.config.ts`, only the persistent-inventory handling in `frontend/scripts/check-architecture.mjs`, `contracts/artifacts/**`, `.github/workflows/ci.yml`. Main-agent lifecycle only: this change's `.openspec.yaml`, proposal, design, tasks, and `specs/**`. Generated local output stays below each owned build/artifact `.tmp/**`. |
 | Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, `tmp-formal-development/**`, oracle `644b7748674e553f863d0ffd61d029f86fdc0717`, root OpenSpec outside this change, root config, accepted `contracts/openapi/openapi.yaml`, `contracts/schemas/**`, `contracts/goldens/**`, all component paths not explicitly writable, external repositories, refs/remotes, registries, hosts, services, secrets, and production state. |
 | Deletion complement | None. No apply task deletes or moves a protected file. |
 | Mutable refs | None. |
@@ -19,20 +19,30 @@
 
 ## 1. Main-agent admission and path leases
 
-- [ ] 1.1 Record the current branch and HEAD; prove each of the exact twenty
+- [x] 1.1 Record the current branch and HEAD; prove each of the exact twenty
   direct dependency changes has completed its exit gate and every active change
   is completed/archived. Stop without apply on any missing dependency, active
   implementation, unapproved external-client admission, or authority conflict.
-- [ ] 1.2 Run
+  Recorded `codex/formal-rewrite` at
+  `665c300f10c2ba572caede29951e63ea2349da7c`: all 20 direct dependencies are
+  archived and this is the only active change.
+- [x] 1.2 Run
   `openspec validate produce-development-artifacts --strict` and
   `openspec validate --all --strict`; record explicit main-agent review/approval
   of proposal, four specs, design, tasks, exact paths, non-goals, and operations
-  deferral before delegating.
-- [ ] 1.3 Record the allowed initial dirty state, require no unowned changes,
+  deferral before delegating. Both strict gates passed with all 44 items valid.
+- [x] 1.3 Record the allowed initial dirty state, require no unowned changes,
   lease the exact A/B/C writable paths to three agents, and prohibit those
   agents from OpenSpec markers, staging, commits, refs/remotes, or external
   state. Generated output is allowed only in the four declared ignored `.tmp`
-  roots.
+  roots. Admission began from a clean worktree. A owns only
+  `backend/Dockerfile`, `backend/build/**`, and the exact persistent-inventory
+  handling in `backend/scripts/check.sh`; B owns only
+  `updater/Dockerfile` and `updater/build/**`; C owns only
+  `frontend/build/**`, `frontend/package.json`, `frontend/vite.config.ts`,
+  the exact persistent-inventory handling in
+  `frontend/scripts/check-architecture.mjs`, `contracts/artifacts/**`, and
+  `.github/workflows/ci.yml`.
 
 ## 2. Frontend/Contracts group: contract envelope
 
@@ -61,11 +71,21 @@
 - [ ] 3.2 Implement `backend/Dockerfile` and `backend/build/**`: digest-pinned
   non-root multi-stage image, reproducible Go API binary bundle/local OCI
   archive, normalized content-addressed output, narrow ignore/cleanup handling,
-  and no runtime source/build tools or publication/deployment behavior.
+  and no runtime source/build tools or publication/deployment behavior. Update
+  only the persistent-inventory handling in `backend/scripts/check.sh` so it
+  lists every new tracked build file exactly and ignores generated
+  `backend/build/.tmp/**`; do not weaken any source, dependency, forbidden-file,
+  deferred-feature, or product gate.
 - [ ] 3.3 Emit and test the complete sorted SHA-256 inventory, deterministic
   SPDX 2.3 Go runtime closure, and strict Backend component statement bound to
   candidate source/platform, Archive compatibility, exact OpenAPI digest, and
-  actual binary/image metadata.
+  actual binary/image metadata. The production build entrypoint must derive
+  and verify a clean checkout `HEAD`/tree/index/worktree/untracked identity,
+  raw-compare every tracked blob/mode, reject `assume-unchanged`/
+  `skip-worktree` and mismatched
+  overrides before output, and include negative tests for tracked, staged,
+  untracked, nested-ignore, local-filter, index-flag, and supplied-identity
+  drift.
 - [ ] 3.4 Run `cd backend && ./scripts/check.sh`, then the new Backend build
   check twice with fresh cache/output roots and compare every artifact,
   checksum, SBOM, and statement byte. Run the new non-root artifact-only API
@@ -88,7 +108,14 @@
 - [ ] 4.3 Emit and test the complete sorted SHA-256 inventory, deterministic
   SPDX 2.3 Python runtime closure, and strict Updater component statement bound
   to candidate source/platform, Archive producer compatibility, `uv.lock`, and
-  actual wheel/image metadata.
+  actual wheel/image metadata. The production build entrypoint must derive and
+  verify a clean checkout `HEAD`/tree/index/worktree/untracked identity,
+  raw-compare every tracked blob/mode, reject `assume-unchanged`/
+  `skip-worktree` and mismatched
+  revision/tree/epoch overrides before output, and cover each drift class plus
+  nested-ignore and hostile local-filter configuration with a negative test.
+  Snapshot only candidate-tracked regular blobs and prove ignored live files
+  cannot alter or enter output.
 - [ ] 4.4 Run the exact Python 3.14.6/uv 0.11.32 frozen
   pytest/mypy/ruff/format/lock/wheel gates from `updater/README.md`, then the new
   Updater build check twice with fresh cache/output roots and compare every
@@ -100,12 +127,21 @@
 
 ## 5. Frontend/Contracts group: frontend artifact
 
-- [ ] 5.1 In only `frontend/build/**`, `frontend/package.json`, and
-  `frontend/vite.config.ts`, implement the
+- [ ] 5.1 In only `frontend/build/**`, `frontend/package.json`,
+  `frontend/vite.config.ts`, and the persistent-inventory handling in
+  `frontend/scripts/check-architecture.mjs`, implement the
   reproducible normalized static tar, content-addressed output, checksum/SPDX/
   Frontend statement generation, source-free loopback static smoke, and narrow
-  ignore/cleanup handling. Add no product dependency and edit no Vue, CSS,
-  asset, `index.html`, test, API, route, or product-behavior path.
+  ignore/cleanup handling. The architecture checker shall list every new
+  tracked build file exactly while ignoring only generated
+  `frontend/build/.tmp/**`; all dependency, source, HTML, architecture, and
+  product gates remain unchanged. Add no product dependency and edit no Vue,
+  CSS, asset, `index.html`, test, API, route, or product-behavior path. The
+  production artifact check must derive and verify the clean checkout
+  `HEAD`/tree/index/worktree/untracked identity by raw blob/mode state before
+  copying the candidate, reject `assume-unchanged`/`skip-worktree`, and cover each drift class
+  plus nested-ignore and hostile local-filter configuration with a negative
+  test.
 - [ ] 5.2 Run Node 24.18.0/npm 11.16.0 `npm ci` and `npm run check`, then the
   new Frontend build check twice with fresh dependency/cache/output roots and
   compare every static artifact, checksum, SBOM, and statement byte. Verify the
@@ -130,12 +166,24 @@
   fixtures; run updater `doctor`/contract check, built API health/readiness/
   metrics, and static frontend serving without source imports/mounts, Compose,
   updater `produce`, Archive activation, external network, residual process,
-  or input mutation.
+  or input mutation. Before invoking any checked-in helper, validator, or
+  fixture, attest that the clean canonical checkout revision/tree equals the
+  assembled manifest and every invoked control-plane path is a tracked regular
+  non-symlink file from that tree using raw blob/mode comparison; reject
+  `assume-unchanged`/`skip-worktree` and negative-test dirty, mismatched, untracked, symlinked,
+  substituted, nested-ignore, and hostile local-filter inputs before any
+  product process. Add a regression that launches the Updater smoke helper
+  from a disposable working directory under the coordinator's sanitized
+  `PYTHONSAFEPATH=1`/no-`PYTHONPATH` environment, permits only an explicitly
+  resolved attested sibling control-plane import, and keeps all product-source
+  paths absent.
 - [ ] 6.3 Implement `.github/workflows/ci.yml` with `contents: read`, pinned
   actions and exact toolchains, component tests/builds, reproducibility,
   compatibility assembly, and local smoke only. Keep container `push=false`;
   add a Contracts policy test that rejects write/OIDC/secret/environment/
-  registry/package/release/deploy/SSH/production/activation authority or steps.
+  registry/package/release/deploy/SSH/production/activation authority or steps,
+  and proves the final four-root residue audit rejects every non-`.tmp`
+  untracked/generated path.
 - [ ] 6.4 Run the Contracts positive/negative suites, two full clean local
   assemblies, artifact-only smoke, CI policy test, exact C path/residue audit,
   and `git diff --check`; report exact commands/results without staging or

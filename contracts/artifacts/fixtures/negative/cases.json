@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    "archive-range",
+    "buildkit-image-drift",
+    "container-toolchain-drift",
+    "digest-drift",
+    "duplicate-field",
+    "extra-file",
+    "host-leakage",
+    "incomplete-sbom",
+    "missing-file",
+    "mixed-platform",
+    "mixed-source",
+    "openapi-drift",
+    "random-leakage",
+    "sbom-artifact-digest-ambiguity",
+    "sbom-missing-oci",
+    "sbom-missing-wheel",
+    "sbom-nonstatement-artifact",
+    "size-drift",
+    "substituted-component",
+    "timestamp-leakage",
+    "unknown-field",
+    "unsafe-path"
+  ]
+}

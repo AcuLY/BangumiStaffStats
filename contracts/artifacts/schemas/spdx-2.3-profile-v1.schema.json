@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AcuLY/BangumiStaffStats/contracts/artifacts/spdx-2.3-profile-v1.schema.json",
+  "title": "Bangumi Staff Statistics deterministic SPDX 2.3 profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "spdxVersion",
+    "dataLicense",
+    "SPDXID",
+    "name",
+    "documentNamespace",
+    "creationInfo",
+    "packages",
+    "relationships"
+  ],
+  "properties": {
+    "spdxVersion": {
+      "const": "SPDX-2.3"
+    },
+    "dataLicense": {
+      "const": "CC0-1.0"
+    },
+    "SPDXID": {
+      "const": "SPDXRef-DOCUMENT"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._/+@-]+$"
+    },
+    "documentNamespace": {
+      "type": "string",
+      "pattern": "^https://spdx\\.bangumi-staff-stats\\.invalid/(backend|updater|frontend)/sha256-[0-9a-f]{64}$"
+    },
+    "creationInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created", "creators"],
+      "properties": {
+        "created": {
+          "const": "1970-01-01T00:00:00Z"
+        },
+        "creators": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^Tool: [A-Za-z0-9._/+@ -]+$"
+          }
+        },
+        "licenseListVersion": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        }
+      }
+    },
+    "documentDescribes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/spdxId"
+      }
+    },
+    "packages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/package"
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/relationship"
+      }
+    }
+  },
+  "$defs": {
+    "spdxId": {
+      "type": "string",
+      "pattern": "^SPDXRef-(?:DOCUMENT|Package-[A-Za-z0-9.-]+)$"
+    },
+    "checksum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "checksumValue"],
+      "properties": {
+        "algorithm": {
+          "const": "SHA256"
+        },
+        "checksumValue": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "externalRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["referenceCategory", "referenceType", "referenceLocator"],
+      "properties": {
+        "referenceCategory": {
+          "const": "PACKAGE-MANAGER"
+        },
+        "referenceType": {
+          "const": "purl"
+        },
+        "referenceLocator": {
+          "type": "string",
+          "pattern": "^pkg:[A-Za-z0-9.+_-]+/[A-Za-z0-9._~/%+-]+@[A-Za-z0-9._~+:-]+$"
+        }
+      }
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "SPDXID",
+        "name",
+        "downloadLocation",
+        "filesAnalyzed",
+        "licenseConcluded",
+        "licenseDeclared",
+        "copyrightText"
+      ],
+      "properties": {
+        "SPDXID": {
+          "type": "string",
+          "pattern": "^SPDXRef-Package-[A-Za-z0-9.-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "versionInfo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "supplier": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "downloadLocation": {
+          "const": "NOASSERTION"
+        },
+        "filesAnalyzed": {
+          "const": false
+        },
+        "checksums": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "$ref": "#/$defs/checksum"
+          }
+        },
+        "licenseConcluded": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "licenseDeclared": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "copyrightText": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "primaryPackagePurpose": {
+          "enum": ["APPLICATION", "LIBRARY"]
+        },
+        "externalRefs": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "$ref": "#/$defs/externalRef"
+          }
+        },
+        "comment": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spdxElementId",
+        "relationshipType",
+        "relatedSpdxElement"
+      ],
+      "properties": {
+        "spdxElementId": {
+          "$ref": "#/$defs/spdxId"
+        },
+        "relationshipType": {
+          "enum": ["DESCRIBES", "DEPENDS_ON"]
+        },
+        "relatedSpdxElement": {
+          "$ref": "#/$defs/spdxId"
+        }
+      }
+    }
+  }
+}
