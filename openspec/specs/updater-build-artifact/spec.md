@@ -1,8 +1,13 @@
+# updater-build-artifact Specification
+
+## Purpose
+Define deterministic, content-addressed Updater development artifacts, their finite immutable runtime, exact evidence, and source-free smoke contract.
+
 ## Capability Boundary
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: complete after strict validation; implemented and verified: complete; committed: `c1e0623ddd14ba678a32b082d7e16d2e66017606`; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: complete after strict validation; implemented and verified: complete; committed: `c1e0623ddd14ba678a32b082d7e16d2e66017606`; pushed: `origin/codex/formal-rewrite`; released: no; deployed: no |
 | Owner | Updater apply group. |
 | Writable paths | `updater/Dockerfile` and `updater/build/**`; generated output only below ignored `updater/build/.tmp/**`. |
 | Read-only protected inputs | Root authorities/oracle/OpenSpec outside this change; `contracts/**`; all Updater source, tests, configuration, `pyproject.toml`, `uv.lock`, README, and other files outside writable paths; all Backend/Frontend paths; external repositories/state. |
@@ -17,7 +22,7 @@
 | Operations deferred | Scheduler/timer/`flock`, production paths/users/secrets/TLS, `current.json` activation/restart/rollback/cleanup and `update_activated`, registry/release/deploy/SSH, monitoring/SLO, migration/cutover. |
 | Stop/rollback conditions | Stop on incomplete admission, source/lock edit need, unpinned tool/base, nondeterminism, evidence mismatch, source/runtime leak, scheduling/activation/publication logic, or protected mutation. Roll back only owned uncommitted files and ignored `.tmp` output. |
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Updater builds SHALL be deterministic and content-addressed
 

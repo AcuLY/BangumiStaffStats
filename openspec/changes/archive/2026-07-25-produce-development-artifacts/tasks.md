@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | investigated and specified: complete; apply admitted on `codex/formal-rewrite` at `665c300f10c2ba572caede29951e63ea2349da7c`; implemented and verified: complete; committed: `c1e0623ddd14ba678a32b082d7e16d2e66017606`; pushed: no; released: no; deployed: no |
+| Status | investigated and specified: complete; apply admitted on `codex/formal-rewrite` at `665c300f10c2ba572caede29951e63ea2349da7c`; implemented and verified: complete; committed: `c1e0623ddd14ba678a32b082d7e16d2e66017606`; pushed: `origin/codex/formal-rewrite`; released: no; deployed: no |
 | Owner | Main agent admits/reviews/marks/lifecycles the change. Apply group A owns Backend, B owns Updater, and C owns Frontend/Contracts. Apply agents do not edit OpenSpec artifacts, stage, commit, or mutate refs/remotes. |
 | Writable paths | A: `backend/Dockerfile`, `backend/build/**`, and only the persistent-inventory handling in `backend/scripts/check.sh`. B: `updater/Dockerfile`, `updater/build/**`. C: `frontend/build/**`, `frontend/package.json`, `frontend/vite.config.ts`, only the persistent-inventory handling in `frontend/scripts/check-architecture.mjs`, `contracts/artifacts/**`, `.github/workflows/ci.yml`. Main-agent lifecycle only: this change's `.openspec.yaml`, proposal, design, tasks, and `specs/**`. Generated local output stays below each owned build/artifact `.tmp/**`. |
 | Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, `tmp-formal-development/**`, oracle `644b7748674e553f863d0ffd61d029f86fdc0717`, root OpenSpec outside this change, root config, accepted `contracts/openapi/openapi.yaml`, `contracts/schemas/**`, `contracts/goldens/**`, all component paths not explicitly writable, external repositories, refs/remotes, registries, hosts, services, secrets, and production state. |
@@ -212,7 +212,7 @@
   implemented, verified, committed, pushed, released, and deployed. Only after
   zero-P0/P1 main-agent acceptance may the main agent update task markers and
   create a narrow local commit; pushed/released/deployed remain `no`.
-- [ ] 7.5 Archive/sync this change only after the accepted local implementation
+- [x] 7.5 Archive/sync this change only after the accepted local implementation
   commit, re-run strict-all and diff hygiene, and do not begin
   `complete-integrated-development-acceptance` until the archived capability
   and clean tree are verified.

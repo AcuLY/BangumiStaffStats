@@ -51,7 +51,7 @@ None.
 - implemented: complete
 - verified: complete
 - committed: `c1e0623ddd14ba678a32b082d7e16d2e66017606`
-- pushed: no
+- pushed: yes (`origin/codex/formal-rewrite`)
 - released: no
 - deployed: no
 

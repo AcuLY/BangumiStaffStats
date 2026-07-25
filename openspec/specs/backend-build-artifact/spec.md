@@ -1,8 +1,13 @@
+# backend-build-artifact Specification
+
+## Purpose
+Define deterministic, content-addressed Backend development artifacts, their minimal immutable runtime, exact evidence, and artifact-only smoke contract.
+
 ## Capability Boundary
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: complete after strict validation; implemented and verified: complete; committed: `c1e0623ddd14ba678a32b082d7e16d2e66017606`; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: complete after strict validation; implemented and verified: complete; committed: `c1e0623ddd14ba678a32b082d7e16d2e66017606`; pushed: `origin/codex/formal-rewrite`; released: no; deployed: no |
 | Owner | Backend apply group. |
 | Writable paths | `backend/Dockerfile`, `backend/build/**`, and only persistent-inventory handling in `backend/scripts/check.sh`; generated output only below ignored `backend/build/.tmp/**`. |
 | Read-only protected inputs | Root authorities/oracle/OpenSpec outside this change; `contracts/**`; all Backend source, module, script hunks outside the exact inventory amendment, README, and config files outside the writable paths; all Updater/Frontend paths; external repositories/state. |
@@ -17,7 +22,7 @@
 | Operations deferred | Production listener/topology, service manager, secrets/TLS, Archive activation/restart/rollback/cleanup, registry/release/deploy/SSH, monitoring/SLO, migration/cutover. |
 | Stop/rollback conditions | Stop on incomplete admission, source/module edit need, unpinned tool/base, nondeterminism, evidence mismatch, source/runtime leak, mutable Archive access, publication/deploy logic, or protected mutation. Roll back only owned uncommitted files and ignored `.tmp` output. |
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Backend builds SHALL be deterministic and content-addressed
 

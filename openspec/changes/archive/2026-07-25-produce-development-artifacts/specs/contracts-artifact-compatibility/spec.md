@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: complete after strict validation; implemented and verified: complete; committed: `c1e0623ddd14ba678a32b082d7e16d2e66017606`; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: complete after strict validation; implemented and verified: complete; committed: `c1e0623ddd14ba678a32b082d7e16d2e66017606`; pushed: `origin/codex/formal-rewrite`; released: no; deployed: no |
 | Owner | Contracts owner within the combined Frontend/Contracts apply group; it alone assembles cross-component compatibility. |
 | Writable paths | `contracts/artifacts/**` and `.github/workflows/ci.yml`. Generated local output is confined to ignored `contracts/artifacts/.tmp/**`. |
 | Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, `tmp-formal-development/**`, oracle `644b7748674e553f863d0ffd61d029f86fdc0717`, root OpenSpec outside this change, `contracts/openapi/openapi.yaml`, `contracts/schemas/**`, `contracts/goldens/**`, Backend/Updater/Frontend source and owner-local artifact outputs, external repositories, refs/remotes, registries, hosts, secrets, and production state. |
