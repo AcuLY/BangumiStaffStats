@@ -14,7 +14,7 @@ the prototype where formal operation boundaries differ.
 
 | Boundary | Declaration |
 |---|---|
-| Status | Specified and main-agent approved. Group 1 is accepted at `9eae3216`, Group 2A at `f7233647`, and the co-star contract/runtime at `8b9d623a` plus archive `a15073fb`. Group 2B feature-owned implementation may proceed; shared integration remains gated on the active oracle owner's commit and explicit main-agent handoff. |
+| Status | Specified and main-agent approved. Group 1 is accepted at `9eae3216`, Group 2A at `f7233647`, and the co-star contract/runtime at `8b9d623a` plus archive `a15073fb`. Group 2B feature implementation is committed at `77b335ae` and undergoing its final oracle-correction audit; shared integration remains gated on explicit main-agent handoff. |
 | Owner | One Frontend implementation agent; main agent audits and accepts. |
 | Writable paths | Exactly the paths declared in `proposal.md`; feature-owned work stays under `frontend/src/features/co-star/**`, with only the listed API, coordinator/share, app, shared primitive, check, architecture, and test integration files mutable. |
 | Read-only protected inputs | Higher authorities, oracle, contracts/backend/updater, contract-owned generated DTOs and generators, non-listed frontend files, other changes, refs/remotes, external repositories, and production state. |
@@ -119,8 +119,11 @@ the prototype where formal operation boundaries differ.
    restore the visible topology. It excludes Draft, response bodies,
    sequence/request/revision/digests, theme, Drawer, focus, and loading. Restore
    validates payload and business limits, consumes it once through the ordinary
-   application/coordinator path, then removes the fragment. A server share API
-   and local persisted session were rejected.
+   application/coordinator path, and removes the fragment after that one attempt
+   whether application succeeds, defers, or fails. The restored people are
+   rehydrated from the authoritative candidate/analysis response rather than
+   names stored in the share payload. A server share API and local persisted
+   session were rejected.
 
 7. **Oracle comparison is evidence-based.** Preservation is checked against
    oracle screenshots/behavior for candidate rail/drawer, tray, state topology,
@@ -131,6 +134,15 @@ the prototype where formal operation boundaries differ.
    348/320/300px, compact selection uses the bottom Drawer below 780px, and
    shared chart/media primitives are extracted only when two production
    consumers require them.
+
+8. **App owns persistent mode panels and compact picker placement.** The App
+   constructs candidates, partners, and co-star drivers plus one
+   `CoStarSelection`; selection count dispatches to empty, partners, or
+   pair/group without destroying either mode panel. Both stable tabpanels remain
+   mounted and switch with `hidden` plus `inert`, keeping Header tab ownership,
+   selection, and accepted results intact. Below 780px the picker entry moves
+   into Header context, closes the query editor before opening the bottom
+   Drawer, and restores focus to the exact surviving opener.
 
 ## Risks / Trade-offs
 

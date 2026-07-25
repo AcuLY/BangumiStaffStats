@@ -166,8 +166,11 @@ refresh flags, theme, Drawer, focus, scroll, and loading state.
 
 Initial restore SHALL validate version, encoded/decoded size, query,
 position membership, uniqueness, 10-person/20-identity limits, and view unions;
-then it SHALL execute at most once through the ordinary query coordinator,
-remove the fragment, and load the appropriate candidate and analysis resources.
+then it SHALL execute at most once through the ordinary query coordinator and
+remove the fragment after that one attempt, including when replay defers or
+fails. A second consume call SHALL observe no share. The empty, partners, or
+analysis intent SHALL be serialized without response bodies or person names;
+restored people SHALL come from authoritative operation responses.
 Invalid payload SHALL start no business request, remove the fragment, preserve
 the safe initial page, and expose a stable error.
 
@@ -180,6 +183,11 @@ the safe initial page, and expose a stable error.
 - **WHEN** a payload contains more than 10 people or 20 identities
 - **THEN** no candidates, partners, or co-star request SHALL start
 - **AND** the fragment SHALL be removed and an accessible stable share error SHALL be shown
+
+#### Scenario: A valid share cannot be applied
+- **WHEN** the one ordinary replay attempt returns false or throws
+- **THEN** the fragment SHALL still be removed and consumed
+- **AND** a second consume call SHALL be absent rather than replaying the same request
 
 ### Requirement: Co-star presentation SHALL preserve oracle hierarchy and DESIGN access
 
@@ -197,10 +205,22 @@ Animations SHALL honor reduced motion. The page SHALL have no horizontal
 viewport overflow; only the relationship matrix and approved shared work table
 MAY scroll horizontally.
 
+The App SHALL construct all three co-star operation drivers and exactly one
+selection owner. Stable `mode-panel-ranking` and `mode-panel-co-star` tabpanels
+SHALL remain mounted and switch with `hidden` plus `inert` so mode navigation
+does not destroy selection or accepted results. At compact widths the picker
+entry SHALL appear in Header context, close an open query editor before opening
+the bottom Drawer, and restore focus to that exact opener when it survives.
+
 #### Scenario: The 780 boundary is crossed
 - **WHEN** the same ready selection is rendered at 779px and 780px
 - **THEN** 779px SHALL use compact controls plus the bottom picker Drawer and 780px SHALL use standard controls plus the desktop rail
 - **AND** the selected identities, request state, and result meaning SHALL not change
+
+#### Scenario: A mode switch returns to co-star
+- **WHEN** a ready co-star selection switches to ranking and then back
+- **THEN** the same mounted co-star panel, selection order, and accepted result SHALL remain
+- **AND** Header tab `aria-controls` SHALL continue to resolve to the stable panel ID
 
 #### Scenario: Themes and representative viewports are checked
 - **WHEN** Light and Dark are browser-checked at 360, 390, 768, 779, 780, 781, 917, 1024, 1185, and 1440px
