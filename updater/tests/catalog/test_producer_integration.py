@@ -529,7 +529,7 @@ def test_fresh_produce_reports_deterministic_quality_and_no_change_reports_none(
     assert no_change.quality_report is None
 
 
-def test_cli_success_document_does_not_expose_python_quality_report(
+def test_cli_success_events_do_not_expose_python_quality_report(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
@@ -543,7 +543,24 @@ def test_cli_success_document_does_not_expose_python_quality_report(
         "sha256:" + ("c" * 64),
         {"schemaVersion": 1},
     )
-    monkeypatch.setattr(cli_module, "produce", lambda _request: result)
+    monkeypatch.setattr(
+        cli_module,
+        "produce",
+        lambda _request, **_kwargs: result,
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "_new_run_id",
+        lambda: "99999999-9999-4999-8999-999999999999",
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "_utc_now",
+        lambda: "2026-07-25T00:00:02Z",
+    )
+    clock = iter([10.0, 12.0])
+    monkeypatch.setattr(cli_module, "_monotonic", lambda: next(clock))
+    status_file = tmp_path / "update-status.json"
     status = cli_module.main(
         [
             "produce",
@@ -557,13 +574,20 @@ def test_cli_success_document_does_not_expose_python_quality_report(
             "a" * 40,
             "--archive-smoke",
             str(tmp_path / "archive-smoke"),
+            "--status-file",
+            str(status_file),
         ]
     )
     assert status == 0
-    assert capsys.readouterr().out == (
-        json.dumps(result.as_json(), sort_keys=True, separators=(",", ":")) + "\n"
-    )
-    assert "quality" not in result.as_json()
+    output = capsys.readouterr()
+    assert output.err == ""
+    events = [json.loads(line) for line in output.out.splitlines()]
+    assert [event["event"] for event in events] == [
+        "updater_started",
+        "update_published",
+    ]
+    assert all("quality" not in event for event in events)
+    assert b"quality" not in status_file.read_bytes()
 
 
 def test_quality_overflow_is_bounded_evidence_and_publishes_nothing(

@@ -15,9 +15,9 @@ unaffected because this is `NEW_CAPABILITY` below the updater boundary.
 
 | Field | Declaration |
 |---|---|
-| Status | Investigated/specified: complete after strict validation and main-agent review. Implemented/verified/committed/pushed/released/deployed: no. |
+| Status | Investigated/specified/main-agent reviewed/implemented/verified: complete. Contracts are committed at `3b3a2402`; updater commit and lifecycle archive are pending this acceptance. Pushed/released/deployed: no. |
 | Owner | Contracts owner for schema/goldens; Updater owner for events/writer/tests. |
-| Writable paths | Contracts apply owner: `contracts/schemas/update-status/{.gitignore,update-status-v1.schema.json,golden-index.schema.json}`, `contracts/schemas/update-status/tooling/{verify.mjs,package.json,package-lock.json}`, `contracts/goldens/update-status/index.json`, `contracts/goldens/update-status/cases/{first-failure.json,canceled.json,no-change.json,published.json,invalid.json}`. Updater apply owner: `updater/src/bangumi_staff_stats_updater/{cli.py,update_status.py}`, `updater/src/bangumi_staff_stats_updater/producer/service.py`, `updater/tests/{test_cli.py,test_update_status.py}`, `updater/tests/producer/test_service.py`. Neither apply owner edits shared task markers or stages files; the main agent alone updates markers after unstaged handoff/acceptance. |
+| Writable paths | Contracts apply owner: `contracts/schemas/update-status/{.gitignore,update-status-v1.schema.json,golden-index.schema.json}`, `contracts/schemas/update-status/tooling/{verify.mjs,package.json,package-lock.json}`, `contracts/goldens/update-status/index.json`, `contracts/goldens/update-status/cases/{first-failure.json,canceled.json,no-change.json,published.json,invalid.json}`. Updater apply owner: `updater/src/bangumi_staff_stats_updater/{cli.py,update_status.py}`, `updater/src/bangumi_staff_stats_updater/producer/service.py`, `updater/tests/{test_cli.py,test_update_status.py}`, `updater/tests/producer/test_service.py`. Main-agent compatibility edit: `updater/tests/catalog/test_producer_integration.py`. Neither apply owner edits shared task markers or stages files; the main agent alone updates markers after unstaged handoff/acceptance. |
 | Read-only protected inputs | PRODUCT/DESIGN/oracle; master plan and development/operations guides; existing Archive/catalog/query contracts and goldens; non-listed updater paths; backend/frontend; other changes/specs; external repositories, refs/remotes, services, hosts, and production state. |
 | Deletion complement | None. |
 | Mutable refs | None. |
@@ -28,7 +28,7 @@ unaffected because this is `NEW_CAPABILITY` below the updater boundary.
 | Acceptance | Contract verifier and strict schema cases; focused updater tests; full pytest/mypy/Ruff/format/wheel/entry-point gates; no residue; strict OpenSpec and Git checks. |
 | Non-goals | New producer algorithm, second state machine, history, retry, exporter/metric, new dependency, activation, scheduling, fixed production paths, remote/external change. |
 | Operations deferred | `current.json`, `update_activated`, timer, `flock`, systemd, production ownership/modes/directories, deployment, restart/readiness loop, scrape/retention/alerts, and rollback activation. |
-| Stop/rollback conditions | Stop before a non-listed write, schema-whitelist expansion, dependency addition, fixed host assumption, activation claim, or change to the Archive commit point. Rejected apply is rolled back only inside owned paths; prior status bytes and any already published inactive Archive are preserved. |
+| Stop/rollback conditions | Stop before a non-listed write, schema-whitelist expansion, dependency addition, fixed host assumption, activation claim, or change to the Archive commit point. Rejected apply is rolled back only inside owned paths; pre-replace failures preserve prior status bytes, while an already published inactive Archive is always preserved. |
 
 ## Goals / Non-Goals
 
@@ -74,10 +74,14 @@ to Archive publication.
 ### 3. Same-directory replace is the status commit point
 
 The writer creates an owner-unique regular temp file beside the target, writes
-canonical compact JSON plus one LF, flushes/fsyncs, uses `os.replace`, then
-fsyncs the directory. Pre-replace faults preserve the prior target exactly and
-remove only the owned temp. A target symlink, special file, non-canonical
-parent, oversized input, or invalid document is rejected.
+canonical compact JSON plus one LF, flushes and file-fsyncs it, uses
+`os.replace`, then fsyncs the parent directory. Write, flush, file-fsync, and
+replace faults before the atomic replace preserve the prior target exactly and
+remove only the owned temp. A parent-directory fsync failure occurs after the
+visibility commit: it reports `STATUS_WRITE_FAILED`, but the replacement may
+already be visible and the writer neither restores old bytes nor claims
+durability. A target symlink, special file, non-canonical parent, oversized
+input, or invalid document is rejected.
 
 Status persistence is intentionally separate from Archive publication. If
 status persistence fails after an inactive Archive has already been published,

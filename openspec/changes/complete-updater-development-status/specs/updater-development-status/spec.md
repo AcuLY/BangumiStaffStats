@@ -2,9 +2,9 @@
 
 | Field | Declaration |
 |---|---|
-| Status | Investigated/specified: complete after strict validation and main-agent review. Implemented/verified/committed/pushed/released/deployed: no. |
+| Status | Investigated/specified/main-agent reviewed/implemented/verified: complete. Commit and lifecycle archive are pending this acceptance. Pushed/released/deployed: no. |
 | Owner | Updater owner. |
-| Writable paths | `updater/src/bangumi_staff_stats_updater/{cli.py,update_status.py}`, `updater/src/bangumi_staff_stats_updater/producer/service.py`, `updater/tests/{test_cli.py,test_update_status.py}`, and `updater/tests/producer/test_service.py`. The apply owner does not edit shared task markers or stage files. |
+| Writable paths | `updater/src/bangumi_staff_stats_updater/{cli.py,update_status.py}`, `updater/src/bangumi_staff_stats_updater/producer/service.py`, `updater/tests/{test_cli.py,test_update_status.py}`, `updater/tests/producer/test_service.py`, and the main-agent-only compatibility edit in `updater/tests/catalog/test_producer_integration.py`. The apply owner does not edit shared task markers or stage files. |
 | Read-only protected inputs | `contracts/schemas/update-status/update-status-v1.schema.json`, `contracts/goldens/update-status/**`, existing non-listed updater files, all backend/frontend files, other OpenSpec artifacts, refs, remotes, external repositories, operations, and production state. |
 | Deletion complement | None. |
 | Mutable refs | None. |
@@ -12,10 +12,10 @@
 | Produces | Five stable lifecycle events, deterministic phase observation, and a caller-selected atomic last-attempt/last-success status writer. |
 | Dependencies | `bootstrap-updater-runtime`, `produce-immutable-archive`, `contracts-update-status`, and `implement-backend-http-and-observability`. |
 | Deliverables | Status module, producer phase observer, CLI integration, exact event/status/fault tests. |
-| Acceptance | Exact event order and whitelist for published/no-change/failed/canceled; status transitions and previous-success retention; same-directory atomic replacement and fault preservation; existing publication semantics and all updater quality gates remain green. |
+| Acceptance | Exact event order and whitelist for published/no-change/failed/canceled; status transitions and previous-success retention; same-directory atomic replacement, pre-replace byte preservation, and truthful post-replace directory-sync failure; existing publication semantics and all updater quality gates remain green. |
 | Non-goals | Archive algorithm changes, activation, `current.json`, updater daemon/scheduler/lock, retry, history, Go exporter, new dependency, external state, or production paths. |
 | Operations deferred | `update_activated`, fixed production directories, timer, `flock`, systemd, deployment, readiness polling, restart, retention, alerts, and production rollback. |
-| Stop/rollback conditions | Stop on any need for a non-listed path, new dependency, activation claim, fixed host path, second publication commit point, or raw/sensitive event field. Rollback discards only this capability's uncommitted edits; status faults preserve prior bytes and never delete an inactive Archive already published. |
+| Stop/rollback conditions | Stop on any need for a non-listed path, new dependency, activation claim, fixed host path, second publication commit point, or raw/sensitive event field. Rollback discards only this capability's uncommitted edits; pre-replace status faults preserve prior bytes, post-replace parent-directory sync faults report uncertain durability truthfully, and no fault deletes an inactive Archive already published. |
 
 ## ADDED Requirements
 
@@ -112,13 +112,21 @@ The durable status update SHALL precede its terminal event.
 - **AND** the terminal event SHALL be emitted only after the replacement is
   durable
 
-#### Scenario: Status input or atomic replacement is unsafe
+#### Scenario: Status input or a pre-replace operation is unsafe
 - **WHEN** the path is relative, has the wrong basename, escapes through a
   symlink, names a special file, contains invalid prior state, or an injected
-  write/flush/sync/replace fault occurs before commit
+  write, flush, file-fsync, or replace fault occurs before the atomic replace
 - **THEN** the invocation SHALL fail with a stable sanitized status error
 - **AND** prior status bytes SHALL remain unchanged and no owned temporary file
   SHALL remain
+
+#### Scenario: Parent-directory sync fails after replacement
+- **WHEN** the atomic replace succeeds but the following parent-directory
+  fsync fails
+- **THEN** the invocation SHALL report stable `STATUS_WRITE_FAILED`
+- **AND** the replacement bytes MAY already be visible, the writer SHALL NOT
+  restore the old bytes or claim confirmed durability, and no owned temporary
+  file SHALL remain
 
 ### Requirement: Status observability SHALL remain development-only
 

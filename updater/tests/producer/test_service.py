@@ -11,7 +11,7 @@ import sqlite3
 import sys
 import time
 import zipfile
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
 from typing import cast
@@ -25,6 +25,7 @@ from bangumi_staff_stats_updater.producer.model import (
     ProducerError,
 )
 from bangumi_staff_stats_updater.producer.service import (
+    PhaseObserver,
     ProduceRequest,
     produce,
 )
@@ -269,11 +270,143 @@ def test_service_publishes_exactly_one_inactive_pair_then_returns_no_change(
     ]
     assert not (tmp_path / "current.json").exists()
     assert not tuple(tmp_path.glob(".bgmss-stage-*"))
-
     second = produce(request, client=client)
     assert second.status == "no-change"
     assert second.data_version == first.data_version
     assert not tuple(tmp_path.glob(".bgmss-stage-*"))
+
+
+class _Observer(PhaseObserver):
+    def __init__(self) -> None:
+        self.started: list[str] = []
+        self.completed: list[tuple[str, float | None, dict[str, object]]] = []
+
+    def phase_started(self, phase: str) -> None:
+        self.started.append(phase)
+
+    def phase_completed(
+        self,
+        phase: str,
+        duration_seconds: float | None,
+        details: Mapping[str, object],
+    ) -> None:
+        self.completed.append((phase, duration_seconds, dict(details)))
+
+
+def test_phase_observer_reports_only_completed_existing_gates(
+    contracts_root: Path,
+    tmp_path: Path,
+) -> None:
+    request, client = _arrange(contracts_root, tmp_path)
+    observer = _Observer()
+    clock = iter(float(index) for index in range(32))
+    result = produce(
+        request,
+        client=client,
+        observer=observer,
+        monotonic=lambda: next(clock),
+    )
+    expected = [
+        "preflight",
+        "acquisition",
+        "identity",
+        "build",
+        "manifest",
+        "smoke",
+        "publication",
+    ]
+    assert result.status == "published"
+    assert observer.started == expected
+    assert [phase for phase, _duration, _details in observer.completed] == expected
+    assert all(duration == 1 for _phase, duration, _details in observer.completed)
+    assert observer.completed[1][2] == {
+        "source_release": "dump-2026-07-21.210441Z",
+        "source_digest": _digest(client.archive),
+    }
+    assert observer.completed[-1][2] == {"dataVersion": result.data_version}
+
+
+def test_interrupted_phase_is_started_but_never_completed(
+    contracts_root: Path,
+    tmp_path: Path,
+) -> None:
+    request, client = _arrange(contracts_root, tmp_path, failing_smoke=True)
+    observer = _Observer()
+
+    with pytest.raises(ProducerError, match="GO_SMOKE_FAILED"):
+        produce(request, client=client, observer=observer)
+
+    assert observer.started[-1] == "smoke"
+    assert [phase for phase, _duration, _details in observer.completed] == [
+        "preflight",
+        "acquisition",
+        "identity",
+        "build",
+        "manifest",
+    ]
+
+
+class _ThrowingObserver(PhaseObserver):
+    def phase_started(self, _phase: str) -> None:
+        raise RuntimeError("observer must not control production")
+
+    def phase_completed(
+        self,
+        _phase: str,
+        _duration_seconds: float | None,
+        _details: Mapping[str, object],
+    ) -> None:
+        raise RuntimeError("observer must not control production")
+
+
+def test_observer_failure_cannot_change_archive_identity_or_publication(
+    contracts_root: Path,
+    tmp_path: Path,
+) -> None:
+    observed_root = tmp_path / "observed"
+    control_root = tmp_path / "control"
+    observed_root.mkdir()
+    control_root.mkdir()
+    request, client = _arrange(contracts_root, observed_root)
+    control_request = replace(request, output_root=control_root)
+
+    observed = produce(request, client=client, observer=_ThrowingObserver())
+    control = produce(control_request, client=client)
+
+    assert observed == control
+    observed_version = observed_root / "versions" / observed.data_version
+    control_version = control_root / "versions" / control.data_version
+    assert (observed_version / "manifest.json").read_bytes() == (
+        control_version / "manifest.json"
+    ).read_bytes()
+    assert (observed_version / "bangumi.sqlite").read_bytes() == (
+        control_version / "bangumi.sqlite"
+    ).read_bytes()
+    assert not (observed_root / "current.json").exists()
+
+
+def test_postpublication_clock_failure_cannot_change_published_result(
+    contracts_root: Path,
+    tmp_path: Path,
+) -> None:
+    request, client = _arrange(contracts_root, tmp_path)
+    observer = _Observer()
+    calls = 0
+
+    def clock() -> float:
+        nonlocal calls
+        calls += 1
+        if calls == 14:
+            raise RuntimeError("clock failed after publication")
+        return float(calls)
+
+    result = produce(request, client=client, observer=observer, monotonic=clock)
+
+    assert result.status == "published"
+    assert (tmp_path / "versions" / result.data_version).is_dir()
+    assert observer.completed[-1][0] == "publication"
+    assert observer.completed[-1][1] is None
+    assert not (tmp_path / "current.json").exists()
 
 
 def test_go_smoke_failure_leaves_no_candidate(

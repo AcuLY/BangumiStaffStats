@@ -2,9 +2,9 @@
 
 | Field | Declaration |
 |---|---|
-| Status | Investigated/specified: complete after strict validation/main-agent review. Implemented/verified/committed/pushed/released/deployed: no. |
+| Status | Investigated/specified/main-agent reviewed/implemented/verified: complete. Contracts are committed at `3b3a2402`; updater commit and lifecycle archive are pending. Pushed/released/deployed: no. |
 | Owner | Contracts owner: group 1. Updater owner: group 2. Both deliver unstaged candidates without editing this file. Main agent: combined acceptance, task-marker updates, and lifecycle work. |
-| Writable paths | Group 1: `contracts/schemas/update-status/{.gitignore,update-status-v1.schema.json,golden-index.schema.json}`, `contracts/schemas/update-status/tooling/{verify.mjs,package.json,package-lock.json}`, `contracts/goldens/update-status/index.json`, and `contracts/goldens/update-status/cases/{first-failure.json,canceled.json,no-change.json,published.json,invalid.json}`. Group 2: `updater/src/bangumi_staff_stats_updater/{cli.py,update_status.py}`, `updater/src/bangumi_staff_stats_updater/producer/service.py`, `updater/tests/{test_cli.py,test_update_status.py}`, and `updater/tests/producer/test_service.py`. Only the main agent may update this change's task markers after owner handoff/acceptance. |
+| Writable paths | Group 1: `contracts/schemas/update-status/{.gitignore,update-status-v1.schema.json,golden-index.schema.json}`, `contracts/schemas/update-status/tooling/{verify.mjs,package.json,package-lock.json}`, `contracts/goldens/update-status/index.json`, and `contracts/goldens/update-status/cases/{first-failure.json,canceled.json,no-change.json,published.json,invalid.json}`. Group 2: `updater/src/bangumi_staff_stats_updater/{cli.py,update_status.py}`, `updater/src/bangumi_staff_stats_updater/producer/service.py`, `updater/tests/{test_cli.py,test_update_status.py}`, and `updater/tests/producer/test_service.py`. Main-agent compatibility edit: `updater/tests/catalog/test_producer_integration.py`. Only the main agent may update this change's task markers after owner handoff/acceptance. |
 | Read-only protected inputs | PRODUCT/DESIGN/oracle, formal master/development/operations guides, all non-listed contracts/updater paths, backend/frontend, other OpenSpec artifacts, external repositories, refs/remotes, host/service/production state. |
 | Deletion complement | None. |
 | Mutable refs | None during apply. |
@@ -35,18 +35,19 @@
 
 ## 2. Updater owner — events and atomic status
 
-- [ ] 2.1 Preflight branch, HEAD, dirty paths, exact writable inventory,
+- [x] 2.1 Preflight branch, HEAD, dirty paths, exact writable inventory,
   approved schema shape, completed artifact status, strict validation, and
   main-agent approval; stop without edits on any mismatch.
-- [ ] 2.2 Implement `update_status.py`, the optional producer phase observer,
+- [x] 2.2 Implement `update_status.py`, the optional producer phase observer,
   required caller-selected `--status-file`, exact lifecycle stream, terminal
   state transitions, sanitization, and same-directory atomic replace using no
   new dependency and only group-2 paths.
-- [ ] 2.3 Add deterministic published/no-change/failure/cancellation, phase
+- [x] 2.3 Add deterministic published/no-change/failure/cancellation, phase
   interruption, prior-success retention, unsafe-path, malformed-prior-state,
-  and injected write/flush/sync/replace fault tests; prove unchanged Archive
+  injected pre-replace write/flush/file-fsync/replace faults, and post-replace
+  parent-directory fsync failure tests; prove unchanged Archive
   identity/publication results with and without the observer.
-- [ ] 2.4 Run
+- [x] 2.4 Run
   `uv run --frozen pytest tests/test_cli.py tests/test_update_status.py tests/producer/test_service.py`,
   `uv run --frozen pytest`, `uv run --frozen mypy src tests`,
   `uv run --frozen ruff check .`, `uv run --frozen ruff format --check .`, and
@@ -56,14 +57,14 @@
 
 ## 3. Combined development acceptance
 
-- [ ] 3.1 Main agent reviews both owned diffs against the schema/event/status
+- [x] 3.1 Main agent reviews both owned diffs against the schema/event/status
   matrix, confirms zero writes outside listed paths and no
   `current.json`/`update_activated`/timer/`flock`/systemd/production/deploy
   behavior, reruns the Contracts verifier, full updater gates,
   `openspec validate complete-updater-development-status --strict`, and
   `git diff --check`; only after each owner passes may the main agent mark its
   corresponding tasks implemented/verified.
-- [ ] 3.2 Stop at an accepted local development candidate. Staging, commit,
+- [x] 3.2 Stop at an accepted local development candidate. Staging, commit,
   sync/archive, push, tag, release, deploy, and activation remain separately
   recorded lifecycle states; this task authorizes none of the remote or
   operations states.

@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | Investigated/specified: complete after strict validation and main-agent review. Implemented/verified/committed/pushed/released/deployed: no. |
+| Status | Investigated/specified/main-agent reviewed/implemented/verified/committed: complete at `3b3a2402`. Pushed/released/deployed: no. |
 | Owner | Contracts owner. |
 | Writable paths | `contracts/schemas/update-status/{.gitignore,update-status-v1.schema.json,golden-index.schema.json}`, `contracts/schemas/update-status/tooling/{verify.mjs,package.json,package-lock.json}`, `contracts/goldens/update-status/index.json`, and `contracts/goldens/update-status/cases/{first-failure.json,canceled.json,no-change.json,published.json,invalid.json}`. The apply owner does not edit shared task markers or stage files. |
 | Read-only protected inputs | Backend guide section 13.3; existing Archive schemas/goldens; updater producer/CLI/tests; backend/frontend; other OpenSpec artifacts; refs, remotes, external repositories, operations, and production state. |
