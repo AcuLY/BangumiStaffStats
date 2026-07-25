@@ -80,6 +80,7 @@ func timeoutResponseForRequest(
 	candidates candidatesExecutor,
 	personDetail personDetailExecutor,
 	partners partnersExecutor,
+	coStar coStarExecutor,
 ) *responseError {
 	if request != nil && request.URL != nil && request.URL.Path == routeCatalog {
 		return &catalogTimeoutResponse
@@ -112,6 +113,13 @@ func timeoutResponseForRequest(
 		}
 		return &response
 	}
+	if request != nil && request.URL != nil && request.URL.Path == routeCoStar {
+		response := coStarTimeoutResponse
+		if coStar != nil {
+			response.dataVersion = coStar.CurrentDataVersion()
+		}
+		return &response
+	}
 	return &timeoutResponse
 }
 
@@ -121,6 +129,7 @@ func internalResponseForRequest(
 	candidates candidatesExecutor,
 	personDetail personDetailExecutor,
 	partners partnersExecutor,
+	coStar coStarExecutor,
 ) *responseError {
 	if request != nil && request.URL != nil && request.URL.Path == routeCatalog {
 		return &catalogInternalResponse
@@ -174,6 +183,19 @@ func internalResponseForRequest(
 		}
 		if partners != nil {
 			response.dataVersion = partners.CurrentDataVersion()
+		}
+		return &response
+	}
+	if request != nil && request.URL != nil && request.URL.Path == routeCoStar {
+		response := responseError{
+			status:       http.StatusInternalServerError,
+			code:         codeInternalError,
+			message:      "co-star is unavailable",
+			retryable:    true,
+			cacheControl: "private, no-store",
+		}
+		if coStar != nil {
+			response.dataVersion = coStar.CurrentDataVersion()
 		}
 		return &response
 	}

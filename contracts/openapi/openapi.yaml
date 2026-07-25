@@ -681,6 +681,77 @@
           }
         }
       }
+    },
+    "/co-star": {
+      "post": {
+        "operationId": "postCoStarV1",
+        "summary": "Project one real pair or group co-star analysis",
+        "description": "Intersects each participant's selected identities at raw Archive Subject level, then returns server-authoritative evidence, an optional group matrix, and one view-only common-work page.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoStarRequestV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Complete pair/group evidence and the requested common-work page.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoStarSuccessEnvelopeV1"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "403": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "404": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "405": {
+            "$ref": "#/components/responses/CoStarMethodNotAllowedErrorV1"
+          },
+          "413": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "415": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "429": {
+            "$ref": "#/components/responses/CoStarRateLimitedErrorV1"
+          },
+          "500": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "502": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoStarServiceUnavailableErrorV1"
+          },
+          "504": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -756,6 +827,15 @@
       },
       "PartnersResultErrorEnvelopeV1": {
         "$ref": "../schemas/partners/result-error-envelope-v1.schema.json"
+      },
+      "CoStarRequestV1": {
+        "$ref": "../schemas/co-star/request-v1.schema.json"
+      },
+      "CoStarSuccessEnvelopeV1": {
+        "$ref": "../schemas/co-star/success-envelope-v1.schema.json"
+      },
+      "CoStarResultErrorEnvelopeV1": {
+        "$ref": "../schemas/co-star/result-error-envelope-v1.schema.json"
       },
       "ResultErrorEnvelopeV1": {
         "$ref": "../schemas/rankings/result-error-envelope-v1.schema.json"
@@ -1647,6 +1727,104 @@
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/PartnersResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "CoStarResultErrorV1": {
+        "description": "The co-star request failed before a successful result could be returned.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CoStarResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "CoStarMethodNotAllowedErrorV1": {
+        "description": "The co-star route supports POST only.",
+        "headers": {
+          "Allow": {
+            "description": "The only supported method.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "POST"
+            }
+          },
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CoStarResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "CoStarRateLimitedErrorV1": {
+        "description": "The caller has exceeded the collection request rate.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          },
+          "Retry-After": {
+            "description": "Bounded delay before another request.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CoStarResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "CoStarServiceUnavailableErrorV1": {
+        "description": "The co-star service is busy, not ready, or an upstream is unavailable.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          },
+          "Retry-After": {
+            "description": "Bounded delay before retrying when known.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CoStarResultErrorEnvelopeV1"
             }
           }
         }

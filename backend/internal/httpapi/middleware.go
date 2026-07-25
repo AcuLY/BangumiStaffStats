@@ -45,6 +45,7 @@ type middlewareOptions struct {
 	candidates       candidatesExecutor
 	personDetail     personDetailExecutor
 	partners         partnersExecutor
+	coStar           coStarExecutor
 }
 
 func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Handler {
@@ -136,6 +137,19 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 				)
 			}
 		}
+		if metricRoute(request) == observability.RouteCoStar {
+			queryTerminal, _ = observability.NewQueryTerminal(
+				requestID,
+				observability.QueryOperationCoStar,
+			)
+			if queryTerminal != nil {
+				identityContext = context.WithValue(
+					identityContext,
+					coStarTerminalContextKey{},
+					queryTerminal,
+				)
+			}
+		}
 		requestContext, cancel := context.WithTimeoutCause(identityContext, options.requestTimeout, requestDeadlineCause)
 		defer cancel()
 		request = request.WithContext(requestContext)
@@ -171,6 +185,7 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 						options.candidates,
 						options.personDetail,
 						options.partners,
+						options.coStar,
 					),
 				)
 				break
@@ -189,6 +204,7 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 							options.candidates,
 							options.personDetail,
 							options.partners,
+							options.coStar,
 						),
 					)
 					outcome = observability.OutcomePanic
@@ -207,6 +223,7 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 					options.candidates,
 					options.personDetail,
 					options.partners,
+					options.coStar,
 				),
 			)
 		}
@@ -227,7 +244,8 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 				metricRoute(request) == observability.RouteRankings ||
 				metricRoute(request) == observability.RouteCandidates ||
 				metricRoute(request) == observability.RoutePersonDetail ||
-				metricRoute(request) == observability.RoutePartners) &&
+				metricRoute(request) == observability.RoutePartners ||
+				metricRoute(request) == observability.RouteCoStar) &&
 			snapshot.committed &&
 			(outcome == observability.OutcomeTimeout ||
 				outcome == observability.OutcomePanic) &&
@@ -316,6 +334,8 @@ func metricRoute(request *http.Request) observability.Route {
 		return observability.RoutePersonDetail
 	case routePartners:
 		return observability.RoutePartners
+	case routeCoStar:
+		return observability.RouteCoStar
 	default:
 		if imageRouteCandidate(request) {
 			return observability.RouteImage
@@ -342,6 +362,8 @@ func metricOperation(request *http.Request) observability.Operation {
 		return observability.OperationPersonDetail
 	case observability.RoutePartners:
 		return observability.OperationPartners
+	case observability.RouteCoStar:
+		return observability.OperationCoStar
 	default:
 		return observability.OperationUnknown
 	}

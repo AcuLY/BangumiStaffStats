@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "kind": "personal-empty-success",
+  "cases": [
+    {
+      "id": "personal-empty-common-set-retains-zero-evidence",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:1",
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:1"
+              ]
+            },
+            {
+              "personId": 2,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": 200,
+        "body": {
+          "data": {
+            "kind": "pair",
+            "workUnit": "subject",
+            "participants": [
+              {
+                "person": {
+                  "id": 1,
+                  "name": "One",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "staff:anime:1"
+                ],
+                "metrics": {
+                  "workCount": 1,
+                  "ratedWorkCount": 1,
+                  "average": 900
+                }
+              },
+              {
+                "person": {
+                  "id": 2,
+                  "name": "Two",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "staff:anime:2"
+                ],
+                "metrics": {
+                  "workCount": 1,
+                  "ratedWorkCount": 1,
+                  "average": 700
+                }
+              }
+            ],
+            "summary": {
+              "unionWorkCount": 2,
+              "commonWorkCount": 0,
+              "ratedWorkCount": 0,
+              "average": null,
+              "globalRatedWorkCount": 0,
+              "globalAverage": null,
+              "highest": null,
+              "lowest": null
+            },
+            "tags": {
+              "meta": [],
+              "community": [],
+              "personal": []
+            },
+            "ratings": {
+              "datasets": []
+            },
+            "preference": {
+              "comparableCount": 0,
+              "comparableSeriesCount": 0,
+              "effectiveEvidence": 0,
+              "mean": null,
+              "evidenceWeight": {
+                "numerator": "0",
+                "denominator": "1"
+              },
+              "score": null,
+              "preferred": [],
+              "conservative": []
+            },
+            "items": []
+          },
+          "meta": {
+            "requestId": "req-co-star-personal-empty",
+            "dataVersion": "dv1-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 0
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T00:00:00Z",
+              "stale": false,
+              "warningCodes": []
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,983 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.local/schemas/co-star/success-envelope-v1.schema.json",
+  "title": "CoStarSuccessEnvelopeV1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/GlobalEnvelopeV1"
+    },
+    {
+      "$ref": "#/$defs/PersonalEnvelopeV1"
+    }
+  ],
+  "$defs": {
+    "JsonSafeNonNegativeIntegerV1": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "JsonSafePositiveIntegerV1": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "HundredthsV1": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "NullableHundredthsV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HundredthsV1"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "PositionKeyV1": {
+      "$ref": "../query/shared-query-v1.schema.json#/$defs/PositionKeyV1"
+    },
+    "PersonReferenceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "nameCN"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "nameCN": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "ParticipantMetricsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workCount",
+        "ratedWorkCount",
+        "average"
+      ],
+      "properties": {
+        "workCount": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "ratedWorkCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "average": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        }
+      }
+    },
+    "MatrixMetricsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workCount",
+        "ratedWorkCount",
+        "average"
+      ],
+      "properties": {
+        "workCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "ratedWorkCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "average": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        }
+      }
+    },
+    "ParticipantV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "person",
+        "positionKeys",
+        "metrics"
+      ],
+      "properties": {
+        "person": {
+          "$ref": "#/$defs/PersonReferenceV1"
+        },
+        "positionKeys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/PositionKeyV1"
+          }
+        },
+        "metrics": {
+          "$ref": "#/$defs/ParticipantMetricsV1"
+        }
+      }
+    },
+    "GlobalSummaryV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unionWorkCount",
+        "commonWorkCount",
+        "ratedWorkCount",
+        "average"
+      ],
+      "properties": {
+        "unionWorkCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "commonWorkCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "ratedWorkCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "average": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        }
+      }
+    },
+    "PersonalSummaryV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unionWorkCount",
+        "commonWorkCount",
+        "ratedWorkCount",
+        "average",
+        "globalRatedWorkCount",
+        "globalAverage",
+        "highest",
+        "lowest"
+      ],
+      "properties": {
+        "unionWorkCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "commonWorkCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "ratedWorkCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "average": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "globalRatedWorkCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "globalAverage": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "highest": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "lowest": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        }
+      }
+    },
+    "TagCountV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "count"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "count": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        }
+      }
+    },
+    "GlobalTagsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "meta",
+        "community"
+      ],
+      "properties": {
+        "meta": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/$defs/TagCountV1"
+          }
+        },
+        "community": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/TagCountV1"
+          }
+        }
+      }
+    },
+    "PersonalTagsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "meta",
+        "community",
+        "personal"
+      ],
+      "properties": {
+        "meta": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/$defs/TagCountV1"
+          }
+        },
+        "community": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/TagCountV1"
+          }
+        },
+        "personal": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/$defs/TagCountV1"
+          }
+        }
+      }
+    },
+    "GlobalCommonDatasetV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "global"
+      ],
+      "properties": {
+        "kind": {
+          "const": "common"
+        },
+        "global": {
+          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/RatingDistributionV1"
+        }
+      }
+    },
+    "GlobalParticipantDatasetV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "personId",
+        "global"
+      ],
+      "properties": {
+        "kind": {
+          "const": "participant"
+        },
+        "personId": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "global": {
+          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/RatingDistributionV1"
+        }
+      }
+    },
+    "PersonalCommonDatasetV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "personal",
+        "global"
+      ],
+      "properties": {
+        "kind": {
+          "const": "common"
+        },
+        "personal": {
+          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/RatingDistributionV1"
+        },
+        "global": {
+          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/RatingDistributionV1"
+        }
+      }
+    },
+    "PersonalParticipantDatasetV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "personId",
+        "personal",
+        "global"
+      ],
+      "properties": {
+        "kind": {
+          "const": "participant"
+        },
+        "personId": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "personal": {
+          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/RatingDistributionV1"
+        },
+        "global": {
+          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/RatingDistributionV1"
+        }
+      }
+    },
+    "GlobalRatingsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "datasets"
+      ],
+      "properties": {
+        "datasets": {
+          "type": "array",
+          "maxItems": 11,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/GlobalCommonDatasetV1"
+              },
+              {
+                "$ref": "#/$defs/GlobalParticipantDatasetV1"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "PersonalRatingsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "datasets"
+      ],
+      "properties": {
+        "datasets": {
+          "type": "array",
+          "maxItems": 11,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PersonalCommonDatasetV1"
+              },
+              {
+                "$ref": "#/$defs/PersonalParticipantDatasetV1"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "MatrixPairV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "leftPersonId",
+        "rightPersonId",
+        "metrics"
+      ],
+      "properties": {
+        "leftPersonId": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "rightPersonId": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "metrics": {
+          "$ref": "#/$defs/MatrixMetricsV1"
+        }
+      }
+    },
+    "MatrixV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pairs"
+      ],
+      "properties": {
+        "pairs": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 45,
+          "items": {
+            "$ref": "#/$defs/MatrixPairV1"
+          }
+        }
+      }
+    },
+    "SubjectParticipantV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "personId",
+        "credits"
+      ],
+      "properties": {
+        "personId": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "credits": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/ContributionV1"
+          }
+        }
+      }
+    },
+    "SeriesParticipantV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "personId",
+        "workCount",
+        "credits"
+      ],
+      "properties": {
+        "personId": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "workCount": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "credits": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/SeriesContributionV1"
+          }
+        }
+      }
+    },
+    "GlobalSubjectWorkV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key",
+        "subject",
+        "metaTags",
+        "globalScore",
+        "participants"
+      ],
+      "properties": {
+        "kind": {
+          "const": "subject"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^subject:[1-9][0-9]*$"
+        },
+        "subject": {
+          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/SubjectReferenceV1"
+        },
+        "metaTags": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "globalScore": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "participants": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/SubjectParticipantV1"
+          }
+        }
+      }
+    },
+    "PersonalSubjectWorkV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key",
+        "subject",
+        "metaTags",
+        "globalScore",
+        "personal",
+        "participants"
+      ],
+      "properties": {
+        "kind": {
+          "const": "subject"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^subject:[1-9][0-9]*$"
+        },
+        "subject": {
+          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/SubjectReferenceV1"
+        },
+        "metaTags": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "globalScore": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "personal": {
+          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/CollectionEvidenceV1"
+        },
+        "participants": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/SubjectParticipantV1"
+          }
+        }
+      }
+    },
+    "GlobalSeriesWorkV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key",
+        "seriesId",
+        "representative",
+        "matchedWorkCount",
+        "memberCount",
+        "members",
+        "globalScore",
+        "participants"
+      ],
+      "properties": {
+        "kind": {
+          "const": "series"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^series:[1-9][0-9]*$"
+        },
+        "seriesId": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "representative": {
+          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/SubjectReferenceV1"
+        },
+        "matchedWorkCount": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "memberCount": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/SeriesMemberV1"
+          }
+        },
+        "globalScore": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "participants": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/SeriesParticipantV1"
+          }
+        }
+      }
+    },
+    "PersonalSeriesWorkV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key",
+        "seriesId",
+        "representative",
+        "matchedWorkCount",
+        "memberCount",
+        "members",
+        "globalScore",
+        "personalScore",
+        "latestCollectionUpdatedAt",
+        "participants"
+      ],
+      "properties": {
+        "kind": {
+          "const": "series"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^series:[1-9][0-9]*$"
+        },
+        "seriesId": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "representative": {
+          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/SubjectReferenceV1"
+        },
+        "matchedWorkCount": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "memberCount": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/SeriesMemberV1"
+          }
+        },
+        "globalScore": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "personalScore": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "latestCollectionUpdatedAt": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "participants": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/SeriesParticipantV1"
+          }
+        }
+      }
+    },
+    "GlobalWorkItemV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/GlobalSubjectWorkV1"
+        },
+        {
+          "$ref": "#/$defs/GlobalSeriesWorkV1"
+        }
+      ]
+    },
+    "PersonalWorkItemV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/PersonalSubjectWorkV1"
+        },
+        {
+          "$ref": "#/$defs/PersonalSeriesWorkV1"
+        }
+      ]
+    },
+    "GlobalPairDataV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "workUnit",
+        "participants",
+        "summary",
+        "tags",
+        "ratings",
+        "items"
+      ],
+      "properties": {
+        "kind": {
+          "const": "pair"
+        },
+        "workUnit": {
+          "type": "string",
+          "enum": [
+            "subject",
+            "series"
+          ]
+        },
+        "participants": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/ParticipantV1"
+          }
+        },
+        "summary": {
+          "$ref": "#/$defs/GlobalSummaryV1"
+        },
+        "tags": {
+          "$ref": "#/$defs/GlobalTagsV1"
+        },
+        "ratings": {
+          "$ref": "#/$defs/GlobalRatingsV1"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/GlobalWorkItemV1"
+          }
+        }
+      }
+    },
+    "GlobalGroupDataV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "workUnit",
+        "participants",
+        "summary",
+        "tags",
+        "ratings",
+        "matrix",
+        "items"
+      ],
+      "properties": {
+        "kind": {
+          "const": "group"
+        },
+        "workUnit": {
+          "type": "string",
+          "enum": [
+            "subject",
+            "series"
+          ]
+        },
+        "participants": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/ParticipantV1"
+          }
+        },
+        "summary": {
+          "$ref": "#/$defs/GlobalSummaryV1"
+        },
+        "tags": {
+          "$ref": "#/$defs/GlobalTagsV1"
+        },
+        "ratings": {
+          "$ref": "#/$defs/GlobalRatingsV1"
+        },
+        "matrix": {
+          "$ref": "#/$defs/MatrixV1"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/GlobalWorkItemV1"
+          }
+        }
+      }
+    },
+    "PersonalPairDataV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "workUnit",
+        "participants",
+        "summary",
+        "tags",
+        "ratings",
+        "preference",
+        "items"
+      ],
+      "properties": {
+        "kind": {
+          "const": "pair"
+        },
+        "workUnit": {
+          "type": "string",
+          "enum": [
+            "subject",
+            "series"
+          ]
+        },
+        "participants": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/ParticipantV1"
+          }
+        },
+        "summary": {
+          "$ref": "#/$defs/PersonalSummaryV1"
+        },
+        "tags": {
+          "$ref": "#/$defs/PersonalTagsV1"
+        },
+        "ratings": {
+          "$ref": "#/$defs/PersonalRatingsV1"
+        },
+        "preference": {
+          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/PreferenceV1"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/PersonalWorkItemV1"
+          }
+        }
+      }
+    },
+    "PersonalGroupDataV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "workUnit",
+        "participants",
+        "summary",
+        "tags",
+        "ratings",
+        "preference",
+        "matrix",
+        "items"
+      ],
+      "properties": {
+        "kind": {
+          "const": "group"
+        },
+        "workUnit": {
+          "type": "string",
+          "enum": [
+            "subject",
+            "series"
+          ]
+        },
+        "participants": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/ParticipantV1"
+          }
+        },
+        "summary": {
+          "$ref": "#/$defs/PersonalSummaryV1"
+        },
+        "tags": {
+          "$ref": "#/$defs/PersonalTagsV1"
+        },
+        "ratings": {
+          "$ref": "#/$defs/PersonalRatingsV1"
+        },
+        "preference": {
+          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/PreferenceV1"
+        },
+        "matrix": {
+          "$ref": "#/$defs/MatrixV1"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/PersonalWorkItemV1"
+          }
+        }
+      }
+    },
+    "GlobalMetaV1": {
+      "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/GlobalMetaV1"
+    },
+    "PersonalMetaV1": {
+      "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/PersonalMetaV1"
+    },
+    "GlobalEnvelopeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data",
+        "meta"
+      ],
+      "properties": {
+        "data": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/GlobalPairDataV1"
+            },
+            {
+              "$ref": "#/$defs/GlobalGroupDataV1"
+            }
+          ]
+        },
+        "meta": {
+          "$ref": "#/$defs/GlobalMetaV1"
+        }
+      }
+    },
+    "PersonalEnvelopeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data",
+        "meta"
+      ],
+      "properties": {
+        "data": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PersonalPairDataV1"
+            },
+            {
+              "$ref": "#/$defs/PersonalGroupDataV1"
+            }
+          ]
+        },
+        "meta": {
+          "$ref": "#/$defs/PersonalMetaV1"
+        }
+      }
+    }
+  }
+}

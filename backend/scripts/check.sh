@@ -59,6 +59,7 @@ cd "$backend_root"
 "$script_root/generate-candidates-wire.sh" --check
 "$script_root/generate-person-detail-wire.sh" --check
 "$script_root/generate-partners-wire.sh" --check
+"$script_root/generate-co-star-wire.sh" --check
 
 unformatted="$("$pinned_gofmt" -l cmd internal)"
 if [[ -n "$unformatted" ]]; then
@@ -87,6 +88,7 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
 "$go_command" test ./internal/candidates
 "$go_command" test ./internal/persondetail
 "$go_command" test ./internal/partners
+"$go_command" test ./internal/costar
 "$go_command" test ./internal/runtimecache
 "$go_command" test ./internal/runtimecache -count=20
 "$go_command" test ./internal/statistics/...
@@ -198,10 +200,28 @@ internal/catalog/catalog.go
 internal/catalog/catalog_test.go
 internal/catalog/store.go
 internal/catalog/store_test.go
+internal/costar/archive.go
+internal/costar/build.go
+internal/costar/build_test.go
+internal/costar/cache.go
+internal/costar/cache_test.go
+internal/costar/clone.go
+internal/costar/doc.go
+internal/costar/errors.go
+internal/costar/projection.go
+internal/costar/request.go
+internal/costar/request_test.go
+internal/costar/service.go
+internal/costar/service_test.go
+internal/costar/types.go
+internal/costar/view.go
+internal/costar/view_test.go
 internal/httpapi/candidates_handler.go
 internal/httpapi/candidates_handler_test.go
 internal/httpapi/catalog_handler.go
 internal/httpapi/catalog_handler_test.go
+internal/httpapi/co_star_handler.go
+internal/httpapi/co_star_handler_test.go
 internal/httpapi/handler.go
 internal/httpapi/handler_test.go
 internal/httpapi/image_handler_test.go
@@ -221,6 +241,8 @@ internal/httpapi/wire/candidates.gen.go
 internal/httpapi/wire/candidates_contract_test.go
 internal/httpapi/wire/catalog.gen.go
 internal/httpapi/wire/catalog_contract_test.go
+internal/httpapi/wire/co_star.gen.go
+internal/httpapi/wire/co_star_contract_test.go
 internal/httpapi/wire/partners.gen.go
 internal/httpapi/wire/partners_contract_test.go
 internal/httpapi/wire/person_detail.gen.go
@@ -316,12 +338,14 @@ internal/statistics/types.go
 scripts/check.sh
 scripts/generate-candidates-wire.sh
 scripts/generate-catalog-wire.sh
+scripts/generate-co-star-wire.sh
 scripts/generate-partners-wire.sh
 scripts/generate-person-detail-wire.sh
 scripts/generate-query-wire.sh
 scripts/generate-rankings-wire.sh
 scripts/prepare-candidates-wire.mjs
 scripts/prepare-catalog-wire.mjs
+scripts/prepare-co-star-wire.mjs
 scripts/prepare-partners-wire.mjs
 scripts/prepare-person-detail-wire.mjs
 scripts/prepare-query-wire.mjs

@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "kind": "co-star-error-cases",
+  "cases": [
+    {
+      "id": "one-participant-is-not-co-star",
+      "requestSchemaValid": false,
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:1"
+          ]
+        },
+        "input": {
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:1"
+              ]
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": 400,
+        "body": {
+          "error": {
+            "code": "FIELD_INVALID",
+            "message": "Participant count must be between 2 and 10.",
+            "retryable": false,
+            "fieldErrors": {
+              "/input/participants": [
+                "PARTICIPANT_LIMIT_EXCEEDED"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-co-star-one"
+          }
+        }
+      }
+    },
+    {
+      "id": "participant-person-not-found",
+      "requestSchemaValid": true,
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:1",
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:1"
+              ]
+            },
+            {
+              "personId": 999999,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": 404,
+        "body": {
+          "error": {
+            "code": "ENTITY_NOT_FOUND",
+            "message": "Participant person was not found.",
+            "retryable": false,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-co-star-not-found",
+            "dataVersion": "dv1-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          }
+        }
+      }
+    },
+    {
+      "id": "refresh-collection-is-not-supported",
+      "requestSchemaValid": false,
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:1",
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:1"
+              ]
+            },
+            {
+              "personId": 2,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            }
+          ]
+        },
+        "refreshCollection": true
+      },
+      "expected": {
+        "status": 400,
+        "body": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "The request contains an unknown field.",
+            "retryable": false,
+            "fieldErrors": {
+              "/refreshCollection": [
+                "UNKNOWN_FIELD"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-co-star-refresh"
+          }
+        }
+      }
+    }
+  ]
+}

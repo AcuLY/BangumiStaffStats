@@ -93,6 +93,39 @@ func TestRunListenerPublishesArchiveServesBusinessRoutesAndStops(t *testing.T) {
 			partnersResponse.body,
 		)
 	}
+	coStarResponse := postJSONResponse(
+		t,
+		client,
+		listener,
+		"/api/v1/co-star",
+		`{"query":{"scope":"personal","uid":"Alice","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"participants":[{"personId":1,"positionKeys":["staff:anime:2"]},{"personId":2,"positionKeys":["staff:anime:2"]}]}}`,
+	)
+	if coStarResponse.status != http.StatusBadRequest ||
+		!strings.Contains(coStarResponse.body, `"code":"CAPABILITY_NOT_AVAILABLE"`) ||
+		!strings.Contains(coStarResponse.body, `"message":"position capability is not available"`) {
+		t.Fatalf(
+			"co-star runtime = %d %q",
+			coStarResponse.status,
+			coStarResponse.body,
+		)
+	}
+	coStarNotFoundResponse := postJSONResponse(
+		t,
+		client,
+		listener,
+		"/api/v1/co-star",
+		`{"query":{"scope":"global","subjectType":"anime","positionKeys":["cast:anime:main"]},"input":{"participants":[{"personId":999999,"positionKeys":["cast:anime:main"]},{"personId":101,"positionKeys":["cast:anime:main"]}]}}`,
+	)
+	if coStarNotFoundResponse.status != http.StatusNotFound ||
+		!strings.Contains(coStarNotFoundResponse.body, `"code":"ENTITY_NOT_FOUND"`) ||
+		!strings.Contains(coStarNotFoundResponse.body, `"message":"Participant person was not found."`) ||
+		!strings.Contains(coStarNotFoundResponse.body, `"dataVersion":"dv1-`) {
+		t.Fatalf(
+			"co-star not found runtime = %d %q",
+			coStarNotFoundResponse.status,
+			coStarNotFoundResponse.body,
+		)
+	}
 
 	cancel()
 	select {

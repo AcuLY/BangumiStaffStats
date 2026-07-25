@@ -1,0 +1,414 @@
+{
+  "schemaVersion": 1,
+  "kind": "global-pair-series-success",
+  "cases": [
+    {
+      "id": "global-pair-preserves-series-provenance",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staffset:anime:creative",
+            "cast:anime:main"
+          ],
+          "mergeSeries": true
+        },
+        "input": {
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staffset:anime:creative"
+              ]
+            },
+            {
+              "personId": 2,
+              "positionKeys": [
+                "cast:anime:main"
+              ]
+            }
+          ]
+        },
+        "view": {
+          "sort": "seriesSize",
+          "order": "desc",
+          "page": 1,
+          "pageSize": 10
+        }
+      },
+      "expected": {
+        "status": 200,
+        "body": {
+          "data": {
+            "kind": "pair",
+            "workUnit": "series",
+            "participants": [
+              {
+                "person": {
+                  "id": 1,
+                  "name": "Director",
+                  "nameCN": "导演"
+                },
+                "positionKeys": [
+                  "staffset:anime:creative"
+                ],
+                "metrics": {
+                  "workCount": 1,
+                  "ratedWorkCount": 1,
+                  "average": 800
+                }
+              },
+              {
+                "person": {
+                  "id": 2,
+                  "name": "Actor",
+                  "nameCN": "声优"
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 1,
+                  "ratedWorkCount": 1,
+                  "average": 800
+                }
+              }
+            ],
+            "summary": {
+              "unionWorkCount": 1,
+              "commonWorkCount": 1,
+              "ratedWorkCount": 1,
+              "average": 800
+            },
+            "tags": {
+              "meta": [
+                {
+                  "name": "TV",
+                  "count": 1
+                }
+              ],
+              "community": []
+            },
+            "ratings": {
+              "datasets": [
+                {
+                  "kind": "common",
+                  "global": {
+                    "validCount": 1,
+                    "average": 800,
+                    "buckets": [
+                      {
+                        "score": 1,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 2,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 3,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 4,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 5,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 6,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 7,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 8,
+                        "count": 1,
+                        "examples": [
+                          {
+                            "kind": "series",
+                            "key": "series:101",
+                            "id": 101,
+                            "name": "Shared Series",
+                            "nameCN": "共同系列"
+                          }
+                        ],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 9,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 10,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      }
+                    ],
+                    "timeline": []
+                  }
+                },
+                {
+                  "kind": "participant",
+                  "personId": 1,
+                  "global": {
+                    "validCount": 1,
+                    "average": 800,
+                    "buckets": [
+                      {
+                        "score": 1,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 2,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 3,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 4,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 5,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 6,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 7,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 8,
+                        "count": 1,
+                        "examples": [
+                          {
+                            "kind": "series",
+                            "key": "series:101",
+                            "id": 101,
+                            "name": "Shared Series",
+                            "nameCN": "共同系列"
+                          }
+                        ],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 9,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 10,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      }
+                    ],
+                    "timeline": []
+                  }
+                },
+                {
+                  "kind": "participant",
+                  "personId": 2,
+                  "global": {
+                    "validCount": 1,
+                    "average": 800,
+                    "buckets": [
+                      {
+                        "score": 1,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 2,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 3,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 4,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 5,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 6,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 7,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 8,
+                        "count": 1,
+                        "examples": [
+                          {
+                            "kind": "series",
+                            "key": "series:101",
+                            "id": 101,
+                            "name": "Shared Series",
+                            "nameCN": "共同系列"
+                          }
+                        ],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 9,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      },
+                      {
+                        "score": 10,
+                        "count": 0,
+                        "examples": [],
+                        "hiddenCount": 0
+                      }
+                    ],
+                    "timeline": []
+                  }
+                }
+              ]
+            },
+            "items": [
+              {
+                "kind": "series",
+                "key": "series:101",
+                "seriesId": 101,
+                "representative": {
+                  "id": 101,
+                  "name": "Shared Series",
+                  "nameCN": "共同系列",
+                  "date": "2025-01"
+                },
+                "matchedWorkCount": 1,
+                "memberCount": 2,
+                "members": [
+                  {
+                    "id": 101,
+                    "name": "Shared Series",
+                    "nameCN": "共同系列",
+                    "date": "2025-01",
+                    "matched": true
+                  },
+                  {
+                    "id": 102,
+                    "name": "Shared Series 2",
+                    "nameCN": "共同系列 2",
+                    "date": "2026",
+                    "matched": false
+                  }
+                ],
+                "globalScore": 800,
+                "participants": [
+                  {
+                    "personId": 1,
+                    "workCount": 1,
+                    "credits": [
+                      {
+                        "kind": "staff",
+                        "positionKey": "staffset:anime:creative",
+                        "exactPositionKey": "staff:anime:3",
+                        "provenance": "exact",
+                        "workCount": 1
+                      }
+                    ]
+                  },
+                  {
+                    "personId": 2,
+                    "workCount": 1,
+                    "credits": [
+                      {
+                        "kind": "cast",
+                        "positionKey": "cast:anime:main",
+                        "character": {
+                          "key": "character:201",
+                          "id": 201,
+                          "name": "Hero",
+                          "nameCN": "主角"
+                        },
+                        "roleType": 1,
+                        "roleLabel": "主役",
+                        "provenance": "exact",
+                        "workCount": 1
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-co-star-global-pair",
+            "dataVersion": "dv1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 1
+            }
+          }
+        }
+      }
+    }
+  ]
+}

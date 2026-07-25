@@ -17,6 +17,7 @@ const expectedInventory = [
   'scripts/check-architecture.mjs',
   'scripts/check-candidates-wire-generated.mjs',
   'scripts/check-catalog-wire-generated.mjs',
+  'scripts/check-co-star-wire-generated.mjs',
   'scripts/check-person-detail-wire-generated.mjs',
   'scripts/check-partners-wire-generated.mjs',
   'scripts/check-production-artifact.mjs',
@@ -26,6 +27,7 @@ const expectedInventory = [
   'scripts/cleanup-generated.mjs',
   'scripts/generate-candidates-wire.mjs',
   'scripts/generate-catalog-wire.mjs',
+  'scripts/generate-co-star-wire.mjs',
   'scripts/generate-person-detail-wire.mjs',
   'scripts/generate-partners-wire.mjs',
   'scripts/generate-query-wire.mjs',
@@ -44,6 +46,8 @@ const expectedInventory = [
   'src/api/generated/catalog/types.gen.ts',
   'src/api/generated/candidates/schemas.gen.ts',
   'src/api/generated/candidates/types.gen.ts',
+  'src/api/generated/co-star/schemas.gen.ts',
+  'src/api/generated/co-star/types.gen.ts',
   'src/api/generated/person-detail/schemas.gen.ts',
   'src/api/generated/person-detail/types.gen.ts',
   'src/api/generated/partners/schemas.gen.ts',
@@ -275,6 +279,7 @@ if (
 const queryWireImporters = [];
 const catalogWireImporters = [];
 const candidatesWireImporters = [];
+const coStarWireImporters = [];
 const personDetailWireImporters = [];
 const partnersWireImporters = [];
 const rankingsWireImporters = [];
@@ -292,6 +297,9 @@ for (const [file, source] of sourceByFile) {
   }
   if (/generated\/candidates/.test(source)) {
     candidatesWireImporters.push(relative);
+  }
+  if (/generated\/co-star/.test(source)) {
+    coStarWireImporters.push(relative);
   }
   if (/generated\/person-detail/.test(source)) {
     personDetailWireImporters.push(relative);
@@ -358,6 +366,7 @@ assertExactFiles('candidates wire ownership', candidatesWireImporters, [
   'src/api/adapters/candidates.ts',
   'src/api/candidates.ts',
 ]);
+assertExactFiles('co-star wire ownership', coStarWireImporters, []);
 assertExactFiles('person-detail wire ownership', personDetailWireImporters, [
   'src/api/adapters/personDetail.ts',
   'src/api/personDetail.ts',

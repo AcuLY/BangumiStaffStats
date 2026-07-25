@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.local/schemas/co-star/request-v1.schema.json",
+  "title": "CoStarRequestV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "query",
+    "input"
+  ],
+  "properties": {
+    "query": {
+      "$ref": "../query/shared-query-v1.schema.json"
+    },
+    "input": {
+      "$ref": "../query/operation-components-v1.schema.json#/$defs/CoStarInputV1"
+    },
+    "view": {
+      "$ref": "../query/operation-components-v1.schema.json#/$defs/CoStarViewV1"
+    }
+  }
+}
