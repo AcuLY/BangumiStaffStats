@@ -82,11 +82,13 @@ entry envelope containing a retained value plus its ownership-safe clone
 function/type identity. Before the runtime is exposed, app construction
 supplies one opaque canonical result binding from each of the five domain
 packages. Each binding fixes operation, value type, clone function, and cost
-function. `ResultStore[V]` remains the typed facade and can consume only a
+function, and constructs one typed same-key detached group per runtime.
+`ResultStore[V]` remains the typed facade and can consume only a
 pre-registered binding whose operation and `V` match; it cannot supply or
-replace clone/cost policy at facade construction. An absent, duplicate, or
-mismatched binding fails construction before any cache access, never panics,
-and never cross-casts a result.
+replace clone/cost policy or create an independent same-operation load group at
+facade construction. An absent, duplicate, or mismatched binding fails
+construction before any cache access, never panics, and never cross-casts a
+result.
 
 Because `ResultKey` contains the versioned operation, one global LRU can hold
 all five types without collisions. Eviction order and the 190 MiB/512 counters

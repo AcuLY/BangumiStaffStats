@@ -166,10 +166,11 @@ functions and ownership-safe clones SHALL remain authoritative for each typed
 core while global LRU accounting SHALL use their retained-cost results. The
 runtime SHALL accept exactly one canonical binding per operation before facade
 construction; that binding fixes the operation, core type, clone, and cost
-policy. Facades SHALL NOT replace those policies. An absent, duplicate, or
-mismatched binding—including a wrong type offered before the canonical
-facade—SHALL fail closed without panic, replacement, statistic drift, or cache
-promotion.
+policy and one typed same-key detached group per runtime. Facades SHALL NOT
+replace those policies or create separate same-operation load groups. An
+absent, duplicate, or mismatched binding—including a wrong type offered before
+the canonical facade—SHALL fail closed without panic, replacement, statistic
+drift, or cache promotion.
 
 #### Scenario: Two views address one core
 - **WHEN** only search, sort, order, or pagination differs
