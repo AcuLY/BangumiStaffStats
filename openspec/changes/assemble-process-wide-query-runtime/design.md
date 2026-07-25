@@ -17,7 +17,7 @@ provider remains a separate injected dependency and may be nil.
 |---|---|
 | Status | strict-valid and main-agent approved; apply authorized |
 | Owner | One Backend implementation agent; main agent reviews the specification and accepts the candidate. |
-| Writable paths | `backend/internal/runtimecache/result.go`, `backend/internal/runtimecache/result_test.go`, new `backend/internal/runtimecache/runtime.go`, new `backend/internal/runtimecache/runtime_test.go`, `backend/internal/ranking/{service.go,service_test.go}`, `backend/internal/{candidates,persondetail,partners,costar}/{cache.go,service.go,service_test.go}`, `backend/internal/app/{run.go,run_test.go}`, `backend/README.md`, and this change's task markers |
+| Writable paths | `backend/internal/runtimecache/result.go`, `backend/internal/runtimecache/result_test.go`, new `backend/internal/runtimecache/runtime.go`, new `backend/internal/runtimecache/runtime_test.go`, `backend/internal/ranking/{service.go,service_test.go}`, `backend/internal/{candidates,persondetail,partners,costar}/{cache.go,service.go,service_test.go}`, `backend/internal/app/{run.go,run_test.go}`, `backend/internal/architecture/dependencies_test.go`, `backend/README.md`, and this change's task markers |
 | Read-only protected inputs | `runtimecache` collection/LRU/executor/detached/error files and tests; every other Backend file; Contracts, Updater, Frontend, oracle/guides, sibling changes, refs/remotes, external repositories/services/hosts |
 | Deletion complement | All repository paths outside the writable list; no listed existing file may be deleted |
 | Mutable refs | None |
@@ -66,7 +66,11 @@ the same pointer to all five services.
 
 The owner does not contain a collection provider or Archive store. Those remain
 service dependencies, so later client admission only replaces the nil provider
-argument.
+argument. `internal/app` is the composition root and therefore imports
+`runtimecache` directly to construct this process owner; the architecture
+allowlist admits exactly that edge. Routing construction through ranking or
+another domain service was rejected because it gives one operation ownership
+of all other operations' process resources.
 
 Alternative rejected: a package global singleton. It would hide lifecycle and
 make isolated/race tests order-dependent.

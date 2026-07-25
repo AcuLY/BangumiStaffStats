@@ -4,7 +4,7 @@
 |---|---|
 | Status | strict-valid and main-agent approved; implementation authorized |
 | Owner | Backend implementation agent; main agent reviews/accepts |
-| Writable paths | `backend/internal/runtimecache/result.go`, `backend/internal/runtimecache/result_test.go`, new `backend/internal/runtimecache/runtime.go`, new `backend/internal/runtimecache/runtime_test.go`, `backend/internal/ranking/{service.go,service_test.go}`, `backend/internal/{candidates,persondetail,partners,costar}/{cache.go,service.go,service_test.go}`, `backend/internal/app/{run.go,run_test.go}`, `backend/README.md`, and this change's task markers |
+| Writable paths | `backend/internal/runtimecache/result.go`, `backend/internal/runtimecache/result_test.go`, new `backend/internal/runtimecache/runtime.go`, new `backend/internal/runtimecache/runtime_test.go`, `backend/internal/ranking/{service.go,service_test.go}`, `backend/internal/{candidates,persondetail,partners,costar}/{cache.go,service.go,service_test.go}`, `backend/internal/app/{run.go,run_test.go}`, `backend/internal/architecture/dependencies_test.go`, `backend/README.md`, and this change's task markers |
 | Read-only protected inputs | Existing collection/LRU/executor/detached/error implementations/tests; all other Backend paths; Contracts, Updater, Frontend, guides/oracle, sibling changes, refs/remotes, external state |
 | Deletion complement | Every repository path outside the writable list; no existing writable file may be deleted |
 | Mutable refs | None |
@@ -27,8 +27,9 @@ construct exactly one query-runtime owner for ranking, candidates, person
 detail, partners, and co-star. That owner SHALL contain exactly one positive
 collection cache, its one negative cache, and one result LRU covering every
 operation. Isolated service construction MAY create a private owner only for
-focused tests or non-process use; production app assembly SHALL use the shared
-owner.
+focused tests or non-process use; production app assembly SHALL construct the
+shared owner directly at the app composition root and SHALL NOT delegate that
+process-owner factory to one of the five domain service packages.
 
 Each process cache SHALL enforce maximum total cost, item count, and per-item
 cost. Replacement SHALL update cost atomically and eviction SHALL be

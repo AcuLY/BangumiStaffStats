@@ -2,7 +2,7 @@
 |---|---|
 | Status | investigated/specified/main-agent reviewed: complete; apply authorized. Implemented/verified/committed/pushed/released/deployed: no |
 | Owner | One Backend implementation agent; main agent owns spec edits, task-marker acceptance, staging/commit/archive |
-| Writable paths | `backend/internal/runtimecache/result.go`, `backend/internal/runtimecache/result_test.go`, new `backend/internal/runtimecache/runtime.go`, new `backend/internal/runtimecache/runtime_test.go`, `backend/internal/ranking/{service.go,service_test.go}`, `backend/internal/{candidates,persondetail,partners,costar}/{cache.go,service.go,service_test.go}`, `backend/internal/app/{run.go,run_test.go}`, `backend/README.md`; implementation owner does not edit task markers |
+| Writable paths | `backend/internal/runtimecache/result.go`, `backend/internal/runtimecache/result_test.go`, new `backend/internal/runtimecache/runtime.go`, new `backend/internal/runtimecache/runtime_test.go`, `backend/internal/ranking/{service.go,service_test.go}`, `backend/internal/{candidates,persondetail,partners,costar}/{cache.go,service.go,service_test.go}`, `backend/internal/app/{run.go,run_test.go}`, `backend/internal/architecture/dependencies_test.go`, `backend/README.md`; implementation owner does not edit task markers |
 | Read-only protected inputs | Existing runtimecache collection/LRU/executor/detached/error files/tests; every other Backend path; all Contracts, Updater, Frontend, guide/oracle, sibling-change, ref/remote, external state |
 | Deletion complement | Every path outside the writable list; no existing writable file may be deleted |
 | Mutable refs | None |
@@ -24,7 +24,7 @@
 ## 2. Service and process assembly
 
 - [ ] 2.1 In the exact five service/cache writable sets, add explicit shared-runtime construction and make each existing `NewService(stores, provider, Config)` an isolated compatibility wrapper over the same initialization logic; preserve existing focused test construction and all provider/result semantics.
-- [ ] 2.2 In `backend/internal/app/{run.go,run_test.go}`, construct the default runtime owner once, pass that exact owner to ranking, candidates, person detail, partners, and co-star, keep the nullable provider placeholder unchanged, and prove runtime identity/sharing with executable behavior rather than source-text matching.
+- [ ] 2.2 In `backend/internal/app/{run.go,run_test.go}`, construct the default runtime owner directly at the process composition root, pass that exact owner to ranking, candidates, person detail, partners, and co-star, keep the nullable provider placeholder unchanged, and prove runtime identity/sharing with executable behavior rather than source-text matching. Update only the exact app allowlist entry in `backend/internal/architecture/dependencies_test.go` to admit this composition-root edge; do not route process construction through a domain service package.
 - [ ] 2.3 Update only `backend/README.md` to document process-wide ownership and the non-additive aggregate statistics boundary; add/adjust exact service tests for isolated compatibility and no semantic drift.
 
 ## 3. Acceptance and handoff
