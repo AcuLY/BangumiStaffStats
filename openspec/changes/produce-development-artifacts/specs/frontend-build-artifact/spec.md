@@ -1,0 +1,99 @@
+## Capability Boundary
+
+| Field | Declaration |
+|---|---|
+| Status | investigated: complete; specified: complete after strict validation; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
+| Owner | Frontend owner within the combined Frontend/Contracts apply group. |
+| Writable paths | `frontend/build/**`, `frontend/package.json`, and `frontend/vite.config.ts`; generated output only below ignored `frontend/build/.tmp/**`. |
+| Read-only protected inputs | Root authorities/OpenSpec outside this change; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; `contracts/**`; `frontend/index.html`, `frontend/src/**`, `frontend/public/**`, `frontend/tests/**`, `frontend/scripts/**`, `frontend/ARCHITECTURE.md`, `frontend/README.md`, all tsconfig/OpenAPI config, all Backend/Updater paths, external repositories/state. |
+| Deletion complement | None. |
+| Mutable refs | None. |
+| Consumes | Clean candidate Frontend source/assets, package lock, Node 24.18.0, npm 11.16.0, Vite configuration, accepted OpenAPI, Contracts statement schema, and existing Frontend type/test/build/artifact checks. |
+| Produces | Reproducible static tar artifact, checksum inventory, SPDX SBOM, Frontend component statement, and static artifact smoke helpers. |
+| Dependencies | Exact direct IDs: `produce-immutable-archive`, `derive-position-catalog-and-cast`, `implement-backend-archive-consumer`, `implement-backend-http-and-observability`, `implement-image-proxy`, `implement-query-result-set`, `implement-statistics-series-sort-evidence`, `expose-dynamic-catalog`, `admit-public-collection-client`, `implement-bounded-query-cache`, `expose-rankings`, `expose-candidates`, `expose-person-detail`, `expose-partners`, `expose-co-star`, `implement-frontend-query-shell`, `implement-frontend-ranking-vertical`, `implement-frontend-co-star-vertical`, `harden-frontend-design-and-accessibility`; all active changes must also be completed/archived before apply. |
+| Deliverables | Deterministic build/checksum/SBOM/statement/reproducibility/static-smoke helpers, local-output ignore rules, and only necessary package/Vite build-setting edits. |
+| Acceptance | Existing architecture/wire/type/unit/build/artifact gates and accepted oracle/design evidence; two clean byte-identical builds; offline evidence validation; source-free loopback static smoke; exact paths/residue/diff checks. |
+| Non-goals | Any Vue/CSS/asset/index/test/API/route behavior edit, product dependency addition/upgrade, web-server image, hosting/CDN config, registry/release/deploy, or redesign. |
+| Operations deferred | Static hosting/reverse proxy/CDN/cache policy, production paths/secrets/TLS, registry/release/deploy/SSH, monitoring/SLO, preview/cutover/migration/retirement. |
+| Stop/rollback conditions | Stop on incomplete admission, protected frontend edit need, product dependency drift, nondeterminism, artifact/evidence mismatch, UI/interaction drift, direct forbidden network target, hosting/publication/deploy logic, or protected mutation. Roll back only owned uncommitted files and ignored `.tmp` output. |
+
+## ADDED Requirements
+
+### Requirement: Frontend static builds SHALL be deterministic and content-addressed
+
+For one clean candidate source identity, Node 24.18.0, npm 11.16.0, frozen
+`package-lock.json`, Vite configuration, and declared normalized build inputs,
+Frontend SHALL produce a byte-identical normalized static tar artifact across
+two isolated `npm ci` builds. Archive paths, timestamps, UID/GID, modes, entry
+order, and compression headers SHALL be normalized. Final local output SHALL be
+content-addressed and SHALL never be overwritten with different bytes.
+
+#### Scenario: Frontend is rebuilt from identical inputs
+
+- **WHEN** two builds run with fresh dependency/cache/output roots and the same
+  source, exact toolchain/lock, and normalized inputs
+- **THEN** static artifact bytes, checksum inventory, SPDX SBOM, and component
+  statement are byte-identical
+
+#### Scenario: Lock or generated output drifts
+
+- **WHEN** `npm ci` would change the lock, generated wire checks fail, or the
+  built file inventory differs between isolated builds
+- **THEN** packaging fails without updating dependencies or accepting partial
+  output
+
+### Requirement: Packaging SHALL preserve the accepted frontend behavior
+
+This capability SHALL make no change to Vue, CSS, assets, `index.html`, API
+clients, route/state logic, tests, or product dependencies. Package/Vite edits
+SHALL be limited to deterministic packaging commands/settings and SHALL
+preserve the accepted external appearance, interactions, copy, states, and
+responsive behavior of oracle
+`644b7748674e553f863d0ffd61d029f86fdc0717` plus separately approved
+PRODUCT/DESIGN additions. There is no intentional product delta.
+
+#### Scenario: Frontend packaging candidate is reviewed
+
+- **WHEN** exact-path diff, existing architecture/wire/type/unit/build/artifact
+  gates, and accepted oracle/design evidence are checked
+- **THEN** only build mechanics differ and no user-visible or runtime API
+  behavior has changed
+
+### Requirement: Frontend evidence SHALL describe the exact static artifact
+
+Frontend SHALL emit a complete sorted SHA-256 inventory, deterministic SPDX
+2.3 JSON with the locked browser-runtime dependency closure, and a strict
+Frontend component statement conforming to the Contracts schema. The statement
+SHALL bind the exact accepted OpenAPI digest and static artifact inventory
+without claiming hosting or cross-component compatibility. Source maps,
+prototype/fixture boot paths, unapproved assets, and direct `api.bgm.tv` image
+targets SHALL remain excluded by the existing production-artifact gate.
+
+#### Scenario: Frontend evidence is handed to Contracts
+
+- **WHEN** Contracts validates the Frontend artifact directory offline
+- **THEN** every static file digest/size and runtime package agrees with the
+  checksum inventory, SBOM, statement, package lock, and production-artifact
+  inventory
+
+### Requirement: Frontend smoke SHALL serve only built static files
+
+Owner-local and Contracts smoke SHALL extract the normalized artifact into a
+disposable directory, serve it on a loopback-only ephemeral port with no source
+fallback, fetch the entry document, and verify every referenced local asset
+exists and is immutable. It SHALL not choose production hosting, add a
+web-server image, contact undeclared external services, or modify artifact
+bytes.
+
+#### Scenario: Static artifact is served outside the source tree
+
+- **WHEN** smoke runs with only the extracted artifact available
+- **THEN** the entry document and all referenced built assets return
+  successfully, no source path is requested, artifact bytes remain unchanged,
+  and the server terminates cleanly
+
+#### Scenario: Built output depends on source or missing assets
+
+- **WHEN** the entry references an absent/escaping/source-tree asset or serving
+  changes a built file
+- **THEN** smoke fails and no Frontend artifact is accepted
