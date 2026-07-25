@@ -58,6 +58,7 @@ cd "$backend_root"
 "$script_root/generate-rankings-wire.sh" --check
 "$script_root/generate-candidates-wire.sh" --check
 "$script_root/generate-person-detail-wire.sh" --check
+"$script_root/generate-partners-wire.sh" --check
 
 unformatted="$("$pinned_gofmt" -l cmd internal)"
 if [[ -n "$unformatted" ]]; then
@@ -85,6 +86,7 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
 "$go_command" test ./internal/ranking
 "$go_command" test ./internal/candidates
 "$go_command" test ./internal/persondetail
+"$go_command" test ./internal/partners
 "$go_command" test ./internal/runtimecache
 "$go_command" test ./internal/runtimecache -count=20
 "$go_command" test ./internal/statistics/...
@@ -205,6 +207,8 @@ internal/httpapi/handler_test.go
 internal/httpapi/image_handler_test.go
 internal/httpapi/middleware.go
 internal/httpapi/middleware_test.go
+internal/httpapi/partners_handler.go
+internal/httpapi/partners_handler_test.go
 internal/httpapi/person_detail_handler.go
 internal/httpapi/person_detail_handler_test.go
 internal/httpapi/rankings_handler.go
@@ -217,6 +221,8 @@ internal/httpapi/wire/candidates.gen.go
 internal/httpapi/wire/candidates_contract_test.go
 internal/httpapi/wire/catalog.gen.go
 internal/httpapi/wire/catalog_contract_test.go
+internal/httpapi/wire/partners.gen.go
+internal/httpapi/wire/partners_contract_test.go
 internal/httpapi/wire/person_detail.gen.go
 internal/httpapi/wire/query_contract_test.go
 internal/httpapi/wire/query_wire.gen.go
@@ -228,6 +234,21 @@ internal/observability/events.go
 internal/observability/events_test.go
 internal/observability/metrics.go
 internal/observability/metrics_test.go
+internal/partners/archive.go
+internal/partners/build.go
+internal/partners/build_test.go
+internal/partners/cache.go
+internal/partners/cache_test.go
+internal/partners/doc.go
+internal/partners/errors.go
+internal/partners/projection.go
+internal/partners/request.go
+internal/partners/request_test.go
+internal/partners/service.go
+internal/partners/service_test.go
+internal/partners/types.go
+internal/partners/view.go
+internal/partners/view_test.go
 internal/persondetail/archive.go
 internal/persondetail/build.go
 internal/persondetail/build_test.go
@@ -295,11 +316,13 @@ internal/statistics/types.go
 scripts/check.sh
 scripts/generate-candidates-wire.sh
 scripts/generate-catalog-wire.sh
+scripts/generate-partners-wire.sh
 scripts/generate-person-detail-wire.sh
 scripts/generate-query-wire.sh
 scripts/generate-rankings-wire.sh
 scripts/prepare-candidates-wire.mjs
 scripts/prepare-catalog-wire.mjs
+scripts/prepare-partners-wire.mjs
 scripts/prepare-person-detail-wire.mjs
 scripts/prepare-query-wire.mjs
 scripts/prepare-rankings-wire.mjs'

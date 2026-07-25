@@ -27,6 +27,7 @@ const (
 	RouteRankings     Route = "rankings"
 	RouteCandidates   Route = "candidates"
 	RoutePersonDetail Route = "person_detail"
+	RoutePartners     Route = "partners"
 	RouteUnknown      Route = "unknown"
 )
 
@@ -41,6 +42,7 @@ const (
 	OperationRankings     Operation = "rankings"
 	OperationCandidates   Operation = "candidates"
 	OperationPersonDetail Operation = "person_detail"
+	OperationPartners     Operation = "partners"
 	OperationUnknown      Operation = "unknown"
 )
 
@@ -266,6 +268,8 @@ func validRouteOperation(route Route, operation Operation) bool {
 		return operation == OperationCandidates
 	case RoutePersonDetail:
 		return operation == OperationPersonDetail
+	case RoutePartners:
+		return operation == OperationPartners
 	case RouteUnknown:
 		return operation == OperationUnknown
 	default:

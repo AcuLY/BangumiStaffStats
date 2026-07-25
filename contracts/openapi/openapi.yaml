@@ -610,6 +610,77 @@
           }
         }
       }
+    },
+    "/partners": {
+      "post": {
+        "operationId": "postPartnersV1",
+        "summary": "Project real shared-work partners for one source person",
+        "description": "Finds partners who share real raw Archive Subjects with the selected source identities, then projects deterministic fixed leaders and a view-only page.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnersRequestV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Complete partner counts, fixed leaders, and the requested partner page.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnersSuccessEnvelopeV1"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "403": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "404": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "405": {
+            "$ref": "#/components/responses/PartnersMethodNotAllowedErrorV1"
+          },
+          "413": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "415": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "429": {
+            "$ref": "#/components/responses/PartnersRateLimitedErrorV1"
+          },
+          "500": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "502": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "503": {
+            "$ref": "#/components/responses/PartnersServiceUnavailableErrorV1"
+          },
+          "504": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -676,6 +747,15 @@
       },
       "PersonDetailErrorEnvelopeV1": {
         "$ref": "../schemas/person-detail/result-error-envelope-v1.schema.json"
+      },
+      "PartnersRequestV1": {
+        "$ref": "../schemas/partners/request-v1.schema.json"
+      },
+      "PartnersSuccessEnvelopeV1": {
+        "$ref": "../schemas/partners/success-envelope-v1.schema.json"
+      },
+      "PartnersResultErrorEnvelopeV1": {
+        "$ref": "../schemas/partners/result-error-envelope-v1.schema.json"
       },
       "ResultErrorEnvelopeV1": {
         "$ref": "../schemas/rankings/result-error-envelope-v1.schema.json"
@@ -1473,6 +1553,104 @@
       }
     },
     "responses": {
+      "PartnersResultErrorV1": {
+        "description": "The partners request failed before a successful result could be returned.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PartnersResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "PartnersMethodNotAllowedErrorV1": {
+        "description": "The partners route supports POST only.",
+        "headers": {
+          "Allow": {
+            "description": "The only supported method.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "POST"
+            }
+          },
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PartnersResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "PartnersRateLimitedErrorV1": {
+        "description": "The caller has exceeded the collection request rate.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          },
+          "Retry-After": {
+            "description": "Bounded delay before another request.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PartnersResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "PartnersServiceUnavailableErrorV1": {
+        "description": "The partners service is busy, not ready, or an upstream is unavailable.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          },
+          "Retry-After": {
+            "description": "Bounded delay before retrying when known.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PartnersResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
       "BadRequestErrorV1": {
         "description": "Invalid JSON, request shape, field value, position selection, capability, query-result identity, participant count, or identity count.",
         "x-error-codes": [

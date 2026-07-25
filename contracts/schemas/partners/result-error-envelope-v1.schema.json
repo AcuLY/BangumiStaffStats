@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.local/schemas/partners/result-error-envelope-v1.schema.json",
+  "title": "PartnersResultErrorEnvelopeV1",
+  "$ref": "../rankings/result-error-envelope-v1.schema.json"
+}

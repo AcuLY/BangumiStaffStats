@@ -79,6 +79,7 @@ func timeoutResponseForRequest(
 	rankings rankingsExecutor,
 	candidates candidatesExecutor,
 	personDetail personDetailExecutor,
+	partners partnersExecutor,
 ) *responseError {
 	if request != nil && request.URL != nil && request.URL.Path == routeCatalog {
 		return &catalogTimeoutResponse
@@ -104,6 +105,13 @@ func timeoutResponseForRequest(
 		}
 		return &response
 	}
+	if request != nil && request.URL != nil && request.URL.Path == routePartners {
+		response := partnersTimeoutResponse
+		if partners != nil {
+			response.dataVersion = partners.CurrentDataVersion()
+		}
+		return &response
+	}
 	return &timeoutResponse
 }
 
@@ -112,6 +120,7 @@ func internalResponseForRequest(
 	rankings rankingsExecutor,
 	candidates candidatesExecutor,
 	personDetail personDetailExecutor,
+	partners partnersExecutor,
 ) *responseError {
 	if request != nil && request.URL != nil && request.URL.Path == routeCatalog {
 		return &catalogInternalResponse
@@ -152,6 +161,19 @@ func internalResponseForRequest(
 		}
 		if personDetail != nil {
 			response.dataVersion = personDetail.CurrentDataVersion()
+		}
+		return &response
+	}
+	if request != nil && request.URL != nil && request.URL.Path == routePartners {
+		response := responseError{
+			status:       http.StatusInternalServerError,
+			code:         codeInternalError,
+			message:      "partners is unavailable",
+			retryable:    true,
+			cacheControl: "private, no-store",
+		}
+		if partners != nil {
+			response.dataVersion = partners.CurrentDataVersion()
 		}
 		return &response
 	}

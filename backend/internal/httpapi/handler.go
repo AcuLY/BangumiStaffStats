@@ -40,6 +40,7 @@ type routeHandler struct {
 	rankings     rankingsExecutor
 	candidates   candidatesExecutor
 	personDetail personDetailExecutor
+	partners     partnersExecutor
 }
 
 // RuntimeObservability owns the HTTP registry and typed event sink while
@@ -116,6 +117,27 @@ func (r *RuntimeObservability) HandlerWithResultDependencies(
 	candidates candidatesExecutor,
 	personDetail personDetailExecutor,
 ) http.Handler {
+	return r.HandlerWithPartnerDependencies(
+		readiness,
+		catalogs,
+		rankings,
+		candidates,
+		personDetail,
+		nil,
+	)
+}
+
+// HandlerWithPartnerDependencies registers every implemented read-only result
+// route, including partners. Nil dependencies keep routes visible with stable
+// NOT_READY responses.
+func (r *RuntimeObservability) HandlerWithPartnerDependencies(
+	readiness ReadinessProbe,
+	catalogs CatalogStoreProvider,
+	rankings rankingsExecutor,
+	candidates candidatesExecutor,
+	personDetail personDetailExecutor,
+	partners partnersExecutor,
+) http.Handler {
 	if r == nil {
 		return newHandler(readiness, nil, middlewareOptions{
 			requestTimeout: DefaultRequestTimeout,
@@ -124,6 +146,7 @@ func (r *RuntimeObservability) HandlerWithResultDependencies(
 			rankings:       rankings,
 			candidates:     candidates,
 			personDetail:   personDetail,
+			partners:       partners,
 		})
 	}
 	return newHandler(readiness, r.metrics, middlewareOptions{
@@ -135,6 +158,7 @@ func (r *RuntimeObservability) HandlerWithResultDependencies(
 		rankings:       rankings,
 		candidates:     candidates,
 		personDetail:   personDetail,
+		partners:       partners,
 	})
 }
 
@@ -200,6 +224,7 @@ func newHandler(readiness ReadinessProbe, metrics *observability.Registry, optio
 		rankings:     options.rankings,
 		candidates:   options.candidates,
 		personDetail: options.personDetail,
+		partners:     options.partners,
 	}, options)
 }
 
@@ -232,6 +257,8 @@ func (h *routeHandler) ServeHTTP(writer http.ResponseWriter, request *http.Reque
 		h.writeCandidates(writer, request, requestID)
 	case routePersonDetail:
 		h.writePersonDetail(writer, request, requestID)
+	case routePartners:
+		h.writePartnersWithExecutor(writer, request, requestID, h.partners)
 	default:
 		if strings.HasPrefix(request.URL.Path, routeCatalog+string('/')) {
 			writeError(writer, requestID, catalogNotFoundResponse)
@@ -246,6 +273,10 @@ func (h *routeHandler) ServeHTTP(writer http.ResponseWriter, request *http.Reque
 			return
 		}
 		if strings.HasPrefix(request.URL.Path, routePersonDetail+string('/')) {
+			writeError(writer, requestID, notFoundResponse)
+			return
+		}
+		if strings.HasPrefix(request.URL.Path, routePartners+string('/')) {
 			writeError(writer, requestID, notFoundResponse)
 			return
 		}

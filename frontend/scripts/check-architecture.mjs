@@ -18,6 +18,7 @@ const expectedInventory = [
   'scripts/check-candidates-wire-generated.mjs',
   'scripts/check-catalog-wire-generated.mjs',
   'scripts/check-person-detail-wire-generated.mjs',
+  'scripts/check-partners-wire-generated.mjs',
   'scripts/check-production-artifact.mjs',
   'scripts/check-query-wire-generated.mjs',
   'scripts/check-rankings-wire-generated.mjs',
@@ -26,6 +27,7 @@ const expectedInventory = [
   'scripts/generate-candidates-wire.mjs',
   'scripts/generate-catalog-wire.mjs',
   'scripts/generate-person-detail-wire.mjs',
+  'scripts/generate-partners-wire.mjs',
   'scripts/generate-query-wire.mjs',
   'scripts/generate-rankings-wire.mjs',
   'scripts/generate-query-unicode.mjs',
@@ -42,6 +44,8 @@ const expectedInventory = [
   'src/api/generated/candidates/types.gen.ts',
   'src/api/generated/person-detail/schemas.gen.ts',
   'src/api/generated/person-detail/types.gen.ts',
+  'src/api/generated/partners/schemas.gen.ts',
+  'src/api/generated/partners/types.gen.ts',
   'src/api/generated/query-wire/types.gen.ts',
   'src/api/generated/rankings/schemas.gen.ts',
   'src/api/generated/rankings/types.gen.ts',
@@ -253,6 +257,7 @@ if (
 const queryWireImporters = [];
 const catalogWireImporters = [];
 const personDetailWireImporters = [];
+const partnersWireImporters = [];
 const rankingsWireImporters = [];
 const storeOwners = [];
 const requestCallers = [];
@@ -268,6 +273,9 @@ for (const [file, source] of sourceByFile) {
   }
   if (/generated\/person-detail/.test(source)) {
     personDetailWireImporters.push(relative);
+  }
+  if (/generated\/partners/.test(source)) {
+    partnersWireImporters.push(relative);
   }
   if (/generated\/rankings/.test(source)) {
     rankingsWireImporters.push(relative);
@@ -327,6 +335,7 @@ assertExactFiles('person-detail wire ownership', personDetailWireImporters, [
   'src/api/adapters/personDetail.ts',
   'src/api/personDetail.ts',
 ]);
+assertExactFiles('partners wire ownership', partnersWireImporters, []);
 assertExactFiles('rankings wire ownership', rankingsWireImporters, [
   'src/api/adapters/rankings.ts',
   'src/api/rankings.ts',

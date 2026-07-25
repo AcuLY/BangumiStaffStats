@@ -77,6 +77,22 @@ func TestRunListenerPublishesArchiveServesBusinessRoutesAndStops(t *testing.T) {
 		!strings.Contains(candidate.body, `"message":"candidates is not ready"`) {
 		t.Fatalf("candidate runtime = %d %q", candidate.status, candidate.body)
 	}
+	partnersResponse := postJSONResponse(
+		t,
+		client,
+		listener,
+		"/api/v1/partners",
+		`{"query":{"scope":"personal","uid":"Alice","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"source":{"personId":1,"positionKeys":["staff:anime:2"]}}}`,
+	)
+	if partnersResponse.status != http.StatusBadRequest ||
+		!strings.Contains(partnersResponse.body, `"code":"CAPABILITY_NOT_AVAILABLE"`) ||
+		!strings.Contains(partnersResponse.body, `"message":"position capability is not available"`) {
+		t.Fatalf(
+			"partners runtime = %d %q",
+			partnersResponse.status,
+			partnersResponse.body,
+		)
+	}
 
 	cancel()
 	select {
