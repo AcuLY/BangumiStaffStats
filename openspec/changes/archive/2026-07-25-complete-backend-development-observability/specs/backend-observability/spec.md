@@ -45,6 +45,28 @@ output SHALL never be claimed as an emitted event.
 - **THEN** constructors reject or omit them, output remains valid single-line
   JSON, and only stable allowlisted fields remain
 
+#### Scenario: Archive loading fails before serving
+
+- **WHEN** the one startup Archive load returns a typed consumer failure, an
+  untyped failure, or context cancellation
+- **THEN** exactly one bounded `archive_load_failed` app/startup event SHALL be
+  emitted with the stable code or `INTERNAL_ERROR`
+- **AND** the event SHALL reveal no Archive identity, path, content, raw error,
+  request, or user input
+
+#### Scenario: Archive failure event cannot be written
+
+- **WHEN** the startup event writer fails or accepts fewer than the complete
+  one-line event bytes
+- **THEN** startup SHALL propagate the operational error, close the owned
+  Archive state, and never enter `Serve`
+
+#### Scenario: An image request completes
+
+- **WHEN** an accepted or rejected image request reaches a terminal outcome
+- **THEN** at most one `image_proxy_completed` event SHALL contain only the
+  closed bounded terminal facts and no image identity or upstream detail
+
 ### Requirement: Metrics SHALL use fixed low-cardinality dimensions and units
 
 The typed registry SHALL concurrently expose HTTP count/duration/response
@@ -76,6 +98,14 @@ counters.
   parseable and deterministic, resource totals are not multiplied, and label
   series stay within the fixed inventory
 
+#### Scenario: Concurrent requests and a scrape run
+
+- **WHEN** fixed routes including image, unknown paths, readiness transitions,
+  cancellations, and `/metrics` scrapes execute concurrently under the race
+  detector
+- **THEN** counters are monotonic, histograms internally agree, exposition is
+  parseable and deterministic, and label series stay within the fixed inventory
+
 ### Requirement: Metrics exposition SHALL be safe and non-critical
 
 Exact `GET /metrics` SHALL return Prometheus text exposition with the correct
@@ -93,6 +123,14 @@ updater-status failure SHALL leave ordinary API routes available.
 - **THEN** `/metrics` remains parseable, reports bounded validity/readiness
   state without sensitive detail, emits no query event, and ordinary routes do
   not depend on that observability failure
+
+#### Scenario: Metrics are scraped while readiness is false
+
+- **WHEN** no Archive store is published or its readiness probe fails
+- **THEN** `/metrics` remains 200, reports readiness 0 without snapshot
+  identity, and emits no query log or Archive validation
+
+## ADDED Requirements
 
 ### Requirement: Query timing SHALL have one header and histogram authority
 
@@ -133,6 +171,8 @@ repair, or activate updater state.
   terminal facts, never retains attacker-controlled fields, and never affects
   API readiness or serving
 
+## MODIFIED Requirements
+
 ### Requirement: Observability SHALL remain development instrumentation
 
 No event named `update_activated`, updater status writer, monitoring agent,
@@ -145,5 +185,12 @@ already authoritative `update-status.json` is permitted.
 
 - **WHEN** allowlist/redaction/cardinality/unit/header/reader/concurrency/race/
   full and strict OpenSpec gates pass
+- **THEN** only in-process instrumentation and local route behavior SHALL be
+  claimed, with no deployment or external-state mutation
+
+#### Scenario: Observability is accepted
+
+- **WHEN** allowlist/redaction/cardinality/unit/parse/concurrency/race/full and
+  strict OpenSpec gates pass
 - **THEN** only in-process instrumentation and local route behavior SHALL be
   claimed, with no deployment or external-state mutation

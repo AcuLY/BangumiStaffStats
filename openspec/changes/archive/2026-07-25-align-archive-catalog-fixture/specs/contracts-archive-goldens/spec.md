@@ -17,9 +17,9 @@
 | Operations deferred | Production Archive generation, publication, release, deploy, activation. |
 | Stop/rollback conditions | Stop on inventory growth, protected drift, nondeterminism, verification failure, or external mutation. |
 
-## MODIFIED Requirements
+## ADDED Requirements
 
-### Requirement: Contracts SHALL define producer cases before implementation
+### Requirement: Canonical catalog fixtures SHALL follow governed row algorithms
 
 The canonical 32-path Archive corpus SHALL remain a closed generator-owned
 inventory, but its prior byte seal is superseded by this reviewed correction.

@@ -17,9 +17,9 @@
 | Operations deferred | Release, deploy, activation and production serving. |
 | Stop/rollback conditions | Stop if production code, fixture mutation, contract relaxation, external write, or overlapping path is required. |
 
-## MODIFIED Requirements
+## ADDED Requirements
 
-### Requirement: Acceptance SHALL prove cross-language parity and preserve scope
+### Requirement: Canonical Archive SHALL cross the runtime catalog boundary
 
 In addition to unit/golden/property acceptance, Backend tests SHALL load the
 checked-in canonical `contracts/goldens/archive/valid/minimal` bundle through
