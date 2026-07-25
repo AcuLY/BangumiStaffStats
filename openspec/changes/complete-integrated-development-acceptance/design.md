@@ -215,14 +215,31 @@ frozen official provenance root. That root contains:
   `6a8442c17143a870357a5ff812362e8b5cfe9f9d`, with digest
   `sha256:0d5ac602157e33114029df611ea9dd46df32997e57c3a361b9e6f92250304394`.
 
+`provenance.json` is canonical JSON with no undeclared fields and the exact
+shape
+`{schemaVersion:1,kind:"bgmss-official-archive-provenance",archive:{revision,latest:{path,size,sha256},asset:{path,name,url,contentType,size,sha256,members:[{path,role,size,sha256}]}},common:{revision,subjectStaffs:{path,url,size,sha256}}}`.
+Every object is closed, each member role is exactly `consumed` or
+`unconsumed`, and `members` is sorted by path.
+
 Admission validates the provenance manifest against these reviewed constants,
 re-seals the complete root, and checks that `latest.json` names the exact ZIP
 URL/name/content type/size/digest. A bounded safe ZIP reader rejects
-encryption, duplicate names, traversal, links, unsupported members, extra or
-missing payload files, and decompression-limit violations. It streams the
-exact seven regular `.jsonlines` members and binds every uncompressed
-name/size/digest to `manifest.json.sourceFiles`; the pinned common bytes bind
-the common commit/URL/size/digest. Only then do the existing
+encryption, duplicate names, traversal, links, unsupported members, entries
+outside the reviewed exact nine-member allowlist, missing allowlisted entries,
+and decompression-limit violations. The seven `consumed` regular
+`.jsonlines` members are exactly the seven names in
+`manifest.json.sourceFiles`, and every uncompressed name/size/digest is bound
+to that source account. The remaining reviewed `unconsumed` upstream members
+are exactly:
+
+- `episode.jsonlines`, size 332792564, digest
+  `sha256:0d7020de68ba7b4ee838cf5ed30766a9153b429efb45ace4c97c2871832c68e7`;
+- `person-relations.jsonlines`, size 8118624, digest
+  `sha256:d7b4993d9af733fd34c6de5dcd0e0eca98e64da0623f1b26c5bb040e76262e11`.
+
+The safe reader streams and hashes all nine members, while only the seven
+`consumed` members participate in Updater source accounting. The pinned common
+bytes bind the common commit/URL/size/digest. Only then do the existing
 manifest/SQLite/dataVersion/schema/source-accounting, Updater generator, and
 real Go consumer checks establish the accepted Archive identity. The known
 minimal fixture identities and self-consistent synthetic producer cases are

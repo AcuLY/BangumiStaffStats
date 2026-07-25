@@ -221,12 +221,25 @@ The input/result schemas SHALL bind the canonical provenance root and manifest
 digest. Admission SHALL validate the provenance manifest against those exact
 constants, validate that pinned `latest.json` names the exact release
 URL/name/content type/size/digest, and content-seal the complete provenance
-root. A bounded safe ZIP reader SHALL reject encryption, duplicate names,
-traversal, links, unsupported members, extra/missing files, and
-decompression-limit violations, then stream exactly the seven regular
-`.jsonlines` members and match each uncompressed name/size/digest to the
-Archive manifest's `sourceFiles`. The pinned common bytes SHALL match the
-Archive manifest's common commit/URL/size/digest.
+root. Canonical `provenance.json` SHALL have the exact closed shape
+`{schemaVersion:1,kind:"bgmss-official-archive-provenance",archive:{revision,latest:{path,size,sha256},asset:{path,name,url,contentType,size,sha256,members:[{path,role,size,sha256}]}},common:{revision,subjectStaffs:{path,url,size,sha256}}}`;
+all nested objects SHALL reject undeclared fields, `role` SHALL be exactly
+`consumed` or `unconsumed`, and members SHALL be path-sorted.
+
+A bounded safe ZIP reader SHALL reject encryption, duplicate names, traversal,
+links, unsupported members, entries outside the reviewed exact nine-member
+allowlist, missing allowlisted entries, and decompression-limit violations. It
+SHALL stream and hash all nine regular `.jsonlines` members. The seven
+`consumed` members SHALL be exactly the Archive manifest's seven
+`sourceFiles`, with every uncompressed name/size/digest matching its source
+account. The only `unconsumed` members SHALL be
+`episode.jsonlines` (size 332792564, digest
+`sha256:0d7020de68ba7b4ee838cf5ed30766a9153b429efb45ace4c97c2871832c68e7`)
+and `person-relations.jsonlines` (size 8118624, digest
+`sha256:d7b4993d9af733fd34c6de5dcd0e0eca98e64da0623f1b26c5bb040e76262e11`).
+Unconsumed members SHALL be admitted only as reviewed official upstream bytes
+and SHALL NOT participate in Updater source accounting. The pinned common
+bytes SHALL match the Archive manifest's common commit/URL/size/digest.
 
 The harness SHALL additionally validate the Archive contract,
 manifest/SQLite/schema/dataVersion digests, complete source accounting,
@@ -243,8 +256,10 @@ input, and reuse of a production/current activation root are forbidden.
 #### Scenario: Official full Archive is accepted
 
 - **WHEN** the frozen release ZIP and common bytes match their pinned upstream
-  metadata, all seven ZIP members match the inactive version's source
-  accounts, and the version passes all Contracts and real Go consumer gates
+  metadata, the exact nine-member ZIP allowlist is present, all seven consumed
+  members match the inactive version's source accounts, both unconsumed
+  members match their reviewed identities, and the version passes all
+  Contracts and real Go consumer gates
 - **THEN** a byte-identical disposable activation copy SHALL be created below
   the owned run root and both source roots SHALL remain unchanged
 
@@ -252,7 +267,7 @@ input, and reuse of a production/current activation root are forbidden.
 
 - **WHEN** a manifest and schema-valid SQLite agree with each other but the
   official ZIP/common anchor is missing, changed, extra, or does not match all
-  seven source accounts
+  seven source accounts or either reviewed unconsumed member
 - **THEN** provenance admission SHALL fail before runtime and no official or
   full-Archive acceptance claim SHALL be emitted
 

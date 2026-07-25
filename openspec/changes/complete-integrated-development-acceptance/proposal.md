@@ -126,8 +126,10 @@ None.
   `536b2864f8f23ee4ffd171ebfbe4c41fe1be2df1`,
   `subject_staffs.yml` from pinned common revision
   `6a8442c17143a870357a5ff812362e8b5cfe9f9d`, and one canonical provenance
-  manifest. The harness admits these bytes offline and never fetches release
-  metadata during a matrix run.
+  manifest. The official ZIP has a reviewed exact nine-member allowlist:
+  seven consumed members bound to the inactive Archive source accounts and
+  two fixed unconsumed upstream members. The harness admits these bytes
+  offline and never fetches release metadata during a matrix run.
 - Existing component checks, cross-language contract verifiers, Archive/API
   goldens, OpenAPI, race gates, production routes, fixed oracle commit,
   `PRODUCT.md`, `DESIGN.md`, and the accepted frontend capability specs.

@@ -112,13 +112,14 @@ commit, push, sync, archive, or update task markers.
 - [ ] 4.1 Admit a separate frozen official provenance root containing
   canonical manifest, pinned Archive `latest.json`, exact release ZIP, and
   pinned common YAML. Validate the reviewed upstream commits/file digests,
-  exact ZIP identity, safe/exact seven-member ZIP structure, every member
-  size/digest against the inactive Archive source accounts, and the common
-  identity; then validate regular `manifest.json`/`bangumi.sqlite` through
-  existing schema/digest/dataVersion/object/sentinel gates, generator
-  compatibility, and real Go consumer acceptance. Reject missing/tampered
-  provenance, checked-in minimal/self-consistent synthetic identities, and
-  re-seal both input roots before/after.
+  exact ZIP identity, safe/exact nine-member ZIP structure, all seven consumed
+  member size/digests against the inactive Archive source accounts, both
+  reviewed unconsumed member identities, and the common identity; then
+  validate regular `manifest.json`/`bangumi.sqlite` through existing
+  schema/digest/dataVersion/object/sentinel gates, generator compatibility,
+  and real Go consumer acceptance. Reject missing/tampered provenance,
+  checked-in minimal/self-consistent synthetic identities, and re-seal both
+  input roots before/after.
 - [ ] 4.2 Stream-copy the accepted version into the owned run root, derive one
   canonical development-only `current.json`, verify copied byte identities,
   make the tree read-only, and prohibit hard links, symlinks, writes beside the
