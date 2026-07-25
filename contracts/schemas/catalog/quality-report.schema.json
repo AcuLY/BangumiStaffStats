@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/catalog/quality-report-v1.json",
+  "title": "Catalog and exact-cast quality report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "counts",
+    "samples",
+    "roleInventory",
+    "unknownStaffPositionIds",
+    "blockingErrors"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1,
+      "type": "integer"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "NO_CHARACTERS",
+        "NO_CAST_RELATIONS",
+        "FILTERED_BY_VALID_CV"
+      ],
+      "properties": {
+        "NO_CHARACTERS": {
+          "$ref": "#/$defs/count"
+        },
+        "NO_CAST_RELATIONS": {
+          "$ref": "#/$defs/count"
+        },
+        "FILTERED_BY_VALID_CV": {
+          "$ref": "#/$defs/count"
+        }
+      }
+    },
+    "samples": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "NO_CHARACTERS",
+        "NO_CAST_RELATIONS",
+        "FILTERED_BY_VALID_CV"
+      ],
+      "properties": {
+        "NO_CHARACTERS": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/subjectSample"
+          }
+        },
+        "NO_CAST_RELATIONS": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/subjectSample"
+          }
+        },
+        "FILTERED_BY_VALID_CV": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/edgeSample"
+          }
+        }
+      }
+    },
+    "roleInventory": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "roleType",
+          "count"
+        ],
+        "properties": {
+          "roleType": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "count": {
+            "$ref": "#/$defs/count"
+          }
+        }
+      }
+    },
+    "unknownStaffPositionIds": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subjectType",
+          "positionId",
+          "count"
+        ],
+        "properties": {
+          "subjectType": {
+            "$ref": "#/$defs/subjectType"
+          },
+          "positionId": {
+            "$ref": "#/$defs/safePositiveInteger"
+          },
+          "count": {
+            "$ref": "#/$defs/count"
+          }
+        }
+      }
+    },
+    "blockingErrors": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 96,
+        "pattern": "^[A-Z][A-Z0-9_]*$"
+      }
+    }
+  },
+  "$defs": {
+    "safePositiveInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "subjectType": {
+      "type": "string",
+      "enum": [
+        "book",
+        "anime",
+        "music",
+        "game",
+        "real"
+      ]
+    },
+    "castSubjectType": {
+      "type": "string",
+      "enum": [
+        "anime",
+        "game"
+      ]
+    },
+    "subjectSample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectType",
+        "subjectId"
+      ],
+      "properties": {
+        "subjectType": {
+          "$ref": "#/$defs/castSubjectType"
+        },
+        "subjectId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        }
+      }
+    },
+    "edgeSample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectType",
+        "subjectId",
+        "characterId",
+        "personId",
+        "roleType"
+      ],
+      "properties": {
+        "subjectType": {
+          "$ref": "#/$defs/castSubjectType"
+        },
+        "subjectId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "characterId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "personId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "roleType": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        }
+      }
+    }
+  }
+}

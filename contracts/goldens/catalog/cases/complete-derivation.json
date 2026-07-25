@@ -1,0 +1,564 @@
+{
+  "caseSchemaVersion": 1,
+  "caseId": "complete-derivation",
+  "description": "Five-type dynamic catalog, deterministic ordering, multi-category and fallback groups, fixed shortcuts, official 101-106 staff sentinel, exact cast roles 1-6, global valid_cv, cross-work non-inference, quality classes, dormant staff sets, and invalid all-or-nothing variants.",
+  "input": {
+    "displayConfig": {
+      "schemaVersion": 1,
+      "capabilityRules": [
+        {
+          "subjectType": "book",
+          "positionKind": "staff",
+          "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"]
+        },
+        {
+          "subjectType": "anime",
+          "positionKind": "staff",
+          "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"]
+        },
+        {
+          "subjectType": "music",
+          "positionKind": "staff",
+          "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"]
+        },
+        {
+          "subjectType": "game",
+          "positionKind": "staff",
+          "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"]
+        },
+        {
+          "subjectType": "real",
+          "positionKind": "staff",
+          "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"]
+        },
+        {
+          "subjectType": "anime",
+          "positionKind": "cast",
+          "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"]
+        },
+        {
+          "subjectType": "game",
+          "positionKind": "cast",
+          "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"]
+        }
+      ],
+      "featuredGroups": [
+        {
+          "subjectType": "anime",
+          "label": "常用职位",
+          "positionKeys": [
+            "staff:anime:2",
+            "staff:anime:67",
+            "cast:anime:main",
+            "cast:anime:all",
+            "staff:anime:3",
+            "staff:anime:10",
+            "staff:anime:74",
+            "staff:anime:1",
+            "staff:anime:5",
+            "staff:anime:4"
+          ]
+        },
+        {
+          "subjectType": "game",
+          "label": "常用职位",
+          "positionKeys": [
+            "staff:game:1004",
+            "staff:game:1001",
+            "cast:game:all",
+            "cast:game:main",
+            "staff:game:1013"
+          ]
+        }
+      ],
+      "castGroups": [
+        {
+          "subjectType": "anime",
+          "label": "配音类",
+          "anchorCategoryKey": "music",
+          "positionKeys": ["cast:anime:main", "cast:anime:all"]
+        },
+        {
+          "subjectType": "game",
+          "label": "配音类",
+          "anchorCategoryKey": "music",
+          "positionKeys": ["cast:game:main", "cast:game:all"]
+        }
+      ],
+      "additionalDisplayGroups": []
+    },
+    "staffSetConfig": {
+      "schemaVersion": 1,
+      "sets": []
+    },
+    "commonCatalog": [
+      {
+        "subjectType": "book",
+        "categories": [
+          {
+            "key": "writing",
+            "names": {"cn": "创作", "en": "Writing", "jp": null},
+            "order": 1,
+            "sourceIndex": 0
+          }
+        ],
+        "positions": [
+          {
+            "id": 1,
+            "names": {"cn": "作者", "en": "Author", "jp": ""},
+            "order": 1,
+            "sourceIndex": 0,
+            "categoryKeys": ["writing"]
+          }
+        ]
+      },
+      {
+        "subjectType": "anime",
+        "categories": [
+          {
+            "key": "direction",
+            "names": {"cn": "导演类", "en": "Direction", "jp": null},
+            "order": 1,
+            "sourceIndex": 0
+          },
+          {
+            "key": "music",
+            "names": {"cn": "声音类", "en": "music", "jp": null},
+            "order": 2,
+            "sourceIndex": 1
+          },
+          {
+            "key": "writing",
+            "names": {"cn": "脚本类", "en": "Writing", "jp": null},
+            "order": 0,
+            "sourceIndex": 2
+          },
+          {
+            "key": "visual",
+            "names": {"cn": "画面类", "en": "Visual", "jp": null},
+            "order": null,
+            "sourceIndex": 3
+          }
+        ],
+        "positions": [
+          {
+            "id": 2,
+            "names": {"cn": "导演", "en": "Director", "jp": "監督"},
+            "order": 1,
+            "sourceIndex": 0,
+            "categoryKeys": ["direction", "writing"]
+          },
+          {
+            "id": 67,
+            "names": {"cn": "动画制作", "en": "Animation Production", "jp": null},
+            "order": 2,
+            "sourceIndex": 1,
+            "categoryKeys": ["direction"]
+          },
+          {
+            "id": 3,
+            "names": {"cn": "脚本", "en": "Script", "jp": null},
+            "order": 3,
+            "sourceIndex": 2,
+            "categoryKeys": ["writing"]
+          },
+          {
+            "id": 10,
+            "names": {"cn": "系列构成", "en": "Series Composition", "jp": null},
+            "order": 4,
+            "sourceIndex": 3,
+            "categoryKeys": ["writing"]
+          },
+          {
+            "id": 74,
+            "names": {"cn": "总导演", "en": "Chief Director", "jp": null},
+            "order": 5,
+            "sourceIndex": 4,
+            "categoryKeys": ["direction"]
+          },
+          {
+            "id": 1,
+            "names": {"cn": "原作", "en": "Original Work", "jp": null},
+            "order": 0,
+            "sourceIndex": 5,
+            "categoryKeys": ["writing"]
+          },
+          {
+            "id": 5,
+            "names": {"cn": "演出", "en": "Episode Direction", "jp": null},
+            "order": null,
+            "sourceIndex": 6,
+            "categoryKeys": ["direction"]
+          },
+          {
+            "id": 4,
+            "names": {"cn": "分镜", "en": "Storyboard", "jp": null},
+            "order": -1,
+            "sourceIndex": 7,
+            "categoryKeys": ["visual"]
+          },
+          {
+            "id": 101,
+            "names": {"cn": "官方职位101", "en": "", "jp": null},
+            "order": null,
+            "sourceIndex": 8,
+            "categoryKeys": ["music"]
+          },
+          {
+            "id": 102,
+            "names": {"cn": "官方职位102", "en": null, "jp": null},
+            "order": null,
+            "sourceIndex": 9,
+            "categoryKeys": ["music"]
+          },
+          {
+            "id": 103,
+            "names": {"cn": "官方职位103", "en": null, "jp": null},
+            "order": null,
+            "sourceIndex": 10,
+            "categoryKeys": ["music"]
+          },
+          {
+            "id": 104,
+            "names": {"cn": "官方职位104", "en": null, "jp": null},
+            "order": null,
+            "sourceIndex": 11,
+            "categoryKeys": ["music"]
+          },
+          {
+            "id": 105,
+            "names": {"cn": "官方职位105", "en": null, "jp": null},
+            "order": null,
+            "sourceIndex": 12,
+            "categoryKeys": ["music"]
+          },
+          {
+            "id": 106,
+            "names": {"cn": "官方职位106", "en": null, "jp": null},
+            "order": null,
+            "sourceIndex": 13,
+            "categoryKeys": ["music"]
+          },
+          {
+            "id": 200,
+            "names": {"cn": "复合职位", "en": "Hybrid Position", "jp": null},
+            "order": 2,
+            "sourceIndex": 14,
+            "categoryKeys": ["direction", "writing"]
+          },
+          {
+            "id": 201,
+            "names": {"cn": "无分类无Credit职位", "en": "No Credit Position", "jp": null},
+            "order": null,
+            "sourceIndex": 15,
+            "categoryKeys": []
+          }
+        ]
+      },
+      {
+        "subjectType": "music",
+        "categories": [],
+        "positions": [
+          {
+            "id": 300,
+            "names": {"cn": "艺术家", "en": "Artist", "jp": null},
+            "order": null,
+            "sourceIndex": 0,
+            "categoryKeys": []
+          }
+        ]
+      },
+      {
+        "subjectType": "game",
+        "categories": [
+          {
+            "key": "development",
+            "names": {"cn": "开发类", "en": "Development", "jp": null},
+            "order": 1,
+            "sourceIndex": 0
+          },
+          {
+            "key": "music",
+            "names": {"cn": "声音类", "en": "music", "jp": null},
+            "order": 2,
+            "sourceIndex": 1
+          },
+          {
+            "key": "art",
+            "names": {"cn": "美术类", "en": "Art", "jp": null},
+            "order": 0,
+            "sourceIndex": 2
+          }
+        ],
+        "positions": [
+          {
+            "id": 1004,
+            "names": {"cn": "剧本", "en": "Scenario", "jp": null},
+            "order": 1,
+            "sourceIndex": 0,
+            "categoryKeys": ["development"]
+          },
+          {
+            "id": 1001,
+            "names": {"cn": "开发", "en": "Development", "jp": null},
+            "order": 2,
+            "sourceIndex": 1,
+            "categoryKeys": ["development"]
+          },
+          {
+            "id": 1013,
+            "names": {"cn": "原画", "en": "Key Art", "jp": null},
+            "order": 3,
+            "sourceIndex": 2,
+            "categoryKeys": ["art"]
+          },
+          {
+            "id": 1100,
+            "names": {"cn": "复合开发职位", "en": "Hybrid Development", "jp": null},
+            "order": 2,
+            "sourceIndex": 3,
+            "categoryKeys": ["development", "music"]
+          },
+          {
+            "id": 1101,
+            "names": {"cn": "游戏其他职位", "en": "Other Game Position", "jp": null},
+            "order": null,
+            "sourceIndex": 4,
+            "categoryKeys": []
+          }
+        ]
+      },
+      {
+        "subjectType": "real",
+        "categories": [
+          {
+            "key": "performance",
+            "names": {"cn": "演出类", "en": "Performance", "jp": null},
+            "order": 1,
+            "sourceIndex": 0
+          }
+        ],
+        "positions": [
+          {
+            "id": 600,
+            "names": {"cn": "出演", "en": "Performer", "jp": null},
+            "order": 1,
+            "sourceIndex": 0,
+            "categoryKeys": ["performance"]
+          }
+        ]
+      }
+    ],
+    "archive": {
+      "subjects": [
+        {"subjectId": 500, "subjectType": "book"},
+        {"subjectId": 9717, "subjectType": "anime"},
+        {"subjectId": 200, "subjectType": "anime"},
+        {"subjectId": 201, "subjectType": "anime"},
+        {"subjectId": 202, "subjectType": "anime"},
+        {"subjectId": 300, "subjectType": "anime"},
+        {"subjectId": 301, "subjectType": "anime"},
+        {"subjectId": 400, "subjectType": "game"}
+      ],
+      "persons": [
+        {"personId": 11},
+        {"personId": 12},
+        {"personId": 13},
+        {"personId": 14},
+        {"personId": 15},
+        {"personId": 16},
+        {"personId": 99},
+        {"personId": 6751},
+        {"personId": 6752},
+        {"personId": 6753},
+        {"personId": 6754},
+        {"personId": 6755},
+        {"personId": 6756}
+      ],
+      "characters": [
+        {"characterId": 9001},
+        {"characterId": 9002},
+        {"characterId": 9201},
+        {"characterId": 9202},
+        {"characterId": 9300},
+        {"characterId": 9401},
+        {"characterId": 9402},
+        {"characterId": 9403}
+      ],
+      "staffCredits": [
+        {"subjectId": 9717, "personId": 6751, "positionId": 101, "sourceOrder": 1},
+        {"subjectId": 9717, "personId": 6752, "positionId": 102, "sourceOrder": 2},
+        {"subjectId": 9717, "personId": 6753, "positionId": 103, "sourceOrder": 3},
+        {"subjectId": 9717, "personId": 6756, "positionId": 104, "sourceOrder": 0},
+        {"subjectId": 9717, "personId": 6754, "positionId": 105, "sourceOrder": 4},
+        {"subjectId": 9717, "personId": 6755, "positionId": 106, "sourceOrder": 5},
+        {"subjectId": 500, "personId": 11, "positionId": 1, "sourceOrder": 0},
+        {"subjectId": 500, "personId": 12, "positionId": 1, "sourceOrder": 1},
+        {"subjectId": 500, "personId": 13, "positionId": 1, "sourceOrder": 2},
+        {"subjectId": 500, "personId": 14, "positionId": 1, "sourceOrder": 3},
+        {"subjectId": 500, "personId": 15, "positionId": 1, "sourceOrder": 4},
+        {"subjectId": 500, "personId": 16, "positionId": 9999, "sourceOrder": 5}
+      ],
+      "subjectCharacters": [
+        {"subjectId": 9717, "characterId": 9001, "type": 1, "order": 0},
+        {"subjectId": 9717, "characterId": 9002, "type": 2, "order": 1},
+        {"subjectId": 201, "characterId": 9201, "type": 1, "order": 0},
+        {"subjectId": 202, "characterId": 9202, "type": 2, "order": 0},
+        {"subjectId": 300, "characterId": 9300, "type": 3, "order": 0},
+        {"subjectId": 301, "characterId": 9300, "type": 3, "order": 0},
+        {"subjectId": 400, "characterId": 9401, "type": 4, "order": 0},
+        {"subjectId": 400, "characterId": 9402, "type": 5, "order": 1},
+        {"subjectId": 400, "characterId": 9403, "type": 6, "order": 2}
+      ],
+      "personCharacters": [
+        {"subjectId": 9717, "characterId": 9001, "personId": 6756},
+        {"subjectId": 9717, "characterId": 9002, "personId": 12},
+        {"subjectId": 202, "characterId": 9202, "personId": 99},
+        {"subjectId": 301, "characterId": 9300, "personId": 13},
+        {"subjectId": 400, "characterId": 9401, "personId": 14},
+        {"subjectId": 400, "characterId": 9402, "personId": 15},
+        {"subjectId": 400, "characterId": 9403, "personId": 16}
+      ],
+      "subjectRelations": [
+        {"subjectId": 300, "relatedSubjectId": 301, "relationType": 1}
+      ]
+    }
+  },
+  "expected": {
+    "outcome": "VALID",
+    "errorCodes": [],
+    "canonicalConfig": {
+      "bytesUtf8": "{\"display\":{\"schemaVersion\":1,\"capabilityRules\":[{\"subjectType\":\"book\",\"positionKind\":\"staff\",\"capabilities\":[\"rankings\",\"candidates\",\"personDetail\",\"partners\",\"coStar\"]},{\"subjectType\":\"anime\",\"positionKind\":\"staff\",\"capabilities\":[\"rankings\",\"candidates\",\"personDetail\",\"partners\",\"coStar\"]},{\"subjectType\":\"music\",\"positionKind\":\"staff\",\"capabilities\":[\"rankings\",\"candidates\",\"personDetail\",\"partners\",\"coStar\"]},{\"subjectType\":\"game\",\"positionKind\":\"staff\",\"capabilities\":[\"rankings\",\"candidates\",\"personDetail\",\"partners\",\"coStar\"]},{\"subjectType\":\"real\",\"positionKind\":\"staff\",\"capabilities\":[\"rankings\",\"candidates\",\"personDetail\",\"partners\",\"coStar\"]},{\"subjectType\":\"anime\",\"positionKind\":\"cast\",\"capabilities\":[\"rankings\",\"candidates\",\"personDetail\",\"partners\",\"coStar\"]},{\"subjectType\":\"game\",\"positionKind\":\"cast\",\"capabilities\":[\"rankings\",\"candidates\",\"personDetail\",\"partners\",\"coStar\"]}],\"featuredGroups\":[{\"subjectType\":\"anime\",\"label\":\"常用职位\",\"positionKeys\":[\"staff:anime:2\",\"staff:anime:67\",\"cast:anime:main\",\"cast:anime:all\",\"staff:anime:3\",\"staff:anime:10\",\"staff:anime:74\",\"staff:anime:1\",\"staff:anime:5\",\"staff:anime:4\"]},{\"subjectType\":\"game\",\"label\":\"常用职位\",\"positionKeys\":[\"staff:game:1004\",\"staff:game:1001\",\"cast:game:all\",\"cast:game:main\",\"staff:game:1013\"]}],\"castGroups\":[{\"subjectType\":\"anime\",\"label\":\"配音类\",\"anchorCategoryKey\":\"music\",\"positionKeys\":[\"cast:anime:main\",\"cast:anime:all\"]},{\"subjectType\":\"game\",\"label\":\"配音类\",\"anchorCategoryKey\":\"music\",\"positionKeys\":[\"cast:game:main\",\"cast:game:all\"]}],\"additionalDisplayGroups\":[]},\"staffSets\":{\"schemaVersion\":1,\"sets\":[]}}\n",
+      "digest": "sha256:eb668803447994a96f1c50a5df306d93abf26c8ba6c5aeaba69884b0a0639dbd"
+    },
+    "projectionDigest": "sha256:985c2987df8097bdc97c6c3b2275a6ccfdba847db603e2aafbe1cc79fbbd6e6d",
+    "variants": [
+      {
+        "mutationId": "synthetic-staff-set",
+        "outcome": "VALID",
+        "errorCodes": [],
+        "sameCatalogConfigDigest": false
+      },
+      {
+        "mutationId": "synthetic-staff-set-members-reordered",
+        "outcome": "VALID",
+        "errorCodes": [],
+        "sameCatalogConfigDigest": false
+      },
+      {
+        "mutationId": "staff-set-label-changed",
+        "outcome": "VALID",
+        "errorCodes": [],
+        "sameCatalogConfigDigest": false
+      },
+      {
+        "mutationId": "missing-featured-position",
+        "outcome": "INVALID",
+        "errorCodes": ["FEATURED_GROUP_INVALID", "UNKNOWN_GROUP_REFERENCE"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "duplicate-featured-position",
+        "outcome": "INVALID",
+        "errorCodes": ["DISPLAY_CONFIG_SCHEMA_INVALID", "DUPLICATE_GROUP_REFERENCE"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "cross-type-staff-set-member",
+        "outcome": "INVALID",
+        "errorCodes": ["CROSS_TYPE_STAFF_SET_MEMBER"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "cast-staff-set-member",
+        "outcome": "INVALID",
+        "errorCodes": ["NON_STAFF_SET_MEMBER", "STAFF_SET_CONFIG_SCHEMA_INVALID"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "unknown-staff-set-member",
+        "outcome": "INVALID",
+        "errorCodes": ["UNKNOWN_STAFF_SET_MEMBER"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "missing-cast-anchor",
+        "outcome": "INVALID",
+        "errorCodes": ["CAST_GROUP_ANCHOR_MISSING", "DISPLAY_CONFIG_SCHEMA_INVALID"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "missing-chinese-label",
+        "outcome": "INVALID",
+        "errorCodes": ["COMMON_CHINESE_LABEL_MISSING"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "unknown-cast-role",
+        "outcome": "INVALID",
+        "errorCodes": ["UNKNOWN_CAST_ROLE"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "official-position-credit-only",
+        "outcome": "VALID",
+        "errorCodes": [],
+        "sameCatalogConfigDigest": true
+      },
+      {
+        "mutationId": "missing-category-chinese-label",
+        "outcome": "INVALID",
+        "errorCodes": ["COMMON_CATEGORY_CHINESE_LABEL_MISSING"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "phantom-person-cast-edge",
+        "outcome": "INVALID",
+        "errorCodes": ["PERSON_CHARACTER_PERSON_MISSING"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "phantom-character-cast-edge",
+        "outcome": "INVALID",
+        "errorCodes": ["PERSON_CHARACTER_CHARACTER_MISSING", "SUBJECT_CHARACTER_CHARACTER_MISSING"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "conflicting-subject-character",
+        "outcome": "INVALID",
+        "errorCodes": ["CONFLICTING_SUBJECT_CHARACTER"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "duplicate-subject-character",
+        "outcome": "INVALID",
+        "errorCodes": ["DUPLICATE_SUBJECT_CHARACTER"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "duplicate-person-character",
+        "outcome": "INVALID",
+        "errorCodes": ["DUPLICATE_PERSON_CHARACTER"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "duplicate-staff-credit",
+        "outcome": "INVALID",
+        "errorCodes": ["DUPLICATE_STAFF_CREDIT"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "additional-staff-set-group-collision",
+        "outcome": "INVALID",
+        "errorCodes": ["DUPLICATE_GROUP_KEY"],
+        "sameCatalogConfigDigest": null
+      },
+      {
+        "mutationId": "cast-anchor-label-drift",
+        "outcome": "INVALID",
+        "errorCodes": ["CAST_GROUP_ANCHOR_LABEL_INVALID"],
+        "sameCatalogConfigDigest": null
+      }
+    ]
+  }
+}

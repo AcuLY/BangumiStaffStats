@@ -2,7 +2,7 @@
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: main semantic/dependency review plus strict change/all validation and doctor passed |
+| Status | investigated: complete; specified: approved; implemented: Contracts yes, Updater no; verified: Contracts main audit, clean install, double verifier, negative matrix, strict change/all validation, doctor, diff, inventory, and residue gates passed; committed: Contracts yes, Updater no; pushed/released/deployed: no |
 | Owner | Contracts owner first; after main acceptance, Updater owner; main agent performs final review. |
 | Writable paths | Planning change; Contracts and Updater sets exactly as declared in `proposal.md`, with each owner limited to its own markers. |
 | Read-only protected inputs | Archive/query Contracts/root specs, archived dependency, all updater paths outside the exact set, backend/frontend, authorities, other changes/tasks, refs/remotes, hosts, production. |
@@ -19,11 +19,11 @@
 
 ## 1. Contracts owner
 
-- [ ] 1.1 Preflight branch/HEAD/index/allowed dirty state, strict-reviewed artifacts, exact writable/protected inventories, archived accepted producer, and exited `correct-archive-raw-domain-semantics`. Confirm the former TEXT/raw-numeric/private-mapping conflict remains absent across root schema, producer goldens/verifier, and Go consumer; otherwise stop before any Contracts write.
-- [ ] 1.2 Add strict catalog configuration, staff-set, derivation-case, quality-report, and closed-index JSON Schemas plus catalog-local `ajv@8.20.0` package/lock/verifier/documentation under `contracts/schemas/catalog/**`; keep install scripts disabled and all cache/temp/install state disposable below that root.
-- [ ] 1.3 Add the closed `contracts/goldens/catalog/**` corpus for five-type dynamic positions, order/multi-category/fallback/groups, exact fixed anime/game shortcuts, official 101–106 and position-104 sentinel, exact/global-`valid_cv` cast, all reconciled raw roles, quality classes, empty/synthetic staff sets, canonical digest equivalence/drift, and invalid all-or-nothing cases.
-- [ ] 1.4 Run catalog-local clean install/strict verifier, fatal-UTF-8 and closed-inventory negatives, semantic recomputation, canonical digest tests, and exact protected-path/hash/diff/residue checks. Then run `openspec validate derive-position-catalog-and-cast --strict`, `openspec validate --all --strict`, `openspec doctor`, and `git diff --check -- openspec/changes/derive-position-catalog-and-cast contracts/schemas/catalog contracts/goldens/catalog`.
-- [ ] 1.5 Hand off exact schema/index/case/tool hashes and commands/results to main review as an unstaged Contracts candidate; do not mark Updater tasks or claim implementation outside this block.
+- [x] 1.1 Preflight branch/HEAD/index/allowed dirty state, strict-reviewed artifacts, exact writable/protected inventories, archived accepted producer, and exited `correct-archive-raw-domain-semantics`. Confirm the former TEXT/raw-numeric/private-mapping conflict remains absent across root schema, producer goldens/verifier, and Go consumer; otherwise stop before any Contracts write.
+- [x] 1.2 Add strict catalog configuration, staff-set, derivation-case, quality-report, and closed-index JSON Schemas plus catalog-local `ajv@8.20.0` package/lock/verifier/documentation under `contracts/schemas/catalog/**`; keep install scripts disabled and all cache/temp/install state disposable below that root.
+- [x] 1.3 Add the closed `contracts/goldens/catalog/**` corpus for five-type dynamic positions, order/multi-category/fallback/groups, exact fixed anime/game shortcuts, official 101–106 and position-104 sentinel, exact/global-`valid_cv` cast, all reconciled raw roles, quality classes, empty/synthetic staff sets, canonical digest equivalence/drift, and invalid all-or-nothing cases.
+- [x] 1.4 Run catalog-local clean install/strict verifier, fatal-UTF-8 and closed-inventory negatives, semantic recomputation, canonical digest tests, and exact protected-path/hash/diff/residue checks. Then run `openspec validate derive-position-catalog-and-cast --strict`, `openspec validate --all --strict`, `openspec doctor`, and `git diff --check -- openspec/changes/derive-position-catalog-and-cast contracts/schemas/catalog contracts/goldens/catalog`.
+- [x] 1.5 Hand off exact schema/index/case/tool hashes and commands/results to main review as an unstaged Contracts candidate; do not mark Updater tasks or claim implementation outside this block.
 
 ## 2. Updater owner
 

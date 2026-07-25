@@ -2,7 +2,7 @@
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: main semantic/dependency review plus strict planning-artifact validation |
+| Status | investigated: complete; specified: approved; implemented/committed: yes; verified: main audit plus clean install, double verifier, closed negative matrix, strict validation, diff, inventory, and residue gates passed; pushed/released/deployed: no |
 | Owner | Contracts owner writes and verifies this capability; Updater is its first read-only runtime consumer; later Go/TypeScript consumers require separate changes. |
 | Writable paths | `contracts/schemas/catalog/**`, `contracts/goldens/catalog/**`, and Contracts task markers in this change only. |
 | Read-only protected inputs | All Archive/query schemas and goldens, root specs, updater/backend/frontend code, PRODUCT/DESIGN/guides/oracle, other changes/tasks, refs/remotes, hosts, and production. |
@@ -125,7 +125,9 @@ source order with deterministic tie-breaks.
 
 The product-defined voice groups SHALL be
 `shortcut:anime:cast` and `shortcut:game:cast`, placed immediately after the
-corresponding common sound group and referencing exactly main then all.
+corresponding pinned common category whose exact key is `music` and current
+Chinese label is `声音类`, referencing exactly main then all. A synthetic
+`sound` alias or private category-key mapping SHALL NOT be introduced.
 Missing/ambiguous insertion anchors SHALL fail configuration validation rather
 than move the group silently. Fixed featured groups SHALL use
 `shortcut:{type}:featured`, SHALL not exist for unconfigured types, and SHALL

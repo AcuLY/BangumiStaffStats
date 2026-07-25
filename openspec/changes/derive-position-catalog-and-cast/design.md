@@ -16,7 +16,7 @@ synchronized, archived, and absent from active changes.
 
 | Boundary | Declaration |
 |---|---|
-| Status | investigated: complete; specified: approved; implemented: no; verified: main semantic/dependency review plus strict change/all validation and doctor passed |
+| Status | investigated: complete; specified: approved; implemented: Contracts yes, Updater no; verified: Contracts main audit, clean install, double verifier, negative matrix, strict change/all validation, doctor, diff, inventory, and residue gates passed |
 | Owner | Contracts owner first; after main acceptance, one Updater owner; main agent accepts each block. |
 | Writable paths | Planning: `openspec/changes/derive-position-catalog-and-cast/**`. Contracts: `contracts/schemas/catalog/**`, `contracts/goldens/catalog/**`, own markers. Updater: `updater/config/catalog/**`, `updater/src/bangumi_staff_stats_updater/catalog/**`, `updater/src/bangumi_staff_stats_updater/producer/**`, `updater/tests/catalog/**`, `updater/tests/producer/**`, own markers. |
 | Read-only protected inputs | Archive/query Contracts and root specs, archived dependency, all other updater paths, backend/frontend, authorities, other changes/tasks, refs/remotes, hosts, and production. |
@@ -112,8 +112,10 @@ Group keys are:
 - `custom:{type}:staff-sets`.
 
 Multi-category and shortcut occurrences insert references to one canonical
-position. Voice groups anchor immediately after the common sound group.
-Missing anchors or keys block. Exact staff/cast positions explicitly support
+position. Voice groups anchor immediately after the pinned common category
+whose exact key is `music` and whose current Chinese label is `声音类`; no
+synthetic `sound` alias or private category-key mapping is admitted. Missing
+anchors or keys block. Exact staff/cast positions explicitly support
 the five catalog capabilities `rankings`, `candidates`, `personDetail`,
 `partners`, and `coStar`; staff-set capabilities are the conservative member
 intersection. No absence-based or prefix-based capability guess is allowed.
