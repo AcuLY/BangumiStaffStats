@@ -4,8 +4,8 @@
 |---|---|
 | Status | Integration acceptance amendment; implementation pending. |
 | Owner | Backend test implementation agent. |
-| Writable paths | `backend/internal/catalog/*_test.go`, new `backend/internal/app/catalog_archive_integration_test.go`, only the two stale partners/co-star expected outcomes in `backend/internal/app/run_test.go`, and only that new path's inventory line in `backend/scripts/check.sh`. |
-| Read-only protected inputs | Backend production code, every other `run_test.go` assertion, and all checker logic outside the one inventory line, canonical Archive fixture, schemas/goldens/verifiers, Updater, frontend, external state. |
+| Writable paths | `backend/internal/catalog/*_test.go`, new `backend/internal/app/catalog_archive_integration_test.go`, only the two stale partners/co-star expected outcomes and co-star participant literals `1/2` → `100/101` in `backend/internal/app/run_test.go`, and only that new path's inventory line in `backend/scripts/check.sh`. |
+| Read-only protected inputs | Backend production code, every other `run_test.go` request/expectation/assertion, and all checker logic outside the one inventory line, canonical Archive fixture, schemas/goldens/verifiers, Updater, frontend, external state. |
 | Deletion complement | No deletion or disposable residue. |
 | Mutable refs | None. |
 | Consumes | Corrected checked-in canonical Archive bundle and existing catalog runtime. |
@@ -33,7 +33,9 @@ integration-test path; no checker logic is changed. Because those rows now
 advertise the accepted partners/co-star capabilities, the existing application
 route test SHALL expect both requests to pass capability admission and stop at
 the deliberately missing analytics boundary with `503 NOT_READY`, rather than
-the obsolete `400 CAPABILITY_NOT_AVAILABLE`.
+the obsolete `400 CAPABILITY_NOT_AVAILABLE`. That co-star request SHALL use
+the fixture's existing participants `100/101`, not the obsolete nonexistent
+`1/2`, so entity validation cannot mask the dependency boundary.
 
 The test SHALL fail if Contracts again emits a governed catalog row shape that
 the bounded fixture contract does not permit. Backend's existing rejection of
@@ -52,6 +54,7 @@ compatibility normalizer or alternate dialect is admitted.
   through the corrected minimal Archive
 - **THEN** both routes return `503 NOT_READY` for unavailable analytics
 - **AND** neither route is rejected as `CAPABILITY_NOT_AVAILABLE`
+- **AND** the co-star request uses existing fixture people `100/101`
 
 #### Scenario: Contracts and runtime drift again
 
