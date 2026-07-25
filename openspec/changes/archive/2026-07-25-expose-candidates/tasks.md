@@ -15,5 +15,5 @@
 
 ## 4. Acceptance
 
-- [ ] 4.1 Pass shared goldens, focused/repeated/race, vet, build, full backend and generation gates, and prior-projection byte checks.
-- [ ] 4.2 Pass strict OpenSpec, diff, generated-residue, architecture, index, and ref gates; leave an unstaged candidate.
+- [x] 4.1 Pass shared goldens, focused/repeated/race, vet, build, full backend and generation gates, and prior-projection byte checks.
+- [x] 4.2 Pass strict OpenSpec, diff, generated-residue, architecture, index, and ref gates; leave an unstaged candidate.
