@@ -93,6 +93,10 @@ occur outside cache locks.
 - **WHEN** two callers share a load and one caller cancels
 - **THEN** the cancelled caller SHALL return its context cause while the other caller may receive the shared result
 
+#### Scenario: The compute queue is full
+- **WHEN** two tasks run and eight different-key tasks are queued
+- **THEN** another task SHALL fail without starting and expose `SERVER_BUSY`
+
 #### Scenario: Mixed operations fill the compute queue
 - **WHEN** two tasks from any operations run and eight tasks from any other combination of operations are queued on the process executor
 - **THEN** another operation's task SHALL fail without starting and expose `SERVER_BUSY`
