@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: complete after strict validation; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: complete after strict validation; implemented and verified: complete; committed: `c1e0623ddd14ba678a32b082d7e16d2e66017606`; pushed: no; released: no; deployed: no |
 | Owner | Frontend owner within the combined Frontend/Contracts apply group. |
 | Writable paths | `frontend/build/**`, `frontend/package.json`, `frontend/vite.config.ts`, and only persistent-inventory handling in `frontend/scripts/check-architecture.mjs`; generated output only below ignored `frontend/build/.tmp/**`. |
 | Read-only protected inputs | Root authorities/OpenSpec outside this change; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; `contracts/**`; `frontend/index.html`, `frontend/src/**`, `frontend/public/**`, `frontend/tests/**`, every `frontend/scripts/**` hunk outside the exact inventory amendment, `frontend/ARCHITECTURE.md`, `frontend/README.md`, all tsconfig/OpenAPI config, all Backend/Updater paths, external repositories/state. |

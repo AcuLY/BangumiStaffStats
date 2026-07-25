@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: complete after strict validation; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: complete after strict validation; implemented and verified: complete; committed: `c1e0623ddd14ba678a32b082d7e16d2e66017606`; pushed: no; released: no; deployed: no |
 | Owner | Updater apply group. |
 | Writable paths | `updater/Dockerfile` and `updater/build/**`; generated output only below ignored `updater/build/.tmp/**`. |
 | Read-only protected inputs | Root authorities/oracle/OpenSpec outside this change; `contracts/**`; all Updater source, tests, configuration, `pyproject.toml`, `uv.lock`, README, and other files outside writable paths; all Backend/Frontend paths; external repositories/state. |

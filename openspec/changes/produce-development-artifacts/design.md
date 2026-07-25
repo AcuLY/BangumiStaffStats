@@ -45,7 +45,7 @@ images, but cannot publish, deploy, configure, schedule, or activate them.
 
 | Field | Declaration |
 |---|---|
-| Status | investigated and specified: complete; apply admitted at `665c300f10c2ba572caede29951e63ea2349da7c`; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
+| Status | investigated and specified: complete; apply admitted at `665c300f10c2ba572caede29951e63ea2349da7c`; implemented and verified: complete; committed: `c1e0623ddd14ba678a32b082d7e16d2e66017606`; pushed: no; released: no; deployed: no |
 | Owner | Apply group A owns Backend; group B owns Updater; group C owns Frontend/Contracts and alone assembles the manifest. Main agent owns admission, task markers, audit, acceptance, and repository lifecycle. |
 | Writable paths | A: `backend/Dockerfile`, `backend/build/**`, and only persistent-inventory handling in `backend/scripts/check.sh`. B: `updater/Dockerfile`, `updater/build/**`. C: `frontend/build/**`, `frontend/package.json`, `frontend/vite.config.ts`, only persistent-inventory handling in `frontend/scripts/check-architecture.mjs`, `contracts/artifacts/**`, `.github/workflows/ci.yml`. OpenSpec lifecycle: only this change's `.openspec.yaml`, proposal, design, tasks, and `specs/**`; apply agents cannot edit them. |
 | Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, all `tmp-formal-development/**`, oracle `644b7748674e553f863d0ffd61d029f86fdc0717`, root config, root specs and sibling changes, `contracts/openapi/openapi.yaml`, `contracts/schemas/**`, `contracts/goldens/**`, every Backend/Updater/Frontend path not explicitly writable, external repositories, refs/remotes, registries, hosts, services, secrets, and production state. |
