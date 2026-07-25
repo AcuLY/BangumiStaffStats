@@ -39,6 +39,12 @@ distinct from missing values.
 - **WHEN** a global candidates, partners, or co-star response includes a field forbidden by its generated closed union
 - **THEN** the strict adapter SHALL reject the response and the matching surface SHALL retain its last accepted content with a local error
 
+#### Scenario: A retryable operation returns a bounded wait
+- **WHEN** partners or co-star returns retryable 429 or `SERVER_BUSY` with a canonical integer `Retry-After` from 1 through 60 seconds
+- **THEN** the driver MAY perform at most one abortable bounded-jitter retry through the same ApiClient and transaction
+- **AND** missing, malformed, duplicated, or out-of-range delay metadata SHALL NOT be guessed or cause an unbounded retry
+- **AND** no explicit collection refresh SHALL enter automatic retry
+
 #### Scenario: A page contains ranks and complete evidence
 - **WHEN** a valid response page is rendered
 - **THEN** its server rank, complete summary/evidence, nullable values, and searched pagination total SHALL be displayed unchanged

@@ -105,6 +105,14 @@ the prototype where formal operation boundaries differ.
    partners/co-star or any view-only request. Whole-page loading and response
    clearing were rejected because they violate PRODUCT continuity.
 
+   The shared client exposes only immutable `status` plus a read-only header
+   accessor to operation error decoders. Partners/co-star accept only canonical
+   integer `Retry-After` values from 1–60 seconds and may perform at most one
+   abortable bounded-jitter retry for a retryable 429 or `SERVER_BUSY`; missing
+   or invalid delay metadata fails locally without guessing. Explicit
+   collection refresh is never sent by these operations and never enters this
+   retry path.
+
 6. **Share serializes intent, never response.** The frontend consumes the
    existing generated v1 co-star share contract, whose accepted payload already
    carries ordered selected identities and the co-star operation/view needed to
