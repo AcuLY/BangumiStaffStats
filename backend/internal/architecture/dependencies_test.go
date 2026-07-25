@@ -49,6 +49,7 @@ func TestProductionPackageDependencies(t *testing.T) {
 		modulePath + "/internal/imageproxy":           {},
 		modulePath + "/internal/observability":        {},
 		modulePath + "/internal/query":                {modulePath + "/internal/archive"},
+		modulePath + "/internal/runtimecache":         {},
 		modulePath + "/internal/statistics":           {modulePath + "/internal/archive", modulePath + "/internal/query"},
 		modulePath + "/internal/archive":              {},
 		modulePath + "/internal/archive/contracttest": {},
@@ -86,7 +87,9 @@ func TestProductionPackageDependencies(t *testing.T) {
 					queryNormalization := pkg.ImportPath == modulePath+"/internal/query" &&
 						(imported == "github.com/gowebpki/jcs" ||
 							strings.HasPrefix(imported, "golang.org/x/text/"))
-					if !wireRuntime && !archiveSQLite && !queryNormalization {
+					runtimeCache := pkg.ImportPath == modulePath+"/internal/runtimecache" &&
+						imported == "golang.org/x/sync/singleflight"
+					if !wireRuntime && !archiveSQLite && !queryNormalization && !runtimeCache {
 						t.Errorf("%s imports unapproved production dependency %s", pkg.ImportPath, imported)
 					}
 				}
@@ -151,6 +154,7 @@ func TestPinnedModuleDeclaration(t *testing.T) {
 	wantDirect := map[string]string{
 		"github.com/oapi-codegen/runtime": "v1.1.2",
 		"github.com/gowebpki/jcs":         "v1.0.1",
+		"golang.org/x/sync":               "v0.22.0",
 		"golang.org/x/text":               "v0.40.0",
 		"modernc.org/sqlite":              "v1.54.0",
 	}

@@ -77,11 +77,33 @@ personal facts. The package exposes
 no HTTP shape, search, pagination, cache, network fetch, write-capable SQL, or
 global mutable publication.
 
+`internal/runtimecache` is the production in-process resource boundary for
+read-only query work. Its shared weighted-LRU kernel enforces exact retained
+cost, item, and per-item limits while cloning every published and returned
+value. Collection keys retain only a one-way UID digest plus canonical subject
+type/statuses; positive values carry a canonical `c1:` digest and exact
+fresh/fallback metadata. Only timeout, network, 429, and upstream 5xx outcomes
+may use the extra 30-minute stale window. Not-found and forbidden outcomes
+invalidate an old positive value and are negative-cached for two minutes and
+30 seconds respectively.
+
+Result stores use global/personal semantic keys containing the versioned
+operation, Archive `dataVersion`, `queryDigest`, operation `inputDigest`, and a
+collection digest only for personal scope. View search, sorting, ordering, and
+pagination cannot enter these key types. Same-key loads run through independent
+detached `singleflight` groups; expensive different-key work shares an
+executor with at most two running and eight queued tasks. A full queue returns
+typed `SERVER_BUSY` with retry guidance. This package contains no HTTP,
+external collection client, Archive access, statistics formula, persistence,
+or operations behavior.
+
 ```sh
 cd backend
 ./scripts/generate-query-wire.sh --check
 ./scripts/generate-catalog-wire.sh --check
 go test ./internal/query/...
+go test ./internal/runtimecache -count=20
+go test -race ./internal/runtimecache
 go test ./internal/statistics/...
 go test ./internal/statistics/... -count=20
 go test ./internal/catalog ./internal/httpapi/wire

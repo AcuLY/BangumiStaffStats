@@ -79,6 +79,8 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
 "$go_command" test ./internal/httpapi -run '^$' -fuzz '^FuzzDecodeStrictJSON$' -fuzztime=3s
 "$go_command" test ./internal/architecture
 "$go_command" test ./internal/query/...
+"$go_command" test ./internal/runtimecache
+"$go_command" test ./internal/runtimecache -count=20
 "$go_command" test ./internal/statistics/...
 "$go_command" test ./internal/statistics/... -count=20
 "$go_command" test ./internal/statistics -run '^$' -fuzz '^FuzzDecimalBoundary$' -fuzztime=3s
@@ -122,12 +124,14 @@ done
 
 jcs_version="$("$go_command" list -m -f '{{.Version}}' github.com/gowebpki/jcs)"
 text_version="$("$go_command" list -m -f '{{.Version}}' golang.org/x/text)"
-if [[ "$jcs_version" != "v1.0.1" || "$text_version" != "v0.40.0" ]]; then
-  echo "unexpected query dependency versions: jcs=$jcs_version text=$text_version" >&2
+sync_version="$("$go_command" list -m -f '{{.Version}}' golang.org/x/sync)"
+if [[ "$jcs_version" != "v1.0.1" || "$text_version" != "v0.40.0" || "$sync_version" != "v0.22.0" ]]; then
+  echo "unexpected query/cache dependency versions: jcs=$jcs_version text=$text_version sync=$sync_version" >&2
   exit 1
 fi
 jcs_license="$GOMODCACHE/github.com/gowebpki/jcs@v1.0.1/LICENSE"
 text_license="$GOMODCACHE/golang.org/x/text@v0.40.0/LICENSE"
+sync_license="$GOMODCACHE/golang.org/x/sync@v0.22.0/LICENSE"
 if [[ ! -f "$jcs_license" ]] || ! grep -q 'Apache License' "$jcs_license"; then
   echo "expected Apache-2.0 JCS license is absent" >&2
   exit 1
@@ -135,6 +139,11 @@ fi
 if [[ ! -f "$text_license" ]] ||
   ! grep -q 'Redistribution and use in source and binary forms' "$text_license"; then
   echo "expected BSD-style x/text license is absent" >&2
+  exit 1
+fi
+if [[ ! -f "$sync_license" ]] ||
+  ! grep -q 'Redistribution and use in source and binary forms' "$sync_license"; then
+  echo "expected BSD-style x/sync license is absent" >&2
   exit 1
 fi
 
@@ -195,6 +204,17 @@ internal/query/normalize.go
 internal/query/normalize_test.go
 internal/query/unicode_assigned_15_1.go
 internal/query/unicode_assigned_15_1_test.go
+internal/runtimecache/collection.go
+internal/runtimecache/collection_test.go
+internal/runtimecache/concurrency_test.go
+internal/runtimecache/detached.go
+internal/runtimecache/doc.go
+internal/runtimecache/errors.go
+internal/runtimecache/executor.go
+internal/runtimecache/lru.go
+internal/runtimecache/lru_test.go
+internal/runtimecache/result.go
+internal/runtimecache/result_test.go
 internal/statistics/archive_integration_test.go
 internal/statistics/benchmark_test.go
 internal/statistics/decimal.go
