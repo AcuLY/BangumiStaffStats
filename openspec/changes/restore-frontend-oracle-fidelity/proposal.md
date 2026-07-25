@@ -30,7 +30,7 @@ product additions.
 |---|---|
 | Status | Investigated/specified/main-agent reviewed: complete; implemented/verified/committed: no. |
 | Owner | One frontend implementation agent after the active co-star Group 1 handoff; main agent owns spec edits and acceptance. |
-| Writable paths | Existing header/query/ranking/person-detail components and feature CSS, `frontend/src/shared/styles/base.css`, narrowly required shared presentational components, corresponding tests, and this change's task markers. |
+| Writable paths | Existing header/query/ranking/person-detail components and feature CSS, `frontend/src/app/AppProviders.vue`, an optional app-owned public Naive theme-override module, `frontend/src/shared/styles/base.css`, narrowly required shared presentational components, corresponding tests, and this change's task markers. |
 | Protected paths | `frontend/src/features/co-star/**`, candidate/partners/co-star APIs and adapters, query coordinator/share semantics, backend/contracts/updater, generated DTOs, dependencies/lockfiles, external repositories, refs/remotes, and operations state. |
 | Oracle | Commit `644b7748674e553f863d0ffd61d029f86fdc0717`, under `frontend/src/workbench/**`. |
 | Higher-authority exceptions | Explicit `PRODUCT.md`, `DESIGN.md`, accepted OpenSpec, and production-state additions override the oracle only for the named capability; they do not authorize unrelated visual or interaction changes. |

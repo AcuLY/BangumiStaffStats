@@ -29,6 +29,9 @@ The following production additions remain:
 
 - Prefer the oracle's existing markup/style patterns where compatible, but
   keep the formal feature boundaries and production state ownership.
+- Keep cross-surface public Naive theme restoration in the app provider (or
+  one app-owned override module); use feature-local overrides only for
+  genuinely surface-specific control geometry.
 - Do not duplicate prototype fixtures, local statistics, or upstream calls.
 - Do not touch active co-star-owned files until explicit handoff. If a shared
   presentational file is needed, sequence ownership rather than merging
