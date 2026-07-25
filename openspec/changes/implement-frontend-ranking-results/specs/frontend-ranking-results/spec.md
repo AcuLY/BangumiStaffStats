@@ -7,6 +7,9 @@ accepted native-fetch client and a rankings driver registered with the existing
 Query Coordinator. The driver SHALL serialize the last-successful Applied
 Query and current ranking view, propagate AbortSignal, strictly decode the
 generated success/error contract, and require the response requestId.
+The shared client MAY expose an operation-supplied strict error-envelope decoder
+but SHALL preserve existing catalog behavior and SHALL not turn display messages
+or arbitrary error bodies into typed application failures.
 
 Stable status/error codes and collection warning codes SHALL drive behavior.
 The frontend SHALL not parse display messages, contact Bangumi directly, ship a
@@ -25,8 +28,10 @@ fixture, create a second Applied Query owner, or compute ranking statistics.
 Search, sort, order, page, and pageSize SHALL be server-side view state.
 Changing them SHALL not edit Draft, advance queryRevision, alter Applied Query,
 or reset the co-star resource. Sort/search/page changes SHALL request only the
-current applied ranking query. Page SHALL reset to one when search, sort, order,
-or pageSize changes.
+current applied ranking query through the existing coordinator's ranking
+transaction/sequence owner; the feature SHALL not create a second concurrency
+or stale-response layer. Page SHALL reset to one when search, sort, order, or
+pageSize changes.
 
 The UI SHALL render backend-provided item rank, complete summary, metric scale,
 and pagination total unchanged. It SHALL never renumber filtered rows or derive

@@ -11,6 +11,9 @@ View defaults SHALL be search `""`, sort `count`, order `desc`, page `1`, and
 pageSize `10`. Sort SHALL be `count|average|overall|preference`; preference SHALL
 be rejected for global scope. Page size SHALL be exactly `5|10|20`.
 `refreshCollection=true` SHALL be allowed only for personal rankings.
+The OpenAPI operation SHALL declare 405 with `Allow: POST`, 502 for upstream
+protocol/decode failure, and the accepted 400/403/404/413/415/429/500/503/504
+families; every response SHALL use the stable envelope and no-store headers.
 
 Average and overall SHALL cross the wire as nullable integer hundredths.
 Preference SHALL retain canonical base-10 rational numerator/denominator strings
@@ -32,6 +35,10 @@ The success data SHALL contain complete-core `summary`, pre-search
 `metricScale`, and the current page `items`. Summary SHALL include personCount,
 `workUnit=subject|series`, the global unique matched work/series count, and
 characterCount exactly when the selected query has cast capability.
+For count, average, and overall the scale maximum SHALL be the greatest valid
+primary value. For signed preference it SHALL be the greatest absolute valid
+score magnitude so the frontend can render a zero-centered scale; it SHALL be
+null only when the complete population has no valid primary value.
 
 Each item SHALL contain complete-set rank, person reference, workCount,
 nullable average and overall hundredths, and personal preference only in

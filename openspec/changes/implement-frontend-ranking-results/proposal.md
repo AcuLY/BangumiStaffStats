@@ -30,7 +30,7 @@ None.
 |---|---|
 | Status | investigated: complete; specified: approved; implemented/verified/committed/pushed/released/deployed: no |
 | Owner | One Frontend implementation agent; main agent audits visual/contract behavior and accepts. |
-| Writable paths | `frontend/src/api/rankings.ts`, `frontend/src/api/adapters/rankings.ts`, `frontend/src/features/ranking/**`, `frontend/src/shared/components/**`, `frontend/src/shared/media/**`, `frontend/src/app/App.vue`, `frontend/src/shared/styles/base.css`, matching tests under `frontend/tests/**`, and this change's task markers |
+| Writable paths | `frontend/src/api/client.ts`, `frontend/src/api/rankings.ts`, `frontend/src/api/adapters/rankings.ts`, `frontend/src/features/ranking/**`, `frontend/src/shared/components/**`, `frontend/src/shared/media/**`, `frontend/src/features/query/coordinator.ts`, `frontend/src/app/App.vue`, `frontend/src/shared/styles/base.css`, `frontend/scripts/check-architecture.mjs`, `frontend/ARCHITECTURE.md`, matching tests under `frontend/tests/**`, and this change's task markers |
 | Read-only protected inputs | Generated rankings/query/catalog types, package/tool scripts, DESIGN/PRODUCT/oracle, backend/contracts, co-star features, refs/remotes |
 | Consumes | Accepted Query Shell and the reviewed `contracts-rankings-api` delta; generated rankings types become available from the contract owner |
 | Produces | Real rankings network driver and responsive list result surface |

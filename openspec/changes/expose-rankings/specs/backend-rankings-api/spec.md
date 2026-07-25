@@ -30,8 +30,8 @@ last in both directions and stable person ID SHALL be the final tie-breaker.
 Summary and metricScale SHALL be computed before search/page. Summary workCount
 SHALL be the de-duplicated global matched unit set, not a sum of row counts.
 The scale maximum SHALL be derived from the selected primary metric over the
-complete population and SHALL represent absence explicitly when no valid value
-exists.
+complete population, using absolute magnitude for signed preference, and SHALL
+represent absence explicitly when no valid value exists.
 
 #### Scenario: Equal primary metrics are sorted
 - **WHEN** rows tie on the selected primary and all documented secondary keys
@@ -47,7 +47,9 @@ The handler SHALL register only `POST /api/v1/rankings`, require
 `application/json`, cap the body at 64 KiB, reject unknown fields and trailing
 JSON, reject query parameters, and emit private no-store success/error
 responses with opaque request ID. It SHALL map validation, readiness, busy,
-collection, timeout, and internal failures to stable status/code envelopes.
+collection, upstream protocol/decode, timeout, and internal failures to stable
+status/code envelopes, including 405 with `Allow: POST` and 502 for upstream
+protocol/decode failure.
 
 Cancellation before response commit SHALL return without publishing a partial
 success. A legal empty result and an out-of-range page SHALL remain successful.
