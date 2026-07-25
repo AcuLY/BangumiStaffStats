@@ -13,6 +13,7 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/candidates"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/httpapi"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/persondetail"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/ranking"
 )
 
@@ -176,11 +177,26 @@ func serveRuntime(
 			wrapError("close archive", closeErr),
 		)
 	}
-	handler := dependencies.runtime.HandlerWithQueryDependencies(
+	personDetailService, err := persondetail.NewService(
+		currentPersonDetailStore(dependencies.archive),
+		nil,
+		persondetail.DefaultConfig(),
+	)
+	if err != nil {
+		dependencies.runtime.SetLive(false)
+		_ = dependencies.runtime.SetReadiness(false, "")
+		closeErr := dependencies.archive.Close()
+		return errors.Join(
+			fmt.Errorf("create person detail service: %w", err),
+			wrapError("close archive", closeErr),
+		)
+	}
+	handler := dependencies.runtime.HandlerWithResultDependencies(
 		probe,
 		currentCatalogStore(dependencies.archive),
 		rankings,
 		candidateService,
+		personDetailService,
 	)
 	server := dependencies.server(handler)
 	if server == nil {
@@ -217,6 +233,15 @@ func currentRankingStore(state archiveRuntime) ranking.StoreProvider {
 }
 
 func currentCandidatesStore(state archiveRuntime) candidates.StoreProvider {
+	return func() (*archive.Store, bool) {
+		if state == nil {
+			return nil, false
+		}
+		return state.Current()
+	}
+}
+
+func currentPersonDetailStore(state archiveRuntime) persondetail.StoreProvider {
 	return func() (*archive.Store, bool) {
 		if state == nil {
 			return nil, false

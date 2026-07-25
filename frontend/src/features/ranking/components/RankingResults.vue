@@ -30,13 +30,15 @@ const props = withDefaults(
     executeView: (view: Readonly<RankingView>) => Promise<boolean>;
     resource: RankingResource;
     retry: () => Promise<boolean>;
+    selectedPersonId?: number | null;
   }>(),
   {
     devicePixelRatio: 1,
+    selectedPersonId: null,
   },
 );
 const emit = defineEmits<{
-  activate: [personId: number];
+  activate: [personId: number, trigger: HTMLElement];
 }>();
 
 const search = ref(props.resource.view.search);
@@ -88,6 +90,13 @@ function submitSearch(): void {
 
 function changeSort(sort: RankingSort): void {
   void requestView({ sort });
+}
+
+function forwardActivation(
+  personId: number,
+  trigger: HTMLElement,
+): void {
+  emit('activate', personId, trigger);
 }
 
 onBeforeUnmount(clearSearchTimer);
@@ -165,9 +174,10 @@ onBeforeUnmount(clearSearchTimer);
           :items="payload.items"
           :metric-scale="payload.metricScale"
           :personal="payload.scope === 'personal'"
+          :selected-person-id="selectedPersonId"
           :sort="resource.view.sort"
           :work-unit="payload.summary.workUnit"
-          @activate="emit('activate', $event)"
+          @activate="forwardActivation"
         />
         <div v-else class="ranking-empty-state">
           <app-icon name="search" :size="22" />

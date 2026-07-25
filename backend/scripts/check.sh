@@ -57,6 +57,7 @@ cd "$backend_root"
 "$script_root/generate-catalog-wire.sh" --check
 "$script_root/generate-rankings-wire.sh" --check
 "$script_root/generate-candidates-wire.sh" --check
+"$script_root/generate-person-detail-wire.sh" --check
 
 unformatted="$("$pinned_gofmt" -l cmd internal)"
 if [[ -n "$unformatted" ]]; then
@@ -83,6 +84,7 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
 "$go_command" test ./internal/query/...
 "$go_command" test ./internal/ranking
 "$go_command" test ./internal/candidates
+"$go_command" test ./internal/persondetail
 "$go_command" test ./internal/runtimecache
 "$go_command" test ./internal/runtimecache -count=20
 "$go_command" test ./internal/statistics/...
@@ -203,6 +205,8 @@ internal/httpapi/handler_test.go
 internal/httpapi/image_handler_test.go
 internal/httpapi/middleware.go
 internal/httpapi/middleware_test.go
+internal/httpapi/person_detail_handler.go
+internal/httpapi/person_detail_handler_test.go
 internal/httpapi/rankings_handler.go
 internal/httpapi/rankings_handler_test.go
 internal/httpapi/server.go
@@ -213,6 +217,7 @@ internal/httpapi/wire/candidates.gen.go
 internal/httpapi/wire/candidates_contract_test.go
 internal/httpapi/wire/catalog.gen.go
 internal/httpapi/wire/catalog_contract_test.go
+internal/httpapi/wire/person_detail.gen.go
 internal/httpapi/wire/query_contract_test.go
 internal/httpapi/wire/query_wire.gen.go
 internal/httpapi/wire/rankings.gen.go
@@ -223,6 +228,20 @@ internal/observability/events.go
 internal/observability/events_test.go
 internal/observability/metrics.go
 internal/observability/metrics_test.go
+internal/persondetail/archive.go
+internal/persondetail/build.go
+internal/persondetail/build_test.go
+internal/persondetail/cache.go
+internal/persondetail/cache_test.go
+internal/persondetail/clone.go
+internal/persondetail/doc.go
+internal/persondetail/errors.go
+internal/persondetail/projection.go
+internal/persondetail/service.go
+internal/persondetail/service_test.go
+internal/persondetail/types.go
+internal/persondetail/view.go
+internal/persondetail/view_test.go
 internal/query/archive_loader.go
 internal/query/archive_loader_test.go
 internal/query/evaluate.go
@@ -276,10 +295,12 @@ internal/statistics/types.go
 scripts/check.sh
 scripts/generate-candidates-wire.sh
 scripts/generate-catalog-wire.sh
+scripts/generate-person-detail-wire.sh
 scripts/generate-query-wire.sh
 scripts/generate-rankings-wire.sh
 scripts/prepare-candidates-wire.mjs
 scripts/prepare-catalog-wire.mjs
+scripts/prepare-person-detail-wire.mjs
 scripts/prepare-query-wire.mjs
 scripts/prepare-rankings-wire.mjs'
 actual_inventory="$(

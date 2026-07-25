@@ -21,16 +21,13 @@ function proxyReference(
   return `/api/v1/images/bangumi/${resource}/${entityId}?type=${type}`;
 }
 
-/**
- * Person image sizes are selected from the upstream's fixed 100px and 400px
- * resize variants. The original image is only the final fallback.
- */
-export function personImageCandidates(
-  personId: number,
+function imageCandidates(
+  resource: BangumiImageResource,
+  entityReference: number,
   cssWidth: number,
   devicePixelRatio = 1,
 ): readonly string[] {
-  const entityId = positiveEntityId(personId);
+  const entityId = positiveEntityId(entityReference);
   if (entityId === null || !Number.isFinite(cssWidth) || cssWidth <= 0) {
     return Object.freeze([]);
   }
@@ -44,6 +41,39 @@ export function personImageCandidates(
         : ['large', 'medium', 'small'];
 
   return Object.freeze(
-    types.map((type) => proxyReference('persons', entityId, type)),
+    types.map((type) => proxyReference(resource, entityId, type)),
+  );
+}
+
+/**
+ * Image sizes are selected from the upstream's fixed 100px and 400px resize
+ * variants. The original image is only the final fallback.
+ */
+export function personImageCandidates(
+  personId: number,
+  cssWidth: number,
+  devicePixelRatio = 1,
+): readonly string[] {
+  return imageCandidates('persons', personId, cssWidth, devicePixelRatio);
+}
+
+export function subjectImageCandidates(
+  subjectId: number,
+  cssWidth: number,
+  devicePixelRatio = 1,
+): readonly string[] {
+  return imageCandidates('subjects', subjectId, cssWidth, devicePixelRatio);
+}
+
+export function characterImageCandidates(
+  characterId: number | undefined,
+  cssWidth: number,
+  devicePixelRatio = 1,
+): readonly string[] {
+  return imageCandidates(
+    'characters',
+    characterId ?? 0,
+    cssWidth,
+    devicePixelRatio,
   );
 }

@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { RankingPayload } from '../../src/api/adapters/rankings';
+import type { PersonDetailPayload } from '../../src/api/adapters/personDetail';
 import type { CatalogApi } from '../../src/api/catalog';
 import App from '../../src/app/App.vue';
 import type { QueryDrivers } from '../../src/features/query/coordinator';
@@ -50,6 +51,54 @@ function rankingPayload(
       personCount: 8,
       workCount: 21,
       workUnit: 'subject',
+    }),
+  });
+}
+
+function detailPayload(): PersonDetailPayload {
+  const buckets = Array.from({ length: 10 }, (_, index) => ({
+    count: index === 7 ? 1 : 0,
+    examples: [],
+    hiddenCount: 0,
+    score: index + 1,
+  })) as never;
+  return Object.freeze({
+    dataVersion: `dv1-${'e'.repeat(64)}`,
+    items: Object.freeze([]),
+    metrics: Object.freeze({
+      average: 825,
+      overall: 677,
+      ratedWorkCount: 7,
+    }),
+    pagination: Object.freeze({
+      page: 1,
+      pageSize: 10,
+      total: 0,
+    }),
+    person: Object.freeze({
+      careers: Object.freeze(['producer'] as const),
+      id: 12,
+      name: 'Hayashi Akira',
+      nameCN: '林明',
+    }),
+    ratings: Object.freeze({
+      global: Object.freeze({
+        average: 825,
+        buckets,
+        timeline: Object.freeze([]),
+        validCount: 7,
+      }),
+    }),
+    requestId: 'server-detail',
+    scope: 'global',
+    section: 'works',
+    summary: Object.freeze({
+      workCount: 7,
+      workUnit: 'subject',
+    }),
+    tags: Object.freeze({
+      community: Object.freeze([]),
+      meta: Object.freeze([]),
     }),
   });
 }
@@ -129,5 +178,90 @@ describe('App ranking production slice', () => {
     expect(store.revision).toBe(1);
     expect(wrapper.get('.ranking-surface').attributes('aria-busy')).toBeUndefined();
     wrapper.unmount();
+  });
+
+  it('opens a selected row in the compact drawer and restores focus to that exact trigger', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        addEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+        matches: true,
+        media: '(width < 780px)',
+        onchange: null,
+        removeEventListener: vi.fn(),
+      })),
+    );
+    window.history.replaceState({}, '', '/ranking?user=luca');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = useQueryStore();
+    store.draft.uid = 'luca';
+    store.draft.positionKeys = ['staff:anime:2'];
+    const personExecute = vi.fn(async (request) => ({
+      payload: detailPayload(),
+      requestId: 'server-detail',
+      transactionId: request.transactionId,
+    }));
+    const drivers: QueryDrivers<
+      RankingPayload,
+      never,
+      PersonDetailPayload
+    > = {
+      candidates: {
+        async execute(): Promise<never> {
+          throw new Error('not part of this test');
+        },
+      },
+      personDetail: { execute: personExecute },
+      rankings: {
+        async execute(request) {
+          return {
+            payload: rankingPayload('server-ranking', 'count'),
+            requestId: 'server-ranking',
+            transactionId: request.transactionId,
+          };
+        },
+      },
+    };
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: {
+        plugins: [pinia],
+      },
+      props: {
+        services: {
+          catalogApi: {
+            async load() {
+              return catalogFixture();
+            },
+          },
+          drivers,
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+    await wrapper.get('#query-editor').trigger('submit');
+    await flushPromises();
+    const row = wrapper.get<HTMLButtonElement>('.ranked-person-row');
+    row.element.focus();
+    await row.trigger('click');
+    await flushPromises();
+
+    expect(personExecute).toHaveBeenCalledOnce();
+    expect(row.attributes('aria-current')).toBe('true');
+    const close = document.body.querySelector<HTMLButtonElement>(
+      '.person-detail-drawer__bar button',
+    )!;
+    expect(close).not.toBeNull();
+    expect(document.activeElement).toBe(close);
+    close.click();
+    await flushPromises();
+
+    expect(document.activeElement).toBe(row.element);
+    expect(row.attributes('aria-current')).toBeUndefined();
+    wrapper.unmount();
+    vi.unstubAllGlobals();
   });
 });

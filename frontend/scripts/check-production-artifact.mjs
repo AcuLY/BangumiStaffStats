@@ -66,7 +66,10 @@ const combinedText = textualFiles
   .join('\n');
 const deniedContent = [
   ['source map reference', /sourceMappingURL=/],
-  ['direct Bangumi upstream', /https?:\/\/(?:api\.)?(?:bgm\.tv|bangumi\.tv)/i],
+  [
+    'direct Bangumi API upstream',
+    /https?:\/\/(?:api\.)?(?:bgm\.tv|bangumi\.tv)\/v0\//i,
+  ],
   ['Axios', /\baxios\b/i],
   ['prototype workbench', /\b(?:useWorkbench|workbench-data)\b/],
   ['fixture marker', /\bfixture(?:s)?\b/i],

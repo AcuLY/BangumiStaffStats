@@ -4,13 +4,24 @@ import { computed, ref, watch } from 'vue';
 import AppIcon from '../../../shared/components/AppIcon.vue';
 import type { RankingPageSize } from '../model';
 
-const props = defineProps<{
-  itemCount: number;
-  page: number;
-  pageSize: RankingPageSize;
-  pending?: boolean;
-  total: number;
-}>();
+const props = withDefaults(
+  defineProps<{
+    ariaLabel?: string;
+    itemCount: number;
+    page: number;
+    pageSize: RankingPageSize;
+    pageSizeLabel?: string;
+    pageSizeUnit?: string;
+    pending?: boolean;
+    total: number;
+  }>(),
+  {
+    ariaLabel: '人物排行分页',
+    pageSizeLabel: '每页人数',
+    pageSizeUnit: '人',
+    pending: false,
+  },
+);
 const emit = defineEmits<{
   page: [page: number];
   pageSize: [pageSize: RankingPageSize];
@@ -84,7 +95,7 @@ function jump(): void {
 </script>
 
 <template>
-  <nav class="ranking-pagination" aria-label="人物排行分页">
+  <nav class="ranking-pagination" :aria-label="ariaLabel">
     <span class="ranking-pagination__summary">{{ rangeSummary }}</span>
 
     <div class="ranking-pagination__pages">
@@ -125,11 +136,11 @@ function jump(): void {
     </div>
 
     <label class="ranking-page-size">
-      <span class="sr-only">每页人数</span>
+      <span class="sr-only">{{ pageSizeLabel }}</span>
       <select :value="pageSize" @change="changePageSize">
-        <option :value="5">每页 5 人</option>
-        <option :value="10">每页 10 人</option>
-        <option :value="20">每页 20 人</option>
+        <option :value="5">每页 5 {{ pageSizeUnit }}</option>
+        <option :value="10">每页 10 {{ pageSizeUnit }}</option>
+        <option :value="20">每页 20 {{ pageSizeUnit }}</option>
       </select>
     </label>
 

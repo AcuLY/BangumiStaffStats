@@ -7,17 +7,31 @@ FORM: 已建立的 Operate 世界；桌面使用 Header 下覆盖层，低于 78
 -->
 <script setup lang="ts">
 import { NSkeleton } from 'naive-ui';
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
 
 import { createCatalogApi, type CatalogApi } from '../api/catalog';
 import { createApiClient } from '../api/client';
 import { createRankingsDriver } from '../api/rankings';
+import { createPersonDetailDriver } from '../api/personDetail';
+import type { PersonDetailPayload } from '../api/adapters/personDetail';
 import { useCatalogStore } from '../features/catalog/store';
+import PersonDetailSurface from '../features/person-detail/components/PersonDetailSurface.vue';
+import type {
+  PersonPositionDisplay,
+} from '../features/person-detail/model';
 import RankingResults from '../features/ranking/components/RankingResults.vue';
 import type { RankingPayload } from '../api/adapters/rankings';
 import AppHeader from '../features/query/components/AppHeader.vue';
 import QueryIcon from '../features/query/components/QueryIcon.vue';
 import QueryWorkspace from '../features/query/components/QueryWorkspace.vue';
+import { useCompactLayout } from '../features/query/composables/useCompactLayout';
 import {
   createQueryCoordinator,
   type QueryDrivers,
@@ -33,7 +47,7 @@ import { createThemeOwner } from './theme';
 
 interface AppServices {
   readonly catalogApi: CatalogApi;
-  readonly drivers: QueryDrivers<RankingPayload, unknown>;
+  readonly drivers: QueryDrivers<RankingPayload, unknown, unknown>;
   readonly targetWindow: Window;
 }
 
@@ -49,6 +63,9 @@ const route = createRouteOwner(targetWindow);
 const themeOwner = createThemeOwner(targetWindow.document);
 const routeError = ref<string | null>(null);
 const queryWorkspace = ref<InstanceType<typeof QueryWorkspace> | null>(null);
+const selectedPersonId = ref<number | null>(null);
+const personTrigger = ref<HTMLElement | null>(null);
+const compact = useCompactLayout(targetWindow);
 
 const fetchImplementation =
   targetWindow.fetch?.bind(targetWindow) ??
@@ -61,9 +78,16 @@ const catalogApi =
   props.services?.catalogApi ??
   createCatalogApi(apiClient);
 const unavailableDrivers = unavailableQueryDrivers();
-const drivers: QueryDrivers<RankingPayload, unknown> =
-  props.services?.drivers ?? {
+const drivers: QueryDrivers<
+  RankingPayload,
+  unknown,
+  PersonDetailPayload
+> =
+  (props.services?.drivers as
+    | QueryDrivers<RankingPayload, unknown, PersonDetailPayload>
+    | undefined) ?? {
     candidates: unavailableDrivers.candidates,
+    personDetail: createPersonDetailDriver(apiClient),
     rankings: createRankingsDriver(apiClient),
   };
 const coordinator = createQueryCoordinator(queryStore, drivers, (query) => {
@@ -123,6 +147,48 @@ async function retryRanking(): Promise<boolean> {
   });
 }
 
+function positionDisplay(
+  positionKey: string,
+  exactPositionKey?: string,
+): PersonPositionDisplay {
+  const catalog = catalogStore.snapshot;
+  const selected = catalog?.positionsByKey.get(positionKey);
+  const exact = exactPositionKey
+    ? catalog?.positionsByKey.get(exactPositionKey)
+    : undefined;
+  if (selected?.kind === 'staffSet') {
+    return Object.freeze({
+      ...(exact?.label
+        ? { detail: `具体职位：${exact.label}` }
+        : {}),
+      label: selected.label,
+    });
+  }
+  return Object.freeze({
+    label: exact?.label ?? selected?.label ?? '职员',
+  });
+}
+
+function activatePerson(
+  personId: number,
+  trigger: HTMLElement,
+): void {
+  selectedPersonId.value = personId;
+  personTrigger.value = trigger;
+  void coordinator.executePersonDetail(personId);
+}
+
+async function closePersonDetail(): Promise<void> {
+  const trigger = personTrigger.value;
+  selectedPersonId.value = null;
+  personTrigger.value = null;
+  coordinator.clearPersonDetail();
+  await nextTick();
+  if (trigger?.isConnected) {
+    trigger.focus();
+  }
+}
+
 async function initialize(): Promise<void> {
   runtime.markReady();
   const hadFragment = targetWindow.location.hash.length > 0;
@@ -140,7 +206,28 @@ async function initialize(): Promise<void> {
 
 onMounted(initialize);
 
+watch(
+  () => coordinator.personDetail.phase,
+  (phase) => {
+    if (phase === 'idle' && selectedPersonId.value !== null) {
+      selectedPersonId.value = null;
+      personTrigger.value = null;
+    }
+  },
+);
+watch(
+  () => route.mode.value,
+  (mode) => {
+    if (mode !== 'ranking') {
+      selectedPersonId.value = null;
+      personTrigger.value = null;
+      coordinator.clearPersonDetail();
+    }
+  },
+);
+
 onBeforeUnmount(() => {
+  coordinator.clearPersonDetail();
   coordinator.cancel('ranking');
   coordinator.cancel('co-star');
   catalogStore.cancel();
@@ -200,18 +287,35 @@ onBeforeUnmount(() => {
             {{ routeError }}
           </p>
 
-          <ranking-results
+          <div
             v-if="
               route.mode.value === 'ranking' &&
               (coordinator.rankings.phase === 'pending' ||
                 coordinator.rankings.payload !== null ||
                 coordinator.rankings.error !== null)
             "
-            :device-pixel-ratio="targetWindow.devicePixelRatio"
-            :execute-view="coordinator.executeRankingView"
-            :resource="coordinator.rankings"
-            :retry="retryRanking"
-          />
+            class="ranking-workspace"
+          >
+            <ranking-results
+              :device-pixel-ratio="targetWindow.devicePixelRatio"
+              :execute-view="coordinator.executeRankingView"
+              :resource="coordinator.rankings"
+              :retry="retryRanking"
+              :selected-person-id="selectedPersonId"
+              @activate="activatePerson"
+            />
+            <person-detail-surface
+              :compact="compact"
+              :device-pixel-ratio="targetWindow.devicePixelRatio"
+              :execute-view="coordinator.executePersonDetailView"
+              :open="selectedPersonId !== null"
+              :position-label="positionDisplay"
+              :resource="coordinator.personDetail"
+              :retry="coordinator.executePersonDetail"
+              :target-window="targetWindow"
+              @close="closePersonDetail"
+            />
+          </div>
 
           <section
             v-else-if="activeResource.phase === 'pending'"

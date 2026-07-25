@@ -42,13 +42,14 @@ func TestProductionPackageDependencies(t *testing.T) {
 	allowedInternalImports := map[string][]string{
 		modulePath + "/cmd/api":                       {modulePath + "/internal/app"},
 		modulePath + "/cmd/archive-smoke":             {modulePath + "/internal/archive"},
-		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/httpapi", modulePath + "/internal/ranking"},
+		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/httpapi", modulePath + "/internal/persondetail", modulePath + "/internal/ranking"},
 		modulePath + "/internal/candidates":           {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
 		modulePath + "/internal/catalog":              {modulePath + "/internal/archive", modulePath + "/internal/httpapi/wire"},
-		modulePath + "/internal/httpapi":              {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/catalog", modulePath + "/internal/httpapi/wire", modulePath + "/internal/imageproxy", modulePath + "/internal/observability", modulePath + "/internal/ranking"},
+		modulePath + "/internal/httpapi":              {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/catalog", modulePath + "/internal/httpapi/wire", modulePath + "/internal/imageproxy", modulePath + "/internal/observability", modulePath + "/internal/persondetail", modulePath + "/internal/ranking"},
 		modulePath + "/internal/httpapi/wire":         {},
 		modulePath + "/internal/imageproxy":           {},
 		modulePath + "/internal/observability":        {},
+		modulePath + "/internal/persondetail":         {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
 		modulePath + "/internal/query":                {modulePath + "/internal/archive"},
 		modulePath + "/internal/ranking":              {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
 		modulePath + "/internal/runtimecache":         {},
@@ -93,10 +94,13 @@ func TestProductionPackageDependencies(t *testing.T) {
 						strings.HasPrefix(imported, "golang.org/x/text/")
 					candidatesNormalization := pkg.ImportPath == modulePath+"/internal/candidates" &&
 						strings.HasPrefix(imported, "golang.org/x/text/")
+					personDetailNormalization := pkg.ImportPath == modulePath+"/internal/persondetail" &&
+						strings.HasPrefix(imported, "golang.org/x/text/")
 					runtimeCache := pkg.ImportPath == modulePath+"/internal/runtimecache" &&
 						imported == "golang.org/x/sync/singleflight"
 					if !wireRuntime && !archiveSQLite && !queryNormalization &&
 						!rankingNormalization && !candidatesNormalization &&
+						!personDetailNormalization &&
 						!runtimeCache {
 						t.Errorf("%s imports unapproved production dependency %s", pkg.ImportPath, imported)
 					}
@@ -194,6 +198,7 @@ func TestRuntimeHasExactApprovedRoutes(t *testing.T) {
 		"/api/v1/catalog":         filepath.Join(moduleRoot, "internal", "httpapi", "catalog_handler.go"),
 		"/api/v1/rankings":        filepath.Join(moduleRoot, "internal", "httpapi", "rankings_handler.go"),
 		"/api/v1/candidates":      filepath.Join(moduleRoot, "internal", "httpapi", "candidates_handler.go"),
+		"/api/v1/person-detail":   filepath.Join(moduleRoot, "internal", "httpapi", "person_detail_handler.go"),
 	}
 	routeCounts := make(map[string]int, len(allowedRoutes))
 	err := filepath.WalkDir(moduleRoot, func(path string, entry os.DirEntry, walkErr error) error {

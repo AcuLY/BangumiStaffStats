@@ -3,9 +3,12 @@ import { readonly, ref, shallowReactive, type Ref } from 'vue';
 import type {
   CandidatesInputV1,
   CandidatesViewV1,
+  PersonDetailInputV1,
+  PersonDetailViewV1,
   RankingsViewV1,
 } from '../../api/generated/query-wire/types.gen';
 import { RankingsApiError } from '../../api/rankings';
+import { PersonDetailApiError } from '../../api/personDetail';
 import type { CatalogSnapshot } from '../../api/adapters/catalog';
 import {
   type AppliedQuery,
@@ -15,9 +18,11 @@ import {
 } from './model';
 import type { useQueryStore } from './store';
 
-export type QueryOperation = 'candidates' | 'rankings';
+export type QueryOperation = 'candidates' | 'person-detail' | 'rankings';
+type PrimaryQueryOperation = Exclude<QueryOperation, 'person-detail'>;
 export type ResourcePhase = 'error' | 'idle' | 'pending' | 'ready';
 export type RankingsViewState = Required<RankingsViewV1>;
+export type PersonDetailViewState = Required<PersonDetailViewV1>;
 
 export interface OperationFeedback {
   readonly kind: 'error' | 'status' | 'warning';
@@ -49,7 +54,11 @@ export interface OperationDriver<Input, View, Payload> {
   ): Promise<OperationResponse<Payload>>;
 }
 
-export interface QueryDrivers<RankingPayload, CandidatePayload> {
+export interface QueryDrivers<
+  RankingPayload,
+  CandidatePayload,
+  PersonDetailPayload = unknown,
+> {
   readonly candidates: OperationDriver<
     Readonly<CandidatesInputV1>,
     Readonly<CandidatesViewV1>,
@@ -59,6 +68,11 @@ export interface QueryDrivers<RankingPayload, CandidatePayload> {
     Readonly<Record<string, never>>,
     Readonly<RankingsViewV1>,
     RankingPayload
+  >;
+  readonly personDetail?: OperationDriver<
+    Readonly<PersonDetailInputV1>,
+    Readonly<PersonDetailViewV1>,
+    PersonDetailPayload
   >;
 }
 
@@ -102,7 +116,7 @@ export class QueryCapabilityUnavailableError extends Error {
   }
 }
 
-export function unavailableQueryDrivers(): QueryDrivers<never, never> {
+export function unavailableQueryDrivers(): QueryDrivers<never, never, never> {
   const unavailable = {
     async execute(): Promise<never> {
       throw new QueryCapabilityUnavailableError();
@@ -110,6 +124,7 @@ export function unavailableQueryDrivers(): QueryDrivers<never, never> {
   };
   return {
     candidates: unavailable,
+    personDetail: unavailable,
     rankings: unavailable,
   };
 }
@@ -121,6 +136,9 @@ function resourceError(error: unknown): string {
   if (error instanceof RankingsApiError) {
     return error.message;
   }
+  if (error instanceof PersonDetailApiError) {
+    return error.message;
+  }
   return '查询暂时无法完成，请稍后重试';
 }
 
@@ -129,12 +147,68 @@ function transactionId(operation: QueryOperation, sequence: number): string {
 }
 
 function serverRequestId(error: unknown): string | null {
-  return error instanceof RankingsApiError ? error.requestId : null;
+  return error instanceof RankingsApiError ||
+    error instanceof PersonDetailApiError
+    ? error.requestId
+    : null;
+}
+
+function defaultPersonDetailView(
+  _query: AppliedQuery,
+): PersonDetailViewState {
+  return Object.freeze({
+    order: 'desc',
+    page: 1,
+    pageSize: 10,
+    search: '',
+    section: 'works',
+    sort: 'globalScore',
+  });
+}
+
+function personDetailViewEquals(
+  left: Readonly<PersonDetailViewState>,
+  right: Readonly<PersonDetailViewState>,
+): boolean {
+  return (
+    left.section === right.section &&
+    left.search === right.search &&
+    left.sort === right.sort &&
+    left.order === right.order &&
+    left.page === right.page &&
+    left.pageSize === right.pageSize
+  );
+}
+
+function validPersonDetailView(
+  view: Readonly<PersonDetailViewState>,
+): boolean {
+  return (
+    ['works', 'characters'].includes(view.section) &&
+    [...view.search].length <= 256 &&
+    [
+      'globalScore',
+      'personalScore',
+      'collectionUpdatedAt',
+      'seriesSize',
+      'role',
+      'workCount',
+      'name',
+    ].includes(view.sort) &&
+    ['asc', 'desc'].includes(view.order) &&
+    Number.isSafeInteger(view.page) &&
+    view.page >= 1 &&
+    [5, 10, 20].includes(view.pageSize)
+  );
 }
 
 type QueryStore = ReturnType<typeof useQueryStore>;
 
-export interface QueryCoordinator<RankingPayload, CandidatePayload> {
+export interface QueryCoordinator<
+  RankingPayload,
+  CandidatePayload,
+  PersonDetailPayload = unknown,
+> {
   readonly candidates: OperationResource<
     CandidatePayload,
     CandidatesInputV1,
@@ -149,6 +223,15 @@ export interface QueryCoordinator<RankingPayload, CandidatePayload> {
     refreshCollection?: boolean;
   }): Promise<boolean>;
   executeRankingView(view: Readonly<RankingsViewState>): Promise<boolean>;
+  executePersonDetail(
+    personId: number,
+    view?: Readonly<PersonDetailViewState>,
+  ): Promise<boolean>;
+  executePersonDetailView(
+    view: Readonly<PersonDetailViewState>,
+  ): Promise<boolean>;
+  clearPersonDetail(): void;
+  cancelPersonDetail(feedback?: string): void;
   readonly lastOperationFeedback: Readonly<Ref<OperationFeedback | null>>;
   readonly pending: Readonly<Ref<boolean>>;
   readonly pendingOperation: Readonly<Ref<QueryOperation | null>>;
@@ -157,18 +240,36 @@ export interface QueryCoordinator<RankingPayload, CandidatePayload> {
     Record<string, never>,
     RankingsViewState
   >;
+  readonly personDetail: OperationResource<
+    PersonDetailPayload,
+    PersonDetailInputV1,
+    PersonDetailViewState
+  >;
 }
 
-export function createQueryCoordinator<RankingPayload, CandidatePayload>(
+export function createQueryCoordinator<
+  RankingPayload,
+  CandidatePayload,
+  PersonDetailPayload = unknown,
+>(
   store: QueryStore,
-  drivers: QueryDrivers<RankingPayload, CandidatePayload>,
+  drivers: QueryDrivers<
+    RankingPayload,
+    CandidatePayload,
+    PersonDetailPayload
+  >,
   onSuccessfulQuery?: (query: AppliedQuery) => void,
-): QueryCoordinator<RankingPayload, CandidatePayload> {
+): QueryCoordinator<
+  RankingPayload,
+  CandidatePayload,
+  PersonDetailPayload
+> {
   const lastOperationFeedback = ref<OperationFeedback | null>(null);
   const pending = ref(false);
   const pendingOperation = ref<QueryOperation | null>(null);
   const sequences: Record<QueryOperation, number> = {
     candidates: 0,
+    'person-detail': 0,
     rankings: 0,
   };
   const controllers: Partial<Record<QueryOperation, AbortController>> = {};
@@ -221,8 +322,34 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
     }),
     viewPending: false,
   });
+  const personDetail = shallowReactive<
+    OperationResource<
+      PersonDetailPayload,
+      PersonDetailInputV1,
+      PersonDetailViewState
+    >
+  >({
+    acceptedQuery: null,
+    error: null,
+    feedback: null,
+    input: Object.freeze({ personId: 0 }),
+    payload: null,
+    phase: 'idle',
+    requestId: null,
+    revision: 0,
+    staleCollection: false,
+    view: Object.freeze({
+      order: 'desc',
+      page: 1,
+      pageSize: 10,
+      search: '',
+      section: 'works',
+      sort: 'globalScore',
+    }),
+    viewPending: false,
+  });
 
-  function operationFor(mode: QueryMode): QueryOperation {
+  function operationFor(mode: QueryMode): PrimaryQueryOperation {
     return mode === 'ranking' ? 'rankings' : 'candidates';
   }
 
@@ -246,7 +373,8 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
   function restoreResource(
     resource:
       | typeof rankings
-      | typeof candidates,
+      | typeof candidates
+      | typeof personDetail,
     snapshot: ResourceSnapshot,
   ): void {
     resource.acceptedQuery = snapshot.acceptedQuery;
@@ -295,7 +423,12 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
     controllers[operation]?.abort();
     controllers[operation] = undefined;
     transactions[operation] = undefined;
-    const resource = operation === 'rankings' ? rankings : candidates;
+    const resource =
+      operation === 'rankings'
+        ? rankings
+        : operation === 'candidates'
+          ? candidates
+          : personDetail;
     restoreResource(resource, transaction.snapshot);
     resource.feedback = feedback || null;
     if (feedback) {
@@ -312,6 +445,34 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
     if (pendingOperation.value) {
       cancelOperation(pendingOperation.value);
     }
+  }
+
+  function clearPersonDetail(): void {
+    const transaction = transactions['person-detail'];
+    if (transaction) {
+      sequences['person-detail'] += 1;
+      transaction.controller.abort();
+    }
+    controllers['person-detail']?.abort();
+    controllers['person-detail'] = undefined;
+    transactions['person-detail'] = undefined;
+    personDetail.acceptedQuery = null;
+    personDetail.error = null;
+    personDetail.feedback = null;
+    personDetail.input = Object.freeze({ personId: 0 });
+    personDetail.payload = null;
+    personDetail.phase = 'idle';
+    personDetail.requestId = null;
+    personDetail.revision = 0;
+    personDetail.staleCollection = false;
+    personDetail.viewPending = false;
+    if (lastOperationFeedback.value?.operation === 'person-detail') {
+      lastOperationFeedback.value = null;
+    }
+  }
+
+  function cancelPersonDetail(feedback = ''): void {
+    cancelOperation('person-detail', feedback);
   }
 
   async function execute(options: {
@@ -332,7 +493,7 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
 
     const query = validation.query;
     const operation = operationFor(options.mode);
-    const otherOperation: QueryOperation =
+    const otherOperation: PrimaryQueryOperation =
       operation === 'rankings' ? 'candidates' : 'rankings';
     cancelOperation(otherOperation, '查询已由其他模式替代');
     const resource = operation === 'rankings' ? rankings : candidates;
@@ -374,6 +535,7 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
       return true;
     }
 
+    clearPersonDetail();
     const existingTransaction = transactions[operation];
     controllers[operation]?.abort();
     const controller = new AbortController();
@@ -627,15 +789,276 @@ export function createQueryCoordinator<RankingPayload, CandidatePayload>(
     }
   }
 
+  function readyRankingQuery(): AppliedQuery | null {
+    if (
+      !store.applied ||
+      !rankings.acceptedQuery ||
+      rankings.payload === null ||
+      rankings.phase !== 'ready' ||
+      rankings.revision !== store.revision ||
+      querySignature(rankings.acceptedQuery) !== querySignature(store.applied)
+    ) {
+      return null;
+    }
+    return rankings.acceptedQuery;
+  }
+
+  async function executePersonDetail(
+    personId: number,
+    requestedView?: Readonly<PersonDetailViewState>,
+  ): Promise<boolean> {
+    const query = readyRankingQuery();
+    if (!query) {
+      personDetail.error = '请先完成一次人物排行查询';
+      personDetail.phase = 'error';
+      publishFeedback('person-detail', personDetail.error, 'error');
+      return false;
+    }
+    if (!Number.isSafeInteger(personId) || personId < 1) {
+      personDetail.error = '人物标识无效';
+      personDetail.phase = 'error';
+      publishFeedback('person-detail', personDetail.error, 'error');
+      return false;
+    }
+    const view = Object.freeze(
+      structuredClone(requestedView ?? defaultPersonDetailView(query)),
+    );
+    if (!validPersonDetailView(view)) {
+      personDetail.error = '人物详情视图参数无效';
+      personDetail.phase = 'error';
+      publishFeedback('person-detail', personDetail.error, 'error');
+      return false;
+    }
+    if (
+      personDetail.phase === 'ready' &&
+      personDetail.payload !== null &&
+      personDetail.input.personId === personId &&
+      personDetail.revision === store.revision
+    ) {
+      return personDetailViewEquals(personDetail.view, view)
+        ? true
+        : executePersonDetailView(view);
+    }
+
+    const priorTransaction = transactions['person-detail'];
+    priorTransaction?.controller.abort();
+    controllers['person-detail']?.abort();
+    const controller = new AbortController();
+    controllers['person-detail'] = controller;
+    const sequence = ++sequences['person-detail'];
+    const transaction = transactionId('person-detail', sequence);
+    const snapshot = captureResource(personDetail);
+    transactions['person-detail'] = { controller, sequence, snapshot };
+    const capturedRevision = store.revision;
+    const capturedSignature = querySignature(query);
+
+    personDetail.acceptedQuery = query;
+    personDetail.error = null;
+    personDetail.feedback = null;
+    personDetail.input = Object.freeze({ personId });
+    personDetail.payload = null;
+    personDetail.phase = 'pending';
+    personDetail.requestId = null;
+    personDetail.revision = capturedRevision;
+    personDetail.staleCollection = false;
+    personDetail.view = view;
+    personDetail.viewPending = false;
+    if (lastOperationFeedback.value?.operation === 'person-detail') {
+      lastOperationFeedback.value = null;
+    }
+
+    try {
+      if (!drivers.personDetail) {
+        throw new QueryCapabilityUnavailableError();
+      }
+      const response = await drivers.personDetail.execute({
+        input: personDetail.input,
+        query,
+        refreshCollection: false,
+        sequence,
+        signal: controller.signal,
+        transactionId: transaction,
+        view,
+      });
+      if (
+        sequence !== sequences['person-detail'] ||
+        controller.signal.aborted ||
+        controllers['person-detail'] !== controller ||
+        store.revision !== capturedRevision ||
+        !store.applied ||
+        querySignature(store.applied) !== capturedSignature
+      ) {
+        return false;
+      }
+      if (response.transactionId !== transaction) {
+        throw new Error('Response transaction ID does not match the request');
+      }
+      personDetail.payload = response.payload;
+      personDetail.requestId = response.requestId;
+      personDetail.staleCollection =
+        response.staleCollection === true ||
+        response.warningCodes?.includes('COLLECTION_STALE') === true;
+      personDetail.feedback = personDetail.staleCollection
+        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        : null;
+      personDetail.phase = 'ready';
+      if (personDetail.feedback) {
+        publishFeedback('person-detail', personDetail.feedback, 'warning');
+      }
+      return true;
+    } catch (error) {
+      if (
+        sequence !== sequences['person-detail'] ||
+        controllers['person-detail'] !== controller
+      ) {
+        return false;
+      }
+      personDetail.payload = null;
+      personDetail.error = controller.signal.aborted
+        ? '人物详情加载已取消'
+        : resourceError(error);
+      personDetail.requestId =
+        serverRequestId(error) ?? personDetail.requestId;
+      personDetail.phase = 'error';
+      personDetail.viewPending = false;
+      publishFeedback('person-detail', personDetail.error, 'error');
+      return false;
+    } finally {
+      if (controllers['person-detail'] === controller) {
+        controllers['person-detail'] = undefined;
+        transactions['person-detail'] = undefined;
+      }
+    }
+  }
+
+  async function executePersonDetailView(
+    view: Readonly<PersonDetailViewState>,
+  ): Promise<boolean> {
+    const query = readyRankingQuery();
+    if (
+      !query ||
+      !personDetail.acceptedQuery ||
+      personDetail.payload === null ||
+      personDetail.phase !== 'ready' ||
+      personDetail.revision !== store.revision ||
+      querySignature(personDetail.acceptedQuery) !== querySignature(query)
+    ) {
+      personDetail.error = '请先选择排行中的人物';
+      publishFeedback('person-detail', personDetail.error, 'error');
+      return false;
+    }
+    if (!validPersonDetailView(view)) {
+      personDetail.error = '人物详情视图参数无效';
+      publishFeedback('person-detail', personDetail.error, 'error');
+      return false;
+    }
+    if (
+      !personDetail.viewPending &&
+      personDetailViewEquals(personDetail.view, view)
+    ) {
+      return true;
+    }
+
+    if (transactions['person-detail']) {
+      cancelOperation('person-detail', '');
+    }
+    const controller = new AbortController();
+    controllers['person-detail'] = controller;
+    const sequence = ++sequences['person-detail'];
+    const transaction = transactionId('person-detail', sequence);
+    const snapshot = captureResource(personDetail);
+    transactions['person-detail'] = { controller, sequence, snapshot };
+    const capturedRevision = store.revision;
+    const capturedSignature = querySignature(query);
+    const nextView = Object.freeze(structuredClone(view));
+
+    personDetail.error = null;
+    personDetail.feedback = null;
+    personDetail.view = nextView;
+    personDetail.viewPending = true;
+    if (lastOperationFeedback.value?.operation === 'person-detail') {
+      lastOperationFeedback.value = null;
+    }
+
+    try {
+      if (!drivers.personDetail) {
+        throw new QueryCapabilityUnavailableError();
+      }
+      const response = await drivers.personDetail.execute({
+        input: personDetail.input,
+        query,
+        refreshCollection: false,
+        sequence,
+        signal: controller.signal,
+        transactionId: transaction,
+        view: nextView,
+      });
+      if (
+        sequence !== sequences['person-detail'] ||
+        controller.signal.aborted ||
+        controllers['person-detail'] !== controller ||
+        store.revision !== capturedRevision ||
+        !store.applied ||
+        querySignature(store.applied) !== capturedSignature
+      ) {
+        return false;
+      }
+      if (response.transactionId !== transaction) {
+        throw new Error('Response transaction ID does not match the request');
+      }
+      personDetail.payload = response.payload;
+      personDetail.requestId = response.requestId;
+      personDetail.staleCollection =
+        response.staleCollection === true ||
+        response.warningCodes?.includes('COLLECTION_STALE') === true;
+      personDetail.feedback = personDetail.staleCollection
+        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        : null;
+      personDetail.error = null;
+      personDetail.phase = 'ready';
+      personDetail.viewPending = false;
+      if (personDetail.feedback) {
+        publishFeedback('person-detail', personDetail.feedback, 'warning');
+      }
+      return true;
+    } catch (error) {
+      if (
+        sequence !== sequences['person-detail'] ||
+        controllers['person-detail'] !== controller
+      ) {
+        return false;
+      }
+      restoreResource(personDetail, snapshot);
+      personDetail.error = controller.signal.aborted
+        ? '人物详情加载已取消'
+        : resourceError(error);
+      personDetail.requestId =
+        serverRequestId(error) ?? personDetail.requestId;
+      publishFeedback('person-detail', personDetail.error, 'error');
+      return false;
+    } finally {
+      if (controllers['person-detail'] === controller) {
+        controllers['person-detail'] = undefined;
+        transactions['person-detail'] = undefined;
+        personDetail.viewPending = false;
+      }
+    }
+  }
+
   return {
     cancel,
+    cancelPersonDetail,
     cancelPending,
     candidates,
+    clearPersonDetail,
     execute,
+    executePersonDetail,
+    executePersonDetailView,
     executeRankingView,
     lastOperationFeedback: readonly(lastOperationFeedback),
     pending: readonly(pending),
     pendingOperation: readonly(pendingOperation),
+    personDetail,
     rankings,
   };
 }

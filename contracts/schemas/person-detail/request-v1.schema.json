@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.local/schemas/person-detail/request-v1.schema.json",
+  "title": "PersonDetailRequestV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "query",
+    "input"
+  ],
+  "properties": {
+    "query": {
+      "$ref": "../query/shared-query-v1.schema.json"
+    },
+    "input": {
+      "$ref": "../query/operation-components-v1.schema.json#/$defs/PersonDetailInputV1"
+    },
+    "view": {
+      "$ref": "../query/operation-components-v1.schema.json#/$defs/PersonDetailViewV1"
+    }
+  }
+}

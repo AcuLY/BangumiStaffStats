@@ -78,6 +78,7 @@ func timeoutResponseForRequest(
 	request *http.Request,
 	rankings rankingsExecutor,
 	candidates candidatesExecutor,
+	personDetail personDetailExecutor,
 ) *responseError {
 	if request != nil && request.URL != nil && request.URL.Path == routeCatalog {
 		return &catalogTimeoutResponse
@@ -96,6 +97,13 @@ func timeoutResponseForRequest(
 		}
 		return &response
 	}
+	if request != nil && request.URL != nil && request.URL.Path == routePersonDetail {
+		response := personDetailTimeoutResponse
+		if personDetail != nil {
+			response.dataVersion = personDetail.CurrentDataVersion()
+		}
+		return &response
+	}
 	return &timeoutResponse
 }
 
@@ -103,6 +111,7 @@ func internalResponseForRequest(
 	request *http.Request,
 	rankings rankingsExecutor,
 	candidates candidatesExecutor,
+	personDetail personDetailExecutor,
 ) *responseError {
 	if request != nil && request.URL != nil && request.URL.Path == routeCatalog {
 		return &catalogInternalResponse
@@ -130,6 +139,19 @@ func internalResponseForRequest(
 		}
 		if candidates != nil {
 			response.dataVersion = candidates.CurrentDataVersion()
+		}
+		return &response
+	}
+	if request != nil && request.URL != nil && request.URL.Path == routePersonDetail {
+		response := responseError{
+			status:       http.StatusInternalServerError,
+			code:         codeInternalError,
+			message:      "person detail is unavailable",
+			retryable:    true,
+			cacheControl: "private, no-store",
+		}
+		if personDetail != nil {
+			response.dataVersion = personDetail.CurrentDataVersion()
 		}
 		return &response
 	}

@@ -17,6 +17,7 @@ const expectedInventory = [
   'scripts/check-architecture.mjs',
   'scripts/check-candidates-wire-generated.mjs',
   'scripts/check-catalog-wire-generated.mjs',
+  'scripts/check-person-detail-wire-generated.mjs',
   'scripts/check-production-artifact.mjs',
   'scripts/check-query-wire-generated.mjs',
   'scripts/check-rankings-wire-generated.mjs',
@@ -24,10 +25,12 @@ const expectedInventory = [
   'scripts/cleanup-generated.mjs',
   'scripts/generate-candidates-wire.mjs',
   'scripts/generate-catalog-wire.mjs',
+  'scripts/generate-person-detail-wire.mjs',
   'scripts/generate-query-wire.mjs',
   'scripts/generate-rankings-wire.mjs',
   'scripts/generate-query-unicode.mjs',
   'src/api/adapters/catalog.ts',
+  'src/api/adapters/personDetail.ts',
   'src/api/adapters/queryWire.ts',
   'src/api/adapters/rankings.ts',
   'src/api/catalog.ts',
@@ -37,9 +40,12 @@ const expectedInventory = [
   'src/api/generated/catalog/types.gen.ts',
   'src/api/generated/candidates/schemas.gen.ts',
   'src/api/generated/candidates/types.gen.ts',
+  'src/api/generated/person-detail/schemas.gen.ts',
+  'src/api/generated/person-detail/types.gen.ts',
   'src/api/generated/query-wire/types.gen.ts',
   'src/api/generated/rankings/schemas.gen.ts',
   'src/api/generated/rankings/types.gen.ts',
+  'src/api/personDetail.ts',
   'src/api/rankings.ts',
   'src/app/App.vue',
   'src/app/AppProviders.vue',
@@ -49,6 +55,14 @@ const expectedInventory = [
   'src/app/theme.ts',
   'src/assets/brand/bgmss.png',
   'src/features/catalog/store.ts',
+  'src/features/person-detail/components/PersonDetailSurface.vue',
+  'src/features/person-detail/components/PersonInspector.vue',
+  'src/features/person-detail/components/PersonItemBrowser.vue',
+  'src/features/person-detail/components/PersonProfile.vue',
+  'src/features/person-detail/components/RatingEvidence.vue',
+  'src/features/person-detail/components/StatEvidencePopover.vue',
+  'src/features/person-detail/model.ts',
+  'src/features/person-detail/person-detail.css',
   'src/features/query/components/AppHeader.vue',
   'src/features/query/components/PositionSelector.vue',
   'src/features/query/components/QueryEditor.vue',
@@ -75,11 +89,15 @@ const expectedInventory = [
   'src/vite-env.d.ts',
   'tests/api/catalog.contract.test.ts',
   'tests/api/client.test.ts',
+  'tests/api/person-detail.test.ts',
   'tests/api/query-wire.contract.test.ts',
   'tests/api/rankings.test.ts',
   'tests/app/app.mount.test.ts',
   'tests/app/rankings.integration.test.ts',
   'tests/app/theme.test.ts',
+  'tests/features/person-detail/components.test.ts',
+  'tests/features/person-detail/coordinator.test.ts',
+  'tests/features/person-detail/model.test.ts',
   'tests/features/query/coordinator.test.ts',
   'tests/features/query/components.test.ts',
   'tests/features/query/fixtures.ts',
@@ -234,6 +252,7 @@ if (
 
 const queryWireImporters = [];
 const catalogWireImporters = [];
+const personDetailWireImporters = [];
 const rankingsWireImporters = [];
 const storeOwners = [];
 const requestCallers = [];
@@ -246,6 +265,9 @@ for (const [file, source] of sourceByFile) {
   }
   if (/generated\/catalog/.test(source)) {
     catalogWireImporters.push(relative);
+  }
+  if (/generated\/person-detail/.test(source)) {
+    personDetailWireImporters.push(relative);
   }
   if (/generated\/rankings/.test(source)) {
     rankingsWireImporters.push(relative);
@@ -301,6 +323,10 @@ assertExactFiles('query wire ownership', queryWireImporters, [
 assertExactFiles('catalog wire ownership', catalogWireImporters, [
   'src/api/adapters/catalog.ts',
 ]);
+assertExactFiles('person-detail wire ownership', personDetailWireImporters, [
+  'src/api/adapters/personDetail.ts',
+  'src/api/personDetail.ts',
+]);
 assertExactFiles('rankings wire ownership', rankingsWireImporters, [
   'src/api/adapters/rankings.ts',
   'src/api/rankings.ts',
@@ -338,7 +364,10 @@ const handwritten = [...sourceByFile]
   .join('\n');
 const deniedPatterns = [
   ['Axios', /\baxios\b/i],
-  ['direct Bangumi upstream', /https?:\/\/(?:api\.)?(?:bgm\.tv|bangumi\.tv)/i],
+  [
+    'direct Bangumi API upstream',
+    /https?:\/\/(?:api\.)?(?:bgm\.tv|bangumi\.tv)\/v0\//i,
+  ],
   ['fixture boot', /\bfixture(?:s)?\b/i],
   ['prototype workbench', /\b(?:useWorkbench|workbench-data)\b/],
   ['second state system', /\b(?:redux|zustand|vuex|mobx)\b/i],

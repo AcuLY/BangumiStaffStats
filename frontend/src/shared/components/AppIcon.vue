@@ -5,6 +5,8 @@ withDefaults(
       | 'chevron-down'
       | 'chevron-left'
       | 'chevron-right'
+      | 'close'
+      | 'external-link'
       | 'image'
       | 'person'
       | 'refresh'
@@ -46,6 +48,13 @@ withDefaults(
     <template v-else-if="name === 'refresh'">
       <path d="M19 7v5h-5" />
       <path d="M18 12a6.5 6.5 0 1 0-1.4 4" />
+    </template>
+    <template v-else-if="name === 'close'">
+      <path d="m6 6 12 12M18 6 6 18" />
+    </template>
+    <template v-else-if="name === 'external-link'">
+      <path d="M14 5h5v5M19 5l-8 8" />
+      <path d="M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
     </template>
     <path
       v-else-if="name === 'chevron-left'"

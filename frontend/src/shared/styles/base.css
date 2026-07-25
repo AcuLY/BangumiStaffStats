@@ -958,6 +958,12 @@ select:focus-visible {
   background: color-mix(in oklab, var(--brand) 5%, transparent);
 }
 
+.ranked-person-row.is-selected,
+.ranked-person-row[aria-current="true"] {
+  box-shadow: inset 3px 0 0 var(--brand);
+  background: color-mix(in oklab, var(--brand) 9%, transparent);
+}
+
 .ranked-person-row__progress {
   position: absolute;
   z-index: -1;
@@ -1500,6 +1506,8 @@ select:focus-visible {
   .ranking-empty-state {
     min-height: 220px;
   }
+
+
 }
 
 @media (forced-colors: active) {

@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "kind": "person-detail-character-success-cases",
+  "cases": [
+    {
+      "id": "global-character-exact-cast",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "cast:anime:main"
+          ]
+        },
+        "input": {
+          "personId": 101
+        },
+        "view": {
+          "section": "characters",
+          "sort": "role",
+          "order": "desc",
+          "pageSize": 5
+        }
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store"
+        },
+        "body": {
+          "data": {
+            "person": {
+              "id": 101,
+              "name": "Golden Voice",
+              "nameCN": "金标声优",
+              "careers": [
+                "seiyu"
+              ]
+            },
+            "summary": {
+              "workUnit": "subject",
+              "workCount": 1,
+              "characterCount": 1
+            },
+            "metrics": {
+              "ratedWorkCount": 1,
+              "average": 820,
+              "overall": 553
+            },
+            "tags": {
+              "meta": [
+                {
+                  "name": "动画",
+                  "count": 1
+                }
+              ],
+              "community": [
+                {
+                  "name": "原创",
+                  "count": 1
+                }
+              ]
+            },
+            "ratings": {
+              "global": {
+                "validCount": 1,
+                "average": 820,
+                "buckets": [
+                  {
+                    "score": 1,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 2,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 3,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 4,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 5,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 6,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 7,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 8,
+                    "count": 1,
+                    "examples": [
+                      {
+                        "kind": "subject",
+                        "key": "subject:1",
+                        "id": 1,
+                        "name": "Golden Animation",
+                        "nameCN": "金标动画"
+                      }
+                    ],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 9,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 10,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  }
+                ],
+                "timeline": [
+                  {
+                    "year": 2024,
+                    "quarter": 1,
+                    "average": 820,
+                    "count": 1
+                  }
+                ]
+              }
+            },
+            "section": "characters",
+            "items": [
+              {
+                "character": {
+                  "key": "character:200",
+                  "id": 200,
+                  "name": "Golden Hero",
+                  "nameCN": "金标主角"
+                },
+                "primaryRole": 1,
+                "roleLabel": "主役",
+                "workCount": 1,
+                "appearances": [
+                  {
+                    "subject": {
+                      "id": 1,
+                      "name": "Golden Animation",
+                      "nameCN": "金标动画",
+                      "date": "2024-01-10"
+                    },
+                    "roleType": 1,
+                    "roleLabel": "主役",
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-detail-character",
+            "dataVersion": "dv1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "pagination": {
+              "page": 1,
+              "pageSize": 5,
+              "total": 1
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -350,6 +350,266 @@
           }
         }
       }
+    },
+    "/person-detail": {
+      "post": {
+        "operationId": "postPersonDetailV1",
+        "summary": "Project one ranking-eligible person's complete detail evidence",
+        "description": "Builds one immutable person-detail core and projects a deterministic works or characters page. Search, sort, order, and pagination are view-only; refreshCollection is never accepted.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonDetailRequestV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Complete bounded person evidence and the requested section page.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailSuccessEnvelopeV1"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, request shape, query, view, person eligibility, or field value.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The requested collection is not public.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested user or person does not exist.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "The person-detail route supports POST only.",
+            "headers": {
+              "Allow": {
+                "description": "The only supported method.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "POST"
+                }
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request exceeds the transport limit.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request media type is unsupported.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The caller has exceeded the collection request rate.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              },
+              "Retry-After": {
+                "description": "Bounded delay before another request.",
+                "required": true,
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected internal failure occurred.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream returned an invalid protocol response.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The service is busy, not ready, or an upstream is unavailable.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              },
+              "Retry-After": {
+                "description": "Delay before retrying when a bounded wait is known.",
+                "required": false,
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The request or upstream operation timed out.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -407,6 +667,15 @@
       },
       "CandidatesSuccessEnvelopeV1": {
         "$ref": "../schemas/candidates/success-envelope-v1.schema.json"
+      },
+      "PersonDetailRequestV1": {
+        "$ref": "../schemas/person-detail/request-v1.schema.json"
+      },
+      "PersonDetailSuccessEnvelopeV1": {
+        "$ref": "../schemas/person-detail/success-envelope-v1.schema.json"
+      },
+      "PersonDetailErrorEnvelopeV1": {
+        "$ref": "../schemas/person-detail/result-error-envelope-v1.schema.json"
       },
       "ResultErrorEnvelopeV1": {
         "$ref": "../schemas/rankings/result-error-envelope-v1.schema.json"

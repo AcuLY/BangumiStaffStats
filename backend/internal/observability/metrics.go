@@ -19,27 +19,29 @@ import (
 type Route string
 
 const (
-	RouteLivez      Route = "livez"
-	RouteReadyz     Route = "readyz"
-	RouteMetrics    Route = "metrics"
-	RouteImage      Route = "image"
-	RouteCatalog    Route = "catalog"
-	RouteRankings   Route = "rankings"
-	RouteCandidates Route = "candidates"
-	RouteUnknown    Route = "unknown"
+	RouteLivez        Route = "livez"
+	RouteReadyz       Route = "readyz"
+	RouteMetrics      Route = "metrics"
+	RouteImage        Route = "image"
+	RouteCatalog      Route = "catalog"
+	RouteRankings     Route = "rankings"
+	RouteCandidates   Route = "candidates"
+	RoutePersonDetail Route = "person_detail"
+	RouteUnknown      Route = "unknown"
 )
 
 // Operation is a closed runtime operation label.
 type Operation string
 
 const (
-	OperationHealth     Operation = "health"
-	OperationMetrics    Operation = "metrics"
-	OperationImage      Operation = "image"
-	OperationCatalog    Operation = "catalog"
-	OperationRankings   Operation = "rankings"
-	OperationCandidates Operation = "candidates"
-	OperationUnknown    Operation = "unknown"
+	OperationHealth       Operation = "health"
+	OperationMetrics      Operation = "metrics"
+	OperationImage        Operation = "image"
+	OperationCatalog      Operation = "catalog"
+	OperationRankings     Operation = "rankings"
+	OperationCandidates   Operation = "candidates"
+	OperationPersonDetail Operation = "person_detail"
+	OperationUnknown      Operation = "unknown"
 )
 
 // Method is a closed HTTP method label.
@@ -262,6 +264,8 @@ func validRouteOperation(route Route, operation Operation) bool {
 		return operation == OperationRankings
 	case RouteCandidates:
 		return operation == OperationCandidates
+	case RoutePersonDetail:
+		return operation == OperationPersonDetail
 	case RouteUnknown:
 		return operation == OperationUnknown
 	default:

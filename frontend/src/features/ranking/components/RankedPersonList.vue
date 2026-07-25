@@ -20,15 +20,17 @@ const props = withDefaults(
     items: readonly RankingItem[];
     metricScale: RankingMetricScale;
     personal: boolean;
+    selectedPersonId?: number | null;
     sort: RankingSort;
     workUnit: 'series' | 'subject';
   }>(),
   {
     devicePixelRatio: 1,
+    selectedPersonId: null,
   },
 );
 const emit = defineEmits<{
-  activate: [personId: number];
+  activate: [personId: number, trigger: HTMLElement];
 }>();
 
 const metricColumns = computed(() => (props.personal ? 4 : 3));
@@ -67,6 +69,12 @@ function progressStyle(item: RankingItem): Record<string, string> {
 function progressDirection(item: RankingItem): string {
   return `is-${rankingProgress(item, props.metricScale).direction}`;
 }
+
+function activate(personId: number, event: MouseEvent): void {
+  if (event.currentTarget instanceof HTMLElement) {
+    emit('activate', personId, event.currentTarget);
+  }
+}
 </script>
 
 <template>
@@ -96,12 +104,27 @@ function progressDirection(item: RankingItem): string {
       class="ranked-person-row"
       :class="[
         progressDirection(item),
-        { 'is-signed': sort === 'preference' },
+        {
+          'is-selected': selectedPersonId === item.person.id,
+          'is-signed': sort === 'preference',
+        },
       ]"
       :style="progressStyle(item)"
       type="button"
+      :data-person-id="item.person.id"
+      :aria-controls="
+        selectedPersonId === item.person.id
+          ? 'person-detail-panel'
+          : undefined
+      "
+      :aria-current="
+        selectedPersonId === item.person.id ? 'true' : undefined
+      "
+      :aria-expanded="
+        selectedPersonId === item.person.id ? 'true' : undefined
+      "
       :aria-label="`${item.rank}. ${primaryName(item)}，${secondaryName(item)}，${metricSummary(item)}`"
-      @click="emit('activate', item.person.id)"
+      @click="activate(item.person.id, $event)"
     >
       <span class="ranked-person-row__progress" aria-hidden="true" />
       <span class="ranked-person-row__rank">{{ item.rank }}</span>
