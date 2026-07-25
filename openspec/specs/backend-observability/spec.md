@@ -85,3 +85,32 @@ No event named `update_activated`, updater status writer, monitoring agent, remo
 #### Scenario: Observability is accepted
 - **WHEN** allowlist/redaction/cardinality/unit/parse/concurrency/race/full and strict OpenSpec gates pass
 - **THEN** only in-process instrumentation and local route behavior SHALL be claimed, with no deployment or external-state mutation
+
+### Requirement: Catalog observations SHALL use only closed existing telemetry
+
+The exact catalog route SHALL extend the existing closed route and operation
+inventories with only `catalog`. It SHALL use the existing HTTP
+count/duration/response-byte metric families and the existing typed
+`query_completed`/`query_rejected` event constructors. A terminal JSON
+response SHALL produce exactly one mutually exclusive terminal event for the
+typed request; cancellation before commit SHALL emit neither. Metric outcome,
+status class, and cancellation behavior SHALL remain those of the accepted
+HTTP middleware.
+
+A catalog event SHALL contain only request ID, fixed operation, terminal
+status/error classification, duration, response bytes, bounded content
+length, and closed safe field paths already admitted by the event contract.
+No event or label SHALL contain dataVersion, PositionKey, subject type, group,
+rule, capability, row/entity count, SQL, query string, body, Archive path or
+digest, raw error, or arbitrary value. Catalog SHALL add no metric family,
+label dimension, remote sink, dashboard, alert, or history.
+
+#### Scenario: Catalog requests terminate
+- **WHEN** success, invalid input, wrong method, not-ready, internal failure, deadline, and cancellation cases run
+- **THEN** committed JSON outcomes produce exactly one closed terminal event and one fixed catalog metric observation
+- **AND** cancellation before commit produces no terminal event and uses only the accepted canceled metric outcome
+
+#### Scenario: Catalog values are offered to telemetry
+- **WHEN** tests offer dataVersion, keys, labels, counts, SQL, paths, raw errors, or attacker-controlled values
+- **THEN** constructors and closed labels SHALL make those values unrepresentable or reject them
+- **AND** event/metric inventories and series cardinality SHALL remain bounded under race tests

@@ -90,26 +90,33 @@ nil, closed, mismatched, canceled, failing, or startup-load-failed state SHALL
 return the generated 503 `NOT_READY` envelope without a dataVersion.
 `/metrics` behavior belongs to `backend-observability`. The separately owned
 exact image route SHALL remain independent of Archive publication and SHALL
-not change any health response or readiness transition.
+not change any health response or readiness transition. The separately owned
+exact catalog route SHALL depend on the same published Store but SHALL not
+change readiness semantics, initiate loading, or select another snapshot.
 
 #### Scenario: Archive publication changes
 - **WHEN** the accepted state is absent, successfully published, its fixed probe fails, or shutdown clears it
 - **THEN** liveness stays 200 while readiness transitions `503 -> 200 -> 503` without reading pointer/manifest files or choosing another snapshot
-- **AND** image-route availability does not make readiness true
+- **AND** image-route availability and catalog requests do not make readiness true
 
 #### Scenario: Archive startup loading fails
 
 - **WHEN** one accepted Archive load attempt returns a non-cancellation failure
-- **THEN** `/livez`, `/readyz`, `/metrics`, and the exact Archive-independent image route SHALL begin serving, readiness SHALL remain 503 for that process lifetime, and no retry, fallback, reload, or Archive-dependent business route SHALL occur
+- **THEN** `/livez`, `/readyz`, `/metrics`, the exact Archive-independent image route, and the exact catalog route SHALL begin serving; readiness and catalog SHALL remain 503 for that process lifetime
+- **AND** no retry, fallback, reload, successful Archive-dependent business response, or Store selection SHALL occur
 
 ### Requirement: Runtime scope SHALL remain infrastructure-only
 
 The reusable HTTP substrate SHALL remain infrastructure-only. Runtime
-composition SHALL add only the separately specified exact image route; it
-SHALL add no catalog, rankings, candidates, person-detail, partners, co-star,
-query-session, updater, activation, wildcard proxy, or placeholder route and
-SHALL copy or change no shared wire/schema.
+composition SHALL add only the separately specified exact image route and
+exact `GET /api/v1/catalog` route. The catalog route SHALL consume only the
+published read-only Store through `backend-dynamic-catalog`; it SHALL not
+modify health semantics or the reusable decoder. Runtime SHALL add no
+rankings, candidates, person-detail, partners, co-star, query-session,
+updater, activation, wildcard proxy, or placeholder route and SHALL copy or
+change no shared wire/schema.
 
 #### Scenario: The HTTP substrate is accepted
-- **WHEN** transport/fuzz/health/cancel/race/full/architecture/inventory and strict OpenSpec gates pass
-- **THEN** the three infrastructure routes, the one separately owned exact image route, and reusable infrastructure SHALL be claimed, with zero other business route, external mutation, or operations mutation
+- **WHEN** transport/fuzz/health/catalog/cancel/race/full/architecture/inventory and strict OpenSpec gates pass
+- **THEN** the three infrastructure routes, separately owned image route, separately owned catalog route, and reusable infrastructure SHALL be claimed
+- **AND** zero other business route, external mutation, or operations mutation SHALL exist

@@ -47,7 +47,7 @@ change readiness semantics, initiate loading, or select another snapshot.
 - **THEN** `/livez`, `/readyz`, `/metrics`, the exact Archive-independent image route, and the exact catalog route SHALL begin serving; readiness and catalog SHALL remain 503 for that process lifetime
 - **AND** no retry, fallback, reload, successful Archive-dependent business response, or Store selection SHALL occur
 
-### Requirement: Runtime scope SHALL remain infrastructure plus explicitly owned exact routes
+### Requirement: Runtime scope SHALL remain infrastructure-only
 
 The reusable HTTP substrate SHALL remain infrastructure-only. Runtime
 composition SHALL add only the separately specified exact image route and
@@ -58,7 +58,7 @@ rankings, candidates, person-detail, partners, co-star, query-session,
 updater, activation, wildcard proxy, or placeholder route and SHALL copy or
 change no shared wire/schema.
 
-#### Scenario: The HTTP runtime with catalog is accepted
+#### Scenario: The HTTP substrate is accepted
 - **WHEN** transport/fuzz/health/catalog/cancel/race/full/architecture/inventory and strict OpenSpec gates pass
 - **THEN** the three infrastructure routes, separately owned image route, separately owned catalog route, and reusable infrastructure SHALL be claimed
 - **AND** zero other business route, external mutation, or operations mutation SHALL exist
