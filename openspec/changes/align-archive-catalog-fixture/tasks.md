@@ -4,8 +4,8 @@
 |---|---|
 | Status | Main-agent reviewed after strict validation; apply pending. |
 | Owner | One implementation agent; main agent owns acceptance/lifecycle. |
-| Writable paths | Exact generator/canonical-corpus/Backend-test paths, two verifier seal literals, the two stale partners/co-star expected outcomes and co-star participant literals `1/2` → `100/101` in `backend/internal/app/run_test.go`, one Backend inventory line, and these task markers from the proposal. |
-| Read-only protected inputs | Schemas and verifier logic outside the two seals, producer corpus, Updater compiler, Backend production code, every other `run_test.go` request/expectation/assertion, checker logic outside the inventory line, frontend/staged work, guides, siblings, external state. |
+| Writable paths | Exact generator/canonical-corpus/Backend-test paths, two verifier seal literals, the two stale partners/co-star expected outcomes and co-star participant literals `1/2` → `100/101` in `backend/internal/app/run_test.go`, deletion of seven obsolete base-catalog normalization statements in `backend/internal/query/archive_loader_test.go`, one Backend inventory line, and these task markers from the proposal. |
+| Read-only protected inputs | Schemas and verifier logic outside the two seals, producer corpus, Updater compiler, Backend production code, every other `run_test.go` request/expectation/assertion, producer-test-only query fixture additions/resealing logic, checker logic outside the inventory line, frontend/staged work, guides, siblings, external state. |
 | Deletion complement | No deletion, rename, path-set growth, cache/temp/generated residue. |
 | Mutable refs | None. |
 | Consumes | Current canonical corpus and accepted Updater/catalog semantics. |
@@ -48,7 +48,10 @@
   admission now reaches the intentionally absent analytics boundary. Change
   only that co-star request's obsolete nonexistent participant IDs `1/2` to
   existing fixture IDs `100/101`, preventing entity validation from masking
-  the boundary.
+  the boundary. In the query producer-catalog helper, delete only the seven
+  obsolete base normalization statements (staff rule, cast-main rule,
+  cast-all rule/member, shortcut group/member migration, legacy group delete);
+  retain every staff74/staffset/custom extension and resealing step.
 - [ ] 2.2 Run targeted Archive/catalog/app tests repeatedly and under `-race`,
   all catalog/Archive contract verifiers, `backend/scripts/check.sh`, runtime
   smoke against a copied unmodified bundle, `git diff --check`, and strict

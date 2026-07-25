@@ -23,8 +23,8 @@ bounds rather than cross-table governed catalog meaning.
 |---|---|
 | Status | Reviewed design; implementation and verification pending. |
 | Owner | One implementation agent, followed by main-agent acceptance. |
-| Writable paths | Exact generator/canonical-corpus/test paths plus only the two verifier seal literals, two stale expected outcomes and the co-star participant literals `1/2` → `100/101` in `backend/internal/app/run_test.go`, and one Backend test-inventory line declared in the proposal; no Backend production file. |
-| Read-only protected inputs | Archive/API schemas and verifier logic outside the two seals, producer corpus, Updater compiler, Backend production code, every other `run_test.go` request/expectation/assertion, checker logic outside the one inventory line, frontend, guides, siblings, external state. |
+| Writable paths | Exact generator/canonical-corpus/test paths plus only the two verifier seal literals, two stale expected outcomes and the co-star participant literals `1/2` → `100/101` in `backend/internal/app/run_test.go`, deletion of the seven obsolete base-normalization SQL statements in `backend/internal/query/archive_loader_test.go`, and one Backend test-inventory line declared in the proposal; no Backend production file. |
+| Read-only protected inputs | Archive/API schemas and verifier logic outside the two seals, producer corpus, Updater compiler, Backend production code, every other `run_test.go` request/expectation/assertion, all producer-test-only query fixture extensions/resealing logic, checker logic outside the one inventory line, frontend, guides, siblings, external state. |
 | Deletion complement | None; generated canonical path set must remain exactly the preflight index set. |
 | Mutable refs | None. |
 | Consumes | Canonical rule semantics from `updater-position-catalog` and current Archive/catalog loaders. |
@@ -83,6 +83,14 @@ obsolete nonexistent participant IDs `1/2` become the fixture's existing
 `100/101`, so entity validation cannot mask the intended dependency boundary.
 No other request or assertion in that already modified test file belongs to
 this change.
+
+The query package's producer-catalog fixture helper previously rewrote the same
+seven legacy base rows before adding its own staff74/staffset/custom rows.
+Those normalization statements are now conflicts or duplicates because the
+checked-in base is canonical. They are removed rather than made conditional;
+all producer-test-only additions and bundle resealing remain byte-for-byte
+owned by that test. This makes the helper express only its actual extension
+delta and prevents it from masking future base-fixture drift.
 
 ## Dependency Direction
 

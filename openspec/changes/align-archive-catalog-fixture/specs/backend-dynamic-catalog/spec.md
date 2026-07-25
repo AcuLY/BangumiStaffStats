@@ -4,8 +4,8 @@
 |---|---|
 | Status | Integration acceptance amendment; implementation pending. |
 | Owner | Backend test implementation agent. |
-| Writable paths | `backend/internal/catalog/*_test.go`, new `backend/internal/app/catalog_archive_integration_test.go`, only the two stale partners/co-star expected outcomes and co-star participant literals `1/2` → `100/101` in `backend/internal/app/run_test.go`, and only that new path's inventory line in `backend/scripts/check.sh`. |
-| Read-only protected inputs | Backend production code, every other `run_test.go` request/expectation/assertion, and all checker logic outside the one inventory line, canonical Archive fixture, schemas/goldens/verifiers, Updater, frontend, external state. |
+| Writable paths | `backend/internal/catalog/*_test.go`, new `backend/internal/app/catalog_archive_integration_test.go`, only the two stale partners/co-star expected outcomes and co-star participant literals `1/2` → `100/101` in `backend/internal/app/run_test.go`, only deletion of the seven obsolete base-catalog normalization SQL statements in `backend/internal/query/archive_loader_test.go`, and only that new path's inventory line in `backend/scripts/check.sh`. |
+| Read-only protected inputs | Backend production code, every other `run_test.go` request/expectation/assertion, every query helper statement that adds staff74/staffset/custom test data or reseals its bundle, and all checker logic outside the one inventory line, canonical Archive fixture, schemas/goldens/verifiers, Updater, frontend, external state. |
 | Deletion complement | No deletion or disposable residue. |
 | Mutable refs | None. |
 | Consumes | Corrected checked-in canonical Archive bundle and existing catalog runtime. |
@@ -42,6 +42,13 @@ the bounded fixture contract does not permit. Backend's existing rejection of
 the superseded fixture-only rule/member/group forms SHALL remain intact; no
 compatibility normalizer or alternate dialect is admitted.
 
+Backend tests that extend the canonical fixture SHALL treat its corrected
+catalog rows as the base. A helper MAY remove only its now-obsolete SQL that
+normalized the seven legacy staff/cast/shortcut rows; it SHALL preserve every
+statement that adds producer-test-only staff74, staff-set, capability, custom
+group data, and bundle identity resealing. The helper SHALL NOT rewrite the
+canonical base into a second dialect.
+
 #### Scenario: The checked-in minimal Archive crosses the runtime boundary
 
 - **WHEN** the unmodified bundle is loaded and the catalog route is requested
@@ -63,3 +70,10 @@ compatibility normalizer or alternate dialect is admitted.
 - **THEN** the cross-boundary test SHALL fail before commit
 - **AND** the failure SHALL not be hidden by Backend translation or a
   test-local database rewrite
+
+#### Scenario: A query test extends the canonical fixture
+- **WHEN** the producer-catalog query helper prepares staff74/staff-set/custom
+  test rows
+- **THEN** it SHALL add only those test-specific rows to the already canonical
+  base and reseal the copied bundle
+- **AND** it SHALL contain no legacy base-row normalization statements
