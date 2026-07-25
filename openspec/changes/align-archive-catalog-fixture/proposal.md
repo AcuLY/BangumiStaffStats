@@ -1,17 +1,19 @@
 ## Why
 
 The canonical Archive `valid/minimal` bundle passes Archive loading and makes
-the process ready, but its catalog rules still use a superseded fixture-only
-shape. The governed Updater and strict Backend catalog projection use the
-accepted canonical rule identity/value shape, so a real application started
-from this supposedly valid bundle returns 500 from `GET /api/v1/catalog`.
-Unit suites miss the defect because Archive and catalog tests do not cross the
-actual fixture boundary.
+the process ready, but its catalog rows still contain superseded fixture-only
+semantics: legacy rule identities/values, cast-to-cast position membership,
+and an invalid featured-group key. The governed Updater and strict Backend
+catalog projection use the accepted canonical shapes, so a real application
+started from this supposedly valid bundle returns 500 from
+`GET /api/v1/catalog`. Unit suites miss the defect because Archive and catalog
+tests do not cross the actual fixture boundary.
 
 ## What Changes
 
 - Correct only the canonical Archive fixture generator's staff/cast selection
-  rule rows to match the accepted `updater-position-catalog` authority.
+  rules, ordinary-position membership, and featured-group identity to match
+  the accepted `updater-position-catalog` authority.
 - Deterministically rebuild the generator-owned canonical Archive corpus,
   identities, manifests, vectors, and closed root index.
 - Add a Backend integration test that loads the unmodified canonical minimal

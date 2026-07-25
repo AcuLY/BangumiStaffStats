@@ -1,12 +1,15 @@
 ## Context
 
 `contracts/goldens/archive/valid/minimal/bangumi.sqlite` currently stores
-`select:staff:*` plus `positionId=*` and `select:cast:*` plus `roleType=*`.
-The exited `updater-position-catalog` compiler stores `rule:staff:*` plus the
-numeric value and `exclusive:cast:{type}` plus `1|1..6`. Backend catalog
-validation intentionally requires the latter. Archive loading cannot detect
-the semantic mismatch because the Archive table schema closes only the rule
-kind and string bounds.
+`select:staff:*` plus `positionId=*` and `select:cast:*` plus `roleType=*`;
+it also makes `cast:anime:main` a member of the ordinary
+`cast:anime:all` position and names its shortcut `featured:anime`. The exited
+`updater-position-catalog` compiler instead stores `rule:staff:*` plus the
+numeric value, `exclusive:cast:{type}` plus `1|1..6`, no member rows for
+ordinary staff/cast positions, and `shortcut:{type}:featured`. Backend catalog
+validation intentionally requires these canonical invariants. Archive loading
+cannot detect the semantic mismatch because the Archive tables close field
+shape and bounds rather than the cross-table governed catalog semantics.
 
 ## Change Boundary
 
@@ -29,12 +32,16 @@ kind and string bounds.
 
 ## Decisions
 
-### 1. Correct the fixture authority, not the strict consumer
+### 1. Correct the complete stale fixture shape, not the strict consumer
 
 The governed Updater is the Archive producer authority for catalog rows.
 Backend already validates its canonical rule identity/value form and its unit
-tests reject alternatives. The fixture generator will emit the same form.
-`backend/internal/catalog/store.go` remains byte-identical.
+tests reject alternatives. The fixture generator will emit the same rule form,
+remove the obsolete cast-to-cast `catalog_position_member` row, and use the
+canonical shortcut group key. These are one fixture-coherence correction;
+ordinary staff/cast positions remain memberless and only staff sets own
+position-member rows. `backend/internal/catalog/store.go` remains
+byte-identical.
 
 ### 2. Regenerate all and only the closed canonical corpus
 

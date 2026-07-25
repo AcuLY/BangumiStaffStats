@@ -27,6 +27,11 @@ inventory, but its prior byte seal is superseded by this reviewed correction.
 identity/value semantics produced by the accepted `updater-position-catalog`
 compiler: exact staff uses `rule:{positionKey}` and the numeric ID string;
 same-type cast main/all use `exclusive:cast:{subjectType}` and `1|1..6`.
+Ordinary staff and cast positions SHALL have no
+`catalog_position_member` rows; that table represents only the sorted exact
+staff membership of a `staffSet`. The minimal featured shortcut SHALL use the
+canonical key `shortcut:anime:featured`, not the obsolete untyped
+`featured:anime` key.
 
 The fixture builder SHALL regenerate every affected SQLite, manifest, pointer,
 dataVersion vector, negative bundle, and root-index digest from source
@@ -39,13 +44,16 @@ SHALL retain its declared validation-stage outcome.
 
 - **WHEN** the canonical builder emits the minimal catalog and reseals all
   identity-bearing outputs
-- **THEN** its staff/cast rules match the governed Updater compiler exactly
+- **THEN** its staff/cast rules, ordinary-position membership, and shortcut
+  identity match the governed Updater compiler exactly
 - **AND** the closed canonical inventory and all positive/negative verifier
   outcomes pass without adding or removing a path
 
-#### Scenario: A fixture-only legacy rule or manual patch remains
+#### Scenario: A fixture-only legacy row or manual patch remains
 
 - **WHEN** a rule uses `select:*`, `positionId=*`, or `roleType=*`, or a
-  generated identity is edited outside deterministic regeneration
+  cast position contains another cast position, a shortcut lacks the
+  `shortcut:` namespace, or a generated identity is edited outside
+  deterministic regeneration
 - **THEN** Contracts acceptance SHALL fail before Backend handoff
 - **AND** Backend SHALL not be broadened to normalize the stale evidence

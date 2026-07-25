@@ -23,7 +23,8 @@
   set/digest, and protected sibling work; confirm reviewed strict-valid
   artifacts and stop on any writable overlap.
 - [ ] 1.2 Change only the canonical fixture builder's staff/cast rule
-  identities and values to the governed Updater form; regenerate all and only
+  identities/values, obsolete cast-to-cast position membership, and featured
+  shortcut group key to the governed Updater form; regenerate all and only
   existing canonical indexed outputs, never hand-editing SQLite or derived
   identities.
 - [ ] 1.3 Run the Archive generator/verifier twice from clean disposable
