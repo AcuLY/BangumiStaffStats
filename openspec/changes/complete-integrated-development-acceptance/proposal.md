@@ -121,6 +121,13 @@ None.
   implementation blob/mode SHALL still equal the candidate.
 - A caller-supplied, immutable, inactive full Archive candidate produced by the
   accepted Updater, plus its dataVersion, manifest, and SQLite identities.
+- A separate caller-supplied frozen provenance root containing the exact
+  official release ZIP, `aux/latest.json` from pinned Archive revision
+  `536b2864f8f23ee4ffd171ebfbe4c41fe1be2df1`,
+  `subject_staffs.yml` from pinned common revision
+  `6a8442c17143a870357a5ff812362e8b5cfe9f9d`, and one canonical provenance
+  manifest. The harness admits these bytes offline and never fetches release
+  metadata during a matrix run.
 - Existing component checks, cross-language contract verifiers, Archive/API
   goldens, OpenAPI, race gates, production routes, fixed oracle commit,
   `PRODUCT.md`, `DESIGN.md`, and the accepted frontend capability specs.
@@ -144,6 +151,13 @@ None.
   cache mirror, deny writes while the gate runs, and re-seal afterward. It
   SHALL NOT claim that these owner-fixed closures were copied to new inodes or
   substitute other paths.
+- The official Archive release anchor is the exact
+  `dump-2026-07-21.210441Z.zip` identity
+  `sha256:e1120169088407c66a94dacacda4dffaabe0e2e08cbcc8238c880f6c0140dd57`
+  with size `419054508`. The pinned `latest.json` is 539 bytes with SHA-256
+  `f97498acdfff461603f14862b80211707e89250ed55f1883c60051d58b2d9f24`;
+  the pinned common file is 37723 bytes with SHA-256
+  `0d5ac602157e33114029df611ea9dd46df32997e57c3a361b9e6f92250304394`.
 
 ### Produces
 

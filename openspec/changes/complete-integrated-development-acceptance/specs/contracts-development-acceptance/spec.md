@@ -201,12 +201,39 @@ expected values.
 
 The full-Archive input SHALL be a regular non-symlink version directory
 containing exact `manifest.json` and `bangumi.sqlite` bytes from an official
-complete seven-source Archive release produced by the accepted Updater. The
-harness SHALL validate the Archive contract, manifest/SQLite/schema/dataVersion
-digests, official release/common identities, complete source accounting,
+complete seven-source Archive release produced by the accepted Updater. A
+separate caller-supplied read-only provenance root SHALL contain canonical
+`provenance.json`, the official release ZIP, pinned `aux/latest.json`, and
+pinned `subject_staffs.yml`.
+
+The accepted release identity is exactly:
+
+- Archive commit `536b2864f8f23ee4ffd171ebfbe4c41fe1be2df1`,
+  `aux/latest.json` size 539 and digest
+  `sha256:f97498acdfff461603f14862b80211707e89250ed55f1883c60051d58b2d9f24`;
+- asset `dump-2026-07-21.210441Z.zip`, size 419054508 and digest
+  `sha256:e1120169088407c66a94dacacda4dffaabe0e2e08cbcc8238c880f6c0140dd57`;
+- common commit `6a8442c17143a870357a5ff812362e8b5cfe9f9d`,
+  `subject_staffs.yml` size 37723 and digest
+  `sha256:0d5ac602157e33114029df611ea9dd46df32997e57c3a361b9e6f92250304394`.
+
+The input/result schemas SHALL bind the canonical provenance root and manifest
+digest. Admission SHALL validate the provenance manifest against those exact
+constants, validate that pinned `latest.json` names the exact release
+URL/name/content type/size/digest, and content-seal the complete provenance
+root. A bounded safe ZIP reader SHALL reject encryption, duplicate names,
+traversal, links, unsupported members, extra/missing files, and
+decompression-limit violations, then stream exactly the seven regular
+`.jsonlines` members and match each uncompressed name/size/digest to the
+Archive manifest's `sourceFiles`. The pinned common bytes SHALL match the
+Archive manifest's common commit/URL/size/digest.
+
+The harness SHALL additionally validate the Archive contract,
+manifest/SQLite/schema/dataVersion digests, complete source accounting,
 generator compatibility, and real Go consumer acceptance. It SHALL reject
-known minimal fixtures, synthetic producer cases, missing sources, and any
-input that changes before cleanup completes.
+known minimal fixtures, self-consistent synthetic producer cases, missing
+sources, and any Archive or provenance input that changes before cleanup
+completes.
 
 For runtime only, the harness SHALL byte-copy the validated version into one
 owned run root, derive a canonical `current.json`, make the complete copy
@@ -215,10 +242,19 @@ input, and reuse of a production/current activation root are forbidden.
 
 #### Scenario: Official full Archive is accepted
 
-- **WHEN** the supplied inactive version passes all Contracts and real Go
-  consumer gates and its seven official source accounts are complete
+- **WHEN** the frozen release ZIP and common bytes match their pinned upstream
+  metadata, all seven ZIP members match the inactive version's source
+  accounts, and the version passes all Contracts and real Go consumer gates
 - **THEN** a byte-identical disposable activation copy SHALL be created below
-  the owned run root and the source SHALL remain unchanged
+  the owned run root and both source roots SHALL remain unchanged
+
+#### Scenario: A self-consistent synthetic Archive is supplied
+
+- **WHEN** a manifest and schema-valid SQLite agree with each other but the
+  official ZIP/common anchor is missing, changed, extra, or does not match all
+  seven source accounts
+- **THEN** provenance admission SHALL fail before runtime and no official or
+  full-Archive acceptance claim SHALL be emitted
 
 #### Scenario: Minimal, synthetic, damaged, or mutable Archive is supplied
 

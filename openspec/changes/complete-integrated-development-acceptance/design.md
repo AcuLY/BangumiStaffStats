@@ -201,12 +201,32 @@ newly created runtime entry blocks acceptance.
 Cache provisioning is not a matrix cell or evidence of product acceptance.
 
 The full Archive gate accepts only a version directory containing regular,
-non-symlink `manifest.json` and `bangumi.sqlite` from the official seven-file
-Archive source path. It validates the manifest/SQLite/dataVersion/schema,
-source accounting, official release/common URLs and digests, and Updater
-generator version through existing Contracts and Go consumer code. It rejects
-the known minimal fixture identities and synthetic producer cases. Input
-directory seals are recorded before and after the run.
+non-symlink `manifest.json` and `bangumi.sqlite` plus a separately supplied
+frozen official provenance root. That root contains:
+
+- canonical `provenance.json`;
+- the exact 419054508-byte
+  `dump-2026-07-21.210441Z.zip` with digest
+  `sha256:e1120169088407c66a94dacacda4dffaabe0e2e08cbcc8238c880f6c0140dd57`;
+- the exact 539-byte `aux/latest.json` bytes from Archive commit
+  `536b2864f8f23ee4ffd171ebfbe4c41fe1be2df1`, with digest
+  `sha256:f97498acdfff461603f14862b80211707e89250ed55f1883c60051d58b2d9f24`;
+- the exact 37723-byte `subject_staffs.yml` bytes from common commit
+  `6a8442c17143a870357a5ff812362e8b5cfe9f9d`, with digest
+  `sha256:0d5ac602157e33114029df611ea9dd46df32997e57c3a361b9e6f92250304394`.
+
+Admission validates the provenance manifest against these reviewed constants,
+re-seals the complete root, and checks that `latest.json` names the exact ZIP
+URL/name/content type/size/digest. A bounded safe ZIP reader rejects
+encryption, duplicate names, traversal, links, unsupported members, extra or
+missing payload files, and decompression-limit violations. It streams the
+exact seven regular `.jsonlines` members and binds every uncompressed
+name/size/digest to `manifest.json.sourceFiles`; the pinned common bytes bind
+the common commit/URL/size/digest. Only then do the existing
+manifest/SQLite/dataVersion/schema/source-accounting, Updater generator, and
+real Go consumer checks establish the accepted Archive identity. The known
+minimal fixture identities and self-consistent synthetic producer cases are
+rejected. Both Archive and provenance roots re-seal after the run.
 
 The harness snapshots all protected tracked paths plus supplied immutable
 inputs before execution and compares them after cleanup. A mismatch converts
