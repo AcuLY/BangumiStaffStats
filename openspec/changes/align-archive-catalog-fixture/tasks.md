@@ -4,8 +4,8 @@
 |---|---|
 | Status | Main-agent reviewed after strict validation; apply pending. |
 | Owner | One implementation agent; main agent owns acceptance/lifecycle. |
-| Writable paths | Exact generator/canonical-corpus/Backend-test paths, two verifier seal literals, one Backend inventory line, and these task markers from the proposal. |
-| Read-only protected inputs | Schemas and verifier logic outside the two seals, producer corpus, Updater compiler, Backend production code/checker logic outside the inventory line, frontend/staged work, guides, siblings, external state. |
+| Writable paths | Exact generator/canonical-corpus/Backend-test paths, two verifier seal literals, the two stale partners/co-star expected outcomes in `backend/internal/app/run_test.go`, one Backend inventory line, and these task markers from the proposal. |
+| Read-only protected inputs | Schemas and verifier logic outside the two seals, producer corpus, Updater compiler, Backend production code, every other `run_test.go` assertion, checker logic outside the inventory line, frontend/staged work, guides, siblings, external state. |
 | Deletion complement | No deletion, rename, path-set growth, cache/temp/generated residue. |
 | Mutable refs | None. |
 | Consumes | Current canonical corpus and accepted Updater/catalog semantics. |
@@ -42,7 +42,10 @@
   proves `/readyz` 200 plus `/api/v1/catalog` 200 with matching dataVersion,
   the exact bounded governed position/group/capability/rule projection, no
   legacy acceptance, and strict envelope validation. Add only that new test
-  path to the Backend checker's closed inventory.
+  path to the Backend checker's closed inventory. Update only the existing
+  application route test's two stale partners/co-star expectations from
+  `400 CAPABILITY_NOT_AVAILABLE` to `503 NOT_READY`, proving capability
+  admission now reaches the intentionally absent analytics boundary.
 - [ ] 2.2 Run targeted Archive/catalog/app tests repeatedly and under `-race`,
   all catalog/Archive contract verifiers, `backend/scripts/check.sh`, runtime
   smoke against a copied unmodified bundle, `git diff --check`, and strict

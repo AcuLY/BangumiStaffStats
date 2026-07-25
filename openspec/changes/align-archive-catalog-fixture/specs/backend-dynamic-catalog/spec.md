@@ -4,8 +4,8 @@
 |---|---|
 | Status | Integration acceptance amendment; implementation pending. |
 | Owner | Backend test implementation agent. |
-| Writable paths | `backend/internal/catalog/*_test.go`, new `backend/internal/app/catalog_archive_integration_test.go`, and only that new path's inventory line in `backend/scripts/check.sh`. |
-| Read-only protected inputs | Backend production code and all checker logic outside the one inventory line, canonical Archive fixture, schemas/goldens/verifiers, Updater, frontend, external state. |
+| Writable paths | `backend/internal/catalog/*_test.go`, new `backend/internal/app/catalog_archive_integration_test.go`, only the two stale partners/co-star expected outcomes in `backend/internal/app/run_test.go`, and only that new path's inventory line in `backend/scripts/check.sh`. |
+| Read-only protected inputs | Backend production code, every other `run_test.go` assertion, and all checker logic outside the one inventory line, canonical Archive fixture, schemas/goldens/verifiers, Updater, frontend, external state. |
 | Deletion complement | No deletion or disposable residue. |
 | Mutable refs | None. |
 | Consumes | Corrected checked-in canonical Archive bundle and existing catalog runtime. |
@@ -29,7 +29,11 @@ integration SHALL prove `/readyz` returns 200 and `GET /api/v1/catalog`
 returns a strict 200 envelope with the same Store dataVersion and canonical
 API projection for the bounded governed positions, groups, capabilities, and
 rules. The Backend checker's closed inventory SHALL include the new disjoint
-integration-test path; no checker logic or existing test file is changed.
+integration-test path; no checker logic is changed. Because those rows now
+advertise the accepted partners/co-star capabilities, the existing application
+route test SHALL expect both requests to pass capability admission and stop at
+the deliberately missing analytics boundary with `503 NOT_READY`, rather than
+the obsolete `400 CAPABILITY_NOT_AVAILABLE`.
 
 The test SHALL fail if Contracts again emits a governed catalog row shape that
 the bounded fixture contract does not permit. Backend's existing rejection of
@@ -42,6 +46,12 @@ compatibility normalizer or alternate dialect is admitted.
 - **THEN** readiness and catalog both return 200, dataVersion agrees, and the
   response validates against the accepted catalog wire/golden semantics
 - **AND** no test setup updates catalog SQL after loading
+
+#### Scenario: Corrected capabilities reach the next runtime boundary
+- **WHEN** the existing application route test requests partners and co-star
+  through the corrected minimal Archive
+- **THEN** both routes return `503 NOT_READY` for unavailable analytics
+- **AND** neither route is rejected as `CAPABILITY_NOT_AVAILABLE`
 
 #### Scenario: Contracts and runtime drift again
 

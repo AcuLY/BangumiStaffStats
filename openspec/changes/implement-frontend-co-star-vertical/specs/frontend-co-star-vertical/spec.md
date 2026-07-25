@@ -45,6 +45,16 @@ distinct from missing values.
 - **AND** missing, malformed, duplicated, or out-of-range delay metadata SHALL NOT be guessed or cause an unbounded retry
 - **AND** no explicit collection refresh SHALL enter automatic retry
 
+#### Scenario: A deferred production module fails once
+- **WHEN** the first production-artifact request for a ranking, candidate,
+  co-star, or person-detail module returns 503 and the module later becomes
+  available
+- **THEN** the surface SHALL show a local oracle-compatible failure state while
+  Header navigation remains usable
+- **AND** activating its retry SHALL issue a fresh recovery attempt and load
+  the surface, rather than reusing the browser-cached rejected module import
+- **AND** the recovery SHALL preserve the current route and restorable intent
+
 #### Scenario: A page contains ranks and complete evidence
 - **WHEN** a valid response page is rendered
 - **THEN** its server rank, complete summary/evidence, nullable values, and searched pagination total SHALL be displayed unchanged

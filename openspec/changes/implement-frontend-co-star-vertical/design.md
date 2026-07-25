@@ -144,6 +144,19 @@ the prototype where formal operation boundaries differ.
    into Header context, closes the query editor before opening the bottom
    Drawer, and restores focus to the exact surviving opener.
 
+9. **Deferred production surfaces expose truthful recovery.** Loading a
+   deferred ranking, candidate, co-star, or person-detail module may fail
+   independently while Header navigation remains usable. The shared state
+   presentation may reuse the oracle's existing result-state vocabulary and
+   dimensions, but it is not a redesign. A control labeled as retry SHALL
+   cause a fresh production-artifact recovery attempt; calling a browser-cached
+   rejected `import()` promise again is not recovery. Acceptance intercepts one
+   built module request as 503, restores it to 200, activates retry, and proves
+   the surface loads without a stuck failure state. An implementation may use a
+   cache-distinct module request or an explicit page-refresh recovery, provided
+   it preserves route/share intent and introduces no service worker, package,
+   global request layer, or oracle-visible layout change.
+
 ## Risks / Trade-offs
 
 - **[Risk] Contract changes land while frontend apply is active** → Start each

@@ -23,8 +23,8 @@ bounds rather than cross-table governed catalog meaning.
 |---|---|
 | Status | Reviewed design; implementation and verification pending. |
 | Owner | One implementation agent, followed by main-agent acceptance. |
-| Writable paths | Exact generator/canonical-corpus/test paths plus only the two verifier seal literals and one Backend test-inventory line declared in the proposal; no Backend production file. |
-| Read-only protected inputs | Archive/API schemas and verifier logic outside the two seals, producer corpus, Updater compiler, Backend production code/checker logic outside the one inventory line, frontend, guides, siblings, external state. |
+| Writable paths | Exact generator/canonical-corpus/test paths plus only the two verifier seal literals, two stale expected outcomes in `backend/internal/app/run_test.go`, and one Backend test-inventory line declared in the proposal; no Backend production file. |
+| Read-only protected inputs | Archive/API schemas and verifier logic outside the two seals, producer corpus, Updater compiler, Backend production code, every other `run_test.go` assertion, checker logic outside the one inventory line, frontend, guides, siblings, external state. |
 | Deletion complement | None; generated canonical path set must remain exactly the preflight index set. |
 | Mutable refs | None. |
 | Consumes | Canonical rule semantics from `updater-position-catalog` and current Archive/catalog loaders. |
@@ -74,8 +74,12 @@ projects catalog data, and exercises the application catalog route. It asserts
 ready 200 and catalog 200 with the Store dataVersion and schema-valid canonical
 API rules. This prevents separate Archive/catalog unit fixtures from drifting
 again. The new test remains in a disjoint file, and only its exact path is
-added to the Backend checker's closed source inventory; no checker logic or
-existing dirty test file is changed.
+added to the Backend checker's closed source inventory; no checker logic is
+changed. The existing application route test's two obsolete
+`CAPABILITY_NOT_AVAILABLE` expectations become `503 NOT_READY`: canonical
+fixture rows now truthfully advertise partners/co-star capability, while the
+deliberately minimal Archive still has no analytics rows. No other assertion
+in that already modified test file belongs to this change.
 
 ## Dependency Direction
 
