@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils';
+import { NSelect } from 'naive-ui';
+import { nextTick } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -226,8 +228,9 @@ describe('one-person partners surface', () => {
     );
 
     await wrapper
-      .get('.partners-position-control select')
-      .setValue('');
+      .findComponent(NSelect)
+      .vm.$emit('update:value', '');
+    await nextTick();
     expect(execute).toHaveBeenCalledWith(
       {
         source: {
@@ -268,10 +271,14 @@ describe('one-person partners surface', () => {
       fullPending.wrapper.find('.partners-summary-skeleton').exists(),
     ).toBe(true);
     expect(fullPending.wrapper.text()).not.toContain('偏好分最高');
-    expect(fullPending.wrapper.attributes('aria-busy')).toBe('true');
+    expect(
+      fullPending.wrapper
+        .get('.partners-results-boundary')
+        .attributes('aria-busy'),
+    ).toBe('true');
   });
 
-  it('uses a stable summary placeholder rather than an animated skeleton after an initial full error', () => {
+  it('shows one initial error boundary without a simultaneous empty summary', () => {
     const failed = setup({
       error: '合作人物暂时无法加载，请稍后重试',
       payload: null,
@@ -285,12 +292,32 @@ describe('one-person partners surface', () => {
     ).toBe(false);
     expect(
       failed.wrapper.find('.partners-summary-placeholder').exists(),
-    ).toBe(true);
-    expect(failed.wrapper.get('.partners-summary-placeholder').text()).toContain(
-      '暂无数据',
-    );
+    ).toBe(false);
+    expect(failed.wrapper.findAll('[role="alert"]')).toHaveLength(1);
+    expect(failed.wrapper.text()).not.toContain('暂无数据');
     expect(failed.wrapper.get('.partners-state[role="alert"]').text()).toContain(
       '合作人物暂时无法加载，请稍后重试',
     );
+  });
+
+  it('marks only list results busy and exposes the server-authority metric explanation', async () => {
+    const pending = setup({ viewPending: true });
+    const info = pending.wrapper.get('.partners-metric-info');
+
+    expect(pending.wrapper.attributes('aria-busy')).toBeUndefined();
+    expect(
+      pending.wrapper
+        .get('.partners-results-boundary')
+        .attributes('aria-busy'),
+    ).toBe('true');
+    expect(info.attributes('aria-label')).toContain('均由服务端返回');
+    expect(info.attributes('aria-label')).toContain('不会从当前列表重新计算');
+
+    await info.trigger('focus');
+    expect(
+      pending.wrapper
+        .get('.partners-metric-info')
+        .attributes('aria-expanded'),
+    ).toBe('true');
   });
 });

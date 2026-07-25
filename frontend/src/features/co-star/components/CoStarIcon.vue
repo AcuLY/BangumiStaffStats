@@ -1,7 +1,7 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    name: 'check' | 'edit' | 'people';
+    name: 'check' | 'edit' | 'info' | 'people' | 'warning';
     size?: number;
   }>(),
   {
@@ -29,6 +29,16 @@ withDefaults(
     <template v-else-if="name === 'edit'">
       <path d="m4 20 4.2-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.2 16Z" />
       <path d="m14.8 6.4 2.8 2.8" />
+    </template>
+    <template v-else-if="name === 'info'">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 10.5v6" />
+      <path d="M12 7.4h.01" />
+    </template>
+    <template v-else-if="name === 'warning'">
+      <path d="M12 3 2.8 20h18.4Z" />
+      <path d="M12 9v5" />
+      <path d="M12 17.2h.01" />
     </template>
     <template v-else>
       <circle cx="9" cy="8.5" r="3" />

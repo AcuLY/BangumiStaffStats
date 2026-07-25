@@ -17,6 +17,7 @@ import {
 import SafeImage from '../../../shared/components/SafeImage.vue';
 import AppIcon from '../../../shared/components/AppIcon.vue';
 import { personImageCandidates } from '../../../shared/media/bangumiImage';
+import { useCompactLayout } from '../../query/composables/useCompactLayout';
 import AdaptivePagination from '../../ranking/components/AdaptivePagination.vue';
 import SortDirectionButton from '../../ranking/components/SortDirectionButton.vue';
 import {
@@ -59,6 +60,10 @@ const emit = defineEmits<{
 
 const selectedTrayExpandedNames = ref<Array<string | number>>(
   props.drawer ? [] : ['selected-people'],
+);
+const compactLayout = useCompactLayout();
+const controlSize = computed(() =>
+  compactLayout.value ? 'small' : 'medium',
 );
 const searchDraft = ref(props.resource.view.search ?? '');
 let searchTimer: number | undefined;
@@ -200,19 +205,19 @@ onBeforeUnmount(clearSearchTimer);
   <div class="candidate-picker" :class="{ 'is-drawer': drawer }">
     <header v-if="drawer" class="candidate-picker__heading">
       <h2>人物选择</h2>
-      <span class="candidate-picker__close-hit">
-        <n-button
-          class="candidate-picker__close"
-          quaternary
-          circle
-          attr-type="button"
-          aria-label="关闭人物选择"
-          title="关闭人物选择"
-          @click="emit('close')"
-        >
+      <n-button
+        class="candidate-picker__close-hit candidate-picker__close"
+        quaternary
+        circle
+        attr-type="button"
+        aria-label="关闭人物选择"
+        title="关闭人物选择"
+        @click="emit('close')"
+      >
+        <span class="candidate-picker__close-surface">
           <app-icon name="close" :size="16" />
-        </n-button>
-      </span>
+        </span>
+      </n-button>
     </header>
 
     <section
@@ -328,6 +333,8 @@ onBeforeUnmount(clearSearchTimer);
       >
         <span>浏览职位</span>
         <n-select
+          :size="controlSize"
+          :menu-size="controlSize"
           :value="positionKey"
           :options="positionOptions"
           aria-label="浏览已应用职位"
@@ -344,6 +351,7 @@ onBeforeUnmount(clearSearchTimer);
       >
         <div class="candidate-toolbar">
           <n-input
+            :size="controlSize"
             :value="searchDraft"
             :clearable="Boolean(searchDraft)"
             autocomplete="off"
@@ -361,6 +369,8 @@ onBeforeUnmount(clearSearchTimer);
           </n-input>
           <n-select
             class="candidate-sort-select"
+            :size="controlSize"
+            :menu-size="controlSize"
             :value="view.sort"
             :options="sortOptions"
             :consistent-menu-width="false"
@@ -380,7 +390,15 @@ onBeforeUnmount(clearSearchTimer);
           role="alert"
         >
           {{ resource.error }}
-          <button type="button" @click="retry">重试</button>
+          <n-button
+            class="candidate-retry"
+            :size="controlSize"
+            secondary
+            type="error"
+            @click="retry"
+          >
+            重试
+          </n-button>
         </p>
 
         <div v-if="rowsPending" class="candidate-row-skeletons">
@@ -403,9 +421,14 @@ onBeforeUnmount(clearSearchTimer);
         >
           <strong>候选人物加载失败</strong>
           <p>{{ resource.error }}</p>
-          <button class="app-primary-action" type="button" @click="retry">
+          <n-button
+            class="app-primary-action candidate-retry"
+            :size="controlSize"
+            type="primary"
+            @click="retry"
+          >
             重试
-          </button>
+          </n-button>
         </div>
 
         <div v-else class="candidate-list">
@@ -511,13 +534,14 @@ onBeforeUnmount(clearSearchTimer);
       </div>
     </section>
 
-    <button
+    <n-button
       v-if="rowsPending"
       class="candidate-cancel"
-      type="button"
+      :size="controlSize"
+      secondary
       @click="cancel"
     >
       取消
-    </button>
+    </n-button>
   </div>
 </template>

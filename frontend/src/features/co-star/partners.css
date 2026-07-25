@@ -292,7 +292,6 @@
     )
     var(--surface-sunken);
   background-size: 220% 100%;
-  animation: ranking-shimmer 1.4s linear infinite;
 }
 
 .partners-summary-skeleton > span {
@@ -334,6 +333,31 @@
   line-height: 1.25;
 }
 
+.partners-surface .single-cooperation__heading-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.partners-metric-info {
+  display: grid;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  margin: -12px;
+  place-items: center;
+  border: 0;
+  color: var(--text-tertiary);
+  background: transparent;
+  cursor: help;
+}
+
+.partners-metric-help {
+  display: block;
+  max-width: min(360px, 80vw);
+  line-height: 1.55;
+  white-space: normal;
+}
+
 .partners-surface .single-cooperation__heading p {
   margin-top: 3px;
   color: var(--text-tertiary);
@@ -355,6 +379,40 @@
   grid-template-columns: minmax(160px, 1fr) minmax(112px, 140px) auto;
 }
 
+.partners-toolbar .ranking-order-button {
+  position: relative;
+}
+
+.partners-toolbar .ranking-order-button::before {
+  position: absolute;
+  inset-block: calc(
+    (var(--touch-target) - var(--n-height, 34px)) / -2
+  );
+  inset-inline: 0;
+  content: "";
+}
+
+.partners-toolbar
+  .ranking-order-button
+  .ranking-order-button__content {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip: auto;
+}
+
+.partners-toolbar
+  .ranking-order-button
+  .ranking-order-button__content
+  > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
 .partners-columns,
 .partners-person-row {
   grid-template-columns: 42px 44px minmax(150px, 1fr) minmax(240px, 1.25fr);
@@ -372,6 +430,10 @@
   display: grid;
   padding-top: 38px;
   gap: var(--space-2);
+}
+
+.partners-results-boundary {
+  min-width: 0;
 }
 
 .partners-row-skeletons > span {
@@ -416,6 +478,12 @@
   color: var(--text-primary);
   background: var(--surface-raised);
   cursor: pointer;
+}
+
+.partners-inline-error .partners-retry,
+.partners-state .partners-retry {
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
 }
 
 .partners-state button:first-child {
@@ -529,6 +597,13 @@
     display: none;
   }
 
+  .partners-person-row {
+    grid-template-columns: 30px 40px minmax(0, 1fr);
+    grid-template-areas:
+      "rank avatar identity"
+      "rank avatar metrics";
+  }
+
   .partners-row-skeletons {
     padding-top: 0;
   }
@@ -553,13 +628,16 @@
   }
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .partners-summary-skeleton > span,
+  .partners-row-skeletons > span,
+  .partners-inline-skeleton {
+    animation: ranking-shimmer 1.4s linear infinite;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .partners-surface *,
-  .partners-surface *::before,
-  .partners-surface *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  .partners-surface .single-cooperation__leader {
+    transition-duration: 0s;
   }
 }

@@ -1,5 +1,11 @@
 <script setup lang="ts">
 import {
+  NButton,
+  NInput,
+  NSelect,
+  NTooltip,
+} from 'naive-ui';
+import {
   computed,
   onBeforeUnmount,
   onMounted,
@@ -15,6 +21,7 @@ import type {
 import AppIcon from '../../../shared/components/AppIcon.vue';
 import SafeImage from '../../../shared/components/SafeImage.vue';
 import { personImageCandidates } from '../../../shared/media/bangumiImage';
+import { useCompactLayout } from '../../query/composables/useCompactLayout';
 import {
   formatHundredths,
   formatRational,
@@ -35,6 +42,7 @@ import {
   updatePartnersView,
 } from '../partners';
 import type { CoStarSelection } from '../selection';
+import CoStarIcon from './CoStarIcon.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -67,6 +75,11 @@ const candidatePositionKey = ref(
   props.resource.input.candidatePositionKey ?? '',
 );
 const search = ref(props.resource.view.search ?? '');
+const metricTooltipVisible = ref(false);
+const compactLayout = useCompactLayout();
+const controlSize = computed(() =>
+  compactLayout.value ? 'small' : 'medium',
+);
 let searchTimer: number | undefined;
 let lastAttempt:
   | Readonly<{
@@ -117,8 +130,15 @@ const listPending = computed(
   () => fullPending.value || props.resource.viewPending,
 );
 const sortOptions = computed(() =>
-  partnerSortOptions(props.scope, props.workUnit),
+  [...partnerSortOptions(props.scope, props.workUnit)],
 );
+const positionOptions = computed(() => [
+  { label: '全部职位', value: '' },
+  ...props.positionKeys.map((positionKey) => ({
+    label: props.positionLabel(positionKey),
+    value: positionKey,
+  })),
+]);
 const leaderMetrics = computed<
   readonly PartnerLeader['metric'][]
 >(() =>
@@ -152,6 +172,14 @@ const statusMessage = computed(() => {
   }
   return props.resource.error ?? props.resource.feedback ?? '';
 });
+const metricHelp = computed(
+  () =>
+    `作品或系列数、均分、已评分数量与综合分均由服务端返回；综合分结合有效评分证据衡量合作表现。${
+      personal.value
+        ? '相对偏好及其证据同样由服务端返回，页面不会从当前列表重新计算。'
+        : ''
+    }`,
+);
 
 function primaryName(
   person: Readonly<{ name: string; nameCN: string | null }>,
@@ -232,23 +260,21 @@ function requestSearchNow(): void {
   requestView({ search: search.value });
 }
 
-function scheduleSearch(event: Event): void {
-  search.value = (event.target as HTMLInputElement).value;
+function scheduleSearch(value: string): void {
+  search.value = value;
   clearSearchTimer();
   searchTimer = props.targetWindow.setTimeout(requestSearchNow, 240);
 }
 
-function changeSort(event: Event): void {
+function changeSort(value: string): void {
   requestView({
-    sort: (event.target as HTMLSelectElement).value as PartnersSort,
+    sort: value as PartnersSort,
   });
 }
 
-function changeCandidatePosition(event: Event): void {
+function changeCandidatePosition(value: string): void {
   clearSearchTimer();
-  candidatePositionKey.value = (
-    event.target as HTMLSelectElement
-  ).value;
+  candidatePositionKey.value = value;
   const input = partnersInput(
     props.source,
     candidatePositionKey.value || undefined,
@@ -327,9 +353,10 @@ watch(
   },
 );
 watch(
-  () => props.resource.view.search,
-  (value) => {
-    if (value !== undefined && !props.resource.viewPending) {
+  () =>
+    [props.resource.view.search, props.resource.viewPending] as const,
+  ([value, pending]) => {
+    if (value !== undefined && !pending) {
       search.value = value;
     }
   },
@@ -353,7 +380,6 @@ onBeforeUnmount(clearSearchTimer);
   <article
     class="single-cooperation partners-surface surface-panel"
     aria-label="单人物共演分析"
-    :aria-busy="listPending ? 'true' : undefined"
   >
     <p class="sr-only" role="status" aria-live="polite">
       {{ statusMessage }}
@@ -465,7 +491,7 @@ onBeforeUnmount(clearSearchTimer);
             <span v-for="index in personal ? 5 : 4" :key="index" />
           </div>
           <div
-            v-else-if="!currentPayload"
+            v-else-if="!currentPayload && !resource.error"
             class="single-cooperation__summary-grid partners-summary-placeholder"
             aria-label="合作人物分析暂无数据"
           >
@@ -486,7 +512,7 @@ onBeforeUnmount(clearSearchTimer);
             </div>
           </div>
           <div
-            v-else
+            v-else-if="currentPayload"
             class="single-cooperation__summary-grid"
             :aria-label="`合作人物 ${currentPayload.summary.partnerCount} 位，各指标最高合作人物`"
           >
@@ -557,7 +583,36 @@ onBeforeUnmount(clearSearchTimer);
       <div class="single-cooperation__partners">
         <div class="single-cooperation__heading">
           <div>
-            <h2 id="cooperation-people-title">合作人物</h2>
+            <div class="single-cooperation__heading-title">
+              <h2 id="cooperation-people-title">合作人物</h2>
+              <n-tooltip
+                :show="metricTooltipVisible"
+                placement="top-start"
+                trigger="manual"
+                :animated="false"
+                style="max-width: min(336px, calc(100dvw - 72px));"
+              >
+                <template #trigger>
+                  <button
+                    class="partners-metric-info"
+                    type="button"
+                    :aria-expanded="metricTooltipVisible"
+                    :aria-label="`合作人物指标说明：${metricHelp}`"
+                    @mouseenter="metricTooltipVisible = true"
+                    @mouseleave="metricTooltipVisible = false"
+                    @focus="metricTooltipVisible = true"
+                    @blur="metricTooltipVisible = false"
+                    @click.stop="metricTooltipVisible = true"
+                    @keydown.esc.stop.prevent="
+                      metricTooltipVisible = false
+                    "
+                  >
+                    <co-star-icon name="info" :size="16" />
+                  </button>
+                </template>
+                <span class="partners-metric-help">{{ metricHelp }}</span>
+              </n-tooltip>
+            </div>
             <p>{{ rangeLabel }} · {{ activePositionLabel }}</p>
           </div>
         </div>
@@ -567,56 +622,48 @@ onBeforeUnmount(clearSearchTimer);
           role="search"
           @submit.prevent="requestSearchNow"
         >
-          <label class="ranking-search-control">
-            <span class="sr-only">搜索合作人物</span>
-            <app-icon name="search" :size="16" />
-            <input
-              :value="search"
-              type="search"
-              name="partners-search"
-              autocomplete="off"
-              placeholder="搜索人物"
-              @input="scheduleSearch"
-            />
-          </label>
+          <n-input
+            class="ranking-search-control"
+            :size="controlSize"
+            :value="search"
+            :clearable="Boolean(search)"
+            placeholder="搜索人物"
+            autocomplete="off"
+            aria-label="搜索合作人物"
+            :input-props="{
+              'aria-label': '搜索合作人物',
+              name: 'partners-search',
+              spellcheck: 'false',
+            }"
+            @update:value="scheduleSearch"
+          >
+            <template #prefix>
+              <app-icon name="search" :size="16" />
+            </template>
+          </n-input>
 
-          <label
+          <n-select
             v-if="positionKeys.length > 1"
             class="ranking-sort-control partners-position-control"
-          >
-            <span class="sr-only">按合作职位筛选</span>
-            <select
-              :value="candidatePositionKey"
-              aria-label="按合作职位筛选"
-              @change="changeCandidatePosition"
-            >
-              <option value="">全部职位</option>
-              <option
-                v-for="positionKey in positionKeys"
-                :key="positionKey"
-                :value="positionKey"
-              >
-                {{ positionLabel(positionKey) }}
-              </option>
-            </select>
-          </label>
+            :size="controlSize"
+            :menu-size="controlSize"
+            :value="candidatePositionKey"
+            :options="positionOptions"
+            :consistent-menu-width="false"
+            aria-label="按合作职位筛选"
+            @update:value="changeCandidatePosition"
+          />
 
-          <label class="ranking-sort-control">
-            <span class="sr-only">合作人物排序规则</span>
-            <select
-              :value="view.sort"
-              aria-label="合作人物排序规则"
-              @change="changeSort"
-            >
-              <option
-                v-for="option in sortOptions"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ option.label }}
-              </option>
-            </select>
-          </label>
+          <n-select
+            class="ranking-sort-control"
+            :size="controlSize"
+            :menu-size="controlSize"
+            :value="view.sort"
+            :options="sortOptions"
+            :consistent-menu-width="false"
+            aria-label="合作人物排序规则"
+            @update:value="changeSort"
+          />
 
           <sort-direction-button
             :order="view.order"
@@ -630,9 +677,21 @@ onBeforeUnmount(clearSearchTimer);
           role="alert"
         >
           <span>{{ resource.error }}</span>
-          <button type="button" @click="retry">重试</button>
+          <n-button
+            class="partners-retry"
+            :size="controlSize"
+            secondary
+            type="error"
+            @click="retry"
+          >
+            重试
+          </n-button>
         </div>
 
+        <div
+          class="partners-results-boundary"
+          :aria-busy="listPending ? 'true' : undefined"
+        >
         <div
           class="ranking-columns partners-columns"
           :class="{ 'is-global': !personal }"
@@ -670,8 +729,21 @@ onBeforeUnmount(clearSearchTimer);
           <strong>合作人物加载失败</strong>
           <p>{{ resource.error }}</p>
           <div class="partners-state__actions">
-            <button type="button" @click="retry">重试</button>
-            <button type="button" @click="cancel">取消</button>
+            <n-button
+              class="partners-retry"
+              :size="controlSize"
+              type="primary"
+              @click="retry"
+            >
+              重试
+            </n-button>
+            <n-button
+              :size="controlSize"
+              secondary
+              @click="cancel"
+            >
+              取消
+            </n-button>
           </div>
         </div>
         <div
@@ -771,6 +843,7 @@ onBeforeUnmount(clearSearchTimer);
             @page="requestView({ page: $event })"
             @page-size="requestView({ pageSize: $event })"
           />
+        </div>
         </div>
       </div>
     </section>
