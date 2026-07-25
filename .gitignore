@@ -18,15 +18,10 @@
 /contracts/goldens/query/.cache/go-path/
 /contracts/goldens/query/.tmp/
 
-# Catalog API golden tool state; physically absent at candidate handoff
-/contracts/goldens/api/catalog/node_modules/
-/contracts/goldens/api/catalog/.cache/
-/contracts/goldens/api/catalog/.tmp/
-
-# Rankings API golden tool state; physically absent at candidate handoff
-/contracts/goldens/api/rankings/node_modules/
-/contracts/goldens/api/rankings/.cache/
-/contracts/goldens/api/rankings/.tmp/
+# API golden tool state
+/contracts/goldens/api/*/node_modules/
+/contracts/goldens/api/*/.cache/
+/contracts/goldens/api/*/.tmp/
 
 # Archive contract tool state
 /contracts/schemas/archive/.cache/
