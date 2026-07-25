@@ -14,7 +14,7 @@ the prototype where formal operation boundaries differ.
 
 | Boundary | Declaration |
 |---|---|
-| Status | Specified and main-agent approved. Group 1 is accepted at `9eae3216`; Group 2A may implement the accepted partners contract independently, while Group 2B remains gated on co-star handoff. |
+| Status | Specified and main-agent approved. Group 1 is accepted at `9eae3216`, Group 2A at `f7233647`, and the co-star contract/runtime at `8b9d623a` plus archive `a15073fb`. Group 2B feature-owned implementation may proceed; shared integration remains gated on the active oracle owner's commit and explicit main-agent handoff. |
 | Owner | One Frontend implementation agent; main agent audits and accepts. |
 | Writable paths | Exactly the paths declared in `proposal.md`; feature-owned work stays under `frontend/src/features/co-star/**`, with only the listed API, coordinator/share, app, shared primitive, check, architecture, and test integration files mutable. |
 | Read-only protected inputs | Higher authorities, oracle, contracts/backend/updater, contract-owned generated DTOs and generators, non-listed frontend files, other changes, refs/remotes, external repositories, and production state. |
