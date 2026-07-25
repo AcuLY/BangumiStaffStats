@@ -67,6 +67,6 @@
 - [x] 2.1 Audit the exact diff and all evidence, rerun proportional negative,
   ordinary, sealed-success, failure-cleanup, final-reseal, inventory,
   `git diff --check`, and strict OpenSpec gates; stop on any discrepancy.
-- [ ] 2.2 Commit and push the accepted prerequisite, sync its delta to the main
+- [x] 2.2 Commit and push the accepted prerequisite, sync its delta to the main
   capability, archive it, strict-validate the resulting repository, and select
   the new clean product candidate before integrated acceptance resumes.
