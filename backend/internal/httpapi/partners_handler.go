@@ -219,7 +219,11 @@ func (handler *routeHandler) writePartnersWithExecutor(
 		return
 	}
 	if handler.events != nil {
-		event, eventErr := terminal.Complete(time.Since(startedAt), int64(written))
+		event, eventErr := terminal.CompleteWithExecution(
+			time.Since(startedAt),
+			int64(written),
+			queryExecutionFactsForRequest(request),
+		)
 		if eventErr == nil {
 			_ = handler.events.Emit(event)
 		}
@@ -415,12 +419,13 @@ func (handler *routeHandler) rejectPartners(
 	if request != nil && request.ContentLength > 0 {
 		contentLength = request.ContentLength
 	}
-	event, eventErr := terminal.Reject(
+	event, eventErr := terminal.RejectWithExecution(
 		response.status,
 		partnersEventErrorCode(response.code),
 		paths,
 		contentLength,
 		time.Since(startedAt),
+		queryExecutionFactsForRequest(request),
 	)
 	if eventErr == nil {
 		_ = handler.events.Emit(event)

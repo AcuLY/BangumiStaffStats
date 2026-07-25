@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 )
 
 const inputDigestDomain = "bgmss.input.v1\x00"
@@ -296,12 +298,18 @@ func (pool *resultPool) stats() LRUStats {
 // share the process pool and Executor.
 type ResultStore[V any] struct {
 	pool      *resultPool
-	loads     *DetachedGroup[ResultKey, V]
+	loads     *DetachedGroup[ResultKey, resultExecution[V]]
 	executor  *Executor
 	clone     CloneFunc[V]
 	cost      CostFunc[V]
 	valueType reflect.Type
 	operation Operation
+}
+
+type resultExecution[V any] struct {
+	value       V
+	observation querytiming.ExecutionObservation
+	err         error
 }
 
 // NewResultStore constructs an isolated typed core store for focused tests and
@@ -364,7 +372,7 @@ func newResultStore[V any](
 		cost == nil {
 		return nil, outcome(CodeInvalidInput)
 	}
-	loads, err := NewDetachedGroup[ResultKey, V](
+	loads, err := NewDetachedGroup[ResultKey, resultExecution[V]](
 		loadTimeout,
 		ResultKey.String,
 	)
@@ -409,33 +417,78 @@ func (store *ResultStore[V]) GetOrCompute(
 		compute == nil {
 		return zero, outcome(CodeInvalidInput)
 	}
+	cacheStarted := time.Now()
 	if value, found := resultPoolGet[V](store.pool, key, store.valueType); found {
+		if trace := querytiming.FromContext(ctx); trace != nil {
+			_ = trace.ObserveResultCache(
+				querytiming.CacheHit,
+				time.Since(cacheStarted),
+			)
+		}
 		return value, nil
 	}
+	if trace := querytiming.FromContext(ctx); trace != nil {
+		_ = trace.ObserveResultCache(
+			querytiming.CacheMiss,
+			time.Since(cacheStarted),
+		)
+	}
 
-	value, err := store.loads.Do(ctx, key, func(workerContext context.Context) (V, error) {
-		if cached, found := resultPoolGet[V](store.pool, key, store.valueType); found {
-			return cached, nil
-		}
-		var computed V
-		runErr := store.executor.Do(workerContext, func(runContext context.Context) error {
-			var err error
-			computed, err = compute(runContext)
-			return err
-		})
-		if runErr != nil {
-			return zero, runErr
-		}
-		retainedCost := store.cost(computed)
-		if retainedCost >= 0 {
-			resultPoolPut(store.pool, key, computed, store.valueType, store.clone, retainedCost)
-		}
-		return computed, nil
-	})
+	loaded, err := store.loads.Do(
+		ctx,
+		key,
+		func(workerContext context.Context) (resultExecution[V], error) {
+			if cached, found := resultPoolGet[V](store.pool, key, store.valueType); found {
+				return resultExecution[V]{value: cached}, nil
+			}
+			workerTrace := querytiming.New()
+			workerContext = querytiming.WithContext(workerContext, workerTrace)
+			var computed V
+			runErr := store.executor.Do(workerContext, func(runContext context.Context) error {
+				computeStarted := time.Now()
+				sqliteBefore, _ := workerTrace.CurrentPhase(querytiming.PhaseSQLite)
+				defer func() {
+					sqliteAfter, _ := workerTrace.CurrentPhase(querytiming.PhaseSQLite)
+					computeSeconds := time.Since(computeStarted).Seconds() -
+						(sqliteAfter - sqliteBefore)
+					if computeSeconds < 0 {
+						computeSeconds = 0
+					}
+					_ = workerTrace.AddSeconds(
+						querytiming.PhaseCompute,
+						computeSeconds,
+					)
+				}()
+				var err error
+				computed, err = compute(runContext)
+				return err
+			})
+			if runErr != nil {
+				return resultExecution[V]{
+					observation: workerTrace.Freeze().Execution(),
+					err:         runErr,
+				}, nil
+			}
+			retainedCost := store.cost(computed)
+			if retainedCost >= 0 {
+				resultPoolPut(store.pool, key, computed, store.valueType, store.clone, retainedCost)
+			}
+			return resultExecution[V]{
+				value:       computed,
+				observation: workerTrace.Freeze().Execution(),
+			}, nil
+		},
+	)
 	if err != nil {
 		return zero, err
 	}
-	return store.clone(value), nil
+	if trace := querytiming.FromContext(ctx); trace != nil {
+		_ = trace.MergeExecution(loaded.observation)
+	}
+	if loaded.err != nil {
+		return zero, loaded.err
+	}
+	return store.clone(loaded.value), nil
 }
 
 // Stats returns the underlying result-pool snapshot. For a shared QueryRuntime

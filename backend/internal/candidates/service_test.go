@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 )
 
@@ -70,7 +71,8 @@ func TestServiceExecutesGlobalArchiveCandidatesWithoutCollection(t *testing.T) {
 		return runtimecache.CollectionSnapshot{}, nil
 	}))
 
-	result, err := service.Execute(context.Background(), Request{
+	trace := querytiming.New()
+	result, err := service.Execute(querytiming.WithContext(context.Background(), trace), Request{
 		Query: json.RawMessage(
 			`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`,
 		),
@@ -81,6 +83,7 @@ func TestServiceExecutesGlobalArchiveCandidatesWithoutCollection(t *testing.T) {
 		failure, _ := ErrorDetails(err)
 		t.Fatalf("Execute: %#v cause=%v", err, failure.cause)
 	}
+	assertGlobalServiceTiming(t, trace.Freeze())
 	if collectionCalls.Load() != 0 {
 		t.Fatalf("global collection calls = %d", collectionCalls.Load())
 	}
@@ -123,6 +126,26 @@ func TestServiceExecutesGlobalArchiveCandidatesWithoutCollection(t *testing.T) {
 	if strings.Contains(string(data), `"collection"`) ||
 		strings.Contains(string(data), `"selected"`) {
 		t.Fatalf("forbidden global fields leaked: %s", data)
+	}
+}
+
+func assertGlobalServiceTiming(t *testing.T, snapshot querytiming.Snapshot) {
+	t.Helper()
+	if snapshot.Scope() != querytiming.ScopeGlobal {
+		t.Fatalf("scope = %q", snapshot.Scope())
+	}
+	for _, phase := range []querytiming.Phase{
+		querytiming.PhaseCache,
+		querytiming.PhaseSQLite,
+		querytiming.PhaseCompute,
+		querytiming.PhaseProjection,
+	} {
+		if _, present := snapshot.Phase(phase); !present {
+			t.Fatalf("phase %q absent: %#v", phase, snapshot)
+		}
+	}
+	if _, present := snapshot.Phase(querytiming.PhaseCollection); present {
+		t.Fatal("global query recorded a collection phase")
 	}
 }
 
@@ -338,24 +361,23 @@ func rewriteCandidateFixture(t *testing.T, sqlitePath, manifestPath string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, statement := range []string{
-		`UPDATE catalog_selection_rule
-SET rule_key = 'rule:' || position_key,
-    rule_value = replace(rule_value, 'positionId=', '')
-WHERE rule_kind = 'exactStaff'`,
-		`UPDATE catalog_selection_rule
-SET rule_key = 'exclusive:cast:' || (
-      SELECT subject_type
-      FROM catalog_position
-      WHERE catalog_position.position_key = catalog_selection_rule.position_key
-    ),
-    rule_value = replace(rule_value, 'roleType=', '')
-WHERE rule_kind = 'exactCast'`,
-	} {
-		if _, err := database.Exec(statement); err != nil {
-			_ = database.Close()
-			t.Fatal(err)
-		}
+	result, err := database.Exec(
+		`DELETE FROM catalog_capability
+		  WHERE position_key = 'cast:anime:main'
+		    AND capability = 'candidates'`,
+	)
+	if err != nil {
+		_ = database.Close()
+		t.Fatal(err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		_ = database.Close()
+		t.Fatal(err)
+	}
+	if affected != 1 {
+		_ = database.Close()
+		t.Fatalf("removed candidates capabilities = %d, want 1", affected)
 	}
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
@@ -372,6 +394,15 @@ WHERE rule_kind = 'exactCast'`,
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
 		t.Fatal(err)
 	}
+	tableCounts, ok := manifest["tableCounts"].(map[string]any)
+	if !ok {
+		t.Fatal("manifest tableCounts is missing")
+	}
+	capabilityCount, ok := tableCounts["catalog_capability"].(float64)
+	if !ok || capabilityCount < 1 {
+		t.Fatal("manifest catalog_capability count is invalid")
+	}
+	tableCounts["catalog_capability"] = capabilityCount - 1
 	digest := sha256.Sum256(sqliteBytes)
 	manifest["sqliteSize"] = len(sqliteBytes)
 	manifest["sqliteDigest"] = fmt.Sprintf("sha256:%x", digest)

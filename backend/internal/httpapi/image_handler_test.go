@@ -74,6 +74,12 @@ func TestImageRouteStreamsExactResponseAndOnlyReviewedRequestMetadata(t *testing
 	) {
 		t.Fatalf("image metric missing:\n%s", metricsText)
 	}
+	if !strings.Contains(
+		metricsText,
+		`bgmss_upstream_request_experiences_total{outcome="success",upstream="image"} 1`,
+	) {
+		t.Fatalf("image upstream metric missing:\n%s", metricsText)
+	}
 	for _, forbidden := range []string{
 		"persons", "medium", "secret", "private", "127.0.0.1",
 		"person_id", "subject_id", "character_id", "raw_path",
@@ -81,6 +87,30 @@ func TestImageRouteStreamsExactResponseAndOnlyReviewedRequestMetadata(t *testing
 		if strings.Contains(metricsText, forbidden) {
 			t.Fatalf("metric leaked %q:\n%s", forbidden, metricsText)
 		}
+	}
+}
+
+func TestImageUpstreamOutcomeMappingIsClosed(t *testing.T) {
+	testCases := map[observability.ImageOutcome]observability.DependencyOutcome{
+		observability.ImageOutcomeSuccess:     observability.DependencyOutcomeSuccess,
+		observability.ImageOutcomeRejected:    observability.DependencyOutcomeError,
+		observability.ImageOutcomeBusy:        observability.DependencyOutcomeRateLimited,
+		observability.ImageOutcomeNotFound:    observability.DependencyOutcomeNotFound,
+		observability.ImageOutcomeTimeout:     observability.DependencyOutcomeTimeout,
+		observability.ImageOutcomeCanceled:    observability.DependencyOutcomeCanceled,
+		observability.ImageOutcomeUnavailable: observability.DependencyOutcomeNetworkError,
+		observability.ImageOutcomeProtocol:    observability.DependencyOutcomeDecodeError,
+		observability.ImageOutcomeStreamError: observability.DependencyOutcomeUpstreamError,
+	}
+	for input, want := range testCases {
+		if got := imageDependencyOutcome(input); got != want {
+			t.Fatalf("outcome %q = %q, want %q", input, got, want)
+		}
+	}
+	if got := imageDependencyOutcome(
+		observability.ImageOutcome("attacker-value"),
+	); got != observability.DependencyOutcomeError {
+		t.Fatalf("unknown outcome = %q", got)
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 )
 
@@ -70,7 +71,8 @@ func TestServiceExecutesGlobalPartnersWithoutCollection(t *testing.T) {
 		collectionCalls.Add(1)
 		return runtimecache.CollectionSnapshot{}, nil
 	}))
-	result, err := service.Execute(context.Background(), Request{
+	trace := querytiming.New()
+	result, err := service.Execute(querytiming.WithContext(context.Background(), trace), Request{
 		Query: json.RawMessage(
 			`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`,
 		),
@@ -83,6 +85,7 @@ func TestServiceExecutesGlobalPartnersWithoutCollection(t *testing.T) {
 		failure, _ := ErrorDetails(err)
 		t.Fatalf("Execute: %#v cause=%v", err, failure.cause)
 	}
+	assertGlobalServiceTiming(t, trace.Freeze())
 	if collectionCalls.Load() != 0 {
 		t.Fatalf("global collection calls = %d", collectionCalls.Load())
 	}
@@ -118,6 +121,26 @@ func TestServiceExecutesGlobalPartnersWithoutCollection(t *testing.T) {
 	if strings.Contains(string(data), `"preference"`) ||
 		strings.Contains(string(data), `"collection"`) {
 		t.Fatalf("global leaked personal state: %s", data)
+	}
+}
+
+func assertGlobalServiceTiming(t *testing.T, snapshot querytiming.Snapshot) {
+	t.Helper()
+	if snapshot.Scope() != querytiming.ScopeGlobal {
+		t.Fatalf("scope = %q", snapshot.Scope())
+	}
+	for _, phase := range []querytiming.Phase{
+		querytiming.PhaseCache,
+		querytiming.PhaseSQLite,
+		querytiming.PhaseCompute,
+		querytiming.PhaseProjection,
+	} {
+		if _, present := snapshot.Phase(phase); !present {
+			t.Fatalf("phase %q absent: %#v", phase, snapshot)
+		}
+	}
+	if _, present := snapshot.Phase(querytiming.PhaseCollection); present {
+		t.Fatal("global query recorded a collection phase")
 	}
 }
 
@@ -408,26 +431,23 @@ func rewritePartnerFixture(
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, statement := range []string{
-		`UPDATE catalog_selection_rule
-SET rule_key = 'rule:' || position_key,
-    rule_value = replace(rule_value, 'positionId=', '')
-WHERE rule_kind = 'exactStaff'`,
-		`UPDATE catalog_selection_rule
-SET rule_key = 'exclusive:cast:' || (
-      SELECT subject_type
-      FROM catalog_position
-      WHERE catalog_position.position_key = catalog_selection_rule.position_key
-    ),
-    rule_value = replace(rule_value, 'roleType=', '')
-WHERE rule_kind = 'exactCast'`,
-		`INSERT INTO catalog_capability(position_key, capability, supported)
-VALUES ('staff:anime:2', 'partners', 1)`,
-	} {
-		if _, err := database.Exec(statement); err != nil {
-			_ = database.Close()
-			t.Fatal(err)
-		}
+	result, err := database.Exec(
+		`DELETE FROM catalog_capability
+		  WHERE position_key = 'cast:anime:main'
+		    AND capability = 'partners'`,
+	)
+	if err != nil {
+		_ = database.Close()
+		t.Fatal(err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		_ = database.Close()
+		t.Fatal(err)
+	}
+	if affected != 1 {
+		_ = database.Close()
+		t.Fatalf("removed partners capabilities = %d, want 1", affected)
 	}
 	if extraPeople < 0 {
 		_ = database.Close()
@@ -492,7 +512,10 @@ VALUES ('staff:anime:2', 'partners', 1)`,
 	if !ok {
 		t.Fatal("manifest catalog_capability count missing")
 	}
-	tableCounts["catalog_capability"] = capabilityCount + 1
+	if capabilityCount < 1 {
+		t.Fatal("manifest catalog_capability count is invalid")
+	}
+	tableCounts["catalog_capability"] = capabilityCount - 1
 	if extraPeople > 0 {
 		personCount, ok := tableCounts["person"].(float64)
 		if !ok {

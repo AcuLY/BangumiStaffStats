@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 )
 
 type testClock struct {
@@ -208,7 +210,9 @@ func TestCollectionTemporaryFailureUsesEligibleStale(t *testing.T) {
 	}
 	clock.Advance(61 * time.Minute)
 	temporary := mustCollectionFailure(t, FailureRateLimited)
-	stale, err := cache.Get(context.Background(), key, false, func(context.Context) (CollectionSnapshot, error) {
+	trace := querytiming.New()
+	staleContext := querytiming.WithContext(context.Background(), trace)
+	stale, err := cache.Get(staleContext, key, false, func(context.Context) (CollectionSnapshot, error) {
 		return CollectionSnapshot{}, temporary
 	})
 	if err != nil {
@@ -217,6 +221,13 @@ func TestCollectionTemporaryFailureUsesEligibleStale(t *testing.T) {
 	if !stale.Stale ||
 		!slices.Equal(stale.WarningCodes, []string{CollectionStaleWarning}) {
 		t.Fatalf("stale metadata = %+v", stale)
+	}
+	observation := trace.Freeze()
+	if observation.CollectionCache() != querytiming.CacheStale ||
+		!observation.CollectionUpstream().Present ||
+		observation.CollectionUpstream().Outcome !=
+			querytiming.DependencyRateLimited {
+		t.Fatalf("stale timing observation = %#v", observation)
 	}
 
 	clock.Advance(29 * time.Minute)
@@ -421,7 +432,15 @@ func TestCollectionSameKeyLoadIsDetachedAndPublishedOnce(t *testing.T) {
 		}
 	}
 
-	cancelContext, cancel := context.WithCancel(context.Background())
+	firstTrace := querytiming.New()
+	cancelContext, cancel := context.WithCancel(
+		querytiming.WithContext(context.Background(), firstTrace),
+	)
+	secondTrace := querytiming.New()
+	secondContext := querytiming.WithContext(
+		context.Background(),
+		secondTrace,
+	)
 	first := make(chan error, 1)
 	second := make(chan error, 1)
 	go func() {
@@ -430,7 +449,7 @@ func TestCollectionSameKeyLoadIsDetachedAndPublishedOnce(t *testing.T) {
 	}()
 	<-started
 	go func() {
-		_, err := cache.Get(context.Background(), key, false, fetch)
+		_, err := cache.Get(secondContext, key, false, fetch)
 		second <- err
 	}()
 	time.Sleep(10 * time.Millisecond)
@@ -447,6 +466,18 @@ func TestCollectionSameKeyLoadIsDetachedAndPublishedOnce(t *testing.T) {
 	}
 	if calls.Load() != 1 {
 		t.Fatalf("fetch calls = %d", calls.Load())
+	}
+	firstUpstream := firstTrace.Freeze().CollectionUpstream()
+	secondUpstream := secondTrace.Freeze().CollectionUpstream()
+	if !firstUpstream.Present ||
+		firstUpstream.Outcome != querytiming.DependencyCanceled ||
+		!secondUpstream.Present ||
+		secondUpstream.Outcome != querytiming.DependencySuccess {
+		t.Fatalf(
+			"request experiences = first %#v second %#v",
+			firstUpstream,
+			secondUpstream,
+		)
 	}
 }
 

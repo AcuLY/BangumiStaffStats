@@ -4,14 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/httpapi/wire"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/observability"
 )
 
 func TestHealthRoutesHaveExactBodiesAndDoNotShareProbeWork(t *testing.T) {
@@ -61,6 +64,52 @@ func TestHealthRoutesHaveExactBodiesAndDoNotShareProbeWork(t *testing.T) {
 	}
 	if !strings.Contains(metricsResponse.Body.String(), `bgmss_current_snapshot_info{data_version="`+dataVersion+`"} 1`) {
 		t.Fatal("metrics omitted current snapshot identity")
+	}
+}
+
+func TestMetricsRouteSurvivesPanickingStatsAndUnreadableUpdaterSource(
+	t *testing.T,
+) {
+	runtimeObservability, err := NewRuntimeObservability(io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runtimeObservability.SetRuntimeStatsProvider(
+		func() (observability.RuntimeStats, error) {
+			panic("private stats panic")
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtimeObservability.SetUpdateStatusPath(
+		filepath.Join(t.TempDir(), "update-status.json"),
+	); err != nil {
+		t.Fatal(err)
+	}
+	handler := runtimeObservability.Handler(nil)
+	metricsResponse := performRequest(handler, http.MethodGet, routeMetrics)
+	if metricsResponse.Code != http.StatusOK ||
+		!strings.Contains(
+			metricsResponse.Body.String(),
+			"bgmss_query_runtime_stats_valid 0",
+		) ||
+		!strings.Contains(
+			metricsResponse.Body.String(),
+			"bgmss_updater_status_valid 0",
+		) ||
+		strings.Contains(metricsResponse.Body.String(), "private stats panic") {
+		t.Fatalf(
+			"metrics response = %d %q",
+			metricsResponse.Code,
+			metricsResponse.Body.String(),
+		)
+	}
+	if response := performRequest(
+		handler,
+		http.MethodGet,
+		routeLivez,
+	); response.Code != http.StatusOK {
+		t.Fatalf("ordinary route status = %d", response.Code)
 	}
 }
 

@@ -2,10 +2,7 @@ package persondetail
 
 import (
 	"context"
-	"crypto/sha256"
-	"database/sql"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -15,6 +12,7 @@ import (
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/statistics"
 )
@@ -78,11 +76,16 @@ func TestServiceExecutesArchiveBackedGlobalDetailWithoutCollection(t *testing.T)
 		Input: json.RawMessage(`{"personId":100}`),
 		View:  json.RawMessage(`{"page":1,"pageSize":5}`),
 	}
-	first, err := service.Execute(context.Background(), request)
+	trace := querytiming.New()
+	first, err := service.Execute(
+		querytiming.WithContext(context.Background(), trace),
+		request,
+	)
 	if err != nil {
 		failure, _ := ErrorDetails(err)
 		t.Fatalf("Execute: %#v", failure)
 	}
+	assertGlobalServiceTiming(t, trace.Freeze())
 	request.View = json.RawMessage(`{"search":"金标","page":2,"pageSize":5}`)
 	second, err := service.Execute(context.Background(), request)
 	if err != nil {
@@ -106,6 +109,26 @@ func TestServiceExecutesArchiveBackedGlobalDetailWithoutCollection(t *testing.T)
 	stats := service.results.Stats()
 	if stats.Items != 1 || stats.Publications != 1 || stats.Hits == 0 {
 		t.Fatalf("core cache stats = %+v", stats)
+	}
+}
+
+func assertGlobalServiceTiming(t *testing.T, snapshot querytiming.Snapshot) {
+	t.Helper()
+	if snapshot.Scope() != querytiming.ScopeGlobal {
+		t.Fatalf("scope = %q", snapshot.Scope())
+	}
+	for _, phase := range []querytiming.Phase{
+		querytiming.PhaseCache,
+		querytiming.PhaseSQLite,
+		querytiming.PhaseCompute,
+		querytiming.PhaseProjection,
+	} {
+		if _, present := snapshot.Phase(phase); !present {
+			t.Fatalf("phase %q absent: %#v", phase, snapshot)
+		}
+	}
+	if _, present := snapshot.Phase(querytiming.PhaseCollection); present {
+		t.Fatal("global query recorded a collection phase")
 	}
 }
 
@@ -319,11 +342,6 @@ func loadPersonDetailArchive(t *testing.T) *archive.Store {
 			t.Fatal(err)
 		}
 	}
-	rewritePersonDetailFixture(
-		t,
-		filepath.Join(versionRoot, "bangumi.sqlite"),
-		filepath.Join(versionRoot, "manifest.json"),
-	)
 	store, err := archive.LoadCandidate(context.Background(), root, pointer.DataVersion)
 	if err != nil {
 		t.Fatal(err)
@@ -334,67 +352,6 @@ func loadPersonDetailArchive(t *testing.T) *archive.Store {
 		}
 	})
 	return store
-}
-
-func rewritePersonDetailFixture(t *testing.T, sqlitePath, manifestPath string) {
-	t.Helper()
-	database, err := sql.Open("sqlite", sqlitePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, statement := range []string{
-		`UPDATE catalog_selection_rule
-SET rule_key = 'rule:' || position_key,
-    rule_value = replace(rule_value, 'positionId=', '')
-WHERE rule_kind = 'exactStaff'`,
-		`UPDATE catalog_selection_rule
-SET rule_key = 'exclusive:cast:' || (
-      SELECT subject_type
-      FROM catalog_position
-      WHERE catalog_position.position_key = catalog_selection_rule.position_key
-    ),
-    rule_value = replace(rule_value, 'roleType=', '')
-WHERE rule_kind = 'exactCast'`,
-		`INSERT INTO catalog_capability(position_key, capability, supported)
-VALUES ('staff:anime:2', 'personDetail', 1),
-       ('cast:anime:main', 'personDetail', 1)`,
-	} {
-		if _, err := database.Exec(statement); err != nil {
-			_ = database.Close()
-			t.Fatal(err)
-		}
-	}
-	if err := database.Close(); err != nil {
-		t.Fatal(err)
-	}
-	sqliteBytes, err := os.ReadFile(sqlitePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifestBytes, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var manifest map[string]any
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		t.Fatal(err)
-	}
-	tableCounts, ok := manifest["tableCounts"].(map[string]any)
-	if !ok {
-		t.Fatal("manifest tableCounts is missing")
-	}
-	tableCounts["catalog_capability"] = float64(6)
-	digest := sha256.Sum256(sqliteBytes)
-	manifest["sqliteSize"] = len(sqliteBytes)
-	manifest["sqliteDigest"] = fmt.Sprintf("sha256:%x", digest)
-	updated, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	updated = append(updated, '\n')
-	if err := os.WriteFile(manifestPath, updated, 0o644); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestStrictInputNeverEchoesRawEntityOrUnknownField(t *testing.T) {

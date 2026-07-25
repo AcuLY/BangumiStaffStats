@@ -99,6 +99,16 @@ const (
 	FieldPathView  FieldPath = "/view"
 )
 
+// QueryExecutionFacts is the event-facing projection of the frozen request
+// observation. No identifier, digest, error text, key, path, or arbitrary map
+// can be represented.
+type QueryExecutionFacts struct {
+	Scope           QueryScope
+	ResultCache     CacheOutcome
+	CollectionCache CacheOutcome
+	Phases          []QueryPhaseObservation
+}
+
 // Event is an allowlisted event value. Its payload cannot be populated with an
 // arbitrary map by another package.
 type Event struct {
@@ -114,25 +124,41 @@ type archiveLoadFailedPayload struct {
 }
 
 type queryCompletedPayload struct {
-	Event         string `json:"event"`
-	Channel       string `json:"channel"`
-	RequestID     string `json:"request_id"`
-	Operation     string `json:"operation"`
-	Status        int    `json:"status"`
-	DurationMS    int64  `json:"duration_ms"`
-	ResponseBytes int64  `json:"response_bytes"`
+	Event                string   `json:"event"`
+	Channel              string   `json:"channel"`
+	RequestID            string   `json:"request_id"`
+	Operation            string   `json:"operation"`
+	Status               int      `json:"status"`
+	DurationMS           int64    `json:"duration_ms"`
+	ResponseBytes        int64    `json:"response_bytes"`
+	Scope                string   `json:"scope"`
+	ResultCache          string   `json:"result_cache_outcome"`
+	CollectionCache      string   `json:"collection_cache_outcome"`
+	CollectionDurationMS *float64 `json:"collection_duration_ms,omitempty"`
+	CacheDurationMS      *float64 `json:"cache_duration_ms,omitempty"`
+	SQLiteDurationMS     *float64 `json:"sqlite_duration_ms,omitempty"`
+	ComputeDurationMS    *float64 `json:"compute_duration_ms,omitempty"`
+	ProjectionDurationMS *float64 `json:"projection_duration_ms,omitempty"`
 }
 
 type queryRejectedPayload struct {
-	Event         string   `json:"event"`
-	Channel       string   `json:"channel"`
-	RequestID     string   `json:"request_id"`
-	Operation     string   `json:"operation"`
-	ContentLength int64    `json:"content_length"`
-	Status        int      `json:"status"`
-	ErrorCode     string   `json:"error_code"`
-	FieldPaths    []string `json:"field_paths"`
-	DurationMS    int64    `json:"duration_ms"`
+	Event                string   `json:"event"`
+	Channel              string   `json:"channel"`
+	RequestID            string   `json:"request_id"`
+	Operation            string   `json:"operation"`
+	ContentLength        int64    `json:"content_length"`
+	Status               int      `json:"status"`
+	ErrorCode            string   `json:"error_code"`
+	FieldPaths           []string `json:"field_paths"`
+	DurationMS           int64    `json:"duration_ms"`
+	Scope                string   `json:"scope"`
+	ResultCache          string   `json:"result_cache_outcome"`
+	CollectionCache      string   `json:"collection_cache_outcome"`
+	CollectionDurationMS *float64 `json:"collection_duration_ms,omitempty"`
+	CacheDurationMS      *float64 `json:"cache_duration_ms,omitempty"`
+	SQLiteDurationMS     *float64 `json:"sqlite_duration_ms,omitempty"`
+	ComputeDurationMS    *float64 `json:"compute_duration_ms,omitempty"`
+	ProjectionDurationMS *float64 `json:"projection_duration_ms,omitempty"`
 }
 
 // ImageOutcome is the closed terminal outcome set for the image boundary.
@@ -208,21 +234,47 @@ func NewQueryTerminal(requestID string, operation QueryOperation) (*QueryTermina
 
 // Complete constructs the sole completion event for this typed request.
 func (q *QueryTerminal) Complete(duration time.Duration, responseBytes int64) (Event, error) {
+	return q.CompleteWithExecution(
+		duration,
+		responseBytes,
+		QueryExecutionFacts{},
+	)
+}
+
+// CompleteWithExecution constructs the sole completion event with one frozen
+// closed execution projection.
+func (q *QueryTerminal) CompleteWithExecution(
+	duration time.Duration,
+	responseBytes int64,
+	execution QueryExecutionFacts,
+) (Event, error) {
 	if q == nil || !validEventDuration(duration) || responseBytes < 0 || responseBytes > 1<<30 {
 		return Event{}, errors.New("observability: invalid completion facts")
+	}
+	facts, err := normalizeQueryExecutionFacts(execution)
+	if err != nil {
+		return Event{}, err
 	}
 	if !q.emitted.CompareAndSwap(false, true) {
 		return Event{}, ErrTerminalEventAlreadyBuilt
 	}
 	return Event{
 		payload: queryCompletedPayload{
-			Event:         "query_completed",
-			Channel:       "query",
-			RequestID:     q.requestID,
-			Operation:     string(q.operation),
-			Status:        200,
-			DurationMS:    duration.Milliseconds(),
-			ResponseBytes: responseBytes,
+			Event:                "query_completed",
+			Channel:              "query",
+			RequestID:            q.requestID,
+			Operation:            string(q.operation),
+			Status:               200,
+			DurationMS:           duration.Milliseconds(),
+			ResponseBytes:        responseBytes,
+			Scope:                string(facts.Scope),
+			ResultCache:          string(facts.ResultCache),
+			CollectionCache:      string(facts.CollectionCache),
+			CollectionDurationMS: phaseMilliseconds(facts, QueryPhaseCollection),
+			CacheDurationMS:      phaseMilliseconds(facts, QueryPhaseCache),
+			SQLiteDurationMS:     phaseMilliseconds(facts, QueryPhaseSQLite),
+			ComputeDurationMS:    phaseMilliseconds(facts, QueryPhaseCompute),
+			ProjectionDurationMS: phaseMilliseconds(facts, QueryPhaseProjection),
 		},
 		emitted: new(atomic.Bool),
 	}, nil
@@ -236,10 +288,34 @@ func (q *QueryTerminal) Reject(
 	contentLength int64,
 	duration time.Duration,
 ) (Event, error) {
+	return q.RejectWithExecution(
+		status,
+		code,
+		fieldPaths,
+		contentLength,
+		duration,
+		QueryExecutionFacts{},
+	)
+}
+
+// RejectWithExecution constructs the sole rejection event with one frozen
+// closed execution projection.
+func (q *QueryTerminal) RejectWithExecution(
+	status int,
+	code QueryErrorCode,
+	fieldPaths []FieldPath,
+	contentLength int64,
+	duration time.Duration,
+	execution QueryExecutionFacts,
+) (Event, error) {
 	if q == nil || status < 400 || status > 599 || !validQueryErrorCode(code) || !validEventDuration(duration) {
 		return Event{}, errors.New("observability: invalid rejection facts")
 	}
 	safePaths, err := normalizeFieldPaths(fieldPaths)
+	if err != nil {
+		return Event{}, err
+	}
+	facts, err := normalizeQueryExecutionFacts(execution)
 	if err != nil {
 		return Event{}, err
 	}
@@ -254,18 +330,81 @@ func (q *QueryTerminal) Reject(
 	}
 	return Event{
 		payload: queryRejectedPayload{
-			Event:         "query_rejected",
-			Channel:       "query",
-			RequestID:     q.requestID,
-			Operation:     string(q.operation),
-			ContentLength: contentLength,
-			Status:        status,
-			ErrorCode:     string(code),
-			FieldPaths:    safePaths,
-			DurationMS:    duration.Milliseconds(),
+			Event:                "query_rejected",
+			Channel:              "query",
+			RequestID:            q.requestID,
+			Operation:            string(q.operation),
+			ContentLength:        contentLength,
+			Status:               status,
+			ErrorCode:            string(code),
+			FieldPaths:           safePaths,
+			DurationMS:           duration.Milliseconds(),
+			Scope:                string(facts.Scope),
+			ResultCache:          string(facts.ResultCache),
+			CollectionCache:      string(facts.CollectionCache),
+			CollectionDurationMS: phaseMilliseconds(facts, QueryPhaseCollection),
+			CacheDurationMS:      phaseMilliseconds(facts, QueryPhaseCache),
+			SQLiteDurationMS:     phaseMilliseconds(facts, QueryPhaseSQLite),
+			ComputeDurationMS:    phaseMilliseconds(facts, QueryPhaseCompute),
+			ProjectionDurationMS: phaseMilliseconds(facts, QueryPhaseProjection),
 		},
 		emitted: new(atomic.Bool),
 	}, nil
+}
+
+func normalizeQueryExecutionFacts(
+	facts QueryExecutionFacts,
+) (QueryExecutionFacts, error) {
+	if facts.Scope == "" {
+		facts.Scope = QueryScopeNotApplicable
+	}
+	if facts.ResultCache == "" {
+		facts.ResultCache = CacheOutcomeNotApplicable
+	}
+	if facts.CollectionCache == "" {
+		facts.CollectionCache = CacheOutcomeNotApplicable
+	}
+	if !validQueryScope(facts.Scope) ||
+		!validResultCacheOutcome(facts.ResultCache) ||
+		!validCollectionCacheOutcome(facts.CollectionCache) {
+		return QueryExecutionFacts{}, errors.New(
+			"observability: invalid query execution event facts",
+		)
+	}
+	seen := make(map[QueryPhase]struct{}, len(facts.Phases))
+	copied := append([]QueryPhaseObservation(nil), facts.Phases...)
+	for _, phase := range copied {
+		if !validQueryPhase(phase.Phase) ||
+			!finiteNonNegative(phase.Seconds) ||
+			phase.Seconds > float64((24*time.Hour)/time.Second) {
+			return QueryExecutionFacts{}, errors.New(
+				"observability: invalid query execution event phase",
+			)
+		}
+		if _, duplicate := seen[phase.Phase]; duplicate {
+			return QueryExecutionFacts{}, errors.New(
+				"observability: duplicate query execution event phase",
+			)
+		}
+		seen[phase.Phase] = struct{}{}
+	}
+	slices.SortFunc(copied, func(left, right QueryPhaseObservation) int {
+		return queryPhaseIndex(left.Phase) - queryPhaseIndex(right.Phase)
+	})
+	facts.Phases = copied
+	return facts, nil
+}
+
+func phaseMilliseconds(
+	facts QueryExecutionFacts,
+	phase QueryPhase,
+) *float64 {
+	seconds, present := phaseSeconds(facts.Phases, phase)
+	if !present {
+		return nil
+	}
+	value := seconds * float64(time.Second/time.Millisecond)
+	return &value
 }
 
 func validRequestID(value string) bool {

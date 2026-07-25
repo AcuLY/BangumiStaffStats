@@ -191,9 +191,10 @@ func (handler *routeHandler) writePersonDetail(
 		return
 	}
 	if handler.events != nil {
-		event, eventErr := terminal.Complete(
+		event, eventErr := terminal.CompleteWithExecution(
 			time.Since(startedAt),
 			int64(written),
+			queryExecutionFactsForRequest(request),
 		)
 		if eventErr == nil {
 			_ = handler.events.Emit(event)
@@ -393,12 +394,13 @@ func (handler *routeHandler) rejectPersonDetail(
 	if request != nil && request.ContentLength > 0 {
 		contentLength = request.ContentLength
 	}
-	event, eventErr := terminal.Reject(
+	event, eventErr := terminal.RejectWithExecution(
 		response.status,
 		personDetailEventErrorCode(response.code),
 		paths,
 		contentLength,
 		time.Since(startedAt),
+		queryExecutionFactsForRequest(request),
 	)
 	if eventErr == nil {
 		_ = handler.events.Emit(event)

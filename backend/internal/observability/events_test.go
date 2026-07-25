@@ -95,7 +95,7 @@ func TestQueryTerminalEventsAreMutuallyExclusiveAndAllowlisted(t *testing.T) {
 		if err := NewEventSink(io.Discard).Emit(event); !errors.Is(err, ErrEventAlreadyEmitted) {
 			t.Fatalf("duplicate event emission = %v", err)
 		}
-		if output.String() != `{"event":"query_completed","channel":"query","request_id":"0123456789abcdef","operation":"rankings","status":200,"duration_ms":125,"response_bytes":512}`+"\n" {
+		if output.String() != `{"event":"query_completed","channel":"query","request_id":"0123456789abcdef","operation":"rankings","status":200,"duration_ms":125,"response_bytes":512,"scope":"not_applicable","result_cache_outcome":"not_applicable","collection_cache_outcome":"not_applicable"}`+"\n" {
 			t.Fatalf("event = %q", output.String())
 		}
 		if _, err := terminal.Reject(400, QueryErrorInvalidRequest, nil, 1, time.Millisecond); !errors.Is(err, ErrTerminalEventAlreadyBuilt) {
@@ -122,13 +122,90 @@ func TestQueryTerminalEventsAreMutuallyExclusiveAndAllowlisted(t *testing.T) {
 		if err := NewEventSink(&output).Emit(event); err != nil {
 			t.Fatal(err)
 		}
-		if output.String() != `{"event":"query_rejected","channel":"query","request_id":"0123456789abcdef","operation":"co_star","content_length":65537,"status":400,"error_code":"INVALID_REQUEST","field_paths":["/body","/view"],"duration_ms":10}`+"\n" {
+		if output.String() != `{"event":"query_rejected","channel":"query","request_id":"0123456789abcdef","operation":"co_star","content_length":65537,"status":400,"error_code":"INVALID_REQUEST","field_paths":["/body","/view"],"duration_ms":10,"scope":"not_applicable","result_cache_outcome":"not_applicable","collection_cache_outcome":"not_applicable"}`+"\n" {
 			t.Fatalf("event = %q", output.String())
 		}
 		if _, err := terminal.Complete(time.Millisecond, 1); !errors.Is(err, ErrTerminalEventAlreadyBuilt) {
 			t.Fatalf("completion after rejection = %v", err)
 		}
 	})
+}
+
+func TestQueryTerminalExecutionFactsAreClosedAndFixed(t *testing.T) {
+	terminal, err := NewQueryTerminal(
+		"execution-safe-id",
+		QueryOperationCandidates,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event, err := terminal.CompleteWithExecution(
+		25*time.Millisecond,
+		64,
+		QueryExecutionFacts{
+			Scope:           QueryScopePersonal,
+			ResultCache:     CacheOutcomeMiss,
+			CollectionCache: CacheOutcomeStale,
+			Phases: []QueryPhaseObservation{
+				{Phase: QueryPhaseProjection, Seconds: 0.005},
+				{Phase: QueryPhaseCollection, Seconds: 0.0125},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if err := NewEventSink(&output).Emit(event); err != nil {
+		t.Fatal(err)
+	}
+	got := output.String()
+	for _, want := range []string{
+		`"scope":"personal"`,
+		`"result_cache_outcome":"miss"`,
+		`"collection_cache_outcome":"stale"`,
+		`"collection_duration_ms":12.5`,
+		`"projection_duration_ms":5`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("event lacks %q: %s", want, got)
+		}
+	}
+	for _, forbidden := range []string{
+		"uid", "digest", "SELECT", "/tmp/", "cache-key", "raw error",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("event contains %q: %s", forbidden, got)
+		}
+	}
+
+	for _, facts := range []QueryExecutionFacts{
+		{Scope: QueryScope("uid-1")},
+		{ResultCache: CacheOutcomeStale},
+		{CollectionCache: CacheOutcome("cache-key")},
+		{Phases: []QueryPhaseObservation{{
+			Phase: QueryPhase("raw-query"),
+		}}},
+		{Phases: []QueryPhaseObservation{
+			{Phase: QueryPhaseCache, Seconds: 1},
+			{Phase: QueryPhaseCache, Seconds: 2},
+		}},
+	} {
+		rejected, createErr := NewQueryTerminal(
+			"invalid-facts-id",
+			QueryOperationRankings,
+		)
+		if createErr != nil {
+			t.Fatal(createErr)
+		}
+		if _, factsErr := rejected.CompleteWithExecution(
+			time.Millisecond,
+			0,
+			facts,
+		); factsErr == nil {
+			t.Fatalf("accepted execution facts: %#v", facts)
+		}
+	}
 }
 
 func TestEventConstructorsRejectControlCharactersAndUnknownFields(t *testing.T) {

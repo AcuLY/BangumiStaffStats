@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/query"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 )
 
 const (
@@ -94,7 +96,11 @@ func loadArchiveEvidence(
 	people []PersonReference,
 	subjectIDs []int64,
 	characterIDs []int64,
-) (ArchiveEvidence, error) {
+) (evidence ArchiveEvidence, err error) {
+	started := time.Now()
+	defer func() {
+		querytiming.ObserveSQLiteFromContext(ctx, time.Since(started), err)
+	}()
 	if ctx == nil || store == nil {
 		return ArchiveEvidence{}, errors.New("costar: nil Archive store")
 	}

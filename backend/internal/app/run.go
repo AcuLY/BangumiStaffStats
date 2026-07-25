@@ -14,6 +14,7 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/candidates"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/costar"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/httpapi"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/observability"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/partners"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/persondetail"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/ranking"
@@ -24,8 +25,24 @@ const readinessQuery = "SELECT data_version FROM archive_meta WHERE singleton = 
 
 var errReadinessProbe = errors.New("app: Archive readiness probe failed")
 
+// RunOptions contains optional, non-critical process instrumentation inputs.
+type RunOptions struct {
+	UpdateStatusPath string
+}
+
 // Run listens on address and serves until ctx is cancelled or serving fails.
 func Run(ctx context.Context, address, archiveRoot string) error {
+	return RunWithOptions(ctx, address, archiveRoot, RunOptions{})
+}
+
+// RunWithOptions preserves Run semantics while admitting an explicit optional
+// read-only updater status source.
+func RunWithOptions(
+	ctx context.Context,
+	address string,
+	archiveRoot string,
+	options RunOptions,
+) error {
 	if ctx == nil {
 		return fmt.Errorf("run: nil context")
 	}
@@ -36,15 +53,37 @@ func Run(ctx context.Context, address, archiveRoot string) error {
 	}
 	defer listener.Close()
 
-	return RunListener(ctx, listener, archiveRoot)
+	return RunListenerWithOptions(ctx, listener, archiveRoot, options)
 }
 
 // RunListener loads one Archive and serves the approved runtime and image
 // routes on a caller-supplied listener.
 func RunListener(ctx context.Context, listener net.Listener, archiveRoot string) error {
+	return RunListenerWithOptions(
+		ctx,
+		listener,
+		archiveRoot,
+		RunOptions{},
+	)
+}
+
+// RunListenerWithOptions serves with optional non-critical instrumentation.
+func RunListenerWithOptions(
+	ctx context.Context,
+	listener net.Listener,
+	archiveRoot string,
+	options RunOptions,
+) error {
 	runtimeObservability, err := httpapi.NewRuntimeObservability(os.Stderr)
 	if err != nil {
 		return fmt.Errorf("create runtime observability: %w", err)
+	}
+	if options.UpdateStatusPath != "" {
+		if err := runtimeObservability.SetUpdateStatusPath(
+			options.UpdateStatusPath,
+		); err != nil {
+			return fmt.Errorf("configure update status: %w", err)
+		}
 	}
 	return runListener(ctx, listener, archiveRoot, runDependencies{
 		archive: new(archive.State),
@@ -159,6 +198,17 @@ func serveRuntime(
 		closeErr := dependencies.archive.Close()
 		return errors.Join(err, wrapError("close archive", closeErr))
 	}
+	if err := dependencies.runtime.SetRuntimeStatsProvider(
+		queryRuntimeStatsProvider(services.runtime),
+	); err != nil {
+		dependencies.runtime.SetLive(false)
+		_ = dependencies.runtime.SetReadiness(false, "")
+		closeErr := dependencies.archive.Close()
+		return errors.Join(
+			fmt.Errorf("configure query runtime stats: %w", err),
+			wrapError("close archive", closeErr),
+		)
+	}
 	handler := dependencies.runtime.HandlerWithCoStarDependencies(
 		probe,
 		currentCatalogStore(dependencies.archive),
@@ -194,6 +244,7 @@ func serveRuntime(
 }
 
 type queryServices struct {
+	runtime      *runtimecache.QueryRuntime
 	rankings     *ranking.Service
 	candidates   *candidates.Service
 	personDetail *persondetail.Service
@@ -254,12 +305,50 @@ func newQueryServices(archiveState archiveRuntime) (queryServices, error) {
 		return queryServices{}, fmt.Errorf("create co-star service: %w", err)
 	}
 	return queryServices{
+		runtime:      queryRuntime,
 		rankings:     rankings,
 		candidates:   candidateService,
 		personDetail: personDetailService,
 		partners:     partnersService,
 		coStar:       coStarService,
 	}, nil
+}
+
+func queryRuntimeStatsProvider(
+	queryRuntime *runtimecache.QueryRuntime,
+) observability.RuntimeStatsProvider {
+	return func() (observability.RuntimeStats, error) {
+		stats := queryRuntime.Stats()
+		return observability.RuntimeStats{
+			Executor: observability.ExecutorStats{
+				Running:  stats.Executor.Running,
+				Queued:   stats.Executor.Queued,
+				Started:  stats.Executor.Started,
+				Rejected: stats.Executor.Rejected,
+			},
+			CollectionPositive: mapCacheStats(
+				stats.CollectionPositive,
+			),
+			CollectionNegative: mapCacheStats(
+				stats.CollectionNegative,
+			),
+			Result: mapCacheStats(stats.Result),
+		}, nil
+	}
+}
+
+func mapCacheStats(stats runtimecache.LRUStats) observability.CacheStats {
+	return observability.CacheStats{
+		Hits:         stats.Hits,
+		Misses:       stats.Misses,
+		Publications: stats.Publications,
+		Replacements: stats.Replacements,
+		Evictions:    stats.Evictions,
+		Oversize:     stats.Oversize,
+		Deletes:      stats.Deletes,
+		Items:        int64(stats.Items),
+		Bytes:        stats.Cost,
+	}
 }
 
 func queryResultBindings() ([]runtimecache.ResultBinding, error) {

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 )
 
@@ -69,7 +70,8 @@ func TestServiceExecutesGlobalCoStarFromPublishedArchive(t *testing.T) {
 		collectionCalls.Add(1)
 		return runtimecache.CollectionSnapshot{}, nil
 	}))
-	result, err := service.Execute(context.Background(), Request{
+	trace := querytiming.New()
+	result, err := service.Execute(querytiming.WithContext(context.Background(), trace), Request{
 		Query: json.RawMessage(
 			`{"scope":"global","subjectType":"anime","positionKeys":["cast:anime:main"]}`,
 		),
@@ -81,6 +83,7 @@ func TestServiceExecutesGlobalCoStarFromPublishedArchive(t *testing.T) {
 		failure, _ := ErrorDetails(err)
 		t.Fatalf("Execute: %#v cause=%v", err, failureCause(failure))
 	}
+	assertGlobalServiceTiming(t, trace.Freeze())
 	if collectionCalls.Load() != 0 {
 		t.Fatalf("global collection calls = %d", collectionCalls.Load())
 	}
@@ -117,6 +120,101 @@ func TestServiceExecutesGlobalCoStarFromPublishedArchive(t *testing.T) {
 		strings.Contains(string(data), `"collection"`) ||
 		strings.Contains(string(data), `"matrix"`) {
 		t.Fatalf("global pair leaked scope/topology state: %s", data)
+	}
+}
+
+func assertGlobalServiceTiming(t *testing.T, snapshot querytiming.Snapshot) {
+	t.Helper()
+	if snapshot.Scope() != querytiming.ScopeGlobal {
+		t.Fatalf("scope = %q", snapshot.Scope())
+	}
+	for _, phase := range []querytiming.Phase{
+		querytiming.PhaseCache,
+		querytiming.PhaseSQLite,
+		querytiming.PhaseCompute,
+		querytiming.PhaseProjection,
+	} {
+		if _, present := snapshot.Phase(phase); !present {
+			t.Fatalf("phase %q absent: %#v", phase, snapshot)
+		}
+	}
+	if _, present := snapshot.Phase(querytiming.PhaseCollection); present {
+		t.Fatal("global query recorded a collection phase")
+	}
+}
+
+func TestLoadArchiveEvidenceContributesCompleteSQLiteOutcome(t *testing.T) {
+	store := loadCoStarArchive(t)
+	trace := querytiming.New()
+	if err := trace.ObserveSQLite(
+		querytiming.DependencySuccess,
+		13*time.Millisecond,
+	); err != nil {
+		t.Fatal(err)
+	}
+	before, present := trace.CurrentPhase(querytiming.PhaseSQLite)
+	if !present {
+		t.Fatal("baseline SQLite phase is absent")
+	}
+	evidence, err := loadArchiveEvidence(
+		querytiming.WithContext(context.Background(), trace),
+		store,
+		"anime",
+		[]PersonReference{{ID: 101, Name: "Person 101"}},
+		[]int64{1},
+		[]int64{200},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(evidence.People) != 1 ||
+		len(evidence.Subjects) != 1 ||
+		evidence.Subjects[0].ID != 1 ||
+		len(evidence.Characters) != 1 ||
+		evidence.Characters[0].ID == nil ||
+		*evidence.Characters[0].ID != 200 {
+		t.Fatalf("evidence = %#v", evidence)
+	}
+	success := trace.Freeze()
+	after, present := success.Phase(querytiming.PhaseSQLite)
+	if !present ||
+		after <= before ||
+		success.SQLiteOutcome() != querytiming.DependencySuccess {
+		t.Fatalf(
+			"success SQLite = before %f, after %f, present %t, outcome %q",
+			before,
+			after,
+			present,
+			success.SQLiteOutcome(),
+		)
+	}
+
+	closedStore := loadCoStarArchive(t)
+	if err := closedStore.Close(); err != nil {
+		t.Fatal(err)
+	}
+	errorTrace := querytiming.New()
+	_, err = loadArchiveEvidence(
+		querytiming.WithContext(context.Background(), errorTrace),
+		closedStore,
+		"anime",
+		nil,
+		[]int64{1},
+		nil,
+	)
+	if err == nil {
+		t.Fatal("closed Archive evidence load succeeded")
+	}
+	failed := errorTrace.Freeze()
+	if duration, present := failed.Phase(querytiming.PhaseSQLite); !present ||
+		duration <= 0 ||
+		failed.SQLiteOutcome() != querytiming.DependencyError {
+		t.Fatalf(
+			"error SQLite = %f, %t, %q",
+			duration,
+			present,
+			failed.SQLiteOutcome(),
+		)
 	}
 }
 
@@ -347,27 +445,23 @@ func normalizeCoStarFixture(
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, statement := range []string{
+	result, err := database.Exec(
 		`UPDATE cast_credit
 SET role_type = 1
 WHERE subject_type = 'anime' AND person_id = 102`,
-		`UPDATE catalog_selection_rule
-SET rule_key = 'rule:' || position_key,
-    rule_value = replace(rule_value, 'positionId=', '')
-WHERE rule_kind = 'exactStaff'`,
-		`UPDATE catalog_selection_rule
-SET rule_key = 'exclusive:cast:' || (
-      SELECT subject_type
-      FROM catalog_position
-      WHERE catalog_position.position_key = catalog_selection_rule.position_key
-    ),
-    rule_value = replace(rule_value, 'roleType=', '')
-WHERE rule_kind = 'exactCast'`,
-	} {
-		if _, err := database.Exec(statement); err != nil {
-			_ = database.Close()
-			t.Fatal(err)
-		}
+	)
+	if err != nil {
+		_ = database.Close()
+		t.Fatal(err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		_ = database.Close()
+		t.Fatal(err)
+	}
+	if affected != 1 {
+		_ = database.Close()
+		t.Fatalf("updated co-star credits = %d, want 1", affected)
 	}
 	if err := database.Close(); err != nil {
 		t.Fatal(err)

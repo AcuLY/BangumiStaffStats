@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/observability"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 )
 
 // DefaultRequestTimeout bounds downstream request work.
@@ -150,21 +151,39 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 				)
 			}
 		}
-		requestContext, cancel := context.WithTimeoutCause(identityContext, options.requestTimeout, requestDeadlineCause)
-		defer cancel()
+		var timingTrace *querytiming.Trace
+		if timedBusinessRoute(metricRoute(request)) {
+			timingTrace = querytiming.New()
+			identityContext = querytiming.WithContext(
+				identityContext,
+				timingTrace,
+			)
+		}
+		requestDeadline := startedAt.Add(options.requestTimeout)
+		effectiveDeadline := requestDeadline
+		if parentDeadline, ok := identityContext.Deadline(); ok &&
+			parentDeadline.Before(effectiveDeadline) {
+			effectiveDeadline = parentDeadline
+		}
+		requestContext, cancel := context.WithCancelCause(deadlineContext{
+			Context:  context.WithoutCancel(identityContext),
+			deadline: effectiveDeadline,
+		})
+		defer cancel(nil)
+		timeoutTimer := time.NewTimer(max(time.Until(requestDeadline), 0))
+		defer timeoutTimer.Stop()
 		request = request.WithContext(requestContext)
 		recorder.setContext(requestContext)
+		recorder.setTrace(timingTrace)
 
 		type handlerResult struct {
-			panicValue   any
-			contextCause error
+			panicValue any
 		}
 		handlerDone := make(chan handlerResult, 1)
 		go func() {
 			result := handlerResult{}
 			defer func() {
 				result.panicValue = recover()
-				result.contextCause = context.Cause(requestContext)
 				handlerDone <- result
 			}()
 			handler.ServeHTTP(recorder, request)
@@ -175,10 +194,10 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 		var abortConnection bool
 		select {
 		case result := <-handlerDone:
-			if result.contextCause != nil {
+			if cause := context.Cause(identityContext); cause != nil {
 				snapshot, outcome = finishContextOutcome(
 					recorder,
-					result.contextCause,
+					cause,
 					timeoutResponseForRequest(
 						request,
 						options.rankings,
@@ -188,6 +207,23 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 						options.coStar,
 					),
 				)
+				cancel(cause)
+				break
+			}
+			if !time.Now().Before(requestDeadline) {
+				snapshot, outcome = finishContextOutcome(
+					recorder,
+					requestDeadlineCause,
+					timeoutResponseForRequest(
+						request,
+						options.rankings,
+						options.candidates,
+						options.personDetail,
+						options.partners,
+						options.coStar,
+					),
+				)
+				cancel(requestDeadlineCause)
 				break
 			}
 			if result.panicValue != nil {
@@ -213,10 +249,10 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 			}
 			snapshot = recorder.finish()
 			outcome = outcomeForStatus(snapshot.status)
-		case <-requestContext.Done():
+		case <-timeoutTimer.C:
 			snapshot, outcome = finishContextOutcome(
 				recorder,
-				context.Cause(requestContext),
+				requestDeadlineCause,
 				timeoutResponseForRequest(
 					request,
 					options.rankings,
@@ -226,6 +262,22 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 					options.coStar,
 				),
 			)
+			cancel(requestDeadlineCause)
+		case <-identityContext.Done():
+			cause := context.Cause(identityContext)
+			snapshot, outcome = finishContextOutcome(
+				recorder,
+				cause,
+				timeoutResponseForRequest(
+					request,
+					options.rankings,
+					options.candidates,
+					options.personDetail,
+					options.partners,
+					options.coStar,
+				),
+			)
+			cancel(cause)
 		}
 
 		if options.metrics != nil {
@@ -238,6 +290,14 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 				Duration:      time.Since(startedAt),
 				ResponseBytes: snapshot.bytes,
 			})
+			if snapshot.timingPresent {
+				_ = options.metrics.ObserveQueryExecution(
+					queryExecutionObservation(
+						metricOperation(request),
+						snapshot.timing,
+					),
+				)
+			}
 		}
 		if options.events != nil &&
 			(metricRoute(request) == observability.RouteCatalog ||
@@ -251,9 +311,10 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 				outcome == observability.OutcomePanic) &&
 			queryTerminal != nil {
 			if snapshot.status >= 200 && snapshot.status <= 399 {
-				event, eventErr := queryTerminal.Complete(
+				event, eventErr := queryTerminal.CompleteWithExecution(
 					time.Since(startedAt),
 					snapshot.bytes,
+					queryExecutionFacts(snapshot.timing),
 				)
 				if eventErr == nil {
 					_ = options.events.Emit(event)
@@ -263,12 +324,13 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 				if outcome == observability.OutcomeTimeout {
 					code = observability.QueryErrorUpstreamTimeout
 				}
-				event, eventErr := queryTerminal.Reject(
+				event, eventErr := queryTerminal.RejectWithExecution(
 					snapshot.status,
 					code,
 					nil,
 					0,
 					time.Since(startedAt),
+					queryExecutionFacts(snapshot.timing),
 				)
 				if eventErr == nil {
 					_ = options.events.Emit(event)
@@ -282,6 +344,15 @@ func runtimeMiddleware(handler http.Handler, options middlewareOptions) http.Han
 			panic(http.ErrAbortHandler)
 		}
 	})
+}
+
+type deadlineContext struct {
+	context.Context
+	deadline time.Time
+}
+
+func (ctx deadlineContext) Deadline() (time.Time, bool) {
+	return ctx.deadline, true
 }
 
 func panicError(value any) error {
@@ -405,23 +476,111 @@ func outcomeForStatus(status int) observability.Outcome {
 	}
 }
 
+func timedBusinessRoute(route observability.Route) bool {
+	switch route {
+	case observability.RouteRankings,
+		observability.RouteCandidates,
+		observability.RoutePersonDetail,
+		observability.RoutePartners,
+		observability.RouteCoStar:
+		return true
+	default:
+		return false
+	}
+}
+
+func queryExecutionObservation(
+	operation observability.Operation,
+	snapshot querytiming.Snapshot,
+) observability.QueryExecutionObservation {
+	upstream := snapshot.CollectionUpstream()
+	return observability.QueryExecutionObservation{
+		Operation:       operation,
+		Scope:           observability.QueryScope(snapshot.Scope()),
+		ResultCache:     observability.CacheOutcome(snapshot.ResultCache()),
+		CollectionCache: observability.CacheOutcome(snapshot.CollectionCache()),
+		Phases:          queryPhaseObservations(snapshot),
+		SQLiteOutcome: observability.DependencyOutcome(
+			snapshot.SQLiteOutcome(),
+		),
+		CollectionUpstream: observability.DependencyObservation{
+			Outcome: observability.DependencyOutcome(upstream.Outcome),
+			Seconds: upstream.Seconds,
+			Present: upstream.Present,
+		},
+	}
+}
+
+func queryExecutionFacts(
+	snapshot querytiming.Snapshot,
+) observability.QueryExecutionFacts {
+	return observability.QueryExecutionFacts{
+		Scope:           observability.QueryScope(snapshot.Scope()),
+		ResultCache:     observability.CacheOutcome(snapshot.ResultCache()),
+		CollectionCache: observability.CacheOutcome(snapshot.CollectionCache()),
+		Phases:          queryPhaseObservations(snapshot),
+	}
+}
+
+func queryExecutionFactsFromContext(
+	ctx context.Context,
+) observability.QueryExecutionFacts {
+	trace := querytiming.FromContext(ctx)
+	if trace == nil {
+		return observability.QueryExecutionFacts{}
+	}
+	return queryExecutionFacts(trace.Freeze())
+}
+
+func queryExecutionFactsForRequest(
+	request *http.Request,
+) observability.QueryExecutionFacts {
+	if request == nil {
+		return observability.QueryExecutionFacts{}
+	}
+	return queryExecutionFactsFromContext(request.Context())
+}
+
+func queryPhaseObservations(
+	snapshot querytiming.Snapshot,
+) []observability.QueryPhaseObservation {
+	phases := snapshot.Phases()
+	result := make(
+		[]observability.QueryPhaseObservation,
+		0,
+		len(phases),
+	)
+	for _, phase := range phases {
+		result = append(result, observability.QueryPhaseObservation{
+			Phase:   observability.QueryPhase(phase.Phase),
+			Seconds: phase.Seconds,
+		})
+	}
+	return result
+}
+
 type responseSnapshot struct {
-	committed bool
-	status    int
-	bytes     int64
+	committed     bool
+	status        int
+	bytes         int64
+	timing        querytiming.Snapshot
+	timingPresent bool
 }
 
 type commitWriter struct {
 	mu sync.Mutex
 
-	writer    http.ResponseWriter
-	header    http.Header
-	requestID string
-	context   context.Context
-	committed bool
-	terminal  bool
-	status    int
-	bytes     int64
+	writer       http.ResponseWriter
+	header       http.Header
+	requestID    string
+	context      context.Context
+	trace        *querytiming.Trace
+	committed    bool
+	terminal     bool
+	status       int
+	bytes        int64
+	timing       querytiming.Snapshot
+	timingFrozen bool
 }
 
 func newCommitWriter(writer http.ResponseWriter, requestID string) *commitWriter {
@@ -445,6 +604,12 @@ func (w *commitWriter) setContext(ctx context.Context) {
 	w.mu.Unlock()
 }
 
+func (w *commitWriter) setTrace(trace *querytiming.Trace) {
+	w.mu.Lock()
+	w.trace = trace
+	w.mu.Unlock()
+}
+
 func (w *commitWriter) isCommitted() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -458,6 +623,7 @@ func (w *commitWriter) WriteHeader(status int) {
 		return
 	}
 	w.ensureRequestID()
+	w.freezeTiming()
 	w.syncHeader()
 	w.writer.WriteHeader(status)
 	w.committed = true
@@ -472,6 +638,7 @@ func (w *commitWriter) Write(data []byte) (int, error) {
 	}
 	if !w.committed {
 		w.ensureRequestID()
+		w.freezeTiming()
 		w.syncHeader()
 		w.writer.WriteHeader(http.StatusOK)
 		w.committed = true
@@ -490,6 +657,7 @@ func (w *commitWriter) Flush() {
 	}
 	if !w.committed {
 		w.ensureRequestID()
+		w.freezeTiming()
 		w.syncHeader()
 		w.writer.WriteHeader(http.StatusOK)
 		w.committed = true
@@ -502,6 +670,24 @@ func (w *commitWriter) Flush() {
 
 func (w *commitWriter) ensureRequestID() {
 	w.header.Set(requestIDHeader, w.requestID)
+}
+
+func (w *commitWriter) freezeTiming() {
+	if !w.captureTiming() {
+		return
+	}
+	if value := w.timing.ServerTiming(); value != "" {
+		w.header.Set("Server-Timing", value)
+	}
+}
+
+func (w *commitWriter) captureTiming() bool {
+	if w.timingFrozen || w.trace == nil {
+		return false
+	}
+	w.timing = w.trace.Freeze()
+	w.timingFrozen = true
+	return true
 }
 
 func (w *commitWriter) syncHeader() {
@@ -523,15 +709,18 @@ func (w *commitWriter) finish() responseSnapshot {
 	defer w.mu.Unlock()
 	w.terminal = true
 	status := w.status
+	w.freezeTiming()
 	if status == 0 {
 		w.ensureRequestID()
 		w.syncHeader()
 		status = http.StatusOK
 	}
 	return responseSnapshot{
-		committed: w.committed,
-		status:    status,
-		bytes:     w.bytes,
+		committed:     w.committed,
+		status:        status,
+		bytes:         w.bytes,
+		timing:        w.timing,
+		timingPresent: w.timingFrozen,
 	}
 }
 
@@ -540,6 +729,10 @@ func (w *commitWriter) terminate(response *responseError) responseSnapshot {
 	defer w.mu.Unlock()
 	if !w.terminal && !w.committed && response != nil {
 		w.resetForError(*response)
+		w.captureTiming()
+		if value := w.timing.ServerTiming(); value != "" {
+			w.writer.Header().Set("Server-Timing", value)
+		}
 		data := errorEnvelopeBytes(w.requestID, *response)
 		w.writer.WriteHeader(response.status)
 		w.committed = true
@@ -547,11 +740,14 @@ func (w *commitWriter) terminate(response *responseError) responseSnapshot {
 		written, _ := w.writer.Write(data)
 		w.bytes += int64(written)
 	}
+	w.captureTiming()
 	w.terminal = true
 	return responseSnapshot{
-		committed: w.committed,
-		status:    w.status,
-		bytes:     w.bytes,
+		committed:     w.committed,
+		status:        w.status,
+		bytes:         w.bytes,
+		timing:        w.timing,
+		timingPresent: w.timingFrozen,
 	}
 }
 

@@ -203,6 +203,28 @@ func (r *RuntimeObservability) SetReadiness(ready bool, dataVersion string) erro
 	return r.metrics.SetReadiness(ready, dataVersion)
 }
 
+// SetRuntimeStatsProvider configures the sole process resource sampler.
+func (r *RuntimeObservability) SetRuntimeStatsProvider(
+	provider observability.RuntimeStatsProvider,
+) error {
+	if r == nil {
+		return errors.New("httpapi: nil runtime observability")
+	}
+	return r.metrics.SetRuntimeStatsProvider(provider)
+}
+
+// SetUpdateStatusPath configures one explicit read-only updater status source.
+func (r *RuntimeObservability) SetUpdateStatusPath(path string) error {
+	if r == nil {
+		return errors.New("httpapi: nil runtime observability")
+	}
+	reader, err := observability.NewUpdateStatusReader(path)
+	if err != nil {
+		return err
+	}
+	return r.metrics.SetUpdateStatusReader(reader)
+}
+
 // EmitArchiveLoadFailed emits at most one bounded startup event. Unknown
 // values collapse to INTERNAL_ERROR rather than entering the event.
 func (r *RuntimeObservability) EmitArchiveLoadFailed(stableCode string) error {
@@ -335,17 +357,29 @@ func imageRouteCandidate(request *http.Request) bool {
 
 func (h *routeHandler) writeImage(writer http.ResponseWriter, request *http.Request, requestID string) {
 	startedAt := time.Now()
+	var upstreamStarted time.Time
+	upstreamAttempted := false
 	observation := observability.ImageObservation{
 		RequestID: requestID,
 		Outcome:   observability.ImageOutcomeProtocol,
 		Status:    http.StatusBadGateway,
 	}
 	defer func() {
-		if h.events == nil {
-			return
-		}
 		observation.Duration = time.Since(startedAt)
-		_ = h.events.EmitImage(observation)
+		if upstreamAttempted && h.metrics != nil {
+			_ = h.metrics.ObserveUpstream(
+				observability.UpstreamObservation{
+					Upstream: observability.UpstreamImage,
+					Outcome: imageDependencyOutcome(
+						observation.Outcome,
+					),
+					Duration: time.Since(upstreamStarted),
+				},
+			)
+		}
+		if h.events != nil {
+			_ = h.events.EmitImage(observation)
+		}
 	}()
 
 	imageRequest, ok := parseImageRequest(request)
@@ -359,6 +393,8 @@ func (h *routeHandler) writeImage(writer http.ResponseWriter, request *http.Requ
 		})
 		return
 	}
+	upstreamStarted = time.Now()
+	upstreamAttempted = true
 	response, err := h.images.Fetch(request.Context(), imageRequest)
 	if err != nil {
 		observation.Outcome, observation.Status = h.writeImageError(writer, request, requestID, err)
@@ -399,6 +435,31 @@ func (h *routeHandler) writeImage(writer http.ResponseWriter, request *http.Requ
 	}
 	observation.Outcome = observability.ImageOutcomeSuccess
 	observation.Status = http.StatusOK
+}
+
+func imageDependencyOutcome(
+	outcome observability.ImageOutcome,
+) observability.DependencyOutcome {
+	switch outcome {
+	case observability.ImageOutcomeSuccess:
+		return observability.DependencyOutcomeSuccess
+	case observability.ImageOutcomeTimeout:
+		return observability.DependencyOutcomeTimeout
+	case observability.ImageOutcomeCanceled:
+		return observability.DependencyOutcomeCanceled
+	case observability.ImageOutcomeNotFound:
+		return observability.DependencyOutcomeNotFound
+	case observability.ImageOutcomeUnavailable:
+		return observability.DependencyOutcomeNetworkError
+	case observability.ImageOutcomeBusy:
+		return observability.DependencyOutcomeRateLimited
+	case observability.ImageOutcomeProtocol:
+		return observability.DependencyOutcomeDecodeError
+	case observability.ImageOutcomeStreamError:
+		return observability.DependencyOutcomeUpstreamError
+	default:
+		return observability.DependencyOutcomeError
+	}
 }
 
 func writeImageCacheHeaders(header http.Header, response *imageproxy.Response) {

@@ -10,10 +10,23 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 )
 
 type resultCore struct {
 	IDs []int64
+}
+
+type doneObservedContext struct {
+	context.Context
+	observed chan struct{}
+	once     sync.Once
+}
+
+func (ctx *doneObservedContext) Done() <-chan struct{} {
+	ctx.once.Do(func() { close(ctx.observed) })
+	return ctx.Context.Done()
 }
 
 func cloneResultCore(value resultCore) resultCore {
@@ -91,11 +104,15 @@ func TestResultStoreSameKeyComputeAndOwnership(t *testing.T) {
 	release := make(chan struct{})
 	var calls atomic.Int64
 	compute := func(ctx context.Context) (resultCore, error) {
+		if querytiming.FromContext(ctx) == nil {
+			return resultCore{}, errors.New("worker trace is absent")
+		}
 		if calls.Add(1) == 1 {
 			close(started)
 		}
 		select {
 		case <-release:
+			querytiming.ObserveSQLiteFromContext(ctx, 7*time.Millisecond, nil)
 			return resultCore{IDs: []int64{1, 2, 3}}, nil
 		case <-ctx.Done():
 			return resultCore{}, ctx.Err()
@@ -108,18 +125,33 @@ func TestResultStoreSameKeyComputeAndOwnership(t *testing.T) {
 	}
 	first := make(chan outcome, 1)
 	second := make(chan outcome, 1)
+	firstTrace := querytiming.New()
+	secondTrace := querytiming.New()
+	secondWaiting := make(chan struct{})
 	go func() {
-		value, callErr := store.GetOrCompute(context.Background(), key, compute)
+		value, callErr := store.GetOrCompute(
+			querytiming.WithContext(context.Background(), firstTrace),
+			key,
+			compute,
+		)
 		first <- outcome{value: value, err: callErr}
 	}()
 	<-started
 	go func() {
-		value, callErr := store.GetOrCompute(context.Background(), key, compute)
+		value, callErr := store.GetOrCompute(
+			querytiming.WithContext(
+				&doneObservedContext{
+					Context:  context.Background(),
+					observed: secondWaiting,
+				},
+				secondTrace,
+			),
+			key,
+			compute,
+		)
 		second <- outcome{value: value, err: callErr}
 	}()
-	waitFor(t, time.Second, func() bool {
-		return calls.Load() == 1
-	})
+	<-secondWaiting
 	close(release)
 	left, right := <-first, <-second
 	if left.err != nil || right.err != nil ||
@@ -135,6 +167,355 @@ func TestResultStoreSameKeyComputeAndOwnership(t *testing.T) {
 	}
 	if calls.Load() != 1 {
 		t.Fatalf("compute calls = %d", calls.Load())
+	}
+	firstSnapshot := firstTrace.Freeze()
+	secondSnapshot := secondTrace.Freeze()
+	for _, phase := range []querytiming.Phase{
+		querytiming.PhaseSQLite,
+		querytiming.PhaseCompute,
+	} {
+		firstDuration, firstPresent := firstSnapshot.Phase(phase)
+		secondDuration, secondPresent := secondSnapshot.Phase(phase)
+		if !firstPresent ||
+			!secondPresent ||
+			firstDuration != secondDuration {
+			t.Fatalf(
+				"shared %s = (%f, %t), (%f, %t)",
+				phase,
+				firstDuration,
+				firstPresent,
+				secondDuration,
+				secondPresent,
+			)
+		}
+	}
+}
+
+func TestResultTimingSeparatesNestedSQLiteFromCompute(t *testing.T) {
+	executor, err := NewExecutor(DefaultExecutorConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewResultStore(
+		ResultConfig{
+			Limits:      Limits{MaxCost: 1024, MaxItems: 4, MaxItemCost: 512},
+			LoadTimeout: time.Second,
+		},
+		executor,
+		cloneResultCore,
+		func(value resultCore) int64 { return int64(len(value.IDs) * 8) },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trace := querytiming.New()
+	ctx := querytiming.WithContext(context.Background(), trace)
+	started := time.Now()
+	_, err = store.GetOrCompute(
+		ctx,
+		mustResultKey(t, "d"),
+		func(workerContext context.Context) (resultCore, error) {
+			sqliteStarted := time.Now()
+			time.Sleep(5 * time.Millisecond)
+			querytiming.ObserveSQLiteFromContext(
+				workerContext,
+				time.Since(sqliteStarted),
+				nil,
+			)
+			time.Sleep(10 * time.Millisecond)
+			return resultCore{IDs: []int64{1}}, nil
+		},
+	)
+	elapsed := time.Since(started).Seconds()
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := trace.Freeze()
+	sqlite, sqlitePresent := snapshot.Phase(querytiming.PhaseSQLite)
+	compute, computePresent := snapshot.Phase(querytiming.PhaseCompute)
+	if !sqlitePresent || !computePresent ||
+		sqlite < 0.004 ||
+		compute < 0.008 ||
+		compute >= elapsed ||
+		compute+sqlite > elapsed+0.005 {
+		t.Fatalf(
+			"sqlite=%f compute=%f elapsed=%f snapshot=%#v",
+			sqlite,
+			compute,
+			elapsed,
+			snapshot,
+		)
+	}
+}
+
+func TestResultTimingDetachedWorkerOutlivesFrozenFirstWaiter(t *testing.T) {
+	executor, err := NewExecutor(DefaultExecutorConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewResultStore(
+		ResultConfig{
+			Limits:      Limits{MaxCost: 1024, MaxItems: 4, MaxItemCost: 512},
+			LoadTimeout: time.Second,
+		},
+		executor,
+		cloneResultCore,
+		func(value resultCore) int64 { return int64(len(value.IDs) * 8) },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	key := mustResultKey(t, "e")
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var calls atomic.Int64
+	compute := func(ctx context.Context) (resultCore, error) {
+		if querytiming.FromContext(ctx) == nil {
+			return resultCore{}, errors.New("worker trace is absent")
+		}
+		if calls.Add(1) == 1 {
+			close(started)
+		}
+		select {
+		case <-release:
+			querytiming.ObserveSQLiteFromContext(ctx, time.Millisecond, nil)
+			time.Sleep(5 * time.Millisecond)
+			return resultCore{IDs: []int64{5}}, nil
+		case <-ctx.Done():
+			return resultCore{}, ctx.Err()
+		}
+	}
+
+	firstTrace := querytiming.New()
+	firstContext, cancelFirst := context.WithCancel(
+		querytiming.WithContext(context.Background(), firstTrace),
+	)
+	firstDone := make(chan error, 1)
+	go func() {
+		_, callErr := store.GetOrCompute(firstContext, key, compute)
+		firstDone <- callErr
+	}()
+	<-started
+	cancelFirst()
+	if err := <-firstDone; !errors.Is(err, context.Canceled) {
+		t.Fatalf("first waiter = %v", err)
+	}
+	frozenFirst := firstTrace.Freeze()
+
+	secondTrace := querytiming.New()
+	secondDone := make(chan error, 1)
+	secondWaiting := make(chan struct{})
+	go func() {
+		_, callErr := store.GetOrCompute(
+			querytiming.WithContext(
+				&doneObservedContext{
+					Context:  context.Background(),
+					observed: secondWaiting,
+				},
+				secondTrace,
+			),
+			key,
+			compute,
+		)
+		secondDone <- callErr
+	}()
+	<-secondWaiting
+	close(release)
+	if err := <-secondDone; err != nil {
+		t.Fatalf("second waiter = %v", err)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("compute calls = %d", calls.Load())
+	}
+	secondSnapshot := secondTrace.Freeze()
+	if sqlite, present := secondSnapshot.Phase(querytiming.PhaseSQLite); !present ||
+		sqlite != 0.001 ||
+		secondSnapshot.SQLiteOutcome() != querytiming.DependencySuccess {
+		t.Fatalf(
+			"second SQLite = %f, %t, %q",
+			sqlite,
+			present,
+			secondSnapshot.SQLiteOutcome(),
+		)
+	}
+	if compute, present := secondSnapshot.Phase(querytiming.PhaseCompute); !present ||
+		compute <= 0 {
+		t.Fatalf("second compute = %f, %t", compute, present)
+	}
+	if firstTrace.Freeze() != frozenFirst {
+		t.Fatal("detached worker mutated the frozen first waiter trace")
+	}
+	if _, present := frozenFirst.Phase(querytiming.PhaseSQLite); present {
+		t.Fatal("cancelled waiter received late SQLite execution")
+	}
+	if _, present := frozenFirst.Phase(querytiming.PhaseCompute); present {
+		t.Fatal("cancelled waiter received wait time as compute")
+	}
+}
+
+func TestResultTimingSharesOrdinaryComputeFailureAcrossWaiters(t *testing.T) {
+	executor, err := NewExecutor(DefaultExecutorConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewResultStore(
+		ResultConfig{
+			Limits:      Limits{MaxCost: 1024, MaxItems: 4, MaxItemCost: 512},
+			LoadTimeout: time.Second,
+		},
+		executor,
+		cloneResultCore,
+		func(value resultCore) int64 { return int64(len(value.IDs) * 8) },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	computeFailure := errors.New("ordinary compute failure")
+	key := mustResultKey(t, "6")
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var calls atomic.Int64
+	compute := func(ctx context.Context) (resultCore, error) {
+		if calls.Add(1) == 1 {
+			close(started)
+		}
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return resultCore{}, ctx.Err()
+		}
+		sqliteStarted := time.Now()
+		time.Sleep(5 * time.Millisecond)
+		querytiming.ObserveSQLiteFromContext(
+			ctx,
+			time.Since(sqliteStarted),
+			computeFailure,
+		)
+		time.Sleep(10 * time.Millisecond)
+		return resultCore{}, computeFailure
+	}
+
+	firstTrace := querytiming.New()
+	secondTrace := querytiming.New()
+	type callResult struct {
+		err error
+	}
+	first := make(chan callResult, 1)
+	second := make(chan callResult, 1)
+	secondWaiting := make(chan struct{})
+	go func() {
+		_, callErr := store.GetOrCompute(
+			querytiming.WithContext(context.Background(), firstTrace),
+			key,
+			compute,
+		)
+		first <- callResult{err: callErr}
+	}()
+	<-started
+	go func() {
+		_, callErr := store.GetOrCompute(
+			querytiming.WithContext(
+				&doneObservedContext{
+					Context:  context.Background(),
+					observed: secondWaiting,
+				},
+				secondTrace,
+			),
+			key,
+			compute,
+		)
+		second <- callResult{err: callErr}
+	}()
+	<-secondWaiting
+	close(release)
+
+	firstResult, secondResult := <-first, <-second
+	if !errors.Is(firstResult.err, computeFailure) ||
+		!errors.Is(secondResult.err, computeFailure) {
+		t.Fatalf(
+			"shared errors = %v, %v",
+			firstResult.err,
+			secondResult.err,
+		)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("compute calls = %d", calls.Load())
+	}
+	firstSnapshot := firstTrace.Freeze()
+	secondSnapshot := secondTrace.Freeze()
+	if firstSnapshot.SQLiteOutcome() != querytiming.DependencyError ||
+		secondSnapshot.SQLiteOutcome() != querytiming.DependencyError {
+		t.Fatalf(
+			"SQLite outcomes = %q, %q",
+			firstSnapshot.SQLiteOutcome(),
+			secondSnapshot.SQLiteOutcome(),
+		)
+	}
+	for _, phase := range []querytiming.Phase{
+		querytiming.PhaseSQLite,
+		querytiming.PhaseCompute,
+	} {
+		firstDuration, firstPresent := firstSnapshot.Phase(phase)
+		secondDuration, secondPresent := secondSnapshot.Phase(phase)
+		if !firstPresent ||
+			!secondPresent ||
+			firstDuration <= 0 ||
+			firstDuration != secondDuration {
+			t.Fatalf(
+				"shared failed %s = (%f, %t), (%f, %t)",
+				phase,
+				firstDuration,
+				firstPresent,
+				secondDuration,
+				secondPresent,
+			)
+		}
+	}
+}
+
+func TestResultTimingWorkerDeadlineDropsLateExecution(t *testing.T) {
+	executor, err := NewExecutor(DefaultExecutorConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewResultStore(
+		ResultConfig{
+			Limits:      Limits{MaxCost: 1024, MaxItems: 4, MaxItemCost: 512},
+			LoadTimeout: 20 * time.Millisecond,
+		},
+		executor,
+		cloneResultCore,
+		func(value resultCore) int64 { return int64(len(value.IDs) * 8) },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	trace := querytiming.New()
+	_, err = store.GetOrCompute(
+		querytiming.WithContext(context.Background(), trace),
+		mustResultKey(t, "7"),
+		func(ctx context.Context) (resultCore, error) {
+			<-ctx.Done()
+			querytiming.ObserveSQLiteFromContext(
+				ctx,
+				time.Millisecond,
+				ctx.Err(),
+			)
+			return resultCore{}, ctx.Err()
+		},
+	)
+	if code, found := ErrorCode(err); !found || code != CodeTimeout {
+		t.Fatalf("worker timeout = %v, code = %q, found = %t", err, code, found)
+	}
+	snapshot := trace.Freeze()
+	if _, present := snapshot.Phase(querytiming.PhaseSQLite); present {
+		t.Fatal("worker timeout merged late SQLite execution")
+	}
+	if _, present := snapshot.Phase(querytiming.PhaseCompute); present {
+		t.Fatal("worker timeout merged late compute execution")
 	}
 }
 

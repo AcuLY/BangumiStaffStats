@@ -12,6 +12,7 @@ import (
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/query"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/statistics"
 )
@@ -120,7 +121,9 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 	}
 	dataVersion := store.Identity().DataVersion
 
+	sqliteStarted := time.Now()
 	authority, err := LoadAuthority(ctx, store)
+	querytiming.ObserveSQLiteFromContext(ctx, time.Since(sqliteStarted), err)
 	if err != nil {
 		return Projection{}, withDataVersion(err, dataVersion)
 	}
@@ -128,6 +131,10 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 	if err != nil {
 		return Projection{}, mapQueryError(err)
 	}
+	querytiming.SetScopeFromContext(
+		ctx,
+		querytiming.Scope(normalized.Effective.Scope),
+	)
 	for index, key := range normalized.Effective.PositionKeys {
 		if !authority.PersonDetailByPosition[key] {
 			return Projection{}, capabilityError(
@@ -253,6 +260,14 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 			dataVersion,
 		)
 	}
+	projectionStarted := time.Now()
+	defer func() {
+		querytiming.AddFromContext(
+			ctx,
+			querytiming.PhaseProjection,
+			time.Since(projectionStarted),
+		)
+	}()
 	projected, err := Project(ctx, computed, view)
 	if err != nil {
 		return Projection{}, withDataVersion(mapComputeError(ctx, err), dataVersion)
@@ -275,7 +290,13 @@ func computeCore(
 	personID int64,
 	entries []query.CollectionEntry,
 ) (Core, error) {
-	facts, err := query.LoadFactSet(ctx, store, normalized.Effective.SubjectType)
+	sqliteStarted := time.Now()
+	facts, err := query.LoadFactSet(
+		ctx,
+		store,
+		normalized.Effective.SubjectType,
+	)
+	querytiming.ObserveSQLiteFromContext(ctx, time.Since(sqliteStarted), err)
 	if err != nil {
 		return Core{}, err
 	}
@@ -301,7 +322,13 @@ func computeCore(
 	}
 	var series *statistics.SeriesIndex
 	if normalized.Effective.Scope == "personal" || normalized.Effective.MergeSeries {
+		sqliteStarted = time.Now()
 		series, err = statistics.LoadSeriesIndex(ctx, store)
+		querytiming.ObserveSQLiteFromContext(
+			ctx,
+			time.Since(sqliteStarted),
+			err,
+		)
 		if err != nil {
 			return Core{}, err
 		}
@@ -322,6 +349,7 @@ func computeCore(
 			subjectIDs = append(subjectIDs, unit.CompleteMemberIDs...)
 		}
 	}
+	sqliteStarted = time.Now()
 	evidence, err := LoadArchiveEvidence(
 		ctx,
 		store,
@@ -329,6 +357,7 @@ func computeCore(
 		personID,
 		subjectIDs,
 	)
+	querytiming.ObserveSQLiteFromContext(ctx, time.Since(sqliteStarted), err)
 	if err != nil {
 		return Core{}, err
 	}

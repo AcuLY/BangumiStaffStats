@@ -32,6 +32,20 @@ raw JSON before any typed destination assignment. It also contains request
 deadlines, cancellations, and panics without registering a placeholder
 business endpoint.
 
+Typed business responses freeze one request-scoped execution observation
+before their first response commitment. The same fixed
+`collection/cache/sqlite/compute/projection` values drive `Server-Timing`,
+phase histograms, and the allowlisted terminal event. `/metrics` samples the
+single process `QueryRuntime.Stats` snapshot once per scrape. Collection and
+image upstream metrics describe per-request experiences; coalesced collection
+waiters are therefore not presented as additional physical fetches.
+
+An optional `-update-status /absolute/path/update-status.json` flag enables a
+strict read-only metrics projection of the shared v1 updater terminal status.
+The source must be a non-symlink regular file, is capped at 64 KiB, and never
+changes readiness or ordinary API behavior. Its `dataVersion`, error code,
+path, and content never become labels.
+
 The image route constructs only fixed `https://api.bgm.tv/v0/...` requests,
 ignores environment proxies, rejects redirects and arbitrary request headers,
 uses an independent timeout and concurrency pool, admits only reviewed image
@@ -126,6 +140,14 @@ Run the API against a separately approved local Archive root:
 
 ```sh
 go run ./cmd/api -archive-root /absolute/path/to/archive
+```
+
+Optionally include the local read-only updater terminal status:
+
+```sh
+go run ./cmd/api \
+  -archive-root /absolute/path/to/archive \
+  -update-status /absolute/path/to/update-status.json
 ```
 
 Validate one inactive producer candidate without reading, creating, or

@@ -9,6 +9,7 @@ import (
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/query"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/statistics"
 )
@@ -142,7 +143,9 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 		return Projection{}, notReady()
 	}
 
+	sqliteStarted := time.Now()
 	catalogAuthority, err := loadCatalogContext(ctx, store)
+	querytiming.ObserveSQLiteFromContext(ctx, time.Since(sqliteStarted), err)
 	if err != nil {
 		return Projection{}, internalOrContext(ctx, err)
 	}
@@ -150,6 +153,10 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 	if err != nil {
 		return Projection{}, mapQueryError(err)
 	}
+	querytiming.SetScopeFromContext(
+		ctx,
+		querytiming.Scope(normalized.Effective.Scope),
+	)
 	for index, positionKey := range normalized.Effective.PositionKeys {
 		if !catalogAuthority.RankingsByPosition[positionKey] {
 			return Projection{}, fail(
@@ -275,6 +282,14 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 			identity.DataVersion,
 		)
 	}
+	projectionStarted := time.Now()
+	defer func() {
+		querytiming.AddFromContext(
+			ctx,
+			querytiming.PhaseProjection,
+			time.Since(projectionStarted),
+		)
+	}()
 	projected, err := project(ctx, computed, view, access)
 	if err != nil {
 		return Projection{}, internalOrContext(ctx, err)
@@ -292,7 +307,13 @@ func computeCore(
 	if archiveStore == nil {
 		return core{}, errors.New("ranking: invalid Archive store")
 	}
-	facts, err := query.LoadFactSet(ctx, archiveStore, normalized.Effective.SubjectType)
+	sqliteStarted := time.Now()
+	facts, err := query.LoadFactSet(
+		ctx,
+		archiveStore,
+		normalized.Effective.SubjectType,
+	)
+	querytiming.ObserveSQLiteFromContext(ctx, time.Since(sqliteStarted), err)
 	if err != nil {
 		return core{}, err
 	}
@@ -320,7 +341,13 @@ func computeCore(
 
 	var series *statistics.SeriesIndex
 	if normalized.Effective.Scope == "personal" || normalized.Effective.MergeSeries {
+		sqliteStarted = time.Now()
 		series, err = statistics.LoadSeriesIndex(ctx, archiveStore)
+		querytiming.ObserveSQLiteFromContext(
+			ctx,
+			time.Since(sqliteStarted),
+			err,
+		)
 		if err != nil {
 			return core{}, err
 		}
@@ -335,7 +362,9 @@ func computeCore(
 	if err != nil {
 		return core{}, err
 	}
+	sqliteStarted = time.Now()
 	people, err := loadPeople(ctx, archiveStore)
+	querytiming.ObserveSQLiteFromContext(ctx, time.Since(sqliteStarted), err)
 	if err != nil {
 		return core{}, err
 	}

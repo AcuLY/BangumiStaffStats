@@ -158,10 +158,10 @@ GENERATED_AT = re.compile(
 MANIFEST_STRING_VECTOR = "vectors/manifest-string-semantics.json"
 PRODUCER_SUBTREE = "producer"
 CANONICAL_INDEX_SHA256 = (
-    "655d77b46bf3a76c67ab74d11abd250aa5ab08e770a17732148fc327f74786c6"
+    "11db96ca6ea576c123864743bb05267b620edcf8dab67ebe1a8d5a7e224f2077"
 )
 CANONICAL_INDEX_TABLE_SHA256 = (
-    "e83b9ba65759b314398204d23ff17adf17e5761d3ff0543f98ce3512071e2357"
+    "1799b375ff5490a4ef5c940d72d7d1db8ba61032f7b21bc2c738cccb3f9243fa"
 )
 CANONICAL_INDEXED_FILES = 32
 MANIFEST_STRING_CASE_IDS = (
@@ -1228,9 +1228,9 @@ def insert_minimal_rows(connection: sqlite3.Connection, version: str, inputs: di
                 "cast:anime:main",
                 "anime",
                 "cast",
-                "主要声优",
-                "主要声优",
-                "Main cast",
+                "声优（仅主役）",
+                "声优（仅主役）",
+                None,
                 None,
                 20,
                 1,
@@ -1239,53 +1239,68 @@ def insert_minimal_rows(connection: sqlite3.Connection, version: str, inputs: di
                 "cast:anime:all",
                 "anime",
                 "cast",
-                "全部声优",
-                "全部声优",
-                "All cast",
+                "声优",
+                "声优",
                 None,
-                21,
+                None,
+                30,
                 1,
             ),
         ),
     )
-    connection.execute(
-        "INSERT INTO catalog_position_member VALUES (?, ?)",
-        ("cast:anime:all", "cast:anime:main"),
-    )
-    connection.execute(
+    connection.executemany(
         "INSERT INTO catalog_group VALUES (?, ?, ?, ?)",
-        ("featured:anime", "anime", "常用职位", 10),
+        (
+            ("shortcut:anime:featured", "anime", "常用职位", 10),
+            ("bangumi:anime:production", "anime", "制作", 20),
+        ),
     )
     connection.executemany(
         "INSERT INTO catalog_group_member VALUES (?, ?, ?)",
         (
-            ("featured:anime", "staff:anime:2", 10),
-            ("featured:anime", "cast:anime:main", 20),
+            ("shortcut:anime:featured", "staff:anime:2", 0),
+            ("shortcut:anime:featured", "cast:anime:main", 1),
+            ("bangumi:anime:production", "staff:anime:2", 0),
         ),
     )
     connection.executemany(
         "INSERT INTO catalog_capability VALUES (?, ?, ?)",
-        (
-            ("staff:anime:2", "rankings", 1),
-            ("staff:anime:2", "candidates", 1),
-            ("cast:anime:main", "coStar", 1),
-            ("cast:anime:all", "coStar", 1),
+        tuple(
+            (position_key, capability, 1)
+            for position_key in (
+                "staff:anime:2",
+                "cast:anime:main",
+                "cast:anime:all",
+            )
+            for capability in (
+                "rankings",
+                "candidates",
+                "personDetail",
+                "partners",
+                "coStar",
+            )
         ),
     )
     connection.executemany(
         "INSERT INTO catalog_selection_rule VALUES (?, ?, ?, ?)",
         (
             (
-                "select:staff:anime:2",
+                "rule:staff:anime:2",
                 "staff:anime:2",
                 "exactStaff",
-                "positionId=2",
+                "2",
             ),
             (
-                "select:cast:anime:main",
+                "exclusive:cast:anime",
                 "cast:anime:main",
                 "exactCast",
-                "roleType=1",
+                "1",
+            ),
+            (
+                "exclusive:cast:anime",
+                "cast:anime:all",
+                "exactCast",
+                "1..6",
             ),
         ),
     )

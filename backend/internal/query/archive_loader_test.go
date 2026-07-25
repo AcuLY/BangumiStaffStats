@@ -309,16 +309,6 @@ func rewriteQueryArchiveWithProducerCatalog(t *testing.T, root, versionRoot stri
 		t.Fatal(err)
 	}
 	statements := []string{
-		`UPDATE catalog_selection_rule
-		    SET rule_key = 'rule:staff:anime:2', rule_value = '2'
-		  WHERE position_key = 'staff:anime:2'`,
-		`UPDATE catalog_selection_rule
-		    SET rule_key = 'exclusive:cast:anime', rule_value = '1'
-		  WHERE position_key = 'cast:anime:main'`,
-		`INSERT INTO catalog_selection_rule(rule_key, position_key, rule_kind, rule_value)
-		 VALUES ('exclusive:cast:anime', 'cast:anime:all', 'exactCast', '1..6')`,
-		`DELETE FROM catalog_position_member
-		  WHERE position_key = 'cast:anime:all'`,
 		`INSERT INTO staff_position(
 		     subject_type, position_id, name_cn, name_en, name_jp,
 		     categories, sort_order, status, common_commit
@@ -369,12 +359,6 @@ func rewriteQueryArchiveWithProducerCatalog(t *testing.T, root, versionRoot stri
 		     ('staff:anime:74', 'candidates', 1),
 		     ('staffset:anime:director-family', 'rankings', 1),
 		     ('staffset:anime:director-family', 'candidates', 1)`,
-		`INSERT INTO catalog_group(group_key, subject_type, label, display_order)
-		 VALUES ('shortcut:anime:featured', 'anime', '常用职位', 10)`,
-		`UPDATE catalog_group_member
-		    SET group_key = 'shortcut:anime:featured'
-		  WHERE group_key = 'featured:anime'`,
-		`DELETE FROM catalog_group WHERE group_key = 'featured:anime'`,
 		`INSERT INTO catalog_group(group_key, subject_type, label, display_order)
 		 VALUES ('custom:anime:staff-sets', 'anime', '人工职位集合', 20)`,
 		`INSERT INTO catalog_group_member(group_key, position_key, display_order)

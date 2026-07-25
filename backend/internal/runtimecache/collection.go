@@ -11,6 +11,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 )
 
 const (
@@ -121,13 +123,14 @@ type collectionValue struct {
 
 // CollectionAccess is one ownership-safe positive outcome.
 type CollectionAccess struct {
-	Snapshot     CollectionSnapshot
-	Digest       string
-	FetchedAt    time.Time
-	FreshUntil   time.Time
-	StaleUntil   time.Time
-	Stale        bool
-	WarningCodes []string
+	Snapshot        CollectionSnapshot
+	Digest          string
+	FetchedAt       time.Time
+	FreshUntil      time.Time
+	StaleUntil      time.Time
+	Stale           bool
+	WarningCodes    []string
+	upstreamFailure CollectionFailureKind
 }
 
 // CollectionFailureKind is a stable privacy-safe upstream classification.
@@ -301,10 +304,43 @@ func (cache *CollectionCache) Get(
 	if err := contextOutcome(ctx); err != nil {
 		return CollectionAccess{}, err
 	}
+	startedAt := time.Now()
+	trace := querytiming.FromContext(ctx)
+	observe := func(
+		cacheOutcome querytiming.CacheOutcome,
+		upstream querytiming.DependencyOutcome,
+		upstreamPresent bool,
+		upstreamDuration time.Duration,
+	) {
+		if trace == nil {
+			return
+		}
+		dependency := querytiming.DependencyObservation{
+			Outcome: querytiming.DependencyNotApplicable,
+		}
+		if upstreamPresent {
+			dependency = querytiming.DependencyObservation{
+				Outcome: upstream,
+				Seconds: upstreamDuration.Seconds(),
+				Present: true,
+			}
+		}
+		_ = trace.ObserveCollection(
+			cacheOutcome,
+			time.Since(startedAt),
+			dependency,
+		)
+	}
 
 	now := cache.now().UTC()
 	if failure, found := cache.negative.Get(key); found {
 		if now.Before(failure.ExpiresAt) {
+			observe(
+				querytiming.CacheNegativeHit,
+				querytiming.DependencyNotApplicable,
+				false,
+				0,
+			)
 			return CollectionAccess{}, &CollectionFailure{kind: failure.Kind}
 		}
 		cache.negative.Delete(key)
@@ -314,10 +350,17 @@ func (cache *CollectionCache) Get(
 	if value, found := cache.positive.Get(key); found {
 		staleCandidate = &value
 		if !refresh && now.Before(value.FreshUntil) {
+			observe(
+				querytiming.CacheHit,
+				querytiming.DependencyNotApplicable,
+				false,
+				0,
+			)
 			return accessFromValue(value, false), nil
 		}
 	}
 
+	loadStarted := time.Now()
 	result, err := cache.loads.Do(ctx, key, func(workerContext context.Context) (CollectionAccess, error) {
 		snapshot, fetchErr := fetch(workerContext)
 		if fetchErr != nil {
@@ -325,10 +368,83 @@ func (cache *CollectionCache) Get(
 		}
 		return cache.publishCollection(key, snapshot)
 	})
+	upstreamDuration := time.Since(loadStarted)
 	if err != nil {
+		observe(
+			querytiming.CacheMiss,
+			collectionDependencyOutcome(err),
+			true,
+			upstreamDuration,
+		)
 		return CollectionAccess{}, err
 	}
+	cacheOutcome := querytiming.CacheMiss
+	upstreamOutcome := querytiming.DependencySuccess
+	if result.Stale {
+		cacheOutcome = querytiming.CacheStale
+		upstreamOutcome = collectionFailureKindOutcome(
+			result.upstreamFailure,
+		)
+	}
+	observe(cacheOutcome, upstreamOutcome, true, upstreamDuration)
 	return cloneCollectionAccess(result), nil
+}
+
+func collectionDependencyOutcome(err error) querytiming.DependencyOutcome {
+	if err == nil {
+		return querytiming.DependencySuccess
+	}
+	var failure *CollectionFailure
+	if errors.As(err, &failure) {
+		switch failure.Kind() {
+		case FailureTimeout:
+			return querytiming.DependencyTimeout
+		case FailureNetwork:
+			return querytiming.DependencyNetworkError
+		case FailureRateLimited:
+			return querytiming.DependencyRateLimited
+		case FailureUpstream5xx:
+			return querytiming.DependencyUpstreamError
+		case FailureNotFound:
+			return querytiming.DependencyNotFound
+		case FailureForbidden:
+			return querytiming.DependencyForbidden
+		case FailureDecode:
+			return querytiming.DependencyDecodeError
+		default:
+			return querytiming.DependencyError
+		}
+	}
+	if errors.Is(err, context.Canceled) {
+		return querytiming.DependencyCanceled
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return querytiming.DependencyTimeout
+	}
+	return querytiming.DependencyError
+}
+
+func collectionFailureKindOutcome(
+	kind CollectionFailureKind,
+) querytiming.DependencyOutcome {
+	switch kind {
+	case FailureTimeout:
+		return querytiming.DependencyTimeout
+	case FailureNetwork:
+		return querytiming.DependencyNetworkError
+	case FailureRateLimited:
+		return querytiming.DependencyRateLimited
+	case FailureUpstream5xx:
+		return querytiming.DependencyUpstreamError
+	case FailureNotFound:
+		return querytiming.DependencyNotFound
+	case FailureForbidden:
+		return querytiming.DependencyForbidden
+	case FailureDecode:
+		return querytiming.DependencyDecodeError
+	default:
+		return querytiming.DependencyError
+	}
 }
 
 // PositiveStats returns the positive-cache snapshot.
@@ -390,7 +506,9 @@ func (cache *CollectionCache) collectionFailure(
 		}, negativeCollectionCost(key))
 	case FailureTimeout, FailureNetwork, FailureRateLimited, FailureUpstream5xx:
 		if stale != nil && now.Before(stale.StaleUntil) {
-			return accessFromValue(*stale, true), nil
+			access := accessFromValue(*stale, true)
+			access.upstreamFailure = kind
+			return access, nil
 		}
 	}
 	return CollectionAccess{}, safeError

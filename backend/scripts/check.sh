@@ -164,6 +164,7 @@ cmd/archive-smoke/main.go
 cmd/archive-smoke/main_test.go
 go.mod
 go.sum
+internal/app/catalog_archive_integration_test.go
 internal/app/run.go
 internal/app/run_test.go
 internal/architecture/dependencies_test.go
@@ -256,6 +257,8 @@ internal/observability/events.go
 internal/observability/events_test.go
 internal/observability/metrics.go
 internal/observability/metrics_test.go
+internal/observability/update_status.go
+internal/observability/update_status_test.go
 internal/partners/archive.go
 internal/partners/build.go
 internal/partners/build_test.go
@@ -294,6 +297,8 @@ internal/query/normalize.go
 internal/query/normalize_test.go
 internal/query/unicode_assigned_15_1.go
 internal/query/unicode_assigned_15_1_test.go
+internal/querytiming/trace.go
+internal/querytiming/trace_test.go
 internal/ranking/clone.go
 internal/ranking/errors.go
 internal/ranking/model.go

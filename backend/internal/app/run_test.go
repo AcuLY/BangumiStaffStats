@@ -30,6 +30,7 @@ func TestNewQueryServicesPassesOneRuntimeToAllFiveOperations(t *testing.T) {
 	}
 	queryRuntime := services.rankings.QueryRuntime()
 	if queryRuntime == nil ||
+		services.runtime != queryRuntime ||
 		services.candidates.QueryRuntime() != queryRuntime ||
 		services.personDetail.QueryRuntime() != queryRuntime ||
 		services.partners.QueryRuntime() != queryRuntime ||
@@ -82,7 +83,15 @@ func TestRunListenerPublishesArchiveServesBusinessRoutesAndStops(t *testing.T) {
 	metricResponse := getResponse(t, client, listener, "/metrics")
 	if metricResponse.status != http.StatusOK ||
 		!strings.Contains(metricResponse.body, "bgmss_readiness 1") ||
-		!strings.Contains(metricResponse.body, "bgmss_current_snapshot_info{") {
+		!strings.Contains(metricResponse.body, "bgmss_current_snapshot_info{") ||
+		!strings.Contains(
+			metricResponse.body,
+			"bgmss_query_runtime_stats_valid 1",
+		) ||
+		strings.Count(
+			metricResponse.body,
+			`bgmss_query_cache_items{cache="result"}`,
+		) != 1 {
 		t.Fatalf("metrics = %d %q", metricResponse.status, metricResponse.body)
 	}
 	if events.Len() != 0 {
@@ -111,9 +120,9 @@ func TestRunListenerPublishesArchiveServesBusinessRoutesAndStops(t *testing.T) {
 		"/api/v1/partners",
 		`{"query":{"scope":"personal","uid":"Alice","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"source":{"personId":1,"positionKeys":["staff:anime:2"]}}}`,
 	)
-	if partnersResponse.status != http.StatusBadRequest ||
-		!strings.Contains(partnersResponse.body, `"code":"CAPABILITY_NOT_AVAILABLE"`) ||
-		!strings.Contains(partnersResponse.body, `"message":"position capability is not available"`) {
+	if partnersResponse.status != http.StatusServiceUnavailable ||
+		!strings.Contains(partnersResponse.body, `"code":"NOT_READY"`) ||
+		!strings.Contains(partnersResponse.body, `"message":"partners is not ready"`) {
 		t.Fatalf(
 			"partners runtime = %d %q",
 			partnersResponse.status,
@@ -125,11 +134,11 @@ func TestRunListenerPublishesArchiveServesBusinessRoutesAndStops(t *testing.T) {
 		client,
 		listener,
 		"/api/v1/co-star",
-		`{"query":{"scope":"personal","uid":"Alice","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"participants":[{"personId":1,"positionKeys":["staff:anime:2"]},{"personId":2,"positionKeys":["staff:anime:2"]}]}}`,
+		`{"query":{"scope":"personal","uid":"Alice","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"participants":[{"personId":100,"positionKeys":["staff:anime:2"]},{"personId":101,"positionKeys":["staff:anime:2"]}]}}`,
 	)
-	if coStarResponse.status != http.StatusBadRequest ||
-		!strings.Contains(coStarResponse.body, `"code":"CAPABILITY_NOT_AVAILABLE"`) ||
-		!strings.Contains(coStarResponse.body, `"message":"position capability is not available"`) {
+	if coStarResponse.status != http.StatusServiceUnavailable ||
+		!strings.Contains(coStarResponse.body, `"code":"NOT_READY"`) ||
+		!strings.Contains(coStarResponse.body, `"message":"co-star is not ready"`) {
 		t.Fatalf(
 			"co-star runtime = %d %q",
 			coStarResponse.status,
@@ -521,6 +530,19 @@ func TestRunRejectsInvalidAddress(t *testing.T) {
 	err := Run(context.Background(), "127.0.0.1:not-a-port", t.TempDir())
 	if err == nil {
 		t.Fatal("Run returned nil for an invalid address")
+	}
+}
+
+func TestRunListenerWithOptionsRejectsUnsafeUpdateStatusPath(t *testing.T) {
+	err := RunListenerWithOptions(
+		context.Background(),
+		nil,
+		"/unused",
+		RunOptions{UpdateStatusPath: filepath.Join(t.TempDir(), "other.json")},
+	)
+	if err == nil ||
+		!strings.Contains(err.Error(), "configure update status") {
+		t.Fatalf("RunListenerWithOptions error = %v", err)
 	}
 }
 

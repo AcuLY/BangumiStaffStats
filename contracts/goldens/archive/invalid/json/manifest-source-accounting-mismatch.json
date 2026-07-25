@@ -106,11 +106,11 @@
     "staff_set": 0,
     "staff_set_member": 0,
     "catalog_position": 3,
-    "catalog_position_member": 1,
-    "catalog_group": 1,
-    "catalog_group_member": 2,
-    "catalog_capability": 4,
-    "catalog_selection_rule": 2
+    "catalog_position_member": 0,
+    "catalog_group": 2,
+    "catalog_group_member": 3,
+    "catalog_capability": 15,
+    "catalog_selection_rule": 3
   },
   "qualitySummary": {
     "NO_CHARACTERS": 1,
@@ -120,5 +120,5 @@
   },
   "sqliteFile": "bangumi.sqlite",
   "sqliteSize": 237568,
-  "sqliteDigest": "sha256:5241106e1a72a790bc117b1ded594f510c8611de70ffd7df3c8f54c17bde4947"
+  "sqliteDigest": "sha256:5c45a4b1337f3a4baaf0c965e0eb2cbceba9f4755d643f308e47a40c5cf7dcdc"
 }
