@@ -31,7 +31,7 @@ export type QueryOperation =
   | 'partners'
   | 'person-detail'
   | 'rankings';
-type PrimaryQueryOperation = 'candidates' | 'rankings';
+export type PrimaryQueryOperation = 'candidates' | 'rankings';
 export type ResourcePhase = 'error' | 'idle' | 'pending' | 'ready';
 export type RankingsViewState = Required<RankingsViewV1>;
 export type CandidatesViewState = Required<CandidatesViewV1>;
@@ -43,6 +43,12 @@ export interface OperationFeedback {
   readonly kind: 'error' | 'status' | 'warning';
   readonly message: string;
   readonly operation: QueryOperation;
+}
+
+export interface SuccessfulQueryContext {
+  readonly changed: boolean;
+  readonly operation: PrimaryQueryOperation;
+  readonly refreshed: boolean;
 }
 
 export interface OperationResponse<Payload> {
@@ -104,7 +110,9 @@ export interface QueryDrivers<
 }
 
 export interface OperationResource<Payload, Input, View> {
+  acceptedInput?: Readonly<Input>;
   acceptedQuery: AppliedQuery | null;
+  acceptedView?: Readonly<View>;
   error: string | null;
   feedback: string | null;
   input: Readonly<Input>;
@@ -118,7 +126,9 @@ export interface OperationResource<Payload, Input, View> {
 }
 
 interface ResourceSnapshot {
+  readonly acceptedInput: unknown;
   readonly acceptedQuery: AppliedQuery | null;
+  readonly acceptedView: unknown;
   readonly error: string | null;
   readonly feedback: string | null;
   readonly input: unknown;
@@ -137,10 +147,38 @@ interface OperationTransaction {
   readonly snapshot: ResourceSnapshot;
 }
 
+interface CandidateViewIntent {
+  readonly input: Readonly<CandidatesInputV1>;
+  readonly view: Readonly<CandidatesViewState>;
+}
+
+interface PendingCandidateRefresh {
+  readonly controller: AbortController;
+  readonly coStarSnapshot: ResourceSnapshot;
+  readonly partnersSnapshot: ResourceSnapshot;
+  readonly query: AppliedQuery;
+  readonly sequence: number;
+  latestIntent: CandidateViewIntent | null;
+}
+
+interface PendingRankingRefresh {
+  readonly controller: AbortController;
+  readonly personDetailSnapshot: ResourceSnapshot;
+  readonly query: AppliedQuery;
+  readonly sequence: number;
+}
+
 export class QueryCapabilityUnavailableError extends Error {
   constructor() {
     super('该结果能力尚未接入');
     this.name = 'QueryCapabilityUnavailableError';
+  }
+}
+
+class QuerySnapshotMismatchError extends Error {
+  constructor() {
+    super('结果数据版本已变化，请重新查询后重试');
+    this.name = 'QuerySnapshotMismatchError';
   }
 }
 
@@ -167,6 +205,9 @@ export function unavailableQueryDrivers(): QueryDrivers<
 
 function resourceError(error: unknown): string {
   if (error instanceof QueryCapabilityUnavailableError) {
+    return error.message;
+  }
+  if (error instanceof QuerySnapshotMismatchError) {
     return error.message;
   }
   if (error instanceof RankingsApiError) {
@@ -199,6 +240,66 @@ function serverRequestId(error: unknown): string | null {
     error instanceof PersonDetailApiError
     ? error.requestId
     : null;
+}
+
+function responseUsesStaleCollection(
+  response: OperationResponse<unknown>,
+): boolean {
+  return (
+    response.staleCollection === true ||
+    response.warningCodes?.includes('COLLECTION_STALE') === true
+  );
+}
+
+function payloadSnapshotIdentity(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+  const record = payload as Readonly<Record<string, unknown>>;
+  const dataVersion =
+    typeof record.dataVersion === 'string'
+      ? record.dataVersion
+      : null;
+  const collection =
+    record.collection &&
+    typeof record.collection === 'object'
+      ? (record.collection as Readonly<Record<string, unknown>>)
+      : null;
+  const fetchedAt =
+    typeof collection?.fetchedAt === 'string'
+      ? collection.fetchedAt
+      : null;
+  return dataVersion || fetchedAt
+    ? JSON.stringify([dataVersion, fetchedAt])
+    : null;
+}
+
+function acceptedSnapshotIdentity(
+  operation: PrimaryQueryOperation,
+  response: OperationResponse<unknown>,
+  priorIdentity: string | null,
+): string {
+  const explicitIdentity = payloadSnapshotIdentity(response.payload);
+  if (explicitIdentity) {
+    return explicitIdentity;
+  }
+  if (responseUsesStaleCollection(response) && priorIdentity) {
+    return priorIdentity;
+  }
+  return `request:${operation}:${response.requestId}`;
+}
+
+function assertResponseUsesSnapshot(
+  response: OperationResponse<unknown>,
+  expectedIdentity: string | null,
+): void {
+  if (!expectedIdentity || expectedIdentity.startsWith('request:')) {
+    return;
+  }
+  const responseIdentity = payloadSnapshotIdentity(response.payload);
+  if (responseIdentity && responseIdentity !== expectedIdentity) {
+    throw new QuerySnapshotMismatchError();
+  }
 }
 
 function coStarViewEquals(
@@ -444,20 +545,21 @@ function personDetailViewEquals(
 }
 
 function validPersonDetailView(
+  query: AppliedQuery,
   view: Readonly<PersonDetailViewState>,
 ): boolean {
+  const validSort =
+    view.section === 'characters'
+      ? ['role', 'workCount', 'name'].includes(view.sort)
+      : view.sort === 'globalScore' ||
+        (query.scope === 'personal' &&
+          (view.sort === 'personalScore' ||
+            view.sort === 'collectionUpdatedAt')) ||
+        (query.mergeSeries === true && view.sort === 'seriesSize');
   return (
     ['works', 'characters'].includes(view.section) &&
     [...view.search].length <= 256 &&
-    [
-      'globalScore',
-      'personalScore',
-      'collectionUpdatedAt',
-      'seriesSize',
-      'role',
-      'workCount',
-      'name',
-    ].includes(view.sort) &&
+    validSort &&
     ['asc', 'desc'].includes(view.order) &&
     Number.isSafeInteger(view.page) &&
     view.page >= 1 &&
@@ -487,6 +589,7 @@ export interface QueryCoordinator<
   clearPartners(): void;
   execute(options: {
     candidateInput?: Readonly<CandidatesInputV1>;
+    candidateView?: Readonly<CandidatesViewState>;
     catalog: CatalogSnapshot | null;
     mode: QueryMode;
     refreshCollection?: boolean;
@@ -522,6 +625,7 @@ export interface QueryCoordinator<
   readonly lastOperationFeedback: Readonly<Ref<OperationFeedback | null>>;
   readonly pending: Readonly<Ref<boolean>>;
   readonly pendingOperation: Readonly<Ref<QueryOperation | null>>;
+  readonly snapshotIdentity: Readonly<Ref<string | null>>;
   readonly rankings: OperationResource<
     RankingPayload,
     Record<string, never>,
@@ -559,7 +663,10 @@ export function createQueryCoordinator<
     PartnersPayload,
     CoStarPayload
   >,
-  onSuccessfulQuery?: (query: AppliedQuery) => void,
+  onSuccessfulQuery?: (
+    query: AppliedQuery,
+    context: SuccessfulQueryContext,
+  ) => void,
 ): QueryCoordinator<
   RankingPayload,
   CandidatePayload,
@@ -570,6 +677,7 @@ export function createQueryCoordinator<
   const lastOperationFeedback = ref<OperationFeedback | null>(null);
   const pending = ref(false);
   const pendingOperation = ref<QueryOperation | null>(null);
+  const snapshotIdentity = ref<string | null>(null);
   const sequences: Record<QueryOperation, number> = {
     candidates: 0,
     'co-star': 0,
@@ -580,6 +688,8 @@ export function createQueryCoordinator<
   const controllers: Partial<Record<QueryOperation, AbortController>> = {};
   const transactions: Partial<Record<QueryOperation, OperationTransaction>> =
     {};
+  let pendingCandidateRefresh: PendingCandidateRefresh | null = null;
+  let pendingRankingRefresh: PendingRankingRefresh | null = null;
 
   const rankings = shallowReactive<
     OperationResource<
@@ -711,7 +821,9 @@ export function createQueryCoordinator<
     resource: OperationResource<unknown, unknown, unknown>,
   ): ResourceSnapshot {
     return {
+      acceptedInput: resource.acceptedInput,
       acceptedQuery: resource.acceptedQuery,
+      acceptedView: resource.acceptedView,
       error: resource.error,
       feedback: resource.feedback,
       input: resource.input,
@@ -734,7 +846,9 @@ export function createQueryCoordinator<
       | typeof personDetail,
     snapshot: ResourceSnapshot,
   ): void {
+    resource.acceptedInput = snapshot.acceptedInput as never;
     resource.acceptedQuery = snapshot.acceptedQuery;
+    resource.acceptedView = snapshot.acceptedView as never;
     resource.error = snapshot.error;
     resource.feedback = snapshot.feedback;
     resource.input = snapshot.input as never;
@@ -745,6 +859,68 @@ export function createQueryCoordinator<
     resource.staleCollection = snapshot.staleCollection;
     resource.view = snapshot.view as never;
     resource.viewPending = snapshot.viewPending;
+  }
+
+  function activeCandidateRefresh(): PendingCandidateRefresh | null {
+    const refresh = pendingCandidateRefresh;
+    return (
+      refresh &&
+      transactions.candidates?.controller === refresh.controller &&
+      transactions.candidates.sequence === refresh.sequence &&
+      controllers.candidates === refresh.controller &&
+      !refresh.controller.signal.aborted &&
+      candidates.phase === 'pending' &&
+      store.applied !== null &&
+      querySignature(store.applied) === querySignature(refresh.query)
+        ? refresh
+        : null
+    );
+  }
+
+  function activeRankingRefresh(): PendingRankingRefresh | null {
+    const refresh = pendingRankingRefresh;
+    return (
+      refresh &&
+      transactions.rankings?.controller === refresh.controller &&
+      transactions.rankings.sequence === refresh.sequence &&
+      controllers.rankings === refresh.controller &&
+      !refresh.controller.signal.aborted &&
+      rankings.phase === 'pending' &&
+      store.applied !== null &&
+      querySignature(store.applied) === querySignature(refresh.query)
+        ? refresh
+        : null
+    );
+  }
+
+  function restoreRefreshDependents(
+    operation: PrimaryQueryOperation,
+    controller: AbortController,
+  ): void {
+    if (
+      operation === 'candidates' &&
+      pendingCandidateRefresh?.controller === controller
+    ) {
+      restoreResource(
+        coStar,
+        pendingCandidateRefresh.coStarSnapshot,
+      );
+      restoreResource(
+        partners,
+        pendingCandidateRefresh.partnersSnapshot,
+      );
+      pendingCandidateRefresh = null;
+    }
+    if (
+      operation === 'rankings' &&
+      pendingRankingRefresh?.controller === controller
+    ) {
+      restoreResource(
+        personDetail,
+        pendingRankingRefresh.personDetailSnapshot,
+      );
+      pendingRankingRefresh = null;
+    }
   }
 
   function syncPendingState(): void {
@@ -792,6 +968,9 @@ export function createQueryCoordinator<
             ? partners
             : personDetail;
     restoreResource(resource, transaction.snapshot);
+    if (operation === 'candidates' || operation === 'rankings') {
+      restoreRefreshDependents(operation, transaction.controller);
+    }
     resource.feedback = feedback || null;
     if (feedback) {
       publishFeedback(operation, feedback, 'status');
@@ -818,7 +997,9 @@ export function createQueryCoordinator<
     controllers['person-detail']?.abort();
     controllers['person-detail'] = undefined;
     transactions['person-detail'] = undefined;
+    personDetail.acceptedInput = undefined;
     personDetail.acceptedQuery = null;
+    personDetail.acceptedView = undefined;
     personDetail.error = null;
     personDetail.feedback = null;
     personDetail.input = Object.freeze({ personId: 0 });
@@ -846,7 +1027,9 @@ export function createQueryCoordinator<
     controllers['co-star']?.abort();
     controllers['co-star'] = undefined;
     transactions['co-star'] = undefined;
+    coStar.acceptedInput = undefined;
     coStar.acceptedQuery = null;
+    coStar.acceptedView = undefined;
     coStar.error = null;
     coStar.feedback = null;
     coStar.input = Object.freeze({
@@ -883,7 +1066,9 @@ export function createQueryCoordinator<
     controllers.partners?.abort();
     controllers.partners = undefined;
     transactions.partners = undefined;
+    partners.acceptedInput = undefined;
     partners.acceptedQuery = null;
+    partners.acceptedView = undefined;
     partners.error = null;
     partners.feedback = null;
     partners.input = Object.freeze({
@@ -914,8 +1099,38 @@ export function createQueryCoordinator<
     cancelOperation('partners', feedback);
   }
 
+  function invalidateChildOperation(
+    operation: 'co-star' | 'partners' | 'person-detail',
+  ): void {
+    const resource =
+      operation === 'co-star'
+        ? coStar
+        : operation === 'partners'
+          ? partners
+          : personDetail;
+    const transaction = transactions[operation];
+    if (transaction) {
+      sequences[operation] += 1;
+      transaction.controller.abort();
+      restoreResource(resource, transaction.snapshot);
+    }
+    controllers[operation]?.abort();
+    controllers[operation] = undefined;
+    transactions[operation] = undefined;
+    resource.acceptedInput = undefined;
+    resource.acceptedQuery = null;
+    resource.acceptedView = undefined;
+    resource.error = null;
+    resource.feedback = null;
+    resource.viewPending = false;
+    if (lastOperationFeedback.value?.operation === operation) {
+      lastOperationFeedback.value = null;
+    }
+  }
+
   async function execute(options: {
     candidateInput?: Readonly<CandidatesInputV1>;
+    candidateView?: Readonly<CandidatesViewState>;
     catalog: CatalogSnapshot | null;
     mode: QueryMode;
     refreshCollection?: boolean;
@@ -961,28 +1176,40 @@ export function createQueryCoordinator<
     const sameQuery =
       store.applied !== null &&
       querySignature(store.applied) === querySignature(query);
+    const refreshCollection =
+      options.refreshCollection === true && query.scope === 'personal';
     let nextCandidateView: Readonly<CandidatesViewState> | null = null;
     if (operation === 'candidates') {
       const priorScope = candidates.acceptedQuery?.scope;
       const currentCandidateView: CandidatesViewState = {
-        order: candidates.view.order ?? 'desc',
-        page: candidates.view.page ?? 1,
-        pageSize: candidates.view.pageSize ?? 10,
-        search: candidates.view.search ?? '',
-        sort: candidates.view.sort ?? 'count',
+        order: options.candidateView?.order ?? candidates.view.order ?? 'desc',
+        page: options.candidateView?.page ?? candidates.view.page ?? 1,
+        pageSize:
+          options.candidateView?.pageSize ??
+          candidates.view.pageSize ??
+          10,
+        search:
+          options.candidateView?.search ??
+          candidates.view.search ??
+          '',
+        sort: options.candidateView?.sort ?? candidates.view.sort ?? 'count',
       };
       const nextSort =
-        query.scope === 'global' &&
-        currentCandidateView.sort === 'globalAverage'
-          ? 'average'
-          : query.scope === 'personal' &&
-              priorScope === 'global' &&
-              currentCandidateView.sort === 'average'
-            ? 'globalAverage'
-            : currentCandidateView.sort;
+        options.candidateView !== undefined
+          ? currentCandidateView.sort
+          : query.scope === 'global' &&
+              currentCandidateView.sort === 'globalAverage'
+            ? 'average'
+            : query.scope === 'personal' &&
+                priorScope === 'global' &&
+                currentCandidateView.sort === 'average'
+              ? 'globalAverage'
+              : currentCandidateView.sort;
       const candidateView = Object.freeze({
         ...currentCandidateView,
-        ...(!sameQuery ? { page: 1, search: '' } : {}),
+        ...(!sameQuery && options.candidateView === undefined
+          ? { page: 1, search: '' }
+          : {}),
         sort: nextSort,
       });
       if (!validCandidateView(query, candidateView)) {
@@ -998,15 +1225,20 @@ export function createQueryCoordinator<
       resource.phase === 'ready' &&
       (operation !== 'candidates' ||
         candidates.input.positionKey === nextCandidateInput?.positionKey) &&
-      options.refreshCollection !== true
+      !refreshCollection
     ) {
       resource.feedback = '查询条件没有变化';
       publishFeedback(operation, resource.feedback, 'status');
       return true;
     }
 
-    clearPersonDetail();
     const existingTransaction = transactions[operation];
+    if (existingTransaction) {
+      restoreRefreshDependents(
+        operation,
+        existingTransaction.controller,
+      );
+    }
     controllers[operation]?.abort();
     const controller = new AbortController();
     controllers[operation] = controller;
@@ -1027,12 +1259,38 @@ export function createQueryCoordinator<
     if (nextCandidateView) {
       candidates.view = nextCandidateView;
     }
+    if (
+      operation === 'candidates' &&
+      sameQuery &&
+      refreshCollection
+    ) {
+      pendingCandidateRefresh = {
+        controller,
+        coStarSnapshot: captureResource(coStar),
+        latestIntent: null,
+        partnersSnapshot: captureResource(partners),
+        query,
+        sequence,
+      };
+    }
+    if (
+      operation === 'rankings' &&
+      sameQuery &&
+      refreshCollection
+    ) {
+      pendingRankingRefresh = {
+        controller,
+        personDetailSnapshot: captureResource(personDetail),
+        query,
+        sequence,
+      };
+    }
     lastOperationFeedback.value = null;
     syncPendingState();
 
-    const refreshCollection =
-      options.refreshCollection === true && query.scope === 'personal';
-    const nextRevision = sameQuery ? store.revision : store.revision + 1;
+    let nextRevision = store.revision;
+    let nextSnapshotIdentity: string | null = null;
+    let snapshotChanged = false;
     try {
       if (operation === 'rankings') {
         if (query.scope === 'global' && rankings.view.sort === 'preference') {
@@ -1061,13 +1319,29 @@ export function createQueryCoordinator<
         if (response.transactionId !== transaction) {
           throw new Error('Response transaction ID does not match the request');
         }
+        nextSnapshotIdentity = acceptedSnapshotIdentity(
+          operation,
+          response,
+          snapshotIdentity.value,
+        );
+        snapshotChanged =
+          snapshotIdentity.value !== nextSnapshotIdentity;
+        nextRevision =
+          !sameQuery ||
+          snapshotIdentity.value === null ||
+          snapshotChanged
+            ? store.revision + 1
+            : store.revision;
         rankings.payload = response.payload;
         rankings.requestId = response.requestId;
+        rankings.acceptedInput = Object.freeze({});
         rankings.acceptedQuery = query;
+        rankings.acceptedView = Object.freeze(
+          structuredClone(rankings.view),
+        );
         rankings.revision = nextRevision;
         rankings.staleCollection =
-          response.staleCollection === true ||
-          response.warningCodes?.includes('COLLECTION_STALE') === true;
+          responseUsesStaleCollection(response);
         rankings.feedback = rankings.staleCollection
           ? '收藏刷新未完成，当前显示最近一次可用数据'
           : null;
@@ -1075,6 +1349,7 @@ export function createQueryCoordinator<
         rankings.viewPending = false;
       } else {
         const input = nextCandidateInput!;
+        const view = nextCandidateView!;
         const response = await drivers.candidates.execute({
           input,
           query,
@@ -1082,7 +1357,7 @@ export function createQueryCoordinator<
           sequence,
           signal: controller.signal,
           transactionId: transaction,
-          view: candidates.view,
+          view,
         });
         if (
           sequence !== sequences.candidates ||
@@ -1094,26 +1369,66 @@ export function createQueryCoordinator<
         if (response.transactionId !== transaction) {
           throw new Error('Response transaction ID does not match the request');
         }
+        nextSnapshotIdentity = acceptedSnapshotIdentity(
+          operation,
+          response,
+          snapshotIdentity.value,
+        );
+        snapshotChanged =
+          snapshotIdentity.value !== nextSnapshotIdentity;
+        nextRevision =
+          !sameQuery ||
+          snapshotIdentity.value === null ||
+          snapshotChanged
+            ? store.revision + 1
+            : store.revision;
         candidates.input = input;
+        candidates.view = view;
         candidates.payload = response.payload;
         candidates.requestId = response.requestId;
+        candidates.acceptedInput = Object.freeze(
+          structuredClone(input),
+        );
         candidates.acceptedQuery = query;
+        candidates.acceptedView = Object.freeze(
+          structuredClone(view),
+        );
         candidates.revision = nextRevision;
         candidates.staleCollection =
-          response.staleCollection === true ||
-          response.warningCodes?.includes('COLLECTION_STALE') === true;
+          responseUsesStaleCollection(response);
         candidates.feedback = candidates.staleCollection
           ? '收藏刷新未完成，当前显示最近一次可用数据'
           : null;
         candidates.phase = 'ready';
       }
+      if (!nextSnapshotIdentity) {
+        throw new TypeError('Primary response has no snapshot identity');
+      }
       if (!sameQuery) {
+        clearPersonDetail();
         clearCoStar();
         clearPartners();
+      } else if (snapshotChanged) {
+        invalidateChildOperation('person-detail');
+        invalidateChildOperation('co-star');
+        invalidateChildOperation('partners');
+      } else if (operation === 'rankings') {
+        invalidateChildOperation('person-detail');
+      } else {
+        invalidateChildOperation('co-star');
+        invalidateChildOperation('partners');
       }
+      snapshotIdentity.value = nextSnapshotIdentity;
       store.commit(query, nextRevision);
       try {
-        onSuccessfulQuery?.(query);
+        onSuccessfulQuery?.(
+          query,
+          Object.freeze({
+            changed: !sameQuery,
+            operation,
+            refreshed: refreshCollection,
+          }),
+        );
       } catch {
         resource.feedback =
           resource.feedback ?? '查询已应用，但地址栏同步未完成';
@@ -1125,6 +1440,29 @@ export function createQueryCoordinator<
           resource.staleCollection ? 'warning' : 'status',
         );
       }
+      if (operation === 'candidates') {
+        const refreshState = pendingCandidateRefresh;
+        if (refreshState?.controller === controller) {
+          const latestIntent = refreshState.latestIntent;
+          pendingCandidateRefresh = null;
+          if (
+            latestIntent &&
+            (String(latestIntent.input.positionKey) !==
+              String(nextCandidateInput!.positionKey) ||
+              !candidateViewEquals(latestIntent.view, nextCandidateView!))
+          ) {
+            controllers.candidates = undefined;
+            transactions.candidates = undefined;
+            syncPendingState();
+            await executeCandidateView(
+              latestIntent.input,
+              latestIntent.view,
+            );
+          }
+        }
+      } else if (pendingRankingRefresh?.controller === controller) {
+        pendingRankingRefresh = null;
+      }
       return true;
     } catch (error) {
       if (
@@ -1134,6 +1472,7 @@ export function createQueryCoordinator<
         return false;
       }
       restoreResource(resource, snapshot);
+      restoreRefreshDependents(operation, controller);
       resource.error = controller.signal.aborted
         ? '查询已取消'
         : resourceError(error);
@@ -1167,7 +1506,8 @@ export function createQueryCoordinator<
     input: Readonly<CandidatesInputV1>,
     view: Readonly<CandidatesViewState>,
   ): Promise<boolean> {
-    const query = readyCandidateQuery();
+    const activeRefresh = activeCandidateRefresh();
+    const query = activeRefresh?.query ?? readyCandidateQuery();
     if (!query) {
       candidates.error = '请先完成一次共演分析查询';
       publishFeedback('candidates', candidates.error, 'error');
@@ -1184,6 +1524,29 @@ export function createQueryCoordinator<
       candidates.error = '候选人物视图参数无效';
       publishFeedback('candidates', candidates.error, 'error');
       return false;
+    }
+    if (activeRefresh) {
+      const nextInput = Object.freeze(
+        structuredClone(input),
+      ) as Readonly<CandidatesInputV1>;
+      const nextView = Object.freeze(
+        structuredClone(view),
+      ) as Readonly<CandidatesViewState>;
+      activeRefresh.latestIntent = Object.freeze({
+        input: nextInput,
+        view: nextView,
+      });
+      candidates.error = null;
+      candidates.feedback = null;
+      candidates.input = nextInput;
+      candidates.view = nextView;
+      if (
+        lastOperationFeedback.value?.operation === 'candidates' &&
+        lastOperationFeedback.value.kind === 'error'
+      ) {
+        lastOperationFeedback.value = null;
+      }
+      return true;
     }
     if (
       !candidates.viewPending &&
@@ -1247,9 +1610,12 @@ export function createQueryCoordinator<
       if (response.transactionId !== transaction) {
         throw new Error('Response transaction ID does not match the request');
       }
+      assertResponseUsesSnapshot(response, snapshotIdentity.value);
 
       candidates.payload = response.payload;
       candidates.requestId = response.requestId;
+      candidates.acceptedInput = nextInput;
+      candidates.acceptedView = nextView;
       candidates.staleCollection =
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
@@ -1347,9 +1713,14 @@ export function createQueryCoordinator<
     }
     if (
       coStar.phase === 'ready' &&
+      coStar.payload !== null &&
       coStar.revision === store.revision &&
-      coStarInputEquals(coStar.input, input) &&
-      coStarViewEquals(coStar.view, view)
+      coStar.acceptedQuery !== null &&
+      coStar.acceptedInput !== undefined &&
+      coStar.acceptedView !== undefined &&
+      querySignature(coStar.acceptedQuery) === querySignature(query) &&
+      coStarInputEquals(coStar.acceptedInput, input) &&
+      coStarViewEquals(coStar.acceptedView, view)
     ) {
       return true;
     }
@@ -1405,8 +1776,11 @@ export function createQueryCoordinator<
       if (response.transactionId !== transaction) {
         throw new Error('Response transaction ID does not match the request');
       }
+      assertResponseUsesSnapshot(response, snapshotIdentity.value);
 
       coStar.acceptedQuery = query;
+      coStar.acceptedInput = input;
+      coStar.acceptedView = view;
       coStar.input = input;
       coStar.payload = response.payload;
       coStar.requestId = response.requestId;
@@ -1460,7 +1834,8 @@ export function createQueryCoordinator<
   async function executeCoStarView(
     requestedView: Readonly<CoStarViewState>,
   ): Promise<boolean> {
-    const query = readyCoStarQuery();
+    const activeRefresh = activeCandidateRefresh();
+    const query = activeRefresh?.query ?? readyCoStarQuery();
     if (!query) {
       coStar.error = '请先选择至少两位人物进行共演分析';
       publishFeedback('co-star', coStar.error, 'error');
@@ -1471,6 +1846,19 @@ export function createQueryCoordinator<
       coStar.error = '共同作品视图参数无效';
       publishFeedback('co-star', coStar.error, 'error');
       return false;
+    }
+    if (activeRefresh) {
+      coStar.error = null;
+      coStar.feedback = null;
+      coStar.view = view;
+      coStar.viewPending = false;
+      if (
+        lastOperationFeedback.value?.operation === 'co-star' &&
+        lastOperationFeedback.value.kind === 'error'
+      ) {
+        lastOperationFeedback.value = null;
+      }
+      return true;
     }
     if (!coStar.viewPending && coStarViewEquals(coStar.view, view)) {
       return true;
@@ -1524,9 +1912,12 @@ export function createQueryCoordinator<
       if (response.transactionId !== transaction) {
         throw new Error('Response transaction ID does not match the request');
       }
+      assertResponseUsesSnapshot(response, snapshotIdentity.value);
 
       coStar.payload = response.payload;
       coStar.requestId = response.requestId;
+      coStar.acceptedInput = capturedInput;
+      coStar.acceptedView = view;
       coStar.staleCollection =
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
@@ -1642,9 +2033,14 @@ export function createQueryCoordinator<
     }
     if (
       partners.phase === 'ready' &&
+      partners.payload !== null &&
       partners.revision === store.revision &&
-      partnersInputEquals(partners.input, input) &&
-      partnersViewEquals(partners.view, view)
+      partners.acceptedQuery !== null &&
+      partners.acceptedInput !== undefined &&
+      partners.acceptedView !== undefined &&
+      querySignature(partners.acceptedQuery) === querySignature(query) &&
+      partnersInputEquals(partners.acceptedInput, input) &&
+      partnersViewEquals(partners.acceptedView, view)
     ) {
       return true;
     }
@@ -1700,8 +2096,11 @@ export function createQueryCoordinator<
       if (response.transactionId !== transaction) {
         throw new Error('Response transaction ID does not match the request');
       }
+      assertResponseUsesSnapshot(response, snapshotIdentity.value);
 
       partners.acceptedQuery = query;
+      partners.acceptedInput = input;
+      partners.acceptedView = view;
       partners.input = input;
       partners.payload = response.payload;
       partners.requestId = response.requestId;
@@ -1755,7 +2154,8 @@ export function createQueryCoordinator<
   async function executePartnersView(
     requestedView: Readonly<PartnersViewState>,
   ): Promise<boolean> {
-    const query = readyPartnersQuery();
+    const activeRefresh = activeCandidateRefresh();
+    const query = activeRefresh?.query ?? readyPartnersQuery();
     if (!query) {
       partners.error = '请先选择一位人物查看合作人物';
       publishFeedback('partners', partners.error, 'error');
@@ -1766,6 +2166,19 @@ export function createQueryCoordinator<
       partners.error = '合作人物视图参数无效';
       publishFeedback('partners', partners.error, 'error');
       return false;
+    }
+    if (activeRefresh) {
+      partners.error = null;
+      partners.feedback = null;
+      partners.view = view;
+      partners.viewPending = false;
+      if (
+        lastOperationFeedback.value?.operation === 'partners' &&
+        lastOperationFeedback.value.kind === 'error'
+      ) {
+        lastOperationFeedback.value = null;
+      }
+      return true;
     }
     if (!partners.viewPending && partnersViewEquals(partners.view, view)) {
       return true;
@@ -1819,9 +2232,12 @@ export function createQueryCoordinator<
       if (response.transactionId !== transaction) {
         throw new Error('Response transaction ID does not match the request');
       }
+      assertResponseUsesSnapshot(response, snapshotIdentity.value);
 
       partners.payload = response.payload;
       partners.requestId = response.requestId;
+      partners.acceptedInput = capturedInput;
+      partners.acceptedView = view;
       partners.staleCollection =
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
@@ -1938,9 +2354,12 @@ export function createQueryCoordinator<
       if (response.transactionId !== transaction) {
         throw new Error('Response transaction ID does not match the request');
       }
+      assertResponseUsesSnapshot(response, snapshotIdentity.value);
 
       rankings.payload = response.payload;
       rankings.requestId = response.requestId;
+      rankings.acceptedInput = rankings.input;
+      rankings.acceptedView = rankings.view;
       rankings.staleCollection =
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
@@ -2012,7 +2431,7 @@ export function createQueryCoordinator<
     const view = Object.freeze(
       structuredClone(requestedView ?? defaultPersonDetailView(query)),
     );
-    if (!validPersonDetailView(view)) {
+    if (!validPersonDetailView(query, view)) {
       personDetail.error = '人物详情视图参数无效';
       personDetail.phase = 'error';
       publishFeedback('person-detail', personDetail.error, 'error');
@@ -2021,10 +2440,14 @@ export function createQueryCoordinator<
     if (
       personDetail.phase === 'ready' &&
       personDetail.payload !== null &&
-      personDetail.input.personId === personId &&
-      personDetail.revision === store.revision
+      personDetail.revision === store.revision &&
+      personDetail.acceptedQuery !== null &&
+      personDetail.acceptedInput !== undefined &&
+      personDetail.acceptedView !== undefined &&
+      querySignature(personDetail.acceptedQuery) === querySignature(query) &&
+      personDetail.acceptedInput.personId === personId
     ) {
-      return personDetailViewEquals(personDetail.view, view)
+      return personDetailViewEquals(personDetail.acceptedView, view)
         ? true
         : executePersonDetailView(view);
     }
@@ -2082,8 +2505,13 @@ export function createQueryCoordinator<
       if (response.transactionId !== transaction) {
         throw new Error('Response transaction ID does not match the request');
       }
+      assertResponseUsesSnapshot(response, snapshotIdentity.value);
       personDetail.payload = response.payload;
       personDetail.requestId = response.requestId;
+      personDetail.acceptedInput = Object.freeze(
+        structuredClone(personDetail.input),
+      );
+      personDetail.acceptedView = view;
       personDetail.staleCollection =
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
@@ -2123,27 +2551,44 @@ export function createQueryCoordinator<
   async function executePersonDetailView(
     view: Readonly<PersonDetailViewState>,
   ): Promise<boolean> {
-    const query = readyRankingQuery();
-    if (
-      !query ||
-      !personDetail.acceptedQuery ||
-      personDetail.payload === null ||
-      personDetail.phase !== 'ready' ||
-      personDetail.revision !== store.revision ||
-      querySignature(personDetail.acceptedQuery) !== querySignature(query)
-    ) {
+    const activeRefresh = activeRankingRefresh();
+    const query = activeRefresh?.query ?? readyRankingQuery();
+    const detailReady =
+      query !== null &&
+      (activeRefresh !== null ||
+        (personDetail.acceptedQuery !== null &&
+          personDetail.payload !== null &&
+          personDetail.phase === 'ready' &&
+          personDetail.revision === store.revision &&
+          querySignature(personDetail.acceptedQuery) ===
+            querySignature(query)));
+    if (!query || !detailReady) {
       personDetail.error = '请先选择排行中的人物';
       publishFeedback('person-detail', personDetail.error, 'error');
       return false;
     }
-    if (!validPersonDetailView(view)) {
+    if (!validPersonDetailView(query, view)) {
       personDetail.error = '人物详情视图参数无效';
       publishFeedback('person-detail', personDetail.error, 'error');
       return false;
     }
+    const nextView = Object.freeze(structuredClone(view));
+    if (activeRefresh) {
+      personDetail.error = null;
+      personDetail.feedback = null;
+      personDetail.view = nextView;
+      personDetail.viewPending = false;
+      if (
+        lastOperationFeedback.value?.operation === 'person-detail' &&
+        lastOperationFeedback.value.kind === 'error'
+      ) {
+        lastOperationFeedback.value = null;
+      }
+      return true;
+    }
     if (
       !personDetail.viewPending &&
-      personDetailViewEquals(personDetail.view, view)
+      personDetailViewEquals(personDetail.view, nextView)
     ) {
       return true;
     }
@@ -2159,8 +2604,6 @@ export function createQueryCoordinator<
     transactions['person-detail'] = { controller, sequence, snapshot };
     const capturedRevision = store.revision;
     const capturedSignature = querySignature(query);
-    const nextView = Object.freeze(structuredClone(view));
-
     personDetail.error = null;
     personDetail.feedback = null;
     personDetail.view = nextView;
@@ -2195,8 +2638,13 @@ export function createQueryCoordinator<
       if (response.transactionId !== transaction) {
         throw new Error('Response transaction ID does not match the request');
       }
+      assertResponseUsesSnapshot(response, snapshotIdentity.value);
       personDetail.payload = response.payload;
       personDetail.requestId = response.requestId;
+      personDetail.acceptedInput = Object.freeze(
+        structuredClone(personDetail.input),
+      );
+      personDetail.acceptedView = nextView;
       personDetail.staleCollection =
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
@@ -2260,5 +2708,6 @@ export function createQueryCoordinator<
     partners,
     personDetail,
     rankings,
+    snapshotIdentity: readonly(snapshotIdentity),
   };
 }

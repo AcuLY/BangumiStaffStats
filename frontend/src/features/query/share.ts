@@ -93,14 +93,43 @@ function assertShareSemantics(payload: SharePayload): void {
   }
   const queryKeys = new Set(payload.query.positionKeys);
   if (payload.workspace.kind === 'ranking') {
+    const detailSection =
+      payload.workspace.detail?.view.section ?? 'works';
+    const detailSort =
+      payload.workspace.detail?.view.sort ??
+      (detailSection === 'characters' ? 'role' : 'globalScore');
+    const detailSortIsValid =
+      payload.workspace.detail === undefined ||
+      (detailSection === 'characters'
+        ? ['role', 'workCount', 'name'].includes(detailSort)
+        : detailSort === 'globalScore' ||
+          (payload.query.scope === 'personal' &&
+            (detailSort === 'personalScore' ||
+              detailSort === 'collectionUpdatedAt')) ||
+          (payload.query.mergeSeries === true &&
+            detailSort === 'seriesSize'));
+    if (
+      (payload.query.scope === 'global' &&
+        payload.workspace.rankingsView.sort === 'preference') ||
+      !detailSortIsValid
+    ) {
+      throw new Error('Ranking view is incompatible with the applied query');
+    }
     return;
   }
   const workspace = payload.workspace;
   if (!queryKeys.has(workspace.candidates.input.positionKey)) {
     throw new Error('Candidate position is outside the applied query');
   }
+  if (
+    payload.query.scope === 'global' &&
+    workspace.candidates.view.sort === 'globalAverage'
+  ) {
+    throw new Error('Candidate view is incompatible with the applied query');
+  }
   if (workspace.state === 'partners') {
     if (
+      workspace.partners.input.source.positionKeys.length > 20 ||
       !validIdentity(
         workspace.partners.input.source.positionKeys,
         queryKeys,
@@ -109,6 +138,12 @@ function assertShareSemantics(payload: SharePayload): void {
         !queryKeys.has(workspace.partners.input.candidatePositionKey))
     ) {
       throw new Error('Partner identity is outside the applied query');
+    }
+    if (
+      payload.query.scope === 'global' &&
+      workspace.partners.view.sort === 'preference'
+    ) {
+      throw new Error('Partners view is incompatible with the applied query');
     }
     return;
   }
@@ -126,10 +161,20 @@ function assertShareSemantics(payload: SharePayload): void {
       identityCount += participant.positionKeys.length;
     }
     if (
+      workspace.coStar.input.participants.length < 2 ||
       workspace.coStar.input.participants.length > 10 ||
       identityCount > 20
     ) {
       throw new Error('Co-star identity limit is exceeded');
+    }
+    if (
+      (payload.query.scope === 'global' &&
+        (workspace.coStar.view.sort === 'personalScore' ||
+          workspace.coStar.view.sort === 'collectionUpdatedAt')) ||
+      (payload.query.mergeSeries !== true &&
+        workspace.coStar.view.sort === 'seriesSize')
+    ) {
+      throw new Error('Co-star view is incompatible with the applied query');
     }
   }
 }

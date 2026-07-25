@@ -103,7 +103,7 @@ describe('share and route owner', () => {
     owner.dispose();
   });
 
-  it('preserves a valid fragment when application is deferred and allows retry', async () => {
+  it('consumes a valid fragment after one deferred or failed application attempt', async () => {
     const url = createShareUrl(
       new URL(`${window.location.origin}/ranking`),
       '/ranking',
@@ -112,17 +112,32 @@ describe('share and route owner', () => {
     );
     window.history.replaceState({}, '', url);
     const owner = createRouteOwner(window);
+    const replay = vi.fn(async () => false);
 
     await expect(
-      owner.consumeInitialShare(async () => false),
+      owner.consumeInitialShare(replay),
     ).resolves.toBe('deferred');
-    expect(window.location.hash).toMatch(/^#q=v1\./u);
+    expect(window.location.hash).toBe('');
 
     await expect(
       owner.consumeInitialShare(async () => true),
-    ).resolves.toBe('applied');
+    ).resolves.toBe('absent');
+    expect(replay).toHaveBeenCalledOnce();
     expect(window.location.hash).toBe('');
     owner.dispose();
+
+    window.history.replaceState({}, '', url);
+    const throwingOwner = createRouteOwner(window);
+    await expect(
+      throwingOwner.consumeInitialShare(async () => {
+        throw new Error('offline');
+      }),
+    ).resolves.toBe('deferred');
+    expect(window.location.hash).toBe('');
+    await expect(
+      throwingOwner.consumeInitialShare(async () => true),
+    ).resolves.toBe('absent');
+    throwingOwner.dispose();
   });
 
   it('updates personal/global URL without navigating or starting another action', () => {

@@ -20,13 +20,20 @@ interface DetailPayload {
 type DetailExecute = NonNullable<
   QueryDrivers<RankingPayload, never, DetailPayload>['personDetail']
 >['execute'];
+type RankingExecute = QueryDrivers<
+  RankingPayload,
+  never,
+  DetailPayload
+>['rankings']['execute'];
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => {
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise;
+    reject = rejectPromise;
   });
-  return { promise, resolve };
+  return { promise, reject, resolve };
 }
 
 function readyStore() {
@@ -38,6 +45,7 @@ function readyStore() {
 
 function drivers(
   detailExecute: DetailExecute,
+  rankingExecute?: RankingExecute,
 ): QueryDrivers<RankingPayload, never, DetailPayload> {
   return {
     candidates: {
@@ -47,13 +55,13 @@ function drivers(
     },
     personDetail: { execute: detailExecute },
     rankings: {
-      async execute(request) {
-        return {
+      execute:
+        rankingExecute ??
+        (async (request) => ({
           payload: { id: 'ranking' },
           requestId: 'server-ranking',
           transactionId: request.transactionId,
-        };
-      },
+        })),
     },
   };
 }
@@ -91,11 +99,88 @@ describe('person-detail coordinator resource', () => {
       sort: 'globalScore',
     });
     expect(coordinator.personDetail).toMatchObject({
+      acceptedInput: { personId: 12 },
+      acceptedView: {
+        section: 'works',
+        sort: 'globalScore',
+      },
       input: { personId: 12 },
       payload: { id: '12' },
       phase: 'ready',
       revision: 1,
     });
+  });
+
+  it('rejects section, scope, and series-incompatible detail view unions before the driver', async () => {
+    const detailExecute = vi.fn(async (request) => ({
+      payload: { id: String(request.input.personId) },
+      requestId: 'server-detail',
+      transactionId: request.transactionId,
+    }));
+    const personalStore = readyStore();
+    const personal = createQueryCoordinator(
+      personalStore,
+      drivers(detailExecute),
+    );
+    await personal.execute({
+      catalog: catalogFixture(),
+      mode: 'ranking',
+    });
+
+    await expect(
+      personal.executePersonDetail(12, {
+        order: 'desc',
+        page: 1,
+        pageSize: 10,
+        search: '',
+        section: 'works',
+        sort: 'role',
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      personal.executePersonDetail(12, {
+        order: 'desc',
+        page: 1,
+        pageSize: 10,
+        search: '',
+        section: 'characters',
+        sort: 'globalScore',
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      personal.executePersonDetail(12, {
+        order: 'desc',
+        page: 1,
+        pageSize: 10,
+        search: '',
+        section: 'works',
+        sort: 'seriesSize',
+      }),
+    ).resolves.toBe(false);
+
+    setActivePinia(createPinia());
+    const globalStore = readyStore();
+    globalStore.draft.scope = 'global';
+    const global = createQueryCoordinator(
+      globalStore,
+      drivers(detailExecute),
+    );
+    await global.execute({
+      catalog: catalogFixture(),
+      mode: 'ranking',
+    });
+    await expect(
+      global.executePersonDetail(12, {
+        order: 'desc',
+        page: 1,
+        pageSize: 10,
+        search: '',
+        section: 'works',
+        sort: 'personalScore',
+      }),
+    ).resolves.toBe(false);
+
+    expect(detailExecute).not.toHaveBeenCalled();
   });
 
   it('aborts superseded identities and commits only the latest response', async () => {
@@ -228,4 +313,98 @@ describe('person-detail coordinator resource', () => {
     expect(coordinator.personDetail.view.page).toBe(3);
     expect(coordinator.personDetail.payload).toEqual({ id: 'page-3' });
   });
+
+  it.each(['failure', 'cancel'] as const)(
+    'discards compound person-detail intent and restores accepted ownership after ranking refresh %s',
+    async (outcome) => {
+      const refresh =
+        deferred<OperationResponse<RankingPayload>>();
+      const rankingExecute = vi
+        .fn()
+        .mockImplementationOnce(async (request) => ({
+          payload: { id: 'ranking' },
+          requestId: 'server-ranking',
+          transactionId: request.transactionId,
+        }))
+        .mockImplementationOnce(() => refresh.promise);
+      const detailExecute = vi.fn(async (request) => ({
+        payload: { id: 'accepted-detail' },
+        requestId: 'server-accepted-detail',
+        transactionId: request.transactionId,
+      }));
+      const store = readyStore();
+      const coordinator = createQueryCoordinator(
+        store,
+        drivers(detailExecute, rankingExecute),
+      );
+      const catalog = catalogFixture();
+      await coordinator.execute({ catalog, mode: 'ranking' });
+      await coordinator.executePersonDetail(12, {
+        order: 'desc',
+        page: 1,
+        pageSize: 10,
+        search: 'accepted',
+        section: 'works',
+        sort: 'globalScore',
+      });
+      const acceptedView = coordinator.personDetail.view;
+      const acceptedInput = coordinator.personDetail.acceptedInput;
+      const acceptedQuery = coordinator.personDetail.acceptedQuery;
+
+      const primary = coordinator.execute({
+        catalog,
+        mode: 'ranking',
+        refreshCollection: true,
+      });
+      await expect(
+        coordinator.executePersonDetailView({
+          ...coordinator.personDetail.view,
+          search: 'queued search',
+        }),
+      ).resolves.toBe(true);
+      await expect(
+        coordinator.executePersonDetailView({
+          ...coordinator.personDetail.view,
+          order: 'asc',
+        }),
+      ).resolves.toBe(true);
+
+      expect(detailExecute).toHaveBeenCalledOnce();
+      expect(coordinator.personDetail).toMatchObject({
+        error: null,
+        view: {
+          order: 'asc',
+          search: 'queued search',
+        },
+      });
+      expect(coordinator.lastOperationFeedback.value).toBeNull();
+
+      const refreshRequest = rankingExecute.mock.calls[1]![0];
+      if (outcome === 'failure') {
+        refresh.reject(new Error('refresh failed'));
+      } else {
+        coordinator.cancel('ranking');
+        refresh.resolve({
+          payload: { id: 'stale-ranking' },
+          requestId: 'server-stale-ranking',
+          transactionId: refreshRequest.transactionId,
+        });
+      }
+      await expect(primary).resolves.toBe(false);
+
+      expect(detailExecute).toHaveBeenCalledOnce();
+      expect(coordinator.personDetail.view).toBe(acceptedView);
+      expect(coordinator.personDetail.acceptedInput).toBe(acceptedInput);
+      expect(coordinator.personDetail.acceptedQuery).toBe(acceptedQuery);
+      expect(coordinator.personDetail).toMatchObject({
+        error: null,
+        payload: { id: 'accepted-detail' },
+        phase: 'ready',
+        view: {
+          order: 'desc',
+          search: 'accepted',
+        },
+      });
+    },
+  );
 });

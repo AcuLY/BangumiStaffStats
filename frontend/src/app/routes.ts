@@ -84,22 +84,22 @@ export function createRouteOwner(target: Window = window): RouteOwner {
     try {
       payload = readShare(path, url.hash);
     } catch {
-      url.hash = '';
-      target.history.replaceState({}, '', localHistoryHref(url));
+      const current = new URL(target.location.href);
+      current.hash = '';
+      target.history.replaceState({}, '', localHistoryHref(current));
       return 'invalid';
     }
+    let applied = false;
     try {
-      if (!(await replay(payload))) {
-        shareConsumed = false;
-        return 'deferred';
-      }
+      applied = await replay(payload);
     } catch {
-      shareConsumed = false;
-      return 'deferred';
+      applied = false;
+    } finally {
+      const current = new URL(target.location.href);
+      current.hash = '';
+      target.history.replaceState({}, '', localHistoryHref(current));
     }
-    url.hash = '';
-    target.history.replaceState({}, '', localHistoryHref(url));
-    return 'applied';
+    return applied ? 'applied' : 'deferred';
   }
 
   return {

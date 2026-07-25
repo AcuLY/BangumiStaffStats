@@ -23,6 +23,42 @@ function walk(root) {
     .sort();
 }
 
+function tagAttributes(tag) {
+  const attributes = new Map();
+  const pattern =
+    /\s([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+  for (const match of tag.matchAll(pattern)) {
+    attributes.set(
+      match[1].toLowerCase(),
+      match[2] ?? match[3] ?? match[4] ?? '',
+    );
+  }
+  return attributes;
+}
+
+function localArtifactPath(reference, label, files) {
+  if (/^(?:[a-z]+:)?\/\//i.test(reference)) {
+    fail(`${label} must be a local artifact path: ${reference}`);
+  }
+  const pathname = reference.split(/[?#]/u, 1)[0];
+  let decoded;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    fail(`${label} contains invalid URL encoding: ${reference}`);
+  }
+  const relativePath = path.posix.normalize(decoded.replace(/^\/+/u, ''));
+  if (
+    !relativePath ||
+    relativePath === '.' ||
+    relativePath.startsWith('../') ||
+    !files.includes(relativePath)
+  ) {
+    fail(`${label} does not resolve to a production file: ${reference}`);
+  }
+  return relativePath;
+}
+
 if (process.version !== 'v24.18.0') {
   fail(`artifact check requires Node v24.18.0, received ${process.version}`);
 }
@@ -80,19 +116,65 @@ for (const [label, expression] of deniedContent) {
     fail(`production artifact contains ${label}`);
   }
 }
+if (!/deferred-surface-reload-v1/.test(combinedText)) {
+  fail('production artifact is missing deferred surface reload recovery');
+}
 
-const javaScriptFiles = files.filter((file) => file.endsWith('.js'));
-const gzipBytes = javaScriptFiles.reduce(
-  (total, file) =>
-    total + gzipSync(fs.readFileSync(path.join(distRoot, file))).byteLength,
+const entryHtml = fs.readFileSync(path.join(distRoot, 'index.html'), 'utf8');
+const initialJavaScriptFiles = new Set();
+for (const match of entryHtml.matchAll(/<(script|link)\b[^>]*>/giu)) {
+  const tagName = match[1].toLowerCase();
+  const attributes = tagAttributes(match[0]);
+  const isModuleScript =
+    tagName === 'script' &&
+    attributes.get('type')?.toLowerCase() === 'module' &&
+    attributes.has('src');
+  const isModulePreload =
+    tagName === 'link' &&
+    (attributes.get('rel') ?? '')
+      .toLowerCase()
+      .split(/\s+/u)
+      .includes('modulepreload') &&
+    attributes.has('href');
+  if (!isModuleScript && !isModulePreload) {
+    continue;
+  }
+  const reference = attributes.get(isModuleScript ? 'src' : 'href');
+  const file = localArtifactPath(
+    reference,
+    isModuleScript ? 'module script' : 'module preload',
+    files,
+  );
+  if (!file.endsWith('.js')) {
+    fail(`initial module reference must be JavaScript: ${reference}`);
+  }
+  initialJavaScriptFiles.add(file);
+}
+if (initialJavaScriptFiles.size === 0) {
+  fail('production HTML must reference at least one initial JavaScript module');
+}
+
+const gzipSize = (file) =>
+  gzipSync(fs.readFileSync(path.join(distRoot, file))).byteLength;
+const initialJavaScriptGzipBytes = [...initialJavaScriptFiles].reduce(
+  (total, file) => total + gzipSize(file),
   0,
 );
-if (gzipBytes >= maximumInitialJavaScriptGzipBytes) {
+if (
+  initialJavaScriptGzipBytes >= maximumInitialJavaScriptGzipBytes
+) {
   fail(
-    `initial JavaScript gzip budget exceeded: ${gzipBytes} >= ${maximumInitialJavaScriptGzipBytes}`,
+    `initial JavaScript gzip budget exceeded: ${initialJavaScriptGzipBytes} >= ${maximumInitialJavaScriptGzipBytes}`,
   );
 }
 
+const javaScriptFiles = files.filter((file) => file.endsWith('.js'));
+const totalJavaScriptGzipBytes = javaScriptFiles.reduce(
+  (total, file) =>
+    total + gzipSize(file),
+  0,
+);
+
 console.log(
-  `artifact check passed: ${files.length} files, one HTML, approved brand, JavaScript gzip ${gzipBytes} bytes`,
+  `artifact check passed: ${files.length} files, one HTML, approved brand, initial JavaScript gzip ${initialJavaScriptGzipBytes} bytes (${initialJavaScriptFiles.size} file), total JavaScript gzip ${totalJavaScriptGzipBytes} bytes`,
 );

@@ -440,4 +440,94 @@ describe('partners coordinator resource', () => {
       revision: 0,
     });
   });
+
+  it.each(['failure', 'cancel'] as const)(
+    'discards compound partners view intent and restores the accepted view after primary refresh %s',
+    async (outcome) => {
+      const refresh = deferred<OperationResponse<Payload>>();
+      const candidatesExecute = vi
+        .fn()
+        .mockImplementationOnce(async (request: CandidateRequest) => ({
+          payload: { id: 'initial-candidates' },
+          requestId: 'server-initial-candidates',
+          transactionId: request.transactionId,
+        }))
+        .mockImplementationOnce(() => refresh.promise);
+      const partnersExecute = vi.fn(
+        async (request: PartnersRequest) => ({
+          payload: { id: 'accepted-partners' },
+          requestId: 'server-accepted-partners',
+          transactionId: request.transactionId,
+        }),
+      );
+      const store = readyStore();
+      const coordinator = createQueryCoordinator<
+        Payload,
+        Payload,
+        unknown,
+        Payload
+      >(store, drivers(partnersExecute, candidatesExecute));
+      const catalog = catalogFixture();
+      await coordinator.execute({ catalog, mode: 'co-star' });
+      await coordinator.executePartners(source, {
+        ...view,
+        search: 'accepted',
+      });
+      const acceptedView = coordinator.partners.view;
+
+      const primary = coordinator.execute({
+        catalog,
+        mode: 'co-star',
+        refreshCollection: true,
+      });
+      await expect(
+        coordinator.executePartnersView({
+          ...coordinator.partners.view,
+          search: 'queued search',
+        }),
+      ).resolves.toBe(true);
+      await expect(
+        coordinator.executePartnersView({
+          ...coordinator.partners.view,
+          order: 'asc',
+        }),
+      ).resolves.toBe(true);
+
+      expect(partnersExecute).toHaveBeenCalledOnce();
+      expect(coordinator.partners).toMatchObject({
+        error: null,
+        view: {
+          order: 'asc',
+          search: 'queued search',
+        },
+      });
+      expect(coordinator.lastOperationFeedback.value).toBeNull();
+
+      const refreshRequest = candidatesExecute.mock
+        .calls[1]![0] as CandidateRequest;
+      if (outcome === 'failure') {
+        refresh.reject(new Error('refresh failed'));
+      } else {
+        coordinator.cancel('co-star');
+        refresh.resolve({
+          payload: { id: 'stale-refresh' },
+          requestId: 'server-stale-refresh',
+          transactionId: refreshRequest.transactionId,
+        });
+      }
+      await expect(primary).resolves.toBe(false);
+
+      expect(partnersExecute).toHaveBeenCalledOnce();
+      expect(coordinator.partners.view).toBe(acceptedView);
+      expect(coordinator.partners).toMatchObject({
+        error: null,
+        payload: { id: 'accepted-partners' },
+        phase: 'ready',
+        view: {
+          order: 'desc',
+          search: 'accepted',
+        },
+      });
+    },
+  );
 });

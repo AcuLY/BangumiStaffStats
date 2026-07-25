@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '../../../src/app/App.vue';
 import type { CatalogApi } from '../../../src/api/catalog';
+import type {
+  CandidatePayload as ApiCandidatePayload,
+} from '../../../src/api/adapters/candidates';
 import type { RankingPayload } from '../../../src/api/adapters/rankings';
 import AppHeader from '../../../src/features/query/components/AppHeader.vue';
 import {
@@ -63,6 +66,33 @@ function rankingPayload(requestId: string): RankingPayload {
       workCount: 0,
       workUnit: 'subject',
     }),
+  });
+}
+
+function appCandidatePayload(
+  positionKey: string,
+  requestId: string,
+): ApiCandidatePayload {
+  return Object.freeze({
+    collection: Object.freeze({
+      fetchedAt: '2026-07-25T00:00:00Z',
+      stale: false,
+      warningCodes: Object.freeze([]),
+    }),
+    dataVersion: `dv1-${'d'.repeat(64)}`,
+    items: Object.freeze([]),
+    pagination: Object.freeze({
+      page: 1,
+      pageSize: 10,
+      total: 0,
+    }),
+    positionCounts: Object.freeze([
+      Object.freeze({ count: 0, positionKey }),
+    ]),
+    positionKey,
+    requestId,
+    scope: 'personal',
+    workUnit: 'subject',
   });
 }
 
@@ -233,6 +263,7 @@ describe('query shell components', () => {
   });
 
   it('replays the candidate identity installed by a valid co-star share', async () => {
+    installMatchMedia((query) => query === '(width < 780px)');
     const sharedQuery: AppliedQuery = {
       scope: 'personal',
       uid: 'luca',
@@ -265,11 +296,17 @@ describe('query shell components', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const store = useQueryStore();
-    const candidateExecute = vi.fn(async (request) => ({
-      payload: { id: String(request.input.positionKey) },
-      requestId: `server-${request.transactionId}`,
-      transactionId: request.transactionId,
-    }));
+    const candidateExecute = vi.fn(async (request) => {
+      const requestId = `server-${request.transactionId}`;
+      return {
+        payload: appCandidatePayload(
+          String(request.input.positionKey),
+          requestId,
+        ),
+        requestId,
+        transactionId: request.transactionId,
+      };
+    });
     const wrapper = mount(App, {
       attachTo: document.body,
       global: { plugins: [pinia], stubs: { teleport: true } },
@@ -295,6 +332,21 @@ describe('query shell components', () => {
       'staff:anime:2',
       'staff:anime:101',
     ]);
+    expect(wrapper.find('.query-editor-overlay').exists()).toBe(false);
+    await vi.waitFor(() => {
+      expect(
+        wrapper
+          .find(
+            '.app-header__mobile-context .co-star-mobile-entry',
+          )
+          .exists(),
+      ).toBe(true);
+    });
+    expect(
+      wrapper
+        .find('.app-header__mobile-context .co-star-mobile-entry')
+        .exists(),
+    ).toBe(true);
     expect(window.location.hash).toBe('');
     wrapper.unmount();
   });

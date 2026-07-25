@@ -10,6 +10,7 @@ import {
   watch,
 } from 'vue';
 
+import { shellScrollbarThemeOverrides } from '../../../app/themeOverrides';
 import { useCompactLayout } from '../../query/composables/useCompactLayout';
 import type {
   CandidateInput,
@@ -23,12 +24,14 @@ import MobileCandidateEntry from './MobileCandidateEntry.vue';
 
 const props = withDefaults(
   defineProps<{
+    beforeOpenPicker?: (trigger: HTMLElement) => boolean | Promise<boolean>;
     cancel: () => void;
     devicePixelRatio?: number;
     executeView: (
       input: Readonly<CandidateInput>,
       view: Readonly<CandidateView>,
     ) => Promise<boolean>;
+    headerOwnsMobileEntry?: boolean;
     positionLabel: (positionKey: string) => string;
     resource: CandidateResource;
     retry: () => Promise<boolean>;
@@ -37,9 +40,13 @@ const props = withDefaults(
   }>(),
   {
     devicePixelRatio: 1,
+    headerOwnsMobileEntry: false,
     targetWindow: () => window,
   },
 );
+const emit = defineEmits<{
+  pickerOpenChange: [open: boolean];
+}>();
 
 const compact = useCompactLayout(props.targetWindow);
 const workspace = ref<HTMLElement | null>(null);
@@ -58,6 +65,12 @@ function clearRailHighlight(): void {
 }
 
 async function openPicker(trigger: HTMLElement): Promise<void> {
+  if (
+    props.beforeOpenPicker &&
+    !(await props.beforeOpenPicker(trigger))
+  ) {
+    return;
+  }
   if (compact.value) {
     drawerOpener.value = trigger;
     drawerOpen.value = true;
@@ -98,7 +111,9 @@ function containDrawerWheel(event: WheelEvent): void {
 }
 
 const drawerScrollbarProps = {
+  containerClass: 'co-star-picker-drawer__scroll',
   containerStyle: { overscrollBehavior: 'contain' },
+  themeOverrides: shellScrollbarThemeOverrides,
   onWheel: containDrawerWheel,
 };
 
@@ -108,8 +123,8 @@ function scheduleMobileEntryFocus(delay: number): void {
   }
   drawerFocusTimer = props.targetWindow.setTimeout(() => {
     drawerFocusTimer = undefined;
-    workspace.value
-      ?.querySelector<HTMLButtonElement>('.co-star-mobile-entry')
+    props.targetWindow.document
+      .querySelector<HTMLButtonElement>('.co-star-mobile-entry')
       ?.focus();
   }, delay);
 }
@@ -126,6 +141,7 @@ async function restoreDrawerFocus(): Promise<void> {
 }
 
 watch(drawerOpen, (open, wasOpen) => {
+  emit('pickerOpenChange', open);
   if (!open && wasOpen && !drawerOpener.value?.isConnected) {
     scheduleMobileEntryFocus(250);
   }
@@ -146,13 +162,13 @@ onBeforeUnmount(() => {
   }
 });
 
-defineExpose({ openPicker });
+defineExpose({ closePicker, openPicker });
 </script>
 
 <template>
   <div ref="workspace" class="co-star-candidate-workspace">
     <mobile-candidate-entry
-      v-if="compact"
+      v-if="compact && !headerOwnsMobileEntry"
       :drawer-open="drawerOpen"
       :selection="selection"
       @open="openPicker"

@@ -76,6 +76,8 @@ const candidatePositionKey = ref(
 );
 const search = ref(props.resource.view.search ?? '');
 const metricTooltipVisible = ref(false);
+const metricTooltipTrigger = ref<HTMLButtonElement | null>(null);
+const metricTooltipWidth = ref<number>();
 const compactLayout = useCompactLayout();
 const controlSize = computed(() =>
   compactLayout.value ? 'small' : 'medium',
@@ -258,6 +260,26 @@ function clearSearchTimer(): void {
 function requestSearchNow(): void {
   clearSearchTimer();
   requestView({ search: search.value });
+}
+
+function openMetricTooltip(): void {
+  const trigger = metricTooltipTrigger.value;
+  if (compactLayout.value && trigger) {
+    const availableWidth =
+      props.targetWindow.document.documentElement.clientWidth -
+      Math.max(0, trigger.getBoundingClientRect().left);
+    metricTooltipWidth.value = Math.max(
+      160,
+      Math.min(336, Math.floor(availableWidth)),
+    );
+  } else {
+    metricTooltipWidth.value = undefined;
+  }
+  metricTooltipVisible.value = true;
+}
+
+function closeMetricTooltip(): void {
+  metricTooltipVisible.value = false;
 }
 
 function scheduleSearch(value: string): void {
@@ -590,22 +612,23 @@ onBeforeUnmount(clearSearchTimer);
                 placement="top-start"
                 trigger="manual"
                 :animated="false"
+                :width="metricTooltipWidth"
                 style="max-width: min(336px, calc(100dvw - 72px));"
+                content-class="workbench-tooltip-content"
               >
                 <template #trigger>
                   <button
+                    ref="metricTooltipTrigger"
                     class="partners-metric-info"
                     type="button"
                     :aria-expanded="metricTooltipVisible"
                     :aria-label="`合作人物指标说明：${metricHelp}`"
-                    @mouseenter="metricTooltipVisible = true"
-                    @mouseleave="metricTooltipVisible = false"
-                    @focus="metricTooltipVisible = true"
-                    @blur="metricTooltipVisible = false"
-                    @click.stop="metricTooltipVisible = true"
-                    @keydown.esc.stop.prevent="
-                      metricTooltipVisible = false
-                    "
+                    @mouseenter="openMetricTooltip"
+                    @mouseleave="closeMetricTooltip"
+                    @focus="openMetricTooltip"
+                    @blur="closeMetricTooltip"
+                    @click.stop="openMetricTooltip"
+                    @keydown.esc.stop.prevent="closeMetricTooltip"
                   >
                     <co-star-icon name="info" :size="16" />
                   </button>

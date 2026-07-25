@@ -35,12 +35,15 @@ const expectedInventory = [
   'scripts/generate-query-unicode.mjs',
   'src/api/adapters/candidates.ts',
   'src/api/adapters/catalog.ts',
+  'src/api/adapters/coStar.ts',
+  'src/api/adapters/partners.ts',
   'src/api/adapters/personDetail.ts',
   'src/api/adapters/queryWire.ts',
   'src/api/adapters/rankings.ts',
   'src/api/candidates.ts',
   'src/api/catalog.ts',
   'src/api/client.ts',
+  'src/api/coStar.ts',
   'src/api/errors.ts',
   'src/api/generated/catalog/schemas.gen.ts',
   'src/api/generated/catalog/types.gen.ts',
@@ -56,6 +59,7 @@ const expectedInventory = [
   'src/api/generated/rankings/schemas.gen.ts',
   'src/api/generated/rankings/types.gen.ts',
   'src/api/personDetail.ts',
+  'src/api/partners.ts',
   'src/api/rankings.ts',
   'src/app/App.vue',
   'src/app/AppProviders.vue',
@@ -66,14 +70,26 @@ const expectedInventory = [
   'src/app/themeOverrides.ts',
   'src/assets/brand/bgmss.png',
   'src/features/catalog/store.ts',
+  'src/features/co-star/co-star-analysis.css',
   'src/features/co-star/co-star.css',
+  'src/features/co-star/co-star-oracle.css',
+  'src/features/co-star/coStar.ts',
   'src/features/co-star/components/CandidatePicker.vue',
   'src/features/co-star/components/CoStarEmptyState.vue',
   'src/features/co-star/components/CoStarIcon.vue',
+  'src/features/co-star/components/CoStarParticipants.vue',
+  'src/features/co-star/components/CoStarRatings.vue',
+  'src/features/co-star/components/CoStarSurface.vue',
+  'src/features/co-star/components/CoStarWorkBrowser.vue',
   'src/features/co-star/components/CoStarWorkspace.vue',
   'src/features/co-star/components/MobileCandidateEntry.vue',
+  'src/features/co-star/components/PartnersSurface.vue',
   'src/features/co-star/model.ts',
+  'src/features/co-star/partners.css',
+  'src/features/co-star/partners.ts',
   'src/features/co-star/selection.ts',
+  'src/features/person-detail/adaptiveAppearanceLayout.ts',
+  'src/features/person-detail/components/AdaptiveAppearanceList.vue',
   'src/features/person-detail/components/PersonDetailSurface.vue',
   'src/features/person-detail/components/PersonInspector.vue',
   'src/features/person-detail/components/PersonItemBrowser.vue',
@@ -82,6 +98,7 @@ const expectedInventory = [
   'src/features/person-detail/components/StatEvidencePopover.vue',
   'src/features/person-detail/model.ts',
   'src/features/person-detail/person-detail.css',
+  'src/features/person-detail/ratingTimelineGeometry.ts',
   'src/features/query/components/AppHeader.vue',
   'src/features/query/components/PositionSelector.vue',
   'src/features/query/components/QueryDateRange.vue',
@@ -105,25 +122,36 @@ const expectedInventory = [
   'src/features/ranking/format.ts',
   'src/features/ranking/model.ts',
   'src/shared/components/AppIcon.vue',
+  'src/shared/components/DeferredSurfaceState.vue',
   'src/shared/components/SafeImage.vue',
+  'src/shared/charts/categoricalPalette.ts',
+  'src/shared/charts/timelineGeometry.ts',
   'src/shared/media/bangumiImage.ts',
   'src/shared/styles/base.css',
   'src/vite-env.d.ts',
   'tests/api/catalog.contract.test.ts',
   'tests/api/candidates.test.ts',
   'tests/api/client.test.ts',
+  'tests/api/co-star.test.ts',
+  'tests/api/partners.test.ts',
   'tests/api/person-detail.test.ts',
   'tests/api/query-wire.contract.test.ts',
   'tests/api/rankings.test.ts',
   'tests/app/app.mount.test.ts',
+  'tests/app/co-star.integration.test.ts',
   'tests/app/rankings.integration.test.ts',
   'tests/app/theme-overrides.test.ts',
   'tests/app/theme.test.ts',
   'tests/features/person-detail/components.test.ts',
   'tests/features/person-detail/coordinator.test.ts',
   'tests/features/person-detail/model.test.ts',
+  'tests/features/co-star/co-star-components.test.ts',
+  'tests/features/co-star/co-star-model.test.ts',
   'tests/features/co-star/components.test.ts',
   'tests/features/co-star/model.test.ts',
+  'tests/features/co-star/partners-components.test.ts',
+  'tests/features/co-star/partners-model.test.ts',
+  'tests/features/query/coordinator-partners.test.ts',
   'tests/features/query/coordinator.test.ts',
   'tests/features/query/components.test.ts',
   'tests/features/query/fixtures.ts',
@@ -133,6 +161,7 @@ const expectedInventory = [
   'tests/features/ranking/model.test.ts',
   'tests/setup.ts',
   'tests/shared/SafeImage.test.ts',
+  'tests/shared/scrollbar-system.test.ts',
   'tsconfig.app.json',
   'tsconfig.json',
   'tsconfig.node.json',
@@ -267,6 +296,18 @@ const sourceByFile = new Map(
   sourceFiles.map((file) => [file, fs.readFileSync(file, 'utf8')]),
 );
 const combinedSource = [...sourceByFile.values()].join('\n');
+const appSource = sourceByFile.get(
+  path.join(sourceRoot, 'app', 'App.vue'),
+);
+if (
+  !appSource ||
+  count(appSource, /:\s*recoverDeferredSurface\b/g) !== 4 ||
+  !/\bcreateShareUrl\s*\(/.test(appSource) ||
+  !/\blocation\.reload\s*\(/.test(appSource) ||
+  !/deferred-surface-reload-v1/.test(appSource)
+) {
+  fail('all four deferred surfaces must retain production reload recovery');
+}
 
 if (
   count(combinedSource, /\bcreateApp\s*\(/g) !== 1 ||
@@ -366,12 +407,18 @@ assertExactFiles('candidates wire ownership', candidatesWireImporters, [
   'src/api/adapters/candidates.ts',
   'src/api/candidates.ts',
 ]);
-assertExactFiles('co-star wire ownership', coStarWireImporters, []);
+assertExactFiles('co-star wire ownership', coStarWireImporters, [
+  'src/api/adapters/coStar.ts',
+  'src/api/coStar.ts',
+]);
 assertExactFiles('person-detail wire ownership', personDetailWireImporters, [
   'src/api/adapters/personDetail.ts',
   'src/api/personDetail.ts',
 ]);
-assertExactFiles('partners wire ownership', partnersWireImporters, []);
+assertExactFiles('partners wire ownership', partnersWireImporters, [
+  'src/api/adapters/partners.ts',
+  'src/api/partners.ts',
+]);
 assertExactFiles('rankings wire ownership', rankingsWireImporters, [
   'src/api/adapters/rankings.ts',
   'src/api/rankings.ts',

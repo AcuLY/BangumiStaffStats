@@ -21,6 +21,23 @@ interface Payload {
   id: string;
 }
 
+interface SnapshotPayload extends Payload {
+  readonly collection: Readonly<{ fetchedAt: string }>;
+  readonly dataVersion: string;
+}
+
+function snapshotPayload(
+  id: string,
+  dataVersion: string,
+  fetchedAt: string,
+): SnapshotPayload {
+  return Object.freeze({
+    collection: Object.freeze({ fetchedAt }),
+    dataVersion,
+    id,
+  });
+}
+
 type RankingRequest = Parameters<
   QueryDrivers<Payload, Payload>['rankings']['execute']
 >[0];
@@ -311,7 +328,7 @@ describe('query coordinator', () => {
     });
   });
 
-  it('treats a candidate position change as a view request, not a same-query no-op', async () => {
+  it('accepts a candidate position change as a new authoritative primary snapshot', async () => {
     const store = readyStore();
     store.draft.positionKeys = ['staff:anime:2', 'staff:anime:101'];
     const candidateExecute = vi.fn(async (request) => ({
@@ -346,7 +363,121 @@ describe('query coordinator', () => {
     expect(coordinator.candidates.payload).toEqual({
       id: 'staff:anime:101',
     });
+    expect(store.revision).toBe(2);
+  });
+
+  it('shares one payload snapshot owner across modes and reloads a stale primary surface', async () => {
+    const store = readyStore();
+    const versionA = `dv1-${'a'.repeat(64)}`;
+    const versionB = `dv1-${'b'.repeat(64)}`;
+    const fetchedAtA = '2026-07-25T08:00:00Z';
+    const fetchedAtB = '2026-07-25T08:05:00Z';
+    let rankingCall = 0;
+    const rankings = vi.fn(async (request: RankingRequest) => {
+      rankingCall += 1;
+      const current = rankingCall === 1;
+      return {
+        payload: snapshotPayload(
+          current ? 'ranking-a' : 'ranking-b',
+          current ? versionA : versionB,
+          current ? fetchedAtA : fetchedAtB,
+        ),
+        requestId: `server-${request.transactionId}`,
+        transactionId: request.transactionId,
+      };
+    });
+    const candidates = vi.fn(async (request: CandidateRequest) => ({
+      payload: snapshotPayload(
+        'candidates-b',
+        versionB,
+        fetchedAtB,
+      ),
+      requestId: `server-${request.transactionId}`,
+      transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator<
+      SnapshotPayload,
+      SnapshotPayload
+    >(store, {
+      candidates: { execute: candidates },
+      rankings: { execute: rankings },
+    });
+    const catalog = catalogFixture();
+
+    await coordinator.execute({ catalog, mode: 'ranking' });
     expect(store.revision).toBe(1);
+    expect(coordinator.snapshotIdentity.value).toBe(
+      JSON.stringify([versionA, fetchedAtA]),
+    );
+
+    await coordinator.execute({ catalog, mode: 'co-star' });
+    expect(store.revision).toBe(2);
+    expect(coordinator.snapshotIdentity.value).toBe(
+      JSON.stringify([versionB, fetchedAtB]),
+    );
+    expect(coordinator.rankings.revision).toBe(1);
+
+    await coordinator.execute({ catalog, mode: 'ranking' });
+    expect(rankings).toHaveBeenCalledTimes(2);
+    expect(coordinator.rankings).toMatchObject({
+      payload: { id: 'ranking-b' },
+      revision: 2,
+    });
+    expect(store.revision).toBe(2);
+  });
+
+  it('rejects a primary view projection from a different snapshot without replacing accepted data', async () => {
+    const store = readyStore();
+    const versionA = `dv1-${'a'.repeat(64)}`;
+    const versionB = `dv1-${'b'.repeat(64)}`;
+    const fetchedAt = '2026-07-25T08:00:00Z';
+    let call = 0;
+    const rankings = vi.fn(async (request: RankingRequest) => {
+      call += 1;
+      return {
+        payload: snapshotPayload(
+          call === 1 ? 'accepted' : 'mismatched-view',
+          call === 1 ? versionA : versionB,
+          fetchedAt,
+        ),
+        requestId: `server-${request.transactionId}`,
+        transactionId: request.transactionId,
+      };
+    });
+    const coordinator = createQueryCoordinator<
+      SnapshotPayload,
+      SnapshotPayload
+    >(store, {
+      candidates: {
+        async execute(): Promise<never> {
+          throw new Error('not part of this test');
+        },
+      },
+      rankings: { execute: rankings },
+    });
+
+    await coordinator.execute({
+      catalog: catalogFixture(),
+      mode: 'ranking',
+    });
+    await expect(
+      coordinator.executeRankingView({
+        ...coordinator.rankings.view,
+        page: 2,
+      }),
+    ).resolves.toBe(false);
+
+    expect(coordinator.rankings).toMatchObject({
+      error: '结果数据版本已变化，请重新查询后重试',
+      payload: { id: 'accepted' },
+      phase: 'ready',
+      revision: 1,
+      view: { page: 1 },
+    });
+    expect(store.revision).toBe(1);
+    expect(coordinator.snapshotIdentity.value).toBe(
+      JSON.stringify([versionA, fetchedAt]),
+    );
   });
 
   it('rejects an invalid candidate position before the same-query no-op', async () => {
@@ -721,6 +852,141 @@ describe('query coordinator', () => {
     });
     await expect(pending).resolves.toBe(false);
     expect(store.applied).toBeNull();
+  });
+
+  it('records only the latest candidate view intent during refresh and replays it on the refreshed snapshot', async () => {
+    const store = readyStore();
+    const versionA = `dv1-${'a'.repeat(64)}`;
+    const versionB = `dv1-${'b'.repeat(64)}`;
+    const fetchedAtA = '2026-07-25T08:00:00Z';
+    const fetchedAtB = '2026-07-25T08:05:00Z';
+    const staleView = deferred<OperationResponse<SnapshotPayload>>();
+    const refresh = deferred<OperationResponse<SnapshotPayload>>();
+    const replay = deferred<OperationResponse<SnapshotPayload>>();
+    const candidateExecute = vi
+      .fn()
+      .mockImplementationOnce(async (request: CandidateRequest) => ({
+        payload: snapshotPayload(
+          'accepted',
+          versionA,
+          fetchedAtA,
+        ),
+        requestId: 'server-candidate-accepted',
+        transactionId: request.transactionId,
+      }))
+      .mockImplementationOnce(() => staleView.promise)
+      .mockImplementationOnce(() => refresh.promise)
+      .mockImplementationOnce(() => replay.promise);
+    const coordinator = createQueryCoordinator<
+      SnapshotPayload,
+      SnapshotPayload
+    >(store, {
+      rankings: {
+        async execute(): Promise<never> {
+          throw new Error('rankings are outside this test');
+        },
+      },
+      candidates: { execute: candidateExecute },
+    });
+    const catalog = catalogFixture();
+
+    await coordinator.execute({ catalog, mode: 'co-star' });
+    const staleResult = coordinator.executeCandidateView(
+      coordinator.candidates.input,
+      {
+        ...coordinator.candidates.view,
+        search: '刷新前',
+      } as never,
+    );
+    const staleRequest = candidateExecute.mock
+      .calls[1]![0] as CandidateRequest;
+    const refreshResult = coordinator.execute({
+      candidateInput: coordinator.candidates.input,
+      catalog,
+      mode: 'co-star',
+      refreshCollection: true,
+    });
+    const refreshRequest = candidateExecute.mock
+      .calls[2]![0] as CandidateRequest;
+
+    expect(staleRequest.signal.aborted).toBe(true);
+    await expect(
+      coordinator.executeCandidateView(
+        coordinator.candidates.input,
+        {
+          ...coordinator.candidates.view,
+          search: '中间意图',
+        } as never,
+      ),
+    ).resolves.toBe(true);
+    const latestView = {
+      ...coordinator.candidates.view,
+      order: 'asc' as const,
+      page: 2,
+      pageSize: 20 as const,
+      search: '最终意图',
+      sort: 'globalAverage' as const,
+    };
+    await expect(
+      coordinator.executeCandidateView(
+        coordinator.candidates.input,
+        latestView,
+      ),
+    ).resolves.toBe(true);
+
+    expect(candidateExecute).toHaveBeenCalledTimes(3);
+    expect(coordinator.candidates.error).toBeNull();
+    expect(coordinator.lastOperationFeedback.value).toBeNull();
+
+    refresh.resolve({
+      payload: snapshotPayload(
+        'refreshed-primary',
+        versionB,
+        fetchedAtB,
+      ),
+      requestId: 'server-candidate-refresh',
+      transactionId: refreshRequest.transactionId,
+    });
+    await Promise.resolve();
+
+    expect(candidateExecute).toHaveBeenCalledTimes(4);
+    const replayRequest = candidateExecute.mock
+      .calls[3]![0] as CandidateRequest;
+    expect(replayRequest).toMatchObject({
+      refreshCollection: false,
+      view: latestView,
+    });
+    replay.resolve({
+      payload: snapshotPayload(
+        'latest-view',
+        versionB,
+        fetchedAtB,
+      ),
+      requestId: 'server-candidate-replay',
+      transactionId: replayRequest.transactionId,
+    });
+    await expect(refreshResult).resolves.toBe(true);
+
+    staleView.resolve({
+      payload: snapshotPayload(
+        'stale-view',
+        versionA,
+        fetchedAtA,
+      ),
+      requestId: 'server-candidate-stale',
+      transactionId: staleRequest.transactionId,
+    });
+    await expect(staleResult).resolves.toBe(false);
+
+    expect(candidateExecute).toHaveBeenCalledTimes(4);
+    expect(coordinator.candidates).toMatchObject({
+      error: null,
+      payload: { id: 'latest-view' },
+      requestId: 'server-candidate-replay',
+      view: latestView,
+      viewPending: false,
+    });
+    expect(store.revision).toBe(2);
   });
 
   it('runs a candidate view transaction without changing Applied or revision', async () => {
@@ -1561,6 +1827,79 @@ describe('co-star coordinator resource', () => {
       revision,
     });
     expect(store.revision).toBe(revision);
+  });
+
+  it('queues compound co-star view controls without transport and restores them after refresh failure', async () => {
+    const refresh = deferred<OperationResponse<Payload>>();
+    const coStarExecute = vi.fn(
+      async (request: CoStarRequest) => ({
+        payload: { id: 'accepted-analysis' },
+        requestId: 'server-accepted-analysis',
+        transactionId: request.transactionId,
+      }),
+    );
+    const candidateExecute = vi
+      .fn()
+      .mockImplementationOnce(
+        async (request: CandidateRequest) => ({
+          payload: { id: 'initial-candidates' },
+          requestId: 'server-initial-candidates',
+          transactionId: request.transactionId,
+        }),
+      )
+      .mockImplementationOnce(() => refresh.promise);
+    const { coordinator } = await readyCoStarCoordinator(
+      coStarExecute,
+      candidateExecute,
+    );
+    const catalog = catalogFixture();
+    await coordinator.executeCoStar(coStarInput, {
+      ...coStarView,
+      search: 'accepted',
+    });
+    const acceptedView = coordinator.coStar.view;
+
+    const primary = coordinator.execute({
+      catalog,
+      mode: 'co-star',
+      refreshCollection: true,
+    });
+    await expect(
+      coordinator.executeCoStarView({
+        ...coordinator.coStar.view,
+        search: 'queued search',
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      coordinator.executeCoStarView({
+        ...coordinator.coStar.view,
+        order: 'asc',
+      }),
+    ).resolves.toBe(true);
+
+    expect(coStarExecute).toHaveBeenCalledOnce();
+    expect(coordinator.coStar).toMatchObject({
+      error: null,
+      view: {
+        order: 'asc',
+        search: 'queued search',
+      },
+    });
+    expect(coordinator.lastOperationFeedback.value).toBeNull();
+
+    refresh.reject(new Error('refresh failed'));
+    await expect(primary).resolves.toBe(false);
+    expect(coStarExecute).toHaveBeenCalledOnce();
+    expect(coordinator.coStar.view).toBe(acceptedView);
+    expect(coordinator.coStar).toMatchObject({
+      error: null,
+      payload: { id: 'accepted-analysis' },
+      phase: 'ready',
+      view: {
+        order: 'desc',
+        search: 'accepted',
+      },
+    });
   });
 
   it('rejects invalid identities and scope/work-unit sorts before transport', async () => {

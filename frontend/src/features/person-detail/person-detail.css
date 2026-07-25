@@ -19,12 +19,6 @@
   grid-template-columns: minmax(0, 1fr) 116px auto;
 }
 
-.ranking-workspace .ranking-columns,
-.ranking-workspace .ranked-person-row {
-  grid-template-columns: 34px 44px minmax(116px, 1fr) minmax(198px, 1.35fr);
-  gap: 6px;
-}
-
 .ranking-workspace .ranking-pagination {
   grid-template-columns: minmax(80px, 1fr) auto;
 }
@@ -2428,6 +2422,23 @@
 .character-role-card:hover {
   border-color: color-mix(in oklab, var(--brand) 32%, var(--border));
   background: var(--chrome-hover-source);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .person-item-skeletons i,
+  .person-section-skeleton i,
+  .person-metrics-skeleton i,
+  .person-profile-skeleton i,
+  .person-profile-skeleton b {
+    animation: none;
+  }
+
+  .rating-time-chart__point .rating-time-chart__visible-point,
+  .person-preference-work,
+  .subject-work-row.person-work-row,
+  .character-role-card {
+    transition-duration: 0s;
+  }
 }
 
 .character-role-card__avatar {

@@ -15,6 +15,11 @@ import {
   watch,
 } from 'vue';
 
+import { categoricalSeriesSlot } from '../../../shared/charts/categoricalPalette';
+import {
+  closestTimelinePointIndex,
+  timelineHitSizeInViewBox,
+} from '../../../shared/charts/timelineGeometry';
 import { useCompactLayout } from '../../query/composables/useCompactLayout';
 import { formatHundredths } from '../../ranking/format';
 import type {
@@ -69,30 +74,6 @@ const TIME_LEFT = 34;
 const TIME_RIGHT = 14;
 const MIN_QUARTER_LABEL_WIDTH = 24;
 const MIN_YEAR_LABEL_GAP = 52;
-const SCORE_COLORS = [
-  'var(--co-star-series-1)',
-  'var(--co-star-series-2)',
-  'var(--co-star-series-3)',
-  'var(--co-star-series-4)',
-  'var(--co-star-series-5)',
-  'var(--co-star-series-6)',
-  'var(--co-star-series-7)',
-  'var(--co-star-series-8)',
-  'var(--co-star-series-9)',
-  'var(--co-star-series-10)',
-] as const;
-const SCORE_CONTRASTS = [
-  'var(--co-star-series-contrast-1)',
-  'var(--co-star-series-contrast-2)',
-  'var(--co-star-series-contrast-3)',
-  'var(--co-star-series-contrast-4)',
-  'var(--co-star-series-contrast-5)',
-  'var(--co-star-series-contrast-6)',
-  'var(--co-star-series-contrast-7)',
-  'var(--co-star-series-contrast-8)',
-  'var(--co-star-series-contrast-9)',
-  'var(--co-star-series-contrast-10)',
-] as const;
 const SEASON_LABELS = ['冬季', '春季', '夏季', '秋季'] as const;
 const checkboxThemeOverrides: NonNullable<
   CheckboxProps['themeOverrides']
@@ -153,19 +134,18 @@ const displayDatasets = computed<readonly DisplayDataset[]>(() => {
       dataset.kind === 'common'
         ? 'shared-works'
         : `person-${dataset.personId}`;
-    const paletteIndex =
+    const palette = categoricalSeriesSlot(
       dataset.kind === 'common'
         ? 0
-        : (participantIndex++ + 1) % SCORE_COLORS.length;
+        : participantIndex++ + 1,
+    );
     const distribution =
       source.value === 'personal' && 'personal' in dataset
         ? dataset.personal
         : dataset.global;
     return {
-      color: SCORE_COLORS[paletteIndex] ?? SCORE_COLORS[0],
-      contrast:
-        SCORE_CONTRASTS[paletteIndex] ??
-        SCORE_CONTRASTS[0],
+      color: palette.color,
+      contrast: palette.contrast,
       distribution,
       key: datasetKey,
       label:
@@ -512,13 +492,12 @@ function syncTimelineHitSize(): void {
   if (!bounds?.width || !bounds.height) {
     return;
   }
-  timelineHitSize.value = {
-    height: Math.min(TIME_HEIGHT, (44 * TIME_HEIGHT) / bounds.height),
-    width: Math.min(
-      timelineWidth.value,
-      (44 * timelineWidth.value) / bounds.width,
-    ),
-  };
+  timelineHitSize.value = timelineHitSizeInViewBox(
+    bounds.width,
+    bounds.height,
+    timelineWidth.value,
+    TIME_HEIGHT,
+  );
 }
 
 function observeTimeline(): void {
@@ -539,27 +518,20 @@ function updateHoveredTimelinePoint(event: PointerEvent): void {
   if (!bounds?.width || !bounds.height) {
     return;
   }
-  let nearestKey: string | null = null;
-  let nearestDistance = Number.POSITIVE_INFINITY;
-  for (const dataset of visibleTimeSeries.value) {
-    for (const point of dataset.points) {
-      const clientX =
-        bounds.left +
-        (point.x / timelineWidth.value) * bounds.width;
-      const clientY =
-        bounds.top + (point.y / TIME_HEIGHT) * bounds.height;
-      const distance = Math.hypot(
-        event.clientX - clientX,
-        event.clientY - clientY,
-      );
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestKey = point.key;
-      }
-    }
-  }
+  const points = visibleTimeSeries.value.flatMap(
+    (dataset) => dataset.points,
+  );
+  const index = closestTimelinePointIndex(
+    event.clientX,
+    event.clientY,
+    bounds,
+    points,
+    22,
+    timelineWidth.value,
+    TIME_HEIGHT,
+  );
   hoveredTimelinePointKey.value =
-    nearestDistance <= 22 ? nearestKey : null;
+    index === null ? null : (points[index]?.key ?? null);
 }
 
 function moveTimelineFocus(event: KeyboardEvent): void {

@@ -24,6 +24,9 @@ const props = defineProps<{
   retryCatalog: () => Promise<boolean>;
   targetWindow: Window;
 }>();
+const emit = defineEmits<{
+  editingChange: [editing: boolean];
+}>();
 
 const editing = ref(props.queryStore.applied === null);
 const compact = useCompactLayout(props.targetWindow);
@@ -106,6 +109,17 @@ function closeEditor(restoreFocus = true): void {
   editing.value = false;
 }
 
+function closeForExternalAction(): boolean {
+  if (!editing.value) {
+    return true;
+  }
+  if (props.coordinator.pending.value) {
+    return false;
+  }
+  closeEditor(false);
+  return true;
+}
+
 function markSummaryPointerActivation(): void {
   summaryPointerActivated = true;
 }
@@ -160,6 +174,11 @@ watch(
   },
 );
 watch(
+  editing,
+  (isEditing) => emit('editingChange', isEditing),
+  { immediate: true },
+);
+watch(
   () => props.queryStore.applied,
   (applied) => {
     if (!applied) {
@@ -190,7 +209,11 @@ onBeforeUnmount(() => {
   props.targetWindow.removeEventListener('resize', syncOverlayTop);
 });
 
-defineExpose({ openEditor });
+defineExpose({
+  closeForExternalAction,
+  editing,
+  openEditor,
+});
 </script>
 
 <template>

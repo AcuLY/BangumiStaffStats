@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils';
-import { NSelect } from 'naive-ui';
+import { NSelect, NTooltip } from 'naive-ui';
 import { nextTick } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -314,10 +314,14 @@ describe('one-person partners surface', () => {
     expect(info.attributes('aria-label')).toContain('不会从当前列表重新计算');
 
     await info.trigger('focus');
+    const tooltip = pending.wrapper.findComponent(NTooltip);
     expect(
       pending.wrapper
         .get('.partners-metric-info')
         .attributes('aria-expanded'),
     ).toBe('true');
+    expect(tooltip.props('contentClass')).toBe(
+      'workbench-tooltip-content',
+    );
   });
 });

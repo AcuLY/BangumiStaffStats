@@ -790,6 +790,13 @@ describe('co-star oracle layout contracts', () => {
       ),
       'utf8',
     );
+    const baseCss = fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        'frontend/src/shared/styles/base.css',
+      ),
+      'utf8',
+    );
 
     expect(pickerCss).toMatch(
       /@media \(width >= 780px\)[\s\S]*?\.co-star-candidate-rail\s*\{[^}]*height:\s*auto;[^}]*max-height:\s*none;[^}]*overflow:\s*visible;/,
@@ -805,6 +812,15 @@ describe('co-star oracle layout contracts', () => {
     );
     expect(analysisCss).toMatch(
       /\.matrix-details--scrollable \.co-star-matrix-table\s*\{[^}]*min-width:\s*calc\(112px \+ var\(--matrix-size, 5\) \* 104px\);/,
+    );
+    expect(baseCss).toMatch(
+      /@media \(width < 780px\)[\s\S]*?\.app-header__query\s*\{[^}]*min-height:\s*44px;/,
+    );
+    expect(baseCss).toMatch(
+      /\.app-header__mobile-context \.co-star-mobile-entry__selection b,[\s\S]*?white-space:\s*normal;[\s\S]*?overflow-wrap:\s*anywhere;/,
+    );
+    expect(baseCss).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.safe-image img,[\s\S]*?transition-duration:\s*0s;[\s\S]*?\.state-icon--loading,[\s\S]*?\.safe-image__fallback--loading,[\s\S]*?animation:\s*none;/,
     );
   });
 });

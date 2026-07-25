@@ -15,15 +15,23 @@ import {
 import type { useQueryStore } from '../store';
 import QueryIcon from './QueryIcon.vue';
 
-const props = defineProps<{
-  coordinator: QueryCoordinator<unknown, unknown>;
-  mode: QueryMode;
-  navigate: (mode: QueryMode) => void;
-  queryStore: ReturnType<typeof useQueryStore>;
-  targetWindow: Window;
-  theme: AppTheme;
-  toggleTheme: () => void;
-}>();
+const props = withDefaults(
+  defineProps<{
+    compactContextVisible?: boolean;
+    coordinator: QueryCoordinator<unknown, unknown>;
+    mode: QueryMode;
+    navigate: (mode: QueryMode) => void;
+    queryStore: ReturnType<typeof useQueryStore>;
+    shareWorkspace?: ShareWorkspace | null;
+    targetWindow: Window;
+    theme: AppTheme;
+    toggleTheme: () => void;
+  }>(),
+  {
+    compactContextVisible: false,
+    shareWorkspace: undefined,
+  },
+);
 
 const copied = ref(false);
 const fallbackOpen = ref(false);
@@ -40,7 +48,7 @@ const modes: readonly { label: string; value: QueryMode }[] = [
   { label: '共演分析', value: 'co-star' },
 ];
 
-const shareWorkspace = computed<ShareWorkspace | null>(() => {
+const fallbackShareWorkspace = computed<ShareWorkspace | null>(() => {
   const applied = props.queryStore.applied;
   if (!applied) {
     return null;
@@ -50,19 +58,22 @@ const shareWorkspace = computed<ShareWorkspace | null>(() => {
     if (
       resource.revision !== props.queryStore.revision ||
       resource.acceptedQuery === null ||
+      !resource.acceptedView ||
       querySignature(resource.acceptedQuery) !== querySignature(applied)
     ) {
       return null;
     }
     return {
       kind: 'ranking',
-      rankingsView: structuredClone(resource.view),
+      rankingsView: structuredClone(resource.acceptedView),
     };
   }
   const resource = props.coordinator.candidates;
   if (
     resource.revision !== props.queryStore.revision ||
     resource.acceptedQuery === null ||
+    !resource.acceptedInput ||
+    !resource.acceptedView ||
     querySignature(resource.acceptedQuery) !== querySignature(applied)
   ) {
     return null;
@@ -71,25 +82,30 @@ const shareWorkspace = computed<ShareWorkspace | null>(() => {
     kind: 'co-star',
     state: 'empty',
     candidates: {
-      input: structuredClone(resource.input),
-      view: structuredClone(resource.view),
+      input: structuredClone(resource.acceptedInput),
+      view: structuredClone(resource.acceptedView),
     },
   };
 });
+const acceptedShareWorkspace = computed(() =>
+  props.shareWorkspace === undefined
+    ? fallbackShareWorkspace.value
+    : props.shareWorkspace,
+);
 
 const shareDisabled = computed(
-  () => !props.queryStore.applied || !shareWorkspace.value,
+  () => !props.queryStore.applied || !acceptedShareWorkspace.value,
 );
 
 function shareLink(): string {
-  if (!props.queryStore.applied || !shareWorkspace.value) {
+  if (!props.queryStore.applied || !acceptedShareWorkspace.value) {
     throw new Error('No successful query is available to share');
   }
   return createShareUrl(
     new URL(props.targetWindow.location.href),
     props.mode === 'ranking' ? '/ranking' : '/co-star',
     props.queryStore.applied,
-    shareWorkspace.value,
+    acceptedShareWorkspace.value,
   );
 }
 
@@ -156,7 +172,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-header__bar">
+  <div class="app-header__contents">
+    <div class="app-content-line">
+      <div class="app-header__bar">
     <a
       class="app-brand"
       href="/ranking"
@@ -247,8 +265,21 @@ onBeforeUnmount(() => {
       </n-button>
     </span>
 
-    <span class="sr-only" role="status" aria-live="polite">
-      {{ copied ? '查询链接已复制' : '' }}
-    </span>
+        <span class="sr-only" role="status" aria-live="polite">
+          {{ copied ? '查询链接已复制' : '' }}
+        </span>
+      </div>
+    </div>
+
+    <div class="app-header__query">
+      <slot name="query" />
+    </div>
+
+    <div
+      v-if="compact && compactContextVisible"
+      class="app-header__mobile-context"
+    >
+      <slot name="compact-context" />
+    </div>
   </div>
 </template>

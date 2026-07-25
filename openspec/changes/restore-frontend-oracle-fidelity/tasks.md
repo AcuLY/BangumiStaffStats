@@ -19,17 +19,17 @@ Node commands use `/Users/luca/.nvm/versions/node/v24.18.0/bin`.
   selected person, profile positions remain stable across work views, timeline
   points expose 44px hits, character-appearance overflow is fully reachable,
   narrow ranking layout remains two-line, and Drawer has one scroll owner.
-- [ ] 1.6 Keep deferred person-detail loading/error presentation invisible
+- [x] 1.6 Keep deferred person-detail loading/error presentation invisible
   until a person is actually selected and, on compact layouts, the Drawer is
   open; hidden preloading may continue and must not alter ranking geometry.
 
 ## 2. Accept compatibility
 
-- [ ] 2.1 Run the full Node 24 frontend check.
-- [ ] 2.2 Serve the production artifact and compare Light/Dark at 360, 390,
+- [x] 2.1 Run the full Node 24 frontend check.
+- [x] 2.2 Serve the production artifact and compare Light/Dark at 360, 390,
   779, 780, 1024, and 1440px for query, ranking, and person-detail states;
   verify keyboard/focus/Escape/inert, overflow, duplicate IDs, console,
   failed resources, and direct-upstream requests.
-- [ ] 2.3 Map every remaining visual/interaction difference to an explicit
+- [x] 2.3 Map every remaining visual/interaction difference to an explicit
   approved requirement, then hand the unstaged candidate to the main agent for
   acceptance, commit, and archive.

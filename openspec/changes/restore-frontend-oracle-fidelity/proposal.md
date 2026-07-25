@@ -28,7 +28,7 @@ product additions.
 
 | Boundary | Declaration |
 |---|---|
-| Status | Investigated/specified/main-agent reviewed: complete; implemented/verified/committed: no. |
+| Status | Investigated, specified, implemented, and verified: complete. The full Node 24 gate, oracle matrix, deferred-detail checks, and post-fix 360/390/1280 production-browser regressions pass. The accepted integrated candidate is not yet committed. |
 | Owner | One frontend implementation agent after the active co-star Group 1 handoff; main agent owns spec edits and acceptance. |
 | Writable paths | Existing header/query/ranking/person-detail components and feature CSS; `frontend/src/app/App.vue` only for oracle-compatible person-Drawer open/close ownership; `frontend/src/app/AppProviders.vue`; an optional app-owned public Naive theme-override module; `frontend/src/shared/styles/base.css`; a narrowly required feature-owned adaptive appearance-list component; corresponding tests; and this change's task markers. |
 | Protected paths | `frontend/src/features/co-star/**`, candidate/partners/co-star APIs and adapters, query coordinator/share semantics, backend/contracts/updater, generated DTOs, dependencies/lockfiles, external repositories, refs/remotes, and operations state. |

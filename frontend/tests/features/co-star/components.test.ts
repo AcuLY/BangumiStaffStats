@@ -4,6 +4,7 @@ import { nextTick } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { CandidatePayload } from '../../../src/api/adapters/candidates';
+import { shellScrollbarThemeOverrides } from '../../../src/app/themeOverrides';
 import CandidatePicker from '../../../src/features/co-star/components/CandidatePicker.vue';
 import CoStarEmptyState from '../../../src/features/co-star/components/CoStarEmptyState.vue';
 import CoStarWorkspace from '../../../src/features/co-star/components/CoStarWorkspace.vue';
@@ -347,12 +348,20 @@ describe('co-star zero-person topology', () => {
     const scrollbarProps = wrapper
       .findComponent(NDrawerContent)
       .props('scrollbarProps') as {
+      containerClass: string;
       containerStyle: { overscrollBehavior: string };
+      themeOverrides: typeof shellScrollbarThemeOverrides;
       onWheel: (event: WheelEvent) => void;
     };
+    expect(scrollbarProps.containerClass).toBe(
+      'co-star-picker-drawer__scroll',
+    );
     expect(scrollbarProps.containerStyle).toEqual({
       overscrollBehavior: 'contain',
     });
+    expect(scrollbarProps.themeOverrides).toBe(
+      shellScrollbarThemeOverrides,
+    );
     const scrollContainer = document.createElement('div');
     Object.defineProperties(scrollContainer, {
       clientHeight: { configurable: true, value: 100 },
