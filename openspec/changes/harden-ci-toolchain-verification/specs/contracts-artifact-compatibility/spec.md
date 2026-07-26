@@ -18,11 +18,13 @@ component gates, reproducibility builds, compatibility assembly, local smoke,
 and residue audit without adding publication or deployment authority.
 
 setup-go SHALL install reviewed Go 1.26.4 as a bootstrap, not as the admitted
-final GOROOT. Before any product gate, the semantic validator SHALL select Go
-1.26.5 through `GOTOOLCHAIN=go1.26.5+auto` and an isolated
-runner-temporary module cache. The Backend source gate SHALL independently use
-the bootstrap to select Go 1.26.5 inside its existing component-owned module
-cache; CI SHALL NOT weaken or bypass that containment gate.
+final GOROOT. Before any product gate, one exact preparation command SHALL
+select Go 1.26.5 through `GOTOOLCHAIN=go1.26.5+auto` and an isolated
+runner-temporary module cache. The semantic validator SHALL then admit exact Go
+1.26.5 from the same environment without accepting command stderr. The Backend
+source gate SHALL independently use the bootstrap to select Go 1.26.5 inside
+its existing component-owned module cache; CI SHALL NOT weaken or bypass that
+containment gate.
 
 #### Scenario: uv adds informational build metadata
 
@@ -42,3 +44,10 @@ cache; CI SHALL NOT weaken or bypass that containment gate.
   proceeds to the Backend ordinary source gate
 - **THEN** the gate SHALL select exact Go 1.26.5 inside
   `backend/.cache/go-mod`, rather than use an external setup-go GOROOT
+
+#### Scenario: Exact Go requires a first isolated download
+
+- **WHEN** the preparation command selects Go 1.26.5 and emits one-time
+  download progress before the semantic validator runs
+- **THEN** preparation SHALL complete in the isolated runner cache and the
+  subsequent validator command SHALL remain stderr-free and fail-closed

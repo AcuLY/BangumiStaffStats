@@ -21,9 +21,10 @@ cache.
 - Pin checkout v7.0.1, setup-go v7.0.0, setup-node v7.0.0, setup-uv v9.0.0,
   and setup-buildx v4.2.0 to their exact release commits.
 - Treat setup-go's Go 1.26.4 as a reviewed bootstrap only. The validator SHALL
-  select exact Go 1.26.5 through an isolated temporary module cache, and the
-  Backend ordinary gate SHALL independently select exact Go 1.26.5 through its
-  component-owned module cache.
+  prepare exact Go 1.26.5 through an isolated temporary module cache, then
+  admit it with the fail-closed validator after one-time download diagnostics
+  have finished. The Backend ordinary gate SHALL independently select exact Go
+  1.26.5 through its component-owned module cache.
 
 ## Capabilities
 

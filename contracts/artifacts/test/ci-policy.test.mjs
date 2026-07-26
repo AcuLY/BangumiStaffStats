@@ -17,6 +17,14 @@ const TMP_ROOT = path.join(ARTIFACTS_ROOT, '.tmp');
 const RESIDUE_TEST_ROOT = path.join(TMP_ROOT, 'ci-residue-policy-test');
 const TOOLCHAIN_VALIDATOR =
   'node contracts/artifacts/bin/ci-toolchain-identity.mjs';
+const GO_PREPARATION_STEP = `\
+      - name: Prepare exact Go toolchain in isolated cache
+        shell: bash
+        env:
+          GOMODCACHE: \${{ runner.temp }}/bgmss-ci-go-mod
+          GOTOOLCHAIN: go1.26.5+auto
+        run: go version >/dev/null
+`;
 const TOOLCHAIN_VALIDATOR_STEP = `\
       - name: Verify exact toolchains
         shell: bash
@@ -93,6 +101,15 @@ test('CI invokes one semantic toolchain validator before every product gate', ()
   assert.ok(
     source.includes(TOOLCHAIN_VALIDATOR_STEP),
     'the validator must select final Go in an isolated runner cache',
+  );
+  assert.ok(
+    source.includes(`${GO_PREPARATION_STEP}\n${TOOLCHAIN_VALIDATOR_STEP}`),
+    'one exact Go preparation step must immediately precede semantic admission',
+  );
+  assert.equal(
+    source.split('run: go version >/dev/null').length - 1,
+    1,
+    'one preparation command may warm the isolated Go toolchain cache',
   );
   assert.ok(
     source.indexOf(TOOLCHAIN_VALIDATOR) <

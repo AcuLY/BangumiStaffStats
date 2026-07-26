@@ -52,6 +52,13 @@ jobs:
           version: v0.34.1
           driver-opts: image=docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368
 
+      - name: Prepare exact Go toolchain in isolated cache
+        shell: bash
+        env:
+          GOMODCACHE: ${{ runner.temp }}/bgmss-ci-go-mod
+          GOTOOLCHAIN: go1.26.5+auto
+        run: go version >/dev/null
+
       - name: Verify exact toolchains
         shell: bash
         env:

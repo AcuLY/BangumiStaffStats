@@ -15,6 +15,10 @@
   setup-go GOROOT, make Go 1.26.4 the reviewed bootstrap, select exact Go 1.26.5
   for semantic admission through a runner-temporary module cache, and lock this
   separation in workflow policy tests without weakening Backend containment.
+- [x] 2.4 After the next fresh run proves one-time Go download progress is the
+  only rejected stderr, add one exact pre-validator preparation step using the
+  same isolated cache; keep semantic admission and stderr fail-closed behavior
+  inside the repository validator.
 
 ## 3. Acceptance
 

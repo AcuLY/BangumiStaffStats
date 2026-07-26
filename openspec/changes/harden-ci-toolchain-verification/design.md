@@ -27,15 +27,20 @@ No action major tag is used at runtime.
 ### Separate the reviewed Go bootstrap from the selected product toolchain
 
 setup-go SHALL install Go 1.26.4 only as the immutable bootstrap executable.
-The semantic validator SHALL run with
-`GOTOOLCHAIN=go1.26.5+auto` and a runner-temporary `GOMODCACHE`, so the admitted
+One explicit preparation step SHALL run `go version` with
+`GOTOOLCHAIN=go1.26.5+auto` and a runner-temporary `GOMODCACHE`. This step may
+show Go's one-time download progress but does not admit the identity. The
+semantic validator SHALL then run with the same environment and retain its
+existing fail-closed rule that rejects any command stderr. The admitted
 identity remains exact Go 1.26.5 without writing into a component source tree.
 The Backend source gate SHALL then run in its existing ordinary mode: the
 1.26.4 bootstrap remains on `PATH`, while `backend/scripts/check.sh`
 independently selects Go 1.26.5 into `backend/.cache/go-mod` and removes that
 disposable state on completion.
 
-The workflow SHALL NOT point the Backend gate at setup-go's external 1.26.5
+The preparation step SHALL occur immediately before the validator and SHALL
+discard only `go version` stdout; no parser or version comparison moves into
+YAML. The workflow SHALL NOT point the Backend gate at setup-go's external 1.26.5
 GOROOT and SHALL NOT weaken the Backend component's module-cache containment
 check. The two downloads intentionally prove two independent boundaries: CI
 admits the selected semantic version before product gates, and Backend admits
