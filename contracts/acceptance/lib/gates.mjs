@@ -94,18 +94,6 @@ const TRANSIENT_GENERATED_ROOT_ERRORS = new Set([
   'ENOTEMPTY',
   'EPERM',
 ]);
-const CONTRACTS_GENERATED_ROOTS = Object.freeze([
-  'contracts/goldens/query/node_modules',
-  'contracts/goldens/query/.cache',
-  'contracts/goldens/query/.tmp',
-  'contracts/schemas/archive/tooling/node_modules',
-  'contracts/schemas/archive/.cache',
-  'contracts/schemas/archive/.tmp',
-  'contracts/schemas/catalog/tooling/node_modules',
-  'contracts/schemas/catalog/tooling/.cache',
-  'contracts/schemas/update-status/tooling/node_modules',
-  'contracts/schemas/update-status/tooling/.cache',
-]);
 const BACKEND_GENERATED_ROOTS = Object.freeze([
   'backend/.cache',
   'backend/.tmp',
@@ -122,6 +110,78 @@ const CURRENT_NPM_PACKAGES = Object.freeze([
   'contracts/goldens/api/partners',
   'contracts/goldens/api/co-star',
 ]);
+
+const SCHEMA_NPM_PACKAGE_GENERATED_ROOTS = Object.freeze({
+  'contracts/schemas/archive/tooling': Object.freeze([
+    'contracts/schemas/archive/tooling/node_modules',
+    'contracts/schemas/archive/.cache',
+    'contracts/schemas/archive/.tmp',
+  ]),
+  'contracts/schemas/catalog/tooling': Object.freeze([
+    'contracts/schemas/catalog/tooling/node_modules',
+    'contracts/schemas/catalog/tooling/.cache',
+  ]),
+  'contracts/schemas/update-status/tooling': Object.freeze([
+    'contracts/schemas/update-status/tooling/node_modules',
+    'contracts/schemas/update-status/tooling/.cache',
+  ]),
+});
+
+const API_NPM_PACKAGE_GENERATED_ROOTS = Object.freeze({
+  'contracts/goldens/api/catalog': Object.freeze([
+    'contracts/goldens/api/catalog/node_modules',
+    'contracts/goldens/api/catalog/.cache',
+    'contracts/goldens/api/catalog/.tmp',
+  ]),
+  'contracts/goldens/api/rankings': Object.freeze([
+    'contracts/goldens/api/rankings/node_modules',
+    'contracts/goldens/api/rankings/.cache',
+    'contracts/goldens/api/rankings/.tmp',
+  ]),
+  'contracts/goldens/api/candidates': Object.freeze([
+    'contracts/goldens/api/candidates/node_modules',
+    'contracts/goldens/api/candidates/.cache',
+    'contracts/goldens/api/candidates/.tmp',
+  ]),
+  'contracts/goldens/api/person-detail': Object.freeze([
+    'contracts/goldens/api/person-detail/node_modules',
+    'contracts/goldens/api/person-detail/.cache',
+    'contracts/goldens/api/person-detail/.tmp',
+  ]),
+  'contracts/goldens/api/partners': Object.freeze([
+    'contracts/goldens/api/partners/node_modules',
+    'contracts/goldens/api/partners/.cache',
+    'contracts/goldens/api/partners/.tmp',
+  ]),
+  'contracts/goldens/api/co-star': Object.freeze([
+    'contracts/goldens/api/co-star/node_modules',
+    'contracts/goldens/api/co-star/.cache',
+    'contracts/goldens/api/co-star/.tmp',
+  ]),
+});
+
+export function currentNpmPackageGeneratedRoots(relative) {
+  const roots =
+    SCHEMA_NPM_PACKAGE_GENERATED_ROOTS[relative] ??
+    API_NPM_PACKAGE_GENERATED_ROOTS[relative];
+  if (roots !== undefined) return roots;
+  throw new Error(
+    `Contracts npm package has no generated-root cleanup policy: ${relative}`,
+  );
+}
+
+export const CONTRACTS_OWNER_CLEANUP_INVENTORY = Object.freeze({
+  currentNpmPackages: CURRENT_NPM_PACKAGES,
+  generatedRoots: Object.freeze([
+    'contracts/goldens/query/node_modules',
+    'contracts/goldens/query/.cache',
+    'contracts/goldens/query/.tmp',
+    ...CURRENT_NPM_PACKAGES.flatMap(currentNpmPackageGeneratedRoots),
+  ]),
+});
+
+const CONTRACTS_GENERATED_ROOTS =
+  CONTRACTS_OWNER_CLEANUP_INVENTORY.generatedRoots;
 
 const DIRECT_NODE_VERIFIERS = Object.freeze([
   'contracts/goldens/query-domain/verify.mjs',

@@ -9,6 +9,9 @@ import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import {
+  defaultSmokeControlPlanePaths,
+} from '../../artifacts/bin/coordinator.mjs';
+import {
   assertApiViewSemantics,
   assertCatalogResponse,
 } from '../lib/api-journey.mjs';
@@ -47,6 +50,8 @@ import {
 import {
   cleanupBackendGeneratedRoots,
   cleanupContractsGeneratedRoots,
+  CONTRACTS_OWNER_CLEANUP_INVENTORY,
+  currentNpmPackageGeneratedRoots,
   dockerLocalSandboxProfile,
   OwnerGateError,
   QUERY_GOLDEN_COMMAND_IDS,
@@ -3989,6 +3994,145 @@ test('Backend cleanup-only surviving residue blocks an otherwise successful owne
   assert.equal(caught.evidence.length, 1);
   assert.equal(caught.evidence[0].kind, 'cleanup');
   assert.equal(fs.existsSync(cacheRoot), true);
+});
+
+test('Contracts cleanup inventory closes every installed API golden before coordinator traversal', async (t) => {
+  const currentNpmPackages = [
+    'contracts/schemas/archive/tooling',
+    'contracts/schemas/catalog/tooling',
+    'contracts/schemas/update-status/tooling',
+    'contracts/goldens/api/catalog',
+    'contracts/goldens/api/rankings',
+    'contracts/goldens/api/candidates',
+    'contracts/goldens/api/person-detail',
+    'contracts/goldens/api/partners',
+    'contracts/goldens/api/co-star',
+  ];
+  const apiPackages = currentNpmPackages.slice(3);
+  const expectedGeneratedRoots = [
+    'contracts/goldens/query/node_modules',
+    'contracts/goldens/query/.cache',
+    'contracts/goldens/query/.tmp',
+    'contracts/schemas/archive/tooling/node_modules',
+    'contracts/schemas/archive/.cache',
+    'contracts/schemas/archive/.tmp',
+    'contracts/schemas/catalog/tooling/node_modules',
+    'contracts/schemas/catalog/tooling/.cache',
+    'contracts/schemas/update-status/tooling/node_modules',
+    'contracts/schemas/update-status/tooling/.cache',
+    ...apiPackages.flatMap((relative) => [
+      `${relative}/node_modules`,
+      `${relative}/.cache`,
+      `${relative}/.tmp`,
+    ]),
+  ];
+  assert.deepEqual(
+    CONTRACTS_OWNER_CLEANUP_INVENTORY.currentNpmPackages,
+    currentNpmPackages,
+  );
+  assert.deepEqual(
+    CONTRACTS_OWNER_CLEANUP_INVENTORY.generatedRoots,
+    expectedGeneratedRoots,
+  );
+  assert.deepEqual(
+    CONTRACTS_OWNER_CLEANUP_INVENTORY.generatedRoots.filter(
+      (relative) => relative.startsWith('contracts/goldens/api/'),
+    ),
+    apiPackages.flatMap((relative) => [
+      `${relative}/node_modules`,
+      `${relative}/.cache`,
+      `${relative}/.tmp`,
+    ]),
+  );
+  assert.throws(
+    () =>
+      currentNpmPackageGeneratedRoots(
+        'contracts/goldens/api/unreviewed-package',
+      ),
+    /has no generated-root cleanup policy/u,
+  );
+
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-contracts-api-cleanup-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  for (const relative of [
+    'contracts/goldens',
+    'contracts/openapi',
+    'contracts/schemas',
+  ]) {
+    const directory = path.join(candidateRoot, ...relative.split('/'));
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(path.join(directory, 'tracked.txt'), 'tracked\n');
+  }
+  for (const relative of apiPackages) {
+    for (const generated of ['node_modules', '.cache', '.tmp']) {
+      const generatedRoot = path.join(
+        candidateRoot,
+        ...relative.split('/'),
+        generated,
+      );
+      fs.mkdirSync(generatedRoot, { recursive: true });
+      fs.writeFileSync(path.join(generatedRoot, 'generated'), 'generated\n');
+    }
+  }
+  const catalogNodeModules = path.join(
+    candidateRoot,
+    'contracts',
+    'goldens',
+    'api',
+    'catalog',
+    'node_modules',
+  );
+  const packageRoot = path.join(catalogNodeModules, 'fixture-package');
+  const binaryDirectory = path.join(catalogNodeModules, '.bin');
+  fs.mkdirSync(path.join(packageRoot, 'bin'), { recursive: true });
+  fs.mkdirSync(binaryDirectory);
+  fs.writeFileSync(path.join(packageRoot, 'index.mjs'), 'export {};\n');
+  fs.writeFileSync(path.join(packageRoot, 'bin', 'tool.mjs'), '#!/usr/bin/env node\n');
+  const binaryLink = path.join(binaryDirectory, 'fixture-tool');
+  fs.symlinkSync('../fixture-package/bin/tool.mjs', binaryLink);
+
+  assert.throws(
+    () => defaultSmokeControlPlanePaths(candidateRoot),
+    /control-plane directory contains a symlink: .*node_modules\/\.bin\/fixture-tool/u,
+  );
+  fs.unlinkSync(binaryLink);
+  const pollutedControlPlane = defaultSmokeControlPlanePaths(candidateRoot);
+  assert.equal(
+    pollutedControlPlane.includes(
+      'contracts/goldens/api/catalog/node_modules/fixture-package/index.mjs',
+    ),
+    true,
+  );
+  fs.symlinkSync('../fixture-package/bin/tool.mjs', binaryLink);
+
+  const report = await cleanupContractsGeneratedRoots(candidateRoot);
+  assert.deepEqual(
+    report.outcomes.map((outcome) => outcome.relative),
+    expectedGeneratedRoots,
+  );
+  assert.equal(report.failedCount, 0);
+  assert.equal(report.residueCount, 0);
+  for (const relative of expectedGeneratedRoots) {
+    assert.equal(
+      fs.existsSync(path.join(candidateRoot, ...relative.split('/'))),
+      false,
+      relative,
+    );
+  }
+  const cleanControlPlane = defaultSmokeControlPlanePaths(candidateRoot);
+  assert.equal(
+    cleanControlPlane.some((relative) =>
+      relative.startsWith('contracts/goldens/api/catalog/node_modules/'),
+    ),
+    false,
+  );
+  assert.equal(
+    cleanControlPlane.includes('contracts/goldens/tracked.txt'),
+    true,
+  );
 });
 
 test('Contracts generated-root cleanup retries a transient non-empty race within its fixed bound', async (t) => {
