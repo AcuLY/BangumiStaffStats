@@ -19,6 +19,19 @@ import { verifyRuntimeClosures } from './tools.mjs';
 
 const SANDBOX_EXECUTABLE = '/usr/bin/sandbox-exec';
 const NETWORKLESS_PROFILE = '(version 1)(allow default)(deny network*)';
+const QUERY_GOLDEN_TIMEOUT_MS = 300_000;
+export const QUERY_GOLDEN_COMMAND_IDS = Object.freeze([
+  'contracts-query-npm-ci',
+  'contracts-query-verify',
+  'contracts-query-cleanup-safety',
+  'contracts-query-prepare-codegen',
+  'contracts-query-redocly-codegen-a',
+  'contracts-query-redocly-codegen-b',
+  'contracts-query-typescript-a',
+  'contracts-query-typescript-b',
+  'contracts-query-verify-codegen',
+  'contracts-query-cleanup',
+]);
 const GENERATED_ROOT_CLEANUP_ATTEMPTS = 4;
 const GENERATED_ROOT_CLEANUP_RETRY_MS = 25;
 const TRANSIENT_GENERATED_ROOT_ERRORS = new Set([
@@ -621,6 +634,52 @@ async function commandDeclarationEvidence({
   });
 }
 
+export function queryTypeScriptCommandPlan({
+  candidateRoot,
+  goldenRoot,
+  queryNodePath,
+}) {
+  const typescript = path.join(
+    goldenRoot,
+    'node_modules',
+    'openapi-typescript',
+    'bin',
+    'cli.js',
+  );
+  const openapi = path.join(
+    candidateRoot,
+    'contracts',
+    'openapi',
+    'openapi.yaml',
+  );
+  return Object.freeze(['a', 'b'].map((name) => Object.freeze({
+    args: Object.freeze([
+      typescript,
+      openapi,
+      '--output',
+      path.join(goldenRoot, '.tmp', `query-${name}.d.ts`),
+    ]),
+    cwd: goldenRoot,
+    environment: 'typescript',
+    executable: queryNodePath,
+    id: `contracts-query-typescript-${name}`,
+    timeoutMs: QUERY_GOLDEN_TIMEOUT_MS,
+  })));
+}
+
+export function queryGoldenEnvironmentOverrides(goldenRoot) {
+  return Object.freeze({
+    redocly: Object.freeze({
+      HOME: path.join(goldenRoot, '.tmp', 'redocly-home'),
+      TMPDIR: path.join(goldenRoot, '.tmp', 'redocly-tmp'),
+    }),
+    typescript: Object.freeze({
+      HOME: path.join(goldenRoot, '.tmp', 'redocly-home'),
+      TMPDIR: path.join(goldenRoot, '.tmp', 'system'),
+    }),
+  });
+}
+
 async function runQueryGolden({
   candidateRoot,
   cacheRoots,
@@ -645,8 +704,6 @@ async function runQueryGolden({
   for (const relativeDirectory of [
     '.cache/go-build',
     '.cache/go-path',
-    '.tmp/go-home',
-    '.tmp/system',
   ]) {
     fs.mkdirSync(path.join(seededNpm.root, relativeDirectory), {
       recursive: true,
@@ -677,25 +734,63 @@ async function runQueryGolden({
       REDOCLY_TELEMETRY: 'off',
     },
   });
+  const environmentOverrides =
+    queryGoldenEnvironmentOverrides(seededNpm.root);
+  const redoclyEnvironment = commandEnvironment({
+    runRoot,
+    pathEntries: [
+      path.dirname(tools.queryNode.path),
+      path.dirname(tools.queryGo.path),
+    ],
+    extra: {
+      NPM_CONFIG_CACHE: seededNpm.cache,
+      REDOCLY_TELEMETRY: 'off',
+      ...environmentOverrides.redocly,
+    },
+  });
+  const typescriptEnvironment = commandEnvironment({
+    runRoot,
+    pathEntries: [
+      path.dirname(tools.queryNode.path),
+      path.dirname(tools.queryGo.path),
+    ],
+    extra: {
+      NPM_CONFIG_CACHE: seededNpm.cache,
+      REDOCLY_TELEMETRY: 'off',
+      ...environmentOverrides.typescript,
+    },
+  });
   const querySandbox = runtimeReadOnlySandboxProfile(
     runtimePaths(runtimeRoots, QUERY_RUNTIME_NAMES),
   );
   const verify = async (id, args) => {
-    const result = await networklessCommand({
+    results.push(await networklessCommand({
       id,
       executable: tools.queryNode.path,
       args: [path.join(seededNpm.root, 'verify.mjs'), ...args],
       cwd: seededNpm.root,
       environment: queryEnvironment,
-      timeoutMs: 300_000,
+      timeoutMs: QUERY_GOLDEN_TIMEOUT_MS,
       budgets,
       runRoot,
       profile: querySandbox,
-    });
-    results.push(result);
+    }));
   };
   await verify('contracts-query-verify', []);
-  await verify('contracts-query-prepare-codegen', ['--prepare-codegen-projections']);
+  await verify('contracts-query-cleanup-safety', ['--verify-cleanup-safety']);
+  await verify(
+    'contracts-query-prepare-codegen',
+    ['--prepare-codegen-projections'],
+  );
+  for (const relativeDirectory of [
+    '.tmp/go-home',
+    '.tmp/system',
+  ]) {
+    fs.mkdirSync(path.join(seededNpm.root, relativeDirectory), {
+      recursive: true,
+      mode: 0o700,
+    });
+  }
   const redocly = path.join(
     seededNpm.root,
     'node_modules',
@@ -728,16 +823,42 @@ async function runQueryGolden({
         path.join(projection, 'redocly.yaml'),
       ],
       cwd: seededNpm.root,
-      environment: queryEnvironment,
-      timeoutMs: 300_000,
+      environment: redoclyEnvironment,
+      timeoutMs: QUERY_GOLDEN_TIMEOUT_MS,
       budgets,
       runRoot,
       profile: querySandbox,
     }));
   }
-  await verify('contracts-query-verify-codegen', ['--verify-codegen-projections']);
+  for (const declaration of queryTypeScriptCommandPlan({
+    candidateRoot,
+    goldenRoot: seededNpm.root,
+    queryNodePath: tools.queryNode.path,
+  })) {
+    results.push(await networklessCommand({
+      ...declaration,
+      environment: declaration.environment === 'typescript'
+        ? typescriptEnvironment
+        : undefined,
+      budgets,
+      runRoot,
+      profile: querySandbox,
+    }));
+  }
+  await verify(
+    'contracts-query-verify-codegen',
+    ['--verify-codegen-projections'],
+  );
   await verify('contracts-query-cleanup', ['--cleanup-generated']);
-  await verify('contracts-query-cleanup-safety', ['--verify-cleanup-safety']);
+  const observedCommandIds = results.map(({ id }) => id);
+  if (
+    observedCommandIds.length !== QUERY_GOLDEN_COMMAND_IDS.length ||
+    observedCommandIds.some(
+      (id, index) => id !== QUERY_GOLDEN_COMMAND_IDS[index],
+    )
+  ) {
+    fail('Query golden command order is not the closed owner sequence');
+  }
   await verifyRuntimeClosures(toolAttestation, QUERY_RUNTIME_NAMES);
   return results;
 }

@@ -48,6 +48,9 @@ import {
   cleanupContractsGeneratedRoots,
   dockerLocalSandboxProfile,
   OwnerGateError,
+  QUERY_GOLDEN_COMMAND_IDS,
+  queryGoldenEnvironmentOverrides,
+  queryTypeScriptCommandPlan,
   removeOwnedGenerated,
   runtimeReadOnlySandboxProfile,
   settleContractsOwnerGate,
@@ -3937,6 +3940,92 @@ test('runtime sandbox denies writes to complete directory roots and single-file 
   assert.doesNotMatch(
     profile,
     new RegExp(`subpath "${executable.replaceAll('/', '\\/')}"`, 'u'),
+  );
+});
+
+test('Query golden command plan closes codegen argv and cleanup order', () => {
+  const candidateRoot = '/private/tmp/bgmss-product-candidate';
+  const queryNodePath =
+    '/Users/luca/.nvm/versions/node/v24.16.0/bin/node';
+  const goldenRoot = path.join(
+    candidateRoot,
+    'contracts',
+    'goldens',
+    'query',
+  );
+  const plan = queryTypeScriptCommandPlan({
+    candidateRoot,
+    goldenRoot,
+    queryNodePath,
+  });
+
+  assert.equal(Object.isFrozen(plan), true);
+  assert.deepEqual(QUERY_GOLDEN_COMMAND_IDS, [
+    'contracts-query-npm-ci',
+    'contracts-query-verify',
+    'contracts-query-cleanup-safety',
+    'contracts-query-prepare-codegen',
+    'contracts-query-redocly-codegen-a',
+    'contracts-query-redocly-codegen-b',
+    'contracts-query-typescript-a',
+    'contracts-query-typescript-b',
+    'contracts-query-verify-codegen',
+    'contracts-query-cleanup',
+  ]);
+  assert.deepEqual(plan.map(({ id }) => id), [
+    'contracts-query-typescript-a',
+    'contracts-query-typescript-b',
+  ]);
+  assert.deepEqual(plan.map(({ environment }) => environment), [
+    'typescript',
+    'typescript',
+  ]);
+  assert.equal(
+    plan.every(({ executable }) => executable === queryNodePath),
+    true,
+  );
+  assert.equal(plan.every(({ timeoutMs }) => timeoutMs === 300_000), true);
+  assert.deepEqual(queryGoldenEnvironmentOverrides(goldenRoot), {
+    redocly: {
+      HOME: path.join(goldenRoot, '.tmp', 'redocly-home'),
+      TMPDIR: path.join(goldenRoot, '.tmp', 'redocly-tmp'),
+    },
+    typescript: {
+      HOME: path.join(goldenRoot, '.tmp', 'redocly-home'),
+      TMPDIR: path.join(goldenRoot, '.tmp', 'system'),
+    },
+  });
+
+  const byId = Object.fromEntries(plan.map((entry) => [entry.id, entry]));
+  const typescriptCli = path.join(
+    goldenRoot,
+    'node_modules',
+    'openapi-typescript',
+    'bin',
+    'cli.js',
+  );
+  const openapi = path.join(
+    candidateRoot,
+    'contracts',
+    'openapi',
+    'openapi.yaml',
+  );
+  assert.deepEqual(byId['contracts-query-typescript-a'].args, [
+    typescriptCli,
+    openapi,
+    '--output',
+    path.join(goldenRoot, '.tmp', 'query-a.d.ts'),
+  ]);
+  assert.deepEqual(byId['contracts-query-typescript-b'].args, [
+    typescriptCli,
+    openapi,
+    '--output',
+    path.join(goldenRoot, '.tmp', 'query-b.d.ts'),
+  ]);
+  assert.equal(
+    plan.some(({ args }) =>
+      args.some((argument) => argument.includes('oapi-codegen'))),
+    false,
   );
 });
 
