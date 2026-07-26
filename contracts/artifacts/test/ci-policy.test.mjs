@@ -15,6 +15,15 @@ const WORKFLOW_PATH = path.join(REPOSITORY_ROOT, '.github', 'workflows', 'ci.yml
 const ARTIFACTS_ROOT = path.resolve(import.meta.dirname, '..');
 const TMP_ROOT = path.join(ARTIFACTS_ROOT, '.tmp');
 const RESIDUE_TEST_ROOT = path.join(TMP_ROOT, 'ci-residue-policy-test');
+const TOOLCHAIN_VALIDATOR =
+  'node contracts/artifacts/bin/ci-toolchain-identity.mjs';
+const EXPECTED_ACTION_REFERENCES = [
+  'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
+  'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e',
+  'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
+  'astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9',
+  'docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c',
+];
 
 function generatedOptions(label) {
   return {
@@ -46,10 +55,10 @@ test('CI has exactly read-only repository permission', () => {
   assert.doesNotMatch(source, /:\s*write\s*$/m);
 });
 
-test('every action reference is pinned to one full immutable commit', () => {
+test('CI uses exactly the five reviewed immutable action releases', () => {
   const source = workflow();
   const uses = [...source.matchAll(/^\s*uses:\s*([^\s]+)\s*$/gm)].map((match) => match[1]);
-  assert.ok(uses.length >= 4);
+  assert.deepEqual(uses, EXPECTED_ACTION_REFERENCES);
   for (const reference of uses) {
     assert.match(reference, /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@[0-9a-f]{40}$/);
   }
@@ -64,6 +73,34 @@ test('every action reference is pinned to one full immutable commit', () => {
     'YAML anchors and aliases can hide mutable action configuration',
   );
   assert.match(source, /persist-credentials:\s*false/);
+});
+
+test('CI invokes one semantic toolchain validator before every product gate', () => {
+  const source = workflow();
+  assert.equal(
+    source.split(TOOLCHAIN_VALIDATOR).length - 1,
+    1,
+    'the repository-owned validator must have one workflow invocation',
+  );
+  assert.match(
+    source,
+    /- name: Verify exact toolchains\n\s+shell: bash\n\s+run: node contracts\/artifacts\/bin\/ci-toolchain-identity\.mjs\n/,
+  );
+  assert.ok(
+    source.indexOf(TOOLCHAIN_VALIDATOR) <
+      source.indexOf('- name: Run Backend source gates'),
+    'tool identities must be admitted before product builds begin',
+  );
+  for (const [pattern, label] of [
+    [/\buv --version\b/, 'uv human presentation check'],
+    [/\bBUILDX_STATE\b/, 'Buildx state environment bridge'],
+    [/\bbuildx_state=/, 'inline Buildx state collector'],
+    [/\|\s*awk\b/, 'inline output field parser'],
+    [/\bnode\s+<<['"]?NODE\b/, 'inline Node heredoc validator'],
+    [/\btest "\$\(node --version\)"/, 'inline Node presentation check'],
+  ]) {
+    assert.doesNotMatch(source, pattern, label);
+  }
 });
 
 test('CI contains no publication, credential, deployment, or activation authority', () => {
@@ -97,12 +134,7 @@ test('CI runs exact component gates, reproducibility, assembly, and local smoke'
     'version: v0.34.1',
     'driver-opts: image=docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368',
     'uv python install 3.14.6',
-    `test "$(docker buildx version | awk '{print $2}')" = "v0.34.1"`,
-    "docker buildx ls --format '{{json .}}'",
-    'entry.Current === true',
-    "builder.Driver !== 'docker-container'",
-    "node.Version !== 'v0.27.1'",
-    'node.DriverOpts?.image !== expectedImage',
+    TOOLCHAIN_VALIDATOR,
     'backend/build/check.sh --target-arch amd64',
     'uv run --frozen pytest',
     '.venv/bin/python build/check.py',

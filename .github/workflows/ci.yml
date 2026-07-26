@@ -19,19 +19,19 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Check out the candidate without stored credentials
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Install exact Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version: 1.26.5
           check-latest: false
           cache: false
 
       - name: Install exact Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 24.18.0
           check-latest: false
@@ -41,61 +41,20 @@ jobs:
         run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
 
       - name: Install exact uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
           version: 0.11.32
           enable-cache: false
 
       - name: Create a local-only BuildKit builder
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
         with:
           version: v0.34.1
           driver-opts: image=docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368
 
       - name: Verify exact toolchains
         shell: bash
-        run: |
-          set -euo pipefail
-          test "$(node --version)" = "v24.18.0"
-          test "$(npm --version)" = "11.16.0"
-          test "$(go version | awk '{print $3}')" = "go1.26.5"
-          test "$(uv --version)" = "uv 0.11.32"
-          test "$(docker buildx version | awk '{print $2}')" = "v0.34.1"
-          buildx_state="$(docker buildx ls --format '{{json .}}')"
-          BUILDX_STATE="$buildx_state" node <<'NODE'
-          const expectedImage =
-            'docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368';
-          const records = process.env.BUILDX_STATE
-            .split('\n')
-            .filter(Boolean)
-            .map((line) => JSON.parse(line));
-          const current = new Map();
-          for (const record of records.filter((entry) => entry.Current === true)) {
-            const previous = current.get(record.Name);
-            if (previous && JSON.stringify(previous) !== JSON.stringify(record)) {
-              throw new Error(`conflicting current builder records for ${record.Name}`);
-            }
-            current.set(record.Name, record);
-          }
-          if (current.size !== 1) {
-            throw new Error(`expected one current builder, received ${current.size}`);
-          }
-          const [builder] = current.values();
-          if (builder.Driver !== 'docker-container') {
-            throw new Error(`unexpected current builder driver ${builder.Driver}`);
-          }
-          if (!Array.isArray(builder.Nodes) || builder.Nodes.length === 0) {
-            throw new Error('current builder has no nodes');
-          }
-          for (const node of builder.Nodes) {
-            if (node.Version !== 'v0.27.1') {
-              throw new Error(`unexpected BuildKit version ${node.Version}`);
-            }
-            if (node.DriverOpts?.image !== expectedImage) {
-              throw new Error(`unexpected BuildKit image ${node.DriverOpts?.image}`);
-            }
-          }
-          NODE
+        run: node contracts/artifacts/bin/ci-toolchain-identity.mjs
 
       - name: Run Backend source gates
         shell: bash
