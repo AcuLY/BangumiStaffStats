@@ -16,6 +16,15 @@ sandbox from an already-sandboxed verifier. It SHALL NOT solve the nesting
 failure by removing network denial, bypassing the inner wrapper, adding a
 second Go executor or changing module/download/generated-output semantics.
 
+Primary and replay generation SHALL use the standard
+`tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen` directive and
+run `go tool oapi-codegen` from the materialized Query module root. The exact
+tool module and checksum closure SHALL be tracked in the Query `go.mod`/`go.sum`
+locks, remain an exact subset of accepted Backend `go.sum`, and resolve from
+the sealed module cache with checksum policy unchanged. The gate SHALL reject
+`GOSUMDB=off`, an ad-hoc proxy, an untracked proxy-list file,
+`go run <package>@version`, or any generated-output drift.
+
 #### Scenario: The verifier runs without an outer sandbox
 
 - **WHEN** the locked Query flow invokes `--verify-codegen-projections`
@@ -23,8 +32,9 @@ second Go executor or changing module/download/generated-output semantics.
   timeout
 - **THEN** all four Go children SHALL execute successfully through the exact
   inner profile containing `(deny network*)`
-- **AND** their argv, environment, module seals and generated outputs SHALL
-  match the accepted evidence
+- **AND** primary/replay SHALL use the locked `go tool oapi-codegen` command
+  and all four children's argv, environment, module seals and generated
+  outputs SHALL match the accepted evidence
 
 #### Scenario: Network denial is missing or moved to an outer wrapper
 
@@ -34,3 +44,12 @@ second Go executor or changing module/download/generated-output semantics.
 - **THEN** the Query owner gate SHALL fail
 - **AND** no successful codegen or development-acceptance verdict may be
   emitted
+
+#### Scenario: The tool lookup requires public proxy state
+
+- **WHEN** primary/replay uses `go run <package-subdirectory>@version`, changes
+  checksum/proxy policy, or requires a module/checksum byte outside the tracked
+  Backend-subset lock and sealed cache
+- **THEN** the Query owner gate SHALL fail under the inner network-denial
+  profile
+- **AND** the accepted generated-output seal SHALL remain unchanged
