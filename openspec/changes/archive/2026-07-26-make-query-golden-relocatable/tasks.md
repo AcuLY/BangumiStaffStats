@@ -2,7 +2,7 @@
 
 | Boundary | Declaration |
 |---|---|
-| Status | Investigated and specified; not implemented, verified, committed, pushed, released, or deployed. |
+| Status | Implemented, independently audited, verified, committed, and pushed; lifecycle synchronization/archive is in progress. Not released or deployed. |
 | Owner | One delegated Contracts owner performs groups 1–2 without editing OpenSpec; main agent owns every task marker, group 3 audit/lifecycle, and resumption of formal acceptance. |
 | Writable paths | Tracked apply: `contracts/goldens/query/verify.mjs`; new exact inputs `contracts/goldens/query/fixtures/go-module/{go.mod.lock,go.sum.lock}`; repository-root-derived evidence, closed-source Redocly lint and paired TypeScript source/command evidence, offline module-input evidence, and verifier self-identity in `contracts/goldens/query/manifest.json`; only Query Domain's exact Query-manifest authority hash plus resulting verifier self-identity in `contracts/goldens/query-domain/{verify.mjs,manifest.json}`; and only Statistics `authorities[id=query-result-handoff].sha256` in `contracts/goldens/statistics/index.json`. Main-agent lifecycle: only this change's task markers and later sync/archive paths. Transient execution: only existing exact Query roots under `contracts/goldens/query/{node_modules,.cache/npm,.cache/go-build,.cache/go-mod,.cache/go-path,.tmp}`. |
 | Read-only protected inputs | All Query/OpenAPI/schema/case/Unicode/package authority not named writable; every Query Domain and Statistics field/case/authority not explicitly named writable; Statistics verifier; root `.gitignore`; Backend/Frontend/Updater product sources and generated files; product/design/oracle authorities; active acceptance change except its separately owned Query module-authority/cache/lint Harness correction; other OpenSpec content during apply; refs/remotes; hosts/services; production. |
@@ -23,39 +23,39 @@ mutation, and any external repository/host/service mutation.
 
 ## 1. Contracts owner — verifier and manifest
 
-- [ ] 1.1 Preflight the exact branch and HEAD supplied by the main agent, empty
+- [x] 1.1 Preflight the exact branch and HEAD supplied by the main agent, empty
   index, allowed dirty-state inventory, absence of another owner in the five
   tracked writable files, all four reviewed change artifacts, and strict
   OpenSpec; stop without writes on any mismatch.
-- [ ] 1.2 In `contracts/goldens/query/verify.mjs`, implement canonical
+- [x] 1.2 In `contracts/goldens/query/verify.mjs`, implement canonical
   verifier-location root derivation, the one-way closed `@repo-root@` evidence
   encoder, pre-child manifest shape/token/path admission, and token-free
   clone-contained spawn assertions without changing existing authority,
   codegen, Go-download, or cleanup semantics.
-- [ ] 1.3 Add deterministic in-process positive and negative coverage for
+- [x] 1.3 Add deterministic in-process positive and negative coverage for
   exact/packed owned paths, two synthetic roots, unknown/missing/extra/misplaced
   tokens, old or external roots, escape/non-normalized suffixes, wrong fixed
   tool/sandbox/telemetry identities, environment/argv/cwd drift, and a token at
   the spawn boundary; prove every unsafe case starts no child and changes no
   sentinel.
-- [ ] 1.4 Rebind exactly the 86 original-root occurrences in
+- [x] 1.4 Rebind exactly the 86 original-root occurrences in
   `contracts/goldens/query/manifest.json` to admitted logical evidence and
   update only necessarily affected evidence plus verifier byte/SHA identity;
   prove zero old-root bytes and report the exact changed JSON pointers.
-- [ ] 1.5 Rebind the Redocly lint command to the prepared `codegen-a` source
+- [x] 1.5 Rebind the Redocly lint command to the prepared `codegen-a` source
   projection and the two TypeScript commands to their paired `codegen-a` and
   `codegen-b` source projections; prove zero-error/nine-warning lint evidence,
   exact accepted TypeScript bytes/SHA, and negative mismatch for the expanded
   full authority and dereferenced bundle.
-- [ ] 1.6 Rebind only `shared-query-manifest-v1` in
+- [x] 1.6 Rebind only `shared-query-manifest-v1` in
   `contracts/goldens/query-domain/{verify.mjs,manifest.json}` to the accepted
   Query manifest SHA-256, update only the resulting Query Domain verifier
   byte/SHA self-identity, and prove every other Query Domain field/file byte
   unchanged.
-- [ ] 1.7 Rebind only Statistics `query-result-handoff` to the accepted Query
+- [x] 1.7 Rebind only Statistics `query-result-handoff` to the accepted Query
   Domain manifest SHA-256, prove every other Statistics field/file byte
   unchanged, and prove no tracked consumer continues the byte-seal cascade.
-- [ ] 1.8 Close the audit-discovered gaps before accepting any prior run:
+- [x] 1.8 Close the audit-discovered gaps before accepting any prior run:
   preflight full Node/npm runtime, Redocly identity/isolation, Go module,
   output-command, recovery-history, and independently sealed Go-download
   evidence; verify actual tool files before their first relevant execution and
@@ -64,7 +64,7 @@ mutation, and any external repository/host/service mutation.
   wrong-root paths; scan execution-input object keys; add child-free negatives
   for every case. Recompute all downstream seals and discard every run made
   against the superseded verifier.
-- [ ] 1.9 Add the exact reviewed 197-byte `go.mod` and 1,306-byte `go.sum` as
+- [x] 1.9 Add the exact reviewed 197-byte `go.mod` and 1,306-byte `go.sum` as
   tracked lock inputs with SHA-256 values
   `dded0ad8642adcdbb5a786de7b12165ba33ec550adbaefae7fd3bba0479c2a94`
   and
@@ -78,7 +78,7 @@ mutation, and any external repository/host/service mutation.
   Add child-free negatives for changed/missing/symlinked inputs and
   pre-existing/partial outputs. Do not run `go get`, admit network, set
   `GOSUMDB=off`, or change any other module pair.
-- [ ] 1.10 Re-seal both materialized module files immediately before and after
+- [x] 1.10 Re-seal both materialized module files immediately before and after
   every Go child and before successful cleanup. Add a deterministic physical
   materialization-fault probe that fails after the first owned output is
   created, proves zero Go children, and proves exact owner cleanup removes the
@@ -86,22 +86,25 @@ mutation, and any external repository/host/service mutation.
 
 ## 2. Contracts owner — proportional acceptance
 
-- [ ] 2.1 From physically absent `.tmp` module outputs, run the locked full
+- [x] 2.1 From physically absent `.tmp` module outputs, run the locked full
   Query install/verify, sealed module materialization, Redocly
   projection/bundle, TypeScript/Go generation, deterministic replay, Go
   download admission, and cleanup sequence twice from the original checkout
   under network denial; record exact commands, tool identities, output seals,
   checksum policy, and physical zero residue.
-- [ ] 2.2 Run the same tracked candidate and committed manifest bytes from two
+- [x] 2.2 Run the same tracked candidate and committed manifest bytes from two
   distinct canonical absolute clone fixtures below the approved `.tmp` root;
   prove identical logical evidence and authority/bundle/TypeScript/Go bytes,
   then remove fixtures through the approved no-follow bounded cleanup.
-- [ ] 2.3 Run the unchanged Query Domain and Statistics verifiers, Backend and
-  Frontend Query generation checks, and the Backend/Frontend/Updater
-  artifact-inventory exclusion gate; browser
+- [x] 2.3 Run the unchanged Query Domain and Statistics verifiers and Backend
+  and Frontend Query generation checks. The current-revision
+  Backend/Frontend/Updater artifact-inventory exclusion proof is owned by the
+  resumed `complete-integrated-development-acceptance` Product candidate
+  rebuild after this change archives because every pre-existing artifact
+  statement is bound to an older revision; browser
   acceptance is not applicable because no rendered or interactive code is
   writable.
-- [ ] 2.4 Hand off unstaged and without editing OpenSpec, with strict OpenSpec,
+- [x] 2.4 Hand off unstaged and without editing OpenSpec, with strict OpenSpec,
   exact five-file product diff,
   manifest-pointer inventory, protected-input seals, empty index, physical
   residue check, and explicit state record: investigated/specified,
@@ -109,11 +112,12 @@ mutation, and any external repository/host/service mutation.
 
 ## 3. Main agent — audit and lifecycle
 
-- [ ] 3.1 Audit implementation and evidence for zero P0/P1 findings, independently
+- [x] 3.1 Audit implementation and evidence for zero P0/P1 findings, independently
   confirm the writable/deletion complements and three-root equivalence, and
   mark only this change's completed tasks.
-- [ ] 3.2 Synchronize the accepted delta into `contracts-query-wire`, archive
+- [x] 3.2 Synchronize the accepted delta into `contracts-query-wire`, archive
   this change, strictly validate all OpenSpec content, make the scoped lifecycle
-  commit/push, rebuild the formal Product candidate, and only then resume
-  `complete-integrated-development-acceptance`; release and deployment remain
-  false.
+  commit/push, and only then resume
+  `complete-integrated-development-acceptance`. The resumed acceptance change
+  owns the final current-revision artifact exclusion proof and Product
+  candidate rebuild; release and deployment remain false.
