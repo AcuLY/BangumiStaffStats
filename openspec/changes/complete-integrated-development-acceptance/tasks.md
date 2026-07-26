@@ -172,6 +172,15 @@ commit, push, sync, archive, or update task markers.
   focused coordinator-control-plane test with ordinary dependency bytes and a
   `node_modules/.bin` symlink, plus an exact inventory assertion so a newly
   installed package cannot silently escape cleanup.
+- [ ] 3.9 Close the formal Archive-owner environment and read-only-cache
+  cleanup path. Pass exact `GOWORK=off` to the real Archive verifier. Before
+  chmod or deletion, completely inventory each exact declared generated root
+  without following links; reject symlinks, special entries, and regular files
+  with external hard links. After a clean inventory, make only owned
+  directories removable, then retain four-attempt bounded removal,
+  primary-error precedence, and cleanup-only blocking. Add focused coverage
+  for the Archive environment, nested `0555` npm cache removal, link/special/
+  hard-link rejection without external mutation, and primary precedence.
 
 ## 4. Full Archive and packaged runtime
 

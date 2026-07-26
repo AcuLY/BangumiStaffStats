@@ -174,6 +174,18 @@ is required because the coordinator deliberately walks all of
 not authorize dependency files or `.bin` symlinks to participate in that
 walk.
 
+The Archive contract command inherits the same closed Go environment as the
+other hermetic Go consumers and additionally fixes `GOWORK=off`; an ambient
+workspace can neither alter module selection nor make a valid candidate fail.
+Its seeded npm cache can contain admitted `0555` directory layers. Before
+removing any declared generated root, cleanup performs a complete no-follow
+inventory while the tree is still unchanged. Any symlink, special entry, or
+regular file with an external hard-link identity fails closed. Only after that
+inventory succeeds may cleanup add owner-write/search permission to directories
+inside the exact canonical root; it never chmods regular files. Removal then
+uses the existing four-attempt bounded retry and settlement path, so a command
+failure remains primary and cleanup residue remains independently blocking.
+
 The Query golden remains authoritative even though it intentionally records an
 older Node/npm/Go toolchain than the current Frontend and Backend gates. The
 harness therefore admits and records both toolchain families and invokes each
@@ -703,6 +715,11 @@ acceptance mutate the repository.
   installed packages, remove each package's `node_modules`, `.cache`, and
   `.tmp`, and fail the Contracts owner before coordinator traversal on any
   cleanup error or residue.
+- [Archive verification inherits a host Go workspace or its admitted npm cache
+  is read-only] → Fix `GOWORK=off`, completely validate each exact cleanup tree
+  before mutation, reject links/special/external-hard-link entries, make only
+  owned directories removable, and retain bounded retry plus primary-error
+  precedence.
 - [Browser automation adds supply-chain and disk cost] → One exact
   acceptance-only package, locked transitive closure, pre-provisioned browser,
   no install scripts, no production bytes, and explicit dependency/license

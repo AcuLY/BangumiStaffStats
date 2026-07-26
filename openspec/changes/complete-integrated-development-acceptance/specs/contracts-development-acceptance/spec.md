@@ -421,6 +421,18 @@ attests `contracts/goldens`. An ignored dependency file or internal
 input. Cleanup SHALL use the same exact-root, bounded, primary-preserving
 semantics and prove every declared API-golden root absent.
 
+The Archive owner SHALL invoke its real verifier with the exact hermetic Go
+environment, including `GOWORK=off`; an inherited host workspace SHALL never
+participate in module selection. A declared generated root may contain admitted
+read-only cache directories. Before changing permissions or deleting any byte,
+cleanup SHALL completely inventory that exact canonical root without following
+links and SHALL reject every symlink, special entry, or regular file whose link
+count proves an external hard-link identity. Only after a clean inventory SHALL
+it add write/search permission to directories within that root; it SHALL NOT
+chmod regular files. It SHALL then use the same four-attempt bounded removal,
+primary-error preservation, cleanup evidence, and residue-blocking settlement
+as every other owner root.
+
 #### Scenario: An existing owner gate succeeds
 
 - **WHEN** its accepted entrypoint exits successfully in the isolated clone
@@ -463,6 +475,18 @@ semantics and prove every declared API-golden root absent.
 - **AND** missing cleanup coverage, cleanup failure, or surviving output SHALL
   fail the Contracts owner cell rather than be misattributed to artifact
   compatibility or treated as tracked control-plane input
+
+#### Scenario: Archive owner receives ambient workspace state and frozen caches
+
+- **WHEN** the host exports any Go workspace state and the admitted Archive npm
+  cache contains nested `0555` directories
+- **THEN** the Archive verifier SHALL still receive exact `GOWORK=off`
+- **AND** cleanup SHALL validate the unchanged tree, make only its owned
+  directories removable, remove the exact root within four bounded attempts,
+  and prove it absent
+- **AND** a symlink, special entry, or externally hard-linked regular file
+  SHALL fail closed without following the link or changing external mode or
+  bytes, while an earlier command error remains the canonical primary failure
 
 ### Requirement: A full inactive Archive SHALL be proven without mutating it
 
