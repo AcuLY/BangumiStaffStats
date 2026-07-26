@@ -255,18 +255,27 @@ the Harness outer host network-denial sandbox. That one verifier command SHALL
 instead run directly with its exact historical Node executable, fixed
 argv/cwd/environment and timeout because macOS rejects applying its four
 verifier-owned child sandboxes from an already-sandboxed parent. The Harness
-SHALL accept the direct command only when each of the exact four Go child
-results binds the accepted inner sandbox profile containing
-`(deny network*)`, the telemetry-directory write denial, the exact wrapper
-argv and the pre/post module seals. A missing/changed profile, fewer or extra
-Go children, or an outer nested sandbox SHALL fail `owner.contracts`.
+SHALL seal the accepted tracked verifier blob and strict-valid Query manifest,
+including verifier self-identity, before and after the direct command. The
+manifest SHALL bind each of the exact four operation plans to the accepted
+inner sandbox profile text/digest containing `(deny network*)` and the
+telemetry-directory write denial, plus exact executable, wrapper/child argv,
+cwd, environment and module input/pre/post seals. The Harness SHALL parse the
+single `candidate-success Go stderr evidence` runtime summary and require
+exactly the ordered `primaryGeneration`, `deterministicReplay`, `gofmt`, and
+`compileSmoke` operations, zero accepted stderr for all four, and exactly
+eight `0600` two-file module-seal boundaries. The static authority and runtime
+summary SHALL be accepted only together. A missing/changed profile, verifier,
+manifest, runtime summary, operation, order or seal; an extra Go operation;
+or an outer nested sandbox SHALL fail `owner.contracts`.
 
 #### Scenario: Query Go children provide the network boundary
 
 - **WHEN** the Harness invokes the locked
   `--verify-codegen-projections` command without an outer macOS sandbox
 - **THEN** the verifier SHALL remain the sole Go executor and all four exact Go
-  children SHALL record the accepted inner `(deny network*)` profile
+  operations SHALL be cross-bound between the accepted manifest plans and the
+  successful closed runtime summary
 - **AND** every other Query command SHALL retain the Harness outer network
   sandbox
 

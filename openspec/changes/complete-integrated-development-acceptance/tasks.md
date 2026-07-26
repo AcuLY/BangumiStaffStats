@@ -140,9 +140,12 @@ commit, push, sync, archive, or update task markers.
   Query command under the outer network-denial sandbox except the exact
   `--verify-codegen-projections` command, which macOS requires to run directly
   so its verifier-owned child sandboxes can apply; lock that direct command's
-  Node/argv/cwd/environment/timeout and require exactly four Go child results
-  binding the accepted inner `(deny network*)` plus telemetry-write-denial
-  profile, wrapper argv and module pre/post seals;
+  Node/argv/cwd/environment/timeout; pre/post seal the accepted tracked
+  verifier plus strict-valid manifest; cross-bind the manifest's exact four
+  operation plans (inner `(deny network*)` plus telemetry-write-denial
+  profile/digest, wrapper/child argv, cwd, environment and module seals) to
+  the successful runtime summary's exact ordered operations, zero stderr and
+  eight `0600` two-file seal boundaries;
   enforce the actual directed manifest-to-validation/plan bindings, record the
   canonical `preAdmission` evidence, repeat it as `postCleanup`, and bind both
   phases through the final evidence descriptor; record exact

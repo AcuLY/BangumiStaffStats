@@ -234,7 +234,13 @@ or a dirty harness/control checkout exists at admission.
   verification may establish a pass. Its exact Go verifier runs without an
   unsupported outer macOS sandbox only after the accepted Query owner binds
   `(deny network*)` into each of its four verifier-owned child sandboxes; all
-  other Query commands retain Harness outer network denial.
+  other Query commands retain Harness outer network denial. The Harness
+  cross-binds that direct run to the accepted tracked verifier blob and
+  strict-valid Query manifest: the manifest supplies each operation's exact
+  profile text/digest, wrapper/child argv, cwd, environment and module seals,
+  while the runtime summary must report exactly the four ordered operations,
+  zero accepted stderr and eight `0600` two-file module-seal boundaries. The
+  verifier and manifest are content-sealed before and after the command.
 - The harness runs the immutable Updater artifact checks and starts the
   packaged Backend against a disposable read-only copy of the supplied full
   Archive. Health, readiness, metrics, catalog, ranking, candidates, person

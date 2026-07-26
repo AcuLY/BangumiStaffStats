@@ -296,12 +296,23 @@ under the Harness outer network-denial sandbox except
 `--verify-codegen-projections`: macOS rejects its verifier-owned child
 sandboxes when the verifier is already sandboxed, so that one command runs
 directly with fixed Node/argv/cwd/environment/timeout. The accepted Query
-verifier remains the sole Go executor, and the Harness requires all four Go
-child results to bind the exact inner profile containing both
-`(deny network*)` and the telemetry-directory write denial. The result records this
-owner-fixed in-place exception and SHALL NOT describe it as a copied or
-hermetic new-inode tool closure. Any missing, linked, special, changed, or
-newly created runtime entry blocks acceptance.
+verifier remains the sole Go executor. Before the direct command, the Harness
+seals the accepted tracked `verify.mjs` blob and strict-valid `manifest.json`,
+including the verifier self-identity. It treats the manifest as the closed
+static authority for the four operation plans: exact inner profile text and
+digest containing both `(deny network*)` and the telemetry-directory write
+denial, executable, child/wrapper argv, cwd, environment, and module
+input/pre/post seals. It then parses the verifier's single
+`candidate-success Go stderr evidence` runtime summary and requires exactly
+`primaryGeneration`, `deterministicReplay`, `gofmt`, and `compileSmoke` in the
+closed order; zero accepted stderr for all four operations; and exactly eight
+`0600` boundaries sealing two module files per boundary. The same verifier
+and manifest seals must match after the command. Neither the static manifest
+without a successful runtime summary nor the runtime summary without the
+accepted static authority is sufficient. The result records this owner-fixed
+in-place exception and SHALL NOT describe it as a copied or hermetic
+new-inode tool closure. Any missing, linked, special, changed, or newly
+created runtime entry blocks acceptance.
 
 Cache provisioning is not a matrix cell or evidence of product acceptance.
 The admission-time and final cache-to-source compatibility attestations are
