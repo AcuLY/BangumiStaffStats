@@ -600,6 +600,34 @@ class PathSafetyTests(GeneratedDirectoryTestCase):
                     operation()
                 self.assertEqual(sentinel.read_bytes(), b"outside")
 
+    def test_generated_removal_repairs_readonly_tree_without_following_symlinks(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(prefix="bgmss-updater-sentinel-") as external_name:
+            external = Path(external_name)
+            sentinel = external / "sentinel"
+            sentinel.write_bytes(b"outside")
+            output = self.root / "readonly-output"
+            nested = output / "oci-layout" / "blobs" / "sha256"
+            nested.mkdir(parents=True)
+            immutable = nested / "digest"
+            immutable.write_bytes(b"artifact")
+            (nested / "external").symlink_to(external, target_is_directory=True)
+            immutable.chmod(0o444)
+            for directory in (
+                nested,
+                nested.parent,
+                nested.parent.parent,
+                nested.parent.parent.parent,
+                output,
+            ):
+                directory.chmod(0o555)
+
+            artifact._remove_generated_directory(output)
+
+            self.assertFalse(os.path.lexists(output))
+            self.assertEqual(sentinel.read_bytes(), b"outside")
+
     def test_absolute_escape_is_rejected_without_touching_external_sentinel(self) -> None:
         with tempfile.TemporaryDirectory(prefix="bgmss-updater-absolute-") as external_name:
             external = Path(external_name)

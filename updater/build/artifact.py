@@ -293,6 +293,24 @@ def _remove_generated_directory(path: Path) -> None:
         if candidate.is_symlink() or not candidate.is_dir():
             raise BuildError(f"refusing to remove non-directory output: {candidate}")
         _require_under_tmp(candidate)
+        candidate.chmod(stat.S_IMODE(candidate.lstat().st_mode) | stat.S_IRWXU)
+        for current_name, directory_names, _file_names in os.walk(
+            candidate,
+            topdown=True,
+            followlinks=False,
+        ):
+            current = _require_under_tmp(Path(current_name))
+            if current.is_symlink() or not current.is_dir():
+                raise BuildError(f"generated directory tree is invalid: {current}")
+            for directory_name in directory_names:
+                child = current / directory_name
+                information = child.lstat()
+                if stat.S_ISLNK(information.st_mode):
+                    continue
+                child = _require_under_tmp(child)
+                if not stat.S_ISDIR(information.st_mode):
+                    raise BuildError(f"generated directory tree is invalid: {child}")
+                child.chmod(stat.S_IMODE(information.st_mode) | stat.S_IRWXU)
         shutil.rmtree(candidate)
 
 
