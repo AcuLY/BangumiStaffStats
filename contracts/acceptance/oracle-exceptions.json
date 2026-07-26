@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "oracleRevision": "644b7748674e553f863d0ffd61d029f86fdc0717",
+  "screenshotThreshold": {
+    "maxDifferentPixelRatio": 0.002,
+    "maxColorDelta": 8
+  },
+  "entries": [
+    {
+      "id": "root-share-action",
+      "classification": "approved-addition",
+      "route": "/",
+      "state": "share-action",
+      "selector": ".share-action",
+      "properties": [
+        "text-content",
+        "content-pixels"
+      ],
+      "authority": {
+        "path": "PRODUCT.md",
+        "heading": "Share query contract"
+      }
+    },
+    {
+      "id": "ranking-share-action",
+      "classification": "approved-addition",
+      "route": "/ranking",
+      "state": "share-action",
+      "selector": ".share-action",
+      "properties": [
+        "text-content",
+        "content-pixels"
+      ],
+      "authority": {
+        "path": "PRODUCT.md",
+        "heading": "Share query contract"
+      }
+    },
+    {
+      "id": "co-star-share-action",
+      "classification": "approved-addition",
+      "route": "/co-star",
+      "state": "share-action",
+      "selector": ".share-action",
+      "properties": [
+        "text-content",
+        "content-pixels"
+      ],
+      "authority": {
+        "path": "PRODUCT.md",
+        "heading": "Share query contract"
+      }
+    },
+    {
+      "id": "ranking-dynamic-results",
+      "classification": "dynamic-data",
+      "route": "/ranking",
+      "state": "results",
+      "selector": ".ranked-person-list",
+      "properties": [
+        "text-content",
+        "content-pixels",
+        "image-source"
+      ],
+      "authority": {
+        "path": "PRODUCT.md",
+        "heading": "Data sources and metrics"
+      }
+    },
+    {
+      "id": "ranking-production-feedback",
+      "classification": "approved-addition",
+      "route": "/ranking",
+      "state": "query",
+      "selector": ".app-query-feedback",
+      "properties": [
+        "text-content"
+      ],
+      "authority": {
+        "path": "PRODUCT.md",
+        "heading": "Loading and request continuity"
+      }
+    },
+    {
+      "id": "person-dynamic-evidence",
+      "classification": "dynamic-data",
+      "route": "/ranking",
+      "state": "person-detail",
+      "selector": ".person-detail-surface",
+      "properties": [
+        "text-content",
+        "content-pixels",
+        "image-source"
+      ],
+      "authority": {
+        "path": "openspec/specs/frontend-person-inspector/spec.md",
+        "heading": "Requirement: Person evidence and item views SHALL remain server-authoritative"
+      }
+    },
+    {
+      "id": "candidate-dynamic-results",
+      "classification": "dynamic-data",
+      "route": "/co-star",
+      "state": "candidates",
+      "selector": ".candidate-list",
+      "properties": [
+        "text-content",
+        "content-pixels",
+        "image-source"
+      ],
+      "authority": {
+        "path": "openspec/specs/frontend-co-star-vertical/spec.md",
+        "heading": "Requirement: Candidate picker and tray SHALL provide one complete identity owner"
+      }
+    },
+    {
+      "id": "partners-dynamic-results",
+      "classification": "dynamic-data",
+      "route": "/co-star",
+      "state": "partners",
+      "selector": ".partners-surface",
+      "properties": [
+        "text-content",
+        "content-pixels",
+        "image-source"
+      ],
+      "authority": {
+        "path": "openspec/specs/frontend-co-star-vertical/spec.md",
+        "heading": "Requirement: Selection topology SHALL map to empty, partners, pair, and group surfaces"
+      }
+    },
+    {
+      "id": "co-star-dynamic-works",
+      "classification": "dynamic-data",
+      "route": "/co-star",
+      "state": "pair-or-group",
+      "selector": ".co-star-work-list",
+      "properties": [
+        "text-content",
+        "content-pixels",
+        "image-source"
+      ],
+      "authority": {
+        "path": "openspec/specs/frontend-co-star-vertical/spec.md",
+        "heading": "Requirement: Co-star presentation SHALL preserve oracle hierarchy and DESIGN access"
+      }
+    }
+  ]
+}
