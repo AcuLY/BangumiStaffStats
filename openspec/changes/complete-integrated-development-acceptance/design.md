@@ -387,6 +387,14 @@ The matrix invokes the accepted commands for:
 - Frontend wire/architecture/unit/type/build/artifact gates;
 - component artifact validation and the compatibility coordinator smoke.
 
+For the historical Query golden, the Harness preserves the owner's closed
+sequence and source roles: after preparing `codegen-a` and `codegen-b`, each
+locked TypeScript command consumes its own
+`source/openapi/openapi.yaml`. The expanded shared OpenAPI and dereferenced
+bundles are not substitutes for those paired source projections; the Query
+owner verifier remains the authority for the resulting TypeScript and Go
+seals.
+
 The acceptance owner adds tests only for its orchestration behavior:
 schema/closed-matrix validation, command closure, fail/timeout/blocked
 semantics, input immutability, redaction, network policy, process cleanup,

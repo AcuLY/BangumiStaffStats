@@ -635,7 +635,6 @@ async function commandDeclarationEvidence({
 }
 
 export function queryTypeScriptCommandPlan({
-  candidateRoot,
   goldenRoot,
   queryNodePath,
 }) {
@@ -646,16 +645,17 @@ export function queryTypeScriptCommandPlan({
     'bin',
     'cli.js',
   );
-  const openapi = path.join(
-    candidateRoot,
-    'contracts',
-    'openapi',
-    'openapi.yaml',
-  );
   return Object.freeze(['a', 'b'].map((name) => Object.freeze({
     args: Object.freeze([
       typescript,
-      openapi,
+      path.join(
+        goldenRoot,
+        '.tmp',
+        `codegen-${name}`,
+        'source',
+        'openapi',
+        'openapi.yaml',
+      ),
       '--output',
       path.join(goldenRoot, '.tmp', `query-${name}.d.ts`),
     ]),
@@ -831,7 +831,6 @@ async function runQueryGolden({
     }));
   }
   for (const declaration of queryTypeScriptCommandPlan({
-    candidateRoot,
     goldenRoot: seededNpm.root,
     queryNodePath: tools.queryNode.path,
   })) {

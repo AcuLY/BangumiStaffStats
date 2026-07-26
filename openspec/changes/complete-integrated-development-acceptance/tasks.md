@@ -126,6 +126,10 @@ commit, push, sync, archive, or update task markers.
   before any seed/process, prove all 13 package locks, `backend/go.mod`,
   `backend/go.sum`, and `updater/uv.lock` across the preparation commit,
   accepted owner commits, frozen bytes, and npm/Go/uv authority documents;
+  after Query A/B projection preparation, bind each locked
+  `openapi-typescript` command to its own
+  `.tmp/codegen-{a,b}/source/openapi/openapi.yaml` and reject the expanded
+  shared OpenAPI, dereferenced bundles, or cross-fed projections;
   enforce the actual directed manifest-to-validation/plan bindings, record the
   canonical `preAdmission` evidence, repeat it as `postCleanup`, and bind both
   phases through the final evidence descriptor; record exact

@@ -3954,7 +3954,6 @@ test('Query golden command plan closes codegen argv and cleanup order', () => {
     'query',
   );
   const plan = queryTypeScriptCommandPlan({
-    candidateRoot,
     goldenRoot,
     queryNodePath,
   });
@@ -4004,24 +4003,52 @@ test('Query golden command plan closes codegen argv and cleanup order', () => {
     'bin',
     'cli.js',
   );
-  const openapi = path.join(
+  const sharedOpenapi = path.join(
     candidateRoot,
     'contracts',
     'openapi',
     'openapi.yaml',
   );
+  const projectionA = path.join(
+    goldenRoot,
+    '.tmp',
+    'codegen-a',
+    'source',
+    'openapi',
+    'openapi.yaml',
+  );
+  const projectionB = path.join(
+    goldenRoot,
+    '.tmp',
+    'codegen-b',
+    'source',
+    'openapi',
+    'openapi.yaml',
+  );
   assert.deepEqual(byId['contracts-query-typescript-a'].args, [
     typescriptCli,
-    openapi,
+    projectionA,
     '--output',
     path.join(goldenRoot, '.tmp', 'query-a.d.ts'),
   ]);
   assert.deepEqual(byId['contracts-query-typescript-b'].args, [
     typescriptCli,
-    openapi,
+    projectionB,
     '--output',
     path.join(goldenRoot, '.tmp', 'query-b.d.ts'),
   ]);
+  assert.notEqual(projectionA, projectionB);
+  assert.equal(
+    plan.some(({ args }) => args.includes(sharedOpenapi)),
+    false,
+  );
+  assert.equal(
+    plan.some(({ args }) =>
+      args.some((argument) => argument.endsWith('query.bundle.json'))),
+    false,
+  );
+  assert.equal(byId['contracts-query-typescript-a'].args.includes(projectionB), false);
+  assert.equal(byId['contracts-query-typescript-b'].args.includes(projectionA), false);
   assert.equal(
     plan.some(({ args }) =>
       args.some((argument) => argument.includes('oapi-codegen'))),
