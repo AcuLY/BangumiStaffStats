@@ -369,6 +369,49 @@ in-place exception and SHALL NOT describe it as a copied or hermetic
 new-inode tool closure. Any missing, linked, special, changed, or newly
 created runtime entry blocks acceptance.
 
+The Archive verifier needs a second, independently closed direct-command
+exception for the same operating-system constraint. The accepted verifier
+starts one bootstrap `sandbox-exec` process to discover Go telemetry state and
+then starts every Go/gofmt operation through another `sandbox-exec` profile.
+macOS returns `sandbox_apply: Operation not permitted` when the Harness first
+wraps that verifier in its own sandbox, before any contract assertion runs.
+The offline `npm ci` therefore retains its Harness outer network/runtime-root
+sandbox, while only the exact subsequent
+`contracts/schemas/archive/tooling/verify.mjs` command runs directly with the
+accepted current Node executable, no arguments, fixed tooling cwd, the closed
+Archive environment including `GOENV=off`, `GOWORK=off`,
+`GOTOOLCHAIN=local`, `GOPROXY=off`, `GOSUMDB=off`, and the fixed fifteen-minute
+timeout.
+
+Before that direct command, the Harness binds the accepted tracked verifier,
+package/lock, persistent schema inventory, builders, compatibility matrix and
+goldens to the already-attested product-candidate tree; binds the installed
+`npm ci` closure to that lock; and reuses the admitted current Node, npm, Go,
+gofmt and CPython runtime seals. The same static and runtime authority is
+re-sealed after the command, excluding only the declared generated
+`node_modules`, `.cache`, and `.tmp` roots that are already covered by exact
+owner cleanup. The direct result must be exit zero without timeout or signal,
+write no outer stderr, and emit one bounded strict-JSON report. The Harness
+cross-checks that report against the accepted Archive authority: exact six
+schema order, quicktype 26.0.0, effective Go environment, canonical Go/gofmt
+executables, bootstrap profile and discovery argv, accepted telemetry mode,
+inner profile, policy self-test, ignored forged-control keys, unchanged
+telemetry diagnostic seal, and exactly sixteen ordered Go/gofmt records whose
+wrapper, profile, executable, cwd and argv match the verifier's closed plan.
+Any extra/missing command, forged report, authority drift, output
+truncation/stderr, or cleanup residue fails `owner.contracts`.
+
+This exception is deliberately reported as
+`verifier-owned-inner-sandbox/direct-local-children`. Only the bootstrap and
+sixteen Go/gofmt children carry kernel-enforced `(deny network*)`; the
+accepted verifier process, quicktype, CPython and other local inspection
+children do not have an outer syscall sandbox. Their admission comes from the
+immutable reviewed verifier and locked local dependency/tool closure, not from
+a claim that the host denied every possible socket. No public origin is an
+intended or accepted input, and any future requirement for host-enforced
+network denial of those non-Go children requires changing the authoritative
+Archive verifier rather than silently widening this exception.
+
 Cache provisioning is not a matrix cell or evidence of product acceptance.
 The admission-time and final cache-to-source compatibility attestations are
 matrix evidence; they prove only that the prepared dependency closure remains

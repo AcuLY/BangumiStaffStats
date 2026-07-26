@@ -189,6 +189,21 @@ commit, push, sync, archive, or update task markers.
   removal, real `.bin` cleanup, unsafe link/special/hard-link rejection without
   external mutation, transient rename retry, original-path rebind rejection,
   terminal quarantine residue, and primary precedence.
+- [ ] 3.10 Keep the Archive `npm ci` under its offline outer sandbox, then run
+  only the exact accepted Archive verifier directly so macOS can apply its
+  verifier-owned bootstrap and Go/gofmt child sandboxes. Lock the direct
+  Node/argv/cwd/environment/fifteen-minute timeout; pre/post seal the tracked
+  verifier, package/lock, persistent Archive schema/builder/matrix/golden
+  authority, installed dependency closure, and admitted current
+  Node/npm/Go/gofmt/CPython runtime authority. Require exit zero, no
+  timeout/signal, empty stderr, one bounded strict-JSON report, exact six
+  schemas, quicktype 26.0.0, effective Go environment, bootstrap/discovery
+  authority, accepted telemetry diagnostics and exactly sixteen ordered
+  Go/gofmt command records under the exact inner network/telemetry-write
+  denial profile. Report non-Go children honestly as direct local children.
+  Add focused tests for nested-sandbox regression, exact plan execution,
+  forged/truncated/stderr reports, authority changes, wrong schema/order/count,
+  profile/executable/cwd/argv/environment drift, and post-command re-seal.
 
 ## 4. Full Archive and packaged runtime
 

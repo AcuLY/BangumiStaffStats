@@ -254,6 +254,18 @@ or a dirty harness/control checkout exists at admission.
   while the runtime summary must report exactly the four ordered operations,
   zero accepted stderr and eight `0600` two-file module-seal boundaries. The
   verifier and manifest are content-sealed before and after the command.
+- The Archive verifier has the same narrowly reviewed macOS nesting exception.
+  Its npm install remains offline under the Harness outer network sandbox, but
+  the exact accepted `verify.mjs` command runs directly because it creates its
+  own bootstrap and per-command `sandbox-exec` children. The Harness seals the
+  verifier, package/lock, persistent Archive schema/builder/golden authority,
+  installed locked dependency closure, and current Node/Go runtime authority
+  before and after that command. It accepts only the exact direct
+  Node/argv/cwd/environment/timeout, empty stderr, one bounded strict-JSON
+  report, and the report's exact sixteen ordered Go/gofmt invocations under
+  the accepted inner `(deny network*)` profile. Evidence identifies the
+  verifier process and its non-Go local children as a direct reviewed boundary;
+  it does not falsely claim an outer syscall sandbox for them.
 - The harness runs the immutable Updater artifact checks and starts the
   packaged Backend against a disposable read-only copy of the supplied full
   Archive. Health, readiness, metrics, catalog, ranking, candidates, person

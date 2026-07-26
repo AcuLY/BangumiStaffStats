@@ -269,6 +269,41 @@ summary SHALL be accepted only together. A missing/changed profile, verifier,
 manifest, runtime summary, operation, order or seal; an extra Go operation;
 or an outer nested sandbox SHALL fail `owner.contracts`.
 
+The Archive tooling `npm ci` SHALL remain offline under the Harness outer
+network/runtime-root sandbox. The one exact subsequent
+`contracts/schemas/archive/tooling/verify.mjs` command SHALL run directly with
+the accepted current Node executable, empty argument vector, exact tooling
+cwd, fixed fifteen-minute timeout, and the closed Archive environment
+including `GOENV=off`, `GOWORK=off`, `GOTOOLCHAIN=local`, `GOPROXY=off`, and
+`GOSUMDB=off`. This is required because the verifier itself launches a
+bootstrap and every Go/gofmt child through `/usr/bin/sandbox-exec`, while
+macOS rejects those inner profiles when the verifier has an outer sandbox.
+
+Before and after the direct command, the Harness SHALL seal the accepted
+tracked verifier, package/lock, persistent Archive schema/builder/matrix/golden
+authority, the lock-installed dependency closure, and admitted current
+Node/npm/Go/gofmt/CPython runtime authority. It SHALL accept only exit zero,
+no signal or timeout, empty stderr, and one bounded strict-JSON report. That
+report SHALL cross-bind the exact ordered six schemas, quicktype 26.0.0,
+effective Go environment, canonical Go/gofmt executables, bootstrap profile
+and discovery argv, accepted telemetry mode, inner sandbox profile, policy
+self-test, forged-control-key rejection, unchanged telemetry diagnostics, and
+exactly sixteen ordered Go/gofmt records to the accepted static command plan.
+Every recorded Go/gofmt child SHALL use the accepted
+`/usr/bin/sandbox-exec` wrapper and inner `(deny network*)` plus
+telemetry-write-denial profile with its exact executable, cwd and argv.
+Missing/extra/reordered commands, report forgery, authority drift, output
+truncation or stderr, an attempted outer nested sandbox, or cleanup residue
+SHALL fail `owner.contracts`.
+
+The canonical result SHALL label this boundary
+`verifier-owned-inner-sandbox/direct-local-children`. It SHALL claim
+kernel-enforced network denial only for the bootstrap and sixteen Go/gofmt
+children, not for the accepted verifier process or its quicktype, CPython and
+other local inspection children. Those direct local children are admitted
+only through the immutable reviewed verifier and locked local dependency/tool
+authority; no public origin is an accepted input.
+
 #### Scenario: Query Go children provide the network boundary
 
 - **WHEN** the Harness invokes the locked
@@ -278,6 +313,25 @@ or an outer nested sandbox SHALL fail `owner.contracts`.
   successful closed runtime summary
 - **AND** every other Query command SHALL retain the Harness outer network
   sandbox
+
+#### Scenario: Archive Go children provide the network boundary
+
+- **WHEN** the Harness invokes the exact accepted Archive verifier directly
+  after its networkless offline install
+- **THEN** its bootstrap and exactly sixteen ordered Go/gofmt children SHALL
+  be cross-bound to the accepted static authority and successful strict-JSON
+  report, with every such child using the exact inner network-denial profile
+- **AND** the evidence SHALL identify non-Go local children as direct rather
+  than claiming an outer kernel sandbox
+
+#### Scenario: Archive direct-command authority or report drifts
+
+- **WHEN** the executable, argv, cwd, environment, timeout, tracked or
+  installed authority, report shape, schema order, sandbox profile, telemetry
+  diagnostics, child command count/order, stdout bound, stderr, or pre/post
+  seal differs
+- **THEN** `owner.contracts` SHALL fail and all dependent cells SHALL be
+  blocked
 
 #### Scenario: Query codegen prerequisites are incomplete
 
