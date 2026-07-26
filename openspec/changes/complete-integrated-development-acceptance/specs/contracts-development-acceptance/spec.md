@@ -596,14 +596,22 @@ Every child process SHALL run in a separately controllable process group or
 uniquely named container with a sanitized environment, finite timeout, bounded
 output, graceful-stop window, and bounded forced cleanup. Host commands SHALL
 additionally maintain a continuously refreshed descendant ancestry ledger with
-stable process identity sufficient to detect a descendant that changes
-session/process group, clears its environment, changes working directory, and
-is reparented. Cleanup MAY signal only an identity proven owned by that ledger;
-an unrelated concurrent process SHALL block the global-inventory equality
-check but SHALL NOT be killed. The harness SHALL inventory listeners,
-processes, containers, images, networks, mounts, and run files before/after. It
-SHALL snapshot supplied artifacts/Archive and protected tracked paths before
-execution and re-seal them after cleanup.
+stable process identity and track every observed descendant through a
+session/process-group change, environment clearing, working-directory change,
+or reparenting. Cleanup MAY signal only an identity proven owned by that
+ledger. Whole-host process snapshots are diagnostic only: an unrelated
+concurrent process SHALL NOT be attributed, killed, or by itself block the
+result. The harness SHALL inventory listeners, owned processes, containers,
+images, networks, mounts, and run files before/after. It SHALL snapshot supplied
+artifacts/Archive and protected tracked paths before execution and re-seal them
+after cleanup.
+
+The unprivileged macOS profile has no Endpoint Security/DTrace fork-event
+authority. It therefore SHALL NOT claim safe attribution or cleanup of a
+process that deliberately forks, changes session, and exits its parent before
+the first observable ancestry sample. The fixed admitted owner commands remain
+non-adversarial inputs; the process group is the primary boundary and the
+ledger closes observable reparenting without risking an unrelated PID.
 
 Any command failure, timeout, unexpected signal/skip, invalid result,
 protected/input mutation, observed browser external-network attempt, successful

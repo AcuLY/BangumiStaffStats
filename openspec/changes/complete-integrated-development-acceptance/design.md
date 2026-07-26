@@ -531,12 +531,16 @@ derived from a bounded random run ID, closes inherited environment variables,
 sets explicit timeouts/output limits, sends graceful termination then bounded
 kill, and verifies listener/process/container/image/network cleanup. For host
 commands it also maintains a continuously refreshed ancestry ledger whose
-stable identity survives `setsid`, environment clearing, working-directory
-change, and reparenting. Only a ledger-owned identity may be signalled; an
-unrelated process appearing in the global before/after inventory blocks the run
-without authorizing cleanup of that process. It captures bounded stdout/stderr
-to run-relative files and stores their digests; the canonical result contains
-only sanitized summaries.
+stable identity follows every observed descendant through `setsid`, environment
+clearing, working-directory change, and reparenting. Only a ledger-owned
+identity may be signalled. Whole-host process drift is diagnostic and never
+authorizes attribution, cleanup, or a failure by itself because a normal
+desktop creates unrelated helpers during a multi-hour run. The unprivileged
+macOS profile cannot observe an adversarial fork/session escape that completes
+before the first process snapshot; the report states that sampling boundary
+instead of guessing ownership or killing a reused/foreign PID. It captures
+bounded stdout/stderr to run-relative files and stores their digests; the
+canonical result contains only sanitized summaries.
 
 Browser contexts expose an exact observed external-request counter and fail on
 any public/non-loopback request. Host commands and containers separately prove

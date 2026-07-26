@@ -201,11 +201,13 @@ commit, push, sync, archive, or update task markers.
   networks, mounts, run files, live tracked paths, supplied artifact roots, and
   full Archive. Maintain stable-identity ancestry ownership across
   `setsid`/environment/CWD/reparent escapes, kill only proven owned identities,
-  and block without killing on foreign global-process drift. Convert any
-  mutation, observed browser external-network attempt, successful non-loopback
-  connection, residual state, cleanup error, or invalid canonical result to a
-  blocking failure; record non-browser sandbox denial without inventing a
-  syscall-attempt count.
+  and retain whole-host process drift as non-attributing diagnostics so foreign
+  desktop processes are neither killed nor treated as owned residue. State the
+  unprivileged sub-snapshot fork-observation boundary rather than guessing PID
+  ownership. Convert any mutation, observed browser external-network attempt,
+  successful non-loopback connection, owned residual state, cleanup error, or
+  invalid canonical result to a blocking failure; record non-browser sandbox
+  denial without inventing a syscall-attempt count.
 - [ ] 6.4 Implement the exact final verdict/report wording and separate
   `specified`, `implemented`, `verified`, `committed`, `pushed`, `released`,
   and `deployed` fields. The CLI must never imply production readiness,
