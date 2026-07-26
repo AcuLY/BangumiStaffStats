@@ -11,6 +11,10 @@
   official actions to the exact reviewed release commits.
 - [x] 2.2 Strengthen CI policy tests for the exact pins and validator data flow;
   preserve read-only/no-publication authority and every existing product gate.
+- [x] 2.3 After the first fresh run reaches Backend and exposes an external
+  setup-go GOROOT, make Go 1.26.4 the reviewed bootstrap, select exact Go 1.26.5
+  for semantic admission through a runner-temporary module cache, and lock this
+  separation in workflow policy tests without weakening Backend containment.
 
 ## 3. Acceptance
 

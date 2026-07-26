@@ -1,10 +1,12 @@
 ## Why
 
-Every pushed revision currently fails before product gates because the workflow
-compares `uv --version` to one historical presentation string. uv 0.11.32 now
-adds build metadata to that human output even though the installed semantic
-version is correct. The same step mixes several ad-hoc parsers inline and the
-pinned official actions now emit Node 20 deprecation warnings.
+The original pushed revisions failed before product gates because the workflow
+compared `uv --version` to one historical presentation string. The first fresh
+run after replacing that check confirmed the semantic validator and action
+upgrades work, then exposed a second boundary mismatch: setup-go installs final
+Go 1.26.5 outside the Backend-owned module cache, while the ordinary Backend
+gate correctly requires the selected final toolchain to live inside that
+cache.
 
 ## What Changes
 
@@ -18,6 +20,10 @@ pinned official actions now emit Node 20 deprecation warnings.
   validator.
 - Pin checkout v7.0.1, setup-go v7.0.0, setup-node v7.0.0, setup-uv v9.0.0,
   and setup-buildx v4.2.0 to their exact release commits.
+- Treat setup-go's Go 1.26.4 as a reviewed bootstrap only. The validator SHALL
+  select exact Go 1.26.5 through an isolated temporary module cache, and the
+  Backend ordinary gate SHALL independently select exact Go 1.26.5 through its
+  component-owned module cache.
 
 ## Capabilities
 
@@ -36,5 +42,5 @@ None.
 |---|---|
 | Writable paths | `.github/workflows/ci.yml`, one repository-owned validator under `contracts/artifacts/bin/`, its focused tests under `contracts/artifacts/test/`, CI policy tests, this change's task/lifecycle paths. |
 | Protected paths | Product components, package/module locks, artifact formats/producers, other workflows, secrets/permissions/triggers, release/deploy/operations, refs/remotes, hosts, and production. |
-| Acceptance | Focused validator negatives; complete artifact tests; workflow policy/residue gates; strict OpenSpec; a fresh pushed GitHub Actions run passing every step. |
-| Non-goals | Changing toolchain versions, artifact semantics, permissions, publishing, deployment, caching, or production behavior. |
+| Acceptance | Focused validator negatives; workflow bootstrap/cache policy; complete artifact tests; workflow policy/residue gates; strict OpenSpec; a fresh pushed GitHub Actions run passing every step. |
+| Non-goals | Changing the selected product toolchain versions, artifact semantics, permissions, publishing, deployment, persistent/shared caching, or production behavior. |

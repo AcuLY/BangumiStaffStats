@@ -17,6 +17,14 @@ const TMP_ROOT = path.join(ARTIFACTS_ROOT, '.tmp');
 const RESIDUE_TEST_ROOT = path.join(TMP_ROOT, 'ci-residue-policy-test');
 const TOOLCHAIN_VALIDATOR =
   'node contracts/artifacts/bin/ci-toolchain-identity.mjs';
+const TOOLCHAIN_VALIDATOR_STEP = `\
+      - name: Verify exact toolchains
+        shell: bash
+        env:
+          GOMODCACHE: \${{ runner.temp }}/bgmss-ci-go-mod
+          GOTOOLCHAIN: go1.26.5+auto
+        run: ${TOOLCHAIN_VALIDATOR}
+`;
 const EXPECTED_ACTION_REFERENCES = [
   'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
   'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e',
@@ -82,9 +90,9 @@ test('CI invokes one semantic toolchain validator before every product gate', ()
     1,
     'the repository-owned validator must have one workflow invocation',
   );
-  assert.match(
-    source,
-    /- name: Verify exact toolchains\n\s+shell: bash\n\s+run: node contracts\/artifacts\/bin\/ci-toolchain-identity\.mjs\n/,
+  assert.ok(
+    source.includes(TOOLCHAIN_VALIDATOR_STEP),
+    'the validator must select final Go in an isolated runner cache',
   );
   assert.ok(
     source.indexOf(TOOLCHAIN_VALIDATOR) <
@@ -127,7 +135,10 @@ test('CI contains no publication, credential, deployment, or activation authorit
 test('CI runs exact component gates, reproducibility, assembly, and local smoke', () => {
   const source = workflow();
   for (const required of [
-    'go-version: 1.26.5',
+    '- name: Install reviewed Go bootstrap',
+    'go-version: 1.26.4',
+    'GOMODCACHE: ${{ runner.temp }}/bgmss-ci-go-mod',
+    'GOTOOLCHAIN: go1.26.5+auto',
     'node-version: 24.18.0',
     'npm install --global npm@11.16.0',
     'version: 0.11.32',

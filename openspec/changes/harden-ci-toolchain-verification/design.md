@@ -24,6 +24,23 @@ The policy test SHALL require the exact five action commit references, the
 single validator invocation, and absence of the old inline/presentation check.
 No action major tag is used at runtime.
 
+### Separate the reviewed Go bootstrap from the selected product toolchain
+
+setup-go SHALL install Go 1.26.4 only as the immutable bootstrap executable.
+The semantic validator SHALL run with
+`GOTOOLCHAIN=go1.26.5+auto` and a runner-temporary `GOMODCACHE`, so the admitted
+identity remains exact Go 1.26.5 without writing into a component source tree.
+The Backend source gate SHALL then run in its existing ordinary mode: the
+1.26.4 bootstrap remains on `PATH`, while `backend/scripts/check.sh`
+independently selects Go 1.26.5 into `backend/.cache/go-mod` and removes that
+disposable state on completion.
+
+The workflow SHALL NOT point the Backend gate at setup-go's external 1.26.5
+GOROOT and SHALL NOT weaken the Backend component's module-cache containment
+check. The two downloads intentionally prove two independent boundaries: CI
+admits the selected semantic version before product gates, and Backend admits
+the same final version inside its own controlled cache.
+
 ## Verified release pins
 
 | Action release | Commit |

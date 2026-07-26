@@ -23,10 +23,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install exact Go
+      - name: Install reviewed Go bootstrap
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
-          go-version: 1.26.5
+          go-version: 1.26.4
           check-latest: false
           cache: false
 
@@ -54,6 +54,9 @@ jobs:
 
       - name: Verify exact toolchains
         shell: bash
+        env:
+          GOMODCACHE: ${{ runner.temp }}/bgmss-ci-go-mod
+          GOTOOLCHAIN: go1.26.5+auto
         run: node contracts/artifacts/bin/ci-toolchain-identity.mjs
 
       - name: Run Backend source gates
