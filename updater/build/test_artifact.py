@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import gzip
 import io
+import json
 import os
 import shutil
 import subprocess
@@ -11,7 +13,7 @@ import tarfile
 import tempfile
 import unittest
 from contextlib import redirect_stderr
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 from unittest.mock import patch
 
@@ -66,6 +68,19 @@ class SourceAttestationTests(GeneratedDirectoryTestCase):
             path = self.repository / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(value, encoding="utf-8")
+        authority_source = artifact.REPOSITORY_ROOT / (
+            artifact.producer_inputs.MANIFEST_SOURCE_PATH
+        )
+        manifest = artifact.producer_inputs.parse_runtime_manifest(authority_source.read_bytes())
+        producer_paths = [
+            artifact.producer_inputs.MANIFEST_SOURCE_PATH,
+            *(record.path for record in manifest.files),
+            *artifact.producer_inputs.CATALOG_SOURCE_PATHS,
+        ]
+        for relative in producer_paths:
+            path = self.repository / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes((artifact.REPOSITORY_ROOT / relative).read_bytes())
         self._git("init", "--quiet")
         self._git("add", ".")
         self._git("commit", "--quiet", "-m", "attestation fixture")
@@ -423,12 +438,35 @@ class SourceAttestationTests(GeneratedDirectoryTestCase):
     def test_snapshot_uses_attested_bytes_not_live_source(self) -> None:
         tracked_source = self.repository / "updater" / "src" / "package" / "__init__.py"
         tracked_source.write_text('VALUE = "changed after attest"\n', encoding="utf-8")
+        catalog_source = self.repository / artifact.producer_inputs.CATALOG_SOURCE_PATHS[0]
+        admitted_catalog = next(
+            blob.content
+            for blob in self.attestation.tracked_blobs
+            if blob.path == artifact.producer_inputs.CATALOG_SOURCE_PATHS[0]
+        )
+        catalog_source.write_bytes(b"changed after attest\n")
         snapshot = self.generated_root / "trusted-snapshot"
         with patch.object(artifact, "TMP_ROOT", self.generated_root):
             artifact._copy_source_snapshot(snapshot, self.attestation)
         self.assertEqual(
             (snapshot / "src" / "package" / "__init__.py").read_text(encoding="utf-8"),
             'VALUE = "tracked"\n',
+        )
+        self.assertEqual(
+            (
+                snapshot / "producer" / artifact.producer_inputs.CATALOG_EMBEDDED_PATHS[0]
+            ).read_bytes(),
+            admitted_catalog,
+        )
+        producer_files = artifact._iter_regular_files(snapshot / "producer")
+        self.assertEqual(len(producer_files), 44)
+        self.assertEqual(
+            (snapshot / artifact.producer_inputs.MANIFEST_AUTHORITY_SNAPSHOT_PATH).read_bytes(),
+            next(
+                blob.content
+                for blob in self.attestation.tracked_blobs
+                if blob.path == artifact.producer_inputs.MANIFEST_SOURCE_PATH
+            ),
         )
 
     def test_ignored_live_files_do_not_enter_or_change_snapshot_artifacts(self) -> None:
@@ -617,15 +655,29 @@ class ArchiveTests(GeneratedDirectoryTestCase):
         self.assertEqual(modes["bundle/a/run"], 0o755)
         self.assertEqual(modes["bundle/z.txt"], 0o644)
 
-    def test_safe_tar_extraction_rejects_escape_and_links(self) -> None:
-        archive_path = self.root / "unsafe.tar"
-        with tarfile.open(archive_path, "w") as archive:
-            info = tarfile.TarInfo("../escape")
-            value = b"unsafe"
-            info.size = len(value)
-            archive.addfile(info, io.BytesIO(value))
-        with self.assertRaisesRegex(artifact.BuildError, "unsafe relative path"):
-            artifact._extract_tar_safely(archive_path, self.root / "extract")
+    def test_exporter_header_validation_rejects_escape_and_links(self) -> None:
+        escaped = tarfile.TarInfo("../escape")
+        escaped.size = 1
+        escaped_header = escaped.tobuf(format=tarfile.USTAR_FORMAT)
+        escaped_member = tarfile.TarInfo.frombuf(
+            escaped_header,
+            encoding="utf-8",
+            errors="strict",
+        )
+        with self.assertRaisesRegex(artifact.BuildError, "normalized relative path"):
+            artifact._validate_exporter_member(escaped_header, escaped_member)
+
+        linked = tarfile.TarInfo("manifest.json")
+        linked.type = tarfile.SYMTYPE
+        linked.linkname = "index.json"
+        linked_header = linked.tobuf(format=tarfile.USTAR_FORMAT)
+        linked_member = tarfile.TarInfo.frombuf(
+            linked_header,
+            encoding="utf-8",
+            errors="strict",
+        )
+        with self.assertRaisesRegex(artifact.BuildError, "link"):
+            artifact._validate_exporter_member(linked_header, linked_member)
 
 
 class RuntimePruneTests(GeneratedDirectoryTestCase):
@@ -948,6 +1000,743 @@ class PublicationTests(GeneratedDirectoryTestCase):
             artifact.publish_content_addressed(stage, publish)
 
 
+class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        manifest_bytes = (
+            artifact.REPOSITORY_ROOT / artifact.producer_inputs.MANIFEST_SOURCE_PATH
+        ).read_bytes()
+        manifest = artifact.producer_inputs.parse_runtime_manifest(manifest_bytes)
+        source_paths = [
+            artifact.producer_inputs.MANIFEST_SOURCE_PATH,
+            *(record.path for record in manifest.files),
+            *artifact.producer_inputs.CATALOG_SOURCE_PATHS,
+        ]
+        blobs = [
+            artifact.TrackedBlob(
+                path=path,
+                mode=artifact.producer_inputs.GIT_REGULAR_MODE,
+                oid="0" * 40,
+                content=(artifact.REPOSITORY_ROOT / path).read_bytes(),
+            )
+            for path in source_paths
+        ]
+        self.selected = artifact.producer_inputs.select_attested_producer_inputs(blobs)
+        self.catalog_digest = f"sha256:{'a' * 64}"
+        self.producer_metadata = artifact.producer_inputs.producer_metadata_bytes(
+            self.selected,
+            self.catalog_digest,
+        )
+        self.producer_metadata_digest = artifact.producer_inputs.sha256_bytes(
+            self.producer_metadata
+        )
+        self.producer_files = {
+            **{
+                selected.embedded_path: selected.content
+                for selected in self.selected.embedded_files
+            },
+            artifact.producer_inputs.MANIFEST_EMBEDDED_PATH: (self.selected.manifest_bytes),
+            artifact.producer_inputs.PRODUCER_METADATA_PATH: (self.producer_metadata),
+        }
+        self.producer_directories = artifact.producer_inputs.expected_producer_directories(
+            sorted(self.producer_files)
+        )
+        self.runtime_packages = [
+            {"name": artifact.PACKAGE_NAME, "version": artifact.PACKAGE_VERSION},
+            {"name": "jsonschema", "version": "4.26.0"},
+        ]
+        self.image_reference = f"localhost/bgmss-updater-artifact:{'d' * 40}-arm64"
+
+    def _bundle_metadata(self) -> bytes:
+        return artifact.canonical_json(
+            {
+                "component": artifact.COMPONENT_ID,
+                "package": {
+                    "name": artifact.PACKAGE_NAME,
+                    "version": artifact.PACKAGE_VERSION,
+                },
+                "producerInputs": {
+                    "path": (
+                        f"{artifact.producer_inputs.NATIVE_PRODUCER_ROOT}/"
+                        f"{artifact.producer_inputs.PRODUCER_METADATA_PATH}"
+                    ),
+                    "sha256": self.producer_metadata_digest,
+                },
+                "python": artifact.PYTHON_VERSION,
+                "runtimePackages": self.runtime_packages,
+                "schemaVersion": "bgmss-updater-runtime-bundle-v2",
+                "target": {"architecture": "arm64", "os": "linux"},
+            }
+        )
+
+    def _make_native_bundle(
+        self,
+        destination: Path,
+        *,
+        mutation: str | None,
+    ) -> None:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        selected_path = sorted(self.producer_files)[0]
+        with tarfile.open(destination, "w:gz", format=tarfile.PAX_FORMAT) as archive:
+            directories = {
+                "updater-runtime",
+                *(
+                    (
+                        "updater-runtime/producer"
+                        if not relative
+                        else f"updater-runtime/producer/{relative}"
+                    )
+                    for relative in self.producer_directories
+                ),
+            }
+            for name in sorted(directories):
+                info = tarfile.TarInfo(name)
+                info.type = tarfile.DIRTYPE
+                info.mode = (
+                    0o755
+                    if name == "updater-runtime"
+                    else (0o755 if mutation == "directory-mode" else 0o555)
+                )
+                info.uid = 0
+                info.gid = 0
+                archive.addfile(info)
+            metadata = self._bundle_metadata()
+            metadata_info = tarfile.TarInfo("updater-runtime/bundle-metadata.json")
+            metadata_info.mode = 0o644
+            metadata_info.uid = 0
+            metadata_info.gid = 0
+            metadata_info.size = len(metadata)
+            archive.addfile(metadata_info, io.BytesIO(metadata))
+            for path, original in sorted(self.producer_files.items()):
+                content = b"tampered" if mutation == "bytes" and path == selected_path else original
+                name = f"updater-runtime/producer/{path}"
+                info = tarfile.TarInfo(name)
+                info.uid = 0
+                info.gid = 0
+                if mutation == "type" and path == selected_path:
+                    info.type = tarfile.SYMTYPE
+                    info.linkname = "elsewhere"
+                    info.mode = 0o444
+                    archive.addfile(info)
+                    continue
+                info.mode = 0o644 if mutation == "file-mode" and path == selected_path else 0o444
+                info.size = len(content)
+                archive.addfile(info, io.BytesIO(content))
+            if mutation == "extra-path":
+                content = b"extra"
+                info = tarfile.TarInfo("updater-runtime/producer/extra.txt")
+                info.mode = 0o444
+                info.uid = 0
+                info.gid = 0
+                info.size = len(content)
+                archive.addfile(info, io.BytesIO(content))
+
+    def _layer_bytes(
+        self,
+        *,
+        mutation: str | None,
+    ) -> tuple[bytes, bytes]:
+        selected_path = sorted(self.producer_files)[0]
+        raw = io.BytesIO()
+        with tarfile.open(
+            fileobj=raw,
+            mode="w",
+            format=tarfile.PAX_FORMAT,
+        ) as archive:
+            for relative in sorted(
+                self.producer_directories,
+                key=lambda value: (value.count("/"), value),
+            ):
+                name = "opt/bgmss/producer"
+                if relative:
+                    name = f"{name}/{relative}"
+                info = tarfile.TarInfo(name)
+                info.type = tarfile.DIRTYPE
+                info.mode = 0o755 if mutation == "directory-mode" else 0o555
+                info.uid = 65532
+                info.gid = 65532
+                archive.addfile(info)
+            for path, original in sorted(self.producer_files.items()):
+                content = b"tampered" if mutation == "bytes" and path == selected_path else original
+                info = tarfile.TarInfo(f"opt/bgmss/producer/{path}")
+                info.uid = 65532
+                info.gid = 65532
+                if mutation == "type" and path == selected_path:
+                    info.type = tarfile.SYMTYPE
+                    info.linkname = "elsewhere"
+                    info.mode = 0o444
+                    archive.addfile(info)
+                    continue
+                info.mode = 0o644 if mutation == "file-mode" and path == selected_path else 0o444
+                info.size = len(content)
+                archive.addfile(info, io.BytesIO(content))
+            if mutation == "extra-path":
+                content = b"extra"
+                info = tarfile.TarInfo("opt/bgmss/producer/extra.txt")
+                info.mode = 0o444
+                info.uid = 65532
+                info.gid = 65532
+                info.size = len(content)
+                archive.addfile(info, io.BytesIO(content))
+        raw_bytes = raw.getvalue()
+        return raw_bytes, gzip.compress(raw_bytes, compresslevel=9, mtime=0)
+
+    def _make_oci_image(
+        self,
+        destination: Path,
+        *,
+        mutation: str | None,
+    ) -> dict[str, object]:
+        raw_layer, layer = self._layer_bytes(mutation=mutation)
+        layer_digest = artifact.producer_inputs.sha256_bytes(layer)
+        labels = {
+            artifact.producer_inputs.PRODUCER_INPUTS_LABEL: (self.selected.manifest_digest),
+            artifact.producer_inputs.CATALOG_CONFIG_LABEL: self.catalog_digest,
+            artifact.producer_inputs.COMMON_COMMIT_LABEL: self.selected.common_commit,
+        }
+        if mutation == "label":
+            labels[artifact.producer_inputs.CATALOG_CONFIG_LABEL] = f"sha256:{'b' * 64}"
+        if mutation == "extra-label":
+            labels["org.bangumi-staff-stats.unexpected"] = "value"
+        config = artifact.canonical_json(
+            {
+                "architecture": "arm64",
+                "config": {
+                    "Entrypoint": [
+                        "/usr/local/bin/python",
+                        "-m",
+                        "bangumi_staff_stats_updater",
+                    ],
+                    "Labels": labels,
+                    "User": "65532:65532",
+                },
+                "os": "linux",
+                "rootfs": {
+                    "diff_ids": [artifact.producer_inputs.sha256_bytes(raw_layer)],
+                    "type": "layers",
+                },
+            }
+        )
+        config_digest = artifact.producer_inputs.sha256_bytes(config)
+        config_media_type = artifact.OCI_CONFIG_MEDIA_TYPE
+        layer_media_type = artifact.OCI_LAYER_MEDIA_TYPE
+        manifest_media_type = artifact.OCI_MANIFEST_MEDIA_TYPE
+        manifest = artifact.canonical_json(
+            {
+                "config": {
+                    "digest": config_digest,
+                    "mediaType": (
+                        "application/vnd.docker.container.image.v1+json"
+                        if mutation == "config-media"
+                        else config_media_type
+                    ),
+                    "size": len(config),
+                },
+                "layers": [
+                    {
+                        "digest": layer_digest,
+                        "mediaType": (
+                            "application/vnd.docker.image.rootfs.diff.tar.gzip"
+                            if mutation == "layer-media"
+                            else layer_media_type
+                        ),
+                        "size": len(layer),
+                    }
+                ],
+                "mediaType": (
+                    "application/vnd.docker.distribution.manifest.v2+json"
+                    if mutation == "manifest-media"
+                    else manifest_media_type
+                ),
+                "schemaVersion": 2,
+            }
+        )
+        manifest_digest = artifact.producer_inputs.sha256_bytes(manifest)
+        index = artifact.canonical_json(
+            {
+                "mediaType": artifact.OCI_INDEX_MEDIA_TYPE,
+                "manifests": [
+                    {
+                        "annotations": {
+                            "io.containerd.image.name": self.image_reference,
+                            "org.opencontainers.image.ref.name": (
+                                self.image_reference.rsplit(":", 1)[1]
+                            ),
+                        },
+                        "digest": manifest_digest,
+                        "mediaType": (
+                            "application/vnd.docker.distribution.manifest.v2+json"
+                            if mutation == "index-media"
+                            else manifest_media_type
+                        ),
+                        "platform": {
+                            "architecture": ("amd64" if mutation == "target" else "arm64"),
+                            "os": "linux",
+                        },
+                        "size": len(manifest),
+                    }
+                ],
+                "schemaVersion": 2,
+            }
+        )
+        layout = self.root / f"oci-layout-{mutation or 'valid'}"
+        artifact._clear_generated_directory(layout)
+        (layout / "blobs" / "sha256").mkdir(parents=True)
+        (layout / "index.json").write_bytes(index)
+        (layout / "oci-layout").write_bytes(
+            artifact.canonical_json({"imageLayoutVersion": "1.0.0"})
+        )
+        for digest, value in (
+            (config_digest, config),
+            (layer_digest, layer),
+            (manifest_digest, manifest),
+        ):
+            (layout / "blobs" / "sha256" / digest[7:]).write_bytes(value)
+        compatibility: dict[str, object] = {
+            "Config": f"blobs/sha256/{config_digest[7:]}",
+            "RepoTags": [self.image_reference],
+            "Layers": [f"blobs/sha256/{layer_digest[7:]}"],
+        }
+        if mutation == "compat-tag":
+            compatibility["RepoTags"] = ["localhost/bgmss-updater-artifact:wrong"]
+        if mutation == "compat-config":
+            compatibility["Config"] = f"blobs/sha256/{'f' * 64}"
+        if mutation == "compat-layers":
+            compatibility["Layers"] = [f"blobs/sha256/{'f' * 64}"]
+        if mutation == "compat-field":
+            compatibility["Unexpected"] = "forbidden"
+        compatibility_records = (
+            [compatibility, compatibility] if mutation == "compat-record" else [compatibility]
+        )
+        (layout / "manifest.json").write_bytes(
+            json.dumps(
+                compatibility_records,
+                allow_nan=False,
+                ensure_ascii=False,
+                separators=(None if mutation == "compat-noncanonical" else (",", ":")),
+            ).encode()
+        )
+        if mutation == "orphan":
+            (layout / "blobs" / "sha256" / ("f" * 64)).write_bytes(b"orphan")
+        artifact._write_normalized_image_archive(
+            layout,
+            destination,
+            epoch=1_700_000_000,
+        )
+        return {
+            "compatibility": compatibility,
+            "config": {
+                "digest": config_digest,
+                "mediaType": (
+                    "application/vnd.docker.container.image.v1+json"
+                    if mutation == "config-media"
+                    else config_media_type
+                ),
+                "size": len(config),
+            },
+            "layers": [
+                {
+                    "digest": layer_digest,
+                    "mediaType": (
+                        "application/vnd.docker.image.rootfs.diff.tar.gzip"
+                        if mutation == "layer-media"
+                        else layer_media_type
+                    ),
+                    "size": len(layer),
+                }
+            ],
+            "manifest": {
+                "digest": manifest_digest,
+                "mediaType": (
+                    "application/vnd.docker.distribution.manifest.v2+json"
+                    if mutation in {"index-media", "manifest-media"}
+                    else manifest_media_type
+                ),
+                "size": len(manifest),
+            },
+            "reference": self.image_reference,
+        }
+
+    @staticmethod
+    def _raw_exporter_entries(
+        layout: Path,
+    ) -> list[tuple[tarfile.TarInfo, bytes]]:
+        entries: list[tuple[tarfile.TarInfo, bytes]] = []
+        for name in ("blobs/", "blobs/sha256/"):
+            information = tarfile.TarInfo(name)
+            information.type = tarfile.DIRTYPE
+            information.mode = 0o755
+            entries.append((information, b""))
+        for path in sorted(value for value in layout.rglob("*") if value.is_file()):
+            name = path.relative_to(layout).as_posix()
+            content = path.read_bytes()
+            information = tarfile.TarInfo(name)
+            information.mode = 0o600
+            information.size = len(content)
+            entries.append((information, content))
+        return entries
+
+    @staticmethod
+    def _clone_tar_entry(
+        entry: tuple[tarfile.TarInfo, bytes],
+    ) -> tuple[tarfile.TarInfo, bytes]:
+        original, content = entry
+        information = tarfile.TarInfo(original.name)
+        information.type = original.type
+        information.mode = original.mode
+        information.uid = original.uid
+        information.gid = original.gid
+        information.size = original.size
+        information.linkname = original.linkname
+        return information, content
+
+    @staticmethod
+    def _write_raw_exporter_archive(
+        destination: Path,
+        entries: list[tuple[tarfile.TarInfo, bytes]],
+        *,
+        trailing: bytes = b"",
+    ) -> None:
+        with destination.open("wb") as output:
+            for information, content in entries:
+                output.write(information.tobuf(format=tarfile.USTAR_FORMAT))
+                output.write(content)
+                output.write(bytes((-len(content)) % tarfile.BLOCKSIZE))
+            output.write(bytes(2 * tarfile.BLOCKSIZE))
+            output.write(trailing)
+
+    def _make_raw_exporter_archive(
+        self,
+        *,
+        mutation: str | None = None,
+    ) -> tuple[Path, dict[str, object]]:
+        normalized = self.root / f"normalized-{mutation or 'valid'}.oci.tar"
+        metadata = self._make_oci_image(normalized, mutation=None)
+        layout = self.root / "oci-layout-valid"
+        entries = self._raw_exporter_entries(layout)
+        file_index = next(
+            index
+            for index, (information, _content) in enumerate(entries)
+            if information.name == "manifest.json"
+        )
+        if mutation in {"absolute", "dot-dot", "dot", "double-slash"}:
+            names = {
+                "absolute": "/manifest.json",
+                "dot-dot": "../manifest.json",
+                "dot": "./manifest.json",
+                "double-slash": "blobs//sha256/",
+            }
+            entries[file_index][0].name = names[mutation]
+        elif mutation == "duplicate":
+            entries.append(self._clone_tar_entry(entries[file_index]))
+        elif mutation == "symlink":
+            entries[file_index][0].type = tarfile.SYMTYPE
+            entries[file_index][0].linkname = "index.json"
+            entries[file_index][0].size = 0
+            entries[file_index] = (entries[file_index][0], b"")
+        elif mutation == "hardlink":
+            entries[file_index][0].type = tarfile.LNKTYPE
+            entries[file_index][0].linkname = "index.json"
+            entries[file_index][0].size = 0
+            entries[file_index] = (entries[file_index][0], b"")
+        elif mutation in {"pax", "xattr"}:
+            entries[file_index][0].type = tarfile.XHDTYPE
+            if mutation == "xattr":
+                content = b"30 SCHILY.xattr.user.test=value\n"
+                entries[file_index][0].size = len(content)
+                entries[file_index] = (entries[file_index][0], content)
+        elif mutation == "sparse":
+            entries[file_index][0].type = tarfile.GNUTYPE_SPARSE
+        elif mutation == "special":
+            entries[file_index][0].type = tarfile.FIFOTYPE
+            entries[file_index][0].size = 0
+            entries[file_index] = (entries[file_index][0], b"")
+        elif mutation == "extra":
+            information = tarfile.TarInfo("unexpected")
+            information.size = 5
+            entries.append((information, b"extra"))
+        elif mutation == "missing":
+            entries.pop(file_index)
+        archive_path = self.root / f"raw-exporter-{mutation or 'valid'}.tar"
+        self._write_raw_exporter_archive(
+            archive_path,
+            entries,
+            trailing=b"trailing" if mutation == "trailing" else b"",
+        )
+        return archive_path, metadata
+
+    @staticmethod
+    def _record(path: Path, output: Path) -> dict[str, object]:
+        return {
+            "path": path.relative_to(output).as_posix(),
+            "sha256": artifact.sha256_file(path),
+            "size": path.stat().st_size,
+        }
+
+    def _make_output(
+        self,
+        *,
+        native_mutation: str | None = None,
+        oci_mutation: str | None = None,
+        metadata_mutation: str | None = None,
+        include_image: bool = True,
+    ) -> Path:
+        output = self.root / (
+            f"output-{native_mutation}-{oci_mutation}-{metadata_mutation}-{include_image}"
+        )
+        artifacts = output / "artifacts"
+        artifacts.mkdir(parents=True)
+        bundle = artifacts / "updater-runtime-0.1.0-linux-arm64.tar.gz"
+        self._make_native_bundle(bundle, mutation=native_mutation)
+        wheel = artifacts / "bangumi_staff_stats_updater-0.1.0-py3-none-any.whl"
+        wheel.write_bytes(b"synthetic wheel")
+        image: Path | None = None
+        oci_metadata: dict[str, object] | None = None
+        if include_image:
+            image = artifacts / "updater-image-linux-arm64.oci.tar"
+            oci_metadata = self._make_oci_image(
+                image,
+                mutation=oci_mutation,
+            )
+        producer_digest = self.producer_metadata_digest
+        manifest_digest = self.selected.manifest_digest
+        if metadata_mutation == "producer-digest":
+            producer_digest = f"sha256:{'b' * 64}"
+        if metadata_mutation == "manifest-digest":
+            manifest_digest = f"sha256:{'b' * 64}"
+        metadata: dict[str, object] = {
+            "artifacts": {
+                "bundle": self._record(bundle, output),
+                "image": (
+                    {**self._record(image, output), "oci": oci_metadata}
+                    if image is not None
+                    else None
+                ),
+                "wheel": self._record(wheel, output),
+            },
+            "buildDefinitionSha256": "a" * 64,
+            "component": artifact.COMPONENT_ID,
+            "inputs": {
+                "producerInputsSha256": producer_digest,
+                "producerRuntimeInputsManifestSha256": manifest_digest,
+                "sourceSnapshotSha256": "b" * 64,
+                "uvLockSha256": "c" * 64,
+            },
+            "producerInputs": {
+                "bundlePath": (
+                    f"{artifact.producer_inputs.NATIVE_PRODUCER_ROOT}/"
+                    f"{artifact.producer_inputs.PRODUCER_METADATA_PATH}"
+                ),
+                "imagePath": (
+                    f"{artifact.producer_inputs.OCI_PRODUCER_ROOT}/"
+                    f"{artifact.producer_inputs.PRODUCER_METADATA_PATH}"
+                ),
+                "sha256": producer_digest,
+            },
+            "runtimePackages": self.runtime_packages,
+            "schemaVersion": "bgmss-updater-build-metadata-v2",
+            "sbomPackageCount": 3,
+            "source": {"revision": "d" * 40, "tree": "e" * 40},
+            "target": {"architecture": "arm64", "os": "linux"},
+            "toolchain": {},
+        }
+        (artifacts / "build-metadata.json").write_bytes(artifact.canonical_json(metadata))
+        return output
+
+    def _add_evidence(self, output: Path) -> None:
+        artifacts = output / "artifacts"
+        checksum, inventory = artifact.make_checksum_inventory(artifacts)
+        (output / "SHA256SUMS").write_bytes(checksum)
+        bundle = artifacts / "updater-runtime-0.1.0-linux-arm64.tar.gz"
+        (output / "sbom.spdx.json").write_bytes(
+            artifact.canonical_json(
+                artifact.make_spdx(
+                    artifacts=inventory,
+                    dependency_artifact_path=("artifacts/updater-runtime-0.1.0-linux-arm64.tar.gz"),
+                    runtime_packages=self.runtime_packages,
+                    lock_path=artifact.UPDATER_ROOT / "uv.lock",
+                    namespace_digest=artifact.sha256_file(bundle),
+                )
+            )
+        )
+
+    def test_native_and_oci_producer_trees_verify_offline(self) -> None:
+        output = self._make_output()
+        _metadata, evidence = artifact._verify_producer_artifacts(output)
+        self.assertEqual(
+            evidence.metadata_digest,
+            self.producer_metadata_digest,
+        )
+        self.assertEqual(evidence.manifest_digest, self.selected.manifest_digest)
+        self._add_evidence(output)
+        artifact.verify_output(output, require_statement=False)
+
+    def test_pinned_docker_exporter_shape_admits_normalizes_and_verifies(self) -> None:
+        raw_archive, expected_metadata = self._make_raw_exporter_archive()
+        admitted = self.root / "admitted-exporter"
+        artifact._admit_docker_exporter_archive(raw_archive, admitted)
+        actual_metadata = artifact._parse_oci_metadata(
+            admitted,
+            reference=self.image_reference,
+            target=artifact.Target.parse("linux/arm64"),
+        )
+        self.assertEqual(actual_metadata, expected_metadata)
+        normalized = self.root / "round-trip.oci.tar"
+        artifact._write_normalized_image_archive(
+            admitted,
+            normalized,
+            epoch=1_700_000_000,
+        )
+        graph = artifact._inspect_oci_graph(
+            artifact._oci_layout_files(normalized),
+            reference=self.image_reference,
+            target=artifact.Target.parse("linux/arm64"),
+        )
+        self.assertEqual(graph.metadata, expected_metadata)
+
+    def test_exporter_admission_rejects_unsafe_and_unsupported_members(self) -> None:
+        for mutation in (
+            "absolute",
+            "dot-dot",
+            "dot",
+            "double-slash",
+            "duplicate",
+            "symlink",
+            "hardlink",
+            "pax",
+            "xattr",
+            "sparse",
+            "special",
+            "extra",
+            "missing",
+            "trailing",
+        ):
+            with self.subTest(mutation=mutation):
+                raw_archive, _metadata = self._make_raw_exporter_archive(mutation=mutation)
+                with self.assertRaises(artifact.BuildError):
+                    artifact._admit_docker_exporter_archive(
+                        raw_archive,
+                        self.root / f"rejected-{mutation}",
+                    )
+
+    def test_exporter_admission_enforces_archive_member_and_count_bounds(self) -> None:
+        raw_archive, _metadata = self._make_raw_exporter_archive()
+        with (
+            patch.object(
+                artifact,
+                "MAX_IMAGE_ARCHIVE_SIZE",
+                raw_archive.stat().st_size - 1,
+            ),
+            self.assertRaisesRegex(artifact.BuildError, "bounded regular file"),
+        ):
+            artifact._admit_docker_exporter_archive(
+                raw_archive,
+                self.root / "archive-oversized",
+            )
+        with (
+            patch.object(artifact, "MAX_IMAGE_MEMBER_SIZE", 1),
+            self.assertRaisesRegex(artifact.BuildError, "oversized"),
+        ):
+            artifact._admit_docker_exporter_archive(
+                raw_archive,
+                self.root / "member-oversized",
+            )
+        with (
+            patch.object(artifact, "MAX_IMAGE_MEMBERS", 1),
+            self.assertRaisesRegex(artifact.BuildError, "more than"),
+        ):
+            artifact._admit_docker_exporter_archive(
+                raw_archive,
+                self.root / "too-many-members",
+            )
+
+    def test_native_rejects_tampered_type_mode_and_path(self) -> None:
+        for mutation in ("bytes", "type", "file-mode", "directory-mode", "extra-path"):
+            with self.subTest(mutation=mutation):
+                output = self._make_output(
+                    native_mutation=mutation,
+                    include_image=False,
+                )
+                with self.assertRaises(artifact.BuildError):
+                    artifact._verify_producer_artifacts(output)
+
+    def test_component_statement_must_bind_the_same_manifest(self) -> None:
+        output = self._make_output(include_image=False)
+        self._add_evidence(output)
+        (output / "component-statement.json").write_bytes(artifact.canonical_json({"inputs": []}))
+        with self.assertRaisesRegex(
+            artifact.BuildError,
+            "statement producer manifest input disagrees",
+        ):
+            artifact.verify_output(output, require_statement=True)
+
+    def test_oci_rejects_tampered_tree_media_graph_and_compatibility(self) -> None:
+        for mutation in (
+            "bytes",
+            "type",
+            "file-mode",
+            "directory-mode",
+            "extra-path",
+            "label",
+            "extra-label",
+            "orphan",
+            "compat-tag",
+            "compat-config",
+            "compat-layers",
+            "compat-field",
+            "compat-record",
+            "compat-noncanonical",
+            "target",
+            "index-media",
+            "manifest-media",
+            "config-media",
+            "layer-media",
+        ):
+            with self.subTest(mutation=mutation):
+                output = self._make_output(oci_mutation=mutation)
+                with self.assertRaises(artifact.BuildError):
+                    artifact._verify_producer_artifacts(output)
+
+    def test_oci_layer_replay_preserves_directories_and_applies_whiteouts(self) -> None:
+        raw_layer, _compressed = self._layer_bytes(mutation=None)
+        state: dict[str, tuple[str, int, int, int, bytes | None]] = {}
+        artifact._apply_oci_layer(state, raw_layer)
+        initial = dict(state)
+
+        directory_layer = io.BytesIO()
+        with tarfile.open(fileobj=directory_layer, mode="w") as archive:
+            info = tarfile.TarInfo("opt/bgmss/producer/contracts")
+            info.type = tarfile.DIRTYPE
+            info.mode = 0o555
+            info.uid = 65532
+            info.gid = 65532
+            archive.addfile(info)
+        artifact._apply_oci_layer(state, directory_layer.getvalue())
+        self.assertEqual(state, initial)
+
+        removed = artifact.producer_inputs.PRODUCER_METADATA_PATH
+        parent = PurePosixPath(removed).parent.as_posix()
+        filename = PurePosixPath(removed).name
+        whiteout_layer = io.BytesIO()
+        with tarfile.open(fileobj=whiteout_layer, mode="w") as archive:
+            info = tarfile.TarInfo(f"opt/bgmss/producer/{parent}/.wh.{filename}")
+            info.mode = 0o000
+            info.size = 0
+            archive.addfile(info, io.BytesIO())
+        artifact._apply_oci_layer(state, whiteout_layer.getvalue())
+        self.assertNotIn(removed, state)
+
+    def test_outer_input_digests_are_fail_closed(self) -> None:
+        for mutation in ("producer-digest", "manifest-digest"):
+            with self.subTest(mutation=mutation):
+                output = self._make_output(
+                    metadata_mutation=mutation,
+                    include_image=False,
+                )
+                with self.assertRaises(artifact.BuildError):
+                    artifact._verify_producer_artifacts(output)
+
+
 class ContractsStatementTests(GeneratedDirectoryTestCase):
     @unittest.skipUnless(shutil.which("node"), "Node.js is required for Contracts validation")
     def test_emitted_statement_passes_the_frozen_contracts_validator(self) -> None:
@@ -991,6 +1780,9 @@ class ContractsStatementTests(GeneratedDirectoryTestCase):
             "buildDefinitionSha256": "a" * 64,
             "component": "updater",
             "inputs": {
+                "producerRuntimeInputsManifestSha256": (
+                    artifact.producer_inputs.EXPECTED_MANIFEST_DIGEST
+                ),
                 "sourceSnapshotSha256": "b" * 64,
                 "uvLockSha256": "c" * 64,
             },
@@ -1014,7 +1806,6 @@ class ContractsStatementTests(GeneratedDirectoryTestCase):
             metadata=metadata,
             contracts_root=artifact.REPOSITORY_ROOT / "contracts",
         )
-        artifact.verify_output(stage, require_statement=True)
         artifact.validate_contract_output(stage, artifact.REPOSITORY_ROOT / "contracts")
 
 
@@ -1036,6 +1827,12 @@ class DockerfileTests(unittest.TestCase):
         lowered = value.lower()
         self.assertIn("PATH=/usr/local/bin:/usr/bin:/bin", value)
         self.assertIn("runtime_prune.py /opt/runtime", value)
+        self.assertIn(
+            "COPY --from=builder --chown=65532:65532 /opt/bgmss/producer /opt/bgmss/producer",
+            value,
+        )
+        for label in artifact.producer_inputs.PRODUCER_LABELS:
+            self.assertEqual(value.count(label), 1)
         for forbidden in (
             "docker push",
             "registry login",
@@ -1047,13 +1844,39 @@ class DockerfileTests(unittest.TestCase):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, lowered)
 
-    def test_oci_export_rewrites_layer_timestamps(self) -> None:
-        source = Path(artifact.__file__).read_text(encoding="utf-8")
-        self.assertIn(
-            'f"type=oci,dest={raw_archive},rewrite-timestamp=true"',
-            source,
+    def test_docker_exporter_command_is_single_platform_pinned_and_explicit(self) -> None:
+        identity = artifact.SourceIdentity(
+            revision="d" * 40,
+            tree="e" * 40,
+            epoch=1_700_000_000,
         )
-        self.assertIn('"--builder",\n            builder,', source)
+        target = artifact.Target.parse("linux/arm64")
+        reference = artifact._declared_image_reference(identity, target)
+        raw_archive = Path("/tmp/raw-image.docker.tar")  # noqa: S108
+        command = artifact._docker_export_command(
+            context=Path("/tmp/context"),  # noqa: S108
+            raw_archive=raw_archive,
+            target=target,
+            identity=identity,
+            docker=Path("/usr/local/bin/docker"),
+            builder="bgmss-artifacts-v0271",
+            image_reference=reference,
+            producer_contracts={"manifestSha256": f"sha256:{'a' * 64}"},
+            producer_catalog={"catalogConfigDigest": f"sha256:{'b' * 64}"},
+            common_commit="c" * 40,
+        )
+        self.assertEqual(command.count("--platform"), 1)
+        self.assertEqual(command[command.index("--platform") + 1], "linux/arm64")
+        self.assertIn("--provenance=false", command)
+        self.assertIn("--sbom=false", command)
+        self.assertEqual(
+            command[command.index("--output") + 1],
+            (
+                f"type=docker,dest={raw_archive},tar=true,oci-mediatypes=true,"
+                f"rewrite-timestamp=true,name={reference}"
+            ),
+        )
+        self.assertFalse(any("type=oci" in argument for argument in command))
 
     def test_buildx_inspection_requires_current_pinned_builder_and_driver_image(self) -> None:
         builder = "ci-builder-42"
@@ -1121,20 +1944,32 @@ class SmokePolicyTests(GeneratedDirectoryTestCase):
         metadata: dict[str, Any] = {
             "artifacts": {
                 "image": {
-                    "oci": {"reference": "bgmss-updater-artifact:revision-arm64"},
+                    "oci": {
+                        "config": {"digest": f"sha256:{'a' * 64}"},
+                        "reference": (f"localhost/bgmss-updater-artifact:{'d' * 40}-arm64"),
+                    },
                     "path": "artifacts/updater-image-linux-arm64.oci.tar",
                 }
             }
         }
-        reference, path = smoke._image_information(metadata)
-        self.assertEqual(reference, "bgmss-updater-artifact:revision-arm64")
+        reference, path, image_id = smoke._image_information(metadata)
+        self.assertEqual(
+            reference,
+            f"localhost/bgmss-updater-artifact:{'d' * 40}-arm64",
+        )
         self.assertEqual(path.as_posix(), "artifacts/updater-image-linux-arm64.oci.tar")
+        self.assertEqual(image_id, f"sha256:{'a' * 64}")
         metadata["artifacts"]["image"]["path"] = "../escape"
         with self.assertRaisesRegex(artifact.BuildError, "unsafe relative path"):
             smoke._image_information(metadata)
 
     def test_runtime_smoke_is_networkless_read_only_and_non_root(self) -> None:
-        arguments = smoke._common_run_arguments("updater:test", "updater-test-doctor")
+        owner_token = "a" * 32
+        arguments = smoke._common_create_arguments(
+            "updater:test",
+            "updater-test-doctor",
+            owner_token,
+        )
         self.assertIn("updater-test-doctor", arguments)
         self.assertIn("none", arguments)
         self.assertIn("never", arguments)
@@ -1142,10 +1977,518 @@ class SmokePolicyTests(GeneratedDirectoryTestCase):
         self.assertIn("no-new-privileges", arguments)
         self.assertIn("65532:65532", arguments)
         self.assertEqual(arguments[-1], "updater:test")
+        self.assertEqual(arguments[:2], ["container", "create"])
+        self.assertNotIn("--rm", arguments)
         self.assertNotIn("produce", arguments)
+        label_index = arguments.index("--label")
+        self.assertEqual(
+            arguments[label_index + 1],
+            f"{smoke.SMOKE_OWNER_LABEL}={owner_token}",
+        )
         source = Path(smoke.__file__).read_text(encoding="utf-8")
         self.assertIn("benchmarks", source)
         self.assertIn("locate_file(file).is_file()", source)
+        self.assertIn("/opt/bgmss/producer/contracts", source)
+        self.assertIn("/opt/bgmss/producer/catalog/display-v1.yaml", source)
+        self.assertIn("load_configuration", source)
+        self.assertNotIn("--volume", source)
+        self.assertNotIn(":/contracts", source)
+        self.assertNotIn('"produce"', source)
+
+    def test_preexisting_container_collision_is_not_removed(self) -> None:
+        inspected = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout="[]",
+            stderr="",
+        )
+        with (
+            patch.object(smoke, "_run_docker", return_value=inspected) as run_docker,
+            self.assertRaisesRegex(
+                artifact.BuildError,
+                "pre-existing smoke container",
+            ),
+        ):
+            smoke._require_container_names_available(
+                Path("docker"),
+                ("planned-name",),
+            )
+        run_docker.assert_called_once_with(
+            Path("docker"),
+            ["container", "inspect", "planned-name"],
+            check=False,
+        )
+
+    def test_foreign_collision_cleanup_is_refused(self) -> None:
+        owner_token = "a" * 32
+        expected_container_id = "e" * 64
+        inspected = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout=json.dumps(
+                [
+                    {
+                        "Config": {
+                            "Labels": {
+                                smoke.SMOKE_OWNER_LABEL: owner_token,
+                            }
+                        },
+                        "Id": "f" * 64,
+                        "Name": "/concurrent-foreign",
+                    }
+                ]
+            ),
+            stderr="",
+        )
+        with patch.object(smoke, "_run_docker", return_value=inspected) as run_docker:
+            failure = smoke._cleanup_container(
+                Path("docker"),
+                "concurrent-foreign",
+                owner_token,
+                expected_container_id,
+            )
+        self.assertEqual(
+            failure,
+            "refusing to remove foreign smoke container: concurrent-foreign",
+        )
+        run_docker.assert_called_once_with(
+            Path("docker"),
+            ["container", "inspect", expected_container_id],
+            check=False,
+        )
+
+    def test_renamed_owned_container_is_not_mistaken_for_a_missing_name(self) -> None:
+        owner_token = "a" * 32
+        container_id = "c" * 64
+        inspected = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout=json.dumps(
+                [
+                    {
+                        "Config": {
+                            "Labels": {
+                                smoke.SMOKE_OWNER_LABEL: owner_token,
+                            }
+                        },
+                        "Id": container_id,
+                        "Name": "/renamed-owned-container",
+                    }
+                ]
+            ),
+            stderr="",
+        )
+        with patch.object(smoke, "_run_docker", return_value=inspected) as run_docker:
+            failure = smoke._cleanup_container(
+                Path("docker"),
+                "original-owned-container",
+                owner_token,
+                container_id,
+            )
+        self.assertEqual(
+            failure,
+            "refusing to remove foreign smoke container: original-owned-container",
+        )
+        run_docker.assert_called_once_with(
+            Path("docker"),
+            ["container", "inspect", container_id],
+            check=False,
+        )
+
+    def test_missing_owned_id_preserves_a_reused_container_name(self) -> None:
+        owner_token = "a" * 32
+        container_id = "c" * 64
+        missing = subprocess.CompletedProcess(
+            ["docker"],
+            1,
+            stdout="",
+            stderr=f"Error: No such container: {container_id}",
+        )
+        with patch.object(smoke, "_run_docker", return_value=missing) as run_docker:
+            failure = smoke._cleanup_container(
+                Path("docker"),
+                "reused-container-name",
+                owner_token,
+                container_id,
+            )
+        self.assertIsNone(failure)
+        run_docker.assert_called_once_with(
+            Path("docker"),
+            ["container", "inspect", container_id],
+            check=False,
+        )
+
+    def test_owned_id_with_foreign_owner_is_not_removed(self) -> None:
+        owner_token = "a" * 32
+        container_id = "c" * 64
+        inspected = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout=json.dumps(
+                [
+                    {
+                        "Config": {
+                            "Labels": {
+                                smoke.SMOKE_OWNER_LABEL: "b" * 32,
+                            }
+                        },
+                        "Id": container_id,
+                        "Name": "/owned-container",
+                    }
+                ]
+            ),
+            stderr="",
+        )
+        with patch.object(smoke, "_run_docker", return_value=inspected) as run_docker:
+            failure = smoke._cleanup_container(
+                Path("docker"),
+                "owned-container",
+                owner_token,
+                container_id,
+            )
+        self.assertEqual(
+            failure,
+            "refusing to remove foreign smoke container: owned-container",
+        )
+        run_docker.assert_called_once_with(
+            Path("docker"),
+            ["container", "inspect", container_id],
+            check=False,
+        )
+
+    def test_owned_container_cleanup_removes_the_inspected_id(self) -> None:
+        owner_token = "a" * 32
+        container_id = "c" * 64
+        inspected = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout=json.dumps(
+                [
+                    {
+                        "Config": {
+                            "Labels": {
+                                smoke.SMOKE_OWNER_LABEL: owner_token,
+                            }
+                        },
+                        "Id": container_id,
+                        "Name": "/owned-container",
+                    }
+                ]
+            ),
+            stderr="",
+        )
+        removed = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout="",
+            stderr="",
+        )
+        with patch.object(
+            smoke,
+            "_run_docker",
+            side_effect=(inspected, removed),
+        ) as run_docker:
+            failure = smoke._cleanup_container(
+                Path("docker"),
+                "owned-container",
+                owner_token,
+                container_id,
+            )
+        self.assertIsNone(failure)
+        self.assertEqual(run_docker.call_count, 2)
+        self.assertEqual(
+            run_docker.call_args_list[0].args,
+            (
+                Path("docker"),
+                ["container", "inspect", container_id],
+            ),
+        )
+        self.assertEqual(run_docker.call_args_list[0].kwargs, {"check": False})
+        run_docker.assert_any_call(
+            Path("docker"),
+            ["container", "rm", "--force", container_id],
+            check=False,
+        )
+
+    def test_container_execution_captures_id_before_starting_by_id(self) -> None:
+        owner_token = "a" * 32
+        container_id = "c" * 64
+        created = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout=f"{container_id}\n",
+            stderr="",
+        )
+        started = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout='{"status":"ok"}\n',
+            stderr="",
+        )
+        owned: dict[str, str] = {}
+        with patch.object(
+            smoke,
+            "_run_docker",
+            side_effect=(created, started),
+        ) as run_docker:
+            result = smoke._run_container(
+                Path("docker"),
+                image=f"sha256:{'d' * 64}",
+                container_name="owned-container",
+                owner_token=owner_token,
+                owned_container_ids=owned,
+                command=("doctor",),
+            )
+        self.assertIs(result, started)
+        self.assertEqual(owned, {"owned-container": container_id})
+        create_arguments = run_docker.call_args_list[0].args[1]
+        self.assertEqual(create_arguments[:2], ["container", "create"])
+        self.assertEqual(create_arguments[-1], "doctor")
+        self.assertIn(
+            f"{smoke.SMOKE_OWNER_LABEL}={owner_token}",
+            create_arguments,
+        )
+        run_docker.assert_any_call(
+            Path("docker"),
+            ["container", "start", "--attach", container_id],
+            timeout_seconds=120,
+        )
+
+    def test_failed_load_side_effect_is_cleaned_by_expected_image_id(self) -> None:
+        image_reference = "localhost/bgmss-updater-artifact:test"
+        image_id = f"sha256:{'a' * 64}"
+        inspected = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout=json.dumps([{"Id": image_id}]),
+            stderr="",
+        )
+        removed = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout="",
+            stderr="",
+        )
+        primary = artifact.BuildError("image load failed after daemon side effect")
+        with (
+            patch.object(
+                smoke,
+                "_run_docker",
+                side_effect=(inspected, removed),
+            ) as run_docker,
+            self.assertRaises(artifact.BuildError) as caught,
+            smoke._cleanup_guard(
+                lambda: smoke._cleanup_smoke_resources(
+                    docker=Path("docker"),
+                    containers={},
+                    owner_token="a" * 32,
+                    image_reference=image_reference,
+                    expected_image_id=image_id,
+                    image_load_attempted=True,
+                    image_load_completed=False,
+                    loaded_image_id=None,
+                )
+            ),
+        ):
+            raise primary
+        self.assertIs(caught.exception, primary)
+        self.assertEqual(
+            run_docker.call_args_list[0].args,
+            (
+                Path("docker"),
+                ["image", "inspect", image_reference],
+            ),
+        )
+        run_docker.assert_any_call(
+            Path("docker"),
+            ["image", "rm", image_id],
+            check=False,
+        )
+        self.assertFalse(any("--force" in call.args[1] for call in run_docker.call_args_list))
+
+    def test_failed_load_with_absent_tag_has_no_cleanup_residue(self) -> None:
+        image_reference = "localhost/bgmss-updater-artifact:test"
+        image_id = f"sha256:{'a' * 64}"
+        missing = subprocess.CompletedProcess(
+            ["docker"],
+            1,
+            stdout="",
+            stderr=f"Error: No such image: {image_reference}",
+        )
+        primary = artifact.BuildError("image load failed without side effect")
+        with (
+            patch.object(smoke, "_run_docker", return_value=missing) as run_docker,
+            self.assertRaises(artifact.BuildError) as caught,
+            smoke._cleanup_guard(
+                lambda: smoke._cleanup_smoke_resources(
+                    docker=Path("docker"),
+                    containers={},
+                    owner_token="a" * 32,
+                    image_reference=image_reference,
+                    expected_image_id=image_id,
+                    image_load_attempted=True,
+                    image_load_completed=False,
+                    loaded_image_id=None,
+                )
+            ),
+        ):
+            raise primary
+        self.assertIs(caught.exception, primary)
+        run_docker.assert_called_once_with(
+            Path("docker"),
+            ["image", "inspect", image_reference],
+            check=False,
+        )
+
+    def test_failed_load_preserves_and_reports_replacement_tag(self) -> None:
+        image_reference = "localhost/bgmss-updater-artifact:test"
+        expected_image_id = f"sha256:{'a' * 64}"
+        replacement_image_id = f"sha256:{'b' * 64}"
+        inspected = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout=json.dumps([{"Id": replacement_image_id}]),
+            stderr="",
+        )
+        primary = artifact.BuildError("image load failed while tag was replaced")
+        standard_error = io.StringIO()
+        with (
+            patch.object(smoke, "_run_docker", return_value=inspected) as run_docker,
+            redirect_stderr(standard_error),
+            self.assertRaises(artifact.BuildError) as caught,
+            smoke._cleanup_guard(
+                lambda: smoke._cleanup_smoke_resources(
+                    docker=Path("docker"),
+                    containers={},
+                    owner_token="a" * 32,
+                    image_reference=image_reference,
+                    expected_image_id=expected_image_id,
+                    image_load_attempted=True,
+                    image_load_completed=False,
+                    loaded_image_id=None,
+                )
+            ),
+        ):
+            raise primary
+        self.assertIs(caught.exception, primary)
+        secondary = f"refusing to remove replacement smoke image tag: {image_reference}"
+        self.assertIn(
+            secondary,
+            "\n".join(getattr(caught.exception, "__notes__", ())),
+        )
+        self.assertIn(secondary, standard_error.getvalue())
+        run_docker.assert_called_once_with(
+            Path("docker"),
+            ["image", "inspect", image_reference],
+            check=False,
+        )
+
+    def test_replacement_image_tag_is_preserved(self) -> None:
+        expected_image_id = f"sha256:{'a' * 64}"
+        replacement_image_id = f"sha256:{'b' * 64}"
+        inspected = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout=json.dumps([{"Id": replacement_image_id}]),
+            stderr="",
+        )
+        with patch.object(smoke, "_run_docker", return_value=inspected) as run_docker:
+            failure = smoke._cleanup_loaded_image(
+                Path("docker"),
+                "localhost/bgmss-updater-artifact:test",
+                expected_image_id,
+            )
+        self.assertEqual(
+            failure,
+            (
+                "refusing to remove replacement smoke image tag: "
+                "localhost/bgmss-updater-artifact:test"
+            ),
+        )
+        run_docker.assert_called_once()
+
+    def test_post_load_capture_rejects_non_artifact_image_id(self) -> None:
+        expected_image_id = f"sha256:{'a' * 64}"
+        inspected = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout=json.dumps([{"Id": f"sha256:{'b' * 64}"}]),
+            stderr="",
+        )
+        with (
+            patch.object(smoke, "_run_docker", return_value=inspected) as run_docker,
+            self.assertRaisesRegex(
+                artifact.BuildError,
+                "artifact config ID",
+            ),
+        ):
+            smoke._capture_loaded_image_id(
+                Path("docker"),
+                "localhost/bgmss-updater-artifact:test",
+                expected_image_id,
+            )
+        run_docker.assert_called_once_with(
+            Path("docker"),
+            [
+                "image",
+                "inspect",
+                "localhost/bgmss-updater-artifact:test",
+            ],
+        )
+
+    def test_owned_image_cleanup_uses_immutable_id_without_force(self) -> None:
+        image_id = f"sha256:{'a' * 64}"
+        inspected = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout=json.dumps([{"Id": image_id}]),
+            stderr="",
+        )
+        removed = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout="",
+            stderr="",
+        )
+        with patch.object(
+            smoke,
+            "_run_docker",
+            side_effect=(inspected, removed),
+        ) as run_docker:
+            failure = smoke._cleanup_loaded_image(
+                Path("docker"),
+                "localhost/bgmss-updater-artifact:test",
+                image_id,
+            )
+        self.assertIsNone(failure)
+        run_docker.assert_any_call(
+            Path("docker"),
+            ["image", "rm", image_id],
+            check=False,
+        )
+        self.assertFalse(any("--force" in call.args[1] for call in run_docker.call_args_list))
+
+    def test_primary_failure_is_preserved_when_cleanup_fails(self) -> None:
+        primary = artifact.BuildError("primary smoke failure")
+        standard_error = io.StringIO()
+        with (
+            redirect_stderr(standard_error),
+            self.assertRaises(artifact.BuildError) as caught,
+            smoke._cleanup_guard(
+                lambda: ("refusing to remove foreign smoke container: collision",)
+            ),
+        ):
+            raise primary
+        self.assertIs(caught.exception, primary)
+        self.assertEqual(str(caught.exception), "primary smoke failure")
+        self.assertIn(
+            "refusing to remove foreign smoke container: collision",
+            "\n".join(getattr(caught.exception, "__notes__", ())),
+        )
+        self.assertIn(
+            "refusing to remove foreign smoke container: collision",
+            standard_error.getvalue(),
+        )
 
     def test_contract_digest_reads_only_declared_contract_inputs(self) -> None:
         contracts = self.root / "contracts"

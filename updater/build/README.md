@@ -8,6 +8,10 @@ reads or writes `current.json`, emits `update_activated`, or invokes `produce`.
 
 The reviewed immutable inputs are:
 
+- the accepted
+  `contracts/artifacts/producer-runtime-inputs-v1.json` and exactly its 42
+  tracked `100644` blobs;
+- the tracked `display-v1.yaml` and `staff-sets-v1.yaml` catalog pair;
 - CPython `3.14.6`;
 - uv `0.11.32`;
 - Docker Buildx `0.34.1`;
@@ -47,14 +51,22 @@ After that handoff, the full acceptance command is:
   --target linux/arm64
 ```
 
-It builds and normalizes two local OCI archives sequentially with
-`push=false`, emits the strict Contracts-owned statement, compares every output
-byte, publishes only the validated content address below `.tmp/published/`,
-and runs `doctor` plus `contract-check` from the image as UID/GID
-`65532:65532` with a read-only filesystem, no network, and read-only Contracts
-mount. The selected (or current, when `--builder` is omitted) builder is
-validated before use and is passed explicitly to `buildx build`. The loaded
-local image is removed after smoke.
+It builds and normalizes two Docker-load-compatible OCI-media-type archives
+sequentially with `push=false`, emits the strict Contracts-owned statement,
+compares every output byte, publishes only the validated content address below
+`.tmp/published/`, and runs `doctor`, embedded `contract-check`, and an
+embedded catalog-loader probe from the image as UID/GID `65532:65532` with a
+read-only filesystem and no network. The pinned single-platform Docker
+exporter owns the sole compatibility `manifest.json`; its exact tag, config
+and ordered layer paths must match the closed OCI layout `1.0.0` graph. Raw
+export passes a bounded USTAR admission path before normalization, rejecting
+unsafe, duplicate, linked, PAX/xattr, sparse, special, oversized, trailing,
+extra and orphan members. No product, Contracts, or catalog path is mounted
+into the container. The selected (or current, when `--builder` is omitted)
+builder is validated before use and is passed explicitly to `buildx build`.
+Smoke captures each created container ID and the first post-load image ID;
+cleanup verifies current name/owner/ID tuples, deletes only by immutable ID,
+never force-removes an image, and preserves replacement tags.
 
 Both acceptance entrypoints derive revision, tree, and commit epoch from the
 canonical checkout before tests, snapshots, or output mutation. For every
@@ -65,9 +77,16 @@ controls, and every untracked non-ignored path fail closed; local attributes,
 filters, global excludes, and `.git/info/exclude` cannot weaken the gate.
 
 The source snapshot is then written only from the bytes retained by that
-attestation. It never traverses the live `updater/src` tree, so ignored
-`__pycache__`, `*.pyc`, `.env`, and similar local residue cannot enter or alter
-an artifact. `--source-revision`, `--source-tree`, and
-`--source-date-epoch` may only repeat the derived values exactly; they cannot
-select or override a candidate. Final acceptance therefore runs from the clean
-detached candidate checkout itself.
+attestation. It never traverses the live `updater/src`, Contracts, or catalog
+trees, so ignored `__pycache__`, `*.pyc`, `.env`, mutable authority bytes, and
+similar local residue cannot enter or alter an artifact. The native bundle v2
+stores the exact producer tree below `producer/` as `0:0` and `0444`/`0555`;
+the image stores the same bytes below `/opt/bgmss/producer/` as
+`65532:65532` and `0444`/`0555`. Canonical producer metadata, build metadata
+v2, three fixed OCI labels, and the component statement bind the same manifest,
+catalog digest, and common commit.
+
+`--source-revision`, `--source-tree`, and `--source-date-epoch` may only repeat
+the derived values exactly; they cannot select or override a candidate. Final
+reproducibility and container acceptance therefore run only after the
+implementation has been committed into the clean detached candidate checkout.

@@ -14,6 +14,7 @@ import errno
 import gzip
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import re
@@ -28,8 +29,9 @@ import zipfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, cast
 
+import producer_inputs
 from runtime_prune import RuntimePruneError, prune_runtime_tree
 
 sys.dont_write_bytecode = True
@@ -62,6 +64,19 @@ BUILDKIT_IMAGE = (
 BUILDKIT_IMAGE_DIGEST = BUILDKIT_IMAGE.rsplit("@sha256:", 1)[1]
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 GIT_OBJECT_RE = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
+OCI_BLOB_PATH_RE = re.compile(r"^blobs/sha256/[0-9a-f]{64}$")
+IMAGE_REFERENCE_RE = re.compile(
+    r"^localhost/bgmss-updater-artifact:[0-9a-f]{40}(?:[0-9a-f]{24})?-(?:amd64|arm64)$"
+)
+OCI_IMAGE_LAYOUT_VERSION = "1.0.0"
+OCI_INDEX_MEDIA_TYPE = "application/vnd.oci.image.index.v1+json"
+OCI_MANIFEST_MEDIA_TYPE = "application/vnd.oci.image.manifest.v1+json"
+OCI_CONFIG_MEDIA_TYPE = "application/vnd.oci.image.config.v1+json"
+OCI_LAYER_MEDIA_TYPE = "application/vnd.oci.image.layer.v1.tar+gzip"
+MAX_IMAGE_ARCHIVE_SIZE = 512 * 1024 * 1024
+MAX_IMAGE_MEMBER_SIZE = 256 * 1024 * 1024
+MAX_IMAGE_JSON_SIZE = 4 * 1024 * 1024
+MAX_IMAGE_MEMBERS = 4096
 EVIDENCE_FILES = frozenset(
     {
         "SHA256SUMS",
@@ -69,6 +84,10 @@ EVIDENCE_FILES = frozenset(
         "sbom.spdx.json",
     }
 )
+PRODUCER_LABELS = producer_inputs.PRODUCER_LABELS
+PRODUCER_RUNTIME_INPUTS_LABEL = producer_inputs.PRODUCER_INPUTS_LABEL
+PRODUCER_CATALOG_CONFIG_LABEL = producer_inputs.CATALOG_CONFIG_LABEL
+PRODUCER_COMMON_COMMIT_LABEL = producer_inputs.COMMON_COMMIT_LABEL
 
 
 class BuildError(RuntimeError):
@@ -130,6 +149,27 @@ class SourceAttestation:
     repository_root: Path
     object_format: str
     tracked_blobs: tuple[TrackedBlob, ...]
+
+
+@dataclass(frozen=True)
+class ProducerEvidence:
+    bundle_path: str
+    image_path: str
+    metadata_digest: str
+    manifest_digest: str
+
+
+@dataclass(frozen=True)
+class PackagedProducerTree:
+    files: dict[str, bytes]
+    verified: producer_inputs.VerifiedProducerTree
+
+
+@dataclass(frozen=True)
+class OciGraph:
+    metadata: dict[str, object]
+    config: dict[str, object]
+    layers: tuple[tuple[dict[str, object], bytes], ...]
 
 
 @dataclass(frozen=True)
@@ -814,37 +854,63 @@ def tree_digest(root: Path) -> str:
 def _copy_source_snapshot(
     destination: Path,
     attestation: SourceAttestation,
-) -> None:
+) -> producer_inputs.SelectedProducerInputs:
     _clear_generated_directory(destination)
     blobs = {blob.path: blob for blob in attestation.tracked_blobs}
+    try:
+        selected_producer = producer_inputs.select_attested_producer_inputs(
+            attestation.tracked_blobs
+        )
+    except producer_inputs.ProducerInputsError as error:
+        raise BuildError(f"producer input admission failed: {error}") from error
     fixed_paths = {
         "updater/README.md": "README.md",
         "updater/build/runtime_prune.py": "build/runtime_prune.py",
         "updater/pyproject.toml": "pyproject.toml",
         "updater/uv.lock": "uv.lock",
     }
-    selected: list[tuple[str, TrackedBlob]] = []
+    selected: list[tuple[str, int, bytes]] = []
     for source_path, destination_path in fixed_paths.items():
         try:
-            selected.append((destination_path, blobs[source_path]))
+            blob = blobs[source_path]
         except KeyError as error:
             raise BuildError(
                 f"attested candidate is missing required Updater blob: {source_path}"
             ) from error
+        selected.append((destination_path, blob.mode, blob.content))
     source_prefix = "updater/src/"
     source_blobs = [
         blob for blob in attestation.tracked_blobs if blob.path.startswith(source_prefix)
     ]
     if not source_blobs:
         raise BuildError("attested candidate contains no tracked Updater source blobs")
-    selected.extend((blob.path.removeprefix("updater/"), blob) for blob in source_blobs)
+    selected.extend(
+        (blob.path.removeprefix("updater/"), blob.mode, blob.content) for blob in source_blobs
+    )
+    producer_snapshot = [
+        (
+            producer_inputs.MANIFEST_AUTHORITY_SNAPSHOT_PATH,
+            producer_inputs.GIT_REGULAR_MODE,
+            selected_producer.manifest_bytes,
+        ),
+        *[
+            (
+                f"producer/{selected_file.embedded_path}",
+                producer_inputs.GIT_REGULAR_MODE,
+                selected_file.content,
+            )
+            for selected_file in selected_producer.embedded_files
+        ],
+    ]
+    selected.extend(producer_snapshot)
     selected.sort(key=lambda item: item[0])
-    if len({path for path, _blob in selected}) != len(selected):
+    if len({path for path, _mode, _content in selected}) != len(selected):
         raise BuildError("attested Updater snapshot contains duplicate destination paths")
-    for relative, blob in selected:
+    for relative, blob_mode, content in selected:
         _safe_relative(relative)
-        mode = 0o755 if blob.mode == int(b"100755", 8) else 0o644
-        _write_bytes(destination / relative, blob.content, mode=mode)
+        mode = 0o755 if blob_mode == int(b"100755", 8) else 0o644
+        _write_bytes(destination / relative, content, mode=mode)
+    return selected_producer
 
 
 def _build_definition_digest() -> str:
@@ -999,6 +1065,7 @@ def _normalized_tar(
     prefix: str | None,
     epoch: int,
     compress: bool,
+    immutable_prefixes: Sequence[str] = (),
 ) -> None:
     destination = _ensure_generated_parent(destination)
     raw_path = _require_under_tmp(destination.with_name(f".{destination.name}.tar"))
@@ -1026,6 +1093,10 @@ def _normalized_tar(
         )
         entries.sort(key=lambda item: (item[0], not item[2]))
         for name, entry_path, is_directory in entries:
+            immutable = any(
+                name == immutable_prefix or name.startswith(f"{immutable_prefix}/")
+                for immutable_prefix in immutable_prefixes
+            )
             info = tarfile.TarInfo(name)
             info.uid = 0
             info.gid = 0
@@ -1035,13 +1106,13 @@ def _normalized_tar(
             info.pax_headers = {}
             if is_directory:
                 info.type = tarfile.DIRTYPE
-                info.mode = 0o755
+                info.mode = 0o555 if immutable else 0o755
                 archive.addfile(info)
                 continue
             if entry_path is None:
                 raise BuildError(f"missing file for tar member: {name}")
             info.size = entry_path.stat().st_size
-            info.mode = 0o755 if os.access(entry_path, os.X_OK) else 0o644
+            info.mode = 0o444 if immutable else (0o755 if os.access(entry_path, os.X_OK) else 0o644)
             with entry_path.open("rb") as handle:
                 archive.addfile(info, handle)
     if compress:
@@ -1071,22 +1142,268 @@ def _normalized_tar(
     destination.chmod(0o644)
 
 
-def _extract_tar_safely(archive_path: Path, destination: Path) -> None:
+def _ustar_field(
+    header: bytes,
+    start: int,
+    end: int,
+    label: str,
+) -> str:
+    field = header[start:end]
+    value, separator, padding = field.partition(b"\0")
+    if separator and any(padding):
+        raise BuildError(f"Docker exporter {label} field has non-zero padding")
+    try:
+        return value.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as error:
+        raise BuildError(f"Docker exporter {label} field is not UTF-8") from error
+
+
+def _validate_exporter_member(
+    raw_header: bytes,
+    member: tarfile.TarInfo,
+) -> tuple[str, bool]:
+    if (
+        raw_header[257:263] != b"ustar\0"
+        or raw_header[263:265] != b"00"
+        or any(raw_header[345:500])
+    ):
+        raise BuildError("Docker exporter member is not a plain USTAR header")
+    if (
+        member.pax_headers
+        or getattr(member, "sparse", None)
+        or member.linkname
+        or raw_header[156:157] not in {b"\0", tarfile.REGTYPE, tarfile.DIRTYPE}
+    ):
+        raise BuildError(
+            f"Docker exporter member {member.name!r} uses PAX, xattr, link, sparse, "
+            "or unsupported type"
+        )
+    raw_size = raw_header[124:136].rstrip(b"\0 ")
+    if raw_size and any(value not in b"01234567" for value in raw_size):
+        raise BuildError(f"Docker exporter member {member.name!r} has a non-USTAR size")
+    directory = member.isdir()
+    regular = member.isreg()
+    if not directory and not regular:
+        raise BuildError(f"Docker exporter member {member.name!r} has an unsupported type")
+    if member.size < 0 or (directory and member.size != 0):
+        raise BuildError(f"Docker exporter member {member.name!r} has an invalid size")
+
+    name = _ustar_field(raw_header, 0, 100, "name")
+    if directory:
+        if not name.endswith("/") or name.endswith("//"):
+            raise BuildError(f"Docker exporter directory {name!r} is not normalized")
+        candidate = name[:-1]
+    else:
+        if name.endswith("/"):
+            raise BuildError(f"Docker exporter file {name!r} has a directory suffix")
+        candidate = name
+    if (
+        not candidate
+        or candidate.startswith("/")
+        or "\\" in candidate
+        or "\0" in candidate
+        or PurePosixPath(candidate).as_posix() != candidate
+        or any(part in {"", ".", ".."} for part in PurePosixPath(candidate).parts)
+    ):
+        raise BuildError(f"Docker exporter member {name!r} is not a normalized relative path")
+    if directory:
+        if name not in {"blobs/", "blobs/sha256/"}:
+            raise BuildError(f"Docker exporter archive contains extra directory {name!r}")
+        return name, True
+    if (
+        name not in {"index.json", "manifest.json", "oci-layout"}
+        and OCI_BLOB_PATH_RE.fullmatch(name) is None
+    ):
+        raise BuildError(f"Docker exporter archive contains extra file {name!r}")
+    return name, False
+
+
+def _copy_exact_exporter_member(
+    source: Any,
+    destination: Path,
+    size: int,
+) -> None:
+    destination = _ensure_generated_parent(destination)
+    if os.path.lexists(destination):
+        raise BuildError(f"refusing to replace admitted exporter member: {destination}")
+    temporary = _require_under_tmp(destination.with_name(f".{destination.name}.writing"))
+    if os.path.lexists(temporary):
+        raise BuildError(f"refusing to replace exporter temporary file: {temporary}")
+    remaining = size
+    try:
+        with temporary.open("xb") as output:
+            while remaining:
+                chunk = source.read(min(1024 * 1024, remaining))
+                if not chunk:
+                    raise BuildError(
+                        f"Docker exporter member ended before its declared size: {destination.name}"
+                    )
+                output.write(chunk)
+                remaining -= len(chunk)
+        temporary.chmod(0o444)
+        _require_under_tmp(destination)
+        _require_under_tmp(temporary)
+        temporary.replace(destination)
+    except BaseException:
+        if os.path.lexists(temporary):
+            _unlink_generated_file(temporary)
+        raise
+
+
+def _admit_docker_exporter_archive(
+    archive_path: Path,
+    destination: Path,
+) -> None:
+    try:
+        information = archive_path.lstat()
+    except OSError as error:
+        raise BuildError(f"Docker exporter archive is unavailable: {error}") from error
+    if (
+        not stat.S_ISREG(information.st_mode)
+        or information.st_size <= 0
+        or information.st_size > MAX_IMAGE_ARCHIVE_SIZE
+    ):
+        raise BuildError("Docker exporter archive is not a bounded regular file")
+
     _clear_generated_directory(destination)
-    with tarfile.open(archive_path, "r:*") as archive:
-        for member in archive.getmembers():
-            relative = _safe_relative(member.name.rstrip("/"))
-            target = destination.joinpath(*relative.parts)
-            if member.isdir():
-                _ensure_generated_directory(target)
-                continue
-            if not member.isfile():
-                raise BuildError(f"OCI archive has a non-regular member: {member.name}")
-            source = archive.extractfile(member)
-            if source is None:
-                raise BuildError(f"cannot read OCI member: {member.name}")
-            with source:
-                _copy_generated_stream(source, target)
+    seen: set[str] = set()
+    total_size = 0
+    member_count = 0
+    try:
+        with archive_path.open("rb") as source:
+            while True:
+                raw_header = source.read(tarfile.BLOCKSIZE)
+                if len(raw_header) != tarfile.BLOCKSIZE:
+                    raise BuildError("Docker exporter archive omits its USTAR end markers")
+                if raw_header == bytes(tarfile.BLOCKSIZE):
+                    second_end = source.read(tarfile.BLOCKSIZE)
+                    if second_end != bytes(tarfile.BLOCKSIZE):
+                        raise BuildError("Docker exporter archive has a malformed USTAR end")
+                    if source.read(1) != b"":
+                        raise BuildError("Docker exporter archive contains trailing bytes")
+                    break
+                try:
+                    member = tarfile.TarInfo.frombuf(
+                        raw_header,
+                        encoding="utf-8",
+                        errors="strict",
+                    )
+                except (tarfile.HeaderError, UnicodeDecodeError) as error:
+                    raise BuildError(f"Docker exporter header is invalid: {error}") from error
+                member_count += 1
+                if member_count > MAX_IMAGE_MEMBERS:
+                    raise BuildError(
+                        f"Docker exporter archive has more than {MAX_IMAGE_MEMBERS} members"
+                    )
+                name, directory = _validate_exporter_member(raw_header, member)
+                if name in seen:
+                    raise BuildError(f"Docker exporter archive contains duplicate member {name!r}")
+                parent = PurePosixPath(name.rstrip("/")).parent.as_posix()
+                if parent != "." and f"{parent}/" not in seen:
+                    raise BuildError(
+                        f"Docker exporter member {name!r} precedes required directory "
+                        f"{parent + '/'!r}"
+                    )
+                seen.add(name)
+                relative = _safe_relative(name.rstrip("/"))
+                target = destination.joinpath(*relative.parts)
+                if directory:
+                    _ensure_generated_directory(target)
+                    continue
+                if (
+                    member.size > MAX_IMAGE_MEMBER_SIZE
+                    or total_size > MAX_IMAGE_ARCHIVE_SIZE - member.size
+                ):
+                    raise BuildError(f"Docker exporter member {name!r} is oversized")
+                if (
+                    name in {"index.json", "manifest.json", "oci-layout"}
+                    and member.size > MAX_IMAGE_JSON_SIZE
+                ):
+                    raise BuildError(f"Docker exporter JSON member {name!r} is oversized")
+                total_size += member.size
+                _copy_exact_exporter_member(source, target, member.size)
+                padding_size = (-member.size) % tarfile.BLOCKSIZE
+                padding = source.read(padding_size)
+                if len(padding) != padding_size or any(padding):
+                    raise BuildError(f"Docker exporter member {name!r} has invalid USTAR padding")
+        required = {
+            "blobs/",
+            "blobs/sha256/",
+            "index.json",
+            "manifest.json",
+            "oci-layout",
+        }
+        missing = required - seen
+        if missing:
+            raise BuildError(f"Docker exporter archive omits required members: {sorted(missing)}")
+        for directory_path in ("blobs/sha256", "blobs"):
+            (destination / directory_path).chmod(0o555)
+    except BaseException:
+        if os.path.lexists(destination):
+            _remove_generated_directory(destination)
+        raise
+
+
+def _write_normalized_image_archive(
+    source: Path,
+    destination: Path,
+    *,
+    epoch: int,
+) -> None:
+    files = _iter_regular_files(source)
+    directories = ["blobs/", "blobs/sha256/"]
+    if [relative for relative, _path in files] != sorted(
+        [
+            "index.json",
+            "manifest.json",
+            "oci-layout",
+            *(
+                relative
+                for relative, _path in files
+                if OCI_BLOB_PATH_RE.fullmatch(relative) is not None
+            ),
+        ]
+    ):
+        raise BuildError("admitted OCI layout contains an unexpected file inventory")
+    destination = _ensure_generated_parent(destination)
+    temporary = _require_under_tmp(destination.with_name(f".{destination.name}.writing"))
+    if os.path.lexists(temporary):
+        raise BuildError(f"refusing to replace image archive temporary file: {temporary}")
+    try:
+        with temporary.open("xb") as output:
+            for name in directories:
+                information = tarfile.TarInfo(name)
+                information.type = tarfile.DIRTYPE
+                information.mode = 0o555
+                information.uid = 0
+                information.gid = 0
+                information.uname = ""
+                information.gname = ""
+                information.mtime = epoch
+                output.write(information.tobuf(format=tarfile.USTAR_FORMAT))
+            for name, path in files:
+                information = tarfile.TarInfo(name)
+                information.mode = 0o444
+                information.uid = 0
+                information.gid = 0
+                information.uname = ""
+                information.gname = ""
+                information.mtime = epoch
+                information.size = path.stat().st_size
+                output.write(information.tobuf(format=tarfile.USTAR_FORMAT))
+                with path.open("rb") as source_file:
+                    shutil.copyfileobj(source_file, output)
+                output.write(bytes((-information.size) % tarfile.BLOCKSIZE))
+            output.write(bytes(2 * tarfile.BLOCKSIZE))
+        if temporary.stat().st_size > MAX_IMAGE_ARCHIVE_SIZE:
+            raise BuildError("normalized image archive exceeds its size bound")
+        temporary.chmod(0o644)
+        _require_under_tmp(destination)
+        temporary.replace(destination)
+    except BaseException:
+        if os.path.lexists(temporary):
+            _unlink_generated_file(temporary)
+        raise
 
 
 def _runtime_lock_packages(lock_path: Path) -> dict[str, dict[str, Any]]:
@@ -1351,57 +1668,145 @@ def _wheel_metadata(wheel: Path) -> dict[str, Any]:
     }
 
 
-def _parse_oci_metadata(oci_layout: Path) -> dict[str, Any]:
-    try:
-        index = json.loads((oci_layout / "index.json").read_text(encoding="utf-8"))
-        manifests = index["manifests"]
-    except (KeyError, json.JSONDecodeError, OSError) as error:
-        raise BuildError(f"invalid OCI index: {error}") from error
-    if len(manifests) != 1:
-        raise BuildError("OCI index must contain exactly one runtime manifest")
-    descriptor = manifests[0]
-    digest = str(descriptor.get("digest", ""))
-    if not digest.startswith("sha256:") or not SHA256_RE.fullmatch(digest[7:]):
-        raise BuildError("OCI manifest digest is not SHA-256")
-    manifest_path = oci_layout / "blobs" / "sha256" / digest[7:]
-    if sha256_file(manifest_path) != digest[7:]:
-        raise BuildError("OCI manifest blob digest mismatch")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    config = manifest.get("config", {})
-    config_digest = str(config.get("digest", ""))
-    if not config_digest.startswith("sha256:") or not SHA256_RE.fullmatch(config_digest[7:]):
-        raise BuildError("OCI config digest is not SHA-256")
-    config_path = oci_layout / "blobs" / "sha256" / config_digest[7:]
-    if sha256_file(config_path) != config_digest[7:]:
-        raise BuildError("OCI config blob digest mismatch")
-    layers: list[dict[str, Any]] = []
-    for layer in manifest.get("layers", []):
-        layer_digest = str(layer.get("digest", ""))
-        if not layer_digest.startswith("sha256:") or not SHA256_RE.fullmatch(layer_digest[7:]):
-            raise BuildError("OCI layer digest is not SHA-256")
-        layer_path = oci_layout / "blobs" / "sha256" / layer_digest[7:]
-        if sha256_file(layer_path) != layer_digest[7:]:
-            raise BuildError("OCI layer blob digest mismatch")
-        layers.append(
-            {
-                "digest": layer_digest,
-                "mediaType": layer["mediaType"],
-                "size": int(layer["size"]),
-            }
+def _parse_oci_metadata(
+    oci_layout: Path,
+    *,
+    reference: str,
+    target: Target,
+) -> dict[str, object]:
+    layout: dict[str, bytes] = {}
+    for relative, path in _iter_regular_files(oci_layout):
+        size = path.stat().st_size
+        if size <= 0 or size > MAX_IMAGE_MEMBER_SIZE:
+            raise BuildError(f"admitted OCI member is outside its size bound: {relative}")
+        layout[relative] = path.read_bytes()
+    return _inspect_oci_graph(
+        layout,
+        reference=reference,
+        target=target,
+    ).metadata
+
+
+def _materialize_producer_tree(
+    destination: Path,
+    selected: producer_inputs.SelectedProducerInputs,
+    metadata_bytes: bytes,
+) -> producer_inputs.VerifiedProducerTree:
+    _clear_generated_directory(destination)
+    for selected_file in selected.embedded_files:
+        _write_bytes(
+            destination.joinpath(*PurePosixPath(selected_file.embedded_path).parts),
+            selected_file.content,
         )
-    return {
-        "config": {
-            "digest": config_digest,
-            "mediaType": config["mediaType"],
-            "size": int(config["size"]),
-        },
-        "layers": layers,
-        "manifest": {
-            "digest": digest,
-            "mediaType": descriptor["mediaType"],
-            "size": int(descriptor["size"]),
-        },
-    }
+    _write_bytes(
+        destination.joinpath(*PurePosixPath(producer_inputs.MANIFEST_EMBEDDED_PATH).parts),
+        selected.manifest_bytes,
+    )
+    _write_bytes(
+        destination.joinpath(*PurePosixPath(producer_inputs.PRODUCER_METADATA_PATH).parts),
+        metadata_bytes,
+    )
+    files = {relative: path.read_bytes() for relative, path in _iter_regular_files(destination)}
+    try:
+        verified = producer_inputs.verify_producer_tree(files)
+    except producer_inputs.ProducerInputsError as error:
+        raise BuildError(f"generated producer tree is invalid: {error}") from error
+    if verified.metadata_digest != producer_inputs.sha256_bytes(metadata_bytes):
+        raise BuildError("generated producer metadata digest changed during packaging")
+    return verified
+
+
+def _venv_python(venv: Path) -> Path:
+    candidates = (
+        venv / "bin" / "python",
+        venv / "Scripts" / "python.exe",
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise BuildError("frozen build environment has no Python interpreter")
+
+
+def _catalog_digest_from_built_wheel(
+    *,
+    wheel: Path,
+    snapshot: Path,
+    work_root: Path,
+) -> str:
+    probe_root = work_root / "catalog-digest-probe"
+    _clear_generated_directory(probe_root)
+    wheel_root = probe_root / "wheel"
+    _ensure_generated_directory(wheel_root)
+    _extract_wheel(wheel, wheel_root)
+    probe_cwd = probe_root / "cwd"
+    _ensure_generated_directory(probe_cwd)
+    environment = dict(os.environ)
+    for name in (
+        "PYTHONHOME",
+        "PYTHONINSPECT",
+        "PYTHONPATH",
+        "PYTHONSTARTUP",
+    ):
+        environment.pop(name, None)
+    environment.update(
+        {
+            "LANG": "C.UTF-8",
+            "LC_ALL": "C.UTF-8",
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONHASHSEED": "0",
+            "PYTHONNOUSERSITE": "1",
+            "PYTHONSAFEPATH": "1",
+        }
+    )
+    program = (
+        "import sys;"
+        "from pathlib import Path;"
+        "sys.path.insert(0,sys.argv[1]);"
+        "from bangumi_staff_stats_updater.catalog.config "
+        "import load_configuration;"
+        "value=load_configuration(Path(sys.argv[2]),Path(sys.argv[3]));"
+        "print(value.digest)"
+    )
+    output = _run(
+        [
+            str(_venv_python(work_root / "venv")),
+            "-I",
+            "-c",
+            program,
+            str(wheel_root),
+            str(snapshot / "producer" / "catalog" / "display-v1.yaml"),
+            str(snapshot / "producer" / "contracts"),
+        ],
+        cwd=probe_cwd,
+        env=environment,
+        capture=True,
+    )
+    if re.fullmatch(r"sha256:[0-9a-f]{64}", output) is None:
+        raise BuildError("built catalog probe did not emit one SHA-256 digest")
+    return output
+
+
+def _make_oci_context(
+    *,
+    snapshot: Path,
+    work_root: Path,
+    selected: producer_inputs.SelectedProducerInputs,
+    metadata_bytes: bytes,
+) -> Path:
+    context = work_root / "oci-context"
+    _clear_generated_directory(context)
+    for relative, source in _iter_regular_files(snapshot):
+        _copy_generated_file(
+            source,
+            context.joinpath(*PurePosixPath(relative).parts),
+            mode=0o755 if os.access(source, os.X_OK) else 0o644,
+        )
+    _materialize_producer_tree(
+        context / producer_inputs.NATIVE_PRODUCER_ROOT,
+        selected,
+        metadata_bytes,
+    )
+    return context
 
 
 def _build_wheel_and_bundle(
@@ -1413,7 +1818,8 @@ def _build_wheel_and_bundle(
     python: Path,
     target: Target,
     identity: SourceIdentity,
-) -> tuple[Path, Path, list[dict[str, str]]]:
+    selected_producer: producer_inputs.SelectedProducerInputs,
+) -> tuple[Path, Path, list[dict[str, str]], bytes]:
     environment = _uv_environment(work_root, python, identity.epoch)
     _run(
         [
@@ -1509,6 +1915,18 @@ def _build_wheel_and_bundle(
     _wheel_metadata(wheels[0])
     wheel_output = artifacts / wheels[0].name
     _copy_generated_file(wheels[0], wheel_output, mode=0o644)
+    catalog_config_digest = _catalog_digest_from_built_wheel(
+        wheel=wheels[0],
+        snapshot=snapshot,
+        work_root=work_root,
+    )
+    try:
+        producer_metadata = producer_inputs.producer_metadata_bytes(
+            selected_producer,
+            catalog_config_digest,
+        )
+    except producer_inputs.ProducerInputsError as error:
+        raise BuildError(f"producer input metadata cannot be emitted: {error}") from error
 
     runtime_install = [
         str(uv),
@@ -1547,6 +1965,11 @@ def _build_wheel_and_bundle(
         raise BuildError(f"runtime development-content pruning failed: {error}") from error
     _remove_python_cache(site_packages)
     runtime_packages = installed_distributions(site_packages)
+    verified_producer = _materialize_producer_tree(
+        bundle_root / producer_inputs.NATIVE_PRODUCER_ROOT,
+        selected_producer,
+        producer_metadata,
+    )
     launcher = bundle_root / "bin" / "bgmss-updater"
     _write_bytes(
         launcher,
@@ -1566,9 +1989,16 @@ def _build_wheel_and_bundle(
             {
                 "component": COMPONENT_ID,
                 "package": {"name": PACKAGE_NAME, "version": PACKAGE_VERSION},
+                "producerInputs": {
+                    "path": (
+                        f"{producer_inputs.NATIVE_PRODUCER_ROOT}/"
+                        f"{producer_inputs.PRODUCER_METADATA_PATH}"
+                    ),
+                    "sha256": verified_producer.metadata_digest,
+                },
                 "python": PYTHON_VERSION,
                 "runtimePackages": runtime_packages,
-                "schemaVersion": "bgmss-updater-runtime-bundle-v1",
+                "schemaVersion": "bgmss-updater-runtime-bundle-v2",
                 "target": {"architecture": target.architecture, "os": target.os},
             }
         ),
@@ -1580,60 +2010,127 @@ def _build_wheel_and_bundle(
         prefix="updater-runtime",
         epoch=identity.epoch,
         compress=True,
+        immutable_prefixes=("updater-runtime/producer",),
     )
-    return wheel_output, bundle_output, runtime_packages
+    return wheel_output, bundle_output, runtime_packages, producer_metadata
+
+
+def _declared_image_reference(
+    identity: SourceIdentity,
+    target: Target,
+) -> str:
+    identity.validate()
+    reference = f"localhost/bgmss-updater-artifact:{identity.revision}-{target.architecture}"
+    if IMAGE_REFERENCE_RE.fullmatch(reference) is None:
+        raise BuildError("declared image reference is not a safe exact local tag")
+    return reference
+
+
+def _docker_export_command(
+    *,
+    context: Path,
+    raw_archive: Path,
+    target: Target,
+    identity: SourceIdentity,
+    docker: Path,
+    builder: str,
+    image_reference: str,
+    producer_contracts: Mapping[str, Any],
+    producer_catalog: Mapping[str, Any],
+    common_commit: object,
+) -> list[str]:
+    return [
+        str(docker),
+        "buildx",
+        "build",
+        "--builder",
+        builder,
+        "--file",
+        str(UPDATER_ROOT / "Dockerfile"),
+        "--platform",
+        target.docker,
+        "--no-cache",
+        "--provenance=false",
+        "--sbom=false",
+        "--build-arg",
+        f"SOURCE_DATE_EPOCH={identity.epoch}",
+        "--build-arg",
+        (f"PRODUCER_RUNTIME_INPUTS_MANIFEST_SHA256={producer_contracts['manifestSha256']}"),
+        "--build-arg",
+        f"PRODUCER_CATALOG_CONFIG_DIGEST={producer_catalog['catalogConfigDigest']}",
+        "--build-arg",
+        f"PRODUCER_COMMON_COMMIT={common_commit}",
+        "--output",
+        (
+            f"type=docker,dest={raw_archive},tar=true,oci-mediatypes=true,"
+            f"rewrite-timestamp=true,name={image_reference}"
+        ),
+        str(context),
+    ]
 
 
 def _build_oci(
     *,
-    snapshot: Path,
+    context: Path,
     work_root: Path,
     artifacts: Path,
     target: Target,
     identity: SourceIdentity,
     docker: Path,
     builder: str,
+    producer_metadata: bytes,
 ) -> tuple[Path, dict[str, Any]]:
-    raw_archive = work_root / "raw-image.oci.tar"
-    image_reference = f"bgmss-updater-artifact:{identity.revision[:12]}-{target.architecture}"
+    try:
+        producer_document = producer_inputs.parse_producer_metadata(producer_metadata)
+    except producer_inputs.ProducerInputsError as error:
+        raise BuildError(f"producer metadata is invalid before OCI build: {error}") from error
+    producer_contracts = cast(
+        Mapping[str, Any],
+        producer_document["contracts"],
+    )
+    producer_catalog = cast(
+        Mapping[str, Any],
+        producer_document["catalog"],
+    )
+    raw_archive = work_root / "raw-image.docker.tar"
+    image_reference = _declared_image_reference(identity, target)
     _ensure_generated_parent(raw_archive)
     _unlink_generated_file(raw_archive, missing_ok=True)
     _run(
-        [
-            str(docker),
-            "buildx",
-            "build",
-            "--builder",
-            builder,
-            "--file",
-            str(UPDATER_ROOT / "Dockerfile"),
-            "--platform",
-            target.docker,
-            "--no-cache",
-            "--provenance=false",
-            "--sbom=false",
-            "--build-arg",
-            f"SOURCE_DATE_EPOCH={identity.epoch}",
-            "--tag",
-            image_reference,
-            "--output",
-            f"type=oci,dest={raw_archive},rewrite-timestamp=true",
-            str(snapshot),
-        ],
+        _docker_export_command(
+            context=context,
+            raw_archive=raw_archive,
+            target=target,
+            identity=identity,
+            docker=docker,
+            builder=builder,
+            image_reference=image_reference,
+            producer_contracts=producer_contracts,
+            producer_catalog=producer_catalog,
+            common_commit=producer_document["commonCommit"],
+        ),
         cwd=REPOSITORY_ROOT,
     )
     extracted = work_root / "oci-layout"
-    _extract_tar_safely(raw_archive, extracted)
-    metadata = _parse_oci_metadata(extracted)
-    metadata["reference"] = image_reference
+    _admit_docker_exporter_archive(raw_archive, extracted)
+    metadata = _parse_oci_metadata(
+        extracted,
+        reference=image_reference,
+        target=target,
+    )
     image_output = artifacts / f"updater-image-{target.slug}.oci.tar"
-    _normalized_tar(
+    _write_normalized_image_archive(
         extracted,
         image_output,
-        prefix=None,
         epoch=identity.epoch,
-        compress=False,
     )
+    normalized_graph = _inspect_oci_graph(
+        _oci_layout_files(image_output),
+        reference=image_reference,
+        target=target,
+    )
+    if normalized_graph.metadata != metadata:
+        raise BuildError("normalized image archive changed the exporter-owned OCI graph")
     return image_output, metadata
 
 
@@ -1671,6 +2168,763 @@ def parse_checksum_inventory(value: bytes) -> list[dict[str, Any]]:
     return entries
 
 
+def _closed_object(
+    value: object,
+    expected_keys: set[str],
+    label: str,
+) -> dict[str, object]:
+    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
+        raise BuildError(f"{label} must be an object")
+    result = cast(dict[str, object], value)
+    if set(result) != expected_keys:
+        raise BuildError(f"{label} has an unexpected field set")
+    return result
+
+
+def _canonical_json_document(source: bytes, label: str) -> dict[str, object]:
+    try:
+        value = producer_inputs.parse_json_bytes(
+            source,
+            label,
+            require_canonical=True,
+        )
+    except producer_inputs.ProducerInputsError as error:
+        raise BuildError(f"{label} is invalid: {error}") from error
+    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
+        raise BuildError(f"{label} must be an object")
+    return cast(dict[str, object], value)
+
+
+def _prefixed_digest(value: object, label: str) -> str:
+    if (
+        not isinstance(value, str)
+        or not value.startswith("sha256:")
+        or SHA256_RE.fullmatch(value[7:]) is None
+    ):
+        raise BuildError(f"{label} must be a sha256:-prefixed lowercase digest")
+    return value
+
+
+def _producer_evidence(
+    metadata_bytes: bytes,
+) -> tuple[dict[str, object], ProducerEvidence]:
+    metadata = _closed_object(
+        _canonical_json_document(metadata_bytes, "Updater build metadata"),
+        {
+            "artifacts",
+            "buildDefinitionSha256",
+            "component",
+            "inputs",
+            "producerInputs",
+            "runtimePackages",
+            "schemaVersion",
+            "sbomPackageCount",
+            "source",
+            "target",
+            "toolchain",
+        },
+        "Updater build metadata",
+    )
+    if (
+        metadata["schemaVersion"] != "bgmss-updater-build-metadata-v2"
+        or metadata["component"] != COMPONENT_ID
+    ):
+        raise BuildError("Updater build metadata is not the fixed v2 component format")
+    inputs = _closed_object(
+        metadata["inputs"],
+        {
+            "producerInputsSha256",
+            "producerRuntimeInputsManifestSha256",
+            "sourceSnapshotSha256",
+            "uvLockSha256",
+        },
+        "Updater build metadata inputs",
+    )
+    producer = _closed_object(
+        metadata["producerInputs"],
+        {"bundlePath", "imagePath", "sha256"},
+        "Updater build metadata producerInputs",
+    )
+    bundle_path = producer["bundlePath"]
+    image_path = producer["imagePath"]
+    if (
+        bundle_path
+        != f"{producer_inputs.NATIVE_PRODUCER_ROOT}/{producer_inputs.PRODUCER_METADATA_PATH}"
+        or image_path
+        != f"{producer_inputs.OCI_PRODUCER_ROOT}/{producer_inputs.PRODUCER_METADATA_PATH}"
+    ):
+        raise BuildError("Updater build metadata producer input paths are not fixed")
+    metadata_digest = _prefixed_digest(
+        producer["sha256"],
+        "Updater build metadata producerInputs.sha256",
+    )
+    if (
+        _prefixed_digest(
+            inputs["producerInputsSha256"],
+            "Updater build metadata inputs.producerInputsSha256",
+        )
+        != metadata_digest
+    ):
+        raise BuildError("Updater build metadata producer input digests disagree")
+    manifest_digest = _prefixed_digest(
+        inputs["producerRuntimeInputsManifestSha256"],
+        "Updater build metadata inputs.producerRuntimeInputsManifestSha256",
+    )
+    if manifest_digest != producer_inputs.EXPECTED_MANIFEST_DIGEST:
+        raise BuildError("Updater build metadata names an unaccepted producer manifest")
+    return metadata, ProducerEvidence(
+        bundle_path=bundle_path,
+        image_path=image_path,
+        metadata_digest=metadata_digest,
+        manifest_digest=manifest_digest,
+    )
+
+
+def _artifact_record(
+    value: object,
+    label: str,
+    *,
+    allow_oci: bool,
+) -> dict[str, object]:
+    expected = {"path", "sha256", "size"}
+    if allow_oci:
+        expected.add("oci")
+    record = _closed_object(value, expected, label)
+    path = record["path"]
+    digest = record["sha256"]
+    size = record["size"]
+    if not isinstance(path, str):
+        raise BuildError(f"{label}.path must be a string")
+    _safe_relative(path)
+    if not isinstance(digest, str) or SHA256_RE.fullmatch(digest) is None:
+        raise BuildError(f"{label}.sha256 must be an unprefixed SHA-256 digest")
+    if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
+        raise BuildError(f"{label}.size must be a positive integer")
+    return record
+
+
+def _artifact_record_path(
+    output: Path,
+    record: Mapping[str, object],
+    label: str,
+) -> Path:
+    path = output.joinpath(*_safe_relative(cast(str, record["path"])).parts)
+    if path.is_symlink() or not path.is_file():
+        raise BuildError(f"{label} is not a regular artifact file")
+    if path.stat().st_size != record["size"] or sha256_file(path) != record["sha256"]:
+        raise BuildError(f"{label} bytes disagree with build metadata")
+    return path
+
+
+def _read_tar_file(archive: tarfile.TarFile, member: tarfile.TarInfo) -> bytes:
+    if member.size < 0 or member.size > 512 * 1024 * 1024:
+        raise BuildError(f"archive member has an unsafe size: {member.name}")
+    extracted = archive.extractfile(member)
+    if extracted is None:
+        raise BuildError(f"archive member cannot be read: {member.name}")
+    with extracted:
+        value = extracted.read()
+    if len(value) != member.size:
+        raise BuildError(f"archive member size changed while reading: {member.name}")
+    return value
+
+
+def _verify_native_producer(
+    bundle: Path,
+    evidence: ProducerEvidence,
+) -> PackagedProducerTree:
+    producer_prefix = f"updater-runtime/{producer_inputs.NATIVE_PRODUCER_ROOT}"
+    bundle_metadata_path = "updater-runtime/bundle-metadata.json"
+    producer_files: dict[str, bytes] = {}
+    producer_directories: set[str] = set()
+    bundle_metadata_bytes: bytes | None = None
+    names: set[str] = set()
+    try:
+        with tarfile.open(bundle, "r:*") as archive:
+            for member in archive.getmembers():
+                raw_name = member.name.rstrip("/")
+                relative = _safe_relative(raw_name).as_posix()
+                if relative in names:
+                    raise BuildError(f"native bundle contains duplicate member {relative}")
+                names.add(relative)
+                if not member.isfile() and not member.isdir():
+                    raise BuildError(f"native bundle contains a non-regular member: {relative}")
+                if relative == bundle_metadata_path:
+                    if not member.isfile():
+                        raise BuildError("native bundle metadata is not a regular file")
+                    bundle_metadata_bytes = _read_tar_file(archive, member)
+                if relative != producer_prefix and not relative.startswith(f"{producer_prefix}/"):
+                    continue
+                producer_relative = relative.removeprefix(producer_prefix).removeprefix("/")
+                if member.uid != 0 or member.gid != 0:
+                    raise BuildError("native producer members must be owned by 0:0")
+                expected_mode = 0o555 if member.isdir() else 0o444
+                if member.mode & 0o7777 != expected_mode:
+                    raise BuildError("native producer member has a mutable or unexpected mode")
+                if member.isdir():
+                    producer_directories.add(producer_relative)
+                else:
+                    producer_files[producer_relative] = _read_tar_file(archive, member)
+    except (OSError, tarfile.TarError) as error:
+        raise BuildError(f"native runtime bundle is invalid: {error}") from error
+    if bundle_metadata_bytes is None:
+        raise BuildError("native runtime bundle metadata is missing")
+    bundle_metadata = _closed_object(
+        _canonical_json_document(bundle_metadata_bytes, "native runtime bundle metadata"),
+        {
+            "component",
+            "package",
+            "producerInputs",
+            "python",
+            "runtimePackages",
+            "schemaVersion",
+            "target",
+        },
+        "native runtime bundle metadata",
+    )
+    if (
+        bundle_metadata["component"] != COMPONENT_ID
+        or bundle_metadata["schemaVersion"] != "bgmss-updater-runtime-bundle-v2"
+    ):
+        raise BuildError("native runtime bundle metadata is not the fixed v2 format")
+    declared_producer = _closed_object(
+        bundle_metadata["producerInputs"],
+        {"path", "sha256"},
+        "native runtime bundle metadata producerInputs",
+    )
+    if declared_producer != {
+        "path": evidence.bundle_path,
+        "sha256": evidence.metadata_digest,
+    }:
+        raise BuildError("native runtime bundle producer evidence disagrees with outer metadata")
+    try:
+        verified = producer_inputs.verify_producer_tree(producer_files)
+    except producer_inputs.ProducerInputsError as error:
+        raise BuildError(f"native producer tree is invalid: {error}") from error
+    if producer_directories != set(verified.directories):
+        raise BuildError("native producer directory inventory is not exact")
+    if (
+        verified.metadata_digest != evidence.metadata_digest
+        or verified.manifest_digest != evidence.manifest_digest
+    ):
+        raise BuildError("native producer identities disagree with outer metadata")
+    return PackagedProducerTree(files=producer_files, verified=verified)
+
+
+def _oci_member_path(value: str) -> str | None:
+    raw = value.rstrip("/")
+    while raw.startswith("./"):
+        raw = raw[2:]
+    if raw in {"", "."}:
+        return None
+    if "\\" in raw or "\0" in raw or raw.startswith("/"):
+        raise BuildError(f"OCI layer contains an unsafe path: {value!r}")
+    path = PurePosixPath(raw)
+    if any(part in {"", ".", ".."} for part in path.parts):
+        raise BuildError(f"OCI layer contains an unsafe path: {value!r}")
+    return path.as_posix()
+
+
+def _oci_digest(value: object, label: str) -> str:
+    return _prefixed_digest(value, label)
+
+
+def _oci_layout_files(image: Path) -> dict[str, bytes]:
+    try:
+        information = image.lstat()
+    except OSError as error:
+        raise BuildError(f"OCI layout archive is unavailable: {error}") from error
+    if (
+        not stat.S_ISREG(information.st_mode)
+        or information.st_size <= 0
+        or information.st_size > MAX_IMAGE_ARCHIVE_SIZE
+    ):
+        raise BuildError("OCI layout archive is not a bounded regular file")
+    files: dict[str, bytes] = {}
+    names: set[str] = set()
+    directories: set[str] = set()
+    try:
+        with tarfile.open(image, "r:") as archive:
+            for member in archive.getmembers():
+                raw_name = member.name
+                if (
+                    not raw_name
+                    or raw_name.startswith("/")
+                    or raw_name.startswith("./")
+                    or "\\" in raw_name
+                    or "\0" in raw_name
+                ):
+                    raise BuildError(f"OCI layout contains an unsafe member path: {raw_name!r}")
+                relative = _safe_relative(raw_name.rstrip("/")).as_posix()
+                if relative in names:
+                    raise BuildError(f"OCI layout contains duplicate member {relative}")
+                names.add(relative)
+                if member.isdir():
+                    if (
+                        relative not in {"blobs", "blobs/sha256"}
+                        or member.mode & 0o7777 != 0o555
+                        or member.uid != 0
+                        or member.gid != 0
+                    ):
+                        raise BuildError(f"OCI layout contains an unexpected directory: {relative}")
+                    directories.add(relative)
+                    continue
+                if (
+                    not member.isfile()
+                    or member.pax_headers
+                    or getattr(member, "sparse", None)
+                    or member.linkname
+                    or member.mode & 0o7777 != 0o444
+                    or member.uid != 0
+                    or member.gid != 0
+                ):
+                    raise BuildError(f"OCI layout contains a non-regular member: {relative}")
+                if (
+                    relative not in {"index.json", "manifest.json", "oci-layout"}
+                    and OCI_BLOB_PATH_RE.fullmatch(relative) is None
+                ):
+                    raise BuildError(f"OCI layout contains an extra member: {relative}")
+                if member.size <= 0 or member.size > MAX_IMAGE_MEMBER_SIZE:
+                    raise BuildError(f"OCI layout member is outside its size bound: {relative}")
+                if (
+                    relative in {"index.json", "manifest.json", "oci-layout"}
+                    and member.size > MAX_IMAGE_JSON_SIZE
+                ):
+                    raise BuildError(f"OCI layout JSON member is oversized: {relative}")
+                files[relative] = _read_tar_file(archive, member)
+    except (OSError, tarfile.TarError) as error:
+        raise BuildError(f"OCI layout archive is invalid: {error}") from error
+    if directories != {"blobs", "blobs/sha256"}:
+        raise BuildError("OCI layout directory inventory is not exact")
+    return files
+
+
+def _parse_json_object(source: bytes, label: str) -> dict[str, object]:
+    try:
+        value = producer_inputs.parse_json_bytes(
+            source,
+            label,
+            require_canonical=False,
+        )
+    except producer_inputs.ProducerInputsError as error:
+        raise BuildError(f"{label} is invalid: {error}") from error
+    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
+        raise BuildError(f"{label} must be an object")
+    return cast(dict[str, object], value)
+
+
+def _oci_blob(
+    layout: Mapping[str, bytes],
+    descriptor: Mapping[str, object],
+    label: str,
+    *,
+    maximum_size: int = MAX_IMAGE_MEMBER_SIZE,
+) -> tuple[str, bytes]:
+    digest = _oci_digest(descriptor.get("digest"), f"{label}.digest")
+    size = descriptor.get("size")
+    if isinstance(size, bool) or not isinstance(size, int) or size <= 0 or size > maximum_size:
+        raise BuildError(f"{label}.size is outside its accepted bound")
+    path = f"blobs/sha256/{digest[7:]}"
+    try:
+        value = layout[path]
+    except KeyError as error:
+        raise BuildError(f"{label} blob is missing from the OCI layout") from error
+    if len(value) != size or producer_inputs.sha256_bytes(value) != digest:
+        raise BuildError(f"{label} descriptor disagrees with its blob")
+    return digest, value
+
+
+def _inspect_oci_graph(
+    layout: Mapping[str, bytes],
+    *,
+    reference: str,
+    target: Target,
+) -> OciGraph:
+    if IMAGE_REFERENCE_RE.fullmatch(reference) is None or not reference.endswith(
+        f"-{target.architecture}"
+    ):
+        raise BuildError("OCI image reference is not the exact declared local tag")
+    try:
+        layout_bytes = layout["oci-layout"]
+        index_bytes = layout["index.json"]
+        compatibility_bytes = layout["manifest.json"]
+    except KeyError as error:
+        raise BuildError(f"OCI layout omits required root member: {error.args[0]}") from error
+    marker = _closed_object(
+        _parse_json_object(layout_bytes, "OCI layout marker"),
+        {"imageLayoutVersion"},
+        "OCI layout marker",
+    )
+    if marker["imageLayoutVersion"] != OCI_IMAGE_LAYOUT_VERSION:
+        raise BuildError("OCI layout version is not 1.0.0")
+
+    index = _parse_json_object(index_bytes, "OCI index")
+    manifests = index.get("manifests")
+    if (
+        index.get("schemaVersion") != 2
+        or index.get("mediaType") != OCI_INDEX_MEDIA_TYPE
+        or not isinstance(manifests, list)
+        or len(manifests) != 1
+        or not isinstance(manifests[0], dict)
+    ):
+        raise BuildError("OCI index must contain exactly one OCI schema-v2 manifest")
+    manifest_descriptor = cast(dict[str, object], manifests[0])
+    if manifest_descriptor.get("mediaType") != OCI_MANIFEST_MEDIA_TYPE:
+        raise BuildError("OCI index manifest media type is not OCI")
+    platform = manifest_descriptor.get("platform")
+    if platform != {"architecture": target.architecture, "os": target.os}:
+        raise BuildError("OCI manifest platform does not match the exact target")
+    annotations = manifest_descriptor.get("annotations")
+    expected_ref_name = reference.rsplit(":", 1)[1]
+    if (
+        not isinstance(annotations, dict)
+        or not all(
+            isinstance(key, str) and isinstance(value, str) for key, value in annotations.items()
+        )
+        or annotations.get("io.containerd.image.name") != reference
+        or annotations.get("org.opencontainers.image.ref.name") != expected_ref_name
+    ):
+        raise BuildError("OCI index does not bind the exact declared image tag")
+    manifest_digest, manifest_bytes = _oci_blob(
+        layout,
+        manifest_descriptor,
+        "OCI manifest",
+        maximum_size=MAX_IMAGE_JSON_SIZE,
+    )
+    manifest = _parse_json_object(manifest_bytes, "OCI manifest")
+    config_descriptor_value = manifest.get("config")
+    layers_value = manifest.get("layers")
+    if (
+        manifest.get("schemaVersion") != 2
+        or manifest.get("mediaType") != OCI_MANIFEST_MEDIA_TYPE
+        or not isinstance(config_descriptor_value, dict)
+        or not isinstance(layers_value, list)
+        or not layers_value
+    ):
+        raise BuildError("OCI manifest is not the accepted schema-v2 runtime graph")
+    config_descriptor = cast(dict[str, object], config_descriptor_value)
+    if config_descriptor.get("mediaType") != OCI_CONFIG_MEDIA_TYPE:
+        raise BuildError("OCI config descriptor does not use the OCI media type")
+    config_digest, config_bytes = _oci_blob(
+        layout,
+        config_descriptor,
+        "OCI config",
+        maximum_size=MAX_IMAGE_JSON_SIZE,
+    )
+    config = _parse_json_object(config_bytes, "OCI config")
+    if config.get("os") != target.os or config.get("architecture") != target.architecture:
+        raise BuildError("OCI config platform does not match the exact target")
+
+    layer_metadata: list[dict[str, object]] = []
+    layer_graph: list[tuple[dict[str, object], bytes]] = []
+    layer_paths: list[str] = []
+    expected_files = {
+        "index.json",
+        "manifest.json",
+        "oci-layout",
+        f"blobs/sha256/{manifest_digest[7:]}",
+        f"blobs/sha256/{config_digest[7:]}",
+    }
+    for index_value, descriptor_value in enumerate(layers_value):
+        if not isinstance(descriptor_value, dict):
+            raise BuildError(f"OCI layer descriptor {index_value} is invalid")
+        descriptor = cast(dict[str, object], descriptor_value)
+        if descriptor.get("mediaType") != OCI_LAYER_MEDIA_TYPE:
+            raise BuildError(f"OCI layer {index_value} does not use the OCI gzip media type")
+        layer_digest, layer_bytes = _oci_blob(
+            layout,
+            descriptor,
+            f"OCI layer {index_value}",
+        )
+        path = f"blobs/sha256/{layer_digest[7:]}"
+        layer_paths.append(path)
+        expected_files.add(path)
+        layer_record = {
+            "digest": layer_digest,
+            "mediaType": OCI_LAYER_MEDIA_TYPE,
+            "size": len(layer_bytes),
+        }
+        layer_metadata.append(layer_record)
+        layer_graph.append((layer_record, layer_bytes))
+
+    try:
+        compatibility_value = producer_inputs.parse_json_bytes(
+            compatibility_bytes,
+            "Docker compatibility manifest",
+            require_canonical=False,
+        )
+    except producer_inputs.ProducerInputsError as error:
+        raise BuildError(f"Docker compatibility manifest is invalid: {error}") from error
+    if not isinstance(compatibility_value, list) or len(compatibility_value) != 1:
+        raise BuildError("Docker compatibility manifest must contain exactly one record")
+    record = _closed_object(
+        compatibility_value[0],
+        {"Config", "Layers", "RepoTags"},
+        "Docker compatibility record",
+    )
+    expected_record: dict[str, object] = {
+        "Config": f"blobs/sha256/{config_digest[7:]}",
+        "RepoTags": [reference],
+        "Layers": layer_paths,
+    }
+    if record != expected_record:
+        raise BuildError("Docker compatibility manifest disagrees with the OCI graph or tag")
+    expected_compatibility_bytes = json.dumps(
+        [expected_record],
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode()
+    if compatibility_bytes != expected_compatibility_bytes:
+        raise BuildError("Docker compatibility manifest is not exporter canonical encoding")
+    if set(layout) != expected_files:
+        raise BuildError("OCI layout contains an extra, orphan, or missing graph member")
+
+    return OciGraph(
+        metadata={
+            "compatibility": expected_record,
+            "config": {
+                "digest": config_digest,
+                "mediaType": OCI_CONFIG_MEDIA_TYPE,
+                "size": len(config_bytes),
+            },
+            "layers": layer_metadata,
+            "manifest": {
+                "digest": manifest_digest,
+                "mediaType": OCI_MANIFEST_MEDIA_TYPE,
+                "size": len(manifest_bytes),
+            },
+            "reference": reference,
+        },
+        config=config,
+        layers=tuple(layer_graph),
+    )
+
+
+def _remove_oci_state(
+    state: dict[str, tuple[str, int, int, int, bytes | None]],
+    target: str,
+    removed: str,
+) -> None:
+    if removed == target or target.startswith(f"{removed}/"):
+        state.clear()
+        return
+    if not removed.startswith(f"{target}/"):
+        return
+    relative = removed.removeprefix(f"{target}/")
+    for path in tuple(state):
+        if path == relative or path.startswith(f"{relative}/"):
+            state.pop(path)
+
+
+def _opaque_oci_state(
+    state: dict[str, tuple[str, int, int, int, bytes | None]],
+    target: str,
+    directory: str,
+) -> None:
+    if directory == target or target.startswith(f"{directory}/"):
+        state.clear()
+        return
+    if not directory.startswith(f"{target}/"):
+        return
+    relative = directory.removeprefix(f"{target}/")
+    for path in tuple(state):
+        if path.startswith(f"{relative}/"):
+            state.pop(path)
+
+
+def _apply_oci_layer(
+    state: dict[str, tuple[str, int, int, int, bytes | None]],
+    layer_bytes: bytes,
+) -> None:
+    target = producer_inputs.OCI_PRODUCER_ROOT.removeprefix("/")
+    try:
+        with tarfile.open(fileobj=io.BytesIO(layer_bytes), mode="r:*") as archive:
+            members: list[tuple[str, tarfile.TarInfo]] = []
+            seen: set[str] = set()
+            for member in archive.getmembers():
+                path = _oci_member_path(member.name)
+                if path is None:
+                    continue
+                if path in seen:
+                    raise BuildError(f"OCI layer contains duplicate member {path}")
+                seen.add(path)
+                members.append((path, member))
+            for path, _member in members:
+                name = PurePosixPath(path).name
+                parent = PurePosixPath(path).parent.as_posix()
+                if name == ".wh..wh..opq":
+                    _opaque_oci_state(state, target, "" if parent == "." else parent)
+                elif name.startswith(".wh."):
+                    removed_name = name.removeprefix(".wh.")
+                    removed = removed_name if parent == "." else f"{parent}/{removed_name}"
+                    _remove_oci_state(state, target, removed)
+            for path, member in members:
+                name = PurePosixPath(path).name
+                if name == ".wh..wh..opq" or name.startswith(".wh."):
+                    continue
+                if target.startswith(f"{path}/") and not member.isdir():
+                    state.clear()
+                    continue
+                if path != target and not path.startswith(f"{target}/"):
+                    continue
+                relative = path.removeprefix(target).removeprefix("/")
+                if member.isdir():
+                    state[relative] = (
+                        "directory",
+                        member.mode & 0o7777,
+                        member.uid,
+                        member.gid,
+                        None,
+                    )
+                elif member.isfile():
+                    for existing in tuple(state):
+                        if existing.startswith(f"{relative}/"):
+                            state.pop(existing)
+                    state[relative] = (
+                        "file",
+                        member.mode & 0o7777,
+                        member.uid,
+                        member.gid,
+                        _read_tar_file(archive, member),
+                    )
+                else:
+                    raise BuildError(f"OCI producer tree contains a non-regular member: {path}")
+    except (OSError, tarfile.TarError) as error:
+        raise BuildError(f"OCI image layer is invalid: {error}") from error
+
+
+def _verify_oci_producer(
+    image: Path,
+    expected_oci: object,
+    evidence: ProducerEvidence,
+    target: Target,
+) -> PackagedProducerTree:
+    layout = _oci_layout_files(image)
+    expected_descriptor = _closed_object(
+        expected_oci,
+        {"compatibility", "config", "layers", "manifest", "reference"},
+        "Updater build metadata OCI record",
+    )
+    reference = expected_descriptor["reference"]
+    if not isinstance(reference, str):
+        raise BuildError("Updater build metadata OCI reference must be a string")
+    graph = _inspect_oci_graph(
+        layout,
+        reference=reference,
+        target=target,
+    )
+    config = graph.config
+    config_value = config.get("config")
+    if not isinstance(config_value, dict):
+        raise BuildError("OCI runtime config is invalid")
+    labels_value = cast(dict[str, object], config_value).get("Labels")
+    if not isinstance(labels_value, dict) or not all(
+        isinstance(key, str) and isinstance(value, str) for key, value in labels_value.items()
+    ):
+        raise BuildError("OCI runtime labels are invalid")
+    labels = cast(dict[str, str], labels_value)
+    expected_labels = {
+        producer_inputs.PRODUCER_INPUTS_LABEL: evidence.manifest_digest,
+        producer_inputs.CATALOG_CONFIG_LABEL: "",
+        producer_inputs.COMMON_COMMIT_LABEL: "",
+    }
+    state: dict[str, tuple[str, int, int, int, bytes | None]] = {}
+    for _descriptor, layer_bytes in graph.layers:
+        _apply_oci_layer(state, layer_bytes)
+    producer_files: dict[str, bytes] = {}
+    producer_directories: set[str] = set()
+    for relative, (kind, mode, uid, gid, content) in state.items():
+        if uid != 65532 or gid != 65532:
+            raise BuildError("OCI producer members must be owned by 65532:65532")
+        if kind == "directory":
+            if mode != 0o555 or content is not None:
+                raise BuildError("OCI producer directory has an unexpected mode or content")
+            producer_directories.add(relative)
+        else:
+            if kind != "file" or mode != 0o444 or content is None:
+                raise BuildError("OCI producer file has an unexpected type or mode")
+            producer_files[relative] = content
+    try:
+        verified = producer_inputs.verify_producer_tree(producer_files)
+    except producer_inputs.ProducerInputsError as error:
+        raise BuildError(f"OCI producer tree is invalid: {error}") from error
+    if producer_directories != set(verified.directories):
+        raise BuildError("OCI producer directory inventory is not exact")
+    expected_labels[producer_inputs.CATALOG_CONFIG_LABEL] = verified.catalog_config_digest
+    expected_labels[producer_inputs.COMMON_COMMIT_LABEL] = verified.common_commit
+    product_labels = {
+        key: value for key, value in labels.items() if key.startswith("org.bangumi-staff-stats.")
+    }
+    if product_labels != expected_labels:
+        raise BuildError("OCI producer labels disagree with packaged producer inputs")
+    if (
+        verified.metadata_digest != evidence.metadata_digest
+        or verified.manifest_digest != evidence.manifest_digest
+    ):
+        raise BuildError("OCI producer identities disagree with outer metadata")
+    if expected_descriptor != graph.metadata:
+        raise BuildError("Updater build metadata OCI descriptors disagree with the archive")
+    return PackagedProducerTree(files=producer_files, verified=verified)
+
+
+def _verify_producer_artifacts(
+    output: Path,
+) -> tuple[dict[str, object], ProducerEvidence]:
+    artifacts_root = output / "artifacts"
+    metadata_path = artifacts_root / "build-metadata.json"
+    metadata, evidence = _producer_evidence(metadata_path.read_bytes())
+    target_value = _closed_object(
+        metadata["target"],
+        {"architecture", "os"},
+        "Updater build metadata target",
+    )
+    target_os = target_value["os"]
+    target_architecture = target_value["architecture"]
+    if not isinstance(target_os, str) or not isinstance(target_architecture, str):
+        raise BuildError("Updater build metadata target values must be strings")
+    target = Target.parse(f"{target_os}/{target_architecture}")
+    artifacts = _closed_object(
+        metadata["artifacts"],
+        {"bundle", "image", "wheel"},
+        "Updater build metadata artifacts",
+    )
+    bundle_record = _artifact_record(
+        artifacts["bundle"],
+        "Updater build metadata bundle",
+        allow_oci=False,
+    )
+    bundle_path = _artifact_record_path(
+        output,
+        bundle_record,
+        "Updater runtime bundle",
+    )
+    native = _verify_native_producer(bundle_path, evidence)
+    image_value = artifacts["image"]
+    if image_value is not None:
+        image_record = _artifact_record(
+            image_value,
+            "Updater build metadata image",
+            allow_oci=True,
+        )
+        image_path = _artifact_record_path(
+            output,
+            image_record,
+            "Updater OCI image",
+        )
+        oci = _verify_oci_producer(
+            image_path,
+            image_record["oci"],
+            evidence,
+            target,
+        )
+        if native.files != oci.files:
+            raise BuildError("native and OCI producer bytes are not identical")
+        if native.verified.metadata != oci.verified.metadata:
+            raise BuildError("native and OCI producer metadata interpretations disagree")
+    return metadata, evidence
+
+
 def verify_output(output: Path, *, require_statement: bool) -> None:
     if output.is_symlink() or not output.is_dir():
         raise BuildError("artifact output must be a real directory")
@@ -1693,6 +2947,14 @@ def verify_output(output: Path, *, require_statement: bool) -> None:
         path = output.joinpath(*PurePosixPath(entry["path"]).parts)
         if sha256_file(path) != entry["sha256"]:
             raise BuildError(f"artifact checksum mismatch: {entry['path']}")
+    artifact_names = {PurePosixPath(cast(str, item["path"])).name for item in inventory}
+    metadata_path = output / "artifacts" / "build-metadata.json"
+    looks_like_updater_output = any(name.startswith("updater-runtime-") for name in artifact_names)
+    if looks_like_updater_output and not metadata_path.is_file():
+        raise BuildError("Updater artifact output has no build-metadata.json")
+    producer_evidence: ProducerEvidence | None = None
+    if metadata_path.is_file():
+        _metadata, producer_evidence = _verify_producer_artifacts(output)
     try:
         sbom = json.loads((output / "sbom.spdx.json").read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
@@ -1703,14 +2965,29 @@ def verify_output(output: Path, *, require_statement: bool) -> None:
         raise BuildError("SPDX JSON is not canonical")
     verify_spdx_artifact_coverage(sbom, inventory)
     if require_statement:
-        try:
-            statement = json.loads(
-                (output / "component-statement.json").read_text(encoding="utf-8")
-            )
-        except json.JSONDecodeError as error:
-            raise BuildError(f"invalid component statement JSON: {error}") from error
-        if canonical_json(statement) != (output / "component-statement.json").read_bytes():
-            raise BuildError("component statement JSON is not canonical")
+        statement = _canonical_json_document(
+            (output / "component-statement.json").read_bytes(),
+            "component statement",
+        )
+        if producer_evidence is not None:
+            inputs = statement.get("inputs")
+            if not isinstance(inputs, list):
+                raise BuildError("component statement has no input inventory")
+            producer_records = [
+                value
+                for value in inputs
+                if isinstance(value, dict)
+                and value.get("path") == "contracts/producer-runtime-inputs-v1"
+            ]
+            if producer_records != [
+                {
+                    "path": "contracts/producer-runtime-inputs-v1",
+                    "sha256": producer_evidence.manifest_digest,
+                }
+            ]:
+                raise BuildError(
+                    "component statement producer manifest input disagrees with build metadata"
+                )
 
 
 def compare_trees(first: Path, second: Path) -> None:
@@ -1853,12 +3130,12 @@ def build_component(
     if docker is not None:
         verified_builder = _verify_docker_toolchain(docker, builder=builder)
     snapshot = work_root / "source"
-    _copy_source_snapshot(snapshot, attestation)
+    selected_producer = _copy_source_snapshot(snapshot, attestation)
     input_digest = tree_digest(snapshot)
     stage = work_root / "output"
     artifacts = stage / "artifacts"
     _ensure_generated_directory(artifacts)
-    wheel, bundle, runtime_packages = _build_wheel_and_bundle(
+    wheel, bundle, runtime_packages, producer_metadata = _build_wheel_and_bundle(
         snapshot=snapshot,
         work_root=work_root,
         artifacts=artifacts,
@@ -1866,20 +3143,29 @@ def build_component(
         python=python,
         target=target,
         identity=identity,
+        selected_producer=selected_producer,
     )
+    producer_metadata_digest = producer_inputs.sha256_bytes(producer_metadata)
     image_path: Path | None = None
     image_metadata: Mapping[str, Any] | None = None
     if docker is not None:
         if verified_builder is None:
             raise BuildError("Docker build requires a verified Buildx builder")
-        image_path, image_metadata = _build_oci(
+        oci_context = _make_oci_context(
             snapshot=snapshot,
+            work_root=work_root,
+            selected=selected_producer,
+            metadata_bytes=producer_metadata,
+        )
+        image_path, image_metadata = _build_oci(
+            context=oci_context,
             work_root=work_root,
             artifacts=artifacts,
             target=target,
             identity=identity,
             docker=docker,
             builder=verified_builder,
+            producer_metadata=producer_metadata,
         )
     artifact_package_count = len(_iter_regular_files(artifacts)) + 1
     metadata: dict[str, Any] = {
@@ -1909,11 +3195,22 @@ def build_component(
         "buildDefinitionSha256": _build_definition_digest(),
         "component": COMPONENT_ID,
         "inputs": {
+            "producerInputsSha256": producer_metadata_digest,
+            "producerRuntimeInputsManifestSha256": selected_producer.manifest_digest,
             "sourceSnapshotSha256": input_digest,
             "uvLockSha256": sha256_file(snapshot / "uv.lock"),
         },
+        "producerInputs": {
+            "bundlePath": (
+                f"{producer_inputs.NATIVE_PRODUCER_ROOT}/{producer_inputs.PRODUCER_METADATA_PATH}"
+            ),
+            "imagePath": (
+                f"{producer_inputs.OCI_PRODUCER_ROOT}/{producer_inputs.PRODUCER_METADATA_PATH}"
+            ),
+            "sha256": producer_metadata_digest,
+        },
         "runtimePackages": runtime_packages,
-        "schemaVersion": "bgmss-updater-build-metadata-v1",
+        "schemaVersion": "bgmss-updater-build-metadata-v2",
         "sbomPackageCount": artifact_package_count + len(runtime_packages) - 1,
         "source": {"revision": identity.revision, "tree": identity.tree},
         "target": {"architecture": target.architecture, "os": target.os},
@@ -1976,9 +3273,25 @@ def verify_dockerfile(path: Path = UPDATER_ROOT / "Dockerfile") -> None:
         raise BuildError("Dockerfile base pins must not be overrideable build arguments")
     if value.count("USER 65532:65532") != 1:
         raise BuildError("Dockerfile must set exactly one final non-root user")
+    producer_arguments = (
+        "PRODUCER_RUNTIME_INPUTS_MANIFEST_SHA256",
+        "PRODUCER_CATALOG_CONFIG_DIGEST",
+        "PRODUCER_COMMON_COMMIT",
+    )
+    for argument in producer_arguments:
+        if value.count(f"ARG {argument}") != 2:
+            raise BuildError(f"Dockerfile must bind {argument} in both build stages")
     required = {
+        "COPY producer/contracts /opt/bgmss/producer/contracts": ("embedded Contracts copy"),
+        "COPY producer/catalog /opt/bgmss/producer/catalog": ("embedded catalog copy"),
+        "COPY producer/metadata /opt/bgmss/producer/metadata": ("embedded producer metadata copy"),
+        (
+            "COPY --from=builder --chown=65532:65532 /opt/bgmss/producer /opt/bgmss/producer"
+        ): "non-root producer runtime copy",
         "ENTRYPOINT": "one-shot entrypoint",
         "PATH=/usr/local/bin:/usr/bin:/bin": "runtime command path",
+        "find /opt/bgmss/producer -type d -exec chmod 0555": ("immutable producer directories"),
+        "find /opt/bgmss/producer -type f -exec chmod 0444": ("immutable producer files"),
         "uv sync --frozen": "frozen dependency install",
         "uv build --offline --wheel": "offline wheel build",
         "uv pip install --offline": "offline runtime install",
@@ -1990,11 +3303,15 @@ def verify_dockerfile(path: Path = UPDATER_ROOT / "Dockerfile") -> None:
     for needle, purpose in required.items():
         if needle not in value:
             raise BuildError(f"Dockerfile is missing {purpose}")
+    for label in producer_inputs.PRODUCER_LABELS:
+        if value.count(label) != 1:
+            raise BuildError(f"Dockerfile must set exact producer label {label}")
     forbidden = (
         "current.json",
         "update_activated",
         "systemd",
         "crond",
+        "volume ",
         "docker push",
         "registry login",
     )
