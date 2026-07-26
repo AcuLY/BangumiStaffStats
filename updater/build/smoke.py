@@ -72,6 +72,7 @@ else:
 
 CONTAINER_TMPFS = "/tmp:rw,noexec,nosuid,size=8m"  # noqa: S108
 SMOKE_OWNER_LABEL = "org.bangumi-staff-stats.smoke-owner"
+CATALOG_PROBE_PYTHON_FLAGS = ("-P", "-s")
 _OWNER_TOKEN_RE = re.compile(r"^[0-9a-f]{32}$")
 _CONTAINER_ID_RE = re.compile(r"^[0-9a-f]{64}$")
 _IMAGE_ID_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -824,7 +825,7 @@ def smoke(
             owned_container_ids=owned_container_ids,
             entrypoint="/usr/local/bin/python",
             command=[
-                "-I",
+                *CATALOG_PROBE_PYTHON_FLAGS,
                 "-c",
                 catalog_probe,
             ],
