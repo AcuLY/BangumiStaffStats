@@ -4,6 +4,12 @@
 # Local editor state
 /.vscode/
 
+# Repository-level Python tool caches
+/.cache/mypy/
+/.cache/ruff/
+/.mypy_cache/
+/.ruff_cache/
+
 # Local secrets and environment overrides
 .env
 .env.*
