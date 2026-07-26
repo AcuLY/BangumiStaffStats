@@ -19,6 +19,15 @@ const generatedRoots = [
   ".cache/go-path",
   ".tmp"
 ];
+const queryOwnedGitignorePrefix = "/contracts/goldens/query/";
+const queryOwnedGitignoreRules = [
+  "/contracts/goldens/query/node_modules/",
+  "/contracts/goldens/query/.cache/npm/",
+  "/contracts/goldens/query/.cache/go-build/",
+  "/contracts/goldens/query/.cache/go-mod/",
+  "/contracts/goldens/query/.cache/go-path/",
+  "/contracts/goldens/query/.tmp/"
+];
 const cacheLeafRoots = generatedRoots.filter((root) =>
   root.startsWith(".cache/")
 );
@@ -1321,6 +1330,117 @@ function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
+function assertQueryOwnedGitignoreProjection(bytes, label) {
+  let document;
+  try {
+    document = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch (error) {
+    fail(`${label}: invalid UTF-8: ${error.message}`);
+  }
+  assert.equal(
+    document.includes("\r"),
+    false,
+    `${label}: CR/CRLF is forbidden`
+  );
+  assert.equal(document.endsWith("\n"), true, `${label}: final LF is required`);
+  const ownedRules = document
+    .slice(0, -1)
+    .split("\n")
+    .filter(
+      (line) =>
+        !line.startsWith("#") && line.startsWith(queryOwnedGitignorePrefix)
+    );
+  assert.deepEqual(
+    ownedRules,
+    queryOwnedGitignoreRules,
+    `${label}: Query-owned rule projection`
+  );
+  return ownedRules;
+}
+
+function verifyQueryOwnedGitignoreProjectionCases() {
+  const document = (rules) =>
+    Buffer.from(
+      [
+        "# unrelated accepted owner rules",
+        "/.vscode/",
+        "/contracts/goldens/api/*/.cache/",
+        ...rules,
+        "/contracts/schemas/archive/.cache/",
+        "/.impeccable/live/cache/",
+        ""
+      ].join("\n"),
+      "utf8"
+    );
+  assert.deepEqual(
+    assertQueryOwnedGitignoreProjection(
+      document(queryOwnedGitignoreRules),
+      "synthetic unrelated-owner acceptance"
+    ),
+    queryOwnedGitignoreRules
+  );
+
+  const swapped = [...queryOwnedGitignoreRules];
+  [swapped[1], swapped[2]] = [swapped[2], swapped[1]];
+  const negativeCases = [
+    ["missing", document(queryOwnedGitignoreRules.slice(1))],
+    [
+      "duplicate",
+      document([queryOwnedGitignoreRules[0], ...queryOwnedGitignoreRules])
+    ],
+    ["reordered", document(swapped)],
+    [
+      "broadened",
+      document([
+        ...queryOwnedGitignoreRules.slice(0, -1),
+        "/contracts/goldens/query/**"
+      ])
+    ],
+    [
+      "extra",
+      document([...queryOwnedGitignoreRules, "/contracts/goldens/query/extra/"])
+    ],
+    [
+      "wildcard",
+      document([
+        ...queryOwnedGitignoreRules.slice(0, -1),
+        "/contracts/goldens/query/*"
+      ])
+    ],
+    [
+      "unanchored",
+      document([
+        ...queryOwnedGitignoreRules.slice(0, -1),
+        "contracts/goldens/query/.tmp/"
+      ])
+    ],
+    [
+      "CRLF",
+      Buffer.from(
+        document(queryOwnedGitignoreRules)
+          .toString("utf8")
+          .replaceAll("\n", "\r\n"),
+        "utf8"
+      )
+    ],
+    ["invalid UTF-8", Buffer.from([0xc3, 0x28, 0x0a])],
+    [
+      "no final LF",
+      Buffer.from(
+        document(queryOwnedGitignoreRules).toString("utf8").slice(0, -1),
+        "utf8"
+      )
+    ]
+  ];
+  for (const [name, bytes] of negativeCases) {
+    assert.throws(
+      () => assertQueryOwnedGitignoreProjection(bytes, `synthetic ${name}`),
+      undefined,
+      `synthetic ${name} must fail`
+    );
+  }
+}
+
 function base64url(value) {
   return Buffer.from(value).toString("base64url");
 }
@@ -1467,34 +1587,23 @@ assert.equal(manifest.oracleEvidence.observations.tagOccurrences, 7059);
 assert.equal(manifest.oracleEvidence.observations.longestObservedTagUtf8Bytes, 72);
 assert(!JSON.stringify(manifest).includes("TO_BE_FILLED"), "manifest has placeholders");
 
-const exactRootGitignore = [
-  "# macOS",
-  ".DS_Store",
-  "",
-  "# Local secrets and environment overrides",
-  ".env",
-  ".env.*",
-  "!.env.example",
-  "!.env.*.example",
-  "",
-  "# Query contract tool state; physically absent at candidate handoff",
-  "/contracts/goldens/query/node_modules/",
-  "/contracts/goldens/query/.cache/npm/",
-  "/contracts/goldens/query/.cache/go-build/",
-  "/contracts/goldens/query/.cache/go-mod/",
-  "/contracts/goldens/query/.cache/go-path/",
-  "/contracts/goldens/query/.tmp/",
-  ""
-].join("\n");
 const rootGitignoreBytes = fs.readFileSync(path.join(repositoryRoot, ".gitignore"));
-assert.equal(new TextDecoder("utf-8", { fatal: true }).decode(rootGitignoreBytes), exactRootGitignore);
+assert.deepEqual(
+  assertQueryOwnedGitignoreProjection(rootGitignoreBytes, "root .gitignore"),
+  queryOwnedGitignoreRules
+);
+verifyQueryOwnedGitignoreProjectionCases();
+const queryOwnedRulesBytes = Buffer.from(
+  `${queryOwnedGitignoreRules.join("\n")}\n`,
+  "utf8"
+);
 assert.deepEqual(manifest.acceptanceEvidence.gitignore, {
   path: ".gitignore",
   encoding: "UTF-8",
   lineEndings: "LF",
   finalLf: true,
-  bytes: rootGitignoreBytes.byteLength,
-  sha256: sha256(rootGitignoreBytes)
+  ownedRules: queryOwnedGitignoreRules,
+  ownedRulesSha256: sha256(queryOwnedRulesBytes)
 });
 
 const authorityContext = createReferenceContext(openapiPath, schemaRoot);

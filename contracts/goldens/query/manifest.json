@@ -861,8 +861,15 @@
       "encoding": "UTF-8",
       "lineEndings": "LF",
       "finalLf": true,
-      "bytes": 402,
-      "sha256": "6758f666a9edc315a5e0c490b12de8ab6f0ca3cb4fb08251d2c8c6169ed228bc"
+      "ownedRules": [
+        "/contracts/goldens/query/node_modules/",
+        "/contracts/goldens/query/.cache/npm/",
+        "/contracts/goldens/query/.cache/go-build/",
+        "/contracts/goldens/query/.cache/go-mod/",
+        "/contracts/goldens/query/.cache/go-path/",
+        "/contracts/goldens/query/.tmp/"
+      ],
+      "ownedRulesSha256": "588b3785c3bc917d78818fc3aabe5effc1130117d5075a5b610ea49a559fef08"
     },
     "runtime": {
       "fixedPath": "/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
@@ -943,8 +950,8 @@
       "version": 1,
       "verifier": {
         "path": "contracts/goldens/query/verify.mjs",
-        "bytes": 114278,
-        "sha256": "87d942d7660a77a430f835bf99e156a4464dc14b171b4abcda6d7af265751c90"
+        "bytes": 117058,
+        "sha256": "7a5d323e927410067b4e148c9f2ae8d2b84c2a3dbc81cf20fbc8df8bca29a1e2"
       },
       "command": {
         "argv": [
