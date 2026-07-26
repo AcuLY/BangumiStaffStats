@@ -49,9 +49,10 @@ uv run --frozen bgmss-updater contract-check --contracts-root ../contracts
 uv run --frozen bgmss-updater produce \
   --output-root /absolute/canonical/archive-root \
   --contracts-root "$PWD/../contracts" \
-  --catalog-config /absolute/canonical/catalog.json \
+  --catalog-config /absolute/canonical/display-v1.yaml \
   --common-commit 6a8442c17143a870357a5ff812362e8b5cfe9f9d \
-  --archive-smoke /absolute/canonical/archive-smoke
+  --archive-smoke /absolute/canonical/archive-smoke \
+  --status-file /absolute/canonical/update-status.json
 ```
 
 The contract checker reads the supplied `contracts/` tree without copying,
@@ -63,12 +64,12 @@ staging directory and, after every Python and Go gate succeeds, atomically
 publishes `versions/<dataVersion>/{manifest.json,bangumi.sqlite}`. It never
 creates or reads `current.json`.
 
-The catalog config is strict JSON with top-level `positions` and `groups`
-arrays. Each position declares a stable `positionKey`, one of the five Archive
-`subjectType` values, `staff` or `cast` kind, label, display order,
-selectability, capabilities, and an exact selection rule. Each group declares
-a stable key, subject type, label, display order, and existing position keys.
-The accepted producer golden under
+The catalog input is the strict YAML pair `display-v1.yaml` and its required
+same-directory sibling `staff-sets-v1.yaml`. The display file governs groups,
+shortcuts, and common-position presentation; the staff-set file governs
+dormant custom sets without silently activating them. Both are schema-checked
+and their exact combined identity enters the published Archive manifest. The
+accepted producer golden under
 `../contracts/goldens/archive/producer/cases/valid-seven-source.json` contains
 a compact development example; production callers own the explicit config
 path and review its digest as part of the resulting dataVersion.

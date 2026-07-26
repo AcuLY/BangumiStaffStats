@@ -1,9 +1,11 @@
 # Formal frontend
 
 This directory is the clean-room production frontend for Bangumi Staff
-Statistics. It starts with one Vue SPA and deliberately contains no business
-feature, real API endpoint, fixture, prototype boot path, or frontend-owned
-statistics.
+Statistics. One Vue SPA provides the query editor, rankings, person detail,
+candidate selection, single-person partner analysis, and multi-person co-star
+analysis through strict generated same-origin API contracts. It contains no
+runtime fixture, prototype boot path, second request/state layer, or
+frontend-owned statistics.
 
 ## Local commands
 
@@ -17,5 +19,6 @@ Run commands from this directory with Node `24.18.0` and npm `11.16.0`.
 - `npm run check:artifact` checks the built artifact and gzip budget.
 - `npm run cleanup` removes only the declared disposable frontend roots.
 
-The Vite fallback intentionally serves the same neutral foundation at `/`,
-`/ranking`, and `/co-star`. Route behavior belongs to a later approved change.
+`/` and `/index.html` canonically replace to `/ranking`; `/ranking` and
+`/co-star` are the two production modes of the same SPA. History, share,
+theme, Draft/Applied Query, and latest-response behavior each have one owner.

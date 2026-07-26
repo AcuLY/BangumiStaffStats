@@ -16,10 +16,20 @@ App.vue
         -> api/adapters/catalog.ts (strict catalog boundary)
      -> api/rankings.ts
         -> api/adapters/rankings.ts (strict success/error boundary)
+     -> api/candidates.ts
+        -> api/adapters/candidates.ts
+     -> api/personDetail.ts
+        -> api/adapters/personDetail.ts
+     -> api/partners.ts
+        -> api/adapters/partners.ts
+     -> api/coStar.ts
+        -> api/adapters/coStar.ts
   -> features/catalog/store.ts (catalog lifecycle)
   -> features/query/store.ts (Draft / Applied / revision)
   -> features/query/coordinator.ts (operation transactions)
   -> features/ranking (view state and result presentation)
+  -> features/person-detail (one coordinated adaptive inspector)
+  -> features/co-star (candidate, partner, pair, and group analysis)
   -> app/routes.ts + app/theme.ts (History/share and theme owners)
 ```
 
@@ -38,10 +48,13 @@ injects no result fixture: unavailable result capabilities fail closed.
 The shared OpenAPI and JSON Schemas under `../contracts` are read-only
 authorities. Generated catalog values cross `api/adapters/catalog.ts`; generated
 query values are confined to the query adapter/model/coordinator/share boundary.
-Generated rankings values cross `api/adapters/rankings.ts` and never enter a
-component. The rankings port separates the local transaction ID used for
-latest-response admission from the server request ID stored for result/error
-correlation.
+Generated operation values cross only their matching adapter and never enter a
+component. Rankings, candidates, person detail, partners, and co-star ports
+separate the local transaction ID used for latest-response admission from the
+server request ID stored for result/error correlation. The person-detail
+feature owns one coordinated resource across ranking selection and co-star
+surfaces; the co-star feature owns one identity-selection state and consumes
+server-authoritative candidate, partner, pair, and group projections.
 PositionKey is opaque application data: the frontend validates references and
 capabilities but never derives meaning from its string prefix.
 

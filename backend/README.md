@@ -10,8 +10,9 @@ reloads, or exposes a business route.
 If the mandatory event writer fails or short-writes, startup closes the owned
 Archive state and returns without serving.
 
-The development runtime has exactly three infrastructure routes, one
-same-origin image route, and the immutable Catalog route:
+A successfully loaded runtime has three infrastructure routes, one
+same-origin image route, the immutable Catalog route, and five strict
+business-operation routes:
 
 ```text
 GET /livez
@@ -19,9 +20,14 @@ GET /readyz
 GET /metrics
 GET /api/v1/images/bangumi/{subjects|persons|characters}/{positiveID}?type={small|grid|large|medium|common}
 GET /api/v1/catalog
+POST /api/v1/rankings
+POST /api/v1/candidates
+POST /api/v1/person-detail
+POST /api/v1/partners
+POST /api/v1/co-star
 ```
 
-All five reject other methods. `/readyz` performs one fixed one-second
+Every route rejects unapproved methods. `/readyz` performs one fixed one-second
 `archive_meta` identity read through the published Store. `/metrics` is
 standard-library, low-cardinality Prometheus text instrumentation; its
 production exposure, scrape configuration, retention, alerts, and SLOs remain
@@ -71,7 +77,7 @@ caller-supplied UID-bound immutable collection snapshot and overlays only its
 status, score, update month, and tags.
 
 The package intentionally does not compute statistics, merge series, search,
-sort, paginate, cache, fetch a collection, or expose an HTTP endpoint.
+sort, paginate, cache, fetch a collection, or expose an HTTP endpoint itself.
 `mergeSeries` remains part of Effective Query and its digest for the later
 statistics layer, but does not change these raw Subject sets.
 
