@@ -290,9 +290,15 @@ compilation. Rewriting the golden or substituting the frozen two-binary Go
 mirror would violate the owner gate, while that mirror cannot execute without
 the original GOROOT. The harness therefore inventories and content-seals the
 complete canonical historical npm package root and GOROOT, cross-binds the
-fixed executables and the `go`/`gofmt` cache mirror, runs the Query gate under
-an outer sandbox that denies writes to both runtime roots and denies network,
-then re-inventories and re-seals both trees. The result records this
+fixed executables and the `go`/`gofmt` cache mirror, and keeps those runtime
+roots non-writable before re-inventory and re-seal. Every Query command runs
+under the Harness outer network-denial sandbox except
+`--verify-codegen-projections`: macOS rejects its verifier-owned child
+sandboxes when the verifier is already sandboxed, so that one command runs
+directly with fixed Node/argv/cwd/environment/timeout. The accepted Query
+verifier remains the sole Go executor, and the Harness requires all four Go
+child results to bind the exact inner profile containing both
+`(deny network*)` and the telemetry-directory write denial. The result records this
 owner-fixed in-place exception and SHALL NOT describe it as a copied or
 hermetic new-inode tool closure. Any missing, linked, special, changed, or
 newly created runtime entry blocks acceptance.

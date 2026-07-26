@@ -136,7 +136,13 @@ commit, push, sync, archive, or update task markers.
   errors and nine warnings, produce both Redocly bundles, and bind each locked
   `openapi-typescript` command to its own
   `.tmp/codegen-{a,b}/source/openapi/openapi.yaml` and reject the expanded
-  shared OpenAPI, dereferenced bundles, or cross-fed projections;
+  shared OpenAPI, dereferenced bundles, or cross-fed projections; keep every
+  Query command under the outer network-denial sandbox except the exact
+  `--verify-codegen-projections` command, which macOS requires to run directly
+  so its verifier-owned child sandboxes can apply; lock that direct command's
+  Node/argv/cwd/environment/timeout and require exactly four Go child results
+  binding the accepted inner `(deny network*)` plus telemetry-write-denial
+  profile, wrapper argv and module pre/post seals;
   enforce the actual directed manifest-to-validation/plan bindings, record the
   canonical `preAdmission` evidence, repeat it as `postCleanup`, and bind both
   phases through the final evidence descriptor; record exact
