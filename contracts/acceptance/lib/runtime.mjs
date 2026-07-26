@@ -205,6 +205,21 @@ function safeRunToken(runId) {
   return runId.slice(4);
 }
 
+function acceptedUpdaterImageReference(artifacts, reference) {
+  const revision = artifacts?.statements?.updater?.source?.revision;
+  const revisionIsObjectId =
+    typeof revision === 'string' &&
+    /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(revision);
+  const expected =
+    revisionIsObjectId
+      ? `localhost/bgmss-updater-artifact:${revision}-arm64`
+      : null;
+  if (typeof reference !== 'string' || reference !== expected) {
+    fail('Updater build metadata has an invalid image reference');
+  }
+  return reference;
+}
+
 export function acceptedRuntimeOwnershipPlan({ runId, artifacts }) {
   const token = safeRunToken(runId);
   const updaterRoot = artifacts.roots.updater;
@@ -213,16 +228,10 @@ export function acceptedRuntimeOwnershipPlan({ runId, artifacts }) {
     { label: 'Updater build metadata', type: 'file' },
   );
   const updaterMetadata = readJsonStrict(updaterMetadataPath);
-  const updaterReference =
-    updaterMetadata?.artifacts?.image?.oci?.reference;
-  if (
-    typeof updaterReference !== 'string' ||
-    !/^bgmss-updater-artifact:[0-9a-f]{12}-arm64$/u.test(
-      updaterReference,
-    )
-  ) {
-    fail('Updater build metadata has an invalid image reference');
-  }
+  const updaterReference = acceptedUpdaterImageReference(
+    artifacts,
+    updaterMetadata?.artifacts?.image?.oci?.reference,
+  );
   return Object.freeze({
     names: Object.freeze({
       network: `bgmss-accept-${token}`,
@@ -723,14 +732,11 @@ export class AcceptedRuntime {
       { label: 'Updater build metadata', type: 'file' },
     );
     const metadata = readJsonStrict(metadataPath);
-    const reference = metadata?.artifacts?.image?.oci?.reference;
+    const reference = acceptedUpdaterImageReference(
+      this.artifacts,
+      metadata?.artifacts?.image?.oci?.reference,
+    );
     const manifestDigest = metadata?.artifacts?.image?.oci?.manifest?.digest;
-    if (
-      typeof reference !== 'string' ||
-      !/^bgmss-updater-artifact:[0-9a-f]{12}-arm64$/u.test(reference)
-    ) {
-      fail('Updater build metadata has an invalid image reference');
-    }
     if (!/^sha256:[0-9a-f]{64}$/u.test(manifestDigest)) {
       fail('Updater build metadata has an invalid OCI manifest digest');
     }

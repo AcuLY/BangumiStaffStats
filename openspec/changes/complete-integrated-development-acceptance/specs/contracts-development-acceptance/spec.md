@@ -677,6 +677,18 @@ equals either the manifest or config digest. Without a `Descriptor`, only a
 classic image store whose `Id` exactly equals the admitted config digest MAY
 pass; a descriptor-less containerd image store SHALL fail closed.
 
+The Updater OCI reference read from its admitted build metadata SHALL equal
+`localhost/bgmss-updater-artifact:<accepted-product-revision>-arm64`
+exactly. The harness SHALL reject a shortened revision, a missing
+`localhost/` repository, a substituted revision, or any other tag shape
+before loading the image.
+
+#### Scenario: Updater metadata names a substituted image
+
+- **WHEN** the Updater build metadata image reference does not exactly bind
+  the accepted Product revision and `linux/arm64` target
+- **THEN** runtime admission SHALL fail before Docker loads an image
+
 The supervisor SHALL record the first valid post-load inspected `Id` before
 performing the remaining image checks. Cleanup MAY remove only the exact
 run-owned repository tag and SHALL never remove an image by manifest, config,

@@ -24,7 +24,9 @@ const INPUT_DIGEST = `sha256:${'1'.repeat(64)}`;
 const BACKEND_REVISION = '2'.repeat(40);
 const BACKEND_IMAGE =
   `localhost/bgmss-backend-api:${BACKEND_REVISION}-arm64`;
-const UPDATER_IMAGE = 'bgmss-updater-artifact:333333333333-arm64';
+const UPDATER_REVISION = '3'.repeat(40);
+const UPDATER_IMAGE =
+  `localhost/bgmss-updater-artifact:${UPDATER_REVISION}-arm64`;
 
 function sha256(bytes) {
   return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
@@ -631,10 +633,48 @@ exit 9
           artifacts: [{ path: 'backend.oci.tar' }],
         },
         updater: {
+          source: { revision: UPDATER_REVISION },
           artifacts: [{ path: 'updater.oci.tar' }],
         },
       },
     };
+    const updaterMetadataPath = path.join(
+      updaterRoot,
+      'artifacts',
+      'build-metadata.json',
+    );
+    const updaterMetadata = JSON.parse(
+      fs.readFileSync(updaterMetadataPath, 'utf8'),
+    );
+    fs.writeFileSync(
+      updaterMetadataPath,
+      canonicalJson({
+        ...updaterMetadata,
+        artifacts: {
+          ...updaterMetadata.artifacts,
+          image: {
+            ...updaterMetadata.artifacts.image,
+            oci: {
+              ...updaterMetadata.artifacts.image.oci,
+              reference:
+                `localhost/bgmss-updater-artifact:${'4'.repeat(40)}-arm64`,
+            },
+          },
+        },
+      }),
+    );
+    assert.throws(
+      () =>
+        new SupervisorRuntimeOwnership({
+          allocation,
+          artifacts: artifactAttestation,
+          budgets: configuration.budgets,
+          docker: { path: docker },
+          dockerEndpoint: `unix://${dockerSocket}`,
+        }),
+      /invalid image reference/u,
+    );
+    fs.writeFileSync(updaterMetadataPath, canonicalJson(updaterMetadata));
     const ownership = new SupervisorRuntimeOwnership({
       allocation,
       artifacts: artifactAttestation,
