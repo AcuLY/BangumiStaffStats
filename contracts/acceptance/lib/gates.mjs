@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
 import {
@@ -159,6 +160,21 @@ const CURRENT_NPM_PACKAGES = Object.freeze([
   'contracts/goldens/api/partners',
   'contracts/goldens/api/co-star',
 ]);
+const CATALOG_GO_PROXY_VERSION = 'v2.8.0';
+const CATALOG_GO_PROXY_LIST_BYTES = `${CATALOG_GO_PROXY_VERSION}\n`;
+const CATALOG_GO_PROXY_VERSION_PATH = Object.freeze([
+  'github.com',
+  'oapi-codegen',
+  'oapi-codegen',
+  'v2',
+  '@v',
+]);
+const CATALOG_GO_PROXY_ASSET_SUFFIXES = Object.freeze([
+  'info',
+  'mod',
+  'zip',
+  'ziphash',
+]);
 
 const SCHEMA_NPM_PACKAGE_GENERATED_ROOTS = Object.freeze({
   'contracts/schemas/archive/tooling': Object.freeze([
@@ -229,6 +245,90 @@ export function currentNpmPackageCacheRelative(relative) {
   throw new Error(
     `Contracts npm package has no cache placement policy: ${relative}`,
   );
+}
+
+export function materializeCatalogGoFileProxy(moduleCacheRoot) {
+  const cacheRoot = requireCanonicalPath(moduleCacheRoot, {
+    label: 'Catalog Go module cache',
+    type: 'directory',
+  });
+  const proxyRoot = requireCanonicalPath(
+    path.join(cacheRoot, 'cache', 'download'),
+    {
+      label: 'Catalog Go file proxy',
+      type: 'directory',
+    },
+  );
+  const versionRoot = requireCanonicalPath(
+    path.join(proxyRoot, ...CATALOG_GO_PROXY_VERSION_PATH),
+    {
+      label: 'Catalog oapi-codegen version root',
+      type: 'directory',
+    },
+  );
+  for (const suffix of CATALOG_GO_PROXY_ASSET_SUFFIXES) {
+    const asset = requireCanonicalPath(
+      path.join(
+        versionRoot,
+        `${CATALOG_GO_PROXY_VERSION}.${suffix}`,
+      ),
+      {
+        label: `Catalog oapi-codegen ${suffix} asset`,
+        type: 'file',
+      },
+    );
+    const information = fs.lstatSync(asset);
+    if (!information.isFile() || information.nlink !== 1) {
+      fail(`Catalog oapi-codegen ${suffix} asset is not single-link`);
+    }
+  }
+  const listPath = path.join(versionRoot, 'list');
+  if (fs.existsSync(listPath)) {
+    fail('Catalog Go file proxy version list already exists');
+  }
+  fs.writeFileSync(listPath, CATALOG_GO_PROXY_LIST_BYTES, {
+    flag: 'wx',
+    mode: 0o400,
+  });
+  const information = fs.lstatSync(listPath);
+  if (
+    !information.isFile() ||
+    information.nlink !== 1 ||
+    (information.mode & 0o777) !== 0o400
+  ) {
+    fail('Catalog Go file proxy version list identity is invalid');
+  }
+  return Object.freeze({
+    bytes: Buffer.byteLength(CATALOG_GO_PROXY_LIST_BYTES),
+    device: information.dev,
+    inode: information.ino,
+    mode: information.mode & 0o777,
+    path: listPath,
+    proxy: pathToFileURL(proxyRoot).href,
+    sha256: sha256Bytes(Buffer.from(CATALOG_GO_PROXY_LIST_BYTES)),
+  });
+}
+
+export function assertCatalogGoFileProxyUnchanged(authority) {
+  const listPath = requireCanonicalPath(authority?.path, {
+    label: 'Catalog Go file proxy version list',
+    type: 'file',
+  });
+  const information = fs.lstatSync(listPath);
+  const bytes = fs.readFileSync(listPath);
+  if (
+    information.dev !== authority.device ||
+    information.ino !== authority.inode ||
+    !information.isFile() ||
+    information.nlink !== 1 ||
+    (information.mode & 0o777) !== authority.mode ||
+    information.size !== authority.bytes ||
+    sha256Bytes(bytes) !== authority.sha256 ||
+    !bytes.equals(Buffer.from(CATALOG_GO_PROXY_LIST_BYTES))
+  ) {
+    fail('Catalog Go file proxy version list drifted');
+  }
+  return authority;
 }
 
 export const CONTRACTS_OWNER_CLEANUP_INVENTORY = Object.freeze({
@@ -4119,12 +4219,15 @@ export async function runContractsOwnerGate({
         ),
       }));
       const isCatalogApi = relative === 'contracts/goldens/api/catalog';
+      let catalogGoProxy;
       if (isCatalogApi) {
+        const goModuleCache = path.join(seeded.root, '.cache', 'go-mod');
         await seedGoModuleCache({
           source: cacheRoots.goModule,
-          destination: path.join(seeded.root, '.cache', 'go-mod'),
+          destination: goModuleCache,
           goSumPath: path.join(root, 'backend', 'go.sum'),
         });
+        catalogGoProxy = materializeCatalogGoFileProxy(goModuleCache);
         for (const relativeDirectory of [
           '.cache/go-build',
           '.cache/go-path',
@@ -4137,7 +4240,7 @@ export async function runContractsOwnerGate({
           });
         }
       }
-      results.push(await runNpm({
+      const verifyResult = await runNpm({
         id: `contracts-${relative.replaceAll('/', '-')}-verify`,
         family: 'current',
         args: ['run', 'verify'],
@@ -4151,7 +4254,7 @@ export async function runContractsOwnerGate({
         extra: isCatalogApi
           ? {
               GOENV: 'off',
-              GOPROXY: 'off',
+              GOPROXY: catalogGoProxy.proxy,
               GOSUMDB: 'off',
               GOTOOLCHAIN: 'local',
               GOROOT: path.dirname(path.dirname(tools.go.path)),
@@ -4162,7 +4265,11 @@ export async function runContractsOwnerGate({
           ...CURRENT_NODE_RUNTIME_NAMES,
           ...(isCatalogApi ? CURRENT_GO_RUNTIME_NAMES : []),
         ]),
-      }));
+      });
+      results.push(verifyResult);
+      if (catalogGoProxy !== undefined) {
+        assertCatalogGoFileProxyUnchanged(catalogGoProxy);
+      }
     }
     const environment = commandEnvironment({
       runRoot,

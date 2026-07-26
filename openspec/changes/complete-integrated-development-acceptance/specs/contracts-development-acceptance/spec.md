@@ -493,6 +493,20 @@ inventory. A schema verifier SHALL therefore see its unchanged tracked
 tooling inventory while the root-level generated cache remains separately
 owned, bounded, and removed after the owner gate.
 
+For the API Catalog golden only, the Harness SHALL derive one local Go module
+proxy list with exact bytes `v2.8.0\n` for the already accepted
+`github.com/oapi-codegen/oapi-codegen/v2@v2.8.0` authority. Before writing
+that list it SHALL require the exact seeded `.info`, `.mod`, `.zip`, and
+`.ziphash` files for v2.8.0 as regular single-link files. The Catalog verify
+command SHALL use only the canonical run-owned `file://` proxy with
+`GOSUMDB=off`, `GOENV=off`, `GOWORK=off`, and `GOTOOLCHAIN=local` under the
+existing outer network-denial sandbox. The Harness SHALL require the list
+path, inode, mode, size, digest, and bytes to remain unchanged immediately
+after verification. A missing version asset, pre-existing or changed list,
+non-file proxy, public/fallback proxy, or network access SHALL fail
+`owner.contracts`; the generated proxy remains cleanup-owned and SHALL NOT be
+reported as a frozen input byte.
+
 The Archive owner SHALL invoke its real verifier with the exact hermetic Go
 environment, including `GOWORK=off`; an inherited host workspace SHALL never
 participate in module selection. A declared generated root may contain admitted

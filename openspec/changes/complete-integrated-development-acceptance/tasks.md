@@ -124,6 +124,10 @@ commit, push, sync, archive, or update task markers.
   in place, cross-bind fixed executables and the `go`/`gofmt` frozen mirror,
   deny writes to every admitted runtime root, and re-seal after each owning
   gate; enforce offline package-manager modes plus host/Docker network denial;
+  for the API Catalog's exact oapi-codegen v2.8.0 command, derive only the
+  canonical one-version list beside the four accepted proxy files, use that
+  run-owned `file://` proxy under the network sandbox, and re-attest the list
+  immediately afterward;
   before any seed/process, prove all 13 package locks, `backend/go.mod`,
   `backend/go.sum`, `updater/uv.lock`, and the two accepted Product Query
   module locks across their exact applicable preparation/current owners,

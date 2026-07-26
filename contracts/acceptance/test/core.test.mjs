@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import test from 'node:test';
+import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
 import {
@@ -52,6 +53,7 @@ import {
   admitArchiveTrackedAuthority,
   archiveVerifierCommandPlan,
   archiveVerifierEnvironment,
+  assertCatalogGoFileProxyUnchanged,
   assertArchiveInstalledDependencyClosureUnchanged,
   assertArchiveTrackedAuthorityFiles,
   assertArchiveTrackedAuthorityUnchanged,
@@ -62,6 +64,7 @@ import {
   currentNpmPackageGeneratedRoots,
   dockerLocalSandboxProfile,
   executeArchiveVerifierDirect,
+  materializeCatalogGoFileProxy,
   OwnerGateError,
   QUERY_GOLDEN_COMMAND_IDS,
   admitQueryTrackedAuthority,
@@ -5236,6 +5239,104 @@ test('Backend cleanup-only surviving residue blocks an otherwise successful owne
   assert.equal(caught.evidence.length, 1);
   assert.equal(caught.evidence[0].kind, 'cleanup');
   assert.equal(fs.existsSync(cacheRoot), true);
+});
+
+test('Catalog Go file proxy derives one sealed offline version list', (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-catalog-go-proxy-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const createModuleCache = (name, {
+    hardLinkedSuffix,
+    missingSuffix,
+    preexistingList = false,
+  } = {}) => {
+    const moduleCache = path.join(root, name);
+    const versionRoot = path.join(
+      moduleCache,
+      'cache',
+      'download',
+      'github.com',
+      'oapi-codegen',
+      'oapi-codegen',
+      'v2',
+      '@v',
+    );
+    fs.mkdirSync(versionRoot, { recursive: true });
+    for (const suffix of ['info', 'mod', 'zip', 'ziphash']) {
+      if (suffix === missingSuffix) continue;
+      const asset = path.join(versionRoot, `v2.8.0.${suffix}`);
+      fs.writeFileSync(asset, `${suffix}\n`, { mode: 0o400 });
+      if (suffix === hardLinkedSuffix) {
+        fs.linkSync(asset, path.join(root, `${name}-${suffix}-external`));
+      }
+    }
+    if (preexistingList) {
+      fs.writeFileSync(path.join(versionRoot, 'list'), 'v2.8.0\n', {
+        mode: 0o400,
+      });
+    }
+    return { moduleCache, versionRoot };
+  };
+
+  const valid = createModuleCache('valid');
+  const authority = materializeCatalogGoFileProxy(valid.moduleCache);
+  assert.deepEqual(
+    {
+      bytes: authority.bytes,
+      mode: authority.mode,
+      proxy: authority.proxy,
+      sha256: authority.sha256,
+    },
+    {
+      bytes: 7,
+      mode: 0o400,
+      proxy: pathToFileURL(
+        path.join(valid.moduleCache, 'cache', 'download'),
+      ).href,
+      sha256:
+        'sha256:56dfdd13edfa1201ab706c6df7f524b9f4f810e14e317fd1d02bf13fb116b374',
+    },
+  );
+  assert.equal(fs.readFileSync(authority.path, 'utf8'), 'v2.8.0\n');
+  assert.equal(
+    assertCatalogGoFileProxyUnchanged(authority),
+    authority,
+  );
+  fs.chmodSync(authority.path, 0o600);
+  fs.writeFileSync(authority.path, 'v2.8.1\n');
+  assert.throws(
+    () => assertCatalogGoFileProxyUnchanged(authority),
+    /version list drifted/u,
+  );
+
+  assert.throws(
+    () =>
+      materializeCatalogGoFileProxy(
+        createModuleCache('missing', {
+          missingSuffix: 'ziphash',
+        }).moduleCache,
+      ),
+    /Catalog oapi-codegen ziphash asset/u,
+  );
+  assert.throws(
+    () =>
+      materializeCatalogGoFileProxy(
+        createModuleCache('linked', {
+          hardLinkedSuffix: 'zip',
+        }).moduleCache,
+      ),
+    /Catalog oapi-codegen zip asset is not single-link/u,
+  );
+  assert.throws(
+    () =>
+      materializeCatalogGoFileProxy(
+        createModuleCache('preexisting', {
+          preexistingList: true,
+        }).moduleCache,
+      ),
+    /version list already exists/u,
+  );
 });
 
 test('Contracts cleanup inventory closes every installed API golden before coordinator traversal', async (t) => {

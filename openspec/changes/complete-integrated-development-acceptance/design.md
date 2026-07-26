@@ -180,6 +180,17 @@ exclude their declared root-level generated cache while continuing to reject
 any cache byte inside the tooling subtree whose closed inventory they attest.
 The cleanup inventory names those exact schema-root `.cache` paths.
 
+The API Catalog golden invokes the locked
+`github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0` tool. Go
+resolves an explicit `module@version` command only after consulting that
+module's local version list for deprecation metadata, even when all exact
+module bytes are already present. The Harness therefore materializes the
+single canonical `v2.8.0\n` list beside the four seeded and sealed v2.8.0
+proxy files, points `GOPROXY` at that run-owned `file://` proxy, and rechecks
+the list identity after the command. The outer sandbox still denies all
+network access; no version discovery, fallback proxy, or unsealed module byte
+is admitted.
+
 The Archive contract command inherits the same closed Go environment as the
 other hermetic Go consumers and additionally fixes `GOWORK=off`; an ambient
 workspace can neither alter module selection nor make a valid candidate fail.
