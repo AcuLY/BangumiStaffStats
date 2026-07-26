@@ -106,6 +106,10 @@ const CONTRACTS_GENERATED_ROOTS = Object.freeze([
   'contracts/schemas/update-status/tooling/node_modules',
   'contracts/schemas/update-status/tooling/.cache',
 ]);
+const BACKEND_GENERATED_ROOTS = Object.freeze([
+  'backend/.cache',
+  'backend/.tmp',
+]);
 
 const CURRENT_NPM_PACKAGES = Object.freeze([
   'contracts/schemas/archive/tooling',
@@ -263,13 +267,17 @@ export async function removeOwnedGenerated(root, relative) {
   fail(`generated cleanup exhausted its bounded attempts: ${relative}`);
 }
 
-export async function cleanupContractsGeneratedRoots(candidateRoot) {
+async function cleanupGeneratedRootSet(
+  candidateRoot,
+  relativeRoots,
+  label,
+) {
   const root = requireCanonicalPath(candidateRoot, {
-    label: 'Contracts generated cleanup candidate',
+    label: `${label} generated cleanup candidate`,
     type: 'directory',
   });
   const outcomes = [];
-  for (const relative of CONTRACTS_GENERATED_ROOTS) {
+  for (const relative of relativeRoots) {
     try {
       outcomes.push(await removeOwnedGenerated(root, relative));
     } catch (error) {
@@ -296,6 +304,22 @@ export async function cleanupContractsGeneratedRoots(candidateRoot) {
     retryDelayMs: GENERATED_ROOT_CLEANUP_RETRY_MS,
   };
   return Object.freeze(report);
+}
+
+export async function cleanupContractsGeneratedRoots(candidateRoot) {
+  return cleanupGeneratedRootSet(
+    candidateRoot,
+    CONTRACTS_GENERATED_ROOTS,
+    'Contracts',
+  );
+}
+
+export async function cleanupBackendGeneratedRoots(candidateRoot) {
+  return cleanupGeneratedRootSet(
+    candidateRoot,
+    BACKEND_GENERATED_ROOTS,
+    'Backend',
+  );
 }
 
 function registerSecondaryCleanup(primaryError, cleanup, evidence) {
@@ -397,12 +421,17 @@ export async function settleQueryOwnerCommandCleanup({
   return cleanupResult;
 }
 
-function ownerCleanupFailure(cleanup, evidence, evidenceError) {
+function ownerCleanupFailure(
+  cleanup,
+  evidence,
+  evidenceError,
+  ownerLabel,
+) {
   const suffix = evidenceError
     ? ' and its secondary evidence could not be written'
     : '';
   const error = new OwnerGateError(
-    `Contracts owner generated-root cleanup failed for ` +
+    `${ownerLabel} owner generated-root cleanup failed for ` +
       `${cleanup.failedCount} exact root(s)${suffix}`,
     evidenceError ? { cause: evidenceError } : undefined,
   );
@@ -412,13 +441,16 @@ function ownerCleanupFailure(cleanup, evidence, evidenceError) {
   return error;
 }
 
-export async function settleContractsOwnerGate({
+async function settleGeneratedOwnerGate({
   candidateRoot,
   runRoot,
   gateResult,
   primaryError,
+  cleanupGeneratedRoots,
+  evidenceRelative,
+  ownerLabel,
 }) {
-  const cleanup = await cleanupContractsGeneratedRoots(candidateRoot);
+  const cleanup = await cleanupGeneratedRoots(candidateRoot);
   const notable = cleanup.failedCount > 0 || cleanup.retriedCount > 0;
   let evidence;
   let evidenceError;
@@ -426,11 +458,11 @@ export async function settleContractsOwnerGate({
     try {
       evidence = await writeEvidence({
         runRoot,
-        relative: 'evidence/gates/owner-contracts-cleanup.json',
+        relative: evidenceRelative,
         kind: 'cleanup',
         value: cleanup,
         summary:
-          `Contracts generated-root cleanup: ${cleanup.failedCount} failed, ` +
+          `${ownerLabel} generated-root cleanup: ${cleanup.failedCount} failed, ` +
           `${cleanup.retriedCount} retried, ${cleanup.residueCount} residual`,
       });
     } catch (error) {
@@ -441,15 +473,38 @@ export async function settleContractsOwnerGate({
     throw registerSecondaryCleanup(primaryError, cleanup, evidence);
   }
   if (cleanup.failedCount > 0 || evidenceError) {
-    throw ownerCleanupFailure(cleanup, evidence, evidenceError);
+    throw ownerCleanupFailure(
+      cleanup,
+      evidence,
+      evidenceError,
+      ownerLabel,
+    );
   }
   if (!gateResult || !Array.isArray(gateResult.evidence)) {
-    fail('Contracts owner gate completed without one result');
+    fail(`${ownerLabel} owner gate completed without one result`);
   }
   if (!evidence) return gateResult;
   return Object.freeze({
     ...gateResult,
     evidence: Object.freeze([...gateResult.evidence, evidence]),
+  });
+}
+
+export async function settleContractsOwnerGate(arguments_) {
+  return settleGeneratedOwnerGate({
+    ...arguments_,
+    cleanupGeneratedRoots: cleanupContractsGeneratedRoots,
+    evidenceRelative: 'evidence/gates/owner-contracts-cleanup.json',
+    ownerLabel: 'Contracts',
+  });
+}
+
+export async function settleBackendOwnerGate(arguments_) {
+  return settleGeneratedOwnerGate({
+    ...arguments_,
+    cleanupGeneratedRoots: cleanupBackendGeneratedRoots,
+    evidenceRelative: 'evidence/gates/owner-backend-cleanup.json',
+    ownerLabel: 'Backend',
   });
 }
 
@@ -2394,7 +2449,7 @@ function writeNpmWrapper({ runRoot, tools, npmCache }) {
   return wrapper;
 }
 
-export async function runBackendOwnerGate({
+async function executeBackendOwnerGate({
   candidateRoot,
   cacheRoots,
   tools,
@@ -2519,6 +2574,22 @@ export async function runBackendOwnerGate({
       ...allCommandEvidence([result, queryMeasurement]),
     ]),
     queryTestBinaryBytes,
+  });
+}
+
+export async function runBackendOwnerGate(arguments_) {
+  let gateResult;
+  let primaryError;
+  try {
+    gateResult = await executeBackendOwnerGate(arguments_);
+  } catch (error) {
+    primaryError = error;
+  }
+  return settleBackendOwnerGate({
+    candidateRoot: arguments_.candidateRoot,
+    runRoot: arguments_.runRoot,
+    gateResult,
+    primaryError,
   });
 }
 

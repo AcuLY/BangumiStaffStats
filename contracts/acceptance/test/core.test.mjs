@@ -45,6 +45,7 @@ import {
   deriveCleanCheckoutIdentityClosed,
 } from '../lib/git-attestation.mjs';
 import {
+  cleanupBackendGeneratedRoots,
   cleanupContractsGeneratedRoots,
   dockerLocalSandboxProfile,
   OwnerGateError,
@@ -60,6 +61,7 @@ import {
   queryTypeScriptCommandPlan,
   removeOwnedGenerated,
   runtimeReadOnlySandboxProfile,
+  settleBackendOwnerGate,
   settleContractsOwnerGate,
   settleQueryOwnerCommandCleanup,
   validateQueryCodegenStaticAuthority,
@@ -3712,6 +3714,281 @@ test('representative runtime closures and five copies provide a cooperative boun
     elapsedMs < 15_000,
     `cooperative runtime-copy smoke took ${elapsedMs.toFixed(1)}ms`,
   );
+});
+
+test('Backend cleanup removes module-cache ignore control before clean-checkout re-attestation', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-backend-cleanup-gitignore-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const backendRoot = path.join(candidateRoot, 'backend');
+  fs.mkdirSync(backendRoot, { recursive: true });
+  fs.writeFileSync(path.join(backendRoot, 'tracked.txt'), 'tracked\n');
+  const runGit = (...args) => {
+    const result = spawnSync('/usr/bin/git', args, {
+      cwd: candidateRoot,
+      encoding: 'utf8',
+      env: {
+        GIT_CONFIG_GLOBAL: '/dev/null',
+        GIT_CONFIG_NOSYSTEM: '1',
+        LANG: 'C.UTF-8',
+        LC_ALL: 'C.UTF-8',
+        PATH: '/usr/bin:/bin',
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  runGit('init', '--quiet');
+  runGit('add', '--', 'backend/tracked.txt');
+  runGit(
+    '-c',
+    'user.name=Acceptance',
+    '-c',
+    'user.email=acceptance@example.invalid',
+    'commit',
+    '--quiet',
+    '-m',
+    'backend cleanup fixture',
+  );
+  const revision = runGit('rev-parse', 'HEAD^{commit}');
+  const tree = runGit('rev-parse', 'HEAD^{tree}');
+  const moduleRoot = path.join(
+    backendRoot,
+    '.cache',
+    'go-mod',
+    'example.invalid',
+    'module@v1.2.3',
+  );
+  fs.mkdirSync(moduleRoot, { recursive: true });
+  fs.writeFileSync(path.join(moduleRoot, '.gitignore'), '*\n');
+  fs.mkdirSync(path.join(backendRoot, '.tmp'), { recursive: true });
+  fs.writeFileSync(path.join(backendRoot, '.tmp', 'generated'), 'generated\n');
+
+  assert.throws(
+    () =>
+      deriveCleanCheckoutIdentityClosed({
+        repositoryRoot: candidateRoot,
+        suppliedRevision: revision,
+        suppliedTree: tree,
+      }),
+    /control-plane path is unsafe/u,
+  );
+
+  const report = await cleanupBackendGeneratedRoots(candidateRoot);
+  assert.deepEqual(
+    report.outcomes.map((outcome) => outcome.relative),
+    ['backend/.cache', 'backend/.tmp'],
+  );
+  assert.deepEqual(
+    report.outcomes.map((outcome) => outcome.status),
+    ['removed', 'removed'],
+  );
+  assert.equal(report.failedCount, 0);
+  assert.equal(report.residueCount, 0);
+  assert.equal(fs.existsSync(path.join(backendRoot, '.cache')), false);
+  assert.equal(fs.existsSync(path.join(backendRoot, '.tmp')), false);
+  assert.equal(
+    fs.readFileSync(path.join(backendRoot, 'tracked.txt'), 'utf8'),
+    'tracked\n',
+  );
+  const identity = deriveCleanCheckoutIdentityClosed({
+    repositoryRoot: candidateRoot,
+    suppliedRevision: revision,
+    suppliedTree: tree,
+  });
+  assert.equal(identity.revision, revision);
+  assert.equal(identity.tree, tree);
+});
+
+test('Backend generated-root cleanup retries transient races within the shared fixed bound', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-backend-cleanup-retry-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const cacheRoot = path.join(candidateRoot, 'backend', '.cache');
+  const temporaryRoot = path.join(candidateRoot, 'backend', '.tmp');
+  fs.mkdirSync(cacheRoot, { recursive: true });
+  fs.mkdirSync(temporaryRoot, { recursive: true });
+  fs.writeFileSync(path.join(cacheRoot, 'late-entry'), 'late\n');
+  fs.writeFileSync(path.join(temporaryRoot, 'generated'), 'generated\n');
+
+  const originalRmSync = fs.rmSync;
+  let cacheCalls = 0;
+  fs.rmSync = (candidate, options) => {
+    if (candidate === cacheRoot && cacheCalls < 2) {
+      cacheCalls += 1;
+      const error = new Error('fixture transient non-empty Backend cache');
+      error.code = 'ENOTEMPTY';
+      throw error;
+    }
+    if (candidate === cacheRoot) cacheCalls += 1;
+    return originalRmSync(candidate, options);
+  };
+  let report;
+  try {
+    report = await cleanupBackendGeneratedRoots(candidateRoot);
+  } finally {
+    fs.rmSync = originalRmSync;
+  }
+
+  assert.deepEqual(report.outcomes[0], {
+    attempts: 3,
+    relative: 'backend/.cache',
+    status: 'removed',
+  });
+  assert.deepEqual(report.outcomes[1], {
+    attempts: 1,
+    relative: 'backend/.tmp',
+    status: 'removed',
+  });
+  assert.equal(cacheCalls, 3);
+  assert.equal(report.attemptLimit, 4);
+  assert.equal(report.retriedCount, 1);
+  assert.equal(report.failedCount, 0);
+  assert.equal(report.residueCount, 0);
+});
+
+test('Backend cleanup preserves a query-measurement CommandError as primary', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-backend-cleanup-primary-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const runRoot = path.join(root, 'run');
+  const cacheRoot = path.join(candidateRoot, 'backend', '.cache');
+  fs.mkdirSync(cacheRoot, { recursive: true });
+  fs.mkdirSync(runRoot);
+  fs.writeFileSync(path.join(cacheRoot, 'surviving-entry'), 'survive\n');
+  const stdout = await writeEvidence({
+    runRoot,
+    relative: 'logs/backend-measurement.stdout.log',
+    kind: 'logs',
+    value: 'measurement stdout\n',
+    summary: 'fixture Backend measurement stdout',
+  });
+  const stderr = await writeEvidence({
+    runRoot,
+    relative: 'logs/backend-measurement.stderr.log',
+    kind: 'logs',
+    value: 'measurement failed\n',
+    summary: 'fixture Backend measurement stderr',
+  });
+  const result = Object.freeze({
+    args: Object.freeze(['test', '-c', './internal/query']),
+    durationMs: 29,
+    executable: '/fixture/go',
+    id: 'owner-backend-query-binary-measurement',
+    signal: null,
+    status: 41,
+    stderr: Object.freeze({
+      bytes: 19,
+      path: stderr.path,
+      sha256: stderr.sha256,
+      truncated: false,
+    }),
+    stdout: Object.freeze({
+      bytes: 19,
+      path: stdout.path,
+      sha256: stdout.sha256,
+      truncated: false,
+    }),
+    timedOut: false,
+  });
+  const primary = new CommandError(
+    'authoritative Backend query measurement failed',
+    result,
+  );
+  primary.code = 'BACKEND_QUERY_MEASUREMENT_FAILED';
+
+  const originalRmSync = fs.rmSync;
+  fs.rmSync = (candidate, options) => {
+    if (candidate === cacheRoot) {
+      const error = new Error('fixture terminal Backend cache race');
+      error.code = 'ENOTEMPTY';
+      throw error;
+    }
+    return originalRmSync(candidate, options);
+  };
+  let caught;
+  try {
+    await settleBackendOwnerGate({
+      candidateRoot,
+      runRoot,
+      primaryError: primary,
+    });
+  } catch (error) {
+    caught = error;
+  } finally {
+    fs.rmSync = originalRmSync;
+  }
+
+  assert.equal(caught, primary);
+  assert.equal(caught.code, 'BACKEND_QUERY_MEASUREMENT_FAILED');
+  assert.equal(caught.result, result);
+  assert.equal(caught.result.id, 'owner-backend-query-binary-measurement');
+  assert.equal(caught.result.status, 41);
+  assert.deepEqual(
+    caught.evidence.slice(0, 2).map((entry) => entry.path),
+    [stdout.path, stderr.path],
+  );
+  assert.equal(caught.evidence.at(-1).kind, 'cleanup');
+  assert.equal(caught.cleanup.attemptLimit, 4);
+  assert.equal(caught.cleanup.failedCount, 1);
+  assert.equal(caught.cleanup.residueCount, 1);
+  assert.equal(fs.existsSync(cacheRoot), true);
+});
+
+test('Backend cleanup-only surviving residue blocks an otherwise successful owner gate', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-backend-cleanup-residue-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const runRoot = path.join(root, 'run');
+  const cacheRoot = path.join(candidateRoot, 'backend', '.cache');
+  fs.mkdirSync(cacheRoot, { recursive: true });
+  fs.mkdirSync(runRoot);
+  fs.writeFileSync(path.join(cacheRoot, 'surviving-entry'), 'survive\n');
+
+  const originalRmSync = fs.rmSync;
+  let attempts = 0;
+  fs.rmSync = (candidate, options) => {
+    if (candidate === cacheRoot) {
+      attempts += 1;
+      const error = new Error('fixture busy Backend cache');
+      error.code = 'EBUSY';
+      throw error;
+    }
+    return originalRmSync(candidate, options);
+  };
+  let caught;
+  try {
+    await settleBackendOwnerGate({
+      candidateRoot,
+      runRoot,
+      gateResult: Object.freeze({
+        evidence: Object.freeze([]),
+        results: Object.freeze([]),
+      }),
+    });
+  } catch (error) {
+    caught = error;
+  } finally {
+    fs.rmSync = originalRmSync;
+  }
+
+  assert.ok(caught instanceof OwnerGateError);
+  assert.equal(caught.code, 'OWNER_GATE_CLEANUP_FAILED');
+  assert.match(caught.message, /^Backend owner generated-root cleanup failed/u);
+  assert.equal(attempts, 4);
+  assert.equal(caught.cleanup.failedCount, 1);
+  assert.equal(caught.cleanup.residueCount, 1);
+  assert.equal(caught.evidence.length, 1);
+  assert.equal(caught.evidence[0].kind, 'cleanup');
+  assert.equal(fs.existsSync(cacheRoot), true);
 });
 
 test('Contracts generated-root cleanup retries a transient non-empty race within its fixed bound', async (t) => {
