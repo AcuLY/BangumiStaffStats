@@ -39,10 +39,14 @@ context: |
   by an ordinary development change.
 
   Capability ids must start with exactly one ownership prefix:
-  contracts-, backend-, updater-, or frontend-. Contracts owns cross-language
-  wire schemas, manifests, shared fixtures, and goldens; backend owns the Go
-  read-only API and statistical authority; updater owns the Python one-shot
-  Archive producer; frontend owns Vue presentation and interaction state.
+  contracts-, backend-, updater-, frontend-, or operations-. Contracts owns
+  cross-language wire schemas, manifests, shared fixtures, and goldens; backend
+  owns the Go read-only API and statistical authority; updater owns the Python
+  one-shot Archive producer; frontend owns Vue presentation and interaction
+  state; operations owns repository deployment definitions, immutable release
+  assembly, secret interfaces, observability configuration, recovery
+  procedures, and isolated deployment validation. Operations consumes accepted
+  product artifacts and contracts and must not change their semantics.
 
   Frontend baseline: Vue 3, Vite, Pinia, Naive UI, TypeScript, and native fetch.
   Additional libraries require an approved OpenSpec rationale, alternatives,
@@ -78,19 +82,25 @@ context: |
   specs, design, and tasks are all complete, strictly valid, explicitly
   reviewed, and approved.
 
-  Operations are deferred. Development may implement and test health endpoints,
-  metrics instrumentation, manifests, immutable artifact definitions,
-  reproducible local builds, characterization, and local container build smoke.
-  Production nginx, systemd, production Compose, timers, deployment or release
-  workflows, production secrets, host changes, cutover, real periodic runs,
-  and legacy-system deletion are outside approved development scope.
+  Operations scope is reopened by explicit user authorization. Development may
+  implement and test health endpoints, metrics instrumentation, immutable
+  artifact definitions, reproducible builds, and local container smoke under
+  the applicable product owner. An approved operations change may create
+  repository deployment/recovery definitions and may validate them on an
+  explicitly approved host only inside an exact dedicated non-live root with a
+  unique project identity and loopback-only non-conflicting ports. It must
+  preflight and enumerate every host path, service, project, port, volume, and
+  mutable ref before the first write. Existing live project directories,
+  Compose projects, Nginx routes, systemd units, secrets, public ports, volumes,
+  data, and legacy processes remain read-only until a later exact activation or
+  retirement approval names the target and recovery gate.
 
 rules:
   proposal:
     - >-
       Every new or modified capability id must begin with contracts-, backend-,
-      updater-, or frontend-. Reject unprefixed, ambiguous, or catch-all
-      full-stack capabilities.
+      updater-, frontend-, or operations-. Reject unprefixed, ambiguous, or
+      catch-all full-stack capabilities.
     - >-
       Under Impact, explicitly declare Status, Owner, Writable paths,
       Read-only protected inputs, Deletion complement, Mutable refs, Consumes,
@@ -105,7 +115,10 @@ rules:
     - >-
       State whether the change touches another repository or external state.
       External push, pull request, tag, release, deployment, host mutation, or
-      production activation must remain an explicit later authorization gate.
+      production activation must remain an explicit authorization gate. An
+      operations change that authorizes isolated host validation must name the
+      exact host/root/resources and must separately keep live activation and
+      legacy retirement out of scope unless explicitly approved.
     - >-
       A proposal must state that apply is blocked until proposal, specs, design,
       and tasks have passed strict validation and main-agent review.
@@ -142,9 +155,10 @@ rules:
       Identify any oracle comparison method and separate preservation evidence
       from intentional deltas and new capabilities.
     - >-
-      Production operations must appear only as Non-goals or Operations
-      deferred unless a later user-approved operations change explicitly
-      reopens that scope.
+      Production operations must appear only under an operations- capability
+      after explicit user authorization. Designs must distinguish repository
+      definitions, isolated host validation, live activation, rollback, and
+      legacy retirement as separate state transitions and writable scopes.
   tasks:
     - >-
       Start with a task-boundary table that explicitly declares Status, Owner,
@@ -165,6 +179,9 @@ rules:
       mutation of external repositories unless that repository has its own
       approved OpenSpec change.
     - >-
-      Do not include production nginx, systemd, production Compose, timers,
-      deployment or release workflows, host changes, cutover, real periodic
-      runs, or legacy-system deletion in development tasks.
+      Development tasks must not include production nginx, systemd, production
+      Compose, timers, deployment or release workflows, host changes, cutover,
+      real periodic runs, or legacy-system deletion. Operations tasks may
+      include only the explicitly approved subset and must enumerate exact
+      external resources, collision preflight, cleanup, and non-interference
+      evidence.
