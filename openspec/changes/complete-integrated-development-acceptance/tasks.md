@@ -158,6 +158,13 @@ commit, push, sync, archive, or update task markers.
   evidence/residue, and fail the owner cell on cleanup alone after otherwise
   successful commands. Add focused primary-precedence, retry, and surviving
   residue tests.
+- [ ] 3.7 Close the Backend owner cache lifetime after its independent
+  query-binary measurement: remove only candidate-owned `backend/.cache` and
+  `backend/.tmp` with bounded retries on success and failure, preserve the
+  first Backend command/measurement error as primary, and fail on cleanup-only
+  residue. Add focused coverage for an upstream
+  `module@version/.gitignore`, primary-error precedence, retry, and surviving
+  residue without weakening Git path or ignore-control admission.
 
 ## 4. Full Archive and packaged runtime
 

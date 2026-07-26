@@ -402,6 +402,16 @@ logs, failure code, or owner attribution. If every owner command passed, any
 cleanup error or surviving generated root SHALL fail that same owner cell.
 Cleanup SHALL never ignore residue merely to preserve an earlier error.
 
+The Backend owner gate MAY retain its seeded `backend/.cache/go-mod` only
+between the fixed Backend check and the immediately following independent
+query-binary measurement. After that measurement, or after either Backend
+operation fails, the Harness SHALL remove the exact candidate-owned
+`backend/.cache` and `backend/.tmp` roots with the same bounded, fail-closed
+cleanup semantics before any later clean-checkout re-attestation or artifact
+coordinator invocation. It SHALL NOT relax tracked-path syntax, ignore-control
+attestation, or coordinator source identity merely because a module cache
+contains upstream paths such as `module@version/.gitignore`.
+
 #### Scenario: An existing owner gate succeeds
 
 - **WHEN** its accepted entrypoint exits successfully in the isolated clone
@@ -423,6 +433,16 @@ Cleanup SHALL never ignore residue merely to preserve an earlier error.
 - **THEN** bounded cleanup SHALL still run and residue SHALL remain blocking
 - **AND** the canonical cell failure SHALL preserve the original command
   result while separately registering the cleanup outcome
+
+#### Scenario: Backend module-cache control files would poison later re-attestation
+
+- **WHEN** the sealed Go cache seeds an upstream
+  `module@version/.gitignore` below candidate-owned `backend/.cache/go-mod`
+- **THEN** the Backend owner SHALL finish both fixed operations, remove the
+  exact Backend generated roots, and prove them absent before the artifact
+  coordinator re-attests the candidate
+- **AND** a cleanup failure or surviving root SHALL fail the Backend owner
+  cell without weakening the Git path or ignore-control validator
 
 ### Requirement: A full inactive Archive SHALL be proven without mutating it
 

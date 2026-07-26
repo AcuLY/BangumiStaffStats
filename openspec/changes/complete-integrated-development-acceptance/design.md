@@ -157,6 +157,15 @@ acceptance-owned orchestrator. The clone gives the artifact coordinator the
 real product-candidate Git object identity it requires without adding a
 worktree or administrative record to the live repository.
 
+The Backend owner has one narrower lifetime exception: its sealed Go module
+copy remains below `backend/.cache/go-mod` through the fixed Backend check and
+the immediately following independent query-binary measurement. The Harness
+then performs exact, bounded removal of `backend/.cache` and `backend/.tmp`
+before any coordinator re-attestation. This keeps upstream cache control files
+such as `module@version/.gitignore` out of later Git authority scans without
+weakening the accepted path grammar or treating ignored dependency bytes as
+tracked source.
+
 The Query golden remains authoritative even though it intentionally records an
 older Node/npm/Go toolchain than the current Frontend and Backend gates. The
 harness therefore admits and records both toolchain families and invokes each
@@ -677,6 +686,10 @@ acceptance mutate the repository.
   race] → Always attempt exact cleanup with bounded retries, preserve the
   originating command failure as primary, and record cleanup failure/residue
   separately; cleanup failure remains blocking when no earlier command failed.
+- [A seeded Go module contains an upstream `.gitignore` under a
+  `module@version` directory] → Keep the cache only through the two Backend
+  operations, then remove the exact Backend generated roots before coordinator
+  re-attestation; do not widen Git path or ignore-control admission.
 - [Browser automation adds supply-chain and disk cost] → One exact
   acceptance-only package, locked transitive closure, pre-provisioned browser,
   no install scripts, no production bytes, and explicit dependency/license
