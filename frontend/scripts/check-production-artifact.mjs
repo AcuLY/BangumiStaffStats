@@ -10,6 +10,8 @@ const distRoot = path.join(frontendRoot, 'dist');
 const maximumInitialJavaScriptGzipBytes = 300 * 1024;
 const expectedBrandHash =
   'd3d1ca5d14d560f3415dfbcc84b58ece72741a51cf860362d09284ed21aa394a';
+const expectedDescription =
+  '面向 Bangumi 收藏与全站数据的高密度 Staff 排名与共演分析界面';
 
 function fail(message) {
   throw new Error(message);
@@ -121,6 +123,49 @@ if (!/deferred-surface-reload-v1/.test(combinedText)) {
 }
 
 const entryHtml = fs.readFileSync(path.join(distRoot, 'index.html'), 'utf8');
+if (entryHtml.includes('正式前端基础')) {
+  fail('production HTML contains the obsolete foundation description');
+}
+const descriptionTags = [...entryHtml.matchAll(/<meta\b[^>]*>/giu)]
+  .map((match) => tagAttributes(match[0]))
+  .filter(
+    (attributes) =>
+      attributes.get('name')?.toLowerCase() === 'description',
+  );
+if (
+  descriptionTags.length !== 1 ||
+  descriptionTags[0].get('content') !== expectedDescription
+) {
+  fail('production HTML must contain the exact approved product description');
+}
+if (
+  !/<title>\s*Bangumi Staff Statistics\s*<\/title>/iu.test(entryHtml)
+) {
+  fail('production HTML must contain the exact approved document title');
+}
+const iconFiles = [...entryHtml.matchAll(/<link\b[^>]*>/giu)]
+  .map((match) => tagAttributes(match[0]))
+  .filter((attributes) =>
+    (attributes.get('rel') ?? '')
+      .toLowerCase()
+      .split(/\s+/u)
+      .includes('icon'),
+  )
+  .map((attributes) => {
+    const reference = attributes.get('href');
+    if (!reference) {
+      fail('production favicon link is missing href');
+    }
+    return localArtifactPath(reference, 'favicon', files);
+  });
+if (
+  iconFiles.length !== 1 ||
+  iconFiles[0] !== approvedBrandFiles[0]
+) {
+  fail(
+    `production favicon must reuse the approved brand PNG: ${JSON.stringify(iconFiles)}`,
+  );
+}
 const initialJavaScriptFiles = new Set();
 for (const match of entryHtml.matchAll(/<(script|link)\b[^>]*>/giu)) {
   const tagName = match[1].toLowerCase();
@@ -176,5 +221,5 @@ const totalJavaScriptGzipBytes = javaScriptFiles.reduce(
 );
 
 console.log(
-  `artifact check passed: ${files.length} files, one HTML, approved brand, initial JavaScript gzip ${initialJavaScriptGzipBytes} bytes (${initialJavaScriptFiles.size} file), total JavaScript gzip ${totalJavaScriptGzipBytes} bytes`,
+  `artifact check passed: ${files.length} files, one HTML, approved metadata and brand, initial JavaScript gzip ${initialJavaScriptGzipBytes} bytes (${initialJavaScriptFiles.size} file), total JavaScript gzip ${totalJavaScriptGzipBytes} bytes`,
 );
