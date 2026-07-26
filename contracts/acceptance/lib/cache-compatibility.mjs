@@ -488,7 +488,7 @@ function requiredQueryCacheFiles(queryRecords, inventory) {
       if (
         suffix === '.ziphash' &&
         decodeUtf8Strict(file.bytes, `Query Go cache ziphash ${relative}`) !==
-          `${declaration.checksums.get('module')}\n`
+          declaration.checksums.get('module')
       ) {
         fail(`Query Go cache checksum differs for ${declaration.module}@${declaration.version}`);
       }

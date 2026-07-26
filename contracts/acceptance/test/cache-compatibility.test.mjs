@@ -354,7 +354,7 @@ function createFixture(t, { samePreparationAndProduct = false } = {}) {
     [
       'cache/download/example.invalid/dependency/@v/v1.0.0.ziphash',
       Buffer.from(
-        'h1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n',
+        'h1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
         'utf8',
       ),
     ],
@@ -1018,7 +1018,23 @@ test('accepted-only Query locks require manifest binding, Backend subset, and ex
       const relative =
         'cache/download/example.invalid/dependency/@v/v1.0.0.ziphash';
       const bytes = Buffer.from(
-        'h1:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD=\n',
+        'h1:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD=',
+        'utf8',
+      );
+      replaceReadOnlyFile(fixture.goModuleRoot, relative, bytes);
+      fixture.rewriteGoModuleInventory((inventory) => {
+        const entry = inventory.entries.find(
+          (candidate) => candidate.path === relative,
+        );
+        entry.sha256 = rawDigest(bytes);
+        entry.size = bytes.length;
+      });
+    },
+    'cache ziphash trailing newline'(fixture) {
+      const relative =
+        'cache/download/example.invalid/dependency/@v/v1.0.0.ziphash';
+      const bytes = Buffer.from(
+        'h1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n',
         'utf8',
       );
       replaceReadOnlyFile(fixture.goModuleRoot, relative, bytes);
