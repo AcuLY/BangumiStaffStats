@@ -200,6 +200,18 @@ bounded cleanup evidence and cannot authorize a glob or broad deletion. A
 command failure remains primary and cleanup residue remains independently
 blocking.
 
+The four-attempt budget covers both acquisition of the quarantine by atomic
+rename and its removal. A transient rename failure is retried only while the
+declared root still has the inventoried identity and the quarantine name
+remains absent; otherwise cleanup fails closed. This cleanup runs after the
+owner command and its supervised descendant closure have stopped. The stable
+owner-settlement invariant is therefore a precondition, not an adversarial
+filesystem claim: the Harness does not promise descriptor-relative resistance
+to a hostile foreign process with the same UID racing inside an unpredictable
+quarantine. If owned-writer settlement cannot be established, owner-root
+cleanup does not start and the parent retains responsibility for guarded whole
+run-root cleanup and a blocking result.
+
 The Query golden remains authoritative even though it intentionally records an
 older Node/npm/Go toolchain than the current Frontend and Backend gates. The
 harness therefore admits and records both toolchain families and invokes each
@@ -734,7 +746,9 @@ acceptance mutate the repository.
   before mutation, admit only non-escaping relative symlink leaves, atomically
   quarantine and re-attest the exact root, reject special/external-hard-link
   entries, make only owned directories removable, and retain bounded retry
-  plus primary-error precedence.
+  across both rename and removal plus primary-error precedence. Begin only
+  after supervised owner-writer settlement; do not claim hostile same-UID race
+  resistance.
 - [Browser automation adds supply-chain and disk cost] → One exact
   acceptance-only package, locked transitive closure, pre-provisioned browser,
   no install scripts, no production bytes, and explicit dependency/license

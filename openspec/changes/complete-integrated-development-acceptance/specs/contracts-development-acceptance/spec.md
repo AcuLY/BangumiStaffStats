@@ -446,6 +446,16 @@ residue; neither case may be hidden by the original-root absence check.
 Primary-error preservation, cleanup evidence, and residue-blocking settlement
 remain unchanged.
 
+Quarantine acquisition and removal SHALL share one four-attempt budget for the
+declared transient filesystem errors. A failed rename MAY retry only while the
+declared root retains the inventoried identity and the quarantine path remains
+absent. Owner cleanup SHALL start only after the owner command and its
+supervised descendant closure have stopped. This stable-owner settlement is a
+required precondition; the Harness SHALL NOT claim descriptor-relative
+protection against a hostile foreign process with the same UID concurrently
+rewriting the unpredictable quarantine. Failure to establish settlement SHALL
+block owner cleanup and defer only to guarded whole-run-root cleanup.
+
 #### Scenario: An existing owner gate succeeds
 
 - **WHEN** its accepted entrypoint exits successfully in the isolated clone
@@ -505,6 +515,9 @@ remain unchanged.
 - **AND** replacing the declared root after inventory SHALL never authorize
   deletion of the replacement; an earlier command error remains the canonical
   primary failure and every quarantine residue remains separately blocking
+- **AND** transient quarantine-rename errors SHALL consume and retry within the
+  same four-attempt budget as removal, provided the original identity and absent
+  quarantine are unchanged
 
 ### Requirement: A full inactive Archive SHALL be proven without mutating it
 

@@ -181,12 +181,14 @@ commit, push, sync, archive, or update task markers.
   lexical target remains inside that root. Atomically rename the validated
   root to one absent private sibling quarantine, re-attest its root identity
   and complete relative inventory, then make only proven directories
-  removable and retain four-attempt bounded removal, primary-error precedence,
-  cleanup-only blocking, and exact residue reporting/restoration. Add focused
-  coverage for the Archive environment, nested `0555` cache removal, real
-  `.bin` cleanup, unsafe link/special/hard-link rejection without external
-  mutation, root-swap rejection, terminal quarantine residue, and primary
-  precedence.
+  removable. Share one four-attempt transient-error budget across quarantine
+  rename and removal while retaining primary-error precedence, cleanup-only
+  blocking, and exact residue reporting/restoration. Run only after supervised
+  owner-writer settlement; make no hostile same-UID concurrent-writer claim.
+  Add focused coverage for the Archive environment, nested `0555` cache
+  removal, real `.bin` cleanup, unsafe link/special/hard-link rejection without
+  external mutation, transient rename retry, original-path rebind rejection,
+  terminal quarantine residue, and primary precedence.
 
 ## 4. Full Archive and packaged runtime
 

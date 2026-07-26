@@ -234,9 +234,13 @@ or a dirty harness/control checkout exists at admission.
   root before mutation, atomically quarantines and re-attests that same root,
   rejects special or externally linked files and unsafe links, makes only
   owned directories removable, and then performs the existing bounded cleanup
-  without changing primary-error precedence. An npm-created relative symlink
-  whose lexical target remains inside that exact root is an inventoried leaf:
-  cleanup unlinks it without following or chmodding it.
+  without changing primary-error precedence. Quarantine acquisition and
+  removal share one four-attempt transient-error budget. Cleanup starts only
+  after the supervised owner closure has stopped and does not claim protection
+  from a hostile same-UID foreign process racing inside its random quarantine.
+  An npm-created relative symlink whose lexical target remains inside that
+  exact root is an inventoried leaf: cleanup unlinks it without following or
+  chmodding it.
 - The Query owner gate actually runs the locked Redocly lint against the
   prepared `codegen-a` closed source projection and accepts only exit zero with
   exactly zero errors and nine warnings before either bundle or TypeScript/Go
