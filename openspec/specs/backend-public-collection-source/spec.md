@@ -1,7 +1,7 @@
 # backend-public-collection-source Specification
 
 ## Purpose
-TBD - created by archiving change admit-public-collection-client. Update Purpose after archive.
+Define the production public-collection adapter pinned to `bangumi-collection-go` v0.1.0, with exact complete DTO mapping for admitted subject types and collection states and stable sanitized upstream-failure classification.
 ## Requirements
 ### Requirement: Production SHALL use the fixed public collection client
 
@@ -61,4 +61,3 @@ taxonomy without leaking sensitive values or external DTOs.
 - **THEN** the adapter SHALL preserve the corresponding stable internal
   classification
 - **AND** parent cancellation SHALL remain cancellation
-

@@ -1,7 +1,7 @@
 # backend-co-star-api Specification
 
 ## Purpose
-TBD - created by archiving change expose-co-star. Update Purpose after archive.
+Define bounded server-authoritative pair and group co-star analysis using exact raw-Subject set algebra, complete scope-correct evidence and contribution provenance, immutable semantic caching, and strict cancellable transport.
 ## Requirements
 ### Requirement: Co-star set algebra SHALL use real raw Subjects
 

@@ -1,7 +1,7 @@
 # frontend-person-inspector Specification
 
 ## Purpose
-TBD - created by archiving change implement-frontend-person-inspector. Update Purpose after archive.
+Define an adaptive ranking person inspector backed by one strict coordinated person-detail resource, with keyboard-accessible desktop and mobile presentation and server-authoritative evidence, search, sorting, and pagination views.
 ## Requirements
 ### Requirement: Person detail SHALL use one strict coordinated resource
 

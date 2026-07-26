@@ -1,7 +1,7 @@
 # contracts-archive-goldens Specification
 
 ## Purpose
-TBD - created by archiving change produce-immutable-archive. Update Purpose after archive.
+Define strict closed language-neutral producer cases and canonical Archive catalog fixtures that lock source accounting, logical outputs, identities, outcomes, inventories, and governed catalog-row algorithms before implementation.
 ## Requirements
 ### Requirement: Contracts SHALL define producer cases before implementation
 

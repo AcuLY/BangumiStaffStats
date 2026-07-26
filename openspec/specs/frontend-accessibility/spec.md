@@ -1,7 +1,7 @@
 # frontend-accessibility Specification
 
 ## Purpose
-TBD - created by archiving change harden-frontend-design-and-accessibility. Update Purpose after archive.
+Define production-browser accessibility acceptance for ranking and co-star across required themes, viewports, zoom levels, and states, including keyboard and overlay behavior, responsive layout, target sizing, redundant semantics, contrast, reduced motion, and blocking runtime regressions.
 ## Requirements
 ### Requirement: Complete production browser matrix
 

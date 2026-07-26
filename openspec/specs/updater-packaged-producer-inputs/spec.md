@@ -1,7 +1,7 @@
 # updater-packaged-producer-inputs Specification
 
 ## Purpose
-TBD - created by archiving change updater-package-immutable-producer-runtime-inputs. Update Purpose after archive.
+Define native and OCI Updater artifacts that embed the exact attested Contracts and Catalog producer-input authority as immutable self-describing files and prove it with finite non-root, read-only, networkless smoke.
 ## Requirements
 ### Requirement: Updater artifacts SHALL embed the exact producer input authority
 

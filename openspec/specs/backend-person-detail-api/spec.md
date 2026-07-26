@@ -1,7 +1,7 @@
 # backend-person-detail-api Specification
 
 ## Purpose
-TBD - created by archiving change expose-person-detail. Update Purpose after archive.
+Define strict person-detail execution for ranking-eligible people that builds and caches one immutable complete scope-correct evidence core, projects bounded views without recomputation, and exposes cancellable same-origin transport.
 ## Requirements
 ### Requirement: Backend SHALL admit only a ranking-eligible person
 

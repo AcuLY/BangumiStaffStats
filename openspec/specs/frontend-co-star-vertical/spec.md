@@ -1,7 +1,7 @@
 # frontend-co-star-vertical Specification
 
 ## Purpose
-TBD - created by archiving change implement-frontend-co-star-vertical. Update Purpose after archive.
+Define the production co-star vertical that consumes strict Candidates, Partners, and Co-star contracts, preserves revision-bound latest-only state and one identity-selection owner, renders the empty, partner, pair, and group topologies, restores shares safely, and preserves the approved presentation and accessibility.
 ## Requirements
 ### Requirement: Co-star frontend SHALL consume strict generated operation contracts
 
@@ -251,4 +251,3 @@ the bottom Drawer, and restore focus to that exact opener when it survives.
 - **WHEN** Light and Dark are browser-checked at 360, 390, 768, 779, 780, 781, 917, 1024, 1185, and 1440px
 - **THEN** the header/main content line, rail/drawer, charts, matrix, work browser, focus rings, image states, and copy SHALL remain readable and oracle-consistent
 - **AND** there SHALL be no duplicate ID, console error, failed resource, direct upstream request, or page overflow
-

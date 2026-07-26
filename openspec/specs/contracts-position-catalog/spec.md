@@ -1,7 +1,7 @@
 # contracts-position-catalog Specification
 
 ## Purpose
-TBD - created by archiving change derive-position-catalog-and-cast. Update Purpose after archive.
+Define strict language-neutral catalog schemas and goldens plus deterministic configuration identity for dynamic common positions, canonical groups and shortcuts, dormant staff sets, exact same-subject cast evidence, and bounded quality classifications.
 ## Requirements
 ### Requirement: Catalog contracts SHALL be strict, closed, and language neutral
 

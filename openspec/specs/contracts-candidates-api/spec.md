@@ -1,7 +1,7 @@
 # contracts-candidates-api Specification
 
 ## Purpose
-TBD - created by archiving change expose-candidates. Update Purpose after archive.
+Define the isolated Candidates API contract that separates query input, server view, and frontend state while keeping complete per-position counts distinct from searched and paginated view totals.
 ## Requirements
 ### Requirement: Candidates contract SHALL separate input, view, and frontend state
 

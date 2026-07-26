@@ -1,7 +1,7 @@
 # frontend-oracle-fidelity Specification
 
 ## Purpose
-TBD - created by archiving change restore-frontend-oracle-fidelity. Update Purpose after archive.
+Define regression-tested outward fidelity of the formal header, query editor, ranking results, and person inspector to the approved oracle across supported breakpoints and themes, including mobile overlay geometry, scrolling, focus, dismissal, and background-interaction behavior.
 ## Requirements
 ### Requirement: Existing formal surfaces SHALL match the approved oracle
 
@@ -64,4 +64,3 @@ preference.
   SHALL cover interaction, focus, overflow, console, and failed resources
 - **AND** any remaining difference SHALL be mapped to an explicit approved
   product requirement
-

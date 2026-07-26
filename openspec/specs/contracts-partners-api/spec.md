@@ -1,7 +1,7 @@
 # contracts-partners-api Specification
 
 ## Purpose
-TBD - created by archiving change expose-partners. Update Purpose after archive.
+Define the isolated closed `POST /partners` wire for scope-safe source and candidate inputs and complete summary, leader, item, pagination, metadata, and personal-only collection outputs.
 ## Requirements
 ### Requirement: Partners wire SHALL be closed and scope-safe
 

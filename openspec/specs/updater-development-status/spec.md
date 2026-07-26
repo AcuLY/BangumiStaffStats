@@ -1,7 +1,7 @@
 # updater-development-status Specification
 
 ## Purpose
-TBD - created by archiving change complete-updater-development-status. Update Purpose after archive.
+Define development updater observability through one stable lifecycle event stream and an atomically persisted closed terminal-status document without changing producer state, execution order, publication semantics, or dependencies.
 ## Requirements
 ### Requirement: Produce SHALL emit one stable lifecycle stream
 

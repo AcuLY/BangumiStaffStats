@@ -1,7 +1,7 @@
 # updater-position-catalog Specification
 
 ## Purpose
-TBD - created by archiving change derive-position-catalog-and-cast. Update Purpose after archive.
+Define deterministic pre-finalization compilation of governed common positions, display groups, shortcuts, staff sets, and exact same-subject cast evidence into Archive identity, with bounded quality classification and synthetic and complete-source acceptance.
 ## Requirements
 ### Requirement: Apply SHALL begin only from the exited producer and accepted Contracts handoff
 

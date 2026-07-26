@@ -1,7 +1,7 @@
 # contracts-update-status Specification
 
 ## Purpose
-TBD - created by archiving change complete-updater-development-status. Update Purpose after archive.
+Define the sole closed cross-language update-status terminal snapshot, its valid status, phase, data, and error combinations, and indexed deterministic goldens proving producer-consumer agreement.
 ## Requirements
 ### Requirement: The status document SHALL contain one closed terminal snapshot
 

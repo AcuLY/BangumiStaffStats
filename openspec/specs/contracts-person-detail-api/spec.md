@@ -1,7 +1,7 @@
 # contracts-person-detail-api Specification
 
 ## Purpose
-TBD - created by archiving change expose-person-detail. Update Purpose after archive.
+Define the isolated closed person-detail wire that separates complete scope-specific evidence from deterministic bounded section views and locks personal, global, and error behavior in cross-language goldens.
 ## Requirements
 ### Requirement: Person detail SHALL use one closed operation contract
 

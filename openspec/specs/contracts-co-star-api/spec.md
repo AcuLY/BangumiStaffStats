@@ -1,7 +1,7 @@
 # contracts-co-star-api Specification
 
 ## Purpose
-TBD - created by archiving change expose-co-star. Update Purpose after archive.
+Define the isolated closed `POST /co-star` wire for bounded ordered pair and group analysis, including scope-specific participant, evidence, matrix, work, pagination, metadata, and error shapes.
 ## Requirements
 ### Requirement: Co-star wire SHALL encode one closed pair or group analysis
 

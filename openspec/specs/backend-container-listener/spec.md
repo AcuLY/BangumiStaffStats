@@ -1,7 +1,7 @@
 # backend-container-listener Specification
 
 ## Purpose
-TBD - created by archiving change backend-enable-container-listener-and-archive-smoke-artifact. Update Purpose after archive.
+Define validated loopback or unspecified API listener configuration and an ownership-safe internal-bridge container reachability smoke that probes health and metrics without publishing a host port or touching unowned resources.
 ## Requirements
 ### Requirement: API listener configuration SHALL be explicit and bounded
 

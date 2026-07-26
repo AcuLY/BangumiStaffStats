@@ -1,7 +1,7 @@
 # frontend-design-system Specification
 
 ## Purpose
-TBD - created by archiving change harden-frontend-design-and-accessibility. Update Purpose after archive.
+Define the evidence-bounded frontend design-system acceptance boundary that preserves the approved oracle except for higher-authority deltas, retains SafeImage and semantic-token primitives, validates the built production artifact, and regenerates the Impeccable sidecar only for the accepted implementation.
 ## Requirements
 ### Requirement: Oracle-compatible final presentation
 

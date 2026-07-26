@@ -1,7 +1,7 @@
 # backend-query-result-set Specification
 
 ## Purpose
-TBD - created by archiving change implement-query-result-set. Update Purpose after archive.
+Define read-only cancelable pre-projection query evaluation that reproduces shared normalization and digest authority, selects the exact scope-filtered Subject universe, and computes deterministic catalog-identity candidate, ranking, contribution, and participant set algebra.
 ## Requirements
 ### Requirement: Normalization and queryDigest SHALL reproduce the shared authority
 

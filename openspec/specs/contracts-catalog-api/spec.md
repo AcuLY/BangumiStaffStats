@@ -1,7 +1,7 @@
 # contracts-catalog-api Specification
 
 ## Purpose
-TBD - created by archiving change expose-dynamic-catalog. Update Purpose after archive.
+Define a strict input-free `GET /catalog` contract for one canonical deterministic catalog projection, with closed conditional shapes, safe dormant and unknown behavior, and reproducible cross-language goldens.
 ## Requirements
 ### Requirement: The catalog OpenAPI operation SHALL be strict and input-free
 

@@ -1,7 +1,7 @@
 # contracts-producer-runtime-inputs Specification
 
 ## Purpose
-TBD - created by archiving change contracts-define-producer-runtime-input-manifest. Update Purpose after archive.
+Define one closed canonical manifest and path- and type-safe verifier for the exact Contracts producer runtime inputs that Updater packaging must consume byte-for-byte without reinterpretation.
 ## Requirements
 ### Requirement: Producer runtime Contracts SHALL have one closed manifest
 

@@ -1,7 +1,7 @@
 # backend-partners-api Specification
 
 ## Purpose
-TBD - created by archiving change expose-partners. Update Purpose after archive.
+Define bounded server-authoritative partner analysis that requires exact shared raw Subjects, derives summaries, leaders, and ranks from complete sets before view projection, uses immutable semantic caching, and exposes strict cancellable transport.
 ## Requirements
 ### Requirement: Partners SHALL require real raw-Subject cooperation
 

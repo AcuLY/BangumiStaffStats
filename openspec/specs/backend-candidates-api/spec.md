@@ -1,7 +1,7 @@
 # backend-candidates-api Specification
 
 ## Purpose
-TBD - created by archiving change expose-candidates. Update Purpose after archive.
+Define server-authoritative candidate evaluation that computes every ordered position independently, ranks complete result sets before view projection, applies bounded immutable semantic caching, and exposes strict cancellable result transport.
 ## Requirements
 ### Requirement: Backend SHALL compute candidate sets independently per ordered position
 

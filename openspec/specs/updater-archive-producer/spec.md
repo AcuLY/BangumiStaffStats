@@ -1,7 +1,7 @@
 # updater-archive-producer Specification
 
 ## Purpose
-TBD - created by archiving change produce-immutable-archive. Update Purpose after archive.
+Define a one-shot immutable Archive producer that stages and verifies bounded source acquisition, streams and accounts every source record, derives deterministic database identity, quality, and manifest evidence, passes Go validation, and atomically publishes only an inactive validated version with minimal dependencies.
 ## Requirements
 ### Requirement: Acquisition SHALL be exact, bounded, and staged
 

@@ -1,7 +1,7 @@
 # backend-dynamic-catalog Specification
 
 ## Purpose
-TBD - created by archiving change expose-dynamic-catalog. Update Purpose after archive.
+Define a dependency-bounded read-only Backend projection of the canonical Archive catalog through strict `GET /api/v1/catalog`, with deterministic validation and ordering, generic dynamic and dormant position support, bounded observability, and cross-language and canonical-fixture acceptance.
 ## Requirements
 ### Requirement: Apply SHALL preserve dependency and owner boundaries
 

@@ -1,7 +1,7 @@
 # contracts-query-goldens Specification
 
 ## Purpose
-TBD - created by archiving change implement-query-result-set. Update Purpose after archive.
+Define a closed language-neutral Query Domain golden corpus that locks exact normalized-query, digest, filtering, catalog-identity result-set, and participant set-algebra outputs before and independently of Backend implementation.
 ## Requirements
 ### Requirement: Query-domain goldens SHALL be closed and language-neutral
 
