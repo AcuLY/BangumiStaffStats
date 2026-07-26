@@ -287,7 +287,7 @@ no signal or timeout, empty stderr, and one bounded strict-JSON report. That
 report SHALL cross-bind the exact ordered six schemas, quicktype 26.0.0,
 effective Go environment, canonical Go/gofmt executables, bootstrap profile
 and discovery argv, accepted telemetry mode, inner sandbox profile, policy
-self-test, forged-control-key rejection, unchanged telemetry diagnostics, and
+self-test, forged-control-key rejection, closed telemetry diagnostics, and
 exactly sixteen ordered Go/gofmt records to the accepted static command plan.
 Every recorded Go/gofmt child SHALL use the accepted
 `/usr/bin/sandbox-exec` wrapper and inner `(deny network*)` plus
@@ -295,6 +295,13 @@ telemetry-write-denial profile with its exact executable, cwd and argv.
 Missing/extra/reordered commands, report forgery, authority drift, output
 truncation or stderr, an attempted outer nested sandbox, or cleanup residue
 SHALL fail `owner.contracts`.
+
+The Go telemetry directory is a shared machine-global diagnostic path, not an
+acceptance-owned input. Its report SHALL have the exact closed
+`before`/`after` seal variants and a `changed` boolean equal to the comparison
+of those two values. Concurrent foreign Go activity MAY make `changed` true;
+that fact alone SHALL NOT fail the cell or be reported as a mutation of owned
+authority.
 
 The canonical result SHALL label this boundary
 `verifier-owned-inner-sandbox/direct-local-children`. It SHALL claim

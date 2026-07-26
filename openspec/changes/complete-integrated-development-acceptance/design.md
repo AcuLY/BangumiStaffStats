@@ -395,9 +395,14 @@ write no outer stderr, and emit one bounded strict-JSON report. The Harness
 cross-checks that report against the accepted Archive authority: exact six
 schema order, quicktype 26.0.0, effective Go environment, canonical Go/gofmt
 executables, bootstrap profile and discovery argv, accepted telemetry mode,
-inner profile, policy self-test, ignored forged-control keys, unchanged
-telemetry diagnostic seal, and exactly sixteen ordered Go/gofmt records whose
+inner profile, policy self-test, ignored forged-control keys, closed telemetry
+diagnostic envelope, and exactly sixteen ordered Go/gofmt records whose
 wrapper, profile, executable, cwd and argv match the verifier's closed plan.
+The telemetry directory is a shared machine-global Go diagnostic root rather
+than an owned input. Its closed `before`/`after` seals and derived `changed`
+boolean must be structurally valid and internally consistent, but concurrent
+foreign Go activity may legitimately make `changed` true; that value alone is
+not blocking authority and SHALL NOT be relabelled as an owned immutable seal.
 Any extra/missing command, forged report, authority drift, output
 truncation/stderr, or cleanup residue fails `owner.contracts`.
 

@@ -198,7 +198,8 @@ commit, push, sync, archive, or update task markers.
   Node/npm/Go/gofmt/CPython runtime authority. Require exit zero, no
   timeout/signal, empty stderr, one bounded strict-JSON report, exact six
   schemas, quicktype 26.0.0, effective Go environment, bootstrap/discovery
-  authority, accepted telemetry diagnostics and exactly sixteen ordered
+  authority, structurally closed telemetry diagnostics whose derived
+  `changed` value is recorded but not blocking, and exactly sixteen ordered
   Go/gofmt command records under the exact inner network/telemetry-write
   denial profile. Report non-Go children honestly as direct local children.
   Add focused tests for nested-sandbox regression, exact plan execution,
