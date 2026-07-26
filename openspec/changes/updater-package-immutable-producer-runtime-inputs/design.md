@@ -189,8 +189,11 @@ Artifact smoke SHALL:
 5. give every smoke container a per-run ownership label, refuse a pre-existing
    name, capture its immutable ID, and remove it only after the current
    name/label/ID tuple proves it belongs to that exact run; and
-6. capture the first post-load image ID, refuse a replaced tag/ID, and remove
-   only the immutable loaded image without force.
+6. capture the first post-load image ID and require it to equal either the
+   verified OCI config digest used by the classic image store or the verified
+   OCI manifest digest used by the containerd image store; then refuse a
+   replaced tag/ID and remove only that captured immutable image without
+   force.
 
 It SHALL not mount product source/Contracts/config into the container, run
 `produce`, acquire data, create `current.json`, activate an Archive, or contact

@@ -146,7 +146,26 @@ def _producer_manifest_digest(metadata: dict[str, object]) -> str:
     return value
 
 
-def _image_information(metadata: dict[str, object]) -> tuple[str, Path, str]:
+def _validated_artifact_image_ids(
+    image_ids: Sequence[str],
+) -> tuple[str, str]:
+    values = tuple(image_ids)
+    if (
+        len(values) != 2
+        or any(
+            not isinstance(value, str) or _IMAGE_ID_RE.fullmatch(value) is None for value in values
+        )
+        or values[0] == values[1]
+    ):
+        raise artifact.BuildError(
+            "artifact image identity must be one distinct config/manifest digest pair"
+        )
+    return values[0], values[1]
+
+
+def _image_information(
+    metadata: dict[str, object],
+) -> tuple[str, Path, tuple[str, str]]:
     try:
         artifacts = metadata["artifacts"]
         if not isinstance(artifacts, dict):
@@ -161,19 +180,27 @@ def _image_information(metadata: dict[str, object]) -> tuple[str, Path, str]:
         config = oci["config"]
         if not isinstance(config, dict):
             raise TypeError
-        image_id = config["digest"]
+        manifest = oci["manifest"]
+        if not isinstance(manifest, dict):
+            raise TypeError
+        config_id = config["digest"]
+        manifest_id = manifest["digest"]
         path = image["path"]
         if (
             not isinstance(reference, str)
             or not isinstance(path, str)
-            or not isinstance(image_id, str)
-            or _IMAGE_ID_RE.fullmatch(image_id) is None
+            or not isinstance(config_id, str)
+            or not isinstance(manifest_id, str)
         ):
             raise TypeError
     except (KeyError, TypeError) as error:
         raise artifact.BuildError("build metadata has no complete OCI image description") from error
     relative = artifact._safe_relative(path)
-    return reference, Path(*relative.parts), image_id
+    return (
+        reference,
+        Path(*relative.parts),
+        _validated_artifact_image_ids((config_id, manifest_id)),
+    )
 
 
 def _runtime_package_information(
@@ -397,8 +424,9 @@ def _cleanup_container(
 def _capture_loaded_image_id(
     docker: Path,
     image_reference: str,
-    expected_image_id: str,
+    artifact_image_ids: Sequence[str],
 ) -> str:
+    expected_image_ids = _validated_artifact_image_ids(artifact_image_ids)
     inspected = _run_docker(docker, ["image", "inspect", image_reference])
     try:
         document = json.loads(inspected.stdout)
@@ -414,20 +442,27 @@ def _capture_loaded_image_id(
         raise artifact.BuildError(
             "loaded image inspection did not return one immutable image ID"
         ) from error
-    if image_id != expected_image_id:
-        raise artifact.BuildError("loaded image tag does not resolve to the artifact config ID")
+    if image_id not in expected_image_ids:
+        raise artifact.BuildError(
+            "loaded image tag does not resolve to an artifact-bound immutable ID"
+        )
     return image_id
 
 
 def _cleanup_loaded_image(
     docker: Path,
     image_reference: str,
-    expected_image_id: str,
+    artifact_image_ids: Sequence[str],
     *,
+    captured_image_id: str | None,
     missing_reference_is_clean: bool = False,
 ) -> str | None:
-    if _IMAGE_ID_RE.fullmatch(expected_image_id) is None:
-        return "loaded smoke image ID is malformed"
+    try:
+        expected_image_ids = _validated_artifact_image_ids(artifact_image_ids)
+    except artifact.BuildError:
+        return "artifact image identity pair is malformed"
+    if captured_image_id is not None and captured_image_id not in expected_image_ids:
+        return "captured loaded smoke image ID is not artifact-bound"
     inspected = _run_docker(
         docker,
         ["image", "inspect", image_reference],
@@ -452,11 +487,14 @@ def _cleanup_loaded_image(
             raise TypeError
     except KeyError, TypeError, json.JSONDecodeError:
         return f"loaded smoke image ownership inspection is malformed: {image_reference}"
-    if current_image_id != expected_image_id:
+    if current_image_id not in expected_image_ids:
+        return f"refusing to remove non-artifact smoke image tag: {image_reference}"
+    if captured_image_id is not None and current_image_id != captured_image_id:
         return f"refusing to remove replacement smoke image tag: {image_reference}"
+    removal_image_id = captured_image_id or current_image_id
     removed = _run_docker(
         docker,
-        ["image", "rm", expected_image_id],
+        ["image", "rm", removal_image_id],
         check=False,
     )
     if removed.returncode != 0 and not _docker_resource_missing(removed, "image"):
@@ -470,7 +508,7 @@ def _cleanup_smoke_resources(
     containers: Mapping[str, str | None],
     owner_token: str,
     image_reference: str,
-    expected_image_id: str,
+    artifact_image_ids: Sequence[str],
     image_load_attempted: bool,
     image_load_completed: bool,
     loaded_image_id: str | None,
@@ -485,13 +523,12 @@ def _cleanup_smoke_resources(
         )
         if failure is not None:
             failures.append(failure)
-    if image_load_completed and loaded_image_id is None:
-        failures.append("loaded smoke image has no captured immutable ID")
-    elif loaded_image_id is not None:
+    if loaded_image_id is not None:
         failure = _cleanup_loaded_image(
             docker,
             image_reference,
-            loaded_image_id,
+            artifact_image_ids,
+            captured_image_id=loaded_image_id,
         )
         if failure is not None:
             failures.append(failure)
@@ -499,8 +536,9 @@ def _cleanup_smoke_resources(
         failure = _cleanup_loaded_image(
             docker,
             image_reference,
-            expected_image_id,
-            missing_reference_is_clean=True,
+            artifact_image_ids,
+            captured_image_id=None,
+            missing_reference_is_clean=not image_load_completed,
         )
         if failure is not None:
             failures.append(failure)
@@ -679,7 +717,7 @@ def smoke(
     metadata = _read_build_metadata(output)
     runtime_packages = _runtime_package_information(metadata)
     manifest_digest = _producer_manifest_digest(metadata)
-    image, relative_archive, expected_image_id = _image_information(metadata)
+    image, relative_archive, artifact_image_ids = _image_information(metadata)
     image_archive = output.joinpath(*relative_archive.parts)
     containers = {
         purpose: _container_name(image, purpose)
@@ -702,7 +740,7 @@ def smoke(
             containers={name: owned_container_ids.get(name) for name in containers.values()},
             owner_token=owner_token,
             image_reference=image,
-            expected_image_id=expected_image_id,
+            artifact_image_ids=artifact_image_ids,
             image_load_attempted=image_load_attempted,
             image_load_completed=image_load_completed,
             loaded_image_id=loaded_image_id,
@@ -718,7 +756,7 @@ def smoke(
         loaded_image_id = _capture_loaded_image_id(
             docker,
             image,
-            expected_image_id,
+            artifact_image_ids,
         )
         producer_labels = _inspect_runtime(
             docker,

@@ -2128,26 +2128,52 @@ class SmokePolicyTests(GeneratedDirectoryTestCase):
             smoke._runtime_package_information({"runtimePackages": list(reversed(packages))})
 
     def test_image_metadata_path_and_reference_are_strict(self) -> None:
+        config_id = f"sha256:{'a' * 64}"
+        manifest_id = f"sha256:{'b' * 64}"
         metadata: dict[str, Any] = {
             "artifacts": {
                 "image": {
                     "oci": {
-                        "config": {"digest": f"sha256:{'a' * 64}"},
+                        "config": {"digest": config_id},
+                        "manifest": {"digest": manifest_id},
                         "reference": (f"localhost/bgmss-updater-artifact:{'d' * 40}-arm64"),
                     },
                     "path": "artifacts/updater-image-linux-arm64.oci.tar",
                 }
             }
         }
-        reference, path, image_id = smoke._image_information(metadata)
+        reference, path, image_ids = smoke._image_information(metadata)
         self.assertEqual(
             reference,
             f"localhost/bgmss-updater-artifact:{'d' * 40}-arm64",
         )
         self.assertEqual(path.as_posix(), "artifacts/updater-image-linux-arm64.oci.tar")
-        self.assertEqual(image_id, f"sha256:{'a' * 64}")
+        self.assertEqual(image_ids, (config_id, manifest_id))
         metadata["artifacts"]["image"]["path"] = "../escape"
         with self.assertRaisesRegex(artifact.BuildError, "unsafe relative path"):
+            smoke._image_information(metadata)
+
+    def test_image_metadata_requires_distinct_config_and_manifest_digests(self) -> None:
+        config_id = f"sha256:{'a' * 64}"
+        metadata: dict[str, Any] = {
+            "artifacts": {
+                "image": {
+                    "oci": {
+                        "config": {"digest": config_id},
+                        "manifest": {"digest": config_id},
+                        "reference": "localhost/bgmss-updater-artifact:test",
+                    },
+                    "path": "artifacts/updater-image-linux-arm64.oci.tar",
+                }
+            }
+        }
+        with self.assertRaisesRegex(artifact.BuildError, "distinct config/manifest"):
+            smoke._image_information(metadata)
+        metadata["artifacts"]["image"]["oci"]["manifest"] = {"digest": "sha256:not-a-digest"}
+        with self.assertRaisesRegex(artifact.BuildError, "distinct config/manifest"):
+            smoke._image_information(metadata)
+        del metadata["artifacts"]["image"]["oci"]["manifest"]
+        with self.assertRaisesRegex(artifact.BuildError, "complete OCI image"):
             smoke._image_information(metadata)
 
     def test_runtime_smoke_is_networkless_read_only_and_non_root(self) -> None:
@@ -2441,61 +2467,71 @@ class SmokePolicyTests(GeneratedDirectoryTestCase):
             timeout_seconds=120,
         )
 
-    def test_failed_load_side_effect_is_cleaned_by_expected_image_id(self) -> None:
+    def test_failed_load_side_effect_accepts_both_artifact_image_ids(self) -> None:
         image_reference = "localhost/bgmss-updater-artifact:test"
-        image_id = f"sha256:{'a' * 64}"
-        inspected = subprocess.CompletedProcess(
-            ["docker"],
-            0,
-            stdout=json.dumps([{"Id": image_id}]),
-            stderr="",
+        image_ids = (
+            f"sha256:{'a' * 64}",
+            f"sha256:{'b' * 64}",
         )
-        removed = subprocess.CompletedProcess(
-            ["docker"],
-            0,
-            stdout="",
-            stderr="",
-        )
-        primary = artifact.BuildError("image load failed after daemon side effect")
-        with (
-            patch.object(
-                smoke,
-                "_run_docker",
-                side_effect=(inspected, removed),
-            ) as run_docker,
-            self.assertRaises(artifact.BuildError) as caught,
-            smoke._cleanup_guard(
-                lambda: smoke._cleanup_smoke_resources(
-                    docker=Path("docker"),
-                    containers={},
-                    owner_token="a" * 32,
-                    image_reference=image_reference,
-                    expected_image_id=image_id,
-                    image_load_attempted=True,
-                    image_load_completed=False,
-                    loaded_image_id=None,
+        for image_id in image_ids:
+            with self.subTest(image_id=image_id):
+                inspected = subprocess.CompletedProcess(
+                    ["docker"],
+                    0,
+                    stdout=json.dumps([{"Id": image_id}]),
+                    stderr="",
                 )
-            ),
-        ):
-            raise primary
-        self.assertIs(caught.exception, primary)
-        self.assertEqual(
-            run_docker.call_args_list[0].args,
-            (
-                Path("docker"),
-                ["image", "inspect", image_reference],
-            ),
-        )
-        run_docker.assert_any_call(
-            Path("docker"),
-            ["image", "rm", image_id],
-            check=False,
-        )
-        self.assertFalse(any("--force" in call.args[1] for call in run_docker.call_args_list))
+                removed = subprocess.CompletedProcess(
+                    ["docker"],
+                    0,
+                    stdout="",
+                    stderr="",
+                )
+                primary = artifact.BuildError("image load failed after daemon side effect")
+                with (
+                    patch.object(
+                        smoke,
+                        "_run_docker",
+                        side_effect=(inspected, removed),
+                    ) as run_docker,
+                    self.assertRaises(artifact.BuildError) as caught,
+                    smoke._cleanup_guard(
+                        lambda: smoke._cleanup_smoke_resources(
+                            docker=Path("docker"),
+                            containers={},
+                            owner_token="a" * 32,
+                            image_reference=image_reference,
+                            artifact_image_ids=image_ids,
+                            image_load_attempted=True,
+                            image_load_completed=False,
+                            loaded_image_id=None,
+                        )
+                    ),
+                ):
+                    raise primary
+                self.assertIs(caught.exception, primary)
+                self.assertEqual(
+                    run_docker.call_args_list[0].args,
+                    (
+                        Path("docker"),
+                        ["image", "inspect", image_reference],
+                    ),
+                )
+                run_docker.assert_any_call(
+                    Path("docker"),
+                    ["image", "rm", image_id],
+                    check=False,
+                )
+                self.assertFalse(
+                    any("--force" in call.args[1] for call in run_docker.call_args_list)
+                )
 
     def test_failed_load_with_absent_tag_has_no_cleanup_residue(self) -> None:
         image_reference = "localhost/bgmss-updater-artifact:test"
-        image_id = f"sha256:{'a' * 64}"
+        image_ids = (
+            f"sha256:{'a' * 64}",
+            f"sha256:{'b' * 64}",
+        )
         missing = subprocess.CompletedProcess(
             ["docker"],
             1,
@@ -2512,7 +2548,7 @@ class SmokePolicyTests(GeneratedDirectoryTestCase):
                     containers={},
                     owner_token="a" * 32,
                     image_reference=image_reference,
-                    expected_image_id=image_id,
+                    artifact_image_ids=image_ids,
                     image_load_attempted=True,
                     image_load_completed=False,
                     loaded_image_id=None,
@@ -2527,10 +2563,13 @@ class SmokePolicyTests(GeneratedDirectoryTestCase):
             check=False,
         )
 
-    def test_failed_load_preserves_and_reports_replacement_tag(self) -> None:
+    def test_failed_load_preserves_and_reports_third_image_identity(self) -> None:
         image_reference = "localhost/bgmss-updater-artifact:test"
-        expected_image_id = f"sha256:{'a' * 64}"
-        replacement_image_id = f"sha256:{'b' * 64}"
+        image_ids = (
+            f"sha256:{'a' * 64}",
+            f"sha256:{'b' * 64}",
+        )
+        replacement_image_id = f"sha256:{'c' * 64}"
         inspected = subprocess.CompletedProcess(
             ["docker"],
             0,
@@ -2549,7 +2588,7 @@ class SmokePolicyTests(GeneratedDirectoryTestCase):
                     containers={},
                     owner_token="a" * 32,
                     image_reference=image_reference,
-                    expected_image_id=expected_image_id,
+                    artifact_image_ids=image_ids,
                     image_load_attempted=True,
                     image_load_completed=False,
                     loaded_image_id=None,
@@ -2558,7 +2597,7 @@ class SmokePolicyTests(GeneratedDirectoryTestCase):
         ):
             raise primary
         self.assertIs(caught.exception, primary)
-        secondary = f"refusing to remove replacement smoke image tag: {image_reference}"
+        secondary = f"refusing to remove non-artifact smoke image tag: {image_reference}"
         self.assertIn(
             secondary,
             "\n".join(getattr(caught.exception, "__notes__", ())),
@@ -2571,8 +2610,11 @@ class SmokePolicyTests(GeneratedDirectoryTestCase):
         )
 
     def test_replacement_image_tag_is_preserved(self) -> None:
-        expected_image_id = f"sha256:{'a' * 64}"
-        replacement_image_id = f"sha256:{'b' * 64}"
+        image_ids = (
+            f"sha256:{'a' * 64}",
+            f"sha256:{'b' * 64}",
+        )
+        replacement_image_id = image_ids[1]
         inspected = subprocess.CompletedProcess(
             ["docker"],
             0,
@@ -2583,7 +2625,8 @@ class SmokePolicyTests(GeneratedDirectoryTestCase):
             failure = smoke._cleanup_loaded_image(
                 Path("docker"),
                 "localhost/bgmss-updater-artifact:test",
-                expected_image_id,
+                image_ids,
+                captured_image_id=image_ids[0],
             )
         self.assertEqual(
             failure,
@@ -2594,25 +2637,58 @@ class SmokePolicyTests(GeneratedDirectoryTestCase):
         )
         run_docker.assert_called_once()
 
+    def test_post_load_capture_accepts_classic_and_containerd_image_ids(self) -> None:
+        image_reference = "localhost/bgmss-updater-artifact:test"
+        image_ids = (
+            f"sha256:{'a' * 64}",
+            f"sha256:{'b' * 64}",
+        )
+        for image_id in image_ids:
+            with self.subTest(image_id=image_id):
+                inspected = subprocess.CompletedProcess(
+                    ["docker"],
+                    0,
+                    stdout=json.dumps([{"Id": image_id}]),
+                    stderr="",
+                )
+                with patch.object(
+                    smoke,
+                    "_run_docker",
+                    return_value=inspected,
+                ) as run_docker:
+                    captured = smoke._capture_loaded_image_id(
+                        Path("docker"),
+                        image_reference,
+                        image_ids,
+                    )
+                self.assertEqual(captured, image_id)
+                run_docker.assert_called_once_with(
+                    Path("docker"),
+                    ["image", "inspect", image_reference],
+                )
+
     def test_post_load_capture_rejects_non_artifact_image_id(self) -> None:
-        expected_image_id = f"sha256:{'a' * 64}"
+        image_ids = (
+            f"sha256:{'a' * 64}",
+            f"sha256:{'b' * 64}",
+        )
         inspected = subprocess.CompletedProcess(
             ["docker"],
             0,
-            stdout=json.dumps([{"Id": f"sha256:{'b' * 64}"}]),
+            stdout=json.dumps([{"Id": f"sha256:{'c' * 64}"}]),
             stderr="",
         )
         with (
             patch.object(smoke, "_run_docker", return_value=inspected) as run_docker,
             self.assertRaisesRegex(
                 artifact.BuildError,
-                "artifact config ID",
+                "artifact-bound immutable ID",
             ),
         ):
             smoke._capture_loaded_image_id(
                 Path("docker"),
                 "localhost/bgmss-updater-artifact:test",
-                expected_image_id,
+                image_ids,
             )
         run_docker.assert_called_once_with(
             Path("docker"),
@@ -2623,37 +2699,95 @@ class SmokePolicyTests(GeneratedDirectoryTestCase):
             ],
         )
 
+    def test_post_load_capture_rejects_malformed_inspection(self) -> None:
+        image_reference = "localhost/bgmss-updater-artifact:test"
+        malformed = subprocess.CompletedProcess(
+            ["docker"],
+            0,
+            stdout=json.dumps([{"Id": "not-an-image-id"}]),
+            stderr="",
+        )
+        with (
+            patch.object(smoke, "_run_docker", return_value=malformed) as run_docker,
+            self.assertRaisesRegex(
+                artifact.BuildError,
+                "did not return one immutable image ID",
+            ),
+        ):
+            smoke._capture_loaded_image_id(
+                Path("docker"),
+                image_reference,
+                (f"sha256:{'a' * 64}", f"sha256:{'b' * 64}"),
+            )
+        run_docker.assert_called_once_with(
+            Path("docker"),
+            ["image", "inspect", image_reference],
+        )
+
     def test_owned_image_cleanup_uses_immutable_id_without_force(self) -> None:
-        image_id = f"sha256:{'a' * 64}"
-        inspected = subprocess.CompletedProcess(
+        image_ids = (
+            f"sha256:{'a' * 64}",
+            f"sha256:{'b' * 64}",
+        )
+        for image_id in image_ids:
+            with self.subTest(image_id=image_id):
+                inspected = subprocess.CompletedProcess(
+                    ["docker"],
+                    0,
+                    stdout=json.dumps([{"Id": image_id}]),
+                    stderr="",
+                )
+                removed = subprocess.CompletedProcess(
+                    ["docker"],
+                    0,
+                    stdout="",
+                    stderr="",
+                )
+                with patch.object(
+                    smoke,
+                    "_run_docker",
+                    side_effect=(inspected, removed),
+                ) as run_docker:
+                    failure = smoke._cleanup_loaded_image(
+                        Path("docker"),
+                        "localhost/bgmss-updater-artifact:test",
+                        image_ids,
+                        captured_image_id=image_id,
+                    )
+                self.assertIsNone(failure)
+                run_docker.assert_any_call(
+                    Path("docker"),
+                    ["image", "rm", image_id],
+                    check=False,
+                )
+                self.assertFalse(
+                    any("--force" in call.args[1] for call in run_docker.call_args_list)
+                )
+
+    def test_malformed_image_cleanup_inspection_preserves_the_tag(self) -> None:
+        image_reference = "localhost/bgmss-updater-artifact:test"
+        malformed = subprocess.CompletedProcess(
             ["docker"],
             0,
-            stdout=json.dumps([{"Id": image_id}]),
+            stdout=json.dumps([{"Id": "not-an-image-id"}]),
             stderr="",
         )
-        removed = subprocess.CompletedProcess(
-            ["docker"],
-            0,
-            stdout="",
-            stderr="",
-        )
-        with patch.object(
-            smoke,
-            "_run_docker",
-            side_effect=(inspected, removed),
-        ) as run_docker:
+        with patch.object(smoke, "_run_docker", return_value=malformed) as run_docker:
             failure = smoke._cleanup_loaded_image(
                 Path("docker"),
-                "localhost/bgmss-updater-artifact:test",
-                image_id,
+                image_reference,
+                (f"sha256:{'a' * 64}", f"sha256:{'b' * 64}"),
+                captured_image_id=None,
             )
-        self.assertIsNone(failure)
-        run_docker.assert_any_call(
+        self.assertEqual(
+            failure,
+            f"loaded smoke image ownership inspection is malformed: {image_reference}",
+        )
+        run_docker.assert_called_once_with(
             Path("docker"),
-            ["image", "rm", image_id],
+            ["image", "inspect", image_reference],
             check=False,
         )
-        self.assertFalse(any("--force" in call.args[1] for call in run_docker.call_args_list))
 
     def test_primary_failure_is_preserved_when_cleanup_fails(self) -> None:
         primary = artifact.BuildError("primary smoke failure")

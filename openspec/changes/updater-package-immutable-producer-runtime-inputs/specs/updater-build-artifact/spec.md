@@ -102,9 +102,15 @@ read or write a production path, create/activate `current.json`, or emit
 `update_activated`. Every created container SHALL carry a per-run ownership
 label. Cleanup SHALL remove a named container only after its current label
 matches that exact run and immutable container ID, then delete only by that ID.
-Smoke SHALL record the first post-load image ID before further validation,
-never force image removal, and SHALL not delete a replacement tag/image.
-Cleanup SHALL preserve the primary failure.
+Smoke SHALL record the first post-load image ID before further validation.
+Because supported Docker storage backends expose either the verified OCI
+config digest (classic image store) or verified OCI manifest digest
+(containerd image store) as that immutable ID, smoke SHALL admit exactly those
+two artifact-bound alternatives and reject every other ID. Cleanup SHALL use
+the captured alternative, never force image removal, and SHALL not delete a
+replacement tag/image. A load that fails after creating the declared tag SHALL
+apply the same two-digest ownership proof before cleanup. Cleanup SHALL
+preserve the primary failure.
 
 #### Scenario: Built updater validates itself and embedded inputs
 - **WHEN** smoke runs outside source with only the artifact and disposable state
@@ -121,3 +127,8 @@ Cleanup SHALL preserve the primary failure.
 #### Scenario: The loaded image tag changes ownership
 - **WHEN** the declared image tag no longer resolves to the first post-load image ID
 - **THEN** smoke reports the collision and removes no replacement image or tag
+
+#### Scenario: Supported image stores expose different immutable IDs
+- **WHEN** a supported classic or containerd image store loads the accepted archive
+- **THEN** smoke accepts only the verified OCI config or manifest digest exposed by that store
+- **AND** all later container creation and cleanup use the captured immutable ID

@@ -47,7 +47,8 @@
   activation, runtime write, external request, foreign-container cleanup, or
   residual owned resource occurs; bind and verify a unique per-run ownership
   label and immutable ID before every container removal, and guard the loaded
-  image identity without force-removing a replacement.
+  image identity against the closed verified config/manifest digest pair for
+  classic/containerd stores without force-removing a replacement.
 
 ## 4. Verification and handoff
 
