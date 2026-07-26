@@ -67,7 +67,12 @@ The OCI image contains identical logical bytes below
 mode `0444`; its directories are `0555`. Native-tar producer members retain
 the existing deterministic archive owner `0:0`, but producer files are `0444`
 and producer directories are `0555`; unrelated native members retain the
-existing normalized modes. The runtime root remains read-only.
+existing normalized modes. The OCI ancestor `/opt/bgmss` SHALL also deny write
+permission to runtime UID/GID `65532`, so the fixed producer root cannot be
+renamed, removed, or replaced through its parent directory. Verification
+replays this ancestor together with the producer subtree and fails closed when
+either the ancestor or producer root leaves replacement possible. The runtime
+root remains read-only.
 
 The exact OCI labels are:
 

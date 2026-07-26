@@ -43,7 +43,11 @@ Catalog files SHALL remain exact siblings.
 Every embedded file SHALL be a regular non-symlink read-only file below a
 non-writable fixed producer root. Native producer members SHALL use modes
 `0444`/`0555` and deterministic archive ownership `0:0`; OCI producer members
-SHALL use modes `0444`/`0555` and ownership `65532:65532`.
+SHALL use modes `0444`/`0555` and ownership `65532:65532`. The OCI root's
+nearest ancestor `/opt/bgmss` SHALL not grant runtime UID/GID `65532` write
+permission; the built image and verifier SHALL therefore prevent both mutation
+inside the producer root and rename/removal/replacement of that root through
+its parent.
 
 Canonical producer-input metadata SHALL be the exact closed schema version 1
 document defined by this change: fixed native/OCI roots, Contracts
@@ -64,6 +68,11 @@ SHALL agree; the statement SHALL include
 #### Scenario: One copy or evidence record differs
 - **WHEN** native/OCI bytes, modes, paths, labels, metadata, or statement input disagree
 - **THEN** verification fails before compatibility or release assembly
+
+#### Scenario: A writable ancestor could replace the fixed root
+- **WHEN** `/opt/bgmss/producer` is read-only but `/opt/bgmss` grants write permission to runtime UID/GID `65532`
+- **THEN** artifact verification fails before publication
+- **AND** no runtime artifact may rely only on the child root mode for immutability
 
 ### Requirement: Embedded producer inputs SHALL pass finite networkless smoke
 

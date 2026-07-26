@@ -33,7 +33,8 @@
 - [x] 2.2 Emit canonical producer-input metadata, fixed image labels, outer
   build metadata v2, and the component-statement manifest input.
 - [x] 2.3 Extend native/OCI verification and tamper/type/mode/path/label/input
-  mismatch negatives without weakening source/runtime minimization.
+  mismatch negatives, including a writable nearest ancestor that could replace
+  the fixed producer root, without weakening source/runtime minimization.
 - [x] 2.4 Export through the pinned Docker exporter with explicit OCI media
   types; strictly admit and normalize its closed graph plus exact compatibility
   manifest, with Engine 26/28 load and unsafe/extra/orphan/mismatch negatives.

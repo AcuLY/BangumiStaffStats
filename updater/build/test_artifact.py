@@ -1137,12 +1137,32 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
         mutation: str | None,
     ) -> tuple[bytes, bytes]:
         selected_path = sorted(self.producer_files)[0]
+        real_buildkit_copy_shape = mutation in {
+            "buildkit-copy-root-mode",
+            "buildkit-producer-only-chmod",
+            "buildkit-runtime-chmod",
+        }
         raw = io.BytesIO()
         with tarfile.open(
             fileobj=raw,
             mode="w",
             format=tarfile.PAX_FORMAT,
         ) as archive:
+            for name, mode, uid, gid in (
+                ("opt", 0o755, 0, 0),
+                (
+                    "opt/bgmss",
+                    0o755 if real_buildkit_copy_shape else 0o555,
+                    65532,
+                    65532,
+                ),
+            ):
+                info = tarfile.TarInfo(name)
+                info.type = tarfile.DIRTYPE
+                info.mode = mode
+                info.uid = uid
+                info.gid = gid
+                archive.addfile(info)
             for relative in sorted(
                 self.producer_directories,
                 key=lambda value: (value.count("/"), value),
@@ -1152,7 +1172,11 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
                     name = f"{name}/{relative}"
                 info = tarfile.TarInfo(name)
                 info.type = tarfile.DIRTYPE
-                info.mode = 0o755 if mutation == "directory-mode" else 0o555
+                info.mode = (
+                    0o755
+                    if mutation == "directory-mode" or (real_buildkit_copy_shape and not relative)
+                    else 0o555
+                )
                 info.uid = 65532
                 info.gid = 65532
                 archive.addfile(info)
@@ -1181,6 +1205,30 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
         raw_bytes = raw.getvalue()
         return raw_bytes, gzip.compress(raw_bytes, compresslevel=9, mtime=0)
 
+    @staticmethod
+    def _runtime_directory_mode_layer_bytes(
+        *,
+        include_parent: bool,
+    ) -> tuple[bytes, bytes]:
+        raw = io.BytesIO()
+        with tarfile.open(
+            fileobj=raw,
+            mode="w",
+            format=tarfile.PAX_FORMAT,
+        ) as archive:
+            names = (
+                ("opt/bgmss", "opt/bgmss/producer") if include_parent else ("opt/bgmss/producer",)
+            )
+            for name in names:
+                info = tarfile.TarInfo(name)
+                info.type = tarfile.DIRTYPE
+                info.mode = 0o555
+                info.uid = 65532
+                info.gid = 65532
+                archive.addfile(info)
+        raw_bytes = raw.getvalue()
+        return raw_bytes, gzip.compress(raw_bytes, compresslevel=9, mtime=0)
+
     def _make_oci_image(
         self,
         destination: Path,
@@ -1188,7 +1236,16 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
         mutation: str | None,
     ) -> dict[str, object]:
         raw_layer, layer = self._layer_bytes(mutation=mutation)
-        layer_digest = artifact.producer_inputs.sha256_bytes(layer)
+        layer_values = [(raw_layer, layer)]
+        if mutation in {"buildkit-producer-only-chmod", "buildkit-runtime-chmod"}:
+            layer_values.append(
+                self._runtime_directory_mode_layer_bytes(
+                    include_parent=mutation == "buildkit-runtime-chmod",
+                )
+            )
+        layer_digests = [
+            artifact.producer_inputs.sha256_bytes(compressed) for _raw, compressed in layer_values
+        ]
         labels = {
             artifact.producer_inputs.PRODUCER_INPUTS_LABEL: (self.selected.manifest_digest),
             artifact.producer_inputs.CATALOG_CONFIG_LABEL: self.catalog_digest,
@@ -1212,7 +1269,10 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
                 },
                 "os": "linux",
                 "rootfs": {
-                    "diff_ids": [artifact.producer_inputs.sha256_bytes(raw_layer)],
+                    "diff_ids": [
+                        artifact.producer_inputs.sha256_bytes(raw)
+                        for raw, _compressed in layer_values
+                    ],
                     "type": "layers",
                 },
             }
@@ -1221,6 +1281,22 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
         config_media_type = artifact.OCI_CONFIG_MEDIA_TYPE
         layer_media_type = artifact.OCI_LAYER_MEDIA_TYPE
         manifest_media_type = artifact.OCI_MANIFEST_MEDIA_TYPE
+        layer_descriptors = [
+            {
+                "digest": digest,
+                "mediaType": (
+                    "application/vnd.docker.image.rootfs.diff.tar.gzip"
+                    if mutation == "layer-media"
+                    else layer_media_type
+                ),
+                "size": len(compressed),
+            }
+            for digest, (_raw, compressed) in zip(
+                layer_digests,
+                layer_values,
+                strict=True,
+            )
+        ]
         manifest = artifact.canonical_json(
             {
                 "config": {
@@ -1232,17 +1308,7 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
                     ),
                     "size": len(config),
                 },
-                "layers": [
-                    {
-                        "digest": layer_digest,
-                        "mediaType": (
-                            "application/vnd.docker.image.rootfs.diff.tar.gzip"
-                            if mutation == "layer-media"
-                            else layer_media_type
-                        ),
-                        "size": len(layer),
-                    }
-                ],
+                "layers": layer_descriptors,
                 "mediaType": (
                     "application/vnd.docker.distribution.manifest.v2+json"
                     if mutation == "manifest-media"
@@ -1288,14 +1354,19 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
         )
         for digest, value in (
             (config_digest, config),
-            (layer_digest, layer),
             (manifest_digest, manifest),
         ):
             (layout / "blobs" / "sha256" / digest[7:]).write_bytes(value)
+        for digest, (_raw, compressed) in zip(
+            layer_digests,
+            layer_values,
+            strict=True,
+        ):
+            (layout / "blobs" / "sha256" / digest[7:]).write_bytes(compressed)
         compatibility: dict[str, object] = {
             "Config": f"blobs/sha256/{config_digest[7:]}",
             "RepoTags": [self.image_reference],
-            "Layers": [f"blobs/sha256/{layer_digest[7:]}"],
+            "Layers": [f"blobs/sha256/{digest[7:]}" for digest in layer_digests],
         }
         if mutation == "compat-tag":
             compatibility["RepoTags"] = ["localhost/bgmss-updater-artifact:wrong"]
@@ -1334,17 +1405,7 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
                 ),
                 "size": len(config),
             },
-            "layers": [
-                {
-                    "digest": layer_digest,
-                    "mediaType": (
-                        "application/vnd.docker.image.rootfs.diff.tar.gzip"
-                        if mutation == "layer-media"
-                        else layer_media_type
-                    ),
-                    "size": len(layer),
-                }
-            ],
+            "layers": layer_descriptors,
             "manifest": {
                 "digest": manifest_digest,
                 "mediaType": (
@@ -1570,6 +1631,114 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
         self.assertEqual(evidence.manifest_digest, self.selected.manifest_digest)
         self._add_evidence(output)
         artifact.verify_output(output, require_statement=False)
+
+    def test_real_buildkit_copy_requires_parent_and_root_runtime_chmod_layer(
+        self,
+    ) -> None:
+        copy_only = self._make_output(oci_mutation="buildkit-copy-root-mode")
+        with self.assertRaisesRegex(
+            artifact.BuildError,
+            "OCI producer",
+        ):
+            artifact._verify_producer_artifacts(copy_only)
+
+        producer_only = self._make_output(
+            oci_mutation="buildkit-producer-only-chmod",
+        )
+        with self.assertRaisesRegex(
+            artifact.BuildError,
+            "OCI producer parent directory is not read-only",
+        ):
+            artifact._verify_producer_artifacts(producer_only)
+
+        repaired = self._make_output(oci_mutation="buildkit-runtime-chmod")
+        artifact._verify_producer_artifacts(repaired)
+        image = repaired / "artifacts" / "updater-image-linux-arm64.oci.tar"
+        graph = artifact._inspect_oci_graph(
+            artifact._oci_layout_files(image),
+            reference=self.image_reference,
+            target=artifact.Target.parse("linux/arm64"),
+        )
+        self.assertEqual(len(graph.layers), 2)
+
+        with tarfile.open(
+            fileobj=io.BytesIO(graph.layers[0][1]),
+            mode="r:*",
+        ) as archive:
+            copy_entries = [
+                (
+                    member.name,
+                    member.type,
+                    member.mode & 0o7777,
+                    member.uid,
+                    member.gid,
+                )
+                for member in archive.getmembers()[:3]
+            ]
+        self.assertEqual(
+            copy_entries,
+            [
+                ("opt", tarfile.DIRTYPE, 0o755, 0, 0),
+                ("opt/bgmss", tarfile.DIRTYPE, 0o755, 65532, 65532),
+                (
+                    "opt/bgmss/producer",
+                    tarfile.DIRTYPE,
+                    0o755,
+                    65532,
+                    65532,
+                ),
+            ],
+        )
+        with tarfile.open(
+            fileobj=io.BytesIO(graph.layers[1][1]),
+            mode="r:*",
+        ) as archive:
+            mode_entries = [
+                (
+                    member.name,
+                    member.type,
+                    member.mode & 0o7777,
+                    member.uid,
+                    member.gid,
+                )
+                for member in archive.getmembers()
+            ]
+        self.assertEqual(
+            mode_entries,
+            [
+                (
+                    "opt/bgmss",
+                    tarfile.DIRTYPE,
+                    0o555,
+                    65532,
+                    65532,
+                ),
+                (
+                    "opt/bgmss/producer",
+                    tarfile.DIRTYPE,
+                    0o555,
+                    65532,
+                    65532,
+                ),
+            ],
+        )
+        state: dict[str, tuple[str, int, int, int, bytes | None]] = {}
+        parent_state: dict[str, tuple[str, int, int, int, bytes | None]] = {}
+        for _descriptor, layer_bytes in graph.layers:
+            artifact._apply_oci_layer(state, layer_bytes)
+            artifact._apply_oci_layer(
+                parent_state,
+                layer_bytes,
+                target="opt/bgmss",
+            )
+        self.assertEqual(
+            state[""],
+            ("directory", 0o555, 65532, 65532, None),
+        )
+        self.assertEqual(
+            parent_state[""],
+            ("directory", 0o555, 65532, 65532, None),
+        )
 
     def test_pinned_docker_exporter_shape_admits_normalizes_and_verifies(self) -> None:
         raw_archive, expected_metadata = self._make_raw_exporter_archive()
@@ -1827,9 +1996,27 @@ class DockerfileTests(unittest.TestCase):
         lowered = value.lower()
         self.assertIn("PATH=/usr/local/bin:/usr/bin:/bin", value)
         self.assertIn("runtime_prune.py /opt/runtime", value)
-        self.assertIn(
-            "COPY --from=builder --chown=65532:65532 /opt/bgmss/producer /opt/bgmss/producer",
-            value,
+        producer_copy = (
+            "COPY --from=builder --chown=65532:65532 /opt/bgmss/producer /opt/bgmss/producer"
+        )
+        producer_modes = "chmod 0555 /opt/bgmss /opt/bgmss/producer"
+        parent_identity = 'test "$(stat -c \'%a:%u:%g\' /opt/bgmss)" = "555:65532:65532"'
+        root_identity = 'test "$(stat -c \'%a:%u:%g\' /opt/bgmss/producer)" = "555:65532:65532"'
+        self.assertLess(
+            value.index(producer_copy),
+            value.index(producer_modes),
+        )
+        self.assertLess(
+            value.index(producer_modes),
+            value.index(parent_identity),
+        )
+        self.assertLess(
+            value.index(parent_identity),
+            value.index(root_identity),
+        )
+        self.assertLess(
+            value.index(root_identity),
+            value.index("USER 65532:65532"),
         )
         for label in artifact.producer_inputs.PRODUCER_LABELS:
             self.assertEqual(value.count(label), 1)

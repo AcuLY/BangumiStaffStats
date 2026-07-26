@@ -2736,8 +2736,9 @@ def _opaque_oci_state(
 def _apply_oci_layer(
     state: dict[str, tuple[str, int, int, int, bytes | None]],
     layer_bytes: bytes,
+    *,
+    target: str = producer_inputs.OCI_PRODUCER_ROOT.removeprefix("/"),
 ) -> None:
-    target = producer_inputs.OCI_PRODUCER_ROOT.removeprefix("/")
     try:
         with tarfile.open(fileobj=io.BytesIO(layer_bytes), mode="r:*") as archive:
             members: list[tuple[str, tarfile.TarInfo]] = []
@@ -2794,6 +2795,24 @@ def _apply_oci_layer(
         raise BuildError(f"OCI image layer is invalid: {error}") from error
 
 
+def _runtime_directory_permissions(
+    entry: tuple[str, int, int, int, bytes | None] | None,
+    *,
+    runtime_uid: int,
+    runtime_gid: int,
+) -> int | None:
+    if entry is None:
+        return None
+    kind, mode, uid, gid, content = entry
+    if kind != "directory" or content is not None or mode & 0o7000:
+        return None
+    if uid == runtime_uid:
+        return (mode >> 6) & 0o7
+    if gid == runtime_gid:
+        return (mode >> 3) & 0o7
+    return mode & 0o7
+
+
 def _verify_oci_producer(
     image: Path,
     expected_oci: object,
@@ -2829,9 +2848,29 @@ def _verify_oci_producer(
         producer_inputs.CATALOG_CONFIG_LABEL: "",
         producer_inputs.COMMON_COMMIT_LABEL: "",
     }
+    producer_target = producer_inputs.OCI_PRODUCER_ROOT.removeprefix("/")
+    producer_parent = PurePosixPath(producer_target).parent.as_posix()
     state: dict[str, tuple[str, int, int, int, bytes | None]] = {}
+    parent_state: dict[str, tuple[str, int, int, int, bytes | None]] = {}
     for _descriptor, layer_bytes in graph.layers:
         _apply_oci_layer(state, layer_bytes)
+        _apply_oci_layer(
+            parent_state,
+            layer_bytes,
+            target=producer_parent,
+        )
+    if (
+        _runtime_directory_permissions(
+            parent_state.get(""),
+            runtime_uid=65532,
+            runtime_gid=65532,
+        )
+        != 0o5
+    ):
+        raise BuildError(
+            "OCI producer parent directory is not read-only and traversable "
+            "for the runtime identity"
+        )
     producer_files: dict[str, bytes] = {}
     producer_directories: set[str] = set()
     for relative, (kind, mode, uid, gid, content) in state.items():
@@ -3261,6 +3300,17 @@ def build_component(
 
 def verify_dockerfile(path: Path = UPDATER_ROOT / "Dockerfile") -> None:
     value = path.read_text(encoding="utf-8")
+    runtime_producer_copy = (
+        "COPY --from=builder --chown=65532:65532 /opt/bgmss/producer /opt/bgmss/producer"
+    )
+    runtime_producer_mode = "chmod 0555 /opt/bgmss /opt/bgmss/producer"
+    runtime_producer_parent_identity = (
+        'test "$(stat -c \'%a:%u:%g\' /opt/bgmss)" = "555:65532:65532"'
+    )
+    runtime_producer_identity = (
+        'test "$(stat -c \'%a:%u:%g\' /opt/bgmss/producer)" = "555:65532:65532"'
+    )
+    runtime_user = "USER 65532:65532"
     expected_from = [
         f"FROM {UV_IMAGE} AS uv-bin",
         f"FROM {PYTHON_IMAGE} AS builder",
@@ -3271,8 +3321,29 @@ def verify_dockerfile(path: Path = UPDATER_ROOT / "Dockerfile") -> None:
         raise BuildError("Dockerfile FROM lines are not the exact reviewed digest pins")
     if any(line.startswith("ARG ") and "IMAGE" in line for line in value.splitlines()):
         raise BuildError("Dockerfile base pins must not be overrideable build arguments")
-    if value.count("USER 65532:65532") != 1:
+    if value.count(runtime_user) != 1:
         raise BuildError("Dockerfile must set exactly one final non-root user")
+    for policy, purpose in (
+        (runtime_producer_copy, "one non-root producer runtime copy"),
+        (runtime_producer_mode, "one runtime producer-parent/root mode repair"),
+        (
+            runtime_producer_parent_identity,
+            "one runtime producer-parent identity check",
+        ),
+        (runtime_producer_identity, "one runtime producer-root identity check"),
+    ):
+        if value.count(policy) != 1:
+            raise BuildError(f"Dockerfile must contain exactly {purpose}")
+    if not (
+        value.index(runtime_producer_copy)
+        < value.index(runtime_producer_mode)
+        < value.index(runtime_producer_parent_identity)
+        < value.index(runtime_producer_identity)
+        < value.index(runtime_user)
+    ):
+        raise BuildError(
+            "Dockerfile must repair and verify the runtime producer root after COPY and before USER"
+        )
     producer_arguments = (
         "PRODUCER_RUNTIME_INPUTS_MANIFEST_SHA256",
         "PRODUCER_CATALOG_CONFIG_DIGEST",
@@ -3285,9 +3356,6 @@ def verify_dockerfile(path: Path = UPDATER_ROOT / "Dockerfile") -> None:
         "COPY producer/contracts /opt/bgmss/producer/contracts": ("embedded Contracts copy"),
         "COPY producer/catalog /opt/bgmss/producer/catalog": ("embedded catalog copy"),
         "COPY producer/metadata /opt/bgmss/producer/metadata": ("embedded producer metadata copy"),
-        (
-            "COPY --from=builder --chown=65532:65532 /opt/bgmss/producer /opt/bgmss/producer"
-        ): "non-root producer runtime copy",
         "ENTRYPOINT": "one-shot entrypoint",
         "PATH=/usr/local/bin:/usr/bin:/bin": "runtime command path",
         "find /opt/bgmss/producer -type d -exec chmod 0555": ("immutable producer directories"),

@@ -102,7 +102,10 @@ LABEL org.bangumi-staff-stats.producer-runtime-inputs-manifest-sha256="${PRODUCE
       org.bangumi-staff-stats.catalog-config-digest="${PRODUCER_CATALOG_CONFIG_DIGEST}" \
       org.bangumi-staff-stats.common-commit="${PRODUCER_COMMON_COMMIT}"
 
-RUN rm -rf \
+RUN chmod 0555 /opt/bgmss /opt/bgmss/producer \
+    && test "$(stat -c '%a:%u:%g' /opt/bgmss)" = "555:65532:65532" \
+    && test "$(stat -c '%a:%u:%g' /opt/bgmss/producer)" = "555:65532:65532" \
+    && rm -rf \
       /root/.cache \
       /usr/local/bin/pip \
       /usr/local/bin/pip3 \
