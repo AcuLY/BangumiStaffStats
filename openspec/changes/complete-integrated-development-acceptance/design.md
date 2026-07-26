@@ -393,7 +393,9 @@ re-sealed after the command, excluding only the declared generated
 owner cleanup. The direct result must be exit zero without timeout or signal,
 write no outer stderr, and emit one bounded strict-JSON report. The Harness
 cross-checks that report against the accepted Archive authority: exact six
-schema order, quicktype 26.0.0, effective Go environment, canonical Go/gofmt
+schema order, the exact two-line quicktype 26.0.0 `--version` identity
+(`quicktype version 26.0.0` followed by `Visit quicktype.io for more info.`),
+effective Go environment, canonical Go/gofmt
 executables, bootstrap profile and discovery argv, accepted telemetry mode,
 inner profile, policy self-test, ignored forged-control keys, closed telemetry
 diagnostic envelope, and exactly sixteen ordered Go/gofmt records whose

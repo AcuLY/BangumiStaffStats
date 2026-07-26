@@ -80,6 +80,8 @@ const QUERY_TRACKED_AUTHORITY_PATHS = Object.freeze([
 const ARCHIVE_VERIFY_DIRECT_ID = 'contracts-archive-verify';
 const ARCHIVE_VERIFY_TIMEOUT_MS = 900_000;
 const ARCHIVE_VERIFY_REPORT_MAX_BYTES = 4 * 1024 * 1024;
+const ARCHIVE_QUICKTYPE_VERSION =
+  'quicktype version 26.0.0\nVisit quicktype.io for more info.';
 const ARCHIVE_SCHEMA_NAMES = Object.freeze([
   'manifest',
   'pointer',
@@ -3615,7 +3617,7 @@ export function validateArchiveVerifierReport({
   ], 'Archive codegen report');
   if (
     !isDeepStrictEqual(codegen.schemas, ARCHIVE_SCHEMA_NAMES) ||
-    codegen.quicktypeVersion !== 'quicktype version 26.0.0' ||
+    codegen.quicktypeVersion !== ARCHIVE_QUICKTYPE_VERSION ||
     codegen.goVersion !== tools.go.version ||
     codegen.goTelemetryMode !== 'off' &&
       codegen.goTelemetryMode !== 'local'

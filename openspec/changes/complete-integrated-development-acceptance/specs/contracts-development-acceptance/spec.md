@@ -284,7 +284,9 @@ tracked verifier, package/lock, persistent Archive schema/builder/matrix/golden
 authority, the lock-installed dependency closure, and admitted current
 Node/npm/Go/gofmt/CPython runtime authority. It SHALL accept only exit zero,
 no signal or timeout, empty stderr, and one bounded strict-JSON report. That
-report SHALL cross-bind the exact ordered six schemas, quicktype 26.0.0,
+report SHALL cross-bind the exact ordered six schemas, the exact two-line
+quicktype 26.0.0 `--version` identity (`quicktype version 26.0.0` followed by
+`Visit quicktype.io for more info.`),
 effective Go environment, canonical Go/gofmt executables, bootstrap profile
 and discovery argv, accepted telemetry mode, inner sandbox profile, policy
 self-test, forged-control-key rejection, closed telemetry diagnostics, and

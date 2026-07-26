@@ -538,7 +538,8 @@ function archiveVerifierReportFixture({
         'producerCase',
         'producerIndex',
       ],
-      quicktypeVersion: 'quicktype version 26.0.0',
+      quicktypeVersion:
+        'quicktype version 26.0.0\nVisit quicktype.io for more info.',
       goVersion: tools.go.version,
       effectiveGoEnvironment: [
         fs.realpathSync.native(environment.GOCACHE),
@@ -4569,6 +4570,9 @@ test('Archive direct verifier report cross-binds exact inner sandboxes and rejec
   );
   const mutations = [
     (candidate) => candidate.codegen.schemas.reverse(),
+    (candidate) => {
+      candidate.codegen.quicktypeVersion = 'quicktype version 26.0.0';
+    },
     (candidate) => candidate.codegen.goSandboxedCommands.pop(),
     (candidate) => {
       candidate.codegen.goSandboxProfile =
