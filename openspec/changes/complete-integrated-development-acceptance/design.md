@@ -179,12 +179,26 @@ other hermetic Go consumers and additionally fixes `GOWORK=off`; an ambient
 workspace can neither alter module selection nor make a valid candidate fail.
 Its seeded npm cache can contain admitted `0555` directory layers. Before
 removing any declared generated root, cleanup performs a complete no-follow
-inventory while the tree is still unchanged. Any symlink, special entry, or
-regular file with an external hard-link identity fails closed. Only after that
-inventory succeeds may cleanup add owner-write/search permission to directories
-inside the exact canonical root; it never chmods regular files. Removal then
-uses the existing four-attempt bounded retry and settlement path, so a command
-failure remains primary and cleanup residue remains independently blocking.
+inventory while the tree is still unchanged. A symlink root, symlink ancestor,
+absolute or lexically escaping descendant symlink, special entry, or regular
+file with an external hard-link identity fails closed. A relative descendant
+symlink whose lexical target remains inside the exact root is recorded as a
+leaf and is never followed or chmodded; this preserves the normal
+`node_modules/.bin` output covered by the closed Contracts cleanup inventory.
+
+After that inventory, cleanup creates one absent, private quarantine name in
+the same canonical parent, atomically renames the exact root there, and proves
+the quarantined root has the same device/inode/type and complete relative
+inventory. An identity mismatch is restored without chmod or deletion and
+fails closed. Only the proven quarantined root may gain owner-write/search
+permission on directories; regular files and symlinks are never chmodded.
+Removal uses the quarantined name for the existing four-attempt bounded retry.
+A terminal removal failure restores the remaining tree to the declared root
+when that path is absent; otherwise both the declared and quarantine paths are
+reported as blocking residue. The random quarantine name is recorded only in
+bounded cleanup evidence and cannot authorize a glob or broad deletion. A
+command failure remains primary and cleanup residue remains independently
+blocking.
 
 The Query golden remains authoritative even though it intentionally records an
 older Node/npm/Go toolchain than the current Frontend and Backend gates. The
@@ -717,9 +731,10 @@ acceptance mutate the repository.
   cleanup error or residue.
 - [Archive verification inherits a host Go workspace or its admitted npm cache
   is read-only] → Fix `GOWORK=off`, completely validate each exact cleanup tree
-  before mutation, reject links/special/external-hard-link entries, make only
-  owned directories removable, and retain bounded retry plus primary-error
-  precedence.
+  before mutation, admit only non-escaping relative symlink leaves, atomically
+  quarantine and re-attest the exact root, reject special/external-hard-link
+  entries, make only owned directories removable, and retain bounded retry
+  plus primary-error precedence.
 - [Browser automation adds supply-chain and disk cost] → One exact
   acceptance-only package, locked transitive closure, pre-provisioned browser,
   no install scripts, no production bytes, and explicit dependency/license

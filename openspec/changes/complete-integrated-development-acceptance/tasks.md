@@ -175,12 +175,18 @@ commit, push, sync, archive, or update task markers.
 - [ ] 3.9 Close the formal Archive-owner environment and read-only-cache
   cleanup path. Pass exact `GOWORK=off` to the real Archive verifier. Before
   chmod or deletion, completely inventory each exact declared generated root
-  without following links; reject symlinks, special entries, and regular files
-  with external hard links. After a clean inventory, make only owned
-  directories removable, then retain four-attempt bounded removal,
-  primary-error precedence, and cleanup-only blocking. Add focused coverage
-  for the Archive environment, nested `0555` npm cache removal, link/special/
-  hard-link rejection without external mutation, and primary precedence.
+  without following links; reject a linked root/ancestor, absolute or escaping
+  descendant link, special entry, and regular file with external hard links.
+  Admit an npm-created relative symlink only as an un-followed leaf whose
+  lexical target remains inside that root. Atomically rename the validated
+  root to one absent private sibling quarantine, re-attest its root identity
+  and complete relative inventory, then make only proven directories
+  removable and retain four-attempt bounded removal, primary-error precedence,
+  cleanup-only blocking, and exact residue reporting/restoration. Add focused
+  coverage for the Archive environment, nested `0555` cache removal, real
+  `.bin` cleanup, unsafe link/special/hard-link rejection without external
+  mutation, root-swap rejection, terminal quarantine residue, and primary
+  precedence.
 
 ## 4. Full Archive and packaged runtime
 

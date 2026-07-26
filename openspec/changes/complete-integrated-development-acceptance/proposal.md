@@ -231,9 +231,12 @@ or a dirty harness/control checkout exists at admission.
 - The Archive contract verifier runs with the complete hermetic Go workspace
   lock, including exact `GOWORK=off`. Its seeded npm and Go caches may be
   read-only after admission; owner cleanup validates the complete declared
-  root before mutation, rejects links and special or externally linked files,
-  makes only owned directories removable, and then performs the existing
-  bounded exact-root cleanup without changing primary-error precedence.
+  root before mutation, atomically quarantines and re-attests that same root,
+  rejects special or externally linked files and unsafe links, makes only
+  owned directories removable, and then performs the existing bounded cleanup
+  without changing primary-error precedence. An npm-created relative symlink
+  whose lexical target remains inside that exact root is an inventoried leaf:
+  cleanup unlinks it without following or chmodding it.
 - The Query owner gate actually runs the locked Redocly lint against the
   prepared `codegen-a` closed source projection and accepts only exit zero with
   exactly zero errors and nine warnings before either bundle or TypeScript/Go

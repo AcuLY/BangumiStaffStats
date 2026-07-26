@@ -426,12 +426,25 @@ environment, including `GOWORK=off`; an inherited host workspace SHALL never
 participate in module selection. A declared generated root may contain admitted
 read-only cache directories. Before changing permissions or deleting any byte,
 cleanup SHALL completely inventory that exact canonical root without following
-links and SHALL reject every symlink, special entry, or regular file whose link
-count proves an external hard-link identity. Only after a clean inventory SHALL
-it add write/search permission to directories within that root; it SHALL NOT
-chmod regular files. It SHALL then use the same four-attempt bounded removal,
-primary-error preservation, cleanup evidence, and residue-blocking settlement
-as every other owner root.
+links. It SHALL reject a symlink root or ancestor, every absolute or lexically
+escaping descendant symlink, every special entry, and every regular file whose
+link count proves an external hard-link identity. A relative descendant
+symlink whose lexical target remains within the same exact root MAY be admitted
+only as an inventoried leaf; cleanup SHALL unlink it without following or
+chmodding it.
+
+After a clean inventory, cleanup SHALL atomically rename the exact root to one
+absent private quarantine name in the same canonical parent and SHALL re-attest
+the same root device/inode/type plus the complete relative inventory before any
+chmod or deletion. An identity mismatch SHALL be restored without chmod or
+deletion and SHALL fail closed. Cleanup SHALL add write/search permission only
+to proven directories in that quarantine; it SHALL NOT chmod regular files or
+symlinks. It SHALL then use the quarantined path for the same four-attempt
+bounded removal. On terminal failure it SHALL restore surviving bytes to the
+declared root if that path is absent, or otherwise report both exact paths as
+residue; neither case may be hidden by the original-root absence check.
+Primary-error preservation, cleanup evidence, and residue-blocking settlement
+remain unchanged.
 
 #### Scenario: An existing owner gate succeeds
 
@@ -481,12 +494,17 @@ as every other owner root.
 - **WHEN** the host exports any Go workspace state and the admitted Archive npm
   cache contains nested `0555` directories
 - **THEN** the Archive verifier SHALL still receive exact `GOWORK=off`
-- **AND** cleanup SHALL validate the unchanged tree, make only its owned
-  directories removable, remove the exact root within four bounded attempts,
-  and prove it absent
-- **AND** a symlink, special entry, or externally hard-linked regular file
-  SHALL fail closed without following the link or changing external mode or
-  bytes, while an earlier command error remains the canonical primary failure
+- **AND** cleanup SHALL validate the unchanged tree, atomically quarantine and
+  re-attest that exact root, make only its proven directories removable,
+  remove it within four bounded attempts, and prove both declared and
+  quarantine paths absent
+- **AND** a normal root-contained relative npm `.bin` symlink SHALL be removed
+  as an un-followed leaf, while a linked root/ancestor, absolute or escaping
+  link, special entry, or externally hard-linked regular file SHALL fail closed
+  without changing external mode or bytes
+- **AND** replacing the declared root after inventory SHALL never authorize
+  deletion of the replacement; an earlier command error remains the canonical
+  primary failure and every quarantine residue remains separately blocking
 
 ### Requirement: A full inactive Archive SHALL be proven without mutating it
 
