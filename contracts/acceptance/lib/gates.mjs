@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
@@ -195,7 +196,7 @@ function fail(message) {
 }
 
 class GeneratedRootCleanupError extends OwnerGateError {
-  constructor(relative, attempts, filesystemCode, cause) {
+  constructor(relative, attempts, filesystemCode, cause, details = {}) {
     super(
       `generated cleanup failed after ${attempts} bounded attempt(s): ` +
         `${relative} (${filesystemCode})`,
@@ -205,6 +206,8 @@ class GeneratedRootCleanupError extends OwnerGateError {
     this.relative = relative;
     this.attempts = attempts;
     this.filesystemCode = filesystemCode;
+    this.residuePaths = Object.freeze([...(details.residuePaths ?? [])]);
+    this.restored = details.restored === true;
   }
 }
 
@@ -271,6 +274,208 @@ function cleanupDelay(attempt) {
   });
 }
 
+function inventoryDisplayPath(relativeRoot, relative) {
+  return relative === '.' ? relativeRoot : `${relativeRoot}/${relative}`;
+}
+
+function generatedRootInventory(
+  absoluteRoot,
+  relativeRoot,
+  logicalRoot = absoluteRoot,
+) {
+  const entries = [];
+  function visit(absolute, relative) {
+    const information = fs.lstatSync(absolute);
+    if (information.isSymbolicLink()) {
+      const target = fs.readlinkSync(absolute);
+      const logicalAbsolute =
+        relative === '.'
+          ? logicalRoot
+          : path.join(logicalRoot, ...relative.split('/'));
+      const resolvedTarget = path.resolve(
+        path.dirname(logicalAbsolute),
+        target,
+      );
+      if (
+        path.isAbsolute(target) ||
+        !isStrictlyBelow(resolvedTarget, logicalRoot)
+      ) {
+        fail(
+          `generated cleanup inventory contains an absolute or escaping ` +
+            `symlink: ${inventoryDisplayPath(relativeRoot, relative)}`,
+        );
+      }
+      entries.push(Object.freeze({
+        kind: 'symlink',
+        relative,
+        target,
+      }));
+      return;
+    }
+    if (information.isDirectory()) {
+      entries.push(Object.freeze({
+        device: information.dev,
+        inode: information.ino,
+        kind: 'directory',
+        mode: information.mode & 0o7777,
+        relative,
+      }));
+      for (const entry of fs.readdirSync(absolute).sort((left, right) =>
+        left.localeCompare(right, 'en'),
+      )) {
+        visit(
+          path.join(absolute, entry),
+          relative === '.' ? entry : `${relative}/${entry}`,
+        );
+      }
+      return;
+    }
+    if (!information.isFile()) {
+      fail(
+        `generated cleanup inventory contains a special entry: ` +
+          `${inventoryDisplayPath(relativeRoot, relative)}`,
+      );
+    }
+    if (information.nlink !== 1) {
+      fail(
+        `generated cleanup inventory contains a hard-linked file: ` +
+          `${inventoryDisplayPath(relativeRoot, relative)}`,
+      );
+    }
+    entries.push(Object.freeze({
+      bytes: information.size,
+      device: information.dev,
+      inode: information.ino,
+      kind: 'file',
+      linkCount: information.nlink,
+      mode: information.mode & 0o7777,
+      relative,
+    }));
+  }
+  visit(absoluteRoot, '.');
+  return Object.freeze(entries);
+}
+
+function validateGeneratedRootInventory(absolute, relative) {
+  const discovered = generatedRootInventory(absolute, relative);
+  const confirmed = generatedRootInventory(absolute, relative);
+  if (!isDeepStrictEqual(discovered, confirmed)) {
+    fail(`generated cleanup inventory changed before removal: ${relative}`);
+  }
+  return confirmed;
+}
+
+function makeGeneratedDirectoriesRemovable(
+  quarantinedRoot,
+  inventory,
+  relative,
+) {
+  const noFollowDirectoryFlags =
+    fs.constants.O_RDONLY |
+    fs.constants.O_NOFOLLOW |
+    fs.constants.O_DIRECTORY;
+  for (const entry of inventory) {
+    if (entry.kind !== 'directory') continue;
+    let descriptor;
+    try {
+      const absolute =
+        entry.relative === '.'
+          ? quarantinedRoot
+          : path.join(quarantinedRoot, ...entry.relative.split('/'));
+      descriptor = fs.openSync(absolute, noFollowDirectoryFlags);
+      const information = fs.fstatSync(descriptor);
+      if (
+        !information.isDirectory() ||
+        information.dev !== entry.device ||
+        information.ino !== entry.inode ||
+        (information.mode & 0o7777) !== entry.mode
+      ) {
+        fail(`generated cleanup directory changed before chmod: ${entry.relative}`);
+      }
+      fs.fchmodSync(descriptor, entry.mode | 0o300);
+    } catch (error) {
+      if (error instanceof OwnerGateError) throw error;
+      fail(
+        `generated cleanup could not make an owned directory removable: ` +
+          `${entry.relative} (${cleanupFilesystemCode(error)})`,
+      );
+    } finally {
+      if (descriptor !== undefined) fs.closeSync(descriptor);
+    }
+  }
+  if (inventory.length === 0) {
+    fail(`generated cleanup inventory is empty: ${relative}`);
+  }
+}
+
+function pathExistsNoFollow(absolute) {
+  try {
+    fs.lstatSync(absolute);
+    return true;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    return true;
+  }
+}
+
+function generatedRootIdentityMatches(absolute, rootEntry) {
+  try {
+    const information = fs.lstatSync(absolute);
+    return (
+      information.isDirectory() &&
+      !information.isSymbolicLink() &&
+      information.dev === rootEntry.device &&
+      information.ino === rootEntry.inode
+    );
+  } catch {
+    return false;
+  }
+}
+
+function candidateRelativePath(candidateRoot, absolute) {
+  return path.relative(candidateRoot, absolute).split(path.sep).join('/');
+}
+
+function privateQuarantineSibling(parent) {
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    const absolute = path.join(
+      parent,
+      `.bgmss-cleanup-${randomBytes(16).toString('hex')}`,
+    );
+    if (!pathExistsNoFollow(absolute)) return absolute;
+  }
+  fail('generated cleanup could not reserve a private quarantine name');
+}
+
+function currentResiduePaths(candidateRoot, candidates) {
+  return Object.freeze(
+    candidates
+      .filter(({ absolute }) => pathExistsNoFollow(absolute))
+      .map(({ absolute, relative }) =>
+        relative ?? candidateRelativePath(candidateRoot, absolute),
+      ),
+  );
+}
+
+function restoreQuarantineIfSafe({
+  absolute,
+  quarantineAbsolute,
+  rootEntry,
+}) {
+  if (
+    pathExistsNoFollow(absolute) ||
+    !generatedRootIdentityMatches(quarantineAbsolute, rootEntry)
+  ) {
+    return false;
+  }
+  try {
+    fs.renameSync(quarantineAbsolute, absolute);
+    return generatedRootIdentityMatches(absolute, rootEntry);
+  } catch {
+    return false;
+  }
+}
+
 export async function removeOwnedGenerated(root, relative) {
   const canonicalRoot = requireCanonicalPath(root, {
     label: 'generated cleanup candidate root',
@@ -280,24 +485,161 @@ export async function removeOwnedGenerated(root, relative) {
     fail('generated cleanup candidate root is not canonical');
   }
   const absolute = exactGeneratedRoot(canonicalRoot, relative);
-  let observed = false;
-  for (
-    let attempt = 1;
-    attempt <= GENERATED_ROOT_CLEANUP_ATTEMPTS;
-    attempt += 1
-  ) {
-    const information = generatedRootInformation(absolute, relative);
-    if (information === null) {
-      return Object.freeze({
-        attempts: attempt,
-        relative,
-        status: observed ? 'removed' : 'absent',
-      });
-    }
-    observed = true;
+  const information = generatedRootInformation(absolute, relative);
+  if (information === null) {
+    return Object.freeze({
+      attempts: 1,
+      relative,
+      status: 'absent',
+    });
+  }
+  const parent = path.dirname(absolute);
+  const canonicalParent = requireCanonicalPath(parent, {
+    label: `generated cleanup parent ${relative}`,
+    type: 'directory',
+  });
+  if (canonicalParent !== parent || !isStrictlyBelow(parent, canonicalRoot)) {
+    fail(`generated cleanup parent is not canonical: ${relative}`);
+  }
+  const discoveredInventory = validateGeneratedRootInventory(
+    absolute,
+    relative,
+  );
+  const rootEntry = discoveredInventory[0];
+  if (rootEntry?.kind !== 'directory') {
+    fail(`generated cleanup inventory has no directory root: ${relative}`);
+  }
+  const inventory = discoveredInventory;
+  const quarantineAbsolute = privateQuarantineSibling(parent);
+  const quarantineRelative = candidateRelativePath(
+    canonicalRoot,
+    quarantineAbsolute,
+  );
+  let attempt = 1;
+  for (; attempt <= GENERATED_ROOT_CLEANUP_ATTEMPTS; attempt += 1) {
     try {
-      fs.rmSync(absolute, { recursive: true, force: false });
-      if (generatedRootInformation(absolute, relative) === null) {
+      fs.renameSync(absolute, quarantineAbsolute);
+      break;
+    } catch (error) {
+      const filesystemCode = cleanupFilesystemCode(error);
+      const originalIdentityMatches = generatedRootIdentityMatches(
+        absolute,
+        rootEntry,
+      );
+      const quarantineAbsent = !pathExistsNoFollow(quarantineAbsolute);
+      if (
+        TRANSIENT_GENERATED_ROOT_ERRORS.has(filesystemCode) &&
+        attempt < GENERATED_ROOT_CLEANUP_ATTEMPTS &&
+        originalIdentityMatches &&
+        quarantineAbsent
+      ) {
+        await cleanupDelay(attempt);
+        continue;
+      }
+      throw new GeneratedRootCleanupError(
+        relative,
+        attempt,
+        filesystemCode,
+        error,
+        {
+          residuePaths: currentResiduePaths(canonicalRoot, [
+            { absolute, relative },
+            { absolute: quarantineAbsolute, relative: quarantineRelative },
+          ]),
+        },
+      );
+    }
+  }
+  if (attempt > GENERATED_ROOT_CLEANUP_ATTEMPTS) {
+    fail(`generated cleanup exhausted quarantine acquisition: ${relative}`);
+  }
+
+  const residueCandidates = [
+    { absolute, relative },
+    { absolute: quarantineAbsolute, relative: quarantineRelative },
+  ];
+  const failClosedAfterRename = (error, filesystemCode = 'EIDENTITY') => {
+    const restored = restoreQuarantineIfSafe({
+      absolute,
+      quarantineAbsolute,
+      rootEntry,
+    });
+    throw new GeneratedRootCleanupError(
+      relative,
+      attempt,
+      filesystemCode,
+      error,
+      {
+        residuePaths: currentResiduePaths(
+          canonicalRoot,
+          residueCandidates,
+        ),
+        restored,
+      },
+    );
+  };
+
+  if (pathExistsNoFollow(absolute)) {
+    failClosedAfterRename(
+      new OwnerGateError(
+        `generated cleanup root was rebound during quarantine: ${relative}`,
+      ),
+    );
+  }
+  let quarantinedInventory;
+  try {
+    quarantinedInventory = generatedRootInventory(
+      quarantineAbsolute,
+      relative,
+      absolute,
+    );
+  } catch (error) {
+    failClosedAfterRename(error);
+  }
+  if (!isDeepStrictEqual(inventory, quarantinedInventory)) {
+    failClosedAfterRename(
+      new OwnerGateError(
+        `generated cleanup inventory changed during quarantine: ${relative}`,
+      ),
+    );
+  }
+  if (pathExistsNoFollow(absolute)) {
+    failClosedAfterRename(
+      new OwnerGateError(
+        `generated cleanup root was rebound during quarantine: ${relative}`,
+      ),
+    );
+  }
+  try {
+    makeGeneratedDirectoriesRemovable(
+      quarantineAbsolute,
+      quarantinedInventory,
+      relative,
+    );
+  } catch (error) {
+    failClosedAfterRename(error, cleanupFilesystemCode(error));
+  }
+
+  for (; attempt <= GENERATED_ROOT_CLEANUP_ATTEMPTS; attempt += 1) {
+    try {
+      fs.rmSync(quarantineAbsolute, { recursive: true, force: false });
+      if (!pathExistsNoFollow(quarantineAbsolute)) {
+        if (pathExistsNoFollow(absolute)) {
+          const rebound = new OwnerGateError(
+            `generated cleanup root was rebound during removal: ${relative}`,
+          );
+          throw new GeneratedRootCleanupError(
+            relative,
+            attempt,
+            'EIDENTITY',
+            rebound,
+            {
+              residuePaths: currentResiduePaths(canonicalRoot, [
+                { absolute, relative },
+              ]),
+            },
+          );
+        }
         return Object.freeze({
           attempts: attempt,
           relative,
@@ -308,6 +650,7 @@ export async function removeOwnedGenerated(root, relative) {
       residue.code = 'ENOTEMPTY';
       throw residue;
     } catch (error) {
+      if (error instanceof GeneratedRootCleanupError) throw error;
       const filesystemCode = cleanupFilesystemCode(error);
       if (
         TRANSIENT_GENERATED_ROOT_ERRORS.has(filesystemCode) &&
@@ -316,11 +659,23 @@ export async function removeOwnedGenerated(root, relative) {
         await cleanupDelay(attempt);
         continue;
       }
+      const restored = restoreQuarantineIfSafe({
+        absolute,
+        quarantineAbsolute,
+        rootEntry,
+      });
       throw new GeneratedRootCleanupError(
         relative,
         attempt,
         filesystemCode,
         error,
+        {
+          residuePaths: currentResiduePaths(
+            canonicalRoot,
+            residueCandidates,
+          ),
+          restored,
+        },
       );
     }
   }
@@ -341,11 +696,19 @@ async function cleanupGeneratedRootSet(
     try {
       outcomes.push(await removeOwnedGenerated(root, relative));
     } catch (error) {
+      const residuePaths =
+        Array.isArray(error?.residuePaths) && error.residuePaths.length > 0
+          ? error.residuePaths
+          : generatedRootExists(root, relative)
+            ? Object.freeze([relative])
+            : Object.freeze([]);
       outcomes.push(Object.freeze({
         attempts: Number.isInteger(error?.attempts) ? error.attempts : 1,
         code: cleanupFilesystemCode(error?.filesystemCode ?? error),
         relative,
-        residue: generatedRootExists(root, relative),
+        residue: residuePaths.length > 0,
+        residuePaths,
+        restored: error?.restored === true,
         status: 'failed',
       }));
     }
@@ -357,9 +720,14 @@ async function cleanupGeneratedRootSet(
     attemptLimit: GENERATED_ROOT_CLEANUP_ATTEMPTS,
     failedCount,
     outcomes: Object.freeze(outcomes),
-    residueCount: outcomes.filter(
-      (outcome) => outcome.status === 'failed' && outcome.residue,
-    ).length,
+    residueCount: outcomes.reduce(
+      (count, outcome) =>
+        count +
+        (outcome.status === 'failed'
+          ? (outcome.residuePaths?.length ?? (outcome.residue ? 1 : 0))
+          : 0),
+      0,
+    ),
     retriedCount: outcomes.filter((outcome) => outcome.attempts > 1).length,
     retryDelayMs: GENERATED_ROOT_CLEANUP_RETRY_MS,
   };
@@ -2237,6 +2605,41 @@ async function runQueryGolden({
   return results;
 }
 
+export function archiveVerifierEnvironment({
+  npmCache,
+  runRoot,
+  schemaRoot,
+  tools,
+}) {
+  const goCache = path.join(schemaRoot, '.cache', 'go-mod');
+  return Object.freeze({
+    ...commandEnvironment({
+      runRoot,
+      pathEntries: [
+        path.dirname(tools.go.path),
+        path.dirname(tools.node.path),
+      ],
+      extra: {
+        CGO_ENABLED: '0',
+        GOCACHE: path.join(schemaRoot, '.cache', 'go-build'),
+        GOENV: 'off',
+        GOMODCACHE: goCache,
+        GOROOT: path.dirname(path.dirname(tools.go.path)),
+        GOPATH: path.join(schemaRoot, '.cache', 'go-path'),
+        GOPROXY: 'off',
+        GOSUMDB: 'off',
+        GOTOOLCHAIN: 'local',
+        GOWORK: 'off',
+        NPM_CONFIG_CACHE: npmCache,
+        REDOCLY_TELEMETRY: 'off',
+      },
+    }),
+    TMPDIR: path.join(schemaRoot, '.tmp', 'system'),
+    npm_config_cache: npmCache,
+    npm_config_engine_strict: 'true',
+  });
+}
+
 async function runArchiveContract({
   candidateRoot,
   cacheRoots,
@@ -2286,30 +2689,11 @@ async function runArchiveContract({
       ...CURRENT_GO_RUNTIME_NAMES,
     ]),
   }));
-  const environment = Object.freeze({
-    ...commandEnvironment({
+  const environment = archiveVerifierEnvironment({
+    npmCache: seededNpm.cache,
     runRoot,
-    pathEntries: [
-      path.dirname(tools.go.path),
-      path.dirname(tools.node.path),
-    ],
-    extra: {
-      CGO_ENABLED: '0',
-      GOCACHE: path.join(schemaRoot, '.cache', 'go-build'),
-      GOENV: 'off',
-      GOMODCACHE: goCache,
-      GOROOT: path.dirname(path.dirname(tools.go.path)),
-      GOPATH: path.join(schemaRoot, '.cache', 'go-path'),
-      GOPROXY: 'off',
-      GOSUMDB: 'off',
-      GOTOOLCHAIN: 'local',
-      NPM_CONFIG_CACHE: seededNpm.cache,
-      REDOCLY_TELEMETRY: 'off',
-    },
-    }),
-    TMPDIR: path.join(schemaRoot, '.tmp', 'system'),
-    npm_config_cache: seededNpm.cache,
-    npm_config_engine_strict: 'true',
+    schemaRoot,
+    tools,
   });
   results.push(await networklessCommand({
     id: 'contracts-archive-verify',

@@ -48,6 +48,7 @@ import {
   deriveCleanCheckoutIdentityClosed,
 } from '../lib/git-attestation.mjs';
 import {
+  archiveVerifierEnvironment,
   cleanupBackendGeneratedRoots,
   cleanupContractsGeneratedRoots,
   CONTRACTS_OWNER_CLEANUP_INVENTORY,
@@ -282,6 +283,13 @@ function removeReadOnlyFixtureTree(root) {
     maxRetries: 5,
     retryDelay: 100,
   });
+}
+
+function isCleanupQuarantine(candidate, originalRoot) {
+  return (
+    path.dirname(candidate) === path.dirname(originalRoot) &&
+    path.basename(candidate).startsWith('.bgmss-cleanup-')
+  );
 }
 
 function escapedFixtureScript(runRoot, name) {
@@ -3721,6 +3729,344 @@ test('representative runtime closures and five copies provide a cooperative boun
   );
 });
 
+test('Archive verifier environment rejects ambient Go workspace selection', (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-archive-environment-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const runRoot = path.join(root, 'run');
+  const schemaRoot = path.join(root, 'candidate', 'contracts', 'schemas', 'archive');
+  const npmCache = path.join(schemaRoot, '.cache', 'npm');
+  fs.mkdirSync(runRoot, { recursive: true });
+  fs.mkdirSync(schemaRoot, { recursive: true });
+  const previous = process.env.GOWORK;
+  process.env.GOWORK = '/ambient/go.work';
+  let environment;
+  try {
+    environment = archiveVerifierEnvironment({
+      npmCache,
+      runRoot,
+      schemaRoot,
+      tools: {
+        go: { path: '/fixture/go-root/bin/go' },
+        node: { path: '/fixture/node-root/bin/node' },
+      },
+    });
+  } finally {
+    if (previous === undefined) delete process.env.GOWORK;
+    else process.env.GOWORK = previous;
+  }
+  assert.equal(environment.GOWORK, 'off');
+  assert.equal(environment.GOENV, 'off');
+  assert.equal(environment.GOMODCACHE, path.join(schemaRoot, '.cache', 'go-mod'));
+  assert.equal(environment.NPM_CONFIG_CACHE, npmCache);
+  assert.equal(Object.isFrozen(environment), true);
+});
+
+test('generated cleanup removes nested 0555 caches without chmodding regular files', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-generated-readonly-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const relative = 'contracts/schemas/archive/.cache';
+  const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+  const nested = path.join(generatedRoot, 'npm', 'content-v2', 'sha512');
+  const file = path.join(nested, 'cache-byte');
+  fs.mkdirSync(nested, { recursive: true });
+  fs.writeFileSync(file, 'immutable cache byte\n', { mode: 0o444 });
+  for (const directory of [
+    nested,
+    path.dirname(nested),
+    path.dirname(path.dirname(nested)),
+  ]) {
+    fs.chmodSync(directory, 0o555);
+  }
+
+  const originalFchmodSync = fs.fchmodSync;
+  const changedKinds = [];
+  fs.fchmodSync = (descriptor, mode) => {
+    changedKinds.push(
+      fs.fstatSync(descriptor).isDirectory() ? 'directory' : 'other',
+    );
+    return originalFchmodSync(descriptor, mode);
+  };
+  let outcome;
+  try {
+    outcome = await removeOwnedGenerated(candidateRoot, relative);
+  } finally {
+    fs.fchmodSync = originalFchmodSync;
+  }
+
+  assert.deepEqual(outcome, {
+    attempts: 1,
+    relative,
+    status: 'removed',
+  });
+  assert.ok(changedKinds.length >= 3);
+  assert.deepEqual(new Set(changedKinds), new Set(['directory']));
+  assert.equal(fs.existsSync(generatedRoot), false);
+});
+
+test('generated cleanup rejects escaping links and special entries before changing permissions', async (t) => {
+  await t.test('absolute symlink leaves external mode and bytes unchanged', async () => {
+    const root = fs.realpathSync.native(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-generated-symlink-')),
+    );
+    t.after(() => removeReadOnlyFixtureTree(root));
+    const candidateRoot = path.join(root, 'candidate');
+    const relative = 'contracts/goldens/query/.tmp';
+    const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+    const external = path.join(root, 'external-symlink-target');
+    fs.mkdirSync(generatedRoot, { recursive: true });
+    fs.writeFileSync(external, 'external symlink bytes\n', { mode: 0o444 });
+    fs.symlinkSync(external, path.join(generatedRoot, 'linked'));
+    fs.chmodSync(generatedRoot, 0o555);
+    const externalBefore = fs.statSync(external);
+
+    await assert.rejects(
+      removeOwnedGenerated(candidateRoot, relative),
+      /absolute or escaping symlink/u,
+    );
+
+    const externalAfter = fs.statSync(external);
+    assert.equal(externalAfter.mode & 0o777, externalBefore.mode & 0o777);
+    assert.equal(fs.readFileSync(external, 'utf8'), 'external symlink bytes\n');
+    assert.equal(fs.statSync(generatedRoot).mode & 0o777, 0o555);
+    assert.equal(fs.lstatSync(path.join(generatedRoot, 'linked')).isSymbolicLink(), true);
+  });
+
+  await t.test('relative escaping symlink leaves external bytes unchanged', async () => {
+    const root = fs.realpathSync.native(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-generated-escape-')),
+    );
+    t.after(() => removeReadOnlyFixtureTree(root));
+    const candidateRoot = path.join(root, 'candidate');
+    const relative = 'contracts/goldens/query/.tmp';
+    const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+    const external = path.join(
+      candidateRoot,
+      'contracts',
+      'goldens',
+      'external-target',
+    );
+    fs.mkdirSync(generatedRoot, { recursive: true });
+    fs.writeFileSync(external, 'relative escape bytes\n', { mode: 0o444 });
+    fs.symlinkSync('../../external-target', path.join(generatedRoot, 'linked'));
+    fs.chmodSync(generatedRoot, 0o555);
+
+    await assert.rejects(
+      removeOwnedGenerated(candidateRoot, relative),
+      /absolute or escaping symlink/u,
+    );
+
+    assert.equal(fs.readFileSync(external, 'utf8'), 'relative escape bytes\n');
+    assert.equal(fs.statSync(generatedRoot).mode & 0o777, 0o555);
+  });
+
+  await t.test('special entry leaves the complete directory tree unchanged', async () => {
+    const root = fs.realpathSync.native(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-generated-special-')),
+    );
+    t.after(() => removeReadOnlyFixtureTree(root));
+    const candidateRoot = path.join(root, 'candidate');
+    const relative = 'contracts/goldens/query/.cache';
+    const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+    const nested = path.join(generatedRoot, 'aaa');
+    const fifo = path.join(generatedRoot, 'zzz-fifo');
+    fs.mkdirSync(nested, { recursive: true });
+    fs.writeFileSync(path.join(nested, 'regular'), 'regular\n', { mode: 0o444 });
+    const created = spawnSync('/usr/bin/mkfifo', [fifo], { encoding: 'utf8' });
+    assert.equal(created.status, 0, created.stderr);
+    fs.chmodSync(nested, 0o555);
+    fs.chmodSync(generatedRoot, 0o555);
+
+    await assert.rejects(
+      removeOwnedGenerated(candidateRoot, relative),
+      /inventory contains a special entry/u,
+    );
+
+    assert.equal(fs.statSync(generatedRoot).mode & 0o777, 0o555);
+    assert.equal(fs.statSync(nested).mode & 0o777, 0o555);
+    assert.equal(fs.lstatSync(fifo).isFIFO(), true);
+  });
+});
+
+test('generated cleanup root-rebind closure never mutates the replacement tree', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-generated-rebind-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const relative = 'contracts/goldens/query/.tmp';
+  const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+  const replacementRoot = path.join(root, 'replacement');
+  fs.mkdirSync(generatedRoot, { recursive: true });
+  fs.writeFileSync(path.join(generatedRoot, 'owned'), 'owned bytes\n', {
+    mode: 0o444,
+  });
+  fs.mkdirSync(replacementRoot);
+  fs.writeFileSync(path.join(replacementRoot, 'protected'), 'external bytes\n', {
+    mode: 0o444,
+  });
+  const replacementBefore = fs.statSync(replacementRoot);
+
+  const originalRenameSync = fs.renameSync;
+  let quarantineRoot;
+  fs.renameSync = (source, destination) => {
+    const result = originalRenameSync(source, destination);
+    if (source === generatedRoot) {
+      quarantineRoot = destination;
+      originalRenameSync(replacementRoot, generatedRoot);
+    }
+    return result;
+  };
+  try {
+    await assert.rejects(
+      removeOwnedGenerated(candidateRoot, relative),
+      /EIDENTITY/u,
+    );
+  } finally {
+    fs.renameSync = originalRenameSync;
+  }
+
+  assert.equal(fs.readFileSync(path.join(generatedRoot, 'protected'), 'utf8'), 'external bytes\n');
+  assert.equal(
+    fs.statSync(generatedRoot).mode & 0o777,
+    replacementBefore.mode & 0o777,
+  );
+  assert.equal(fs.readFileSync(path.join(quarantineRoot, 'owned'), 'utf8'), 'owned bytes\n');
+});
+
+test('terminal quarantine residue preserves the primary error and reports both trees', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-generated-terminal-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const runRoot = path.join(root, 'run');
+  const relative = 'contracts/goldens/query/.tmp';
+  const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+  fs.mkdirSync(generatedRoot, { recursive: true });
+  fs.mkdirSync(runRoot);
+  fs.writeFileSync(path.join(generatedRoot, 'owned'), 'owned residue\n');
+  const primary = new Error('primary failure remains authoritative');
+  primary.code = 'PRIMARY_FAILURE_REMAINS_AUTHORITATIVE';
+
+  const originalRenameSync = fs.renameSync;
+  const originalRmSync = fs.rmSync;
+  let quarantineRoot;
+  let attempts = 0;
+  fs.renameSync = (source, destination) => {
+    const result = originalRenameSync(source, destination);
+    if (source === generatedRoot) quarantineRoot = destination;
+    return result;
+  };
+  fs.rmSync = (candidate, options) => {
+    if (candidate === quarantineRoot) {
+      attempts += 1;
+      if (attempts === 4) {
+        fs.mkdirSync(generatedRoot);
+        fs.writeFileSync(
+          path.join(generatedRoot, 'replacement'),
+          'replacement bytes\n',
+          { mode: 0o444 },
+        );
+        fs.chmodSync(generatedRoot, 0o555);
+      }
+      const error = new Error('fixture terminal quarantine failure');
+      error.code = 'ENOTEMPTY';
+      throw error;
+    }
+    return originalRmSync(candidate, options);
+  };
+  let caught;
+  try {
+    await settleContractsOwnerGate({
+      candidateRoot,
+      runRoot,
+      primaryError: primary,
+    });
+  } catch (error) {
+    caught = error;
+  } finally {
+    fs.renameSync = originalRenameSync;
+    fs.rmSync = originalRmSync;
+  }
+
+  assert.equal(caught, primary);
+  assert.equal(caught.code, 'PRIMARY_FAILURE_REMAINS_AUTHORITATIVE');
+  assert.equal(attempts, 4);
+  assert.equal(caught.cleanup.failedCount, 1);
+  assert.equal(caught.cleanup.residueCount, 2);
+  const outcome = caught.cleanup.outcomes.find(
+    (candidate) => candidate.relative === relative,
+  );
+  assert.equal(outcome.status, 'failed');
+  assert.equal(outcome.restored, false);
+  assert.deepEqual(
+    new Set(outcome.residuePaths),
+    new Set([
+      relative,
+      path.relative(candidateRoot, quarantineRoot).split(path.sep).join('/'),
+    ]),
+  );
+  assert.equal(
+    fs.readFileSync(path.join(generatedRoot, 'replacement'), 'utf8'),
+    'replacement bytes\n',
+  );
+  assert.equal(
+    fs.readFileSync(path.join(quarantineRoot, 'owned'), 'utf8'),
+    'owned residue\n',
+  );
+});
+
+test('hard-link cleanup failure preserves the owner command as primary without external mutation', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-generated-hardlink-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const runRoot = path.join(root, 'run');
+  const relative = 'contracts/goldens/query/.tmp';
+  const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+  const external = path.join(root, 'external-hardlink-target');
+  fs.mkdirSync(generatedRoot, { recursive: true });
+  fs.mkdirSync(runRoot);
+  fs.writeFileSync(external, 'external hard-link bytes\n', { mode: 0o444 });
+  fs.linkSync(external, path.join(generatedRoot, 'linked'));
+  fs.chmodSync(generatedRoot, 0o555);
+  const externalBefore = fs.statSync(external);
+  const primary = new Error('authoritative owner command failed first');
+  primary.code = 'OWNER_COMMAND_FAILED_FIRST';
+
+  let caught;
+  try {
+    await settleContractsOwnerGate({
+      candidateRoot,
+      runRoot,
+      primaryError: primary,
+    });
+  } catch (error) {
+    caught = error;
+  }
+
+  assert.equal(caught, primary);
+  assert.equal(caught.code, 'OWNER_COMMAND_FAILED_FIRST');
+  assert.equal(caught.message, 'authoritative owner command failed first');
+  assert.equal(caught.cleanup.failedCount, 1);
+  assert.equal(caught.cleanup.residueCount, 1);
+  assert.equal(caught.evidence.at(-1).kind, 'cleanup');
+  assert.equal(fs.statSync(generatedRoot).mode & 0o777, 0o555);
+  const externalAfter = fs.statSync(external);
+  assert.equal(externalAfter.mode & 0o777, externalBefore.mode & 0o777);
+  assert.equal(
+    fs.readFileSync(external, 'utf8'),
+    'external hard-link bytes\n',
+  );
+  assert.equal(externalAfter.nlink, 2);
+});
+
 test('Backend cleanup removes module-cache ignore control before clean-checkout re-attestation', async (t) => {
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-backend-cleanup-gitignore-')),
@@ -3822,14 +4168,21 @@ test('Backend generated-root cleanup retries transient races within the shared f
 
   const originalRmSync = fs.rmSync;
   let cacheCalls = 0;
+  let cacheQuarantine;
   fs.rmSync = (candidate, options) => {
-    if (candidate === cacheRoot && cacheCalls < 2) {
+    if (
+      cacheQuarantine === undefined &&
+      isCleanupQuarantine(candidate, cacheRoot)
+    ) {
+      cacheQuarantine = candidate;
+    }
+    if (candidate === cacheQuarantine && cacheCalls < 2) {
       cacheCalls += 1;
       const error = new Error('fixture transient non-empty Backend cache');
       error.code = 'ENOTEMPTY';
       throw error;
     }
-    if (candidate === cacheRoot) cacheCalls += 1;
+    if (candidate === cacheQuarantine) cacheCalls += 1;
     return originalRmSync(candidate, options);
   };
   let report;
@@ -3910,7 +4263,7 @@ test('Backend cleanup preserves a query-measurement CommandError as primary', as
 
   const originalRmSync = fs.rmSync;
   fs.rmSync = (candidate, options) => {
-    if (candidate === cacheRoot) {
+    if (isCleanupQuarantine(candidate, cacheRoot)) {
       const error = new Error('fixture terminal Backend cache race');
       error.code = 'ENOTEMPTY';
       throw error;
@@ -3961,7 +4314,7 @@ test('Backend cleanup-only surviving residue blocks an otherwise successful owne
   const originalRmSync = fs.rmSync;
   let attempts = 0;
   fs.rmSync = (candidate, options) => {
-    if (candidate === cacheRoot) {
+    if (isCleanupQuarantine(candidate, cacheRoot)) {
       attempts += 1;
       const error = new Error('fixture busy Backend cache');
       error.code = 'EBUSY';
@@ -4148,14 +4501,21 @@ test('Contracts generated-root cleanup retries a transient non-empty race within
 
   const originalRmSync = fs.rmSync;
   let calls = 0;
+  let generatedQuarantine;
   fs.rmSync = (candidate, options) => {
-    if (candidate === generatedRoot && calls < 2) {
+    if (
+      generatedQuarantine === undefined &&
+      isCleanupQuarantine(candidate, generatedRoot)
+    ) {
+      generatedQuarantine = candidate;
+    }
+    if (candidate === generatedQuarantine && calls < 2) {
       calls += 1;
       const error = new Error('fixture transient non-empty directory');
       error.code = 'ENOTEMPTY';
       throw error;
     }
-    if (candidate === generatedRoot) calls += 1;
+    if (candidate === generatedQuarantine) calls += 1;
     return originalRmSync(candidate, options);
   };
   let report;
@@ -4178,6 +4538,104 @@ test('Contracts generated-root cleanup retries a transient non-empty race within
   assert.equal(report.retriedCount, 1);
   assert.equal(report.residueCount, 0);
   assert.equal(fs.existsSync(generatedRoot), false);
+});
+
+test('generated cleanup shares one bounded budget across quarantine acquisition and removal', async (t) => {
+  await t.test('two transient rename failures consume attempts before removal', async () => {
+    const root = fs.realpathSync.native(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-owner-rename-retry-')),
+    );
+    t.after(() => removeReadOnlyFixtureTree(root));
+    const candidateRoot = path.join(root, 'candidate');
+    const relative = 'contracts/goldens/query/.tmp';
+    const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+    fs.mkdirSync(generatedRoot, { recursive: true });
+    fs.writeFileSync(path.join(generatedRoot, 'generated'), 'generated\n');
+
+    const originalRenameSync = fs.renameSync;
+    let renameCalls = 0;
+    fs.renameSync = (source, destination) => {
+      if (source === generatedRoot) {
+        renameCalls += 1;
+        if (renameCalls < 3) {
+          const error = new Error('fixture transient quarantine acquisition');
+          error.code = 'EBUSY';
+          throw error;
+        }
+      }
+      return originalRenameSync(source, destination);
+    };
+    let outcome;
+    try {
+      outcome = await removeOwnedGenerated(candidateRoot, relative);
+    } finally {
+      fs.renameSync = originalRenameSync;
+    }
+
+    assert.deepEqual(outcome, {
+      attempts: 3,
+      relative,
+      status: 'removed',
+    });
+    assert.equal(renameCalls, 3);
+    assert.equal(fs.existsSync(generatedRoot), false);
+  });
+
+  await t.test('four transient rename failures preserve the root and primary error', async () => {
+    const root = fs.realpathSync.native(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-owner-rename-terminal-')),
+    );
+    t.after(() => removeReadOnlyFixtureTree(root));
+    const candidateRoot = path.join(root, 'candidate');
+    const runRoot = path.join(root, 'run');
+    const relative = 'contracts/goldens/query/.tmp';
+    const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+    fs.mkdirSync(generatedRoot, { recursive: true });
+    fs.mkdirSync(runRoot);
+    fs.writeFileSync(path.join(generatedRoot, 'generated'), 'preserved\n');
+    const primary = new Error('primary rename failure remains authoritative');
+    primary.code = 'PRIMARY_RENAME_FAILURE';
+
+    const originalRenameSync = fs.renameSync;
+    let renameCalls = 0;
+    fs.renameSync = (source, destination) => {
+      if (source === generatedRoot) {
+        renameCalls += 1;
+        const error = new Error('fixture terminal quarantine acquisition');
+        error.code = 'EBUSY';
+        throw error;
+      }
+      return originalRenameSync(source, destination);
+    };
+    let caught;
+    try {
+      await settleContractsOwnerGate({
+        candidateRoot,
+        runRoot,
+        primaryError: primary,
+      });
+    } catch (error) {
+      caught = error;
+    } finally {
+      fs.renameSync = originalRenameSync;
+    }
+
+    assert.equal(caught, primary);
+    assert.equal(caught.code, 'PRIMARY_RENAME_FAILURE');
+    assert.equal(renameCalls, 4);
+    assert.equal(caught.cleanup.failedCount, 1);
+    assert.equal(caught.cleanup.residueCount, 1);
+    const outcome = caught.cleanup.outcomes.find(
+      (candidate) => candidate.relative === relative,
+    );
+    assert.equal(outcome.attempts, 4);
+    assert.equal(outcome.code, 'EBUSY');
+    assert.deepEqual(outcome.residuePaths, [relative]);
+    assert.equal(
+      fs.readFileSync(path.join(generatedRoot, 'generated'), 'utf8'),
+      'preserved\n',
+    );
+  });
 });
 
 test('Contracts owner cleanup preserves an originating CommandError and records terminal cleanup secondarily', async (t) => {
@@ -4232,7 +4690,7 @@ test('Contracts owner cleanup preserves an originating CommandError and records 
 
   const originalRmSync = fs.rmSync;
   fs.rmSync = (candidate, options) => {
-    if (candidate === generatedRoot) {
+    if (isCleanupQuarantine(candidate, generatedRoot)) {
       const error = new Error('fixture terminal non-empty directory');
       error.code = 'ENOTEMPTY';
       throw error;
@@ -4341,7 +4799,7 @@ test('Contracts owner cleanup evidence-write failure cannot replace the primary 
 
   const originalRmSync = fs.rmSync;
   fs.rmSync = (candidate, options) => {
-    if (candidate === generatedRoot) {
+    if (isCleanupQuarantine(candidate, generatedRoot)) {
       const error = new Error('fixture terminal non-empty directory');
       error.code = 'ENOTEMPTY';
       throw error;
@@ -4438,7 +4896,7 @@ test('Contracts cleanup rejects unsafe or surviving generated roots after an oth
 
   const originalRmSync = fs.rmSync;
   fs.rmSync = (candidate, options) => {
-    if (candidate === generatedRoot) {
+    if (isCleanupQuarantine(candidate, generatedRoot)) {
       const error = new Error('fixture busy directory');
       error.code = 'EBUSY';
       throw error;
