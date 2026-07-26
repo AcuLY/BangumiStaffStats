@@ -133,6 +133,7 @@ if ! grep -Fxq 'info' "$smoke_docker_log" ||
   echo 'smoke did not fail closed before network-capable Docker actions' >&2
   exit 1
 fi
+"$build_root/smoke-resource-policy-test.sh"
 
 artifact_require_container_toolchain
 
@@ -183,14 +184,79 @@ if grep -Eq '^ARG[[:space:]]+(GO_IMAGE|RUNTIME_IMAGE)(=|[[:space:]]|$)' "$docker
   echo 'Backend base images must not be exposed as build-arg overrides' >&2
   exit 1
 fi
+if ! grep -Fq \
+  'type=docker,dest=$raw_image_archive,tar=true,oci-mediatypes=true,rewrite-timestamp=true,name=$image_name' \
+  "$build_root/build.sh" ||
+  ! grep -Fq -- '--image-archive "$raw_image_archive"' "$build_root/build.sh" ||
+  grep -Fq 'type=oci' "$build_root/build.sh" ||
+  ! grep -Fq 'func admitImageArchive(' "$build_root/artifact.go" ||
+  ! grep -Fq 'header.Format != tar.FormatUSTAR' "$build_root/artifact.go" ||
+  ! grep -Fq 'func validateClosedImageLayout(' "$build_root/artifact.go" ||
+  ! grep -Fq 'func validateDockerCompatibilityManifest(' "$build_root/artifact.go"; then
+  echo 'Backend image build does not enforce the reviewed Docker-exporter OCI compatibility shape' >&2
+  exit 1
+fi
+if grep -Eq 'tar[[:space:]]+(-[^[:space:]]*x|--extract)' \
+  "$build_root/build.sh" \
+  "$build_root/check.sh" \
+  "$build_root/smoke.sh"; then
+  echo 'Backend artifact pipeline must not generically extract the exporter archive' >&2
+  exit 1
+fi
 if ! grep -Fxq 'USER 65532:65532' "$dockerfile" ||
   ! grep -Fxq 'ENTRYPOINT ["/usr/local/bin/bgmss-api"]' "$dockerfile"; then
   echo 'Backend Dockerfile does not enforce the reviewed non-root API entrypoint' >&2
   exit 1
 fi
+if ! grep -Fq -- '-o /out/archive-smoke' "$dockerfile" ||
+  ! grep -Fxq 'COPY --from=build /out/archive-smoke /archive-smoke' "$dockerfile" ||
+  grep -Eq '^COPY .*archive-smoke .*/usr/local/' "$dockerfile"; then
+  echo 'Backend Dockerfile does not export Archive smoke exclusively through the binary stage' >&2
+  exit 1
+fi
 if ! grep -Fq 'docker image inspect "$go_image"' "$build_root/smoke.sh" ||
-  [[ "$(grep -c -- '--pull never' "$build_root/smoke.sh")" != '2' ]]; then
+  [[ "$(grep -c -- '--pull never' "$build_root/smoke.sh")" != '3' ]]; then
   echo 'Backend smoke does not forbid implicit image pulls' >&2
+  exit 1
+fi
+if ! grep -Fq 'docker network create' "$build_root/smoke.sh" ||
+  ! grep -Fq -- '--internal' "$build_root/smoke.sh" ||
+  ! grep -Fq -- '-listen-address 0.0.0.0:8080' "$build_root/smoke.sh" ||
+  ! grep -Fq 'BGMSS_API_HOST=$api_container' "$build_root/smoke.sh" ||
+  ! grep -Fq 'archive-smoke$' "$build_root/smoke.sh" ||
+  grep -Fq -- '--network "container:' "$build_root/smoke.sh" ||
+  grep -Eq -- '^[[:space:]]+(-p|-P)([=[:space:]]|$)|--publish([=[:space:]]|$)' \
+    "$build_root/smoke.sh"; then
+  echo 'Backend smoke does not enforce the reviewed internal-bridge/no-publish shape' >&2
+  exit 1
+fi
+for ownership_marker in \
+  "ownership_label_key='io.bgmss.backend-smoke'" \
+  'refusing to replace an existing smoke container' \
+  'refusing to replace an existing smoke network' \
+  "api_container_id=''" \
+  "audit_container_id=''" \
+  "probe_container_id=''" \
+  "smoke_network_id=''" \
+  "image_id=''" \
+  'smoke_remove_owned_container' \
+  'smoke_remove_owned_network' \
+  'smoke_remove_loaded_image'; do
+  if ! grep -Fq "$ownership_marker" "$build_root/smoke.sh"; then
+    echo "Backend smoke omits ownership marker: $ownership_marker" >&2
+    exit 1
+  fi
+done
+if grep -Fq 'docker image rm -f' \
+  "$build_root/smoke.sh" \
+  "$build_root/smoke-resource-policy.sh" ||
+  [[ "$(
+    awk '
+      /docker load --input/ { after_load = 1; next }
+      after_load && /docker / { print; exit }
+    ' "$build_root/smoke.sh"
+  )" != *"docker image inspect --format '{{.Id}}' \"\$image_reference\""* ]]; then
+  echo 'Backend smoke does not immediately capture and safely remove the immutable image ID' >&2
   exit 1
 fi
 if grep -Ein '(apt-get|apk add|dnf |yum |curl |wget |git clone|docker push|buildx imagetools create)' \

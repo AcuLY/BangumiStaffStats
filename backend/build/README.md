@@ -5,9 +5,13 @@ publish, release, deploy, activate an Archive, or choose production topology.
 
 The build emits:
 
-- a normalized `linux/<arch>` API binary bundle;
-- a normalized local OCI image archive built from literal, non-overridable
-  digest-pinned bases;
+- a normalized `linux/<arch>` binary bundle containing `bgmss-api`,
+  `archive-smoke`, and schema-v2 metadata that binds each executable's role,
+  path, size, and SHA-256;
+- a normalized, Docker-load-compatible OCI-media-type image archive built from
+  literal, non-overridable digest-pinned bases and containing only the API
+  executable; the pinned Docker exporter owns its compatibility manifest, and
+  a bounded Go admitter rejects any non-closed layout before repacking;
 - a complete sorted SHA-256 inventory;
 - a deterministic SPDX 2.3 JSON SBOM;
 - a Contracts-schema Backend component statement.
@@ -43,6 +47,7 @@ artifact_root="$(./build/build.sh --output-root build/.tmp/manual)"
 reproducibility is defined only for identical source, declared compatibility
 inputs, target platform, pinned toolchain, and pinned base-image digests.
 Build and smoke require a running Docker daemon plus Node 24.18.0 for the
-Contracts-owned offline validator. Smoke disables the API network, mounts only
-a disposable read-only accepted Archive, and probes loopback from a separate
-container sharing that network namespace.
+Contracts-owned offline validator. Smoke creates one uniquely owned internal
+bridge, mounts only a disposable read-only accepted Archive, starts the API
+with an explicit container listener, and probes its bridge identity from a
+separate pinned helper container without publishing a host port.

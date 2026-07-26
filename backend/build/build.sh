@@ -194,18 +194,27 @@ docker buildx build \
   --target binary \
   --output "type=local,dest=$binary_root" \
   "$snapshot_backend_root" >&2
-binary_path="$binary_root/bgmss-api"
-if [[ ! -f "$binary_path" ]]; then
-  echo 'BuildKit binary export did not produce bgmss-api' >&2
+api_binary_path="$binary_root/bgmss-api"
+archive_smoke_binary_path="$binary_root/archive-smoke"
+binary_inventory="$(
+  find "$binary_root" -mindepth 1 -maxdepth 1 -print |
+    LC_ALL=C sort
+)"
+expected_binary_inventory="$archive_smoke_binary_path
+$api_binary_path"
+if [[ "$binary_inventory" != "$expected_binary_inventory" ]] ||
+  [[ ! -f "$api_binary_path" || -L "$api_binary_path" ]] ||
+  [[ ! -f "$archive_smoke_binary_path" || -L "$archive_smoke_binary_path" ]]; then
+  echo 'BuildKit binary export did not produce exactly bgmss-api and archive-smoke' >&2
   exit 1
 fi
 
-oci_layout="$work_root/oci-layout"
+raw_image_archive="$work_root/docker-export.tar"
 image_name="localhost/bgmss-backend-api:${source_revision}-${target_architecture}"
 docker buildx build \
   "${common_build_arguments[@]}" \
   --target runtime \
-  --output "type=oci,dest=$oci_layout,tar=false,rewrite-timestamp=true,name=$image_name" \
+  --output "type=docker,dest=$raw_image_archive,tar=true,oci-mediatypes=true,rewrite-timestamp=true,name=$image_name" \
   "$snapshot_backend_root" >&2
 
 declared_inputs=(
@@ -231,8 +240,9 @@ input_arguments+=(
 
 component_root="$work_root/component"
 "$helper" package \
-  --binary "$binary_path" \
-  --oci-layout "$oci_layout" \
+  --api-binary "$api_binary_path" \
+  --archive-smoke-binary "$archive_smoke_binary_path" \
+  --image-archive "$raw_image_archive" \
   --output "$component_root" \
   --source-revision "$source_revision" \
   --source-tree "$source_tree" \

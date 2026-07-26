@@ -208,12 +208,15 @@ build/artifact_test.go
 build/build.sh
 build/check.sh
 build/path-policy.sh
+build/smoke-resource-policy-test.sh
+build/smoke-resource-policy.sh
 build/smoke.sh
 build/source-policy-test.sh
 build/source-policy.sh
 build/test.sh
 build/toolchain-policy.sh
 cmd/api/main.go
+cmd/api/main_test.go
 cmd/archive-smoke/main.go
 cmd/archive-smoke/main_test.go
 go.mod

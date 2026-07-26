@@ -25,10 +25,18 @@ RUN GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
       -ldflags="-buildid= -s -w" \
       -o /out/bgmss-api \
       ./cmd/api
+RUN GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
+    go build \
+      -buildvcs=false \
+      -trimpath \
+      -ldflags="-buildid= -s -w" \
+      -o /out/archive-smoke \
+      ./cmd/archive-smoke
 
 FROM scratch AS binary
 
 COPY --from=build /out/bgmss-api /bgmss-api
+COPY --from=build /out/archive-smoke /archive-smoke
 
 FROM gcr.io/distroless/static-debian13:nonroot@sha256:f7f8f729987ad0fdf6b05eeeae94b26e6a0f613bdf46feea7fc40f7bd72953e6 AS runtime
 

@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"debug/buildinfo"
+	"debug/elf"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -21,10 +22,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -37,9 +40,26 @@ const (
 	requiredBuildkitImageInputPath = "toolchain/buildkit-image"
 	requiredGoVersion              = "go1.26.5"
 	apiModulePath                  = "github.com/AcuLY/BangumiStaffStats/backend/cmd/api"
+	archiveSmokeModulePath         = "github.com/AcuLY/BangumiStaffStats/backend/cmd/archive-smoke"
+	apiBundlePath                  = "bin/bgmss-api"
+	archiveSmokeBundlePath         = "bin/archive-smoke"
+	apiExecutableRole              = "api-runtime"
+	archiveSmokeExecutableRole     = "archive-validation"
 	checksumFileName               = "checksums.sha256"
 	sbomFileName                   = "backend.spdx.json"
 	statementFileName              = "component-statement.json"
+	maxBundleSize                  = 512 << 20
+	maxExecutableSize              = 256 << 20
+	maxBundleMetadataSize          = 1 << 20
+	maxImageArchiveSize            = 512 << 20
+	maxImageArchiveMemberSize      = 256 << 20
+	maxImageArchiveJSONSize        = 4 << 20
+	maxImageArchiveMembers         = 4096
+	ociImageLayoutVersion          = "1.0.0"
+	ociIndexMediaType              = "application/vnd.oci.image.index.v1+json"
+	ociManifestMediaType           = "application/vnd.oci.image.manifest.v1+json"
+	ociConfigMediaType             = "application/vnd.oci.image.config.v1+json"
+	ociLayerMediaType              = "application/vnd.oci.image.layer.v1.tar+gzip"
 )
 
 var (
@@ -47,6 +67,7 @@ var (
 	digestPattern      = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 	pathPattern        = regexp.MustCompile(`^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$`)
 	imageReferenceExpr = regexp.MustCompile(`^[A-Za-z0-9._/:+-]+@sha256:[0-9a-f]{64}$`)
+	ociBlobPathPattern = regexp.MustCompile(`^blobs/sha256/[0-9a-f]{64}$`)
 )
 
 type sourceIdentity struct {
@@ -108,6 +129,13 @@ type imageMetadata struct {
 	OCITarSHA256   string   `json:"ociTarSha256"`
 }
 
+type executableFact struct {
+	Role   string `json:"role"`
+	Path   string `json:"path"`
+	Size   int64  `json:"size"`
+	SHA256 string `json:"sha256"`
+}
+
 type bundleMetadata struct {
 	SchemaVersion int                `json:"schemaVersion"`
 	Component     string             `json:"component"`
@@ -118,6 +146,7 @@ type bundleMetadata struct {
 	Inputs        []inputFact        `json:"inputs"`
 	Compatibility compatibilityFacts `json:"compatibility"`
 	Image         imageMetadata      `json:"image"`
+	Executables   []executableFact   `json:"executables"`
 }
 
 type fileRecord struct {
@@ -127,10 +156,11 @@ type fileRecord struct {
 }
 
 type ociDescriptor struct {
-	MediaType string          `json:"mediaType"`
-	Digest    string          `json:"digest"`
-	Size      int64           `json:"size"`
-	Platform  *targetPlatform `json:"platform,omitempty"`
+	MediaType   string            `json:"mediaType"`
+	Digest      string            `json:"digest"`
+	Size        int64             `json:"size"`
+	Platform    *targetPlatform   `json:"platform,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 type ociIndex struct {
@@ -154,6 +184,16 @@ type ociConfig struct {
 		Entrypoint []string          `json:"Entrypoint"`
 		Labels     map[string]string `json:"Labels"`
 	} `json:"config"`
+}
+
+type ociImageLayout struct {
+	ImageLayoutVersion string `json:"imageLayoutVersion"`
+}
+
+type dockerCompatibilityRecord struct {
+	Config   string   `json:"Config"`
+	RepoTags []string `json:"RepoTags"`
+	Layers   []string `json:"Layers"`
 }
 
 type spdxChecksum struct {
@@ -254,8 +294,9 @@ func exitError(err error) {
 }
 
 type packageOptions struct {
-	BinaryPath                  string
-	OCILayoutPath               string
+	APIBinaryPath               string
+	ArchiveSmokeBinaryPath      string
+	ImageArchivePath            string
 	OutputPath                  string
 	SourceRevision              string
 	SourceTree                  string
@@ -300,15 +341,55 @@ func packageCommand(arguments []string) error {
 		return err
 	}
 
-	build, err := buildinfo.ReadFile(options.BinaryPath)
+	apiBuild, err := buildinfo.ReadFile(options.APIBinaryPath)
 	if err != nil {
 		return fmt.Errorf("read API build info: %w", err)
 	}
-	if err := validateBuildInfo(build, options.TargetOS, options.TargetArchitecture); err != nil {
+	if err := validateBuildInfo(
+		apiBuild,
+		"API",
+		apiModulePath,
+		options.TargetOS,
+		options.TargetArchitecture,
+	); err != nil {
+		return err
+	}
+	if err := validateELFFile(options.APIBinaryPath, "API"); err != nil {
+		return err
+	}
+	archiveSmokeBuild, err := buildinfo.ReadFile(options.ArchiveSmokeBinaryPath)
+	if err != nil {
+		return fmt.Errorf("read Archive smoke build info: %w", err)
+	}
+	if err := validateBuildInfo(
+		archiveSmokeBuild,
+		"Archive smoke",
+		archiveSmokeModulePath,
+		options.TargetOS,
+		options.TargetArchitecture,
+	); err != nil {
+		return err
+	}
+	if err := validateELFFile(options.ArchiveSmokeBinaryPath, "Archive smoke"); err != nil {
+		return err
+	}
+	executables, err := executableFacts(
+		options.APIBinaryPath,
+		options.ArchiveSmokeBinaryPath,
+	)
+	if err != nil {
 		return err
 	}
 
-	image, err := inspectOCI(options.OCILayoutPath, options)
+	layoutPath, err := os.MkdirTemp(options.OutputPath, ".admitted-image-layout-")
+	if err != nil {
+		return err
+	}
+	defer removeOwnedTemporaryDirectory(layoutPath)
+	if err := admitImageArchive(options.ImageArchivePath, layoutPath); err != nil {
+		return fmt.Errorf("admit Docker exporter archive: %w", err)
+	}
+	image, err := inspectOCI(layoutPath, options)
 	if err != nil {
 		return err
 	}
@@ -318,8 +399,11 @@ func packageCommand(arguments []string) error {
 		options.TargetArchitecture,
 	)
 	ociPath := filepath.Join(options.OutputPath, ociName)
-	if err := writeNormalizedDirectoryTar(options.OCILayoutPath, ociPath); err != nil {
+	if err := writeNormalizedDirectoryTar(layoutPath, ociPath); err != nil {
 		return fmt.Errorf("normalize OCI archive: %w", err)
+	}
+	if err := removeOwnedTemporaryDirectory(layoutPath); err != nil {
+		return fmt.Errorf("remove admitted OCI layout: %w", err)
 	}
 	ociDigest, _, err := digestFile(ociPath)
 	if err != nil {
@@ -328,7 +412,7 @@ func packageCommand(arguments []string) error {
 	image.OCITarSHA256 = ociDigest
 
 	metadata := bundleMetadata{
-		SchemaVersion: 1,
+		SchemaVersion: 2,
 		Component:     componentID,
 		Source: sourceIdentity{
 			Revision: options.SourceRevision,
@@ -353,7 +437,8 @@ func packageCommand(arguments []string) error {
 			},
 			OpenAPIDigest: options.OpenAPIDigest,
 		},
-		Image: image,
+		Image:       image,
+		Executables: executables,
 	}
 	bundleName := fmt.Sprintf(
 		"backend-api-%s-%s.tar.gz",
@@ -361,7 +446,12 @@ func packageCommand(arguments []string) error {
 		options.TargetArchitecture,
 	)
 	bundlePath := filepath.Join(options.OutputPath, bundleName)
-	if err := writeBundle(options.BinaryPath, bundlePath, metadata); err != nil {
+	if err := writeBundle(
+		options.APIBinaryPath,
+		options.ArchiveSmokeBinaryPath,
+		bundlePath,
+		metadata,
+	); err != nil {
 		return fmt.Errorf("write API bundle: %w", err)
 	}
 
@@ -378,7 +468,12 @@ func packageCommand(arguments []string) error {
 		return err
 	}
 	sbomPath := filepath.Join(options.OutputPath, sbomFileName)
-	sbom, err := writeSPDX(sbomPath, inventoryDigest, records, build)
+	sbom, err := writeSPDX(
+		sbomPath,
+		inventoryDigest,
+		records,
+		[]*buildinfo.BuildInfo{apiBuild, archiveSmokeBuild},
+	)
 	if err != nil {
 		return err
 	}
@@ -453,8 +548,19 @@ func parsePackageOptions(arguments []string) (packageOptions, error) {
 	var options packageOptions
 	flags := flag.NewFlagSet("package", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	flags.StringVar(&options.BinaryPath, "binary", "", "built API executable")
-	flags.StringVar(&options.OCILayoutPath, "oci-layout", "", "OCI layout directory")
+	flags.StringVar(&options.APIBinaryPath, "api-binary", "", "built API executable")
+	flags.StringVar(
+		&options.ArchiveSmokeBinaryPath,
+		"archive-smoke-binary",
+		"",
+		"built Archive smoke executable",
+	)
+	flags.StringVar(
+		&options.ImageArchivePath,
+		"image-archive",
+		"",
+		"raw Docker exporter archive",
+	)
 	flags.StringVar(&options.OutputPath, "output", "", "new output directory")
 	flags.StringVar(&options.SourceRevision, "source-revision", "", "40-hex source revision")
 	flags.StringVar(&options.SourceTree, "source-tree", "", "40-hex source tree")
@@ -497,14 +603,15 @@ func parsePackageOptions(arguments []string) (packageOptions, error) {
 
 func validatePackageOptions(options packageOptions) error {
 	for name, value := range map[string]string{
-		"binary":          options.BinaryPath,
-		"oci-layout":      options.OCILayoutPath,
-		"output":          options.OutputPath,
-		"go-image":        options.GoImageReference,
-		"runtime-image":   options.RuntimeImageReference,
-		"target-arch":     options.TargetArchitecture,
-		"source-revision": options.SourceRevision,
-		"source-tree":     options.SourceTree,
+		"api-binary":           options.APIBinaryPath,
+		"archive-smoke-binary": options.ArchiveSmokeBinaryPath,
+		"image-archive":        options.ImageArchivePath,
+		"output":               options.OutputPath,
+		"go-image":             options.GoImageReference,
+		"runtime-image":        options.RuntimeImageReference,
+		"target-arch":          options.TargetArchitecture,
+		"source-revision":      options.SourceRevision,
+		"source-tree":          options.SourceTree,
 	} {
 		if value == "" {
 			return fmt.Errorf("%s is required", name)
@@ -568,17 +675,24 @@ func validatePackageOptions(options packageOptions) error {
 
 func validateBuildInfo(
 	build *buildinfo.BuildInfo,
+	label string,
+	modulePath string,
 	targetOS string,
 	targetArchitecture string,
 ) error {
 	if build == nil {
-		return errors.New("API binary has no Go build information")
+		return fmt.Errorf("%s binary has no Go build information", label)
 	}
 	if build.GoVersion != requiredGoVersion {
-		return fmt.Errorf("API Go version = %q, want %q", build.GoVersion, requiredGoVersion)
+		return fmt.Errorf(
+			"%s Go version = %q, want %q",
+			label,
+			build.GoVersion,
+			requiredGoVersion,
+		)
 	}
-	if build.Path != apiModulePath {
-		return fmt.Errorf("API module path = %q, want %q", build.Path, apiModulePath)
+	if build.Path != modulePath {
+		return fmt.Errorf("%s module path = %q, want %q", label, build.Path, modulePath)
 	}
 	settings := make(map[string]string, len(build.Settings))
 	for _, setting := range build.Settings {
@@ -586,7 +700,8 @@ func validateBuildInfo(
 	}
 	if settings["GOOS"] != targetOS || settings["GOARCH"] != targetArchitecture {
 		return fmt.Errorf(
-			"API target = %s/%s, want %s/%s",
+			"%s target = %s/%s, want %s/%s",
+			label,
 			settings["GOOS"],
 			settings["GOARCH"],
 			targetOS,
@@ -594,14 +709,86 @@ func validateBuildInfo(
 		)
 	}
 	if settings["CGO_ENABLED"] != "0" {
-		return fmt.Errorf("API CGO_ENABLED = %q, want 0", settings["CGO_ENABLED"])
+		return fmt.Errorf("%s CGO_ENABLED = %q, want 0", label, settings["CGO_ENABLED"])
+	}
+	if settings["-trimpath"] != "true" {
+		return fmt.Errorf("%s was not built with -trimpath", label)
 	}
 	for key := range settings {
 		if strings.HasPrefix(key, "vcs.") {
-			return fmt.Errorf("API contains nondeterministic VCS build setting %q", key)
+			return fmt.Errorf("%s contains nondeterministic VCS build setting %q", label, key)
 		}
 	}
 	return nil
+}
+
+func validateELFFile(path string, label string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return validateELFPolicy(file, label)
+}
+
+func validateELFPolicy(reader io.ReaderAt, label string) error {
+	executable, err := elf.NewFile(reader)
+	if err != nil {
+		return fmt.Errorf("%s is not a valid ELF executable: %w", label, err)
+	}
+	defer executable.Close()
+	for _, section := range []string{".note.go.buildid", ".debug_info", ".symtab"} {
+		if executable.Section(section) != nil {
+			return fmt.Errorf("%s contains forbidden ELF section %q", label, section)
+		}
+	}
+	return nil
+}
+
+func executableFacts(
+	apiBinaryPath string,
+	archiveSmokeBinaryPath string,
+) ([]executableFact, error) {
+	specifications := []struct {
+		Role       string
+		BundlePath string
+		SourcePath string
+	}{
+		{
+			Role:       archiveSmokeExecutableRole,
+			BundlePath: archiveSmokeBundlePath,
+			SourcePath: archiveSmokeBinaryPath,
+		},
+		{
+			Role:       apiExecutableRole,
+			BundlePath: apiBundlePath,
+			SourcePath: apiBinaryPath,
+		},
+	}
+	result := make([]executableFact, 0, len(specifications))
+	for _, specification := range specifications {
+		info, err := os.Lstat(specification.SourcePath)
+		if err != nil {
+			return nil, err
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf(
+				"%s executable is not a regular non-symlink file",
+				specification.Role,
+			)
+		}
+		digest, size, err := digestFile(specification.SourcePath)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, executableFact{
+			Role:   specification.Role,
+			Path:   specification.BundlePath,
+			Size:   size,
+			SHA256: digest,
+		})
+	}
+	return result, nil
 }
 
 func ensureNewDirectory(path string) error {
@@ -625,26 +812,309 @@ func ensureNewDirectory(path string) error {
 	return os.MkdirAll(path, 0o755)
 }
 
+func removeOwnedTemporaryDirectory(root string) error {
+	info, err := os.Lstat(root)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || info.Mode()&fs.ModeSymlink != 0 {
+		return fmt.Errorf("refusing to remove non-directory temporary path %q", root)
+	}
+	if err := makeDirectoryTreeWritable(root); err != nil {
+		return err
+	}
+	return os.RemoveAll(root)
+}
+
+func makeDirectoryTreeWritable(root string) error {
+	return filepath.WalkDir(root, func(
+		currentPath string,
+		entry fs.DirEntry,
+		walkErr error,
+	) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return os.Chmod(currentPath, 0o700)
+		}
+		if entry.Type()&fs.ModeSymlink != 0 || !entry.Type().IsRegular() {
+			return fmt.Errorf("temporary tree contains unsupported entry %q", currentPath)
+		}
+		return nil
+	})
+}
+
+func admitImageArchive(sourcePath string, destinationPath string) error {
+	info, err := os.Lstat(sourcePath)
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() ||
+		info.Size() <= 0 ||
+		info.Size() > maxImageArchiveSize {
+		return errors.New("Docker exporter archive is not a bounded regular file")
+	}
+	if err := ensureNewDirectory(destinationPath); err != nil {
+		return err
+	}
+
+	file, err := os.Open(sourcePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	tarReader := tar.NewReader(file)
+	seen := make(map[string]struct{})
+	var totalSize int64
+	memberCount := 0
+	for {
+		header, nextErr := tarReader.Next()
+		if nextErr == io.EOF {
+			break
+		}
+		if nextErr != nil {
+			return fmt.Errorf("read Docker exporter archive: %w", nextErr)
+		}
+		memberCount++
+		if memberCount > maxImageArchiveMembers {
+			return fmt.Errorf(
+				"Docker exporter archive has more than %d members",
+				maxImageArchiveMembers,
+			)
+		}
+		name, directory, err := validateImageArchiveHeader(header)
+		if err != nil {
+			return err
+		}
+		if _, duplicate := seen[name]; duplicate {
+			return fmt.Errorf("Docker exporter archive contains duplicate member %q", name)
+		}
+		seen[name] = struct{}{}
+
+		parent := path.Dir(strings.TrimSuffix(name, "/"))
+		if parent != "." {
+			if _, ok := seen[parent+"/"]; !ok {
+				return fmt.Errorf(
+					"Docker exporter archive member %q precedes required directory %q",
+					name,
+					parent+"/",
+				)
+			}
+		}
+		materializedPath := filepath.Join(
+			destinationPath,
+			filepath.FromSlash(strings.TrimSuffix(name, "/")),
+		)
+		if directory {
+			if err := os.Mkdir(materializedPath, 0o700); err != nil {
+				return err
+			}
+			continue
+		}
+		if header.Size > maxImageArchiveMemberSize ||
+			totalSize > maxImageArchiveSize-header.Size {
+			return fmt.Errorf("Docker exporter archive member %q is oversized", name)
+		}
+		if name == "oci-layout" || name == "index.json" || name == "manifest.json" {
+			if header.Size > maxImageArchiveJSONSize {
+				return fmt.Errorf("Docker exporter JSON member %q is oversized", name)
+			}
+		}
+		totalSize += header.Size
+		output, err := os.OpenFile(
+			materializedPath,
+			os.O_WRONLY|os.O_CREATE|os.O_EXCL,
+			0o600,
+		)
+		if err != nil {
+			return err
+		}
+		_, copyErr := io.CopyN(output, tarReader, header.Size)
+		syncErr := output.Sync()
+		chmodErr := output.Chmod(0o444)
+		closeErr := output.Close()
+		if copyErr != nil {
+			return fmt.Errorf("extract Docker exporter member %q: %w", name, copyErr)
+		}
+		if syncErr != nil {
+			return syncErr
+		}
+		if chmodErr != nil {
+			return chmodErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+	}
+	var trailing [1]byte
+	if count, err := file.Read(trailing[:]); err != io.EOF || count != 0 {
+		if err != nil {
+			return fmt.Errorf("read Docker exporter archive trailing bytes: %w", err)
+		}
+		return errors.New("Docker exporter archive contains trailing bytes")
+	}
+
+	for _, required := range []string{
+		"blobs/",
+		"blobs/sha256/",
+		"index.json",
+		"manifest.json",
+		"oci-layout",
+	} {
+		if _, ok := seen[required]; !ok {
+			return fmt.Errorf("Docker exporter archive omits %q", required)
+		}
+	}
+	for _, directory := range []string{"blobs/sha256", "blobs"} {
+		if err := os.Chmod(filepath.Join(destinationPath, directory), 0o555); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateImageArchiveHeader(header *tar.Header) (string, bool, error) {
+	if header.Format != tar.FormatUSTAR ||
+		len(header.PAXRecords) != 0 ||
+		len(header.Xattrs) != 0 {
+		return "", false, fmt.Errorf(
+			"Docker exporter archive member %q uses PAX, xattr, or unsupported format",
+			header.Name,
+		)
+	}
+	if header.Linkname != "" {
+		return "", false, fmt.Errorf(
+			"Docker exporter archive member %q has a link target",
+			header.Name,
+		)
+	}
+	directory := header.Typeflag == tar.TypeDir
+	regular := header.Typeflag == tar.TypeReg || header.Typeflag == tar.TypeRegA
+	if !directory && !regular {
+		return "", false, fmt.Errorf(
+			"Docker exporter archive member %q has unsupported type %d",
+			header.Name,
+			header.Typeflag,
+		)
+	}
+	if header.Size < 0 || (directory && header.Size != 0) {
+		return "", false, fmt.Errorf(
+			"Docker exporter archive member %q has invalid size %d",
+			header.Name,
+			header.Size,
+		)
+	}
+
+	name := header.Name
+	candidate := name
+	if directory {
+		if !strings.HasSuffix(name, "/") {
+			return "", false, fmt.Errorf(
+				"Docker exporter directory %q omits its trailing slash",
+				name,
+			)
+		}
+		candidate = strings.TrimSuffix(name, "/")
+		if candidate == "" || strings.HasSuffix(candidate, "/") {
+			return "", false, fmt.Errorf(
+				"Docker exporter directory %q is not normalized",
+				name,
+			)
+		}
+	} else if strings.HasSuffix(name, "/") {
+		return "", false, fmt.Errorf(
+			"Docker exporter file %q has a directory suffix",
+			name,
+		)
+	}
+	if candidate == "" ||
+		path.IsAbs(candidate) ||
+		path.Clean(candidate) != candidate ||
+		strings.Contains(candidate, "\\") ||
+		strings.HasPrefix(candidate, "../") {
+		return "", false, fmt.Errorf(
+			"Docker exporter archive member %q is not a normalized relative path",
+			name,
+		)
+	}
+	if directory {
+		if name != "blobs/" && name != "blobs/sha256/" {
+			return "", false, fmt.Errorf(
+				"Docker exporter archive contains extra directory %q",
+				name,
+			)
+		}
+		return name, true, nil
+	}
+	if name != "oci-layout" &&
+		name != "index.json" &&
+		name != "manifest.json" &&
+		!ociBlobPathPattern.MatchString(name) {
+		return "", false, fmt.Errorf(
+			"Docker exporter archive contains extra file %q",
+			name,
+		)
+	}
+	return name, false, nil
+}
+
 func inspectOCI(layoutPath string, options packageOptions) (imageMetadata, error) {
+	layoutBytes, err := readBoundedRegularFile(
+		filepath.Join(layoutPath, "oci-layout"),
+		maxImageArchiveJSONSize,
+	)
+	if err != nil {
+		return imageMetadata{}, fmt.Errorf("read OCI layout marker: %w", err)
+	}
+	var layout ociImageLayout
+	if err := decodeStrictJSON(layoutBytes, &layout); err != nil {
+		return imageMetadata{}, fmt.Errorf("decode OCI layout marker: %w", err)
+	}
+	if layout.ImageLayoutVersion != ociImageLayoutVersion {
+		return imageMetadata{}, fmt.Errorf(
+			"OCI layout version = %q, want %q",
+			layout.ImageLayoutVersion,
+			ociImageLayoutVersion,
+		)
+	}
+
 	indexPath := filepath.Join(layoutPath, "index.json")
 	var index ociIndex
-	if err := decodeJSONFile(indexPath, &index); err != nil {
+	indexBytes, err := readBoundedRegularFile(indexPath, maxImageArchiveJSONSize)
+	if err != nil {
 		return imageMetadata{}, fmt.Errorf("read OCI index: %w", err)
 	}
-	if index.SchemaVersion != 2 || len(index.Manifests) != 1 {
+	if err := decodeJSON(indexBytes, &index); err != nil {
+		return imageMetadata{}, fmt.Errorf("read OCI index: %w", err)
+	}
+	if index.SchemaVersion != 2 ||
+		index.MediaType != ociIndexMediaType ||
+		len(index.Manifests) != 1 {
 		return imageMetadata{}, fmt.Errorf(
-			"OCI index must contain exactly one schema-v2 manifest, got schema=%d manifests=%d",
+			"OCI index must contain exactly one OCI schema-v2 manifest, got schema=%d media=%q manifests=%d",
 			index.SchemaVersion,
+			index.MediaType,
 			len(index.Manifests),
 		)
 	}
 	manifestDescriptor := index.Manifests[0]
-	if manifestDescriptor.Platform == nil ||
+	if manifestDescriptor.MediaType != ociManifestMediaType ||
+		manifestDescriptor.Platform == nil ||
 		manifestDescriptor.Platform.OS != options.TargetOS ||
 		manifestDescriptor.Platform.Architecture != options.TargetArchitecture {
 		return imageMetadata{}, fmt.Errorf("OCI manifest platform does not match target")
 	}
-	manifestBytes, err := readDescriptor(layoutPath, manifestDescriptor)
+	imageName := declaredImageName(options)
+	if manifestDescriptor.Annotations["io.containerd.image.name"] != imageName ||
+		manifestDescriptor.Annotations["org.opencontainers.image.ref.name"] !=
+			options.SourceRevision+"-"+options.TargetArchitecture {
+		return imageMetadata{}, errors.New("OCI index does not bind the exact declared image name")
+	}
+	manifestBytes, err := readJSONDescriptor(layoutPath, manifestDescriptor)
 	if err != nil {
 		return imageMetadata{}, fmt.Errorf("read OCI manifest: %w", err)
 	}
@@ -652,10 +1122,13 @@ func inspectOCI(layoutPath string, options packageOptions) (imageMetadata, error
 	if err := decodeJSON(manifestBytes, &manifest); err != nil {
 		return imageMetadata{}, fmt.Errorf("decode OCI manifest: %w", err)
 	}
-	if manifest.SchemaVersion != 2 || len(manifest.Layers) == 0 {
+	if manifest.SchemaVersion != 2 ||
+		manifest.MediaType != ociManifestMediaType ||
+		manifest.Config.MediaType != ociConfigMediaType ||
+		len(manifest.Layers) == 0 {
 		return imageMetadata{}, errors.New("OCI manifest is missing its runtime layers")
 	}
-	configBytes, err := readDescriptor(layoutPath, manifest.Config)
+	configBytes, err := readJSONDescriptor(layoutPath, manifest.Config)
 	if err != nil {
 		return imageMetadata{}, fmt.Errorf("read OCI config: %w", err)
 	}
@@ -685,11 +1158,41 @@ func inspectOCI(layoutPath string, options packageOptions) (imageMetadata, error
 		}
 	}
 	layers := make([]string, 0, len(manifest.Layers))
+	expectedBlobs := map[string]struct{}{}
+	for _, descriptor := range []ociDescriptor{manifestDescriptor, manifest.Config} {
+		relative, err := descriptorBlobPath(descriptor)
+		if err != nil {
+			return imageMetadata{}, err
+		}
+		expectedBlobs[relative] = struct{}{}
+	}
 	for _, descriptor := range manifest.Layers {
-		if _, err := readDescriptor(layoutPath, descriptor); err != nil {
+		if descriptor.MediaType != ociLayerMediaType {
+			return imageMetadata{}, fmt.Errorf(
+				"OCI layer %q has non-OCI media type %q",
+				descriptor.Digest,
+				descriptor.MediaType,
+			)
+		}
+		if err := validateDescriptorFile(layoutPath, descriptor); err != nil {
 			return imageMetadata{}, fmt.Errorf("read OCI layer %q: %w", descriptor.Digest, err)
 		}
+		relative, err := descriptorBlobPath(descriptor)
+		if err != nil {
+			return imageMetadata{}, err
+		}
+		expectedBlobs[relative] = struct{}{}
 		layers = append(layers, descriptor.Digest)
+	}
+	if err := validateDockerCompatibilityManifest(
+		layoutPath,
+		imageName,
+		manifest,
+	); err != nil {
+		return imageMetadata{}, err
+	}
+	if err := validateClosedImageLayout(layoutPath, expectedBlobs); err != nil {
+		return imageMetadata{}, err
 	}
 	indexDigest, _, err := digestFile(indexPath)
 	if err != nil {
@@ -705,34 +1208,208 @@ func inspectOCI(layoutPath string, options packageOptions) (imageMetadata, error
 	}, nil
 }
 
+func declaredImageName(options packageOptions) string {
+	return fmt.Sprintf(
+		"localhost/bgmss-backend-api:%s-%s",
+		options.SourceRevision,
+		options.TargetArchitecture,
+	)
+}
+
+func validateDockerCompatibilityManifest(
+	layoutPath string,
+	imageName string,
+	manifest ociManifest,
+) error {
+	compatibilityPath := filepath.Join(layoutPath, "manifest.json")
+	data, err := readBoundedRegularFile(compatibilityPath, maxImageArchiveJSONSize)
+	if err != nil {
+		return fmt.Errorf("read Docker compatibility manifest: %w", err)
+	}
+	var records []dockerCompatibilityRecord
+	if err := decodeStrictJSON(data, &records); err != nil {
+		return fmt.Errorf("decode Docker compatibility manifest: %w", err)
+	}
+	if len(records) != 1 {
+		return fmt.Errorf(
+			"Docker compatibility manifest contains %d records, want 1",
+			len(records),
+		)
+	}
+	expectedLayers := make([]string, 0, len(manifest.Layers))
+	for _, descriptor := range manifest.Layers {
+		relative, err := descriptorBlobPath(descriptor)
+		if err != nil {
+			return err
+		}
+		expectedLayers = append(expectedLayers, relative)
+	}
+	expectedConfig, err := descriptorBlobPath(manifest.Config)
+	if err != nil {
+		return err
+	}
+	record := records[0]
+	if record.Config != expectedConfig ||
+		!slices.Equal(record.Layers, expectedLayers) ||
+		!slices.Equal(record.RepoTags, []string{imageName}) {
+		return errors.New("Docker compatibility manifest disagrees with the OCI graph or image name")
+	}
+	canonical, err := json.Marshal(records)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(data, canonical) {
+		return errors.New("Docker compatibility manifest is not the exporter canonical encoding")
+	}
+	return nil
+}
+
+func validateClosedImageLayout(
+	layoutPath string,
+	expectedBlobs map[string]struct{},
+) error {
+	expectedFiles := map[string]struct{}{
+		"index.json":    {},
+		"manifest.json": {},
+		"oci-layout":    {},
+	}
+	for blob := range expectedBlobs {
+		expectedFiles[blob] = struct{}{}
+	}
+	expectedDirectories := map[string]struct{}{
+		"blobs":        {},
+		"blobs/sha256": {},
+	}
+	seenFiles := make(map[string]struct{}, len(expectedFiles))
+	seenDirectories := make(map[string]struct{}, len(expectedDirectories))
+	err := filepath.WalkDir(layoutPath, func(
+		currentPath string,
+		entry fs.DirEntry,
+		walkErr error,
+	) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if currentPath == layoutPath {
+			return nil
+		}
+		relative, err := filepath.Rel(layoutPath, currentPath)
+		if err != nil {
+			return err
+		}
+		relative = filepath.ToSlash(relative)
+		info, err := os.Lstat(currentPath)
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if _, ok := expectedDirectories[relative]; !ok {
+				return fmt.Errorf("OCI layout contains extra directory %q", relative)
+			}
+			if info.Mode().Perm() != 0o555 {
+				return fmt.Errorf("OCI directory %q mode = %o, want 0555", relative, info.Mode().Perm())
+			}
+			seenDirectories[relative] = struct{}{}
+			return nil
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("OCI layout contains unsupported entry %q", relative)
+		}
+		if _, ok := expectedFiles[relative]; !ok {
+			return fmt.Errorf("OCI layout contains extra or orphan file %q", relative)
+		}
+		if info.Mode().Perm() != 0o444 {
+			return fmt.Errorf("OCI file %q mode = %o, want 0444", relative, info.Mode().Perm())
+		}
+		seenFiles[relative] = struct{}{}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if len(seenFiles) != len(expectedFiles) ||
+		len(seenDirectories) != len(expectedDirectories) {
+		return errors.New("OCI layout omits a required graph member or directory")
+	}
+	return nil
+}
+
 func isRootUser(user string) bool {
 	trimmed := strings.TrimSpace(strings.ToLower(user))
-	if trimmed == "" || trimmed == "root" || trimmed == "0" || trimmed == "0:0" {
+	if trimmed == "" {
 		return true
 	}
 	uid := strings.SplitN(trimmed, ":", 2)[0]
-	return uid == "root" || uid == "0"
+	if uid == "root" {
+		return true
+	}
+	if strings.HasPrefix(uid, "+") || strings.HasPrefix(uid, "-") {
+		uid = uid[1:]
+	}
+	numericUID, err := strconv.ParseUint(uid, 10, 64)
+	return err == nil && numericUID == 0
 }
 
-func readDescriptor(layoutPath string, descriptor ociDescriptor) ([]byte, error) {
+func descriptorBlobPath(descriptor ociDescriptor) (string, error) {
 	if !digestPattern.MatchString(descriptor.Digest) || descriptor.Size < 0 {
-		return nil, errors.New("invalid OCI descriptor")
+		return "", errors.New("invalid OCI descriptor")
 	}
 	parts := strings.SplitN(descriptor.Digest, ":", 2)
-	path := filepath.Join(layoutPath, "blobs", parts[0], parts[1])
+	return "blobs/" + parts[0] + "/" + parts[1], nil
+}
+
+func validateDescriptorFile(layoutPath string, descriptor ociDescriptor) error {
+	relative, err := descriptorBlobPath(descriptor)
+	if err != nil {
+		return err
+	}
+	actual, size, err := digestFile(filepath.Join(layoutPath, filepath.FromSlash(relative)))
+	if err != nil {
+		return err
+	}
+	if actual != descriptor.Digest || size != descriptor.Size {
+		return fmt.Errorf(
+			"descriptor mismatch: digest=%s/%s size=%d/%d",
+			actual,
+			descriptor.Digest,
+			size,
+			descriptor.Size,
+		)
+	}
+	return nil
+}
+
+func readJSONDescriptor(layoutPath string, descriptor ociDescriptor) ([]byte, error) {
+	if descriptor.Size < 0 || descriptor.Size > maxImageArchiveJSONSize {
+		return nil, errors.New("OCI JSON descriptor is outside the accepted size bound")
+	}
+	if err := validateDescriptorFile(layoutPath, descriptor); err != nil {
+		return nil, err
+	}
+	relative, err := descriptorBlobPath(descriptor)
+	if err != nil {
+		return nil, err
+	}
+	return readBoundedRegularFile(
+		filepath.Join(layoutPath, filepath.FromSlash(relative)),
+		maxImageArchiveJSONSize,
+	)
+}
+
+func readBoundedRegularFile(path string, maximum int64) ([]byte, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() || info.Size() < 0 || info.Size() > maximum {
+		return nil, errors.New("file is not a bounded regular non-symlink file")
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	actual := "sha256:" + hashBytes(data)
-	if actual != descriptor.Digest || int64(len(data)) != descriptor.Size {
-		return nil, fmt.Errorf(
-			"descriptor mismatch: digest=%s/%s size=%d/%d",
-			actual,
-			descriptor.Digest,
-			len(data),
-			descriptor.Size,
-		)
+	if int64(len(data)) != info.Size() {
+		return nil, errors.New("file size changed while reading")
 	}
 	return data, nil
 }
@@ -870,17 +1547,15 @@ func normalizedTarHeader(name string, mode int64, size int64) *tar.Header {
 	}
 }
 
-func writeBundle(binaryPath string, outputPath string, metadata bundleMetadata) error {
+func writeBundle(
+	apiBinaryPath string,
+	archiveSmokeBinaryPath string,
+	outputPath string,
+	metadata bundleMetadata,
+) error {
 	metadataBytes, err := canonicalJSONBytes(metadata)
 	if err != nil {
 		return err
-	}
-	binaryInfo, err := os.Lstat(binaryPath)
-	if err != nil {
-		return err
-	}
-	if !binaryInfo.Mode().IsRegular() {
-		return errors.New("API binary is not a regular file")
 	}
 
 	return atomicWrite(outputPath, 0o444, func(writer io.Writer) error {
@@ -898,14 +1573,26 @@ func writeBundle(binaryPath string, outputPath string, metadata bundleMetadata) 
 			Path string
 		}{
 			{Name: "bin/", Mode: 0o555},
-			{Name: "bin/bgmss-api", Mode: 0o555, Path: binaryPath},
+			{
+				Name: archiveSmokeBundlePath,
+				Mode: 0o555,
+				Path: archiveSmokeBinaryPath,
+			},
+			{Name: apiBundlePath, Mode: 0o555, Path: apiBinaryPath},
 			{Name: "metadata/", Mode: 0o555},
 			{Name: "metadata/build.json", Mode: 0o444, Data: metadataBytes},
 		}
 		for _, entry := range entries {
 			size := int64(len(entry.Data))
 			if entry.Path != "" {
-				size = binaryInfo.Size()
+				info, err := os.Lstat(entry.Path)
+				if err != nil {
+					return err
+				}
+				if !info.Mode().IsRegular() {
+					return fmt.Errorf("bundle source is not a regular file: %s", entry.Path)
+				}
+				size = info.Size()
 			}
 			header := normalizedTarHeader(entry.Name, entry.Mode, size)
 			if strings.HasSuffix(entry.Name, "/") {
@@ -1021,7 +1708,7 @@ func writeSPDX(
 	path string,
 	inventoryDigest string,
 	artifacts []fileRecord,
-	build *buildinfo.BuildInfo,
+	builds []*buildinfo.BuildInfo,
 ) (spdxDocument, error) {
 	if !digestPattern.MatchString(inventoryDigest) {
 		return spdxDocument{}, errors.New("invalid inventory digest for SPDX namespace")
@@ -1061,7 +1748,7 @@ func writeSPDX(
 		})
 	}
 
-	dependencies := runtimeDependencies(build)
+	dependencies := runtimeDependencies(builds)
 	for _, dependency := range dependencies {
 		id := stableSPDXID("dependency-" + dependency.Name + "@" + dependency.VersionInfo)
 		dependency.SPDXID = id
@@ -1089,10 +1776,10 @@ func writeSPDX(
 	return document, nil
 }
 
-func runtimeDependencies(build *buildinfo.BuildInfo) []spdxPackage {
+func runtimeDependencies(builds []*buildinfo.BuildInfo) []spdxPackage {
 	result := []spdxPackage{{
 		Name:             "go-runtime",
-		VersionInfo:      build.GoVersion,
+		VersionInfo:      requiredGoVersion,
 		Supplier:         "Organization: The Go Authors",
 		DownloadLocation: "NOASSERTION",
 		FilesAnalyzed:    false,
@@ -1100,42 +1787,50 @@ func runtimeDependencies(build *buildinfo.BuildInfo) []spdxPackage {
 		LicenseDeclared:  "BSD-3-Clause",
 		CopyrightText:    "NOASSERTION",
 	}}
-	seen := make(map[string]struct{}, len(build.Deps))
-	for _, module := range build.Deps {
-		if module == nil {
+	seen := make(map[string]struct{})
+	for _, build := range builds {
+		if build == nil {
 			continue
 		}
-		original := module
-		actual := module
-		comment := ""
-		if module.Replace != nil {
-			actual = module.Replace
-			comment = fmt.Sprintf(
-				"Replaces %s@%s.",
-				original.Path,
-				original.Version,
-			)
+		for _, module := range build.Deps {
+			if module == nil {
+				continue
+			}
+			original := module
+			actual := module
+			comment := ""
+			if module.Replace != nil {
+				actual = module.Replace
+				comment = fmt.Sprintf(
+					"Replaces %s@%s.",
+					original.Path,
+					original.Version,
+				)
+			}
+			key := actual.Path + "\x00" + actual.Version + "\x00" + actual.Sum
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			entry := spdxPackage{
+				Name:             actual.Path,
+				VersionInfo:      actual.Version,
+				Supplier:         "NOASSERTION",
+				DownloadLocation: "NOASSERTION",
+				FilesAnalyzed:    false,
+				LicenseConcluded: "NOASSERTION",
+				LicenseDeclared:  "NOASSERTION",
+				CopyrightText:    "NOASSERTION",
+				Comment:          comment,
+			}
+			if checksum, ok := goSumSHA256(actual.Sum); ok {
+				entry.Checksums = []spdxChecksum{{
+					Algorithm:     "SHA256",
+					ChecksumValue: checksum,
+				}}
+			}
+			result = append(result, entry)
 		}
-		key := actual.Path + "\x00" + actual.Version + "\x00" + actual.Sum
-		if _, exists := seen[key]; exists {
-			continue
-		}
-		seen[key] = struct{}{}
-		entry := spdxPackage{
-			Name:             actual.Path,
-			VersionInfo:      actual.Version,
-			Supplier:         "NOASSERTION",
-			DownloadLocation: "NOASSERTION",
-			FilesAnalyzed:    false,
-			LicenseConcluded: "NOASSERTION",
-			LicenseDeclared:  "NOASSERTION",
-			CopyrightText:    "NOASSERTION",
-			Comment:          comment,
-		}
-		if checksum, ok := goSumSHA256(actual.Sum); ok {
-			entry.Checksums = []spdxChecksum{{Algorithm: "SHA256", ChecksumValue: checksum}}
-		}
-		result = append(result, entry)
 	}
 	sort.Slice(result, func(left, right int) bool {
 		return result[left].Name+"\x00"+result[left].VersionInfo <
@@ -1191,7 +1886,13 @@ func verifyCommand(arguments []string) error {
 	if err := readCanonicalJSONFile(statementPath, &statement); err != nil {
 		return fmt.Errorf("decode component statement: %w", err)
 	}
-	return verifyStatement(root, statement, records, sbom)
+	if err := verifyStatement(root, statement, records, sbom); err != nil {
+		return err
+	}
+	if err := verifyBundle(root, statement, records); err != nil {
+		return err
+	}
+	return verifyImageArchive(root, statement, records)
 }
 
 func distributedFiles(root string) ([]fileRecord, error) {
@@ -1401,6 +2102,401 @@ func verifyStatement(
 	}
 	if statement.SBOM != expectedSBOM {
 		return errors.New("component statement SBOM evidence does not match")
+	}
+	return nil
+}
+
+type verifiedBundleContents struct {
+	Metadata     bundleMetadata
+	API          []byte
+	ArchiveSmoke []byte
+}
+
+type bundleMemberSpecification struct {
+	Name    string
+	Type    byte
+	Mode    int64
+	MaxSize int64
+}
+
+func verifyBundle(
+	root string,
+	statement componentStatement,
+	records []fileRecord,
+) error {
+	bundleName := fmt.Sprintf(
+		"backend-api-%s-%s.tar.gz",
+		statement.Target.OS,
+		statement.Target.Architecture,
+	)
+	ociName := fmt.Sprintf(
+		"backend-api-%s-%s.oci.tar",
+		statement.Target.OS,
+		statement.Target.Architecture,
+	)
+	bundleRecord, bundleFound := findArtifactRecord(records, bundleName)
+	ociRecord, ociFound := findArtifactRecord(records, ociName)
+	if !bundleFound || !ociFound || len(records) != 2 {
+		return errors.New("Backend distributed artifact names do not match the statement target")
+	}
+	if bundleRecord.Size <= 0 || bundleRecord.Size > maxBundleSize {
+		return fmt.Errorf("Backend bundle size %d is outside the accepted bound", bundleRecord.Size)
+	}
+	contents, err := readVerifiedBundle(filepath.Join(root, bundleName))
+	if err != nil {
+		return fmt.Errorf("verify Backend bundle: %w", err)
+	}
+	metadata := contents.Metadata
+	if metadata.SchemaVersion != 2 || metadata.Component != componentID {
+		return errors.New("Backend bundle metadata is not schema version 2")
+	}
+	if metadata.Source != statement.Source ||
+		metadata.Target != statement.Target ||
+		metadata.Compatibility != statement.Compatibility ||
+		!slices.Equal(metadata.Toolchain, statement.Toolchain) ||
+		!slices.Equal(metadata.BaseImages, statement.BaseImages) ||
+		!slices.Equal(metadata.Inputs, statement.Inputs) {
+		return errors.New("Backend bundle metadata disagrees with the component statement")
+	}
+	if err := validateImageEvidence(metadata.Image, ociRecord); err != nil {
+		return err
+	}
+
+	expectedExecutables := []executableFact{
+		{
+			Role:   archiveSmokeExecutableRole,
+			Path:   archiveSmokeBundlePath,
+			Size:   int64(len(contents.ArchiveSmoke)),
+			SHA256: "sha256:" + hashBytes(contents.ArchiveSmoke),
+		},
+		{
+			Role:   apiExecutableRole,
+			Path:   apiBundlePath,
+			Size:   int64(len(contents.API)),
+			SHA256: "sha256:" + hashBytes(contents.API),
+		},
+	}
+	if !slices.Equal(metadata.Executables, expectedExecutables) {
+		return errors.New("Backend bundle executable evidence is not the closed canonical inventory")
+	}
+
+	apiBuild, err := buildinfo.Read(bytes.NewReader(contents.API))
+	if err != nil {
+		return fmt.Errorf("read bundled API build info: %w", err)
+	}
+	if err := validateBuildInfo(
+		apiBuild,
+		"bundled API",
+		apiModulePath,
+		statement.Target.OS,
+		statement.Target.Architecture,
+	); err != nil {
+		return err
+	}
+	if err := validateELFPolicy(bytes.NewReader(contents.API), "bundled API"); err != nil {
+		return err
+	}
+	archiveSmokeBuild, err := buildinfo.Read(bytes.NewReader(contents.ArchiveSmoke))
+	if err != nil {
+		return fmt.Errorf("read bundled Archive smoke build info: %w", err)
+	}
+	if err := validateBuildInfo(
+		archiveSmokeBuild,
+		"bundled Archive smoke",
+		archiveSmokeModulePath,
+		statement.Target.OS,
+		statement.Target.Architecture,
+	); err != nil {
+		return err
+	}
+	return validateELFPolicy(
+		bytes.NewReader(contents.ArchiveSmoke),
+		"bundled Archive smoke",
+	)
+}
+
+func findArtifactRecord(records []fileRecord, path string) (fileRecord, bool) {
+	for _, record := range records {
+		if record.Path == path {
+			return record, true
+		}
+	}
+	return fileRecord{}, false
+}
+
+func validateImageEvidence(image imageMetadata, ociRecord fileRecord) error {
+	for label, digest := range map[string]string{
+		"index":    image.IndexSHA256,
+		"manifest": image.ManifestDigest,
+		"config":   image.ConfigDigest,
+		"OCI tar":  image.OCITarSHA256,
+	} {
+		if !digestPattern.MatchString(digest) {
+			return fmt.Errorf("Backend bundle image %s digest is invalid", label)
+		}
+	}
+	if image.OCITarSHA256 != ociRecord.SHA256 {
+		return errors.New("Backend bundle image digest disagrees with the distributed OCI archive")
+	}
+	if len(image.LayerDigests) == 0 {
+		return errors.New("Backend bundle image evidence omits runtime layers")
+	}
+	for _, digest := range image.LayerDigests {
+		if !digestPattern.MatchString(digest) {
+			return errors.New("Backend bundle image evidence contains an invalid layer digest")
+		}
+	}
+	if isRootUser(image.User) ||
+		!slices.Equal(image.Entrypoint, []string{"/usr/local/bin/bgmss-api"}) {
+		return errors.New("Backend bundle image evidence violates the API runtime policy")
+	}
+	return nil
+}
+
+func verifyImageArchive(
+	root string,
+	statement componentStatement,
+	records []fileRecord,
+) error {
+	ociName := fmt.Sprintf(
+		"backend-api-%s-%s.oci.tar",
+		statement.Target.OS,
+		statement.Target.Architecture,
+	)
+	ociRecord, found := findArtifactRecord(records, ociName)
+	if !found ||
+		ociRecord.Size <= 0 ||
+		ociRecord.Size > maxImageArchiveSize {
+		return errors.New("Backend OCI archive is missing or outside the accepted size bound")
+	}
+	temporaryRoot, err := os.MkdirTemp("", "bgmss-backend-image-verify-")
+	if err != nil {
+		return err
+	}
+	defer removeOwnedTemporaryDirectory(temporaryRoot)
+	layoutPath := filepath.Join(temporaryRoot, "layout")
+	ociPath := filepath.Join(root, ociName)
+	if err := admitImageArchive(ociPath, layoutPath); err != nil {
+		return fmt.Errorf("verify normalized OCI archive: %w", err)
+	}
+	options := packageOptions{
+		SourceRevision:              statement.Source.Revision,
+		SourceTree:                  statement.Source.Tree,
+		TargetOS:                    statement.Target.OS,
+		TargetArchitecture:          statement.Target.Architecture,
+		OpenAPIDigest:               statement.Compatibility.OpenAPIDigest,
+		ArchiveManifestSchemaDigest: statement.Compatibility.Archive.ManifestSchemaDigest,
+		ArchiveSchemaSQLDigest:      statement.Compatibility.Archive.SchemaSQLDigest,
+	}
+	actual, err := inspectOCI(layoutPath, options)
+	if err != nil {
+		return fmt.Errorf("verify distributed OCI graph: %w", err)
+	}
+	actual.OCITarSHA256 = ociRecord.SHA256
+	repackedPath := filepath.Join(temporaryRoot, "repacked.oci.tar")
+	if err := writeNormalizedDirectoryTar(layoutPath, repackedPath); err != nil {
+		return fmt.Errorf("repack distributed OCI graph: %w", err)
+	}
+	equal, err := equalFiles(ociPath, repackedPath)
+	if err != nil {
+		return err
+	}
+	if !equal {
+		return errors.New("distributed OCI archive is not the normalized epoch-zero USTAR encoding")
+	}
+
+	bundleName := fmt.Sprintf(
+		"backend-api-%s-%s.tar.gz",
+		statement.Target.OS,
+		statement.Target.Architecture,
+	)
+	contents, err := readVerifiedBundle(filepath.Join(root, bundleName))
+	if err != nil {
+		return err
+	}
+	if !equalImageMetadata(actual, contents.Metadata.Image) {
+		return errors.New("distributed OCI graph disagrees with bundle image evidence")
+	}
+	return nil
+}
+
+func equalImageMetadata(left imageMetadata, right imageMetadata) bool {
+	return left.IndexSHA256 == right.IndexSHA256 &&
+		left.ManifestDigest == right.ManifestDigest &&
+		left.ConfigDigest == right.ConfigDigest &&
+		slices.Equal(left.LayerDigests, right.LayerDigests) &&
+		left.User == right.User &&
+		slices.Equal(left.Entrypoint, right.Entrypoint) &&
+		left.OCITarSHA256 == right.OCITarSHA256
+}
+
+func readVerifiedBundle(path string) (verifiedBundleContents, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return verifiedBundleContents{}, err
+	}
+	if !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maxBundleSize {
+		return verifiedBundleContents{}, errors.New("bundle is not a bounded regular file")
+	}
+	compressed, err := os.ReadFile(path)
+	if err != nil {
+		return verifiedBundleContents{}, err
+	}
+	compressedReader := bytes.NewReader(compressed)
+	gzipReader, err := gzip.NewReader(compressedReader)
+	if err != nil {
+		return verifiedBundleContents{}, err
+	}
+	gzipReader.Multistream(false)
+	if (gzipReader.Header.ModTime != (time.Time{}) &&
+		!gzipReader.Header.ModTime.Equal(time.Unix(0, 0))) ||
+		gzipReader.Header.Name != "" ||
+		gzipReader.Header.Comment != "" ||
+		len(gzipReader.Header.Extra) != 0 ||
+		gzipReader.Header.OS != 255 {
+		gzipReader.Close()
+		return verifiedBundleContents{}, errors.New("bundle gzip header is not normalized")
+	}
+
+	specifications := []bundleMemberSpecification{
+		{Name: "bin/", Type: tar.TypeDir, Mode: 0o555},
+		{
+			Name:    archiveSmokeBundlePath,
+			Type:    tar.TypeReg,
+			Mode:    0o555,
+			MaxSize: maxExecutableSize,
+		},
+		{
+			Name:    apiBundlePath,
+			Type:    tar.TypeReg,
+			Mode:    0o555,
+			MaxSize: maxExecutableSize,
+		},
+		{Name: "metadata/", Type: tar.TypeDir, Mode: 0o555},
+		{
+			Name:    "metadata/build.json",
+			Type:    tar.TypeReg,
+			Mode:    0o444,
+			MaxSize: maxBundleMetadataSize,
+		},
+	}
+	tarReader := tar.NewReader(gzipReader)
+	members := make(map[string][]byte, 3)
+	for _, specification := range specifications {
+		header, nextErr := tarReader.Next()
+		if nextErr != nil {
+			gzipReader.Close()
+			return verifiedBundleContents{}, fmt.Errorf(
+				"bundle omits %q: %w",
+				specification.Name,
+				nextErr,
+			)
+		}
+		if err := validateBundleHeader(header, specification); err != nil {
+			gzipReader.Close()
+			return verifiedBundleContents{}, err
+		}
+		if specification.Type == tar.TypeDir {
+			continue
+		}
+		content, readErr := io.ReadAll(io.LimitReader(tarReader, specification.MaxSize+1))
+		if readErr != nil {
+			gzipReader.Close()
+			return verifiedBundleContents{}, readErr
+		}
+		if int64(len(content)) != header.Size || int64(len(content)) > specification.MaxSize {
+			gzipReader.Close()
+			return verifiedBundleContents{}, fmt.Errorf(
+				"bundle member %q has an invalid size",
+				specification.Name,
+			)
+		}
+		if _, duplicate := members[specification.Name]; duplicate {
+			gzipReader.Close()
+			return verifiedBundleContents{}, fmt.Errorf(
+				"bundle contains duplicate member %q",
+				specification.Name,
+			)
+		}
+		members[specification.Name] = content
+	}
+	if header, nextErr := tarReader.Next(); nextErr != io.EOF {
+		gzipReader.Close()
+		if nextErr != nil {
+			return verifiedBundleContents{}, nextErr
+		}
+		return verifiedBundleContents{}, fmt.Errorf(
+			"bundle contains unexpected member %q",
+			header.Name,
+		)
+	}
+	trailing, readErr := io.ReadAll(io.LimitReader(gzipReader, 1))
+	closeErr := gzipReader.Close()
+	if readErr != nil {
+		return verifiedBundleContents{}, readErr
+	}
+	if closeErr != nil {
+		return verifiedBundleContents{}, closeErr
+	}
+	if len(trailing) != 0 || compressedReader.Len() != 0 {
+		return verifiedBundleContents{}, errors.New("bundle contains trailing compressed data")
+	}
+
+	metadataBytes := members["metadata/build.json"]
+	var metadata bundleMetadata
+	if err := decodeStrictJSON(metadataBytes, &metadata); err != nil {
+		return verifiedBundleContents{}, fmt.Errorf("decode bundle metadata: %w", err)
+	}
+	canonicalMetadata, err := canonicalJSONBytes(metadata)
+	if err != nil {
+		return verifiedBundleContents{}, err
+	}
+	if !bytes.Equal(metadataBytes, canonicalMetadata) {
+		return verifiedBundleContents{}, errors.New("bundle metadata is not canonical JSON")
+	}
+	return verifiedBundleContents{
+		Metadata:     metadata,
+		API:          members[apiBundlePath],
+		ArchiveSmoke: members[archiveSmokeBundlePath],
+	}, nil
+}
+
+func validateBundleHeader(
+	header *tar.Header,
+	specification bundleMemberSpecification,
+) error {
+	if header.Name != specification.Name {
+		return fmt.Errorf(
+			"bundle member = %q, want %q",
+			header.Name,
+			specification.Name,
+		)
+	}
+	if header.Typeflag != specification.Type ||
+		header.Mode != specification.Mode ||
+		header.Uid != 0 ||
+		header.Gid != 0 ||
+		header.Uname != "" ||
+		header.Gname != "" ||
+		header.Linkname != "" ||
+		!header.ModTime.Equal(time.Unix(0, 0)) ||
+		!header.AccessTime.IsZero() ||
+		!header.ChangeTime.IsZero() ||
+		header.Devmajor != 0 ||
+		header.Devminor != 0 ||
+		len(header.PAXRecords) != 0 ||
+		len(header.Xattrs) != 0 ||
+		header.Format != tar.FormatUSTAR {
+		return fmt.Errorf("bundle member %q has a non-normalized header", header.Name)
+	}
+	if specification.Type == tar.TypeDir {
+		if header.Size != 0 {
+			return fmt.Errorf("bundle directory %q is not empty", header.Name)
+		}
+		return nil
+	}
+	if header.Size <= 0 || header.Size > specification.MaxSize {
+		return fmt.Errorf("bundle member %q exceeds its size bound", header.Name)
 	}
 	return nil
 }
