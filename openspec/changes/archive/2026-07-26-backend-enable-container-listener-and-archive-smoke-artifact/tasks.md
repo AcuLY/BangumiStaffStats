@@ -47,9 +47,9 @@
   full Backend check/race/vet, pure/synthetic artifact and static policy gates,
   strict OpenSpec, and exact diff/inventory/residue checks; hand off the exact
   unstaged implementation without claiming clean attestation.
-- [ ] 3.2 Main agent audits and commits the implementation candidate, then from
+- [x] 3.2 Main agent audits and commits the implementation candidate, then from
   that clean candidate runs two byte-identical artifact builds, internal-bridge
   smoke, rootfs/bundle inspection, Contracts component verification, and final
   residue. Any failure returns a bounded correction to the Backend owner.
-- [ ] 3.3 After clean acceptance, main agent syncs and archives this change,
+- [x] 3.3 After clean acceptance, main agent syncs and archives this change,
   commits lifecycle state, and rebuilds integrated artifacts.

@@ -53,6 +53,8 @@ content-hiding state.
 - **WHEN** candidate identity, tracked bytes/modes, or declared inputs disagree
 - **THEN** the build fails before copying source or creating an artifact
 
+## ADDED Requirements
+
 ### Requirement: Backend binary bundle SHALL expose exact producer gates
 
 The normalized Backend bundle SHALL contain exactly `bin/bgmss-api`,
@@ -73,6 +75,8 @@ SBOM, and component evidence SHALL bind the complete bundle bytes.
 #### Scenario: Inner bundle content drifts
 - **WHEN** an executable/member/mode/role/path/size/digest differs or an extra member appears
 - **THEN** verification fails before the bundle can be accepted
+
+## MODIFIED Requirements
 
 ### Requirement: Backend smoke SHALL start only the built API
 
@@ -119,6 +123,8 @@ Project code SHALL not synthesize the Docker compatibility format.
 #### Scenario: Exporter layout or compatibility evidence drifts
 - **WHEN** the raw tar has an unsafe/unsupported/extra/orphan member, the graph is not one exact target, or `manifest.json` disagrees with its config, layers, or image tag
 - **THEN** packaging fails before the normalized image archive or component statement is emitted
+
+## MODIFIED Requirements
 
 ### Requirement: The Backend runtime image SHALL be minimal and immutable
 

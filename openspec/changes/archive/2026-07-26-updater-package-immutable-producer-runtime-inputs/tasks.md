@@ -56,9 +56,9 @@
   format/lint/type/unit tests, focused pure/synthetic artifact and Dockerfile
   policy gates, strict OpenSpec, and exact diff/inventory/residue checks; hand
   off the exact unstaged implementation and do not claim clean attestation.
-- [ ] 4.2 Main agent audits and commits the implementation candidate, then from
+- [x] 4.2 Main agent audits and commits the implementation candidate, then from
   that clean candidate runs two byte-identical native/OCI builds, embedded
   smoke, Contracts component/compatibility verification, and final residue.
   Any failure returns a bounded correction to the implementation owner.
-- [ ] 4.3 After clean acceptance, main agent syncs and archives this change,
+- [x] 4.3 After clean acceptance, main agent syncs and archives this change,
   commits lifecycle state, and rebuilds integrated artifacts.
