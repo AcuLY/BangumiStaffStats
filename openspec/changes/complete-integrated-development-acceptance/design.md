@@ -251,6 +251,15 @@ file sizes and digests, and safe internal symlink targets where the
 distribution requires them. It rejects hard links, special entries, escaping
 links, missing/new entries, and any pre/post difference. The owning gate runs
 under an outer sandbox that denies writes to each admitted runtime root.
+For a copied current-tool closure, source modes remain part of admission while
+the copied mode is the deterministic source mode with every write bit removed.
+Materialization withholds all copied execute bits until every directory and
+non-executable file in the copied tree is already non-writable, then enables
+only the admitted execute bits without restoring write access. The destination
+is fully sealed against that derived projection before use and that projected
+seal remains the later re-seal authority. This ordering prevents same-user
+interpreter discovery from rewriting bytecode between copy and admission
+without weakening byte, path, size, link, or new-inode comparison.
 Installed current/historical npm package roots and the admitted CPython
 distribution are part of this rule; hashing only `npm-cli.js` or the Python
 launcher is insufficient. Platform libraries below `/System/Library` and

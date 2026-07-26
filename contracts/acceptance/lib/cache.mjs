@@ -2,7 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { canonicalJson, canonicalJsonDigest } from './canonical-json.mjs';
-import { requireCanonicalPath } from './paths.mjs';
+import {
+  assertNoSymlinkAncestors,
+  isStrictlyBelow,
+  requireCanonicalPath,
+  resolveProspectiveCanonicalPath,
+} from './paths.mjs';
 import { sha256File } from './seal.mjs';
 import { readJsonStrict } from './strict-json.mjs';
 
@@ -24,6 +29,30 @@ function fail(message) {
 function ensureDestination(destination) {
   if (fs.existsSync(destination)) fail(`cache destination already exists: ${destination}`);
   fs.mkdirSync(destination, { recursive: true, mode: 0o700 });
+}
+
+function assertDisjointTreeCopy(source, destination) {
+  if (
+    !path.isAbsolute(destination) ||
+    path.resolve(destination) !== destination
+  ) {
+    fail('cache destination is not one normalized absolute path');
+  }
+  assertNoSymlinkAncestors(destination, 'cache destination');
+  const canonicalDestination = resolveProspectiveCanonicalPath(
+    destination,
+    'cache destination',
+  );
+  if (
+    canonicalDestination === source ||
+    isStrictlyBelow(canonicalDestination, source) ||
+    isStrictlyBelow(source, canonicalDestination)
+  ) {
+    fail('cache source and destination overlap');
+  }
+  if (canonicalDestination !== destination) {
+    fail('cache destination is not one prospective canonical path');
+  }
 }
 
 function copyRegularFile(source, destination) {
@@ -63,7 +92,9 @@ export function copyCacheTree(source, destination) {
     label: 'cache source',
     type: 'directory',
   });
+  assertDisjointTreeCopy(root, destination);
   ensureDestination(destination);
+  assertDisjointTreeCopy(root, destination);
   function visit(sourceDirectory, destinationDirectory) {
     for (const entry of fs.readdirSync(sourceDirectory, { withFileTypes: true })) {
       const sourcePath = path.join(sourceDirectory, entry.name);

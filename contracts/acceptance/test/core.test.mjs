@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import {
@@ -13,7 +14,10 @@ import {
 } from '../lib/api-journey.mjs';
 import { runWithAbortSignal } from '../lib/abort-context.mjs';
 import { sealImmutableArtifactRoot } from '../lib/artifacts.mjs';
-import { canonicalJson } from '../lib/canonical-json.mjs';
+import {
+  canonicalJson,
+  canonicalJsonDigest,
+} from '../lib/canonical-json.mjs';
 import { copyCacheTree, validateSeededGoToolchain } from '../lib/cache.mjs';
 import { sealFrozenCacheTree } from '../lib/cache-input.mjs';
 import { loadAcceptanceConfiguration } from '../lib/config.mjs';
@@ -64,7 +68,13 @@ import {
   cleanupRunRoot,
   inventoryOwnedRunRoot,
 } from '../lib/run-root.mjs';
-import { CommandError, runCommand, sanitizedEnvironment } from '../lib/runner.mjs';
+import {
+  CommandError,
+  runCommand,
+  sanitizedEnvironment,
+  snapshotHostProcessInventory,
+  terminateOwnedProcesses,
+} from '../lib/runner.mjs';
 import {
   assertDockerInventoryUnchanged,
   cleanupOwnedRuntimeResources,
@@ -86,6 +96,7 @@ import {
   copyBrowserDistribution,
   copyRuntimeDistribution,
   copySingleFileRuntime,
+  deriveNestedDirectoryTreeSeal,
 } from '../lib/tools.mjs';
 import {
   decodeUtf8Strict,
@@ -100,6 +111,126 @@ import { supervisedFailureCells } from '../lib/supervisor.mjs';
 
 function digest(fill = '0') {
   return `sha256:${fill.repeat(64)}`;
+}
+
+function removeReadOnlyFixtureTree(root) {
+  if (!fs.existsSync(root)) return;
+  const canonicalRoot = fs.realpathSync.native(root);
+  const canonicalTemporaryRoot = fs.realpathSync.native(os.tmpdir());
+  assert.ok(
+    canonicalRoot.startsWith(`${canonicalTemporaryRoot}${path.sep}`),
+    `fixture cleanup escaped the temporary root: ${canonicalRoot}`,
+  );
+  function restoreDirectories(directory) {
+    const information = fs.lstatSync(directory);
+    assert.equal(information.isSymbolicLink(), false);
+    assert.equal(information.isDirectory(), true);
+    fs.chmodSync(directory, 0o700);
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+      restoreDirectories(path.join(directory, entry.name));
+    }
+  }
+  restoreDirectories(canonicalRoot);
+  fs.rmSync(canonicalRoot, {
+    recursive: true,
+    force: false,
+    maxRetries: 5,
+    retryDelay: 100,
+  });
+}
+
+function escapedFixtureScript(runRoot, name) {
+  const scriptPath = path.join(
+    runRoot,
+    'processes',
+    `${name}-escaped-child.mjs`,
+  );
+  fs.mkdirSync(path.dirname(scriptPath), { recursive: true });
+  fs.writeFileSync(
+    scriptPath,
+    [
+      "process.chdir('/');",
+      "process.on('SIGTERM',()=>{});",
+      'setInterval(()=>{},1000);',
+      'setTimeout(()=>process.exit(124),120000);',
+      '',
+    ].join(''),
+    { mode: 0o400 },
+  );
+  return scriptPath;
+}
+
+function completeProcessCommand(pid) {
+  const result = spawnSync(
+    '/bin/ps',
+    ['-ww', '-p', String(pid), '-o', 'command='],
+    {
+      encoding: 'utf8',
+      env: {
+        LANG: 'C',
+        LC_ALL: 'C',
+        PATH: '/usr/bin:/bin',
+      },
+      maxBuffer: 1024 * 1024,
+      timeout: 5_000,
+    },
+  );
+  if (result.status === 1 && result.stdout.trim() === '') return null;
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0);
+  return result.stdout.trim();
+}
+
+async function cleanupEscapedFixture({
+  childPid,
+  childPidPath,
+  expectedArgv,
+}) {
+  let exactPid = childPid;
+  if (
+    !Number.isSafeInteger(exactPid) &&
+    fs.existsSync(childPidPath)
+  ) {
+    const encoded = fs.readFileSync(childPidPath, 'utf8');
+    assert.match(encoded, /^(?:[1-9][0-9]*)$/u);
+    exactPid = Number(encoded);
+  }
+  if (!Number.isSafeInteger(exactPid) || exactPid <= 0) return exactPid;
+  const inventory = snapshotHostProcessInventory();
+  const identity = inventory.entries.find((entry) => entry.pid === exactPid);
+  if (!identity) return exactPid;
+  const completeCommand = completeProcessCommand(exactPid);
+  if (
+    identity.userId !== process.getuid() ||
+    typeof identity.startToken !== 'string' ||
+    identity.startToken === '' ||
+    identity.command !== process.execPath ||
+    completeCommand !== expectedArgv.join(' ')
+  ) {
+    throw new Error('escaped fixture process identity differs before cleanup');
+  }
+  await terminateOwnedProcesses([identity], 50);
+  return exactPid;
+}
+
+function rebuiltSeal(
+  seal,
+  {
+    entries = seal.entries,
+    identities = seal.identities,
+    root = seal.root,
+  } = {},
+) {
+  return {
+    root,
+    entries,
+    digest: canonicalJsonDigest(entries),
+    canonical: canonicalJson(entries),
+    identities,
+    identityDigest: canonicalJsonDigest(identities),
+    identityCanonical: canonicalJson(identities),
+  };
 }
 
 function runtimeClosuresFixture() {
@@ -694,12 +825,13 @@ test('runner rejects and force-cleans a reparented child with empty env and esca
   if (process.platform === 'win32') return;
   const { runRoot } = allocateRunRoot();
   const childPidPath = path.join(runRoot, 'processes', 'stranded-child.pid');
-  const childSource =
-    "process.chdir('/');process.on('SIGTERM',()=>{});setInterval(()=>{},1000)";
+  const childScript = escapedFixtureScript(runRoot, 'stranded');
+  const childArguments = [childScript, 'stranded-owned-fixture'];
+  const expectedArgv = [process.execPath, ...childArguments];
   const leaderSource = [
     "const {spawn}=require('node:child_process');",
     "const fs=require('node:fs');",
-    `const child=spawn(process.execPath,['-e',${JSON.stringify(childSource)}],{detached:true,env:{},stdio:'ignore'});`,
+    `const child=spawn(${JSON.stringify(process.execPath)},${JSON.stringify(childArguments)},{detached:true,env:{},stdio:'ignore'});`,
     `fs.writeFileSync(${JSON.stringify(childPidPath)},String(child.pid));`,
     'child.unref();',
     'setTimeout(()=>process.exit(0),50);',
@@ -730,14 +862,86 @@ test('runner rejects and force-cleans a reparented child with empty env and esca
       (error) => error?.code === 'ESRCH',
     );
   } finally {
-    if (Number.isSafeInteger(childPid)) {
-      try {
-        process.kill(childPid, 'SIGKILL');
-      } catch (error) {
-        if (error?.code !== 'ESRCH') throw error;
-      }
+    childPid = await cleanupEscapedFixture({
+      childPid,
+      childPidPath,
+      expectedArgv,
+    });
+    cleanupRunRoot(runRoot);
+  }
+});
+
+test('escaped fixture fallback cleans only an exact owned process identity', async () => {
+  if (process.platform === 'win32') return;
+  const { runRoot } = allocateRunRoot();
+  const childPidPath = path.join(runRoot, 'processes', 'fallback-child.pid');
+  const childScript = escapedFixtureScript(runRoot, 'fallback');
+  assert.match(
+    fs.readFileSync(childScript, 'utf8'),
+    /setTimeout\(\(\)=>process\.exit\(124\),120000\)/u,
+  );
+  const childArguments = [childScript, 'fallback-owned-fixture'];
+  const expectedArgv = [process.execPath, ...childArguments];
+  const owned = spawn(process.execPath, childArguments, {
+    cwd: runRoot,
+    detached: true,
+    env: {},
+    stdio: 'ignore',
+  });
+  owned.unref();
+  fs.writeFileSync(childPidPath, String(owned.pid));
+  try {
+    const cleanedPid = await cleanupEscapedFixture({
+      childPid: undefined,
+      childPidPath,
+      expectedArgv,
+    });
+    assert.equal(cleanedPid, owned.pid);
+    assert.throws(
+      () => process.kill(owned.pid, 0),
+      (error) => error?.code === 'ESRCH',
+    );
+  } finally {
+    try {
+      owned.kill('SIGKILL');
+    } catch (error) {
+      if (error?.code !== 'ESRCH') throw error;
     }
     cleanupRunRoot(runRoot);
+  }
+
+  const foreignRoot = allocateRunRoot().runRoot;
+  const foreignPidPath = path.join(
+    foreignRoot,
+    'processes',
+    'foreign-child.pid',
+  );
+  const foreign = spawn('/bin/sleep', ['30'], {
+    cwd: '/',
+    detached: true,
+    env: {},
+    stdio: 'ignore',
+  });
+  foreign.unref();
+  fs.mkdirSync(path.dirname(foreignPidPath), { recursive: true });
+  fs.writeFileSync(foreignPidPath, String(foreign.pid));
+  try {
+    await assert.rejects(
+      cleanupEscapedFixture({
+        childPid: undefined,
+        childPidPath: foreignPidPath,
+        expectedArgv,
+      }),
+      /process identity differs/u,
+    );
+    assert.doesNotThrow(() => process.kill(foreign.pid, 0));
+  } finally {
+    try {
+      foreign.kill('SIGKILL');
+    } catch (error) {
+      if (error?.code !== 'ESRCH') throw error;
+    }
+    cleanupRunRoot(foreignRoot);
   }
 });
 
@@ -790,12 +994,16 @@ test('runner cleans reparented children before reporting nonzero and timeout out
       'processes',
       `${scenario.name}-child.pid`,
     );
-    const childSource =
-      "process.chdir('/');process.on('SIGTERM',()=>{});setInterval(()=>{},1000)";
+    const childScript = escapedFixtureScript(runRoot, scenario.name);
+    const childArguments = [
+      childScript,
+      `${scenario.name}-owned-fixture`,
+    ];
+    const expectedArgv = [process.execPath, ...childArguments];
     const leaderSource = [
       "const{spawn}=require('node:child_process');",
       "const fs=require('node:fs');",
-      `const child=spawn(process.execPath,['-e',${JSON.stringify(childSource)}],{detached:true,env:{},stdio:'ignore'});`,
+      `const child=spawn(${JSON.stringify(process.execPath)},${JSON.stringify(childArguments)},{detached:true,env:{},stdio:'ignore'});`,
       `fs.writeFileSync(${JSON.stringify(childPidPath)},String(child.pid));`,
       'child.unref();',
       scenario.tail,
@@ -824,13 +1032,11 @@ test('runner cleans reparented children before reporting nonzero and timeout out
         (error) => error?.code === 'ESRCH',
       );
     } finally {
-      if (Number.isSafeInteger(childPid)) {
-        try {
-          process.kill(childPid, 'SIGKILL');
-        } catch (error) {
-          if (error?.code !== 'ESRCH') throw error;
-        }
-      }
+      childPid = await cleanupEscapedFixture({
+        childPid,
+        childPidPath,
+        expectedArgv,
+      });
       cleanupRunRoot(runRoot);
     }
   }
@@ -2208,6 +2414,27 @@ test('cache copy accepts a nested read-only source and creates independent bytes
   fs.chmodSync(path.dirname(nested), 0o555);
   fs.chmodSync(source, 0o555);
   try {
+    const nestedDestination = path.join(source, 'nested-copy');
+    assert.throws(
+      () => copyCacheTree(source, nestedDestination),
+      /source and destination overlap/u,
+    );
+    assert.equal(fs.existsSync(nestedDestination), false);
+    const caseAliasedSource = path.join(root, 'SOURCE');
+    if (
+      fs.existsSync(caseAliasedSource) &&
+      fs.realpathSync.native(caseAliasedSource) === source
+    ) {
+      const caseAliasedDestination = path.join(
+        caseAliasedSource,
+        'case-aliased-copy',
+      );
+      assert.throws(
+        () => copyCacheTree(source, caseAliasedDestination),
+        /source and destination overlap/u,
+      );
+      assert.equal(fs.existsSync(caseAliasedDestination), false);
+    }
     copyCacheTree(source, destination);
     assert.equal(
       fs.readFileSync(path.join(destination, 'one', 'two', 'entry'), 'utf8'),
@@ -2337,7 +2564,7 @@ test('parent runtime aggregate closes non-executable members on green and abnorm
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-parent-runtime-')),
   );
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => removeReadOnlyFixtureTree(root));
   const directory = (name, files) => {
     const candidate = path.join(root, name);
     for (const [relative, bytes, mode] of files) {
@@ -2530,6 +2757,24 @@ test('runtime distributions close internal links and browser copies use new inod
   fs.chmodSync(executable, 0o555);
   fs.chmodSync(source, 0o555);
   const admittedSourceSeal = await sealDirectoryTree(source);
+  const nestedDestination = path.join(source, 'nested-copy');
+  await assert.rejects(
+    copyBrowserDistribution({
+      sourceRoot: source,
+      sourceExecutable: executable,
+      destinationRoot: nestedDestination,
+      expectedExecutableDigest:
+        `sha256:${createHash('sha256').update('browser').digest('hex')}`,
+      admittedSourceSeal,
+    }),
+    /source and destination overlap/u,
+  );
+  assert.equal(fs.existsSync(nestedDestination), false);
+  assertSameSeal(
+    admittedSourceSeal,
+    await sealDirectoryTree(source),
+    'overlap-rejected browser source',
+  );
   const copied = await copyBrowserDistribution({
     sourceRoot: source,
     sourceExecutable: executable,
@@ -2547,11 +2792,149 @@ test('runtime distributions close internal links and browser copies use new inod
   );
 });
 
+test('nested npm seals derive exactly from a validated Node distribution', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-npm-derived-seal-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const nodeRoot = path.join(root, 'node');
+  const npmRoot = path.join(nodeRoot, 'lib', 'node_modules', 'npm');
+  fs.mkdirSync(path.join(npmRoot, 'bin'), { recursive: true });
+  fs.mkdirSync(path.join(nodeRoot, 'bin'), { recursive: true });
+  fs.writeFileSync(path.join(npmRoot, 'bin', 'npm-cli.js'), 'npm\n', {
+    mode: 0o555,
+  });
+  fs.writeFileSync(path.join(npmRoot, 'package.json'), '{"name":"npm"}\n', {
+    mode: 0o444,
+  });
+  fs.writeFileSync(path.join(nodeRoot, 'bin', 'node'), 'node\n', {
+    mode: 0o555,
+  });
+  fs.symlinkSync(
+    '../lib/node_modules/npm/bin/npm-cli.js',
+    path.join(nodeRoot, 'bin', 'npm'),
+  );
+  const parentSeal = await sealDistributionTree(nodeRoot, {
+    allowInternalSymlinks: true,
+  });
+  const derived = deriveNestedDirectoryTreeSeal(
+    parentSeal,
+    npmRoot,
+    'fixture npm root',
+  );
+  const physical = await sealDirectoryTree(npmRoot);
+  assertSameSeal(physical, derived, 'derived npm seal');
+  assert.equal(derived.root, fs.realpathSync.native(npmRoot));
+  const derivedCopy = path.join(root, 'derived-copy');
+  await assert.rejects(
+    copyRuntimeDistribution({
+      sourceRoot: npmRoot,
+      destinationRoot: derivedCopy,
+      admittedSourceSeal: derived,
+    }),
+    /was not minted by the active seal authority/u,
+  );
+  assert.equal(fs.existsSync(derivedCopy), false);
+
+  const linkedNpm = path.join(nodeRoot, 'lib', 'node_modules', 'linked-npm');
+  fs.mkdirSync(linkedNpm);
+  fs.writeFileSync(path.join(linkedNpm, 'target'), 'target\n');
+  fs.symlinkSync('target', path.join(linkedNpm, 'link'));
+  const linkedParentSeal = await sealDistributionTree(nodeRoot, {
+    allowInternalSymlinks: true,
+  });
+  assert.throws(
+    () =>
+      deriveNestedDirectoryTreeSeal(
+        linkedParentSeal,
+        linkedNpm,
+        'linked npm root',
+      ),
+    /contains a link or shape mismatch/u,
+  );
+
+  const absentAtSeal = path.join(nodeRoot, 'lib', 'node_modules', 'late-npm');
+  const beforeLateRoot = await sealDistributionTree(nodeRoot, {
+    allowInternalSymlinks: true,
+  });
+  fs.mkdirSync(absentAtSeal);
+  assert.throws(
+    () =>
+      deriveNestedDirectoryTreeSeal(
+        beforeLateRoot,
+        absentAtSeal,
+        'late npm root',
+      ),
+    /root traverses a link or missing parent/u,
+  );
+
+  const npmPrefix = path
+    .relative(nodeRoot, npmRoot)
+    .split(path.sep)
+    .join('/');
+  const mismatchedIdentities = parentSeal.identities.map((identity) =>
+    identity.path === npmPrefix
+      ? { ...identity, kind: 'file' }
+      : identity,
+  );
+  assert.throws(
+    () =>
+      deriveNestedDirectoryTreeSeal(
+        rebuiltSeal(parentSeal, {
+          identities: mismatchedIdentities,
+        }),
+        npmRoot,
+        'mismatched npm root',
+      ),
+    /entry and identity shape differs/u,
+  );
+  const duplicateEntries = [
+    ...parentSeal.entries,
+    { ...parentSeal.entries.at(-1) },
+  ];
+  const duplicateIdentities = [
+    ...parentSeal.identities,
+    { ...parentSeal.identities.at(-1) },
+  ];
+  assert.throws(
+    () =>
+      deriveNestedDirectoryTreeSeal(
+        rebuiltSeal(parentSeal, {
+          entries: duplicateEntries,
+          identities: duplicateIdentities,
+        }),
+        npmRoot,
+        'duplicate npm root',
+      ),
+    /path is not canonical and ordered/u,
+  );
+  assert.throws(
+    () =>
+      deriveNestedDirectoryTreeSeal(
+        { ...parentSeal, canonical: 'forged\n' },
+        npmRoot,
+        'forged npm root',
+      ),
+    /seal is not self-consistent/u,
+  );
+  const npmLink = path.join(nodeRoot, 'npm-link');
+  fs.symlinkSync(path.relative(nodeRoot, npmRoot), npmLink);
+  assert.throws(
+    () =>
+      deriveNestedDirectoryTreeSeal(
+        parentSeal,
+        npmLink,
+        'symlink npm root',
+      ),
+    /must not be a symlink/u,
+  );
+});
+
 test('runtime closure admission drains later seals before ordered rejection', async (t) => {
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-runtime-drain-')),
   );
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => removeReadOnlyFixtureTree(root));
   const source = path.join(root, 'later-source');
   fs.mkdirSync(source);
   for (let index = 0; index < 32; index += 1) {
@@ -2603,11 +2986,14 @@ test('runtime distribution and single-file copies preserve bytes but reject late
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-runtime-copy-')),
   );
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => removeReadOnlyFixtureTree(root));
   const source = path.join(root, 'source');
   fs.mkdirSync(path.join(source, 'bin'), { recursive: true });
   fs.writeFileSync(path.join(source, 'bin', 'tool-real'), 'runtime\n', {
-    mode: 0o555,
+    mode: 0o755,
+  });
+  fs.writeFileSync(path.join(source, 'runtime.dat'), 'writable source\n', {
+    mode: 0o644,
   });
   fs.symlinkSync('tool-real', path.join(source, 'bin', 'tool'));
   const admittedSourceSeal = await sealDistributionTree(source, {
@@ -2640,6 +3026,16 @@ test('runtime distribution and single-file copies preserve bytes but reject late
     0o555,
   );
   assert.equal(
+    fs.lstatSync(path.join(copied.root, 'runtime.dat')).mode & 0o777,
+    0o444,
+  );
+  assert.equal(
+    copied.copiedSeal.entries
+      .filter((entry) => ['directory', 'file'].includes(entry.kind))
+      .every((entry) => (entry.mode & 0o222) === 0),
+    true,
+  );
+  assert.equal(
     fs.readlinkSync(path.join(copied.root, 'bin', 'tool')),
     'tool-real',
   );
@@ -2659,7 +3055,7 @@ test('runtime distribution and single-file copies preserve bytes but reject late
   );
 
   const sourceFile = path.join(root, 'single-source');
-  fs.writeFileSync(sourceFile, 'single\n', { mode: 0o555 });
+  fs.writeFileSync(sourceFile, 'single\n', { mode: 0o755 });
   const admittedFileSeal = await sealSingleFileDistribution(sourceFile);
   const copiedFile = await copySingleFileRuntime({
     sourcePath: sourceFile,
@@ -2671,6 +3067,7 @@ test('runtime distribution and single-file copies preserve bytes but reject late
     copiedFile.sourceSeal.identityDigest,
     copiedFile.copiedSeal.identityDigest,
   );
+  assert.equal(fs.lstatSync(copiedFile.path).mode & 0o777, 0o555);
   fs.chmodSync(copiedFile.path, 0o755);
   const changedFile = await sealSingleFileDistribution(copiedFile.path);
   assert.throws(
@@ -2692,7 +3089,7 @@ test('runtime distribution and single-file copies preserve bytes but reject late
       destinationRoot: path.join(root, 'stale-copy'),
       admittedSourceSeal: staleSeal,
     }),
-    /copy differs from its admitted source bytes/u,
+    /source changed before copy/u,
   );
 
   const unrelatedSource = path.join(root, 'unrelated-source');
@@ -2710,6 +3107,52 @@ test('runtime distribution and single-file copies preserve bytes but reject late
     /admitted source seal does not identify its source/u,
   );
 
+  const overlapSource = path.join(root, 'overlap-source');
+  fs.mkdirSync(overlapSource);
+  fs.writeFileSync(path.join(overlapSource, 'tool'), 'overlap\n', {
+    mode: 0o555,
+  });
+  const overlapSeal = await sealDistributionTree(overlapSource);
+  const nestedDestination = path.join(overlapSource, 'nested-copy');
+  await assert.rejects(
+    copyRuntimeDistribution({
+      sourceRoot: overlapSource,
+      destinationRoot: nestedDestination,
+      admittedSourceSeal: overlapSeal,
+    }),
+    /source and destination overlap/u,
+  );
+  assert.equal(fs.existsSync(nestedDestination), false);
+  assertSameSeal(
+    overlapSeal,
+    await sealDistributionTree(overlapSource),
+    'overlap-rejected runtime source',
+  );
+  const caseAliasedSource = path.join(root, 'OVERLAP-SOURCE');
+  if (
+    fs.existsSync(caseAliasedSource) &&
+    fs.realpathSync.native(caseAliasedSource) === overlapSource
+  ) {
+    const caseAliasedDestination = path.join(
+      caseAliasedSource,
+      'case-aliased-copy',
+    );
+    await assert.rejects(
+      copyRuntimeDistribution({
+        sourceRoot: overlapSource,
+        destinationRoot: caseAliasedDestination,
+        admittedSourceSeal: overlapSeal,
+      }),
+      /source and destination overlap/u,
+    );
+    assert.equal(fs.existsSync(caseAliasedDestination), false);
+    assertSameSeal(
+      overlapSeal,
+      await sealDistributionTree(overlapSource),
+      'case-overlap-rejected runtime source',
+    );
+  }
+
   const movingSource = path.join(root, 'moving-source');
   fs.mkdirSync(movingSource);
   fs.writeFileSync(path.join(movingSource, 'a-tool'), 'stable-a\n', {
@@ -2718,15 +3161,19 @@ test('runtime distribution and single-file copies preserve bytes but reject late
   const movingLast = path.join(movingSource, 'z-tool');
   fs.writeFileSync(movingLast, 'stable-z\n', { mode: 0o555 });
   const movingSeal = await sealDistributionTree(movingSource);
-  const originalCopyFile = fs.promises.copyFile;
+  const originalCreateReadStream = fs.createReadStream;
   let mutatedAfterCopy = false;
-  fs.promises.copyFile = async (...arguments_) => {
-    await originalCopyFile(...arguments_);
-    if (arguments_[0] !== movingLast) return;
-    fs.chmodSync(movingLast, 0o755);
-    fs.writeFileSync(movingLast, 'changed-z\n');
-    fs.chmodSync(movingLast, 0o555);
-    mutatedAfterCopy = true;
+  fs.createReadStream = (sourcePath, ...arguments_) => {
+    const stream = originalCreateReadStream(sourcePath, ...arguments_);
+    if (sourcePath === movingLast) {
+      stream.once('end', () => {
+        fs.chmodSync(movingLast, 0o755);
+        fs.writeFileSync(movingLast, 'changed-z\n');
+        fs.chmodSync(movingLast, 0o555);
+        mutatedAfterCopy = true;
+      });
+    }
+    return stream;
   };
   try {
     await assert.rejects(
@@ -2739,7 +3186,7 @@ test('runtime distribution and single-file copies preserve bytes but reject late
     );
     assert.equal(mutatedAfterCopy, true);
   } finally {
-    fs.promises.copyFile = originalCopyFile;
+    fs.createReadStream = originalCreateReadStream;
   }
 
   const linkedSource = path.join(root, 'linked-source');
@@ -2768,11 +3215,268 @@ test('runtime distribution and single-file copies preserve bytes but reject late
   );
 });
 
+test('runtime executable visibility follows complete read-only projection', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-runtime-read-only-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const source = path.join(root, 'source');
+  const destination = path.join(root, 'copy');
+  const sourceExecutable = path.join(source, 'bin', 'python3.14');
+  const sourceCache = path.join(source, 'lib', 'python3.14', '__pycache__');
+  const sourceBytecode = path.join(sourceCache, 'copyreg.pyc');
+  fs.mkdirSync(path.dirname(sourceExecutable), { recursive: true });
+  fs.mkdirSync(sourceCache, { recursive: true });
+  fs.writeFileSync(sourceExecutable, 'python\n', { mode: 0o755 });
+  fs.writeFileSync(sourceBytecode, 'bytecode\n', { mode: 0o644 });
+  const admitted = await sealDistributionTree(source);
+  const copiedExecutable = path.join(destination, 'bin', 'python3.14');
+  const copiedCache = path.join(
+    destination,
+    'lib',
+    'python3.14',
+    '__pycache__',
+  );
+  const copiedBytecode = path.join(copiedCache, 'copyreg.pyc');
+  const originalChmodSync = fs.chmodSync;
+  let executableObserved = false;
+  fs.chmodSync = (candidate, mode) => {
+    originalChmodSync(candidate, mode);
+    if (candidate !== copiedExecutable || (mode & 0o111) === 0) return;
+    executableObserved = true;
+    assert.equal(fs.lstatSync(copiedCache).mode & 0o222, 0);
+    assert.equal(fs.lstatSync(copiedBytecode).mode & 0o222, 0);
+    assert.throws(
+      () => fs.writeFileSync(copiedBytecode, 'rewritten\n'),
+      (error) => error?.code === 'EACCES',
+    );
+    assert.throws(
+      () => fs.writeFileSync(path.join(copiedCache, 'new.pyc'), 'new\n'),
+      (error) => error?.code === 'EACCES',
+    );
+  };
+  let copied;
+  try {
+    copied = await copyRuntimeDistribution({
+      sourceRoot: source,
+      destinationRoot: destination,
+      admittedSourceSeal: admitted,
+    });
+  } finally {
+    fs.chmodSync = originalChmodSync;
+  }
+  assert.equal(executableObserved, true);
+  assert.equal(fs.readFileSync(copiedBytecode, 'utf8'), 'bytecode\n');
+  assert.equal(fs.lstatSync(copiedExecutable).mode & 0o777, 0o555);
+  assertSameSeal(
+    copied.copiedSeal,
+    await sealDistributionTree(copied.root),
+    'read-only projected runtime',
+  );
+  assertSameSeal(
+    admitted,
+    await sealDistributionTree(source),
+    'read-only projection source',
+  );
+});
+
+test('runtime distribution copies reject every unminted seal before any write', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-runtime-plan-')),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const source = path.join(root, 'source');
+  fs.mkdirSync(source);
+  fs.writeFileSync(path.join(source, 'tool'), 'tool\n', { mode: 0o555 });
+  fs.writeFileSync(path.join(source, 'peer'), 'peer\n', { mode: 0o555 });
+  const admitted = await sealDistributionTree(source);
+  const rootEntry = admitted.entries[0];
+  const fileEntry = admitted.entries[1];
+  const secondFileEntry = admitted.entries[2];
+  const rootIdentity = admitted.identities[0];
+  const fileIdentity = admitted.identities[1];
+  const secondFileIdentity = admitted.identities[2];
+  const outside = path.join(root, 'escaped');
+
+  const attempts = [
+    {
+      name: 'structured-clone',
+      seal: structuredClone(admitted),
+    },
+    {
+      name: 'forged-digest',
+      seal: rebuiltSeal(admitted, {
+        entries: [
+          rootEntry,
+          { ...fileEntry, sha256: digest('f') },
+          secondFileEntry,
+        ],
+      }),
+    },
+    {
+      name: 'same-size-omission',
+      seal: rebuiltSeal(admitted, {
+        entries: [rootEntry, fileEntry],
+        identities: [rootIdentity, fileIdentity],
+      }),
+    },
+    {
+      name: 'escape',
+      seal: rebuiltSeal(admitted, {
+        entries: [
+          rootEntry,
+          { ...fileEntry, path: '../escaped' },
+          secondFileEntry,
+        ],
+        identities: [
+          rootIdentity,
+          { ...fileIdentity, path: '../escaped' },
+          secondFileIdentity,
+        ],
+      }),
+    },
+    {
+      name: 'duplicate',
+      seal: rebuiltSeal(admitted, {
+        entries: [
+          rootEntry,
+          fileEntry,
+          { ...fileEntry },
+          secondFileEntry,
+        ],
+        identities: [
+          rootIdentity,
+          fileIdentity,
+          { ...fileIdentity },
+          secondFileIdentity,
+        ],
+      }),
+    },
+    {
+      name: 'shape',
+      seal: rebuiltSeal(admitted, {
+        identities: [
+          rootIdentity,
+          { ...fileIdentity, kind: 'directory' },
+          secondFileIdentity,
+        ],
+      }),
+    },
+    {
+      name: 'unknown-field',
+      seal: rebuiltSeal(admitted, {
+        entries: [
+          rootEntry,
+          { ...fileEntry, unexpected: true },
+          secondFileEntry,
+        ],
+      }),
+    },
+  ];
+  for (const attempt of attempts) {
+    const destination = path.join(root, `copy-${attempt.name}`);
+    await assert.rejects(
+      copyRuntimeDistribution({
+        sourceRoot: source,
+        destinationRoot: destination,
+        admittedSourceSeal: attempt.seal,
+      }),
+      /was not minted by the active seal authority/u,
+    );
+    assert.equal(fs.existsSync(destination), false);
+    assert.equal(fs.existsSync(outside), false);
+  }
+});
+
+test('runtime file workers are bounded and drain before ordered failure', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-runtime-workers-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const source = path.join(root, 'source');
+  fs.mkdirSync(source);
+  for (let index = 0; index < 16; index += 1) {
+    fs.writeFileSync(
+      path.join(source, `entry-${String(index).padStart(2, '0')}`),
+      Buffer.alloc(1024, index),
+      { mode: 0o444 },
+    );
+  }
+  const admitted = await sealDistributionTree(source);
+  const originalCreateWriteStream = fs.createWriteStream;
+  let active = 0;
+  let maximumActive = 0;
+  fs.createWriteStream = (...arguments_) => {
+    const stream = originalCreateWriteStream(...arguments_);
+    active += 1;
+    maximumActive = Math.max(maximumActive, active);
+    stream.once('close', () => {
+      active -= 1;
+    });
+    return stream;
+  };
+  try {
+    await copyRuntimeDistribution({
+      sourceRoot: source,
+      destinationRoot: path.join(root, 'bounded-copy'),
+      admittedSourceSeal: admitted,
+    });
+  } finally {
+    fs.createWriteStream = originalCreateWriteStream;
+  }
+  assert.ok(maximumActive > 1);
+  assert.ok(maximumActive <= 8);
+  assert.equal(active, 0);
+
+  const originalCreateReadStream = fs.createReadStream;
+  let laterWorkerDrained = false;
+  fs.createReadStream = (sourcePath, ...arguments_) => {
+    if (sourcePath.endsWith('entry-00')) {
+      return Readable.from(
+        (async function* firstFailure() {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          throw new Error('ordered-first-entry-failure');
+        })(),
+      );
+    }
+    if (sourcePath.endsWith('entry-01')) {
+      return Readable.from(
+        (async function* secondFailure() {
+          throw new Error('earlier-completion-second-entry-failure');
+        })(),
+      );
+    }
+    if (sourcePath.endsWith('entry-02')) {
+      return Readable.from(
+        (async function* laterDrain() {
+          await new Promise((resolve) => setTimeout(resolve, 40));
+          laterWorkerDrained = true;
+          yield Buffer.alloc(1024, 2);
+        })(),
+      );
+    }
+    return originalCreateReadStream(sourcePath, ...arguments_);
+  };
+  try {
+    await assert.rejects(
+      copyRuntimeDistribution({
+        sourceRoot: source,
+        destinationRoot: path.join(root, 'failed-copy'),
+        admittedSourceSeal: admitted,
+      }),
+      /ordered-first-entry-failure/u,
+    );
+  } finally {
+    fs.createReadStream = originalCreateReadStream;
+  }
+  assert.equal(laterWorkerDrained, true);
+});
+
 test('runtime distribution copy stops between files when its cell aborts', async (t) => {
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-runtime-abort-')),
   );
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => removeReadOnlyFixtureTree(root));
   const source = path.join(root, 'source');
   fs.mkdirSync(source);
   for (let index = 0; index < 64; index += 1) {
@@ -2786,15 +3490,34 @@ test('runtime distribution copy stops between files when its cell aborts', async
   const destination = path.join(root, 'copy');
   const controller = new AbortController();
   const reason = new Error('fixture runtime-copy abort');
-  const pending = runWithAbortSignal(controller.signal, () =>
-    copyRuntimeDistribution({
-      sourceRoot: source,
-      destinationRoot: destination,
-      admittedSourceSeal,
-    }),
-  );
-  queueMicrotask(() => controller.abort(reason));
-  await assert.rejects(pending, (error) => error === reason);
+  const originalCreateWriteStream = fs.createWriteStream;
+  let activeWorkers = 0;
+  let drainedWorkers = 0;
+  fs.createWriteStream = (...arguments_) => {
+    const stream = originalCreateWriteStream(...arguments_);
+    activeWorkers += 1;
+    stream.once('close', () => {
+      activeWorkers -= 1;
+      drainedWorkers += 1;
+    });
+    return stream;
+  };
+  try {
+    const pending = runWithAbortSignal(controller.signal, () =>
+      copyRuntimeDistribution({
+        sourceRoot: source,
+        destinationRoot: destination,
+        admittedSourceSeal,
+      }),
+    );
+    queueMicrotask(() => controller.abort(reason));
+    await assert.rejects(pending, (error) => error === reason);
+  } finally {
+    fs.createWriteStream = originalCreateWriteStream;
+  }
+  assert.equal(activeWorkers, 0);
+  assert.ok(drainedWorkers > 0);
+  assert.ok(drainedWorkers <= 8);
   assert.ok(fs.existsSync(destination));
   assert.ok(fs.readdirSync(destination).length < 64);
   assertSameSeal(
@@ -2808,7 +3531,7 @@ test('representative runtime closures and five copies provide a cooperative boun
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-runtime-bounded-')),
   );
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => removeReadOnlyFixtureTree(root));
   const specifications = {};
   for (let closureIndex = 0; closureIndex < 5; closureIndex += 1) {
     const source = path.join(root, `source-${closureIndex}`);

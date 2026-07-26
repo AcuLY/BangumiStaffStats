@@ -113,6 +113,47 @@ export function assertNoSymlinkAncestors(candidate, label = 'path') {
   }
 }
 
+export function resolveProspectiveCanonicalPath(
+  candidate,
+  label = 'path',
+) {
+  const requested = path.resolve(assertAbsolutePathSyntax(candidate, label));
+  if (requested !== candidate) fail(`${label} must already be normalized`);
+  assertNoSymlinkAncestors(requested, label);
+  const missingParts = [];
+  let ancestor = requested;
+  while (true) {
+    let information;
+    try {
+      information = fs.lstatSync(ancestor);
+    } catch (error) {
+      if (error?.code !== 'ENOENT') {
+        fail(`${label} ancestor is unavailable: ${ancestor}`);
+      }
+      const parent = path.dirname(ancestor);
+      if (parent === ancestor) {
+        fail(`${label} has no available filesystem ancestor`);
+      }
+      missingParts.unshift(path.basename(ancestor));
+      ancestor = parent;
+      continue;
+    }
+    if (information.isSymbolicLink()) {
+      fail(`${label} traverses symlink ${ancestor}`);
+    }
+    if (missingParts.length > 0 && !information.isDirectory()) {
+      fail(`${label} descends from a non-directory ${ancestor}`);
+    }
+    let canonicalAncestor;
+    try {
+      canonicalAncestor = fs.realpathSync.native(ancestor);
+    } catch (error) {
+      fail(`${label} ancestor cannot be resolved: ${ancestor}`);
+    }
+    return path.join(canonicalAncestor, ...missingParts);
+  }
+}
+
 export function listRegularTree(root, { ignore = new Set() } = {}) {
   const canonicalRoot = requireCanonicalPath(root, {
     label: 'tree root',

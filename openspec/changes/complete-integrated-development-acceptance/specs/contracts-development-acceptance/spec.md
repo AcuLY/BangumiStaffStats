@@ -229,13 +229,37 @@ independently attested and re-sealed. Every non-system tool distribution root
 SHALL have a complete canonical inventory of directory/file modes, file sizes
 and digests, and any required safe internal symlink targets. Hard links,
 special entries, escaping links, missing/new entries, and pre/post differences
-SHALL fail. Each owner gate SHALL run under an outer sandbox that denies
-writes to its admitted runtime roots. Both installed npm package roots and the
+SHALL fail. A copied current-tool closure SHALL preserve every admitted path,
+byte, size, file kind, and safe symlink target with new inodes while applying
+one closed mode projection that removes every write bit. During
+materialization, no copied executable SHALL become executable until every
+copied directory and non-executable file is already non-writable; the original
+execute bits MAY then be enabled without restoring write bits. The harness
+SHALL validate the full copied tree against that deterministic projection,
+record admitted source modes and copied projected modes separately, and use
+the projected copied seal for every later re-seal. It SHALL NOT retry, delete,
+ignore, or bless a runtime file that changes after an executable becomes
+visible. Each owner gate SHALL run under an outer sandbox that denies writes
+to its admitted runtime roots. Both installed npm package roots and the
 admitted CPython distribution are runtime closures; a launcher-file digest
 alone SHALL NOT identify either tool. macOS platform libraries below
 `/System/Library` and `/usr/lib` are bound to the recorded development profile
 and SHALL NOT be described as copied tool bytes. No matrix cell may contact a
 public registry or other public origin.
+
+#### Scenario: A copied interpreter is discovered by another local process
+
+- **WHEN** a same-user process observes or executes a copied interpreter as
+  soon as its execute bit becomes visible
+- **THEN** the complete copied closure SHALL already be non-writable, its
+  projected seal SHALL remain byte/mode/path identical, and no bytecode,
+  metadata file, or new runtime entry SHALL be created
+
+#### Scenario: A copied closure changes after materialization
+
+- **WHEN** any copied path, byte, size, kind, safe-link target, projected mode,
+  or inode-independence proof differs before or after its owning gate
+- **THEN** the owning cell SHALL fail closed without a retry or exception
 
 Because the authoritative Query golden hard-codes
 Node 24.16/npm 11.13 and

@@ -8,9 +8,29 @@ import { canonicalJson, canonicalJsonDigest } from './canonical-json.mjs';
 import { requireCanonicalPath } from './paths.mjs';
 
 export class SealError extends Error {}
+const trustedSeals = new WeakSet();
 
 function fail(message) {
   throw new SealError(message);
+}
+
+function mintSeal(seal) {
+  for (const entry of seal.entries ?? []) Object.freeze(entry);
+  for (const identity of seal.identities ?? []) Object.freeze(identity);
+  const trusted = Object.freeze(seal);
+  trustedSeals.add(trusted);
+  return trusted;
+}
+
+export function assertTrustedSeal(seal, label = 'seal') {
+  if (
+    !seal ||
+    typeof seal !== 'object' ||
+    !trustedSeals.has(seal)
+  ) {
+    fail(`${label} was not minted by the active seal authority`);
+  }
+  return seal;
 }
 
 export async function sha256File(filePath) {
@@ -71,7 +91,7 @@ export async function sealDirectory(root, { paths } = {}) {
     }
   }
   const canonical = canonicalJson(entries);
-  return Object.freeze({
+  return mintSeal({
     root: canonicalRoot,
     entries: Object.freeze(entries),
     digest: canonicalJsonDigest(entries),
@@ -146,7 +166,7 @@ export async function sealDirectoryTree(root) {
   identities.sort((left, right) => left.path.localeCompare(right.path, 'en'));
   const canonical = canonicalJson(entries);
   const identityCanonical = canonicalJson(identities);
-  return Object.freeze({
+  return mintSeal({
     root: canonicalRoot,
     entries: Object.freeze(entries),
     digest: canonicalJsonDigest(entries),
@@ -253,7 +273,7 @@ export async function sealDistributionTree(
   identities.sort((left, right) => left.path.localeCompare(right.path, 'en'));
   const canonical = canonicalJson(entries);
   const identityCanonical = canonicalJson(identities);
-  return Object.freeze({
+  return mintSeal({
     root: canonicalRoot,
     entries: Object.freeze(entries),
     digest: canonicalJsonDigest(entries),
@@ -289,7 +309,7 @@ export async function sealSingleFileDistribution(filePath) {
   });
   const contentCanonical = canonicalJson([entry]);
   const identityCanonical = canonicalJson([identity]);
-  return Object.freeze({
+  return mintSeal({
     root: canonical,
     entries: Object.freeze([entry]),
     digest: canonicalJsonDigest([entry]),

@@ -113,7 +113,11 @@ commit, push, sync, archive, or update task markers.
   artifact validators, and compatibility coordinator smoke to run only inside
   the isolated clone; use the historical Query-golden tools separately from
   the current product tools; seed only exact package/module/browser bytes from
-  sealed caller caches with new inodes; fully inventory/seal all non-system
+  sealed caller caches with new inodes; for copied current-tool closures,
+  preserve paths/bytes/sizes/kinds/safe links, deterministically remove every
+  write bit, withhold execute bits until the complete copied tree is
+  non-writable, and validate the full destination against that projected mode
+  seal before use; fully inventory/seal all non-system
   runtime roots, including current/historical npm and CPython; fully
   inventory/seal the Query golden's owner-fixed historical npm root and GOROOT
   in place, cross-bind fixed executables and the `go`/`gofmt` frozen mirror,
