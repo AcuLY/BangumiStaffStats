@@ -68,7 +68,7 @@ it is not a matrix cell and is not acceptance evidence.
 The cache manifest's `productCandidate.revision` is retained as the immutable
 `preparedFromRevision`. It may equal the accepted product revision or precede
 it; neither case is trusted by declaration alone. Before any seed or process,
-the harness proves the same closed set of 16 raw authorities:
+the harness proves the same closed set of 18 raw authorities:
 
 - 11 Product package locks at both the preparation and accepted Product
   revisions;
@@ -78,6 +78,10 @@ the harness proves the same closed set of 16 raw authorities:
   with only the actual `go.sum` digest bound by the Go validation document;
 - Product `updater/uv.lock` at both Product revisions, bound in the required
   direction through the uv validation document and its separate closure plan.
+- the accepted Product's
+  `contracts/goldens/query/fixtures/go-module/go.mod.lock` and
+  `go.sum.lock`, each bound by the accepted Query manifest as
+  `accepted-product-only`.
 
 Every Git source must be the exact `100644` blob read from the named object ID
 with replacement refs and lazy fetching disabled. The 13 npm records must
@@ -85,6 +89,14 @@ appear in the exact manifest/inventory order with matching digests and package
 counts. Frozen npm and Go files must be single-link `0444` regular files. uv
 has no invented frozen lock copy: its two admitted authorities are the
 validation document and the separately sealed closure plan.
+
+The two Query module locks are never added to the frozen cache manifest and
+never claim a preparation blob or frozen lock copy. Their accepted `100644`
+bytes, sizes, and digests must match the Query manifest. The Query `go.sum`
+module/version and checksum set must be a subset of the Backend-seeded Go
+closure, and every required `.mod`, `.info`, `.zip`, and `.ziphash` byte must
+match the already sealed Go-module inventory. This permits the reviewed
+`uuid v1.6.0` alignment to reuse the canonical cache without relabelling it.
 
 The proof is recorded twice. `admission.sources` owns the canonical
 `preAdmission` phase; `residue.cleanup` owns `postCleanup` after all runtime

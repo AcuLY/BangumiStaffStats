@@ -49,11 +49,17 @@ import {
   dockerLocalSandboxProfile,
   OwnerGateError,
   QUERY_GOLDEN_COMMAND_IDS,
+  parseQueryRedoclyLintSummary,
   queryGoldenEnvironmentOverrides,
+  queryRedoclyLintCommandPlan,
   queryTypeScriptCommandPlan,
   removeOwnedGenerated,
   runtimeReadOnlySandboxProfile,
   settleContractsOwnerGate,
+  settleQueryOwnerCommandCleanup,
+  validateQueryGoldenCommandResults,
+  validateQueryRedoclyLintCommandPlan,
+  validateQueryRedoclyLintResult,
 } from '../lib/gates.mjs';
 import { REQUIRED_MEASUREMENTS } from '../lib/measurements.mjs';
 import { resultOutputDigest } from '../lib/output-digest.mjs';
@@ -659,10 +665,11 @@ test('result state is fail closed and a green result requires all evidence', () 
         productRevision: '1'.repeat(40),
         harnessRevision: '3'.repeat(40),
         oracleRevision: '644b7748674e553f863d0ffd61d029f86fdc0717',
-        authorities: 16,
+        authorities: 18,
         npmLocks: 13,
         productLocks: 11,
         goFiles: 2,
+        queryModuleLocks: 2,
         uvLocks: 1,
         cacheManifestSha256: digest('1'),
         cacheRootSha256: digest('2'),
@@ -2303,7 +2310,11 @@ test('protected input seal is phase-neutral but binds cache compatibility conten
       harnessRevision: '3'.repeat(40),
       oracleRevision: '4'.repeat(40),
     },
-    counts: { authorities: 16, npmLocks: 13 },
+    counts: {
+      authorities: 18,
+      npmLocks: 13,
+      queryModuleLocks: 2,
+    },
     authorities: [{ index: 0, sha256: digest('2') }],
     seals: {
       cacheManifestSha256: digest('3'),
@@ -3964,6 +3975,7 @@ test('Query golden command plan closes codegen argv and cleanup order', () => {
     'contracts-query-verify',
     'contracts-query-cleanup-safety',
     'contracts-query-prepare-codegen',
+    'contracts-query-redocly-lint-codegen-a',
     'contracts-query-redocly-codegen-a',
     'contracts-query-redocly-codegen-b',
     'contracts-query-typescript-a',
@@ -3996,6 +4008,10 @@ test('Query golden command plan closes codegen argv and cleanup order', () => {
   });
 
   const byId = Object.fromEntries(plan.map((entry) => [entry.id, entry]));
+  const lint = queryRedoclyLintCommandPlan({
+    goldenRoot,
+    queryNodePath,
+  });
   const typescriptCli = path.join(
     goldenRoot,
     'node_modules',
@@ -4025,6 +4041,23 @@ test('Query golden command plan closes codegen argv and cleanup order', () => {
     'openapi',
     'openapi.yaml',
   );
+  assert.deepEqual(lint.args, [
+    path.join(
+      goldenRoot,
+      'node_modules',
+      '@redocly',
+      'cli',
+      'bin',
+      'cli.js',
+    ),
+    'lint',
+    projectionA,
+    '--config',
+    path.join(goldenRoot, '.tmp', 'codegen-a', 'redocly.yaml'),
+    '--extends',
+    'recommended',
+  ]);
+  assert.equal(lint.id, 'contracts-query-redocly-lint-codegen-a');
   assert.deepEqual(byId['contracts-query-typescript-a'].args, [
     typescriptCli,
     projectionA,
@@ -4053,6 +4086,265 @@ test('Query golden command plan closes codegen argv and cleanup order', () => {
     plan.some(({ args }) =>
       args.some((argument) => argument.includes('oapi-codegen'))),
     false,
+  );
+});
+
+test('Query owner cleanup is a finally command and remains secondary to the primary failure', async () => {
+  const result = (id, status, label) => Object.freeze({
+    args: Object.freeze(['verify.mjs']),
+    durationMs: 7,
+    executable: '/fixture/node',
+    id,
+    signal: null,
+    status,
+    stderr: Object.freeze({
+      bytes: 0,
+      path: `evidence/commands/${label}.stderr`,
+      sha256: `sha256:${'0'.repeat(64)}`,
+      truncated: false,
+    }),
+    stdout: Object.freeze({
+      bytes: 0,
+      path: `evidence/commands/${label}.stdout`,
+      sha256: `sha256:${'0'.repeat(64)}`,
+      truncated: false,
+    }),
+    timedOut: false,
+  });
+  const successfulCleanup = result(
+    'contracts-query-cleanup',
+    0,
+    'cleanup-success',
+  );
+  const successOrder = [];
+  assert.equal(
+    await settleQueryOwnerCommandCleanup({
+      operation: async () => {
+        successOrder.push('operation');
+      },
+      cleanup: async () => {
+        successOrder.push('cleanup');
+        return successfulCleanup;
+      },
+    }),
+    successfulCleanup,
+  );
+  assert.deepEqual(successOrder, ['operation', 'cleanup']);
+
+  const primaryResult = result(
+    'contracts-query-prepare-codegen',
+    23,
+    'primary',
+  );
+  const primary = new CommandError(
+    'authoritative Query preparation failed',
+    primaryResult,
+  );
+  primary.code = 'QUERY_PREPARATION_FAILED';
+  const failedCleanupResult = result(
+    'contracts-query-cleanup',
+    31,
+    'cleanup-failed',
+  );
+  const cleanupFailure = new CommandError(
+    'Query owner cleanup exited 31',
+    failedCleanupResult,
+  );
+  const failureOrder = [];
+  await assert.rejects(
+    settleQueryOwnerCommandCleanup({
+      operation: async () => {
+        failureOrder.push('operation');
+        throw primary;
+      },
+      cleanup: async () => {
+        failureOrder.push('cleanup');
+        throw cleanupFailure;
+      },
+    }),
+    (error) => {
+      assert.equal(error, primary);
+      assert.equal(error.message, 'authoritative Query preparation failed');
+      assert.equal(error.code, 'QUERY_PREPARATION_FAILED');
+      assert.equal(error.result, primaryResult);
+      assert.deepEqual(error.queryOwnerCleanup, {
+        exitStatus: 31,
+        id: 'contracts-query-cleanup',
+        message: 'Query owner cleanup exited 31',
+        status: 'failed',
+        timedOut: false,
+      });
+      assert.deepEqual(
+        error.evidence.map(({ path: evidencePath }) => evidencePath),
+        [
+          primaryResult.stdout.path,
+          primaryResult.stderr.path,
+          failedCleanupResult.stdout.path,
+          failedCleanupResult.stderr.path,
+        ],
+      );
+      return true;
+    },
+  );
+  assert.deepEqual(failureOrder, ['operation', 'cleanup']);
+
+  const secondPrimary = new CommandError(
+    'Query lint baseline failed',
+    primaryResult,
+  );
+  await assert.rejects(
+    settleQueryOwnerCommandCleanup({
+      operation: async () => {
+        throw secondPrimary;
+      },
+      cleanup: async () => successfulCleanup,
+    }),
+    (error) => {
+      assert.equal(error, secondPrimary);
+      assert.equal(error.message, 'Query lint baseline failed');
+      assert.equal(error.queryOwnerCleanup.status, 'passed');
+      assert.equal(error.queryOwnerCleanup.exitStatus, 0);
+      assert.deepEqual(
+        error.evidence.slice(-2).map(({ path: evidencePath }) => evidencePath),
+        [
+          successfulCleanup.stdout.path,
+          successfulCleanup.stderr.path,
+        ],
+      );
+      return true;
+    },
+  );
+});
+
+test('Query Redocly lint is an executed closed prerequisite with the exact 0/9 baseline', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-query-redocly-')),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const runRoot = path.join(root, 'run');
+  const goldenRoot = path.join(root, 'candidate', 'contracts', 'goldens', 'query');
+  const queryNodePath = '/fixture/node';
+  fs.mkdirSync(path.join(runRoot, 'evidence', 'commands'), {
+    recursive: true,
+  });
+  const plan = queryRedoclyLintCommandPlan({
+    goldenRoot,
+    queryNodePath,
+  });
+  assert.deepEqual(
+    validateQueryRedoclyLintCommandPlan(plan, {
+      goldenRoot,
+      queryNodePath,
+    }),
+    plan,
+  );
+  const wrongSource = {
+    ...plan,
+    args: [
+      ...plan.args.slice(0, 2),
+      path.join(root, 'candidate', 'contracts', 'openapi', 'openapi.yaml'),
+      ...plan.args.slice(3),
+    ],
+  };
+  assert.throws(
+    () =>
+      validateQueryRedoclyLintCommandPlan(wrongSource, {
+        goldenRoot,
+        queryNodePath,
+      }),
+    /locked codegen-a plan/u,
+  );
+
+  assert.deepEqual(
+    parseQueryRedoclyLintSummary(
+      'Woohoo! Your API description is valid.\\nYou have 9 warnings.\\n',
+    ),
+    { errors: 0, status: 0, warnings: 9 },
+  );
+  for (const [label, output, options] of [
+    [
+      'expanded full shared OpenAPI ten-warning baseline',
+      'You have 10 warnings.\\n',
+      {},
+    ],
+    [
+      'reported error',
+      '1 error and 9 warnings\\n',
+      {},
+    ],
+    [
+      'truncated output',
+      'You have 9 warnings.\\n',
+      { truncated: true },
+    ],
+  ]) {
+    assert.throws(
+      () => parseQueryRedoclyLintSummary(output, options),
+      /Redocly lint/u,
+      label,
+    );
+  }
+
+  const stdoutBytes = Buffer.from(
+    'Woohoo! Your API description is valid.\\nYou have 9 warnings.\\n',
+    'utf8',
+  );
+  const stderrBytes = Buffer.alloc(0);
+  const stdoutRelative =
+    'evidence/commands/contracts-query-redocly-lint-codegen-a.stdout';
+  const stderrRelative =
+    'evidence/commands/contracts-query-redocly-lint-codegen-a.stderr';
+  fs.writeFileSync(path.join(runRoot, ...stdoutRelative.split('/')), stdoutBytes);
+  fs.writeFileSync(path.join(runRoot, ...stderrRelative.split('/')), stderrBytes);
+  const descriptor = (relative, bytes) => Object.freeze({
+    bytes: bytes.length,
+    path: relative,
+    sha256: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
+    truncated: false,
+  });
+  const result = Object.freeze({
+    args: Object.freeze([
+      '-p',
+      '(version 1)(allow default)(deny network*)',
+      queryNodePath,
+      ...plan.args,
+    ]),
+    durationMs: 10,
+    executable: '/usr/bin/sandbox-exec',
+    id: plan.id,
+    signal: null,
+    status: 0,
+    stderr: descriptor(stderrRelative, stderrBytes),
+    stdout: descriptor(stdoutRelative, stdoutBytes),
+    timedOut: false,
+  });
+  assert.deepEqual(
+    validateQueryRedoclyLintResult({
+      result,
+      runRoot,
+      goldenRoot,
+      queryNodePath,
+    }),
+    { errors: 0, status: 0, warnings: 9 },
+  );
+
+  const closed = QUERY_GOLDEN_COMMAND_IDS.map((id) => ({ id }));
+  assert.deepEqual(
+    validateQueryGoldenCommandResults(closed),
+    QUERY_GOLDEN_COMMAND_IDS,
+  );
+  assert.throws(
+    () =>
+      validateQueryGoldenCommandResults(
+        closed.filter(({ id }) => id !== plan.id),
+      ),
+    /closed owner sequence/u,
+  );
+  const reordered = structuredClone(closed);
+  [reordered[3], reordered[4]] = [reordered[4], reordered[3]];
+  assert.throws(
+    () => validateQueryGoldenCommandResults(reordered),
+    /closed owner sequence/u,
   );
 });
 

@@ -416,10 +416,11 @@ function resultFixture(matrix) {
         productRevision: '1'.repeat(40),
         harnessRevision: '3'.repeat(40),
         oracleRevision: '644b7748674e553f863d0ffd61d029f86fdc0717',
-        authorities: 16,
+        authorities: 18,
         npmLocks: 13,
         productLocks: 11,
         goFiles: 2,
+        queryModuleLocks: 2,
         uvLocks: 1,
         cacheManifestSha256: digest('1'),
         cacheRootSha256: digest('2'),
@@ -600,6 +601,7 @@ test('input and result schemas resolve every ref and close every typed container
       'npmLocks',
       'productLocks',
       'goFiles',
+      'queryModuleLocks',
       'uvLocks',
       'cacheManifestSha256',
       'cacheRootSha256',
@@ -806,6 +808,13 @@ test('result structural negative corpus is rejected by schema and imperative val
       result,
       (value) => {
         value.identities.cacheCompatibility.authorities = 15;
+      },
+      { refreshDigest: true },
+    ),
+    mutated(
+      result,
+      (value) => {
+        value.identities.cacheCompatibility.queryModuleLocks = 1;
       },
       { refreshDigest: true },
     ),

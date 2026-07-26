@@ -916,6 +916,7 @@ export function validateResult(value, matrix, budgets) {
       'npmLocks',
       'productLocks',
       'goFiles',
+      'queryModuleLocks',
       'uvLocks',
       'cacheManifestSha256',
       'cacheRootSha256',
@@ -957,6 +958,7 @@ export function validateResult(value, matrix, budgets) {
     npmLocks: NPM_LOCK_AUTHORITY_COUNT,
     productLocks: PRODUCT_PACKAGE_LOCK_PATHS.length,
     goFiles: 2,
+    queryModuleLocks: 2,
     uvLocks: 1,
   };
   for (const [name, expected] of Object.entries(exactCacheCounts)) {

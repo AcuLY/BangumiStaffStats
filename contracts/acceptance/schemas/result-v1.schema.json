@@ -2620,6 +2620,7 @@
         "npmLocks",
         "productLocks",
         "goFiles",
+        "queryModuleLocks",
         "uvLocks",
         "cacheManifestSha256",
         "cacheRootSha256",
@@ -2645,7 +2646,7 @@
           "$ref": "#/$defs/objectId"
         },
         "authorities": {
-          "const": 16
+          "const": 18
         },
         "npmLocks": {
           "const": 13
@@ -2654,6 +2655,9 @@
           "const": 11
         },
         "goFiles": {
+          "const": 2
+        },
+        "queryModuleLocks": {
           "const": 2
         },
         "uvLocks": {

@@ -9,6 +9,7 @@ import {
   CACHE_AUTHORITY_COUNT,
   NPM_LOCK_AUTHORITY_COUNT,
   PRODUCT_PACKAGE_LOCK_PATHS,
+  QUERY_GO_MODULE_LOCK_PATHS,
   cacheCompatibilityResultIdentity,
   createCacheCompatibilityEnvelope,
   verifyCacheCompatibilityPhase,
@@ -167,23 +168,68 @@ function createFixture(t, { samePreparationAndProduct = false } = {}) {
     'backend/go.mod',
     Buffer.from('module example.invalid/acceptance\n\ngo 1.25\n', 'utf8'),
   );
+  const backendGoSumBytes = Buffer.from(
+    'example.invalid/dependency v1.0.0 h1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n' +
+      'example.invalid/dependency v1.0.0/go.mod h1:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=\n',
+    'utf8',
+  );
   writeFile(
     repositoryRoot,
     'backend/go.sum',
-    Buffer.from(
-      'example.invalid/dependency v1.0.0 h1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n',
-      'utf8',
-    ),
+    backendGoSumBytes,
   );
   writeFile(
     repositoryRoot,
     'updater/uv.lock',
     Buffer.from('version = 1\nrevision = 3\nrequires-python = ">=3.12"\n', 'utf8'),
   );
+  const queryGoModBytes = Buffer.from(
+    'module querywire-smoke\n\ngo 1.25.4\n\nrequire example.invalid/dependency v1.0.0\n',
+    'utf8',
+  );
+  const queryGoSumBytes = Buffer.from(backendGoSumBytes);
+  const queryManifest = {
+    codegen: {
+      go: {
+        moduleInputs: {
+          goMod: {
+            path: QUERY_GO_MODULE_LOCK_PATHS[0],
+            bytes: queryGoModBytes.length,
+            sha256: rawDigest(queryGoModBytes),
+          },
+          goSum: {
+            path: QUERY_GO_MODULE_LOCK_PATHS[1],
+            bytes: queryGoSumBytes.length,
+            sha256: rawDigest(queryGoSumBytes),
+          },
+        },
+      },
+    },
+  };
+  const queryManifestBytes = Buffer.from(canonicalJson(queryManifest), 'utf8');
+  const writeQueryAuthorities = () => {
+    writeFile(
+      repositoryRoot,
+      QUERY_GO_MODULE_LOCK_PATHS[0],
+      queryGoModBytes,
+    );
+    writeFile(
+      repositoryRoot,
+      QUERY_GO_MODULE_LOCK_PATHS[1],
+      queryGoSumBytes,
+    );
+    writeFile(
+      repositoryRoot,
+      'contracts/goldens/query/manifest.json',
+      queryManifestBytes,
+    );
+  };
+  if (samePreparationAndProduct) writeQueryAuthorities();
   const preparedFromRevision = commit(repositoryRoot, 'preparation');
 
   let productRevision = preparedFromRevision;
   if (!samePreparationAndProduct) {
+    writeQueryAuthorities();
     writeFile(
       repositoryRoot,
       'accepted-product-note.txt',
@@ -290,6 +336,55 @@ function createFixture(t, { samePreparationAndProduct = false } = {}) {
     'validation/go-cache.json',
     goValidationBytes,
   );
+  const goModuleRoot = path.join(cacheRoot, 'go-module');
+  fs.mkdirSync(goModuleRoot);
+  const goModuleFiles = [
+    [
+      'cache/download/example.invalid/dependency/@v/v1.0.0.info',
+      Buffer.from('{"Version":"v1.0.0"}\n', 'utf8'),
+    ],
+    [
+      'cache/download/example.invalid/dependency/@v/v1.0.0.mod',
+      Buffer.from('module example.invalid/dependency\n', 'utf8'),
+    ],
+    [
+      'cache/download/example.invalid/dependency/@v/v1.0.0.zip',
+      Buffer.from('synthetic module zip bytes\n', 'utf8'),
+    ],
+    [
+      'cache/download/example.invalid/dependency/@v/v1.0.0.ziphash',
+      Buffer.from(
+        'h1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n',
+        'utf8',
+      ),
+    ],
+  ];
+  const goModuleEntries = goModuleFiles
+    .map(([relative, bytes]) => {
+      writeFile(goModuleRoot, relative, bytes, 0o444);
+      return {
+        executable: false,
+        path: relative,
+        sha256: rawDigest(bytes),
+        size: bytes.length,
+      };
+    })
+    .sort((left, right) => left.path.localeCompare(right.path, 'en'));
+  const goModuleInventory = {
+    entries: goModuleEntries,
+    name: 'go-module',
+    schemaVersion: 1,
+  };
+  const goModuleInventoryBytes = Buffer.from(
+    canonicalJson(goModuleInventory).slice(0, -1),
+    'utf8',
+  );
+  writeFile(
+    cacheRoot,
+    'inventories/go-module.json',
+    goModuleInventoryBytes,
+    0o444,
+  );
 
   const uvLockBytes = fs.readFileSync(
     path.join(repositoryRoot, 'updater/uv.lock'),
@@ -362,7 +457,16 @@ function createFixture(t, { samePreparationAndProduct = false } = {}) {
       },
     },
     caches: {
-      goModule: { validation: goValidationReference },
+      goModule: {
+        root: goModuleRoot,
+        inventoryPath: path.join(
+          cacheRoot,
+          'inventories',
+          'go-module.json',
+        ),
+        inventorySha256: rawDigest(goModuleInventoryBytes),
+        validation: goValidationReference,
+      },
       uv: {
         validation: uvValidationReference,
         closurePlan: uvPlanReference,
@@ -388,6 +492,9 @@ function createFixture(t, { samePreparationAndProduct = false } = {}) {
     oracle: {
       revision: oracleRevision,
     },
+    caches: {
+      goModule: goModuleRoot,
+    },
   };
 
   function rewriteInventory(mutator) {
@@ -411,6 +518,20 @@ function createFixture(t, { samePreparationAndProduct = false } = {}) {
       'validation/go-cache.json',
       bytes,
     );
+  }
+
+  function rewriteGoModuleInventory(mutator) {
+    mutator(goModuleInventory);
+    const bytes = Buffer.from(
+      canonicalJson(goModuleInventory).slice(0, -1),
+      'utf8',
+    );
+    replaceReadOnlyFile(
+      cacheRoot,
+      'inventories/go-module.json',
+      bytes,
+    );
+    manifest.caches.goModule.inventorySha256 = rawDigest(bytes);
   }
 
   function rewriteUvDocuments({ mutatePlan, mutateValidation } = {}) {
@@ -447,6 +568,11 @@ function createFixture(t, { samePreparationAndProduct = false } = {}) {
     manifest,
     inventory,
     goValidation,
+    goModuleInventory,
+    goModuleRoot,
+    queryGoModBytes,
+    queryGoSumBytes,
+    queryManifest,
     uvPlan,
     uvValidation,
     preparedFromRevision,
@@ -458,6 +584,7 @@ function createFixture(t, { samePreparationAndProduct = false } = {}) {
     oracleLockBytes,
     rewriteInventory,
     rewriteGoValidation,
+    rewriteGoModuleInventory,
     rewriteUvDocuments,
   };
 }
@@ -472,7 +599,7 @@ async function verify(fixture, phase = 'preAdmission') {
 
 for (const samePreparationAndProduct of [true, false]) {
   test(
-    `the exact 16-authority proof accepts ${
+    `the exact 18-authority proof accepts ${
       samePreparationAndProduct ? 'equal' : 'different'
     } preparation and product revisions`,
     async (t) => {
@@ -494,10 +621,11 @@ for (const samePreparationAndProduct of [true, false]) {
       );
       assert.equal(preAdmission.authorities.length, CACHE_AUTHORITY_COUNT);
       assert.deepEqual(preAdmission.counts, {
-        authorities: 16,
+        authorities: 18,
         npmLocks: 13,
         productLocks: 11,
         goFiles: 2,
+        queryModuleLocks: 2,
         uvLocks: 1,
       });
       assert.equal(
@@ -505,6 +633,34 @@ for (const samePreparationAndProduct of [true, false]) {
           (authority) => authority.kind === 'npm-lock',
         ).length,
         NPM_LOCK_AUTHORITY_COUNT,
+      );
+      const queryAuthorities = preAdmission.authorities.filter(
+        (authority) => authority.kind === 'query-go-module-lock',
+      );
+      assert.equal(queryAuthorities.length, 2);
+      assert.equal(
+        queryAuthorities.every(
+          (authority) =>
+            authority.scope === 'accepted-product-only' &&
+            authority.git.preparation === null &&
+            authority.frozen === null,
+        ),
+        true,
+      );
+      assert.equal(
+        fixture.manifest.supplemental.lockClosure.locks.some(
+          ({ path: relative }) =>
+            relative.includes('fixtures/go-module'),
+        ),
+        false,
+      );
+      assert.deepEqual(
+        queryAuthorities.at(-1).compatibility.moduleVersions,
+        ['example.invalid/dependency@v1.0.0'],
+      );
+      assert.equal(
+        queryAuthorities.at(-1).compatibility.requiredCacheFileCount,
+        4,
       );
       assert.notEqual(
         preAdmission.authoritySetSha256,
@@ -523,7 +679,7 @@ for (const samePreparationAndProduct of [true, false]) {
         evidenceSha256,
         envelope,
       });
-      assert.equal(identity.authorities, 16);
+      assert.equal(identity.authorities, 18);
       assert.equal(identity.evidenceSha256, evidenceSha256);
       assert.equal(
         identity.preAdmissionAuthoritySetSha256,
@@ -719,6 +875,28 @@ function mutateProductFileCommit(fixture, relative, bytes, { mode } = {}) {
   );
 }
 
+function mutateQueryGoSumAndManifest(fixture, bytes, mutateManifest) {
+  checkout(fixture.repositoryRoot, fixture.input.product.revision);
+  writeFile(
+    fixture.repositoryRoot,
+    QUERY_GO_MODULE_LOCK_PATHS[1],
+    bytes,
+  );
+  const manifest = structuredClone(fixture.queryManifest);
+  manifest.codegen.go.moduleInputs.goSum.bytes = bytes.length;
+  manifest.codegen.go.moduleInputs.goSum.sha256 = rawDigest(bytes);
+  mutateManifest?.(manifest);
+  writeFile(
+    fixture.repositoryRoot,
+    'contracts/goldens/query/manifest.json',
+    Buffer.from(canonicalJson(manifest), 'utf8'),
+  );
+  fixture.input.product.revision = commit(
+    fixture.repositoryRoot,
+    'mutate Query go.sum authority',
+  );
+}
+
 test('the Go pair rejects preparation, accepted, frozen, validation, and scope drift', async (t) => {
   const cases = {
     'accepted go.mod drift'(fixture) {
@@ -777,6 +955,141 @@ test('the Go pair rejects preparation, accepted, frozen, validation, and scope d
         /Go|backend\/go|100644|unexpected fields/u,
       );
     });
+  }
+});
+
+test('accepted-only Query locks require manifest binding, Backend subset, and exact sealed cache bytes', async (t) => {
+  const cases = {
+    'unbound go.mod lock drift'(fixture) {
+      mutateProductFileCommit(
+        fixture,
+        QUERY_GO_MODULE_LOCK_PATHS[0],
+        Buffer.from('module querywire-drift\n\ngo 1.25.4\n', 'utf8'),
+      );
+    },
+    'executable go.sum lock'(fixture) {
+      mutateProductFileCommit(
+        fixture,
+        QUERY_GO_MODULE_LOCK_PATHS[1],
+        fixture.queryGoSumBytes,
+        { mode: 0o755 },
+      );
+    },
+    'extra module version'(fixture) {
+      mutateQueryGoSumAndManifest(
+        fixture,
+        Buffer.concat([
+          fixture.queryGoSumBytes,
+          Buffer.from(
+            'example.invalid/outside v2.0.0 h1:CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=\n',
+            'utf8',
+          ),
+        ]),
+      );
+    },
+    'checksum differs from Backend closure'(fixture) {
+      mutateQueryGoSumAndManifest(
+        fixture,
+        Buffer.from(
+          fixture.queryGoSumBytes
+            .toString('utf8')
+            .replace(
+              'h1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+              'h1:CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=',
+            ),
+          'utf8',
+        ),
+      );
+    },
+    'missing cache byte'(fixture) {
+      fs.unlinkSync(
+        path.join(
+          fixture.goModuleRoot,
+          'cache',
+          'download',
+          'example.invalid',
+          'dependency',
+          '@v',
+          'v1.0.0.zip',
+        ),
+      );
+    },
+    'cache ziphash differs from Query checksum'(fixture) {
+      const relative =
+        'cache/download/example.invalid/dependency/@v/v1.0.0.ziphash';
+      const bytes = Buffer.from(
+        'h1:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD=\n',
+        'utf8',
+      );
+      replaceReadOnlyFile(fixture.goModuleRoot, relative, bytes);
+      fixture.rewriteGoModuleInventory((inventory) => {
+        const entry = inventory.entries.find(
+          (candidate) => candidate.path === relative,
+        );
+        entry.sha256 = rawDigest(bytes);
+        entry.size = bytes.length;
+      });
+    },
+    'manifest byte-count drift'(fixture) {
+      mutateQueryGoSumAndManifest(
+        fixture,
+        fixture.queryGoSumBytes,
+        (manifest) => {
+          manifest.codegen.go.moduleInputs.goSum.bytes += 1;
+        },
+      );
+    },
+  };
+  for (const [name, mutate] of Object.entries(cases)) {
+    await t.test(name, async (child) => {
+      const fixture = createFixture(child);
+      mutate(fixture);
+      await assert.rejects(
+        verify(fixture),
+        /Query|Go cache|100644|canonical|missing/u,
+      );
+    });
+  }
+});
+
+test('accepted-only Query evidence cannot invent preparation/frozen scope or omit its cache binding', async (t) => {
+  const fixture = createFixture(t);
+  const preAdmission = await verify(fixture, 'preAdmission');
+  const postCleanup = await verify(fixture, 'postCleanup');
+  const queryIndex = preAdmission.authorities.findIndex(
+    (authority) =>
+      authority.logicalPath === QUERY_GO_MODULE_LOCK_PATHS[1],
+  );
+  assert.notEqual(queryIndex, -1);
+  for (const [name, mutate] of Object.entries({
+    'invented preparation'(authority) {
+      authority.git.preparation = structuredClone(authority.git.accepted);
+    },
+    'invented frozen lock'(authority) {
+      authority.frozen = {
+        byteCount: authority.git.accepted.byteCount,
+        sha256: authority.git.accepted.sha256,
+      };
+    },
+    'widened scope'(authority) {
+      authority.scope = 'preparation-and-accepted-product';
+    },
+    'omitted cache inventory binding'(authority) {
+      authority.bindings.splice(1, 1);
+    },
+  })) {
+    const tampered = clonePhase(preAdmission, (phase) => {
+      mutate(phase.authorities[queryIndex]);
+    });
+    assert.throws(
+      () =>
+        createCacheCompatibilityEnvelope({
+          preAdmission: tampered,
+          postCleanup,
+        }),
+      /Query|scope|authority|preparation|frozen|binding/u,
+      name,
+    );
   }
 });
 

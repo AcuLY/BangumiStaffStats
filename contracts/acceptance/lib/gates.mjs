@@ -13,8 +13,11 @@ import {
   assertSafeRelativePath,
   isStrictlyBelow,
   requireCanonicalPath,
+  resolveRunRelative,
+  sha256Bytes,
 } from './paths.mjs';
 import { runCommand, sanitizedEnvironment } from './runner.mjs';
+import { decodeUtf8Strict } from './strict-json.mjs';
 import { verifyRuntimeClosures } from './tools.mjs';
 
 const SANDBOX_EXECUTABLE = '/usr/bin/sandbox-exec';
@@ -25,6 +28,7 @@ export const QUERY_GOLDEN_COMMAND_IDS = Object.freeze([
   'contracts-query-verify',
   'contracts-query-cleanup-safety',
   'contracts-query-prepare-codegen',
+  'contracts-query-redocly-lint-codegen-a',
   'contracts-query-redocly-codegen-a',
   'contracts-query-redocly-codegen-b',
   'contracts-query-typescript-a',
@@ -268,6 +272,80 @@ function registerSecondaryCleanup(primaryError, cleanup, evidence) {
     // The originating error remains primary even if it cannot carry metadata.
   }
   return primaryError;
+}
+
+function registerSecondaryQueryOwnerCleanup(
+  primaryError,
+  cleanupResult,
+  cleanupError,
+) {
+  if (primaryError === null || typeof primaryError !== 'object') {
+    return primaryError;
+  }
+  const existingEvidence = Array.isArray(primaryError.evidence)
+    ? primaryError.evidence
+    : primaryError.result
+      ? commandEvidence(primaryError.result)
+      : [];
+  const result = cleanupResult ?? cleanupError?.result;
+  const cleanupEvidence = result ? commandEvidence(result) : [];
+  try {
+    Object.defineProperty(primaryError, 'queryOwnerCleanup', {
+      configurable: true,
+      enumerable: true,
+      value: Object.freeze({
+        exitStatus: result?.status ?? null,
+        id: result?.id ?? 'contracts-query-cleanup',
+        message: cleanupError?.message ??
+          'Query owner cleanup command completed',
+        status: cleanupError ? 'failed' : 'passed',
+        timedOut: result?.timedOut ?? null,
+      }),
+    });
+    if (cleanupEvidence.length > 0) {
+      Object.defineProperty(primaryError, 'evidence', {
+        configurable: true,
+        enumerable: true,
+        value: Object.freeze([...existingEvidence, ...cleanupEvidence]),
+      });
+    }
+  } catch {
+    // The originating error remains primary even if it cannot carry metadata.
+  }
+  return primaryError;
+}
+
+export async function settleQueryOwnerCommandCleanup({
+  operation,
+  cleanup,
+}) {
+  if (typeof operation !== 'function' || typeof cleanup !== 'function') {
+    fail('Query owner cleanup settlement requires two operations');
+  }
+  let primaryError;
+  let operationFailed = false;
+  try {
+    await operation();
+  } catch (error) {
+    operationFailed = true;
+    primaryError = error;
+  }
+  let cleanupResult;
+  let cleanupError;
+  try {
+    cleanupResult = await cleanup();
+  } catch (error) {
+    cleanupError = error;
+  }
+  if (operationFailed) {
+    throw registerSecondaryQueryOwnerCleanup(
+      primaryError,
+      cleanupResult,
+      cleanupError,
+    );
+  }
+  if (cleanupError !== undefined) throw cleanupError;
+  return cleanupResult;
 }
 
 function ownerCleanupFailure(cleanup, evidence, evidenceError) {
@@ -667,6 +745,205 @@ export function queryTypeScriptCommandPlan({
   })));
 }
 
+export function queryRedoclyLintCommandPlan({
+  goldenRoot,
+  queryNodePath,
+}) {
+  const projection = path.join(goldenRoot, '.tmp', 'codegen-a');
+  return Object.freeze({
+    args: Object.freeze([
+      path.join(
+        goldenRoot,
+        'node_modules',
+        '@redocly',
+        'cli',
+        'bin',
+        'cli.js',
+      ),
+      'lint',
+      path.join(projection, 'source', 'openapi', 'openapi.yaml'),
+      '--config',
+      path.join(projection, 'redocly.yaml'),
+      '--extends',
+      'recommended',
+    ]),
+    cwd: goldenRoot,
+    environment: 'redocly',
+    executable: queryNodePath,
+    id: 'contracts-query-redocly-lint-codegen-a',
+    timeoutMs: QUERY_GOLDEN_TIMEOUT_MS,
+  });
+}
+
+export function validateQueryRedoclyLintCommandPlan(
+  declaration,
+  {
+    goldenRoot,
+    queryNodePath,
+  },
+) {
+  const expected = queryRedoclyLintCommandPlan({
+    goldenRoot,
+    queryNodePath,
+  });
+  if (
+    !declaration ||
+    declaration.id !== expected.id ||
+    declaration.cwd !== expected.cwd ||
+    declaration.environment !== expected.environment ||
+    declaration.executable !== expected.executable ||
+    declaration.timeoutMs !== expected.timeoutMs ||
+    !Array.isArray(declaration.args) ||
+    declaration.args.length !== expected.args.length ||
+    declaration.args.some(
+      (argument, index) => argument !== expected.args[index],
+    )
+  ) {
+    fail('Query Redocly lint command is not the locked codegen-a plan');
+  }
+  return expected;
+}
+
+export function parseQueryRedoclyLintSummary(
+  output,
+  {
+    status = 0,
+    truncated = false,
+  } = {},
+) {
+  if (
+    typeof output !== 'string' ||
+    output.length === 0 ||
+    output.length > 2 * 1024 * 1024 ||
+    truncated
+  ) {
+    fail('Query Redocly lint output is absent, unbounded, or truncated');
+  }
+  if (status !== 0) {
+    fail(`Query Redocly lint exited ${status}`);
+  }
+  const plain = output.replaceAll(/\u001b\[[0-?]*[ -/]*[@-~]/gu, '');
+  const counts = [...plain.matchAll(/\b(\d+)\s+(errors?|warnings?)\b/giu)];
+  const labelledCounts = [
+    ...plain.matchAll(/\b(errors?|warnings?)\s*[:=]\s*(\d+)\b/giu),
+  ];
+  const summaries = [
+    ...counts.map((match) => ({
+      count: Number(match[1]),
+      index: match.index,
+      type: match[2].toLowerCase(),
+    })),
+    ...labelledCounts.map((match) => ({
+      count: Number(match[2]),
+      index: match.index,
+      type: match[1].toLowerCase(),
+    })),
+  ].sort((left, right) => left.index - right.index);
+  const warningCounts = summaries
+    .filter(({ type }) => type.startsWith('warning'))
+    .map(({ count }) => count);
+  const errorCounts = summaries
+    .filter(({ type }) => type.startsWith('error'))
+    .map(({ count }) => count);
+  if (
+    warningCounts.length === 0 ||
+    warningCounts.some((count) => !Number.isSafeInteger(count)) ||
+    errorCounts.some((count) => !Number.isSafeInteger(count))
+  ) {
+    fail('Query Redocly lint did not report a bounded warning/error summary');
+  }
+  const warnings = warningCounts.at(-1);
+  const errors = errorCounts.length === 0 ? 0 : errorCounts.at(-1);
+  if (errors !== 0 || warnings !== 9) {
+    fail(
+      `Query Redocly lint reported ${errors} errors and ${warnings} warnings; ` +
+        'expected 0 errors and 9 warnings',
+    );
+  }
+  return Object.freeze({
+    errors,
+    status,
+    warnings,
+  });
+}
+
+function readQueryLintLog(runRoot, descriptor, label) {
+  if (
+    !descriptor ||
+    !Number.isSafeInteger(descriptor.bytes) ||
+    descriptor.bytes < 0 ||
+    typeof descriptor.sha256 !== 'string' ||
+    !/^sha256:[0-9a-f]{64}$/u.test(descriptor.sha256) ||
+    typeof descriptor.truncated !== 'boolean'
+  ) {
+    fail(`Query Redocly ${label} descriptor is invalid`);
+  }
+  const absolute = resolveRunRelative(runRoot, descriptor.path);
+  const bytes = fs.readFileSync(absolute);
+  if (
+    bytes.length !== descriptor.bytes ||
+    sha256Bytes(bytes) !== descriptor.sha256
+  ) {
+    fail(`Query Redocly ${label} bytes differ from command evidence`);
+  }
+  return Object.freeze({
+    text: decodeUtf8Strict(bytes, `Query Redocly ${label}`),
+    truncated: descriptor.truncated,
+  });
+}
+
+export function validateQueryRedoclyLintResult({
+  result,
+  runRoot,
+  goldenRoot,
+  queryNodePath,
+}) {
+  const plan = queryRedoclyLintCommandPlan({
+    goldenRoot,
+    queryNodePath,
+  });
+  if (
+    result?.id !== plan.id ||
+    result.executable !== SANDBOX_EXECUTABLE ||
+    result.status !== 0 ||
+    result.signal !== null ||
+    result.timedOut !== false ||
+    !Array.isArray(result.args) ||
+    result.args[0] !== '-p' ||
+    result.args.length !== plan.args.length + 3 ||
+    result.args[2] !== plan.executable ||
+    result.args.slice(3).some(
+      (argument, index) => argument !== plan.args[index],
+    )
+  ) {
+    fail('Query Redocly lint result does not bind the locked executed command');
+  }
+  const stdout = readQueryLintLog(runRoot, result.stdout, 'stdout');
+  const stderr = readQueryLintLog(runRoot, result.stderr, 'stderr');
+  return parseQueryRedoclyLintSummary(
+    `${stdout.text}\n${stderr.text}`,
+    {
+      status: result.status,
+      truncated: stdout.truncated || stderr.truncated,
+    },
+  );
+}
+
+export function validateQueryGoldenCommandResults(results) {
+  const observedCommandIds = Array.isArray(results)
+    ? results.map((result) => result?.id)
+    : [];
+  if (
+    observedCommandIds.length !== QUERY_GOLDEN_COMMAND_IDS.length ||
+    observedCommandIds.some(
+      (id, index) => id !== QUERY_GOLDEN_COMMAND_IDS[index],
+    )
+  ) {
+    fail('Query golden command order is not the closed owner sequence');
+  }
+  return Object.freeze([...observedCommandIds]);
+}
+
 export function queryGoldenEnvironmentOverrides(goldenRoot) {
   return Object.freeze({
     redocly: Object.freeze({
@@ -711,18 +988,6 @@ async function runQueryGolden({
     });
   }
   const results = [];
-  results.push(await runNpm({
-    id: 'contracts-query-npm-ci',
-    family: 'query',
-    args: ['ci', '--ignore-scripts', '--offline', '--no-audit', '--no-fund'],
-    cwd: seededNpm.root,
-    cache: seededNpm.cache,
-    tools,
-    budgets,
-    runRoot,
-    timeoutMs: 300_000,
-    runtimeRoots: runtimePaths(runtimeRoots, QUERY_RUNTIME_NAMES),
-  }));
   const queryEnvironment = commandEnvironment({
     runRoot,
     pathEntries: [
@@ -763,8 +1028,8 @@ async function runQueryGolden({
   const querySandbox = runtimeReadOnlySandboxProfile(
     runtimePaths(runtimeRoots, QUERY_RUNTIME_NAMES),
   );
-  const verify = async (id, args) => {
-    results.push(await networklessCommand({
+  const runVerify = (id, args) =>
+    networklessCommand({
       id,
       executable: tools.queryNode.path,
       args: [path.join(seededNpm.root, 'verify.mjs'), ...args],
@@ -774,91 +1039,144 @@ async function runQueryGolden({
       budgets,
       runRoot,
       profile: querySandbox,
-    }));
-  };
-  await verify('contracts-query-verify', []);
-  await verify('contracts-query-cleanup-safety', ['--verify-cleanup-safety']);
-  await verify(
-    'contracts-query-prepare-codegen',
-    ['--prepare-codegen-projections'],
-  );
-  for (const relativeDirectory of [
-    '.tmp/go-home',
-    '.tmp/system',
-  ]) {
-    fs.mkdirSync(path.join(seededNpm.root, relativeDirectory), {
-      recursive: true,
-      mode: 0o700,
     });
-  }
-  const redocly = path.join(
-    seededNpm.root,
-    'node_modules',
-    '@redocly',
-    'cli',
-    'bin',
-    'cli.js',
-  );
-  for (const name of ['codegen-a', 'codegen-b']) {
-    const projection = path.join(seededNpm.root, '.tmp', name);
-    results.push(await networklessCommand({
-      id: `contracts-query-redocly-${name}`,
-      executable: tools.queryNode.path,
-      args: [
-        redocly,
-        'bundle',
-        path.join(projection, 'source', 'openapi', 'openapi.yaml'),
-        '--dereferenced',
-        '--ext',
-        'json',
-        '--component-names-strategy',
-        'basename',
-        '--component-renaming-conflicts-severity',
-        'error',
-        '--remove-unused-components=false',
-        '--keep-url-references=false',
-        '--output',
-        path.join(projection, 'query.bundle.json'),
-        '--config',
-        path.join(projection, 'redocly.yaml'),
-      ],
-      cwd: seededNpm.root,
-      environment: redoclyEnvironment,
-      timeoutMs: QUERY_GOLDEN_TIMEOUT_MS,
-      budgets,
-      runRoot,
-      profile: querySandbox,
-    }));
-  }
-  for (const declaration of queryTypeScriptCommandPlan({
-    goldenRoot: seededNpm.root,
-    queryNodePath: tools.queryNode.path,
-  })) {
-    results.push(await networklessCommand({
-      ...declaration,
-      environment: declaration.environment === 'typescript'
-        ? typescriptEnvironment
-        : undefined,
-      budgets,
-      runRoot,
-      profile: querySandbox,
-    }));
-  }
-  await verify(
-    'contracts-query-verify-codegen',
-    ['--verify-codegen-projections'],
-  );
-  await verify('contracts-query-cleanup', ['--cleanup-generated']);
-  const observedCommandIds = results.map(({ id }) => id);
-  if (
-    observedCommandIds.length !== QUERY_GOLDEN_COMMAND_IDS.length ||
-    observedCommandIds.some(
-      (id, index) => id !== QUERY_GOLDEN_COMMAND_IDS[index],
-    )
-  ) {
-    fail('Query golden command order is not the closed owner sequence');
-  }
-  await verifyRuntimeClosures(toolAttestation, QUERY_RUNTIME_NAMES);
+  const verify = async (id, args) => {
+    results.push(await runVerify(id, args));
+  };
+  const cleanupResult = await settleQueryOwnerCommandCleanup({
+    operation: async () => {
+      results.push(await runNpm({
+        id: 'contracts-query-npm-ci',
+        family: 'query',
+        args: ['ci', '--ignore-scripts', '--offline', '--no-audit', '--no-fund'],
+        cwd: seededNpm.root,
+        cache: seededNpm.cache,
+        tools,
+        budgets,
+        runRoot,
+        timeoutMs: 300_000,
+        runtimeRoots: runtimePaths(runtimeRoots, QUERY_RUNTIME_NAMES),
+      }));
+      await verify('contracts-query-verify', []);
+      await verify(
+        'contracts-query-cleanup-safety',
+        ['--verify-cleanup-safety'],
+      );
+      await verify(
+        'contracts-query-prepare-codegen',
+        ['--prepare-codegen-projections'],
+      );
+      for (const relativeDirectory of [
+        '.tmp/go-home',
+        '.tmp/system',
+      ]) {
+        fs.mkdirSync(path.join(seededNpm.root, relativeDirectory), {
+          recursive: true,
+          mode: 0o700,
+        });
+      }
+      const redocly = path.join(
+        seededNpm.root,
+        'node_modules',
+        '@redocly',
+        'cli',
+        'bin',
+        'cli.js',
+      );
+      const lintPlan = validateQueryRedoclyLintCommandPlan(
+        queryRedoclyLintCommandPlan({
+          goldenRoot: seededNpm.root,
+          queryNodePath: tools.queryNode.path,
+        }),
+        {
+          goldenRoot: seededNpm.root,
+          queryNodePath: tools.queryNode.path,
+        },
+      );
+      const lintResult = await networklessCommand({
+        ...lintPlan,
+        environment:
+          lintPlan.environment === 'redocly'
+            ? redoclyEnvironment
+            : undefined,
+        budgets,
+        runRoot,
+        profile: querySandbox,
+      });
+      results.push(lintResult);
+      try {
+        validateQueryRedoclyLintResult({
+          result: lintResult,
+          runRoot,
+          goldenRoot: seededNpm.root,
+          queryNodePath: tools.queryNode.path,
+        });
+      } catch (error) {
+        if (
+          error !== null &&
+          typeof error === 'object' &&
+          error.result === undefined
+        ) {
+          error.result = lintResult;
+        }
+        throw error;
+      }
+      for (const name of ['codegen-a', 'codegen-b']) {
+        const projection = path.join(seededNpm.root, '.tmp', name);
+        results.push(await networklessCommand({
+          id: `contracts-query-redocly-${name}`,
+          executable: tools.queryNode.path,
+          args: [
+            redocly,
+            'bundle',
+            path.join(projection, 'source', 'openapi', 'openapi.yaml'),
+            '--dereferenced',
+            '--ext',
+            'json',
+            '--component-names-strategy',
+            'basename',
+            '--component-renaming-conflicts-severity',
+            'error',
+            '--remove-unused-components=false',
+            '--keep-url-references=false',
+            '--output',
+            path.join(projection, 'query.bundle.json'),
+            '--config',
+            path.join(projection, 'redocly.yaml'),
+          ],
+          cwd: seededNpm.root,
+          environment: redoclyEnvironment,
+          timeoutMs: QUERY_GOLDEN_TIMEOUT_MS,
+          budgets,
+          runRoot,
+          profile: querySandbox,
+        }));
+      }
+      for (const declaration of queryTypeScriptCommandPlan({
+        goldenRoot: seededNpm.root,
+        queryNodePath: tools.queryNode.path,
+      })) {
+        results.push(await networklessCommand({
+          ...declaration,
+          environment: declaration.environment === 'typescript'
+            ? typescriptEnvironment
+            : undefined,
+          budgets,
+          runRoot,
+          profile: querySandbox,
+        }));
+      }
+      await verify(
+        'contracts-query-verify-codegen',
+        ['--verify-codegen-projections'],
+      );
+      await verifyRuntimeClosures(toolAttestation, QUERY_RUNTIME_NAMES);
+    },
+    cleanup: () =>
+      runVerify('contracts-query-cleanup', ['--cleanup-generated']),
+  });
+  results.push(cleanupResult);
+  validateQueryGoldenCommandResults(results);
   return results;
 }
 
