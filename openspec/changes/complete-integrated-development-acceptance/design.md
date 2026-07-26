@@ -325,6 +325,11 @@ runs that consumer against the copy before any packaged runtime starts. The
 known minimal fixture identities and self-consistent synthetic producer cases
 are rejected. Both Archive and provenance roots re-seal after the run.
 
+This work belongs to a dedicated `admission.archive` matrix cell owned by
+`contracts-archive-manifest`; `admission.artifacts` owns only component
+statements and their compatibility manifest. This preserves correct failure
+attribution before any owner gate or runtime starts.
+
 The harness snapshots all protected tracked paths plus supplied immutable
 inputs before execution and compares them after cleanup. A mismatch converts
 the run to failure even if all functional cells passed.
@@ -499,8 +504,10 @@ The result additionally records, without converting observations into an SLO:
 - full-Archive manifest/SQLite/source/table counts and sizes;
 - API cold readiness and graceful shutdown duration;
 - cold/warm durations and response bytes for representative global endpoints;
-- Backend container CPU time and peak memory, cache items/bytes, and request
-  counts from local metrics/runtime inspection;
+- Backend container CPU time, current memory, a 250 ms sampled high-water,
+  exact 1 GiB memory/swap hard-limit inspection, `OOMKilled=false`, cache
+  items/bytes, and request counts from local metrics/runtime inspection; the
+  sampled high-water is never described as an exact cgroup peak;
 - browser navigation/ready/action durations, transferred bytes, request count,
   and DOM size;
 - component artifact and frontend compressed sizes;
@@ -522,9 +529,20 @@ because production sizing and acceptance belong to a later operations change.
 The orchestrator launches every child in its own process group/container name
 derived from a bounded random run ID, closes inherited environment variables,
 sets explicit timeouts/output limits, sends graceful termination then bounded
-kill, and verifies listener/process/container/image/network cleanup. It
-captures bounded stdout/stderr to run-relative files and stores their digests;
-the canonical result contains only sanitized summaries.
+kill, and verifies listener/process/container/image/network cleanup. For host
+commands it also maintains a continuously refreshed ancestry ledger whose
+stable identity survives `setsid`, environment clearing, working-directory
+change, and reparenting. Only a ledger-owned identity may be signalled; an
+unrelated process appearing in the global before/after inventory blocks the run
+without authorizing cleanup of that process. It captures bounded stdout/stderr
+to run-relative files and stores their digests; the canonical result contains
+only sanitized summaries.
+
+Browser contexts expose an exact observed external-request counter and fail on
+any public/non-loopback request. Host commands and containers separately prove
+network denial through their sandbox/network policy. The report does not claim
+that denied non-browser connection syscalls were observed when the platform
+offers no syscall-level counter.
 
 On any failure it completes cleanup and result validation, marks later cells
 blocked, exits nonzero, and prints the run-relative result path. A green result

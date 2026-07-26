@@ -166,6 +166,13 @@ capability, fixed command or scenario ID, required inputs, timeout, and
 evidence fields. Runtime input SHALL NOT add a command, assertion, exception,
 threshold, route, or matrix cell.
 
+Component statements and their compatibility manifest SHALL remain owned by
+`admission.artifacts`. Full-Archive and official-provenance admission SHALL run
+in a distinct `admission.archive` cell owned by
+`contracts-archive-manifest`, after component admission and before any owner
+gate or runtime. A damaged Archive or provenance input SHALL therefore never be
+attributed to the component-artifact owner.
+
 The canonical result SHALL identify both product-candidate and harness/control
 revision/tree identities, compatibility manifest, component statements, full
 Archive, oracle, toolchains, browser, cache preparation provenance and the
@@ -519,12 +526,24 @@ SHALL NOT learn, widen, or override a budget. At minimum:
 
 The result SHALL record the full Archive source/table counts and byte sizes;
 artifact/compressed sizes; cold readiness and shutdown; cold/warm global API
-durations/response bytes; Backend CPU/peak memory/cache/request metrics;
-browser ready/action durations, transferred bytes, requests and DOM size; and
-the OS/architecture/CPU/memory class, Docker, toolchain, and browser versions.
-Machine-sensitive verdicts SHALL use one reviewed named profile. The output
-SHALL call itself development characterization and SHALL NOT claim a
-production SLO, capacity, resource limit, or readiness result.
+durations/response bytes; Backend CPU, current memory, 250 ms sampled
+high-water memory, exact 1 GiB memory and swap hard limits, OOM-kill state,
+cache, and request metrics; browser ready/action durations, transferred bytes,
+requests and DOM size; and the OS/architecture/CPU/memory class, Docker,
+toolchain, and browser versions. Machine-sensitive verdicts SHALL use one
+reviewed named profile. The output SHALL call itself development
+characterization and SHALL NOT claim a production SLO, capacity, or readiness
+result. The sampled high-water value SHALL NOT be named or represented as an
+exact cgroup peak. The hard memory decision SHALL instead require both Docker
+`Memory` and `MemorySwap` to equal 1,073,741,824 bytes and
+`OOMKilled=false`; a missing sample, sampler failure, different hard limit, or
+OOM kill SHALL fail closed.
+
+The recorded suite duration SHALL extend through runtime cleanup, protected
+input re-sealing, and complete evidence validation. Canonical result
+serialization/write/validation SHALL remain inside the final cell and suite
+watchdogs even though a self-describing result cannot include the duration of
+its own terminal write.
 
 #### Scenario: Measurements fit the reviewed development profile
 
@@ -575,17 +594,27 @@ library is authorized.
 
 Every child process SHALL run in a separately controllable process group or
 uniquely named container with a sanitized environment, finite timeout, bounded
-output, graceful-stop window, and bounded forced cleanup. The harness SHALL
-inventory listeners, processes, containers, images, networks, mounts, and run
-files before/after. It SHALL snapshot supplied artifacts/Archive and protected
-tracked paths before execution and re-seal them after cleanup.
+output, graceful-stop window, and bounded forced cleanup. Host commands SHALL
+additionally maintain a continuously refreshed descendant ancestry ledger with
+stable process identity sufficient to detect a descendant that changes
+session/process group, clears its environment, changes working directory, and
+is reparented. Cleanup MAY signal only an identity proven owned by that ledger;
+an unrelated concurrent process SHALL block the global-inventory equality
+check but SHALL NOT be killed. The harness SHALL inventory listeners,
+processes, containers, images, networks, mounts, and run files before/after. It
+SHALL snapshot supplied artifacts/Archive and protected tracked paths before
+execution and re-seal them after cleanup.
 
 Any command failure, timeout, unexpected signal/skip, invalid result,
-protected/input mutation, external network attempt, or residual state SHALL
-block a green verdict. Generated result/log/screenshot/trace/profile/Archive
-copies SHALL remain below ignored `contracts/acceptance/.tmp/**`; none SHALL be
-tracked or present at implementation handoff. Cleanup SHALL validate one exact
-owned run root and SHALL NOT perform broad recursive repository cleanup.
+protected/input mutation, observed browser external-network attempt, successful
+non-loopback command/container connection, or residual state SHALL block a
+green verdict. Browser contexts SHALL report their observed attempt count;
+non-browser commands and containers SHALL enforce sandbox/network denial and
+record that enforcement without misrepresenting unobserved denied syscalls as
+an attempt counter. Generated result/log/screenshot/trace/profile/Archive copies
+SHALL remain below ignored `contracts/acceptance/.tmp/**`; none SHALL be tracked
+or present at implementation handoff. Cleanup SHALL validate one exact owned
+run root and SHALL NOT perform broad recursive repository cleanup.
 
 #### Scenario: Failed run cleans up safely
 

@@ -127,12 +127,14 @@ commit, push, sync, archive, or update task markers.
 
 ## 4. Full Archive and packaged runtime
 
-- [ ] 4.1 Admit a separate frozen official provenance root containing
-  canonical manifest, pinned Archive `latest.json`, exact release ZIP, and
-  pinned common YAML. Validate the reviewed upstream commits/file digests,
-  exact ZIP identity, safe/exact nine-member ZIP structure, all seven consumed
-  member size/digests against the inactive Archive source accounts, both
-  reviewed unconsumed member identities, and the common identity; then
+- [ ] 4.1 In a distinct `admission.archive` cell owned by
+  `contracts-archive-manifest`, admit a separate frozen official provenance
+  root containing canonical manifest, pinned Archive `latest.json`, exact
+  release ZIP, and pinned common YAML. Validate the reviewed upstream
+  commits/file digests, exact ZIP identity, safe/exact nine-member ZIP
+  structure, all seven consumed member size/digests against the inactive
+  Archive source accounts, both reviewed unconsumed member identities, and the
+  common identity; then
   validate regular `manifest.json`/`bangumi.sqlite` through existing
   schema/digest/dataVersion/object/sentinel gates, generator compatibility,
   and reject missing/tampered provenance or checked-in
@@ -187,16 +189,23 @@ commit, push, sync, archive, or update task markers.
 
 - [ ] 6.1 Measure and record full-Archive source/table counts and bytes,
   artifact/compressed sizes, cold readiness/shutdown, cold/warm API duration
-  and response bytes, Backend CPU/peak memory/cache/request metrics, browser
-  ready/action duration/transfer/request/DOM size, and complete machine,
-  Docker, toolchain, and browser identity with explicit units.
+  and response bytes, Backend CPU/current memory/250 ms sampled-high-water
+  memory/exact 1 GiB memory-and-swap hard-limit/OOM/cache/request facts, browser
+  ready/action duration/transfer/request/DOM size, and complete machine, Docker,
+  toolchain, and browser identity with explicit units. Never label the sampled
+  high-water as an exact cgroup peak.
 - [ ] 6.2 Enforce invariant and named-profile budgets without runtime override;
   label output only as development characterization and add negative tests for
   missing/non-finite/wrong-unit/exceeded/unbounded measurements.
 - [ ] 6.3 Inventory pre/post process groups, listeners, containers, images,
   networks, mounts, run files, live tracked paths, supplied artifact roots, and
-  full Archive. Convert any mutation, external-network attempt, residual state,
-  cleanup error, or invalid canonical result to a blocking failure.
+  full Archive. Maintain stable-identity ancestry ownership across
+  `setsid`/environment/CWD/reparent escapes, kill only proven owned identities,
+  and block without killing on foreign global-process drift. Convert any
+  mutation, observed browser external-network attempt, successful non-loopback
+  connection, residual state, cleanup error, or invalid canonical result to a
+  blocking failure; record non-browser sandbox denial without inventing a
+  syscall-attempt count.
 - [ ] 6.4 Implement the exact final verdict/report wording and separate
   `specified`, `implemented`, `verified`, `committed`, `pushed`, `released`,
   and `deployed` fields. The CLI must never imply production readiness,
