@@ -139,7 +139,12 @@ function writeOciArchive(filePath, component) {
 function fakeImageInspection(
   identity,
   reference,
-  { descriptor, runtimeId },
+  {
+    descriptor,
+    descriptorDigest = identity.manifestDigest,
+    repoDigests,
+    runtimeId,
+  },
 ) {
   const repository = reference.slice(0, reference.lastIndexOf(':'));
   return canonicalJson([
@@ -148,7 +153,7 @@ function fakeImageInspection(
       ...(descriptor
         ? {
             Descriptor: {
-              digest: identity.manifestDigest,
+              digest: descriptorDigest,
               mediaType: 'application/vnd.oci.image.manifest.v1+json',
               size: identity.manifestSize,
             },
@@ -157,9 +162,10 @@ function fakeImageInspection(
       Id: runtimeId,
       Os: 'linux',
       RepoDigests:
-        descriptor
+        repoDigests ??
+        (descriptor
           ? [`${repository}@${identity.manifestDigest}`]
-          : [],
+          : []),
       RepoTags: [reference],
       RootFS: {
         Layers: identity.rootfsDiffIds,
@@ -373,12 +379,16 @@ test('parent runtime prepare receives full artifact attestation and removes only
         },
       }),
     );
+    const backendRuntimeId = `sha256:${'a'.repeat(64)}`;
+    const updaterRuntimeId = `sha256:${'b'.repeat(64)}`;
+    const invalidBackendRuntimeId = `sha256:${'c'.repeat(64)}`;
     const backendContainerd = fakeImageInspection(
       backendOci,
       BACKEND_IMAGE,
       {
         descriptor: true,
-        runtimeId: backendOci.manifestDigest,
+        repoDigests: [],
+        runtimeId: backendRuntimeId,
       },
     );
     const updaterContainerd = fakeImageInspection(
@@ -386,7 +396,8 @@ test('parent runtime prepare receives full artifact attestation and removes only
       UPDATER_IMAGE,
       {
         descriptor: true,
-        runtimeId: updaterOci.manifestDigest,
+        repoDigests: [],
+        runtimeId: updaterRuntimeId,
       },
     );
     const backendClassic = fakeImageInspection(
@@ -397,11 +408,11 @@ test('parent runtime prepare receives full artifact attestation and removes only
         runtimeId: backendOci.configDigest,
       },
     );
-    const backendContainerdWrongId = fakeImageInspection(
+    const backendContainerdWithoutDescriptor = fakeImageInspection(
       backendOci,
       BACKEND_IMAGE,
       {
-        descriptor: true,
+        descriptor: false,
         runtimeId: backendOci.configDigest,
       },
     );
@@ -413,6 +424,30 @@ test('parent runtime prepare receives full artifact attestation and removes only
         runtimeId: backendOci.manifestDigest,
       },
     );
+    const backendInvalidRuntimeId = fakeImageInspection(
+      backendOci,
+      BACKEND_IMAGE,
+      {
+        descriptor: true,
+        repoDigests: [],
+        runtimeId: 'not-a-digest',
+      },
+    );
+    const backendInvalidDescriptor = fakeImageInspection(
+      backendOci,
+      BACKEND_IMAGE,
+      {
+        descriptor: true,
+        descriptorDigest: `sha256:${'d'.repeat(64)}`,
+        repoDigests: [],
+        runtimeId: invalidBackendRuntimeId,
+      },
+    );
+    const backendWrongRepositoryDigest =
+      JSON.parse(backendContainerd)[0];
+    backendWrongRepositoryDigest.RepoDigests = [
+      `localhost/bgmss-backend-api@sha256:${'e'.repeat(64)}`,
+    ];
     assert.equal(
       acceptedLoadedImageIdentity({
         archive: backendOci,
@@ -421,7 +456,7 @@ test('parent runtime prepare receives full artifact attestation and removes only
         imageStore: { mode: 'containerd' },
         requireExclusiveTag: true,
       }),
-      backendOci.manifestDigest,
+      backendRuntimeId,
     );
     assert.equal(
       acceptedLoadedImageIdentity({
@@ -437,12 +472,12 @@ test('parent runtime prepare receives full artifact attestation and removes only
       () =>
         acceptedLoadedImageIdentity({
           archive: backendOci,
-          document: JSON.parse(backendContainerdWrongId)[0],
+          document: JSON.parse(backendContainerdWithoutDescriptor)[0],
           image: BACKEND_IMAGE,
           imageStore: { mode: 'containerd' },
           requireExclusiveTag: true,
         }),
-      /unexpected runtime ID/u,
+      /lacks an accepted manifest descriptor/u,
     );
     assert.throws(
       () =>
@@ -453,7 +488,29 @@ test('parent runtime prepare receives full artifact attestation and removes only
           imageStore: { mode: 'classic' },
           requireExclusiveTag: true,
         }),
+      /lacks an accepted manifest descriptor/u,
+    );
+    assert.throws(
+      () =>
+        acceptedLoadedImageIdentity({
+          archive: backendOci,
+          document: JSON.parse(backendInvalidRuntimeId)[0],
+          image: BACKEND_IMAGE,
+          imageStore: { mode: 'containerd' },
+          requireExclusiveTag: true,
+        }),
       /unexpected runtime ID/u,
+    );
+    assert.throws(
+      () =>
+        acceptedLoadedImageIdentity({
+          archive: backendOci,
+          document: backendWrongRepositoryDigest,
+          image: BACKEND_IMAGE,
+          imageStore: { mode: 'containerd' },
+          requireExclusiveTag: true,
+        }),
+      /unexpected repository digest/u,
     );
     const docker = path.join(allocation.runRoot, 'fake-docker.sh');
     fs.writeFileSync(
@@ -463,10 +520,12 @@ set -eu
 root=$(dirname "$HOME")
 backend_ref='${BACKEND_IMAGE}'
 updater_ref='${UPDATER_IMAGE}'
-backend_state="$root/fake-backend-image"
-updater_state="$root/fake-updater-image"
-fail_next_inspect="$root/fail-next-image-inspect"
-fail_after_load="$root/fail-after-load-inspect"
+backend_identity="$root/fake-backend-identity"
+backend_tag="$root/fake-backend-tag"
+updater_identity="$root/fake-updater-identity"
+updater_tag="$root/fake-updater-tag"
+invalid_backend="$root/invalid-backend-load"
+removed_images="$root/removed-images"
 kind=$1
 action=$2
 if [ "$kind" = info ] && [ "$action" = --format ]; then
@@ -476,32 +535,58 @@ fi
 if [ "$kind" = image ] && [ "$action" = load ]; then
   archive=$4
   case "$archive" in
-    */backend/*) printf '%s\\n' '${backendOci.manifestDigest}' > "$backend_state" ;;
-    */updater/*) printf '%s\\n' '${updaterOci.manifestDigest}' > "$updater_state" ;;
+    */backend/*)
+      if [ -f "$invalid_backend" ]; then
+        printf '%s\\n' '${invalidBackendRuntimeId}' > "$backend_identity"
+      else
+        printf '%s\\n' '${backendRuntimeId}' > "$backend_identity"
+      fi
+      : > "$backend_tag"
+      ;;
+    */updater/*)
+      printf '%s\\n' '${updaterRuntimeId}' > "$updater_identity"
+      : > "$updater_tag"
+      ;;
     *) exit 7 ;;
   esac
-  if [ -f "$fail_after_load" ]; then
-    rm "$fail_after_load"
-    printf 'fail\\n' > "$fail_next_inspect"
-  fi
   printf 'Loaded image\\n'
   exit 0
 fi
 if [ "$kind" = image ] && [ "$action" = inspect ]; then
   if [ "$3" = --format ]; then ref=$5; else ref=$3; fi
+  state=
+  tag=
+  document=
   case "$ref" in
-    "$backend_ref"|'${backendOci.manifestDigest}')
-      state=$backend_state; document='${backendContainerd}' ;;
-    "$updater_ref"|'${updaterOci.manifestDigest}')
-      state=$updater_state; document='${updaterContainerd}' ;;
-    *) state=; document= ;;
+    "$backend_ref")
+      state=$backend_identity
+      tag=$backend_tag
+      if [ -f "$invalid_backend" ]; then
+        document='${backendInvalidDescriptor}'
+      else
+        document='${backendContainerd}'
+      fi
+      ;;
+    "$updater_ref")
+      state=$updater_identity
+      tag=$updater_tag
+      document='${updaterContainerd}'
+      ;;
+    *)
+      if [ -f "$backend_identity" ] && [ "$(cat "$backend_identity")" = "$ref" ]; then
+        state=$backend_identity
+        if [ -f "$invalid_backend" ]; then
+          document='${backendInvalidDescriptor}'
+        else
+          document='${backendContainerd}'
+        fi
+      elif [ -f "$updater_identity" ] && [ "$(cat "$updater_identity")" = "$ref" ]; then
+        state=$updater_identity
+        document='${updaterContainerd}'
+      fi
+      ;;
   esac
-  if [ -n "$state" ] && [ -f "$state" ]; then
-    if [ "$ref" = "$backend_ref" ] && [ -f "$fail_next_inspect" ]; then
-      rm "$fail_next_inspect"
-      printf 'injected inspect failure\\n' >&2
-      exit 2
-    fi
+  if [ -n "$state" ] && [ -f "$state" ] && { [ -z "$tag" ] || [ -f "$tag" ]; }; then
     if [ "$3" = --format ]; then cat "$state"; else printf '%s\\n' "$document"; fi
     exit 0
   fi
@@ -511,10 +596,15 @@ fi
 if [ "$kind" = image ] && [ "$action" = rm ]; then
   [ "$3" != --force ]
   case "$3" in
-    "$backend_ref") rm "$backend_state" ;;
-    "$updater_ref") rm "$updater_state" ;;
+    "$backend_ref")
+      rm "$backend_tag" "$backend_identity"
+      ;;
+    "$updater_ref")
+      rm "$updater_tag" "$updater_identity"
+      ;;
     *) exit 8 ;;
   esac
+  printf '%s\\n' "$3" >> "$removed_images"
   exit 0
 fi
 if [ "$kind" = container ] && [ "$action" = ls ]; then exit 0; fi
@@ -557,8 +647,9 @@ exit 9
     assert.equal(prepared.imageStore.mode, 'containerd');
     assert.equal(
       prepared.loaded[BACKEND_IMAGE],
-      backendOci.manifestDigest,
+      backendRuntimeId,
     );
+    assert.equal(prepared.observed[BACKEND_IMAGE], backendRuntimeId);
     await assert.rejects(
       ownership.verifyReleased(),
       /resources remain/u,
@@ -572,9 +663,15 @@ exit 9
     });
     await ownership.verifyReleased();
 
+    const removedImages = path.join(allocation.runRoot, 'removed-images');
+    assert.deepEqual(
+      fs.readFileSync(removedImages, 'utf8').trim().split('\n').sort(),
+      [BACKEND_IMAGE, UPDATER_IMAGE].sort(),
+    );
+    fs.unlinkSync(removedImages);
     fs.writeFileSync(
-      path.join(allocation.runRoot, 'fail-after-load-inspect'),
-      'fail\n',
+      path.join(allocation.runRoot, 'invalid-backend-load'),
+      'invalid\n',
       { flag: 'wx', mode: 0o600 },
     );
     const interruptedOwnership = new SupervisorRuntimeOwnership({
@@ -586,16 +683,35 @@ exit 9
     });
     await assert.rejects(
       interruptedOwnership.prepare(),
-      /Docker command inspect-image/u,
+      /unexpected manifest descriptor/u,
     );
     assert.deepEqual(interruptedOwnership.facts().pending, [BACKEND_IMAGE]);
+    assert.deepEqual(interruptedOwnership.facts().observed, {
+      [BACKEND_IMAGE]: invalidBackendRuntimeId,
+    });
+    fs.unlinkSync(path.join(allocation.runRoot, 'fake-backend-tag'));
     const interruptedCleanup = await interruptedOwnership.cleanup();
-    assert.deepEqual(interruptedCleanup.failures, []);
+    assert.deepEqual(interruptedCleanup.failures, [
+      'supervisor-owned Docker identity remains after cleanup',
+    ]);
     assert.deepEqual(interruptedCleanup.residue, {
       containers: 0,
-      images: 0,
+      images: 1,
       networks: 0,
     });
+    assert.equal(fs.existsSync(removedImages), false);
+    assert.equal(
+      fs.readFileSync(
+        path.join(allocation.runRoot, 'fake-backend-identity'),
+        'utf8',
+      ).trim(),
+      invalidBackendRuntimeId,
+    );
+    await assert.rejects(
+      interruptedOwnership.verifyReleased(),
+      /resources remain/u,
+    );
+    fs.unlinkSync(path.join(allocation.runRoot, 'fake-backend-identity'));
     await interruptedOwnership.verifyReleased();
   } finally {
     for (const connection of connections) connection.destroy();

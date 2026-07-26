@@ -11,6 +11,7 @@ import {
   assertApiViewSemantics,
   assertCatalogResponse,
 } from '../lib/api-journey.mjs';
+import { runWithAbortSignal } from '../lib/abort-context.mjs';
 import { sealImmutableArtifactRoot } from '../lib/artifacts.mjs';
 import { canonicalJson } from '../lib/canonical-json.mjs';
 import { copyCacheTree, validateSeededGoToolchain } from '../lib/cache.mjs';
@@ -2528,19 +2529,74 @@ test('runtime distributions close internal links and browser copies use new inod
   fs.writeFileSync(executable, 'browser');
   fs.chmodSync(executable, 0o555);
   fs.chmodSync(source, 0o555);
+  const admittedSourceSeal = await sealDirectoryTree(source);
   const copied = await copyBrowserDistribution({
     sourceRoot: source,
     sourceExecutable: executable,
     destinationRoot: destination,
     expectedExecutableDigest:
       `sha256:${createHash('sha256').update('browser').digest('hex')}`,
+    admittedSourceSeal,
   });
+  assert.equal(copied.sourceSeal, admittedSourceSeal);
   const sourceInformation = fs.statSync(executable);
   const copyInformation = fs.statSync(copied.executablePath);
   assert.notEqual(
     `${sourceInformation.dev}:${sourceInformation.ino}`,
     `${copyInformation.dev}:${copyInformation.ino}`,
   );
+});
+
+test('runtime closure admission drains later seals before ordered rejection', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-runtime-drain-')),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const source = path.join(root, 'later-source');
+  fs.mkdirSync(source);
+  for (let index = 0; index < 32; index += 1) {
+    fs.writeFileSync(
+      path.join(source, `entry-${String(index).padStart(2, '0')}`),
+      Buffer.alloc(64 * 1024, index),
+      { mode: 0o444 },
+    );
+  }
+  const finalEntry = path.join(source, 'entry-31');
+  const originalLstatSync = fs.lstatSync;
+  let finalEntryObserved = false;
+  fs.lstatSync = (candidate, ...arguments_) => {
+    if (candidate === finalEntry) finalEntryObserved = true;
+    return originalLstatSync(candidate, ...arguments_);
+  };
+  try {
+    await assert.rejects(
+      attestRuntimeClosureSpecifications({
+        declaredFirstFailure: {
+          classification: 'read-only-source',
+          root: source,
+          sealKind: 'unsupported-fixture-kind',
+          shape: 'directory',
+        },
+        laterSeal: {
+          classification: 'read-only-source',
+          root: source,
+          sealKind: 'distributionTree',
+          sealOptions: Object.freeze({ allowInternalSymlinks: false }),
+          shape: 'directory',
+        },
+        declaredLaterFailure: {
+          classification: 'read-only-source',
+          root: source,
+          sealKind: 'another-unsupported-fixture-kind',
+          shape: 'directory',
+        },
+      }),
+      /unknown runtime closure seal kind unsupported-fixture-kind/u,
+    );
+    assert.equal(finalEntryObserved, true);
+  } finally {
+    fs.lstatSync = originalLstatSync;
+  }
 });
 
 test('runtime distribution and single-file copies preserve bytes but reject later mutation', async (t) => {
@@ -2554,14 +2610,38 @@ test('runtime distribution and single-file copies preserve bytes but reject late
     mode: 0o555,
   });
   fs.symlinkSync('tool-real', path.join(source, 'bin', 'tool'));
+  const admittedSourceSeal = await sealDistributionTree(source, {
+    allowInternalSymlinks: true,
+  });
   const copied = await copyRuntimeDistribution({
     sourceRoot: source,
     destinationRoot: path.join(root, 'copy'),
     allowInternalSymlinks: true,
+    admittedSourceSeal,
   });
+  assert.equal(copied.sourceSeal, admittedSourceSeal);
   assert.notEqual(
     copied.sourceSeal.identityDigest,
     copied.copiedSeal.identityDigest,
+  );
+  const sourceInodes = new Set(
+    copied.sourceSeal.identities.map(
+      (identity) => `${identity.device}:${identity.inode}`,
+    ),
+  );
+  assert.equal(
+    copied.copiedSeal.identities.some((identity) =>
+      sourceInodes.has(`${identity.device}:${identity.inode}`),
+    ),
+    false,
+  );
+  assert.equal(
+    fs.lstatSync(path.join(copied.root, 'bin', 'tool-real')).mode & 0o777,
+    0o555,
+  );
+  assert.equal(
+    fs.readlinkSync(path.join(copied.root, 'bin', 'tool')),
+    'tool-real',
   );
   assertSameSeal(
     copied.copiedSeal,
@@ -2580,10 +2660,13 @@ test('runtime distribution and single-file copies preserve bytes but reject late
 
   const sourceFile = path.join(root, 'single-source');
   fs.writeFileSync(sourceFile, 'single\n', { mode: 0o555 });
+  const admittedFileSeal = await sealSingleFileDistribution(sourceFile);
   const copiedFile = await copySingleFileRuntime({
     sourcePath: sourceFile,
     destinationPath: path.join(root, 'single-copy'),
+    admittedSourceSeal: admittedFileSeal,
   });
+  assert.equal(copiedFile.sourceSeal, admittedFileSeal);
   assert.notEqual(
     copiedFile.sourceSeal.identityDigest,
     copiedFile.copiedSeal.identityDigest,
@@ -2593,6 +2676,176 @@ test('runtime distribution and single-file copies preserve bytes but reject late
   assert.throws(
     () => assertSameSeal(copiedFile.copiedSeal, changedFile),
     /changed during acceptance/u,
+  );
+
+  const staleSource = path.join(root, 'stale-source');
+  fs.mkdirSync(staleSource);
+  const staleTool = path.join(staleSource, 'tool');
+  fs.writeFileSync(staleTool, 'before\n', { mode: 0o555 });
+  const staleSeal = await sealDistributionTree(staleSource);
+  fs.chmodSync(staleTool, 0o755);
+  fs.writeFileSync(staleTool, 'after\n');
+  fs.chmodSync(staleTool, 0o555);
+  await assert.rejects(
+    copyRuntimeDistribution({
+      sourceRoot: staleSource,
+      destinationRoot: path.join(root, 'stale-copy'),
+      admittedSourceSeal: staleSeal,
+    }),
+    /copy differs from its admitted source bytes/u,
+  );
+
+  const unrelatedSource = path.join(root, 'unrelated-source');
+  fs.mkdirSync(unrelatedSource);
+  fs.writeFileSync(path.join(unrelatedSource, 'tool'), 'unrelated\n', {
+    mode: 0o555,
+  });
+  const unrelatedSeal = await sealDistributionTree(unrelatedSource);
+  await assert.rejects(
+    copyRuntimeDistribution({
+      sourceRoot: source,
+      destinationRoot: path.join(root, 'wrong-seal-copy'),
+      admittedSourceSeal: unrelatedSeal,
+    }),
+    /admitted source seal does not identify its source/u,
+  );
+
+  const movingSource = path.join(root, 'moving-source');
+  fs.mkdirSync(movingSource);
+  fs.writeFileSync(path.join(movingSource, 'a-tool'), 'stable-a\n', {
+    mode: 0o555,
+  });
+  const movingLast = path.join(movingSource, 'z-tool');
+  fs.writeFileSync(movingLast, 'stable-z\n', { mode: 0o555 });
+  const movingSeal = await sealDistributionTree(movingSource);
+  const originalCopyFile = fs.promises.copyFile;
+  let mutatedAfterCopy = false;
+  fs.promises.copyFile = async (...arguments_) => {
+    await originalCopyFile(...arguments_);
+    if (arguments_[0] !== movingLast) return;
+    fs.chmodSync(movingLast, 0o755);
+    fs.writeFileSync(movingLast, 'changed-z\n');
+    fs.chmodSync(movingLast, 0o555);
+    mutatedAfterCopy = true;
+  };
+  try {
+    await assert.rejects(
+      copyRuntimeDistribution({
+        sourceRoot: movingSource,
+        destinationRoot: path.join(root, 'moving-copy'),
+        admittedSourceSeal: movingSeal,
+      }),
+      /runtime distribution source changed during acceptance/u,
+    );
+    assert.equal(mutatedAfterCopy, true);
+  } finally {
+    fs.promises.copyFile = originalCopyFile;
+  }
+
+  const linkedSource = path.join(root, 'linked-source');
+  fs.mkdirSync(linkedSource);
+  const linkedTool = path.join(linkedSource, 'tool');
+  fs.writeFileSync(linkedTool, 'linked\n', { mode: 0o555 });
+  fs.linkSync(linkedTool, path.join(linkedSource, 'hardlink'));
+  await assert.rejects(
+    copyRuntimeDistribution({
+      sourceRoot: linkedSource,
+      destinationRoot: path.join(root, 'linked-copy'),
+    }),
+    /hard-linked file/u,
+  );
+
+  const specialSource = path.join(root, 'special-source');
+  fs.mkdirSync(specialSource);
+  const specialEntry = path.join(specialSource, 'pipe');
+  assert.equal(spawnSync('/usr/bin/mkfifo', [specialEntry]).status, 0);
+  await assert.rejects(
+    copyRuntimeDistribution({
+      sourceRoot: specialSource,
+      destinationRoot: path.join(root, 'special-copy'),
+    }),
+    /special file/u,
+  );
+});
+
+test('runtime distribution copy stops between files when its cell aborts', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-runtime-abort-')),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const source = path.join(root, 'source');
+  fs.mkdirSync(source);
+  for (let index = 0; index < 64; index += 1) {
+    fs.writeFileSync(
+      path.join(source, `runtime-${String(index).padStart(3, '0')}`),
+      Buffer.alloc(4096, index),
+      { mode: 0o444 },
+    );
+  }
+  const admittedSourceSeal = await sealDistributionTree(source);
+  const destination = path.join(root, 'copy');
+  const controller = new AbortController();
+  const reason = new Error('fixture runtime-copy abort');
+  const pending = runWithAbortSignal(controller.signal, () =>
+    copyRuntimeDistribution({
+      sourceRoot: source,
+      destinationRoot: destination,
+      admittedSourceSeal,
+    }),
+  );
+  queueMicrotask(() => controller.abort(reason));
+  await assert.rejects(pending, (error) => error === reason);
+  assert.ok(fs.existsSync(destination));
+  assert.ok(fs.readdirSync(destination).length < 64);
+  assertSameSeal(
+    admittedSourceSeal,
+    await sealDistributionTree(source),
+    'aborted runtime distribution source',
+  );
+});
+
+test('representative runtime closures and five copies provide a cooperative bounded smoke', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-runtime-bounded-')),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const specifications = {};
+  for (let closureIndex = 0; closureIndex < 5; closureIndex += 1) {
+    const source = path.join(root, `source-${closureIndex}`);
+    fs.mkdirSync(source);
+    for (let fileIndex = 0; fileIndex < 24; fileIndex += 1) {
+      fs.writeFileSync(
+        path.join(source, `entry-${String(fileIndex).padStart(3, '0')}`),
+        Buffer.alloc(1024, closureIndex + fileIndex),
+        { mode: fileIndex % 2 === 0 ? 0o444 : 0o555 },
+      );
+    }
+    specifications[`runtime${closureIndex}`] = {
+      classification: 'read-only-source',
+      copied: false,
+      hermetic: false,
+      root: source,
+      sealKind: 'distributionTree',
+      sealOptions: Object.freeze({ allowInternalSymlinks: false }),
+      shape: 'directory',
+    };
+  }
+  const startedAt = performance.now();
+  const admitted = await attestRuntimeClosureSpecifications(specifications);
+  const copies = await Promise.all(
+    Object.values(admitted.runtimeRoots).map((runtime, index) =>
+      copyRuntimeDistribution({
+        sourceRoot: runtime.root,
+        destinationRoot: path.join(root, `copy-${index}`),
+        admittedSourceSeal: runtime.seal,
+      }),
+    ),
+  );
+  const elapsedMs = performance.now() - startedAt;
+  assert.equal(copies.length, 5);
+  assert.ok(
+    elapsedMs < 15_000,
+    `cooperative runtime-copy smoke took ${elapsedMs.toFixed(1)}ms`,
   );
 });
 

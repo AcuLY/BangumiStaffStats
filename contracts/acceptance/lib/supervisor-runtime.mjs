@@ -360,10 +360,15 @@ export function acceptedLoadedImageIdentity({
     { nullable: true },
   );
   if (
-    repoDigests.some(
-      (reference) => !reference.endsWith(`@${archive.manifestDigest}`),
-    ) ||
-    (imageStore.mode === 'containerd' && repoDigests.length === 0)
+    !['classic', 'containerd'].includes(imageStore?.mode) ||
+    repoDigests.some((reference) => {
+      const separator = reference.indexOf('@');
+      return (
+        separator <= 0 ||
+        separator !== reference.lastIndexOf('@') ||
+        reference.slice(separator + 1) !== archive.manifestDigest
+      );
+    })
   ) {
     fail(`Docker image ${image} has an unexpected repository digest`);
   }
@@ -385,17 +390,13 @@ export function acceptedLoadedImageIdentity({
     ) {
       fail(`Docker image ${image} has an unexpected manifest descriptor`);
     }
-  }
-  const expectedRuntimeId =
-    imageStore.mode === 'containerd'
-      ? archive.manifestDigest
-      : archive.configDigest;
-  if (
-    !DIGEST_PATTERN.test(document.Id) ||
-    document.Id !== expectedRuntimeId ||
-    (imageStore.mode === 'containerd' &&
-      (descriptor === undefined || descriptor === null))
+  } else if (
+    imageStore.mode !== 'classic' ||
+    document.Id !== archive.configDigest
   ) {
+    fail(`Docker image ${image} lacks an accepted manifest descriptor`);
+  }
+  if (!DIGEST_PATTERN.test(document.Id)) {
     fail(`Docker image ${image} has an unexpected runtime ID`);
   }
   return document.Id;
@@ -425,6 +426,7 @@ export class SupervisorRuntimeOwnership {
       ]),
     );
     this.loaded = new Map();
+    this.observed = new Map();
     this.pending = new Set();
     this.commands = [];
     this.prepared = false;
@@ -468,6 +470,13 @@ export class SupervisorRuntimeOwnership {
         ),
       ),
       names: this.plan.names,
+      observed: Object.freeze(
+        Object.fromEntries(
+          [...this.observed.entries()].sort(([left], [right]) =>
+            left.localeCompare(right, 'en'),
+          ),
+        ),
+      ),
       pending: Object.freeze([...this.pending].sort()),
       prepared: this.prepared,
       schemaVersion: 1,
@@ -577,6 +586,19 @@ export class SupervisorRuntimeOwnership {
     });
   }
 
+  #recordObservedImageId(image, document) {
+    const observedId = document?.Id;
+    if (!DIGEST_PATTERN.test(observedId)) {
+      fail(`Docker image ${image} has an unexpected runtime ID`);
+    }
+    const prior = this.observed.get(image);
+    if (prior !== undefined && prior !== observedId) {
+      fail(`supervisor-owned image reference changed identity: ${image}`);
+    }
+    this.observed.set(image, observedId);
+    return observedId;
+  }
+
   async prepare({ signal } = {}) {
     if (signal !== undefined && !(signal instanceof AbortSignal)) {
       fail('supervisor runtime preparation signal is invalid');
@@ -586,6 +608,7 @@ export class SupervisorRuntimeOwnership {
       if (
         this.prepared ||
         this.loaded.size !== 0 ||
+        this.observed.size !== 0 ||
         this.pending.size !== 0 ||
         this.imageStore !== null
       ) {
@@ -630,6 +653,10 @@ export class SupervisorRuntimeOwnership {
         if (!inspection.exists) {
           fail(`supervisor loaded ${component} without its owned image tag`);
         }
+        const observedId = this.#recordObservedImageId(
+          image,
+          inspection.document,
+        );
         const runtimeId = acceptedLoadedImageIdentity({
           archive: this.expected.get(image),
           document: inspection.document,
@@ -637,6 +664,9 @@ export class SupervisorRuntimeOwnership {
           imageStore: this.imageStore,
           requireExclusiveTag: true,
         });
+        if (runtimeId !== observedId) {
+          fail(`supervisor loaded ${component} with an unstable runtime ID`);
+        }
         this.loaded.set(image, runtimeId);
         this.pending.delete(image);
       }
@@ -666,7 +696,11 @@ export class SupervisorRuntimeOwnership {
     if ((await this.#inspect('network', this.plan.names.network)).exists) {
       residue.networks = 1;
     }
-    const owned = new Set([...this.pending, ...this.loaded.keys()]);
+    const owned = new Set([
+      ...this.pending,
+      ...this.loaded.keys(),
+      ...this.observed.keys(),
+    ]);
     for (const image of Object.values(this.plan.images)) {
       const referenceExists = (await this.#inspect('image', image)).exists;
       if (referenceExists) {
@@ -676,6 +710,7 @@ export class SupervisorRuntimeOwnership {
       if (!owned.has(image) || this.imageStore === null) continue;
       const identity = this.expected.get(image);
       const runtimeId =
+        this.observed.get(image) ??
         this.loaded.get(image) ??
         (this.imageStore.mode === 'containerd'
           ? identity.manifestDigest
@@ -727,7 +762,11 @@ export class SupervisorRuntimeOwnership {
     } catch (error) {
       failures.push(error);
     }
-    const owned = new Set([...this.pending, ...this.loaded.keys()]);
+    const owned = new Set([
+      ...this.pending,
+      ...this.loaded.keys(),
+      ...this.observed.keys(),
+    ]);
     for (const image of owned) {
       try {
         if (this.imageStore === null) {
@@ -735,6 +774,10 @@ export class SupervisorRuntimeOwnership {
         }
         const inspection = await this.#inspectImage(image);
         if (inspection.exists) {
+          const recordedId = this.#recordObservedImageId(
+            image,
+            inspection.document,
+          );
           const observedId = acceptedLoadedImageIdentity({
             archive: this.expected.get(image),
             document: inspection.document,
@@ -742,8 +785,12 @@ export class SupervisorRuntimeOwnership {
             imageStore: this.imageStore,
             requireExclusiveTag: false,
           });
-          const loadedId = this.loaded.get(image);
-          if (loadedId !== undefined && observedId !== loadedId) {
+          const loadedId =
+            this.loaded.get(image) ?? this.observed.get(image);
+          if (
+            observedId !== recordedId ||
+            (loadedId !== undefined && observedId !== loadedId)
+          ) {
             fail(
               `supervisor-owned image reference changed identity: ${image}`,
             );

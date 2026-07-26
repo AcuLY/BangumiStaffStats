@@ -625,6 +625,25 @@ images, networks, mounts, and run files before/after. It SHALL snapshot supplied
 artifacts/Archive and protected tracked paths before execution and re-seal them
 after cleanup.
 
+For every acceptance-owned OCI image load, the admitted archive manifest
+descriptor, config, platform, layers, and rootfs identities SHALL remain the
+content authority while the Docker daemon's runtime image ID is an observed
+store identity. When image inspection exposes a manifest `Descriptor`, its
+media type, digest, and size SHALL exactly match the admitted manifest;
+`RepoDigests` MAY be empty, but every value present SHALL bind that manifest,
+and `Id` SHALL be one syntactically valid digest recorded without assuming it
+equals either the manifest or config digest. Without a `Descriptor`, only a
+classic image store whose `Id` exactly equals the admitted config digest MAY
+pass; a descriptor-less containerd image store SHALL fail closed.
+
+The supervisor SHALL record the first valid post-load inspected `Id` before
+performing the remaining image checks. Cleanup MAY remove only the exact
+run-owned repository tag and SHALL never remove an image by manifest, config,
+or observed runtime digest. If the owned tag disappears while that observed
+runtime identity remains addressable, including under a foreign tag, the
+supervisor SHALL retain the ownership fact, report image residue, and block
+the verdict rather than deleting or reporting zero residue.
+
 The unprivileged macOS profile has no Endpoint Security/DTrace fork-event
 authority. It therefore SHALL NOT claim safe attribution or cleanup of a
 process that deliberately forks, changes session, and exits its parent before
@@ -665,6 +684,14 @@ run root and SHALL NOT perform broad recursive repository cleanup.
   tracked result, or changed input remains
 - **THEN** the residue/final-seal cell SHALL fail and no green verdict SHALL be
   emitted
+
+#### Scenario: A loaded image loses its owned tag
+
+- **WHEN** a successful post-load inspection recorded one valid runtime image
+  ID, later validation or cleanup finds the exact run-owned tag absent, and
+  that runtime ID remains addressable
+- **THEN** cleanup SHALL NOT delete by digest, image residue SHALL remain
+  nonzero, and no green verdict SHALL be emitted
 
 ### Requirement: Development completion SHALL not claim operations completion
 

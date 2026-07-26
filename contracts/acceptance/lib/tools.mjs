@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { throwIfAborted } from './abort-context.mjs';
 import { copyCacheTree } from './cache.mjs';
 import { requireInputCacheAttestation } from './cache-input.mjs';
 import { commandEvidence } from './evidence.mjs';
@@ -159,14 +160,24 @@ function runtimeClosureIdentities(runtimeRoots) {
 }
 
 export async function attestRuntimeClosureSpecifications(specifications) {
-  const runtimeRoots = {};
-  for (const [name, specification] of Object.entries(specifications)) {
-    runtimeRoots[name] = closure(
-      specification.root,
-      await sealRuntimeClosure(specification),
-      specification,
-    );
-  }
+  const declarations = Object.entries(specifications);
+  const outcomes = await Promise.allSettled(
+    declarations.map(async ([name, specification]) => [
+      name,
+      closure(
+        specification.root,
+        await sealRuntimeClosure(specification),
+        specification,
+      ),
+    ]),
+  );
+  const rejectedIndex = outcomes.findIndex(
+    (outcome) => outcome.status === 'rejected',
+  );
+  if (rejectedIndex !== -1) throw outcomes[rejectedIndex].reason;
+  const runtimeRoots = Object.fromEntries(
+    outcomes.map((outcome) => outcome.value),
+  );
   const frozenRoots = Object.freeze(runtimeRoots);
   return Object.freeze({
     runtimeClosures: runtimeClosureIdentities(frozenRoots),
@@ -304,11 +315,27 @@ function assertNewInodeClosure(sourceSeal, copiedSeal, label) {
   }
 }
 
+function reusableSourceSeal(admittedSourceSeal, source, label) {
+  if (admittedSourceSeal === undefined) return null;
+  if (
+    !admittedSourceSeal ||
+    admittedSourceSeal.root !== source ||
+    typeof admittedSourceSeal.digest !== 'string' ||
+    typeof admittedSourceSeal.canonical !== 'string' ||
+    !Array.isArray(admittedSourceSeal.identities)
+  ) {
+    fail(`${label} admitted source seal does not identify its source`);
+  }
+  return admittedSourceSeal;
+}
+
 export async function copyRuntimeDistribution({
   sourceRoot,
   destinationRoot,
   allowInternalSymlinks = false,
+  admittedSourceSeal,
 }) {
+  throwIfAborted();
   const source = requireCanonicalPath(sourceRoot, {
     label: 'runtime distribution source',
     type: 'directory',
@@ -316,30 +343,40 @@ export async function copyRuntimeDistribution({
   if (fs.existsSync(destinationRoot)) {
     fail(`runtime distribution destination already exists: ${destinationRoot}`);
   }
-  const sourceSeal = await sealDistributionTree(source, {
-    allowInternalSymlinks,
-  });
+  const sourceSeal =
+    reusableSourceSeal(
+      admittedSourceSeal,
+      source,
+      'runtime distribution',
+    ) ??
+    (await sealDistributionTree(source, {
+      allowInternalSymlinks,
+    }));
+  throwIfAborted();
   fs.mkdirSync(path.dirname(destinationRoot), {
     recursive: true,
     mode: 0o700,
   });
-  function copyDirectory(sourceDirectory, destinationDirectory) {
+  async function copyDirectory(sourceDirectory, destinationDirectory) {
+    throwIfAborted();
     const directoryInformation = fs.lstatSync(sourceDirectory);
     fs.mkdirSync(destinationDirectory, { mode: 0o700 });
     for (const entry of fs
       .readdirSync(sourceDirectory, { withFileTypes: true })
       .sort((left, right) => left.name.localeCompare(right.name, 'en'))) {
+      throwIfAborted();
       const sourcePath = path.join(sourceDirectory, entry.name);
       const destinationPath = path.join(destinationDirectory, entry.name);
       const information = fs.lstatSync(sourcePath);
       if (information.isDirectory()) {
-        copyDirectory(sourcePath, destinationPath);
+        await copyDirectory(sourcePath, destinationPath);
       } else if (information.isFile()) {
-        fs.copyFileSync(
+        await fs.promises.copyFile(
           sourcePath,
           destinationPath,
           fs.constants.COPYFILE_EXCL,
         );
+        throwIfAborted();
         fs.chmodSync(destinationPath, information.mode & 0o777);
       } else if (information.isSymbolicLink() && allowInternalSymlinks) {
         fs.symlinkSync(fs.readlinkSync(sourcePath), destinationPath);
@@ -349,7 +386,8 @@ export async function copyRuntimeDistribution({
     }
     fs.chmodSync(destinationDirectory, directoryInformation.mode & 0o777);
   }
-  copyDirectory(source, destinationRoot);
+  await copyDirectory(source, destinationRoot);
+  throwIfAborted();
   const copiedRoot = requireCanonicalPath(destinationRoot, {
     label: 'copied runtime distribution',
     type: 'directory',
@@ -358,9 +396,12 @@ export async function copyRuntimeDistribution({
     allowInternalSymlinks,
   });
   assertNewInodeClosure(sourceSeal, copiedSeal, 'runtime distribution');
+  const sourceAfter = await sealDistributionTree(source, {
+    allowInternalSymlinks,
+  });
   assertSameSeal(
     sourceSeal,
-    await sealDistributionTree(source, { allowInternalSymlinks }),
+    sourceAfter,
     'runtime distribution source',
   );
   return Object.freeze({ sourceSeal, copiedSeal, root: copiedRoot });
@@ -369,7 +410,9 @@ export async function copyRuntimeDistribution({
 export async function copySingleFileRuntime({
   sourcePath,
   destinationPath,
+  admittedSourceSeal,
 }) {
+  throwIfAborted();
   const source = requireCanonicalPath(sourcePath, {
     label: 'single-file runtime source',
     type: 'file',
@@ -377,12 +420,20 @@ export async function copySingleFileRuntime({
   if (fs.existsSync(destinationPath)) {
     fail(`single-file runtime destination already exists: ${destinationPath}`);
   }
-  const sourceSeal = await sealSingleFileDistribution(source);
+  const sourceSeal =
+    reusableSourceSeal(admittedSourceSeal, source, 'single-file runtime') ??
+    (await sealSingleFileDistribution(source));
+  throwIfAborted();
   fs.mkdirSync(path.dirname(destinationPath), {
     recursive: true,
     mode: 0o700,
   });
-  fs.copyFileSync(source, destinationPath, fs.constants.COPYFILE_EXCL);
+  await fs.promises.copyFile(
+    source,
+    destinationPath,
+    fs.constants.COPYFILE_EXCL,
+  );
+  throwIfAborted();
   fs.chmodSync(destinationPath, fs.lstatSync(source).mode & 0o777);
   const copied = requireCanonicalPath(destinationPath, {
     label: 'copied single-file runtime',
@@ -390,9 +441,10 @@ export async function copySingleFileRuntime({
   });
   const copiedSeal = await sealSingleFileDistribution(copied);
   assertNewInodeClosure(sourceSeal, copiedSeal, 'single-file runtime');
+  const sourceAfter = await sealSingleFileDistribution(source);
   assertSameSeal(
     sourceSeal,
-    await sealSingleFileDistribution(source),
+    sourceAfter,
     'single-file runtime source',
   );
   return Object.freeze({ sourceSeal, copiedSeal, path: copied });
@@ -403,7 +455,9 @@ export async function copyBrowserDistribution({
   sourceExecutable,
   destinationRoot,
   expectedExecutableDigest,
+  admittedSourceSeal,
 }) {
+  throwIfAborted();
   const root = requireCanonicalPath(sourceRoot, {
     label: 'browser distribution source',
     type: 'directory',
@@ -416,8 +470,15 @@ export async function copyBrowserDistribution({
     fail('browser executable is not inside the admitted browser cache');
   }
   const relativeExecutable = path.relative(root, executable);
-  const sourceSeal = await sealDirectoryTree(root);
+  const sourceSeal =
+    reusableSourceSeal(
+      admittedSourceSeal,
+      root,
+      'browser distribution',
+    ) ?? (await sealDirectoryTree(root));
+  throwIfAborted();
   copyCacheTree(root, destinationRoot);
+  throwIfAborted();
   const copiedRoot = requireCanonicalPath(destinationRoot, {
     label: 'copied browser distribution',
     type: 'directory',
@@ -575,28 +636,46 @@ export async function attestTools({
   const currentGoRoot = inputRuntimeRoots.currentGoSource.root;
   const pythonRoot = inputRuntimeRoots.pythonSource.root;
   const runtimeCopyRoot = path.join(runRoot, 'runtime', 'tools');
-  const currentNodeCopy = await copyRuntimeDistribution({
-    sourceRoot: currentNodeRoot,
-    destinationRoot: path.join(runtimeCopyRoot, 'current-node'),
-    allowInternalSymlinks: true,
-  });
-  const currentGoCopy = await copyRuntimeDistribution({
-    sourceRoot: currentGoRoot,
-    destinationRoot: path.join(runtimeCopyRoot, 'current-go'),
-  });
-  const pythonCopy = await copyRuntimeDistribution({
-    sourceRoot: pythonRoot,
-    destinationRoot: path.join(runtimeCopyRoot, 'python'),
-    allowInternalSymlinks: true,
-  });
-  const uvCopy = await copySingleFileRuntime({
-    sourcePath: sourceTools.uv.path,
-    destinationPath: path.join(runtimeCopyRoot, 'uv', 'uv'),
-  });
-  const dockerCopy = await copySingleFileRuntime({
-    sourcePath: sourceTools.docker.path,
-    destinationPath: path.join(runtimeCopyRoot, 'docker', 'docker'),
-  });
+  const copyOutcomes = await Promise.allSettled([
+    copyRuntimeDistribution({
+      sourceRoot: currentNodeRoot,
+      destinationRoot: path.join(runtimeCopyRoot, 'current-node'),
+      allowInternalSymlinks: true,
+      admittedSourceSeal: inputRuntimeRoots.currentNodeSource.seal,
+    }),
+    copyRuntimeDistribution({
+      sourceRoot: currentGoRoot,
+      destinationRoot: path.join(runtimeCopyRoot, 'current-go'),
+      admittedSourceSeal: inputRuntimeRoots.currentGoSource.seal,
+    }),
+    copyRuntimeDistribution({
+      sourceRoot: pythonRoot,
+      destinationRoot: path.join(runtimeCopyRoot, 'python'),
+      allowInternalSymlinks: true,
+      admittedSourceSeal: inputRuntimeRoots.pythonSource.seal,
+    }),
+    copySingleFileRuntime({
+      sourcePath: sourceTools.uv.path,
+      destinationPath: path.join(runtimeCopyRoot, 'uv', 'uv'),
+      admittedSourceSeal: inputRuntimeRoots.uvSource.seal,
+    }),
+    copySingleFileRuntime({
+      sourcePath: sourceTools.docker.path,
+      destinationPath: path.join(runtimeCopyRoot, 'docker', 'docker'),
+      admittedSourceSeal: inputRuntimeRoots.dockerSource.seal,
+    }),
+  ]);
+  const rejectedCopy = copyOutcomes.find(
+    (outcome) => outcome.status === 'rejected',
+  );
+  if (rejectedCopy) throw rejectedCopy.reason;
+  const [
+    currentNodeCopy,
+    currentGoCopy,
+    pythonCopy,
+    uvCopy,
+    dockerCopy,
+  ] = copyOutcomes.map((outcome) => outcome.value);
   for (const [label, admitted, copied] of [
     [
       'current Node source',
@@ -672,12 +751,7 @@ export async function attestTools({
     tools.npm.path,
     'copied current npm package root',
   );
-  const currentNpmSourceSeal = await sealDirectoryTree(currentNpmRoot);
-  assertSameSeal(
-    inputRuntimeRoots.currentNpmSource.seal,
-    currentNpmSourceSeal,
-    'current npm source',
-  );
+  const currentNpmSourceSeal = inputRuntimeRoots.currentNpmSource.seal;
   const currentNpmCopySeal = await sealDirectoryTree(currentNpmCopyRoot);
   assertNewInodeClosure(
     currentNpmSourceSeal,
@@ -771,6 +845,7 @@ export async function attestTools({
     sourceExecutable: browserSourceExecutable,
     destinationRoot: path.join(runRoot, 'runtime', 'browser'),
     expectedExecutableDigest: browserDigest,
+    admittedSourceSeal: inputRuntimeRoots.browserSource.seal,
   });
   runtimeRootsDraft.browserSource = inputRuntimeRoots.browserSource;
   runtimeRootsDraft.browserCopy = closure(

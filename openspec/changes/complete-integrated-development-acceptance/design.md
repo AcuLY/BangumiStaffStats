@@ -563,6 +563,17 @@ instead of guessing ownership or killing a reused/foreign PID. It captures
 bounded stdout/stderr to run-relative files and stores their digests; the
 canonical result contains only sanitized summaries.
 
+OCI load admission separates archive content identity from daemon store
+identity. An exact Docker inspection `Descriptor` is authoritative for the
+manifest tuple; the daemon `Id` is only a syntactically valid, recorded opaque
+runtime identity, and absent `RepoDigests` are valid while any present values
+must bind the admitted manifest. Descriptor-less inspection is accepted only
+for the classic store with `Id == configDigest`; containerd without a
+descriptor is rejected. The first post-load `Id` is retained before all later
+checks so a disappearing owned tag cannot erase cleanup accountability.
+Cleanup removes only the exact run-owned tag, never a digest; an addressable
+observed ID left under any reference is blocking residue.
+
 Browser contexts expose an exact observed external-request counter and fail on
 any public/non-loopback request. Host commands and containers separately prove
 network denial through their sandbox/network policy. The report does not claim

@@ -214,7 +214,13 @@ commit, push, sync, archive, or update task markers.
   denial without inventing a syscall-attempt count. Cover synchronous worker
   stalls, microtask starvation, malformed/out-of-order checkpoints, lost
   workers, and worker-side late writes with parent-supervised negative tests;
-  no partial worker result may be accepted as canonical.
+  no partial worker result may be accepted as canonical. For loaded OCI
+  images, treat an exact manifest Descriptor as content authority and the
+  daemon `Id` as an opaque observed digest; accept descriptor-less identity
+  only for the classic store with the exact config digest. Record the first
+  post-load actual ID before remaining validation, remove only the exact
+  run-owned tag, and fail residue if that tag disappears while the observed ID
+  remains addressable.
 - [ ] 6.4 Implement the exact final verdict/report wording and separate
   `specified`, `implemented`, `verified`, `committed`, `pushed`, `released`,
   and `deployed` fields. The CLI must never imply production readiness,
