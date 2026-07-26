@@ -7,8 +7,20 @@ import process from "node:process";
 import { TextDecoder } from "node:util";
 import { fileURLToPath } from "node:url";
 
-const goldenRoot = path.dirname(fileURLToPath(import.meta.url));
-const repositoryRoot = path.resolve(goldenRoot, "../../..");
+const verifierFile = fs.realpathSync(fileURLToPath(import.meta.url));
+const goldenRoot = path.dirname(verifierFile);
+const repositoryRootCandidate = path.resolve(goldenRoot, "../../..");
+const repositoryRoot = fs.realpathSync(repositoryRootCandidate);
+assert.equal(
+  repositoryRoot,
+  repositoryRootCandidate,
+  `repository root is not canonical: ${repositoryRootCandidate} -> ${repositoryRoot}`
+);
+assert.equal(
+  path.relative(repositoryRoot, verifierFile),
+  "contracts/goldens/query/verify.mjs",
+  "verifier location does not match the fixed repository layout"
+);
 const schemaRoot = path.join(repositoryRoot, "contracts/schemas/query");
 const openapiPath = path.join(repositoryRoot, "contracts/openapi/openapi.yaml");
 const generatedRoots = [
@@ -113,23 +125,1604 @@ const approvedRedoclySandboxProfileSha256 =
   "80de7c41c4cac0234db39d259c29450b17c4e5768f24bc7dd9f9f8c75d2c12a3";
 const fixedAcceptancePath =
   "/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+const npmCli =
+  "/Users/luca/.nvm/versions/node/v24.16.0/lib/node_modules/npm/bin/npm-cli.js";
 const goExecutable =
   "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/go";
 const gofmtExecutable =
   "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/gofmt";
+const expectedRuntimeEvidence = {
+  fixedPath: fixedAcceptancePath,
+  node: {
+    path: expectedNodeExecutable,
+    bytes: 120573328,
+    sha256:
+      "1ee75375e33b94fc34b3b19aede049e11dae90efb63b374dc96d6bdace70c4b8",
+    version: "v24.16.0"
+  },
+  npm: {
+    path: npmCli,
+    bytes: 54,
+    sha256:
+      "8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7",
+    version: "11.13.0"
+  },
+  go: {
+    path: goExecutable,
+    bytes: 14099410,
+    sha256:
+      "e1a57268371ee61981e88c3adb6eb137fb57dcee6beace0e01502ac151fa4096"
+  },
+  gofmt: {
+    path: gofmtExecutable,
+    bytes: 2896530,
+    sha256:
+      "eeaf6f19a1dc39e1633da28960709143de210cdad34a20bd9a3530829ad47567"
+  }
+};
+const expectedRedoclyCliEvidence = {
+  path: "contracts/goldens/query/node_modules/@redocly/cli/bin/cli.js",
+  bytes: 47,
+  sha256:
+    "0bc1c889b89327e0a4e4130782b78b63c84132d54d065be16b3357db5d30c5c8"
+};
+const expectedTypescriptCliEvidence = {
+  path: "contracts/goldens/query/node_modules/openapi-typescript/bin/cli.js",
+  bytes: 10850,
+  sha256:
+    "8d7ba578431790f4325dd3bbc128f2301970fdbbdeba9781019e8cc25d0fa407"
+};
+const expectedGoModuleEvidence = {
+  goMod: {
+    path: "contracts/goldens/query/.tmp/go.mod",
+    bytes: 197,
+    sha256:
+      "dded0ad8642adcdbb5a786de7b12165ba33ec550adbaefae7fd3bba0479c2a94"
+  },
+  goSum: {
+    path: "contracts/goldens/query/.tmp/go.sum",
+    bytes: 1306,
+    sha256:
+      "46983b3967ffaae472baff9b8bd827dc57b7cfe6462fe589112b3e8ea24f38a0"
+  }
+};
+const expectedGoModuleInputEvidence = {
+  goMod: {
+    path: "contracts/goldens/query/fixtures/go-module/go.mod.lock",
+    bytes: 197,
+    sha256:
+      "dded0ad8642adcdbb5a786de7b12165ba33ec550adbaefae7fd3bba0479c2a94"
+  },
+  goSum: {
+    path: "contracts/goldens/query/fixtures/go-module/go.sum.lock",
+    bytes: 1306,
+    sha256:
+      "46983b3967ffaae472baff9b8bd827dc57b7cfe6462fe589112b3e8ea24f38a0"
+  }
+};
+const expectedGoModuleFileMode = 0o600;
+const goDownloadProgressSha256 =
+  "8f5badf2897fef0db74868448ad19d0606764e0f4bb900446425e62db070d8de";
 const goSandboxWrapper = "/usr/bin/sandbox-exec";
 const cleanEnvironmentExecutable = "/usr/bin/env";
-const goEnvironment = {
-  PATH: fixedAcceptancePath,
-  HOME: path.join(goldenRoot, ".tmp/go-home"),
-  TMPDIR: path.join(goldenRoot, ".tmp/system"),
-  GOCACHE: path.join(goldenRoot, ".cache/go-build"),
-  GOMODCACHE: path.join(goldenRoot, ".cache/go-mod"),
-  GOPATH: path.join(goldenRoot, ".cache/go-path"),
-  GOENV: "off",
-  GOWORK: "off",
-  GOTOOLCHAIN: "local"
-};
+const repositoryRootToken = "@repo-root@";
+const originalRepositoryRoot = "/Users/luca/dev/BangumiStaffStats";
+const repositoryTokenPattern = /@[A-Za-z][A-Za-z0-9_-]*@/gu;
+const repositoryEvidenceRoots = generatedRoots.map(
+  (root) => `contracts/goldens/query/${root}`
+);
+const repositoryRootOnlyEvidencePointers = new Set([
+  "/acceptanceEvidence/goSandbox/recoveryHistory/rejectedPackedEnvironmentAttempt/commands/0/cwd"
+]);
+let spawnedChildCount = 0;
+
+function goldenRootForRepository(root) {
+  return path.join(root, "contracts/goldens/query");
+}
+
+function goEnvironmentForRepository(root) {
+  const ownedGoldenRoot = goldenRootForRepository(root);
+  return {
+    PATH: fixedAcceptancePath,
+    HOME: path.join(ownedGoldenRoot, ".tmp/go-home"),
+    TMPDIR: path.join(ownedGoldenRoot, ".tmp/system"),
+    GOCACHE: path.join(ownedGoldenRoot, ".cache/go-build"),
+    GOMODCACHE: path.join(ownedGoldenRoot, ".cache/go-mod"),
+    GOPATH: path.join(ownedGoldenRoot, ".cache/go-path"),
+    GOENV: "off",
+    GOWORK: "off",
+    GOTOOLCHAIN: "local"
+  };
+}
+
+const goEnvironment = goEnvironmentForRepository(repositoryRoot);
+
+function environmentArgv(environment) {
+  return Object.entries(environment).map(([key, value]) => `${key}=${value}`);
+}
+
+function redoclyEnvironmentForRepository(root) {
+  const ownedGoldenRoot = goldenRootForRepository(root);
+  return {
+    PATH: fixedAcceptancePath,
+    HOME: path.join(ownedGoldenRoot, ".tmp/redocly-home"),
+    TMPDIR: path.join(ownedGoldenRoot, ".tmp/redocly-tmp"),
+    REDOCLY_TELEMETRY: "off"
+  };
+}
+
+function typescriptEnvironmentForRepository(root) {
+  const ownedGoldenRoot = goldenRootForRepository(root);
+  return {
+    PATH: fixedAcceptancePath,
+    HOME: path.join(ownedGoldenRoot, ".tmp/redocly-home"),
+    TMPDIR: path.join(ownedGoldenRoot, ".tmp/system")
+  };
+}
+
+function goWrapperPrefixForRepository(root) {
+  return [
+    goSandboxWrapper,
+    "-p",
+    approvedGoSandboxProfile,
+    cleanEnvironmentExecutable,
+    "-i",
+    ...environmentArgv(goEnvironmentForRepository(root))
+  ];
+}
+
+function redoclyWrapperPrefixForRepository(root) {
+  return [
+    goSandboxWrapper,
+    "-p",
+    approvedRedoclySandboxProfile,
+    cleanEnvironmentExecutable,
+    "-i",
+    ...environmentArgv(redoclyEnvironmentForRepository(root))
+  ];
+}
+
+function goOperationPlansForRepository(root) {
+  const temporaryRoot = path.join(goldenRootForRepository(root), ".tmp");
+  const generationArgs = (output) => [
+    "run",
+    "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0",
+    "-generate",
+    "models,skip-prune",
+    "-package",
+    "querywire",
+    "-o",
+    output,
+    "contracts/goldens/query/.tmp/codegen-a/query.bundle.json"
+  ];
+  return {
+    primaryGeneration: {
+      executable: goExecutable,
+      cwd: root,
+      childArgs: generationArgs(
+        "contracts/goldens/query/.tmp/query.gen.go"
+      ),
+      pathRoles: [
+        {
+          index: 7,
+          relative: "contracts/goldens/query/.tmp/query.gen.go"
+        },
+        {
+          index: 8,
+          relative:
+            "contracts/goldens/query/.tmp/codegen-a/query.bundle.json"
+        }
+      ]
+    },
+    deterministicReplay: {
+      executable: goExecutable,
+      cwd: root,
+      childArgs: generationArgs(
+        "contracts/goldens/query/.tmp/query.verify.gen.go"
+      ),
+      pathRoles: [
+        {
+          index: 7,
+          relative:
+            "contracts/goldens/query/.tmp/query.verify.gen.go"
+        },
+        {
+          index: 8,
+          relative:
+            "contracts/goldens/query/.tmp/codegen-a/query.bundle.json"
+        }
+      ]
+    },
+    gofmt: {
+      executable: gofmtExecutable,
+      cwd: temporaryRoot,
+      childArgs: ["-d", "query.gen.go"],
+      pathRoles: [
+        {
+          index: 1,
+          relative: "contracts/goldens/query/.tmp/query.gen.go"
+        }
+      ]
+    },
+    compileSmoke: {
+      executable: goExecutable,
+      cwd: temporaryRoot,
+      childArgs: ["test", "query.gen.go"],
+      pathRoles: [
+        {
+          index: 1,
+          relative: "contracts/goldens/query/.tmp/query.gen.go"
+        }
+      ]
+    }
+  };
+}
+
+function expectedManifestExecutionEvidence(root) {
+  const ownedGoldenRoot = goldenRootForRepository(root);
+  const ownedTemporaryRoot = path.join(ownedGoldenRoot, ".tmp");
+  const typescriptEnvironment = typescriptEnvironmentForRepository(root);
+  const typescriptEnvironmentArgv = environmentArgv(typescriptEnvironment);
+  const redoclyEnvironment = redoclyEnvironmentForRepository(root);
+  const redoclyWrapperPrefix = redoclyWrapperPrefixForRepository(root);
+  const currentGoEnvironment = goEnvironmentForRepository(root);
+  const goWrapperPrefix = goWrapperPrefixForRepository(root);
+  const goOperationPlans = goOperationPlansForRepository(root);
+  const packedGoEnvironment = environmentArgv(currentGoEnvironment).join(" ");
+  const typescriptCli =
+    "contracts/goldens/query/node_modules/openapi-typescript/bin/cli.js";
+  const typescriptSource = (name) =>
+    `contracts/goldens/query/.tmp/codegen-${name}/source/openapi/openapi.yaml`;
+  const redoclyCli =
+    "contracts/goldens/query/node_modules/@redocly/cli/bin/cli.js";
+  const typescriptCommand = (name) => ({
+    childArgv: [
+      expectedNodeExecutable,
+      typescriptCli,
+      typescriptSource(name),
+      "--output",
+      `contracts/goldens/query/.tmp/query-${name}.d.ts`
+    ],
+    environmentArgv: typescriptEnvironmentArgv,
+    status: 0
+  });
+  const redoclyVersionChildArgv = [
+    expectedNodeExecutable,
+    redoclyCli,
+    "--version",
+    "--config",
+    "contracts/goldens/query/.tmp/codegen-a/redocly.yaml"
+  ];
+  const redoclyLintChildArgv = [
+    expectedNodeExecutable,
+    redoclyCli,
+    "lint",
+    typescriptSource("a"),
+    "--config",
+    "contracts/goldens/query/.tmp/codegen-a/redocly.yaml",
+    "--extends",
+    "recommended"
+  ];
+  const redoclyBundleCommand = (projection) => {
+    const childArgv = [
+      expectedNodeExecutable,
+      redoclyCli,
+      "bundle",
+      `contracts/goldens/query/.tmp/${projection}/source/openapi/openapi.yaml`,
+      "--dereferenced",
+      "--ext",
+      "json",
+      "--component-names-strategy",
+      "basename",
+      "--component-renaming-conflicts-severity",
+      "error",
+      "--remove-unused-components=false",
+      "--keep-url-references=false",
+      "--output",
+      `contracts/goldens/query/.tmp/${projection}/query.bundle.json`,
+      "--config",
+      `contracts/goldens/query/.tmp/${projection}/redocly.yaml`
+    ];
+    return {
+      projection,
+      childArgv,
+      wrapperArgv: [...redoclyWrapperPrefix, ...childArgv],
+      status: 0
+    };
+  };
+  const primaryGoChildArgv = [
+    goOperationPlans.primaryGeneration.executable,
+    ...goOperationPlans.primaryGeneration.childArgs
+  ];
+  const replayGoChildArgv = [
+    goOperationPlans.deterministicReplay.executable,
+    ...goOperationPlans.deterministicReplay.childArgs
+  ];
+  const rejectedCommand = (
+    label,
+    cwd,
+    executable,
+    childArgs,
+    status,
+    stderr
+  ) => ({
+    label,
+    cwd,
+    wrapperArgv: [
+      goSandboxWrapper,
+      "-p",
+      approvedGoSandboxProfile,
+      "env",
+      "-i",
+      packedGoEnvironment,
+      executable,
+      ...childArgs
+    ],
+    status,
+    ...(stderr === undefined ? {} : { stderr })
+  });
+  const correctedCommand = (label, executable, childArgs) => {
+    const childArgv = [executable, ...childArgs];
+    return {
+      label,
+      cwd: ownedTemporaryRoot,
+      childArgv,
+      wrapperArgv: [...goWrapperPrefix, ...childArgv],
+      status: 0
+    };
+  };
+  return {
+    toolchain: {
+      node: ">=20.19.0 <21.0.0 || >=22.12.0",
+      npm: ">=10",
+      ajv: "8.20.0",
+      "ajv-formats": "3.0.1",
+      "@redocly/cli": "2.40.0",
+      "openapi-typescript": "7.13.0",
+      canonicalize: "3.0.0",
+      "oapi-codegen":
+        "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0"
+    },
+    codegen: {
+      typescript: {
+        identity: "openapi-typescript",
+        version: "7.13.0",
+        cli: expectedTypescriptCliEvidence,
+        source: typescriptSource("a"),
+        environment: typescriptEnvironment,
+        commands: [
+          typescriptCommand("a"),
+          typescriptCommand("b")
+        ]
+      },
+      go: {
+        identity:
+          "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen",
+        version: "v2.8.0",
+        runtimeDependency: "github.com/oapi-codegen/runtime@v1.1.2",
+        source: "contracts/goldens/query/.tmp/codegen-a/query.bundle.json",
+        primaryGeneration: {
+          childArgv: primaryGoChildArgv,
+          wrapperArgv: [...goWrapperPrefix, ...primaryGoChildArgv],
+          status: 0
+        },
+        deterministicReplayChildArgv: replayGoChildArgv,
+        wrapperPrefixArgv: goWrapperPrefix,
+        moduleInputs: expectedGoModuleInputEvidence,
+        module: expectedGoModuleEvidence,
+        output: {
+          primaryGeneration: {
+            childArgv: primaryGoChildArgv,
+            status: 0,
+            stdoutSha256:
+              "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          deterministicReplay: {
+            childArgv: replayGoChildArgv,
+            status: 0,
+            stdoutSha256:
+              "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            bytes: 447229,
+            sha256:
+              "cbcc772d0ead0aac6fc17a5f6fe9bdca4add83e39120ed0a68d518a4a467caac",
+            byteIdentical: true
+          },
+          gofmt: {
+            childArgv: [
+              goOperationPlans.gofmt.executable,
+              ...goOperationPlans.gofmt.childArgs
+            ],
+            status: 0,
+            stdoutBytes: 0,
+            stderrBytes: 0
+          },
+          compileSmoke: {
+            childArgv: [
+              goOperationPlans.compileSmoke.executable,
+              ...goOperationPlans.compileSmoke.childArgs
+            ],
+            status: 0,
+            stdoutSha256:
+              "a9d70c449818998ca3d1d5418c2091a6fe5a40ab701d1ba55e260ff1ba375713"
+          }
+        }
+      }
+    },
+    acceptanceEvidence: {
+      runtime: expectedRuntimeEvidence,
+      projectionTool: {
+        identity: "repo-owned cycle-safe sanitized codegen projection",
+        version: 1,
+        command: {
+          argv: [
+            expectedNodeExecutable,
+            "contracts/goldens/query/verify.mjs",
+            "--prepare-codegen-projections"
+          ],
+          explicitEnvironment: {
+            PATH: fixedAcceptancePath
+          }
+        },
+        exactConfigBytes: "{}\n",
+        sourceInventory: projectionSourceInventory,
+        deletedRootKeysPerTree: 14
+      },
+      redocly: {
+        identity: "@redocly/cli",
+        version: "2.40.0",
+        cli: expectedRedoclyCliEvidence,
+        configDiscovery:
+          "explicit projection-local exact empty config only",
+        lintIgnoreFiles: 0,
+        sandbox: {
+          wrapper: goSandboxWrapper,
+          profile: approvedRedoclySandboxProfile,
+          profileSha256: approvedRedoclySandboxProfileSha256,
+          cleanEnvironmentExecutable,
+          environment: redoclyEnvironment,
+          wrapperPrefixArgv: redoclyWrapperPrefix
+        },
+        versionCommand: {
+          childArgv: redoclyVersionChildArgv,
+          wrapperArgv: [
+            ...redoclyWrapperPrefix,
+            ...redoclyVersionChildArgv
+          ],
+          status: 0
+        },
+        lintCommand: {
+          childArgv: redoclyLintChildArgv,
+          wrapperArgv: [
+            ...redoclyWrapperPrefix,
+            ...redoclyLintChildArgv
+          ],
+          extends: "recommended",
+          errors: 0,
+          warnings: 9,
+          status: 0
+        },
+        bundleCommands: [
+          redoclyBundleCommand("codegen-a"),
+          redoclyBundleCommand("codegen-b")
+        ],
+        networkEvidence:
+          "sandbox enforced that no network operation could succeed; denial-message absence is not evidence of no attempt",
+        externalOrDefaultHomeWrites: 0
+      },
+      goSandbox: {
+        telemetryMode: "local",
+        telemetryDirectory:
+          "/Users/luca/Library/Application Support/go/telemetry",
+        wrapper: goSandboxWrapper,
+        profile: {
+          text: approvedGoSandboxProfile,
+          sha256: approvedGoSandboxProfileSha256
+        },
+        cleanEnvironmentExecutable,
+        environment: currentGoEnvironment,
+        wrapperPrefixArgv: goWrapperPrefix,
+        externalCollectionOwnerPaused: true,
+        recoveryHistory: {
+          candidateAdmission: "excluded",
+          rejectedPackedEnvironmentAttempt: {
+            reason:
+              "zsh scalar expansion preserved one packed environment argument, so required HOME/cache variables were absent in the child",
+            unsandboxedGoCommands: 0,
+            networkOrModuleDownloadCompleted: false,
+            commands: [
+              rejectedCommand(
+                "gofmt-before-smoke",
+                root,
+                gofmtExecutable,
+                ["-d", "contracts/goldens/query/.tmp/query.gen.go"],
+                0
+              ),
+              rejectedCommand(
+                "go-mod-init",
+                ownedTemporaryRoot,
+                goExecutable,
+                ["mod", "init", "querywire-smoke"],
+                0
+              ),
+              rejectedCommand(
+                "go-get-runtime",
+                ownedTemporaryRoot,
+                goExecutable,
+                ["get", "github.com/oapi-codegen/runtime@v1.1.2"],
+                1,
+                "go: module cache not found: neither GOMODCACHE nor GOPATH is set"
+              ),
+              rejectedCommand(
+                "go-test",
+                ownedTemporaryRoot,
+                goExecutable,
+                ["test", "query.gen.go"],
+                1,
+                "missing runtime requirement; GOCACHE and HOME not defined"
+              )
+            ],
+            residualBeforeAuthorizedCorrection: {
+              goMod: {
+                path: "contracts/goldens/query/.tmp/go.mod",
+                bytes: 34,
+                sha256:
+                  "123f80c1b3eb0a73a4704993d0cd0e64e9c65beddbf45d4326c57af5c5ab9b10"
+              },
+              goSumPresent: false,
+              generatedGo: {
+                path: "contracts/goldens/query/.tmp/query.gen.go",
+                bytes: 447229,
+                sha256:
+                  "cbcc772d0ead0aac6fc17a5f6fe9bdca4add83e39120ed0a68d518a4a467caac"
+              },
+              gofmtDiffBytes: 0
+            },
+            mainAgentReadOnlyReview: true,
+            oneControlledCorrectionAuthorized: true
+          },
+          correctedSmoke: {
+            environmentArgumentMode:
+              "each KEY=value is an independent /usr/bin/env -i argv",
+            commands: [
+              correctedCommand(
+                "go-mod-init",
+                goExecutable,
+                ["mod", "init", "querywire-smoke"]
+              ),
+              correctedCommand(
+                "go-get-runtime-v1.1.2",
+                goExecutable,
+                ["get", "github.com/oapi-codegen/runtime@v1.1.2"]
+              ),
+              correctedCommand(
+                "gofmt",
+                gofmtExecutable,
+                ["-d", "query.gen.go"]
+              ),
+              correctedCommand(
+                "go-test",
+                goExecutable,
+                ["test", "query.gen.go"]
+              )
+            ],
+            secondNonzero: false
+          }
+        }
+      }
+    }
+  };
+}
+
+function selectedManifestExecutionEvidence(manifestValue) {
+  const projectionTool = manifestValue.acceptanceEvidence.projectionTool;
+  const redocly = manifestValue.acceptanceEvidence.redocly;
+  const goSandbox = manifestValue.acceptanceEvidence.goSandbox;
+  const rejected =
+    goSandbox.recoveryHistory.rejectedPackedEnvironmentAttempt;
+  const corrected = goSandbox.recoveryHistory.correctedSmoke;
+  return {
+    toolchain: manifestValue.toolchain,
+    codegen: {
+      typescript: {
+        identity: manifestValue.codegen.typescript.identity,
+        version: manifestValue.codegen.typescript.version,
+        cli: manifestValue.codegen.typescript.cli,
+        source: manifestValue.codegen.typescript.source,
+        environment: manifestValue.codegen.typescript.environment,
+        commands: manifestValue.codegen.typescript.commands
+      },
+      go: {
+        identity: manifestValue.codegen.go.identity,
+        version: manifestValue.codegen.go.version,
+        runtimeDependency: manifestValue.codegen.go.runtimeDependency,
+        source: manifestValue.codegen.go.source,
+        primaryGeneration: manifestValue.codegen.go.primaryGeneration,
+        deterministicReplayChildArgv:
+          manifestValue.codegen.go.deterministicReplayChildArgv,
+        wrapperPrefixArgv: manifestValue.codegen.go.wrapperPrefixArgv,
+        moduleInputs: manifestValue.codegen.go.moduleInputs,
+        module: manifestValue.codegen.go.module,
+        output: {
+          primaryGeneration:
+            manifestValue.codegen.go.output.primaryGeneration,
+          deterministicReplay:
+            manifestValue.codegen.go.output.deterministicReplay,
+          gofmt: manifestValue.codegen.go.output.gofmt,
+          compileSmoke: manifestValue.codegen.go.output.compileSmoke
+        }
+      }
+    },
+    acceptanceEvidence: {
+      runtime: manifestValue.acceptanceEvidence.runtime,
+      projectionTool: {
+        identity: projectionTool.identity,
+        version: projectionTool.version,
+        command: projectionTool.command,
+        exactConfigBytes: projectionTool.exactConfigBytes,
+        sourceInventory: projectionTool.sourceInventory,
+        deletedRootKeysPerTree: projectionTool.deletedRootKeysPerTree
+      },
+      redocly: {
+        identity: redocly.identity,
+        version: redocly.version,
+        cli: redocly.cli,
+        configDiscovery: redocly.configDiscovery,
+        lintIgnoreFiles: redocly.lintIgnoreFiles,
+        sandbox: redocly.sandbox,
+        versionCommand: redocly.versionCommand,
+        lintCommand: redocly.lintCommand,
+        bundleCommands: redocly.bundleCommands,
+        networkEvidence: redocly.networkEvidence,
+        externalOrDefaultHomeWrites:
+          redocly.externalOrDefaultHomeWrites
+      },
+      goSandbox: {
+        telemetryMode: goSandbox.telemetryMode,
+        telemetryDirectory: goSandbox.telemetryDirectory,
+        wrapper: goSandbox.wrapper,
+        profile: goSandbox.profile,
+        cleanEnvironmentExecutable:
+          goSandbox.cleanEnvironmentExecutable,
+        environment: goSandbox.environment,
+        wrapperPrefixArgv: goSandbox.wrapperPrefixArgv,
+        externalCollectionOwnerPaused:
+          goSandbox.externalCollectionOwnerPaused,
+        recoveryHistory: {
+          candidateAdmission:
+            goSandbox.recoveryHistory.candidateAdmission,
+          rejectedPackedEnvironmentAttempt: {
+            reason: rejected.reason,
+            unsandboxedGoCommands: rejected.unsandboxedGoCommands,
+            networkOrModuleDownloadCompleted:
+              rejected.networkOrModuleDownloadCompleted,
+            commands: rejected.commands,
+            residualBeforeAuthorizedCorrection:
+              rejected.residualBeforeAuthorizedCorrection,
+            mainAgentReadOnlyReview:
+              rejected.mainAgentReadOnlyReview,
+            oneControlledCorrectionAuthorized:
+              rejected.oneControlledCorrectionAuthorized
+          },
+          correctedSmoke: {
+            environmentArgumentMode: corrected.environmentArgumentMode,
+            commands: corrected.commands,
+            secondNonzero: corrected.secondNonzero
+          }
+        }
+      }
+    }
+  };
+}
+
+function escapeJsonPointerSegment(segment) {
+  return segment.replaceAll("~", "~0").replaceAll("/", "~1");
+}
+
+function assertCanonicalEvidenceRepositoryRoot(root) {
+  assert.equal(typeof root, "string", "evidence root must be a string");
+  assert.equal(path.isAbsolute(root), true, `evidence root is not absolute: ${root}`);
+  assert.equal(path.normalize(root), root, `evidence root is not normalized: ${root}`);
+  assert.notEqual(root, path.parse(root).root, "filesystem root is not an evidence root");
+  assert.equal(root.includes("\0"), false, "evidence root contains NUL");
+}
+
+function assertRepositoryEvidenceSuffix(suffix, allowRepositoryRoot) {
+  if (suffix === "") {
+    assert.equal(
+      allowRepositoryRoot,
+      true,
+      "empty repository suffix is not admitted at this evidence position"
+    );
+    return;
+  }
+  assert.equal(
+    suffix.startsWith("/"),
+    true,
+    `repository evidence suffix is not rooted: ${JSON.stringify(suffix)}`
+  );
+  assert.equal(
+    suffix.endsWith("/"),
+    false,
+    `repository evidence suffix has a trailing separator: ${JSON.stringify(suffix)}`
+  );
+  assert.equal(
+    suffix.includes("//"),
+    false,
+    `repository evidence suffix has repeated separators: ${JSON.stringify(suffix)}`
+  );
+  assert.equal(
+    suffix.includes("\\"),
+    false,
+    `repository evidence suffix has a backslash: ${JSON.stringify(suffix)}`
+  );
+  assert.equal(
+    suffix.includes("\0"),
+    false,
+    "repository evidence suffix contains NUL"
+  );
+  const relative = suffix.slice(1);
+  const segments = relative.split("/");
+  assert.equal(
+    segments.some((segment) => segment === "" || segment === "." || segment === ".."),
+    false,
+    `repository evidence suffix has an empty/dot segment: ${JSON.stringify(suffix)}`
+  );
+  assert.equal(
+    path.posix.normalize(relative),
+    relative,
+    `repository evidence suffix is not normalized: ${JSON.stringify(suffix)}`
+  );
+  assert.equal(
+    repositoryEvidenceRoots.some(
+      (allowed) => relative === allowed || relative.startsWith(`${allowed}/`)
+    ),
+    true,
+    `repository evidence suffix is outside closed Query roots: ${JSON.stringify(suffix)}`
+  );
+}
+
+function encodeRepositoryEvidenceString(
+  value,
+  root,
+  { allowRepositoryRoot = false } = {}
+) {
+  assert.equal(typeof value, "string", "repository evidence must be a string");
+  assertCanonicalEvidenceRepositoryRoot(root);
+  let cursor = 0;
+  let encoded = "";
+  let occurrences = 0;
+  while (true) {
+    const index = value.indexOf(root, cursor);
+    if (index < 0) {
+      encoded += value.slice(cursor);
+      break;
+    }
+    const left = index === 0 ? "" : value[index - 1];
+    const afterRoot = index + root.length;
+    const right = afterRoot === value.length ? "" : value[afterRoot];
+    assert.equal(
+      index === 0 || left === "=" || left === " ",
+      true,
+      `repository root has a forbidden left boundary: ${JSON.stringify(value)}`
+    );
+    assert.equal(
+      right === "" || right === "/",
+      true,
+      `repository root has a forbidden right boundary: ${JSON.stringify(value)}`
+    );
+    const suffixEnd = value.indexOf(" ", afterRoot);
+    const pathEnd = suffixEnd < 0 ? value.length : suffixEnd;
+    const suffix = value.slice(afterRoot, pathEnd);
+    assertRepositoryEvidenceSuffix(suffix, allowRepositoryRoot);
+    encoded += value.slice(cursor, index);
+    encoded += repositoryRootToken;
+    cursor = afterRoot;
+    occurrences += 1;
+  }
+  return {
+    encoded,
+    occurrences
+  };
+}
+
+function encodeRepositoryEvidenceTree(
+  value,
+  root,
+  pointer = ""
+) {
+  if (typeof value === "string") {
+    if (!value.includes(root)) {
+      return value;
+    }
+    return encodeRepositoryEvidenceString(value, root, {
+      allowRepositoryRoot:
+        repositoryRootOnlyEvidencePointers.has(pointer)
+    }).encoded;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry, index) =>
+      encodeRepositoryEvidenceTree(entry, root, `${pointer}/${index}`)
+    );
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [
+        key,
+        encodeRepositoryEvidenceTree(
+          entry,
+          root,
+          `${pointer}/${escapeJsonPointerSegment(key)}`
+        )
+      ])
+    );
+  }
+  return value;
+}
+
+function assertLogicalRepositoryEvidenceString(
+  value,
+  { allowRepositoryRoot = false } = {}
+) {
+  let cursor = 0;
+  let occurrences = 0;
+  while (true) {
+    const index = value.indexOf(repositoryRootToken, cursor);
+    if (index < 0) {
+      break;
+    }
+    const left = index === 0 ? "" : value[index - 1];
+    const afterToken = index + repositoryRootToken.length;
+    const right = afterToken === value.length ? "" : value[afterToken];
+    assert.equal(
+      index === 0 || left === "=" || left === " ",
+      true,
+      `repository token has a forbidden left boundary: ${JSON.stringify(value)}`
+    );
+    assert.equal(
+      right === "" || right === "/",
+      true,
+      `repository token has a forbidden right boundary: ${JSON.stringify(value)}`
+    );
+    const suffixEnd = value.indexOf(" ", afterToken);
+    const pathEnd = suffixEnd < 0 ? value.length : suffixEnd;
+    assertRepositoryEvidenceSuffix(
+      value.slice(afterToken, pathEnd),
+      allowRepositoryRoot
+    );
+    occurrences += 1;
+    cursor = afterToken;
+  }
+  return occurrences;
+}
+
+function collectRepositoryTokenEvidence(
+  value,
+  {
+    currentRoot,
+    rejectAbsoluteRoots = true,
+    pointer = "",
+    rows = []
+  }
+) {
+  if (typeof value === "string") {
+    for (const match of value.matchAll(repositoryTokenPattern)) {
+      assert.equal(
+        match[0],
+        repositoryRootToken,
+        `unknown repository token ${match[0]} at ${pointer || "/"}`
+      );
+    }
+    if (rejectAbsoluteRoots) {
+      for (const absoluteRoot of new Set([
+        currentRoot,
+        originalRepositoryRoot
+      ])) {
+        assert.equal(
+          value.includes(absoluteRoot),
+          false,
+          `absolute checkout root remains at ${pointer || "/"}`
+        );
+      }
+    }
+    const occurrences = assertLogicalRepositoryEvidenceString(value, {
+      allowRepositoryRoot:
+        repositoryRootOnlyEvidencePointers.has(pointer)
+    });
+    if (occurrences > 0) {
+      rows.push({
+        pointer: pointer || "/",
+        occurrences,
+        value
+      });
+    }
+    return rows;
+  }
+  if (Array.isArray(value)) {
+    for (const [index, entry] of value.entries()) {
+      collectRepositoryTokenEvidence(entry, {
+        currentRoot,
+        rejectAbsoluteRoots,
+        pointer: `${pointer}/${index}`,
+        rows
+      });
+    }
+    return rows;
+  }
+  if (value !== null && typeof value === "object") {
+    for (const [key, entry] of Object.entries(value)) {
+      const entryPointer =
+        `${pointer}/${escapeJsonPointerSegment(key)}`;
+      const keyTokens = [...key.matchAll(repositoryTokenPattern)].map(
+        (match) => match[0]
+      );
+      assert.deepEqual(
+        keyTokens,
+        [],
+        `repository token is forbidden in an object key at ${entryPointer}`
+      );
+      if (rejectAbsoluteRoots) {
+        for (const absoluteRoot of new Set([
+          currentRoot,
+          originalRepositoryRoot
+        ])) {
+          assert.equal(
+            key.includes(absoluteRoot),
+            false,
+            `absolute checkout root is forbidden in an object key at ${entryPointer}`
+          );
+        }
+      }
+      collectRepositoryTokenEvidence(entry, {
+        currentRoot,
+        rejectAbsoluteRoots,
+        pointer: entryPointer,
+        rows
+      });
+    }
+  }
+  return rows;
+}
+
+function stableJson(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableJson(entry)).join(",")}]`;
+  }
+  if (value !== null && typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function assertGoDownloadPolicyFrozen(policy, label) {
+  assert.equal(policy.name, "go-download-progress-v1", `${label}: name`);
+  assert.equal(
+    policy.stderrGrammar,
+    "go: downloading <module> <version>\\n",
+    `${label}: stderr grammar`
+  );
+  assert.deepEqual(
+    policy.appliesTo,
+    ["primaryGeneration", "deterministicReplay", "compileSmoke"],
+    `${label}: operation set`
+  );
+  assert.deepEqual(
+    Object.keys(policy.sourceGraphs),
+    ["generatorTool", "compileSmoke"],
+    `${label}: source graph keys/order`
+  );
+  const expectedGraphPlans = {
+    generatorTool: {
+      label: "generatorTool",
+      mainModule: "querywire-generator-graph"
+    },
+    compileSmoke: {
+      label: "compileSmoke",
+      mainModule: "querywire-smoke"
+    }
+  };
+  const graphPairs = [];
+  for (const [key, expected] of Object.entries(expectedGraphPlans)) {
+    const graph = policy.sourceGraphs[key];
+    assert.equal(graph.label, expected.label, `${label}: ${key} label`);
+    assert.equal(
+      graph.mainModule,
+      expected.mainModule,
+      `${label}: ${key} main module`
+    );
+    assert.deepEqual(
+      graph.childArgv,
+      [goExecutable, "list", "-m", "all"],
+      `${label}: ${key} child argv`
+    );
+    assert.deepEqual(
+      graph.moduleVersionPairs,
+      [...graph.moduleVersionPairs].sort(scalarCompare),
+      `${label}: ${key} module graph must be lexically sorted`
+    );
+    assert.equal(
+      new Set(graph.moduleVersionPairs).size,
+      graph.moduleVersionPairs.length,
+      `${label}: ${key} module graph must be unique`
+    );
+    graphPairs.push(...graph.moduleVersionPairs);
+  }
+  const graphUnion = [...new Set(graphPairs)].sort(scalarCompare);
+  assert.deepEqual(
+    policy.allowedModuleVersionPairs,
+    graphUnion,
+    `${label}: download allowlist must equal the source-graph union`
+  );
+  assert.equal(
+    new Set(policy.allowedModuleVersionPairs).size,
+    policy.allowedModuleVersionPairs.length,
+    `${label}: download allowlist must be unique`
+  );
+  assert.equal(
+    sha256(stableJson(policy)),
+    goDownloadProgressSha256,
+    `${label}: immutable subtree seal`
+  );
+}
+
+function assertManifestRelocationPreflight(manifestValue) {
+  const expectedRuntime = encodeRepositoryEvidenceTree(
+    expectedManifestExecutionEvidence(repositoryRoot),
+    repositoryRoot
+  );
+  assert.deepEqual(
+    selectedManifestExecutionEvidence(manifestValue),
+    expectedRuntime,
+    "manifest logical execution evidence does not match the closed current-clone plan"
+  );
+  const expectedRows = collectRepositoryTokenEvidence(expectedRuntime, {
+    currentRoot: repositoryRoot,
+    rejectAbsoluteRoots: false
+  });
+  const actualRows = collectRepositoryTokenEvidence(manifestValue, {
+    currentRoot: repositoryRoot
+  });
+  assert.deepEqual(
+    actualRows,
+    expectedRows,
+    "manifest repository-token shape is not the exact closed evidence shape"
+  );
+  assert.equal(actualRows.length, 70, "manifest repository-token scalar count");
+  assert.equal(
+    actualRows.reduce((sum, row) => sum + row.occurrences, 0),
+    86,
+    "manifest repository-token occurrence count"
+  );
+  assert.deepEqual(
+    manifestValue.acceptanceEvidence.projectionTool.verifier,
+    exactFileEvidence(verifierFile),
+    "manifest verifier self identity"
+  );
+  assertGoDownloadPolicyFrozen(
+    manifestValue.acceptanceEvidence.goDownloadProgress,
+    "manifest Go download progress"
+  );
+  return {
+    scalarPointers: actualRows.length,
+    tokenOccurrences: actualRows.reduce(
+      (sum, row) => sum + row.occurrences,
+      0
+    )
+  };
+}
+
+function assertExecutionInputsTokenFree(value, label) {
+  if (typeof value === "string") {
+    assert.equal(
+      value.includes(repositoryRootToken),
+      false,
+      `${label}: repository token reached an execution boundary`
+    );
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const [index, entry] of value.entries()) {
+      assertExecutionInputsTokenFree(entry, `${label}[${index}]`);
+    }
+    return;
+  }
+  if (value !== null && typeof value === "object") {
+    for (const [key, entry] of Object.entries(value)) {
+      assertExecutionInputsTokenFree(key, `${label} object key`);
+      assertExecutionInputsTokenFree(entry, `${label}.${key}`);
+    }
+  }
+}
+
+function assertRelocationNegative(manifestValue, label, mutate) {
+  const fixture = structuredClone(manifestValue);
+  const childCountBefore = spawnedChildCount;
+  const sentinel = Buffer.from("relocation-negative-sentinel\n", "utf8");
+  const sentinelSha256 = crypto
+    .createHash("sha256")
+    .update(sentinel)
+    .digest("hex");
+  mutate(fixture);
+  assert.throws(
+    () => assertManifestRelocationPreflight(fixture),
+    undefined,
+    `${label}: unsafe fixture was accepted`
+  );
+  assert.equal(
+    spawnedChildCount,
+    childCountBefore,
+    `${label}: a child was started`
+  );
+  assert.equal(
+    crypto.createHash("sha256").update(sentinel).digest("hex"),
+    sentinelSha256,
+    `${label}: sentinel changed`
+  );
+}
+
+function verifyRelocationEvidenceSafety(manifestValue) {
+  const syntheticRootA = "/private/tmp/bgmss-query-relocation-a";
+  const syntheticRootB = "/var/tmp/bgmss-query-relocation-b";
+  const logicalA = encodeRepositoryEvidenceTree(
+    expectedManifestExecutionEvidence(syntheticRootA),
+    syntheticRootA
+  );
+  const logicalB = encodeRepositoryEvidenceTree(
+    expectedManifestExecutionEvidence(syntheticRootB),
+    syntheticRootB
+  );
+  assert.deepEqual(
+    logicalA,
+    logicalB,
+    "synthetic roots do not produce identical logical evidence"
+  );
+  const logicalRows = collectRepositoryTokenEvidence(logicalA, {
+    currentRoot: syntheticRootA,
+    rejectAbsoluteRoots: false
+  });
+  assert.equal(logicalRows.length, 70);
+  assert.equal(
+    logicalRows.reduce((sum, row) => sum + row.occurrences, 0),
+    86
+  );
+  assert.equal(
+    encodeRepositoryEvidenceString(
+      `${syntheticRootA}/contracts/goldens/query/.tmp/system`,
+      syntheticRootA
+    ).encoded,
+    `${repositoryRootToken}/contracts/goldens/query/.tmp/system`
+  );
+  const packed = [
+    `HOME=${syntheticRootA}/contracts/goldens/query/.tmp/go-home`,
+    `GOCACHE=${syntheticRootA}/contracts/goldens/query/.cache/go-build`
+  ].join(" ");
+  assert.equal(
+    encodeRepositoryEvidenceString(packed, syntheticRootA).encoded,
+    [
+      `HOME=${repositoryRootToken}/contracts/goldens/query/.tmp/go-home`,
+      `GOCACHE=${repositoryRootToken}/contracts/goldens/query/.cache/go-build`
+    ].join(" ")
+  );
+  assert.equal(
+    encodeRepositoryEvidenceString(syntheticRootA, syntheticRootA, {
+      allowRepositoryRoot: true
+    }).encoded,
+    repositoryRootToken
+  );
+
+  const encoderNegatives = [
+    [
+      "left-boundary",
+      `x${syntheticRootA}/contracts/goldens/query/.tmp/system`
+    ],
+    [
+      "right-boundary",
+      `${syntheticRootA}x/contracts/goldens/query/.tmp/system`
+    ],
+    [
+      "escape",
+      `${syntheticRootA}/contracts/goldens/query/.tmp/../outside`
+    ],
+    [
+      "dot-segment",
+      `${syntheticRootA}/contracts/goldens/query/.tmp/./system`
+    ],
+    [
+      "repeated-separator",
+      `${syntheticRootA}/contracts/goldens/query/.tmp//system`
+    ],
+    [
+      "backslash",
+      `${syntheticRootA}/contracts/goldens/query/.tmp\\system`
+    ],
+    [
+      "nul",
+      `${syntheticRootA}/contracts/goldens/query/.tmp/\0system`
+    ],
+    [
+      "outside-query-root",
+      `${syntheticRootA}/frontend/.tmp/system`
+    ],
+    ["empty-root-suffix", syntheticRootA]
+  ];
+  for (const [label, value] of encoderNegatives) {
+    const childCountBefore = spawnedChildCount;
+    assert.throws(
+      () => encodeRepositoryEvidenceString(value, syntheticRootA),
+      undefined,
+      `${label}: unsafe encoder input was accepted`
+    );
+    assert.equal(spawnedChildCount, childCountBefore);
+  }
+
+  const typescriptHome = (fixture) =>
+    fixture.codegen.typescript.environment;
+  const correctedWrapper = (fixture) =>
+    fixture.acceptanceEvidence.goSandbox.recoveryHistory.correctedSmoke
+      .commands[0].wrapperArgv;
+  const rejectedPacked = (fixture) =>
+    fixture.acceptanceEvidence.goSandbox.recoveryHistory
+      .rejectedPackedEnvironmentAttempt.commands[0].wrapperArgv;
+  const logicalTemporary =
+    `${repositoryRootToken}/contracts/goldens/query/.tmp`;
+  const negatives = [
+    [
+      "unknown-token",
+      (fixture) => {
+        typescriptHome(fixture).HOME =
+          "@workspace-root@/contracts/goldens/query/.tmp/redocly-home";
+      }
+    ],
+    [
+      "exact-token-object-key",
+      (fixture) => {
+        fixture[repositoryRootToken] = true;
+      }
+    ],
+    [
+      "unknown-token-object-key",
+      (fixture) => {
+        fixture["@workspace-root@"] = true;
+      }
+    ],
+    [
+      "current-root-object-key",
+      (fixture) => {
+        fixture[repositoryRoot] = true;
+      }
+    ],
+    [
+      "original-root-object-key",
+      (fixture) => {
+        fixture[originalRepositoryRoot] = true;
+      }
+    ],
+    [
+      "missing-token",
+      (fixture) => {
+        typescriptHome(fixture).HOME =
+          "contracts/goldens/query/.tmp/redocly-home";
+      }
+    ],
+    [
+      "extra-misplaced-token",
+      (fixture) => {
+        fixture.contract =
+          `contracts-query-wire/v1 ${logicalTemporary}/unexpected`;
+      }
+    ],
+    [
+      "duplicate-token",
+      (fixture) => {
+        typescriptHome(fixture).HOME =
+          `${logicalTemporary}/redocly-home ${logicalTemporary}/redocly-home`;
+      }
+    ],
+    [
+      "old-checkout-root",
+      (fixture) => {
+        typescriptHome(fixture).HOME =
+          `${originalRepositoryRoot}/contracts/goldens/query/.tmp/redocly-home`;
+      }
+    ],
+    [
+      "external-path-as-owned",
+      (fixture) => {
+        typescriptHome(fixture).HOME = "/private/tmp/external-redocly-home";
+      }
+    ],
+    [
+      "logical-escape",
+      (fixture) => {
+        typescriptHome(fixture).HOME =
+          `${logicalTemporary}/../outside`;
+      }
+    ],
+    [
+      "logical-dot",
+      (fixture) => {
+        typescriptHome(fixture).HOME =
+          `${logicalTemporary}/./redocly-home`;
+      }
+    ],
+    [
+      "logical-repeated-separator",
+      (fixture) => {
+        typescriptHome(fixture).HOME =
+          `${logicalTemporary}//redocly-home`;
+      }
+    ],
+    [
+      "logical-backslash",
+      (fixture) => {
+        typescriptHome(fixture).HOME =
+          `${logicalTemporary}\\redocly-home`;
+      }
+    ],
+    [
+      "wrong-node-executable",
+      (fixture) => {
+        fixture.acceptanceEvidence.redocly.versionCommand.childArgv[0] =
+          "/usr/bin/node";
+      }
+    ],
+    [
+      "redocly-lint-full-authority",
+      (fixture) => {
+        const command = fixture.acceptanceEvidence.redocly.lintCommand;
+        command.childArgv[3] = "contracts/openapi/openapi.yaml";
+        command.wrapperArgv[12] = "contracts/openapi/openapi.yaml";
+        command.warnings = 10;
+      }
+    ],
+    [
+      "typescript-full-authority",
+      (fixture) => {
+        fixture.codegen.typescript.source =
+          "contracts/openapi/openapi.yaml";
+        for (const command of fixture.codegen.typescript.commands) {
+          command.childArgv[2] = "contracts/openapi/openapi.yaml";
+        }
+      }
+    ],
+    [
+      "typescript-dereferenced-bundles",
+      (fixture) => {
+        fixture.codegen.typescript.source =
+          "contracts/goldens/query/.tmp/codegen-a/query.bundle.json";
+        for (const [index, command] of
+          fixture.codegen.typescript.commands.entries()) {
+          command.childArgv[2] =
+            `contracts/goldens/query/.tmp/codegen-${index === 0 ? "a" : "b"}/query.bundle.json`;
+        }
+      }
+    ],
+    [
+      "wrong-tool-version",
+      (fixture) => {
+        fixture.toolchain["@redocly/cli"] = "2.40.1";
+      }
+    ],
+    [
+      "runtime-node-identity-drift",
+      (fixture) => {
+        fixture.acceptanceEvidence.runtime.node.sha256 = "0".repeat(64);
+      }
+    ],
+    [
+      "runtime-npm-identity-drift",
+      (fixture) => {
+        fixture.acceptanceEvidence.runtime.npm.path = "/usr/bin/npm";
+      }
+    ],
+    [
+      "redocly-package-identity-drift",
+      (fixture) => {
+        fixture.acceptanceEvidence.redocly.identity = "@redocly/other";
+      }
+    ],
+    [
+      "redocly-isolation-drift",
+      (fixture) => {
+        fixture.acceptanceEvidence.redocly.configDiscovery =
+          "default config discovery";
+      }
+    ],
+    [
+      "go-module-seal-drift",
+      (fixture) => {
+        fixture.codegen.go.module.goMod.sha256 = "0".repeat(64);
+      }
+    ],
+    [
+      "go-module-input-seal-drift",
+      (fixture) => {
+        fixture.codegen.go.moduleInputs.goSum.sha256 = "0".repeat(64);
+      }
+    ],
+    [
+      "go-output-command-plan-drift",
+      (fixture) => {
+        fixture.codegen.go.output.primaryGeneration.childArgv[8] =
+          "contracts/goldens/query/.tmp/codegen-b/query.bundle.json";
+      }
+    ],
+    [
+      "go-recovery-history-drift",
+      (fixture) => {
+        fixture.acceptanceEvidence.goSandbox.recoveryHistory
+          .rejectedPackedEnvironmentAttempt.reason = "rewritten history";
+      }
+    ],
+    [
+      "go-policy-graph-and-union-drift",
+      (fixture) => {
+        const policy = fixture.acceptanceEvidence.goDownloadProgress;
+        const pair = "example.invalid/expanded@v1.0.0";
+        policy.sourceGraphs.generatorTool.moduleVersionPairs.push(pair);
+        policy.sourceGraphs.generatorTool.moduleVersionPairs.sort(
+          scalarCompare
+        );
+        policy.allowedModuleVersionPairs.push(pair);
+        policy.allowedModuleVersionPairs.sort(scalarCompare);
+      }
+    ],
+    [
+      "sandbox-profile-drift",
+      (fixture) => {
+        fixture.acceptanceEvidence.redocly.sandbox.profile =
+          "(version 1)(allow default)";
+      }
+    ],
+    [
+      "telemetry-directory-drift",
+      (fixture) => {
+        fixture.acceptanceEvidence.goSandbox.telemetryDirectory =
+          "/private/tmp/go-telemetry";
+      }
+    ],
+    [
+      "path-drift",
+      (fixture) => {
+        fixture.acceptanceEvidence.goSandbox.environment.PATH = "/usr/bin";
+      }
+    ],
+    [
+      "go-control-drift",
+      (fixture) => {
+        fixture.acceptanceEvidence.goSandbox.environment.GOENV = "auto";
+      }
+    ],
+    [
+      "environment-order-drift",
+      (fixture) => {
+        const wrapper = correctedWrapper(fixture);
+        [wrapper[6], wrapper[7]] = [wrapper[7], wrapper[6]];
+      }
+    ],
+    [
+      "packed-environment-merge",
+      (fixture) => {
+        const wrapper = correctedWrapper(fixture);
+        wrapper.splice(5, 9, wrapper.slice(5, 14).join(" "));
+      }
+    ],
+    [
+      "packed-history-split",
+      (fixture) => {
+        const wrapper = rejectedPacked(fixture);
+        wrapper.splice(5, 1, ...wrapper[5].split(" "));
+      }
+    ],
+    [
+      "cwd-escape",
+      (fixture) => {
+        fixture.acceptanceEvidence.goSandbox.recoveryHistory.correctedSmoke
+          .commands[0].cwd = `${logicalTemporary}/../outside`;
+      }
+    ]
+  ];
+  for (const [label, mutate] of negatives) {
+    assertRelocationNegative(manifestValue, label, mutate);
+  }
+
+  const childCountBefore = spawnedChildCount;
+  assert.throws(
+    () =>
+      assertExecutionInputsTokenFree(
+        {
+          executable: goExecutable,
+          argv: ["test", repositoryRootToken],
+          environment: goEnvironment,
+          cwd: repositoryRoot
+        },
+        "synthetic spawn"
+      ),
+    /repository token reached an execution boundary/u
+  );
+  assert.equal(spawnedChildCount, childCountBefore);
+  assert.throws(
+    () =>
+      assertExecutionInputsTokenFree(
+        {
+          [repositoryRootToken]: "execution-key"
+        },
+        "synthetic spawn object key"
+      ),
+    /repository token reached an execution boundary/u
+  );
+  assert.equal(spawnedChildCount, childCountBefore);
+
+  const spawnBoundaryNegatives = [
+    [
+      "absolute-clone-external-output",
+      "primaryGeneration",
+      (childArgs) => {
+        childArgs[7] = "/private/tmp/outside.go";
+      }
+    ],
+    [
+      "relative-parent-output",
+      "gofmt",
+      (childArgs) => {
+        childArgs[1] = "../outside.go";
+      }
+    ],
+    [
+      "wrong-role-node-modules-output",
+      "primaryGeneration",
+      (childArgs) => {
+        childArgs[7] =
+          "contracts/goldens/query/node_modules/outside.go";
+      }
+    ]
+  ];
+  for (const [label, operation, mutate] of spawnBoundaryNegatives) {
+    const plan = goOperationPlansForRepository(repositoryRoot)[operation];
+    const childArgs = structuredClone(plan.childArgs);
+    mutate(childArgs);
+    const wrapperArgs = [
+      ...goWrapperPrefixForRepository(repositoryRoot).slice(1),
+      plan.executable,
+      ...childArgs
+    ];
+    assert.throws(
+      () =>
+        assertGoSpawnBoundary(
+          operation,
+          plan.executable,
+          childArgs,
+          plan.cwd,
+          wrapperArgs
+        ),
+      undefined,
+      `${label}: unsafe Go spawn plan was accepted`
+    );
+    assert.equal(
+      spawnedChildCount,
+      childCountBefore,
+      `${label}: a child was started`
+    );
+  }
+  return {
+    syntheticRoots: [syntheticRootA, syntheticRootB],
+    logicalScalarPointers: logicalRows.length,
+    logicalTokenOccurrences: logicalRows.reduce(
+      (sum, row) => sum + row.occurrences,
+      0
+    ),
+    positiveCases: 3,
+    negativeCases:
+      encoderNegatives.length +
+      negatives.length +
+      2 +
+      spawnBoundaryNegatives.length,
+    childStarts: 0,
+    sentinel: "unchanged"
+  };
+}
 const requiredPublicGoDeclarations = [
   "CandidatesInputV1",
   "CandidatesViewV1",
@@ -161,6 +1754,98 @@ function assertExactNodeRuntime() {
     `verification requires exact Node executable ${expectedNodeExecutable}`
   );
   assert.equal(process.version, "v24.16.0");
+}
+
+function assertBootstrapRuntimeIdentity(manifestValue) {
+  assert.deepEqual(
+    manifestValue.acceptanceEvidence.runtime,
+    expectedRuntimeEvidence,
+    "manifest bootstrap runtime declaration"
+  );
+  const { version: expectedNodeVersion, ...expectedNodeFile } =
+    expectedRuntimeEvidence.node;
+  assert.deepEqual(
+    exactFileEvidence(expectedNodeExecutable, false),
+    expectedNodeFile,
+    "running Node physical identity"
+  );
+  assert.equal(process.version, expectedNodeVersion, "running Node version");
+  const { version: expectedNpmVersion, ...expectedNpmFile } =
+    expectedRuntimeEvidence.npm;
+  assert.deepEqual(
+    exactFileEvidence(npmCli, false),
+    expectedNpmFile,
+    "declared npm CLI physical identity"
+  );
+  assert.equal(
+    readJson(path.join(path.dirname(npmCli), "../package.json")).version,
+    expectedNpmVersion,
+    "declared npm package version"
+  );
+}
+
+function assertInstalledNodeToolIdentity(manifestValue) {
+  const redoclyCli = path.join(
+    repositoryRoot,
+    expectedRedoclyCliEvidence.path
+  );
+  const typescriptCli = path.join(
+    repositoryRoot,
+    expectedTypescriptCliEvidence.path
+  );
+  assert.deepEqual(
+    manifestValue.acceptanceEvidence.redocly.cli,
+    expectedRedoclyCliEvidence,
+    "manifest Redocly CLI identity"
+  );
+  assert.deepEqual(
+    exactFileEvidence(redoclyCli),
+    expectedRedoclyCliEvidence,
+    "installed Redocly CLI identity"
+  );
+  assert.equal(
+    manifestValue.acceptanceEvidence.redocly.identity,
+    "@redocly/cli",
+    "manifest Redocly package identity"
+  );
+  assert.equal(
+    manifestValue.acceptanceEvidence.redocly.version,
+    "2.40.0",
+    "manifest Redocly version"
+  );
+  assert.equal(
+    readJson(path.join(goldenRoot, "node_modules/@redocly/cli/package.json"))
+      .version,
+    "2.40.0",
+    "installed Redocly version"
+  );
+  assert.deepEqual(
+    manifestValue.codegen.typescript.cli,
+    expectedTypescriptCliEvidence,
+    "manifest TypeScript CLI identity"
+  );
+  assert.deepEqual(
+    exactFileEvidence(typescriptCli),
+    expectedTypescriptCliEvidence,
+    "installed TypeScript CLI identity"
+  );
+  assert.equal(
+    manifestValue.codegen.typescript.identity,
+    "openapi-typescript",
+    "manifest TypeScript package identity"
+  );
+  assert.equal(
+    manifestValue.codegen.typescript.version,
+    "7.13.0",
+    "manifest TypeScript version"
+  );
+  assert.equal(
+    readJson(
+      path.join(goldenRoot, "node_modules/openapi-typescript/package.json")
+    ).version,
+    "7.13.0",
+    "installed TypeScript version"
+  );
 }
 
 function jsonPointerValue(root, fragment, label) {
@@ -728,9 +2413,547 @@ function assertNoRedoclyLintIgnore(extraRoots = []) {
   }
 }
 
-function prepareCodegenProjections() {
+function offlineGoModulePlans() {
+  return [
+    {
+      key: "goMod",
+      input: expectedGoModuleInputEvidence.goMod,
+      output: expectedGoModuleEvidence.goMod
+    },
+    {
+      key: "goSum",
+      input: expectedGoModuleInputEvidence.goSum,
+      output: expectedGoModuleEvidence.goSum
+    }
+  ];
+}
+
+function inspectOfflineGoModulePath(
+  absolute,
+  expectedRelative,
+  { readEvidence = true } = {}
+) {
+  const expectedAbsolute = path.join(repositoryRoot, expectedRelative);
+  const state = lstatResult(absolute);
+  const inspected = {
+    absolute,
+    expectedAbsolute,
+    exists: state.exists
+  };
+  if (!state.exists) {
+    return inspected;
+  }
+  const metadata = state.metadata;
+  inspected.type = metadata.isSymbolicLink()
+    ? "symlink"
+    : metadata.isFile()
+      ? "file"
+      : metadata.isDirectory()
+        ? "directory"
+        : "special";
+  inspected.device = metadata.dev;
+  inspected.inode = metadata.ino;
+  if (inspected.type === "file") {
+    inspected.realPath = fs.realpathSync(absolute);
+    if (readEvidence) {
+      inspected.evidence = exactFileEvidence(absolute);
+    }
+  }
+  return inspected;
+}
+
+function assertOfflineGoModuleState(state) {
+  for (const plan of offlineGoModulePlans()) {
+    const input = state.inputs[plan.key];
+    assert.equal(
+      input.absolute,
+      input.expectedAbsolute,
+      `${plan.key}: input path is not the closed repository-relative path`
+    );
+    assert.equal(input.exists, true, `${plan.key}: input is missing`);
+    assert.equal(input.type, "file", `${plan.key}: input is not a regular file`);
+    assert.equal(
+      input.realPath,
+      input.absolute,
+      `${plan.key}: input is not canonical`
+    );
+    assert.deepEqual(
+      input.evidence,
+      plan.input,
+      `${plan.key}: input physical evidence`
+    );
+    const output = state.outputs[plan.key];
+    assert.equal(
+      output.absolute,
+      output.expectedAbsolute,
+      `${plan.key}: output path is not the closed .tmp path`
+    );
+    assert.equal(
+      output.exists,
+      false,
+      `${plan.key}: create-only output already exists`
+    );
+    assert.deepEqual(
+      {
+        bytes: plan.input.bytes,
+        sha256: plan.input.sha256
+      },
+      {
+        bytes: plan.output.bytes,
+        sha256: plan.output.sha256
+      },
+      `${plan.key}: tracked input does not equal accepted output seal`
+    );
+  }
+  const [goMod, goSum] = offlineGoModulePlans().map(
+    ({ key }) => state.inputs[key]
+  );
+  assert.notDeepEqual(
+    [goMod.device, goMod.inode],
+    [goSum.device, goSum.inode],
+    "offline Go module inputs must be distinct physical files"
+  );
+}
+
+function offlineGoModuleState() {
+  const state = {
+    inputs: {},
+    outputs: {}
+  };
+  for (const plan of offlineGoModulePlans()) {
+    const input = path.join(repositoryRoot, plan.input.path);
+    const output = path.join(repositoryRoot, plan.output.path);
+    state.inputs[plan.key] = inspectOfflineGoModulePath(
+      input,
+      plan.input.path
+    );
+    state.outputs[plan.key] = inspectOfflineGoModulePath(
+      output,
+      plan.output.path,
+      { readEvidence: false }
+    );
+  }
+  return state;
+}
+
+function preflightOfflineGoModuleMaterialization(manifestValue) {
+  assert.deepEqual(
+    manifestValue.codegen.go.moduleInputs,
+    expectedGoModuleInputEvidence,
+    "manifest offline Go module input evidence"
+  );
+  const temporaryRoot = path.join(goldenRoot, ".tmp");
+  const temporaryState = lstatResult(temporaryRoot);
+  if (temporaryState.exists) {
+    assert.equal(
+      temporaryState.metadata.isSymbolicLink(),
+      false,
+      "offline Go module .tmp parent is a symlink"
+    );
+    assert.equal(
+      temporaryState.metadata.isDirectory(),
+      true,
+      "offline Go module .tmp parent is not a directory"
+    );
+    assert.equal(
+      fs.realpathSync(temporaryRoot),
+      temporaryRoot,
+      "offline Go module .tmp parent is not canonical"
+    );
+  }
+  const state = offlineGoModuleState();
+  assertOfflineGoModuleState(state);
+  return {
+    inputs: expectedGoModuleInputEvidence,
+    outputs: expectedGoModuleEvidence,
+    destinationParent:
+      "contracts/goldens/query/.tmp",
+    createOnly: true
+  };
+}
+
+function verifyOfflineGoModuleMaterializationSafety() {
+  const baseline = {
+    inputs: {},
+    outputs: {}
+  };
+  for (const [index, plan] of offlineGoModulePlans().entries()) {
+    const inputAbsolute = path.join(repositoryRoot, plan.input.path);
+    const outputAbsolute = path.join(repositoryRoot, plan.output.path);
+    baseline.inputs[plan.key] = {
+      absolute: inputAbsolute,
+      expectedAbsolute: inputAbsolute,
+      exists: true,
+      type: "file",
+      device: 1,
+      inode: index + 1,
+      realPath: inputAbsolute,
+      evidence: plan.input
+    };
+    baseline.outputs[plan.key] = {
+      absolute: outputAbsolute,
+      expectedAbsolute: outputAbsolute,
+      exists: false
+    };
+  }
+  const negatives = [
+    [
+      "changed-input",
+      (fixture) => {
+        fixture.inputs.goMod.evidence.sha256 = "0".repeat(64);
+      }
+    ],
+    [
+      "missing-input",
+      (fixture) => {
+        fixture.inputs.goSum.exists = false;
+        delete fixture.inputs.goSum.type;
+        delete fixture.inputs.goSum.realPath;
+        delete fixture.inputs.goSum.evidence;
+      }
+    ],
+    [
+      "symlinked-input",
+      (fixture) => {
+        fixture.inputs.goMod.type = "symlink";
+        delete fixture.inputs.goMod.realPath;
+        delete fixture.inputs.goMod.evidence;
+      }
+    ],
+    [
+      "preexisting-output",
+      (fixture) => {
+        fixture.outputs.goMod.exists = true;
+        fixture.outputs.goMod.type = "file";
+      }
+    ],
+    [
+      "partial-output",
+      (fixture) => {
+        fixture.outputs.goSum.exists = true;
+        fixture.outputs.goSum.type = "file";
+        fixture.outputs.goSum.evidence = {
+          path: expectedGoModuleEvidence.goSum.path,
+          bytes: 1,
+          sha256: "0".repeat(64)
+        };
+      }
+    ],
+    [
+      "hard-linked-output",
+      (fixture) => {
+        fixture.outputs.goMod.exists = true;
+        fixture.outputs.goMod.type = "file";
+        fixture.outputs.goMod.device = fixture.inputs.goMod.device;
+        fixture.outputs.goMod.inode = fixture.inputs.goMod.inode;
+      }
+    ]
+  ];
+  const childCountBefore = spawnedChildCount;
+  const baselineBytes = JSON.stringify(baseline);
+  for (const [label, mutate] of negatives) {
+    const fixture = structuredClone(baseline);
+    mutate(fixture);
+    const fixtureBefore = JSON.stringify(fixture);
+    assert.throws(
+      () => assertOfflineGoModuleState(fixture),
+      undefined,
+      `${label}: unsafe offline Go module state was accepted`
+    );
+    assert.equal(
+      JSON.stringify(fixture),
+      fixtureBefore,
+      `${label}: negative fixture was mutated`
+    );
+    assert.equal(
+      spawnedChildCount,
+      childCountBefore,
+      `${label}: a child was started`
+    );
+  }
+  assert.equal(JSON.stringify(baseline), baselineBytes);
+  return {
+    positiveCases: 1,
+    negativeCases: negatives.length,
+    childStarts: 0,
+    writes: 0
+  };
+}
+
+function sealMaterializedGoModulePair(
+  label,
+  { allowAbsent = false } = {}
+) {
+  const plans = offlineGoModulePlans();
+  const presence = plans.map((plan) => {
+    const outputPath = path.join(repositoryRoot, plan.output.path);
+    return {
+      plan,
+      outputPath,
+      state: lstatResult(outputPath)
+    };
+  });
+  const presentCount = presence.filter(({ state }) => state.exists).length;
+  if (allowAbsent && presentCount === 0) {
+    return {
+      state: "absent",
+      files: {}
+    };
+  }
+  assert.equal(
+    presentCount,
+    plans.length,
+    `${label}: materialized Go module pair is partial`
+  );
+  const files = {};
+  const outputIdentities = [];
+  for (const { plan, outputPath } of presence) {
+    assert.equal(
+      outputPath,
+      path.join(repositoryRoot, plan.output.path),
+      `${label}: ${plan.key} output path`
+    );
+    const metadata = assertRegularNonSymlink(
+      outputPath,
+      `${label}: ${plan.key}`
+    );
+    assert.equal(
+      fs.realpathSync(outputPath),
+      outputPath,
+      `${label}: ${plan.key} canonical path`
+    );
+    assert.equal(
+      metadata.mode & 0o7777,
+      expectedGoModuleFileMode,
+      `${label}: ${plan.key} mode`
+    );
+    const inputPath = path.join(repositoryRoot, plan.input.path);
+    const inputMetadata = assertRegularNonSymlink(
+      inputPath,
+      `${label}: ${plan.key} tracked input`
+    );
+    assert.equal(
+      fs.realpathSync(inputPath),
+      inputPath,
+      `${label}: ${plan.key} tracked input canonical path`
+    );
+    assert.deepEqual(
+      exactFileEvidence(inputPath),
+      plan.input,
+      `${label}: ${plan.key} tracked input seal`
+    );
+    const bytes = fs.readFileSync(outputPath);
+    const inputBytes = fs.readFileSync(inputPath);
+    assert.deepEqual(
+      bytes,
+      inputBytes,
+      `${label}: ${plan.key} exact bytes`
+    );
+    assert.equal(
+      metadata.size,
+      plan.output.bytes,
+      `${label}: ${plan.key} lstat size`
+    );
+    assert.equal(
+      bytes.byteLength,
+      plan.output.bytes,
+      `${label}: ${plan.key} byte length`
+    );
+    assert.equal(
+      sha256(bytes),
+      plan.output.sha256,
+      `${label}: ${plan.key} SHA-256`
+    );
+    assert.notDeepEqual(
+      [metadata.dev, metadata.ino],
+      [inputMetadata.dev, inputMetadata.ino],
+      `${label}: ${plan.key} output hard-links the tracked input`
+    );
+    outputIdentities.push([metadata.dev, metadata.ino]);
+    files[plan.key] = {
+      path: plan.output.path,
+      type: "file",
+      mode: "0600",
+      size: metadata.size,
+      bytes: bytes.byteLength,
+      sha256: sha256(bytes)
+    };
+  }
+  assert.notDeepEqual(
+    outputIdentities[0],
+    outputIdentities[1],
+    `${label}: materialized outputs must be distinct files`
+  );
+  return {
+    state: "sealed",
+    files
+  };
+}
+
+function cleanupOwnedGoModuleOutputs(ownedOutputs) {
+  const removed = [];
+  for (const owned of [...ownedOutputs].reverse()) {
+    const plan = offlineGoModulePlans().find(
+      ({ key }) => key === owned.key
+    );
+    assert.notEqual(
+      plan,
+      undefined,
+      `offline Go module cleanup: unknown owner ${owned.key}`
+    );
+    const expectedPath = path.join(repositoryRoot, plan.output.path);
+    assert.equal(
+      owned.path,
+      expectedPath,
+      `offline Go module cleanup: ${owned.key} path`
+    );
+    const state = lstatResult(owned.path);
+    assert.equal(
+      state.exists,
+      true,
+      `offline Go module cleanup: ${owned.key} disappeared`
+    );
+    assert.equal(
+      state.metadata.isSymbolicLink(),
+      false,
+      `offline Go module cleanup: ${owned.key} became a symlink`
+    );
+    assert.equal(
+      state.metadata.isFile(),
+      true,
+      `offline Go module cleanup: ${owned.key} is not a file`
+    );
+    assert.equal(
+      sameFileIdentity(state.metadata, owned),
+      true,
+      `offline Go module cleanup: ${owned.key} identity changed`
+    );
+    fs.unlinkSync(owned.path);
+    assert.deepEqual(
+      lstatResult(owned.path),
+      {
+        exists: false,
+        errorCode: "ENOENT"
+      },
+      `offline Go module cleanup: ${owned.key} postcondition`
+    );
+    removed.push(plan.output.path);
+  }
+  return {
+    removed: removed.sort(),
+    ownerCount: ownedOutputs.length
+  };
+}
+
+function materializeOfflineGoModule(manifestValue, hooks = {}) {
+  preflightOfflineGoModuleMaterialization(manifestValue);
+  const temporaryRoot = assertOwnedRealPath(path.join(goldenRoot, ".tmp"));
+  if (!fs.existsSync(temporaryRoot)) {
+    fs.mkdirSync(temporaryRoot, {
+      recursive: true,
+      mode: 0o700
+    });
+  }
+  assert.equal(fs.realpathSync(temporaryRoot), temporaryRoot);
+  assert.equal(fs.lstatSync(temporaryRoot).isSymbolicLink(), false);
+  const materialized = {};
+  const ownedOutputs = [];
+  try {
+    for (const [index, plan] of offlineGoModulePlans().entries()) {
+      const inputPath = path.join(repositoryRoot, plan.input.path);
+      const outputPath = path.join(repositoryRoot, plan.output.path);
+      const inputMetadata = assertRegularNonSymlink(
+        inputPath,
+        `${plan.key}: offline module input`
+      );
+      assert.equal(fs.realpathSync(inputPath), inputPath);
+      const bytes = fs.readFileSync(inputPath);
+      assert.equal(bytes.byteLength, plan.input.bytes);
+      assert.equal(sha256(bytes), plan.input.sha256);
+      const descriptor = fs.openSync(
+        outputPath,
+        fs.constants.O_WRONLY |
+          fs.constants.O_CREAT |
+          fs.constants.O_EXCL |
+          (fs.constants.O_NOFOLLOW ?? 0),
+        expectedGoModuleFileMode
+      );
+      try {
+        const owner = fs.fstatSync(descriptor);
+        ownedOutputs.push({
+          key: plan.key,
+          path: outputPath,
+          dev: owner.dev,
+          ino: owner.ino
+        });
+        fs.fchmodSync(descriptor, expectedGoModuleFileMode);
+        fs.writeFileSync(descriptor, bytes);
+        fs.fsyncSync(descriptor);
+      } finally {
+        fs.closeSync(descriptor);
+      }
+      const evidence = exactFileEvidence(outputPath);
+      assert.deepEqual(
+        evidence,
+        plan.output,
+        `${plan.key}: materialized readback evidence`
+      );
+      const outputMetadata = fs.lstatSync(outputPath);
+      assert.equal(
+        outputMetadata.mode & 0o7777,
+        expectedGoModuleFileMode,
+        `${plan.key}: materialized mode`
+      );
+      assert.notDeepEqual(
+        [inputMetadata.dev, inputMetadata.ino],
+        [outputMetadata.dev, outputMetadata.ino],
+        `${plan.key}: output hard-links the tracked input`
+      );
+      materialized[plan.key] = evidence;
+      hooks.afterOutput?.({
+        index,
+        key: plan.key,
+        path: outputPath,
+        evidence
+      });
+    }
+    sealMaterializedGoModulePair("post-materialization");
+  } catch (error) {
+    let cleanupEvidence;
+    try {
+      cleanupEvidence = cleanupOwnedGoModuleOutputs(ownedOutputs);
+    } catch (cleanupError) {
+      if (
+        cleanupError !== null &&
+        typeof cleanupError === "object" &&
+        cleanupError.cause === undefined
+      ) {
+        cleanupError.cause = error;
+      }
+      throw cleanupError;
+    }
+    if (error !== null && typeof error === "object") {
+      Object.defineProperty(error, "offlineGoModuleCleanup", {
+        configurable: false,
+        enumerable: false,
+        value: cleanupEvidence,
+        writable: false
+      });
+    }
+    throw error;
+  }
+  return materialized;
+}
+
+function prepareCodegenProjections(offlineGoModuleSafety) {
   assertExactNodeRuntime();
   const projectionManifest = readJson(path.join(goldenRoot, "manifest.json"));
+  const relocationEvidence =
+    assertManifestRelocationPreflight(projectionManifest);
+  const relocationSafety =
+    verifyRelocationEvidenceSafety(projectionManifest);
+  const offlineGoModule =
+    materializeOfflineGoModule(projectionManifest);
   const sharedAuthority = readJson(openapiPath);
   const queryProjection = createQueryProjectionState(
     sharedAuthority,
@@ -834,6 +3057,10 @@ function prepareCodegenProjections() {
   console.log(
     JSON.stringify(
       {
+        relocationEvidence,
+        relocationSafety,
+        offlineGoModuleSafety,
+        offlineGoModule,
         authority: audit,
         projections: evidence,
         redoclyHome: path.relative(repositoryRoot, environmentRoots[0]),
@@ -1143,7 +3370,137 @@ function pruneEmptyCleanupParent(
   };
 }
 
+function verifyOfflineGoModulePhysicalFault(manifestValue) {
+  const temporaryRoot = assertOwnedRealPath(path.join(goldenRoot, ".tmp"));
+  assert.deepEqual(
+    lstatResult(temporaryRoot),
+    {
+      exists: false,
+      errorCode: "ENOENT"
+    },
+    "physical materialization fault requires absent .tmp"
+  );
+  fs.mkdirSync(temporaryRoot, {
+    recursive: false,
+    mode: 0o700
+  });
+  fs.chmodSync(temporaryRoot, 0o700);
+  const sentinelPath = path.join(
+    temporaryRoot,
+    "materialization-fault-sentinel.txt"
+  );
+  const sentinelBytes = Buffer.from(
+    "preserve materialization fault sentinel\n",
+    "utf8"
+  );
+  fs.writeFileSync(sentinelPath, sentinelBytes, {
+    flag: "wx",
+    mode: 0o640
+  });
+  fs.chmodSync(sentinelPath, 0o640);
+  const sentinelBefore = fs.lstatSync(sentinelPath);
+  const inputPhysicalEvidence = (plan) => {
+    const inputPath = path.join(repositoryRoot, plan.input.path);
+    const metadata = assertRegularNonSymlink(
+      inputPath,
+      `physical materialization fault: ${plan.key} input`
+    );
+    return {
+      evidence: exactFileEvidence(inputPath),
+      realPath: fs.realpathSync(inputPath),
+      mode: metadata.mode,
+      dev: metadata.dev,
+      ino: metadata.ino
+    };
+  };
+  const inputEvidenceBefore = Object.fromEntries(
+    offlineGoModulePlans().map((plan) => [
+      plan.key,
+      inputPhysicalEvidence(plan)
+    ])
+  );
+  const injectedFailure = new Error(
+    "injected offline Go module materialization fault"
+  );
+  const childCountBefore = spawnedChildCount;
+  let observedFailure;
+  try {
+    materializeOfflineGoModule(manifestValue, {
+      afterOutput({ index, key }) {
+        assert.equal(index, 0);
+        assert.equal(key, "goMod");
+        throw injectedFailure;
+      }
+    });
+  } catch (error) {
+    observedFailure = error;
+  }
+  assert.equal(
+    observedFailure,
+    injectedFailure,
+    "physical materialization fault did not retain its originating failure"
+  );
+  assert.deepEqual(
+    observedFailure.offlineGoModuleCleanup,
+    {
+      removed: [expectedGoModuleEvidence.goMod.path],
+      ownerCount: 1
+    },
+    "physical materialization fault owner cleanup"
+  );
+  assert.equal(
+    spawnedChildCount,
+    childCountBefore,
+    "physical materialization fault started a child"
+  );
+  for (const plan of offlineGoModulePlans()) {
+    assert.deepEqual(
+      lstatResult(path.join(repositoryRoot, plan.output.path)),
+      {
+        exists: false,
+        errorCode: "ENOENT"
+      },
+      `physical materialization fault residue: ${plan.key}`
+    );
+  }
+  assert.deepEqual(fs.readFileSync(sentinelPath), sentinelBytes);
+  const sentinelAfter = fs.lstatSync(sentinelPath);
+  assert.equal(sameFileIdentity(sentinelBefore, sentinelAfter), true);
+  assert.equal(sentinelAfter.mode, sentinelBefore.mode);
+  assert.deepEqual(
+    Object.fromEntries(
+      offlineGoModulePlans().map((plan) => [
+        plan.key,
+        inputPhysicalEvidence(plan)
+      ])
+    ),
+    inputEvidenceBefore,
+    "physical materialization fault changed tracked inputs"
+  );
+  fs.unlinkSync(sentinelPath);
+  const temporaryRootCleanup = pruneEmptyCleanupParent(
+    goldenRoot,
+    ".tmp"
+  );
+  assert.deepEqual(temporaryRootCleanup, {
+    removed: [".tmp"],
+    alreadyAbsent: [],
+    retries: 0
+  });
+  return {
+    injectedAfter: "goMod",
+    originatingFailureRetained: true,
+    childStarts: 0,
+    cleanup: observedFailure.offlineGoModuleCleanup,
+    preexistingSentinel: "unchanged",
+    trackedInputs: "unchanged",
+    temporaryRoot: temporaryRootCleanup,
+    residue: "absent"
+  };
+}
+
 function cleanupGenerated() {
+  const offlineGoModule = sealMaterializedGoModulePair("pre-cleanup");
   const evidence = removeCleanupTargets(goldenRoot, generatedRoots);
   const emptyParents = pruneEmptyCleanupParent(
     goldenRoot,
@@ -1153,6 +3510,7 @@ function cleanupGenerated() {
   console.log(
     JSON.stringify({
       ...evidence,
+      offlineGoModule,
       emptyParents
     })
   );
@@ -1356,6 +3714,12 @@ function verifyCleanupSafety() {
     alreadyAbsent: [],
     retries: 0
   });
+  const offlineGoModulePhysicalFault =
+    verifyOfflineGoModulePhysicalFault(manifest);
+  const offlineGoModuleSafety =
+    verifyOfflineGoModuleMaterializationSafety();
+  const offlineGoModulePreflight =
+    preflightOfflineGoModuleMaterialization(manifest);
   console.log(
     JSON.stringify({
       mode: "cleanup-safety",
@@ -1364,6 +3728,9 @@ function verifyCleanupSafety() {
         .createHash("sha256")
         .update(sentinelBytes)
         .digest("hex"),
+      offlineGoModuleSafety,
+      offlineGoModulePhysicalFault,
+      offlineGoModulePreflight,
       temporaryRoot: temporaryRootEvidence,
       residue: "absent"
     })
@@ -1378,14 +3745,117 @@ function assertRegularNonSymlink(file, label = file) {
 }
 
 function goEnvironmentArgv() {
-  return Object.entries(goEnvironment).map(([key, value]) => `${key}=${value}`);
+  return environmentArgv(goEnvironment);
+}
+
+function assertExactCloneRuntimePath(target, expectedRelative, label) {
+  assertExecutionInputsTokenFree(target, label);
+  assert.equal(path.isAbsolute(target), true, `${label}: path is not absolute`);
+  assert.equal(path.normalize(target), target, `${label}: path is not canonical`);
+  assert.equal(
+    target,
+    path.join(repositoryRoot, expectedRelative),
+    `${label}: path does not match its closed role`
+  );
+  let cursor = repositoryRoot;
+  const segments = expectedRelative.split("/");
+  for (const segment of segments) {
+    cursor = path.join(cursor, segment);
+    const state = lstatResult(cursor);
+    if (!state.exists) {
+      break;
+    }
+    assert.equal(
+      state.metadata.isSymbolicLink(),
+      false,
+      `${label}: path traverses a symlink: ${cursor}`
+    );
+  }
+  const targetState = lstatResult(target);
+  if (targetState.exists) {
+    assert.equal(
+      fs.realpathSync(target),
+      target,
+      `${label}: existing path is not canonical`
+    );
+  }
+}
+
+function assertGoSpawnBoundary(
+  operation,
+  childExecutable,
+  childArgs,
+  cwd,
+  wrapperArgs
+) {
+  const plan = goOperationPlansForRepository(repositoryRoot)[operation];
+  assert.notEqual(plan, undefined, `unknown Go operation: ${operation}`);
+  const label = `spawn ${operation}`;
+  assertExecutionInputsTokenFree(
+    {
+      executable: goSandboxWrapper,
+      argv: wrapperArgs,
+      environment: {},
+      cwd
+    },
+    label
+  );
+  assert.equal(
+    childExecutable,
+    plan.executable,
+    `${label}: executable role drift`
+  );
+  assert.deepEqual(childArgs, plan.childArgs, `${label}: child argv drift`);
+  assert.equal(cwd, plan.cwd, `${label}: cwd role drift`);
+  assert.equal(
+    fs.realpathSync(cwd),
+    cwd,
+    `${label}: cwd is not a canonical physical path`
+  );
+  assert.deepEqual(
+    Object.entries(goEnvironment),
+    Object.entries(goEnvironmentForRepository(repositoryRoot)),
+    `${label}: environment assignment order/value drift`
+  );
+  assert.deepEqual(
+    wrapperArgs,
+    [
+      ...goWrapperPrefixForRepository(repositoryRoot).slice(1),
+      childExecutable,
+      ...childArgs
+    ],
+    `${label}: wrapper argv drift`
+  );
+  for (const key of ["HOME", "TMPDIR", "GOCACHE", "GOMODCACHE", "GOPATH"]) {
+    assertExactCloneRuntimePath(
+      goEnvironment[key],
+      path.relative(repositoryRoot, goEnvironment[key]),
+      `${label}: environment ${key}`
+    );
+  }
+  for (const role of plan.pathRoles) {
+    const argument = childArgs[role.index];
+    assert.equal(
+      typeof argument,
+      "string",
+      `${label}: argv[${role.index}] is not a string`
+    );
+    const resolved = path.resolve(cwd, argument);
+    assertExactCloneRuntimePath(
+      resolved,
+      role.relative,
+      `${label}: argv[${role.index}]`
+    );
+  }
 }
 
 function runGoSandboxed(childExecutable, childArgs, options = {}) {
   const {
     cwd = repositoryRoot,
-    label = path.basename(childExecutable)
+    label = path.basename(childExecutable),
+    operation
   } = options;
+  assert.equal(typeof operation, "string", `${label}: missing operation`);
   assert.equal(sha256(approvedGoSandboxProfile), approvedGoSandboxProfileSha256);
   assertRegularNonSymlink(goSandboxWrapper, "Go sandbox wrapper");
   assertRegularNonSymlink(cleanEnvironmentExecutable, "clean env executable");
@@ -1411,11 +3881,39 @@ function runGoSandboxed(childExecutable, childArgs, options = {}) {
     childExecutable,
     ...childArgs
   ];
+  assertGoSpawnBoundary(
+    operation,
+    childExecutable,
+    childArgs,
+    cwd,
+    wrapperArgs
+  );
+  assert.deepEqual(
+    exactFileEvidence(childExecutable, false),
+    childExecutable === goExecutable
+      ? expectedRuntimeEvidence.go
+      : expectedRuntimeEvidence.gofmt,
+    `${label}: executable physical identity`
+  );
+  const moduleSealBefore = sealMaterializedGoModulePair(
+    `${label}: pre-child`
+  );
+  assert.deepEqual(
+    exactFileEvidence(childExecutable, false),
+    childExecutable === goExecutable
+      ? expectedRuntimeEvidence.go
+      : expectedRuntimeEvidence.gofmt,
+    `${label}: final executable physical identity`
+  );
+  spawnedChildCount += 1;
   const result = spawnSync(goSandboxWrapper, wrapperArgs, {
     cwd,
     encoding: "utf8",
     env: {}
   });
+  const moduleSealAfter = sealMaterializedGoModulePair(
+    `${label}: post-child`
+  );
   if (result.error) {
     throw result.error;
   }
@@ -1439,6 +3937,10 @@ function runGoSandboxed(childExecutable, childArgs, options = {}) {
     argv: [childExecutable, ...childArgs],
     wrapperArgv: [goSandboxWrapper, ...wrapperArgs],
     environment: goEnvironment,
+    moduleSeals: {
+      before: moduleSealBefore,
+      after: moduleSealAfter
+    },
     status: result.status,
     stdout: result.stdout,
     stderr: result.stderr
@@ -1446,6 +3948,7 @@ function runGoSandboxed(childExecutable, childArgs, options = {}) {
 }
 
 function admitGoDownloadProgress(stderr, policy, label) {
+  assertGoDownloadPolicyFrozen(policy, `${label}: policy`);
   assert.equal(policy.name, "go-download-progress-v1");
   assert.equal(
     policy.stderrGrammar,
@@ -1509,6 +4012,8 @@ function admitGoDownloadProgress(stderr, policy, label) {
 }
 
 assertExactNodeRuntime();
+const manifest = readJson(path.join(goldenRoot, "manifest.json"));
+assertBootstrapRuntimeIdentity(manifest);
 
 const verificationMode = process.argv[2] ?? "verify";
 if (process.argv.length > 3) {
@@ -1525,7 +4030,11 @@ if (verificationMode === "--verify-cleanup-safety") {
   process.exit(0);
 }
 if (verificationMode === "--prepare-codegen-projections") {
-  prepareCodegenProjections();
+  preflightOfflineGoModuleMaterialization(manifest);
+  const offlineGoModuleSafety =
+    verifyOfflineGoModuleMaterializationSafety();
+  assertInstalledNodeToolIdentity(manifest);
+  prepareCodegenProjections(offlineGoModuleSafety);
   process.exit(0);
 }
 if (
@@ -1538,6 +4047,7 @@ if (
 }
 const verifyCodegenProjections =
   verificationMode === "--verify-codegen-projections";
+assertInstalledNodeToolIdentity(manifest);
 
 const [{ default: Ajv2020 }, { default: addFormats }, { default: canonicalize }] =
   await Promise.all([
@@ -1849,7 +4359,14 @@ function listPhysicalFiles(root, relative = "") {
   return result.sort();
 }
 
-const manifest = readJson(path.join(goldenRoot, "manifest.json"));
+const relocationEvidence = assertManifestRelocationPreflight(manifest);
+const relocationSafety = verifyRelocationEvidenceSafety(manifest);
+console.log(
+  `relocation evidence: ${JSON.stringify({
+    ...relocationEvidence,
+    ...relocationSafety
+  })}`
+);
 assert.equal(manifest.schemaVersion, 1);
 assert.equal(manifest.contract, "contracts-query-wire/v1");
 assert.equal(manifest.queryDigest.domainAscii, "bgmss.query.v1");
@@ -1904,12 +4421,25 @@ const actualCaseFiles = fs
   .sort();
 assert.deepEqual(actualCaseFiles, declaredCaseFiles);
 
+const offlineGoModulePhysicalFiles = Object.values(
+  expectedGoModuleInputEvidence
+).map((evidence) =>
+  path.relative(goldenRoot, path.join(repositoryRoot, evidence.path))
+);
+for (const evidence of Object.values(expectedGoModuleInputEvidence)) {
+  assert.deepEqual(
+    exactFileEvidence(path.join(repositoryRoot, evidence.path)),
+    evidence,
+    `offline Go module input ${evidence.path}`
+  );
+}
 const expectedPhysicalFiles = [
   "manifest.json",
   "package-lock.json",
   "package.json",
   "verify.mjs",
   ...declaredCaseFiles,
+  ...offlineGoModulePhysicalFiles,
   ...manifest.unicode.files.map((entry) => entry.path)
 ].sort();
 assert.deepEqual(listPhysicalFiles(goldenRoot), expectedPhysicalFiles);
@@ -3880,7 +6410,11 @@ function verifyCodegenEvidence() {
   );
   assert.deepEqual(
     manifest.acceptanceEvidence.goSandbox.environment,
-    goEnvironment
+    encodeRepositoryEvidenceTree(
+      goEnvironment,
+      repositoryRoot,
+      "/acceptanceEvidence/goSandbox/environment"
+    )
   );
   assert.equal(
     manifest.acceptanceEvidence.goSandbox.recoveryHistory.candidateAdmission,
@@ -3888,6 +6422,22 @@ function verifyCodegenEvidence() {
   );
   const goDownloadPolicy =
     manifest.acceptanceEvidence.goDownloadProgress;
+  assertGoDownloadPolicyFrozen(
+    goDownloadPolicy,
+    "pre-child Go download progress"
+  );
+  assert.deepEqual(
+    manifest.codegen.go.module,
+    expectedGoModuleEvidence,
+    "manifest Go module seal"
+  );
+  for (const [label, evidence] of Object.entries(expectedGoModuleEvidence)) {
+    assert.deepEqual(
+      exactFileEvidence(path.join(repositoryRoot, evidence.path)),
+      evidence,
+      `${label}: generated Go module physical identity`
+    );
+  }
   const goOutputPath = path.join(temporaryRoot, "query.gen.go");
   const replayOutputPath = path.join(temporaryRoot, "query.verify.gen.go");
   for (const [outputPath, label] of [
@@ -3919,7 +6469,8 @@ function verifyCodegenEvidence() {
     goExecutable,
     goGenerateArgs(goOutputPath),
     {
-      label: "candidate primary Go generation"
+      label: "candidate primary Go generation",
+      operation: "primaryGeneration"
     }
   );
   const primaryStderr = admitGoDownloadProgress(
@@ -3931,7 +6482,8 @@ function verifyCodegenEvidence() {
     goExecutable,
     goGenerateArgs(replayOutputPath),
     {
-    label: "deterministic Go generation replay"
+      label: "deterministic Go generation replay",
+      operation: "deterministicReplay"
     }
   );
   const replayStderr = admitGoDownloadProgress(
@@ -3960,7 +6512,8 @@ function verifyCodegenEvidence() {
     ["-d", "query.gen.go"],
     {
       cwd: temporaryRoot,
-      label: "gofmt"
+      label: "gofmt",
+      operation: "gofmt"
     }
   );
   assert.equal(gofmt.stdout, "", "generated Go is not gofmt-clean");
@@ -3970,7 +6523,8 @@ function verifyCodegenEvidence() {
     ["test", "query.gen.go"],
     {
       cwd: temporaryRoot,
-      label: "Go compile smoke"
+      label: "Go compile smoke",
+      operation: "compileSmoke"
     }
   );
   const compileStderr = admitGoDownloadProgress(
@@ -4016,7 +6570,11 @@ function verifyCodegenEvidence() {
   );
   assert.deepEqual(
     manifest.codegen.go.primaryGeneration.wrapperArgv,
-    primaryGenerate.wrapperArgv
+    encodeRepositoryEvidenceTree(
+      primaryGenerate.wrapperArgv,
+      repositoryRoot,
+      "/codegen/go/primaryGeneration/wrapperArgv"
+    )
   );
   assert.equal(
     manifest.codegen.go.primaryGeneration.status,
@@ -4028,14 +6586,18 @@ function verifyCodegenEvidence() {
   );
   assert.deepEqual(
     manifest.codegen.go.wrapperPrefixArgv,
-    [
-      goSandboxWrapper,
-      "-p",
-      approvedGoSandboxProfile,
-      cleanEnvironmentExecutable,
-      "-i",
-      ...goEnvironmentArgv()
-    ]
+    encodeRepositoryEvidenceTree(
+      [
+        goSandboxWrapper,
+        "-p",
+        approvedGoSandboxProfile,
+        cleanEnvironmentExecutable,
+        "-i",
+        ...goEnvironmentArgv()
+      ],
+      repositoryRoot,
+      "/codegen/go/wrapperPrefixArgv"
+    )
   );
   console.log(
     `candidate-success Go stderr evidence: ${JSON.stringify({
@@ -4046,11 +6608,21 @@ function verifyCodegenEvidence() {
       gofmt: {
         accepted: gofmt.stderr === "",
         stderrBytes: Buffer.byteLength(gofmt.stderr)
+      },
+      moduleFileSeals: {
+        operations: [
+          "primaryGeneration",
+          "deterministicReplay",
+          "gofmt",
+          "compileSmoke"
+        ],
+        boundaries: 8,
+        mode: "0600",
+        filesPerBoundary: 2
       }
     })}`
   );
 
-  const verifierFile = fileURLToPath(import.meta.url);
   assert.deepEqual(
     manifest.acceptanceEvidence.projectionTool.verifier,
     exactFileEvidence(verifierFile)

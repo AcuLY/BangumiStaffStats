@@ -208,25 +208,25 @@
         "bytes": 10850,
         "sha256": "8d7ba578431790f4325dd3bbc128f2301970fdbbdeba9781019e8cc25d0fa407"
       },
-      "source": "contracts/openapi/openapi.yaml",
+      "source": "contracts/goldens/query/.tmp/codegen-a/source/openapi/openapi.yaml",
       "environment": {
         "PATH": "/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-        "HOME": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-home",
-        "TMPDIR": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system"
+        "HOME": "@repo-root@/contracts/goldens/query/.tmp/redocly-home",
+        "TMPDIR": "@repo-root@/contracts/goldens/query/.tmp/system"
       },
       "commands": [
         {
           "childArgv": [
             "/Users/luca/.nvm/versions/node/v24.16.0/bin/node",
             "contracts/goldens/query/node_modules/openapi-typescript/bin/cli.js",
-            "contracts/openapi/openapi.yaml",
+            "contracts/goldens/query/.tmp/codegen-a/source/openapi/openapi.yaml",
             "--output",
             "contracts/goldens/query/.tmp/query-a.d.ts"
           ],
           "environmentArgv": [
             "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-            "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-home",
-            "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system"
+            "HOME=@repo-root@/contracts/goldens/query/.tmp/redocly-home",
+            "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system"
           ],
           "status": 0
         },
@@ -234,14 +234,14 @@
           "childArgv": [
             "/Users/luca/.nvm/versions/node/v24.16.0/bin/node",
             "contracts/goldens/query/node_modules/openapi-typescript/bin/cli.js",
-            "contracts/openapi/openapi.yaml",
+            "contracts/goldens/query/.tmp/codegen-b/source/openapi/openapi.yaml",
             "--output",
             "contracts/goldens/query/.tmp/query-b.d.ts"
           ],
           "environmentArgv": [
             "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-            "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-home",
-            "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system"
+            "HOME=@repo-root@/contracts/goldens/query/.tmp/redocly-home",
+            "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system"
           ],
           "status": 0
         }
@@ -356,11 +356,11 @@
           "/usr/bin/env",
           "-i",
           "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-          "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/go-home",
-          "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system",
-          "GOCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-build",
-          "GOMODCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-mod",
-          "GOPATH=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-path",
+          "HOME=@repo-root@/contracts/goldens/query/.tmp/go-home",
+          "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system",
+          "GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build",
+          "GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod",
+          "GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path",
           "GOENV=off",
           "GOWORK=off",
           "GOTOOLCHAIN=local",
@@ -396,25 +396,37 @@
         "/usr/bin/env",
         "-i",
         "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-        "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/go-home",
-        "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system",
-        "GOCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-build",
-        "GOMODCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-mod",
-        "GOPATH=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-path",
+        "HOME=@repo-root@/contracts/goldens/query/.tmp/go-home",
+        "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system",
+        "GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build",
+        "GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod",
+        "GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path",
         "GOENV=off",
         "GOWORK=off",
         "GOTOOLCHAIN=local"
       ],
+      "moduleInputs": {
+        "goMod": {
+          "path": "contracts/goldens/query/fixtures/go-module/go.mod.lock",
+          "bytes": 197,
+          "sha256": "dded0ad8642adcdbb5a786de7b12165ba33ec550adbaefae7fd3bba0479c2a94"
+        },
+        "goSum": {
+          "path": "contracts/goldens/query/fixtures/go-module/go.sum.lock",
+          "bytes": 1306,
+          "sha256": "46983b3967ffaae472baff9b8bd827dc57b7cfe6462fe589112b3e8ea24f38a0"
+        }
+      },
       "module": {
         "goMod": {
           "path": "contracts/goldens/query/.tmp/go.mod",
           "bytes": 197,
-          "sha256": "cba84a1024c2fb3f744bd0cb40e98f75f6dfd80f601af43d0e7cfb943c32094c"
+          "sha256": "dded0ad8642adcdbb5a786de7b12165ba33ec550adbaefae7fd3bba0479c2a94"
         },
         "goSum": {
           "path": "contracts/goldens/query/.tmp/go.sum",
           "bytes": 1306,
-          "sha256": "88616f04cf8ceaf754ee21955f834f13c7841904ab265bfa04d3ac3dab3811a0"
+          "sha256": "46983b3967ffaae472baff9b8bd827dc57b7cfe6462fe589112b3e8ea24f38a0"
         }
       },
       "output": {
@@ -986,8 +998,8 @@
       "version": 1,
       "verifier": {
         "path": "contracts/goldens/query/verify.mjs",
-        "bytes": 125459,
-        "sha256": "4b509691c0561486cd8e106588f168ecefd84a4e8e6501e8dc3076f1774f23a2"
+        "bytes": 200242,
+        "sha256": "fe50af794ce8cf432422a84b30e02eb6d26020ec1c96052767bd5a1147f9e3ad"
       },
       "command": {
         "argv": [
@@ -1080,8 +1092,8 @@
         "cleanEnvironmentExecutable": "/usr/bin/env",
         "environment": {
           "PATH": "/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-          "HOME": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-home",
-          "TMPDIR": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-tmp",
+          "HOME": "@repo-root@/contracts/goldens/query/.tmp/redocly-home",
+          "TMPDIR": "@repo-root@/contracts/goldens/query/.tmp/redocly-tmp",
           "REDOCLY_TELEMETRY": "off"
         },
         "wrapperPrefixArgv": [
@@ -1091,8 +1103,8 @@
           "/usr/bin/env",
           "-i",
           "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-          "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-home",
-          "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-tmp",
+          "HOME=@repo-root@/contracts/goldens/query/.tmp/redocly-home",
+          "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/redocly-tmp",
           "REDOCLY_TELEMETRY=off"
         ]
       },
@@ -1113,8 +1125,8 @@
           "/usr/bin/env",
           "-i",
           "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-          "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-home",
-          "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-tmp",
+          "HOME=@repo-root@/contracts/goldens/query/.tmp/redocly-home",
+          "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/redocly-tmp",
           "REDOCLY_TELEMETRY=off",
           "/Users/luca/.nvm/versions/node/v24.16.0/bin/node",
           "contracts/goldens/query/node_modules/@redocly/cli/bin/cli.js",
@@ -1129,7 +1141,7 @@
           "/Users/luca/.nvm/versions/node/v24.16.0/bin/node",
           "contracts/goldens/query/node_modules/@redocly/cli/bin/cli.js",
           "lint",
-          "contracts/openapi/openapi.yaml",
+          "contracts/goldens/query/.tmp/codegen-a/source/openapi/openapi.yaml",
           "--config",
           "contracts/goldens/query/.tmp/codegen-a/redocly.yaml",
           "--extends",
@@ -1142,13 +1154,13 @@
           "/usr/bin/env",
           "-i",
           "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-          "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-home",
-          "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-tmp",
+          "HOME=@repo-root@/contracts/goldens/query/.tmp/redocly-home",
+          "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/redocly-tmp",
           "REDOCLY_TELEMETRY=off",
           "/Users/luca/.nvm/versions/node/v24.16.0/bin/node",
           "contracts/goldens/query/node_modules/@redocly/cli/bin/cli.js",
           "lint",
-          "contracts/openapi/openapi.yaml",
+          "contracts/goldens/query/.tmp/codegen-a/source/openapi/openapi.yaml",
           "--config",
           "contracts/goldens/query/.tmp/codegen-a/redocly.yaml",
           "--extends",
@@ -1188,8 +1200,8 @@
             "/usr/bin/env",
             "-i",
             "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-            "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-home",
-            "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-tmp",
+            "HOME=@repo-root@/contracts/goldens/query/.tmp/redocly-home",
+            "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/redocly-tmp",
             "REDOCLY_TELEMETRY=off",
             "/Users/luca/.nvm/versions/node/v24.16.0/bin/node",
             "contracts/goldens/query/node_modules/@redocly/cli/bin/cli.js",
@@ -1239,8 +1251,8 @@
             "/usr/bin/env",
             "-i",
             "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-            "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-home",
-            "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/redocly-tmp",
+            "HOME=@repo-root@/contracts/goldens/query/.tmp/redocly-home",
+            "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/redocly-tmp",
             "REDOCLY_TELEMETRY=off",
             "/Users/luca/.nvm/versions/node/v24.16.0/bin/node",
             "contracts/goldens/query/node_modules/@redocly/cli/bin/cli.js",
@@ -1407,11 +1419,11 @@
       "cleanEnvironmentExecutable": "/usr/bin/env",
       "environment": {
         "PATH": "/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-        "HOME": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/go-home",
-        "TMPDIR": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system",
-        "GOCACHE": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-build",
-        "GOMODCACHE": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-mod",
-        "GOPATH": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-path",
+        "HOME": "@repo-root@/contracts/goldens/query/.tmp/go-home",
+        "TMPDIR": "@repo-root@/contracts/goldens/query/.tmp/system",
+        "GOCACHE": "@repo-root@/contracts/goldens/query/.cache/go-build",
+        "GOMODCACHE": "@repo-root@/contracts/goldens/query/.cache/go-mod",
+        "GOPATH": "@repo-root@/contracts/goldens/query/.cache/go-path",
         "GOENV": "off",
         "GOWORK": "off",
         "GOTOOLCHAIN": "local"
@@ -1423,11 +1435,11 @@
         "/usr/bin/env",
         "-i",
         "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-        "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/go-home",
-        "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system",
-        "GOCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-build",
-        "GOMODCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-mod",
-        "GOPATH=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-path",
+        "HOME=@repo-root@/contracts/goldens/query/.tmp/go-home",
+        "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system",
+        "GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build",
+        "GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod",
+        "GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path",
         "GOENV=off",
         "GOWORK=off",
         "GOTOOLCHAIN=local"
@@ -1442,14 +1454,14 @@
           "commands": [
             {
               "label": "gofmt-before-smoke",
-              "cwd": "/Users/luca/dev/BangumiStaffStats",
+              "cwd": "@repo-root@",
               "wrapperArgv": [
                 "/usr/bin/sandbox-exec",
                 "-p",
                 "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
                 "env",
                 "-i",
-                "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/go-home TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system GOCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-build GOMODCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-mod GOPATH=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-path GOENV=off GOWORK=off GOTOOLCHAIN=local",
+                "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin HOME=@repo-root@/contracts/goldens/query/.tmp/go-home TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path GOENV=off GOWORK=off GOTOOLCHAIN=local",
                 "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/gofmt",
                 "-d",
                 "contracts/goldens/query/.tmp/query.gen.go"
@@ -1458,14 +1470,14 @@
             },
             {
               "label": "go-mod-init",
-              "cwd": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp",
+              "cwd": "@repo-root@/contracts/goldens/query/.tmp",
               "wrapperArgv": [
                 "/usr/bin/sandbox-exec",
                 "-p",
                 "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
                 "env",
                 "-i",
-                "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/go-home TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system GOCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-build GOMODCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-mod GOPATH=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-path GOENV=off GOWORK=off GOTOOLCHAIN=local",
+                "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin HOME=@repo-root@/contracts/goldens/query/.tmp/go-home TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path GOENV=off GOWORK=off GOTOOLCHAIN=local",
                 "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/go",
                 "mod",
                 "init",
@@ -1475,14 +1487,14 @@
             },
             {
               "label": "go-get-runtime",
-              "cwd": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp",
+              "cwd": "@repo-root@/contracts/goldens/query/.tmp",
               "wrapperArgv": [
                 "/usr/bin/sandbox-exec",
                 "-p",
                 "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
                 "env",
                 "-i",
-                "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/go-home TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system GOCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-build GOMODCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-mod GOPATH=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-path GOENV=off GOWORK=off GOTOOLCHAIN=local",
+                "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin HOME=@repo-root@/contracts/goldens/query/.tmp/go-home TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path GOENV=off GOWORK=off GOTOOLCHAIN=local",
                 "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/go",
                 "get",
                 "github.com/oapi-codegen/runtime@v1.1.2"
@@ -1492,14 +1504,14 @@
             },
             {
               "label": "go-test",
-              "cwd": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp",
+              "cwd": "@repo-root@/contracts/goldens/query/.tmp",
               "wrapperArgv": [
                 "/usr/bin/sandbox-exec",
                 "-p",
                 "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
                 "env",
                 "-i",
-                "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/go-home TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system GOCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-build GOMODCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-mod GOPATH=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-path GOENV=off GOWORK=off GOTOOLCHAIN=local",
+                "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin HOME=@repo-root@/contracts/goldens/query/.tmp/go-home TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path GOENV=off GOWORK=off GOTOOLCHAIN=local",
                 "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/go",
                 "test",
                 "query.gen.go"
@@ -1530,7 +1542,7 @@
           "commands": [
             {
               "label": "go-mod-init",
-              "cwd": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp",
+              "cwd": "@repo-root@/contracts/goldens/query/.tmp",
               "childArgv": [
                 "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/go",
                 "mod",
@@ -1544,11 +1556,11 @@
                 "/usr/bin/env",
                 "-i",
                 "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-                "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/go-home",
-                "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system",
-                "GOCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-build",
-                "GOMODCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-mod",
-                "GOPATH=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-path",
+                "HOME=@repo-root@/contracts/goldens/query/.tmp/go-home",
+                "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system",
+                "GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build",
+                "GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod",
+                "GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path",
                 "GOENV=off",
                 "GOWORK=off",
                 "GOTOOLCHAIN=local",
@@ -1561,7 +1573,7 @@
             },
             {
               "label": "go-get-runtime-v1.1.2",
-              "cwd": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp",
+              "cwd": "@repo-root@/contracts/goldens/query/.tmp",
               "childArgv": [
                 "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/go",
                 "get",
@@ -1574,11 +1586,11 @@
                 "/usr/bin/env",
                 "-i",
                 "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-                "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/go-home",
-                "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system",
-                "GOCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-build",
-                "GOMODCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-mod",
-                "GOPATH=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-path",
+                "HOME=@repo-root@/contracts/goldens/query/.tmp/go-home",
+                "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system",
+                "GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build",
+                "GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod",
+                "GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path",
                 "GOENV=off",
                 "GOWORK=off",
                 "GOTOOLCHAIN=local",
@@ -1590,7 +1602,7 @@
             },
             {
               "label": "gofmt",
-              "cwd": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp",
+              "cwd": "@repo-root@/contracts/goldens/query/.tmp",
               "childArgv": [
                 "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/gofmt",
                 "-d",
@@ -1603,11 +1615,11 @@
                 "/usr/bin/env",
                 "-i",
                 "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-                "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/go-home",
-                "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system",
-                "GOCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-build",
-                "GOMODCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-mod",
-                "GOPATH=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-path",
+                "HOME=@repo-root@/contracts/goldens/query/.tmp/go-home",
+                "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system",
+                "GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build",
+                "GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod",
+                "GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path",
                 "GOENV=off",
                 "GOWORK=off",
                 "GOTOOLCHAIN=local",
@@ -1619,7 +1631,7 @@
             },
             {
               "label": "go-test",
-              "cwd": "/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp",
+              "cwd": "@repo-root@/contracts/goldens/query/.tmp",
               "childArgv": [
                 "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/go",
                 "test",
@@ -1632,11 +1644,11 @@
                 "/usr/bin/env",
                 "-i",
                 "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-                "HOME=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/go-home",
-                "TMPDIR=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.tmp/system",
-                "GOCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-build",
-                "GOMODCACHE=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-mod",
-                "GOPATH=/Users/luca/dev/BangumiStaffStats/contracts/goldens/query/.cache/go-path",
+                "HOME=@repo-root@/contracts/goldens/query/.tmp/go-home",
+                "TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system",
+                "GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build",
+                "GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod",
+                "GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path",
                 "GOENV=off",
                 "GOWORK=off",
                 "GOTOOLCHAIN=local",
@@ -1763,7 +1775,7 @@
             "github.com/goccy/go-json@v0.10.2",
             "github.com/golang/snappy@v0.0.4",
             "github.com/gomarkdown/markdown@v0.0.0-20230922112808-5421fefb8386",
-            "github.com/google/uuid@v1.5.0",
+            "github.com/google/uuid@v1.6.0",
             "github.com/gorilla/css@v1.0.0",
             "github.com/iris-contrib/schema@v0.0.6",
             "github.com/josharian/intern@v1.0.0",
@@ -1860,7 +1872,7 @@
         "github.com/gomarkdown/markdown@v0.0.0-20230922112808-5421fefb8386",
         "github.com/google/go-cmp@v0.6.0",
         "github.com/google/pprof@v0.0.0-20210407192527-94a9f03dee38",
-        "github.com/google/uuid@v1.5.0",
+        "github.com/google/uuid@v1.6.0",
         "github.com/gorilla/css@v1.0.0",
         "github.com/gorilla/mux@v1.8.0",
         "github.com/hpcloud/tail@v1.0.0",
