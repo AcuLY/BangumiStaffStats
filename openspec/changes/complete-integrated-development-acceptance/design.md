@@ -316,11 +316,14 @@ are exactly:
 
 The safe reader streams and hashes all nine members, while only the seven
 `consumed` members participate in Updater source accounting. The pinned common
-bytes bind the common commit/URL/size/digest. Only then do the existing
-manifest/SQLite/dataVersion/schema/source-accounting, Updater generator, and
-real Go consumer checks establish the accepted Archive identity. The known
-minimal fixture identities and self-consistent synthetic producer cases are
-rejected. Both Archive and provenance roots re-seal after the run.
+bytes bind the common commit/URL/size/digest. Admission then applies the
+existing manifest/SQLite/dataVersion/schema/source-accounting and Updater
+generator checks before any copy. Because the real Go `archive-smoke`
+consumer accepts an activation-root rather than a standalone version-root,
+the harness creates the independently sealed read-only activation copy and
+runs that consumer against the copy before any packaged runtime starts. The
+known minimal fixture identities and self-consistent synthetic producer cases
+are rejected. Both Archive and provenance roots re-seal after the run.
 
 The harness snapshots all protected tracked paths plus supplied immutable
 inputs before execution and compares them after cleanup. A mismatch converts

@@ -333,27 +333,29 @@ Unconsumed members SHALL be admitted only as reviewed official upstream bytes
 and SHALL NOT participate in Updater source accounting. The pinned common
 bytes SHALL match the Archive manifest's common commit/URL/size/digest.
 
-The harness SHALL additionally validate the Archive contract,
-manifest/SQLite/schema/dataVersion digests, complete source accounting,
-generator compatibility, and real Go consumer acceptance. It SHALL reject
-known minimal fixtures, self-consistent synthetic producer cases, missing
-sources, and any Archive or provenance input that changes before cleanup
-completes.
+Before copying, the harness SHALL validate the Archive contract,
+manifest/SQLite/schema/dataVersion digests, complete source accounting, and
+generator compatibility. It SHALL reject known minimal fixtures,
+self-consistent synthetic producer cases, missing sources, and any Archive or
+provenance input that changes before cleanup completes.
 
 For runtime only, the harness SHALL byte-copy the validated version into one
 owned run root, derive a canonical `current.json`, make the complete copy
 read-only, and mount only that copy. Hard links, symlinks, writes beside the
-input, and reuse of a production/current activation root are forbidden.
+input, and reuse of a production/current activation root are forbidden. The
+real Go consumer SHALL then accept that exact independently sealed activation
+copy before any packaged runtime starts.
 
 #### Scenario: Official full Archive is accepted
 
 - **WHEN** the frozen release ZIP and common bytes match their pinned upstream
   metadata, the exact nine-member ZIP allowlist is present, all seven consumed
   members match the inactive version's source accounts, both unconsumed
-  members match their reviewed identities, and the version passes all
-  Contracts and real Go consumer gates
+  members match their reviewed identities, and the standalone version passes
+  every pre-copy Contracts gate
 - **THEN** a byte-identical disposable activation copy SHALL be created below
-  the owned run root and both source roots SHALL remain unchanged
+  the owned run root, the real Go consumer SHALL accept that copy, and both
+  source roots SHALL remain unchanged
 
 #### Scenario: A self-consistent synthetic Archive is supplied
 

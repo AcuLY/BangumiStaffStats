@@ -135,13 +135,14 @@ commit, push, sync, archive, or update task markers.
   reviewed unconsumed member identities, and the common identity; then
   validate regular `manifest.json`/`bangumi.sqlite` through existing
   schema/digest/dataVersion/object/sentinel gates, generator compatibility,
-  and real Go consumer acceptance. Reject missing/tampered provenance,
-  checked-in minimal/self-consistent synthetic identities, and re-seal both
-  input roots before/after.
+  and reject missing/tampered provenance or checked-in
+  minimal/self-consistent synthetic identities. Re-seal both input roots
+  before/after.
 - [ ] 4.2 Stream-copy the accepted version into the owned run root, derive one
   canonical development-only `current.json`, verify copied byte identities,
-  make the tree read-only, and prohibit hard links, symlinks, writes beside the
-  source, or use of a caller/production current root.
+  make the tree read-only, run real Go consumer acceptance against that exact
+  activation copy, and prohibit hard links, symlinks, writes beside the source,
+  or use of a caller/production current root.
 - [ ] 4.3 Run the immutable Updater artifact as non-root/read-only/networkless
   for `doctor` and `contract-check`, with only bounded tmpfs/interpreter state;
   verify exit JSON, input immutability, termination, and zero residue.
