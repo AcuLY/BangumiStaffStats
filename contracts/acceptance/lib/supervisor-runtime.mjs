@@ -140,43 +140,265 @@ function readOciTarEntry(archivePath, target, maximumBytes) {
   fail(`OCI archive is missing ${target}`);
 }
 
-function exactOciImageId(archivePath) {
+const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/u;
+const OCI_INDEX_MEDIA_TYPE = 'application/vnd.oci.image.index.v1+json';
+const OCI_MANIFEST_MEDIA_TYPE = 'application/vnd.oci.image.manifest.v1+json';
+const OCI_CONFIG_MEDIA_TYPE = 'application/vnd.oci.image.config.v1+json';
+const OCI_LAYER_MEDIA_TYPES = new Set([
+  'application/vnd.oci.image.layer.v1.tar',
+  'application/vnd.oci.image.layer.v1.tar+gzip',
+  'application/vnd.oci.image.layer.v1.tar+zstd',
+  'application/vnd.oci.image.layer.nondistributable.v1.tar',
+  'application/vnd.oci.image.layer.nondistributable.v1.tar+gzip',
+  'application/vnd.oci.image.layer.nondistributable.v1.tar+zstd',
+]);
+
+function exactStringArray(value, label, { nullable = false } = {}) {
+  if (nullable && value === null) return Object.freeze([]);
+  if (
+    !Array.isArray(value) ||
+    value.some((entry) => typeof entry !== 'string') ||
+    new Set(value).size !== value.length
+  ) {
+    fail(`${label} is not a duplicate-free string array`);
+  }
+  return Object.freeze([...value]);
+}
+
+function exactOciIdentity(archivePath) {
   const index = parseJsonStrict(
     readOciTarEntry(archivePath, 'index.json', 1024 * 1024).toString('utf8'),
   );
   if (
     index?.schemaVersion !== 2 ||
+    index.mediaType !== OCI_INDEX_MEDIA_TYPE ||
     !Array.isArray(index.manifests) ||
     index.manifests.length !== 1
   ) {
     fail('OCI archive index does not declare one image manifest');
   }
-  const manifestDigest = index.manifests[0]?.digest;
-  if (!/^sha256:[0-9a-f]{64}$/u.test(manifestDigest)) {
+  const descriptor = index.manifests[0];
+  const manifestDigest = descriptor?.digest;
+  if (!DIGEST_PATTERN.test(manifestDigest)) {
     fail('OCI archive index has an invalid manifest digest');
+  }
+  if (
+    descriptor.mediaType !== OCI_MANIFEST_MEDIA_TYPE ||
+    !Number.isSafeInteger(descriptor.size) ||
+    descriptor.size < 1
+  ) {
+    fail('OCI archive index has an invalid image manifest descriptor');
+  }
+  const platform = descriptor.platform;
+  if (
+    platform?.architecture !== 'arm64' ||
+    platform.os !== 'linux' ||
+    Object.keys(platform).some(
+      (key) => !['architecture', 'os'].includes(key),
+    )
+  ) {
+    fail('OCI archive index does not declare the accepted linux/arm64 platform');
   }
   const manifestBytes = readOciTarEntry(
     archivePath,
     `blobs/sha256/${manifestDigest.slice(7)}`,
     8 * 1024 * 1024,
   );
-  if (sha256Bytes(manifestBytes) !== manifestDigest) {
+  if (
+    manifestBytes.length !== descriptor.size ||
+    sha256Bytes(manifestBytes) !== manifestDigest
+  ) {
     fail('OCI archive manifest bytes differ from their digest');
   }
   const manifest = parseJsonStrict(manifestBytes.toString('utf8'));
-  const imageId = manifest?.config?.digest;
-  if (!/^sha256:[0-9a-f]{64}$/u.test(imageId)) {
+  if (
+    manifest?.schemaVersion !== 2 ||
+    manifest.mediaType !== OCI_MANIFEST_MEDIA_TYPE
+  ) {
+    fail('OCI archive manifest has an invalid media type or schema version');
+  }
+  const config = manifest.config;
+  const configDigest = config?.digest;
+  if (!DIGEST_PATTERN.test(configDigest)) {
     fail('OCI archive manifest has an invalid config digest');
+  }
+  if (
+    config.mediaType !== OCI_CONFIG_MEDIA_TYPE ||
+    !Number.isSafeInteger(config.size) ||
+    config.size < 1
+  ) {
+    fail('OCI archive manifest has an invalid config descriptor');
   }
   const configBytes = readOciTarEntry(
     archivePath,
-    `blobs/sha256/${imageId.slice(7)}`,
+    `blobs/sha256/${configDigest.slice(7)}`,
     8 * 1024 * 1024,
   );
-  if (sha256Bytes(configBytes) !== imageId) {
+  if (
+    configBytes.length !== config.size ||
+    sha256Bytes(configBytes) !== configDigest
+  ) {
     fail('OCI archive config bytes differ from their digest');
   }
-  return imageId;
+  const configDocument = parseJsonStrict(configBytes.toString('utf8'));
+  const rootfsDiffIds = exactStringArray(
+    configDocument?.rootfs?.diff_ids,
+    'OCI archive config rootfs diff IDs',
+  );
+  if (
+    configDocument.architecture !== platform.architecture ||
+    configDocument.os !== platform.os ||
+    configDocument.rootfs?.type !== 'layers' ||
+    rootfsDiffIds.some((digest) => !DIGEST_PATTERN.test(digest))
+  ) {
+    fail('OCI archive config differs from the accepted platform or rootfs shape');
+  }
+  if (
+    !Array.isArray(manifest.layers) ||
+    manifest.layers.length !== rootfsDiffIds.length
+  ) {
+    fail('OCI archive manifest and config declare different layer counts');
+  }
+  const layerDigests = manifest.layers.map((layer) => {
+    if (
+      !layer ||
+      !OCI_LAYER_MEDIA_TYPES.has(layer.mediaType) ||
+      !DIGEST_PATTERN.test(layer.digest) ||
+      !Number.isSafeInteger(layer.size) ||
+      layer.size < 1
+    ) {
+      fail('OCI archive manifest has an invalid layer descriptor');
+    }
+    return layer.digest;
+  });
+  if (new Set(layerDigests).size !== layerDigests.length) {
+    fail('OCI archive manifest repeats a layer digest');
+  }
+  return Object.freeze({
+    architecture: platform.architecture,
+    configDigest,
+    layerDigests: Object.freeze(layerDigests),
+    manifestDigest,
+    manifestSize: descriptor.size,
+    os: platform.os,
+    rootfsDiffIds,
+  });
+}
+
+function dockerImageStore(output) {
+  const document = parseJsonStrict(output);
+  const status = document?.driverStatus;
+  if (
+    typeof document?.driver !== 'string' ||
+    document.driver === '' ||
+    !Array.isArray(status) ||
+    status.some(
+      (entry) =>
+        !Array.isArray(entry) ||
+        entry.length !== 2 ||
+        entry.some((value) => typeof value !== 'string'),
+    )
+  ) {
+    fail('Docker image-store identity is invalid');
+  }
+  const driverTypes = status.filter(([key]) => key === 'driver-type');
+  if (driverTypes.length > 1) {
+    fail('Docker image-store identity repeats its driver type');
+  }
+  let mode = 'classic';
+  if (driverTypes.length === 1) {
+    if (driverTypes[0][1] !== 'io.containerd.snapshotter.v1') {
+      fail('Docker image-store driver type is unsupported');
+    }
+    mode = 'containerd';
+  }
+  return Object.freeze({
+    driver: document.driver,
+    driverStatus: Object.freeze(
+      status.map((entry) => Object.freeze([...entry])),
+    ),
+    mode,
+  });
+}
+
+function parsedImageInspection(output, label) {
+  const document = parseJsonStrict(output);
+  if (
+    !Array.isArray(document) ||
+    document.length !== 1 ||
+    !document[0] ||
+    typeof document[0] !== 'object' ||
+    Array.isArray(document[0])
+  ) {
+    fail(`${label} did not return one Docker image document`);
+  }
+  return document[0];
+}
+
+export function acceptedLoadedImageIdentity({
+  archive,
+  document,
+  image,
+  imageStore,
+  requireExclusiveTag,
+}) {
+  const repoTags = exactStringArray(
+    document.RepoTags,
+    `Docker image ${image} RepoTags`,
+    { nullable: true },
+  );
+  if (
+    !repoTags.includes(image) ||
+    (requireExclusiveTag &&
+      (repoTags.length !== 1 || repoTags[0] !== image))
+  ) {
+    fail(`Docker image ${image} does not have the exact owned tag set`);
+  }
+  const repoDigests = exactStringArray(
+    document.RepoDigests,
+    `Docker image ${image} RepoDigests`,
+    { nullable: true },
+  );
+  if (
+    repoDigests.some(
+      (reference) => !reference.endsWith(`@${archive.manifestDigest}`),
+    ) ||
+    (imageStore.mode === 'containerd' && repoDigests.length === 0)
+  ) {
+    fail(`Docker image ${image} has an unexpected repository digest`);
+  }
+  if (
+    document.Architecture !== archive.architecture ||
+    document.Os !== archive.os ||
+    document.RootFS?.Type !== 'layers' ||
+    JSON.stringify(document.RootFS.Layers) !==
+      JSON.stringify(archive.rootfsDiffIds)
+  ) {
+    fail(`Docker image ${image} differs from the accepted platform or rootfs`);
+  }
+  const descriptor = document.Descriptor;
+  if (descriptor !== undefined && descriptor !== null) {
+    if (
+      descriptor.mediaType !== OCI_MANIFEST_MEDIA_TYPE ||
+      descriptor.digest !== archive.manifestDigest ||
+      descriptor.size !== archive.manifestSize
+    ) {
+      fail(`Docker image ${image} has an unexpected manifest descriptor`);
+    }
+  }
+  const expectedRuntimeId =
+    imageStore.mode === 'containerd'
+      ? archive.manifestDigest
+      : archive.configDigest;
+  if (
+    !DIGEST_PATTERN.test(document.Id) ||
+    document.Id !== expectedRuntimeId ||
+    (imageStore.mode === 'containerd' &&
+      (descriptor === undefined || descriptor === null))
+  ) {
+    fail(`Docker image ${image} has an unexpected runtime ID`);
+  }
+  return document.Id;
 }
 
 export class SupervisorRuntimeOwnership {
@@ -199,13 +421,14 @@ export class SupervisorRuntimeOwnership {
     this.expected = new Map(
       ['backend', 'updater'].map((component) => [
         this.plan.images[component],
-        exactOciImageId(this.plan.archives[component]),
+        exactOciIdentity(this.plan.archives[component]),
       ]),
     );
     this.loaded = new Map();
     this.pending = new Set();
     this.commands = [];
     this.prepared = false;
+    this.imageStore = null;
     this.environment = sanitizedEnvironment({
       runRoot: this.runRoot,
       pathEntries: [path.dirname(this.docker), '/usr/bin', '/bin'],
@@ -219,6 +442,24 @@ export class SupervisorRuntimeOwnership {
   facts() {
     return Object.freeze({
       commands: frozenFacts(this.commands),
+      expected: Object.freeze(
+        Object.fromEntries(
+          [...this.expected.entries()]
+            .sort(([left], [right]) => left.localeCompare(right, 'en'))
+            .map(([image, identity]) => [
+              image,
+              Object.freeze({
+                architecture: identity.architecture,
+                configDigest: identity.configDigest,
+                layerDigests: identity.layerDigests,
+                manifestDigest: identity.manifestDigest,
+                os: identity.os,
+                rootfsDiffIds: identity.rootfsDiffIds,
+              }),
+            ]),
+        ),
+      ),
+      imageStore: this.imageStore,
       loaded: Object.freeze(
         Object.fromEntries(
           [...this.loaded.entries()].sort(([left], [right]) =>
@@ -322,6 +563,20 @@ export class SupervisorRuntimeOwnership {
     }
   }
 
+  async #inspectImage(name) {
+    const inspection = await this.#inspect('image', name);
+    if (!inspection.exists) {
+      return Object.freeze({ document: null, exists: false });
+    }
+    return Object.freeze({
+      document: parsedImageInspection(
+        inspection.output,
+        `Docker image ${name} inspection`,
+      ),
+      exists: true,
+    });
+  }
+
   async prepare({ signal } = {}) {
     if (signal !== undefined && !(signal instanceof AbortSignal)) {
       fail('supervisor runtime preparation signal is invalid');
@@ -331,12 +586,28 @@ export class SupervisorRuntimeOwnership {
       if (
         this.prepared ||
         this.loaded.size !== 0 ||
-        this.pending.size !== 0
+        this.pending.size !== 0 ||
+        this.imageStore !== null
       ) {
         fail('supervisor runtime ownership was prepared more than once');
       }
+      const imageStore = await this.#docker(
+        'info-image-store',
+        [
+          'info',
+          '--format',
+          '{"driver":{{json .Driver}},"driverStatus":{{json .DriverStatus}}}',
+        ],
+      );
+      this.imageStore = dockerImageStore(imageStore.stdout.trim());
       for (const image of Object.values(this.plan.images)) {
         await this.#assertAbsent('image', image);
+      }
+      for (const identity of this.expected.values()) {
+        await this.#assertAbsent('image', identity.manifestDigest);
+        if (identity.configDigest !== identity.manifestDigest) {
+          await this.#assertAbsent('image', identity.configDigest);
+        }
       }
       for (const name of [
         this.plan.names.backend,
@@ -355,18 +626,18 @@ export class SupervisorRuntimeOwnership {
           ['image', 'load', '--input', this.plan.archives[component]],
           { timeoutMs: 300_000 },
         );
-        const inspection = await this.#inspect('image', image, {
-          format: '{{.Id}}',
-        });
-        if (
-          !inspection.exists ||
-          inspection.output !== this.expected.get(image)
-        ) {
-          fail(
-            `supervisor loaded ${component} with an unexpected image ID`,
-          );
+        const inspection = await this.#inspectImage(image);
+        if (!inspection.exists) {
+          fail(`supervisor loaded ${component} without its owned image tag`);
         }
-        this.loaded.set(image, inspection.output);
+        const runtimeId = acceptedLoadedImageIdentity({
+          archive: this.expected.get(image),
+          document: inspection.document,
+          image,
+          imageStore: this.imageStore,
+          requireExclusiveTag: true,
+        });
+        this.loaded.set(image, runtimeId);
         this.pending.delete(image);
       }
       this.prepared = true;
@@ -398,12 +669,20 @@ export class SupervisorRuntimeOwnership {
     const owned = new Set([...this.pending, ...this.loaded.keys()]);
     for (const image of Object.values(this.plan.images)) {
       const referenceExists = (await this.#inspect('image', image)).exists;
-      const identityExists =
-        owned.has(image) &&
-        (
-          await this.#inspect('image', this.expected.get(image))
-        ).exists;
-      if (referenceExists || identityExists) residue.images += 1;
+      if (referenceExists) {
+        residue.images += 1;
+        continue;
+      }
+      if (!owned.has(image) || this.imageStore === null) continue;
+      const identity = this.expected.get(image);
+      const runtimeId =
+        this.loaded.get(image) ??
+        (this.imageStore.mode === 'containerd'
+          ? identity.manifestDigest
+          : identity.configDigest);
+      if ((await this.#inspect('image', runtimeId)).exists) {
+        residue.images += 1;
+      }
     }
     return Object.freeze(residue);
   }
@@ -451,13 +730,23 @@ export class SupervisorRuntimeOwnership {
     const owned = new Set([...this.pending, ...this.loaded.keys()]);
     for (const image of owned) {
       try {
-        const ownedId = this.expected.get(image);
-        const inspection = await this.#inspect('image', image, {
-          format: '{{.Id}}',
-        });
+        if (this.imageStore === null) {
+          fail('supervisor Docker image-store identity is absent');
+        }
+        const inspection = await this.#inspectImage(image);
         if (inspection.exists) {
-          if (inspection.output !== ownedId) {
-            fail(`supervisor-owned image reference changed identity: ${image}`);
+          const observedId = acceptedLoadedImageIdentity({
+            archive: this.expected.get(image),
+            document: inspection.document,
+            image,
+            imageStore: this.imageStore,
+            requireExclusiveTag: false,
+          });
+          const loadedId = this.loaded.get(image);
+          if (loadedId !== undefined && observedId !== loadedId) {
+            fail(
+              `supervisor-owned image reference changed identity: ${image}`,
+            );
           }
           const references = await this.#docker(
             `references-image-${commandToken(image)}`,
@@ -468,7 +757,7 @@ export class SupervisorRuntimeOwnership {
               '--quiet',
               '--no-trunc',
               '--filter',
-              `ancestor=${ownedId}`,
+              `ancestor=${observedId}`,
             ],
           );
           if (references.stdout.trim() !== '') {

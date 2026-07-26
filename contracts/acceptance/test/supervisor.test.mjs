@@ -12,6 +12,7 @@ import {
   canonicalJsonDigest,
 } from '../lib/canonical-json.mjs';
 import {
+  acceptedLoadedImageIdentity,
   SupervisorRuntimeOwnership,
 } from '../lib/supervisor-runtime.mjs';
 import { superviseAcceptanceWorker } from '../lib/supervisor.mjs';
@@ -62,26 +63,51 @@ function tarEntry(name, bytes) {
 }
 
 function writeOciArchive(filePath, component) {
-  const config = Buffer.from(canonicalJson({ component }));
-  const imageId = sha256(config);
+  const layer = Buffer.from(`${component}-layer\n`);
+  const layerDigest = sha256(layer);
+  const rootfsDiffIds = Object.freeze([layerDigest]);
+  const config = Buffer.from(
+    canonicalJson({
+      architecture: 'arm64',
+      component,
+      os: 'linux',
+      rootfs: {
+        diff_ids: rootfsDiffIds,
+        type: 'layers',
+      },
+    }),
+  );
+  const configDigest = sha256(config);
   const manifest = Buffer.from(
     canonicalJson({
       config: {
-        digest: imageId,
+        digest: configDigest,
         mediaType: 'application/vnd.oci.image.config.v1+json',
         size: config.length,
       },
-      layers: [],
+      layers: [
+        {
+          digest: layerDigest,
+          mediaType: 'application/vnd.oci.image.layer.v1.tar',
+          size: layer.length,
+        },
+      ],
+      mediaType: 'application/vnd.oci.image.manifest.v1+json',
       schemaVersion: 2,
     }),
   );
   const manifestDigest = sha256(manifest);
   const index = Buffer.from(
     canonicalJson({
+      mediaType: 'application/vnd.oci.image.index.v1+json',
       manifests: [
         {
           digest: manifestDigest,
           mediaType: 'application/vnd.oci.image.manifest.v1+json',
+          platform: {
+            architecture: 'arm64',
+            os: 'linux',
+          },
           size: manifest.length,
         },
       ],
@@ -93,11 +119,54 @@ function writeOciArchive(filePath, component) {
     Buffer.concat([
       tarEntry('index.json', index),
       tarEntry(`blobs/sha256/${manifestDigest.slice(7)}`, manifest),
-      tarEntry(`blobs/sha256/${imageId.slice(7)}`, config),
+      tarEntry(`blobs/sha256/${configDigest.slice(7)}`, config),
+      tarEntry(`blobs/sha256/${layerDigest.slice(7)}`, layer),
       Buffer.alloc(1024),
     ]),
   );
-  return Object.freeze({ imageId, manifestDigest });
+  return Object.freeze({
+    architecture: 'arm64',
+    configDigest,
+    layerDigest,
+    layerDigests: Object.freeze([layerDigest]),
+    manifestDigest,
+    manifestSize: manifest.length,
+    os: 'linux',
+    rootfsDiffIds,
+  });
+}
+
+function fakeImageInspection(
+  identity,
+  reference,
+  { descriptor, runtimeId },
+) {
+  const repository = reference.slice(0, reference.lastIndexOf(':'));
+  return canonicalJson([
+    {
+      Architecture: 'arm64',
+      ...(descriptor
+        ? {
+            Descriptor: {
+              digest: identity.manifestDigest,
+              mediaType: 'application/vnd.oci.image.manifest.v1+json',
+              size: identity.manifestSize,
+            },
+          }
+        : {}),
+      Id: runtimeId,
+      Os: 'linux',
+      RepoDigests:
+        descriptor
+          ? [`${repository}@${identity.manifestDigest}`]
+          : [],
+      RepoTags: [reference],
+      RootFS: {
+        Layers: identity.rootfsDiffIds,
+        Type: 'layers',
+      },
+    },
+  ]);
 }
 
 function allocateFixtureRunRoot() {
@@ -265,6 +334,11 @@ test('parent runtime prepare receives full artifact attestation and removes only
   );
   const dockerSocket = path.join(socketRoot, 'docker.sock');
   const server = net.createServer();
+  const connections = new Set();
+  server.on('connection', (connection) => {
+    connections.add(connection);
+    connection.once('close', () => connections.delete(connection));
+  });
   try {
     await new Promise((resolve, reject) => {
       server.once('error', reject);
@@ -291,13 +365,95 @@ test('parent runtime prepare receives full artifact attestation and removes only
         artifacts: {
           image: {
             oci: {
-              config: { digest: updaterOci.imageId },
+              config: { digest: updaterOci.configDigest },
               manifest: { digest: updaterOci.manifestDigest },
               reference: UPDATER_IMAGE,
             },
           },
         },
       }),
+    );
+    const backendContainerd = fakeImageInspection(
+      backendOci,
+      BACKEND_IMAGE,
+      {
+        descriptor: true,
+        runtimeId: backendOci.manifestDigest,
+      },
+    );
+    const updaterContainerd = fakeImageInspection(
+      updaterOci,
+      UPDATER_IMAGE,
+      {
+        descriptor: true,
+        runtimeId: updaterOci.manifestDigest,
+      },
+    );
+    const backendClassic = fakeImageInspection(
+      backendOci,
+      BACKEND_IMAGE,
+      {
+        descriptor: false,
+        runtimeId: backendOci.configDigest,
+      },
+    );
+    const backendContainerdWrongId = fakeImageInspection(
+      backendOci,
+      BACKEND_IMAGE,
+      {
+        descriptor: true,
+        runtimeId: backendOci.configDigest,
+      },
+    );
+    const backendClassicWrongId = fakeImageInspection(
+      backendOci,
+      BACKEND_IMAGE,
+      {
+        descriptor: false,
+        runtimeId: backendOci.manifestDigest,
+      },
+    );
+    assert.equal(
+      acceptedLoadedImageIdentity({
+        archive: backendOci,
+        document: JSON.parse(backendContainerd)[0],
+        image: BACKEND_IMAGE,
+        imageStore: { mode: 'containerd' },
+        requireExclusiveTag: true,
+      }),
+      backendOci.manifestDigest,
+    );
+    assert.equal(
+      acceptedLoadedImageIdentity({
+        archive: backendOci,
+        document: JSON.parse(backendClassic)[0],
+        image: BACKEND_IMAGE,
+        imageStore: { mode: 'classic' },
+        requireExclusiveTag: true,
+      }),
+      backendOci.configDigest,
+    );
+    assert.throws(
+      () =>
+        acceptedLoadedImageIdentity({
+          archive: backendOci,
+          document: JSON.parse(backendContainerdWrongId)[0],
+          image: BACKEND_IMAGE,
+          imageStore: { mode: 'containerd' },
+          requireExclusiveTag: true,
+        }),
+      /unexpected runtime ID/u,
+    );
+    assert.throws(
+      () =>
+        acceptedLoadedImageIdentity({
+          archive: backendOci,
+          document: JSON.parse(backendClassicWrongId)[0],
+          image: BACKEND_IMAGE,
+          imageStore: { mode: 'classic' },
+          requireExclusiveTag: true,
+        }),
+      /unexpected runtime ID/u,
     );
     const docker = path.join(allocation.runRoot, 'fake-docker.sh');
     fs.writeFileSync(
@@ -310,34 +466,43 @@ updater_ref='${UPDATER_IMAGE}'
 backend_state="$root/fake-backend-image"
 updater_state="$root/fake-updater-image"
 fail_next_inspect="$root/fail-next-image-inspect"
+fail_after_load="$root/fail-after-load-inspect"
 kind=$1
 action=$2
+if [ "$kind" = info ] && [ "$action" = --format ]; then
+  printf '%s\\n' '{"driver":"overlayfs","driverStatus":[["driver-type","io.containerd.snapshotter.v1"]]}'
+  exit 0
+fi
 if [ "$kind" = image ] && [ "$action" = load ]; then
   archive=$4
   case "$archive" in
-    */backend/*) printf '%s\\n' '${backendOci.imageId}' > "$backend_state" ;;
-    */updater/*) printf '%s\\n' '${updaterOci.imageId}' > "$updater_state" ;;
+    */backend/*) printf '%s\\n' '${backendOci.manifestDigest}' > "$backend_state" ;;
+    */updater/*) printf '%s\\n' '${updaterOci.manifestDigest}' > "$updater_state" ;;
     *) exit 7 ;;
   esac
+  if [ -f "$fail_after_load" ]; then
+    rm "$fail_after_load"
+    printf 'fail\\n' > "$fail_next_inspect"
+  fi
   printf 'Loaded image\\n'
   exit 0
 fi
 if [ "$kind" = image ] && [ "$action" = inspect ]; then
   if [ "$3" = --format ]; then ref=$5; else ref=$3; fi
   case "$ref" in
-    "$backend_ref") state=$backend_state ;;
-    "$updater_ref") state=$updater_state ;;
-    '${backendOci.imageId}') state=$backend_state ;;
-    '${updaterOci.imageId}') state=$updater_state ;;
-    *) state= ;;
+    "$backend_ref"|'${backendOci.manifestDigest}')
+      state=$backend_state; document='${backendContainerd}' ;;
+    "$updater_ref"|'${updaterOci.manifestDigest}')
+      state=$updater_state; document='${updaterContainerd}' ;;
+    *) state=; document= ;;
   esac
   if [ -n "$state" ] && [ -f "$state" ]; then
-    if [ "$3" = --format ] && [ -f "$fail_next_inspect" ]; then
+    if [ "$ref" = "$backend_ref" ] && [ -f "$fail_next_inspect" ]; then
       rm "$fail_next_inspect"
       printf 'injected inspect failure\\n' >&2
       exit 2
     fi
-    if [ "$3" = --format ]; then cat "$state"; else printf '{}\\n'; fi
+    if [ "$3" = --format ]; then cat "$state"; else printf '%s\\n' "$document"; fi
     exit 0
   fi
   printf 'Error response from daemon: No such image: %s\\n' "$ref" >&2
@@ -389,6 +554,11 @@ exit 9
     });
     const prepared = await ownership.prepare();
     assert.equal(Object.keys(prepared.loaded).length, 2);
+    assert.equal(prepared.imageStore.mode, 'containerd');
+    assert.equal(
+      prepared.loaded[BACKEND_IMAGE],
+      backendOci.manifestDigest,
+    );
     await assert.rejects(
       ownership.verifyReleased(),
       /resources remain/u,
@@ -403,7 +573,7 @@ exit 9
     await ownership.verifyReleased();
 
     fs.writeFileSync(
-      path.join(allocation.runRoot, 'fail-next-image-inspect'),
+      path.join(allocation.runRoot, 'fail-after-load-inspect'),
       'fail\n',
       { flag: 'wx', mode: 0o600 },
     );
@@ -428,9 +598,8 @@ exit 9
     });
     await interruptedOwnership.verifyReleased();
   } finally {
-    if (server.listening) {
-      await new Promise((resolve) => server.close(resolve));
-    }
+    for (const connection of connections) connection.destroy();
+    if (server.listening) server.close();
     fs.rmSync(socketRoot, { force: false, recursive: true });
     cleanupFixtureRunRoot(allocation);
   }
