@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 import {
   copyCacheTree,
@@ -9,20 +10,68 @@ import {
 } from './cache.mjs';
 import { commandEvidence, writeEvidence } from './evidence.mjs';
 import {
+  deriveCleanCheckoutIdentityClosed,
+  readRawRegularGitBlob,
+} from './git-attestation.mjs';
+import {
   assertNoSymlinkAncestors,
   assertSafeRelativePath,
   isStrictlyBelow,
   requireCanonicalPath,
   resolveRunRelative,
   sha256Bytes,
+  sha256FileSync,
 } from './paths.mjs';
 import { runCommand, sanitizedEnvironment } from './runner.mjs';
-import { decodeUtf8Strict } from './strict-json.mjs';
+import {
+  decodeUtf8Strict,
+  parseJsonStrict,
+  readJsonStrict,
+} from './strict-json.mjs';
 import { verifyRuntimeClosures } from './tools.mjs';
 
 const SANDBOX_EXECUTABLE = '/usr/bin/sandbox-exec';
 const NETWORKLESS_PROFILE = '(version 1)(allow default)(deny network*)';
 const QUERY_GOLDEN_TIMEOUT_MS = 300_000;
+const QUERY_CODEGEN_DIRECT_ID = 'contracts-query-verify-codegen';
+const QUERY_CODEGEN_RUNTIME_PREFIX =
+  'candidate-success Go stderr evidence: ';
+const QUERY_CODEGEN_RUNTIME_MAX_BYTES = 1024 * 1024;
+const QUERY_GO_OPERATION_IDS = Object.freeze([
+  'primaryGeneration',
+  'deterministicReplay',
+  'gofmt',
+  'compileSmoke',
+]);
+const QUERY_GO_EXECUTABLE =
+  '/opt/homebrew/Cellar/go/1.25.4/libexec/bin/go';
+const QUERY_GOFMT_EXECUTABLE =
+  '/opt/homebrew/Cellar/go/1.25.4/libexec/bin/gofmt';
+const QUERY_GO_SANDBOX_PROFILE =
+  '(version 1)(allow default)(deny network*)' +
+  '(deny file-write* (subpath "/Users/luca/Library/Application Support/go/telemetry"))';
+const QUERY_GO_SANDBOX_PROFILE_SHA256 =
+  '45d9c3c9c990bfe2b2edac6bae53423b97a9de0a3199e92a505f9781dc5aab6d';
+const QUERY_GO_FIXED_PATH =
+  '/Users/luca/.nvm/versions/node/v24.16.0/bin:' +
+  '/usr/bin:/bin:/usr/sbin:/sbin';
+const QUERY_GO_ENVIRONMENT_KEYS = Object.freeze([
+  'PATH',
+  'HOME',
+  'TMPDIR',
+  'GOCACHE',
+  'GOMODCACHE',
+  'GOPATH',
+  'GOENV',
+  'GOWORK',
+  'GOTOOLCHAIN',
+]);
+const QUERY_TRACKED_AUTHORITY_PATHS = Object.freeze([
+  'contracts/goldens/query/manifest.json',
+  'contracts/goldens/query/verify.mjs',
+  'contracts/goldens/query/fixtures/go-module/go.mod.lock',
+  'contracts/goldens/query/fixtures/go-module/go.sum.lock',
+]);
 export const QUERY_GOLDEN_COMMAND_IDS = Object.freeze([
   'contracts-query-npm-ci',
   'contracts-query-verify',
@@ -712,6 +761,710 @@ async function commandDeclarationEvidence({
   });
 }
 
+const trustedQueryTrackedAuthorities = new WeakSet();
+const queryTrackedAuthorityBytes = new WeakMap();
+const trustedQueryCodegenAuthorities = new WeakSet();
+
+function requireExactKeys(value, expected, label) {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    !isDeepStrictEqual(Object.keys(value), expected)
+  ) {
+    fail(`${label} does not have the exact closed fields`);
+  }
+  return value;
+}
+
+function requireExactValue(actual, expected, label) {
+  if (!isDeepStrictEqual(actual, expected)) {
+    fail(`${label} differs from the accepted Query authority`);
+  }
+  return actual;
+}
+
+function queryCandidateRoot(goldenRoot) {
+  const canonical = requireCanonicalPath(goldenRoot, {
+    label: 'Query golden root',
+    type: 'directory',
+  });
+  const candidateRoot = path.resolve(canonical, '..', '..', '..');
+  if (
+    path.join(candidateRoot, 'contracts', 'goldens', 'query') !== canonical
+  ) {
+    fail('Query golden root is outside its exact candidate path');
+  }
+  return Object.freeze({ candidateRoot, goldenRoot: canonical });
+}
+
+function queryAuthorityFileSeal(filePath, label, expectedMode) {
+  const canonical = requireCanonicalPath(filePath, {
+    label,
+    type: 'file',
+  });
+  const information = fs.lstatSync(canonical);
+  const mode = information.mode & 0o777;
+  if (information.nlink !== 1 || mode !== expectedMode) {
+    fail(
+      `${label} must be one unlinked ${expectedMode.toString(8)} regular file`,
+    );
+  }
+  return Object.freeze({
+    bytes: information.size,
+    mode,
+    path: canonical,
+    sha256: sha256FileSync(canonical),
+  });
+}
+
+export function admitQueryTrackedAuthority({ candidateRoot }) {
+  const root = requireCanonicalPath(candidateRoot, {
+    label: 'Query tracked authority candidate',
+    type: 'directory',
+  });
+  const identity = deriveCleanCheckoutIdentityClosed({
+    repositoryRoot: root,
+    controlPlanePaths: QUERY_TRACKED_AUTHORITY_PATHS,
+  });
+  const records = [];
+  const rawBytes = new Map();
+  for (const relativePath of QUERY_TRACKED_AUTHORITY_PATHS) {
+    const blob = readRawRegularGitBlob({
+      repositoryRoot: root,
+      revision: identity.revision,
+      relativePath,
+    });
+    const bytes = Buffer.from(blob.bytes);
+    const physicalPath = path.join(root, ...relativePath.split('/'));
+    const physical = queryAuthorityFileSeal(
+      physicalPath,
+      `Query tracked authority ${relativePath}`,
+      0o644,
+    );
+    if (
+      physical.bytes !== blob.byteCount ||
+      physical.sha256 !== blob.sha256 ||
+      !fs.readFileSync(physicalPath).equals(bytes)
+    ) {
+      fail(`Query tracked authority differs from Product blob: ${relativePath}`);
+    }
+    records.push(Object.freeze({
+      blobOid: blob.blobOid,
+      bytes: blob.byteCount,
+      mode: blob.mode,
+      path: relativePath,
+      sha256: blob.sha256,
+    }));
+    rawBytes.set(relativePath, bytes);
+  }
+  const authority = Object.freeze({
+    records: Object.freeze(records),
+    repositoryRoot: root,
+    revision: identity.revision,
+    tree: identity.tree,
+  });
+  trustedQueryTrackedAuthorities.add(authority);
+  queryTrackedAuthorityBytes.set(authority, rawBytes);
+  return authority;
+}
+
+export function assertQueryTrackedAuthorityFiles({
+  authority,
+  candidateRoot,
+}) {
+  if (!trustedQueryTrackedAuthorities.has(authority)) {
+    fail('Query tracked authority was not admitted from Product Git blobs');
+  }
+  const root = requireCanonicalPath(candidateRoot, {
+    label: 'Query tracked authority candidate',
+    type: 'directory',
+  });
+  if (root !== authority.repositoryRoot) {
+    fail('Query tracked authority belongs to another candidate root');
+  }
+  const rawBytes = queryTrackedAuthorityBytes.get(authority);
+  const seals = [];
+  for (const record of authority.records) {
+    const physicalPath = path.join(root, ...record.path.split('/'));
+    const physical = queryAuthorityFileSeal(
+      physicalPath,
+      `Query tracked authority ${record.path}`,
+      0o644,
+    );
+    if (
+      record.mode !== '100644' ||
+      physical.bytes !== record.bytes ||
+      physical.sha256 !== record.sha256 ||
+      !fs.readFileSync(physicalPath).equals(rawBytes.get(record.path))
+    ) {
+      fail(`Query tracked Product blob changed: ${record.path}`);
+    }
+    seals.push(Object.freeze({
+      blobOid: record.blobOid,
+      bytes: physical.bytes,
+      mode: physical.mode,
+      path: record.path,
+      sha256: physical.sha256,
+    }));
+  }
+  return Object.freeze({
+    records: Object.freeze(seals),
+    revision: authority.revision,
+    tree: authority.tree,
+  });
+}
+
+function queryManifestEnvironment() {
+  return Object.freeze({
+    PATH: QUERY_GO_FIXED_PATH,
+    HOME: '@repo-root@/contracts/goldens/query/.tmp/go-home',
+    TMPDIR: '@repo-root@/contracts/goldens/query/.tmp/system',
+    GOCACHE: '@repo-root@/contracts/goldens/query/.cache/go-build',
+    GOMODCACHE: '@repo-root@/contracts/goldens/query/.cache/go-mod',
+    GOPATH: '@repo-root@/contracts/goldens/query/.cache/go-path',
+    GOENV: 'off',
+    GOWORK: 'off',
+    GOTOOLCHAIN: 'local',
+  });
+}
+
+function queryRuntimeEnvironment(candidateRoot) {
+  const goldenRoot = path.join(
+    candidateRoot,
+    'contracts',
+    'goldens',
+    'query',
+  );
+  return Object.freeze({
+    PATH: QUERY_GO_FIXED_PATH,
+    HOME: path.join(goldenRoot, '.tmp', 'go-home'),
+    TMPDIR: path.join(goldenRoot, '.tmp', 'system'),
+    GOCACHE: path.join(goldenRoot, '.cache', 'go-build'),
+    GOMODCACHE: path.join(goldenRoot, '.cache', 'go-mod'),
+    GOPATH: path.join(goldenRoot, '.cache', 'go-path'),
+    GOENV: 'off',
+    GOWORK: 'off',
+    GOTOOLCHAIN: 'local',
+  });
+}
+
+function queryGoChildArgv() {
+  const generation = (output) => Object.freeze([
+    QUERY_GO_EXECUTABLE,
+    'tool',
+    'oapi-codegen',
+    '-generate',
+    'models,skip-prune',
+    '-package',
+    'querywire',
+    '-o',
+    output,
+    'codegen-a/query.bundle.json',
+  ]);
+  return Object.freeze({
+    primaryGeneration: generation('query.gen.go'),
+    deterministicReplay: generation('query.verify.gen.go'),
+    gofmt: Object.freeze([
+      QUERY_GOFMT_EXECUTABLE,
+      '-d',
+      'query.gen.go',
+    ]),
+    compileSmoke: Object.freeze([
+      QUERY_GO_EXECUTABLE,
+      'test',
+      'query.gen.go',
+    ]),
+  });
+}
+
+function queryGoWrapperPrefix(environment) {
+  return Object.freeze([
+    SANDBOX_EXECUTABLE,
+    '-p',
+    QUERY_GO_SANDBOX_PROFILE,
+    '/usr/bin/env',
+    '-i',
+    ...QUERY_GO_ENVIRONMENT_KEYS.map(
+      (name) => `${name}=${environment[name]}`,
+    ),
+  ]);
+}
+
+function validateQueryManifestFileEvidence({
+  candidateRoot,
+  declaration,
+  expectedPath,
+  expectedMode,
+  label,
+  verifyPhysical = true,
+}) {
+  requireExactKeys(declaration, ['path', 'bytes', 'sha256'], label);
+  if (
+    declaration.path !== expectedPath ||
+    !Number.isSafeInteger(declaration.bytes) ||
+    declaration.bytes < 1 ||
+    typeof declaration.sha256 !== 'string' ||
+    !/^[0-9a-f]{64}$/u.test(declaration.sha256)
+  ) {
+    fail(`${label} declaration is invalid`);
+  }
+  if (verifyPhysical) {
+    const physical = queryAuthorityFileSeal(
+      path.join(candidateRoot, ...expectedPath.split('/')),
+      `${label} physical file`,
+      expectedMode,
+    );
+    if (
+      physical.bytes !== declaration.bytes ||
+      physical.sha256 !== `sha256:${declaration.sha256}`
+    ) {
+      fail(`${label} physical bytes differ from the Query manifest`);
+    }
+  }
+  return Object.freeze({
+    bytes: declaration.bytes,
+    mode: expectedMode,
+    path: declaration.path,
+    sha256: `sha256:${declaration.sha256}`,
+  });
+}
+
+function validateQueryModuleAuthority(candidateRoot, go) {
+  requireExactKeys(go.moduleInputs, ['goMod', 'goSum'], 'Query module inputs');
+  requireExactKeys(go.module, ['goMod', 'goSum'], 'Query materialized module');
+  const declarations = Object.freeze({
+    goMod: Object.freeze({
+      input: 'contracts/goldens/query/fixtures/go-module/go.mod.lock',
+      materialized: 'contracts/goldens/query/.tmp/go.mod',
+    }),
+    goSum: Object.freeze({
+      input: 'contracts/goldens/query/fixtures/go-module/go.sum.lock',
+      materialized: 'contracts/goldens/query/.tmp/go.sum',
+    }),
+  });
+  const inputs = {};
+  const materialized = {};
+  for (const [name, paths] of Object.entries(declarations)) {
+    inputs[name] = validateQueryManifestFileEvidence({
+      candidateRoot,
+      declaration: go.moduleInputs[name],
+      expectedPath: paths.input,
+      expectedMode: 0o644,
+      label: `Query ${name} input`,
+    });
+    materialized[name] = validateQueryManifestFileEvidence({
+      candidateRoot,
+      declaration: go.module[name],
+      expectedPath: paths.materialized,
+      expectedMode: 0o600,
+      label: `Query ${name} materialized module`,
+      verifyPhysical: false,
+    });
+    if (
+      inputs[name].bytes !== materialized[name].bytes ||
+      inputs[name].sha256 !== materialized[name].sha256
+    ) {
+      fail(`Query ${name} input/materialized seal differs`);
+    }
+  }
+  return Object.freeze({
+    inputs: Object.freeze(inputs),
+    materialized: Object.freeze(materialized),
+  });
+}
+
+function validateQueryGoOutputAuthority(go, childArgv) {
+  requireExactKeys(go.output, [
+    'bytes',
+    'sha256',
+    'declarationCount',
+    'declarations',
+    'requiredPublicDeclarations',
+    'deterministicReplay',
+    'gofmt',
+    'compileSmoke',
+    'primaryGeneration',
+  ], 'Query Go output authority');
+  requireExactKeys(
+    go.output.primaryGeneration,
+    ['childArgv', 'status', 'stdoutSha256'],
+    'Query primaryGeneration output',
+  );
+  requireExactKeys(
+    go.output.deterministicReplay,
+    [
+      'childArgv',
+      'status',
+      'stdoutSha256',
+      'bytes',
+      'sha256',
+      'byteIdentical',
+    ],
+    'Query deterministicReplay output',
+  );
+  requireExactKeys(
+    go.output.gofmt,
+    ['childArgv', 'status', 'stdoutBytes', 'stderrBytes'],
+    'Query gofmt output',
+  );
+  requireExactKeys(
+    go.output.compileSmoke,
+    ['childArgv', 'status', 'stdoutSha256'],
+    'Query compileSmoke output',
+  );
+  for (const operation of QUERY_GO_OPERATION_IDS) {
+    requireExactValue(
+      go.output[operation].childArgv,
+      childArgv[operation],
+      `Query ${operation} child argv`,
+    );
+    if (go.output[operation].status !== 0) {
+      fail(`Query ${operation} static status is not zero`);
+    }
+  }
+  if (
+    go.output.gofmt.stdoutBytes !== 0 ||
+    go.output.gofmt.stderrBytes !== 0 ||
+    go.output.deterministicReplay.byteIdentical !== true
+  ) {
+    fail('Query Go output authority does not bind clean format/replay');
+  }
+}
+
+export function queryVerifyCodegenCommandPlan({
+  goldenRoot,
+  queryNodePath,
+}) {
+  return Object.freeze({
+    args: Object.freeze([
+      path.join(goldenRoot, 'verify.mjs'),
+      '--verify-codegen-projections',
+    ]),
+    cwd: goldenRoot,
+    environment: 'query',
+    executable: queryNodePath,
+    id: QUERY_CODEGEN_DIRECT_ID,
+    timeoutMs: QUERY_GOLDEN_TIMEOUT_MS,
+  });
+}
+
+export function validateQueryVerifyCodegenCommandPlan(
+  declaration,
+  {
+    goldenRoot,
+    queryNodePath,
+  },
+) {
+  const expected = queryVerifyCodegenCommandPlan({
+    goldenRoot,
+    queryNodePath,
+  });
+  if (
+    !declaration ||
+    declaration.id !== expected.id ||
+    declaration.cwd !== expected.cwd ||
+    declaration.environment !== expected.environment ||
+    declaration.executable !== expected.executable ||
+    declaration.timeoutMs !== expected.timeoutMs ||
+    !isDeepStrictEqual(declaration.args, expected.args)
+  ) {
+    fail('Query codegen verifier is not the exact direct command plan');
+  }
+  return expected;
+}
+
+export function validateQueryCodegenStaticAuthority({
+  goldenRoot,
+  trackedAuthority,
+}) {
+  const roots = queryCandidateRoot(goldenRoot);
+  const manifestPath = path.join(roots.goldenRoot, 'manifest.json');
+  const trackedSeals = assertQueryTrackedAuthorityFiles({
+    authority: trackedAuthority,
+    candidateRoot: roots.candidateRoot,
+  });
+  const verifierSeal = trackedSeals.records.find(
+    (record) => record.path === 'contracts/goldens/query/verify.mjs',
+  );
+  if (!verifierSeal) fail('Query verifier tracked seal is absent');
+  const manifest = readJsonStrict(manifestPath);
+  requireExactKeys(
+    manifest.acceptanceEvidence.projectionTool,
+    [
+      'identity',
+      'version',
+      'verifier',
+      'command',
+      'exactConfigBytes',
+      'sourceInventory',
+      'deletedRootKeysPerTree',
+    ],
+    'Query projection tool authority',
+  );
+  const verifier = requireExactKeys(
+    manifest.acceptanceEvidence.projectionTool.verifier,
+    ['path', 'bytes', 'sha256'],
+    'Query verifier self identity',
+  );
+  if (
+    verifier.path !== 'contracts/goldens/query/verify.mjs' ||
+    verifier.bytes !== verifierSeal.bytes ||
+    verifier.sha256 !== verifierSeal.sha256.slice('sha256:'.length)
+  ) {
+    fail('Query verifier self identity differs from the tracked bytes');
+  }
+
+  const sandbox = requireExactKeys(
+    manifest.acceptanceEvidence.goSandbox,
+    [
+      'telemetryMode',
+      'telemetryDirectory',
+      'wrapper',
+      'profile',
+      'cleanEnvironmentExecutable',
+      'environment',
+      'wrapperPrefixArgv',
+      'externalCollectionOwnerPaused',
+      'recoveryHistory',
+    ],
+    'Query Go sandbox authority',
+  );
+  requireExactKeys(
+    sandbox.profile,
+    ['text', 'sha256'],
+    'Query Go sandbox profile',
+  );
+  requireExactKeys(
+    sandbox.environment,
+    QUERY_GO_ENVIRONMENT_KEYS,
+    'Query Go sandbox environment',
+  );
+  const manifestEnvironment = queryManifestEnvironment();
+  const manifestWrapperPrefix = queryGoWrapperPrefix(manifestEnvironment);
+  if (
+    sandbox.telemetryMode !== 'local' ||
+    sandbox.telemetryDirectory !==
+      '/Users/luca/Library/Application Support/go/telemetry' ||
+    sandbox.wrapper !== SANDBOX_EXECUTABLE ||
+    sandbox.cleanEnvironmentExecutable !== '/usr/bin/env' ||
+    sandbox.externalCollectionOwnerPaused !== true ||
+    sandbox.profile.text !== QUERY_GO_SANDBOX_PROFILE ||
+    sandbox.profile.sha256 !== QUERY_GO_SANDBOX_PROFILE_SHA256 ||
+    sha256Bytes(Buffer.from(sandbox.profile.text, 'utf8')) !==
+      `sha256:${sandbox.profile.sha256}` ||
+    JSON.stringify(sandbox.environment) !==
+      JSON.stringify(manifestEnvironment) ||
+    !isDeepStrictEqual(sandbox.wrapperPrefixArgv, manifestWrapperPrefix)
+  ) {
+    fail('Query Go sandbox profile/environment authority drifted');
+  }
+
+  const go = requireExactKeys(
+    manifest.codegen.go,
+    [
+      'identity',
+      'version',
+      'runtimeDependency',
+      'source',
+      'primaryGeneration',
+      'deterministicReplayChildArgv',
+      'wrapperPrefixArgv',
+      'moduleInputs',
+      'module',
+      'output',
+    ],
+    'Query Go codegen authority',
+  );
+  if (
+    go.identity !==
+      'github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen' ||
+    go.version !== 'v2.8.0' ||
+    go.runtimeDependency !== 'github.com/oapi-codegen/runtime@v1.1.2' ||
+    go.source !==
+      'contracts/goldens/query/.tmp/codegen-a/query.bundle.json'
+  ) {
+    fail('Query Go generator identity/source drifted');
+  }
+  const childArgv = queryGoChildArgv();
+  requireExactKeys(
+    go.primaryGeneration,
+    ['childArgv', 'wrapperArgv', 'status'],
+    'Query primary generation plan',
+  );
+  requireExactValue(
+    go.primaryGeneration.childArgv,
+    childArgv.primaryGeneration,
+    'Query primary generation child argv',
+  );
+  requireExactValue(
+    go.deterministicReplayChildArgv,
+    childArgv.deterministicReplay,
+    'Query deterministic replay child argv',
+  );
+  requireExactValue(
+    go.wrapperPrefixArgv,
+    manifestWrapperPrefix,
+    'Query Go wrapper prefix',
+  );
+  requireExactValue(
+    go.primaryGeneration.wrapperArgv,
+    [...manifestWrapperPrefix, ...childArgv.primaryGeneration],
+    'Query primary generation wrapper argv',
+  );
+  if (go.primaryGeneration.status !== 0) {
+    fail('Query primary generation static status is not zero');
+  }
+  validateQueryGoOutputAuthority(go, childArgv);
+  const moduleAuthority = validateQueryModuleAuthority(
+    roots.candidateRoot,
+    go,
+  );
+  const runtimeEnvironment = queryRuntimeEnvironment(roots.candidateRoot);
+  const runtimeWrapperPrefix = queryGoWrapperPrefix(runtimeEnvironment);
+  const operations = Object.freeze(
+    QUERY_GO_OPERATION_IDS.map((operation) => Object.freeze({
+      childArgv: childArgv[operation],
+      cwd: path.join(roots.goldenRoot, '.tmp'),
+      environment: runtimeEnvironment,
+      executable: childArgv[operation][0],
+      moduleInputs: moduleAuthority.inputs,
+      moduleSeals: Object.freeze({
+        after: moduleAuthority.materialized,
+        before: moduleAuthority.materialized,
+      }),
+      operation,
+      profile: Object.freeze({
+        sha256: `sha256:${QUERY_GO_SANDBOX_PROFILE_SHA256}`,
+        text: QUERY_GO_SANDBOX_PROFILE,
+      }),
+      wrapperArgv: Object.freeze([
+        ...runtimeWrapperPrefix,
+        ...childArgv[operation],
+      ]),
+    })),
+  );
+  const authority = Object.freeze({
+    moduleAuthority,
+    operations,
+    seals: trackedSeals,
+  });
+  trustedQueryCodegenAuthorities.add(authority);
+  return authority;
+}
+
+export function assertQueryCodegenStaticAuthorityUnchanged(before, after) {
+  if (
+    !trustedQueryCodegenAuthorities.has(before) ||
+    !trustedQueryCodegenAuthorities.has(after) ||
+    !isDeepStrictEqual(before.seals, after.seals) ||
+    !isDeepStrictEqual(before.operations, after.operations)
+  ) {
+    fail('Query codegen verifier/manifest authority changed during command');
+  }
+  return after;
+}
+
+export function parseQueryCodegenRuntimeSummary(
+  output,
+  {
+    status = 0,
+    truncated = false,
+  } = {},
+) {
+  if (
+    typeof output !== 'string' ||
+    output.length === 0 ||
+    Buffer.byteLength(output, 'utf8') > QUERY_CODEGEN_RUNTIME_MAX_BYTES ||
+    output.includes('\0') ||
+    output.includes('\r') ||
+    truncated ||
+    status !== 0
+  ) {
+    fail('Query codegen runtime output is absent, invalid, or truncated');
+  }
+  const prefixCount = output.split(QUERY_CODEGEN_RUNTIME_PREFIX).length - 1;
+  const lines = output.split('\n');
+  const matching = lines.filter((line) =>
+    line.startsWith(QUERY_CODEGEN_RUNTIME_PREFIX));
+  if (prefixCount !== 1 || matching.length !== 1) {
+    fail('Query codegen runtime summary prefix is missing or duplicated');
+  }
+  const encoded = matching[0].slice(QUERY_CODEGEN_RUNTIME_PREFIX.length);
+  if (encoded === '') {
+    fail('Query codegen runtime summary JSON is absent');
+  }
+  const summary = parseJsonStrict(
+    encoded,
+    'Query codegen runtime summary',
+  );
+  if (JSON.stringify(summary) !== encoded) {
+    fail('Query codegen runtime summary is not exact compact JSON');
+  }
+  requireExactKeys(summary, [
+    'policy',
+    'primaryGeneration',
+    'deterministicReplay',
+    'compileSmoke',
+    'gofmt',
+    'moduleFileSeals',
+  ], 'Query codegen runtime summary');
+  if (summary.policy !== 'go-download-progress-v1') {
+    fail('Query codegen runtime summary policy drifted');
+  }
+  for (const operation of [
+    'primaryGeneration',
+    'deterministicReplay',
+    'compileSmoke',
+  ]) {
+    const child = requireExactKeys(
+      summary[operation],
+      ['policy', 'accepted', 'stderrBytes', 'observedModuleVersionPairs'],
+      `Query ${operation} runtime summary`,
+    );
+    if (
+      child.policy !== 'go-download-progress-v1' ||
+      child.accepted !== true ||
+      child.stderrBytes !== 0 ||
+      !isDeepStrictEqual(child.observedModuleVersionPairs, [])
+    ) {
+      fail(`Query ${operation} runtime stderr was not exactly empty`);
+    }
+  }
+  const gofmt = requireExactKeys(
+    summary.gofmt,
+    ['accepted', 'stderrBytes'],
+    'Query gofmt runtime summary',
+  );
+  if (gofmt.accepted !== true || gofmt.stderrBytes !== 0) {
+    fail('Query gofmt runtime stderr was not exactly empty');
+  }
+  const moduleSeals = requireExactKeys(
+    summary.moduleFileSeals,
+    ['operations', 'boundaries', 'mode', 'filesPerBoundary'],
+    'Query module boundary summary',
+  );
+  if (
+    !isDeepStrictEqual(moduleSeals.operations, QUERY_GO_OPERATION_IDS) ||
+    moduleSeals.boundaries !== 8 ||
+    moduleSeals.mode !== '0600' ||
+    moduleSeals.filesPerBoundary !== 2
+  ) {
+    fail('Query codegen runtime module boundaries drifted');
+  }
+  return Object.freeze({
+    moduleFileSeals: Object.freeze({
+      boundaries: 8,
+      filesPerBoundary: 2,
+      mode: '0600',
+      operations: QUERY_GO_OPERATION_IDS,
+    }),
+    operations: QUERY_GO_OPERATION_IDS,
+    policy: 'go-download-progress-v1',
+    stderrBytes: 0,
+  });
+}
+
 export function queryTypeScriptCommandPlan({
   goldenRoot,
   queryNodePath,
@@ -867,7 +1620,7 @@ export function parseQueryRedoclyLintSummary(
   });
 }
 
-function readQueryLintLog(runRoot, descriptor, label) {
+function readQueryCommandLog(runRoot, descriptor, label) {
   if (
     !descriptor ||
     !Number.isSafeInteger(descriptor.bytes) ||
@@ -876,7 +1629,7 @@ function readQueryLintLog(runRoot, descriptor, label) {
     !/^sha256:[0-9a-f]{64}$/u.test(descriptor.sha256) ||
     typeof descriptor.truncated !== 'boolean'
   ) {
-    fail(`Query Redocly ${label} descriptor is invalid`);
+    fail(`Query ${label} descriptor is invalid`);
   }
   const absolute = resolveRunRelative(runRoot, descriptor.path);
   const bytes = fs.readFileSync(absolute);
@@ -884,12 +1637,16 @@ function readQueryLintLog(runRoot, descriptor, label) {
     bytes.length !== descriptor.bytes ||
     sha256Bytes(bytes) !== descriptor.sha256
   ) {
-    fail(`Query Redocly ${label} bytes differ from command evidence`);
+    fail(`Query ${label} bytes differ from command evidence`);
   }
   return Object.freeze({
-    text: decodeUtf8Strict(bytes, `Query Redocly ${label}`),
+    text: decodeUtf8Strict(bytes, `Query ${label}`),
     truncated: descriptor.truncated,
   });
+}
+
+function readQueryLintLog(runRoot, descriptor, label) {
+  return readQueryCommandLog(runRoot, descriptor, `Redocly ${label}`);
 }
 
 export function validateQueryRedoclyLintResult({
@@ -929,6 +1686,100 @@ export function validateQueryRedoclyLintResult({
   );
 }
 
+export function validateQueryVerifyCodegenResult({
+  result,
+  runRoot,
+  goldenRoot,
+  queryNodePath,
+  authority,
+}) {
+  if (!trustedQueryCodegenAuthorities.has(authority)) {
+    fail('Query codegen result is missing its static authority');
+  }
+  const plan = queryVerifyCodegenCommandPlan({
+    goldenRoot,
+    queryNodePath,
+  });
+  if (
+    result?.id !== plan.id ||
+    result.executable !== plan.executable ||
+    result.cwd !== plan.cwd ||
+    result.status !== 0 ||
+    result.signal !== null ||
+    result.timedOut !== false ||
+    !isDeepStrictEqual(result.args, plan.args)
+  ) {
+    fail('Query codegen result does not bind the exact direct command');
+  }
+  if (
+    !Number.isSafeInteger(result.stdout?.bytes) ||
+    result.stdout.bytes < 0 ||
+    result.stdout.bytes > QUERY_CODEGEN_RUNTIME_MAX_BYTES ||
+    !Number.isSafeInteger(result.stderr?.bytes) ||
+    result.stderr.bytes < 0 ||
+    result.stderr.bytes > QUERY_CODEGEN_RUNTIME_MAX_BYTES
+  ) {
+    fail('Query codegen command evidence exceeds the runtime output bound');
+  }
+  const stdout = readQueryCommandLog(
+    runRoot,
+    result.stdout,
+    'codegen stdout',
+  );
+  const stderr = readQueryCommandLog(
+    runRoot,
+    result.stderr,
+    'codegen stderr',
+  );
+  if (stderr.truncated || stderr.text !== '') {
+    fail('Query codegen verifier emitted outer stderr');
+  }
+  const summary = parseQueryCodegenRuntimeSummary(stdout.text, {
+    status: result.status,
+    truncated: stdout.truncated,
+  });
+  if (
+    authority.operations.length !== QUERY_GO_OPERATION_IDS.length ||
+    authority.operations.some(
+      (operation, index) =>
+        operation.operation !== QUERY_GO_OPERATION_IDS[index] ||
+        operation.profile.text !== QUERY_GO_SANDBOX_PROFILE ||
+        operation.profile.sha256 !==
+          `sha256:${QUERY_GO_SANDBOX_PROFILE_SHA256}` ||
+        operation.cwd !== path.join(goldenRoot, '.tmp') ||
+        operation.wrapperArgv[0] !== SANDBOX_EXECUTABLE ||
+        operation.wrapperArgv[2] !== QUERY_GO_SANDBOX_PROFILE ||
+        !isDeepStrictEqual(
+          operation.wrapperArgv.slice(-operation.childArgv.length),
+          operation.childArgv,
+        ) ||
+        operation.executable !== operation.childArgv[0] ||
+        !isDeepStrictEqual(
+          Object.keys(operation.environment),
+          QUERY_GO_ENVIRONMENT_KEYS,
+        ) ||
+        !isDeepStrictEqual(
+          operation.moduleSeals.before,
+          authority.moduleAuthority.materialized,
+        ) ||
+        !isDeepStrictEqual(
+          operation.moduleSeals.after,
+          authority.moduleAuthority.materialized,
+        ),
+    ) ||
+    !isDeepStrictEqual(summary.operations, QUERY_GO_OPERATION_IDS)
+  ) {
+    fail('Query codegen static operation authority did not cross-bind');
+  }
+  return Object.freeze({
+    boundary: 'verifier-owned-inner-sandbox',
+    direct: true,
+    operationCount: QUERY_GO_OPERATION_IDS.length,
+    profileSha256: `sha256:${QUERY_GO_SANDBOX_PROFILE_SHA256}`,
+    summary,
+  });
+}
+
 export function validateQueryGoldenCommandResults(results) {
   const observedCommandIds = Array.isArray(results)
     ? results.map((result) => result?.id)
@@ -965,6 +1816,8 @@ async function runQueryGolden({
   runRoot,
   runtimeRoots,
   toolAttestation,
+  trackedAuthority,
+  initialCodegenAuthority,
 }) {
   const relative = 'contracts/goldens/query';
   const seededNpm = await seedPackageNpmCache({
@@ -1166,10 +2019,99 @@ async function runQueryGolden({
           profile: querySandbox,
         }));
       }
-      await verify(
-        'contracts-query-verify-codegen',
-        ['--verify-codegen-projections'],
+      const directPlan = validateQueryVerifyCodegenCommandPlan(
+        queryVerifyCodegenCommandPlan({
+          goldenRoot: seededNpm.root,
+          queryNodePath: tools.queryNode.path,
+        }),
+        {
+          goldenRoot: seededNpm.root,
+          queryNodePath: tools.queryNode.path,
+        },
       );
+      const authorityBefore = validateQueryCodegenStaticAuthority({
+        goldenRoot: seededNpm.root,
+        trackedAuthority,
+      });
+      assertQueryCodegenStaticAuthorityUnchanged(
+        initialCodegenAuthority,
+        authorityBefore,
+      );
+      let directResult;
+      let directError;
+      try {
+        directResult = await runCommand({
+          ...directPlan,
+          environment:
+            directPlan.environment === 'query'
+              ? queryEnvironment
+              : undefined,
+          gracefulStopMs: budgets.timeouts.gracefulStopMs,
+          runRoot,
+        });
+        results.push(directResult);
+        validateQueryVerifyCodegenResult({
+          result: directResult,
+          runRoot,
+          goldenRoot: seededNpm.root,
+          queryNodePath: tools.queryNode.path,
+          authority: authorityBefore,
+        });
+      } catch (error) {
+        if (
+          directResult &&
+          error !== null &&
+          typeof error === 'object' &&
+          error.result === undefined
+        ) {
+          error.result = directResult;
+        }
+        directError = error;
+      }
+      try {
+        const authorityAfter = validateQueryCodegenStaticAuthority({
+          goldenRoot: seededNpm.root,
+          trackedAuthority,
+        });
+        assertQueryCodegenStaticAuthorityUnchanged(
+          authorityBefore,
+          authorityAfter,
+        );
+        assertQueryCodegenStaticAuthorityUnchanged(
+          initialCodegenAuthority,
+          authorityAfter,
+        );
+      } catch (authorityError) {
+        if (
+          directError !== undefined &&
+          directError !== null &&
+          typeof directError === 'object'
+        ) {
+          try {
+            Object.defineProperty(directError, 'queryCodegenAuthority', {
+              configurable: true,
+              enumerable: true,
+              value: Object.freeze({
+                message: authorityError.message,
+                status: 'failed',
+              }),
+            });
+          } catch {
+            // Preserve the originating direct-command failure.
+          }
+          throw directError;
+        }
+        if (
+          directResult &&
+          authorityError !== null &&
+          typeof authorityError === 'object' &&
+          authorityError.result === undefined
+        ) {
+          authorityError.result = directResult;
+        }
+        throw authorityError;
+      }
+      if (directError !== undefined) throw directError;
       await verifyRuntimeClosures(toolAttestation, QUERY_RUNTIME_NAMES);
     },
     cleanup: () =>
@@ -1292,6 +2234,14 @@ export async function runContractsOwnerGate({
   let gateResult;
   let primaryError;
   try {
+    const queryTrackedAuthority = admitQueryTrackedAuthority({
+      candidateRoot: root,
+    });
+    const initialQueryCodegenAuthority =
+      validateQueryCodegenStaticAuthority({
+        goldenRoot: path.join(root, 'contracts', 'goldens', 'query'),
+        trackedAuthority: queryTrackedAuthority,
+      });
     results.push(...await runQueryGolden({
       candidateRoot: root,
       cacheRoots,
@@ -1300,6 +2250,8 @@ export async function runContractsOwnerGate({
       runRoot,
       runtimeRoots,
       toolAttestation,
+      trackedAuthority: queryTrackedAuthority,
+      initialCodegenAuthority: initialQueryCodegenAuthority,
     }));
     results.push(...await runArchiveContract({
       candidateRoot: root,

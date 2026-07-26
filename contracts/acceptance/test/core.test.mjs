@@ -49,7 +49,12 @@ import {
   dockerLocalSandboxProfile,
   OwnerGateError,
   QUERY_GOLDEN_COMMAND_IDS,
+  admitQueryTrackedAuthority,
+  assertQueryCodegenStaticAuthorityUnchanged,
+  assertQueryTrackedAuthorityFiles,
+  parseQueryCodegenRuntimeSummary,
   parseQueryRedoclyLintSummary,
+  queryVerifyCodegenCommandPlan,
   queryGoldenEnvironmentOverrides,
   queryRedoclyLintCommandPlan,
   queryTypeScriptCommandPlan,
@@ -57,9 +62,12 @@ import {
   runtimeReadOnlySandboxProfile,
   settleContractsOwnerGate,
   settleQueryOwnerCommandCleanup,
+  validateQueryCodegenStaticAuthority,
   validateQueryGoldenCommandResults,
   validateQueryRedoclyLintCommandPlan,
   validateQueryRedoclyLintResult,
+  validateQueryVerifyCodegenCommandPlan,
+  validateQueryVerifyCodegenResult,
 } from '../lib/gates.mjs';
 import { REQUIRED_MEASUREMENTS } from '../lib/measurements.mjs';
 import { resultOutputDigest } from '../lib/output-digest.mjs';
@@ -124,6 +132,122 @@ import { supervisedFailureCells } from '../lib/supervisor.mjs';
 
 function digest(fill = '0') {
   return `sha256:${fill.repeat(64)}`;
+}
+
+function createQueryCodegenAuthorityFixture(root) {
+  const candidateRoot = path.join(root, 'candidate');
+  const goldenRoot = path.join(
+    candidateRoot,
+    'contracts',
+    'goldens',
+    'query',
+  );
+  const sourceRoot = path.join(
+    REPOSITORY_ROOT,
+    'contracts',
+    'goldens',
+    'query',
+  );
+  fs.mkdirSync(
+    path.join(goldenRoot, 'fixtures', 'go-module'),
+    { recursive: true },
+  );
+  for (const relative of [
+    'manifest.json',
+    'verify.mjs',
+    'fixtures/go-module/go.mod.lock',
+    'fixtures/go-module/go.sum.lock',
+  ]) {
+    const destination = path.join(goldenRoot, ...relative.split('/'));
+    fs.copyFileSync(
+      path.join(sourceRoot, ...relative.split('/')),
+      destination,
+    );
+    fs.chmodSync(destination, 0o644);
+  }
+  const git = (args) => {
+    const result = spawnSync('/usr/bin/git', args, {
+      cwd: candidateRoot,
+      encoding: 'utf8',
+      env: {
+        GIT_CONFIG_GLOBAL: '/dev/null',
+        GIT_CONFIG_NOSYSTEM: '1',
+        LANG: 'C.UTF-8',
+        LC_ALL: 'C.UTF-8',
+        PATH: '/usr/bin:/bin',
+      },
+    });
+    assert.equal(
+      result.status,
+      0,
+      result.stderr || `git ${args.join(' ')} failed`,
+    );
+  };
+  git(['init', '-q']);
+  git(['add', '--', 'contracts']);
+  git([
+    '-c',
+    'user.name=Acceptance Fixture',
+    '-c',
+    'user.email=acceptance-fixture@example.invalid',
+    'commit',
+    '-q',
+    '-m',
+    'query authority fixture',
+  ]);
+  const trackedAuthority = admitQueryTrackedAuthority({ candidateRoot });
+  return Object.freeze({ candidateRoot, goldenRoot, trackedAuthority });
+}
+
+function queryCodegenRuntimeSummaryFixture() {
+  const emptyGoStderr = () => ({
+    policy: 'go-download-progress-v1',
+    accepted: true,
+    stderrBytes: 0,
+    observedModuleVersionPairs: [],
+  });
+  return {
+    policy: 'go-download-progress-v1',
+    primaryGeneration: emptyGoStderr(),
+    deterministicReplay: emptyGoStderr(),
+    compileSmoke: emptyGoStderr(),
+    gofmt: {
+      accepted: true,
+      stderrBytes: 0,
+    },
+    moduleFileSeals: {
+      operations: [
+        'primaryGeneration',
+        'deterministicReplay',
+        'gofmt',
+        'compileSmoke',
+      ],
+      boundaries: 8,
+      mode: '0600',
+      filesPerBoundary: 2,
+    },
+  };
+}
+
+function queryCodegenRuntimeOutput(summary = queryCodegenRuntimeSummaryFixture()) {
+  return [
+    'relocation evidence: {"relocated":true}',
+    `candidate-success Go stderr evidence: ${JSON.stringify(summary)}`,
+    'verified Query codegen evidence',
+    '',
+  ].join('\n');
+}
+
+function writeCommandLogDescriptor(runRoot, relative, bytes) {
+  const absolute = path.join(runRoot, ...relative.split('/'));
+  fs.mkdirSync(path.dirname(absolute), { recursive: true });
+  fs.writeFileSync(absolute, bytes);
+  return Object.freeze({
+    bytes: bytes.length,
+    path: relative,
+    sha256: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
+    truncated: false,
+  });
 }
 
 function removeReadOnlyFixtureTree(root) {
@@ -4012,6 +4136,40 @@ test('Query golden command plan closes codegen argv and cleanup order', () => {
     goldenRoot,
     queryNodePath,
   });
+  const direct = queryVerifyCodegenCommandPlan({
+    goldenRoot,
+    queryNodePath,
+  });
+  assert.deepEqual(
+    validateQueryVerifyCodegenCommandPlan(direct, {
+      goldenRoot,
+      queryNodePath,
+    }),
+    direct,
+  );
+  assert.deepEqual(direct, {
+    args: [
+      path.join(goldenRoot, 'verify.mjs'),
+      '--verify-codegen-projections',
+    ],
+    cwd: goldenRoot,
+    environment: 'query',
+    executable: queryNodePath,
+    id: 'contracts-query-verify-codegen',
+    timeoutMs: 300_000,
+  });
+  assert.throws(
+    () =>
+      validateQueryVerifyCodegenCommandPlan(
+        {
+          ...direct,
+          executable: '/usr/bin/sandbox-exec',
+          args: ['-p', '(version 1)(allow default)', queryNodePath, ...direct.args],
+        },
+        { goldenRoot, queryNodePath },
+      ),
+    /exact direct command plan/u,
+  );
   const typescriptCli = path.join(
     goldenRoot,
     'node_modules',
@@ -4089,6 +4247,463 @@ test('Query golden command plan closes codegen argv and cleanup order', () => {
   );
 });
 
+test('Query direct codegen result cross-binds the sealed four-operation authority', (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-query-codegen-direct-')),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const { candidateRoot, goldenRoot, trackedAuthority } =
+    createQueryCodegenAuthorityFixture(root);
+  const runRoot = path.join(root, 'run');
+  fs.mkdirSync(runRoot);
+  const queryNodePath =
+    '/Users/luca/.nvm/versions/node/v24.16.0/bin/node';
+  assert.equal(
+    assertQueryTrackedAuthorityFiles({
+      authority: trackedAuthority,
+      candidateRoot,
+    }).records.length,
+    4,
+  );
+  const authorityBefore = validateQueryCodegenStaticAuthority({
+    goldenRoot,
+    trackedAuthority,
+  });
+  assert.deepEqual(
+    authorityBefore.operations.map(({ operation }) => operation),
+    [
+      'primaryGeneration',
+      'deterministicReplay',
+      'gofmt',
+      'compileSmoke',
+    ],
+  );
+  for (const operation of authorityBefore.operations) {
+    assert.equal(
+      operation.profile.text,
+      '(version 1)(allow default)(deny network*)' +
+        '(deny file-write* (subpath "/Users/luca/Library/Application Support/go/telemetry"))',
+    );
+    assert.equal(
+      operation.profile.sha256,
+      'sha256:45d9c3c9c990bfe2b2edac6bae53423b97a9de0a3199e92a505f9781dc5aab6d',
+    );
+    assert.equal(operation.wrapperArgv[0], '/usr/bin/sandbox-exec');
+    assert.equal(operation.wrapperArgv[2], operation.profile.text);
+    assert.deepEqual(
+      operation.wrapperArgv.slice(-operation.childArgv.length),
+      operation.childArgv,
+    );
+    assert.equal(operation.executable, operation.childArgv[0]);
+    assert.equal(operation.cwd, path.join(goldenRoot, '.tmp'));
+    assert.deepEqual(Object.keys(operation.environment), [
+      'PATH',
+      'HOME',
+      'TMPDIR',
+      'GOCACHE',
+      'GOMODCACHE',
+      'GOPATH',
+      'GOENV',
+      'GOWORK',
+      'GOTOOLCHAIN',
+    ]);
+    assert.deepEqual(
+      operation.moduleSeals.before,
+      authorityBefore.moduleAuthority.materialized,
+    );
+    assert.deepEqual(
+      operation.moduleSeals.after,
+      authorityBefore.moduleAuthority.materialized,
+    );
+  }
+
+  const plan = queryVerifyCodegenCommandPlan({
+    goldenRoot,
+    queryNodePath,
+  });
+  const stdoutBytes = Buffer.from(queryCodegenRuntimeOutput(), 'utf8');
+  const stderrBytes = Buffer.alloc(0);
+  const result = Object.freeze({
+    args: plan.args,
+    cwd: plan.cwd,
+    durationMs: 100,
+    executable: plan.executable,
+    id: plan.id,
+    signal: null,
+    status: 0,
+    stderr: writeCommandLogDescriptor(
+      runRoot,
+      'evidence/commands/contracts-query-verify-codegen.stderr',
+      stderrBytes,
+    ),
+    stdout: writeCommandLogDescriptor(
+      runRoot,
+      'evidence/commands/contracts-query-verify-codegen.stdout',
+      stdoutBytes,
+    ),
+    timedOut: false,
+  });
+  const evidence = validateQueryVerifyCodegenResult({
+    result,
+    runRoot,
+    goldenRoot,
+    queryNodePath,
+    authority: authorityBefore,
+  });
+  assert.deepEqual(evidence, {
+    boundary: 'verifier-owned-inner-sandbox',
+    direct: true,
+    operationCount: 4,
+    profileSha256:
+      'sha256:45d9c3c9c990bfe2b2edac6bae53423b97a9de0a3199e92a505f9781dc5aab6d',
+    summary: {
+      moduleFileSeals: {
+        boundaries: 8,
+        filesPerBoundary: 2,
+        mode: '0600',
+        operations: [
+          'primaryGeneration',
+          'deterministicReplay',
+          'gofmt',
+          'compileSmoke',
+        ],
+      },
+      operations: [
+        'primaryGeneration',
+        'deterministicReplay',
+        'gofmt',
+        'compileSmoke',
+      ],
+      policy: 'go-download-progress-v1',
+      stderrBytes: 0,
+    },
+  });
+  assert.throws(
+    () =>
+      validateQueryVerifyCodegenResult({
+        result: {
+          ...result,
+          executable: '/usr/bin/sandbox-exec',
+          args: [
+            '-p',
+            '(version 1)(allow default)(deny network*)',
+            queryNodePath,
+            ...plan.args,
+          ],
+        },
+        runRoot,
+        goldenRoot,
+        queryNodePath,
+        authority: authorityBefore,
+      }),
+    /exact direct command/u,
+  );
+  assert.throws(
+    () =>
+      validateQueryVerifyCodegenResult({
+        result: {
+          ...result,
+          stdout: {
+            ...result.stdout,
+            bytes: (1024 * 1024) + 1,
+          },
+        },
+        runRoot,
+        goldenRoot,
+        queryNodePath,
+        authority: authorityBefore,
+      }),
+    /runtime output bound/u,
+  );
+
+  const authorityAfter = validateQueryCodegenStaticAuthority({
+    goldenRoot,
+    trackedAuthority,
+  });
+  assert.equal(
+    assertQueryCodegenStaticAuthorityUnchanged(
+      authorityBefore,
+      authorityAfter,
+    ),
+    authorityAfter,
+  );
+  fs.appendFileSync(path.join(goldenRoot, 'manifest.json'), '\n');
+  assert.throws(
+    () => validateQueryCodegenStaticAuthority({
+      goldenRoot,
+      trackedAuthority,
+    }),
+    /tracked Product blob changed/u,
+  );
+});
+
+test('Query codegen static authority rejects profile, argv, environment, module, and verifier drift', (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-query-codegen-static-')),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const { goldenRoot, trackedAuthority } =
+    createQueryCodegenAuthorityFixture(root);
+  const manifestPath = path.join(goldenRoot, 'manifest.json');
+  const originalManifest = fs.readFileSync(manifestPath);
+  const verifierPath = path.join(goldenRoot, 'verify.mjs');
+  const originalVerifier = fs.readFileSync(verifierPath);
+  const goModLockPath = path.join(
+    goldenRoot,
+    'fixtures',
+    'go-module',
+    'go.mod.lock',
+  );
+  const originalGoModLock = fs.readFileSync(goModLockPath);
+  const cases = [
+    [
+      'profile text',
+      (manifest) => {
+        manifest.acceptanceEvidence.goSandbox.profile.text =
+          '(version 1)(allow default)';
+      },
+    ],
+    [
+      'profile digest',
+      (manifest) => {
+        manifest.acceptanceEvidence.goSandbox.profile.sha256 = '0'.repeat(64);
+      },
+    ],
+    [
+      'wrapper argv',
+      (manifest) => {
+        manifest.codegen.go.wrapperPrefixArgv[2] =
+          '(version 1)(allow default)';
+      },
+    ],
+    [
+      'child argv',
+      (manifest) => {
+        manifest.codegen.go.output.compileSmoke.childArgv[1] = 'run';
+      },
+    ],
+    [
+      'environment',
+      (manifest) => {
+        manifest.acceptanceEvidence.goSandbox.environment.GOENV = 'auto';
+      },
+    ],
+    [
+      'module output seal',
+      (manifest) => {
+        manifest.codegen.go.module.goMod.sha256 = '1'.repeat(64);
+      },
+    ],
+    [
+      'extra operation',
+      (manifest) => {
+        manifest.codegen.go.output.unexpectedGoOperation = {
+          childArgv: ['/fixture/go'],
+          status: 0,
+        };
+      },
+    ],
+    [
+      'verifier self identity',
+      (manifest) => {
+        manifest.acceptanceEvidence.projectionTool.verifier.sha256 =
+          '2'.repeat(64);
+      },
+    ],
+    [
+      'unchecked recovery history',
+      (manifest) => {
+        manifest.acceptanceEvidence.goSandbox.recoveryHistory
+          .candidateAdmission = 'included';
+      },
+    ],
+  ];
+  for (const [label, mutate] of cases) {
+    fs.writeFileSync(manifestPath, originalManifest);
+    const manifest = JSON.parse(originalManifest);
+    mutate(manifest);
+    fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    assert.throws(
+      () => validateQueryCodegenStaticAuthority({
+        goldenRoot,
+        trackedAuthority,
+      }),
+      /tracked Product blob changed/u,
+      label,
+    );
+  }
+
+  fs.writeFileSync(manifestPath, originalManifest);
+  fs.appendFileSync(goModLockPath, '\n');
+  assert.throws(
+    () => validateQueryCodegenStaticAuthority({
+      goldenRoot,
+      trackedAuthority,
+    }),
+    /tracked Product blob changed/u,
+  );
+
+  fs.writeFileSync(manifestPath, originalManifest);
+  fs.writeFileSync(goModLockPath, originalGoModLock);
+  fs.appendFileSync(verifierPath, '\n');
+  assert.throws(
+    () => validateQueryCodegenStaticAuthority({
+      goldenRoot,
+      trackedAuthority,
+    }),
+    /tracked Product blob changed/u,
+  );
+
+  fs.writeFileSync(manifestPath, originalManifest);
+  fs.writeFileSync(verifierPath, originalVerifier);
+  fs.appendFileSync(verifierPath, '\n');
+  const jointlyChangedVerifier = fs.readFileSync(verifierPath);
+  const jointlyChangedManifest = JSON.parse(originalManifest);
+  jointlyChangedManifest.acceptanceEvidence.projectionTool.verifier.bytes =
+    jointlyChangedVerifier.length;
+  jointlyChangedManifest.acceptanceEvidence.projectionTool.verifier.sha256 =
+    createHash('sha256').update(jointlyChangedVerifier).digest('hex');
+  jointlyChangedManifest.acceptanceEvidence.goSandbox.recoveryHistory
+    .candidateAdmission = 'included-after-earlier-query-command';
+  fs.writeFileSync(
+    manifestPath,
+    `${JSON.stringify(jointlyChangedManifest, null, 2)}\n`,
+  );
+  assert.throws(
+    () => validateQueryCodegenStaticAuthority({
+      goldenRoot,
+      trackedAuthority,
+    }),
+    /tracked Product blob changed/u,
+    'joint verifier/manifest replacement after an earlier Query command',
+  );
+});
+
+test('Query codegen runtime summary rejects missing, duplicate, extra, reordered, and malformed evidence', () => {
+  assert.deepEqual(
+    parseQueryCodegenRuntimeSummary(queryCodegenRuntimeOutput()),
+    {
+      moduleFileSeals: {
+        boundaries: 8,
+        filesPerBoundary: 2,
+        mode: '0600',
+        operations: [
+          'primaryGeneration',
+          'deterministicReplay',
+          'gofmt',
+          'compileSmoke',
+        ],
+      },
+      operations: [
+        'primaryGeneration',
+        'deterministicReplay',
+        'gofmt',
+        'compileSmoke',
+      ],
+      policy: 'go-download-progress-v1',
+      stderrBytes: 0,
+    },
+  );
+  const negativeSummaries = [
+    [
+      'missing child',
+      (summary) => {
+        summary.moduleFileSeals.operations.pop();
+        summary.moduleFileSeals.boundaries = 6;
+      },
+    ],
+    [
+      'duplicate child',
+      (summary) => {
+        summary.moduleFileSeals.operations[3] = 'gofmt';
+      },
+    ],
+    [
+      'extra child',
+      (summary) => {
+        summary.moduleFileSeals.operations.push('unexpected');
+        summary.moduleFileSeals.boundaries = 10;
+      },
+    ],
+    [
+      'reordered child',
+      (summary) => {
+        [summary.moduleFileSeals.operations[1],
+          summary.moduleFileSeals.operations[2]] = [
+          summary.moduleFileSeals.operations[2],
+          summary.moduleFileSeals.operations[1],
+        ];
+      },
+    ],
+    [
+      'stderr',
+      (summary) => {
+        summary.primaryGeneration.stderrBytes = 1;
+      },
+    ],
+    [
+      'profile-adjacent extra field',
+      (summary) => {
+        summary.moduleFileSeals.profile = '(version 1)(allow default)';
+      },
+    ],
+  ];
+  for (const [label, mutate] of negativeSummaries) {
+    const summary = queryCodegenRuntimeSummaryFixture();
+    mutate(summary);
+    assert.throws(
+      () => parseQueryCodegenRuntimeSummary(
+        queryCodegenRuntimeOutput(summary),
+      ),
+      undefined,
+      label,
+    );
+  }
+
+  const validJson = JSON.stringify(queryCodegenRuntimeSummaryFixture());
+  assert.throws(
+    () => parseQueryCodegenRuntimeSummary(
+      [
+        `candidate-success Go stderr evidence: ${validJson}`,
+        `candidate-success Go stderr evidence: ${validJson}`,
+        '',
+      ].join('\n'),
+    ),
+    /missing or duplicated/u,
+  );
+  assert.throws(
+    () => parseQueryCodegenRuntimeSummary(
+      `candidate-success Go stderr evidence: ${validJson} trailing\n`,
+    ),
+    /runtime summary/u,
+  );
+  assert.throws(
+    () => parseQueryCodegenRuntimeSummary(
+      `candidate-success Go stderr evidence: ${validJson} \n`,
+    ),
+    /exact compact JSON/u,
+  );
+  assert.throws(
+    () => parseQueryCodegenRuntimeSummary(
+      `candidate-success Go stderr evidence: ` +
+        validJson.replace(
+          '"policy":"go-download-progress-v1"',
+          '"policy":"go-download-progress-v1",' +
+            '"policy":"go-download-progress-v1"',
+        ) +
+        '\n',
+    ),
+    /duplicate object key/u,
+  );
+  assert.throws(
+    () => parseQueryCodegenRuntimeSummary(
+      queryCodegenRuntimeOutput(),
+      { truncated: true },
+    ),
+    /truncated/u,
+  );
+});
+
 test('Query owner cleanup is a finally command and remains secondary to the primary failure', async () => {
   const result = (id, status, label) => Object.freeze({
     args: Object.freeze(['verify.mjs']),
@@ -4132,7 +4747,7 @@ test('Query owner cleanup is a finally command and remains secondary to the prim
   assert.deepEqual(successOrder, ['operation', 'cleanup']);
 
   const primaryResult = result(
-    'contracts-query-prepare-codegen',
+    'contracts-query-verify-codegen',
     23,
     'primary',
   );
