@@ -166,6 +166,14 @@ such as `module@version/.gitignore` out of later Git authority scans without
 weakening the accepted path grammar or treating ignored dependency bytes as
 tracked source.
 
+The Contracts owner cleanup inventory is closed over every package it
+installs. Besides Query and schema roots, it removes `node_modules`, `.cache`,
+and `.tmp` for all six API goldens before artifact compatibility. This ordering
+is required because the coordinator deliberately walks all of
+`contracts/goldens` as tracked control-plane input; a tracked ignore rule does
+not authorize dependency files or `.bin` symlinks to participate in that
+walk.
+
 The Query golden remains authoritative even though it intentionally records an
 older Node/npm/Go toolchain than the current Frontend and Backend gates. The
 harness therefore admits and records both toolchain families and invokes each
@@ -690,6 +698,11 @@ acceptance mutate the repository.
   `module@version` directory] → Keep the cache only through the two Backend
   operations, then remove the exact Backend generated roots before coordinator
   re-attestation; do not widen Git path or ignore-control admission.
+- [API-golden `npm ci` output remains under recursively attested
+  `contracts/goldens`] → Derive a closed cleanup inventory from the six fixed
+  installed packages, remove each package's `node_modules`, `.cache`, and
+  `.tmp`, and fail the Contracts owner before coordinator traversal on any
+  cleanup error or residue.
 - [Browser automation adds supply-chain and disk cost] → One exact
   acceptance-only package, locked transitive closure, pre-provisioned browser,
   no install scripts, no production bytes, and explicit dependency/license

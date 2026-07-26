@@ -165,6 +165,13 @@ commit, push, sync, archive, or update task markers.
   residue. Add focused coverage for an upstream
   `module@version/.gitignore`, primary-error precedence, retry, and surviving
   residue without weakening Git path or ignore-control admission.
+- [ ] 3.8 Close the Contracts cleanup inventory over all six installed API
+  goldens. Remove each package's exact `node_modules`, `.cache`, and `.tmp`
+  roots on success and failure before coordinator traversal, retain bounded
+  retry and primary-error precedence, and fail on cleanup-only residue. Add a
+  focused coordinator-control-plane test with ordinary dependency bytes and a
+  `node_modules/.bin` symlink, plus an exact inventory assertion so a newly
+  installed package cannot silently escape cleanup.
 
 ## 4. Full Archive and packaged runtime
 

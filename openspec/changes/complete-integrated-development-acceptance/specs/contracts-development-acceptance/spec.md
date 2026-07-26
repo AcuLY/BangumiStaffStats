@@ -412,6 +412,15 @@ coordinator invocation. It SHALL NOT relax tracked-path syntax, ignore-control
 attestation, or coordinator source identity merely because a module cache
 contains upstream paths such as `module@version/.gitignore`.
 
+The Contracts owner SHALL likewise remove `node_modules`, `.cache`, and
+`.tmp` below every installed `contracts/goldens/api/{catalog,rankings,
+candidates,person-detail,partners,co-star}` package, in addition to its Query
+and schema generated roots, before the artifact coordinator recursively
+attests `contracts/goldens`. An ignored dependency file or internal
+`node_modules/.bin` symlink SHALL NOT be admitted as coordinator control-plane
+input. Cleanup SHALL use the same exact-root, bounded, primary-preserving
+semantics and prove every declared API-golden root absent.
+
 #### Scenario: An existing owner gate succeeds
 
 - **WHEN** its accepted entrypoint exits successfully in the isolated clone
@@ -443,6 +452,17 @@ contains upstream paths such as `module@version/.gitignore`.
   coordinator re-attests the candidate
 - **AND** a cleanup failure or surviving root SHALL fail the Backend owner
   cell without weakening the Git path or ignore-control validator
+
+#### Scenario: API-golden install output would enter coordinator control-plane traversal
+
+- **WHEN** a fixed Contracts package install leaves ordinary dependency bytes
+  or a `node_modules/.bin` symlink below any installed API golden
+- **THEN** the Contracts owner SHALL remove that package's exact
+  `node_modules`, `.cache`, and `.tmp` roots before the coordinator recursively
+  enumerates `contracts/goldens`
+- **AND** missing cleanup coverage, cleanup failure, or surviving output SHALL
+  fail the Contracts owner cell rather than be misattributed to artifact
+  compatibility or treated as tracked control-plane input
 
 ### Requirement: A full inactive Archive SHALL be proven without mutating it
 
