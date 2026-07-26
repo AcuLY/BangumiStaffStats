@@ -526,6 +526,27 @@ because production sizing and acceptance belong to a later operations change.
 
 ### 9. Fail closed and preserve complete diagnostics without committing them
 
+The public formal `run` command is a parent supervisor, while the complete
+stateful matrix executes in one child worker. This is a run-level boundary,
+not a process-per-cell design: the worker may retain the accepted Backend,
+browser, servers, and other reviewed state across cells. Before each action it
+sends one closed, monotonically ordered checkpoint containing the run
+identity, matrix sequence, cell ID, phase, and declared deadline. The parent
+uses its own monotonic clock to enforce the current cell and whole-suite
+deadlines outside the worker event loop, so a synchronous loop, microtask
+starvation, stalled I/O, or an unresponsive dependency cannot suppress the
+watchdog.
+
+The worker runs in a separately controllable process group and all observed
+descendants remain bound by the stable-identity ancestry ledger. On a
+deadline, malformed/out-of-order checkpoint, lost worker, or worker-side
+cleanup failure, the parent terminates that exact owned closure, performs
+guarded run-root and named-runtime cleanup, re-seals protected inputs, and is
+the sole writer of the canonical 56-cell fail/blocked result from the last
+accepted checkpoint. The parent never trusts a partial worker result as
+canonical. In-process revocable action/output gates remain defense in depth
+for responsive failures; they are not the proof of hard timeout enforcement.
+
 The orchestrator launches every child in its own process group/container name
 derived from a bounded random run ID, closes inherited environment variables,
 sets explicit timeouts/output limits, sends graceful termination then bounded
@@ -548,8 +569,10 @@ network denial through their sandbox/network policy. The report does not claim
 that denied non-browser connection syscalls were observed when the platform
 offers no syscall-level counter.
 
-On any failure it completes cleanup and result validation, marks later cells
-blocked, exits nonzero, and prints the run-relative result path. A green result
+After a run root exists, any setup, cell, worker, supervision, or cleanup
+failure completes parent-controlled cleanup and result validation, marks later
+cells blocked, exits nonzero, and prints the run-relative result path.
+Admission failures before a run root exists emit no run result. A green result
 requires:
 
 - every required cell passed;

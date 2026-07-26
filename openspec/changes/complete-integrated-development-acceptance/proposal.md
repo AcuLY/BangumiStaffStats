@@ -241,6 +241,12 @@ or a dirty harness/control checkout exists at admission.
 - Any command failure, timeout, unexpected skip, missing evidence, input or
   output mutation, network escape, residual process/container/file, schema
   violation, or matrix failure prevents the green verdict.
+- The formal `run` command is supervised by a separate parent process. The
+  worker reports one closed, ordered cell/deadline checkpoint stream; the
+  parent enforces every cell and suite deadline outside the worker event loop.
+  A stalled worker is killed through its exact process group and owned
+  descendant ledger, after which the parent performs guarded cleanup,
+  re-sealing, and the canonical fail/blocked result write.
 - Focused harness tests, a negative/tamper suite, strict OpenSpec validation,
   exact-path/residue audits, and `git diff --check` pass.
 

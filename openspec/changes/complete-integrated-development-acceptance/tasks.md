@@ -102,8 +102,12 @@ commit, push, sync, archive, or update task markers.
   index, cache, generated path, or dirty state.
 - [ ] 3.4 Implement the fixed command registry/process runner with explicit
   executables/arguments/cwds/environments, process groups, timeouts, graceful
-  stop, bounded forced cleanup, and stable owner attribution. No input or
-  environment value may add a shell command.
+  stop, bounded forced cleanup, and stable owner attribution. Run the complete
+  stateful matrix in one worker behind a separate parent supervisor; use a
+  closed ordered cell/deadline checkpoint channel so the parent enforces every
+  cell and suite timeout outside the worker event loop and exclusively writes
+  a canonical fail/blocked result after killing a stalled owned worker
+  closure. No input or environment value may add a shell command.
 - [ ] 3.5 Wire existing Contracts verifiers, `backend/scripts/check.sh`,
   Updater pytest/mypy/Ruff/locked-build gates, Frontend full check, component
   artifact validators, and compatibility coordinator smoke to run only inside
@@ -207,7 +211,10 @@ commit, push, sync, archive, or update task markers.
   ownership. Convert any mutation, observed browser external-network attempt,
   successful non-loopback connection, owned residual state, cleanup error, or
   invalid canonical result to a blocking failure; record non-browser sandbox
-  denial without inventing a syscall-attempt count.
+  denial without inventing a syscall-attempt count. Cover synchronous worker
+  stalls, microtask starvation, malformed/out-of-order checkpoints, lost
+  workers, and worker-side late writes with parent-supervised negative tests;
+  no partial worker result may be accepted as canonical.
 - [ ] 6.4 Implement the exact final verdict/report wording and separate
   `specified`, `implemented`, `verified`, `committed`, `pushed`, `released`,
   and `deployed` fields. The CLI must never imply production readiness,

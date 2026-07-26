@@ -592,6 +592,25 @@ library is authorized.
 
 ### Requirement: Failure, cleanup, and handoff SHALL preserve all inputs
 
+The public formal `run` command SHALL supervise the complete stateful matrix in
+one separate worker process. The worker MAY retain accepted Backend, browser,
+server, and other reviewed state across cells, but before each action it SHALL
+send one closed, monotonically ordered checkpoint containing the run identity,
+matrix sequence, cell ID, phase, and declared deadline. The parent SHALL
+enforce every cell and whole-suite deadline with its own monotonic clock
+outside the worker event loop.
+
+The worker SHALL run in an exact controllable process group whose observed
+descendants are tracked by the stable-identity ancestry ledger. On a deadline,
+synchronous stall, microtask starvation, stalled I/O, malformed or
+out-of-order checkpoint, lost worker, or worker cleanup failure, the parent
+SHALL terminate only that owned closure, perform guarded run-root and
+named-runtime cleanup, re-seal protected inputs, and exclusively write the
+canonical 56-cell fail/blocked result from the last accepted checkpoint. A
+partial worker result SHALL NOT be trusted as canonical. Revocable in-process
+Node output gates MAY provide defense in depth, but SHALL NOT substitute for
+the parent watchdog.
+
 Every child process SHALL run in a separately controllable process group or
 uniquely named container with a sanitized environment, finite timeout, bounded
 output, graceful-stop window, and bounded forced cleanup. Host commands SHALL
@@ -630,6 +649,15 @@ run root and SHALL NOT perform broad recursive repository cleanup.
 - **THEN** bounded cleanup SHALL run, the result SHALL preserve sanitized
   failure evidence, all inputs SHALL re-seal unchanged, and the command SHALL
   exit nonzero
+
+#### Scenario: The matrix worker stops responding
+
+- **WHEN** the worker misses a declared cell or suite deadline, starves its
+  event loop, emits an invalid checkpoint, exits unexpectedly, or leaves
+  registered writers/resources active
+- **THEN** the parent SHALL kill the exact owned worker closure, complete
+  guarded cleanup and re-sealing, emit one schema-valid canonical fail/blocked
+  result without trusting partial worker output, and exit nonzero
 
 #### Scenario: Functional cells pass but residue remains
 
