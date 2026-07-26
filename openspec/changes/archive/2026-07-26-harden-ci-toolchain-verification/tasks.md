@@ -24,5 +24,5 @@
 
 - [x] 3.1 Run focused and complete artifact tests, workflow policy/residue,
   strict OpenSpec, YAML/diff hygiene, and hand off unstaged.
-- [ ] 3.2 Main agent audits, marks/syncs/archives/commits, pushes the branch,
+- [x] 3.2 Main agent audits, marks/syncs/archives/commits, pushes the branch,
   and waits for one fresh full GitHub Actions run to finish successfully.
