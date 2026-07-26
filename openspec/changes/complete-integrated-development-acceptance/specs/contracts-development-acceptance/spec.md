@@ -484,6 +484,15 @@ attests `contracts/goldens`. An ignored dependency file or internal
 input. Cleanup SHALL use the same exact-root, bounded, primary-preserving
 semantics and prove every declared API-golden root absent.
 
+For each installed `contracts/schemas/<capability>/tooling` package, the
+Harness SHALL seed npm cache bytes only at the exact sibling schema-root
+`.cache/npm` path and SHALL declare that schema-root `.cache` as generated
+cleanup authority. It SHALL never place cache bytes below `tooling/.cache`,
+because that subtree participates in the schema verifier's closed tooling
+inventory. A schema verifier SHALL therefore see its unchanged tracked
+tooling inventory while the root-level generated cache remains separately
+owned, bounded, and removed after the owner gate.
+
 The Archive owner SHALL invoke its real verifier with the exact hermetic Go
 environment, including `GOWORK=off`; an inherited host workspace SHALL never
 participate in module selection. A declared generated root may contain admitted

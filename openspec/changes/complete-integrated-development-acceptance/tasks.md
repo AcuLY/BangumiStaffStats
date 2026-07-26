@@ -171,7 +171,9 @@ commit, push, sync, archive, or update task markers.
   retry and primary-error precedence, and fail on cleanup-only residue. Add a
   focused coordinator-control-plane test with ordinary dependency bytes and a
   `node_modules/.bin` symlink, plus an exact inventory assertion so a newly
-  installed package cannot silently escape cleanup.
+  installed package cannot silently escape cleanup. Seed every schema-tooling
+  npm cache only at its schema-root `.cache/npm`, never inside the inventoried
+  `tooling` subtree, and cover all three exact placements and cleanup roots.
 - [ ] 3.9 Close the formal Archive-owner environment and read-only-cache
   cleanup path. Pass exact `GOWORK=off` to the real Archive verifier. Before
   chmod or deletion, completely inventory each exact declared generated root

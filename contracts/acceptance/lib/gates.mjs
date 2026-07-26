@@ -168,11 +168,11 @@ const SCHEMA_NPM_PACKAGE_GENERATED_ROOTS = Object.freeze({
   ]),
   'contracts/schemas/catalog/tooling': Object.freeze([
     'contracts/schemas/catalog/tooling/node_modules',
-    'contracts/schemas/catalog/tooling/.cache',
+    'contracts/schemas/catalog/.cache',
   ]),
   'contracts/schemas/update-status/tooling': Object.freeze([
     'contracts/schemas/update-status/tooling/node_modules',
-    'contracts/schemas/update-status/tooling/.cache',
+    'contracts/schemas/update-status/.cache',
   ]),
 });
 
@@ -216,6 +216,18 @@ export function currentNpmPackageGeneratedRoots(relative) {
   if (roots !== undefined) return roots;
   throw new Error(
     `Contracts npm package has no generated-root cleanup policy: ${relative}`,
+  );
+}
+
+export function currentNpmPackageCacheRelative(relative) {
+  if (SCHEMA_NPM_PACKAGE_GENERATED_ROOTS[relative] !== undefined) {
+    return `${path.posix.dirname(relative)}/.cache/npm`;
+  }
+  if (API_NPM_PACKAGE_GENERATED_ROOTS[relative] !== undefined) {
+    return `${relative}/.cache/npm`;
+  }
+  throw new Error(
+    `Contracts npm package has no cache placement policy: ${relative}`,
   );
 }
 
@@ -1224,9 +1236,10 @@ async function seedPackageNpmCache({
   const packageRoot = path.join(candidateRoot, ...packageRelative.split('/'));
   const destination = packageRelative === 'contracts/goldens/query'
     ? path.join(packageRoot, '.cache', 'npm')
-    : packageRelative === 'contracts/schemas/archive/tooling'
-      ? path.join(path.dirname(packageRoot), '.cache', 'npm')
-      : path.join(packageRoot, '.cache', 'npm');
+    : path.join(
+        candidateRoot,
+        ...currentNpmPackageCacheRelative(packageRelative).split('/'),
+      );
   seedNpmCache({
     source,
     destination,

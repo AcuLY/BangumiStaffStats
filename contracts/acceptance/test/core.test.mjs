@@ -58,6 +58,7 @@ import {
   cleanupBackendGeneratedRoots,
   cleanupContractsGeneratedRoots,
   CONTRACTS_OWNER_CLEANUP_INVENTORY,
+  currentNpmPackageCacheRelative,
   currentNpmPackageGeneratedRoots,
   dockerLocalSandboxProfile,
   executeArchiveVerifierDirect,
@@ -5258,9 +5259,9 @@ test('Contracts cleanup inventory closes every installed API golden before coord
     'contracts/schemas/archive/.cache',
     'contracts/schemas/archive/.tmp',
     'contracts/schemas/catalog/tooling/node_modules',
-    'contracts/schemas/catalog/tooling/.cache',
+    'contracts/schemas/catalog/.cache',
     'contracts/schemas/update-status/tooling/node_modules',
-    'contracts/schemas/update-status/tooling/.cache',
+    'contracts/schemas/update-status/.cache',
     ...apiPackages.flatMap((relative) => [
       `${relative}/node_modules`,
       `${relative}/.cache`,
@@ -5285,12 +5286,63 @@ test('Contracts cleanup inventory closes every installed API golden before coord
       `${relative}/.tmp`,
     ]),
   );
+  assert.deepEqual(
+    currentNpmPackages.map((relative) => [
+      relative,
+      currentNpmPackageCacheRelative(relative),
+    ]),
+    [
+      [
+        'contracts/schemas/archive/tooling',
+        'contracts/schemas/archive/.cache/npm',
+      ],
+      [
+        'contracts/schemas/catalog/tooling',
+        'contracts/schemas/catalog/.cache/npm',
+      ],
+      [
+        'contracts/schemas/update-status/tooling',
+        'contracts/schemas/update-status/.cache/npm',
+      ],
+      [
+        'contracts/goldens/api/catalog',
+        'contracts/goldens/api/catalog/.cache/npm',
+      ],
+      [
+        'contracts/goldens/api/rankings',
+        'contracts/goldens/api/rankings/.cache/npm',
+      ],
+      [
+        'contracts/goldens/api/candidates',
+        'contracts/goldens/api/candidates/.cache/npm',
+      ],
+      [
+        'contracts/goldens/api/person-detail',
+        'contracts/goldens/api/person-detail/.cache/npm',
+      ],
+      [
+        'contracts/goldens/api/partners',
+        'contracts/goldens/api/partners/.cache/npm',
+      ],
+      [
+        'contracts/goldens/api/co-star',
+        'contracts/goldens/api/co-star/.cache/npm',
+      ],
+    ],
+  );
   assert.throws(
     () =>
       currentNpmPackageGeneratedRoots(
         'contracts/goldens/api/unreviewed-package',
       ),
     /has no generated-root cleanup policy/u,
+  );
+  assert.throws(
+    () =>
+      currentNpmPackageCacheRelative(
+        'contracts/goldens/api/unreviewed-package',
+      ),
+    /has no cache placement policy/u,
   );
 
   const root = fs.realpathSync.native(

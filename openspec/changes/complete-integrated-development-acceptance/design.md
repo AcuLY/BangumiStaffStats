@@ -174,6 +174,12 @@ is required because the coordinator deliberately walks all of
 not authorize dependency files or `.bin` symlinks to participate in that
 walk.
 
+Every schema-tooling package receives its seeded npm cache only at the owning
+schema root's `.cache/npm`, never below `tooling/.cache`. Schema verifiers may
+exclude their declared root-level generated cache while continuing to reject
+any cache byte inside the tooling subtree whose closed inventory they attest.
+The cleanup inventory names those exact schema-root `.cache` paths.
+
 The Archive contract command inherits the same closed Go environment as the
 other hermetic Go consumers and additionally fixes `GOWORK=off`; an ambient
 workspace can neither alter module selection nor make a valid candidate fail.
