@@ -20,6 +20,8 @@ export const BUILDKIT_VERSION = '0.27.1';
 export const DOCKER_BUILDX_VERSION = '0.34.1';
 export const BUILDKIT_IMAGE_DIGEST =
   'sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368';
+export const PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST =
+  'sha256:43dddf61ede4a10c347e06f3624a73ec53c13fd325bbd6ce8d85b0c3327ea49e';
 export const SUPPORTED_ARCHIVE_MANIFEST_SCHEMA = 1;
 export const SUPPORTED_ARCHIVE_SQLITE_SCHEMA = 1;
 
@@ -233,6 +235,24 @@ function validateInputs(value, component, label) {
     fail(label, `missing ${component} BuildKit image input`);
   } else if (buildkitImage.sha256 !== BUILDKIT_IMAGE_DIGEST) {
     fail(label, `BuildKit image must equal ${BUILDKIT_IMAGE_DIGEST}`);
+  }
+  if (component === 'updater') {
+    const producerRuntimeInputs = value.filter(
+      (input) => input.path === 'contracts/producer-runtime-inputs-v1',
+    );
+    if (producerRuntimeInputs.length !== 1) {
+      fail(label, 'updater must declare exactly one producer-runtime manifest input');
+    }
+    if (
+      producerRuntimeInputs[0].sha256 !==
+      PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST
+    ) {
+      fail(
+        label,
+        'producer-runtime manifest input must equal ' +
+          PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
+      );
+    }
   }
 }
 

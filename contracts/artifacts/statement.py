@@ -27,6 +27,7 @@ BUILDKIT_IMAGE_REFERENCE = (
     "sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368"
 )
 BUILDKIT_IMAGE_DIGEST = BUILDKIT_IMAGE_REFERENCE.rsplit("@", 1)[1]
+PRODUCER_RUNTIME_INPUTS_LOGICAL_PATH = "contracts/producer-runtime-inputs-v1"
 GIT_OBJECT_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 SHA256_RE = re.compile(r"^(?:sha256:)?([0-9a-f]{64})$")
 TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
@@ -237,8 +238,16 @@ def emit_component_statement(
     uv_lock = _metadata_digest(
         inputs.get("uvLockSha256"), "metadata.inputs.uvLockSha256"
     )
+    producer_runtime_inputs_manifest = _metadata_digest(
+        inputs.get("producerRuntimeInputsManifestSha256"),
+        "metadata.inputs.producerRuntimeInputsManifestSha256",
+    )
     normalized_inputs = sorted(
         [
+            {
+                "path": PRODUCER_RUNTIME_INPUTS_LOGICAL_PATH,
+                "sha256": producer_runtime_inputs_manifest,
+            },
             {"path": "updater/build-definition", "sha256": build_definition},
             {"path": "updater/source-snapshot", "sha256": source_snapshot},
             {"path": "updater/uv.lock", "sha256": uv_lock},
@@ -273,6 +282,11 @@ def emit_component_statement(
         contracts_root,
         "schemas/archive/schema.sql",
         ARCHIVE_SCHEMA_SQL_DIGEST,
+    )
+    _contracts_digest(
+        contracts_root,
+        "artifacts/producer-runtime-inputs-v1.json",
+        producer_runtime_inputs_manifest,
     )
 
     return {

@@ -14,6 +14,7 @@ import {
   ARCHIVE_MANIFEST_SCHEMA_DIGEST,
   ARCHIVE_SCHEMA_SQL_DIGEST,
   ArtifactValidationError,
+  PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
   assembleCompatibilityManifest,
   parseChecksumInventory,
   sha256Bytes,
@@ -293,6 +294,82 @@ test('container components require exact BuildKit and Buildx evidence', () => {
   );
 });
 
+test('Updater statements require one exact sorted producer-runtime manifest input', () => {
+  const producerPath = 'contracts/producer-runtime-inputs-v1';
+  const cases = [
+    {
+      name: 'missing',
+      mutate(statement) {
+        statement.inputs = statement.inputs.filter(
+          (input) => input.path !== producerPath,
+        );
+      },
+      expected: /exactly one producer-runtime manifest input/u,
+    },
+    {
+      name: 'duplicate',
+      mutate(statement) {
+        const binding = statement.inputs.find(
+          (input) => input.path === producerPath,
+        );
+        statement.inputs.push(structuredClone(binding));
+        statement.inputs.sort((left, right) =>
+          left.path.localeCompare(right.path, 'en'),
+        );
+      },
+      expected: /duplicate sort key/u,
+    },
+    {
+      name: 'misnamed',
+      mutate(statement) {
+        statement.inputs.find(
+          (input) => input.path === producerPath,
+        ).path = `${producerPath}-v2`;
+        statement.inputs.sort((left, right) =>
+          left.path.localeCompare(right.path, 'en'),
+        );
+      },
+      expected: /exactly one producer-runtime manifest input/u,
+    },
+    {
+      name: 'malformed',
+      mutate(statement) {
+        statement.inputs.find(
+          (input) => input.path === producerPath,
+        ).sha256 = 'SHA256:INVALID';
+      },
+      expected: /invalid format/u,
+    },
+    {
+      name: 'digest drift',
+      mutate(statement) {
+        statement.inputs.find(
+          (input) => input.path === producerPath,
+        ).sha256 = `sha256:${'f'.repeat(64)}`;
+      },
+      expected: new RegExp(
+        `must equal ${PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST}`,
+        'u',
+      ),
+    },
+    {
+      name: 'reordered',
+      mutate(statement) {
+        statement.inputs.reverse();
+      },
+      expected: /strictly sorted/u,
+    },
+  ];
+  for (const negative of cases) {
+    const roots = copyFixtures();
+    mutateStatement(roots.updater, negative.mutate);
+    expectFailure(
+      () => verifyComponentDirectory(roots.updater, 'updater'),
+      negative.expected,
+    );
+  }
+});
+
 test('incomplete SPDX runtime closure fails closed', () => {
   const roots = copyFixtures();
   const statement = readStatement(roots.updater);
@@ -432,6 +509,12 @@ test('negative fixture registry stays synchronized with exercised cases', () => 
     'mixed-platform',
     'mixed-source',
     'openapi-drift',
+    'producer-runtime-input-digest-drift',
+    'producer-runtime-input-duplicate',
+    'producer-runtime-input-malformed',
+    'producer-runtime-input-misnamed',
+    'producer-runtime-input-missing',
+    'producer-runtime-input-reordered',
     'random-leakage',
     'sbom-artifact-digest-ambiguity',
     'sbom-missing-oci',

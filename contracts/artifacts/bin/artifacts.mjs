@@ -4,13 +4,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-import { assertCanonicalJson } from '../lib/canonical-json.mjs';
+import {
+  assertCanonicalJson,
+  canonicalJson,
+} from '../lib/canonical-json.mjs';
 import {
   ensureGeneratedDirectory,
   removeGeneratedPath,
   requireGeneratedPath as requireSafeGeneratedPath,
 } from '../lib/generated-path.mjs';
 import { readJsonStrict } from '../lib/strict-json.mjs';
+import { verifyProducerRuntimeInputs } from '../lib/runtime-inputs.mjs';
 import {
   assembleCompatibilityManifest,
   sha256Bytes,
@@ -26,6 +30,7 @@ function usage() {
   throw new Error(
     'usage: artifacts.mjs verify-component <root> [component] | ' +
       'verify-manifest <manifest.json> | ' +
+      'verify-producer-runtime-inputs [repository-root] | ' +
       'assemble --output <contracts/artifacts/.tmp/path.json> <backend> <updater> <frontend>',
   );
 }
@@ -88,6 +93,20 @@ function main(argv) {
     assertCanonicalJson(source, value, rest[0]);
     validateCompatibilityManifest(value, rest[0]);
     process.stdout.write(`${sha256Bytes(source)}\n`);
+    return;
+  }
+  if (command === 'verify-producer-runtime-inputs') {
+    if (rest.length > 1) usage();
+    const repositoryRoot =
+      rest.length === 0 ? REPOSITORY_ROOT : path.resolve(rest[0]);
+    const result = verifyProducerRuntimeInputs(repositoryRoot);
+    process.stdout.write(
+      canonicalJson({
+        manifestDigest: result.manifestDigest,
+        fileCount: result.fileCount,
+        totalSize: result.totalSize,
+      }),
+    );
     return;
   }
   if (command === 'assemble') {

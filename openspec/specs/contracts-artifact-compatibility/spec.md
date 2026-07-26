@@ -21,9 +21,7 @@ Define strict cross-language component evidence, deterministic compatibility ass
 | Non-goals | Modifying component source, defining product behavior, signing/publication, release/deploy, Compose, activation, or production configuration. |
 | Operations deferred | Production Compose/nginx/systemd/timers, secrets/TLS/host paths, Archive activation/restart/rollback/cleanup, registry/release/deploy/SSH, production monitoring/SLO, cutover/migration/retirement. |
 | Stop/rollback conditions | Stop on incomplete dependencies, unapproved spec, component/path overlap, malformed/mixed/nondeterministic evidence, source-dependent smoke, publication/deploy/activation logic, or protected/external mutation. Roll back only uncommitted owned files and ignored `.tmp` output. |
-
 ## Requirements
-
 ### Requirement: Component statements SHALL be strict cross-language handoffs
 
 Contracts SHALL define one versioned closed schema for Backend, Updater, and
@@ -201,3 +199,21 @@ secret, remote mutation, or `update_activated` event.
   strict validation pass
 - **THEN** the only allowed conclusion is that local development artifacts are
   ready for integrated development acceptance and operations remain unstarted
+
+### Requirement: Updater component evidence SHALL bind the producer runtime manifest
+
+Every `component: updater` statement SHALL contain exactly one sorted input
+whose path is `contracts/producer-runtime-inputs-v1` and whose digest equals the
+canonical producer-runtime manifest used by the artifact build. The Contracts
+statement emitter SHALL derive it only from the exact manifest digest supplied
+in Updater build metadata. The JSON schema and independent offline validator
+SHALL reject an absent, duplicate, misnamed, malformed, or reordered binding.
+Backend and Frontend input requirements SHALL remain unchanged.
+
+#### Scenario: An Updater artifact is verified offline
+- **WHEN** its statement contains the exact producer-runtime manifest input
+- **THEN** Contracts binds that digest into the component and final compatibility evidence
+
+#### Scenario: Embedded runtime authority is unbound
+- **WHEN** the manifest input is missing, duplicated, misnamed, malformed, or differs from build metadata
+- **THEN** component verification fails before compatibility assembly or smoke

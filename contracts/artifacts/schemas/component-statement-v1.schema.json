@@ -222,6 +222,23 @@
       },
       "then": {
         "properties": {
+          "inputs": {
+            "type": "array",
+            "contains": {
+              "type": "object",
+              "required": ["path", "sha256"],
+              "properties": {
+                "path": {
+                  "const": "contracts/producer-runtime-inputs-v1"
+                },
+                "sha256": {
+                  "const": "sha256:43dddf61ede4a10c347e06f3624a73ec53c13fd325bbd6ce8d85b0c3327ea49e"
+                }
+              }
+            },
+            "minContains": 1,
+            "maxContains": 1
+          },
           "compatibility": {
             "type": "object",
             "properties": {
