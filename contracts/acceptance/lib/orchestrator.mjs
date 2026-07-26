@@ -1209,7 +1209,7 @@ export async function runAcceptance({
           'admission.sources',
           'cacheCompatibilityPreAdmission',
           context.preCacheCompatibility,
-          'exact 16 cache authorities match accepted source blobs',
+          'exact 18 cache authorities match accepted source blobs',
         ),
       ];
       return { evidence, value: sources };
