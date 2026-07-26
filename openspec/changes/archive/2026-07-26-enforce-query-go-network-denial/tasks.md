@@ -45,6 +45,6 @@
 - [x] 3.1 Audit the implementation and evidence for zero P0/P1, independently
   verify the exact seven-file writable complement, unchanged generated outputs
   and Backend-subset module closure, and mark completed tasks.
-- [ ] 3.2 Sync the delta into `contracts-query-wire`, archive and strictly
+- [x] 3.2 Sync the delta into `contracts-query-wire`, archive and strictly
   validate the change, commit/push the lifecycle result, then resume the
   acceptance Harness companion correction and Product/Harness reseal.
