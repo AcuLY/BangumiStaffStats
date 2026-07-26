@@ -182,7 +182,7 @@ bytes or launching any process.
 
 That proof reads raw regular `100644` Git blobs from exact object IDs with
 replacement refs and lazy fetching disabled. Its authority set contains
-exactly 16 files. The exact mappings are:
+exactly 18 files. The exact mappings are:
 
 - the 11 product locks at frozen
   `locks/product/<repo-path>/package-lock.json`, mapped to the same
@@ -195,7 +195,10 @@ exactly 16 files. The exact mappings are:
 - frozen `locks/oracle/frontend/package-lock.json`, mapped only to
   `frontend/package-lock.json` in the fixed oracle commit;
 - product `backend/go.mod` and `backend/go.sum`; and
-- product `updater/uv.lock`.
+- product `updater/uv.lock`; and
+- accepted-product-only
+  `contracts/goldens/query/fixtures/go-module/go.mod.lock` and
+  `contracts/goldens/query/fixtures/go-module/go.sum.lock`.
 
 The preparation and accepted-product trees SHALL each contain exactly the same
 11 product package-lock paths. The accepted harness/control tree SHALL contain
@@ -216,6 +219,18 @@ SHALL bind the frozen Go-validation document; that document SHALL identify
 `goSumPath=backend/go.sum` and matching digest. It SHALL NOT be represented as
 an authority over `go.mod`.
 
+The two Query module locks SHALL be exact regular `100644` blobs in the
+accepted Product candidate and SHALL equal the Query manifest's independently
+sealed path, size, and digest evidence. They MAY be absent from
+`preparedFromRevision` and therefore SHALL NOT be fabricated as preparation
+blobs or retroactively inserted into the immutable cache manifest. Instead,
+the compatibility proof SHALL parse the accepted Query `go.sum` into a closed
+module/version set, prove that set is a subset of the Backend source/target
+module closure used to seed the frozen Go cache, and prove every exact required
+module cache file is present in the sealed cache inventory. Any extra Query
+version, missing cache byte, checksum disagreement, or unbound lock fails
+before cache copy or process launch.
+
 The uv lock SHALL equal the preparation and accepted-product blobs. The
 manifest SHALL separately bind the uv-validation document and closure plan by
 exact relative path, byte count, and SHA-256. The validation document SHALL
@@ -235,7 +250,8 @@ package installation, component execution, container, API, or browser work.
 The orchestrator writes one final canonical run-relative compatibility
 evidence envelope with distinct `preAdmission` and `postCleanup` phases. Each
 phase records the four revisions, exact authority counts, every authority's
-logical owner/path, Git tree mode, blob OID, byte digest and comparison, the
+logical owner/path, authority scope, available Git tree mode/blob OID, byte
+digest and comparison, the
 immutable manifest/root seals, and its own `authoritySetSha256`. The envelope
 does not contain its own file digest. Matrix evidence descriptors bind the
 pre-admission phase from `admission.sources` and the post-cleanup phase from
@@ -388,12 +404,18 @@ The matrix invokes the accepted commands for:
 - component artifact validation and the compatibility coordinator smoke.
 
 For the historical Query golden, the Harness preserves the owner's closed
-sequence and source roles: after preparing `codegen-a` and `codegen-b`, each
+sequence and source roles: after preparing `codegen-a` and `codegen-b`, it
+actually runs the locked Redocly lint command against
+`codegen-a/source/openapi/openapi.yaml` and accepts only exit zero with exactly
+zero errors and nine warnings. It then produces both Redocly bundles, and each
 locked TypeScript command consumes its own
 `source/openapi/openapi.yaml`. The expanded shared OpenAPI and dereferenced
 bundles are not substitutes for those paired source projections; the Query
 owner verifier remains the authority for the resulting TypeScript and Go
-seals.
+seals. A focused Harness negative SHALL prove a missing lint process, a changed
+source, or any other error/warning count cannot pass; the expanded shared
+OpenAPI's known ten-warning result remains a negative rather than a new
+baseline.
 
 The acceptance owner adds tests only for its orchestration behavior:
 schema/closed-matrix validation, command closure, fail/timeout/blocked

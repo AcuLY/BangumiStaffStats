@@ -35,7 +35,7 @@ commit, push, sync, archive, or update task markers.
   `contracts/acceptance/**` has no conflicting owner. Record the distinct
   product-candidate identity named by the artifacts, the immutable cache
   preparation revision separately from that candidate, allow that revision
-  difference only through the same exact 16-authority proof, and stop without
+  difference only through the same exact 18-authority proof, and stop without
   mutation on every other mismatch.
 - [ ] 1.2 Create only `contracts/acceptance/{bin,lib,schemas,test,browser}/`,
   a README, a narrow `.gitignore` for `.tmp/`, and the acceptance-only
@@ -88,10 +88,11 @@ commit, push, sync, archive, or update task markers.
   compatibility manifest. Prove the two trees differ only in
   `contracts/acceptance/**` and reviewed OpenSpec lifecycle paths while all
   protected product/artifact implementation blobs and modes remain identical.
-  Add a closed raw-Git-blob reader for the exact 16 cache dependency
+  Add a closed raw-Git-blob reader for the exact 18 cache dependency
   authorities with replacement refs/lazy fetch disabled and fixed `100644`
-  mode; add focused mixed/tampered/dirty/link/forbidden-diff/missing-object
-  negative tests.
+  mode, while representing the two accepted-product-only Query module locks
+  without inventing preparation blobs; add focused
+  mixed/tampered/dirty/link/forbidden-diff/missing-object negative tests.
 - [ ] 3.2 Implement the owned run-root allocator and exact cleanup policy with
   canonical containment, no-symlink directory walk, recorded ownership marker,
   bounded unique ID, sanitized environment, no inherited injection variables,
@@ -124,9 +125,15 @@ commit, push, sync, archive, or update task markers.
   deny writes to every admitted runtime root, and re-seal after each owning
   gate; enforce offline package-manager modes plus host/Docker network denial;
   before any seed/process, prove all 13 package locks, `backend/go.mod`,
-  `backend/go.sum`, and `updater/uv.lock` across the preparation commit,
-  accepted owner commits, frozen bytes, and npm/Go/uv authority documents;
-  after Query A/B projection preparation, bind each locked
+  `backend/go.sum`, `updater/uv.lock`, and the two accepted Product Query
+  module locks across their exact applicable preparation/current owners,
+  frozen bytes, and npm/Go/uv authority documents; allow the Query locks to be
+  absent from `preparedFromRevision` only after proving their module/version set
+  is a subset of the Backend-seeded source/target closure and every exact
+  required module cache file is sealed and present; after Query A/B projection
+  preparation, actually execute the locked Redocly lint against
+  `.tmp/codegen-a/source/openapi/openapi.yaml`, require exit zero with zero
+  errors and nine warnings, produce both Redocly bundles, and bind each locked
   `openapi-typescript` command to its own
   `.tmp/codegen-{a,b}/source/openapi/openapi.yaml` and reject the expanded
   shared OpenAPI, dereferenced bundles, or cross-fed projections;
@@ -249,8 +256,11 @@ commit, push, sync, archive, or update task markers.
   tamper/dirty/link/timeout/network/residue negatives, and coverage of every
   matrix/result/error state. Cover earlier-equal and earlier-different
   preparation revisions plus drift/missing/duplicate/extra/reordered/wrong
-  owner or mode for each package-lock owner, Go pair, uv dual authority,
-  missing source object, directed-reference tamper, missing/reordered/
+  owner or mode for each package-lock owner, Backend Go pair, both
+  accepted-product-only Query module locks, Query module-set subset/cache-file
+  proof, uv dual authority, actual Redocly lint execution/count/source,
+  materialization-fault cleanup, missing source object,
+  directed-reference tamper, missing/reordered/
   inconsistent `preAdmission` or `postCleanup` phase, pre/post mutation, and
   result/evidence-file/phase-digest mismatch. Record exact commands and exits.
 - [ ] 7.2 Run a focused local orchestration smoke with accepted existing
@@ -273,7 +283,7 @@ commit, push, sync, archive, or update task markers.
 
 - [ ] 8.1 Main agent audits the implementation against all four artifacts,
   verifies only `contracts/acceptance/**` changed, independently checks command
-  closure, exact 16-file cache compatibility and its pre/post evidence,
+  closure, exact 18-file cache compatibility and its pre/post evidence,
   artifact/full-Archive identities, canonical result, oracle evidence, browser
   matrix, budgets, negative coverage, cleanup, and zero product/ref/
   external-state mutation; route any owner defect back without fixing it here.

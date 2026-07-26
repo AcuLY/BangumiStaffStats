@@ -143,12 +143,17 @@ None.
   closures. A cache MAY have been prepared from an earlier product revision;
   its recorded revision is preparation provenance, never the current product
   identity. Such a cache is reusable only when admission proves the exact
-  byte/mode compatibility of the closed 16-file dependency authority:
+  byte/mode compatibility of the closed 18-file dependency authority:
   13 package locks (11 product, one harness, one fixed oracle),
-  `backend/go.mod`, `backend/go.sum`, and `updater/uv.lock`, including their
-  frozen npm inventory and Go/uv validation/closure-plan bindings. Cache
-  acquisition remains outside the harness; this compatibility attestation is
-  required acceptance evidence.
+  `backend/go.mod`, `backend/go.sum`, `updater/uv.lock`, and the accepted
+  Product candidate's two
+  `contracts/goldens/query/fixtures/go-module/*.lock` files, including the
+  frozen npm inventory and Go/uv validation/closure-plan bindings. The two
+  Query module locks MAY be absent from `preparedFromRevision`; in that case
+  reuse additionally requires their closed module/version set to be a subset of
+  the Backend-seeded source/target Go closure and every exact required module
+  cache file to be present and sealed. Cache acquisition remains outside the
+  harness; this compatibility attestation is required acceptance evidence.
 - Exact non-system tool distributions SHALL have complete canonical runtime
   roots, inventories, content seals, and write-denial boundaries. This
   includes both installed npm package roots and the admitted CPython
@@ -212,7 +217,7 @@ or a dirty harness/control checkout exists at admission.
   product-candidate revision/tree and target; the full Archive is immutable
   and compatible.
 - Before any cache copy, install, component, container, API, or browser
-  process, the harness proves the exact closed 16-file dependency authority
+  process, the harness proves the exact closed 18-file dependency authority
   across the immutable preparation commit, accepted product/harness/oracle
   commits, frozen cache bytes, and npm/Go/uv authority documents. It records
   preparation and current revisions in one canonical evidence envelope with
@@ -223,6 +228,10 @@ or a dirty harness/control checkout exists at admission.
   process; a post-cleanup disagreement blocks all later work and the verdict.
 - Existing cross-language contract, component full-check, artifact-only smoke,
   Go race, and strict OpenSpec gates pass without source mutation.
+- The Query owner gate actually runs the locked Redocly lint against the
+  prepared `codegen-a` closed source projection and accepts only exit zero with
+  exactly zero errors and nine warnings before either bundle or TypeScript/Go
+  verification may establish a pass.
 - The harness runs the immutable Updater artifact checks and starts the
   packaged Backend against a disposable read-only copy of the supplied full
   Archive. Health, readiness, metrics, catalog, ranking, candidates, person

@@ -79,7 +79,7 @@ package installation, component, container, API, or browser process and SHALL
 repeat it after cleanup.
 
 The proof SHALL use raw regular `100644` Git blobs from exact object IDs with
-replacement refs and lazy fetching disabled. It SHALL admit exactly 16
+replacement refs and lazy fetching disabled. It SHALL admit exactly 18
 dependency files:
 
 - 11 product locks mapped from frozen
@@ -90,7 +90,10 @@ dependency files:
 - frozen `locks/oracle/frontend/package-lock.json` mapped to the fixed
   oracle's `frontend/package-lock.json`;
 - product `backend/go.mod` and `backend/go.sum`; and
-- product `updater/uv.lock`.
+- product `updater/uv.lock`; and
+- accepted-product-only
+  `contracts/goldens/query/fixtures/go-module/go.mod.lock` and
+  `contracts/goldens/query/fixtures/go-module/go.sum.lock`.
 
 Preparation and accepted-product Git trees SHALL have the exact same 11
 product-lock path set; the accepted harness/control tree SHALL add exactly its
@@ -113,10 +116,21 @@ path/digest; and both documents SHALL agree on preparation revision, uv-lock
 path, and uv-lock digest. No self-digest, nonexistent reverse reference, or
 frozen uv-lock copy may be claimed.
 
+The two Query module locks SHALL be exact regular `100644` accepted-product
+blobs and SHALL equal the Query manifest's independently sealed path, byte
+count, and SHA-256 evidence. They MAY be absent from
+`preparedFromRevision`; no preparation blob or frozen-cache-manifest record may
+be invented for them. Reuse in that case SHALL require the Query `go.sum`
+module/version set to be a subset of the Backend-seeded source/target Go
+closure and every exact required module cache file to be present in the sealed
+cache inventory. An extra Query version, missing cache byte, checksum mismatch,
+or unbound lock SHALL fail before cache copy or process launch.
+
 One canonical run-relative evidence envelope SHALL contain distinct
 `preAdmission` and `postCleanup` phases. Each phase SHALL record the four
-revisions, exact counts, each authority's logical owner/path, tree mode, blob
-OID, byte digest/comparison, immutable manifest/root seals, and its own
+revisions, exact counts, each authority's logical owner/path and scope,
+available tree mode/blob OID, byte digest/comparison, immutable
+manifest/root seals, and its own
 `authoritySetSha256`. The envelope SHALL NOT contain its own file digest.
 `admission.sources` SHALL bind the pre-admission phase, the final
 residue/seal cell SHALL bind the post-cleanup phase, and the canonical result
@@ -125,10 +139,10 @@ phase digests, and the same revisions.
 
 #### Scenario: Earlier preparation remains authoritative
 
-- **WHEN** the immutable cache was prepared from a different product revision
-  but all 16 closed authorities and every npm/Go/uv binding are exactly equal
-  to the accepted product, harness, and oracle authorities before and after
-  the run
+- **WHEN** the immutable cache was prepared from a different product revision,
+  all 18 closed authorities satisfy their applicable preparation/current owner
+  rules, and every npm/Go/uv plus Query module-subset/cache-file binding is
+  exact before and after the run
 - **THEN** admission SHALL record the distinct preparation and current
   identities plus canonical compatibility evidence and MAY use the sealed
   dependency closure offline
@@ -136,7 +150,7 @@ phase digests, and the same revisions.
 #### Scenario: Preparation and candidate revisions are identical
 
 - **WHEN** the cache preparation revision equals the accepted product revision
-- **THEN** the same 16-authority proof SHALL still run and revision equality
+- **THEN** the same 18-authority proof SHALL still run and revision equality
   alone SHALL NOT substitute for byte, mode, count, mapping, and digest checks
 
 #### Scenario: A cache authority is stale or ambiguous
@@ -218,8 +232,11 @@ identities. The harness SHALL NOT rewrite the golden, substitute another tool,
 or omit either family from the canonical result.
 
 The Query golden owner gate SHALL run its base verifier and cleanup-safety
-probe before creating `.tmp`, prepare both codegen projections, produce the
-two exact Redocly bundles, and then run two independent
+probe before creating `.tmp`, prepare both codegen projections, and execute the
+locked Redocly lint command against
+`.tmp/codegen-a/source/openapi/openapi.yaml`. Lint SHALL exit zero and report
+exactly zero errors and nine warnings. Only then SHALL the gate produce the two
+exact Redocly bundles and run two independent
 `openapi-typescript@7.13.0` commands: A SHALL consume the prepared
 `.tmp/codegen-a/source/openapi/openapi.yaml` and B SHALL consume the prepared
 `.tmp/codegen-b/source/openapi/openapi.yaml`, creating
@@ -230,14 +247,26 @@ format, and compile checks. The gate SHALL then use the owner's guarded
 cleanup command. It SHALL NOT skip either TypeScript generation, feed the
 expanded full shared OpenAPI or a generated dereferenced bundle to
 TypeScript, cross-feed A/B projections, duplicate the Go generator outside
-the verifier, or clean generated bytes before their verification.
+the verifier, treat command evidence as a substitute for the actual lint
+process, or clean generated bytes before their verification.
 
 #### Scenario: Query codegen prerequisites are incomplete
 
-- **WHEN** either Redocly bundle or either independent TypeScript output was
-  not produced by its fixed command before the Query codegen verifier runs
+- **WHEN** lint did not actually exit zero with zero errors and nine warnings,
+  or either Redocly bundle or either independent TypeScript output was not
+  produced by its fixed command before the Query codegen verifier runs
 - **THEN** `owner.contracts` SHALL fail, all dependent cells SHALL be blocked,
   and guarded Query cleanup SHALL still run
+
+#### Scenario: Query lint source or warning baseline drifts
+
+- **WHEN** Redocly lint is omitted, consumes anything other than the prepared
+  `codegen-a` closed source, reports an error, or reports a warning count other
+  than nine
+- **THEN** command closure SHALL fail before bundle or generated-output
+  evidence can establish a pass
+- **AND** the expanded shared OpenAPI's ten-warning result SHALL remain a
+  negative rather than update the accepted baseline
 
 #### Scenario: Query TypeScript input is not its paired source projection
 
