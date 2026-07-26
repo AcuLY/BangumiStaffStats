@@ -1,6 +1,6 @@
 # contracts-query-wire Delta Specification
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Approved root-ignore evolution supersedes the initial whole-file pin
 

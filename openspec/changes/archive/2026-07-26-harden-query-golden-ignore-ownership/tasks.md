@@ -16,13 +16,13 @@
   accepted document containing unrelated owner rules.
 - [x] 1.3 Update only the Query-owned ignore descriptor and verifier
   bytes/SHA-256 in the manifest.
-- [ ] 1.4 Run locked install, full verifier/codegen, cleanup-safety, exact
+- [x] 1.4 Run locked install, full verifier/codegen, cleanup-safety, exact
   cleanup, second read-only verification, strict OpenSpec, diff, inventory,
   Git state, and physical residue checks; hand off unstaged.
 
 ## 2. Main acceptance and lifecycle
 
-- [ ] 2.1 Audit exact path/field scope and rerun the material Query/OpenSpec
+- [x] 2.1 Audit exact path/field scope and rerun the material Query/OpenSpec
   gates with no generated residue or protected mutation.
-- [ ] 2.2 Sync the delta, archive this change, and commit the exact reviewed
+- [x] 2.2 Sync the delta, archive this change, and prepare the exact reviewed
   correction before rebuilding artifacts and rerunning integrated acceptance.

@@ -916,6 +916,31 @@
         "refObjects": "sibling-free",
         "dynamicRecursiveAnchorKeywords": 0
       },
+      "canonicalSource": {
+        "encoding": "UTF-8",
+        "lineEndings": "LF",
+        "finalLf": true,
+        "bytes": 6376,
+        "sha256": "87251ef77c7abf46ea5d67bee77256faa1cab7434a519020d8972405ebc92b9e",
+        "description": "Wave 1 shared query components. Business endpoint paths and result DTOs are intentionally deferred."
+      },
+      "syntheticStability": {
+        "unrelatedMutationKinds": [
+          "description",
+          "header",
+          "path",
+          "response",
+          "schema"
+        ],
+        "unrelatedProjectionSha256": "87251ef77c7abf46ea5d67bee77256faa1cab7434a519020d8972405ebc92b9e",
+        "unrelatedProjectionByteIdentical": true,
+        "ownedComponentMutationSha256": "e96c9e523b1f4c37f212b18d93f8449e868e26f5a8ba53c95b74f7608e5be936",
+        "ownedComponentMutationChangesSha256": true,
+        "missingOwnedMembersRejected": [
+          "response",
+          "schema"
+        ]
+      },
       "topLevelKeys": [
         "components",
         "info",
@@ -943,6 +968,17 @@
         "RankingsViewV1",
         "SharePayloadV1",
         "SharedQueryV1"
+      ],
+      "reusableErrorResponses": [
+        "BadRequestErrorV1",
+        "ForbiddenErrorV1",
+        "GatewayTimeoutErrorV1",
+        "InternalErrorV1",
+        "NotFoundErrorV1",
+        "PayloadTooLargeErrorV1",
+        "RateLimitedErrorV1",
+        "ServiceUnavailableErrorV1",
+        "UnsupportedMediaTypeErrorV1"
       ]
     },
     "projectionTool": {
@@ -950,8 +986,8 @@
       "version": 1,
       "verifier": {
         "path": "contracts/goldens/query/verify.mjs",
-        "bytes": 117058,
-        "sha256": "7a5d323e927410067b4e148c9f2ae8d2b84c2a3dbc81cf20fbc8df8bca29a1e2"
+        "bytes": 125459,
+        "sha256": "4b509691c0561486cd8e106588f168ecefd84a4e8e6501e8dc3076f1774f23a2"
       },
       "command": {
         "argv": [

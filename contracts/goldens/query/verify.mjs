@@ -50,6 +50,38 @@ const authoritySchemaNames = [
   "share-payload-v1.schema.json",
   "shared-query-v1.schema.json"
 ];
+const queryProjectionDescription =
+  "Wave 1 shared query components. Business endpoint paths and result DTOs are intentionally deferred.";
+const queryProjectionComponentNames = [
+  "SharedQueryV1",
+  "EffectiveQueryV1",
+  "QueryDigestProjectionV1",
+  "CatalogContextV1",
+  "RankingsViewV1",
+  "CandidatesInputV1",
+  "CandidatesViewV1",
+  "PersonDetailInputV1",
+  "PersonDetailViewV1",
+  "PartnersInputV1",
+  "PartnersViewV1",
+  "CoStarInputV1",
+  "CoStarViewV1",
+  "ErrorEnvelopeV1",
+  "SharePayloadV1",
+  "RankingShareWorkspaceV1",
+  "CoStarShareWorkspaceV1"
+];
+const queryProjectionResponseNames = [
+  "BadRequestErrorV1",
+  "ForbiddenErrorV1",
+  "NotFoundErrorV1",
+  "PayloadTooLargeErrorV1",
+  "UnsupportedMediaTypeErrorV1",
+  "RateLimitedErrorV1",
+  "ServiceUnavailableErrorV1",
+  "GatewayTimeoutErrorV1",
+  "InternalErrorV1"
+];
 const projectionNames = ["codegen-a", "codegen-b"];
 const projectionSourceInventory = [
   "redocly.yaml",
@@ -163,7 +195,8 @@ function splitReference(reference) {
     : [reference.slice(0, index), reference.slice(index)];
 }
 
-function createReferenceContext(openapiFile, schemasDirectory) {
+function createReferenceContext(openapiFile, schemasDirectory, options = {}) {
+  const { openapiDocument } = options;
   const schemaFiles = authoritySchemaNames.map((name) =>
     path.join(schemasDirectory, name)
   );
@@ -171,6 +204,9 @@ function createReferenceContext(openapiFile, schemasDirectory) {
   const documents = new Map(
     files.map((file) => [file, JSON.parse(fs.readFileSync(file, "utf8"))])
   );
+  if (openapiDocument !== undefined) {
+    documents.set(path.resolve(openapiFile), cloneJson(openapiDocument));
+  }
   const filesById = new Map();
   for (const file of schemaFiles) {
     const id = documents.get(path.resolve(file)).$id;
@@ -357,6 +393,236 @@ function publicSchemaExpansions(context) {
   );
 }
 
+function queryProjectionInventories(manifestValue) {
+  const componentNames = manifestValue.openapi?.componentSchemas?.names;
+  const responseNames = manifestValue.openapi?.reusableErrorResponses?.names;
+  assert.equal(
+    manifestValue.openapi?.componentSchemas?.count,
+    queryProjectionComponentNames.length,
+    "Query projection component count"
+  );
+  assert.equal(
+    manifestValue.openapi?.reusableErrorResponses?.count,
+    queryProjectionResponseNames.length,
+    "Query projection response count"
+  );
+  assert.deepEqual(
+    [...componentNames].sort(),
+    [...queryProjectionComponentNames].sort(),
+    "Query projection component inventory"
+  );
+  assert.deepEqual(
+    [...responseNames].sort(),
+    [...queryProjectionResponseNames].sort(),
+    "Query projection response inventory"
+  );
+  assert.equal(new Set(componentNames).size, componentNames.length);
+  assert.equal(new Set(responseNames).size, responseNames.length);
+  return {
+    componentNames: queryProjectionComponentNames,
+    responseNames: queryProjectionResponseNames
+  };
+}
+
+function buildQueryOpenapiProjection(authority, manifestValue) {
+  const { componentNames, responseNames } =
+    queryProjectionInventories(manifestValue);
+  assert.equal(authority.openapi, manifestValue.openapi.version);
+  assert.equal(
+    authority.jsonSchemaDialect,
+    "https://json-schema.org/draft/2020-12/schema"
+  );
+  assert(authority.info && typeof authority.info === "object");
+  assert(Array.isArray(authority.servers));
+  const authoritySchemas = authority.components?.schemas;
+  const authorityResponses = authority.components?.responses;
+  assert(
+    authoritySchemas && typeof authoritySchemas === "object",
+    "shared authority is missing components.schemas"
+  );
+  assert(
+    authorityResponses && typeof authorityResponses === "object",
+    "shared authority is missing components.responses"
+  );
+  const missingSchemas = componentNames.filter(
+    (name) => !Object.hasOwn(authoritySchemas, name)
+  );
+  const missingResponses = responseNames.filter(
+    (name) => !Object.hasOwn(authorityResponses, name)
+  );
+  if (missingSchemas.length > 0) {
+    fail(`shared authority is missing Query-owned schemas: ${missingSchemas.join(", ")}`);
+  }
+  if (missingResponses.length > 0) {
+    fail(
+      `shared authority is missing Query-owned responses: ${missingResponses.join(", ")}`
+    );
+  }
+  return {
+    openapi: cloneJson(authority.openapi),
+    jsonSchemaDialect: cloneJson(authority.jsonSchemaDialect),
+    info: {
+      ...cloneJson(authority.info),
+      description: queryProjectionDescription
+    },
+    servers: cloneJson(authority.servers),
+    paths: {},
+    components: {
+      schemas: Object.fromEntries(
+        componentNames.map((name) => [name, cloneJson(authoritySchemas[name])])
+      ),
+      responses: Object.fromEntries(
+        responseNames.map((name) => [
+          name,
+          cloneJson(authorityResponses[name])
+        ])
+      )
+    }
+  };
+}
+
+function queryOpenapiProjectionBytes(projection) {
+  return Buffer.from(`${JSON.stringify(projection, null, 2)}\n`, "utf8");
+}
+
+function queryProjectionSyntheticEvidence(authority, manifestValue, bytes) {
+  const unrelated = cloneJson(authority);
+  unrelated.info.description = "Synthetic unrelated endpoint authority";
+  unrelated.paths = {
+    ...unrelated.paths,
+    "/__synthetic-query-unrelated": {
+      get: {
+        responses: {
+          200: {
+            description: "Synthetic unrelated response"
+          }
+        }
+      }
+    }
+  };
+  unrelated.components = {
+    ...unrelated.components,
+    schemas: {
+      ...unrelated.components.schemas,
+      SyntheticEndpointOnlyV1: {
+        $ref: "../schemas/synthetic/endpoint-only-v1.schema.json"
+      }
+    },
+    headers: {
+      ...(unrelated.components.headers ?? {}),
+      SyntheticEndpointHeaderV1: {
+        schema: {
+          type: "string"
+        }
+      }
+    },
+    responses: {
+      ...unrelated.components.responses,
+      SyntheticEndpointResponseV1: {
+        description: "Synthetic endpoint-only response"
+      }
+    }
+  };
+  const unrelatedBytes = queryOpenapiProjectionBytes(
+    buildQueryOpenapiProjection(unrelated, manifestValue)
+  );
+  assert.deepEqual(
+    unrelatedBytes,
+    bytes,
+    "unrelated authority changed Query projection bytes"
+  );
+
+  const ownedMutation = cloneJson(authority);
+  const ownedName = queryProjectionComponentNames[0];
+  ownedMutation.components.schemas[ownedName] = {
+    ...ownedMutation.components.schemas[ownedName],
+    "x-synthetic-query-owned-drift": true
+  };
+  const ownedMutationBytes = queryOpenapiProjectionBytes(
+    buildQueryOpenapiProjection(ownedMutation, manifestValue)
+  );
+  assert.notDeepEqual(
+    ownedMutationBytes,
+    bytes,
+    "owned Query component mutation did not change projection bytes"
+  );
+
+  const missingSchema = cloneJson(authority);
+  delete missingSchema.components.schemas[ownedName];
+  assert.throws(
+    () => buildQueryOpenapiProjection(missingSchema, manifestValue),
+    /missing Query-owned schemas/u
+  );
+  const missingResponse = cloneJson(authority);
+  delete missingResponse.components.responses[queryProjectionResponseNames[0]];
+  assert.throws(
+    () => buildQueryOpenapiProjection(missingResponse, manifestValue),
+    /missing Query-owned responses/u
+  );
+
+  return {
+    unrelatedMutationKinds: [
+      "description",
+      "header",
+      "path",
+      "response",
+      "schema"
+    ],
+    unrelatedProjectionSha256: sha256(unrelatedBytes),
+    unrelatedProjectionByteIdentical: true,
+    ownedComponentMutationSha256: sha256(ownedMutationBytes),
+    ownedComponentMutationChangesSha256:
+      sha256(ownedMutationBytes) !== sha256(bytes),
+    missingOwnedMembersRejected: ["response", "schema"]
+  };
+}
+
+function createQueryProjectionState(authority, manifestValue) {
+  const projection = buildQueryOpenapiProjection(authority, manifestValue);
+  const bytes = queryOpenapiProjectionBytes(projection);
+  return {
+    projection,
+    bytes,
+    sha256: sha256(bytes),
+    syntheticEvidence: queryProjectionSyntheticEvidence(
+      authority,
+      manifestValue,
+      bytes
+    )
+  };
+}
+
+function queryAuthorityEvidence(state, audit) {
+  const publicComponentSchemas = Object.keys(
+    state.projection.components.schemas
+  ).sort();
+  const reusableErrorResponses = Object.keys(
+    state.projection.components.responses
+  ).sort();
+  return {
+    files: [
+      "contracts/openapi/openapi.yaml",
+      ...authoritySchemaNames.map(
+        (name) => `contracts/schemas/query/${name}`
+      )
+    ],
+    audit,
+    canonicalSource: {
+      encoding: "UTF-8",
+      lineEndings: "LF",
+      finalLf: true,
+      bytes: state.bytes.byteLength,
+      sha256: state.sha256,
+      description: queryProjectionDescription
+    },
+    syntheticStability: state.syntheticEvidence,
+    topLevelKeys: Object.keys(state.projection).sort(),
+    paths: Object.keys(state.projection.paths).length,
+    publicComponentSchemas,
+    reusableErrorResponses
+  };
+}
+
 function listTreeFiles(root, relative = "") {
   const result = [];
   for (const entry of fs.readdirSync(path.join(root, relative), {
@@ -464,8 +730,20 @@ function assertNoRedoclyLintIgnore(extraRoots = []) {
 
 function prepareCodegenProjections() {
   assertExactNodeRuntime();
-  const authority = createReferenceContext(openapiPath, schemaRoot);
+  const projectionManifest = readJson(path.join(goldenRoot, "manifest.json"));
+  const sharedAuthority = readJson(openapiPath);
+  const queryProjection = createQueryProjectionState(
+    sharedAuthority,
+    projectionManifest
+  );
+  const authority = createReferenceContext(openapiPath, schemaRoot, {
+    openapiDocument: queryProjection.projection
+  });
   const audit = auditReferenceContext(authority);
+  assert.deepEqual(
+    projectionManifest.acceptanceEvidence.authority,
+    queryAuthorityEvidence(queryProjection, audit)
+  );
   const temporaryRoot = assertOwnedRealPath(path.join(goldenRoot, ".tmp"));
   if (!fs.existsSync(temporaryRoot)) {
     fs.mkdirSync(temporaryRoot, { recursive: true });
@@ -490,11 +768,11 @@ function prepareCodegenProjections() {
     fs.mkdirSync(path.dirname(projectionOpenapi), { recursive: true });
     fs.mkdirSync(projectionSchemas, { recursive: true });
     fs.writeFileSync(path.join(projectionRoot, "redocly.yaml"), "{}\n");
-    fs.copyFileSync(openapiPath, projectionOpenapi);
+    fs.writeFileSync(projectionOpenapi, queryProjection.bytes);
     assert.deepEqual(
       fs.readFileSync(projectionOpenapi),
-      fs.readFileSync(openapiPath),
-      `${name}: OpenAPI authority bytes`
+      queryProjection.bytes,
+      `${name}: Query OpenAPI projection bytes`
     );
     let deletedRootKeys = 0;
     for (const schemaName of authoritySchemaNames) {
@@ -529,9 +807,7 @@ function prepareCodegenProjections() {
     });
     assert.deepEqual(
       Object.keys(publicSchemaExpansions(projection)).sort(),
-      Object.keys(
-        authority.documents.get(authority.openapiFile).components.schemas
-      ).sort()
+      [...queryProjectionComponentNames].sort()
     );
     evidence.push({
       name,
@@ -1606,15 +1882,18 @@ assert.deepEqual(manifest.acceptanceEvidence.gitignore, {
   ownedRulesSha256: sha256(queryOwnedRulesBytes)
 });
 
-const authorityContext = createReferenceContext(openapiPath, schemaRoot);
+const sharedOpenapi = readJson(openapiPath);
+const queryOpenapiProjection = createQueryProjectionState(
+  sharedOpenapi,
+  manifest
+);
+const authorityContext = createReferenceContext(openapiPath, schemaRoot, {
+  openapiDocument: queryOpenapiProjection.projection
+});
 const authorityAudit = auditReferenceContext(authorityContext);
-assert.deepEqual(manifest.acceptanceEvidence.authority.audit, authorityAudit);
 assert.deepEqual(
-  manifest.acceptanceEvidence.authority.files,
-  [
-    "contracts/openapi/openapi.yaml",
-    ...authoritySchemaNames.map((name) => `contracts/schemas/query/${name}`)
-  ]
+  manifest.acceptanceEvidence.authority,
+  queryAuthorityEvidence(queryOpenapiProjection, authorityAudit)
 );
 
 const declaredCaseFiles = manifest.caseFiles.map((entry) => entry.path).sort();
@@ -3006,7 +3285,7 @@ for (const testCase of unknownDocument.cases) {
   );
 }
 
-const openapi = JSON.parse(fs.readFileSync(openapiPath, "utf8"));
+const openapi = queryOpenapiProjection.projection;
 assert.equal(openapi.openapi, manifest.openapi.version);
 assert.equal(openapi.jsonSchemaDialect, "https://json-schema.org/draft/2020-12/schema");
 assert.equal(Object.keys(openapi.paths).length, manifest.openapi.paths);
@@ -3331,8 +3610,8 @@ function verifyCodegenEvidence() {
     );
     assert.deepEqual(
       fs.readFileSync(projectionOpenapi),
-      fs.readFileSync(openapiPath),
-      `${projectionName}: OpenAPI authority bytes`
+      queryOpenapiProjection.bytes,
+      `${projectionName}: Query OpenAPI projection bytes`
     );
     const projectionSchemaRoot = path.join(
       projectionRoot,
