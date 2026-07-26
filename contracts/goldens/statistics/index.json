@@ -86,7 +86,7 @@
       "id": "query-result-handoff",
       "kind": "ACCEPTED_HANDOFF",
       "reference": "contracts/goldens/query-domain/manifest.json",
-      "sha256": "e437f2e5d736b452a5ba87315739ec4cd9902e2b52be32f0ad05c220285d9cf3"
+      "sha256": "e09b81613f93280818796c4c98cc5cc03fdc0922a28cced8f0612b74606fecbd"
     },
     {
       "id": "query-score-types",

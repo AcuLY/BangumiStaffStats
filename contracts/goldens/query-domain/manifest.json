@@ -41,7 +41,7 @@
     {
       "id": "shared-query-manifest-v1",
       "path": "contracts/goldens/query/manifest.json",
-      "sha256": "07de454928afc6e36b2abcf65eb17f4b9e8cffccb27b99504dd04a5244d9ab31"
+      "sha256": "1b08971cfb4a9ebc1fbc075bd4b798c3631544d78aac60289e08f2b9733543dd"
     },
     {
       "id": "shared-query-schema-v1",
@@ -80,7 +80,7 @@
     "path": "verify.mjs",
     "runtime": "node",
     "dependencies": [],
-    "sha256": "b8c2277ec3458f3cb257bc160bcd1ff943791b50104446cf7bf95909bf4c1f46"
+    "sha256": "089df242add9aa697e6829d5751c5ec6454b0831e2ecc58517ba4a4099fc81a7"
   },
   "caseIds": [
     "actual-participation-442-not-candidate-449",

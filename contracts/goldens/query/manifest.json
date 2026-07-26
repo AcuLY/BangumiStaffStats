@@ -339,20 +339,20 @@
       "primaryGeneration": {
         "childArgv": [
           "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/go",
-          "run",
-          "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0",
+          "tool",
+          "oapi-codegen",
           "-generate",
           "models,skip-prune",
           "-package",
           "querywire",
           "-o",
-          "contracts/goldens/query/.tmp/query.gen.go",
-          "contracts/goldens/query/.tmp/codegen-a/query.bundle.json"
+          "query.gen.go",
+          "codegen-a/query.bundle.json"
         ],
         "wrapperArgv": [
           "/usr/bin/sandbox-exec",
           "-p",
-          "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
+          "(version 1)(allow default)(deny network*)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
           "/usr/bin/env",
           "-i",
           "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
@@ -365,34 +365,34 @@
           "GOWORK=off",
           "GOTOOLCHAIN=local",
           "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/go",
-          "run",
-          "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0",
+          "tool",
+          "oapi-codegen",
           "-generate",
           "models,skip-prune",
           "-package",
           "querywire",
           "-o",
-          "contracts/goldens/query/.tmp/query.gen.go",
-          "contracts/goldens/query/.tmp/codegen-a/query.bundle.json"
+          "query.gen.go",
+          "codegen-a/query.bundle.json"
         ],
         "status": 0
       },
       "deterministicReplayChildArgv": [
         "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/go",
-        "run",
-        "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0",
+        "tool",
+        "oapi-codegen",
         "-generate",
         "models,skip-prune",
         "-package",
         "querywire",
         "-o",
-        "contracts/goldens/query/.tmp/query.verify.gen.go",
-        "contracts/goldens/query/.tmp/codegen-a/query.bundle.json"
+        "query.verify.gen.go",
+        "codegen-a/query.bundle.json"
       ],
       "wrapperPrefixArgv": [
         "/usr/bin/sandbox-exec",
         "-p",
-        "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
+        "(version 1)(allow default)(deny network*)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
         "/usr/bin/env",
         "-i",
         "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
@@ -408,25 +408,25 @@
       "moduleInputs": {
         "goMod": {
           "path": "contracts/goldens/query/fixtures/go-module/go.mod.lock",
-          "bytes": 197,
-          "sha256": "dded0ad8642adcdbb5a786de7b12165ba33ec550adbaefae7fd3bba0479c2a94"
+          "bytes": 1103,
+          "sha256": "628a1da85a82862c737829dc9a873789edc2c43456ceb937b6687e928ba585ed"
         },
         "goSum": {
           "path": "contracts/goldens/query/fixtures/go-module/go.sum.lock",
-          "bytes": 1306,
-          "sha256": "46983b3967ffaae472baff9b8bd827dc57b7cfe6462fe589112b3e8ea24f38a0"
+          "bytes": 17200,
+          "sha256": "ee80a5647acb9e65743c163514c481527180d4cbee15e84e8282966145da1337"
         }
       },
       "module": {
         "goMod": {
           "path": "contracts/goldens/query/.tmp/go.mod",
-          "bytes": 197,
-          "sha256": "dded0ad8642adcdbb5a786de7b12165ba33ec550adbaefae7fd3bba0479c2a94"
+          "bytes": 1103,
+          "sha256": "628a1da85a82862c737829dc9a873789edc2c43456ceb937b6687e928ba585ed"
         },
         "goSum": {
           "path": "contracts/goldens/query/.tmp/go.sum",
-          "bytes": 1306,
-          "sha256": "46983b3967ffaae472baff9b8bd827dc57b7cfe6462fe589112b3e8ea24f38a0"
+          "bytes": 17200,
+          "sha256": "ee80a5647acb9e65743c163514c481527180d4cbee15e84e8282966145da1337"
         }
       },
       "output": {
@@ -813,15 +813,15 @@
         "deterministicReplay": {
           "childArgv": [
             "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/go",
-            "run",
-            "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0",
+            "tool",
+            "oapi-codegen",
             "-generate",
             "models,skip-prune",
             "-package",
             "querywire",
             "-o",
-            "contracts/goldens/query/.tmp/query.verify.gen.go",
-            "contracts/goldens/query/.tmp/codegen-a/query.bundle.json"
+            "query.verify.gen.go",
+            "codegen-a/query.bundle.json"
           ],
           "status": 0,
           "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -851,15 +851,15 @@
         "primaryGeneration": {
           "childArgv": [
             "/opt/homebrew/Cellar/go/1.25.4/libexec/bin/go",
-            "run",
-            "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0",
+            "tool",
+            "oapi-codegen",
             "-generate",
             "models,skip-prune",
             "-package",
             "querywire",
             "-o",
-            "contracts/goldens/query/.tmp/query.gen.go",
-            "contracts/goldens/query/.tmp/codegen-a/query.bundle.json"
+            "query.gen.go",
+            "codegen-a/query.bundle.json"
           ],
           "status": 0,
           "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -998,8 +998,8 @@
       "version": 1,
       "verifier": {
         "path": "contracts/goldens/query/verify.mjs",
-        "bytes": 200242,
-        "sha256": "fe50af794ce8cf432422a84b30e02eb6d26020ec1c96052767bd5a1147f9e3ad"
+        "bytes": 202526,
+        "sha256": "82da0d0cf5a943e1f71972d93bd9315123d84f545dc640b9a5787656c8333c31"
       },
       "command": {
         "argv": [
@@ -1413,8 +1413,8 @@
       "telemetryDirectory": "/Users/luca/Library/Application Support/go/telemetry",
       "wrapper": "/usr/bin/sandbox-exec",
       "profile": {
-        "text": "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
-        "sha256": "143e32f267bbc18f68939d8ffa288038ae5644f249568fb9a2d289b5932c7993"
+        "text": "(version 1)(allow default)(deny network*)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
+        "sha256": "45d9c3c9c990bfe2b2edac6bae53423b97a9de0a3199e92a505f9781dc5aab6d"
       },
       "cleanEnvironmentExecutable": "/usr/bin/env",
       "environment": {
@@ -1431,7 +1431,7 @@
       "wrapperPrefixArgv": [
         "/usr/bin/sandbox-exec",
         "-p",
-        "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
+        "(version 1)(allow default)(deny network*)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
         "/usr/bin/env",
         "-i",
         "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
@@ -1458,7 +1458,7 @@
               "wrapperArgv": [
                 "/usr/bin/sandbox-exec",
                 "-p",
-                "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
+                "(version 1)(allow default)(deny network*)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
                 "env",
                 "-i",
                 "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin HOME=@repo-root@/contracts/goldens/query/.tmp/go-home TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path GOENV=off GOWORK=off GOTOOLCHAIN=local",
@@ -1474,7 +1474,7 @@
               "wrapperArgv": [
                 "/usr/bin/sandbox-exec",
                 "-p",
-                "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
+                "(version 1)(allow default)(deny network*)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
                 "env",
                 "-i",
                 "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin HOME=@repo-root@/contracts/goldens/query/.tmp/go-home TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path GOENV=off GOWORK=off GOTOOLCHAIN=local",
@@ -1491,7 +1491,7 @@
               "wrapperArgv": [
                 "/usr/bin/sandbox-exec",
                 "-p",
-                "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
+                "(version 1)(allow default)(deny network*)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
                 "env",
                 "-i",
                 "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin HOME=@repo-root@/contracts/goldens/query/.tmp/go-home TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path GOENV=off GOWORK=off GOTOOLCHAIN=local",
@@ -1508,7 +1508,7 @@
               "wrapperArgv": [
                 "/usr/bin/sandbox-exec",
                 "-p",
-                "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
+                "(version 1)(allow default)(deny network*)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
                 "env",
                 "-i",
                 "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin HOME=@repo-root@/contracts/goldens/query/.tmp/go-home TMPDIR=@repo-root@/contracts/goldens/query/.tmp/system GOCACHE=@repo-root@/contracts/goldens/query/.cache/go-build GOMODCACHE=@repo-root@/contracts/goldens/query/.cache/go-mod GOPATH=@repo-root@/contracts/goldens/query/.cache/go-path GOENV=off GOWORK=off GOTOOLCHAIN=local",
@@ -1552,7 +1552,7 @@
               "wrapperArgv": [
                 "/usr/bin/sandbox-exec",
                 "-p",
-                "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
+                "(version 1)(allow default)(deny network*)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
                 "/usr/bin/env",
                 "-i",
                 "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
@@ -1582,7 +1582,7 @@
               "wrapperArgv": [
                 "/usr/bin/sandbox-exec",
                 "-p",
-                "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
+                "(version 1)(allow default)(deny network*)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
                 "/usr/bin/env",
                 "-i",
                 "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
@@ -1611,7 +1611,7 @@
               "wrapperArgv": [
                 "/usr/bin/sandbox-exec",
                 "-p",
-                "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
+                "(version 1)(allow default)(deny network*)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
                 "/usr/bin/env",
                 "-i",
                 "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
@@ -1640,7 +1640,7 @@
               "wrapperArgv": [
                 "/usr/bin/sandbox-exec",
                 "-p",
-                "(version 1)(allow default)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
+                "(version 1)(allow default)(deny network*)(deny file-write* (subpath \"/Users/luca/Library/Application Support/go/telemetry\"))",
                 "/usr/bin/env",
                 "-i",
                 "PATH=/Users/luca/.nvm/versions/node/v24.16.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",

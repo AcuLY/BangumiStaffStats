@@ -49,7 +49,7 @@ const exactAuthorities = [
   {
     id: "shared-query-manifest-v1",
     path: "contracts/goldens/query/manifest.json",
-    sha256: "07de454928afc6e36b2abcf65eb17f4b9e8cffccb27b99504dd04a5244d9ab31",
+    sha256: "1b08971cfb4a9ebc1fbc075bd4b798c3631544d78aac60289e08f2b9733543dd",
   },
   {
     id: "shared-query-schema-v1",

@@ -116,9 +116,9 @@ const forbiddenBundleKeywords = new Set([
   "$dynamicAnchor"
 ]);
 const approvedGoSandboxProfile =
-  '(version 1)(allow default)(deny file-write* (subpath "/Users/luca/Library/Application Support/go/telemetry"))';
+  '(version 1)(allow default)(deny network*)(deny file-write* (subpath "/Users/luca/Library/Application Support/go/telemetry"))';
 const approvedGoSandboxProfileSha256 =
-  "143e32f267bbc18f68939d8ffa288038ae5644f249568fb9a2d289b5932c7993";
+  "45d9c3c9c990bfe2b2edac6bae53423b97a9de0a3199e92a505f9781dc5aab6d";
 const approvedRedoclySandboxProfile =
   "(version 1)(allow default)(deny network*)";
 const approvedRedoclySandboxProfileSha256 =
@@ -175,29 +175,29 @@ const expectedTypescriptCliEvidence = {
 const expectedGoModuleEvidence = {
   goMod: {
     path: "contracts/goldens/query/.tmp/go.mod",
-    bytes: 197,
+    bytes: 1103,
     sha256:
-      "dded0ad8642adcdbb5a786de7b12165ba33ec550adbaefae7fd3bba0479c2a94"
+      "628a1da85a82862c737829dc9a873789edc2c43456ceb937b6687e928ba585ed"
   },
   goSum: {
     path: "contracts/goldens/query/.tmp/go.sum",
-    bytes: 1306,
+    bytes: 17200,
     sha256:
-      "46983b3967ffaae472baff9b8bd827dc57b7cfe6462fe589112b3e8ea24f38a0"
+      "ee80a5647acb9e65743c163514c481527180d4cbee15e84e8282966145da1337"
   }
 };
 const expectedGoModuleInputEvidence = {
   goMod: {
     path: "contracts/goldens/query/fixtures/go-module/go.mod.lock",
-    bytes: 197,
+    bytes: 1103,
     sha256:
-      "dded0ad8642adcdbb5a786de7b12165ba33ec550adbaefae7fd3bba0479c2a94"
+      "628a1da85a82862c737829dc9a873789edc2c43456ceb937b6687e928ba585ed"
   },
   goSum: {
     path: "contracts/goldens/query/fixtures/go-module/go.sum.lock",
-    bytes: 1306,
+    bytes: 17200,
     sha256:
-      "46983b3967ffaae472baff9b8bd827dc57b7cfe6462fe589112b3e8ea24f38a0"
+      "ee80a5647acb9e65743c163514c481527180d4cbee15e84e8282966145da1337"
   }
 };
 const expectedGoModuleFileMode = 0o600;
@@ -285,23 +285,21 @@ function redoclyWrapperPrefixForRepository(root) {
 function goOperationPlansForRepository(root) {
   const temporaryRoot = path.join(goldenRootForRepository(root), ".tmp");
   const generationArgs = (output) => [
-    "run",
-    "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0",
+    "tool",
+    "oapi-codegen",
     "-generate",
     "models,skip-prune",
     "-package",
     "querywire",
     "-o",
     output,
-    "contracts/goldens/query/.tmp/codegen-a/query.bundle.json"
+    "codegen-a/query.bundle.json"
   ];
   return {
     primaryGeneration: {
       executable: goExecutable,
-      cwd: root,
-      childArgs: generationArgs(
-        "contracts/goldens/query/.tmp/query.gen.go"
-      ),
+      cwd: temporaryRoot,
+      childArgs: generationArgs("query.gen.go"),
       pathRoles: [
         {
           index: 7,
@@ -316,10 +314,8 @@ function goOperationPlansForRepository(root) {
     },
     deterministicReplay: {
       executable: goExecutable,
-      cwd: root,
-      childArgs: generationArgs(
-        "contracts/goldens/query/.tmp/query.verify.gen.go"
-      ),
+      cwd: temporaryRoot,
+      childArgs: generationArgs("query.verify.gen.go"),
       pathRoles: [
         {
           index: 7,
@@ -1570,6 +1566,34 @@ function verifyRelocationEvidenceSafety(manifestValue) {
       }
     ],
     [
+      "go-network-denial-omitted",
+      (fixture) => {
+        fixture.acceptanceEvidence.goSandbox.profile.text =
+          '(version 1)(allow default)(deny file-write* (subpath "/Users/luca/Library/Application Support/go/telemetry"))';
+      }
+    ],
+    [
+      "go-network-denial-reordered",
+      (fixture) => {
+        fixture.acceptanceEvidence.goSandbox.profile.text =
+          '(version 1)(allow default)(deny file-write* (subpath "/Users/luca/Library/Application Support/go/telemetry"))(deny network*)';
+      }
+    ],
+    [
+      "go-sandbox-profile-digest-drift",
+      (fixture) => {
+        fixture.acceptanceEvidence.goSandbox.profile.sha256 =
+          "0".repeat(64);
+      }
+    ],
+    [
+      "go-wrapper-prefix-profile-drift",
+      (fixture) => {
+        fixture.codegen.go.wrapperPrefixArgv[2] =
+          '(version 1)(allow default)(deny file-write* (subpath "/Users/luca/Library/Application Support/go/telemetry"))';
+      }
+    ],
+    [
       "sandbox-profile-drift",
       (fixture) => {
         fixture.acceptanceEvidence.redocly.sandbox.profile =
@@ -1593,6 +1617,19 @@ function verifyRelocationEvidenceSafety(manifestValue) {
       "go-control-drift",
       (fixture) => {
         fixture.acceptanceEvidence.goSandbox.environment.GOENV = "auto";
+      }
+    ],
+    [
+      "go-checksum-policy-bypass",
+      (fixture) => {
+        fixture.acceptanceEvidence.goSandbox.environment.GOSUMDB = "off";
+      }
+    ],
+    [
+      "go-proxy-policy-drift",
+      (fixture) => {
+        fixture.acceptanceEvidence.goSandbox.environment.GOPROXY =
+          "file:///private/tmp/query-proxy";
       }
     ],
     [
@@ -1677,24 +1714,66 @@ function verifyRelocationEvidenceSafety(manifestValue) {
         childArgs[7] =
           "contracts/goldens/query/node_modules/outside.go";
       }
-    ]
+    ],
+    ...Object.keys(goOperationPlansForRepository(repositoryRoot)).map(
+      (operation) => [
+        `missing-network-denial-${operation}`,
+        operation,
+        () => {},
+        (wrapperArgs) => {
+          wrapperArgs[1] =
+            '(version 1)(allow default)(deny file-write* (subpath "/Users/luca/Library/Application Support/go/telemetry"))';
+        }
+      ]
+    ),
+    ...["primaryGeneration", "deterministicReplay"].flatMap(
+      (operation) => [
+        [
+          `online-first-go-run-${operation}`,
+          operation,
+          (childArgs) => {
+            childArgs.splice(
+              0,
+              2,
+              "run",
+              "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0"
+            );
+          }
+        ],
+        [
+          `materialized-module-cwd-${operation}`,
+          operation,
+          () => {},
+          () => {},
+          () => repositoryRoot
+        ]
+      ]
+    )
   ];
-  for (const [label, operation, mutate] of spawnBoundaryNegatives) {
+  for (const [
+    label,
+    operation,
+    mutateChildArgs,
+    mutateWrapperArgs = () => {},
+    mutateCwd = (cwd) => cwd
+  ] of spawnBoundaryNegatives) {
     const plan = goOperationPlansForRepository(repositoryRoot)[operation];
     const childArgs = structuredClone(plan.childArgs);
-    mutate(childArgs);
+    mutateChildArgs(childArgs);
+    const cwd = mutateCwd(plan.cwd);
     const wrapperArgs = [
       ...goWrapperPrefixForRepository(repositoryRoot).slice(1),
       plan.executable,
       ...childArgs
     ];
+    mutateWrapperArgs(wrapperArgs);
     assert.throws(
       () =>
         assertGoSpawnBoundary(
           operation,
           plan.executable,
           childArgs,
-          plan.cwd,
+          cwd,
           wrapperArgs
         ),
       undefined,
@@ -6455,20 +6534,21 @@ function verifyCodegenEvidence() {
     "codegen-a/query.bundle.json"
   );
   const goGenerateArgs = (outputPath) => [
-    "run",
-    "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0",
+    "tool",
+    "oapi-codegen",
     "-generate",
     "models,skip-prune",
     "-package",
     "querywire",
     "-o",
-    path.relative(repositoryRoot, outputPath),
-    path.relative(repositoryRoot, goSourcePath)
+    path.relative(temporaryRoot, outputPath),
+    path.relative(temporaryRoot, goSourcePath)
   ];
   const primaryGenerate = runGoSandboxed(
     goExecutable,
     goGenerateArgs(goOutputPath),
     {
+      cwd: temporaryRoot,
       label: "candidate primary Go generation",
       operation: "primaryGeneration"
     }
@@ -6482,6 +6562,7 @@ function verifyCodegenEvidence() {
     goExecutable,
     goGenerateArgs(replayOutputPath),
     {
+      cwd: temporaryRoot,
       label: "deterministic Go generation replay",
       operation: "deterministicReplay"
     }
