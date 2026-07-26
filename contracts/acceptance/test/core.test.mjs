@@ -45,8 +45,12 @@ import {
   deriveCleanCheckoutIdentityClosed,
 } from '../lib/git-attestation.mjs';
 import {
+  cleanupContractsGeneratedRoots,
   dockerLocalSandboxProfile,
+  OwnerGateError,
+  removeOwnedGenerated,
   runtimeReadOnlySandboxProfile,
+  settleContractsOwnerGate,
 } from '../lib/gates.mjs';
 import { REQUIRED_MEASUREMENTS } from '../lib/measurements.mjs';
 import { resultOutputDigest } from '../lib/output-digest.mjs';
@@ -3570,6 +3574,342 @@ test('representative runtime closures and five copies provide a cooperative boun
     elapsedMs < 15_000,
     `cooperative runtime-copy smoke took ${elapsedMs.toFixed(1)}ms`,
   );
+});
+
+test('Contracts generated-root cleanup retries a transient non-empty race within its fixed bound', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-owner-cleanup-retry-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const relative = 'contracts/goldens/query/.tmp';
+  const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+  fs.mkdirSync(generatedRoot, { recursive: true });
+  fs.writeFileSync(path.join(generatedRoot, 'late-entry'), 'late\n');
+
+  const originalRmSync = fs.rmSync;
+  let calls = 0;
+  fs.rmSync = (candidate, options) => {
+    if (candidate === generatedRoot && calls < 2) {
+      calls += 1;
+      const error = new Error('fixture transient non-empty directory');
+      error.code = 'ENOTEMPTY';
+      throw error;
+    }
+    if (candidate === generatedRoot) calls += 1;
+    return originalRmSync(candidate, options);
+  };
+  let report;
+  try {
+    report = await cleanupContractsGeneratedRoots(candidateRoot);
+  } finally {
+    fs.rmSync = originalRmSync;
+  }
+
+  const outcome = report.outcomes.find(
+    (candidate) => candidate.relative === relative,
+  );
+  assert.deepEqual(outcome, {
+    attempts: 3,
+    relative,
+    status: 'removed',
+  });
+  assert.equal(calls, 3);
+  assert.equal(report.failedCount, 0);
+  assert.equal(report.retriedCount, 1);
+  assert.equal(report.residueCount, 0);
+  assert.equal(fs.existsSync(generatedRoot), false);
+});
+
+test('Contracts owner cleanup preserves an originating CommandError and records terminal cleanup secondarily', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-owner-cleanup-primary-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const runRoot = path.join(root, 'run');
+  const relative = 'contracts/goldens/query/.tmp';
+  const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+  fs.mkdirSync(generatedRoot, { recursive: true });
+  fs.mkdirSync(runRoot);
+  fs.writeFileSync(path.join(generatedRoot, 'surviving-entry'), 'survive\n');
+  const stdout = await writeEvidence({
+    runRoot,
+    relative: 'logs/query.stdout.log',
+    kind: 'logs',
+    value: 'query stdout\n',
+    summary: 'fixture query stdout',
+  });
+  const stderr = await writeEvidence({
+    runRoot,
+    relative: 'logs/query.stderr.log',
+    kind: 'logs',
+    value: 'query failed\n',
+    summary: 'fixture query stderr',
+  });
+  const result = Object.freeze({
+    args: Object.freeze(['verify.mjs']),
+    durationMs: 17,
+    executable: '/fixture/node',
+    id: 'contracts-query-verify',
+    signal: null,
+    status: 23,
+    stderr: Object.freeze({
+      bytes: 13,
+      path: stderr.path,
+      sha256: stderr.sha256,
+      truncated: false,
+    }),
+    stdout: Object.freeze({
+      bytes: 13,
+      path: stdout.path,
+      sha256: stdout.sha256,
+      truncated: false,
+    }),
+    timedOut: false,
+  });
+  const primary = new CommandError('authoritative Query command failed', result);
+  primary.code = 'QUERY_OWNER_COMMAND_FAILED';
+
+  const originalRmSync = fs.rmSync;
+  fs.rmSync = (candidate, options) => {
+    if (candidate === generatedRoot) {
+      const error = new Error('fixture terminal non-empty directory');
+      error.code = 'ENOTEMPTY';
+      throw error;
+    }
+    return originalRmSync(candidate, options);
+  };
+  let caught;
+  try {
+    await settleContractsOwnerGate({
+      candidateRoot,
+      runRoot,
+      primaryError: primary,
+    });
+  } catch (error) {
+    caught = error;
+  } finally {
+    fs.rmSync = originalRmSync;
+  }
+
+  assert.equal(caught, primary);
+  assert.equal(caught.message, 'authoritative Query command failed');
+  assert.equal(caught.code, 'QUERY_OWNER_COMMAND_FAILED');
+  assert.equal(caught.result, result);
+  assert.equal(caught.result.status, 23);
+  assert.deepEqual(
+    caught.evidence.slice(0, 2).map((entry) => entry.path),
+    [stdout.path, stderr.path],
+  );
+  assert.equal(caught.evidence.at(-1).kind, 'cleanup');
+  assert.equal(caught.cleanup.failedCount, 1);
+  assert.equal(caught.cleanup.residueCount, 1);
+  const cleanupEvidencePath = path.join(
+    runRoot,
+    ...caught.evidence.at(-1).path.split('/'),
+  );
+  const cleanupEvidence = JSON.parse(
+    fs.readFileSync(cleanupEvidencePath, 'utf8'),
+  );
+  assert.equal(cleanupEvidence.failedCount, 1);
+  assert.equal(cleanupEvidence.residueCount, 1);
+  assert.equal(fs.existsSync(generatedRoot), true);
+});
+
+test('Contracts owner cleanup evidence-write failure cannot replace the primary CommandError', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(
+      path.join(os.tmpdir(), 'bgmss-owner-cleanup-evidence-failure-'),
+    ),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const runRoot = path.join(root, 'run');
+  const relative = 'contracts/goldens/query/.tmp';
+  const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+  fs.mkdirSync(generatedRoot, { recursive: true });
+  fs.mkdirSync(runRoot);
+  fs.writeFileSync(path.join(generatedRoot, 'surviving-entry'), 'survive\n');
+  const stdout = await writeEvidence({
+    runRoot,
+    relative: 'logs/primary.stdout.log',
+    kind: 'logs',
+    value: 'primary stdout\n',
+    summary: 'fixture primary stdout',
+  });
+  const stderr = await writeEvidence({
+    runRoot,
+    relative: 'logs/primary.stderr.log',
+    kind: 'logs',
+    value: 'primary stderr\n',
+    summary: 'fixture primary stderr',
+  });
+  const cleanupEvidencePath = path.join(
+    runRoot,
+    'evidence',
+    'gates',
+    'owner-contracts-cleanup.json',
+  );
+  fs.mkdirSync(path.dirname(cleanupEvidencePath), { recursive: true });
+  fs.writeFileSync(cleanupEvidencePath, 'preexisting\n', {
+    flag: 'wx',
+    mode: 0o600,
+  });
+  const result = Object.freeze({
+    args: Object.freeze(['verify.mjs']),
+    durationMs: 31,
+    executable: '/fixture/node',
+    id: 'contracts-query-verify',
+    signal: null,
+    status: 31,
+    stderr: Object.freeze({
+      bytes: 15,
+      path: stderr.path,
+      sha256: stderr.sha256,
+      truncated: false,
+    }),
+    stdout: Object.freeze({
+      bytes: 15,
+      path: stdout.path,
+      sha256: stdout.sha256,
+      truncated: false,
+    }),
+    timedOut: false,
+  });
+  const primary = new CommandError('primary owner command failure', result);
+  primary.code = 'PRIMARY_OWNER_COMMAND_FAILED';
+
+  const originalRmSync = fs.rmSync;
+  fs.rmSync = (candidate, options) => {
+    if (candidate === generatedRoot) {
+      const error = new Error('fixture terminal non-empty directory');
+      error.code = 'ENOTEMPTY';
+      throw error;
+    }
+    return originalRmSync(candidate, options);
+  };
+  let caught;
+  try {
+    await settleContractsOwnerGate({
+      candidateRoot,
+      runRoot,
+      primaryError: primary,
+    });
+  } catch (error) {
+    caught = error;
+  } finally {
+    fs.rmSync = originalRmSync;
+  }
+
+  assert.equal(caught, primary);
+  assert.equal(caught.message, 'primary owner command failure');
+  assert.equal(caught.code, 'PRIMARY_OWNER_COMMAND_FAILED');
+  assert.equal(caught.result, result);
+  assert.equal(caught.result.status, 31);
+  assert.equal(caught.result.stdout.path, stdout.path);
+  assert.equal(caught.result.stderr.path, stderr.path);
+  assert.equal(caught.cleanup.failedCount, 1);
+  assert.equal(caught.cleanup.residueCount, 1);
+  assert.equal(fs.readFileSync(cleanupEvidencePath, 'utf8'), 'preexisting\n');
+  assert.equal(fs.existsSync(generatedRoot), true);
+});
+
+test('Contracts cleanup rejects unsafe or surviving generated roots after an otherwise successful gate', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-owner-cleanup-residue-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const runRoot = path.join(root, 'run');
+  const relative = 'contracts/schemas/archive/.cache';
+  const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+  fs.mkdirSync(generatedRoot, { recursive: true });
+  fs.mkdirSync(runRoot);
+  fs.writeFileSync(path.join(generatedRoot, 'surviving-entry'), 'survive\n');
+  await assert.rejects(
+    removeOwnedGenerated(candidateRoot, '../outside'),
+    /unsafe segment/u,
+  );
+  assert.equal(fs.existsSync(path.join(root, 'outside')), false);
+
+  const outsideRoot = path.join(root, 'outside-root');
+  const linkedRoot = path.join(
+    candidateRoot,
+    'contracts',
+    'goldens',
+    'query',
+    '.tmp',
+  );
+  fs.mkdirSync(outsideRoot);
+  fs.writeFileSync(path.join(outsideRoot, 'protected'), 'outside\n');
+  fs.mkdirSync(path.dirname(linkedRoot), { recursive: true });
+  fs.symlinkSync(outsideRoot, linkedRoot);
+  await assert.rejects(
+    removeOwnedGenerated(
+      candidateRoot,
+      'contracts/goldens/query/.tmp',
+    ),
+    /symlink/u,
+  );
+  assert.equal(fs.lstatSync(linkedRoot).isSymbolicLink(), true);
+  assert.equal(
+    fs.readFileSync(path.join(outsideRoot, 'protected'), 'utf8'),
+    'outside\n',
+  );
+  fs.unlinkSync(linkedRoot);
+
+  const wrongType = path.join(
+    candidateRoot,
+    'contracts',
+    'goldens',
+    'query',
+    '.cache',
+  );
+  fs.mkdirSync(path.dirname(wrongType), { recursive: true });
+  fs.writeFileSync(wrongType, 'not-a-directory\n');
+  await assert.rejects(
+    removeOwnedGenerated(
+      candidateRoot,
+      'contracts/goldens/query/.cache',
+    ),
+    /not a directory/u,
+  );
+  assert.equal(fs.readFileSync(wrongType, 'utf8'), 'not-a-directory\n');
+
+  const originalRmSync = fs.rmSync;
+  fs.rmSync = (candidate, options) => {
+    if (candidate === generatedRoot) {
+      const error = new Error('fixture busy directory');
+      error.code = 'EBUSY';
+      throw error;
+    }
+    return originalRmSync(candidate, options);
+  };
+  let caught;
+  try {
+    await settleContractsOwnerGate({
+      candidateRoot,
+      runRoot,
+      gateResult: Object.freeze({
+        evidence: Object.freeze([]),
+        results: Object.freeze([]),
+      }),
+    });
+  } catch (error) {
+    caught = error;
+  } finally {
+    fs.rmSync = originalRmSync;
+  }
+
+  assert.ok(caught instanceof OwnerGateError);
+  assert.equal(caught.code, 'OWNER_GATE_CLEANUP_FAILED');
+  assert.equal(caught.cleanup.failedCount, 2);
+  assert.equal(caught.cleanup.residueCount, 2);
+  assert.equal(caught.evidence.length, 1);
+  assert.equal(caught.evidence[0].kind, 'cleanup');
+  assert.equal(fs.existsSync(generatedRoot), true);
+  assert.equal(fs.existsSync(wrongType), true);
 });
 
 test('runtime sandbox denies writes to complete directory roots and single-file tools', (t) => {

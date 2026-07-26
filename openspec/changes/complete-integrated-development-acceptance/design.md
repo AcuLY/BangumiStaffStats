@@ -626,6 +626,10 @@ acceptance mutate the repository.
   semantic/geometry/style assertions rather than relying on pixels alone.
 - [Existing full gates are slow] → Keep one final ordered run, fail fast while
   recording blocked cells, and do not duplicate their assertions.
+- [A failing owner command is followed by a transient generated-root removal
+  race] → Always attempt exact cleanup with bounded retries, preserve the
+  originating command failure as primary, and record cleanup failure/residue
+  separately; cleanup failure remains blocking when no earlier command failed.
 - [Browser automation adds supply-chain and disk cost] → One exact
   acceptance-only package, locked transitive closure, pre-provisioned browser,
   no install scripts, no production bytes, and explicit dependency/license

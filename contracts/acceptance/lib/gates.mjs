@@ -8,12 +8,38 @@ import {
   validateSeededGoToolchain,
 } from './cache.mjs';
 import { commandEvidence, writeEvidence } from './evidence.mjs';
-import { requireCanonicalPath } from './paths.mjs';
+import {
+  assertNoSymlinkAncestors,
+  assertSafeRelativePath,
+  isStrictlyBelow,
+  requireCanonicalPath,
+} from './paths.mjs';
 import { runCommand, sanitizedEnvironment } from './runner.mjs';
 import { verifyRuntimeClosures } from './tools.mjs';
 
 const SANDBOX_EXECUTABLE = '/usr/bin/sandbox-exec';
 const NETWORKLESS_PROFILE = '(version 1)(allow default)(deny network*)';
+const GENERATED_ROOT_CLEANUP_ATTEMPTS = 4;
+const GENERATED_ROOT_CLEANUP_RETRY_MS = 25;
+const TRANSIENT_GENERATED_ROOT_ERRORS = new Set([
+  'EBUSY',
+  'EMFILE',
+  'ENFILE',
+  'ENOTEMPTY',
+  'EPERM',
+]);
+const CONTRACTS_GENERATED_ROOTS = Object.freeze([
+  'contracts/goldens/query/node_modules',
+  'contracts/goldens/query/.cache',
+  'contracts/goldens/query/.tmp',
+  'contracts/schemas/archive/tooling/node_modules',
+  'contracts/schemas/archive/.cache',
+  'contracts/schemas/archive/.tmp',
+  'contracts/schemas/catalog/tooling/node_modules',
+  'contracts/schemas/catalog/tooling/.cache',
+  'contracts/schemas/update-status/tooling/node_modules',
+  'contracts/schemas/update-status/tooling/.cache',
+]);
 
 const CURRENT_NPM_PACKAGES = Object.freeze([
   'contracts/schemas/archive/tooling',
@@ -38,21 +64,253 @@ function fail(message) {
   throw new OwnerGateError(message);
 }
 
+class GeneratedRootCleanupError extends OwnerGateError {
+  constructor(relative, attempts, filesystemCode, cause) {
+    super(
+      `generated cleanup failed after ${attempts} bounded attempt(s): ` +
+        `${relative} (${filesystemCode})`,
+      { cause },
+    );
+    this.code = 'OWNER_GATE_GENERATED_CLEANUP_FAILED';
+    this.relative = relative;
+    this.attempts = attempts;
+    this.filesystemCode = filesystemCode;
+  }
+}
+
 function ensureEmptyDirectory(candidate) {
   if (fs.existsSync(candidate)) fail(`owned gate directory already exists: ${candidate}`);
   fs.mkdirSync(candidate, { recursive: true, mode: 0o700 });
   return candidate;
 }
 
-function removeOwnedGenerated(root, relative) {
-  const absolute = path.join(root, ...relative.split('/'));
-  if (!absolute.startsWith(`${root}${path.sep}`)) {
+function exactGeneratedRoot(root, relative) {
+  const safe = assertSafeRelativePath(relative, 'generated cleanup root');
+  const absolute = path.resolve(root, ...safe.split('/'));
+  if (!isStrictlyBelow(absolute, root)) {
     fail(`generated cleanup escapes candidate root: ${relative}`);
   }
-  if (!fs.existsSync(absolute)) return;
-  const information = fs.lstatSync(absolute);
-  if (information.isSymbolicLink()) fail(`generated cleanup target is a symlink: ${relative}`);
-  fs.rmSync(absolute, { recursive: information.isDirectory(), force: false });
+  return absolute;
+}
+
+function generatedRootInformation(absolute, relative) {
+  assertNoSymlinkAncestors(absolute, `generated cleanup target ${relative}`);
+  let information;
+  try {
+    information = fs.lstatSync(absolute);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
+  if (information.isSymbolicLink()) {
+    fail(`generated cleanup target is a symlink: ${relative}`);
+  }
+  if (!information.isDirectory()) {
+    fail(`generated cleanup target is not a directory: ${relative}`);
+  }
+  return information;
+}
+
+function generatedRootExists(root, relative) {
+  const absolute = exactGeneratedRoot(root, relative);
+  try {
+    fs.lstatSync(absolute);
+    return true;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    return true;
+  }
+}
+
+function cleanupFilesystemCode(error) {
+  const source =
+    typeof error === 'string'
+      ? error
+      : error?.code ?? error?.constructor?.name ?? 'ERROR';
+  const candidate = String(source)
+    .replaceAll(/[^A-Za-z0-9_]+/gu, '_')
+    .toUpperCase();
+  return /^[A-Z][A-Z0-9_]{1,63}$/u.test(candidate)
+    ? candidate
+    : 'ERROR';
+}
+
+function cleanupDelay(attempt) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, GENERATED_ROOT_CLEANUP_RETRY_MS * attempt);
+  });
+}
+
+export async function removeOwnedGenerated(root, relative) {
+  const canonicalRoot = requireCanonicalPath(root, {
+    label: 'generated cleanup candidate root',
+    type: 'directory',
+  });
+  if (canonicalRoot !== root) {
+    fail('generated cleanup candidate root is not canonical');
+  }
+  const absolute = exactGeneratedRoot(canonicalRoot, relative);
+  let observed = false;
+  for (
+    let attempt = 1;
+    attempt <= GENERATED_ROOT_CLEANUP_ATTEMPTS;
+    attempt += 1
+  ) {
+    const information = generatedRootInformation(absolute, relative);
+    if (information === null) {
+      return Object.freeze({
+        attempts: attempt,
+        relative,
+        status: observed ? 'removed' : 'absent',
+      });
+    }
+    observed = true;
+    try {
+      fs.rmSync(absolute, { recursive: true, force: false });
+      if (generatedRootInformation(absolute, relative) === null) {
+        return Object.freeze({
+          attempts: attempt,
+          relative,
+          status: 'removed',
+        });
+      }
+      const residue = new Error('generated root survived removal');
+      residue.code = 'ENOTEMPTY';
+      throw residue;
+    } catch (error) {
+      const filesystemCode = cleanupFilesystemCode(error);
+      if (
+        TRANSIENT_GENERATED_ROOT_ERRORS.has(filesystemCode) &&
+        attempt < GENERATED_ROOT_CLEANUP_ATTEMPTS
+      ) {
+        await cleanupDelay(attempt);
+        continue;
+      }
+      throw new GeneratedRootCleanupError(
+        relative,
+        attempt,
+        filesystemCode,
+        error,
+      );
+    }
+  }
+  fail(`generated cleanup exhausted its bounded attempts: ${relative}`);
+}
+
+export async function cleanupContractsGeneratedRoots(candidateRoot) {
+  const root = requireCanonicalPath(candidateRoot, {
+    label: 'Contracts generated cleanup candidate',
+    type: 'directory',
+  });
+  const outcomes = [];
+  for (const relative of CONTRACTS_GENERATED_ROOTS) {
+    try {
+      outcomes.push(await removeOwnedGenerated(root, relative));
+    } catch (error) {
+      outcomes.push(Object.freeze({
+        attempts: Number.isInteger(error?.attempts) ? error.attempts : 1,
+        code: cleanupFilesystemCode(error?.filesystemCode ?? error),
+        relative,
+        residue: generatedRootExists(root, relative),
+        status: 'failed',
+      }));
+    }
+  }
+  const failedCount = outcomes.filter(
+    (outcome) => outcome.status === 'failed',
+  ).length;
+  const report = {
+    attemptLimit: GENERATED_ROOT_CLEANUP_ATTEMPTS,
+    failedCount,
+    outcomes: Object.freeze(outcomes),
+    residueCount: outcomes.filter(
+      (outcome) => outcome.status === 'failed' && outcome.residue,
+    ).length,
+    retriedCount: outcomes.filter((outcome) => outcome.attempts > 1).length,
+    retryDelayMs: GENERATED_ROOT_CLEANUP_RETRY_MS,
+  };
+  return Object.freeze(report);
+}
+
+function registerSecondaryCleanup(primaryError, cleanup, evidence) {
+  const existingEvidence = Array.isArray(primaryError?.evidence)
+    ? primaryError.evidence
+    : primaryError?.result
+      ? commandEvidence(primaryError.result)
+      : [];
+  try {
+    Object.defineProperty(primaryError, 'cleanup', {
+      configurable: true,
+      enumerable: true,
+      value: cleanup,
+    });
+    if (evidence) {
+      Object.defineProperty(primaryError, 'evidence', {
+        configurable: true,
+        enumerable: true,
+        value: Object.freeze([...existingEvidence, evidence]),
+      });
+    }
+  } catch {
+    // The originating error remains primary even if it cannot carry metadata.
+  }
+  return primaryError;
+}
+
+function ownerCleanupFailure(cleanup, evidence, evidenceError) {
+  const suffix = evidenceError
+    ? ' and its secondary evidence could not be written'
+    : '';
+  const error = new OwnerGateError(
+    `Contracts owner generated-root cleanup failed for ` +
+      `${cleanup.failedCount} exact root(s)${suffix}`,
+    evidenceError ? { cause: evidenceError } : undefined,
+  );
+  error.code = 'OWNER_GATE_CLEANUP_FAILED';
+  error.cleanup = cleanup;
+  error.evidence = Object.freeze(evidence ? [evidence] : []);
+  return error;
+}
+
+export async function settleContractsOwnerGate({
+  candidateRoot,
+  runRoot,
+  gateResult,
+  primaryError,
+}) {
+  const cleanup = await cleanupContractsGeneratedRoots(candidateRoot);
+  const notable = cleanup.failedCount > 0 || cleanup.retriedCount > 0;
+  let evidence;
+  let evidenceError;
+  if (notable) {
+    try {
+      evidence = await writeEvidence({
+        runRoot,
+        relative: 'evidence/gates/owner-contracts-cleanup.json',
+        kind: 'cleanup',
+        value: cleanup,
+        summary:
+          `Contracts generated-root cleanup: ${cleanup.failedCount} failed, ` +
+          `${cleanup.retriedCount} retried, ${cleanup.residueCount} residual`,
+      });
+    } catch (error) {
+      evidenceError = error;
+    }
+  }
+  if (primaryError !== undefined) {
+    throw registerSecondaryCleanup(primaryError, cleanup, evidence);
+  }
+  if (cleanup.failedCount > 0 || evidenceError) {
+    throw ownerCleanupFailure(cleanup, evidence, evidenceError);
+  }
+  if (!gateResult || !Array.isArray(gateResult.evidence)) {
+    fail('Contracts owner gate completed without one result');
+  }
+  if (!evidence) return gateResult;
+  return Object.freeze({
+    ...gateResult,
+    evidence: Object.freeze([...gateResult.evidence, evidence]),
+  });
 }
 
 function thawOwnedWorkingCache(root) {
@@ -593,6 +851,8 @@ export async function runContractsOwnerGate({
     type: 'directory',
   });
   const results = [];
+  let gateResult;
+  let primaryError;
   try {
     results.push(...await runQueryGolden({
       candidateRoot: root,
@@ -710,26 +970,19 @@ export async function runContractsOwnerGate({
       results,
       summary: `${results.length} fixed Contracts verifier/install commands passed`,
     });
-    return Object.freeze({
+    gateResult = Object.freeze({
       results: Object.freeze(results),
       evidence: Object.freeze([declaration, ...allCommandEvidence(results)]),
     });
-  } finally {
-    for (const relative of [
-      'contracts/goldens/query/node_modules',
-      'contracts/goldens/query/.cache',
-      'contracts/goldens/query/.tmp',
-      'contracts/schemas/archive/tooling/node_modules',
-      'contracts/schemas/archive/.cache',
-      'contracts/schemas/archive/.tmp',
-      'contracts/schemas/catalog/tooling/node_modules',
-      'contracts/schemas/catalog/tooling/.cache',
-      'contracts/schemas/update-status/tooling/node_modules',
-      'contracts/schemas/update-status/tooling/.cache',
-    ]) {
-      removeOwnedGenerated(root, relative);
-    }
+  } catch (error) {
+    primaryError = error;
   }
+  return settleContractsOwnerGate({
+    candidateRoot: root,
+    runRoot,
+    gateResult,
+    primaryError,
+  });
 }
 
 function writeNpmWrapper({ runRoot, tools, npmCache }) {

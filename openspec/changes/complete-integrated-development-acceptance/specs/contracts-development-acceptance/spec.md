@@ -306,6 +306,15 @@ policy, oracle-exception validation, canonical results, and residue. They
 SHALL NOT copy or replace query, statistics, API, Archive, or frontend business
 expected values.
 
+Owner-gate cleanup SHALL remove only its exact declared generated roots after
+canonical containment/type checks and SHALL use bounded retry semantics for
+transient non-empty-directory races. If an owner command already failed, a
+later generated-root cleanup error SHALL be recorded as secondary cleanup
+evidence but SHALL NOT replace the originating command identity, exit status,
+logs, failure code, or owner attribution. If every owner command passed, any
+cleanup error or surviving generated root SHALL fail that same owner cell.
+Cleanup SHALL never ignore residue merely to preserve an earlier error.
+
 #### Scenario: An existing owner gate succeeds
 
 - **WHEN** its accepted entrypoint exits successfully in the isolated clone
@@ -319,6 +328,14 @@ expected values.
   entrypoint exits nonzero, times out, mutates input, or emits invalid evidence
 - **THEN** the harness SHALL attribute the failure to that owner and stop
   without editing or weakening its implementation or expectations
+
+#### Scenario: Owner cleanup also encounters a transient or terminal error
+
+- **WHEN** an owner entrypoint fails and generated-root cleanup must retry or
+  also fails
+- **THEN** bounded cleanup SHALL still run and residue SHALL remain blocking
+- **AND** the canonical cell failure SHALL preserve the original command
+  result while separately registering the cleanup outcome
 
 ### Requirement: A full inactive Archive SHALL be proven without mutating it
 

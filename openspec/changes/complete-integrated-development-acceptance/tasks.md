@@ -132,6 +132,12 @@ commit, push, sync, archive, or update task markers.
   exit/duration/evidence digests without copying business assertions or
   misreporting an in-place closure, Go-validation scope, or absent frozen
   uv-lock byte.
+- [x] 3.6 Make owner-gate generated-root cleanup exact and bounded under
+  transient directory races. Preserve an originating command failure and its
+  logs/code as primary when cleanup also fails, record cleanup as secondary
+  evidence/residue, and fail the owner cell on cleanup alone after otherwise
+  successful commands. Add focused primary-precedence, retry, and surviving
+  residue tests.
 
 ## 4. Full Archive and packaged runtime
 
