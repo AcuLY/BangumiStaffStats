@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import test from 'node:test';
+import { isDeepStrictEqual } from 'node:util';
 
 import {
   defaultSmokeControlPlanePaths,
@@ -48,12 +49,18 @@ import {
   deriveCleanCheckoutIdentityClosed,
 } from '../lib/git-attestation.mjs';
 import {
+  admitArchiveTrackedAuthority,
+  archiveVerifierCommandPlan,
   archiveVerifierEnvironment,
+  assertArchiveInstalledDependencyClosureUnchanged,
+  assertArchiveTrackedAuthorityFiles,
+  assertArchiveTrackedAuthorityUnchanged,
   cleanupBackendGeneratedRoots,
   cleanupContractsGeneratedRoots,
   CONTRACTS_OWNER_CLEANUP_INVENTORY,
   currentNpmPackageGeneratedRoots,
   dockerLocalSandboxProfile,
+  executeArchiveVerifierDirect,
   OwnerGateError,
   QUERY_GOLDEN_COMMAND_IDS,
   admitQueryTrackedAuthority,
@@ -67,6 +74,7 @@ import {
   queryTypeScriptCommandPlan,
   removeOwnedGenerated,
   runtimeReadOnlySandboxProfile,
+  sealArchiveInstalledDependencyClosure,
   settleBackendOwnerGate,
   settleContractsOwnerGate,
   settleQueryOwnerCommandCleanup,
@@ -76,6 +84,8 @@ import {
   validateQueryRedoclyLintResult,
   validateQueryVerifyCodegenCommandPlan,
   validateQueryVerifyCodegenResult,
+  validateArchiveVerifierCommandPlan,
+  validateArchiveVerifierResult,
 } from '../lib/gates.mjs';
 import { REQUIRED_MEASUREMENTS } from '../lib/measurements.mjs';
 import { resultOutputDigest } from '../lib/output-digest.mjs';
@@ -205,6 +215,383 @@ function createQueryCodegenAuthorityFixture(root) {
   ]);
   const trackedAuthority = admitQueryTrackedAuthority({ candidateRoot });
   return Object.freeze({ candidateRoot, goldenRoot, trackedAuthority });
+}
+
+function createArchiveAuthorityFixture(root) {
+  const candidateRoot = path.join(root, 'candidate');
+  const sourceSchema = path.join(
+    REPOSITORY_ROOT,
+    'contracts',
+    'schemas',
+    'archive',
+  );
+  const sourceGoldens = path.join(
+    REPOSITORY_ROOT,
+    'contracts',
+    'goldens',
+    'archive',
+  );
+  const schemaRoot = path.join(
+    candidateRoot,
+    'contracts',
+    'schemas',
+    'archive',
+  );
+  const goldenRoot = path.join(
+    candidateRoot,
+    'contracts',
+    'goldens',
+    'archive',
+  );
+  fs.mkdirSync(path.dirname(schemaRoot), { recursive: true });
+  fs.mkdirSync(path.dirname(goldenRoot), { recursive: true });
+  fs.cpSync(sourceSchema, schemaRoot, { recursive: true });
+  fs.cpSync(sourceGoldens, goldenRoot, { recursive: true });
+  for (const generated of [
+    path.join(schemaRoot, '.cache'),
+    path.join(schemaRoot, '.tmp'),
+    path.join(schemaRoot, 'tooling', 'node_modules'),
+  ]) {
+    if (fs.existsSync(generated)) {
+      fs.rmSync(generated, { recursive: true, force: true });
+    }
+  }
+  const git = (args) => {
+    const result = spawnSync('/usr/bin/git', args, {
+      cwd: candidateRoot,
+      encoding: 'utf8',
+      env: {
+        GIT_CONFIG_GLOBAL: '/dev/null',
+        GIT_CONFIG_NOSYSTEM: '1',
+        LANG: 'C.UTF-8',
+        LC_ALL: 'C.UTF-8',
+        PATH: '/usr/bin:/bin',
+      },
+    });
+    assert.equal(
+      result.status,
+      0,
+      result.stderr || `git ${args.join(' ')} failed`,
+    );
+  };
+  git(['init', '-q']);
+  git(['add', '--', 'contracts']);
+  git([
+    '-c',
+    'user.name=Acceptance Fixture',
+    '-c',
+    'user.email=acceptance-fixture@example.invalid',
+    'commit',
+    '-q',
+    '-m',
+    'archive authority fixture',
+  ]);
+  const trackedAuthority = admitArchiveTrackedAuthority({ candidateRoot });
+  return Object.freeze({
+    candidateRoot,
+    goldenRoot,
+    schemaRoot,
+    toolingRoot: path.join(schemaRoot, 'tooling'),
+    trackedAuthority,
+  });
+}
+
+function createArchiveReportTools(root) {
+  const goRoot = path.join(root, 'tools', 'go');
+  const pythonRoot = path.join(root, 'tools', 'python');
+  fs.mkdirSync(path.join(goRoot, 'bin'), { recursive: true });
+  fs.mkdirSync(path.join(pythonRoot, 'bin'), { recursive: true });
+  for (const executable of [
+    path.join(goRoot, 'bin', 'go'),
+    path.join(goRoot, 'bin', 'gofmt'),
+    path.join(pythonRoot, 'bin', 'python3'),
+  ]) {
+    fs.writeFileSync(executable, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  }
+  return Object.freeze({
+    go: Object.freeze({
+      path: path.join(goRoot, 'bin', 'go'),
+      version: 'go version go1.26.5 darwin/arm64',
+    }),
+    node: Object.freeze({
+      path: process.execPath,
+      version: process.version,
+    }),
+    npm: Object.freeze({
+      path: path.join(root, 'tools', 'npm', 'npm-cli.js'),
+      version: '11.16.0',
+    }),
+    python: Object.freeze({
+      path: path.join(pythonRoot, 'bin', 'python3'),
+      version: 'Python 3.14.6',
+    }),
+  });
+}
+
+function archiveGoSandboxedCommandsFixture({
+  toolingRoot,
+  tools,
+  telemetryDirectory,
+}) {
+  const schemaRoot = path.dirname(toolingRoot);
+  const candidateRoot = path.resolve(schemaRoot, '..', '..', '..');
+  const goldenRoot = path.join(
+    candidateRoot,
+    'contracts',
+    'goldens',
+    'archive',
+  );
+  const goExecutable = fs.realpathSync.native(tools.go.path);
+  const gofmtExecutable = fs.realpathSync.native(
+    path.join(path.dirname(goExecutable), 'gofmt'),
+  );
+  const escapedTelemetry = telemetryDirectory
+    .replaceAll('\\', '\\\\')
+    .replaceAll('"', '\\"');
+  const profile = [
+    '(version 1)',
+    '(allow default)',
+    '(deny network*)',
+    `(deny file-write* (subpath "${escapedTelemetry}"))`,
+  ].join('');
+  const record = (executable, args, cwd) => ({
+    executable,
+    args,
+    cwd,
+    wrapper: '/usr/bin/sandbox-exec',
+    profile,
+  });
+  const commands = [
+    record(
+      goExecutable,
+      [
+        'env',
+        'GOCACHE',
+        'GOMODCACHE',
+        'GOPATH',
+        'GOWORK',
+        'GOENV',
+        'GOTOOLCHAIN',
+      ],
+      candidateRoot,
+    ),
+    record(goExecutable, ['version'], candidateRoot),
+  ];
+  for (const schemaName of [
+    'manifest',
+    'pointer',
+    'dataVersionInput',
+    'fixtureIndex',
+    'producerCase',
+    'producerIndex',
+  ]) {
+    const goRoot = path.join(
+      schemaRoot,
+      '.tmp',
+      'codegen',
+      schemaName,
+      'go',
+    );
+    commands.push(
+      record(
+        gofmtExecutable,
+        ['-w', path.join(goRoot, 'model.go')],
+        candidateRoot,
+      ),
+      record(goExecutable, ['test', './...'], goRoot),
+    );
+  }
+  const probeRoot = path.join(
+    schemaRoot,
+    '.tmp',
+    'manifest-string-semantics',
+    'go',
+  );
+  commands.push(
+    record(
+      gofmtExecutable,
+      ['-w', path.join(probeRoot, 'main.go')],
+      candidateRoot,
+    ),
+    record(
+      goExecutable,
+      [
+        'run',
+        '.',
+        path.join(
+          goldenRoot,
+          'vectors',
+          'manifest-string-semantics.json',
+        ),
+        path.join(
+          goldenRoot,
+          'valid',
+          'minimal',
+          'archive-manifest.json',
+        ),
+        path.join(
+          schemaRoot,
+          '.tmp',
+          'manifest-string-semantics',
+          'manifest-invalid-raw-utf8.json',
+        ),
+      ],
+      probeRoot,
+    ),
+  );
+  assert.equal(commands.length, 16);
+  return commands;
+}
+
+function archiveVerifierReportFixture({
+  toolingRoot,
+  tools,
+  environment,
+  telemetryDirectory,
+  telemetryAfter,
+}) {
+  const goExecutable = fs.realpathSync.native(tools.go.path);
+  const gofmtExecutable = fs.realpathSync.native(
+    path.join(path.dirname(goExecutable), 'gofmt'),
+  );
+  const escapedTelemetry = telemetryDirectory
+    .replaceAll('\\', '\\\\')
+    .replaceAll('"', '\\"');
+  const profile = [
+    '(version 1)',
+    '(allow default)',
+    '(deny network*)',
+    `(deny file-write* (subpath "${escapedTelemetry}"))`,
+  ].join('');
+  const telemetryBefore = {
+    ok: true,
+    digest: '1'.repeat(64),
+    fileCount: 0,
+    byteCount: 0,
+  };
+  const after = telemetryAfter ?? structuredClone(telemetryBefore);
+  return {
+    environment: {
+      nodeVersion: tools.node.version,
+      npmVersion: tools.npm.version,
+    },
+    strictJson: {
+      categories: [
+        'manifest',
+        'pointer',
+        'index',
+        'vector',
+        'matrix',
+        'schema',
+        'package',
+        'lockfile',
+        'producer-case',
+        'producer-index',
+      ],
+      rejectedBytes: 14,
+    },
+    schemaCount: 6,
+    schemaInventory: 13,
+    installedTools: {
+      quicktypeVersions: ['26.0.0'],
+      streamJsonVersions: ['2.1.0'],
+      parserAsStream: 'function',
+    },
+    ddl: {
+      dataVersion: `dv1-${'1'.repeat(64)}`,
+      inspection: {},
+      python: '3.14.6',
+      rawDomains: {},
+      schemaObjectSelfTest: {},
+      sqlite: '3.50.4',
+      staffSetKeyBounds: {},
+      subjectSemantics: {},
+    },
+    goldens: {
+      indexDigest: digest('1'),
+      sortedPathDigestSeal: digest('2'),
+      indexedFiles: 32,
+      cases: 16,
+      manifestStrings: {
+        outcome: 'VALID',
+        formats: {},
+        stringCaseCount: 26,
+        node: {},
+        python: {},
+      },
+      producer: {
+        indexDigest: digest('3'),
+        indexedFiles: 15,
+        cases: 15,
+        files: Array.from({ length: 15 }, (_, index) => ({ index })),
+        rawDomains: {},
+        danglingReference: {},
+        reports: Array.from({ length: 15 }, (_, index) => ({ index })),
+      },
+    },
+    codegen: {
+      schemas: [
+        'manifest',
+        'pointer',
+        'dataVersionInput',
+        'fixtureIndex',
+        'producerCase',
+        'producerIndex',
+      ],
+      quicktypeVersion: 'quicktype version 26.0.0',
+      goVersion: tools.go.version,
+      effectiveGoEnvironment: [
+        fs.realpathSync.native(environment.GOCACHE),
+        fs.realpathSync.native(environment.GOMODCACHE),
+        fs.realpathSync.native(environment.GOPATH),
+        'off',
+        '',
+        'local',
+      ],
+      goExecutable,
+      goTelemetryMode: 'local',
+      goTelemetryDirectory: telemetryDirectory,
+      goTelemetryDiagnostics: {
+        before: telemetryBefore,
+        after,
+        changed: !isDeepStrictEqual(telemetryBefore, after),
+      },
+      goSandboxWrapper: '/usr/bin/sandbox-exec',
+      goSandboxBootstrapProfile:
+        '(version 1)(allow default)(deny network*)(deny file-write*)',
+      goSandboxDiscoveryCommand: [
+        '-p',
+        '(version 1)(allow default)(deny network*)(deny file-write*)',
+        '/usr/bin/env',
+        'GOENV=off',
+        'GOWORK=off',
+        'GOTOOLCHAIN=local',
+        goExecutable,
+        'env',
+        'GOTELEMETRY',
+        'GOTELEMETRYDIR',
+      ],
+      goSandboxProfile: profile,
+      goSandboxPolicySelfTest: {
+        acceptedDiscoveryModes: ['off', 'local'],
+        directlyWrappedExecutables: [goExecutable, gofmtExecutable],
+        unconditionalDirectWrapper: true,
+        forgedEnvironmentKeys: [
+          'ARCHIVE_GO_SANDBOX_INHERITED',
+          'ARCHIVE_GO_SANDBOX_WRAPPER',
+          'ARCHIVE_GO_TELEMETRY_SAFE',
+        ],
+        environmentBypassAccepted: false,
+      },
+      goSandboxIgnoredEnvironmentKeys: [],
+      goSandboxedCommands: archiveGoSandboxedCommandsFixture({
+        toolingRoot,
+        tools,
+        telemetryDirectory,
+      }),
+      manifestStrings: {},
+    },
+  };
 }
 
 function queryCodegenRuntimeSummaryFixture() {
@@ -3750,6 +4137,7 @@ test('Archive verifier environment rejects ambient Go workspace selection', (t) 
       tools: {
         go: { path: '/fixture/go-root/bin/go' },
         node: { path: '/fixture/node-root/bin/node' },
+        python: { path: '/fixture/python-root/bin/python3' },
       },
     });
   } finally {
@@ -3760,7 +4148,503 @@ test('Archive verifier environment rejects ambient Go workspace selection', (t) 
   assert.equal(environment.GOENV, 'off');
   assert.equal(environment.GOMODCACHE, path.join(schemaRoot, '.cache', 'go-mod'));
   assert.equal(environment.NPM_CONFIG_CACHE, npmCache);
+  assert.deepEqual(environment.PATH.split(path.delimiter).slice(0, 3), [
+    '/fixture/go-root/bin',
+    '/fixture/node-root/bin',
+    '/fixture/python-root/bin',
+  ]);
   assert.equal(Object.isFrozen(environment), true);
+});
+
+test('Archive tracked authority seals the exact persistent schema, builder, matrix, and golden inventory', (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-archive-authority-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const {
+    candidateRoot,
+    toolingRoot,
+    trackedAuthority,
+  } = createArchiveAuthorityFixture(root);
+  const before = assertArchiveTrackedAuthorityFiles({
+    authority: trackedAuthority,
+    candidateRoot,
+  });
+  assert.equal(before.records.length, 62);
+  const after = assertArchiveTrackedAuthorityFiles({
+    authority: trackedAuthority,
+    candidateRoot,
+  });
+  assert.equal(
+    assertArchiveTrackedAuthorityUnchanged(before, after),
+    after,
+  );
+
+  const unexpected = path.join(
+    candidateRoot,
+    'contracts',
+    'goldens',
+    'archive',
+    'unexpected.json',
+  );
+  fs.writeFileSync(unexpected, '{}\n', { mode: 0o644 });
+  assert.throws(
+    () =>
+      assertArchiveTrackedAuthorityFiles({
+        authority: trackedAuthority,
+        candidateRoot,
+      }),
+    /persistent schema\/golden inventory changed/u,
+  );
+  fs.rmSync(unexpected);
+
+  fs.appendFileSync(path.join(toolingRoot, 'verify.mjs'), '\n');
+  assert.throws(
+    () =>
+      assertArchiveTrackedAuthorityFiles({
+        authority: trackedAuthority,
+        candidateRoot,
+      }),
+    /tracked Product blob changed/u,
+  );
+});
+
+test('Archive installed dependency closure is lock-exact and resealed around the direct verifier', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-archive-dependencies-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const toolingRoot = path.join(
+    root,
+    'candidate',
+    'contracts',
+    'schemas',
+    'archive',
+    'tooling',
+  );
+  fs.mkdirSync(toolingRoot, { recursive: true });
+  const lock = JSON.parse(
+    fs.readFileSync(
+      path.join(
+        REPOSITORY_ROOT,
+        'contracts',
+        'schemas',
+        'archive',
+        'tooling',
+        'package-lock.json',
+      ),
+      'utf8',
+    ),
+  );
+  fs.writeFileSync(
+    path.join(toolingRoot, 'package-lock.json'),
+    `${JSON.stringify(lock, null, 2)}\n`,
+  );
+  const packagePaths = Object.keys(lock.packages)
+    .filter((relative) => relative !== '');
+  const packageName = (relative) =>
+    relative.slice(relative.lastIndexOf('node_modules/') + 'node_modules/'.length);
+  for (const relative of packagePaths) {
+    const packageRoot = path.join(toolingRoot, ...relative.split('/'));
+    fs.mkdirSync(packageRoot, { recursive: true });
+    fs.writeFileSync(
+      path.join(packageRoot, 'package.json'),
+      JSON.stringify({
+        name: packageName(relative),
+        version: lock.packages[relative].version,
+      }),
+    );
+  }
+  const nodeModules = path.join(toolingRoot, 'node_modules');
+  fs.writeFileSync(
+    path.join(nodeModules, '.package-lock.json'),
+    JSON.stringify({
+      lockfileVersion: 3,
+      packages: Object.fromEntries(
+        packagePaths.map((relative) => [
+          relative,
+          { version: lock.packages[relative].version },
+        ]),
+      ),
+    }),
+  );
+  const quicktypeTarget = path.join(
+    nodeModules,
+    'quicktype',
+    'dist',
+    'index.js',
+  );
+  fs.mkdirSync(path.dirname(quicktypeTarget), { recursive: true });
+  fs.writeFileSync(quicktypeTarget, 'export {};\n');
+  fs.mkdirSync(path.join(nodeModules, '.bin'));
+  fs.symlinkSync(
+    '../quicktype/dist/index.js',
+    path.join(nodeModules, '.bin', 'quicktype'),
+  );
+
+  const before = await sealArchiveInstalledDependencyClosure({
+    toolingRoot,
+  });
+  const after = await sealArchiveInstalledDependencyClosure({
+    toolingRoot,
+  });
+  assert.equal(before.packagePaths.length, packagePaths.length);
+  assert.equal(
+    assertArchiveInstalledDependencyClosureUnchanged(before, after),
+    after,
+  );
+
+  fs.appendFileSync(quicktypeTarget, '// changed\n');
+  const changed = await sealArchiveInstalledDependencyClosure({
+    toolingRoot,
+  });
+  assert.throws(
+    () =>
+      assertArchiveInstalledDependencyClosureUnchanged(before, changed),
+    /changed during acceptance/u,
+  );
+});
+
+test('Archive verifier execution uses only the exact direct Node plan', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-archive-direct-plan-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const runRoot = path.join(root, 'run');
+  const schemaRoot = path.join(
+    root,
+    'candidate',
+    'contracts',
+    'schemas',
+    'archive',
+  );
+  const toolingRoot = path.join(schemaRoot, 'tooling');
+  const npmCache = path.join(schemaRoot, '.cache', 'npm');
+  fs.mkdirSync(runRoot, { recursive: true });
+  fs.mkdirSync(npmCache, { recursive: true });
+  fs.mkdirSync(path.join(schemaRoot, '.tmp'), { recursive: true });
+  fs.mkdirSync(toolingRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(toolingRoot, 'verify.mjs'),
+    "console.log('{}');\n",
+  );
+  const tools = {
+    go: { path: '/fixture/go-root/bin/go' },
+    node: { path: process.execPath },
+    python: { path: '/fixture/python-root/bin/python3' },
+  };
+  const plan = archiveVerifierCommandPlan({
+    toolingRoot,
+    currentNodePath: process.execPath,
+  });
+  assert.deepEqual(
+    validateArchiveVerifierCommandPlan(plan, {
+      toolingRoot,
+      currentNodePath: process.execPath,
+    }),
+    plan,
+  );
+  assert.deepEqual(plan, {
+    args: [path.join(toolingRoot, 'verify.mjs')],
+    cwd: toolingRoot,
+    environment: 'archive',
+    executable: process.execPath,
+    id: 'contracts-archive-verify',
+    timeoutMs: 900_000,
+  });
+  for (const mutation of [
+    { ...plan, executable: '/usr/bin/sandbox-exec' },
+    { ...plan, args: [...plan.args, '--schemas-only'] },
+    { ...plan, cwd: schemaRoot },
+    { ...plan, environment: 'networkless' },
+    { ...plan, timeoutMs: 899_999 },
+  ]) {
+    assert.throws(
+      () =>
+        validateArchiveVerifierCommandPlan(mutation, {
+          toolingRoot,
+          currentNodePath: process.execPath,
+        }),
+      /exact direct command plan/u,
+    );
+  }
+  const execution = await executeArchiveVerifierDirect({
+    toolingRoot,
+    schemaRoot,
+    npmCache,
+    tools,
+    budgets: { timeouts: { gracefulStopMs: 100 } },
+    runRoot,
+  });
+  assert.equal(execution.result.executable, process.execPath);
+  assert.deepEqual(execution.result.args, [
+    path.join(toolingRoot, 'verify.mjs'),
+  ]);
+  assert.equal(execution.result.status, 0);
+  assert.equal(execution.result.signal, null);
+  assert.equal(execution.result.timedOut, false);
+});
+
+test('Archive direct verifier report cross-binds exact inner sandboxes and rejects forged evidence', (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-archive-direct-report-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const {
+    candidateRoot,
+    schemaRoot,
+    toolingRoot,
+    trackedAuthority,
+  } = createArchiveAuthorityFixture(root);
+  const runRoot = path.join(root, 'run');
+  const telemetryDirectory = path.join(root, 'telemetry');
+  const npmCache = path.join(schemaRoot, '.cache', 'npm');
+  fs.mkdirSync(runRoot);
+  fs.mkdirSync(telemetryDirectory);
+  for (const relative of [
+    '.cache/npm',
+    '.cache/go-build',
+    '.cache/go-mod',
+    '.cache/go-path',
+    '.tmp/system',
+  ]) {
+    fs.mkdirSync(path.join(schemaRoot, relative), { recursive: true });
+  }
+  const tools = createArchiveReportTools(root);
+  const environment = archiveVerifierEnvironment({
+    npmCache,
+    runRoot,
+    schemaRoot,
+    tools,
+  });
+  const report = archiveVerifierReportFixture({
+    toolingRoot,
+    tools,
+    environment,
+    telemetryDirectory,
+  });
+  const plan = archiveVerifierCommandPlan({
+    toolingRoot,
+    currentNodePath: tools.node.path,
+  });
+  const resultFor = (
+    encoded,
+    {
+      suffix,
+      stderr = Buffer.alloc(0),
+      truncated = false,
+    },
+  ) => {
+    const stdout = Buffer.isBuffer(encoded)
+      ? encoded
+      : Buffer.from(encoded, 'utf8');
+    return Object.freeze({
+      args: plan.args,
+      cwd: plan.cwd,
+      durationMs: 100,
+      executable: plan.executable,
+      id: plan.id,
+      signal: null,
+      status: 0,
+      stderr: writeCommandLogDescriptor(
+        runRoot,
+        `evidence/commands/archive-${suffix}.stderr`,
+        stderr,
+      ),
+      stdout: Object.freeze({
+        ...writeCommandLogDescriptor(
+          runRoot,
+          `evidence/commands/archive-${suffix}.stdout`,
+          stdout,
+        ),
+        truncated,
+      }),
+      timedOut: false,
+    });
+  };
+  const result = resultFor(`${JSON.stringify(report)}\n`, {
+    suffix: 'valid',
+  });
+  const boundary = validateArchiveVerifierResult({
+    result,
+    runRoot,
+    toolingRoot,
+    npmCache,
+    tools,
+    environment,
+    trackedAuthority,
+  });
+  assert.deepEqual(boundary, {
+    boundary: 'verifier-owned-inner-sandbox/direct-local-children',
+    direct: true,
+    directLocalChildren: true,
+    goSandboxedCommandCount: 16,
+    kernelNetworkDeniedChildCount: 17,
+    profileSha256: boundary.profileSha256,
+    schemaOrder: [
+      'manifest',
+      'pointer',
+      'dataVersionInput',
+      'fixtureIndex',
+      'producerCase',
+      'producerIndex',
+    ],
+    telemetryChanged: false,
+  });
+  assert.match(boundary.profileSha256, /^sha256:[0-9a-f]{64}$/u);
+
+  const changedTelemetryReport = archiveVerifierReportFixture({
+    toolingRoot,
+    tools,
+    environment,
+    telemetryDirectory,
+    telemetryAfter: {
+      ok: true,
+      digest: '2'.repeat(64),
+      fileCount: 1,
+      byteCount: 1,
+    },
+  });
+  assert.equal(
+    validateArchiveVerifierResult({
+      result: resultFor(`${JSON.stringify(changedTelemetryReport)}\n`, {
+        suffix: 'telemetry-changed',
+      }),
+      runRoot,
+      toolingRoot,
+      npmCache,
+      tools,
+      environment,
+      trackedAuthority,
+    }).telemetryChanged,
+    true,
+  );
+
+  assert.throws(
+    () =>
+      validateArchiveVerifierResult({
+        result: resultFor(`${JSON.stringify(report)}\n`, {
+          suffix: 'stderr',
+          stderr: Buffer.from('forged stderr\n'),
+        }),
+        runRoot,
+        toolingRoot,
+        npmCache,
+        tools,
+        environment,
+        trackedAuthority,
+      }),
+    /outer stderr/u,
+  );
+  assert.throws(
+    () =>
+      validateArchiveVerifierResult({
+        result: resultFor(`${JSON.stringify(report)}\n`, {
+          suffix: 'truncated',
+          truncated: true,
+        }),
+        runRoot,
+        toolingRoot,
+        npmCache,
+        tools,
+        environment,
+        trackedAuthority,
+      }),
+    /truncated/u,
+  );
+  assert.throws(
+    () =>
+      validateArchiveVerifierResult({
+        result: resultFor('{"environment":{},"environment":{}}\n', {
+          suffix: 'duplicate-json',
+        }),
+        runRoot,
+        toolingRoot,
+        npmCache,
+        tools,
+        environment,
+        trackedAuthority,
+      }),
+    /duplicate object key/u,
+  );
+  const mutations = [
+    (candidate) => candidate.codegen.schemas.reverse(),
+    (candidate) => candidate.codegen.goSandboxedCommands.pop(),
+    (candidate) => {
+      candidate.codegen.goSandboxProfile =
+        '(version 1)(allow default)';
+    },
+    (candidate) => {
+      candidate.codegen.goSandboxedCommands[0].executable =
+        '/fixture/forged-go';
+    },
+    (candidate) => {
+      candidate.codegen.goSandboxedCommands[1].cwd = toolingRoot;
+    },
+    (candidate) => {
+      candidate.codegen.goSandboxedCommands[2].args.push('--forged');
+    },
+    (candidate) => {
+      candidate.codegen.effectiveGoEnvironment[3] = 'auto';
+    },
+    (candidate) => {
+      candidate.codegen.goSandboxDiscoveryCommand[2] = '/usr/bin/true';
+    },
+    (candidate) => {
+      candidate.codegen.goSandboxPolicySelfTest.environmentBypassAccepted =
+        true;
+    },
+    (candidate) => {
+      candidate.codegen.goTelemetryDiagnostics.changed = true;
+    },
+  ];
+  for (const [index, mutate] of mutations.entries()) {
+    const forged = structuredClone(report);
+    mutate(forged);
+    assert.throws(
+      () =>
+        validateArchiveVerifierResult({
+          result: resultFor(`${JSON.stringify(forged)}\n`, {
+            suffix: `forged-${index}`,
+          }),
+          runRoot,
+          toolingRoot,
+          npmCache,
+          tools,
+          environment,
+          trackedAuthority,
+        }),
+      /Archive/u,
+    );
+  }
+  assert.throws(
+    () =>
+      validateArchiveVerifierResult({
+        result,
+        runRoot,
+        toolingRoot,
+        npmCache,
+        tools,
+        environment: { ...environment, GOWORK: 'ambient' },
+        trackedAuthority,
+      }),
+    /command\/environment/u,
+  );
+
+  const before = assertArchiveTrackedAuthorityFiles({
+    authority: trackedAuthority,
+    candidateRoot,
+  });
+  fs.appendFileSync(path.join(toolingRoot, 'package.json'), '\n');
+  assert.throws(
+    () =>
+      assertArchiveTrackedAuthorityFiles({
+        authority: trackedAuthority,
+        candidateRoot,
+      }),
+    /tracked Product blob changed/u,
+  );
+  assert.equal(before.records.length, 62);
 });
 
 test('generated cleanup removes nested 0555 caches without chmodding regular files', async (t) => {
@@ -4537,6 +5421,55 @@ test('Contracts generated-root cleanup retries a transient non-empty race within
   assert.equal(report.failedCount, 0);
   assert.equal(report.retriedCount, 1);
   assert.equal(report.residueCount, 0);
+  assert.equal(fs.existsSync(generatedRoot), false);
+});
+
+test('Contracts cleanup retry keeps successful owner evidence within the fixed 64-descriptor bound', async (t) => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-owner-evidence-bound-')),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const runRoot = path.join(root, 'run');
+  const relative = 'contracts/goldens/query/.tmp';
+  const generatedRoot = path.join(candidateRoot, ...relative.split('/'));
+  fs.mkdirSync(generatedRoot, { recursive: true });
+  fs.mkdirSync(runRoot);
+  fs.writeFileSync(path.join(generatedRoot, 'generated'), 'generated\n');
+
+  const originalRmSync = fs.rmSync;
+  let attempts = 0;
+  fs.rmSync = (candidate, options) => {
+    if (isCleanupQuarantine(candidate, generatedRoot)) {
+      attempts += 1;
+      if (attempts === 1) {
+        const error = new Error('fixture transient cleanup retry');
+        error.code = 'ENOTEMPTY';
+        throw error;
+      }
+    }
+    return originalRmSync(candidate, options);
+  };
+  let result;
+  try {
+    result = await settleContractsOwnerGate({
+      candidateRoot,
+      runRoot,
+      gateResult: Object.freeze({
+        evidence: Object.freeze(
+          Array.from({ length: 63 }, (_, index) =>
+            Object.freeze({ kind: `base-${index}` })),
+        ),
+        results: Object.freeze([]),
+      }),
+    });
+  } finally {
+    fs.rmSync = originalRmSync;
+  }
+
+  assert.equal(attempts, 2);
+  assert.equal(result.evidence.length, 64);
+  assert.equal(result.evidence.at(-1).kind, 'cleanup');
   assert.equal(fs.existsSync(generatedRoot), false);
 });
 

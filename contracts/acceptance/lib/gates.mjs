@@ -29,6 +29,10 @@ import {
   parseJsonStrict,
   readJsonStrict,
 } from './strict-json.mjs';
+import {
+  assertSameSeal,
+  sealDistributionTree,
+} from './seal.mjs';
 import { verifyRuntimeClosures } from './tools.mjs';
 
 const SANDBOX_EXECUTABLE = '/usr/bin/sandbox-exec';
@@ -72,6 +76,48 @@ const QUERY_TRACKED_AUTHORITY_PATHS = Object.freeze([
   'contracts/goldens/query/verify.mjs',
   'contracts/goldens/query/fixtures/go-module/go.mod.lock',
   'contracts/goldens/query/fixtures/go-module/go.sum.lock',
+]);
+const ARCHIVE_VERIFY_DIRECT_ID = 'contracts-archive-verify';
+const ARCHIVE_VERIFY_TIMEOUT_MS = 900_000;
+const ARCHIVE_VERIFY_REPORT_MAX_BYTES = 4 * 1024 * 1024;
+const ARCHIVE_SCHEMA_NAMES = Object.freeze([
+  'manifest',
+  'pointer',
+  'dataVersionInput',
+  'fixtureIndex',
+  'producerCase',
+  'producerIndex',
+]);
+const ARCHIVE_SCHEMA_AUTHORITY_PATHS = Object.freeze([
+  'contracts/schemas/archive/README.md',
+  'contracts/schemas/archive/archive-manifest.schema.json',
+  'contracts/schemas/archive/compatibility-matrix.json',
+  'contracts/schemas/archive/current-pointer.schema.json',
+  'contracts/schemas/archive/data-version-input.schema.json',
+  'contracts/schemas/archive/fixture-index.schema.json',
+  'contracts/schemas/archive/producer-case.schema.json',
+  'contracts/schemas/archive/producer-index.schema.json',
+  'contracts/schemas/archive/schema.sql',
+  'contracts/schemas/archive/tooling/build_sqlite_fixtures.py',
+  'contracts/schemas/archive/tooling/package-lock.json',
+  'contracts/schemas/archive/tooling/package.json',
+  'contracts/schemas/archive/tooling/verify.mjs',
+]);
+const ARCHIVE_GOLDEN_INDEX_PATH =
+  'contracts/goldens/archive/index.json';
+const ARCHIVE_PRODUCER_INDEX_PATH =
+  'contracts/goldens/archive/producer/index.json';
+const ARCHIVE_INITIAL_AUTHORITY_PATHS = Object.freeze([
+  ...ARCHIVE_SCHEMA_AUTHORITY_PATHS,
+  ARCHIVE_GOLDEN_INDEX_PATH,
+  ARCHIVE_PRODUCER_INDEX_PATH,
+]);
+const ARCHIVE_BOOTSTRAP_PROFILE =
+  '(version 1)(allow default)(deny network*)(deny file-write*)';
+const ARCHIVE_FORGED_GO_ENVIRONMENT_KEYS = Object.freeze([
+  'ARCHIVE_GO_SANDBOX_INHERITED',
+  'ARCHIVE_GO_SANDBOX_WRAPPER',
+  'ARCHIVE_GO_TELEMETRY_SAFE',
 ]);
 export const QUERY_GOLDEN_COMMAND_IDS = Object.freeze([
   'contracts-query-npm-ci',
@@ -1108,6 +1154,12 @@ const PYTHON_RUNTIME_NAMES = Object.freeze([
   'uvSource',
   'uv',
 ]);
+const ARCHIVE_RUNTIME_NAMES = Object.freeze([
+  ...CURRENT_NODE_RUNTIME_NAMES,
+  ...CURRENT_GO_RUNTIME_NAMES,
+  'pythonSource',
+  'python',
+]);
 const DOCKER_RUNTIME_NAMES = Object.freeze([
   'dockerSource',
   'docker',
@@ -1226,6 +1278,7 @@ async function commandDeclarationEvidence({
   id,
   results,
   summary,
+  boundary,
 }) {
   return writeEvidence({
     runRoot,
@@ -1239,6 +1292,7 @@ async function commandDeclarationEvidence({
         id: result.id,
         status: result.status,
       })),
+      ...(boundary === undefined ? {} : { boundary }),
     },
     summary,
   });
@@ -1247,6 +1301,9 @@ async function commandDeclarationEvidence({
 const trustedQueryTrackedAuthorities = new WeakSet();
 const queryTrackedAuthorityBytes = new WeakMap();
 const trustedQueryCodegenAuthorities = new WeakSet();
+const trustedArchiveTrackedAuthorities = new WeakSet();
+const archiveTrackedAuthorityBytes = new WeakMap();
+const trustedArchiveDependencyClosures = new WeakSet();
 
 function requireExactKeys(value, expected, label) {
   if (
@@ -1265,6 +1322,535 @@ function requireExactValue(actual, expected, label) {
     fail(`${label} differs from the accepted Query authority`);
   }
   return actual;
+}
+
+function archiveAuthorityFileSeal(filePath, label) {
+  const canonical = requireCanonicalPath(filePath, {
+    label,
+    type: 'file',
+  });
+  const information = fs.lstatSync(canonical);
+  if (information.nlink !== 1 || (information.mode & 0o777) !== 0o644) {
+    fail(`${label} must be one unlinked 644 regular file`);
+  }
+  return Object.freeze({
+    bytes: information.size,
+    mode: 0o644,
+    path: canonical,
+    sha256: sha256FileSync(canonical),
+  });
+}
+
+function archiveIndexAuthorityPaths({
+  bytes,
+  expectedCount,
+  expectedFields,
+  indexPath,
+  prefix,
+}) {
+  const document = parseJsonStrict(
+    decodeUtf8Strict(bytes, `${indexPath} bytes`),
+    indexPath,
+  );
+  requireExactKeys(
+    document,
+    ['indexSchemaVersion', 'files'],
+    `${indexPath} authority`,
+  );
+  if (
+    document.indexSchemaVersion !== 1 ||
+    !Array.isArray(document.files) ||
+    document.files.length !== expectedCount
+  ) {
+    fail(`${indexPath} does not declare the exact accepted file count`);
+  }
+  const paths = [];
+  let previous = '';
+  for (const [index, declaration] of document.files.entries()) {
+    requireExactKeys(
+      declaration,
+      expectedFields,
+      `${indexPath} file ${index}`,
+    );
+    const relative = assertSafeRelativePath(
+      declaration.path,
+      `${indexPath} file ${index} path`,
+    );
+    if (
+      relative <= previous ||
+      typeof declaration.digest !== 'string' ||
+      !/^sha256:[0-9a-f]{64}$/u.test(declaration.digest)
+    ) {
+      fail(`${indexPath} file authority is unordered or invalid`);
+    }
+    previous = relative;
+    paths.push(Object.freeze({
+      digest: declaration.digest,
+      path: `${prefix}/${relative}`,
+    }));
+  }
+  return Object.freeze(paths);
+}
+
+function archiveExpectedPersistentDirectories(authorityPaths) {
+  const directories = new Set([
+    'contracts/goldens/archive',
+    'contracts/schemas/archive',
+  ]);
+  for (const relative of authorityPaths) {
+    let parent = path.posix.dirname(relative);
+    while (
+      parent === 'contracts/goldens/archive' ||
+      parent.startsWith('contracts/goldens/archive/') ||
+      parent === 'contracts/schemas/archive' ||
+      parent.startsWith('contracts/schemas/archive/')
+    ) {
+      directories.add(parent);
+      const next = path.posix.dirname(parent);
+      if (next === parent) break;
+      parent = next;
+    }
+  }
+  return [...directories].sort((left, right) =>
+    left.localeCompare(right, 'en'));
+}
+
+function archivePersistentInventory(candidateRoot) {
+  const files = [];
+  const directories = [];
+  function visit(root, relativeRoot, excluded) {
+    const rootInformation = fs.lstatSync(root);
+    if (
+      rootInformation.isSymbolicLink() ||
+      !rootInformation.isDirectory()
+    ) {
+      fail(`Archive persistent authority root is not a real directory: ${relativeRoot}`);
+    }
+    directories.push(relativeRoot);
+    for (const entry of fs
+      .readdirSync(root, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name, 'en'))) {
+      const relative = `${relativeRoot}/${entry.name}`;
+      if (excluded.has(relative)) continue;
+      const absolute = path.join(root, entry.name);
+      const information = fs.lstatSync(absolute);
+      if (information.isSymbolicLink()) {
+        fail(`Archive persistent authority contains a symlink: ${relative}`);
+      }
+      if (information.isDirectory()) {
+        visit(absolute, relative, excluded);
+      } else if (information.isFile()) {
+        if (information.nlink !== 1) {
+          fail(`Archive persistent authority contains a hard link: ${relative}`);
+        }
+        files.push(relative);
+      } else {
+        fail(`Archive persistent authority contains a special entry: ${relative}`);
+      }
+    }
+  }
+  visit(
+    path.join(candidateRoot, 'contracts', 'schemas', 'archive'),
+    'contracts/schemas/archive',
+    new Set([
+      'contracts/schemas/archive/.cache',
+      'contracts/schemas/archive/.tmp',
+      'contracts/schemas/archive/tooling/node_modules',
+    ]),
+  );
+  visit(
+    path.join(candidateRoot, 'contracts', 'goldens', 'archive'),
+    'contracts/goldens/archive',
+    new Set(),
+  );
+  return Object.freeze({
+    directories: Object.freeze(directories.sort((left, right) =>
+      left.localeCompare(right, 'en'))),
+    files: Object.freeze(files.sort((left, right) =>
+      left.localeCompare(right, 'en'))),
+  });
+}
+
+export function admitArchiveTrackedAuthority({ candidateRoot }) {
+  const root = requireCanonicalPath(candidateRoot, {
+    label: 'Archive tracked authority candidate',
+    type: 'directory',
+  });
+  const identity = deriveCleanCheckoutIdentityClosed({
+    repositoryRoot: root,
+    controlPlanePaths: ARCHIVE_INITIAL_AUTHORITY_PATHS,
+  });
+  const initialBlobs = new Map(
+    ARCHIVE_INITIAL_AUTHORITY_PATHS.map((relativePath) => [
+      relativePath,
+      readRawRegularGitBlob({
+        repositoryRoot: root,
+        revision: identity.revision,
+        relativePath,
+      }),
+    ]),
+  );
+  const goldenPaths = archiveIndexAuthorityPaths({
+    bytes: initialBlobs.get(ARCHIVE_GOLDEN_INDEX_PATH).bytes,
+    expectedCount: 32,
+    expectedFields: [
+      'path',
+      'digest',
+      'caseId',
+      'validationStage',
+      'expected',
+    ],
+    indexPath: ARCHIVE_GOLDEN_INDEX_PATH,
+    prefix: 'contracts/goldens/archive',
+  });
+  const producerPaths = archiveIndexAuthorityPaths({
+    bytes: initialBlobs.get(ARCHIVE_PRODUCER_INDEX_PATH).bytes,
+    expectedCount: 15,
+    expectedFields: ['path', 'digest', 'caseId'],
+    indexPath: ARCHIVE_PRODUCER_INDEX_PATH,
+    prefix: 'contracts/goldens/archive/producer',
+  });
+  const indexedDigests = new Map(
+    [...goldenPaths, ...producerPaths].map(({ path: relativePath, digest }) => [
+      relativePath,
+      digest,
+    ]),
+  );
+  const authorityPaths = Object.freeze([
+    ...ARCHIVE_SCHEMA_AUTHORITY_PATHS,
+    ARCHIVE_GOLDEN_INDEX_PATH,
+    ...goldenPaths.map(({ path: relativePath }) => relativePath),
+    ARCHIVE_PRODUCER_INDEX_PATH,
+    ...producerPaths.map(({ path: relativePath }) => relativePath),
+  ].sort((left, right) => left.localeCompare(right, 'en')));
+  if (
+    authorityPaths.length !== 62 ||
+    new Set(authorityPaths).size !== authorityPaths.length
+  ) {
+    fail('Archive tracked authority does not contain exactly 62 files');
+  }
+  const records = [];
+  const rawBytes = new Map();
+  for (const relativePath of authorityPaths) {
+    const blob = initialBlobs.get(relativePath) ??
+      readRawRegularGitBlob({
+        repositoryRoot: root,
+        revision: identity.revision,
+        relativePath,
+      });
+    if (
+      blob.mode !== '100644' ||
+      (
+        indexedDigests.has(relativePath) &&
+        indexedDigests.get(relativePath) !== blob.sha256
+      )
+    ) {
+      fail(`Archive tracked authority disagrees with its index: ${relativePath}`);
+    }
+    const bytes = Buffer.from(blob.bytes);
+    const physical = archiveAuthorityFileSeal(
+      path.join(root, ...relativePath.split('/')),
+      `Archive tracked authority ${relativePath}`,
+    );
+    if (
+      physical.bytes !== blob.byteCount ||
+      physical.sha256 !== blob.sha256 ||
+      !fs.readFileSync(physical.path).equals(bytes)
+    ) {
+      fail(`Archive tracked authority differs from Product blob: ${relativePath}`);
+    }
+    records.push(Object.freeze({
+      blobOid: blob.blobOid,
+      bytes: blob.byteCount,
+      mode: blob.mode,
+      path: relativePath,
+      sha256: blob.sha256,
+    }));
+    rawBytes.set(relativePath, bytes);
+  }
+  const inventory = archivePersistentInventory(root);
+  if (
+    !isDeepStrictEqual(inventory.files, authorityPaths) ||
+    !isDeepStrictEqual(
+      inventory.directories,
+      archiveExpectedPersistentDirectories(authorityPaths),
+    )
+  ) {
+    fail('Archive persistent schema/golden inventory is not exact');
+  }
+  const authority = Object.freeze({
+    directories: inventory.directories,
+    records: Object.freeze(records),
+    repositoryRoot: root,
+    revision: identity.revision,
+    tree: identity.tree,
+  });
+  trustedArchiveTrackedAuthorities.add(authority);
+  archiveTrackedAuthorityBytes.set(authority, rawBytes);
+  return authority;
+}
+
+export function assertArchiveTrackedAuthorityFiles({
+  authority,
+  candidateRoot,
+}) {
+  if (!trustedArchiveTrackedAuthorities.has(authority)) {
+    fail('Archive tracked authority was not admitted from Product Git blobs');
+  }
+  const root = requireCanonicalPath(candidateRoot, {
+    label: 'Archive tracked authority candidate',
+    type: 'directory',
+  });
+  if (root !== authority.repositoryRoot) {
+    fail('Archive tracked authority belongs to another candidate root');
+  }
+  const rawBytes = archiveTrackedAuthorityBytes.get(authority);
+  const records = authority.records.map((record) => {
+    const physical = archiveAuthorityFileSeal(
+      path.join(root, ...record.path.split('/')),
+      `Archive tracked authority ${record.path}`,
+    );
+    if (
+      record.mode !== '100644' ||
+      physical.bytes !== record.bytes ||
+      physical.sha256 !== record.sha256 ||
+      !fs.readFileSync(physical.path).equals(rawBytes.get(record.path))
+    ) {
+      fail(`Archive tracked Product blob changed: ${record.path}`);
+    }
+    return Object.freeze({
+      blobOid: record.blobOid,
+      bytes: physical.bytes,
+      mode: physical.mode,
+      path: record.path,
+      sha256: physical.sha256,
+    });
+  });
+  const inventory = archivePersistentInventory(root);
+  if (
+    !isDeepStrictEqual(
+      inventory.files,
+      authority.records.map(({ path: relativePath }) => relativePath),
+    ) ||
+    !isDeepStrictEqual(inventory.directories, authority.directories)
+  ) {
+    fail('Archive persistent schema/golden inventory changed');
+  }
+  return Object.freeze({
+    directories: inventory.directories,
+    records: Object.freeze(records),
+    revision: authority.revision,
+    tree: authority.tree,
+  });
+}
+
+export function assertArchiveTrackedAuthorityUnchanged(before, after) {
+  if (
+    !before ||
+    !after ||
+    !isDeepStrictEqual(before.records, after.records) ||
+    !isDeepStrictEqual(before.directories, after.directories)
+  ) {
+    fail('Archive tracked authority changed during direct verification');
+  }
+  return after;
+}
+
+function installedPackageName(relativePath) {
+  const marker = 'node_modules/';
+  const index = relativePath.lastIndexOf(marker);
+  if (index < 0) fail(`invalid installed package path: ${relativePath}`);
+  return relativePath.slice(index + marker.length);
+}
+
+function archiveInstalledPackageInventory(nodeModulesRoot) {
+  const packages = [];
+  function recordPackage(packageRoot, relativePath) {
+    const information = fs.lstatSync(packageRoot);
+    if (information.isSymbolicLink() || !information.isDirectory()) {
+      fail(`Archive dependency package is not a real directory: ${relativePath}`);
+    }
+    packages.push(relativePath);
+    const nested = path.join(packageRoot, 'node_modules');
+    if (fs.existsSync(nested)) visitNodeModules(nested, `${relativePath}/node_modules`);
+  }
+  function visitNodeModules(directory, prefix) {
+    const information = fs.lstatSync(directory);
+    if (information.isSymbolicLink() || !information.isDirectory()) {
+      fail(`Archive dependency node_modules is not a real directory: ${prefix}`);
+    }
+    for (const entry of fs
+      .readdirSync(directory, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name, 'en'))) {
+      const absolute = path.join(directory, entry.name);
+      if (entry.name === '.package-lock.json') {
+        if (!entry.isFile() || entry.isSymbolicLink()) {
+          fail('Archive hidden dependency lock must be a regular file');
+        }
+        continue;
+      }
+      if (entry.name === '.bin') {
+        if (!entry.isDirectory() || entry.isSymbolicLink()) {
+          fail('Archive dependency .bin must be a real directory');
+        }
+        continue;
+      }
+      if (entry.name.startsWith('@')) {
+        if (!entry.isDirectory() || entry.isSymbolicLink()) {
+          fail(`Archive dependency scope is not a real directory: ${entry.name}`);
+        }
+        for (const scoped of fs
+          .readdirSync(absolute, { withFileTypes: true })
+          .sort((left, right) => left.name.localeCompare(right.name, 'en'))) {
+          if (!scoped.isDirectory() || scoped.isSymbolicLink()) {
+            fail(`Archive dependency scoped package is invalid: ${entry.name}/${scoped.name}`);
+          }
+          recordPackage(
+            path.join(absolute, scoped.name),
+            `${prefix}/${entry.name}/${scoped.name}`,
+          );
+        }
+        continue;
+      }
+      if (!entry.isDirectory() || entry.isSymbolicLink()) {
+        fail(`Archive dependency node_modules contains an unexpected entry: ${entry.name}`);
+      }
+      recordPackage(absolute, `${prefix}/${entry.name}`);
+    }
+  }
+  visitNodeModules(nodeModulesRoot, 'node_modules');
+  return Object.freeze(packages.sort((left, right) =>
+    left.localeCompare(right, 'en')));
+}
+
+function archiveLockedPackagePath(value) {
+  if (
+    typeof value !== 'string' ||
+    value.length < 14 ||
+    value.length > 4096 ||
+    value.includes('\\') ||
+    value.includes('\0')
+  ) {
+    fail('Archive locked package path is invalid');
+  }
+  const parts = value.split('/');
+  let index = 0;
+  const packagePart = /^[A-Za-z0-9._~-]+$/u;
+  while (index < parts.length) {
+    if (parts[index] !== 'node_modules') {
+      fail(`Archive locked package path has an invalid owner: ${value}`);
+    }
+    index += 1;
+    if (parts[index]?.startsWith('@')) {
+      if (
+        !/^@[A-Za-z0-9._~-]+$/u.test(parts[index]) ||
+        !packagePart.test(parts[index + 1] ?? '')
+      ) {
+        fail(`Archive locked scoped package path is invalid: ${value}`);
+      }
+      index += 2;
+    } else {
+      if (!packagePart.test(parts[index] ?? '')) {
+        fail(`Archive locked package name is invalid: ${value}`);
+      }
+      index += 1;
+    }
+  }
+  return value;
+}
+
+export async function sealArchiveInstalledDependencyClosure({
+  toolingRoot,
+}) {
+  const root = requireCanonicalPath(toolingRoot, {
+    label: 'Archive tooling root',
+    type: 'directory',
+  });
+  const lock = readJsonStrict(path.join(root, 'package-lock.json'));
+  if (
+    lock.lockfileVersion !== 3 ||
+    !lock.packages ||
+    typeof lock.packages !== 'object' ||
+    Array.isArray(lock.packages)
+  ) {
+    fail('Archive package lock has no exact v3 package closure');
+  }
+  const expected = Object.keys(lock.packages)
+    .filter((relativePath) => relativePath !== '')
+    .map(archiveLockedPackagePath)
+    .sort((left, right) => left.localeCompare(right, 'en'));
+  if (expected.length === 0 || new Set(expected).size !== expected.length) {
+    fail('Archive package lock does not contain one unique package closure');
+  }
+  const nodeModules = requireCanonicalPath(path.join(root, 'node_modules'), {
+    label: 'Archive installed dependency closure',
+    type: 'directory',
+    below: root,
+  });
+  const installed = archiveInstalledPackageInventory(nodeModules);
+  if (!isDeepStrictEqual(installed, expected)) {
+    fail('Archive installed package paths differ from package-lock');
+  }
+  for (const relativePath of expected) {
+    const declaration = lock.packages[relativePath];
+    if (
+      !declaration ||
+      typeof declaration.version !== 'string' ||
+      declaration.version === ''
+    ) {
+      fail(`Archive locked package has no version: ${relativePath}`);
+    }
+    const packageRoot = path.join(root, ...relativePath.split('/'));
+    const packageDocument = readJsonStrict(path.join(packageRoot, 'package.json'));
+    if (
+      packageDocument.name !== installedPackageName(relativePath) ||
+      packageDocument.version !== declaration.version
+    ) {
+      fail(`Archive installed package identity differs from lock: ${relativePath}`);
+    }
+  }
+  const hiddenLockPath = path.join(nodeModules, '.package-lock.json');
+  const hiddenLock = readJsonStrict(hiddenLockPath);
+  const hiddenPaths = Object.keys(hiddenLock.packages ?? {})
+    .sort((left, right) => left.localeCompare(right, 'en'));
+  if (!isDeepStrictEqual(hiddenPaths, expected)) {
+    fail('Archive hidden install lock differs from package-lock closure');
+  }
+  for (const relativePath of expected) {
+    if (
+      hiddenLock.packages[relativePath]?.version !==
+        lock.packages[relativePath].version
+    ) {
+      fail(`Archive hidden install lock version drifted: ${relativePath}`);
+    }
+  }
+  const closure = Object.freeze({
+    packagePaths: expected,
+    seal: await sealDistributionTree(nodeModules, {
+      allowInternalSymlinks: true,
+    }),
+  });
+  trustedArchiveDependencyClosures.add(closure);
+  return closure;
+}
+
+export function assertArchiveInstalledDependencyClosureUnchanged(
+  before,
+  after,
+) {
+  if (
+    !trustedArchiveDependencyClosures.has(before) ||
+    !trustedArchiveDependencyClosures.has(after) ||
+    !isDeepStrictEqual(before.packagePaths, after.packagePaths)
+  ) {
+    fail('Archive installed dependency authority is missing or changed');
+  }
+  assertSameSeal(
+    before.seal,
+    after.seal,
+    'Archive installed dependency closure',
+  );
+  return after;
 }
 
 function queryCandidateRoot(goldenRoot) {
@@ -2611,6 +3197,9 @@ export function archiveVerifierEnvironment({
   schemaRoot,
   tools,
 }) {
+  if (!tools?.go?.path || !tools?.node?.path || !tools?.python?.path) {
+    fail('Archive verifier requires admitted Go, Node, and CPython tools');
+  }
   const goCache = path.join(schemaRoot, '.cache', 'go-mod');
   return Object.freeze({
     ...commandEnvironment({
@@ -2618,6 +3207,7 @@ export function archiveVerifierEnvironment({
       pathEntries: [
         path.dirname(tools.go.path),
         path.dirname(tools.node.path),
+        path.dirname(tools.python.path),
       ],
       extra: {
         CGO_ENABLED: '0',
@@ -2640,6 +3230,650 @@ export function archiveVerifierEnvironment({
   });
 }
 
+export function archiveVerifierCommandPlan({
+  toolingRoot,
+  currentNodePath,
+}) {
+  const root = requireCanonicalPath(toolingRoot, {
+    label: 'Archive verifier tooling root',
+    type: 'directory',
+  });
+  if (
+    path.basename(root) !== 'tooling' ||
+    path.basename(path.dirname(root)) !== 'archive'
+  ) {
+    fail('Archive verifier tooling root is outside its exact owner path');
+  }
+  return Object.freeze({
+    args: Object.freeze([path.join(root, 'verify.mjs')]),
+    cwd: root,
+    environment: 'archive',
+    executable: currentNodePath,
+    id: ARCHIVE_VERIFY_DIRECT_ID,
+    timeoutMs: ARCHIVE_VERIFY_TIMEOUT_MS,
+  });
+}
+
+export function validateArchiveVerifierCommandPlan(
+  declaration,
+  {
+    toolingRoot,
+    currentNodePath,
+  },
+) {
+  const expected = archiveVerifierCommandPlan({
+    toolingRoot,
+    currentNodePath,
+  });
+  if (
+    !declaration ||
+    declaration.id !== expected.id ||
+    declaration.cwd !== expected.cwd ||
+    declaration.environment !== expected.environment ||
+    declaration.executable !== expected.executable ||
+    declaration.timeoutMs !== expected.timeoutMs ||
+    !isDeepStrictEqual(declaration.args, expected.args)
+  ) {
+    fail('Archive verifier is not the exact direct command plan');
+  }
+  return expected;
+}
+
+export async function executeArchiveVerifierDirect({
+  toolingRoot,
+  schemaRoot,
+  npmCache,
+  tools,
+  budgets,
+  runRoot,
+}) {
+  const plan = validateArchiveVerifierCommandPlan(
+    archiveVerifierCommandPlan({
+      toolingRoot,
+      currentNodePath: tools.node.path,
+    }),
+    {
+      toolingRoot,
+      currentNodePath: tools.node.path,
+    },
+  );
+  const environment = archiveVerifierEnvironment({
+    npmCache,
+    runRoot,
+    schemaRoot,
+    tools,
+  });
+  const result = await runCommand({
+    ...plan,
+    environment:
+      plan.environment === 'archive'
+        ? environment
+        : undefined,
+    gracefulStopMs: budgets.timeouts.gracefulStopMs,
+    maxOutputBytes: ARCHIVE_VERIFY_REPORT_MAX_BYTES,
+    runRoot,
+  });
+  return Object.freeze({ environment, plan, result });
+}
+
+function archiveVerifierRoots(toolingRoot) {
+  const root = requireCanonicalPath(toolingRoot, {
+    label: 'Archive verifier tooling root',
+    type: 'directory',
+  });
+  const schemaRoot = path.dirname(root);
+  const candidateRoot = path.resolve(schemaRoot, '..', '..', '..');
+  if (
+    path.join(
+      candidateRoot,
+      'contracts',
+      'schemas',
+      'archive',
+      'tooling',
+    ) !== root
+  ) {
+    fail('Archive verifier is outside the exact candidate path');
+  }
+  return Object.freeze({
+    candidateRoot,
+    goldenRoot: path.join(candidateRoot, 'contracts', 'goldens', 'archive'),
+    schemaRoot,
+    toolingRoot: root,
+  });
+}
+
+function archiveGoSandboxProfile(telemetryDirectory) {
+  return [
+    '(version 1)',
+    '(allow default)',
+    '(deny network*)',
+    `(deny file-write* (subpath "${sandboxLiteral(telemetryDirectory)}"))`,
+  ].join('');
+}
+
+function archiveExpectedGoSandboxedCommands({
+  toolingRoot,
+  goExecutable,
+  gofmtExecutable,
+  profile,
+}) {
+  const roots = archiveVerifierRoots(toolingRoot);
+  const codegenRoot = path.join(roots.schemaRoot, '.tmp', 'codegen');
+  const records = [
+    {
+      executable: goExecutable,
+      args: [
+        'env',
+        'GOCACHE',
+        'GOMODCACHE',
+        'GOPATH',
+        'GOWORK',
+        'GOENV',
+        'GOTOOLCHAIN',
+      ],
+      cwd: roots.candidateRoot,
+      wrapper: SANDBOX_EXECUTABLE,
+      profile,
+    },
+    {
+      executable: goExecutable,
+      args: ['version'],
+      cwd: roots.candidateRoot,
+      wrapper: SANDBOX_EXECUTABLE,
+      profile,
+    },
+  ];
+  for (const schemaName of ARCHIVE_SCHEMA_NAMES) {
+    const goRoot = path.join(codegenRoot, schemaName, 'go');
+    records.push(
+      {
+        executable: gofmtExecutable,
+        args: ['-w', path.join(goRoot, 'model.go')],
+        cwd: roots.candidateRoot,
+        wrapper: SANDBOX_EXECUTABLE,
+        profile,
+      },
+      {
+        executable: goExecutable,
+        args: ['test', './...'],
+        cwd: goRoot,
+        wrapper: SANDBOX_EXECUTABLE,
+        profile,
+      },
+    );
+  }
+  const probeRoot = path.join(
+    roots.schemaRoot,
+    '.tmp',
+    'manifest-string-semantics',
+    'go',
+  );
+  records.push(
+    {
+      executable: gofmtExecutable,
+      args: ['-w', path.join(probeRoot, 'main.go')],
+      cwd: roots.candidateRoot,
+      wrapper: SANDBOX_EXECUTABLE,
+      profile,
+    },
+    {
+      executable: goExecutable,
+      args: [
+        'run',
+        '.',
+        path.join(
+          roots.goldenRoot,
+          'vectors',
+          'manifest-string-semantics.json',
+        ),
+        path.join(
+          roots.goldenRoot,
+          'valid',
+          'minimal',
+          'archive-manifest.json',
+        ),
+        path.join(
+          roots.schemaRoot,
+          '.tmp',
+          'manifest-string-semantics',
+          'manifest-invalid-raw-utf8.json',
+        ),
+      ],
+      cwd: probeRoot,
+      wrapper: SANDBOX_EXECUTABLE,
+      profile,
+    },
+  );
+  if (records.length !== 16) {
+    fail('Archive Go command plan does not contain exactly sixteen records');
+  }
+  return Object.freeze(records.map((record) => Object.freeze({
+    ...record,
+    args: Object.freeze(record.args),
+  })));
+}
+
+function validateArchiveTelemetryDiagnostic(value, label) {
+  if (value?.ok === true) {
+    requireExactKeys(
+      value,
+      ['ok', 'digest', 'fileCount', 'byteCount'],
+      label,
+    );
+    if (
+      typeof value.digest !== 'string' ||
+      !/^[0-9a-f]{64}$/u.test(value.digest) ||
+      !Number.isSafeInteger(value.fileCount) ||
+      value.fileCount < 0 ||
+      !Number.isSafeInteger(value.byteCount) ||
+      value.byteCount < 0
+    ) {
+      fail(`${label} successful seal is invalid`);
+    }
+    return value;
+  }
+  requireExactKeys(value, ['ok', 'error'], label);
+  if (
+    value.ok !== false ||
+    typeof value.error !== 'string' ||
+    value.error.length < 1 ||
+    value.error.length > 4096 ||
+    value.error.includes('\0')
+  ) {
+    fail(`${label} failed diagnostic is invalid`);
+  }
+  return value;
+}
+
+export function validateArchiveVerifierReport({
+  report,
+  toolingRoot,
+  tools,
+  environment,
+}) {
+  requireExactKeys(report, [
+    'environment',
+    'strictJson',
+    'schemaCount',
+    'schemaInventory',
+    'installedTools',
+    'ddl',
+    'goldens',
+    'codegen',
+  ], 'Archive verifier report');
+  requireExactKeys(
+    report.environment,
+    ['nodeVersion', 'npmVersion'],
+    'Archive verifier environment report',
+  );
+  if (
+    report.environment.nodeVersion !== tools.node.version ||
+    report.environment.npmVersion !== tools.npm.version ||
+    report.schemaCount !== 6 ||
+    report.schemaInventory !== 13
+  ) {
+    fail('Archive verifier report identity/count drifted');
+  }
+  requireExactKeys(
+    report.strictJson,
+    ['categories', 'rejectedBytes'],
+    'Archive strict JSON report',
+  );
+  if (
+    !isDeepStrictEqual(report.strictJson.categories, [
+      'manifest',
+      'pointer',
+      'index',
+      'vector',
+      'matrix',
+      'schema',
+      'package',
+      'lockfile',
+      'producer-case',
+      'producer-index',
+    ]) ||
+    report.strictJson.rejectedBytes !== 14
+  ) {
+    fail('Archive strict JSON self-test report drifted');
+  }
+  requireExactKeys(report.ddl, [
+    'dataVersion',
+    'inspection',
+    'python',
+    'rawDomains',
+    'schemaObjectSelfTest',
+    'sqlite',
+    'staffSetKeyBounds',
+    'subjectSemantics',
+  ], 'Archive DDL/builder report');
+  requireExactKeys(report.goldens, [
+    'indexDigest',
+    'sortedPathDigestSeal',
+    'indexedFiles',
+    'cases',
+    'manifestStrings',
+    'producer',
+  ], 'Archive golden report');
+  requireExactKeys(report.goldens.manifestStrings, [
+    'outcome',
+    'formats',
+    'stringCaseCount',
+    'node',
+    'python',
+  ], 'Archive manifest-string golden report');
+  requireExactKeys(report.goldens.producer, [
+    'indexDigest',
+    'indexedFiles',
+    'cases',
+    'files',
+    'rawDomains',
+    'danglingReference',
+    'reports',
+  ], 'Archive producer golden report');
+  if (
+    report.goldens.indexedFiles !== 32 ||
+    report.goldens.cases !== 16 ||
+    report.goldens.manifestStrings.outcome !== 'VALID' ||
+    report.goldens.producer.indexedFiles !== 15 ||
+    report.goldens.producer.cases !== 15 ||
+    !Array.isArray(report.goldens.producer.files) ||
+    report.goldens.producer.files.length !== 15 ||
+    !Array.isArray(report.goldens.producer.reports) ||
+    report.goldens.producer.reports.length !== 15
+  ) {
+    fail('Archive golden corpus counts/outcome drifted');
+  }
+  requireExactKeys(
+    report.installedTools,
+    ['quicktypeVersions', 'streamJsonVersions', 'parserAsStream'],
+    'Archive installed tool report',
+  );
+  if (
+    !isDeepStrictEqual(report.installedTools.quicktypeVersions, ['26.0.0']) ||
+    !isDeepStrictEqual(report.installedTools.streamJsonVersions, ['2.1.0']) ||
+    report.installedTools.parserAsStream !== 'function'
+  ) {
+    fail('Archive installed tool versions drifted');
+  }
+  const codegen = requireExactKeys(report.codegen, [
+    'schemas',
+    'quicktypeVersion',
+    'goVersion',
+    'effectiveGoEnvironment',
+    'goExecutable',
+    'goTelemetryMode',
+    'goTelemetryDirectory',
+    'goTelemetryDiagnostics',
+    'goSandboxWrapper',
+    'goSandboxBootstrapProfile',
+    'goSandboxDiscoveryCommand',
+    'goSandboxProfile',
+    'goSandboxPolicySelfTest',
+    'goSandboxIgnoredEnvironmentKeys',
+    'goSandboxedCommands',
+    'manifestStrings',
+  ], 'Archive codegen report');
+  if (
+    !isDeepStrictEqual(codegen.schemas, ARCHIVE_SCHEMA_NAMES) ||
+    codegen.quicktypeVersion !== 'quicktype version 26.0.0' ||
+    codegen.goVersion !== tools.go.version ||
+    codegen.goTelemetryMode !== 'off' &&
+      codegen.goTelemetryMode !== 'local'
+  ) {
+    fail('Archive schema/tool/codegen identity drifted');
+  }
+  const roots = archiveVerifierRoots(toolingRoot);
+  const expectedGoExecutable = fs.realpathSync.native(tools.go.path);
+  const expectedGofmtExecutable = fs.realpathSync.native(
+    path.join(path.dirname(expectedGoExecutable), 'gofmt'),
+  );
+  const telemetryDirectory = requireCanonicalPath(
+    codegen.goTelemetryDirectory,
+    {
+      label: 'Archive Go telemetry directory',
+      type: 'directory',
+    },
+  );
+  const profile = archiveGoSandboxProfile(telemetryDirectory);
+  const expectedEnvironment = [
+    fs.realpathSync.native(environment.GOCACHE),
+    fs.realpathSync.native(environment.GOMODCACHE),
+    fs.realpathSync.native(environment.GOPATH),
+    'off',
+    '',
+    'local',
+  ];
+  if (
+    codegen.goExecutable !== expectedGoExecutable ||
+    !isDeepStrictEqual(codegen.effectiveGoEnvironment, expectedEnvironment) ||
+    codegen.goSandboxWrapper !== SANDBOX_EXECUTABLE ||
+    codegen.goSandboxBootstrapProfile !== ARCHIVE_BOOTSTRAP_PROFILE ||
+    codegen.goSandboxProfile !== profile
+  ) {
+    fail('Archive effective Go/bootstrap/profile authority drifted');
+  }
+  const discoveryCommand = [
+    '-p',
+    ARCHIVE_BOOTSTRAP_PROFILE,
+    '/usr/bin/env',
+    'GOENV=off',
+    'GOWORK=off',
+    'GOTOOLCHAIN=local',
+    expectedGoExecutable,
+    'env',
+    'GOTELEMETRY',
+    'GOTELEMETRYDIR',
+  ];
+  if (!isDeepStrictEqual(codegen.goSandboxDiscoveryCommand, discoveryCommand)) {
+    fail('Archive Go telemetry discovery argv drifted');
+  }
+  const policy = requireExactKeys(codegen.goSandboxPolicySelfTest, [
+    'acceptedDiscoveryModes',
+    'directlyWrappedExecutables',
+    'unconditionalDirectWrapper',
+    'forgedEnvironmentKeys',
+    'environmentBypassAccepted',
+  ], 'Archive Go sandbox policy self-test');
+  if (
+    !isDeepStrictEqual(policy.acceptedDiscoveryModes, ['off', 'local']) ||
+    !isDeepStrictEqual(
+      policy.directlyWrappedExecutables,
+      [expectedGoExecutable, expectedGofmtExecutable],
+    ) ||
+    policy.unconditionalDirectWrapper !== true ||
+    !isDeepStrictEqual(
+      policy.forgedEnvironmentKeys,
+      ARCHIVE_FORGED_GO_ENVIRONMENT_KEYS,
+    ) ||
+    policy.environmentBypassAccepted !== false ||
+    !isDeepStrictEqual(
+      codegen.goSandboxIgnoredEnvironmentKeys,
+      [],
+    )
+  ) {
+    fail('Archive Go sandbox policy/forged-environment authority drifted');
+  }
+  const diagnostics = requireExactKeys(
+    codegen.goTelemetryDiagnostics,
+    ['before', 'after', 'changed'],
+    'Archive Go telemetry diagnostics',
+  );
+  validateArchiveTelemetryDiagnostic(
+    diagnostics.before,
+    'Archive Go telemetry before diagnostic',
+  );
+  validateArchiveTelemetryDiagnostic(
+    diagnostics.after,
+    'Archive Go telemetry after diagnostic',
+  );
+  if (
+    typeof diagnostics.changed !== 'boolean' ||
+    diagnostics.changed ===
+      isDeepStrictEqual(diagnostics.before, diagnostics.after)
+  ) {
+    fail('Archive Go telemetry changed diagnostic is inconsistent');
+  }
+  const expectedCommands = archiveExpectedGoSandboxedCommands({
+    toolingRoot: roots.toolingRoot,
+    goExecutable: expectedGoExecutable,
+    gofmtExecutable: expectedGofmtExecutable,
+    profile,
+  });
+  const commandMismatchIndex = Array.isArray(codegen.goSandboxedCommands)
+    ? codegen.goSandboxedCommands.findIndex(
+      (command, index) =>
+        ['executable', 'args', 'cwd', 'wrapper', 'profile'].some(
+          (field) => !isDeepStrictEqual(
+            command?.[field],
+            expectedCommands[index]?.[field],
+          ),
+        ),
+    )
+    : -1;
+  const commandMismatchField = commandMismatchIndex < 0
+    ? 'none'
+    : ['executable', 'args', 'cwd', 'wrapper', 'profile'].find(
+      (field) => !isDeepStrictEqual(
+        codegen.goSandboxedCommands[commandMismatchIndex]?.[field],
+        expectedCommands[commandMismatchIndex]?.[field],
+      ),
+    ) ?? 'shape';
+  if (
+    !Array.isArray(codegen.goSandboxedCommands) ||
+    codegen.goSandboxedCommands.length !== 16 ||
+    codegen.goSandboxedCommands.some((command) => {
+      try {
+        requireExactKeys(
+          command,
+          ['executable', 'args', 'cwd', 'wrapper', 'profile'],
+          'Archive Go sandboxed command',
+        );
+        return false;
+      } catch {
+        return true;
+      }
+    }) ||
+    commandMismatchIndex !== -1
+  ) {
+    fail(
+      'Archive sixteen-command Go/gofmt plan drifted at ' +
+        `record ${commandMismatchIndex} field ${commandMismatchField}`,
+    );
+  }
+  return Object.freeze({
+    boundary: 'verifier-owned-inner-sandbox/direct-local-children',
+    direct: true,
+    directLocalChildren: true,
+    goSandboxedCommandCount: 16,
+    kernelNetworkDeniedChildCount: 17,
+    profileSha256: sha256Bytes(Buffer.from(profile, 'utf8')),
+    schemaOrder: ARCHIVE_SCHEMA_NAMES,
+    telemetryChanged: diagnostics.changed,
+  });
+}
+
+function readArchiveCommandLog(runRoot, descriptor, label) {
+  if (
+    !descriptor ||
+    !Number.isSafeInteger(descriptor.bytes) ||
+    descriptor.bytes < 0 ||
+    descriptor.bytes > ARCHIVE_VERIFY_REPORT_MAX_BYTES ||
+    typeof descriptor.sha256 !== 'string' ||
+    !/^sha256:[0-9a-f]{64}$/u.test(descriptor.sha256) ||
+    typeof descriptor.truncated !== 'boolean'
+  ) {
+    fail(`Archive ${label} descriptor is invalid or unbounded`);
+  }
+  const absolute = resolveRunRelative(runRoot, descriptor.path);
+  const bytes = fs.readFileSync(absolute);
+  if (
+    bytes.length !== descriptor.bytes ||
+    sha256Bytes(bytes) !== descriptor.sha256
+  ) {
+    fail(`Archive ${label} differs from command evidence`);
+  }
+  return Object.freeze({
+    bytes,
+    text: decodeUtf8Strict(bytes, `Archive ${label}`),
+    truncated: descriptor.truncated,
+  });
+}
+
+export function validateArchiveVerifierResult({
+  result,
+  runRoot,
+  toolingRoot,
+  npmCache,
+  tools,
+  environment,
+  trackedAuthority,
+}) {
+  if (!trustedArchiveTrackedAuthorities.has(trackedAuthority)) {
+    fail('Archive verifier result is missing accepted tracked authority');
+  }
+  const plan = archiveVerifierCommandPlan({
+    toolingRoot,
+    currentNodePath: tools.node.path,
+  });
+  const roots = archiveVerifierRoots(toolingRoot);
+  const expectedEnvironment = archiveVerifierEnvironment({
+    npmCache,
+    runRoot,
+    schemaRoot: roots.schemaRoot,
+    tools,
+  });
+  if (
+    result?.id !== plan.id ||
+    result.executable !== plan.executable ||
+    result.cwd !== plan.cwd ||
+    result.status !== 0 ||
+    result.signal !== null ||
+    result.timedOut !== false ||
+    !isDeepStrictEqual(result.args, plan.args) ||
+    !isDeepStrictEqual(environment, expectedEnvironment)
+  ) {
+    fail('Archive verifier result does not bind the exact direct command/environment');
+  }
+  const stdout = readArchiveCommandLog(
+    runRoot,
+    result.stdout,
+    'verifier stdout',
+  );
+  const stderr = readArchiveCommandLog(
+    runRoot,
+    result.stderr,
+    'verifier stderr',
+  );
+  if (
+    stdout.truncated ||
+    stderr.truncated ||
+    stderr.bytes.length !== 0 ||
+    stderr.text !== ''
+  ) {
+    fail('Archive verifier output was truncated or emitted outer stderr');
+  }
+  if (
+    stdout.text.length < 2 ||
+    !stdout.text.endsWith('\n') ||
+    stdout.text.slice(0, -1).includes('\n') ||
+    stdout.text.includes('\r') ||
+    stdout.text.includes('\0')
+  ) {
+    fail('Archive verifier stdout is not one compact JSON report');
+  }
+  const encoded = stdout.text.slice(0, -1);
+  const report = parseJsonStrict(encoded, 'Archive verifier report');
+  if (JSON.stringify(report) !== encoded) {
+    fail('Archive verifier report is not exact compact JSON');
+  }
+  return validateArchiveVerifierReport({
+    report,
+    toolingRoot,
+    tools,
+    environment,
+  });
+}
+
 async function runArchiveContract({
   candidateRoot,
   cacheRoots,
@@ -2649,6 +3883,9 @@ async function runArchiveContract({
   runtimeRoots,
   toolAttestation,
 }) {
+  const trackedAuthority = admitArchiveTrackedAuthority({
+    candidateRoot,
+  });
   const relative = 'contracts/schemas/archive/tooling';
   const seededNpm = await seedPackageNpmCache({
     candidateRoot,
@@ -2695,25 +3932,104 @@ async function runArchiveContract({
     schemaRoot,
     tools,
   });
-  results.push(await networklessCommand({
-    id: 'contracts-archive-verify',
-    executable: tools.node.path,
-    args: [path.join(seededNpm.root, 'verify.mjs')],
-    cwd: seededNpm.root,
-    environment,
-    timeoutMs: 900_000,
-    budgets,
-    runRoot,
-    profile: runtimeReadOnlySandboxProfile(runtimePaths(runtimeRoots, [
-      ...CURRENT_NODE_RUNTIME_NAMES,
-      ...CURRENT_GO_RUNTIME_NAMES,
-    ])),
-  }));
-  await verifyRuntimeClosures(toolAttestation, [
-    ...CURRENT_NODE_RUNTIME_NAMES,
-    ...CURRENT_GO_RUNTIME_NAMES,
-  ]);
-  return results;
+  const trackedBefore = assertArchiveTrackedAuthorityFiles({
+    authority: trackedAuthority,
+    candidateRoot,
+  });
+  const dependencyBefore = await sealArchiveInstalledDependencyClosure({
+    toolingRoot: seededNpm.root,
+  });
+  await verifyRuntimeClosures(toolAttestation, ARCHIVE_RUNTIME_NAMES);
+  let execution;
+  let boundary;
+  let directError;
+  try {
+    execution = await executeArchiveVerifierDirect({
+      toolingRoot: seededNpm.root,
+      schemaRoot,
+      npmCache: seededNpm.cache,
+      tools,
+      budgets,
+      runRoot,
+    });
+    results.push(execution.result);
+    boundary = validateArchiveVerifierResult({
+      result: execution.result,
+      runRoot,
+      toolingRoot: seededNpm.root,
+      npmCache: seededNpm.cache,
+      tools,
+      environment: execution.environment,
+      trackedAuthority,
+    });
+  } catch (error) {
+    if (
+      execution?.result &&
+      error !== null &&
+      typeof error === 'object' &&
+      error.result === undefined
+    ) {
+      error.result = execution.result;
+    }
+    directError = error;
+  }
+  try {
+    const trackedAfter = assertArchiveTrackedAuthorityFiles({
+      authority: trackedAuthority,
+      candidateRoot,
+    });
+    assertArchiveTrackedAuthorityUnchanged(
+      trackedBefore,
+      trackedAfter,
+    );
+    const dependencyAfter = await sealArchiveInstalledDependencyClosure({
+      toolingRoot: seededNpm.root,
+    });
+    assertArchiveInstalledDependencyClosureUnchanged(
+      dependencyBefore,
+      dependencyAfter,
+    );
+    await verifyRuntimeClosures(toolAttestation, ARCHIVE_RUNTIME_NAMES);
+  } catch (authorityError) {
+    if (
+      directError !== undefined &&
+      directError !== null &&
+      typeof directError === 'object'
+    ) {
+      try {
+        Object.defineProperty(directError, 'archiveVerifierAuthority', {
+          configurable: true,
+          enumerable: true,
+          value: Object.freeze({
+            message: authorityError.message,
+            status: 'failed',
+          }),
+        });
+      } catch {
+        // Preserve the originating direct-command failure.
+      }
+      throw directError;
+    }
+    if (
+      execution?.result &&
+      authorityError !== null &&
+      typeof authorityError === 'object' &&
+      authorityError.result === undefined
+    ) {
+      authorityError.result = execution.result;
+    }
+    throw authorityError;
+  }
+  if (directError !== undefined) throw directError;
+  return Object.freeze({
+    boundary: Object.freeze({
+      ...boundary,
+      commandId: execution.result.id,
+      environmentKeys: Object.freeze(Object.keys(environment)),
+      reportSha256: execution.result.stdout.sha256,
+    }),
+    results: Object.freeze(results),
+  });
 }
 
 export async function runContractsOwnerGate({
@@ -2730,6 +4046,7 @@ export async function runContractsOwnerGate({
     type: 'directory',
   });
   const results = [];
+  let archiveBoundary;
   let gateResult;
   let primaryError;
   try {
@@ -2752,7 +4069,7 @@ export async function runContractsOwnerGate({
       trackedAuthority: queryTrackedAuthority,
       initialCodegenAuthority: initialQueryCodegenAuthority,
     }));
-    results.push(...await runArchiveContract({
+    const archiveContract = await runArchiveContract({
       candidateRoot: root,
       cacheRoots,
       tools,
@@ -2760,7 +4077,9 @@ export async function runContractsOwnerGate({
       runRoot,
       runtimeRoots,
       toolAttestation,
-    }));
+    });
+    results.push(...archiveContract.results);
+    archiveBoundary = archiveContract.boundary;
     for (const relative of CURRENT_NPM_PACKAGES.filter(
       (entry) => entry !== 'contracts/schemas/archive/tooling',
     )) {
@@ -2857,11 +4176,15 @@ export async function runContractsOwnerGate({
       runRoot,
       id: 'owner-contracts',
       results,
+      boundary: archiveBoundary,
       summary: `${results.length} fixed Contracts verifier/install commands passed`,
     });
     gateResult = Object.freeze({
       results: Object.freeze(results),
-      evidence: Object.freeze([declaration, ...allCommandEvidence(results)]),
+      evidence: Object.freeze([
+        declaration,
+        ...allCommandEvidence(results),
+      ]),
     });
   } catch (error) {
     primaryError = error;
