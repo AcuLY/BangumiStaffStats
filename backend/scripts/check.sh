@@ -366,6 +366,8 @@ internal/ranking/service.go
 internal/ranking/service_test.go
 internal/ranking/store.go
 internal/ranking/view.go
+internal/releaseinfo/releaseinfo.go
+internal/releaseinfo/releaseinfo_test.go
 internal/runtimecache/collection.go
 internal/runtimecache/collection_test.go
 internal/runtimecache/concurrency_test.go
