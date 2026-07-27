@@ -364,6 +364,15 @@ file sizes and digests, and safe internal symlink targets where the
 distribution requires them. It rejects hard links, special entries, escaping
 links, missing/new entries, and any pre/post difference. The owning gate runs
 under an outer sandbox that denies writes to each admitted runtime root.
+The closed `admission.tools` cell includes source attestation, all current-tool
+and browser new-inode copies, their complete projected seals, and candidate
+clone materialization. These byte-scale operations are deliberately kept
+inside one parent-supervised cell so no copy can occur before or outside the
+admission decision. Its reviewed timeout is 600,000 ms: finite and well below
+the two-hour suite watchdog, but large enough for a cold copy and full re-seal
+of every admitted distribution on the recorded machine profile. Neither
+runtime input nor observed duration can widen this value, and a timeout is a
+terminal failure rather than a retry signal.
 For a copied current-tool closure, source modes remain part of admission while
 the copied mode is the deterministic source mode with every write bit removed.
 Materialization withholds all copied execute bits until every directory and

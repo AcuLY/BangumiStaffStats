@@ -399,6 +399,30 @@ alone SHALL NOT identify either tool. macOS platform libraries below
 and SHALL NOT be described as copied tool bytes. No matrix cell may contact a
 public registry or other public origin.
 
+The closed `admission.tools` matrix cell SHALL use an exact 600,000 ms
+parent-supervised timeout. The bound SHALL include source closure attestation,
+new-inode read-only copies of the admitted current Node/Go/Python, Docker, and
+uv runtimes, the copied browser distribution, complete projected re-seals,
+and candidate-clone materialization. The acceptance input, environment, and
+observed runtime SHALL NOT override or extend this timeout. Work SHALL NOT
+continue outside the cell or be retried after the parent reports the timeout.
+
+#### Scenario: Cold tool closure admission completes within its reviewed bound
+
+- **WHEN** all admitted tool and browser distributions require cold
+  new-inode copy and complete projected sealing on the recorded machine
+  profile
+- **THEN** `admission.tools` SHALL have at most 600,000 ms to finish under the
+  parent supervisor and SHALL emit its required identities only after every
+  copy, seal, and candidate-clone check completes
+
+#### Scenario: Tool closure admission exceeds its reviewed bound
+
+- **WHEN** `admission.tools` has not completed after 600,000 ms
+- **THEN** the parent supervisor SHALL terminate the owned worker closure,
+  record `SUPERVISOR_CELL_TIMEOUT`, block all dependent cells, and SHALL NOT
+  retry or infer admission from partial copied state
+
 #### Scenario: A copied interpreter is discovered by another local process
 
 - **WHEN** a same-user process observes or executes a copied interpreter as

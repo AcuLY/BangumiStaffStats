@@ -165,6 +165,13 @@ None.
   roots, inventories, content seals, and write-denial boundaries. This
   includes both installed npm package roots and the admitted CPython
   distribution, not only their launcher files.
+- The `admission.tools` cell SHALL have one reviewed fixed 600,000 ms
+  parent-supervised timeout. That single bound covers source closure
+  attestation, new-inode read-only copies of the current Node/Go/Python,
+  Docker, and uv runtimes, the copied browser distribution, their complete
+  projected re-seals, and candidate-clone materialization. Runtime input SHALL
+  NOT widen the bound, split the work into unsupervised time, or retry after a
+  timeout.
 - One reviewed owner-fixed exception covers the authoritative Query golden's
   hard-coded Node 24.16/npm 11.13 paths and
   `/opt/homebrew/Cellar/go/1.25.4/libexec` GOROOT. The harness SHALL inventory

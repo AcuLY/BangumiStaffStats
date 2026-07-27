@@ -236,6 +236,14 @@ commit, push, sync, archive, or update task markers.
   private cache without making the proxy authority disappear, while a reused
   inode, nested proxy, missing/changed list, or wrong Go environment fails
   closed.
+- [ ] 3.13 Correct the `admission.tools` parent-supervised timeout exposed by
+  two formal cold-closure runs. Set the closed matrix and result-schema
+  authority to exactly 600,000 ms for this cell only; keep source attestation,
+  current-tool/browser new-inode copying, projected re-sealing, and candidate
+  clone materialization inside the same supervised cell; add an exact
+  matrix/schema synchronization assertion; and retain the two-hour suite
+  watchdog, fail/blocked state machine, no-runtime-override rule, and timeout
+  negative coverage unchanged.
 
 ## 4. Full Archive and packaged runtime
 
