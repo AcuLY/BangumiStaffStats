@@ -738,3 +738,21 @@ exact existing 32-file canonical path set and 15-case producer path set.
 - **WHEN** the corrected DDL is built twice from identical inputs
 - **THEN** schema/object/dataVersion/SQLite/manifest/pointer/vector/index and producer-case identities SHALL match across runs
 - **AND** no canonical or producer indexed path SHALL be added, removed, or reinterpreted
+
+### Requirement: Archive compatibility SHALL close over the production rule pair
+
+The sole supported Archive v1 compatibility tuple SHALL include
+`domainRulesVersion=domain-raw-v1` and
+`castRulesVersion=cast-exact-v1` in addition to its existing pointer,
+manifest, SQLite, application-id, and dataVersion-algorithm identity.
+Language-neutral minimal/vectors and all derived bytes SHALL use that same
+pair. An arbitrary syntactically valid token SHALL remain schema-valid input
+but SHALL be compatibility-unsupported.
+
+#### Scenario: Exact production pair is admitted
+- **WHEN** pointer, manifest, SQLite, algorithm, schema digest, and the exact rule pair match the tuple
+- **THEN** compatibility admission SHALL continue to dataVersion validation
+
+#### Scenario: One rule version differs
+- **WHEN** either rule token differs while all other fields remain valid
+- **THEN** admission SHALL return `ARCHIVE_VERSION_UNSUPPORTED` before dataVersion or SQLite inspection

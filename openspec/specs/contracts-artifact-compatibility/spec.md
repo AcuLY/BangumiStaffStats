@@ -269,3 +269,25 @@ containment gate.
   download progress before the semantic validator runs
 - **THEN** preparation SHALL complete in the isolated runner cache and the
   subsequent validator command SHALL remain stderr-free and fail-closed
+
+### Requirement: Component compatibility SHALL bind release and rule identity
+
+Every Backend, Updater, and Frontend component statement SHALL contain
+`applicationVersion=v0.1.0`. Its Archive compatibility object SHALL also bind
+the exact supported `domain-raw-v1` and `cast-exact-v1` pair plus the
+SHA-256 digest of the tracked compatibility matrix. Contracts SHALL validate
+these fields against root `VERSION` and that tracked matrix rather than
+trusting producer-supplied arbitrary strings.
+
+The final compatibility manifest SHALL carry the same application version and
+rule pair/matrix digest once, and SHALL reject a missing component, mixed
+version, mixed pair/digest, or a component statement whose artifact/SBOM
+metadata disagrees.
+
+#### Scenario: Three matching components assemble
+- **WHEN** all validated components bind the root version and exact Archive pair
+- **THEN** canonical assembly SHALL succeed identically regardless of input order
+
+#### Scenario: One component has a mixed identity
+- **WHEN** one application version or rule token differs
+- **THEN** assembly SHALL fail and emit no usable compatibility manifest

@@ -319,3 +319,19 @@ precedence remains unchanged.
 - **WHEN** the regenerated canonical fixture carries the corrected schema/object seals
 - **THEN** candidate validation SHALL pass all existing startup gates
 - **AND** the bound consumer SHALL expose no fallback to the superseded lower-bound definition
+
+### Requirement: Backend SHALL admit only the matrix rule pair
+
+Backend Archive admission SHALL compare manifest domain/cast rule versions with
+the exact tracked compatibility tuple together with the existing version,
+algorithm, application-id, and schema identities. This compatibility check
+SHALL occur after strict JSON/accounting validation and before dataVersion,
+path, digest, or SQLite work.
+
+#### Scenario: Rule pair matches
+- **WHEN** the manifest uses `domain-raw-v1` and `cast-exact-v1` with all other supported fields
+- **THEN** Backend SHALL continue through normal immutable Archive admission
+
+#### Scenario: Rule pair is unknown
+- **WHEN** either rule token is valid syntax but not the supported tuple
+- **THEN** Backend SHALL return `ARCHIVE_VERSION_UNSUPPORTED` without opening SQLite
