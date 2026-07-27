@@ -67,9 +67,9 @@ The relevant existing boundaries are:
 | Read-only protected inputs | Every repository path outside the exact owned paths, including all Backend/Updater/Frontend code and tests, artifact code, existing Contracts schemas/goldens/OpenAPI, root documents/config, `.impeccable/**`, root specs and sibling changes; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; accepted artifact/full-Archive inputs; external repositories, refs/remotes, registries, hosts, services, secrets, production paths/state, and public Internet. |
 | Deletion complement | None. Only one harness-created run directory below `contracts/acceptance/.tmp/**` may be removed by exact path after containment/type/ownership checks. |
 | Mutable refs | None. |
-| Consumes | Archived `produce-development-artifacts`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three accepted component roots and their compatibility manifest; one caller-supplied official full inactive Archive; fixed oracle; existing contract/golden/component/race/artifact commands; pinned current and historical-golden toolchains; caller-provisioned sealed caches; pinned browser runtime. |
+| Consumes | Archived `produce-development-artifacts` and `close-release-readiness-identities`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three accepted component roots and their compatibility manifest; one caller-supplied official full inactive Archive; fixed oracle; existing contract/golden/component/race/artifact commands; pinned current and historical-golden toolchains; caller-provisioned sealed caches; pinned browser runtime. |
 | Produces | Versioned acceptance input/result/budget/exception schemas, a closed matrix, local orchestrator, browser journeys, focused/negative tests, README, and ignored per-run evidence. Only a green complete matrix emits `development-accepted-operations-pending`. |
-| Dependencies | Sole exact direct dependency: `produce-development-artifacts`, completed and archived. Its transitive closure supplies all component capabilities. Apply additionally requires no active change besides this acceptance change, no dirty product candidate, and no dirty harness/control checkout. |
+| Dependencies | Exact direct dependencies: `produce-development-artifacts` and `close-release-readiness-identities`, both completed and archived. Their transitive closure supplies all component capabilities. Apply additionally requires no active change besides this acceptance change, no dirty product candidate, and no dirty harness/control checkout. |
 | Deliverables | Only `contracts/acceptance/**`: CLI and libraries, schemas, matrix, oracle-exception registry, browser scenarios, development budgets, tests, package manifest/lock, README, and narrow `.gitignore`. No run output is committed. |
 | Acceptance | Clean/immutable input attestation; existing contract/component/race/artifact gates; full-Archive temporary activation copy; immutable Updater artifact checks; packaged Backend API/UI E2E; fixed-oracle shadow/golden comparison; required browser matrix; bounded performance measurements; tamper/timeout/network/residue negatives; strict OpenSpec/exact-path/residue/diff checks. |
 | Non-goals | Product or existing-test fixes, dependency changes outside this owner, new product behavior, full-Archive acquisition, personal live-network E2E, signing/publication/release/deploy/activation, production benchmarks/resource sizing/SLO/readiness claims. |
@@ -833,9 +833,9 @@ acceptance mutate the repository.
 
 This is a development-only additive harness, so there is no runtime migration.
 
-1. Admit apply only after `produce-development-artifacts` is archived, no
-   sibling active change remains, and the main agent approves all four
-   strict-valid artifacts.
+1. Admit apply only after `produce-development-artifacts` and
+   `close-release-readiness-identities` are archived, no sibling active change
+   remains, and the main agent approves all four strict-valid artifacts.
 2. Implement and test only `contracts/acceptance/**`.
 3. Run focused negative tests with synthetic harness inputs.
 4. Main agent audits exact paths, dependency closure, result semantics,
@@ -856,6 +856,6 @@ state.
 ## Open Questions
 
 None that blocks apply. The concrete full inactive Archive and exact accepted
-artifact roots are runtime inputs selected by the main agent after the
-dependency is archived; their identities are evidence in the result, not
+artifact roots are runtime inputs selected by the main agent after both exact
+dependencies are archived; their identities are evidence in the result, not
 planning-time constants.

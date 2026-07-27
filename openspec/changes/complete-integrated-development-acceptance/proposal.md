@@ -111,7 +111,8 @@ None.
 
 ### Consumes
 
-- The completed and archived `produce-development-artifacts` capability,
+- The completed and archived `produce-development-artifacts` and
+  `close-release-readiness-identities` capabilities,
   including three accepted component artifact roots and their strict
   compatibility manifest from one clean product-candidate revision/tree and
   target platform.
@@ -189,12 +190,13 @@ None.
 
 ### Dependencies
 
-The sole exact direct dependency is `produce-development-artifacts`. It SHALL
-be completed and archived before apply. Its transitive closure supplies every
-earlier Backend, Updater, Frontend, and Contracts capability; no wave alias or
-additional direct edge is introduced. Apply is also blocked if any other
-active change besides this acceptance change, a dirty product-code candidate,
-or a dirty harness/control checkout exists at admission.
+The exact direct dependencies are `produce-development-artifacts` and
+`close-release-readiness-identities`. Both SHALL be completed and archived
+before apply. Their transitive closure supplies every earlier Backend, Updater,
+Frontend, and Contracts capability; no wave alias is introduced. Apply is also
+blocked if any other active change besides this acceptance change, a dirty
+product-code candidate, or a dirty harness/control checkout exists at
+admission.
 
 ### Deliverables
 
@@ -209,10 +211,12 @@ or a dirty harness/control checkout exists at admission.
 
 ### Acceptance
 
-- The exact dependency is archived in the harness/control revision; both
+- Both exact dependencies are archived in the harness/control revision; both
   repository identities are clean and attested; the harness/control revision
   differs from the accepted product candidate only in
-  `contracts/acceptance/**` and reviewed OpenSpec lifecycle paths; all three
+  `contracts/acceptance/**`, the exact active-to-dated-archive lifecycle paths
+  for those dependencies and this acceptance change, and the exact main specs
+  updated by those archives; all three
   component statements and the compatibility manifest bind the same accepted
   product-candidate revision/tree and target; the full Archive is immutable
   and compatible.
@@ -325,7 +329,7 @@ drills, and legacy removal.
 
 ### Stop/rollback conditions
 
-Stop before apply if the dependency is active/unaccepted, another active
+Stop before apply if either exact dependency is active/unaccepted, another active
 change exists, the candidate or protected input is dirty, the full Archive or
 artifact set is absent/incompatible/mutable, the main agent has not approved
 all four strict-valid artifacts, or implementation would need an undeclared

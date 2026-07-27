@@ -8,9 +8,9 @@
 | Read-only protected inputs | Every other repository path, including Backend/Updater/Frontend source/tests/build definitions, existing Contracts artifacts/schemas/goldens/OpenAPI, `.github/**`, root docs/config, `.impeccable/**`, root specs and sibling changes; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; accepted artifacts/full Archive; external repositories, refs/remotes, registries, hosts, services, secrets, production state, and public Internet. |
 | Deletion complement | None. The harness may remove only one exact run root that it created below `contracts/acceptance/.tmp/**` after containment/type/ownership checks. |
 | Mutable refs | None. |
-| Consumes | Archived `produce-development-artifacts`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three accepted component roots and compatibility manifest; caller-supplied official full inactive Archive; fixed oracle; existing gates; pinned current and historical-golden toolchains; caller-provisioned sealed caches; pinned browser. |
+| Consumes | Archived `produce-development-artifacts` and `close-release-readiness-identities`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three accepted component roots and compatibility manifest; caller-supplied official full inactive Archive; fixed oracle; existing gates; pinned current and historical Query-golden toolchains; caller-provisioned sealed caches; pinned browser. |
 | Produces | Tracked acceptance CLI/libraries, schemas, matrix, budgets, exception registry, browser scenarios, tests, README, package/lock, and `.gitignore`; ignored canonical per-run result/evidence only. |
-| Dependencies | Sole exact direct dependency `produce-development-artifacts`, completed and archived. Apply additionally requires no sibling active change and no dirty product candidate. |
+| Dependencies | Exact direct dependencies `produce-development-artifacts` and `close-release-readiness-identities`, both completed and archived. Apply additionally requires no sibling active change and no dirty product candidate. |
 | Deliverables | Only `contracts/acceptance/**`; no product change and no committed run output/cache/browser/Archive copy. |
 | Acceptance | Input attestation; existing contract/component/race/artifact gates; full-Archive temporary runtime; immutable Updater and packaged API/UI E2E; oracle/browser matrix; development performance; negatives/residue; strict OpenSpec/exact-path/diff checks. |
 | Non-goals | Product/test fixes or dependency changes outside owner, new behavior, Archive acquisition/production, live personal E2E, release/deploy/activation, production benchmark/resource/SLO/readiness claims. |
@@ -29,8 +29,9 @@ commit, push, sync, archive, or update task markers.
   index/worktree/untracked state, active
   OpenSpec list, current and historical Query-golden tool versions, sealed
   cache identities, and owned-path preimage; verify
-  `produce-development-artifacts` is completed/archived, this is the only
-  active change, all four artifacts are strict-valid and main-agent approved,
+  `produce-development-artifacts` and `close-release-readiness-identities` are
+  completed/archived, this is the only active change, all four artifacts are
+  strict-valid and main-agent approved,
   no protected product path or harness/control checkout is dirty, and
   `contracts/acceptance/**` has no conflicting owner. Record the distinct
   product-candidate identity named by the artifacts, the immutable cache
@@ -211,6 +212,12 @@ commit, push, sync, archive, or update task markers.
   Add focused tests for nested-sandbox regression, exact plan execution,
   forged/truncated/stderr reports, authority changes, wrong schema/order/count,
   profile/executable/cwd/argv/environment drift, and post-command re-seal.
+- [x] 3.11 Admit the release-readiness lifecycle delta only through the exact
+  product-side active prefix, harness-side dated archive prefix, and six
+  reviewed main-spec files for `close-release-readiness-identities`. Require
+  both exact dependency archive directories in the harness tree. Add focused
+  positives for the real lifecycle delta and negatives for a wrong archive
+  date, sibling change, extra main spec, or any product/runtime path.
 
 ## 4. Full Archive and packaged runtime
 
