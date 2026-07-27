@@ -1,0 +1,297 @@
+{
+  "directories": [
+    "bin",
+    "browser",
+    "lib",
+    "schemas",
+    "test"
+  ],
+  "files": [
+    {
+      "mode": "0644",
+      "path": ".gitignore"
+    },
+    {
+      "mode": "0644",
+      "path": "README.md"
+    },
+    {
+      "mode": "0755",
+      "path": "bin/acceptance.mjs"
+    },
+    {
+      "mode": "0755",
+      "path": "bin/go-bootstrap.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "browser/artifact.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "browser/browser.test.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "browser/compare.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "browser/index.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "browser/journey.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "browser/oracle.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "browser/probe.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "browser/runtime.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "browser/server.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "browser/session.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "browser/tar.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "budgets.json"
+    },
+    {
+      "mode": "0644",
+      "path": "inventory.json"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/abort-context.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/action-boundary.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/api-journey.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/archive.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/artifacts.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/cache-compatibility.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/cache-input.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/cache.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/canonical-json.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/cli.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/config.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/constants.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/contracts.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/evidence-validation.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/evidence.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/gates.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/git-attestation.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/inventory.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/measurements.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/orchestrator.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/output-digest.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/package-policy.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/paths.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/performance.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/process-closure-worker.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/provenance.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/relay.py"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/result.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/run-root.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/runner.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/runtime.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/seal.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/strict-json.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/supervisor-inputs.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/supervisor-runtime.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/supervisor.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "lib/tools.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "matrix.json"
+    },
+    {
+      "mode": "0644",
+      "path": "oracle-exceptions.json"
+    },
+    {
+      "mode": "0644",
+      "path": "package-lock.json"
+    },
+    {
+      "mode": "0644",
+      "path": "package.json"
+    },
+    {
+      "mode": "0644",
+      "path": "schemas/acceptance-input-v1.schema.json"
+    },
+    {
+      "mode": "0644",
+      "path": "schemas/budgets-v1.schema.json"
+    },
+    {
+      "mode": "0644",
+      "path": "schemas/matrix-v1.schema.json"
+    },
+    {
+      "mode": "0644",
+      "path": "schemas/oracle-exceptions-v1.schema.json"
+    },
+    {
+      "mode": "0644",
+      "path": "schemas/result-v1.schema.json"
+    },
+    {
+      "mode": "0644",
+      "path": "test/archive.test.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "test/cache-compatibility.test.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "test/core.test.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "test/inventory.test.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "test/provenance.test.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "test/schema.test.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "test/supervisor-worker.fixture.mjs"
+    },
+    {
+      "mode": "0644",
+      "path": "test/supervisor.test.mjs"
+    }
+  ],
+  "kind": "bangumi-staff-stats-development-acceptance-inventory-v1",
+  "schemaVersion": 1
+}

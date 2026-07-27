@@ -1,0 +1,307 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/development-acceptance-input-v1.json",
+  "title": "Development acceptance input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "product",
+    "harness",
+    "artifacts",
+    "archive",
+    "oracle",
+    "tools",
+    "caches",
+    "browser"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "product": {
+      "$ref": "#/$defs/checkout"
+    },
+    "harness": {
+      "$ref": "#/$defs/checkout"
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backendRoot",
+        "updaterRoot",
+        "frontendRoot",
+        "compatibilityManifest"
+      ],
+      "properties": {
+        "backendRoot": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "updaterRoot": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "frontendRoot": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "compatibilityManifest": {
+          "$ref": "#/$defs/absolutePath"
+        }
+      }
+    },
+    "archive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "versionRoot",
+        "dataVersion",
+        "provenanceRoot",
+        "provenanceManifest",
+        "provenanceDigest"
+      ],
+      "properties": {
+        "versionRoot": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "dataVersion": {
+          "type": "string",
+          "pattern": "^dv1-[0-9a-f]{64}$"
+        },
+        "provenanceRoot": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "provenanceManifest": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "provenanceDigest": {
+          "const": "sha256:03bc5f971baa71ce7a6bf3a9b8220dd686af5ef5810866c5d8272318c657e904"
+        }
+      }
+    },
+    "oracle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "tree",
+        "npmCache"
+      ],
+      "properties": {
+        "revision": {
+          "const": "644b7748674e553f863d0ffd61d029f86fdc0717"
+        },
+        "tree": {
+          "$ref": "#/$defs/objectId"
+        },
+        "npmCache": {
+          "$ref": "#/$defs/absolutePath"
+        }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "git",
+        "node",
+        "npm",
+        "go",
+        "uv",
+        "python",
+        "docker",
+        "tar",
+        "queryNode",
+        "queryNpm",
+        "queryGo",
+        "queryGofmt"
+      ],
+      "properties": {
+        "git": {
+          "$ref": "#/$defs/tool"
+        },
+        "node": {
+          "$ref": "#/$defs/tool"
+        },
+        "npm": {
+          "$ref": "#/$defs/tool"
+        },
+        "go": {
+          "$ref": "#/$defs/tool"
+        },
+        "uv": {
+          "$ref": "#/$defs/tool"
+        },
+        "python": {
+          "$ref": "#/$defs/tool"
+        },
+        "docker": {
+          "$ref": "#/$defs/dockerTool"
+        },
+        "tar": {
+          "$ref": "#/$defs/tool"
+        },
+        "queryNode": {
+          "$ref": "#/$defs/tool"
+        },
+        "queryNpm": {
+          "$ref": "#/$defs/tool"
+        },
+        "queryGo": {
+          "$ref": "#/$defs/tool"
+        },
+        "queryGofmt": {
+          "$ref": "#/$defs/tool"
+        }
+      }
+    },
+    "caches": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "npm",
+        "goModule",
+        "uv",
+        "browser",
+        "root",
+        "manifest",
+        "digest"
+      ],
+      "properties": {
+        "npm": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "goModule": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "uv": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "browser": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "root": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "manifest": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "browser": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "executablePath",
+        "executableDigest"
+      ],
+      "properties": {
+        "name": {
+          "const": "chromium"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "executablePath": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "executableDigest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "absolutePath": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 4096,
+      "pattern": "^/(?!/)(?!\\.{1,2}(?:/|$))(?!.*//)(?!.*\\/\\.{1,2}(?:/|$))(?!.*[\\\\\\u0000-\\u001F\\u007F])[^/]+(?:/[^/]+)*$"
+    },
+    "objectId": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "checkout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root",
+        "revision",
+        "tree"
+      ],
+      "properties": {
+        "root": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "revision": {
+          "$ref": "#/$defs/objectId"
+        },
+        "tree": {
+          "$ref": "#/$defs/objectId"
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "version",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "dockerTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "version",
+        "sha256",
+        "endpoint"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 9,
+          "maxLength": 4103,
+          "pattern": "^unix:///(?!/)(?!\\.{1,2}(?:/|$))(?!.*//)(?!.*\\/\\.{1,2}(?:/|$))(?!.*[\\\\\\u0000-\\u001F\\u007F])[^/]+(?:/[^/]+)*$"
+        }
+      }
+    }
+  }
+}
