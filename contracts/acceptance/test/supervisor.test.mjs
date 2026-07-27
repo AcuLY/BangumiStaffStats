@@ -448,7 +448,7 @@ test('parent supervisor kills a reparented late writer before result creation', 
     assert.equal(failure.reason.code, 'SUPERVISOR_CELL_TIMEOUT');
     assert.ok(failure.cleanup.observedProcessCount >= 2);
     assert.ok(failure.cleanup.terminatedDescendantCount >= 1);
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
     assert.equal(
       fs.existsSync(path.join(allocation.runRoot, 'late-descendant-marker')),
       false,

@@ -165,12 +165,14 @@ if (scenario === 'fake-partial') {
 }
 if (scenario === 'late-descendant') {
   const marker = path.join(runRoot, 'late-descendant-marker');
+  const markerDelayMs = timeoutMs + 2_000;
+  const exitDelayMs = markerDelayMs + 30_000;
   const writerSource = [
     "const fs=require('node:fs');",
     "process.chdir('/');",
     "process.on('SIGTERM',()=>{});",
-    `setTimeout(()=>fs.writeFileSync(${JSON.stringify(marker)},'late',{flag:'wx'}),1200);`,
-    'setTimeout(()=>process.exit(0),30000);',
+    `setTimeout(()=>fs.writeFileSync(${JSON.stringify(marker)},'late',{flag:'wx'}),${markerDelayMs});`,
+    `setTimeout(()=>process.exit(0),${exitDelayMs});`,
   ].join('');
   spawn(
     process.execPath,
