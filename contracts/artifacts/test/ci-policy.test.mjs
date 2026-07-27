@@ -13,6 +13,28 @@ import {
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const WORKFLOW_PATH = path.join(REPOSITORY_ROOT, '.github', 'workflows', 'ci.yml');
 const ARTIFACTS_ROOT = path.resolve(import.meta.dirname, '..');
+const API_GOLDEN_ROOT = path.join(
+  REPOSITORY_ROOT,
+  'contracts',
+  'goldens',
+  'api',
+);
+const API_GOLDEN_PACKAGES = Object.freeze([
+  'catalog',
+  'rankings',
+  'candidates',
+  'person-detail',
+  'partners',
+  'co-star',
+]);
+const API_GOLDEN_AJV_DECLARATIONS = Object.freeze({
+  ajv: '8.20.0',
+  'ajv-formats': '3.0.1',
+});
+const API_GOLDEN_AJV_IMPORTS = Object.freeze([
+  'ajv/dist/2020.js',
+  'ajv-formats',
+]);
 const TMP_ROOT = path.join(ARTIFACTS_ROOT, '.tmp');
 const RESIDUE_TEST_ROOT = path.join(TMP_ROOT, 'ci-residue-policy-test');
 const TOOLCHAIN_VALIDATOR =
@@ -63,6 +85,114 @@ function writeGenerated(relative, value) {
 function workflow() {
   return fs.readFileSync(WORKFLOW_PATH, 'utf8');
 }
+
+test('API golden packages own exact AJV declarations and bare imports', () => {
+  assert.deepEqual(API_GOLDEN_PACKAGES, [
+    'catalog',
+    'rankings',
+    'candidates',
+    'person-detail',
+    'partners',
+    'co-star',
+  ]);
+  const discoveredPackages = fs
+    .readdirSync(API_GOLDEN_ROOT, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+  assert.deepEqual(
+    discoveredPackages,
+    [...API_GOLDEN_PACKAGES].sort(),
+    'API golden package coverage must be exact',
+  );
+
+  for (const packageName of API_GOLDEN_PACKAGES) {
+    const packageRoot = path.join(API_GOLDEN_ROOT, packageName);
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8'),
+    );
+    const lock = JSON.parse(
+      fs.readFileSync(path.join(packageRoot, 'package-lock.json'), 'utf8'),
+    );
+    assert.equal(
+      lock.lockfileVersion,
+      3,
+      `${packageName} must use the exact lockfile format`,
+    );
+    for (const [label, declarations] of [
+      ['manifest', manifest.devDependencies],
+      ['lock root', lock.packages?.['']?.devDependencies],
+    ]) {
+      assert.deepEqual(
+        {
+          ajv: declarations?.ajv,
+          'ajv-formats': declarations?.['ajv-formats'],
+        },
+        API_GOLDEN_AJV_DECLARATIONS,
+        `${packageName} ${label} must declare exact package-local AJV versions`,
+      );
+    }
+    assert.deepEqual(
+      {
+        ajv: lock.packages?.['node_modules/ajv']?.version,
+        'ajv-formats':
+          lock.packages?.['node_modules/ajv-formats']?.version,
+      },
+      API_GOLDEN_AJV_DECLARATIONS,
+      `${packageName} lock must resolve the exact package-local AJV versions`,
+    );
+    for (const declarationGroup of [
+      'dependencies',
+      'optionalDependencies',
+      'peerDependencies',
+    ]) {
+      assert.equal(
+        manifest[declarationGroup]?.ajv,
+        undefined,
+        `${packageName} must declare ajv only as a development dependency`,
+      );
+      assert.equal(
+        manifest[declarationGroup]?.['ajv-formats'],
+        undefined,
+        `${packageName} must declare ajv-formats only as a development dependency`,
+      );
+    }
+
+    const source = fs.readFileSync(path.join(packageRoot, 'verify.mjs'), 'utf8');
+    const importedAjvSpecifiers = [
+      ...source.matchAll(
+        /^\s*import\s+.+?\s+from\s+["']((?:ajv|ajv-formats)(?:\/[^"']*)?)["'];\s*$/gm,
+      ),
+    ].map((match) => match[1]);
+    assert.deepEqual(
+      importedAjvSpecifiers,
+      API_GOLDEN_AJV_IMPORTS,
+      `${packageName} must use the exact package-local AJV bare imports`,
+    );
+    assert.equal(
+      source.split('import Ajv2020 from "ajv/dist/2020.js";').length - 1,
+      1,
+      `${packageName} must import Ajv2020 exactly once`,
+    );
+    assert.equal(
+      source.split('import addFormats from "ajv-formats";').length - 1,
+      1,
+      `${packageName} must import addFormats exactly once`,
+    );
+    for (const [pattern, label] of [
+      [/\bfrontend\b/i, 'Frontend dependency provider'],
+      [/\bpathToFileURL\b/, 'URL-built dependency import'],
+      [/\b[A-Z][A-Z0-9_]*_TOOL_ROOT\b/, 'tool-root environment escape hatch'],
+      [/\bNODE_PATH\b/, 'NODE_PATH dependency provider'],
+      [
+        /node_modules[\\/]+(?:ajv|ajv-formats)(?:[\\/]|["'`])/,
+        'constructed node_modules AJV provider',
+      ],
+    ]) {
+      assert.doesNotMatch(source, pattern, `${packageName}: ${label}`);
+    }
+  }
+});
 
 test('CI has exactly read-only repository permission', () => {
   const source = workflow();

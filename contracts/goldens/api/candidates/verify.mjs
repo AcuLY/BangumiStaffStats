@@ -2,19 +2,12 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import Ajv2020 from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
 
 const goldenRoot = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(goldenRoot, "../../../..");
-const toolRoot = process.env.CANDIDATES_TOOL_ROOT
-  ? path.resolve(process.env.CANDIDATES_TOOL_ROOT)
-  : path.join(repositoryRoot, "frontend");
-const { default: Ajv2020 } = await import(
-  pathToFileURL(path.join(toolRoot, "node_modules/ajv/dist/2020.js"))
-);
-const { default: addFormats } = await import(
-  pathToFileURL(path.join(toolRoot, "node_modules/ajv-formats/dist/index.js"))
-);
 
 const authorityPath = path.join(repositoryRoot, "contracts/openapi/openapi.yaml");
 const schemaRoot = path.join(repositoryRoot, "contracts/schemas");
