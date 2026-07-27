@@ -55,6 +55,11 @@ def test_whole_bundle_and_selected_cases_are_valid(contracts_root: Path) -> None
 
     assert report.indexed_files == 32
     assert dict(report.selected_outcomes) == _EXPECTED_OUTCOMES
+    assert report.domain_rules_version == "domain-raw-v1"
+    assert report.cast_rules_version == "cast-exact-v1"
+    assert report.compatibility_matrix_digest == (
+        "sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac"
+    )
     assert _tree_seal(contracts_root) == before
     assert not tuple(contracts_root.rglob("current.json"))
 
@@ -94,7 +99,40 @@ def test_precedence_stops_before_sqlite_bytes(
         return original(path)
 
     monkeypatch.setattr(archive_contract, "_read_bytes", reject_sqlite)
-    assert archive_contract._classify_bundle(golden_root, case_id, validators) == expected
+    matrix = archive_contract._load_matrix(schema_root)
+    assert (
+        archive_contract._classify_bundle(
+            golden_root,
+            case_id,
+            validators,
+            matrix,
+        )
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    ("domain_rules_version", "cast_rules_version"),
+    [
+        ("domain-v1", "cast-exact-v1"),
+        ("domain-raw-v1", "cast-fuzzy-v1"),
+    ],
+)
+def test_compatible_rejects_any_nonproduction_rule_pair(
+    contracts_root: Path,
+    domain_rules_version: str,
+    cast_rules_version: str,
+) -> None:
+    schema_root = contracts_root / "schemas" / "archive"
+    golden_root = contracts_root / "goldens" / "archive" / "valid" / "minimal"
+    matrix = archive_contract._load_matrix(schema_root)
+    pointer = archive_contract._strict_json(golden_root / "current-pointer.json")
+    manifest = archive_contract._strict_json(golden_root / "archive-manifest.json")
+    changed = dict(archive_contract._object(manifest, "manifest"))
+    changed["domainRulesVersion"] = domain_rules_version
+    changed["castRulesVersion"] = cast_rules_version
+
+    assert not archive_contract._compatible(pointer, changed, matrix)
 
 
 @pytest.mark.parametrize(

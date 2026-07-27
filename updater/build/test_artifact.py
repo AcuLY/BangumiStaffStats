@@ -57,6 +57,7 @@ class SourceAttestationTests(GeneratedDirectoryTestCase):
             encoding="utf-8",
         )
         fixture_files = {
+            "VERSION": f"{artifact.APPLICATION_VERSION}\n",
             "tracked.txt": "clean\n",
             "updater/README.md": "fixture updater\n",
             "updater/build/runtime_prune.py": "def prune() -> None:\n    return None\n",
@@ -917,6 +918,7 @@ sdist = {{ url = "https://example.invalid/dependency.tar.gz", hash = "sha256:{"a
             {"name": "dependency", "version": "1.2.3"},
         ]
         first = artifact.make_spdx(
+            application_version=artifact.APPLICATION_VERSION,
             artifacts=inventory,
             dependency_artifact_path=dependency_artifact,
             runtime_packages=packages,
@@ -926,6 +928,7 @@ sdist = {{ url = "https://example.invalid/dependency.tar.gz", hash = "sha256:{"a
             ),
         )
         second = artifact.make_spdx(
+            application_version=artifact.APPLICATION_VERSION,
             artifacts=list(reversed(inventory)),
             dependency_artifact_path=dependency_artifact,
             runtime_packages=list(reversed(packages)),
@@ -944,11 +947,23 @@ sdist = {{ url = "https://example.invalid/dependency.tar.gz", hash = "sha256:{"a
             if relationship["relationshipType"] == "DESCRIBES"
         ]
         self.assertEqual(len(describes), 4)
+        described_ids = {relationship["relatedSpdxElement"] for relationship in describes}
+        described_packages = [
+            package for package in first["packages"] if package["SPDXID"] in described_ids
+        ]
+        self.assertTrue(described_packages)
+        self.assertTrue(
+            all(
+                package["versionInfo"] == artifact.APPLICATION_VERSION
+                for package in described_packages
+            )
+        )
         artifact.verify_spdx_artifact_coverage(first, inventory)
 
     def test_spdx_rejects_missing_wheel_or_oci_description(self) -> None:
         inventory, dependency_artifact = self._make_artifacts()
         document = artifact.make_spdx(
+            application_version=artifact.APPLICATION_VERSION,
             artifacts=inventory,
             dependency_artifact_path=dependency_artifact,
             runtime_packages=[
@@ -984,6 +999,7 @@ sdist = {{ url = "https://example.invalid/dependency.tar.gz", hash = "sha256:{"a
     def test_spdx_omits_ambiguous_sdist_and_multi_wheel_checksum(self) -> None:
         inventory, dependency_artifact = self._make_artifacts()
         document = artifact.make_spdx(
+            application_version=artifact.APPLICATION_VERSION,
             artifacts=inventory,
             dependency_artifact_path=dependency_artifact,
             runtime_packages=[
@@ -1002,6 +1018,7 @@ sdist = {{ url = "https://example.invalid/dependency.tar.gz", hash = "sha256:{"a
         lock = self._make_lock(version="1.0.0")
         with self.assertRaisesRegex(artifact.BuildError, "disagrees with uv.lock"):
             artifact.make_spdx(
+                application_version=artifact.APPLICATION_VERSION,
                 artifacts=inventory,
                 dependency_artifact_path=dependency_artifact,
                 runtime_packages=[
@@ -1066,6 +1083,11 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
             artifact.producer_inputs.MANIFEST_EMBEDDED_PATH: (self.selected.manifest_bytes),
             artifact.producer_inputs.PRODUCER_METADATA_PATH: (self.producer_metadata),
         }
+        self.archive_compatibility = artifact._archive_compatibility(
+            self.producer_files[
+                artifact.ARCHIVE_COMPATIBILITY_MATRIX_PATH.removeprefix("producer/")
+            ]
+        )
         self.producer_directories = artifact.producer_inputs.expected_producer_directories(
             sorted(self.producer_files)
         )
@@ -1078,7 +1100,11 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
     def _bundle_metadata(self) -> bytes:
         return artifact.canonical_json(
             {
+                "applicationVersion": artifact.APPLICATION_VERSION,
                 "component": artifact.COMPONENT_ID,
+                "compatibility": {
+                    "archive": self.archive_compatibility,
+                },
                 "package": {
                     "name": artifact.PACKAGE_NAME,
                     "version": artifact.PACKAGE_VERSION,
@@ -1278,9 +1304,18 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
             artifact.producer_inputs.PRODUCER_INPUTS_LABEL: (self.selected.manifest_digest),
             artifact.producer_inputs.CATALOG_CONFIG_LABEL: self.catalog_digest,
             artifact.producer_inputs.COMMON_COMMIT_LABEL: self.selected.common_commit,
+            artifact.DOMAIN_RULES_LABEL: artifact.DOMAIN_RULES_VERSION,
+            artifact.CAST_RULES_LABEL: artifact.CAST_RULES_VERSION,
+            artifact.COMPATIBILITY_MATRIX_LABEL: self.archive_compatibility[
+                "compatibilityMatrixDigest"
+            ],
+            artifact.OCI_VERSION_LABEL: artifact.APPLICATION_VERSION,
+            artifact.OCI_REVISION_LABEL: "d" * 40,
         }
         if mutation == "label":
             labels[artifact.producer_inputs.CATALOG_CONFIG_LABEL] = f"sha256:{'b' * 64}"
+        if mutation == "release-label":
+            labels[artifact.DOMAIN_RULES_LABEL] = "domain-v1"
         if mutation == "extra-label":
             labels["org.bangumi-staff-stats.unexpected"] = "value"
         config = artifact.canonical_json(
@@ -1593,7 +1628,14 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
             producer_digest = f"sha256:{'b' * 64}"
         if metadata_mutation == "manifest-digest":
             manifest_digest = f"sha256:{'b' * 64}"
+        application_version = artifact.APPLICATION_VERSION
+        archive_compatibility = dict(self.archive_compatibility)
+        if metadata_mutation == "application-version":
+            application_version = "v9.9.9"
+        if metadata_mutation == "compatibility":
+            archive_compatibility["castRulesVersion"] = "cast-fuzzy-v1"
         metadata: dict[str, object] = {
+            "applicationVersion": application_version,
             "artifacts": {
                 "bundle": self._record(bundle, output),
                 "image": (
@@ -1605,6 +1647,9 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
             },
             "buildDefinitionSha256": "a" * 64,
             "component": artifact.COMPONENT_ID,
+            "compatibility": {
+                "archive": archive_compatibility,
+            },
             "inputs": {
                 "producerInputsSha256": producer_digest,
                 "producerRuntimeInputsManifestSha256": manifest_digest,
@@ -1640,6 +1685,7 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
         (output / "sbom.spdx.json").write_bytes(
             artifact.canonical_json(
                 artifact.make_spdx(
+                    application_version=artifact.APPLICATION_VERSION,
                     artifacts=inventory,
                     dependency_artifact_path=("artifacts/updater-runtime-0.1.0-linux-arm64.tar.gz"),
                     runtime_packages=self.runtime_packages,
@@ -1860,7 +1906,15 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
     def test_component_statement_must_bind_the_same_manifest(self) -> None:
         output = self._make_output(include_image=False)
         self._add_evidence(output)
-        (output / "component-statement.json").write_bytes(artifact.canonical_json({"inputs": []}))
+        (output / "component-statement.json").write_bytes(
+            artifact.canonical_json(
+                {
+                    "applicationVersion": artifact.APPLICATION_VERSION,
+                    "compatibility": {"archive": self.archive_compatibility},
+                    "inputs": [],
+                }
+            )
+        )
         with self.assertRaisesRegex(
             artifact.BuildError,
             "statement producer manifest input disagrees",
@@ -1876,6 +1930,7 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
             "extra-path",
             "label",
             "extra-label",
+            "release-label",
             "orphan",
             "compat-tag",
             "compat-config",
@@ -1924,7 +1979,12 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
         self.assertNotIn(removed, state)
 
     def test_outer_input_digests_are_fail_closed(self) -> None:
-        for mutation in ("producer-digest", "manifest-digest"):
+        for mutation in (
+            "producer-digest",
+            "manifest-digest",
+            "application-version",
+            "compatibility",
+        ):
             with self.subTest(mutation=mutation):
                 output = self._make_output(
                     metadata_mutation=mutation,
@@ -1958,6 +2018,7 @@ class ContractsStatementTests(GeneratedDirectoryTestCase):
         (stage / "sbom.spdx.json").write_bytes(
             artifact.canonical_json(
                 artifact.make_spdx(
+                    application_version=artifact.APPLICATION_VERSION,
                     artifacts=inventory,
                     dependency_artifact_path=("artifacts/updater-runtime-0.1.0-linux-arm64.tar.gz"),
                     runtime_packages=runtime_packages,
@@ -2079,11 +2140,25 @@ class DockerfileTests(unittest.TestCase):
             producer_contracts={"manifestSha256": f"sha256:{'a' * 64}"},
             producer_catalog={"catalogConfigDigest": f"sha256:{'b' * 64}"},
             common_commit="c" * 40,
+            application_version=artifact.APPLICATION_VERSION,
+            archive_compatibility={
+                "domainRulesVersion": artifact.DOMAIN_RULES_VERSION,
+                "castRulesVersion": artifact.CAST_RULES_VERSION,
+                "compatibilityMatrixDigest": f"sha256:{'f' * 64}",
+            },
         )
         self.assertEqual(command.count("--platform"), 1)
         self.assertEqual(command[command.index("--platform") + 1], "linux/arm64")
         self.assertIn("--provenance=false", command)
         self.assertIn("--sbom=false", command)
+        for expected in (
+            f"APPLICATION_VERSION={artifact.APPLICATION_VERSION}",
+            f"SOURCE_REVISION={identity.revision}",
+            f"DOMAIN_RULES_VERSION={artifact.DOMAIN_RULES_VERSION}",
+            f"CAST_RULES_VERSION={artifact.CAST_RULES_VERSION}",
+            f"COMPATIBILITY_MATRIX_DIGEST=sha256:{'f' * 64}",
+        ):
+            self.assertIn(expected, command)
         self.assertEqual(
             command[command.index("--output") + 1],
             (

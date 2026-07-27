@@ -12,9 +12,15 @@ import {
   requireGeneratedPath as requireSafeGeneratedPath,
 } from '../../contracts/artifacts/lib/generated-path.mjs';
 import {
+  APPLICATION_VERSION,
+  APPLICATION_VERSION_DIGEST,
+  ARCHIVE_CAST_RULES_VERSION,
+  ARCHIVE_COMPATIBILITY_MATRIX_DIGEST,
+  ARCHIVE_DOMAIN_RULES_VERSION,
   ARCHIVE_MANIFEST_SCHEMA_DIGEST,
   ARCHIVE_SCHEMA_SQL_DIGEST,
   OPENAPI_DIGEST,
+  assertTrackedReleaseAuthorities,
   sha256Bytes,
   sha256File,
   verifyComponentDirectory,
@@ -366,7 +372,7 @@ export function makeSpdx(artifact, runtimePackages) {
     {
       SPDXID: artifactId,
       name: artifact.path,
-      versionInfo: '1',
+      versionInfo: APPLICATION_VERSION,
       downloadLocation: 'NOASSERTION',
       filesAnalyzed: false,
       checksums: [
@@ -480,6 +486,7 @@ export function packageStaticArtifact({
   viteConfigPath = path.join(FRONTEND_ROOT, 'vite.config.ts'),
 }) {
   requireExactToolchain();
+  assertTrackedReleaseAuthorities();
   if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(sourceRevision)) {
     fail('source revision must be a lowercase Git object ID');
   }
@@ -516,6 +523,22 @@ export function packageStaticArtifact({
   writeImmutable(sbomPath, canonicalJson(sbom));
 
   requireDigest(
+    path.join(REPOSITORY_ROOT, 'VERSION'),
+    APPLICATION_VERSION_DIGEST,
+    'Application version',
+  );
+  requireDigest(
+    path.join(
+      REPOSITORY_ROOT,
+      'contracts',
+      'schemas',
+      'archive',
+      'compatibility-matrix.json',
+    ),
+    ARCHIVE_COMPATIBILITY_MATRIX_DIGEST,
+    'Archive compatibility matrix',
+  );
+  requireDigest(
     path.join(REPOSITORY_ROOT, 'contracts', 'openapi', 'openapi.yaml'),
     OPENAPI_DIGEST,
     'OpenAPI',
@@ -538,6 +561,7 @@ export function packageStaticArtifact({
   );
   const statement = {
     schemaVersion: 1,
+    applicationVersion: APPLICATION_VERSION,
     component: 'frontend',
     source: { revision: sourceRevision, tree: sourceTree },
     target: { os: targetOS, architecture: targetArchitecture },
@@ -548,6 +572,14 @@ export function packageStaticArtifact({
     ],
     baseImages: [],
     inputs: [
+      {
+        path: 'VERSION',
+        sha256: APPLICATION_VERSION_DIGEST,
+      },
+      {
+        path: 'contracts/schemas/archive/compatibility-matrix.json',
+        sha256: ARCHIVE_COMPATIBILITY_MATRIX_DIGEST,
+      },
       {
         path: 'frontend/package-lock.json',
         sha256: sha256File(packageLockPath),
@@ -560,13 +592,18 @@ export function packageStaticArtifact({
         path: 'contracts/openapi/openapi.yaml',
         sha256: OPENAPI_DIGEST,
       },
-    ].sort((left, right) => left.path.localeCompare(right.path, 'en')),
+    ].sort((left, right) =>
+      Buffer.compare(Buffer.from(left.path, 'ascii'), Buffer.from(right.path, 'ascii')),
+    ),
     compatibility: {
       archive: {
         manifestSchemaVersion: { minimum: 1, maximum: 1 },
         sqliteSchemaVersion: { minimum: 1, maximum: 1 },
         manifestSchemaDigest: ARCHIVE_MANIFEST_SCHEMA_DIGEST,
         schemaSqlDigest: ARCHIVE_SCHEMA_SQL_DIGEST,
+        domainRulesVersion: ARCHIVE_DOMAIN_RULES_VERSION,
+        castRulesVersion: ARCHIVE_CAST_RULES_VERSION,
+        compatibilityMatrixDigest: ARCHIVE_COMPATIBILITY_MATRIX_DIGEST,
       },
       openapiDigest: OPENAPI_DIGEST,
     },

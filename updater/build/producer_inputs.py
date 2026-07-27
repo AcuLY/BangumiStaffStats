@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any, Never, Protocol, cast
 
-EXPECTED_MANIFEST_DIGEST = "sha256:43dddf61ede4a10c347e06f3624a73ec53c13fd325bbd6ce8d85b0c3327ea49e"
+EXPECTED_MANIFEST_DIGEST = "sha256:56adbccc4c83432ae02d9bf985ea1b9281d2836e96e389e84dae97bd8cacac52"
 EXPECTED_FILE_COUNT = 42
 GIT_REGULAR_MODE = 0o100644
 MANIFEST_SOURCE_PATH = "contracts/artifacts/producer-runtime-inputs-v1.json"

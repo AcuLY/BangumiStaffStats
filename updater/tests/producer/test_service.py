@@ -276,6 +276,24 @@ def test_service_publishes_exactly_one_inactive_pair_then_returns_no_change(
     assert not tuple(tmp_path.glob(".bgmss-stage-*"))
 
 
+def test_request_has_no_rule_version_override_authority(
+    contracts_root: Path,
+    tmp_path: Path,
+) -> None:
+    request, _client = _arrange(contracts_root, tmp_path)
+    with pytest.raises(TypeError):
+        replace(request, domain_rules_version="domain-v1")  # type: ignore[call-arg]
+    with pytest.raises(TypeError):
+        ProduceRequest(
+            output_root=request.output_root,
+            contracts_root=request.contracts_root,
+            catalog_config=request.catalog_config,
+            common_commit=request.common_commit,
+            archive_smoke=request.archive_smoke,
+            domain_rules_version="domain-v1",  # type: ignore[call-arg]
+        )
+
+
 class _Observer(PhaseObserver):
     def __init__(self) -> None:
         self.started: list[str] = []

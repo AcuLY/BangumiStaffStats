@@ -21,6 +21,7 @@ from bangumi_staff_stats_updater import __version__
 from bangumi_staff_stats_updater.archive_contract import (
     ContractExpectationError,
     ContractInputError,
+    ContractReport,
     check_contracts,
 )
 from bangumi_staff_stats_updater.catalog.config import load_configuration
@@ -94,8 +95,6 @@ class ProduceRequest:
     common_commit: str
     archive_smoke: Path
     generated_at: str | None = None
-    domain_rules_version: str = "domain-raw-v1"
-    cast_rules_version: str = "cast-exact-v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,7 +172,7 @@ def _identity(
     acquired: AcquiredInputs,
     catalog_bytes: bytes,
     contracts_root: Path,
-    request: ProduceRequest,
+    contracts: ContractReport,
 ) -> BuildIdentity:
     return BuildIdentity(
         acquired.archive_release,
@@ -183,8 +182,8 @@ def _identity(
         1,
         1,
         _schema_digest(contracts_root),
-        request.domain_rules_version,
-        request.cast_rules_version,
+        contracts.domain_rules_version,
+        contracts.cast_rules_version,
         digest_bytes(catalog_bytes),
     )
 
@@ -344,17 +343,17 @@ def produce(
     """Run every fallible gate, then atomically publish one inactive version."""
     contracts_root = request.contracts_root
 
-    def preflight() -> tuple[bytes, Path]:
+    def preflight() -> tuple[bytes, Path, ContractReport]:
         try:
-            check_contracts(contracts_root)
+            contracts = check_contracts(contracts_root)
         except (ContractInputError, ContractExpectationError) as error:
             raise ProducerError("CONTRACT_INPUT_INVALID") from error
         catalog_bytes = _read_config(request.catalog_config, contracts_root)
         smoke = _regular_file(request.archive_smoke, "GO_SMOKE_INVALID", executable=True)
         verify_manifest_string_vectors(contracts_root)
-        return catalog_bytes, smoke
+        return catalog_bytes, smoke, contracts
 
-    catalog_bytes, smoke = _phase(
+    catalog_bytes, smoke, contracts = _phase(
         "preflight",
         preflight,
         observer=observer,
@@ -379,7 +378,7 @@ def produce(
         )
 
         def create_identity() -> tuple[BuildIdentity, str]:
-            identity = _identity(acquired, catalog_bytes, contracts_root, request)
+            identity = _identity(acquired, catalog_bytes, contracts_root, contracts)
             return identity, data_version(identity)
 
         identity, version = _phase(

@@ -619,7 +619,13 @@ def _inspect_runtime(
         for key, label_value in labels_value.items()
         if key.startswith("org.bangumi-staff-stats.")
     }
-    if set(labels) != artifact.PRODUCER_LABELS:
+    expected_product_labels = {
+        *artifact.PRODUCER_LABELS,
+        artifact.DOMAIN_RULES_LABEL,
+        artifact.CAST_RULES_LABEL,
+        artifact.COMPATIBILITY_MATRIX_LABEL,
+    }
+    if set(labels) != expected_product_labels:
         raise artifact.BuildError("runtime image producer label set is not exact")
     if (
         labels[artifact.PRODUCER_RUNTIME_INPUTS_LABEL] != expected_manifest_digest
@@ -631,6 +637,19 @@ def _inspect_runtime(
         or re.fullmatch(
             r"[0-9a-f]{40}",
             labels[artifact.PRODUCER_COMMON_COMMIT_LABEL],
+        )
+        is None
+        or labels[artifact.DOMAIN_RULES_LABEL] != artifact.DOMAIN_RULES_VERSION
+        or labels[artifact.CAST_RULES_LABEL] != artifact.CAST_RULES_VERSION
+        or re.fullmatch(
+            r"sha256:[0-9a-f]{64}",
+            labels[artifact.COMPATIBILITY_MATRIX_LABEL],
+        )
+        is None
+        or labels_value.get(artifact.OCI_VERSION_LABEL) != artifact.APPLICATION_VERSION
+        or re.fullmatch(
+            r"[0-9a-f]{40}(?:[0-9a-f]{24})?",
+            str(labels_value.get(artifact.OCI_REVISION_LABEL, "")),
         )
         is None
     ):

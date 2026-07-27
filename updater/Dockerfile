@@ -6,6 +6,11 @@ ARG SOURCE_DATE_EPOCH
 ARG PRODUCER_RUNTIME_INPUTS_MANIFEST_SHA256
 ARG PRODUCER_CATALOG_CONFIG_DIGEST
 ARG PRODUCER_COMMON_COMMIT
+ARG APPLICATION_VERSION
+ARG SOURCE_REVISION
+ARG DOMAIN_RULES_VERSION
+ARG CAST_RULES_VERSION
+ARG COMPATIBILITY_MATRIX_DIGEST
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
@@ -41,6 +46,16 @@ RUN test -n "${SOURCE_DATE_EPOCH}" \
     && case "${catalog_digest}" in *[!0-9a-f]*) exit 1;; esac \
     && test "${#PRODUCER_COMMON_COMMIT}" -eq 40 \
     && case "${PRODUCER_COMMON_COMMIT}" in *[!0-9a-f]*) exit 1;; esac \
+    && test "${APPLICATION_VERSION}" = "v0.1.0" \
+    && test "${#SOURCE_REVISION}" -eq 40 \
+    && case "${SOURCE_REVISION}" in *[!0-9a-f]*) exit 1;; esac \
+    && test "${DOMAIN_RULES_VERSION}" = "domain-raw-v1" \
+    && test "${CAST_RULES_VERSION}" = "cast-exact-v1" \
+    && test "${COMPATIBILITY_MATRIX_DIGEST#sha256:}" \
+       != "${COMPATIBILITY_MATRIX_DIGEST}" \
+    && compatibility_matrix="${COMPATIBILITY_MATRIX_DIGEST#sha256:}" \
+    && test "${#compatibility_matrix}" -eq 64 \
+    && case "${compatibility_matrix}" in *[!0-9a-f]*) exit 1;; esac \
     && test "$(python --version)" = "Python 3.14.6" \
     && test "$(uv --version | cut -d' ' -f2)" = "0.11.32" \
     && uv sync --frozen --python /usr/local/bin/python --no-install-project \
@@ -85,6 +100,11 @@ FROM python:3.14.6-slim-bookworm@sha256:86f975aca15cf04a40b399eebede9aea7c82eae0
 ARG PRODUCER_RUNTIME_INPUTS_MANIFEST_SHA256
 ARG PRODUCER_CATALOG_CONFIG_DIGEST
 ARG PRODUCER_COMMON_COMMIT
+ARG APPLICATION_VERSION
+ARG SOURCE_REVISION
+ARG DOMAIN_RULES_VERSION
+ARG CAST_RULES_VERSION
+ARG COMPATIBILITY_MATRIX_DIGEST
 
 ENV HOME=/nonexistent \
     LANG=C.UTF-8 \
@@ -100,7 +120,12 @@ COPY --from=builder --chown=65532:65532 /opt/bgmss/producer /opt/bgmss/producer
 
 LABEL org.bangumi-staff-stats.producer-runtime-inputs-manifest-sha256="${PRODUCER_RUNTIME_INPUTS_MANIFEST_SHA256}" \
       org.bangumi-staff-stats.catalog-config-digest="${PRODUCER_CATALOG_CONFIG_DIGEST}" \
-      org.bangumi-staff-stats.common-commit="${PRODUCER_COMMON_COMMIT}"
+      org.bangumi-staff-stats.common-commit="${PRODUCER_COMMON_COMMIT}" \
+      org.bangumi-staff-stats.domain-rules-version="${DOMAIN_RULES_VERSION}" \
+      org.bangumi-staff-stats.cast-rules-version="${CAST_RULES_VERSION}" \
+      org.bangumi-staff-stats.compatibility-matrix-digest="${COMPATIBILITY_MATRIX_DIGEST}" \
+      org.opencontainers.image.version="${APPLICATION_VERSION}" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}"
 
 RUN chmod 0555 /opt/bgmss /opt/bgmss/producer \
     && test "$(stat -c '%a:%u:%g' /opt/bgmss)" = "555:65532:65532" \

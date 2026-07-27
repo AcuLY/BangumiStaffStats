@@ -45,7 +45,16 @@ PYTHON_VERSION = "3.14.6"
 UV_VERSION = "0.11.32"
 PACKAGE_NAME = "bangumi-staff-stats-updater"
 PACKAGE_VERSION = "0.1.0"
+APPLICATION_VERSION = "v0.1.0"
 COMPONENT_ID = "updater"
+ARCHIVE_COMPATIBILITY_MATRIX_PATH = "producer/contracts/schemas/archive/compatibility-matrix.json"
+DOMAIN_RULES_VERSION = "domain-raw-v1"
+CAST_RULES_VERSION = "cast-exact-v1"
+OCI_VERSION_LABEL = "org.opencontainers.image.version"
+OCI_REVISION_LABEL = "org.opencontainers.image.revision"
+DOMAIN_RULES_LABEL = "org.bangumi-staff-stats.domain-rules-version"
+CAST_RULES_LABEL = "org.bangumi-staff-stats.cast-rules-version"
+COMPATIBILITY_MATRIX_LABEL = "org.bangumi-staff-stats.compatibility-matrix-digest"
 PYTHON_IMAGE = (
     "python:3.14.6-slim-bookworm@"
     "sha256:86f975aca15cf04a40b399eebede9aea7c82eae084d1f1a0a6ef6bcaae871a30"
@@ -157,6 +166,9 @@ class ProducerEvidence:
     image_path: str
     metadata_digest: str
     manifest_digest: str
+    application_version: str
+    archive_compatibility: dict[str, str]
+    source_revision: str
 
 
 @dataclass(frozen=True)
@@ -204,6 +216,94 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _application_version(source: bytes) -> str:
+    expected = f"{APPLICATION_VERSION}\n".encode()
+    if source != expected:
+        raise BuildError(
+            f"root VERSION must contain exactly {APPLICATION_VERSION!r} plus one newline"
+        )
+    return APPLICATION_VERSION
+
+
+def _archive_compatibility(source: bytes) -> dict[str, str]:
+    try:
+        matrix = producer_inputs.parse_json_bytes(
+            source,
+            "Archive compatibility matrix",
+            require_canonical=False,
+        )
+    except producer_inputs.ProducerInputsError as error:
+        raise BuildError(f"Archive compatibility matrix is invalid: {error}") from error
+    if not isinstance(matrix, dict) or set(matrix) != {
+        "canonicalSchema",
+        "matrixSchemaVersion",
+        "requiredIndexes",
+        "requiredTables",
+        "sentinels",
+        "supported",
+        "validationPrecedence",
+    }:
+        raise BuildError("Archive compatibility matrix has an unexpected field set")
+    supported = matrix.get("supported")
+    if not isinstance(supported, list) or len(supported) != 1:
+        raise BuildError("Archive compatibility matrix must have exactly one supported tuple")
+    supported_tuple = supported[0]
+    if not isinstance(supported_tuple, dict) or set(supported_tuple) != {
+        "castRulesVersion",
+        "dataVersionAlgorithm",
+        "domainRulesVersion",
+        "manifestSchemaVersion",
+        "pointerSchemaVersion",
+        "sqliteApplicationId",
+        "sqliteSchemaVersion",
+    }:
+        raise BuildError("Archive compatibility tuple has an unexpected field set")
+    if (
+        supported_tuple["domainRulesVersion"] != DOMAIN_RULES_VERSION
+        or supported_tuple["castRulesVersion"] != CAST_RULES_VERSION
+    ):
+        raise BuildError("Archive compatibility tuple is not the production rule pair")
+    return {
+        "castRulesVersion": CAST_RULES_VERSION,
+        "compatibilityMatrixDigest": f"sha256:{sha256_bytes(source)}",
+        "domainRulesVersion": DOMAIN_RULES_VERSION,
+    }
+
+
+def _compatibility_document(archive: Mapping[str, str]) -> dict[str, object]:
+    return {"archive": dict(archive)}
+
+
+def _archive_compatibility_record(value: object, label: str) -> dict[str, str]:
+    record = _closed_object(
+        value,
+        {
+            "castRulesVersion",
+            "compatibilityMatrixDigest",
+            "domainRulesVersion",
+        },
+        label,
+    )
+    if (
+        record["domainRulesVersion"] != DOMAIN_RULES_VERSION
+        or record["castRulesVersion"] != CAST_RULES_VERSION
+    ):
+        raise BuildError(f"{label} does not name the production rule pair")
+    _prefixed_digest(
+        record["compatibilityMatrixDigest"],
+        f"{label}.compatibilityMatrixDigest",
+    )
+    return cast(dict[str, str], record)
+
+
+def _compatibility_record(value: object, label: str) -> dict[str, str]:
+    compatibility = _closed_object(value, {"archive"}, label)
+    return _archive_compatibility_record(
+        compatibility["archive"],
+        f"{label}.archive",
+    )
 
 
 def _safe_relative(value: str) -> PurePosixPath:
@@ -882,6 +982,7 @@ def _copy_source_snapshot(
     except producer_inputs.ProducerInputsError as error:
         raise BuildError(f"producer input admission failed: {error}") from error
     fixed_paths = {
+        "VERSION": "VERSION",
         "updater/README.md": "README.md",
         "updater/build/runtime_prune.py": "build/runtime_prune.py",
         "updater/pyproject.toml": "pyproject.toml",
@@ -1462,12 +1563,15 @@ def _spdx_id(name: str, version: str) -> str:
 
 def make_spdx(
     *,
+    application_version: str,
     artifacts: Sequence[Mapping[str, Any]],
     dependency_artifact_path: str,
     runtime_packages: Sequence[Mapping[str, str]],
     lock_path: Path,
     namespace_digest: str | None = None,
 ) -> dict[str, Any]:
+    if application_version != APPLICATION_VERSION:
+        raise BuildError("SPDX application version disagrees with root VERSION")
     lock_packages = _runtime_lock_packages(lock_path)
     normalized_artifacts: list[dict[str, str]] = []
     for index, item in enumerate(artifacts):
@@ -1509,7 +1613,7 @@ def make_spdx(
                 "licenseDeclared": "NOASSERTION",
                 "name": item["path"],
                 "primaryPackagePurpose": "APPLICATION",
-                "versionInfo": PACKAGE_VERSION,
+                "versionInfo": application_version,
             }
         )
         relationships.append(
@@ -1575,7 +1679,7 @@ def make_spdx(
         "documentNamespace": (
             f"https://spdx.bangumi-staff-stats.invalid/updater/sha256-{namespace_value}"
         ),
-        "name": f"{PACKAGE_NAME}-{PACKAGE_VERSION}-{namespace_value[:16]}",
+        "name": f"{PACKAGE_NAME}-{application_version}-{namespace_value[:16]}",
         "packages": packages,
         "relationships": relationships,
         "spdxVersion": "SPDX-2.3",
@@ -1837,6 +1941,8 @@ def _build_wheel_and_bundle(
     target: Target,
     identity: SourceIdentity,
     selected_producer: producer_inputs.SelectedProducerInputs,
+    application_version: str,
+    archive_compatibility: Mapping[str, str],
 ) -> tuple[Path, Path, list[dict[str, str]], bytes]:
     environment = _uv_environment(work_root, python, identity.epoch)
     _run(
@@ -2005,7 +2111,9 @@ def _build_wheel_and_bundle(
         bundle_root / "bundle-metadata.json",
         canonical_json(
             {
+                "applicationVersion": application_version,
                 "component": COMPONENT_ID,
+                "compatibility": _compatibility_document(archive_compatibility),
                 "package": {"name": PACKAGE_NAME, "version": PACKAGE_VERSION},
                 "producerInputs": {
                     "path": (
@@ -2056,6 +2164,8 @@ def _docker_export_command(
     producer_contracts: Mapping[str, Any],
     producer_catalog: Mapping[str, Any],
     common_commit: object,
+    application_version: str,
+    archive_compatibility: Mapping[str, str],
 ) -> list[str]:
     return [
         str(docker),
@@ -2078,6 +2188,16 @@ def _docker_export_command(
         f"PRODUCER_CATALOG_CONFIG_DIGEST={producer_catalog['catalogConfigDigest']}",
         "--build-arg",
         f"PRODUCER_COMMON_COMMIT={common_commit}",
+        "--build-arg",
+        f"APPLICATION_VERSION={application_version}",
+        "--build-arg",
+        f"SOURCE_REVISION={identity.revision}",
+        "--build-arg",
+        f"DOMAIN_RULES_VERSION={archive_compatibility['domainRulesVersion']}",
+        "--build-arg",
+        f"CAST_RULES_VERSION={archive_compatibility['castRulesVersion']}",
+        "--build-arg",
+        (f"COMPATIBILITY_MATRIX_DIGEST={archive_compatibility['compatibilityMatrixDigest']}"),
         "--output",
         (
             f"type=docker,dest={raw_archive},tar=true,oci-mediatypes=true,"
@@ -2097,6 +2217,8 @@ def _build_oci(
     docker: Path,
     builder: str,
     producer_metadata: bytes,
+    application_version: str,
+    archive_compatibility: Mapping[str, str],
 ) -> tuple[Path, dict[str, Any]]:
     try:
         producer_document = producer_inputs.parse_producer_metadata(producer_metadata)
@@ -2126,6 +2248,8 @@ def _build_oci(
             producer_contracts=producer_contracts,
             producer_catalog=producer_catalog,
             common_commit=producer_document["commonCommit"],
+            application_version=application_version,
+            archive_compatibility=archive_compatibility,
         ),
         cwd=REPOSITORY_ROOT,
     )
@@ -2229,9 +2353,11 @@ def _producer_evidence(
     metadata = _closed_object(
         _canonical_json_document(metadata_bytes, "Updater build metadata"),
         {
+            "applicationVersion",
             "artifacts",
             "buildDefinitionSha256",
             "component",
+            "compatibility",
             "inputs",
             "producerInputs",
             "runtimePackages",
@@ -2248,6 +2374,27 @@ def _producer_evidence(
         or metadata["component"] != COMPONENT_ID
     ):
         raise BuildError("Updater build metadata is not the fixed v2 component format")
+    application_version = metadata["applicationVersion"]
+    if application_version != APPLICATION_VERSION:
+        raise BuildError("Updater build metadata applicationVersion disagrees with root VERSION")
+    archive_compatibility = _compatibility_record(
+        metadata["compatibility"],
+        "Updater build metadata compatibility",
+    )
+    source = _closed_object(
+        metadata["source"],
+        {"revision", "tree"},
+        "Updater build metadata source",
+    )
+    source_revision = source["revision"]
+    source_tree = source["tree"]
+    if (
+        not isinstance(source_revision, str)
+        or GIT_OBJECT_RE.fullmatch(source_revision) is None
+        or not isinstance(source_tree, str)
+        or GIT_OBJECT_RE.fullmatch(source_tree) is None
+    ):
+        raise BuildError("Updater build metadata source identity is invalid")
     inputs = _closed_object(
         metadata["inputs"],
         {
@@ -2295,6 +2442,9 @@ def _producer_evidence(
         image_path=image_path,
         metadata_digest=metadata_digest,
         manifest_digest=manifest_digest,
+        application_version=application_version,
+        archive_compatibility=archive_compatibility,
+        source_revision=source_revision,
     )
 
 
@@ -2390,7 +2540,9 @@ def _verify_native_producer(
     bundle_metadata = _closed_object(
         _canonical_json_document(bundle_metadata_bytes, "native runtime bundle metadata"),
         {
+            "applicationVersion",
             "component",
+            "compatibility",
             "package",
             "producerInputs",
             "python",
@@ -2405,6 +2557,14 @@ def _verify_native_producer(
         or bundle_metadata["schemaVersion"] != "bgmss-updater-runtime-bundle-v2"
     ):
         raise BuildError("native runtime bundle metadata is not the fixed v2 format")
+    if bundle_metadata["applicationVersion"] != evidence.application_version:
+        raise BuildError("native runtime bundle applicationVersion disagrees with outer metadata")
+    bundle_archive_compatibility = _compatibility_record(
+        bundle_metadata["compatibility"],
+        "native runtime bundle metadata compatibility",
+    )
+    if bundle_archive_compatibility != evidence.archive_compatibility:
+        raise BuildError("native runtime bundle compatibility disagrees with outer metadata")
     declared_producer = _closed_object(
         bundle_metadata["producerInputs"],
         {"path", "sha256"},
@@ -2421,6 +2581,12 @@ def _verify_native_producer(
         raise BuildError(f"native producer tree is invalid: {error}") from error
     if producer_directories != set(verified.directories):
         raise BuildError("native producer directory inventory is not exact")
+    try:
+        matrix_bytes = producer_files[ARCHIVE_COMPATIBILITY_MATRIX_PATH.removeprefix("producer/")]
+    except KeyError as error:
+        raise BuildError("native producer tree has no Archive compatibility matrix") from error
+    if _archive_compatibility(matrix_bytes) != evidence.archive_compatibility:
+        raise BuildError("native producer matrix disagrees with outer compatibility identity")
     if (
         verified.metadata_digest != evidence.metadata_digest
         or verified.manifest_digest != evidence.manifest_digest
@@ -2865,7 +3031,14 @@ def _verify_oci_producer(
         producer_inputs.PRODUCER_INPUTS_LABEL: evidence.manifest_digest,
         producer_inputs.CATALOG_CONFIG_LABEL: "",
         producer_inputs.COMMON_COMMIT_LABEL: "",
+        DOMAIN_RULES_LABEL: evidence.archive_compatibility["domainRulesVersion"],
+        CAST_RULES_LABEL: evidence.archive_compatibility["castRulesVersion"],
+        COMPATIBILITY_MATRIX_LABEL: evidence.archive_compatibility["compatibilityMatrixDigest"],
     }
+    if labels.get(OCI_VERSION_LABEL) != evidence.application_version:
+        raise BuildError("OCI application version label disagrees with outer metadata")
+    if labels.get(OCI_REVISION_LABEL) != evidence.source_revision:
+        raise BuildError("OCI source revision label disagrees with outer metadata")
     producer_target = producer_inputs.OCI_PRODUCER_ROOT.removeprefix("/")
     producer_parent = PurePosixPath(producer_target).parent.as_posix()
     state: dict[str, tuple[str, int, int, int, bytes | None]] = {}
@@ -2908,6 +3081,12 @@ def _verify_oci_producer(
         raise BuildError(f"OCI producer tree is invalid: {error}") from error
     if producer_directories != set(verified.directories):
         raise BuildError("OCI producer directory inventory is not exact")
+    try:
+        matrix_bytes = producer_files[ARCHIVE_COMPATIBILITY_MATRIX_PATH.removeprefix("producer/")]
+    except KeyError as error:
+        raise BuildError("OCI producer tree has no Archive compatibility matrix") from error
+    if _archive_compatibility(matrix_bytes) != evidence.archive_compatibility:
+        raise BuildError("OCI producer matrix disagrees with outer compatibility identity")
     expected_labels[producer_inputs.CATALOG_CONFIG_LABEL] = verified.catalog_config_digest
     expected_labels[producer_inputs.COMMON_COMMIT_LABEL] = verified.common_commit
     product_labels = {
@@ -3021,12 +3200,33 @@ def verify_output(output: Path, *, require_statement: bool) -> None:
     if canonical_json(sbom) != (output / "sbom.spdx.json").read_bytes():
         raise BuildError("SPDX JSON is not canonical")
     verify_spdx_artifact_coverage(sbom, inventory)
+    if producer_evidence is not None:
+        artifact_packages = [
+            package
+            for package in cast(list[object], sbom.get("packages"))
+            if isinstance(package, dict) and package.get("primaryPackagePurpose") == "APPLICATION"
+        ]
+        if not artifact_packages or any(
+            package.get("versionInfo") != producer_evidence.application_version
+            for package in artifact_packages
+        ):
+            raise BuildError("SPDX artifact package versions disagree with root VERSION")
     if require_statement:
         statement = _canonical_json_document(
             (output / "component-statement.json").read_bytes(),
             "component statement",
         )
         if producer_evidence is not None:
+            if statement.get("applicationVersion") != producer_evidence.application_version:
+                raise BuildError(
+                    "component statement applicationVersion disagrees with build metadata"
+                )
+            statement_compatibility = _compatibility_record(
+                statement.get("compatibility"),
+                "component statement compatibility",
+            )
+            if statement_compatibility != producer_evidence.archive_compatibility:
+                raise BuildError("component statement compatibility disagrees with build metadata")
             inputs = statement.get("inputs")
             if not isinstance(inputs, list):
                 raise BuildError("component statement has no input inventory")
@@ -3188,6 +3388,10 @@ def build_component(
         verified_builder = _verify_docker_toolchain(docker, builder=builder)
     snapshot = work_root / "source"
     selected_producer = _copy_source_snapshot(snapshot, attestation)
+    application_version = _application_version((snapshot / "VERSION").read_bytes())
+    archive_compatibility = _archive_compatibility(
+        snapshot.joinpath(*PurePosixPath(ARCHIVE_COMPATIBILITY_MATRIX_PATH).parts).read_bytes()
+    )
     input_digest = tree_digest(snapshot)
     stage = work_root / "output"
     artifacts = stage / "artifacts"
@@ -3201,6 +3405,8 @@ def build_component(
         target=target,
         identity=identity,
         selected_producer=selected_producer,
+        application_version=application_version,
+        archive_compatibility=archive_compatibility,
     )
     producer_metadata_digest = producer_inputs.sha256_bytes(producer_metadata)
     image_path: Path | None = None
@@ -3223,9 +3429,12 @@ def build_component(
             docker=docker,
             builder=verified_builder,
             producer_metadata=producer_metadata,
+            application_version=application_version,
+            archive_compatibility=archive_compatibility,
         )
     artifact_package_count = len(_iter_regular_files(artifacts)) + 1
     metadata: dict[str, Any] = {
+        "applicationVersion": application_version,
         "artifacts": {
             "bundle": {
                 "path": f"artifacts/{bundle.name}",
@@ -3251,6 +3460,7 @@ def build_component(
         },
         "buildDefinitionSha256": _build_definition_digest(),
         "component": COMPONENT_ID,
+        "compatibility": _compatibility_document(archive_compatibility),
         "inputs": {
             "producerInputsSha256": producer_metadata_digest,
             "producerRuntimeInputsManifestSha256": selected_producer.manifest_digest,
@@ -3288,6 +3498,7 @@ def build_component(
         stage / "sbom.spdx.json",
         canonical_json(
             make_spdx(
+                application_version=application_version,
                 artifacts=inventory,
                 dependency_artifact_path=f"artifacts/{bundle.name}",
                 runtime_packages=runtime_packages,
@@ -3366,6 +3577,11 @@ def verify_dockerfile(path: Path = UPDATER_ROOT / "Dockerfile") -> None:
         "PRODUCER_RUNTIME_INPUTS_MANIFEST_SHA256",
         "PRODUCER_CATALOG_CONFIG_DIGEST",
         "PRODUCER_COMMON_COMMIT",
+        "APPLICATION_VERSION",
+        "SOURCE_REVISION",
+        "DOMAIN_RULES_VERSION",
+        "CAST_RULES_VERSION",
+        "COMPATIBILITY_MATRIX_DIGEST",
     )
     for argument in producer_arguments:
         if value.count(f"ARG {argument}") != 2:
@@ -3392,6 +3608,15 @@ def verify_dockerfile(path: Path = UPDATER_ROOT / "Dockerfile") -> None:
     for label in producer_inputs.PRODUCER_LABELS:
         if value.count(label) != 1:
             raise BuildError(f"Dockerfile must set exact producer label {label}")
+    for label in (
+        DOMAIN_RULES_LABEL,
+        CAST_RULES_LABEL,
+        COMPATIBILITY_MATRIX_LABEL,
+        OCI_VERSION_LABEL,
+        OCI_REVISION_LABEL,
+    ):
+        if value.count(label) != 1:
+            raise BuildError(f"Dockerfile must set exact release identity label {label}")
     forbidden = (
         "current.json",
         "update_activated",

@@ -94,6 +94,9 @@ class ContractReport:
 
     indexed_files: int
     selected_outcomes: tuple[tuple[str, str], ...]
+    domain_rules_version: str
+    cast_rules_version: str
+    compatibility_matrix_digest: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +115,9 @@ class _Matrix:
     schema_object_algorithm: str
     schema_object_digest: str
     schema_object_count: int
+    domain_rules_version: str
+    cast_rules_version: str
+    digest: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -353,6 +359,8 @@ def _load_matrix(schema_root: Path) -> _Matrix:
         "sqliteSchemaVersion",
         "sqliteApplicationId",
         "dataVersionAlgorithm",
+        "domainRulesVersion",
+        "castRulesVersion",
     }:
         _fail_input("compatibility matrix tuple shape is invalid")
     if (
@@ -363,6 +371,9 @@ def _load_matrix(schema_root: Path) -> _Matrix:
         != 1_111_969_107
         or _string(supported_tuple.get("dataVersionAlgorithm"), "dataVersion algorithm")
         != _ALGORITHM
+        or _string(supported_tuple.get("domainRulesVersion"), "domain rules version")
+        != "domain-raw-v1"
+        or _string(supported_tuple.get("castRulesVersion"), "cast rules version") != "cast-exact-v1"
     ):
         _fail_input("compatibility matrix tuple is unsupported")
 
@@ -439,6 +450,9 @@ def _load_matrix(schema_root: Path) -> _Matrix:
         schema_object_algorithm=schema_object_algorithm,
         schema_object_digest=schema_object_digest,
         schema_object_count=schema_object_count,
+        domain_rules_version=cast(str, supported_tuple["domainRulesVersion"]),
+        cast_rules_version=cast(str, supported_tuple["castRulesVersion"]),
+        digest=_digest_file(_regular_file(schema_root, "compatibility-matrix.json")),
     )
 
 
@@ -607,7 +621,7 @@ def _data_version(values: Mapping[str, object]) -> str:
     return f"dv1-{hashlib.sha256(_canonical_preimage(values)).hexdigest()}"
 
 
-def _compatible(pointer: object, manifest: object) -> bool:
+def _compatible(pointer: object, manifest: object, matrix: _Matrix) -> bool:
     pointer_object = _object(pointer, "pointer")
     manifest_object = _object(manifest, "manifest")
     return (
@@ -615,6 +629,8 @@ def _compatible(pointer: object, manifest: object) -> bool:
         and manifest_object.get("manifestSchemaVersion") == 1
         and manifest_object.get("sqliteSchemaVersion") == 1
         and manifest_object.get("dataVersionAlgorithm") == _ALGORITHM
+        and manifest_object.get("domainRulesVersion") == matrix.domain_rules_version
+        and manifest_object.get("castRulesVersion") == matrix.cast_rules_version
     )
 
 
@@ -638,6 +654,7 @@ def _classify_bundle(
     golden_root: Path,
     case_id: str,
     validators: _Validators,
+    matrix: _Matrix,
 ) -> str:
     bundle = _bundle_directory(golden_root, case_id)
     manifest_path = _regular_file(bundle, "archive-manifest.json")
@@ -659,7 +676,7 @@ def _classify_bundle(
 
     if accounting := _manifest_accounting(manifest):
         return accounting
-    if not _compatible(pointer, manifest):
+    if not _compatible(pointer, manifest, matrix):
         return "ARCHIVE_VERSION_UNSUPPORTED"
 
     manifest_object = _object(manifest, "manifest")
@@ -794,7 +811,7 @@ def check_contracts(contracts_root: Path) -> ContractReport:
             "sqlite-unsupported-schema",
             "manifest-data-version-mismatch",
         }:
-            actual = _classify_bundle(golden_root, case_id, validators)
+            actual = _classify_bundle(golden_root, case_id, validators, matrix)
         else:
             actual = _classify_json(
                 _regular_file(golden_root, case_entries[0].path),
@@ -809,4 +826,10 @@ def check_contracts(contracts_root: Path) -> ContractReport:
     )
     if _object(minimal_manifest, "minimal manifest").get("schemaSqlDigest") != ddl_digest:
         _fail_input("schema.sql digest disagrees with the minimal manifest")
-    return ContractReport(indexed_files=len(entries), selected_outcomes=tuple(outcomes))
+    return ContractReport(
+        indexed_files=len(entries),
+        selected_outcomes=tuple(outcomes),
+        domain_rules_version=matrix.domain_rules_version,
+        cast_rules_version=matrix.cast_rules_version,
+        compatibility_matrix_digest=matrix.digest,
+    )

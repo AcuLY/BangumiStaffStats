@@ -17,7 +17,13 @@ import {
   removeUnderTmp,
   requireUnderTmp,
 } from './artifact.mjs';
-import { verifyComponentDirectory } from '../../contracts/artifacts/lib/validation.mjs';
+import {
+  APPLICATION_VERSION,
+  ARCHIVE_CAST_RULES_VERSION,
+  ARCHIVE_COMPATIBILITY_MATRIX_DIGEST,
+  ARCHIVE_DOMAIN_RULES_VERSION,
+  verifyComponentDirectory,
+} from '../../contracts/artifacts/lib/validation.mjs';
 import { attestFrontendCandidate } from './check.mjs';
 import { captureTrackedRegularFilesAtRevision } from '../../contracts/artifacts/lib/git-checkout.mjs';
 
@@ -136,6 +142,7 @@ test('artifact smoke script consumes one explicit published root without rebuild
 test('two package runs emit byte-identical Contracts-valid component directories', () => {
   reset();
   const dist = fixtureDist('dist');
+  const expectedStaticPayload = normalizedTarBytes(dist);
   const first = packageStaticArtifact({
     distRoot: dist,
     outputRoot: path.join(TEST_ROOT, 'first'),
@@ -149,7 +156,35 @@ test('two package runs emit byte-identical Contracts-valid component directories
     sourceTree: TREE,
   });
   compareComponentDirectories(first, second);
-  assert.equal(verifyComponentDirectory(first, 'frontend').statement.component, 'frontend');
+  const verified = verifyComponentDirectory(first, 'frontend');
+  assert.equal(verified.statement.component, 'frontend');
+  assert.equal(verified.statement.applicationVersion, APPLICATION_VERSION);
+  assert.equal(
+    verified.statement.compatibility.archive.domainRulesVersion,
+    ARCHIVE_DOMAIN_RULES_VERSION,
+  );
+  assert.equal(
+    verified.statement.compatibility.archive.castRulesVersion,
+    ARCHIVE_CAST_RULES_VERSION,
+  );
+  assert.equal(
+    verified.statement.compatibility.archive.compatibilityMatrixDigest,
+    ARCHIVE_COMPATIBILITY_MATRIX_DIGEST,
+  );
+
+  const staticPayload = fs.readFileSync(
+    path.join(first, ...verified.statement.artifacts[0].path.split('/')),
+  );
+  assert.deepEqual(staticPayload, expectedStaticPayload);
+  assert.equal(staticPayload.includes(Buffer.from(APPLICATION_VERSION)), false);
+
+  const sbom = JSON.parse(
+    fs.readFileSync(path.join(first, verified.statement.sbom.path), 'utf8'),
+  );
+  const applicationPackage = sbom.packages.find(
+    (entry) => entry.primaryPackagePurpose === 'APPLICATION',
+  );
+  assert.equal(applicationPackage.versionInfo, APPLICATION_VERSION);
 });
 
 test('artifact verifier rejects post-package byte drift', () => {
