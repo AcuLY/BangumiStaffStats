@@ -66,6 +66,7 @@ import {
   currentNpmPackageCacheRelative,
   currentNpmPackageGeneratedRoots,
   dockerLocalSandboxProfile,
+  executeBackendOwnerGateForTest,
   executeArchiveVerifierDirect,
   materializeCatalogGoFileProxy,
   OwnerGateError,
@@ -4960,6 +4961,600 @@ test('hard-link cleanup failure preserves the owner command as primary without e
     'external hard-link bytes\n',
   );
   assert.equal(externalAfter.nlink, 2);
+});
+
+function createBackendOwnerHandshakeFixture(t, name, {
+  commandHook,
+  sealHook,
+  validateHook,
+} = {}) {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), `bgmss-backend-owner-${name}-`)),
+  );
+  t.after(() => removeReadOnlyFixtureTree(root));
+  const candidateRoot = path.join(root, 'candidate');
+  const backendRoot = path.join(candidateRoot, 'backend');
+  const runRoot = path.join(root, 'run');
+  const targetGoCache = path.join(backendRoot, '.cache', 'go-mod');
+  const acceptedGoRoot = path.join(
+    targetGoCache,
+    'golang.org',
+    'toolchain@v0.0.1-go1.26.5.darwin-arm64',
+  );
+  fs.mkdirSync(path.join(backendRoot, 'scripts'), { recursive: true });
+  fs.mkdirSync(runRoot);
+  fs.writeFileSync(path.join(backendRoot, 'go.mod'), 'module fixture.invalid/backend\n\ngo 1.26.5\n');
+  fs.writeFileSync(path.join(backendRoot, 'go.sum'), '');
+  fs.writeFileSync(
+    path.join(backendRoot, 'scripts', 'check.sh'),
+    '#!/bin/sh\nexit 0\n',
+    { mode: 0o755 },
+  );
+
+  const runtimeRoots = {};
+  for (const name_ of [
+    'currentNodeSource',
+    'currentNode',
+    'currentNpmSource',
+    'currentNpm',
+    'currentGoSource',
+    'currentGo',
+  ]) {
+    const runtimeRoot = path.join(root, 'runtime', name_);
+    fs.mkdirSync(runtimeRoot, { recursive: true });
+    fs.writeFileSync(path.join(runtimeRoot, 'authority'), `${name_}\n`);
+    runtimeRoots[name_] = Object.freeze({ root: runtimeRoot });
+  }
+  const tools = Object.freeze({
+    git: Object.freeze({ path: path.join(root, 'tools', 'git') }),
+    go: Object.freeze({ path: path.join(root, 'tools', 'go', 'bin', 'go') }),
+    node: Object.freeze({ path: path.join(root, 'tools', 'node', 'bin', 'node') }),
+    npm: Object.freeze({ path: path.join(root, 'tools', 'npm', 'npm-cli.js') }),
+  });
+  const events = [];
+  const plans = [];
+  const verifiedRuntimeNames = [];
+  let sealCount = 0;
+  let validationCount = 0;
+  const selectiveSeedPath = path.join(
+    targetGoCache,
+    'cache',
+    'download',
+    'example.invalid',
+    'module',
+    '@v',
+    'v1.2.3.mod',
+  );
+  const selectiveSeedSeal = () => {
+    const bytes = fs.readFileSync(selectiveSeedPath);
+    const canonical = JSON.stringify({
+      bytes: bytes.length,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+    });
+    return Object.freeze({
+      canonical,
+      digest: `sha256:${createHash('sha256').update(canonical).digest('hex')}`,
+    });
+  };
+  const commandResult = (plan) => {
+    const token = plan.id.replaceAll(/[^A-Za-z0-9_-]/gu, '-');
+    return Object.freeze({
+      args: Object.freeze([...plan.args]),
+      cwd: plan.cwd,
+      durationMs: 1,
+      executable: plan.executable,
+      id: plan.id,
+      signal: null,
+      status: 0,
+      stderr: writeCommandLogDescriptor(
+        runRoot,
+        `logs/${token}.stderr.log`,
+        Buffer.alloc(0),
+      ),
+      stdout: writeCommandLogDescriptor(
+        runRoot,
+        `logs/${token}.stdout.log`,
+        Buffer.from(`${plan.id}\n`),
+      ),
+      timedOut: false,
+    });
+  };
+  const implementation = Object.freeze({
+    createGoSeedPlan: ({ source }) => {
+      events.push('plan:seeded-authority');
+      assert.equal(source, targetGoCache);
+      return Object.freeze({ sourceRoot: source });
+    },
+    networklessCommand: async (plan) => {
+      events.push(`command:${plan.id}`);
+      plans.push(plan);
+      if (plan.id === 'owner-backend-go-mod-download-all') {
+        const extracted = path.join(
+          targetGoCache,
+          'example.invalid',
+          'module@v1.2.3',
+        );
+        fs.mkdirSync(extracted, { recursive: true });
+        fs.writeFileSync(path.join(extracted, '.gitignore'), '*\n');
+      }
+      if (plan.id === 'owner-backend-query-binary-measurement') {
+        const outputIndex = plan.args.indexOf('-o');
+        assert.notEqual(outputIndex, -1);
+        fs.mkdirSync(path.dirname(plan.args[outputIndex + 1]), {
+          recursive: true,
+        });
+        fs.writeFileSync(plan.args[outputIndex + 1], 'query binary\n');
+      }
+      const result = commandResult(plan);
+      if (commandHook) await commandHook({
+        acceptedGoRoot,
+        backendRoot,
+        plan,
+        result,
+        targetGoCache,
+      });
+      return result;
+    },
+    sealDirectoryTree: async (cacheRoot) => {
+      sealCount += 1;
+      events.push(`seal:${sealCount}`);
+      if (sealHook) await sealHook({
+        cacheRoot,
+        sealCount,
+        targetGoCache,
+      });
+      return sealDirectoryTree(cacheRoot);
+    },
+    sealGoSeedPlan: async (plan, cacheRoot) => {
+      events.push('seal:seeded-authority');
+      assert.equal(plan.sourceRoot, targetGoCache);
+      assert.equal(cacheRoot, targetGoCache);
+      return selectiveSeedSeal();
+    },
+    seedGoModuleCache: async ({ destination }) => {
+      events.push('seed:go');
+      const goBin = path.join(acceptedGoRoot, 'bin');
+      fs.mkdirSync(goBin, { recursive: true });
+      fs.mkdirSync(path.dirname(selectiveSeedPath), { recursive: true });
+      fs.writeFileSync(selectiveSeedPath, 'module fixture.invalid/module\n');
+      fs.writeFileSync(path.join(destination, '.seed-complete'), '{}\n', {
+        mode: 0o400,
+      });
+      for (const executable of ['go', 'gofmt']) {
+        fs.writeFileSync(
+          path.join(goBin, executable),
+          '#!/bin/sh\nexit 0\n',
+          { mode: 0o755 },
+        );
+      }
+      return Object.freeze({
+        destinationSeal: selectiveSeedSeal(),
+      });
+    },
+    seedNpmCache: ({ destination }) => {
+      events.push('seed:npm');
+      fs.mkdirSync(destination, { recursive: true });
+    },
+    validateSeededGoToolchain: () => {
+      validationCount += 1;
+      events.push(`validate:${validationCount}`);
+      const authority = Object.freeze({
+        goroot: acceptedGoRoot,
+        marker: Object.freeze({
+          schemaVersion: 1,
+          toolchainVersion: 'go1.26.5',
+        }),
+      });
+      return validateHook
+        ? validateHook({
+            acceptedGoRoot,
+            authority,
+            validationCount,
+          })
+        : authority;
+    },
+    verifyRuntimeClosures: async (_attestation, names) => {
+      events.push('verify:runtimes');
+      verifiedRuntimeNames.push(...names);
+    },
+  });
+  return Object.freeze({
+    acceptedGoRoot,
+    arguments: Object.freeze({
+      budgets: Object.freeze({
+        timeouts: Object.freeze({ gracefulStopMs: 100 }),
+      }),
+      cacheRoots: Object.freeze({
+        goModule: path.join(root, 'input', 'go-mod'),
+        npm: path.join(root, 'input', 'npm'),
+      }),
+      candidateRoot,
+      runRoot,
+      runtimeRoots: Object.freeze(runtimeRoots),
+      toolAttestation: Object.freeze({}),
+      tools,
+    }),
+    backendRoot,
+    events,
+    implementation,
+    plans,
+    root,
+    runRoot,
+    targetGoCache,
+    verifiedRuntimeNames,
+  });
+}
+
+test('Backend owner handshake fixes seed, materialization, acceptance environment, write denial, and reseal order', async (t) => {
+  const fixture = createBackendOwnerHandshakeFixture(t, 'plan');
+  const result = await executeBackendOwnerGateForTest(
+    fixture.arguments,
+    fixture.implementation,
+  );
+
+  assert.deepEqual(
+    fixture.events,
+    [
+      'seed:npm',
+      'seed:go',
+      'validate:1',
+      'command:owner-backend-go-mod-download-all',
+      'validate:2',
+      'plan:seeded-authority',
+      'seal:seeded-authority',
+      'seal:1',
+      'command:owner-backend-check',
+      'seal:2',
+      'command:owner-backend-query-binary-measurement',
+      'seal:3',
+      'verify:runtimes',
+    ],
+  );
+  assert.deepEqual(
+    result.results.map((entry) => entry.id),
+    [
+      'owner-backend-go-mod-download-all',
+      'owner-backend-check',
+      'owner-backend-query-binary-measurement',
+    ],
+  );
+  assert.deepEqual(fixture.verifiedRuntimeNames, [
+    'currentNodeSource',
+    'currentNode',
+    'currentNpmSource',
+    'currentNpm',
+  ]);
+  const [materialization, check, measurement] = fixture.plans;
+  assert.equal(materialization.executable, path.join(fixture.acceptedGoRoot, 'bin', 'go'));
+  assert.deepEqual(materialization.args, ['mod', 'download', 'all']);
+  assert.deepEqual(
+    {
+      GOENV: materialization.environment.GOENV,
+      GOFLAGS: materialization.environment.GOFLAGS,
+      GOMODCACHE: materialization.environment.GOMODCACHE,
+      GOPROXY: materialization.environment.GOPROXY,
+      GOROOT: materialization.environment.GOROOT,
+      GOSUMDB: materialization.environment.GOSUMDB,
+      GOTOOLCHAIN: materialization.environment.GOTOOLCHAIN,
+      GOWORK: materialization.environment.GOWORK,
+    },
+    {
+      GOENV: 'off',
+      GOFLAGS: '-mod=readonly',
+      GOMODCACHE: fixture.targetGoCache,
+      GOPROXY: 'off',
+      GOROOT: fixture.acceptedGoRoot,
+      GOSUMDB: 'off',
+      GOTOOLCHAIN: 'local',
+      GOWORK: 'off',
+    },
+  );
+  assert.equal(
+    check.environment.BGMSS_ACCEPTANCE_GOROOT,
+    fixture.acceptedGoRoot,
+  );
+  assert.equal(Object.hasOwn(check.environment, 'GO_BOOTSTRAP'), false);
+  assert.deepEqual(
+    Object.keys(check.environment).filter((name) => name.startsWith('BGMSS_GO_')),
+    [],
+  );
+  assert.equal(Object.hasOwn(check.environment, 'GOROOT'), false);
+  assert.equal(measurement.executable, path.join(fixture.acceptedGoRoot, 'bin', 'go'));
+  assert.equal(measurement.environment.GOFLAGS, '-mod=readonly');
+  const escaped = fixture.targetGoCache
+    .replaceAll('\\', '\\\\')
+    .replaceAll('"', '\\"');
+  for (const plan of [check, measurement]) {
+    assert.match(
+      plan.profile,
+      new RegExp(
+        `\\(deny file-write\\* \\(literal "${escaped.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&')}"\\)\\)`,
+        'u',
+      ),
+    );
+    assert.match(
+      plan.profile,
+      new RegExp(
+        `\\(deny file-write\\* \\(subpath "${escaped.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&')}"\\)\\)`,
+        'u',
+      ),
+    );
+    for (const name of ['currentGoSource', 'currentGo']) {
+      assert.equal(plan.profile.includes(fixture.arguments.runtimeRoots[name].root), false);
+    }
+  }
+  assert.equal(
+    fs.readFileSync(
+      path.join(
+        fixture.targetGoCache,
+        'example.invalid',
+        'module@v1.2.3',
+        '.gitignore',
+      ),
+      'utf8',
+    ),
+    '*\n',
+  );
+});
+
+test('Backend owner handshake rejects a pre-existing target and materialization changes to module authority', async (t) => {
+  const preexisting = createBackendOwnerHandshakeFixture(t, 'preexisting');
+  fs.mkdirSync(preexisting.targetGoCache, { recursive: true });
+  await assert.rejects(
+    executeBackendOwnerGateForTest(
+      preexisting.arguments,
+      preexisting.implementation,
+    ),
+    /target must be absent/u,
+  );
+  assert.deepEqual(preexisting.events, []);
+
+  const changed = createBackendOwnerHandshakeFixture(t, 'module-change', {
+    commandHook: ({ backendRoot, plan }) => {
+      if (plan.id === 'owner-backend-go-mod-download-all') {
+        fs.appendFileSync(path.join(backendRoot, 'go.mod'), '// changed\n');
+      }
+    },
+  });
+  let changedError;
+  try {
+    await executeBackendOwnerGateForTest(
+      changed.arguments,
+      changed.implementation,
+    );
+  } catch (error) {
+    changedError = error;
+  }
+  assert.match(
+    changedError.message,
+    /go\.mod\/go\.sum authority changed during offline materialization/u,
+  );
+  assert.deepEqual(
+    changedError.evidence.map((entry) => entry.kind),
+    ['logs', 'logs', 'backendBoundary'],
+  );
+  assert.equal(
+    changed.events.includes('command:owner-backend-check'),
+    false,
+  );
+
+  const seededChange = createBackendOwnerHandshakeFixture(
+    t,
+    'seeded-authority-change',
+    {
+      commandHook: ({ plan, targetGoCache }) => {
+        if (plan.id !== 'owner-backend-go-mod-download-all') return;
+        fs.appendFileSync(
+          path.join(
+            targetGoCache,
+            'cache',
+            'download',
+            'example.invalid',
+            'module',
+            '@v',
+            'v1.2.3.mod',
+          ),
+          '// changed\n',
+        );
+      },
+    },
+  );
+  await assert.rejects(
+    executeBackendOwnerGateForTest(
+      seededChange.arguments,
+      seededChange.implementation,
+    ),
+    /seeded Go download\/toolchain authority changed during materialization/u,
+  );
+  assert.equal(
+    seededChange.events.includes('command:owner-backend-check'),
+    false,
+  );
+
+  const markerRewrite = createBackendOwnerHandshakeFixture(
+    t,
+    'marker-equivalent-rewrite',
+    {
+      commandHook: ({ plan, targetGoCache }) => {
+        if (plan.id !== 'owner-backend-go-mod-download-all') return;
+        const replacement = path.join(
+          targetGoCache,
+          '.seed-complete.replacement',
+        );
+        fs.writeFileSync(
+          replacement,
+          '{ }\n',
+          { mode: 0o400 },
+        );
+        fs.renameSync(
+          replacement,
+          path.join(targetGoCache, '.seed-complete'),
+        );
+      },
+    },
+  );
+  await assert.rejects(
+    executeBackendOwnerGateForTest(
+      markerRewrite.arguments,
+      markerRewrite.implementation,
+    ),
+    /seed completion marker after materialization changed/u,
+  );
+  assert.equal(
+    markerRewrite.events.includes('command:owner-backend-check'),
+    false,
+  );
+
+  const markerMode = createBackendOwnerHandshakeFixture(
+    t,
+    'marker-mode-change',
+    {
+      commandHook: ({ plan, targetGoCache }) => {
+        if (plan.id !== 'owner-backend-go-mod-download-all') return;
+        fs.chmodSync(path.join(targetGoCache, '.seed-complete'), 0o600);
+      },
+    },
+  );
+  await assert.rejects(
+    executeBackendOwnerGateForTest(
+      markerMode.arguments,
+      markerMode.implementation,
+    ),
+    /seed completion marker after materialization changed/u,
+  );
+  assert.equal(
+    markerMode.events.includes('command:owner-backend-check'),
+    false,
+  );
+});
+
+test('Backend materialization command remains primary while every safe authority check and boundary evidence completes', async (t) => {
+  let commandError;
+  const fixture = createBackendOwnerHandshakeFixture(
+    t,
+    'materialization-precedence',
+    {
+      commandHook: ({ backendRoot, plan, result }) => {
+        if (plan.id !== 'owner-backend-go-mod-download-all') return;
+        fs.appendFileSync(path.join(backendRoot, 'go.mod'), '// changed\n');
+        commandError = new CommandError(
+          'fixture Backend materialization failed first',
+          result,
+        );
+        commandError.code = 'BACKEND_MATERIALIZATION_FAILED_FIRST';
+        throw commandError;
+      },
+    },
+  );
+  let caught;
+  try {
+    await executeBackendOwnerGateForTest(
+      fixture.arguments,
+      fixture.implementation,
+    );
+  } catch (error) {
+    caught = error;
+  }
+
+  assert.equal(caught, commandError);
+  assert.equal(caught.code, 'BACKEND_MATERIALIZATION_FAILED_FIRST');
+  assert.deepEqual(
+    caught.backendOwnerBoundaries.map((entry) => entry.stage),
+    ['materialization:module-authority-seal'],
+  );
+  assert.deepEqual(
+    caught.evidence.map((entry) => entry.kind),
+    ['logs', 'logs', 'backendBoundary'],
+  );
+  assert.deepEqual(fixture.events.slice(-4), [
+    'validate:2',
+    'plan:seeded-authority',
+    'seal:seeded-authority',
+    'seal:1',
+  ]);
+  assert.equal(
+    fixture.events.includes('command:owner-backend-check'),
+    false,
+  );
+});
+
+test('Backend owner handshake keeps the measurement command primary when final reseal also detects mutation', async (t) => {
+  let measurementError;
+  const fixture = createBackendOwnerHandshakeFixture(t, 'precedence', {
+    commandHook: ({ plan, result, targetGoCache }) => {
+      if (plan.id !== 'owner-backend-query-binary-measurement') return;
+      fs.writeFileSync(path.join(targetGoCache, 'late-mutation'), 'changed\n');
+      measurementError = new CommandError(
+        'fixture Backend measurement failed first',
+        result,
+      );
+      measurementError.code = 'BACKEND_MEASUREMENT_FAILED_FIRST';
+      throw measurementError;
+    },
+  });
+  let caught;
+  try {
+    await executeBackendOwnerGateForTest(
+      fixture.arguments,
+      fixture.implementation,
+    );
+  } catch (error) {
+    caught = error;
+  }
+
+  assert.equal(caught, measurementError);
+  assert.equal(caught.code, 'BACKEND_MEASUREMENT_FAILED_FIRST');
+  assert.equal(caught.result.id, 'owner-backend-query-binary-measurement');
+  assert.deepEqual(
+    caught.backendOwnerBoundaries.map((entry) => entry.stage),
+    ['owner-backend-query-binary-measurement:go-cache-seal'],
+  );
+  assert.deepEqual(
+    caught.evidence.map((entry) => entry.kind),
+    ['logs', 'logs', 'backendBoundary'],
+  );
+  assert.equal(
+    fs.existsSync(path.join(fixture.runRoot, caught.evidence.at(-1).path)),
+    true,
+  );
+  assert.deepEqual(fixture.events.slice(-3), [
+    'seal:2',
+    'command:owner-backend-query-binary-measurement',
+    'seal:3',
+  ]);
+});
+
+test('Backend owner handshake retains successful command logs when its cache reseal fails', async (t) => {
+  const fixture = createBackendOwnerHandshakeFixture(t, 'successful-command-seal', {
+    sealHook: ({ sealCount, targetGoCache }) => {
+      if (sealCount === 2) {
+        fs.writeFileSync(path.join(targetGoCache, 'check-mutation'), 'changed\n');
+      }
+    },
+  });
+  let caught;
+  try {
+    await executeBackendOwnerGateForTest(
+      fixture.arguments,
+      fixture.implementation,
+    );
+  } catch (error) {
+    caught = error;
+  }
+
+  assert.match(caught.message, /Backend Go cache after owner-backend-check changed/u);
+  assert.deepEqual(
+    caught.evidence.map((entry) => entry.kind),
+    ['logs', 'logs', 'backendBoundary'],
+  );
+  assert.equal(
+    fs.existsSync(path.join(fixture.runRoot, caught.evidence.at(-1).path)),
+    true,
+  );
+  assert.equal(
+    fixture.events.includes('command:owner-backend-query-binary-measurement'),
+    false,
+  );
 });
 
 test('Backend cleanup removes module-cache ignore control before clean-checkout re-attestation', async (t) => {

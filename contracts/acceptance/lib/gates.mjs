@@ -5,6 +5,8 @@ import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
 import {
+  createGoSeedPlan,
+  sealGoSeedPlan,
   copyCacheTree,
   seedGoModuleCache,
   seedNpmCache,
@@ -32,7 +34,9 @@ import {
 } from './strict-json.mjs';
 import {
   assertSameSeal,
+  sealDirectoryTree,
   sealDistributionTree,
+  sealSingleFileDistribution,
 } from './seal.mjs';
 import { verifyRuntimeClosures } from './tools.mjs';
 
@@ -148,6 +152,18 @@ const BACKEND_GENERATED_ROOTS = Object.freeze([
   'backend/.cache',
   'backend/.tmp',
 ]);
+const BACKEND_ACCEPTANCE_GOROOT_RELATIVE =
+  'golang.org/toolchain@v0.0.1-go1.26.5.darwin-arm64';
+const BACKEND_GO_MATERIALIZATION_ID =
+  'owner-backend-go-mod-download-all';
+const BACKEND_BOUNDARY_EVIDENCE = Object.freeze({
+  'owner-backend-go-mod-download-all':
+    'evidence/gates/backend-go-materialization-boundary.json',
+  'owner-backend-check':
+    'evidence/gates/backend-check-boundary.json',
+  'owner-backend-query-binary-measurement':
+    'evidence/gates/backend-query-measurement-boundary.json',
+});
 
 const CURRENT_NPM_PACKAGES = Object.freeze([
   'contracts/schemas/archive/tooling',
@@ -4525,6 +4541,375 @@ function writeNpmWrapper({ runRoot, tools, npmCache }) {
   return wrapper;
 }
 
+function backendModuleAuthoritySeal(backendRoot) {
+  return Object.freeze(['go.mod', 'go.sum'].map((relative) => {
+    const absolute = requireCanonicalPath(path.join(backendRoot, relative), {
+      label: `Backend ${relative} authority`,
+      type: 'file',
+    });
+    const information = fs.lstatSync(absolute);
+    if (information.isSymbolicLink() || information.nlink !== 1) {
+      fail(`Backend ${relative} authority is not one unlinked regular file`);
+    }
+    return Object.freeze({
+      bytes: information.size,
+      mode: information.mode & 0o777,
+      path: relative,
+      sha256: sha256FileSync(absolute),
+    });
+  }));
+}
+
+function assertBackendModuleAuthorityUnchanged(before, backendRoot, label) {
+  const after = backendModuleAuthoritySeal(backendRoot);
+  if (!isDeepStrictEqual(before, after)) {
+    fail(`Backend go.mod/go.sum authority changed ${label}`);
+  }
+  return after;
+}
+
+function registerSecondaryBackendBoundary(primaryError, secondaryError, stage) {
+  if (
+    primaryError === null ||
+    typeof primaryError !== 'object' ||
+    secondaryError === undefined
+  ) {
+    return primaryError;
+  }
+  const existing = Array.isArray(primaryError.backendOwnerBoundaries)
+    ? primaryError.backendOwnerBoundaries
+    : [];
+  try {
+    Object.defineProperty(primaryError, 'backendOwnerBoundaries', {
+      configurable: true,
+      enumerable: true,
+      value: Object.freeze([
+        ...existing,
+        Object.freeze({
+          code: secondaryError?.code ?? secondaryError?.constructor?.name ??
+            'ERROR',
+          message: secondaryError?.message ?? String(secondaryError),
+          stage,
+          status: 'failed',
+        }),
+      ]),
+    });
+  } catch {
+    // The first Backend command/measurement error remains primary.
+  }
+  return primaryError;
+}
+
+function preserveBackendPrimary(primaryError, secondaryError, stage) {
+  if (primaryError === undefined) return secondaryError;
+  return registerSecondaryBackendBoundary(
+    primaryError,
+    secondaryError,
+    stage,
+  );
+}
+
+function backendBoundaryCode(error) {
+  const source = error?.code ?? error?.constructor?.name ?? 'ERROR';
+  const normalized = String(source)
+    .replaceAll(/([a-z])([A-Z])/gu, '$1_$2')
+    .replaceAll(/[^A-Za-z0-9]+/gu, '_')
+    .replaceAll(/^_+|_+$/gu, '')
+    .toUpperCase();
+  return /^[A-Z][A-Z0-9_]{1,63}$/u.test(normalized)
+    ? normalized
+    : 'ERROR';
+}
+
+function attachBackendFailureEvidence(error, result, boundaryEvidence) {
+  if (error === null || typeof error !== 'object') return error;
+  const existing = Array.isArray(error.evidence)
+    ? error.evidence
+    : result
+      ? commandEvidence(result)
+      : [];
+  const descriptors = boundaryEvidence
+    ? [...existing, boundaryEvidence]
+    : existing;
+  if (descriptors.length === 0) return error;
+  try {
+    Object.defineProperty(error, 'evidence', {
+      configurable: true,
+      enumerable: true,
+      value: Object.freeze(descriptors),
+    });
+  } catch {
+    // Preserve the primary error even when it cannot carry descriptors.
+  }
+  return error;
+}
+
+async function settleBackendBoundaryFailures({
+  boundaryFailures,
+  primaryError,
+  result,
+  runRoot,
+  stage,
+  writeBoundaryEvidence,
+}) {
+  let failure = primaryError;
+  for (const entry of boundaryFailures) {
+    failure = preserveBackendPrimary(failure, entry.error, entry.stage);
+  }
+  if (failure === undefined) return;
+  if (boundaryFailures.length === 0) throw failure;
+  let boundaryEvidence;
+  try {
+    const relative = BACKEND_BOUNDARY_EVIDENCE[stage];
+    if (!relative) fail(`Backend boundary evidence stage is unknown: ${stage}`);
+    boundaryEvidence = await writeBoundaryEvidence({
+      runRoot,
+      relative,
+      kind: 'backendBoundary',
+      value: {
+        command: {
+          id: result?.id ?? primaryError?.result?.id ?? stage,
+          status: result?.status ?? primaryError?.result?.status ?? null,
+          timedOut:
+            result?.timedOut ?? primaryError?.result?.timedOut ?? null,
+        },
+        failures: boundaryFailures.map((entry) => ({
+          code: backendBoundaryCode(entry.error),
+          stage: entry.stage,
+        })),
+        schemaVersion: 1,
+      },
+      summary:
+        `Backend ${stage} authority boundary failed after the fixed command`,
+    });
+  } catch (error) {
+    failure = preserveBackendPrimary(
+      failure,
+      error,
+      `${stage}:boundary-evidence-write`,
+    );
+  }
+  throw attachBackendFailureEvidence(
+    failure,
+    result ?? primaryError?.result,
+    boundaryEvidence,
+  );
+}
+
+async function resealBackendAuthority({
+  authority,
+  backendRoot,
+  primaryError,
+  result,
+  runRoot,
+  sealTree,
+  stage,
+  targetGoCache,
+  writeBoundaryEvidence,
+}) {
+  const boundaryFailures = [];
+  try {
+    const after = await sealTree(targetGoCache);
+    assertSameSeal(authority, after, `Backend Go cache after ${stage}`);
+  } catch (error) {
+    boundaryFailures.push(Object.freeze({
+      error,
+      stage: `${stage}:go-cache-seal`,
+    }));
+  }
+  try {
+    assertBackendModuleAuthorityUnchanged(
+      authority.moduleAuthority,
+      backendRoot,
+      `after ${stage}`,
+    );
+  } catch (error) {
+    boundaryFailures.push(Object.freeze({
+      error,
+      stage: `${stage}:module-authority-seal`,
+    }));
+  }
+  await settleBackendBoundaryFailures({
+    boundaryFailures,
+    primaryError,
+    result,
+    runRoot,
+    stage,
+    writeBoundaryEvidence,
+  });
+}
+
+async function settleBackendMaterialization({
+  backendRoot,
+  implementation,
+  moduleAuthority,
+  primaryError,
+  result,
+  runRoot,
+  seededGo,
+  seededMarkerSeal,
+  targetGoCache,
+  validated,
+  acceptedGoRoot,
+}) {
+  const boundaryFailures = [];
+  let materializedSeedSeal;
+  let preparedCacheSeal;
+  try {
+    assertBackendModuleAuthorityUnchanged(
+      moduleAuthority,
+      backendRoot,
+      'during offline materialization',
+    );
+  } catch (error) {
+    boundaryFailures.push(Object.freeze({
+      error,
+      stage: 'materialization:module-authority-seal',
+    }));
+  }
+  try {
+    const revalidated =
+      implementation.validateSeededGoToolchain(targetGoCache);
+    if (
+      revalidated.goroot !== acceptedGoRoot ||
+      !isDeepStrictEqual(revalidated.marker, validated.marker)
+    ) {
+      fail('Backend seeded Go authority changed during materialization');
+    }
+  } catch (error) {
+    boundaryFailures.push(Object.freeze({
+      error,
+      stage: 'materialization:toolchain-validation',
+    }));
+  }
+  try {
+    const revalidatedMarkerSeal =
+      await implementation.sealSingleFileDistribution(
+        path.join(targetGoCache, '.seed-complete'),
+      );
+    assertSameSeal(
+      seededMarkerSeal,
+      revalidatedMarkerSeal,
+      'Backend Go seed completion marker after materialization',
+    );
+  } catch (error) {
+    boundaryFailures.push(Object.freeze({
+      error,
+      stage: 'materialization:seed-marker-seal',
+    }));
+  }
+  try {
+    const materializedSeedPlan = implementation.createGoSeedPlan({
+      source: targetGoCache,
+      goSumPath: path.join(backendRoot, 'go.sum'),
+    });
+    materializedSeedSeal = await implementation.sealGoSeedPlan(
+      materializedSeedPlan,
+      targetGoCache,
+    );
+    if (
+      materializedSeedSeal.digest !== seededGo.destinationSeal.digest ||
+      materializedSeedSeal.canonical !== seededGo.destinationSeal.canonical
+    ) {
+      fail(
+        'Backend seeded Go download/toolchain authority changed during materialization',
+      );
+    }
+  } catch (error) {
+    boundaryFailures.push(Object.freeze({
+      error,
+      stage: 'materialization:seeded-download-toolchain-seal',
+    }));
+  }
+  try {
+    preparedCacheSeal =
+      await implementation.sealDirectoryTree(targetGoCache);
+  } catch (error) {
+    boundaryFailures.push(Object.freeze({
+      error,
+      stage: 'materialization:expanded-cache-seal',
+    }));
+  }
+  await settleBackendBoundaryFailures({
+    boundaryFailures,
+    primaryError,
+    result,
+    runRoot,
+    stage: BACKEND_GO_MATERIALIZATION_ID,
+    writeBoundaryEvidence: implementation.writeEvidence,
+  });
+  return Object.freeze({
+    materializedSeedSeal,
+    preparedCacheSeal,
+  });
+}
+
+async function runBackendSealedOperation({
+  authority,
+  backendRoot,
+  operation,
+  runRoot,
+  sealTree,
+  stage,
+  targetGoCache,
+  writeBoundaryEvidence,
+}) {
+  let result;
+  let primaryError;
+  try {
+    result = await operation();
+  } catch (error) {
+    primaryError = error;
+  }
+  await resealBackendAuthority({
+    authority,
+    backendRoot,
+    primaryError,
+    result,
+    runRoot,
+    sealTree,
+    stage,
+    targetGoCache,
+    writeBoundaryEvidence,
+  });
+  return result;
+}
+
+const BACKEND_OWNER_PRODUCTION_IMPLEMENTATION = Object.freeze({
+  createGoSeedPlan,
+  networklessCommand,
+  sealGoSeedPlan,
+  sealDirectoryTree,
+  sealSingleFileDistribution,
+  seedGoModuleCache,
+  seedNpmCache,
+  validateSeededGoToolchain,
+  verifyRuntimeClosures,
+  writeEvidence,
+});
+
+function backendOwnerImplementation(overrides = {}) {
+  if (
+    overrides === null ||
+    typeof overrides !== 'object' ||
+    Array.isArray(overrides)
+  ) {
+    fail('Backend owner implementation seam must be an object');
+  }
+  for (const name of Object.keys(overrides)) {
+    if (!Object.hasOwn(BACKEND_OWNER_PRODUCTION_IMPLEMENTATION, name)) {
+      fail(`Backend owner implementation seam is unknown: ${name}`);
+    }
+    if (typeof overrides[name] !== 'function') {
+      fail(`Backend owner implementation seam is not callable: ${name}`);
+    }
+  }
+  return Object.freeze({
+    ...BACKEND_OWNER_PRODUCTION_IMPLEMENTATION,
+    ...overrides,
+  });
+}
+
 async function executeBackendOwnerGate({
   candidateRoot,
   cacheRoots,
@@ -4533,10 +4918,15 @@ async function executeBackendOwnerGate({
   runRoot,
   runtimeRoots,
   toolAttestation,
-}) {
+}, implementationOverrides) {
+  const implementation = backendOwnerImplementation(implementationOverrides);
   const backendRoot = path.join(candidateRoot, 'backend');
+  const targetGoCache = path.join(backendRoot, '.cache', 'go-mod');
+  if (pathExistsNoFollow(targetGoCache)) {
+    fail('Backend seeded Go cache target must be absent before preparation');
+  }
   const npmCache = path.join(runRoot, 'cache', 'backend-npm');
-  seedNpmCache({
+  implementation.seedNpmCache({
     source: cacheRoots.npm,
     destination: npmCache,
     lockPaths: [
@@ -4546,72 +4936,155 @@ async function executeBackendOwnerGate({
     ],
   });
   const npmWrapper = writeNpmWrapper({ runRoot, tools, npmCache });
-  const targetGoCache = path.join(backendRoot, '.cache', 'go-mod');
-  const environment = goBootstrapEnvironment({
-    candidateRoot,
-    runRoot,
-    sourceCache: cacheRoots.goModule,
-    targetCache: targetGoCache,
-    tools,
-    npmCache,
+  const moduleAuthority = backendModuleAuthoritySeal(backendRoot);
+  const seededGo = await implementation.seedGoModuleCache({
+    source: cacheRoots.goModule,
+    destination: targetGoCache,
+    goSumPath: path.join(backendRoot, 'go.sum'),
   });
-  const result = await networklessCommand({
-    id: 'owner-backend-check',
-    executable: path.join(backendRoot, 'scripts', 'check.sh'),
-    args: [],
-    cwd: backendRoot,
-    environment: Object.freeze({
-      ...environment,
-      PATH: [
-        path.dirname(npmWrapper),
-        path.dirname(tools.node.path),
-        path.dirname(tools.git.path),
-        '/usr/bin',
-        '/bin',
-        '/usr/sbin',
-        '/sbin',
-      ].join(path.delimiter),
-    }),
-    timeoutMs: 3_600_000,
-    budgets,
+  const validated = implementation.validateSeededGoToolchain(targetGoCache);
+  const seededMarkerSeal = await implementation.sealSingleFileDistribution(
+    path.join(targetGoCache, '.seed-complete'),
+  );
+  const acceptedGoRoot = path.join(
+    targetGoCache,
+    BACKEND_ACCEPTANCE_GOROOT_RELATIVE,
+  );
+  if (validated.goroot !== acceptedGoRoot) {
+    fail('Backend seeded Go validation returned an unexpected GOROOT');
+  }
+  const acceptedGo = path.join(acceptedGoRoot, 'bin', 'go');
+  const materializationRoot = ensureEmptyDirectory(
+    path.join(runRoot, 'control', 'backend-go-materialization'),
+  );
+  const materializationEnvironment = commandEnvironment({
     runRoot,
-    profile: runtimeReadOnlySandboxProfile(runtimePaths(runtimeRoots, [
+    pathEntries: [path.dirname(acceptedGo)],
+    extra: {
+      GOCACHE: path.join(materializationRoot, 'go-build'),
+      GOENV: 'off',
+      GOFLAGS: '-mod=readonly',
+      GOMODCACHE: targetGoCache,
+      GOPATH: path.join(materializationRoot, 'go-path'),
+      GOPROXY: 'off',
+      GOROOT: acceptedGoRoot,
+      GOSUMDB: 'off',
+      GOTOOLCHAIN: 'local',
+      GOWORK: 'off',
+    },
+  });
+  let materialization;
+  let materializationError;
+  try {
+    materialization = await implementation.networklessCommand({
+      id: BACKEND_GO_MATERIALIZATION_ID,
+      executable: acceptedGo,
+      args: ['mod', 'download', 'all'],
+      cwd: backendRoot,
+      environment: materializationEnvironment,
+      timeoutMs: 600_000,
+      budgets,
+      runRoot,
+    });
+  } catch (error) {
+    materializationError = error;
+  }
+  const materialized = await settleBackendMaterialization({
+    acceptedGoRoot,
+    backendRoot,
+    implementation,
+    moduleAuthority,
+    primaryError: materializationError,
+    result: materialization,
+    runRoot,
+    seededGo,
+    seededMarkerSeal,
+    targetGoCache,
+    validated,
+  });
+  const preparedCacheSeal = materialized.preparedCacheSeal;
+  const authority = Object.freeze({
+    moduleAuthority,
+    ...preparedCacheSeal,
+  });
+  const environment = commandEnvironment({
+    runRoot,
+    pathEntries: [
+      path.dirname(npmWrapper),
+      path.dirname(tools.node.path),
+      path.dirname(tools.git.path),
+    ],
+    extra: {
+      BGMSS_ACCEPTANCE_GOROOT: acceptedGoRoot,
+      NPM_CONFIG_CACHE: npmCache,
+      REDOCLY_TELEMETRY: 'off',
+    },
+  });
+  const backendSandbox = runtimeReadOnlySandboxProfile([
+    ...runtimePaths(runtimeRoots, [
       ...CURRENT_NODE_RUNTIME_NAMES,
-      ...CURRENT_GO_RUNTIME_NAMES,
-    ])),
+    ]),
+    targetGoCache,
+  ]);
+  const result = await runBackendSealedOperation({
+    authority,
+    backendRoot,
+    runRoot,
+    sealTree: implementation.sealDirectoryTree,
+    stage: 'owner-backend-check',
+    targetGoCache,
+    writeBoundaryEvidence: implementation.writeEvidence,
+    operation: () => implementation.networklessCommand({
+      id: 'owner-backend-check',
+      executable: path.join(backendRoot, 'scripts', 'check.sh'),
+      args: [],
+      cwd: backendRoot,
+      environment,
+      timeoutMs: 3_600_000,
+      budgets,
+      runRoot,
+      profile: backendSandbox,
+    }),
   });
   const measurementRoot = ensureEmptyDirectory(
     path.join(runRoot, 'control', 'backend-query-measurement'),
   );
   const queryTestBinary = path.join(measurementRoot, 'query.test');
-  const queryMeasurement = await networklessCommand({
-    id: 'owner-backend-query-binary-measurement',
-    executable: tools.go.path,
-    args: ['test', '-c', '-o', queryTestBinary, './internal/query'],
-    cwd: backendRoot,
-    environment: commandEnvironment({
-      runRoot,
-      pathEntries: [path.dirname(tools.go.path)],
-      extra: {
-        CGO_ENABLED: '0',
-        GOCACHE: path.join(measurementRoot, 'go-build'),
-        GOENV: 'off',
-        GOMODCACHE: targetGoCache,
-        GOPATH: path.join(measurementRoot, 'go-path'),
-        GOPROXY: 'off',
-        GOSUMDB: 'off',
-        GOTOOLCHAIN: 'local',
-        GOROOT: path.dirname(path.dirname(tools.go.path)),
-        GOWORK: 'off',
-      },
-    }),
-    timeoutMs: 600_000,
-    budgets,
+  const queryMeasurement = await runBackendSealedOperation({
+    authority,
+    backendRoot,
     runRoot,
-    profile: runtimeReadOnlySandboxProfile(runtimePaths(runtimeRoots, [
-      ...CURRENT_NODE_RUNTIME_NAMES,
-      ...CURRENT_GO_RUNTIME_NAMES,
-    ])),
+    sealTree: implementation.sealDirectoryTree,
+    stage: 'owner-backend-query-binary-measurement',
+    targetGoCache,
+    writeBoundaryEvidence: implementation.writeEvidence,
+    operation: () => implementation.networklessCommand({
+      id: 'owner-backend-query-binary-measurement',
+      executable: acceptedGo,
+      args: ['test', '-c', '-o', queryTestBinary, './internal/query'],
+      cwd: backendRoot,
+      environment: commandEnvironment({
+        runRoot,
+        pathEntries: [path.dirname(acceptedGo)],
+        extra: {
+          CGO_ENABLED: '0',
+          GOCACHE: path.join(measurementRoot, 'go-build'),
+          GOENV: 'off',
+          GOFLAGS: '-mod=readonly',
+          GOMODCACHE: targetGoCache,
+          GOPATH: path.join(measurementRoot, 'go-path'),
+          GOPROXY: 'off',
+          GOROOT: acceptedGoRoot,
+          GOSUMDB: 'off',
+          GOTOOLCHAIN: 'local',
+          GOWORK: 'off',
+        },
+      }),
+      timeoutMs: 600_000,
+      budgets,
+      runRoot,
+      profile: backendSandbox,
+    }),
   });
   const queryTestBinaryBytes = fs.statSync(queryTestBinary).size;
   if (
@@ -4621,15 +5094,40 @@ async function executeBackendOwnerGate({
   ) {
     fail(`measured Backend query test binary exceeds the accepted bound`);
   }
-  await verifyRuntimeClosures(toolAttestation, [
+  await implementation.verifyRuntimeClosures(toolAttestation, [
     ...CURRENT_NODE_RUNTIME_NAMES,
-    ...CURRENT_GO_RUNTIME_NAMES,
   ]);
   const declaration = await commandDeclarationEvidence({
     runRoot,
     id: 'owner-backend',
-    results: [result, queryMeasurement],
-    summary: 'backend/scripts/check.sh passed with the fixed offline bootstrap',
+    results: [materialization, result, queryMeasurement],
+    summary:
+      'Backend Go closure materialized offline, checked in acceptance mode, and independently measured',
+  });
+  const goAuthority = await writeEvidence({
+    runRoot,
+    relative: 'evidence/gates/backend-go-authority.json',
+    kind: 'backendGoAuthority',
+    value: {
+      cache: {
+        entryCount: authority.entries.length,
+        identityCount: authority.identities.length,
+        identitySha256: authority.identityDigest,
+        markerIdentitySha256: seededMarkerSeal.identityDigest,
+        markerSha256: seededMarkerSeal.digest,
+        seededSha256: seededGo.destinationSeal.digest,
+        sha256: authority.digest,
+      },
+      environmentKeys: {
+        check: Object.keys(environment),
+        materialization: Object.keys(materializationEnvironment),
+      },
+      goroot: `backend/.cache/go-mod/${BACKEND_ACCEPTANCE_GOROOT_RELATIVE}`,
+      materializationCommandId: BACKEND_GO_MATERIALIZATION_ID,
+      moduleAuthority,
+    },
+    summary:
+      'Backend Go 1.26.5 cache and module authority remained sealed',
   });
   const queryBinary = await writeEvidence({
     runRoot,
@@ -4643,14 +5141,22 @@ async function executeBackendOwnerGate({
     summary: 'Backend query test binary was independently measured within 16 MiB',
   });
   return Object.freeze({
-    results: Object.freeze([result, queryMeasurement]),
+    results: Object.freeze([materialization, result, queryMeasurement]),
     evidence: Object.freeze([
       declaration,
+      goAuthority,
       queryBinary,
-      ...allCommandEvidence([result, queryMeasurement]),
+      ...allCommandEvidence([materialization, result, queryMeasurement]),
     ]),
     queryTestBinaryBytes,
   });
+}
+
+export async function executeBackendOwnerGateForTest(
+  arguments_,
+  implementationOverrides,
+) {
+  return executeBackendOwnerGate(arguments_, implementationOverrides);
 }
 
 export async function runBackendOwnerGate(arguments_) {

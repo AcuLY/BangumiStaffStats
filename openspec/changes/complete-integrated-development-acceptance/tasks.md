@@ -163,7 +163,7 @@ commit, push, sync, archive, or update task markers.
   evidence/residue, and fail the owner cell on cleanup alone after otherwise
   successful commands. Add focused primary-precedence, retry, and surviving
   residue tests.
-- [ ] 3.7 Close the Backend owner sealed-toolchain handshake and cache
+- [x] 3.7 Close the Backend owner sealed-toolchain handshake and cache
   lifetime. Require an absent target; eagerly seed the Harness-owned
   `backend/.cache/go-mod`; validate its exact Go 1.26.5 GOROOT; use the
   admitted Go to run fixed offline `go mod download all` with
