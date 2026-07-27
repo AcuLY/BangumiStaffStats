@@ -306,6 +306,20 @@ def _compatibility_record(value: object, label: str) -> dict[str, str]:
     )
 
 
+def _statement_compatibility_record(value: object, label: str) -> dict[str, str]:
+    compatibility = _closed_object(
+        value,
+        {"archive", "openapiDigest"},
+        label,
+    )
+    if compatibility["openapiDigest"] is not None:
+        raise BuildError(f"{label}.openapiDigest must be null for Updater")
+    return _archive_compatibility_record(
+        compatibility["archive"],
+        f"{label}.archive",
+    )
+
+
 def _safe_relative(value: str) -> PurePosixPath:
     if "\\" in value or "\0" in value:
         raise BuildError(f"unsafe relative path: {value!r}")
@@ -3221,7 +3235,7 @@ def verify_output(output: Path, *, require_statement: bool) -> None:
                 raise BuildError(
                     "component statement applicationVersion disagrees with build metadata"
                 )
-            statement_compatibility = _compatibility_record(
+            statement_compatibility = _statement_compatibility_record(
                 statement.get("compatibility"),
                 "component statement compatibility",
             )

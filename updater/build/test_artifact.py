@@ -1910,7 +1910,10 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
             artifact.canonical_json(
                 {
                     "applicationVersion": artifact.APPLICATION_VERSION,
-                    "compatibility": {"archive": self.archive_compatibility},
+                    "compatibility": {
+                        "archive": self.archive_compatibility,
+                        "openapiDigest": None,
+                    },
                     "inputs": [],
                 }
             )
@@ -1920,6 +1923,53 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
             "statement producer manifest input disagrees",
         ):
             artifact.verify_output(output, require_statement=True)
+
+    def test_component_statement_compatibility_is_exact_and_updater_has_no_openapi(
+        self,
+    ) -> None:
+        output = self._make_output(include_image=False)
+        self._add_evidence(output)
+        manifest_input = {
+            "path": "contracts/producer-runtime-inputs-v1",
+            "sha256": self.selected.manifest_digest,
+        }
+
+        def write_statement(compatibility: object) -> None:
+            (output / "component-statement.json").write_bytes(
+                artifact.canonical_json(
+                    {
+                        "applicationVersion": artifact.APPLICATION_VERSION,
+                        "compatibility": compatibility,
+                        "inputs": [manifest_input],
+                    }
+                )
+            )
+
+        write_statement(
+            {
+                "archive": self.archive_compatibility,
+                "openapiDigest": None,
+            }
+        )
+        artifact.verify_output(output, require_statement=True)
+
+        invalid_compatibility = (
+            {
+                "archive": self.archive_compatibility,
+                "openapiDigest": f"sha256:{'a' * 64}",
+            },
+            {"archive": self.archive_compatibility},
+            {
+                "archive": self.archive_compatibility,
+                "openapiDigest": None,
+                "unexpected": None,
+            },
+        )
+        for compatibility in invalid_compatibility:
+            with self.subTest(compatibility=compatibility):
+                write_statement(compatibility)
+                with self.assertRaises(artifact.BuildError):
+                    artifact.verify_output(output, require_statement=True)
 
     def test_oci_rejects_tampered_tree_media_graph_and_compatibility(self) -> None:
         for mutation in (
