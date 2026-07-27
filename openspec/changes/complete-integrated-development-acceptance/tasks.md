@@ -244,7 +244,7 @@ commit, push, sync, archive, or update task markers.
   matrix/schema synchronization assertion; and retain the two-hour suite
   watchdog, fail/blocked state machine, no-runtime-override rule, and timeout
   negative coverage unchanged.
-- [ ] 3.14 Correct the Backend module-set widening exposed by formal
+- [x] 3.14 Correct the Backend module-set widening exposed by formal
   `owner.backend` execution. Rename the misleading materialization command ID
   from `owner-backend-go-mod-download-all` to exact
   `owner-backend-go-mod-download` and change its argv from

@@ -155,9 +155,9 @@ const BACKEND_GENERATED_ROOTS = Object.freeze([
 const BACKEND_ACCEPTANCE_GOROOT_RELATIVE =
   'golang.org/toolchain@v0.0.1-go1.26.5.darwin-arm64';
 const BACKEND_GO_MATERIALIZATION_ID =
-  'owner-backend-go-mod-download-all';
+  'owner-backend-go-mod-download';
 const BACKEND_BOUNDARY_EVIDENCE = Object.freeze({
-  'owner-backend-go-mod-download-all':
+  'owner-backend-go-mod-download':
     'evidence/gates/backend-go-materialization-boundary.json',
   'owner-backend-check':
     'evidence/gates/backend-check-boundary.json',
@@ -4844,6 +4844,64 @@ async function settleBackendMaterialization({
   });
 }
 
+export function backendGoMaterializationCommandPlan({
+  acceptedGoRoot,
+  backendRoot,
+  budgets,
+  materializationRoot,
+  runRoot,
+  targetGoCache,
+}) {
+  return Object.freeze({
+    id: BACKEND_GO_MATERIALIZATION_ID,
+    executable: path.join(acceptedGoRoot, 'bin', 'go'),
+    args: Object.freeze(['mod', 'download']),
+    cwd: backendRoot,
+    environment: commandEnvironment({
+      runRoot,
+      pathEntries: [path.join(acceptedGoRoot, 'bin')],
+      extra: {
+        GOCACHE: path.join(materializationRoot, 'go-build'),
+        GOENV: 'off',
+        GOFLAGS: '-mod=readonly',
+        GOMODCACHE: targetGoCache,
+        GOPATH: path.join(materializationRoot, 'go-path'),
+        GOPROXY: 'off',
+        GOROOT: acceptedGoRoot,
+        GOSUMDB: 'off',
+        GOTOOLCHAIN: 'local',
+        GOWORK: 'off',
+      },
+    }),
+    timeoutMs: 600_000,
+    budgets,
+    runRoot,
+    profile: NETWORKLESS_PROFILE,
+  });
+}
+
+export function validateBackendGoMaterializationCommandPlan(
+  declaration,
+  parameters,
+) {
+  const expected = backendGoMaterializationCommandPlan(parameters);
+  if (
+    !declaration ||
+    declaration.id !== expected.id ||
+    declaration.executable !== expected.executable ||
+    declaration.cwd !== expected.cwd ||
+    declaration.timeoutMs !== expected.timeoutMs ||
+    declaration.runRoot !== expected.runRoot ||
+    declaration.budgets !== expected.budgets ||
+    declaration.profile !== expected.profile ||
+    !isDeepStrictEqual(declaration.args, expected.args) ||
+    !isDeepStrictEqual(declaration.environment, expected.environment)
+  ) {
+    fail('Backend Go materialization is not the exact closed command plan');
+  }
+  return expected;
+}
+
 async function runBackendSealedOperation({
   authority,
   backendRoot,
@@ -4876,6 +4934,7 @@ async function runBackendSealedOperation({
 }
 
 const BACKEND_OWNER_PRODUCTION_IMPLEMENTATION = Object.freeze({
+  backendGoMaterializationCommandPlan,
   createGoSeedPlan,
   networklessCommand,
   sealGoSeedPlan,
@@ -4957,35 +5016,27 @@ async function executeBackendOwnerGate({
   const materializationRoot = ensureEmptyDirectory(
     path.join(runRoot, 'control', 'backend-go-materialization'),
   );
-  const materializationEnvironment = commandEnvironment({
+  const materializationPlanParameters = Object.freeze({
+    acceptedGoRoot,
+    backendRoot,
+    budgets,
+    materializationRoot,
     runRoot,
-    pathEntries: [path.dirname(acceptedGo)],
-    extra: {
-      GOCACHE: path.join(materializationRoot, 'go-build'),
-      GOENV: 'off',
-      GOFLAGS: '-mod=readonly',
-      GOMODCACHE: targetGoCache,
-      GOPATH: path.join(materializationRoot, 'go-path'),
-      GOPROXY: 'off',
-      GOROOT: acceptedGoRoot,
-      GOSUMDB: 'off',
-      GOTOOLCHAIN: 'local',
-      GOWORK: 'off',
-    },
+    targetGoCache,
   });
+  const materializationPlan =
+    validateBackendGoMaterializationCommandPlan(
+      implementation.backendGoMaterializationCommandPlan(
+        materializationPlanParameters,
+      ),
+      materializationPlanParameters,
+    );
+  const materializationEnvironment = materializationPlan.environment;
   let materialization;
   let materializationError;
   try {
-    materialization = await implementation.networklessCommand({
-      id: BACKEND_GO_MATERIALIZATION_ID,
-      executable: acceptedGo,
-      args: ['mod', 'download', 'all'],
-      cwd: backendRoot,
-      environment: materializationEnvironment,
-      timeoutMs: 600_000,
-      budgets,
-      runRoot,
-    });
+    materialization =
+      await implementation.networklessCommand(materializationPlan);
   } catch (error) {
     materializationError = error;
   }

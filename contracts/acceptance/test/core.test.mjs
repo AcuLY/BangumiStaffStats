@@ -59,6 +59,7 @@ import {
   assertArchiveInstalledDependencyClosureUnchanged,
   assertArchiveTrackedAuthorityFiles,
   assertArchiveTrackedAuthorityUnchanged,
+  backendGoMaterializationCommandPlan,
   cleanupBackendGeneratedRoots,
   cleanupContractsGeneratedRoots,
   catalogGoVerifierEnvironment,
@@ -94,6 +95,7 @@ import {
   validateQueryVerifyCodegenResult,
   validateArchiveVerifierCommandPlan,
   validateArchiveVerifierResult,
+  validateBackendGoMaterializationCommandPlan,
 } from '../lib/gates.mjs';
 import { REQUIRED_MEASUREMENTS } from '../lib/measurements.mjs';
 import { resultOutputDigest } from '../lib/output-digest.mjs';
@@ -4965,6 +4967,7 @@ test('hard-link cleanup failure preserves the owner command as primary without e
 
 function createBackendOwnerHandshakeFixture(t, name, {
   commandHook,
+  planHook,
   sealHook,
   validateHook,
 } = {}) {
@@ -5060,6 +5063,12 @@ function createBackendOwnerHandshakeFixture(t, name, {
     });
   };
   const implementation = Object.freeze({
+    ...(planHook
+      ? {
+          backendGoMaterializationCommandPlan: (parameters) =>
+            planHook(backendGoMaterializationCommandPlan(parameters)),
+        }
+      : {}),
     createGoSeedPlan: ({ source }) => {
       events.push('plan:seeded-authority');
       assert.equal(source, targetGoCache);
@@ -5068,7 +5077,7 @@ function createBackendOwnerHandshakeFixture(t, name, {
     networklessCommand: async (plan) => {
       events.push(`command:${plan.id}`);
       plans.push(plan);
-      if (plan.id === 'owner-backend-go-mod-download-all') {
+      if (plan.id === 'owner-backend-go-mod-download') {
         const extracted = path.join(
           targetGoCache,
           'example.invalid',
@@ -5185,6 +5194,17 @@ function createBackendOwnerHandshakeFixture(t, name, {
   });
 }
 
+test('Backend materialization production constant omits the obsolete widened identity', () => {
+  const gateSource = fs.readFileSync(
+    new URL('../lib/gates.mjs', import.meta.url),
+    'utf8',
+  );
+  assert.doesNotMatch(
+    gateSource,
+    /owner-backend-go-mod-download-all/u,
+  );
+});
+
 test('Backend owner handshake fixes seed, materialization, acceptance environment, write denial, and reseal order', async (t) => {
   const fixture = createBackendOwnerHandshakeFixture(t, 'plan');
   const result = await executeBackendOwnerGateForTest(
@@ -5198,7 +5218,7 @@ test('Backend owner handshake fixes seed, materialization, acceptance environmen
       'seed:npm',
       'seed:go',
       'validate:1',
-      'command:owner-backend-go-mod-download-all',
+      'command:owner-backend-go-mod-download',
       'validate:2',
       'plan:seeded-authority',
       'seal:seeded-authority',
@@ -5213,7 +5233,7 @@ test('Backend owner handshake fixes seed, materialization, acceptance environmen
   assert.deepEqual(
     result.results.map((entry) => entry.id),
     [
-      'owner-backend-go-mod-download-all',
+      'owner-backend-go-mod-download',
       'owner-backend-check',
       'owner-backend-query-binary-measurement',
     ],
@@ -5225,8 +5245,37 @@ test('Backend owner handshake fixes seed, materialization, acceptance environmen
     'currentNpm',
   ]);
   const [materialization, check, measurement] = fixture.plans;
+  assert.equal(Object.isFrozen(materialization), true);
+  assert.equal(materialization.id, 'owner-backend-go-mod-download');
   assert.equal(materialization.executable, path.join(fixture.acceptedGoRoot, 'bin', 'go'));
-  assert.deepEqual(materialization.args, ['mod', 'download', 'all']);
+  assert.deepEqual(materialization.args, ['mod', 'download']);
+  assert.equal(materialization.args.length, 2);
+  assert.equal(materialization.cwd, fixture.backendRoot);
+  assert.equal(materialization.timeoutMs, 600_000);
+  assert.equal(materialization.runRoot, fixture.runRoot);
+  assert.equal(materialization.budgets, fixture.arguments.budgets);
+  assert.equal(
+    materialization.profile,
+    '(version 1)(allow default)(deny network*)',
+  );
+  assert.deepEqual(
+    validateBackendGoMaterializationCommandPlan(
+      materialization,
+      {
+        acceptedGoRoot: fixture.acceptedGoRoot,
+        backendRoot: fixture.backendRoot,
+        budgets: fixture.arguments.budgets,
+        materializationRoot: path.join(
+          fixture.runRoot,
+          'control',
+          'backend-go-materialization',
+        ),
+        runRoot: fixture.runRoot,
+        targetGoCache: fixture.targetGoCache,
+      },
+    ),
+    materialization,
+  );
   assert.deepEqual(
     {
       GOENV: materialization.environment.GOENV,
@@ -5297,6 +5346,184 @@ test('Backend owner handshake fixes seed, materialization, acceptance environmen
   );
 });
 
+test('Backend materialization closed plan rejects every widening before the networkless seam', async (t) => {
+  const mutations = [
+    {
+      label: 'obsolete command ID',
+      slug: 'obsolete-id',
+      mutate: (plan) => ({
+        ...plan,
+        id: 'owner-backend-go-mod-download-all',
+      }),
+    },
+    {
+      label: 'positional all',
+      slug: 'all-selector',
+      mutate: (plan) => ({
+        ...plan,
+        args: [...plan.args, 'all'],
+      }),
+    },
+    {
+      label: 'main-module recursive pattern',
+      slug: 'dot-pattern',
+      mutate: (plan) => ({
+        ...plan,
+        args: [...plan.args, './...'],
+      }),
+    },
+    {
+      label: 'named module pattern',
+      slug: 'module-pattern',
+      mutate: (plan) => ({
+        ...plan,
+        args: [...plan.args, 'example.invalid/module/...'],
+      }),
+    },
+    {
+      label: 'module query',
+      slug: 'module-query',
+      mutate: (plan) => ({
+        ...plan,
+        args: [...plan.args, 'example.invalid/module@latest'],
+      }),
+    },
+    {
+      label: 'file proxy',
+      slug: 'file-proxy',
+      mutate: (plan) => ({
+        ...plan,
+        environment: {
+          ...plan.environment,
+          GOPROXY: 'file:///tmp/proxy',
+        },
+      }),
+    },
+    {
+      label: 'direct proxy',
+      slug: 'direct-proxy',
+      mutate: (plan) => ({
+        ...plan,
+        environment: {
+          ...plan.environment,
+          GOPROXY: 'direct',
+        },
+      }),
+    },
+    {
+      label: 'public proxy',
+      slug: 'public-proxy',
+      mutate: (plan) => ({
+        ...plan,
+        environment: {
+          ...plan.environment,
+          GOPROXY: 'https://proxy.golang.org',
+        },
+      }),
+    },
+    {
+      label: 'non-off proxy fallback',
+      slug: 'proxy-fallback',
+      mutate: (plan) => ({
+        ...plan,
+        environment: {
+          ...plan.environment,
+          GOPROXY: 'file:///tmp/proxy,direct',
+        },
+      }),
+    },
+    {
+      label: 'different accepted Go executable',
+      slug: 'wrong-go',
+      mutate: (plan) => ({
+        ...plan,
+        executable: `${plan.executable}-other`,
+      }),
+    },
+    {
+      label: 'different Backend cwd',
+      slug: 'wrong-cwd',
+      mutate: (plan) => ({
+        ...plan,
+        cwd: path.join(plan.cwd, 'cmd'),
+      }),
+    },
+    {
+      label: 'different timeout',
+      slug: 'wrong-timeout',
+      mutate: (plan) => ({
+        ...plan,
+        timeoutMs: plan.timeoutMs - 1,
+      }),
+    },
+    {
+      label: 'different run root',
+      slug: 'wrong-run-root',
+      mutate: (plan) => ({
+        ...plan,
+        runRoot: `${plan.runRoot}-other`,
+      }),
+    },
+    {
+      label: 'different budgets authority',
+      slug: 'wrong-budgets',
+      mutate: (plan) => ({
+        ...plan,
+        budgets: { ...plan.budgets },
+      }),
+    },
+    {
+      label: 'non-networkless profile',
+      slug: 'wrong-profile',
+      mutate: (plan) => ({
+        ...plan,
+        profile: '(version 1)(allow default)',
+      }),
+    },
+    ...[
+      ['GOENV', 'goenv', 'auto'],
+      ['GOWORK', 'gowork', 'auto'],
+      ['GOTOOLCHAIN', 'gotoolchain', 'auto'],
+      ['GOSUMDB', 'gosumdb', 'sum.golang.org'],
+      ['GOFLAGS', 'goflags', '-mod=mod'],
+      ['GOROOT', 'goroot', '/tmp/unaccepted-go'],
+      ['GOMODCACHE', 'gomodcache', '/tmp/unaccepted-go-mod'],
+    ].map(([name, slug, value]) => ({
+      label: `different ${name}`,
+      slug,
+      mutate: (plan) => ({
+        ...plan,
+        environment: {
+          ...plan.environment,
+          [name]: value,
+        },
+      }),
+    })),
+  ];
+
+  for (const { label, slug, mutate } of mutations) {
+    await t.test(label, async (subtest) => {
+      const fixture = createBackendOwnerHandshakeFixture(
+        subtest,
+        `closed-plan-${slug}`,
+        { planHook: mutate },
+      );
+      await assert.rejects(
+        executeBackendOwnerGateForTest(
+          fixture.arguments,
+          fixture.implementation,
+        ),
+        /not the exact closed command plan/u,
+      );
+      assert.equal(fixture.plans.length, 0);
+      assert.equal(
+        fixture.events.some((event) => event.startsWith('command:')),
+        false,
+      );
+    });
+  }
+});
+
 test('Backend owner handshake rejects a pre-existing target and materialization changes to module authority', async (t) => {
   const preexisting = createBackendOwnerHandshakeFixture(t, 'preexisting');
   fs.mkdirSync(preexisting.targetGoCache, { recursive: true });
@@ -5311,7 +5538,7 @@ test('Backend owner handshake rejects a pre-existing target and materialization 
 
   const changed = createBackendOwnerHandshakeFixture(t, 'module-change', {
     commandHook: ({ backendRoot, plan }) => {
-      if (plan.id === 'owner-backend-go-mod-download-all') {
+      if (plan.id === 'owner-backend-go-mod-download') {
         fs.appendFileSync(path.join(backendRoot, 'go.mod'), '// changed\n');
       }
     },
@@ -5343,7 +5570,7 @@ test('Backend owner handshake rejects a pre-existing target and materialization 
     'seeded-authority-change',
     {
       commandHook: ({ plan, targetGoCache }) => {
-        if (plan.id !== 'owner-backend-go-mod-download-all') return;
+        if (plan.id !== 'owner-backend-go-mod-download') return;
         fs.appendFileSync(
           path.join(
             targetGoCache,
@@ -5376,7 +5603,7 @@ test('Backend owner handshake rejects a pre-existing target and materialization 
     'marker-equivalent-rewrite',
     {
       commandHook: ({ plan, targetGoCache }) => {
-        if (plan.id !== 'owner-backend-go-mod-download-all') return;
+        if (plan.id !== 'owner-backend-go-mod-download') return;
         const replacement = path.join(
           targetGoCache,
           '.seed-complete.replacement',
@@ -5410,7 +5637,7 @@ test('Backend owner handshake rejects a pre-existing target and materialization 
     'marker-mode-change',
     {
       commandHook: ({ plan, targetGoCache }) => {
-        if (plan.id !== 'owner-backend-go-mod-download-all') return;
+        if (plan.id !== 'owner-backend-go-mod-download') return;
         fs.chmodSync(path.join(targetGoCache, '.seed-complete'), 0o600);
       },
     },
@@ -5435,7 +5662,7 @@ test('Backend materialization command remains primary while every safe authority
     'materialization-precedence',
     {
       commandHook: ({ backendRoot, plan, result }) => {
-        if (plan.id !== 'owner-backend-go-mod-download-all') return;
+        if (plan.id !== 'owner-backend-go-mod-download') return;
         fs.appendFileSync(path.join(backendRoot, 'go.mod'), '// changed\n');
         commandError = new CommandError(
           'fixture Backend materialization failed first',
