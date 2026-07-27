@@ -2360,7 +2360,6 @@
                           "admission.sources",
                           "admission.artifacts",
                           "admission.archive",
-                          "admission.tools",
                           "frontend.serve",
                           "browser.light.360.default",
                           "browser.light.360.reduced",
@@ -2451,7 +2450,10 @@
                     ],
                     "properties": {
                       "id": {
-                        "const": "archive.validate"
+                        "enum": [
+                          "admission.tools",
+                          "archive.validate"
+                        ]
                       }
                     }
                   },

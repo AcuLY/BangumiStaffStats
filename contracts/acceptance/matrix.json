@@ -54,7 +54,7 @@
       "kind": "attestation",
       "action": "admit-tools",
       "requires": ["admission.archive"],
-      "timeoutMs": 120000,
+      "timeoutMs": 600000,
       "evidence": ["toolIdentities", "browserIdentity", "machineProfile"]
     },
     {

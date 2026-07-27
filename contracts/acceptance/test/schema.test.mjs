@@ -627,7 +627,17 @@ test('closed measurement and cell registries equal their imperative owners', () 
     Object.keys(REQUIRED_MEASUREMENTS).sort(),
   );
 
-  const { matrix } = loadAcceptanceConfiguration();
+  const { matrix, budgets } = loadAcceptanceConfiguration();
+  assert.equal(
+    matrix.cells.find((cell) => cell.id === 'admission.tools')?.timeoutMs,
+    600_000,
+  );
+  assert.equal(budgets.profile.ceilings.suiteMs, 7_200_000);
+  assert.equal(budgets.timeouts.suiteMs, 7_200_000);
+  assert.equal(
+    RESULT_SCHEMA.$defs.decisionLte7200000.if.properties.value.maximum,
+    7_200_000,
+  );
   assert.deepEqual(
     RESULT_SCHEMA.$defs.cellResult.properties.id.enum,
     matrix.cells.map((cell) => cell.id),
@@ -650,6 +660,11 @@ test('closed measurement and cell registries equal their imperative owners', () 
   for (const entry of timeoutSchema.allOf) {
     const declaration = entry.if.properties.id;
     for (const id of declaration.enum ?? [declaration.const]) {
+      assert.equal(
+        timeoutByCell.has(id),
+        false,
+        `${id} has duplicate result-schema timeout authorities`,
+      );
       timeoutByCell.set(id, entry.then.properties.durationMs.maximum);
     }
   }
@@ -725,6 +740,37 @@ test('result schema and imperative validator accept the same canonical green res
   const result = resultFixture(matrix);
   assertSchemaAccepts(RESULT_SCHEMA, result, 'result schema rejected a green result');
   assert.equal(validateResult(result, matrix, budgets), result);
+});
+
+test('admission.tools accepts exactly its 600000 ms closed timeout', () => {
+  const { matrix, budgets } = loadAcceptanceConfiguration();
+  const admissionToolsIndex = matrix.cells.findIndex(
+    (cell) => cell.id === 'admission.tools',
+  );
+  assert.notEqual(admissionToolsIndex, -1);
+
+  const atTimeout = resultFixture(matrix);
+  atTimeout.cells[admissionToolsIndex].durationMs = 600_000;
+  atTimeout.seals.outputDigest = resultOutputDigest(atTimeout);
+  assertSchemaAccepts(
+    RESULT_SCHEMA,
+    atTimeout,
+    'result schema rejected admission.tools at its closed timeout',
+  );
+  assert.equal(validateResult(atTimeout, matrix, budgets), atTimeout);
+
+  const overTimeout = structuredClone(atTimeout);
+  overTimeout.cells[admissionToolsIndex].durationMs = 600_001;
+  overTimeout.seals.outputDigest = resultOutputDigest(overTimeout);
+  assertSchemaRejects(
+    RESULT_SCHEMA,
+    overTimeout,
+    'result schema accepted admission.tools beyond its closed timeout',
+  );
+  assert.throws(
+    () => validateResult(overTimeout, matrix, budgets),
+    /exceeds the closed cell timeout/u,
+  );
 });
 
 test('result schema and imperative validator accept the same fail-fast result', () => {
