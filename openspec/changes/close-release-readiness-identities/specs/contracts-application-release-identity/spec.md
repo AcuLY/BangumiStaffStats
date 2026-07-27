@@ -4,7 +4,7 @@
 |---|---|
 | Status | new capability; specified; implementation pending |
 | Owner | Contracts defines the cross-component identity; component owners emit their own evidence |
-| Writable paths | `VERSION`, `contracts/artifacts/**`, `backend/internal/releaseinfo/**`, `backend/internal/architecture/dependencies_test.go`, `backend/cmd/{api,archive-smoke}/**`, `backend/build/**`, `updater/build/**`, `frontend/build/**` |
+| Writable paths | `VERSION`, `contracts/artifacts/**`, `backend/internal/releaseinfo/**`, `backend/internal/httpapi/**`, `backend/internal/architecture/dependencies_test.go`, `backend/cmd/{api,archive-smoke}/**`, `backend/build/**`, `backend/Dockerfile`, `updater/build/**`, `updater/Dockerfile`, `frontend/build/**` |
 | Read-only protected inputs | Frontend UI/runtime source, product/API semantics, external refs/registries/hosts |
 | Deletion complement | None; ignored build outputs only |
 | Mutable refs | None during implementation |
