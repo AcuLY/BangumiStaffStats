@@ -314,10 +314,49 @@ def _statement_compatibility_record(value: object, label: str) -> dict[str, str]
     )
     if compatibility["openapiDigest"] is not None:
         raise BuildError(f"{label}.openapiDigest must be null for Updater")
-    return _archive_compatibility_record(
+    archive = _closed_object(
         compatibility["archive"],
+        {
+            "castRulesVersion",
+            "compatibilityMatrixDigest",
+            "domainRulesVersion",
+            "manifestSchemaDigest",
+            "manifestSchemaVersion",
+            "schemaSqlDigest",
+            "sqliteSchemaVersion",
+        },
         f"{label}.archive",
     )
+    if (
+        archive["domainRulesVersion"] != DOMAIN_RULES_VERSION
+        or archive["castRulesVersion"] != CAST_RULES_VERSION
+    ):
+        raise BuildError(f"{label}.archive does not name the production rule pair")
+    for field in (
+        "compatibilityMatrixDigest",
+        "manifestSchemaDigest",
+        "schemaSqlDigest",
+    ):
+        _prefixed_digest(
+            archive[field],
+            f"{label}.archive.{field}",
+        )
+    for field in ("manifestSchemaVersion", "sqliteSchemaVersion"):
+        version_range = _closed_object(
+            archive[field],
+            {"maximum", "minimum"},
+            f"{label}.archive.{field}",
+        )
+        if any(
+            isinstance(version_range[bound], bool) or not isinstance(version_range[bound], int)
+            for bound in ("minimum", "maximum")
+        ) or version_range != {"maximum": 1, "minimum": 1}:
+            raise BuildError(f"{label}.archive.{field} must equal the exact range 1..1")
+    return {
+        "castRulesVersion": cast(str, archive["castRulesVersion"]),
+        "compatibilityMatrixDigest": cast(str, archive["compatibilityMatrixDigest"]),
+        "domainRulesVersion": cast(str, archive["domainRulesVersion"]),
+    }
 
 
 def _safe_relative(value: str) -> PurePosixPath:

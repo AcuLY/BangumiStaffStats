@@ -1088,6 +1088,23 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
                 artifact.ARCHIVE_COMPATIBILITY_MATRIX_PATH.removeprefix("producer/")
             ]
         )
+        matrix = json.loads(
+            self.producer_files[
+                artifact.ARCHIVE_COMPATIBILITY_MATRIX_PATH.removeprefix("producer/")
+            ]
+        )
+        self.statement_archive_compatibility = {
+            **self.archive_compatibility,
+            "manifestSchemaDigest": (
+                "sha256:"
+                + artifact.sha256_bytes(
+                    self.producer_files["contracts/schemas/archive/archive-manifest.schema.json"]
+                )
+            ),
+            "manifestSchemaVersion": {"maximum": 1, "minimum": 1},
+            "schemaSqlDigest": matrix["canonicalSchema"]["schemaSqlDigest"],
+            "sqliteSchemaVersion": {"maximum": 1, "minimum": 1},
+        }
         self.producer_directories = artifact.producer_inputs.expected_producer_directories(
             sorted(self.producer_files)
         )
@@ -1911,7 +1928,7 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
                 {
                     "applicationVersion": artifact.APPLICATION_VERSION,
                     "compatibility": {
-                        "archive": self.archive_compatibility,
+                        "archive": self.statement_archive_compatibility,
                         "openapiDigest": None,
                     },
                     "inputs": [],
@@ -1947,24 +1964,93 @@ class ProducerArtifactVerificationTests(GeneratedDirectoryTestCase):
 
         write_statement(
             {
-                "archive": self.archive_compatibility,
+                "archive": self.statement_archive_compatibility,
                 "openapiDigest": None,
             }
         )
         artifact.verify_output(output, require_statement=True)
 
-        invalid_compatibility = (
+        invalid_compatibility: tuple[object, ...] = (
             {
-                "archive": self.archive_compatibility,
+                "archive": self.statement_archive_compatibility,
                 "openapiDigest": f"sha256:{'a' * 64}",
             },
-            {"archive": self.archive_compatibility},
+            {"archive": self.statement_archive_compatibility},
             {
-                "archive": self.archive_compatibility,
+                "archive": self.statement_archive_compatibility,
                 "openapiDigest": None,
                 "unexpected": None,
             },
+            {
+                "openapiDigest": None,
+            },
+            {
+                "archive": {
+                    key: value
+                    for key, value in self.statement_archive_compatibility.items()
+                    if key != "manifestSchemaDigest"
+                },
+                "openapiDigest": None,
+            },
+            {
+                "archive": {
+                    **self.statement_archive_compatibility,
+                    "unexpected": None,
+                },
+                "openapiDigest": None,
+            },
         )
+        for field in (
+            "compatibilityMatrixDigest",
+            "manifestSchemaDigest",
+            "schemaSqlDigest",
+        ):
+            invalid_compatibility += (
+                {
+                    "archive": {
+                        **self.statement_archive_compatibility,
+                        field: "sha256:not-a-digest",
+                    },
+                    "openapiDigest": None,
+                },
+            )
+        for field in ("manifestSchemaVersion", "sqliteSchemaVersion"):
+            invalid_compatibility += (
+                {
+                    "archive": {
+                        **self.statement_archive_compatibility,
+                        field: {"maximum": 1, "minimum": 0},
+                    },
+                    "openapiDigest": None,
+                },
+                {
+                    "archive": {
+                        **self.statement_archive_compatibility,
+                        field: {"minimum": 1},
+                    },
+                    "openapiDigest": None,
+                },
+                {
+                    "archive": {
+                        **self.statement_archive_compatibility,
+                        field: {"maximum": 1, "minimum": 1, "unexpected": 1},
+                    },
+                    "openapiDigest": None,
+                },
+            )
+        for field, value in (
+            ("domainRulesVersion", "domain-v1"),
+            ("castRulesVersion", "cast-fuzzy-v1"),
+        ):
+            invalid_compatibility += (
+                {
+                    "archive": {
+                        **self.statement_archive_compatibility,
+                        field: value,
+                    },
+                    "openapiDigest": None,
+                },
+            )
         for compatibility in invalid_compatibility:
             with self.subTest(compatibility=compatibility):
                 write_statement(compatibility)
