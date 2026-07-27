@@ -255,6 +255,34 @@ commit, push, sync, archive, or update task markers.
   `all`, module patterns/queries, or any non-off proxy and prove the
   no-argument command materializes the frozen build/test closure without
   changing `go.mod`, `go.sum`, or the seeded download/toolchain authority.
+- [ ] 3.15 Close the checksum-authorized tidy closure exposed by the next
+  formal `owner.backend` execution. Derive the exact canonical sorted unique
+  62-record content set from non-`/go.mod` checksums in accepted
+  `backend/go.sum`, order literal `${module}@${version}` values with
+  ECMAScript `localeCompare(other, "en")`, and require terminal-LF
+  newline-list SHA-256
+  `65d2972c8632a90b2e3331071db6016db037480e7fe04a615e44931656f31bb7`,
+  and prove each exact version has the admitted four-file seed. Change the
+  existing closed materialization argv to
+  `["mod", "download", "--", ...contentSet]` before the cache seal; reject
+  `all`, patterns, `.mod`-only/floating/substituted versions, set/count/order
+  drift, or non-off proxy. Validate the exact 62 zero-byte `0644` single-link
+  content-derived lock paths and their canonical path-list SHA-256
+  `0429a1eb475367e7950d45e11c826632893b8a08892b78985da17bedb30e7f28`,
+  unlink only those contained paths, and reject missing/extra/changed/surviving
+  locks or module/source/seed mutation. Prove the unchanged Product
+  `go mod tidy` then succeeds under full target write denial and retain command
+  identity, error precedence, evidence, later query measurement, and cleanup
+  boundaries.
+- [ ] 3.16 Close the Backend test-loopback boundary revealed by the
+  checksum-closure A/B. Replace the Backend check's blanket network denial
+  with one exact deny-all profile that re-allows only inbound local-address
+  and outbound remote-address `localhost:*`, while retaining literal/subpath
+  write denial over the sealed Go cache. Prove an ephemeral loopback
+  listener/client succeeds and representative public TCP is denied; reject
+  every broader profile; and keep materialization plus independent
+  query-binary measurement fully networkless. Run the unchanged complete
+  Product check under that profile and prove source/cache seals remain fixed.
 
 ## 4. Full Archive and packaged runtime
 
@@ -352,6 +380,15 @@ commit, push, sync, archive, or update task markers.
   `specified`, `implemented`, `verified`, `committed`, `pushed`, `released`,
   and `deployed` fields. The CLI must never imply production readiness,
   release, deployment, activation, SLO, or completed operations.
+- [ ] 6.5 Correct the orderly terminal-failure settlement exposed by formal
+  `owner.backend` execution. Bifurcate worker code zero from code one before
+  release/result validation: retain strict green validation only for zero;
+  for one acknowledged failed cell, close the worker closure, run common
+  parent cleanup exactly once, re-seal, and emit the canonical fail/blocked
+  result with the direct cell failure as primary. Cover parent-prepared images
+  before runtime handoff, already-released resources, cleanup failure/true
+  residue as secondary, and later evidence/canonicalization failures without
+  duplicate cleanup or `SUPERVISOR_RESULT_INVALID` misclassification.
 
 ## 7. Apply-owner verification and handoff
 

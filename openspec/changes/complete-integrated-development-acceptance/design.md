@@ -169,20 +169,46 @@ tracked source.
 That exception begins with a Harness-owned eager preparation step, not the
 ordinary Backend bootstrap path. The Harness copies the exact locked download
 and Go 1.26.5 toolchain closure into the absent fixed target, validates its
-completion marker and GOROOT, and, while the target is still writable, runs
-the admitted Go's fixed, no-argument offline `go mod download` command with
-`GOFLAGS=-mod=readonly` and `GOPROXY=off`. Go 1.26.5 defines that no-argument
-form as the main module's build/test download set; adding `all` would traverse
-the complete module graph and request historical or test-only module ZIPs that
-have only `go.mod` checksum authority and are intentionally absent from the
-sealed build/test cache. No module pattern, query, file proxy, fallback, or
-public proxy may widen the admitted bytes. The Harness seals
-`backend/go.mod` and `backend/go.sum` around materialization and rejects either
-source-authority change. It then seals the complete expanded module/toolchain
-tree, including content, mode, directory identity, inode, and link identity.
-The evidence command ID is
+completion marker and GOROOT, and derives the canonical sorted unique set of
+exact `module@version` records from only the non-`/go.mod`
+content-checksum lines in the accepted `backend/go.sum`. For this frozen
+candidate the set contains exactly 62 unique records. Ordering compares each
+literal `${module}@${version}` with ECMAScript
+`localeCompare(other, "en")`; its terminal-LF newline-list SHA-256 is
+`65d2972c8632a90b2e3331071db6016db037480e7fe04a615e44931656f31bb7`.
+Every record must own the matching `.info`, `.mod`, `.zip`, and `.ziphash`
+bytes in the sealed seed. While the target remains writable, one fixed
+offline `owner-backend-go-mod-download` command uses argv
+`["mod", "download", "--", ...contentSet]`, `GOFLAGS=-mod=readonly`, and
+`GOPROXY=off` to pre-expand only that checksum-authorized set.
+
+The earlier no-argument form expanded the main module's ordinary build/test
+set but omitted packages needed when the Product's fixed `go mod tidy`
+traversed its accepted tool dependency and test graph; the later read-denied
+tidy consequently attempted to create cache `.lock` files. Conversely,
+`download all` traverses the complete module graph and requests historical or
+test-only module ZIPs that have only `go.mod` checksum authority and are
+intentionally absent. The exact content set is the closed middle: derivation
+from already admitted content authority, not acquisition or expansion to the
+`.mod`-only historical graph. `all`, package/module patterns, floating or
+different versions, version ranges, missing/reordered/duplicate records, and
+every proxy other than `off` remain forbidden.
+
+The Harness seals `backend/go.mod` and `backend/go.sum` around materialization
+and rejects either source-authority change. It re-attests the original
+download/toolchain seed. Pinned Go 1.26.5 leaves one zero-byte cache `.lock`
+beside each explicit content version. The Harness requires exactly the 62
+canonical content-derived lock paths, whose newline-list SHA-256 is
+`0429a1eb475367e7950d45e11c826632893b8a08892b78985da17bedb30e7f28`;
+each must be a single-link `0644` regular file with no symlink ancestry. It
+then unlinks only those exact contained files, rejects missing, extra, changed,
+or surviving lock/temporary state, and seals the complete expanded
+module/toolchain tree, including content, mode, directory identity, inode, and
+link identity. The evidence command ID remains
 `owner-backend-go-mod-download`; it must not retain the obsolete `-all`
-suffix after the positional argument is removed.
+suffix. The Product's original `go mod tidy` remains in the Backend owner check
+and must succeed under complete cache write denial without changing `go.mod`,
+`go.sum`, or the expanded-cache seal.
 
 The Backend check receives the validated fixed GOROOT only through
 `BGMSS_ACCEPTANCE_GOROOT`; caller `GO_BOOTSTRAP` and every legacy
@@ -194,6 +220,18 @@ outer sandboxes. The Harness compares the full seal unconditionally after the
 check and after the measurement, preserves the first command or measurement
 failure as primary if a later seal or cleanup also fails, and only then enters
 the existing bounded generated-root cleanup.
+
+The Backend check is not fully networkless internally: its unchanged Product
+test matrix intentionally creates ephemeral `127.0.0.1` HTTP listeners and
+clients. A blanket `(deny network*)` rejects those tests before they exercise
+the Product. The exact Backend-check profile therefore starts from deny-all,
+adds only inbound local-address and outbound remote-address
+`localhost:*`, and appends the existing complete-cache literal/subpath write
+denials. A focused sandbox probe must successfully bind and call one ephemeral
+loopback server while a public TCP connection fails with the platform's
+permission error. Materialization and the independent query-binary compile
+retain full network denial; no Backend owner command may reach a non-loopback
+address.
 
 The Contracts owner cleanup inventory is closed over every package it
 installs. Besides Query and schema roots, it removes `node_modules`, `.cache`,
@@ -766,6 +804,22 @@ the sole writer of the canonical 56-cell fail/blocked result from the last
 accepted checkpoint. The parent never trusts a partial worker result as
 canonical. In-process revocable action/output gates remain defense in depth
 for responsive failures; they are not the proof of hard timeout enforcement.
+
+An orderly worker terminal code is a separate closed branch. Code zero is the
+only branch permitted to prove every supervisor-prepared runtime resource
+released and validate a green worker result against parent facts. Code one
+with one IPC-acknowledged direct failed cell is already a legitimate matrix
+failure: the parent must not first apply green release/result validation to
+resources it prepared before the worker reached runtime handoff. It closes the
+worker process group, performs the common external cleanup exactly once,
+re-seals protected inputs, and writes the canonical fail/blocked result with
+that acknowledged cell failure as primary. Only after the parent has validated
+the acknowledged prefix and direct-failure evidence, any new cleanup, residue,
+failure-evidence registration, re-seal, or canonical-write fault remains a
+blocking secondary fact and may not replace the originating cell identity or
+be relabelled as an invalid worker result. If an earlier acknowledged passing
+cell's evidence fails parent validation, that earlier evidence defect remains
+the primary `SUPERVISOR_EVIDENCE_INVALID` boundary instead.
 
 The orchestrator launches every child in its own process group/container name
 derived from a bounded random run ID, closes inherited environment variables,

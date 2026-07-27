@@ -495,29 +495,64 @@ Before the Backend owner gate, the Harness SHALL require the fixed
 candidate-owned `backend/.cache/go-mod` target to be absent and SHALL eagerly
 seed it from the admitted immutable Go cache with the Harness-owned completion
 marker and exact Go 1.26.5 darwin/arm64 toolchain. Before write denial, it
-SHALL validate the seeded toolchain and run one fixed, no-argument offline
-`go mod download` materialization with that exact Go, `GOENV=off`,
+SHALL validate the seeded toolchain and derive the
+canonical, sorted, unique set of exact `module@version` records from only the
+non-`/go.mod` content-checksum lines in the accepted `backend/go.sum`, require
+exactly 62 unique records, order literal `${module}@${version}` values by
+ECMAScript `localeCompare(other, "en")`, and require terminal-LF newline-list
+SHA-256
+`65d2972c8632a90b2e3331071db6016db037480e7fe04a615e44931656f31bb7`,
+prove each record owns exact `.info`, `.mod`, `.zip`, and `.ziphash` seed
+bytes, and run one fixed offline
+`go mod download -- <content-set...>` materialization. The command SHALL use
+`GOENV=off`,
 `GOWORK=off`, `GOTOOLCHAIN=local`, `GOPROXY=off`, `GOSUMDB=off`, and
 `GOFLAGS=-mod=readonly`. `backend/go.mod` and `backend/go.sum` SHALL be
-byte-identical before and after materialization. The Harness SHALL then seal
-the complete expanded module/toolchain target, including every path, byte,
-mode, directory identity, inode, and link identity.
+byte-identical before and after materialization. The original seeded
+download/toolchain authority SHALL re-seal unchanged. Materialization SHALL
+produce exactly the 62 content-derived `.lock` paths with canonical
+newline-list SHA-256
+`0429a1eb475367e7950d45e11c826632893b8a08892b78985da17bedb30e7f28`;
+each SHALL be a contained, single-link, zero-byte `0644` regular file with no
+symlink ancestry. The Harness SHALL unlink only those exact paths, fail on a
+missing, extra, reordered, changed, or surviving lock/temporary entry, and
+then seal the complete expanded module/toolchain target, including every path,
+byte, mode, directory identity, inode, and link identity.
 
 The materialization command ID SHALL be exactly
 `owner-backend-go-mod-download` and its argv SHALL be exactly
-`["mod", "download"]`. It SHALL NOT retain the obsolete `-all` command-ID
-suffix, append `all`, a module pattern, or a module query, because those forms
-widen the request from the accepted main-module build/test set to bytes for
-the complete module graph that the sealed cache does not own. It SHALL NOT
-replace `GOPROXY=off` with a file, fallback, direct, registry, or public proxy.
+`["mod", "download", "--", ...contentSet]`. It SHALL NOT retain the obsolete
+`-all` command-ID suffix or admit `all`, package/module patterns, `.mod`-only
+records, omitted, extra, duplicate, reordered, floating, ranged, or
+substituted versions. It SHALL NOT replace `GOPROXY=off` with a file, fallback,
+direct, registry, or public proxy.
 
 #### Scenario: Backend materialization widens the admitted module set
 
-- **WHEN** the materialization command retains the obsolete `-all` ID suffix,
-  its argv includes `all`, any module pattern or query, or its environment
-  permits any proxy instead of exact `GOPROXY=off`
+- **WHEN** the materialization command retains the obsolete `-all` ID suffix;
+  its argv includes `all`, a pattern, or any record outside the exact
+  checksum-authorized content set; or its environment permits any proxy
+  instead of exact `GOPROXY=off`
 - **THEN** the closed Backend owner plan SHALL fail before executing that
   command and SHALL NOT acquire, infer, or bless the additional graph bytes
+
+#### Scenario: Backend tidy closure is pre-expanded from content authority
+
+- **WHEN** the accepted `backend/go.sum` contains the exact 62-record
+  content-checksum set and every corresponding four-file seed asset matches
+- **THEN** the Harness SHALL pre-expand precisely those records before sealing
+  the target
+- **AND** the Product's unchanged `go mod tidy` SHALL succeed later under full
+  target write denial with zero `go.mod`, `go.sum`, seed-authority, lock-file,
+  or expanded-cache mutation
+
+#### Scenario: Content-set materialization is not canonical
+
+- **WHEN** the derived set, count, order, argv, exact version, four-file seed
+  authority, environment, or command identity differs from the accepted plan
+- **THEN** the Backend owner SHALL fail before that command executes and SHALL
+  NOT fall back to `all`, a pattern, any query outside the exact
+  checksum-authorized content set, a writable cache, or any proxy
 
 The fixed Backend check SHALL run only in the Product's acceptance toolchain
 mode. Its environment SHALL contain the exact validated
@@ -537,6 +572,30 @@ complete target seal unconditionally after the check and after the
 measurement. A seal change SHALL block the owner; if an operation already
 failed, its exact command identity, status, and logs SHALL remain primary while
 the seal failure is recorded as a secondary blocking boundary failure.
+
+The fixed Backend check's outer sandbox SHALL begin with deny-all network
+policy and then allow only inbound local-address plus outbound remote-address
+`localhost:*`, because the unchanged Product test matrix owns ephemeral
+loopback HTTP listeners and clients. The sandbox SHALL prove one ephemeral
+loopback bind/request succeeds and one representative public TCP connection
+is denied. It SHALL NOT allow a wildcard remote host, DNS, a public/private
+LAN address, a Unix socket, or any other network capability. The module
+materialization and independent query-binary measurement SHALL retain full
+network denial.
+
+#### Scenario: Backend quality tests use an ephemeral local server
+
+- **WHEN** the fixed Backend check starts a Product-owned listener on
+  `127.0.0.1:0` and its test client calls that assigned loopback port
+- **THEN** the outer sandbox SHALL permit that self-contained exchange while
+  retaining complete module-cache write denial
+- **AND** a non-loopback connection attempt SHALL remain denied
+
+#### Scenario: Backend owner receives a broader network profile
+
+- **WHEN** the Backend-check profile permits any non-loopback address or the
+  materialization/query-measurement profile permits any network capability
+- **THEN** the closed owner plan SHALL fail before executing that command
 
 Only after the final seal comparison, or after recording any operation/seal
 failure, SHALL the Harness remove the exact candidate-owned
@@ -1017,6 +1076,22 @@ partial worker result SHALL NOT be trusted as canonical. Revocable in-process
 Node output gates MAY provide defense in depth, but SHALL NOT substitute for
 the parent watchdog.
 
+The parent SHALL bifurcate orderly worker terminal codes before applying
+result validation. Only code zero MAY enter green release verification and
+green worker-result validation. Code one with one IPC-acknowledged direct
+failed cell SHALL close the worker closure, run common external cleanup
+exactly once, re-seal inputs, and write the canonical fail/blocked result with
+that cell failure as primary. Parent-prepared images or other resources that
+are still present before this cleanup SHALL NOT by themselves relabel the
+normal terminal failure as `SUPERVISOR_RESULT_INVALID`. Cleanup faults,
+residue, failure-evidence registration, re-seal, and canonical-write failures
+that arise after the parent validates the acknowledged prefix and direct
+failure evidence SHALL remain blocking secondary facts and SHALL NOT replace
+the primary cell identity, command code, or validated logs. If an earlier
+acknowledged passing cell's evidence fails parent validation, that earlier
+evidence defect SHALL instead become the primary
+`SUPERVISOR_EVIDENCE_INVALID` boundary.
+
 Every child process SHALL run in a separately controllable process group or
 uniquely named container with a sanitized environment, finite timeout, bounded
 output, graceful-stop window, and bounded forced cleanup. Host commands SHALL
@@ -1086,6 +1161,17 @@ run root and SHALL NOT perform broad recursive repository cleanup.
 - **THEN** bounded cleanup SHALL run, the result SHALL preserve sanitized
   failure evidence, all inputs SHALL re-seal unchanged, and the command SHALL
   exit nonzero
+
+#### Scenario: Worker reports a direct failure before runtime handoff
+
+- **WHEN** the parent has prepared accepted images, parent IPC acknowledges one
+  direct failed matrix cell, the worker exits with terminal code one before it
+  creates the packaged runtime, and the process closure closes normally
+- **THEN** the parent SHALL skip green release/result validation, clean its
+  exact prepared resources once, re-seal inputs, and emit a schema-valid
+  canonical result preserving the acknowledged cell failure as primary
+- **AND** a cleanup failure or true residue SHALL be reported separately
+  without converting that primary failure into an invalid-worker diagnosis
 
 #### Scenario: The matrix worker stops responding
 
