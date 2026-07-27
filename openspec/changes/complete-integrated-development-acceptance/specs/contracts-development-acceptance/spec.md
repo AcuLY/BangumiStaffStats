@@ -495,13 +495,29 @@ Before the Backend owner gate, the Harness SHALL require the fixed
 candidate-owned `backend/.cache/go-mod` target to be absent and SHALL eagerly
 seed it from the admitted immutable Go cache with the Harness-owned completion
 marker and exact Go 1.26.5 darwin/arm64 toolchain. Before write denial, it
-SHALL validate the seeded toolchain and run one fixed offline
-`go mod download all` materialization with that exact Go, `GOENV=off`,
+SHALL validate the seeded toolchain and run one fixed, no-argument offline
+`go mod download` materialization with that exact Go, `GOENV=off`,
 `GOWORK=off`, `GOTOOLCHAIN=local`, `GOPROXY=off`, `GOSUMDB=off`, and
 `GOFLAGS=-mod=readonly`. `backend/go.mod` and `backend/go.sum` SHALL be
 byte-identical before and after materialization. The Harness SHALL then seal
 the complete expanded module/toolchain target, including every path, byte,
 mode, directory identity, inode, and link identity.
+
+The materialization command ID SHALL be exactly
+`owner-backend-go-mod-download` and its argv SHALL be exactly
+`["mod", "download"]`. It SHALL NOT retain the obsolete `-all` command-ID
+suffix, append `all`, a module pattern, or a module query, because those forms
+widen the request from the accepted main-module build/test set to bytes for
+the complete module graph that the sealed cache does not own. It SHALL NOT
+replace `GOPROXY=off` with a file, fallback, direct, registry, or public proxy.
+
+#### Scenario: Backend materialization widens the admitted module set
+
+- **WHEN** the materialization command retains the obsolete `-all` ID suffix,
+  its argv includes `all`, any module pattern or query, or its environment
+  permits any proxy instead of exact `GOPROXY=off`
+- **THEN** the closed Backend owner plan SHALL fail before executing that
+  command and SHALL NOT acquire, infer, or bless the additional graph bytes
 
 The fixed Backend check SHALL run only in the Product's acceptance toolchain
 mode. Its environment SHALL contain the exact validated

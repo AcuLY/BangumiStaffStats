@@ -170,11 +170,19 @@ That exception begins with a Harness-owned eager preparation step, not the
 ordinary Backend bootstrap path. The Harness copies the exact locked download
 and Go 1.26.5 toolchain closure into the absent fixed target, validates its
 completion marker and GOROOT, and, while the target is still writable, runs
-the admitted Go's fixed offline `go mod download all` command with
-`GOFLAGS=-mod=readonly`. It seals `backend/go.mod` and `backend/go.sum` around
-materialization and rejects either source-authority change. It then seals the
-complete expanded module/toolchain tree, including content, mode, directory
-identity, inode, and link identity.
+the admitted Go's fixed, no-argument offline `go mod download` command with
+`GOFLAGS=-mod=readonly` and `GOPROXY=off`. Go 1.26.5 defines that no-argument
+form as the main module's build/test download set; adding `all` would traverse
+the complete module graph and request historical or test-only module ZIPs that
+have only `go.mod` checksum authority and are intentionally absent from the
+sealed build/test cache. No module pattern, query, file proxy, fallback, or
+public proxy may widen the admitted bytes. The Harness seals
+`backend/go.mod` and `backend/go.sum` around materialization and rejects either
+source-authority change. It then seals the complete expanded module/toolchain
+tree, including content, mode, directory identity, inode, and link identity.
+The evidence command ID is
+`owner-backend-go-mod-download`; it must not retain the obsolete `-all`
+suffix after the positional argument is removed.
 
 The Backend check receives the validated fixed GOROOT only through
 `BGMSS_ACCEPTANCE_GOROOT`; caller `GO_BOOTSTRAP` and every legacy

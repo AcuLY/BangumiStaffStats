@@ -166,7 +166,7 @@ commit, push, sync, archive, or update task markers.
 - [x] 3.7 Close the Backend owner sealed-toolchain handshake and cache
   lifetime. Require an absent target; eagerly seed the Harness-owned
   `backend/.cache/go-mod`; validate its exact Go 1.26.5 GOROOT; use the
-  admitted Go to run fixed offline `go mod download all` with
+  admitted Go to run one fixed offline module materialization command with
   `GOFLAGS=-mod=readonly`; and prove `backend/go.mod`/`go.sum` unchanged.
   Seal the complete expanded cache, invoke `backend/scripts/check.sh` only
   with exact `BGMSS_ACCEPTANCE_GOROOT` and no caller `GO_BOOTSTRAP` or legacy
@@ -244,6 +244,17 @@ commit, push, sync, archive, or update task markers.
   matrix/schema synchronization assertion; and retain the two-hour suite
   watchdog, fail/blocked state machine, no-runtime-override rule, and timeout
   negative coverage unchanged.
+- [ ] 3.14 Correct the Backend module-set widening exposed by formal
+  `owner.backend` execution. Rename the misleading materialization command ID
+  from `owner-backend-go-mod-download-all` to exact
+  `owner-backend-go-mod-download` and change its argv from
+  `["mod", "download", "all"]` to exact `["mod", "download"]`; retain
+  `GOPROXY=off`, `GOSUMDB=off`, network denial, the accepted Go/GOROOT,
+  module-source seals, target lifetime, error precedence, and all later
+  write-denial/re-seal boundaries. Add focused rejection of the obsolete ID,
+  `all`, module patterns/queries, or any non-off proxy and prove the
+  no-argument command materializes the frozen build/test closure without
+  changing `go.mod`, `go.sum`, or the seeded download/toolchain authority.
 
 ## 4. Full Archive and packaged runtime
 
