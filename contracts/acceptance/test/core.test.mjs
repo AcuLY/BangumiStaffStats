@@ -54,12 +54,14 @@ import {
   admitArchiveTrackedAuthority,
   archiveVerifierCommandPlan,
   archiveVerifierEnvironment,
+  assertCatalogGoVerifierEnvironment,
   assertCatalogGoFileProxyUnchanged,
   assertArchiveInstalledDependencyClosureUnchanged,
   assertArchiveTrackedAuthorityFiles,
   assertArchiveTrackedAuthorityUnchanged,
   cleanupBackendGeneratedRoots,
   cleanupContractsGeneratedRoots,
+  catalogGoVerifierEnvironment,
   CONTRACTS_OWNER_CLEANUP_INVENTORY,
   currentNpmPackageCacheRelative,
   currentNpmPackageGeneratedRoots,
@@ -5242,7 +5244,7 @@ test('Backend cleanup-only surviving residue blocks an otherwise successful owne
   assert.equal(fs.existsSync(cacheRoot), true);
 });
 
-test('Catalog Go file proxy derives one sealed offline version list', (t) => {
+test('Catalog Go file proxy survives verifier cache cleanup with exact Go environment', (t) => {
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-catalog-go-proxy-')),
   );
@@ -5252,7 +5254,11 @@ test('Catalog Go file proxy derives one sealed offline version list', (t) => {
     missingSuffix,
     preexistingList = false,
   } = {}) => {
-    const moduleCache = path.join(root, name);
+    const fixtureRoot = path.join(root, name);
+    const catalogRoot = path.join(fixtureRoot, 'catalog');
+    const catalogCacheRoot = path.join(catalogRoot, '.cache');
+    const moduleCache = path.join(catalogCacheRoot, 'go-mod');
+    const runRoot = path.join(fixtureRoot, 'run');
     const versionRoot = path.join(
       moduleCache,
       'cache',
@@ -5264,6 +5270,7 @@ test('Catalog Go file proxy derives one sealed offline version list', (t) => {
       '@v',
     );
     fs.mkdirSync(versionRoot, { recursive: true });
+    fs.mkdirSync(runRoot);
     for (const suffix of ['info', 'mod', 'zip', 'ziphash']) {
       if (suffix === missingSuffix) continue;
       const asset = path.join(versionRoot, `v2.8.0.${suffix}`);
@@ -5277,29 +5284,118 @@ test('Catalog Go file proxy derives one sealed offline version list', (t) => {
         mode: 0o400,
       });
     }
-    return { moduleCache, versionRoot };
+    return {
+      catalogCacheRoot,
+      catalogRoot,
+      moduleCache,
+      runRoot,
+      versionRoot,
+    };
   };
+  const materialize = (fixture) => materializeCatalogGoFileProxy({
+    moduleCacheRoot: fixture.moduleCache,
+    catalogCacheRoot: fixture.catalogCacheRoot,
+    runRoot: fixture.runRoot,
+  });
+  const expectedVersionRoot = (authority) => path.join(
+    authority.proxyRoot,
+    'github.com',
+    'oapi-codegen',
+    'oapi-codegen',
+    'v2',
+    '@v',
+  );
 
   const valid = createModuleCache('valid');
-  const authority = materializeCatalogGoFileProxy(valid.moduleCache);
+  const authority = materialize(valid);
   assert.deepEqual(
     {
+      assets: authority.assets.length,
       bytes: authority.bytes,
       mode: authority.mode,
       proxy: authority.proxy,
+      proxyRoot: authority.proxyRoot,
       sha256: authority.sha256,
     },
     {
+      assets: 4,
       bytes: 7,
       mode: 0o400,
       proxy: pathToFileURL(
-        path.join(valid.moduleCache, 'cache', 'download'),
+        path.join(valid.runRoot, 'control', 'catalog-go-proxy'),
       ).href,
+      proxyRoot: path.join(valid.runRoot, 'control', 'catalog-go-proxy'),
       sha256:
         'sha256:56dfdd13edfa1201ab706c6df7f524b9f4f810e14e317fd1d02bf13fb116b374',
     },
   );
+  assert.deepEqual(
+    fs.readdirSync(expectedVersionRoot(authority)).sort(),
+    [
+      'list',
+      'v2.8.0.info',
+      'v2.8.0.mod',
+      'v2.8.0.zip',
+      'v2.8.0.ziphash',
+    ],
+  );
+  for (const asset of authority.assets) {
+    const source = fs.lstatSync(asset.source);
+    const destination = fs.lstatSync(asset.destination);
+    assert.equal(source.isFile(), true);
+    assert.equal(source.nlink, 1);
+    assert.equal(destination.isFile(), true);
+    assert.equal(destination.nlink, 1);
+    assert.equal(destination.mode & 0o777, 0o400);
+    assert.notDeepEqual(
+      [destination.dev, destination.ino],
+      [source.dev, source.ino],
+    );
+    assert.deepEqual(
+      fs.readFileSync(asset.destination),
+      fs.readFileSync(asset.source),
+    );
+  }
   assert.equal(fs.readFileSync(authority.path, 'utf8'), 'v2.8.0\n');
+  const tools = {
+    go: {
+      path: path.join(root, 'current-go', 'bin', 'go'),
+    },
+  };
+  const environment = catalogGoVerifierEnvironment({
+    catalogGoProxy: authority,
+    tools,
+  });
+  assert.deepEqual(environment, {
+    GOENV: 'off',
+    GOPROXY: authority.proxy,
+    GOSUMDB: 'off',
+    GOTOOLCHAIN: 'local',
+    GOROOT: path.join(root, 'current-go'),
+    GOWORK: 'off',
+    REDOCLY_TELEMETRY: 'off',
+  });
+  assert.equal(
+    assertCatalogGoVerifierEnvironment({
+      catalogGoProxy: authority,
+      environment,
+      tools,
+    }),
+    environment,
+  );
+  assert.throws(
+    () =>
+      assertCatalogGoVerifierEnvironment({
+        catalogGoProxy: authority,
+        environment: { ...environment, GOWORK: '/ambient/go.work' },
+        tools,
+      }),
+    /Catalog verifier Go environment is not exact/u,
+  );
+
+  fs.rmSync(valid.catalogCacheRoot, { recursive: true });
+  assert.equal(fs.existsSync(valid.catalogCacheRoot), false);
+  assert.equal(fs.existsSync(authority.proxyRoot), true);
   assert.equal(
     assertCatalogGoFileProxyUnchanged(authority),
     authority,
@@ -5311,33 +5407,63 @@ test('Catalog Go file proxy derives one sealed offline version list', (t) => {
     /version list drifted/u,
   );
 
+  const missingAfter = createModuleCache('missing-after');
+  const missingAfterAuthority = materialize(missingAfter);
+  fs.unlinkSync(missingAfterAuthority.path);
+  assert.throws(
+    () => assertCatalogGoFileProxyUnchanged(missingAfterAuthority),
+    /version list is unavailable/u,
+  );
+
   assert.throws(
     () =>
-      materializeCatalogGoFileProxy(
+      materialize(
         createModuleCache('missing', {
           missingSuffix: 'ziphash',
-        }).moduleCache,
+        }),
       ),
     /Catalog oapi-codegen ziphash asset/u,
   );
   assert.throws(
     () =>
-      materializeCatalogGoFileProxy(
+      materialize(
         createModuleCache('linked', {
           hardLinkedSuffix: 'zip',
-        }).moduleCache,
+        }),
       ),
     /Catalog oapi-codegen zip asset is not single-link/u,
   );
   assert.throws(
     () =>
-      materializeCatalogGoFileProxy(
+      materialize(
         createModuleCache('preexisting', {
           preexistingList: true,
-        }).moduleCache,
+        }),
       ),
     /version list already exists/u,
   );
+
+  const nested = createModuleCache('nested');
+  nested.runRoot = path.join(nested.catalogCacheRoot, 'nested-run');
+  fs.mkdirSync(nested.runRoot);
+  assert.throws(
+    () => materialize(nested),
+    /must remain outside the verifier cache/u,
+  );
+
+  const reused = createModuleCache('reused-inode');
+  const originalCopyFileSync = fs.copyFileSync;
+  fs.copyFileSync = (source, destination) => {
+    fs.linkSync(source, destination);
+  };
+  try {
+    assert.throws(
+      () => materialize(reused),
+      /proxy copy reused a source inode/u,
+    );
+  } finally {
+    fs.copyFileSync = originalCopyFileSync;
+  }
 });
 
 test('Contracts cleanup inventory closes every installed API golden before coordinator traversal', async (t) => {
