@@ -499,15 +499,21 @@ For the API Catalog golden only, the Harness SHALL derive one local Go module
 proxy list with exact bytes `v2.8.0\n` for the already accepted
 `github.com/oapi-codegen/oapi-codegen/v2@v2.8.0` authority. Before writing
 that list it SHALL require the exact seeded `.info`, `.mod`, `.zip`, and
-`.ziphash` files for v2.8.0 as regular single-link files. The Catalog verify
-command SHALL use only the canonical run-owned `file://` proxy with
+`.ziphash` files for v2.8.0 as regular single-link files, copy only those four
+files with new inodes and unchanged bytes into one dedicated run-control proxy
+directory outside the Catalog golden's `.cache`, and place the list beside
+those copies. The Catalog verify command SHALL use only that canonical
+run-owned `file://` proxy with
 `GOSUMDB=off`, `GOENV=off`, `GOWORK=off`, and `GOTOOLCHAIN=local` under the
 existing outer network-denial sandbox. The Harness SHALL require the list
 path, inode, mode, size, digest, and bytes to remain unchanged immediately
-after verification. A missing version asset, pre-existing or changed list,
-non-file proxy, public/fallback proxy, or network access SHALL fail
-`owner.contracts`; the generated proxy remains cleanup-owned and SHALL NOT be
-reported as a frozen input byte.
+after verification and before whole-run cleanup. The Catalog verifier MAY
+remove its own generated `.cache` on success or failure but SHALL NOT own,
+remove, or contain the independent proxy authority. A missing version asset,
+pre-existing or changed list, reused inode, proxy inside verifier-owned
+`.cache`, non-file proxy, public/fallback proxy, or network access SHALL fail
+`owner.contracts`; the generated proxy remains whole-run cleanup-owned and
+SHALL NOT be reported as a frozen input byte.
 
 The Archive owner SHALL invoke its real verifier with the exact hermetic Go
 environment, including `GOWORK=off`; an inherited host workspace SHALL never
@@ -586,6 +592,14 @@ block owner cleanup and defer only to guarded whole-run-root cleanup.
 - **AND** missing cleanup coverage, cleanup failure, or surviving output SHALL
   fail the Contracts owner cell rather than be misattributed to artifact
   compatibility or treated as tracked control-plane input
+
+#### Scenario: Catalog verifier cleans its private cache before proxy re-attestation
+
+- **WHEN** the API Catalog verifier removes its own `.cache` after the exact
+  oapi-codegen command
+- **THEN** the independent run-control proxy and its one-version list SHALL
+  still exist with the admitted identity for immediate Harness re-attestation
+- **AND** the later guarded whole-run cleanup SHALL remove that proxy
 
 #### Scenario: Archive owner receives ambient workspace state and frozen caches
 

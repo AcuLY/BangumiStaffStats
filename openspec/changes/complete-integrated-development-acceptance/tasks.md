@@ -218,6 +218,15 @@ commit, push, sync, archive, or update task markers.
   both exact dependency archive directories in the harness tree. Add focused
   positives for the real lifecycle delta and negatives for a wrong archive
   date, sibling change, extra main spec, or any product/runtime path.
+- [ ] 3.12 Correct the Catalog Go proxy lifetime exposed by formal
+  `owner.contracts` execution. Copy only the four admitted oapi-codegen v2.8.0
+  proxy assets with new inodes into a dedicated run-control proxy outside the
+  verifier-owned `.cache`, create the exact read-only one-version list there,
+  pass exact `GOWORK=off`, and re-attest the list immediately after the
+  Catalog command. Add focused coverage proving the verifier may remove its
+  private cache without making the proxy authority disappear, while a reused
+  inode, nested proxy, missing/changed list, or wrong Go environment fails
+  closed.
 
 ## 4. Full Archive and packaged runtime
 

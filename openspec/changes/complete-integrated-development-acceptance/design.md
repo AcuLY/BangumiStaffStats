@@ -185,11 +185,15 @@ The API Catalog golden invokes the locked
 resolves an explicit `module@version` command only after consulting that
 module's local version list for deprecation metadata, even when all exact
 module bytes are already present. The Harness therefore materializes the
-single canonical `v2.8.0\n` list beside the four seeded and sealed v2.8.0
-proxy files, points `GOPROXY` at that run-owned `file://` proxy, and rechecks
-the list identity after the command. The outer sandbox still denies all
-network access; no version discovery, fallback proxy, or unsealed module byte
-is admitted.
+single canonical `v2.8.0\n` list beside no-hardlink copies of the four seeded
+and sealed v2.8.0 proxy files in a dedicated run-control directory outside the
+Catalog golden's verifier-owned `.cache`. It points `GOPROXY` at that
+run-owned `file://` proxy and rechecks the list identity immediately after the
+command, before whole-run cleanup. This separation is required because the
+Catalog verifier removes its own `.cache` on both success and failure; that
+cleanup must not erase the proxy authority before the Harness can re-attest
+it. The outer sandbox still denies all network access; no version discovery,
+fallback proxy, or unsealed module byte is admitted.
 
 The Archive contract command inherits the same closed Go environment as the
 other hermetic Go consumers and additionally fixes `GOWORK=off`; an ambient
