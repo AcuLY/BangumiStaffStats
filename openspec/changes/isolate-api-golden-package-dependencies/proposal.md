@@ -76,7 +76,9 @@ sibling changes/specs, refs/remotes, external services, hosts, and secrets.
 
 ### Dependencies
 
-The five archived API contract capabilities and the active
+The archived `expose-dynamic-catalog`, `expose-rankings`,
+`expose-candidates`, `expose-person-detail`, `expose-partners`, and
+`expose-co-star` API contract changes, plus the active
 `complete-integrated-development-acceptance` owner-routing result. The
 acceptance change is paused and read-only while this repair is active; this
 change must be completed, synchronized, and archived before acceptance runs

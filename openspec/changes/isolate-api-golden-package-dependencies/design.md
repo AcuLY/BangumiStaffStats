@@ -71,8 +71,13 @@ packages and require:
 
 - package-local exact dependency declarations;
 - bare imports in every verifier;
-- no `node_modules` path, Frontend reference, `pathToFileURL`, or
-  capability-specific tool-root environment lookup.
+- no sibling/root dependency provider, constructed
+  `node_modules/(ajv|ajv-formats)` URL/path, Frontend dependency reference,
+  `pathToFileURL`, or capability-specific tool-root environment lookup.
+
+Package-local executable paths remain valid. In particular, Catalog may keep
+using its own `node_modules/.bin/redocly`; the policy closes only cross-package
+dependency resolution and constructed Ajv dependency imports.
 
 Apply also executes every package's real `npm ci` and `npm run verify` from an
 independent install while `frontend/node_modules` is absent. The structural
