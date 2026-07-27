@@ -1,0 +1,576 @@
+{
+  "schemaVersion": 1,
+  "matrixVersion": "development-acceptance-v1",
+  "cells": [
+    {
+      "id": "admission.input",
+      "phase": "admission",
+      "owner": "contracts-development-acceptance",
+      "kind": "attestation",
+      "action": "admit-input",
+      "requires": [],
+      "timeoutMs": 30000,
+      "evidence": ["inputSeal"]
+    },
+    {
+      "id": "admission.sources",
+      "phase": "admission",
+      "owner": "contracts-development-acceptance",
+      "kind": "attestation",
+      "action": "admit-sources",
+      "requires": ["admission.input"],
+      "timeoutMs": 120000,
+      "evidence": [
+        "productIdentity",
+        "harnessIdentity",
+        "protectedDiff",
+        "cacheCompatibilityPreAdmission"
+      ]
+    },
+    {
+      "id": "admission.artifacts",
+      "phase": "admission",
+      "owner": "contracts-artifact-compatibility",
+      "kind": "attestation",
+      "action": "admit-artifacts",
+      "requires": ["admission.sources"],
+      "timeoutMs": 120000,
+      "evidence": ["componentStatements", "compatibilityManifest", "artifactSeals"]
+    },
+    {
+      "id": "admission.archive",
+      "phase": "admission",
+      "owner": "contracts-archive-manifest",
+      "kind": "attestation",
+      "action": "admit-archive",
+      "requires": ["admission.artifacts"],
+      "timeoutMs": 120000,
+      "evidence": ["archiveSeal", "manifestFacts", "provenanceSeal"]
+    },
+    {
+      "id": "admission.tools",
+      "phase": "admission",
+      "owner": "contracts-development-acceptance",
+      "kind": "attestation",
+      "action": "admit-tools",
+      "requires": ["admission.archive"],
+      "timeoutMs": 120000,
+      "evidence": ["toolIdentities", "browserIdentity", "machineProfile"]
+    },
+    {
+      "id": "owner.contracts",
+      "phase": "owner-gates",
+      "owner": "contracts-rewrite-baseline",
+      "kind": "command",
+      "action": "owner-gate:contracts",
+      "requires": ["admission.tools"],
+      "timeoutMs": 900000,
+      "evidence": ["command", "logs"]
+    },
+    {
+      "id": "owner.backend",
+      "phase": "owner-gates",
+      "owner": "backend-runtime-foundation",
+      "kind": "command",
+      "action": "owner-gate:backend",
+      "requires": ["owner.contracts"],
+      "timeoutMs": 3600000,
+      "evidence": ["command", "logs", "queryBinaryBytes"]
+    },
+    {
+      "id": "owner.updater",
+      "phase": "owner-gates",
+      "owner": "updater-runtime-foundation",
+      "kind": "command",
+      "action": "owner-gate:updater",
+      "requires": ["owner.backend"],
+      "timeoutMs": 1800000,
+      "evidence": ["command", "logs"]
+    },
+    {
+      "id": "owner.frontend",
+      "phase": "owner-gates",
+      "owner": "frontend-foundation",
+      "kind": "command",
+      "action": "owner-gate:frontend",
+      "requires": ["owner.updater"],
+      "timeoutMs": 1800000,
+      "evidence": ["command", "logs", "initialJavaScriptGzipBytes"]
+    },
+    {
+      "id": "artifacts.components",
+      "phase": "artifacts",
+      "owner": "contracts-artifact-compatibility",
+      "kind": "command",
+      "action": "artifact-verify-components",
+      "requires": ["owner.frontend"],
+      "timeoutMs": 300000,
+      "evidence": ["command", "componentStatements"]
+    },
+    {
+      "id": "artifacts.compatibility",
+      "phase": "artifacts",
+      "owner": "contracts-artifact-compatibility",
+      "kind": "command",
+      "action": "artifact-coordinator-smoke",
+      "requires": ["artifacts.components"],
+      "timeoutMs": 900000,
+      "evidence": ["command", "compatibilityManifest", "logs"]
+    },
+    {
+      "id": "archive.copy",
+      "phase": "archive-runtime",
+      "owner": "contracts-development-acceptance",
+      "kind": "scenario",
+      "action": "archive-copy-inactive",
+      "requires": ["admission.archive", "artifacts.compatibility"],
+      "timeoutMs": 900000,
+      "evidence": ["copySeal", "currentPointer", "copyDuration"]
+    },
+    {
+      "id": "archive.validate",
+      "phase": "archive-runtime",
+      "owner": "contracts-archive-manifest",
+      "kind": "scenario",
+      "action": "archive-validate-full",
+      "requires": ["archive.copy"],
+      "timeoutMs": 600000,
+      "evidence": ["archiveSeal", "manifestFacts", "archiveConsumer"]
+    },
+    {
+      "id": "updater.doctor",
+      "phase": "archive-runtime",
+      "owner": "updater-build-artifact",
+      "kind": "command",
+      "action": "updater-artifact-doctor",
+      "requires": ["archive.validate"],
+      "timeoutMs": 300000,
+      "evidence": ["command", "logs", "containerPolicy"]
+    },
+    {
+      "id": "updater.contract",
+      "phase": "archive-runtime",
+      "owner": "updater-build-artifact",
+      "kind": "command",
+      "action": "updater-artifact-contract",
+      "requires": ["updater.doctor"],
+      "timeoutMs": 300000,
+      "evidence": ["command", "logs", "containerPolicy"]
+    },
+    {
+      "id": "backend.start",
+      "phase": "archive-runtime",
+      "owner": "backend-build-artifact",
+      "kind": "scenario",
+      "action": "backend-artifact-start",
+      "requires": ["updater.contract"],
+      "timeoutMs": 180000,
+      "evidence": ["containerPolicy", "readyDuration", "runtimeIdentity"]
+    },
+    {
+      "id": "api.health",
+      "phase": "api",
+      "owner": "backend-http-runtime",
+      "kind": "scenario",
+      "action": "api-health",
+      "requires": ["backend.start"],
+      "timeoutMs": 30000,
+      "evidence": ["httpFacts", "metrics"]
+    },
+    {
+      "id": "api.catalog",
+      "phase": "api",
+      "owner": "backend-dynamic-catalog",
+      "kind": "scenario",
+      "action": "api-catalog",
+      "requires": ["api.health"],
+      "timeoutMs": 30000,
+      "evidence": ["httpFacts", "catalogSelection"]
+    },
+    {
+      "id": "api.candidates",
+      "phase": "api",
+      "owner": "backend-candidates-api",
+      "kind": "scenario",
+      "action": "api-candidates",
+      "requires": ["api.catalog"],
+      "timeoutMs": 30000,
+      "evidence": ["httpFacts", "coldWarm", "selectedPeople"]
+    },
+    {
+      "id": "api.rankings",
+      "phase": "api",
+      "owner": "backend-rankings-api",
+      "kind": "scenario",
+      "action": "api-rankings",
+      "requires": ["api.candidates"],
+      "timeoutMs": 30000,
+      "evidence": ["httpFacts", "coldWarm", "selectedPeople"]
+    },
+    {
+      "id": "api.person-detail",
+      "phase": "api",
+      "owner": "backend-person-detail-api",
+      "kind": "scenario",
+      "action": "api-person-detail",
+      "requires": ["api.rankings"],
+      "timeoutMs": 30000,
+      "evidence": ["httpFacts", "coldWarm"]
+    },
+    {
+      "id": "api.partners",
+      "phase": "api",
+      "owner": "backend-partners-api",
+      "kind": "scenario",
+      "action": "api-partners",
+      "requires": ["api.person-detail"],
+      "timeoutMs": 30000,
+      "evidence": ["httpFacts", "coldWarm", "selectedPeople"]
+    },
+    {
+      "id": "api.co-star",
+      "phase": "api",
+      "owner": "backend-co-star-api",
+      "kind": "scenario",
+      "action": "api-co-star",
+      "requires": ["api.partners"],
+      "timeoutMs": 30000,
+      "evidence": ["httpFacts", "coldWarm"]
+    },
+    {
+      "id": "api.malformed",
+      "phase": "api",
+      "owner": "backend-http-runtime",
+      "kind": "scenario",
+      "action": "api-malformed-limits",
+      "requires": ["api.co-star"],
+      "timeoutMs": 30000,
+      "evidence": ["httpFacts", "errorEnvelope"]
+    },
+    {
+      "id": "api.cancellation",
+      "phase": "api",
+      "owner": "backend-http-runtime",
+      "kind": "scenario",
+      "action": "api-cancellation",
+      "requires": ["api.malformed"],
+      "timeoutMs": 30000,
+      "evidence": ["cancellation", "latestResponse"]
+    },
+    {
+      "id": "frontend.serve",
+      "phase": "browser-oracle",
+      "owner": "frontend-build-artifact",
+      "kind": "scenario",
+      "action": "frontend-artifact-serve",
+      "requires": ["api.cancellation"],
+      "timeoutMs": 120000,
+      "evidence": ["artifactSeal", "serverOrigin", "bundlePolicy"]
+    },
+    {
+      "id": "oracle.materialize",
+      "phase": "browser-oracle",
+      "owner": "frontend-oracle-fidelity",
+      "kind": "scenario",
+      "action": "oracle-materialize",
+      "requires": ["frontend.serve"],
+      "timeoutMs": 900000,
+      "evidence": ["oracleIdentity", "oracleBuild", "oracleOrigin"]
+    },
+    {
+      "id": "browser.shared-journeys",
+      "phase": "browser-oracle",
+      "owner": "frontend-query-shell",
+      "kind": "scenario",
+      "action": "browser-shared-journeys",
+      "requires": ["oracle.materialize"],
+      "timeoutMs": 300000,
+      "evidence": ["journeyTrace", "networkLog", "resourceLog"]
+    },
+    {
+      "id": "browser.light.360.default",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:light:360:default",
+      "requires": ["browser.shared-journeys"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.light.360.reduced",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:light:360:reduced",
+      "requires": ["browser.light.360.default"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.dark.360.default",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:dark:360:default",
+      "requires": ["browser.light.360.reduced"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.dark.360.reduced",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:dark:360:reduced",
+      "requires": ["browser.dark.360.default"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.light.390.default",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:light:390:default",
+      "requires": ["browser.dark.360.reduced"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.light.390.reduced",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:light:390:reduced",
+      "requires": ["browser.light.390.default"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.dark.390.default",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:dark:390:default",
+      "requires": ["browser.light.390.reduced"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.dark.390.reduced",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:dark:390:reduced",
+      "requires": ["browser.dark.390.default"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.light.779.default",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:light:779:default",
+      "requires": ["browser.dark.390.reduced"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.light.779.reduced",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:light:779:reduced",
+      "requires": ["browser.light.779.default"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.dark.779.default",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:dark:779:default",
+      "requires": ["browser.light.779.reduced"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.dark.779.reduced",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:dark:779:reduced",
+      "requires": ["browser.dark.779.default"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.light.780.default",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:light:780:default",
+      "requires": ["browser.dark.779.reduced"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.light.780.reduced",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:light:780:reduced",
+      "requires": ["browser.light.780.default"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.dark.780.default",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:dark:780:default",
+      "requires": ["browser.light.780.reduced"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.dark.780.reduced",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:dark:780:reduced",
+      "requires": ["browser.dark.780.default"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.light.1024.default",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:light:1024:default",
+      "requires": ["browser.dark.780.reduced"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.light.1024.reduced",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:light:1024:reduced",
+      "requires": ["browser.light.1024.default"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.dark.1024.default",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:dark:1024:default",
+      "requires": ["browser.light.1024.reduced"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.dark.1024.reduced",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:dark:1024:reduced",
+      "requires": ["browser.dark.1024.default"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.light.1440.default",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:light:1440:default",
+      "requires": ["browser.dark.1024.reduced"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.light.1440.reduced",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:light:1440:reduced",
+      "requires": ["browser.light.1440.default"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.dark.1440.default",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:dark:1440:default",
+      "requires": ["browser.light.1440.reduced"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.dark.1440.reduced",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-cell:dark:1440:reduced",
+      "requires": ["browser.dark.1440.default"],
+      "timeoutMs": 120000,
+      "evidence": ["dom", "geometry", "style", "actions", "screenshots"]
+    },
+    {
+      "id": "browser.safe-image",
+      "phase": "browser-oracle",
+      "owner": "frontend-accessibility",
+      "kind": "scenario",
+      "action": "browser-safe-image-failure",
+      "requires": ["browser.dark.1440.reduced"],
+      "timeoutMs": 120000,
+      "evidence": ["abortedImageRoutes", "stableErrorState", "layoutShift"]
+    },
+    {
+      "id": "performance.characterization",
+      "phase": "performance",
+      "owner": "contracts-development-acceptance",
+      "kind": "measurement",
+      "action": "measure-development-profile",
+      "requires": ["browser.safe-image"],
+      "timeoutMs": 300000,
+      "evidence": ["measurements", "budgetDecisions", "backendMemoryPolicy", "machineProfile"]
+    },
+    {
+      "id": "residue.cleanup",
+      "phase": "residue",
+      "owner": "contracts-development-acceptance",
+      "kind": "seal",
+      "action": "cleanup-and-reseal",
+      "requires": ["performance.characterization"],
+      "timeoutMs": 120000,
+      "evidence": [
+        "inputReseal",
+        "runtimeResidue",
+        "networkResidue",
+        "cacheCompatibilityPostCleanup"
+      ]
+    },
+    {
+      "id": "residue.verdict",
+      "phase": "residue",
+      "owner": "contracts-development-acceptance",
+      "kind": "seal",
+      "action": "validate-final-result",
+      "requires": ["residue.cleanup"],
+      "timeoutMs": 30000,
+      "evidence": ["canonicalResult", "verdict"]
+    }
+  ]
+}

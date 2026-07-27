@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/development-acceptance-budgets-v1.json",
+  "title": "Development characterization budgets v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "profile",
+    "invariants",
+    "timeouts"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "os",
+        "architecture",
+        "ceilings"
+      ],
+      "properties": {
+        "id": {
+          "const": "darwin-arm64-development-v1"
+        },
+        "label": {
+          "const": "development characterization on this recorded profile"
+        },
+        "os": {
+          "const": "darwin"
+        },
+        "architecture": {
+          "const": "arm64"
+        },
+        "ceilings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "backendReadyMs",
+            "backendShutdownMs",
+            "browserJourneyMs",
+            "suiteMs",
+            "backendMemoryHardLimitBytes"
+          ],
+          "properties": {
+            "backendReadyMs": {
+              "$ref": "#/$defs/positive"
+            },
+            "backendShutdownMs": {
+              "$ref": "#/$defs/positive"
+            },
+            "browserJourneyMs": {
+              "$ref": "#/$defs/positive"
+            },
+            "suiteMs": {
+              "$ref": "#/$defs/positive"
+            },
+            "backendMemoryHardLimitBytes": {
+              "$ref": "#/$defs/positive"
+            }
+          }
+        }
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frontendInitialJavaScriptGzipBytes",
+        "backendQueryTestBinaryBytes",
+        "apiRequestMs",
+        "cacheResultItems",
+        "cacheResultBytes",
+        "cacheResultPerItemBytes"
+      ],
+      "properties": {
+        "frontendInitialJavaScriptGzipBytes": {
+          "$ref": "#/$defs/bound"
+        },
+        "backendQueryTestBinaryBytes": {
+          "$ref": "#/$defs/bound"
+        },
+        "apiRequestMs": {
+          "$ref": "#/$defs/bound"
+        },
+        "cacheResultItems": {
+          "$ref": "#/$defs/bound"
+        },
+        "cacheResultBytes": {
+          "$ref": "#/$defs/bound"
+        },
+        "cacheResultPerItemBytes": {
+          "$ref": "#/$defs/bound"
+        }
+      }
+    },
+    "timeouts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commandMs",
+        "archiveCopyMs",
+        "runtimeMs",
+        "browserCellMs",
+        "suiteMs",
+        "gracefulStopMs"
+      ],
+      "properties": {
+        "commandMs": {
+          "$ref": "#/$defs/positive"
+        },
+        "archiveCopyMs": {
+          "$ref": "#/$defs/positive"
+        },
+        "runtimeMs": {
+          "$ref": "#/$defs/positive"
+        },
+        "browserCellMs": {
+          "$ref": "#/$defs/positive"
+        },
+        "suiteMs": {
+          "$ref": "#/$defs/positive"
+        },
+        "gracefulStopMs": {
+          "$ref": "#/$defs/positive"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "positive": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 7200000
+    },
+    "bound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "comparison",
+        "value",
+        "unit"
+      ],
+      "properties": {
+        "comparison": {
+          "type": "string",
+          "enum": [
+            "lt",
+            "lte"
+          ]
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "bytes",
+            "items",
+            "milliseconds"
+          ]
+        }
+      }
+    }
+  }
+}
