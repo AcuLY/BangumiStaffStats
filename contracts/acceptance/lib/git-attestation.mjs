@@ -299,7 +299,11 @@ export function attestHarnessProductDiff({
     changed.push(relative);
   }
   changed.sort((left, right) => left.localeCompare(right, 'en'));
-  if (!changed.some((relative) => relative.startsWith('contracts/acceptance/'))) {
+  if (
+    ![...harness.keys()].some((relative) =>
+      relative.startsWith('contracts/acceptance/'),
+    )
+  ) {
     fail('harness/control tree does not contain the acceptance implementation');
   }
   return Object.freeze(changed);
@@ -315,15 +319,21 @@ function assertLifecycleBoundary(root) {
   if (active.join(',') !== 'complete-integrated-development-acceptance') {
     fail(`unexpected active OpenSpec changes: ${active.join(',') || '(none)'}`);
   }
-  const dependency = path.join(
-    changesRoot,
-    'archive',
-    '2026-07-25-produce-development-artifacts',
-  );
-  requireCanonicalPath(dependency, {
-    label: 'archived artifact dependency',
-    type: 'directory',
-  });
+  for (const [directory, label] of [
+    [
+      '2026-07-25-produce-development-artifacts',
+      'archived artifact dependency',
+    ],
+    [
+      '2026-07-27-close-release-readiness-identities',
+      'archived release-readiness dependency',
+    ],
+  ]) {
+    requireCanonicalPath(path.join(changesRoot, 'archive', directory), {
+      label,
+      type: 'directory',
+    });
+  }
 }
 
 export function attestSourceIdentities(input, repositoryRoot = REPOSITORY_ROOT) {

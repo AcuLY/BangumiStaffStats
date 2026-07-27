@@ -46,6 +46,7 @@ import {
   assertGitAncestor,
   assertGitRevisionTree,
   assertNoHardlinkedTrackedFiles,
+  attestSourceIdentities,
   buildCloneGitEnvironment,
   deriveCleanCheckoutIdentityClosed,
 } from '../lib/git-attestation.mjs';
@@ -7599,6 +7600,241 @@ test('Git admission binds revision trees and product-to-harness ancestry', () =>
           descendantRevision: siblingRevision,
         }),
       /not an ancestor/u,
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('Git admission permits only the exact release-readiness lifecycle delta', () => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-lifecycle-admission-')),
+  );
+  const repository = path.join(root, 'harness');
+  const productCheckout = path.join(root, 'product');
+  fs.mkdirSync(repository);
+  const environment = {
+    GIT_ATTR_NOSYSTEM: '1',
+    GIT_CONFIG_GLOBAL: '/dev/null',
+    GIT_CONFIG_NOSYSTEM: '1',
+    GIT_NO_LAZY_FETCH: '1',
+    GIT_NO_REPLACE_OBJECTS: '1',
+    GIT_OPTIONAL_LOCKS: '0',
+    LANG: 'C.UTF-8',
+    LC_ALL: 'C.UTF-8',
+    PATH: '/usr/bin:/bin',
+  };
+  const runGit = (cwd, ...args) => {
+    const result = spawnSync('/usr/bin/git', args, {
+      cwd,
+      env: environment,
+      encoding: 'utf8',
+    });
+    assert.equal(
+      result.status,
+      0,
+      result.stderr || `git ${args.join(' ')} failed`,
+    );
+    return result.stdout.trim();
+  };
+  const write = (relative, contents) => {
+    const target = path.join(repository, ...relative.split('/'));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, contents);
+  };
+  const commit = (message) => {
+    runGit(repository, 'add', '--all');
+    runGit(
+      repository,
+      '-c',
+      'user.name=Acceptance',
+      '-c',
+      'user.email=acceptance@example.invalid',
+      'commit',
+      '--quiet',
+      '-m',
+      message,
+    );
+    return Object.freeze({
+      revision: runGit(repository, 'rev-parse', 'HEAD^{commit}'),
+      tree: runGit(repository, 'rev-parse', 'HEAD^{tree}'),
+    });
+  };
+  const releaseCapabilities = Object.freeze([
+    'backend-archive-consumer',
+    'contracts-application-release-identity',
+    'contracts-archive-manifest',
+    'contracts-artifact-compatibility',
+    'contracts-catalog-api',
+    'updater-archive-producer',
+  ]);
+  const changeFiles = Object.freeze([
+    '.openspec.yaml',
+    'README.md',
+    'design.md',
+    'proposal.md',
+    'tasks.md',
+    ...releaseCapabilities.map((name) => `specs/${name}/spec.md`),
+  ]);
+
+  try {
+    runGit(repository, 'init', '--quiet');
+    for (const relative of changeFiles) {
+      write(
+        `openspec/changes/close-release-readiness-identities/${relative}`,
+        `release readiness ${relative}\n`,
+      );
+    }
+    write(
+      'openspec/changes/archive/2026-07-25-produce-development-artifacts/proposal.md',
+      'archived artifact dependency\n',
+    );
+    write(
+      'openspec/changes/complete-integrated-development-acceptance/proposal.md',
+      'active acceptance change\n',
+    );
+    write('contracts/acceptance/README.md', 'acceptance harness\n');
+    for (const capability of releaseCapabilities.filter(
+      (name) => name !== 'contracts-application-release-identity',
+    )) {
+      write(
+        `openspec/specs/${capability}/spec.md`,
+        `product ${capability}\n`,
+      );
+    }
+    write('backend/runtime.txt', 'protected runtime\n');
+    const product = commit('product candidate');
+
+    runGit(root, 'clone', '--quiet', '--no-hardlinks', repository, productCheckout);
+    runGit(productCheckout, 'checkout', '--quiet', '--detach', product.revision);
+
+    const createHarnessVariant = ({
+      archiveDate = '2026-07-27',
+      extraMainSpec = false,
+      productRuntimeChange = false,
+      siblingChange = false,
+    } = {}) => {
+      runGit(repository, 'checkout', '--quiet', '--detach', product.revision);
+      const activeRoot = path.join(
+        repository,
+        'openspec',
+        'changes',
+        'close-release-readiness-identities',
+      );
+      const archivedRoot = path.join(
+        repository,
+        'openspec',
+        'changes',
+        'archive',
+        `${archiveDate}-close-release-readiness-identities`,
+      );
+      fs.mkdirSync(path.dirname(archivedRoot), { recursive: true });
+      fs.renameSync(activeRoot, archivedRoot);
+      fs.chmodSync(path.join(archivedRoot, 'tasks.md'), 0o755);
+      for (const capability of releaseCapabilities) {
+        write(
+          `openspec/specs/${capability}/spec.md`,
+          `harness ${capability}\n`,
+        );
+      }
+      if (siblingChange) {
+        write(
+          'openspec/changes/sibling-change/proposal.md',
+          'unexpected sibling\n',
+        );
+      }
+      if (extraMainSpec) {
+        write(
+          'openspec/specs/unreviewed-capability/spec.md',
+          'unreviewed main spec\n',
+        );
+      }
+      if (productRuntimeChange) {
+        write('backend/runtime.txt', 'changed protected runtime\n');
+      }
+      return commit(
+        `harness ${archiveDate}${
+          siblingChange || extraMainSpec || productRuntimeChange
+            ? ' negative'
+            : ''
+        }`,
+      );
+    };
+    const inputFor = (harness) => ({
+      harness: {
+        root: fs.realpathSync.native(repository),
+        revision: harness.revision,
+        tree: harness.tree,
+      },
+      oracle: {
+        revision: product.revision,
+        tree: product.tree,
+      },
+      product: {
+        root: fs.realpathSync.native(productCheckout),
+        revision: product.revision,
+        tree: product.tree,
+      },
+    });
+
+    const exact = createHarnessVariant();
+    const admitted = attestSourceIdentities(
+      inputFor(exact),
+      fs.realpathSync.native(repository),
+    );
+    const expectedChanged = [
+      ...changeFiles.map(
+        (relative) =>
+          `openspec/changes/close-release-readiness-identities/${relative}`,
+      ),
+      ...changeFiles.map(
+        (relative) =>
+          `openspec/changes/archive/2026-07-27-close-release-readiness-identities/${relative}`,
+      ),
+      ...releaseCapabilities.map(
+        (capability) => `openspec/specs/${capability}/spec.md`,
+      ),
+    ].sort((left, right) => left.localeCompare(right, 'en'));
+    assert.deepEqual(admitted.changed, expectedChanged);
+
+    const wrongDate = createHarnessVariant({ archiveDate: '2026-07-26' });
+    assert.throws(
+      () =>
+        attestSourceIdentities(
+          inputFor(wrongDate),
+          fs.realpathSync.native(repository),
+        ),
+      /archived release-readiness dependency/u,
+    );
+
+    const sibling = createHarnessVariant({ siblingChange: true });
+    assert.throws(
+      () =>
+        attestSourceIdentities(
+          inputFor(sibling),
+          fs.realpathSync.native(repository),
+        ),
+      /unexpected active OpenSpec changes/u,
+    );
+
+    const extraMainSpec = createHarnessVariant({ extraMainSpec: true });
+    assert.throws(
+      () =>
+        attestSourceIdentities(
+          inputFor(extraMainSpec),
+          fs.realpathSync.native(repository),
+        ),
+      /changes a protected path: openspec\/specs\/unreviewed-capability\/spec\.md/u,
+    );
+
+    const runtime = createHarnessVariant({ productRuntimeChange: true });
+    assert.throws(
+      () =>
+        attestSourceIdentities(
+          inputFor(runtime),
+          fs.realpathSync.native(repository),
+        ),
+      /changes a protected path: backend\/runtime\.txt/u,
     );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

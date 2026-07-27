@@ -30,12 +30,19 @@ export const ALLOWED_HARNESS_DIFF_PREFIXES = Object.freeze([
   'contracts/acceptance/',
   'openspec/changes/produce-development-artifacts/',
   'openspec/changes/archive/2026-07-25-produce-development-artifacts/',
+  'openspec/changes/close-release-readiness-identities/',
+  'openspec/changes/archive/2026-07-27-close-release-readiness-identities/',
   'openspec/changes/complete-integrated-development-acceptance/',
 ]);
 
 export const ALLOWED_HARNESS_DIFF_FILES = Object.freeze([
+  'openspec/specs/backend-archive-consumer/spec.md',
   'openspec/specs/backend-build-artifact/spec.md',
+  'openspec/specs/contracts-application-release-identity/spec.md',
+  'openspec/specs/contracts-archive-manifest/spec.md',
   'openspec/specs/contracts-artifact-compatibility/spec.md',
+  'openspec/specs/contracts-catalog-api/spec.md',
   'openspec/specs/frontend-build-artifact/spec.md',
+  'openspec/specs/updater-archive-producer/spec.md',
   'openspec/specs/updater-build-artifact/spec.md',
 ]);
