@@ -42,9 +42,9 @@ None.
 
 - investigated: complete
 - specified: complete
-- implemented: no
-- verified: no
-- committed: no
+- implemented: complete
+- verified: complete
+- committed: complete
 - pushed: no
 - released: no
 - deployed: no
