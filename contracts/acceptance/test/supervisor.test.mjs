@@ -241,7 +241,10 @@ async function runScenario(scenario) {
     allocation.runRoot,
     'supervised-input.json',
   );
-  const scenarioInput = { scenario };
+  const scenarioInput = {
+    scenario,
+    timeoutMs: configuration.matrix.cells[0].timeoutMs,
+  };
   fs.writeFileSync(scenarioPath, canonicalJson(scenarioInput), {
     flag: 'wx',
     mode: 0o600,
@@ -347,7 +350,10 @@ async function runOrderlyScenario(
     allocation.runRoot,
     'supervised-input.json',
   );
-  const scenarioInput = { scenario };
+  const scenarioInput = {
+    scenario,
+    timeoutMs: configuration.matrix.cells[0].timeoutMs,
+  };
   fs.writeFileSync(scenarioPath, canonicalJson(scenarioInput), {
     flag: 'wx',
     mode: 0o600,
