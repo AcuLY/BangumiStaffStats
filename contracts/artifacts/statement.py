@@ -20,6 +20,12 @@ ARCHIVE_MANIFEST_SCHEMA_DIGEST = (
 ARCHIVE_SCHEMA_SQL_DIGEST = (
     "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0"
 )
+APPLICATION_VERSION = "v0.1.0"
+ARCHIVE_DOMAIN_RULES_VERSION = "domain-raw-v1"
+ARCHIVE_CAST_RULES_VERSION = "cast-exact-v1"
+ARCHIVE_COMPATIBILITY_MATRIX_DIGEST = (
+    "sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac"
+)
 BUILDKIT_VERSION = "0.27.1"
 DOCKER_BUILDX_VERSION = "0.34.1"
 BUILDKIT_IMAGE_REFERENCE = (
@@ -100,6 +106,48 @@ def _contracts_digest(contracts_root: Path, relative: str, expected: str) -> str
     return actual
 
 
+def _release_authorities(contracts_root: Path) -> tuple[str, str, str, str]:
+    version_path = contracts_root.parent / "VERSION"
+    if version_path.is_symlink() or not version_path.is_file():
+        raise StatementError("root VERSION authority is missing")
+    if version_path.read_bytes() != f"{APPLICATION_VERSION}\n".encode():
+        raise StatementError(
+            f"root VERSION must contain exactly {APPLICATION_VERSION} plus LF"
+        )
+
+    matrix_relative = "schemas/archive/compatibility-matrix.json"
+    matrix_path = contracts_root.joinpath(*PurePosixPath(matrix_relative).parts)
+    matrix_digest = _contracts_digest(
+        contracts_root,
+        matrix_relative,
+        ARCHIVE_COMPATIBILITY_MATRIX_DIGEST,
+    )
+    try:
+        matrix = json.loads(matrix_path.read_bytes())
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise StatementError(
+            f"Archive compatibility matrix is invalid: {error}"
+        ) from error
+    supported = matrix.get("supported") if isinstance(matrix, Mapping) else None
+    if (
+        not isinstance(supported, list)
+        or len(supported) != 1
+        or not isinstance(supported[0], Mapping)
+        or supported[0].get("domainRulesVersion") != ARCHIVE_DOMAIN_RULES_VERSION
+        or supported[0].get("castRulesVersion") != ARCHIVE_CAST_RULES_VERSION
+    ):
+        raise StatementError(
+            "Archive compatibility matrix must declare the exact supported "
+            "domain/cast rule pair"
+        )
+    return (
+        APPLICATION_VERSION,
+        ARCHIVE_DOMAIN_RULES_VERSION,
+        ARCHIVE_CAST_RULES_VERSION,
+        matrix_digest,
+    )
+
+
 def _artifact_inventory(
     artifacts: Sequence[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -110,9 +158,7 @@ def _artifact_inventory(
             item = {
                 "path": _safe_path(artifact["path"], f"artifacts[{index}].path"),
                 "size": size,
-                "sha256": _digest(
-                    artifact["sha256"], f"artifacts[{index}].sha256"
-                ),
+                "sha256": _digest(artifact["sha256"], f"artifacts[{index}].sha256"),
             }
         except KeyError as error:
             raise StatementError(
@@ -168,7 +214,10 @@ def emit_component_statement(
         raise StatementError("source_revision must be a lowercase Git object ID")
     if not GIT_OBJECT_RE.fullmatch(source_tree):
         raise StatementError("source_tree must be a lowercase Git object ID")
-    if TOKEN_RE.fullmatch(target_os) is None or TOKEN_RE.fullmatch(target_architecture) is None:
+    if (
+        TOKEN_RE.fullmatch(target_os) is None
+        or TOKEN_RE.fullmatch(target_architecture) is None
+    ):
         raise StatementError("target platform must use normalized lowercase tokens")
     if (
         isinstance(checksum_size, bool)
@@ -225,7 +274,10 @@ def emit_component_statement(
         {"reference": str(toolchain.get("uvBaseImage", ""))},
     ]
     for image in base_images:
-        if re.fullmatch(r"[A-Za-z0-9._/:+-]+@sha256:[0-9a-f]{64}", image["reference"]) is None:
+        if (
+            re.fullmatch(r"[A-Za-z0-9._/:+-]+@sha256:[0-9a-f]{64}", image["reference"])
+            is None
+        ):
             raise StatementError("Updater base images must be digest-pinned references")
     base_images.sort(key=lambda item: item["reference"])
 
@@ -269,8 +321,7 @@ def emit_component_statement(
         bundle.get("sha256"), "metadata.artifacts.bundle.sha256"
     ).removeprefix("sha256:")
     namespace = (
-        "https://spdx.bangumi-staff-stats.invalid/updater/"
-        f"sha256-{namespace_digest}"
+        f"https://spdx.bangumi-staff-stats.invalid/updater/sha256-{namespace_digest}"
     )
 
     _contracts_digest(
@@ -288,9 +339,16 @@ def emit_component_statement(
         "artifacts/producer-runtime-inputs-v1.json",
         producer_runtime_inputs_manifest,
     )
+    (
+        application_version,
+        domain_rules_version,
+        cast_rules_version,
+        compatibility_matrix_digest,
+    ) = _release_authorities(contracts_root)
 
     return {
         "schemaVersion": 1,
+        "applicationVersion": application_version,
         "component": "updater",
         "source": {"revision": source_revision, "tree": source_tree},
         "target": {
@@ -311,6 +369,9 @@ def emit_component_statement(
                 "sqliteSchemaVersion": {"minimum": 1, "maximum": 1},
                 "manifestSchemaDigest": ARCHIVE_MANIFEST_SCHEMA_DIGEST,
                 "schemaSqlDigest": ARCHIVE_SCHEMA_SQL_DIGEST,
+                "domainRulesVersion": domain_rules_version,
+                "castRulesVersion": cast_rules_version,
+                "compatibilityMatrixDigest": compatibility_matrix_digest,
             },
             "openapiDigest": None,
         },

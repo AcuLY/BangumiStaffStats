@@ -22,6 +22,10 @@ import {
   verifyProducerRuntimeInputs,
 } from '../lib/runtime-inputs.mjs';
 import {
+  APPLICATION_VERSION,
+  ARCHIVE_CAST_RULES_VERSION,
+  ARCHIVE_COMPATIBILITY_MATRIX_DIGEST,
+  ARCHIVE_DOMAIN_RULES_VERSION,
   PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
   sha256Bytes,
 } from '../lib/validation.mjs';
@@ -249,9 +253,9 @@ test('tracked authority manifest is canonical and bound to the accepted digest',
     {
       manifestDigest: PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
       fileCount: 42,
-      totalSize: 1779889,
+      totalSize: 1780037,
       fileSetDigest:
-        'sha256:f43cfb7a0f48f8073c0c75b36b26d03238c7eeb03a573fbdc998ec0b8ebfb18a',
+        'sha256:d019d832a16165a891ec94c282e0b9e365760e09e5a7d4334f3978a3f91237f9',
     },
   );
   const runtimeSchema = JSON.parse(
@@ -645,6 +649,19 @@ sys.stdout.write(json.dumps(statement, separators=(",", ":"), sort_keys=True) + 
     path: 'contracts/producer-runtime-inputs-v1',
     sha256: PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
   });
+  assert.equal(statement.applicationVersion, APPLICATION_VERSION);
+  assert.equal(
+    statement.compatibility.archive.domainRulesVersion,
+    ARCHIVE_DOMAIN_RULES_VERSION,
+  );
+  assert.equal(
+    statement.compatibility.archive.castRulesVersion,
+    ARCHIVE_CAST_RULES_VERSION,
+  );
+  assert.equal(
+    statement.compatibility.archive.compatibilityMatrixDigest,
+    ARCHIVE_COMPATIBILITY_MATRIX_DIGEST,
+  );
 
   const missing = structuredClone(metadata);
   delete missing.inputs.producerRuntimeInputsManifestSha256;

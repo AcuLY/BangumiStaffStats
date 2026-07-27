@@ -98,6 +98,22 @@
       "catalog.bundle.json"
     ],
     "replays": 2,
+    "module": {
+      "path": "example.invalid/catalogwire",
+      "goVersion": "1.25.0",
+      "requirements": [
+        {
+          "module": "github.com/oapi-codegen/runtime",
+          "version": "v1.1.2",
+          "indirect": false
+        },
+        {
+          "module": "github.com/google/uuid",
+          "version": "v1.6.0",
+          "indirect": true
+        }
+      ]
+    },
     "compile": [
       "go",
       "test",

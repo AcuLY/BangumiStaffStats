@@ -1,6 +1,10 @@
 {
   "schemaVersion": 1,
   "cases": [
+    "application-version-drift",
+    "archive-cast-rules-drift",
+    "archive-domain-rules-drift",
+    "archive-matrix-digest-drift",
     "archive-range",
     "buildkit-image-drift",
     "container-toolchain-drift",
@@ -20,6 +24,7 @@
     "producer-runtime-input-missing",
     "producer-runtime-input-reordered",
     "random-leakage",
+    "sbom-application-version-drift",
     "sbom-artifact-digest-ambiguity",
     "sbom-missing-oci",
     "sbom-missing-wheel",

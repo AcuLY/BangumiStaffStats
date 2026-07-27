@@ -6,7 +6,9 @@
       "manifestSchemaVersion": 1,
       "sqliteSchemaVersion": 1,
       "sqliteApplicationId": 1111969107,
-      "dataVersionAlgorithm": "bgmss-archive-data-version-v1"
+      "dataVersionAlgorithm": "bgmss-archive-data-version-v1",
+      "domainRulesVersion": "domain-raw-v1",
+      "castRulesVersion": "cast-exact-v1"
     }
   ],
   "canonicalSchema": {

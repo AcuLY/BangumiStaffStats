@@ -9,7 +9,25 @@ import {
 } from './canonical-json.mjs';
 import { parseJsonStrict } from './strict-json.mjs';
 
+const ARTIFACTS_ROOT = path.resolve(import.meta.dirname, '..');
+const REPOSITORY_ROOT = path.resolve(ARTIFACTS_ROOT, '..', '..');
+const VERSION_PATH = path.join(REPOSITORY_ROOT, 'VERSION');
+const ARCHIVE_COMPATIBILITY_MATRIX_PATH = path.join(
+  REPOSITORY_ROOT,
+  'contracts',
+  'schemas',
+  'archive',
+  'compatibility-matrix.json',
+);
+
 export const COMPONENTS = Object.freeze(['backend', 'frontend', 'updater']);
+export const APPLICATION_VERSION = 'v0.1.0';
+export const APPLICATION_VERSION_DIGEST =
+  'sha256:d0b4f9120ba026c00fa23cb84b4e1620a2e6436592e58155a5151653179572c0';
+export const ARCHIVE_DOMAIN_RULES_VERSION = 'domain-raw-v1';
+export const ARCHIVE_CAST_RULES_VERSION = 'cast-exact-v1';
+export const ARCHIVE_COMPATIBILITY_MATRIX_DIGEST =
+  'sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac';
 export const OPENAPI_DIGEST =
   'sha256:e7aba7c34b0d6f74e533e8e9fd31c8f0aa40ed15c440669ec87a7204c963cf11';
 export const ARCHIVE_MANIFEST_SCHEMA_DIGEST =
@@ -21,7 +39,7 @@ export const DOCKER_BUILDX_VERSION = '0.34.1';
 export const BUILDKIT_IMAGE_DIGEST =
   'sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368';
 export const PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST =
-  'sha256:43dddf61ede4a10c347e06f3624a73ec53c13fd325bbd6ce8d85b0c3327ea49e';
+  'sha256:56adbccc4c83432ae02d9bf985ea1b9281d2836e96e389e84dae97bd8cacac52';
 export const SUPPORTED_ARCHIVE_MANIFEST_SCHEMA = 1;
 export const SUPPORTED_ARCHIVE_SQLITE_SCHEMA = 1;
 
@@ -85,6 +103,62 @@ function assertInteger(value, label, minimum = 0) {
 
 function assertDigest(value, label) {
   assertString(value, label, { pattern: DIGEST_RE });
+}
+
+function readTrackedAuthority(filePath, label) {
+  let information;
+  try {
+    information = fs.lstatSync(filePath);
+  } catch (error) {
+    fail(label, `cannot read tracked authority: ${error.message}`);
+  }
+  if (information.isSymbolicLink() || !information.isFile()) {
+    fail(label, 'tracked authority must be a regular non-symlink file');
+  }
+  return fs.readFileSync(filePath);
+}
+
+export function assertTrackedReleaseAuthorities() {
+  const versionBytes = readTrackedAuthority(VERSION_PATH, 'VERSION');
+  if (
+    !versionBytes.equals(Buffer.from(`${APPLICATION_VERSION}\n`, 'utf8')) ||
+    sha256Bytes(versionBytes) !== APPLICATION_VERSION_DIGEST
+  ) {
+    fail('VERSION', `must contain exactly ${APPLICATION_VERSION} plus LF`);
+  }
+
+  const matrixBytes = readTrackedAuthority(
+    ARCHIVE_COMPATIBILITY_MATRIX_PATH,
+    'Archive compatibility matrix',
+  );
+  if (sha256Bytes(matrixBytes) !== ARCHIVE_COMPATIBILITY_MATRIX_DIGEST) {
+    fail(
+      'Archive compatibility matrix',
+      `must equal ${ARCHIVE_COMPATIBILITY_MATRIX_DIGEST}`,
+    );
+  }
+  let matrix;
+  try {
+    matrix = parseJsonStrict(
+      new TextDecoder('utf-8', { fatal: true }).decode(matrixBytes),
+      'Archive compatibility matrix',
+    );
+  } catch (error) {
+    fail('Archive compatibility matrix', `is invalid: ${error.message}`);
+  }
+  if (!Array.isArray(matrix.supported) || matrix.supported.length !== 1) {
+    fail('Archive compatibility matrix', 'must contain exactly one supported tuple');
+  }
+  const tuple = matrix.supported[0];
+  if (
+    tuple?.domainRulesVersion !== ARCHIVE_DOMAIN_RULES_VERSION ||
+    tuple?.castRulesVersion !== ARCHIVE_CAST_RULES_VERSION
+  ) {
+    fail(
+      'Archive compatibility matrix',
+      'does not declare the exact supported domain/cast rule pair',
+    );
+  }
 }
 
 export function assertSafeRelativePath(value, label = 'path') {
@@ -271,6 +345,9 @@ function validateArchiveCompatibility(value, label) {
       'sqliteSchemaVersion',
       'manifestSchemaDigest',
       'schemaSqlDigest',
+      'domainRulesVersion',
+      'castRulesVersion',
+      'compatibilityMatrixDigest',
     ],
     [],
     label,
@@ -279,6 +356,18 @@ function validateArchiveCompatibility(value, label) {
   validateVersionRange(value.sqliteSchemaVersion, `${label}.sqliteSchemaVersion`);
   assertDigest(value.manifestSchemaDigest, `${label}.manifestSchemaDigest`);
   assertDigest(value.schemaSqlDigest, `${label}.schemaSqlDigest`);
+  assertString(value.domainRulesVersion, `${label}.domainRulesVersion`, {
+    max: 128,
+    pattern: TOKEN_RE,
+  });
+  assertString(value.castRulesVersion, `${label}.castRulesVersion`, {
+    max: 128,
+    pattern: TOKEN_RE,
+  });
+  assertDigest(
+    value.compatibilityMatrixDigest,
+    `${label}.compatibilityMatrixDigest`,
+  );
 }
 
 function validateCompatibility(value, component, label) {
@@ -336,6 +425,7 @@ export function validateComponentStatement(value, label = 'component statement')
     value,
     [
       'schemaVersion',
+      'applicationVersion',
       'component',
       'source',
       'target',
@@ -352,6 +442,13 @@ export function validateComponentStatement(value, label = 'component statement')
     label,
   );
   if (value.schemaVersion !== 1) fail(`${label}.schemaVersion`, 'must equal 1');
+  assertTrackedReleaseAuthorities();
+  if (value.applicationVersion !== APPLICATION_VERSION) {
+    fail(
+      `${label}.applicationVersion`,
+      `must equal root application version ${APPLICATION_VERSION}`,
+    );
+  }
   if (!COMPONENTS.includes(value.component)) {
     fail(`${label}.component`, `must be one of ${COMPONENTS.join(', ')}`);
   }
@@ -361,6 +458,10 @@ export function validateComponentStatement(value, label = 'component statement')
   validateBaseImages(value.baseImages, value.component, `${label}.baseImages`);
   validateInputs(value.inputs, value.component, `${label}.inputs`);
   validateCompatibility(value.compatibility, value.component, `${label}.compatibility`);
+  assertSupportedArchiveCompatibility(
+    value.compatibility.archive,
+    `${label}.compatibility.archive`,
+  );
   validateArtifacts(value.artifacts, `${label}.artifacts`);
   assertDigest(value.artifactSetDigest, `${label}.artifactSetDigest`);
   const expectedArtifactSetDigest = canonicalJsonDigest(value.artifacts);
@@ -743,6 +844,16 @@ export function validateSpdxDocument(value, statement, label = 'SPDX document') 
   const describedArtifactDigests = new Set();
   for (const describedId of describedIds) {
     const packageRecord = packagesById.get(describedId);
+    if (packageRecord?.primaryPackagePurpose !== 'APPLICATION') {
+      fail(label, `described package ${describedId} must be an APPLICATION package`);
+    }
+    if (packageRecord.versionInfo !== statement.applicationVersion) {
+      fail(
+        label,
+        `described package ${describedId} versionInfo must equal ` +
+          `applicationVersion ${statement.applicationVersion}`,
+      );
+    }
     const checksums = packageRecord?.checksums ?? [];
     if (checksums.length !== 1) {
       fail(label, `described package ${describedId} must bind one statement artifact digest`);
@@ -796,6 +907,12 @@ export function validateSpdxDocument(value, statement, label = 'SPDX document') 
       .map((entry) => entry.relatedSpdxElement),
   );
   for (const packageRecord of value.packages) {
+    if (
+      packageRecord.primaryPackagePurpose === 'APPLICATION' &&
+      !describedIds.has(packageRecord.SPDXID)
+    ) {
+      fail(label, `APPLICATION package ${packageRecord.SPDXID} must be described`);
+    }
     if (!describedIds.has(packageRecord.SPDXID) && !dependedOnIds.has(packageRecord.SPDXID)) {
       fail(label, `runtime package ${packageRecord.SPDXID} is absent from dependency relationships`);
     }
@@ -928,6 +1045,27 @@ function assertSupportedArchiveCompatibility(archive, label) {
   if (archive.schemaSqlDigest !== ARCHIVE_SCHEMA_SQL_DIGEST) {
     fail(`${label}.schemaSqlDigest`, 'does not match the accepted Archive SQL schema');
   }
+  if (archive.domainRulesVersion !== ARCHIVE_DOMAIN_RULES_VERSION) {
+    fail(
+      `${label}.domainRulesVersion`,
+      `must equal ${ARCHIVE_DOMAIN_RULES_VERSION}`,
+    );
+  }
+  if (archive.castRulesVersion !== ARCHIVE_CAST_RULES_VERSION) {
+    fail(
+      `${label}.castRulesVersion`,
+      `must equal ${ARCHIVE_CAST_RULES_VERSION}`,
+    );
+  }
+  if (
+    archive.compatibilityMatrixDigest !==
+    ARCHIVE_COMPATIBILITY_MATRIX_DIGEST
+  ) {
+    fail(
+      `${label}.compatibilityMatrixDigest`,
+      `must equal ${ARCHIVE_COMPATIBILITY_MATRIX_DIGEST}`,
+    );
+  }
   const manifestRange = archive.manifestSchemaVersion;
   if (
     manifestRange.minimum > SUPPORTED_ARCHIVE_MANIFEST_SCHEMA ||
@@ -963,6 +1101,9 @@ export function assembleCompatibilityManifest(componentRoots) {
     if (!sameCanonical(statement.target, first.target)) {
       fail('assembly', 'mixed target platforms');
     }
+    if (statement.applicationVersion !== first.applicationVersion) {
+      fail('assembly', 'mixed application versions');
+    }
     if (!sameCanonical(statement.compatibility.archive, first.compatibility.archive)) {
       fail('assembly', 'mixed Archive compatibility declarations');
     }
@@ -984,6 +1125,7 @@ export function assembleCompatibilityManifest(componentRoots) {
 
   const manifest = {
     schemaVersion: 1,
+    applicationVersion: first.applicationVersion,
     source: first.source,
     target: first.target,
     compatibility: {
@@ -1004,8 +1146,27 @@ export function assembleCompatibilityManifest(componentRoots) {
 }
 
 export function validateCompatibilityManifest(value, label = 'compatibility manifest') {
-  exactKeys(value, ['schemaVersion', 'source', 'target', 'compatibility', 'components'], [], label);
+  exactKeys(
+    value,
+    [
+      'schemaVersion',
+      'applicationVersion',
+      'source',
+      'target',
+      'compatibility',
+      'components',
+    ],
+    [],
+    label,
+  );
   if (value.schemaVersion !== 1) fail(`${label}.schemaVersion`, 'must equal 1');
+  assertTrackedReleaseAuthorities();
+  if (value.applicationVersion !== APPLICATION_VERSION) {
+    fail(
+      `${label}.applicationVersion`,
+      `must equal root application version ${APPLICATION_VERSION}`,
+    );
+  }
   validateSource(value.source, `${label}.source`);
   validateTarget(value.target, `${label}.target`);
   exactKeys(value.compatibility, ['archive', 'openapiDigest'], [], `${label}.compatibility`);

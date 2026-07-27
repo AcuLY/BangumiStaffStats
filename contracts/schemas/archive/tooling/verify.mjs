@@ -25,9 +25,9 @@ const PRODUCER_LOGICAL_ROWS_ALGORITHM = "bgmss-producer-logical-rows-v1";
 const SCHEMA_OBJECT_ALGORITHM = "bgmss-sqlite-schema-objects-v1";
 const SCHEMA_OBJECT_COUNT = 35;
 const CANONICAL_INDEX_SHA256 =
-  "11db96ca6ea576c123864743bb05267b620edcf8dab67ebe1a8d5a7e224f2077";
+  "963b64564135fe33b708326a503d9945c0326d818070286a0ac597e2a6c6f964";
 const CANONICAL_INDEX_TABLE_SHA256 =
-  "1799b375ff5490a4ef5c940d72d7d1db8ba61032f7b21bc2c738cccb3f9243fa";
+  "8886be697cfaad7b59b1f3a40922626bdda7d01f5270fd2985a3a8b2cf311ff9";
 const CANONICAL_INDEXED_FILES = 32;
 const COMMON_COMMIT = "6a8442c17143a870357a5ff812362e8b5cfe9f9d";
 const PRODUCER_SUBJECT_TYPES = new Map([
@@ -1020,7 +1020,9 @@ function compatible(pointer, manifest, matrix) {
       entry.pointerSchemaVersion === pointer.pointerSchemaVersion &&
       entry.manifestSchemaVersion === manifest.manifestSchemaVersion &&
       entry.sqliteSchemaVersion === manifest.sqliteSchemaVersion &&
-      entry.dataVersionAlgorithm === manifest.dataVersionAlgorithm,
+      entry.dataVersionAlgorithm === manifest.dataVersionAlgorithm &&
+      entry.domainRulesVersion === manifest.domainRulesVersion &&
+      entry.castRulesVersion === manifest.castRulesVersion,
     )
   );
 }
@@ -1116,6 +1118,8 @@ function validateMatrix(matrix) {
       sqliteSchemaVersion: 1,
       sqliteApplicationId: 1111969107,
       dataVersionAlgorithm: ALGORITHM,
+      domainRulesVersion: "domain-raw-v1",
+      castRulesVersion: "cast-exact-v1",
     },
   ]);
   assert.deepEqual(Object.keys(matrix.canonicalSchema), [

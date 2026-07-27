@@ -6,6 +6,7 @@
   "additionalProperties": false,
   "required": [
     "schemaVersion",
+    "applicationVersion",
     "component",
     "source",
     "target",
@@ -21,6 +22,9 @@
   "properties": {
     "schemaVersion": {
       "const": 1
+    },
+    "applicationVersion": {
+      "$ref": "#/$defs/applicationVersion"
     },
     "component": {
       "enum": ["backend", "updater", "frontend"]
@@ -232,7 +236,7 @@
                   "const": "contracts/producer-runtime-inputs-v1"
                 },
                 "sha256": {
-                  "const": "sha256:43dddf61ede4a10c347e06f3624a73ec53c13fd325bbd6ce8d85b0c3327ea49e"
+                  "const": "sha256:56adbccc4c83432ae02d9bf985ea1b9281d2836e96e389e84dae97bd8cacac52"
                 }
               }
             },
@@ -252,6 +256,9 @@
     }
   ],
   "$defs": {
+    "applicationVersion": {
+      "const": "v0.1.0"
+    },
     "digest": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
@@ -352,7 +359,10 @@
         "manifestSchemaVersion",
         "sqliteSchemaVersion",
         "manifestSchemaDigest",
-        "schemaSqlDigest"
+        "schemaSqlDigest",
+        "domainRulesVersion",
+        "castRulesVersion",
+        "compatibilityMatrixDigest"
       ],
       "properties": {
         "manifestSchemaVersion": {
@@ -366,6 +376,15 @@
         },
         "schemaSqlDigest": {
           "$ref": "#/$defs/digest"
+        },
+        "domainRulesVersion": {
+          "const": "domain-raw-v1"
+        },
+        "castRulesVersion": {
+          "const": "cast-exact-v1"
+        },
+        "compatibilityMatrixDigest": {
+          "const": "sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac"
         }
       }
     },

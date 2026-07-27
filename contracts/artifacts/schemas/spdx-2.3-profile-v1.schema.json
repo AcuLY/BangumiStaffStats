@@ -187,7 +187,27 @@
           "type": "string",
           "maxLength": 512
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["primaryPackagePurpose"],
+            "properties": {
+              "primaryPackagePurpose": {
+                "const": "APPLICATION"
+              }
+            }
+          },
+          "then": {
+            "required": ["versionInfo"],
+            "properties": {
+              "versionInfo": {
+                "const": "v0.1.0"
+              }
+            }
+          }
+        }
+      ]
     },
     "relationship": {
       "type": "object",

@@ -9,27 +9,27 @@
     "manifestSchemaVersion": 1,
     "sqliteSchemaVersion": 1,
     "schemaSqlDigest": "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0",
-    "domainRulesVersion": "domain-v1",
+    "domainRulesVersion": "domain-raw-v1",
     "castRulesVersion": "cast-exact-v1",
     "catalogConfigDigest": "sha256:2b103894453b55d01bcb65b8010a55f54c57cd73e23deca39f4a0a9d2aadc678"
   },
-  "canonicalPreimage": "bgmss-archive-data-version-v1\narchiveRelease=golden-v1\narchiveDigest=sha256:f77b9edef31d414daf8e90bf8a6ccdc714171bbef54997f3c695881cae1dd8b9\ncommonCommit=6a8442c17143a870357a5ff812362e8b5cfe9f9d\ncommonDigest=sha256:0649c282e74e319f810f5e9c3f2024221cef8070f24686f1bd2d041114b7eb6b\nmanifestSchemaVersion=1\nsqliteSchemaVersion=1\nschemaSqlDigest=sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0\ndomainRulesVersion=domain-v1\ncastRulesVersion=cast-exact-v1\ncatalogConfigDigest=sha256:2b103894453b55d01bcb65b8010a55f54c57cd73e23deca39f4a0a9d2aadc678\n",
-  "canonicalPreimageByteLength": 566,
-  "expectedDataVersion": "dv1-702727dd95a2f0d9227f9bf19d3b1f75a85266ccc016e42a9304a10dc7b4df97",
+  "canonicalPreimage": "bgmss-archive-data-version-v1\narchiveRelease=golden-v1\narchiveDigest=sha256:f77b9edef31d414daf8e90bf8a6ccdc714171bbef54997f3c695881cae1dd8b9\ncommonCommit=6a8442c17143a870357a5ff812362e8b5cfe9f9d\ncommonDigest=sha256:0649c282e74e319f810f5e9c3f2024221cef8070f24686f1bd2d041114b7eb6b\nmanifestSchemaVersion=1\nsqliteSchemaVersion=1\nschemaSqlDigest=sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0\ndomainRulesVersion=domain-raw-v1\ncastRulesVersion=cast-exact-v1\ncatalogConfigDigest=sha256:2b103894453b55d01bcb65b8010a55f54c57cd73e23deca39f4a0a9d2aadc678\n",
+  "canonicalPreimageByteLength": 570,
+  "expectedDataVersion": "dv1-0a1fa3e9acdb06be34e3535b3c68e322e7d3f4cd87ac30cd4b608b2276ba3ca1",
   "assertions": {
     "stableRegeneration": {
-      "expectedDataVersion": "dv1-702727dd95a2f0d9227f9bf19d3b1f75a85266ccc016e42a9304a10dc7b4df97"
+      "expectedDataVersion": "dv1-0a1fa3e9acdb06be34e3535b3c68e322e7d3f4cd87ac30cd4b608b2276ba3ca1"
     },
     "oneFieldMutation": {
       "field": "archiveRelease",
       "value": "golden-v1-mutated",
-      "expectedDataVersion": "dv1-76fdf86faa81fa86b825f12056a6594489eee7ffc87bbb6e518bf3d0a30a492a"
+      "expectedDataVersion": "dv1-ae73f8bed73bd5d7cb8d4a28784fff9f295a389812b5560c6608206e470e9d51"
     },
     "inputOrderIndependence": {
       "input": {
         "catalogConfigDigest": "sha256:2b103894453b55d01bcb65b8010a55f54c57cd73e23deca39f4a0a9d2aadc678",
         "castRulesVersion": "cast-exact-v1",
-        "domainRulesVersion": "domain-v1",
+        "domainRulesVersion": "domain-raw-v1",
         "schemaSqlDigest": "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0",
         "sqliteSchemaVersion": 1,
         "manifestSchemaVersion": 1,
@@ -38,11 +38,11 @@
         "archiveDigest": "sha256:f77b9edef31d414daf8e90bf8a6ccdc714171bbef54997f3c695881cae1dd8b9",
         "archiveRelease": "golden-v1"
       },
-      "expectedDataVersion": "dv1-702727dd95a2f0d9227f9bf19d3b1f75a85266ccc016e42a9304a10dc7b4df97"
+      "expectedDataVersion": "dv1-0a1fa3e9acdb06be34e3535b3c68e322e7d3f4cd87ac30cd4b608b2276ba3ca1"
     },
     "catalogMemberReorderEquivalence": {
       "canonicalCatalogConfigDigest": "sha256:2b103894453b55d01bcb65b8010a55f54c57cd73e23deca39f4a0a9d2aadc678",
-      "expectedDataVersion": "dv1-702727dd95a2f0d9227f9bf19d3b1f75a85266ccc016e42a9304a10dc7b4df97"
+      "expectedDataVersion": "dv1-0a1fa3e9acdb06be34e3535b3c68e322e7d3f4cd87ac30cd4b608b2276ba3ca1"
     }
   }
 }

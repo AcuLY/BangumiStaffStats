@@ -158,10 +158,10 @@ GENERATED_AT = re.compile(
 MANIFEST_STRING_VECTOR = "vectors/manifest-string-semantics.json"
 PRODUCER_SUBTREE = "producer"
 CANONICAL_INDEX_SHA256 = (
-    "11db96ca6ea576c123864743bb05267b620edcf8dab67ebe1a8d5a7e224f2077"
+    "963b64564135fe33b708326a503d9945c0326d818070286a0ac597e2a6c6f964"
 )
 CANONICAL_INDEX_TABLE_SHA256 = (
-    "1799b375ff5490a4ef5c940d72d7d1db8ba61032f7b21bc2c738cccb3f9243fa"
+    "8886be697cfaad7b59b1f3a40922626bdda7d01f5270fd2985a3a8b2cf311ff9"
 )
 CANONICAL_INDEXED_FILES = 32
 MANIFEST_STRING_CASE_IDS = (
@@ -984,7 +984,7 @@ def semantic_inputs(sql_digest: str, sqlite_version: int = 1) -> dict[str, Any]:
         "manifestSchemaVersion": MANIFEST_SCHEMA_VERSION,
         "sqliteSchemaVersion": sqlite_version,
         "schemaSqlDigest": sql_digest,
-        "domainRulesVersion": "domain-v1",
+        "domainRulesVersion": "domain-raw-v1",
         "castRulesVersion": "cast-exact-v1",
         "catalogConfigDigest": sha256_bytes(catalog_bytes),
     }

@@ -11,6 +11,10 @@ import {
 } from '../lib/generated-path.mjs';
 import { parseJsonStrict, readJsonStrict, StrictJsonError } from '../lib/strict-json.mjs';
 import {
+  APPLICATION_VERSION,
+  ARCHIVE_CAST_RULES_VERSION,
+  ARCHIVE_COMPATIBILITY_MATRIX_DIGEST,
+  ARCHIVE_DOMAIN_RULES_VERSION,
   ARCHIVE_MANIFEST_SCHEMA_DIGEST,
   ARCHIVE_SCHEMA_SQL_DIGEST,
   ArtifactValidationError,
@@ -18,6 +22,7 @@ import {
   assembleCompatibilityManifest,
   parseChecksumInventory,
   sha256Bytes,
+  validateCompatibilityManifest,
   validateComponentStatement,
   validateSpdxDocument,
   verifyComponentDirectory,
@@ -133,6 +138,20 @@ test('canonical assembly is independent of component input order', () => {
   for (const permutation of permutations) {
     assert.equal(assembleCompatibilityManifest(permutation).canonical, canonical);
   }
+  const manifest = assembleCompatibilityManifest(roots).manifest;
+  assert.equal(manifest.applicationVersion, APPLICATION_VERSION);
+  assert.equal(
+    manifest.compatibility.archive.domainRulesVersion,
+    ARCHIVE_DOMAIN_RULES_VERSION,
+  );
+  assert.equal(
+    manifest.compatibility.archive.castRulesVersion,
+    ARCHIVE_CAST_RULES_VERSION,
+  );
+  assert.equal(
+    manifest.compatibility.archive.compatibilityMatrixDigest,
+    ARCHIVE_COMPATIBILITY_MATRIX_DIGEST,
+  );
 });
 
 test('duplicate and unknown fields fail closed', () => {
@@ -246,6 +265,73 @@ test('Archive schema digest drift fails before assembly', () => {
     /accepted Archive manifest schema/,
   );
   assert.notEqual(ARCHIVE_MANIFEST_SCHEMA_DIGEST, ARCHIVE_SCHEMA_SQL_DIGEST);
+});
+
+test('application version and tracked Archive rule authority fail closed', () => {
+  const cases = [
+    {
+      mutate(statement) {
+        statement.applicationVersion = 'v0.1.1';
+      },
+      expected: /must equal root application version v0\.1\.0/u,
+    },
+    {
+      mutate(statement) {
+        statement.compatibility.archive.domainRulesVersion = 'domain-other-v1';
+      },
+      expected: /domainRulesVersion.*must equal domain-raw-v1/u,
+    },
+    {
+      mutate(statement) {
+        statement.compatibility.archive.castRulesVersion = 'cast-other-v1';
+      },
+      expected: /castRulesVersion.*must equal cast-exact-v1/u,
+    },
+    {
+      mutate(statement) {
+        statement.compatibility.archive.compatibilityMatrixDigest =
+          `sha256:${'f'.repeat(64)}`;
+      },
+      expected: /compatibilityMatrixDigest.*must equal sha256:659121/u,
+    },
+  ];
+  for (const fixtureCase of cases) {
+    const roots = copyFixtures();
+    mutateStatement(roots.frontend, fixtureCase.mutate);
+    expectFailure(
+      () => verifyComponentDirectory(roots.frontend, 'frontend'),
+      fixtureCase.expected,
+    );
+  }
+
+  const accepted = assembleCompatibilityManifest(
+    ['backend', 'frontend', 'updater'].map((component) =>
+      path.join(POSITIVE, component),
+    ),
+  ).manifest;
+  const drifted = structuredClone(accepted);
+  drifted.applicationVersion = 'v0.1.1';
+  expectFailure(
+    () => validateCompatibilityManifest(drifted),
+    /must equal root application version v0\.1\.0/u,
+  );
+});
+
+test('SPDX application package version must equal the component release', () => {
+  const roots = copyFixtures();
+  const statement = readStatement(roots.frontend);
+  const sbomPath = path.join(roots.frontend, statement.sbom.path);
+  const sbom = readJsonStrict(sbomPath);
+  sbom.packages.find(
+    (entry) => entry.primaryPackagePurpose === 'APPLICATION',
+  ).versionInfo = '0.0.0';
+  fs.writeFileSync(sbomPath, canonicalJson(sbom));
+  refreshSbomEvidence(roots.frontend, statement);
+  writeStatement(roots.frontend, statement);
+  expectFailure(
+    () => verifyComponentDirectory(roots.frontend, 'frontend'),
+    /versionInfo must equal applicationVersion v0\.1\.0/u,
+  );
 });
 
 test('container components require exact BuildKit and Buildx evidence', () => {
@@ -497,6 +583,10 @@ test('negative fixture registry stays synchronized with exercised cases', () => 
   assert.equal(registry.schemaVersion, 1);
   assert.deepEqual(registry.cases, [...registry.cases].sort());
   assert.deepEqual(registry.cases, [
+    'application-version-drift',
+    'archive-cast-rules-drift',
+    'archive-domain-rules-drift',
+    'archive-matrix-digest-drift',
     'archive-range',
     'buildkit-image-drift',
     'container-toolchain-drift',
@@ -516,6 +606,7 @@ test('negative fixture registry stays synchronized with exercised cases', () => 
     'producer-runtime-input-missing',
     'producer-runtime-input-reordered',
     'random-leakage',
+    'sbom-application-version-drift',
     'sbom-artifact-digest-ambiguity',
     'sbom-missing-oci',
     'sbom-missing-wheel',

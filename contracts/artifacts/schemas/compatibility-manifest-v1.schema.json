@@ -6,6 +6,7 @@
   "additionalProperties": false,
   "required": [
     "schemaVersion",
+    "applicationVersion",
     "source",
     "target",
     "compatibility",
@@ -14,6 +15,9 @@
   "properties": {
     "schemaVersion": {
       "const": 1
+    },
+    "applicationVersion": {
+      "$ref": "component-statement-v1.schema.json#/$defs/applicationVersion"
     },
     "source": {
       "$ref": "component-statement-v1.schema.json#/$defs/source"

@@ -69,6 +69,22 @@ const expectedQueryComponentSeal =
   "58f20d1c145c50215839d8dc781d147c46dcdd35ee68698e84fa6d662016d6db";
 const expectedCatalogResponseSeal =
   "b9e8ccdc7f42acb695818ee080d34668d0b82189d033bf77349f3475abdcfa44";
+const expectedCompileModule = Object.freeze({
+  path: "example.invalid/catalogwire",
+  goVersion: "1.25.0",
+  requirements: Object.freeze([
+    Object.freeze({
+      module: "github.com/oapi-codegen/runtime",
+      version: "v1.1.2",
+      indirect: false,
+    }),
+    Object.freeze({
+      module: "github.com/google/uuid",
+      version: "v1.6.0",
+      indirect: true,
+    }),
+  ]),
+});
 const queryComponentNames = [
   "CandidatesInputV1",
   "CandidatesViewV1",
@@ -275,6 +291,24 @@ function assertClosedInventory(actual, declared) {
   assert.deepEqual([...declared].sort(), actual, "closed inventory");
 }
 
+function materializeCompileModule(value) {
+  assert.deepEqual(value, expectedCompileModule, "Go compile module closure");
+  const requirements = value.requirements.flatMap((requirement, index) => [
+    `require ${requirement.module} ${requirement.version}${
+      requirement.indirect ? " // indirect" : ""
+    }`,
+    ...(index === value.requirements.length - 1 ? [] : [""]),
+  ]);
+  return [
+    `module ${value.path}`,
+    "",
+    `go ${value.goVersion}`,
+    "",
+    ...requirements,
+    "",
+  ].join("\n");
+}
+
 function verifyClosedIndex() {
   const index = readJson(indexPath);
   assert.equal(index.schemaVersion, 1);
@@ -323,6 +357,28 @@ function selfTestFailClosedGuards(index) {
     () => assertClosedInventory(actual.slice(1), declared),
     /closed inventory/,
   );
+  for (const drift of [
+    (value) => {
+      value.requirements[1].version = "v1.5.0";
+    },
+    (value) => {
+      value.requirements.pop();
+    },
+    (value) => {
+      value.requirements.push({
+        module: "example.invalid/substitution",
+        version: "v1.0.0",
+        indirect: true,
+      });
+    },
+  ]) {
+    const value = structuredClone(expectedCompileModule);
+    drift(value);
+    assert.throws(
+      () => materializeCompileModule(value),
+      /Go compile module closure/,
+    );
+  }
 }
 
 function clone(value) {
@@ -922,7 +978,7 @@ function cleanupDisposables() {
   }
 }
 
-function generateCatalog(openapi, generation) {
+function generateCatalog(openapi, generation, compileModule) {
   const temporaryRoot = resetDisposable(path.join(goldenRoot, ".tmp"));
   const componentNames = collectInternalComponents(openapi);
   assert.deepEqual(componentNames, generation.projection.components);
@@ -1009,14 +1065,7 @@ function generateCatalog(openapi, generation) {
   );
   fs.writeFileSync(
     path.join(compileRoot, "go.mod"),
-    [
-      "module example.invalid/catalogwire",
-      "",
-      "go 1.25.0",
-      "",
-      "require github.com/oapi-codegen/runtime v1.1.2",
-      "",
-    ].join("\n"),
+    compileModule,
   );
   run("go", ["test", "-mod=mod", "./..."], { cwd: compileRoot });
   fs.rmSync(temporaryRoot, { recursive: true });
@@ -1029,6 +1078,7 @@ function verifyGeneration(openapi) {
   assert.equal(generation.tools.redocly.version, "2.40.0");
   assert.equal(generation.tools.oapiCodegen.version, "2.8.0");
   assert.equal(generation.tools.oapiRuntime.version, "1.1.2");
+  const compileModule = materializeCompileModule(generation.go.module);
   assert.deepEqual(generation.openapi.responses, ["200", "400", "405", "500", "503", "504"]);
   const componentNames = collectInternalComponents(openapi);
   const ownedProjection = {
@@ -1062,7 +1112,7 @@ function verifyGeneration(openapi) {
     "lint",
     openapiPath,
   ]);
-  generateCatalog(openapi, generation);
+  generateCatalog(openapi, generation, compileModule);
 }
 
 function verify() {
