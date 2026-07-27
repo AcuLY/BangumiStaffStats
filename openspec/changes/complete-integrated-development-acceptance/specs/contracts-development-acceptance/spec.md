@@ -467,10 +467,39 @@ logs, failure code, or owner attribution. If every owner command passed, any
 cleanup error or surviving generated root SHALL fail that same owner cell.
 Cleanup SHALL never ignore residue merely to preserve an earlier error.
 
+Before the Backend owner gate, the Harness SHALL require the fixed
+candidate-owned `backend/.cache/go-mod` target to be absent and SHALL eagerly
+seed it from the admitted immutable Go cache with the Harness-owned completion
+marker and exact Go 1.26.5 darwin/arm64 toolchain. Before write denial, it
+SHALL validate the seeded toolchain and run one fixed offline
+`go mod download all` materialization with that exact Go, `GOENV=off`,
+`GOWORK=off`, `GOTOOLCHAIN=local`, `GOPROXY=off`, `GOSUMDB=off`, and
+`GOFLAGS=-mod=readonly`. `backend/go.mod` and `backend/go.sum` SHALL be
+byte-identical before and after materialization. The Harness SHALL then seal
+the complete expanded module/toolchain target, including every path, byte,
+mode, directory identity, inode, and link identity.
+
+The fixed Backend check SHALL run only in the Product's acceptance toolchain
+mode. Its environment SHALL contain the exact validated
+`BGMSS_ACCEPTANCE_GOROOT` at
+`backend/.cache/go-mod/golang.org/toolchain@v0.0.1-go1.26.5.darwin-arm64`;
+caller `GO_BOOTSTRAP`, every legacy `BGMSS_GO_*` lazy-bootstrap input, and any
+second toolchain authority SHALL be absent. The ordinary Backend bootstrap
+mode is forbidden for this owner command. The existing lazy bootstrap helper
+MAY remain available only to other fixed Harness consumers that explicitly
+own that protocol.
+
 The Backend owner gate MAY retain its seeded `backend/.cache/go-mod` only
 between the fixed Backend check and the immediately following independent
-query-binary measurement. After that measurement, or after either Backend
-operation fails, the Harness SHALL remove the exact candidate-owned
+query-binary measurement. Both operations SHALL run with outer literal and
+subpath write denial over the complete target. The Harness SHALL compare the
+complete target seal unconditionally after the check and after the
+measurement. A seal change SHALL block the owner; if an operation already
+failed, its exact command identity, status, and logs SHALL remain primary while
+the seal failure is recorded as a secondary blocking boundary failure.
+
+Only after the final seal comparison, or after recording any operation/seal
+failure, SHALL the Harness remove the exact candidate-owned
 `backend/.cache` and `backend/.tmp` roots with the same bounded, fail-closed
 cleanup semantics before any later clean-checkout re-attestation or artifact
 coordinator invocation. It SHALL NOT relax tracked-path syntax, ignore-control
@@ -576,11 +605,23 @@ block owner cleanup and defer only to guarded whole-run-root cleanup.
 
 - **WHEN** the sealed Go cache seeds an upstream
   `module@version/.gitignore` below candidate-owned `backend/.cache/go-mod`
-- **THEN** the Backend owner SHALL finish both fixed operations, remove the
-  exact Backend generated roots, and prove them absent before the artifact
-  coordinator re-attests the candidate
+- **THEN** the Harness SHALL offline-materialize and seal the complete closure,
+  invoke the Backend check only through its exact acceptance GOROOT with no
+  caller bootstrap, deny closure writes through both fixed operations,
+  re-seal after each operation, remove the exact Backend generated roots, and
+  prove them absent before the artifact coordinator re-attests the candidate
 - **AND** a cleanup failure or surviving root SHALL fail the Backend owner
   cell without weakening the Git path or ignore-control validator
+
+#### Scenario: Backend toolchain authority or closure changes
+
+- **WHEN** the Backend owner receives the ordinary bootstrap path, a second
+  toolchain authority, a pre-existing or incomplete target, mutable module
+  authorities, a materialization that changes `go.mod` or `go.sum`, or any
+  path/content/mode/inode/link change after either fixed operation
+- **THEN** the Backend owner SHALL fail closed, preserve the first operation
+  failure as primary when applicable, record later seal/cleanup failures as
+  secondary blocking evidence, and emit no green verdict
 
 #### Scenario: API-golden install output would enter coordinator control-plane traversal
 

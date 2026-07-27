@@ -166,6 +166,27 @@ such as `module@version/.gitignore` out of later Git authority scans without
 weakening the accepted path grammar or treating ignored dependency bytes as
 tracked source.
 
+That exception begins with a Harness-owned eager preparation step, not the
+ordinary Backend bootstrap path. The Harness copies the exact locked download
+and Go 1.26.5 toolchain closure into the absent fixed target, validates its
+completion marker and GOROOT, and, while the target is still writable, runs
+the admitted Go's fixed offline `go mod download all` command with
+`GOFLAGS=-mod=readonly`. It seals `backend/go.mod` and `backend/go.sum` around
+materialization and rejects either source-authority change. It then seals the
+complete expanded module/toolchain tree, including content, mode, directory
+identity, inode, and link identity.
+
+The Backend check receives the validated fixed GOROOT only through
+`BGMSS_ACCEPTANCE_GOROOT`; caller `GO_BOOTSTRAP` and every legacy
+`BGMSS_GO_*` lazy-bootstrap input are absent. The existing lazy bootstrap
+remains available only to Harness consumers whose contract still requires it,
+including the Archive consumer. Both the Backend check and the independent
+query-binary measurement deny writes to the complete target cache in their
+outer sandboxes. The Harness compares the full seal unconditionally after the
+check and after the measurement, preserves the first command or measurement
+failure as primary if a later seal or cleanup also fails, and only then enters
+the existing bounded generated-root cleanup.
+
 The Contracts owner cleanup inventory is closed over every package it
 installs. Besides Query and schema roots, it removes `node_modules`, `.cache`,
 and `.tmp` for all six API goldens before artifact compatibility. This ordering
@@ -805,8 +826,10 @@ acceptance mutate the repository.
   separately; cleanup failure remains blocking when no earlier command failed.
 - [A seeded Go module contains an upstream `.gitignore` under a
   `module@version` directory] → Keep the cache only through the two Backend
-  operations, then remove the exact Backend generated roots before coordinator
-  re-attestation; do not widen Git path or ignore-control admission.
+  operations; offline-materialize and seal the complete extracted closure
+  before write denial, re-seal after each operation, then remove the exact
+  Backend generated roots before coordinator re-attestation; do not widen Git
+  path or ignore-control admission.
 - [API-golden `npm ci` output remains under recursively attested
   `contracts/goldens`] → Derive a closed cleanup inventory from the six fixed
   installed packages, remove each package's `node_modules`, `.cache`, and

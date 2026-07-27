@@ -10,6 +10,12 @@ starting release, deployment, activation, or production operations.
 
 - Add one Contracts-owned local harness that fails closed while orchestrating
   the existing Go, Python, TypeScript, schema/golden, artifact, and race gates.
+- Make the Backend owner consume its pinned Go 1.26.5 closure through the
+  Backend's sealed acceptance mode: seed and offline-materialize the complete
+  candidate-owned module cache before the owner command, pass only the exact
+  admitted GOROOT authority, deny writes during both Backend operations,
+  re-seal after each operation, and clean the closure only after the
+  independent query-binary measurement.
 - Exercise an accepted full inactive Archive through a disposable local
   current-pointer copy, the real packaged Backend API, the immutable Updater
   artifact, and the packaged Frontend; no production entry may import a

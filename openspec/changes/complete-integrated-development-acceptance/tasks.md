@@ -163,13 +163,22 @@ commit, push, sync, archive, or update task markers.
   evidence/residue, and fail the owner cell on cleanup alone after otherwise
   successful commands. Add focused primary-precedence, retry, and surviving
   residue tests.
-- [ ] 3.7 Close the Backend owner cache lifetime after its independent
-  query-binary measurement: remove only candidate-owned `backend/.cache` and
-  `backend/.tmp` with bounded retries on success and failure, preserve the
-  first Backend command/measurement error as primary, and fail on cleanup-only
-  residue. Add focused coverage for an upstream
-  `module@version/.gitignore`, primary-error precedence, retry, and surviving
-  residue without weakening Git path or ignore-control admission.
+- [ ] 3.7 Close the Backend owner sealed-toolchain handshake and cache
+  lifetime. Require an absent target; eagerly seed the Harness-owned
+  `backend/.cache/go-mod`; validate its exact Go 1.26.5 GOROOT; use the
+  admitted Go to run fixed offline `go mod download all` with
+  `GOFLAGS=-mod=readonly`; and prove `backend/go.mod`/`go.sum` unchanged.
+  Seal the complete expanded cache, invoke `backend/scripts/check.sh` only
+  with exact `BGMSS_ACCEPTANCE_GOROOT` and no caller `GO_BOOTSTRAP` or legacy
+  `BGMSS_GO_*`, and deny target writes in both the check and independent
+  query-binary measurement. Re-seal unconditionally after each operation,
+  preserve the first Backend command/measurement error as primary when
+  seal/cleanup also fails, then remove only candidate-owned
+  `backend/.cache` and `backend/.tmp` with bounded retries and fail on
+  cleanup-only residue. Add focused plan/environment/order, materialization
+  authority, write-denial, seal-mutation, success/failure precedence,
+  upstream `module@version/.gitignore`, retry, and surviving-residue coverage
+  without weakening Git path, ignore-control, or the bootstrap marker guard.
 - [ ] 3.8 Close the Contracts cleanup inventory over all six installed API
   goldens. Remove each package's exact `node_modules`, `.cache`, and `.tmp`
   roots on success and failure before coordinator traversal, retain bounded
