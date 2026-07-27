@@ -255,7 +255,7 @@ commit, push, sync, archive, or update task markers.
   `all`, module patterns/queries, or any non-off proxy and prove the
   no-argument command materializes the frozen build/test closure without
   changing `go.mod`, `go.sum`, or the seeded download/toolchain authority.
-- [ ] 3.15 Close the checksum-authorized tidy closure exposed by the next
+- [x] 3.15 Close the checksum-authorized tidy closure exposed by the next
   formal `owner.backend` execution. Derive the exact canonical sorted unique
   62-record content set from non-`/go.mod` checksums in accepted
   `backend/go.sum`, order literal `${module}@${version}` values with
@@ -274,7 +274,7 @@ commit, push, sync, archive, or update task markers.
   `go mod tidy` then succeeds under full target write denial and retain command
   identity, error precedence, evidence, later query measurement, and cleanup
   boundaries.
-- [ ] 3.16 Close the Backend test-loopback boundary revealed by the
+- [x] 3.16 Close the Backend test-loopback boundary revealed by the
   checksum-closure A/B. Replace the Backend check's blanket network denial
   with one exact deny-all profile that re-allows only inbound local-address
   and outbound remote-address `localhost:*`, while retaining literal/subpath
@@ -380,7 +380,7 @@ commit, push, sync, archive, or update task markers.
   `specified`, `implemented`, `verified`, `committed`, `pushed`, `released`,
   and `deployed` fields. The CLI must never imply production readiness,
   release, deployment, activation, SLO, or completed operations.
-- [ ] 6.5 Correct the orderly terminal-failure settlement exposed by formal
+- [x] 6.5 Correct the orderly terminal-failure settlement exposed by formal
   `owner.backend` execution. Bifurcate worker code zero from code one before
   release/result validation: retain strict green validation only for zero;
   for one acknowledged failed cell, close the worker closure, run common

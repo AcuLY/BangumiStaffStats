@@ -44,6 +44,7 @@ import {
   registerFailureEvidence,
   validateEvidenceFiles,
   writeAndVerifyCanonicalResult,
+  writeRetryableParentFailureEvidence,
 } from './evidence-validation.mjs';
 import { commandEvidence, writeEvidence } from './evidence.mjs';
 import {
@@ -911,6 +912,7 @@ export async function writeSupervisedCanonicalFailure({
   cells,
   cleanup,
   configuration,
+  failureEvidenceIsolationState,
   input,
   inputAfter,
   inputBefore,
@@ -926,6 +928,7 @@ export async function writeSupervisedCanonicalFailure({
   ) {
     fail('supervisor failure result requires real input seal digests');
   }
+  const failureWriteState = failureEvidenceIsolationState ?? {};
   const resultPath = path.join(runRoot, 'result.json');
   let resultQuarantine = null;
   let workerResultExists = false;
@@ -945,6 +948,7 @@ export async function writeSupervisedCanonicalFailure({
   const isolated = await isolateAndSanitizeFailureEvidence({
     runRoot,
     cells,
+    isolationState: failureWriteState,
   });
   const resultCells = isolated.cells;
   const directFailureIndex = resultCells.findIndex(
@@ -987,15 +991,10 @@ export async function writeSupervisedCanonicalFailure({
       );
     }
   }
-  const evidenceRoot = fs.mkdtempSync(
-    path.join(runRoot, 'evidence', 'parent-supervisor-'),
-  );
-  await writeEvidence({
+  failureWriteState.parentSupervisorEvidence ??= {};
+  await writeRetryableParentFailureEvidence({
     runRoot,
-    relative: `${path
-      .relative(runRoot, evidenceRoot)
-      .split(path.sep)
-      .join('/')}/failure.json`,
+    state: failureWriteState.parentSupervisorEvidence,
     kind: 'supervisorFailure',
     value: {
       cleanup: {
@@ -1039,7 +1038,12 @@ export async function writeSupervisedCanonicalFailure({
     },
     summary: 'parent supervisor terminated the worker closure and re-sealed inputs',
   });
-  await registerFailureEvidence({ runRoot, cells: resultCells });
+  failureWriteState.parentFailureRegistration ??= {};
+  await registerFailureEvidence({
+    runRoot,
+    cells: resultCells,
+    registrationState: failureWriteState.parentFailureRegistration,
+  });
   const recorder = new MeasurementRecorder(configuration.budgets);
   recordSuiteMeasurement(
     recorder,

@@ -27,6 +27,10 @@ const FORBIDDEN_ENV = new Set([
   'PERL5OPT',
 ]);
 
+// Process inventory is a safety boundary, not a scheduler-performance gate.
+// Keep it bounded while allowing heavily loaded validation hosts to respond.
+const PROCESS_INVENTORY_TIMEOUT_MS = 30_000;
+
 export class CommandError extends Error {
   constructor(message, result) {
     super(message);
@@ -61,7 +65,7 @@ export function snapshotHostProcessInventory() {
         PATH: '/usr/bin:/bin',
       },
       maxBuffer: 16 * 1024 * 1024,
-      timeout: 5_000,
+      timeout: PROCESS_INVENTORY_TIMEOUT_MS,
     },
   );
   if (result.error || result.status !== 0) {
@@ -128,7 +132,7 @@ export function snapshotOwnedCwdProcesses(runRoot) {
         PATH: '/usr/bin:/bin:/usr/sbin',
       },
       maxBuffer: 16 * 1024 * 1024,
-      timeout: 5_000,
+      timeout: PROCESS_INVENTORY_TIMEOUT_MS,
     },
   );
   if (result.error || result.status !== 0) {

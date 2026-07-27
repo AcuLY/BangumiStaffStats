@@ -8,7 +8,10 @@ import {
   validateAcceptanceInput,
   validateResult,
 } from './contracts.mjs';
-import { validateEvidenceFiles } from './evidence-validation.mjs';
+import {
+  validateAcknowledgedFailureEvidence,
+  validateEvidenceFiles,
+} from './evidence-validation.mjs';
 import { verifyPackagePolicy } from './package-policy.mjs';
 import {
   allocateRunRoot,
@@ -27,7 +30,9 @@ import {
 } from './supervisor-inputs.mjs';
 import { SupervisorRuntimeOwnership } from './supervisor-runtime.mjs';
 import {
+  createOnceAsyncOperation,
   createWorkerCheckpointWriter,
+  retrySupervisedFailureWrite,
   superviseAcceptanceWorker,
   supervisedFailureCells,
 } from './supervisor.mjs';
@@ -137,6 +142,7 @@ async function actualInputAfter(input, inputBefore, supervisorInput) {
 async function writeParentFailure({
   cleanup,
   configuration,
+  failureEvidenceIsolationState,
   input,
   inputBefore,
   reason,
@@ -157,6 +163,7 @@ async function writeParentFailure({
     cells,
     cleanup,
     configuration,
+    failureEvidenceIsolationState,
     input,
     inputAfter,
     inputBefore,
@@ -173,6 +180,27 @@ async function writeParentFailure({
     )}\n`,
   );
   return output;
+}
+
+export async function recoverFormalSupervisorFailure({
+  failureFacts,
+  resultExists,
+  retryWrite,
+  writerError,
+}) {
+  if (failureFacts !== null) {
+    await retrySupervisedFailureWrite({
+      failureFacts,
+      writerError,
+      writeSupervisedFailure: retryWrite,
+    });
+    return true;
+  }
+  if (typeof resultExists !== 'function') {
+    throw new Error('formal supervisor result probe is absent');
+  }
+  if (resultExists()) throw writerError;
+  return false;
 }
 
 async function runFormally(filePath, configuration) {
@@ -257,9 +285,14 @@ async function runFormally(filePath, configuration) {
     return 1;
   }
   clearTimeout(preparationTimer);
+  const cleanupRuntimeOwnership = createOnceAsyncOperation(
+    () => runtimeOwnership.cleanup(),
+  );
+  const failureEvidenceIsolationState = {};
+  let supervisedFailureFacts = null;
   try {
     return await superviseAcceptanceWorker({
-      cleanupExternalOwnership: () => runtimeOwnership.cleanup(),
+      cleanupExternalOwnership: cleanupRuntimeOwnership,
       configuration,
       inputBeforeDigest: inputBefore.digest,
       inputDocumentDigest: supervisorInput.digest,
@@ -270,6 +303,11 @@ async function runFormally(filePath, configuration) {
       suiteStartedAt: suiteStarted,
       validateExternalOwnershipRelease: () =>
         runtimeOwnership.verifyReleased(),
+      validateWorkerFailureEvidence: ({ acceptedCells, runRoot }) =>
+        validateAcknowledgedFailureEvidence({
+          cells: acceptedCells,
+          runRoot,
+        }),
       validateWorkerResult: async ({ acceptedCells, code, runId, runRoot }) => {
         verifySupervisorInputCopy(supervisorInput);
         const inputAfter =
@@ -283,8 +321,8 @@ async function runFormally(filePath, configuration) {
           result.runId !== runId ||
           result.seals.inputBefore !== inputBefore.digest ||
           result.seals.inputAfter !== inputAfter.digest ||
-          (code === 0 && result.verdict === null) ||
-          (code === 1 && result.verdict !== null)
+          code !== 0 ||
+          result.verdict === null
         ) {
           throw new Error('worker result differs from parent-supervised facts');
         }
@@ -301,33 +339,52 @@ async function runFormally(filePath, configuration) {
         });
       },
       workerModule: WORKER_MODULE,
-      writeSupervisedFailure: async ({
-        cells,
-        cleanup,
-        reason,
-        workerOutput,
-      }) =>
-        writeParentFailure({
-          cells,
-          cleanup,
+      writeSupervisedFailure: async (facts) => {
+        supervisedFailureFacts = facts;
+        return writeParentFailure({
+          cells: facts.cells,
+          cleanup: facts.cleanup,
           configuration,
+          failureEvidenceIsolationState,
           input,
           inputBefore,
-          reason,
+          reason: facts.reason,
           runAllocation,
           supervisorInput,
           suiteStarted,
-          workerOutput,
-        }),
+          workerOutput: facts.workerOutput,
+        });
+      },
     });
   } catch (error) {
-    if (fs.existsSync(path.join(runAllocation.runRoot, 'result.json'))) {
-      throw error;
+    if (
+      await recoverFormalSupervisorFailure({
+        failureFacts: supervisedFailureFacts,
+        resultExists: () =>
+          fs.existsSync(path.join(runAllocation.runRoot, 'result.json')),
+        retryWrite: (facts) =>
+          writeParentFailure({
+            cells: facts.cells,
+            cleanup: facts.cleanup,
+            configuration,
+            failureEvidenceIsolationState,
+            input,
+            inputBefore,
+            reason: facts.reason,
+            runAllocation,
+            supervisorInput,
+            suiteStarted,
+            workerOutput: facts.workerOutput,
+          }),
+        writerError: error,
+      })
+    ) {
+      return 1;
     }
     let external = null;
     const cleanupFailures = [];
     try {
-      external = await runtimeOwnership.cleanup();
+      external = await cleanupRuntimeOwnership();
     } catch (cleanupError) {
       cleanupFailures.push(cleanupError);
     }
@@ -354,6 +411,7 @@ async function runFormally(filePath, configuration) {
       cells,
       cleanup,
       configuration,
+      failureEvidenceIsolationState,
       input,
       inputBefore,
       reason: error,

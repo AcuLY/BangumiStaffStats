@@ -12,7 +12,9 @@ if (
 ) {
   throw new Error('fixture input document digest was not forwarded');
 }
-const scenario = JSON.parse(scenarioBytes).scenario;
+const scenarioInput = JSON.parse(scenarioBytes);
+const scenario = scenarioInput.scenario;
+const timeoutMs = scenarioInput.timeoutMs ?? 300;
 const runId = path.basename(runRoot);
 const matrixVersion = 'supervisor-test-matrix';
 let sequence = 0;
@@ -53,13 +55,13 @@ function checkpoint(index, previous = null) {
       id: 'first.cell',
       owner: 'fixture-owner',
       phase: 'fixture',
-      timeoutMs: 300,
+      timeoutMs,
     },
     {
       id: 'second.cell',
       owner: 'fixture-owner',
       phase: 'fixture',
-      timeoutMs: 300,
+      timeoutMs,
     },
   ];
   return send({
@@ -72,15 +74,62 @@ function checkpoint(index, previous = null) {
   });
 }
 
-function passed(id) {
+function passed(id, evidence = []) {
   return {
     durationMs: 1,
-    evidence: [],
+    evidence,
     failure: null,
     id,
     owner: 'fixture-owner',
     status: 'pass',
   };
+}
+
+function failed(id, evidence = []) {
+  return {
+    durationMs: 1,
+    evidence,
+    failure: {
+      blockedBy: null,
+      code: 'COMMAND_ERROR',
+      summary: 'fixture owner command failed',
+    },
+    id,
+    owner: 'fixture-owner',
+    status: 'fail',
+  };
+}
+
+function fixtureEvidence(name, valid) {
+  const relative = `evidence/${name}`;
+  const absolute = path.join(runRoot, ...relative.split('/'));
+  const bytes = Buffer.from(`${name}\n`);
+  fs.mkdirSync(path.dirname(absolute), {
+    recursive: true,
+    mode: 0o700,
+  });
+  fs.writeFileSync(absolute, bytes, {
+    flag: 'wx',
+    mode: 0o600,
+  });
+  return {
+    kind: 'logs',
+    path: relative,
+    sha256: valid
+      ? `sha256:${createHash('sha256').update(bytes).digest('hex')}`
+      : `sha256:${'0'.repeat(64)}`,
+    summary: valid
+      ? 'fixture evidence with a valid digest'
+      : 'fixture evidence with an intentionally mismatched digest',
+  };
+}
+
+function invalidEvidence(name) {
+  return fixtureEvidence(name, false);
+}
+
+function validEvidence(name) {
+  return fixtureEvidence(name, true);
 }
 
 if (scenario === 'malformed-ipc') {
@@ -147,4 +196,67 @@ if (scenario === 'terminal-hang') {
   setInterval(() => {}, 1_000);
   await new Promise(() => {});
 }
-throw new Error(`unknown supervisor fixture scenario ${scenario}`);
+if (scenario === 'orderly-pass') {
+  const first = passed('first.cell');
+  await checkpoint(1, first);
+  const second = passed('second.cell');
+  await send({
+    type: 'terminal',
+    code: 0,
+    previous: second,
+  });
+  process.exitCode = 0;
+} else if (scenario === 'orderly-direct-failure') {
+  await send({
+    type: 'terminal',
+    code: 1,
+    previous: failed('first.cell'),
+  });
+  process.exitCode = 1;
+} else if (scenario === 'orderly-direct-failure-invalid-evidence') {
+  await send({
+    type: 'terminal',
+    code: 1,
+    previous: failed(
+      'first.cell',
+      [invalidEvidence('invalid-direct.log')],
+    ),
+  });
+  process.exitCode = 1;
+} else if (scenario === 'orderly-direct-failure-valid-evidence') {
+  await send({
+    type: 'terminal',
+    code: 1,
+    previous: failed(
+      'first.cell',
+      [validEvidence('valid-direct.log')],
+    ),
+  });
+  process.exitCode = 1;
+} else if (scenario === 'orderly-earlier-pass-invalid-evidence') {
+  const first = passed(
+    'first.cell',
+    [invalidEvidence('invalid-pass.log')],
+  );
+  await checkpoint(1, first);
+  await send({
+    type: 'terminal',
+    code: 1,
+    previous: failed('second.cell'),
+  });
+  process.exitCode = 1;
+} else if (scenario === 'orderly-earlier-pass-valid-evidence') {
+  const first = passed(
+    'first.cell',
+    [validEvidence('valid-pass.log')],
+  );
+  await checkpoint(1, first);
+  await send({
+    type: 'terminal',
+    code: 1,
+    previous: failed('second.cell'),
+  });
+  process.exitCode = 1;
+} else {
+  throw new Error(`unknown supervisor fixture scenario ${scenario}`);
+}

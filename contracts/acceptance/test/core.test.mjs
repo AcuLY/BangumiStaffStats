@@ -23,7 +23,17 @@ import {
   canonicalJson,
   canonicalJsonDigest,
 } from '../lib/canonical-json.mjs';
-import { copyCacheTree, validateSeededGoToolchain } from '../lib/cache.mjs';
+import {
+  copyCacheTree,
+  deriveGoModuleContentSet,
+  GO_CONTENT_SET_COUNT,
+  GO_CONTENT_SET_SHA256,
+  GO_MATERIALIZATION_LOCK_SET_SHA256,
+  removeGoMaterializationLocks,
+  validateGoModuleContentSeedAssets,
+  validateGoModuleContentSet,
+  validateSeededGoToolchain,
+} from '../lib/cache.mjs';
 import { sealFrozenCacheTree } from '../lib/cache-input.mjs';
 import { loadAcceptanceConfiguration } from '../lib/config.mjs';
 import {
@@ -59,7 +69,10 @@ import {
   assertArchiveInstalledDependencyClosureUnchanged,
   assertArchiveTrackedAuthorityFiles,
   assertArchiveTrackedAuthorityUnchanged,
+  backendCheckCommandPlan,
+  backendCheckSandboxProfile,
   backendGoMaterializationCommandPlan,
+  backendQueryMeasurementCommandPlan,
   cleanupBackendGeneratedRoots,
   cleanupContractsGeneratedRoots,
   catalogGoVerifierEnvironment,
@@ -95,7 +108,9 @@ import {
   validateQueryVerifyCodegenResult,
   validateArchiveVerifierCommandPlan,
   validateArchiveVerifierResult,
+  validateBackendCheckCommandPlan,
   validateBackendGoMaterializationCommandPlan,
+  validateBackendQueryMeasurementCommandPlan,
 } from '../lib/gates.mjs';
 import { REQUIRED_MEASUREMENTS } from '../lib/measurements.mjs';
 import { resultOutputDigest } from '../lib/output-digest.mjs';
@@ -1349,8 +1364,8 @@ test('runner sanitizes environment, captures bounded output, and kills timeout g
       args: ['-e', 'process.stdout.write(process.env.TEST_VALUE)'],
       cwd: runRoot,
       environment,
-      timeoutMs: 1000,
-      gracefulStopMs: 50,
+      timeoutMs: 30_000,
+      gracefulStopMs: 250,
       runRoot,
     });
     assert.equal(passed.status, 0);
@@ -1361,8 +1376,8 @@ test('runner sanitizes environment, captures bounded output, and kills timeout g
         args: ['-e', 'setInterval(() => {}, 1000)'],
         cwd: runRoot,
         environment,
-        timeoutMs: 100,
-        gracefulStopMs: 50,
+        timeoutMs: 1_000,
+        gracefulStopMs: 250,
         runRoot,
       }),
       (error) => error instanceof CommandError && error.result.timedOut,
@@ -4966,7 +4981,9 @@ test('hard-link cleanup failure preserves the owner command as primary without e
 });
 
 function createBackendOwnerHandshakeFixture(t, name, {
+  checkPlanHook,
   commandHook,
+  measurementPlanHook,
   planHook,
   sealHook,
   validateHook,
@@ -4987,7 +5004,13 @@ function createBackendOwnerHandshakeFixture(t, name, {
   fs.mkdirSync(path.join(backendRoot, 'scripts'), { recursive: true });
   fs.mkdirSync(runRoot);
   fs.writeFileSync(path.join(backendRoot, 'go.mod'), 'module fixture.invalid/backend\n\ngo 1.26.5\n');
-  fs.writeFileSync(path.join(backendRoot, 'go.sum'), '');
+  fs.copyFileSync(
+    path.join(REPOSITORY_ROOT, 'backend', 'go.sum'),
+    path.join(backendRoot, 'go.sum'),
+  );
+  const contentSet = deriveGoModuleContentSet(
+    path.join(backendRoot, 'go.sum'),
+  );
   fs.writeFileSync(
     path.join(backendRoot, 'scripts', 'check.sh'),
     '#!/bin/sh\nexit 0\n',
@@ -5063,6 +5086,20 @@ function createBackendOwnerHandshakeFixture(t, name, {
     });
   };
   const implementation = Object.freeze({
+    ...(checkPlanHook
+      ? {
+          backendCheckCommandPlan: (parameters) =>
+            checkPlanHook(backendCheckCommandPlan(parameters)),
+        }
+      : {}),
+    ...(measurementPlanHook
+      ? {
+          backendQueryMeasurementCommandPlan: (parameters) =>
+            measurementPlanHook(
+              backendQueryMeasurementCommandPlan(parameters),
+            ),
+        }
+      : {}),
     ...(planHook
       ? {
           backendGoMaterializationCommandPlan: (parameters) =>
@@ -5072,7 +5109,7 @@ function createBackendOwnerHandshakeFixture(t, name, {
     createGoSeedPlan: ({ source }) => {
       events.push('plan:seeded-authority');
       assert.equal(source, targetGoCache);
-      return Object.freeze({ sourceRoot: source });
+      return Object.freeze({ contentSet, sourceRoot: source });
     },
     networklessCommand: async (plan) => {
       events.push(`command:${plan.id}`);
@@ -5085,6 +5122,12 @@ function createBackendOwnerHandshakeFixture(t, name, {
         );
         fs.mkdirSync(extracted, { recursive: true });
         fs.writeFileSync(path.join(extracted, '.gitignore'), '*\n');
+        for (const relative of contentSet.lockPaths) {
+          const lock = path.join(targetGoCache, ...relative.split('/'));
+          fs.mkdirSync(path.dirname(lock), { recursive: true });
+          fs.writeFileSync(lock, '', { mode: 0o644 });
+          fs.chmodSync(lock, 0o644);
+        }
       }
       if (plan.id === 'owner-backend-query-binary-measurement') {
         const outputIndex = plan.args.indexOf('-o');
@@ -5120,6 +5163,10 @@ function createBackendOwnerHandshakeFixture(t, name, {
       assert.equal(cacheRoot, targetGoCache);
       return selectiveSeedSeal();
     },
+    removeGoMaterializationLocks: (parameters) => {
+      events.push('cleanup:locks');
+      return removeGoMaterializationLocks(parameters);
+    },
     seedGoModuleCache: async ({ destination }) => {
       events.push('seed:go');
       const goBin = path.join(acceptedGoRoot, 'bin');
@@ -5137,6 +5184,7 @@ function createBackendOwnerHandshakeFixture(t, name, {
         );
       }
       return Object.freeze({
+        contentSet,
         destinationSeal: selectiveSeedSeal(),
       });
     },
@@ -5184,6 +5232,7 @@ function createBackendOwnerHandshakeFixture(t, name, {
       tools,
     }),
     backendRoot,
+    contentSet,
     events,
     implementation,
     plans,
@@ -5205,6 +5254,317 @@ test('Backend materialization production constant omits the obsolete widened ide
   );
 });
 
+test('Backend Go content authority is the exact 62-record localeCompare set with four assets per record', (t) => {
+  const contentSet = deriveGoModuleContentSet(
+    path.join(REPOSITORY_ROOT, 'backend', 'go.sum'),
+  );
+  assert.equal(validateGoModuleContentSet(contentSet), contentSet);
+  assert.equal(contentSet.count, GO_CONTENT_SET_COUNT);
+  assert.equal(contentSet.items.length, GO_CONTENT_SET_COUNT);
+  assert.equal(contentSet.setSha256, GO_CONTENT_SET_SHA256);
+  assert.equal(contentSet.lockCount, GO_CONTENT_SET_COUNT);
+  assert.equal(
+    contentSet.lockSetSha256,
+    GO_MATERIALIZATION_LOCK_SET_SHA256,
+  );
+  assert.equal(contentSet.seedAssetPaths.length, 4 * GO_CONTENT_SET_COUNT);
+  assert.ok(
+    contentSet.items.indexOf('github.com/oasdiff/yaml@v0.1.1') <
+      contentSet.items.indexOf('github.com/oasdiff/yaml3@v0.0.14'),
+  );
+
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-go-content-assets-')),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const relative of contentSet.seedAssetPaths) {
+    const absolute = path.join(root, ...relative.split('/'));
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, `${relative}\n`, { mode: 0o444 });
+  }
+  assert.equal(
+    validateGoModuleContentSeedAssets(root, contentSet),
+    contentSet,
+  );
+  fs.unlinkSync(
+    path.join(root, ...contentSet.seedAssetPaths.at(-1).split('/')),
+  );
+  assert.throws(
+    () => validateGoModuleContentSeedAssets(root, contentSet),
+    /Go content seed .* is unavailable/u,
+  );
+});
+
+function createMaterializationLockFixture(t, name) {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), `bgmss-go-locks-${name}-`)),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const contentSet = deriveGoModuleContentSet(
+    path.join(REPOSITORY_ROOT, 'backend', 'go.sum'),
+  );
+  for (const relative of contentSet.lockPaths) {
+    const absolute = path.join(root, ...relative.split('/'));
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, '', { mode: 0o644 });
+    fs.chmodSync(absolute, 0o644);
+  }
+  return Object.freeze({ contentSet, root });
+}
+
+test('Backend Go lock cleanup validates the complete closed set before unlink and proves absence', (t) => {
+  const fixture = createMaterializationLockFixture(t, 'success');
+  const retainedToolchainTemplateDirectory = path.join(
+    fixture.root,
+    'golang.org',
+    'toolchain@v0.0.1-go1.26.5.darwin-arm64',
+    'src',
+    'text',
+    'template',
+    'testdata',
+    'fixture@v9.9.9.tmp-legitimate',
+  );
+  const retainedToolchainTemplate = path.join(
+    retainedToolchainTemplateDirectory,
+    'template.txt',
+  );
+  fs.mkdirSync(retainedToolchainTemplateDirectory, { recursive: true });
+  fs.writeFileSync(retainedToolchainTemplate, 'legitimate template bytes\n');
+  assert.deepEqual(
+    removeGoMaterializationLocks({
+      root: fixture.root,
+      contentSet: fixture.contentSet,
+    }),
+    {
+      count: GO_CONTENT_SET_COUNT,
+      setSha256: GO_MATERIALIZATION_LOCK_SET_SHA256,
+    },
+  );
+  for (const relative of fixture.contentSet.lockPaths) {
+    assert.equal(
+      fs.existsSync(path.join(fixture.root, ...relative.split('/'))),
+      false,
+    );
+  }
+  assert.equal(
+    fs.readFileSync(retainedToolchainTemplate, 'utf8'),
+    'legitimate template bytes\n',
+  );
+});
+
+test('Backend Go lock cleanup rejects missing, extra, changed, linked, symlinked, or temporary state without broad deletion', async (t) => {
+  const mutations = [
+    {
+      label: 'missing lock',
+      mutate: ({ contentSet, root }) => {
+        fs.unlinkSync(path.join(root, ...contentSet.lockPaths[0].split('/')));
+      },
+    },
+    {
+      label: 'extra lock',
+      mutate: ({ root }) => {
+        fs.writeFileSync(
+          path.join(root, 'cache', 'download', 'extra.lock'),
+          '',
+          { mode: 0o644 },
+        );
+      },
+    },
+    {
+      label: 'nonzero lock',
+      mutate: ({ contentSet, root }) => {
+        fs.writeFileSync(
+          path.join(root, ...contentSet.lockPaths[0].split('/')),
+          'changed',
+        );
+      },
+    },
+    {
+      label: 'wrong lock mode',
+      mutate: ({ contentSet, root }) => {
+        fs.chmodSync(
+          path.join(root, ...contentSet.lockPaths[0].split('/')),
+          0o600,
+        );
+      },
+    },
+    {
+      label: 'setuid lock mode',
+      mutate: ({ contentSet, root }) => {
+        fs.chmodSync(
+          path.join(root, ...contentSet.lockPaths[0].split('/')),
+          0o4644,
+        );
+      },
+    },
+    {
+      label: 'setgid lock mode',
+      mutate: ({ contentSet, root }) => {
+        fs.chmodSync(
+          path.join(root, ...contentSet.lockPaths[0].split('/')),
+          0o2644,
+        );
+      },
+    },
+    {
+      label: 'sticky lock mode',
+      mutate: ({ contentSet, root }) => {
+        fs.chmodSync(
+          path.join(root, ...contentSet.lockPaths[0].split('/')),
+          0o1644,
+        );
+      },
+    },
+    {
+      label: 'hard-linked lock',
+      mutate: ({ contentSet, root }) => {
+        const lock = path.join(root, ...contentSet.lockPaths[0].split('/'));
+        const external = path.join(root, 'linked-lock-authority');
+        fs.linkSync(lock, external);
+      },
+    },
+    {
+      label: 'symlinked lock',
+      mutate: ({ contentSet, root }) => {
+        const lock = path.join(root, ...contentSet.lockPaths[0].split('/'));
+        fs.unlinkSync(lock);
+        fs.symlinkSync(
+          path.join(root, ...contentSet.lockPaths[1].split('/')),
+          lock,
+        );
+      },
+    },
+    {
+      label: 'download temporary file',
+      mutate: ({ root }) => {
+        fs.writeFileSync(
+          path.join(root, 'cache', 'download', 'unsettled.zip.tmp'),
+          '',
+        );
+      },
+    },
+    {
+      label: 'download partial marker',
+      mutate: ({ root }) => {
+        fs.writeFileSync(
+          path.join(root, 'cache', 'download', 'v9.9.9.partial'),
+          '',
+        );
+      },
+    },
+    {
+      label: 'extraction temporary directory',
+      mutate: ({ root }) => {
+        fs.mkdirSync(
+          path.join(
+            root,
+            'github.com',
+            '!acu!l!y',
+            'bangumi-collection-go@v0.1.0.tmp-123',
+          ),
+          { recursive: true },
+        );
+      },
+    },
+    {
+      label: 'unadmitted extraction temporary directory',
+      mutate: ({ root }) => {
+        fs.mkdirSync(
+          path.join(
+            root,
+            'example.invalid',
+            'unadmitted@v9.9.9.tmp-attacker',
+          ),
+          { recursive: true },
+        );
+      },
+    },
+  ];
+  for (const { label, mutate } of mutations) {
+    await t.test(label, (subtest) => {
+      const fixture = createMaterializationLockFixture(
+        subtest,
+        label.replaceAll(/[^a-z]+/giu, '-'),
+      );
+      mutate(fixture);
+      assert.throws(
+        () =>
+          removeGoMaterializationLocks({
+            root: fixture.root,
+            contentSet: fixture.contentSet,
+          }),
+        /materialized Go/u,
+      );
+      assert.equal(
+        fs.existsSync(
+          path.join(fixture.root, ...fixture.contentSet.lockPaths[1].split('/')),
+        ),
+        true,
+      );
+    });
+  }
+});
+
+test('Backend Go lock cleanup rejects an equal-attribute inode rebind at the private-staging boundary without deleting either inode', (t) => {
+  const fixture = createMaterializationLockFixture(t, 'identity-rebind');
+  const relative = fixture.contentSet.lockPaths[0];
+  const originalPath = path.join(fixture.root, ...relative.split('/'));
+  const displacedOriginalPath = `${originalPath}.displaced-original`;
+  const originalIdentity = fs.lstatSync(originalPath);
+  const originalRenameSync = fs.renameSync;
+  const originalUnlinkSync = fs.unlinkSync;
+  let injected = false;
+  let replacementIdentity;
+  const unlinked = [];
+  fs.renameSync = (source, destination) => {
+    if (!injected && source === originalPath) {
+      injected = true;
+      originalRenameSync(originalPath, displacedOriginalPath);
+      fs.writeFileSync(originalPath, '', { mode: 0o644 });
+      fs.chmodSync(originalPath, 0o644);
+      replacementIdentity = fs.lstatSync(originalPath);
+      assert.equal(replacementIdentity.dev, originalIdentity.dev);
+      assert.equal(replacementIdentity.mode, originalIdentity.mode);
+      assert.equal(replacementIdentity.nlink, originalIdentity.nlink);
+      assert.equal(replacementIdentity.size, originalIdentity.size);
+      assert.notEqual(replacementIdentity.ino, originalIdentity.ino);
+    }
+    return originalRenameSync(source, destination);
+  };
+  fs.unlinkSync = (candidate) => {
+    unlinked.push(candidate);
+    return originalUnlinkSync(candidate);
+  };
+  try {
+    assert.throws(
+      () =>
+        removeGoMaterializationLocks({
+          root: fixture.root,
+          contentSet: fixture.contentSet,
+        }),
+      /materialized Go lock changed during staging/u,
+    );
+  } finally {
+    fs.renameSync = originalRenameSync;
+    fs.unlinkSync = originalUnlinkSync;
+  }
+
+  assert.equal(injected, true);
+  assert.deepEqual(unlinked, []);
+  const displacedOriginalIdentity = fs.lstatSync(displacedOriginalPath);
+  const restoredReplacementIdentity = fs.lstatSync(originalPath);
+  assert.equal(displacedOriginalIdentity.dev, originalIdentity.dev);
+  assert.equal(displacedOriginalIdentity.ino, originalIdentity.ino);
+  assert.equal(restoredReplacementIdentity.dev, replacementIdentity.dev);
+  assert.equal(restoredReplacementIdentity.ino, replacementIdentity.ino);
+  assert.deepEqual(
+    fs
+      .readdirSync(fixture.root)
+      .filter((name) => name.startsWith('.bgmss-go-lock-staging-')),
+    [],
+  );
+});
+
 test('Backend owner handshake fixes seed, materialization, acceptance environment, write denial, and reseal order', async (t) => {
   const fixture = createBackendOwnerHandshakeFixture(t, 'plan');
   const result = await executeBackendOwnerGateForTest(
@@ -5220,6 +5580,7 @@ test('Backend owner handshake fixes seed, materialization, acceptance environmen
       'validate:1',
       'command:owner-backend-go-mod-download',
       'validate:2',
+      'cleanup:locks',
       'plan:seeded-authority',
       'seal:seeded-authority',
       'seal:1',
@@ -5248,8 +5609,11 @@ test('Backend owner handshake fixes seed, materialization, acceptance environmen
   assert.equal(Object.isFrozen(materialization), true);
   assert.equal(materialization.id, 'owner-backend-go-mod-download');
   assert.equal(materialization.executable, path.join(fixture.acceptedGoRoot, 'bin', 'go'));
-  assert.deepEqual(materialization.args, ['mod', 'download']);
-  assert.equal(materialization.args.length, 2);
+  assert.deepEqual(
+    materialization.args,
+    ['mod', 'download', '--', ...fixture.contentSet.items],
+  );
+  assert.equal(materialization.args.length, 3 + GO_CONTENT_SET_COUNT);
   assert.equal(materialization.cwd, fixture.backendRoot);
   assert.equal(materialization.timeoutMs, 600_000);
   assert.equal(materialization.runRoot, fixture.runRoot);
@@ -5265,6 +5629,7 @@ test('Backend owner handshake fixes seed, materialization, acceptance environmen
         acceptedGoRoot: fixture.acceptedGoRoot,
         backendRoot: fixture.backendRoot,
         budgets: fixture.arguments.budgets,
+        contentSet: fixture.contentSet,
         materializationRoot: path.join(
           fixture.runRoot,
           'control',
@@ -5308,8 +5673,56 @@ test('Backend owner handshake fixes seed, materialization, acceptance environmen
     [],
   );
   assert.equal(Object.hasOwn(check.environment, 'GOROOT'), false);
+  assert.deepEqual(
+    validateBackendCheckCommandPlan(check, {
+      backendRoot: fixture.backendRoot,
+      budgets: fixture.arguments.budgets,
+      environment: check.environment,
+      readOnlyRoots: [
+        fixture.arguments.runtimeRoots.currentNodeSource.root,
+        fixture.arguments.runtimeRoots.currentNode.root,
+        fixture.arguments.runtimeRoots.currentNpmSource.root,
+        fixture.arguments.runtimeRoots.currentNpm.root,
+        fixture.targetGoCache,
+      ],
+      runRoot: fixture.runRoot,
+    }),
+    check,
+  );
   assert.equal(measurement.executable, path.join(fixture.acceptedGoRoot, 'bin', 'go'));
   assert.equal(measurement.environment.GOFLAGS, '-mod=readonly');
+  assert.deepEqual(
+    validateBackendQueryMeasurementCommandPlan(measurement, {
+      acceptedGo: path.join(fixture.acceptedGoRoot, 'bin', 'go'),
+      backendRoot: fixture.backendRoot,
+      budgets: fixture.arguments.budgets,
+      environment: measurement.environment,
+      queryTestBinary: path.join(
+        fixture.runRoot,
+        'control',
+        'backend-query-measurement',
+        'query.test',
+      ),
+      readOnlyRoots: [
+        fixture.arguments.runtimeRoots.currentNodeSource.root,
+        fixture.arguments.runtimeRoots.currentNode.root,
+        fixture.arguments.runtimeRoots.currentNpmSource.root,
+        fixture.arguments.runtimeRoots.currentNpm.root,
+        fixture.targetGoCache,
+      ],
+      runRoot: fixture.runRoot,
+    }),
+    measurement,
+  );
+  assert.match(
+    check.profile,
+    /\(allow network-inbound \(local ip "localhost:\*"\)\)/u,
+  );
+  assert.match(
+    check.profile,
+    /\(allow network-outbound \(remote ip "localhost:\*"\)\)/u,
+  );
+  assert.doesNotMatch(measurement.profile, /\(allow network-/u);
   const escaped = fixture.targetGoCache
     .replaceAll('\\', '\\\\')
     .replaceAll('"', '\\"');
@@ -5386,6 +5799,62 @@ test('Backend materialization closed plan rejects every widening before the netw
       mutate: (plan) => ({
         ...plan,
         args: [...plan.args, 'example.invalid/module@latest'],
+      }),
+    },
+    {
+      label: 'missing content record',
+      slug: 'missing-content',
+      mutate: (plan) => ({
+        ...plan,
+        args: plan.args.slice(0, -1),
+      }),
+    },
+    {
+      label: 'reordered content records',
+      slug: 'reordered-content',
+      mutate: (plan) => {
+        const args = [...plan.args];
+        [args[3], args[4]] = [args[4], args[3]];
+        return { ...plan, args };
+      },
+    },
+    {
+      label: 'duplicate content record',
+      slug: 'duplicate-content',
+      mutate: (plan) => ({
+        ...plan,
+        args: [...plan.args, plan.args[3]],
+      }),
+    },
+    {
+      label: 'substituted exact version',
+      slug: 'substituted-version',
+      mutate: (plan) => ({
+        ...plan,
+        args: [
+          ...plan.args.slice(0, 3),
+          'github.com/AcuLY/bangumi-collection-go@v0.1.1',
+          ...plan.args.slice(4),
+        ],
+      }),
+    },
+    {
+      label: 'go.mod-only record',
+      slug: 'go-mod-only',
+      mutate: (plan) => ({
+        ...plan,
+        args: [
+          ...plan.args,
+          'github.com/RaveNoX/go-jsoncommentstrip@v1.0.0',
+        ],
+      }),
+    },
+    {
+      label: 'missing option terminator',
+      slug: 'missing-terminator',
+      mutate: (plan) => ({
+        ...plan,
+        args: plan.args.filter((argument) => argument !== '--'),
       }),
     },
     {
@@ -5522,6 +5991,94 @@ test('Backend materialization closed plan rejects every widening before the netw
       );
     });
   }
+});
+
+test('Backend check closed plan rejects every broader network profile before execution', async (t) => {
+  const mutations = [
+    {
+      label: 'public outbound network',
+      profile: '(version 1)(allow default)(deny network*)(allow network-outbound)',
+    },
+    {
+      label: 'wildcard remote host',
+      profile:
+        '(version 1)(allow default)(deny network*)' +
+        '(allow network-outbound (remote ip "*:*"))',
+    },
+    {
+      label: 'private LAN address',
+      profile:
+        '(version 1)(allow default)(deny network*)' +
+        '(allow network-outbound (remote ip "192.168.0.1:443"))',
+    },
+    {
+      label: 'Unix socket',
+      profile:
+        '(version 1)(allow default)(deny network*)' +
+        '(allow network-outbound (literal "/private/tmp/service.sock"))',
+    },
+    {
+      label: 'network baseline removed',
+      profile: '(version 1)(allow default)',
+    },
+  ];
+  for (const { label, profile } of mutations) {
+    await t.test(label, async (subtest) => {
+      const fixture = createBackendOwnerHandshakeFixture(
+        subtest,
+        `check-profile-${label.replaceAll(/[^a-z]+/giu, '-')}`,
+        {
+          checkPlanHook: (plan) => ({ ...plan, profile }),
+        },
+      );
+      await assert.rejects(
+        executeBackendOwnerGateForTest(
+          fixture.arguments,
+          fixture.implementation,
+        ),
+        /Backend check is not the exact closed command plan/u,
+      );
+      assert.deepEqual(
+        fixture.plans.map(({ id }) => id),
+        ['owner-backend-go-mod-download'],
+      );
+      assert.equal(
+        fixture.events.includes('command:owner-backend-check'),
+        false,
+      );
+    });
+  }
+});
+
+test('Backend query measurement rejects loopback or broader network access before execution', async (t) => {
+  const fixture = createBackendOwnerHandshakeFixture(
+    t,
+    'measurement-network-widening',
+    {
+      measurementPlanHook: (plan) => ({
+        ...plan,
+        profile:
+          `${plan.profile}` +
+          '(allow network-inbound (local ip "localhost:*"))' +
+          '(allow network-outbound (remote ip "localhost:*"))',
+      }),
+    },
+  );
+  await assert.rejects(
+    executeBackendOwnerGateForTest(
+      fixture.arguments,
+      fixture.implementation,
+    ),
+    /Backend query measurement is not the exact closed command plan/u,
+  );
+  assert.deepEqual(
+    fixture.plans.map(({ id }) => id),
+    ['owner-backend-go-mod-download', 'owner-backend-check'],
+  );
+  assert.equal(
+    fixture.events.includes('command:owner-backend-query-binary-measurement'),
+    false,
+  );
 });
 
 test('Backend owner handshake rejects a pre-existing target and materialization changes to module authority', async (t) => {
@@ -5693,8 +6250,9 @@ test('Backend materialization command remains primary while every safe authority
     caught.evidence.map((entry) => entry.kind),
     ['logs', 'logs', 'backendBoundary'],
   );
-  assert.deepEqual(fixture.events.slice(-4), [
+  assert.deepEqual(fixture.events.slice(-5), [
     'validate:2',
+    'cleanup:locks',
     'plan:seeded-authority',
     'seal:seeded-authority',
     'seal:1',
@@ -7880,6 +8438,83 @@ test('Query Redocly lint is an executed closed prerequisite with the exact 0/9 b
     /closed owner sequence/u,
   );
 });
+
+test(
+  'Backend-check sandbox permits ephemeral loopback HTTP and denies public TCP',
+  { skip: process.platform !== 'darwin' },
+  async () => {
+    const { runRoot } = allocateRunRoot();
+    const readOnlyRoot = fs.realpathSync.native(
+      fs.mkdtempSync('/private/tmp/bgmss-backend-loopback-'),
+    );
+    try {
+      const environment = sanitizedEnvironment({
+        runRoot,
+        pathEntries: [path.dirname(process.execPath), '/usr/bin', '/bin'],
+      });
+      const script = `
+        const http = require('node:http');
+        const net = require('node:net');
+        function publicProbe() {
+          return new Promise((resolve, reject) => {
+            const client = net.connect({ host: '1.1.1.1', port: 80 });
+            client.on('connect', () => reject(new Error('public TCP connected')));
+            client.on('error', (error) =>
+              error.code === 'EPERM' ? resolve() : reject(error));
+          });
+        }
+        async function loopbackProbe() {
+          const server = http.createServer((_request, response) =>
+            response.end('loopback-ok'));
+          await new Promise((resolve, reject) => {
+            server.once('error', reject);
+            server.listen(0, '127.0.0.1', resolve);
+          });
+          try {
+            const response = await fetch(
+              'http://127.0.0.1:' + server.address().port,
+            );
+            if (await response.text() !== 'loopback-ok') {
+              throw new Error('loopback mismatch');
+            }
+          } finally {
+            await new Promise((resolve) => server.close(resolve));
+          }
+        }
+        Promise.all([publicProbe(), loopbackProbe()])
+          .then(() => process.stdout.write('backend-loopback-ok'))
+          .catch((error) => { console.error(error); process.exitCode = 1; });
+      `;
+      const profile = backendCheckSandboxProfile([readOnlyRoot]);
+      assert.equal(
+        profile.match(/\(allow network-inbound/g)?.length,
+        1,
+      );
+      assert.equal(
+        profile.match(/\(allow network-outbound/g)?.length,
+        1,
+      );
+      assert.doesNotMatch(profile, /remote ip "\*:\*"/u);
+      const result = await runCommand({
+        id: 'backend-check-loopback-sandbox',
+        executable: '/usr/bin/sandbox-exec',
+        args: ['-p', profile, process.execPath, '-e', script],
+        cwd: runRoot,
+        environment,
+        timeoutMs: 10_000,
+        gracefulStopMs: 100,
+        runRoot,
+      });
+      assert.equal(
+        fs.readFileSync(path.join(runRoot, result.stdout.path), 'utf8'),
+        'backend-loopback-ok',
+      );
+    } finally {
+      fs.rmSync(readOnlyRoot, { recursive: true, force: true });
+      cleanupRunRoot(runRoot);
+    }
+  },
+);
 
 test(
   'Docker-local sandbox permits its exact Unix socket and loopback but denies public TCP',

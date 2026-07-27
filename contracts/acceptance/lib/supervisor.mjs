@@ -22,6 +22,43 @@ function fail(message, code = 'SUPERVISOR_FAILURE') {
   throw new AcceptanceSupervisorError(message, code);
 }
 
+export function createOnceAsyncOperation(operation) {
+  if (typeof operation !== 'function') {
+    fail('exactly-once async operation is absent');
+  }
+  let result;
+  return (...args) => {
+    result ??= Promise.resolve().then(() => operation(...args));
+    return result;
+  };
+}
+
+export async function retrySupervisedFailureWrite({
+  failureFacts,
+  writeSupervisedFailure,
+  writerError,
+}) {
+  if (
+    !failureFacts?.cleanup ||
+    typeof writeSupervisedFailure !== 'function'
+  ) {
+    fail('supervised failure retry facts are invalid');
+  }
+  const cleanup = Object.freeze({
+    ...failureFacts.cleanup,
+    cleanupFailures: Object.freeze([
+      ...failureFacts.cleanup.cleanupFailures,
+      writerError,
+    ]),
+  });
+  return writeSupervisedFailure(
+    Object.freeze({
+      ...failureFacts,
+      cleanup,
+    }),
+  );
+}
+
 function exactKeys(value, keys, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     fail(`${label} must be an object`, 'SUPERVISOR_IPC_INVALID');
@@ -112,6 +149,71 @@ function validateCellRecord(value, declaration, label) {
     }
   }
   return structuredClone(cell);
+}
+
+function validateFailureEvidenceOutcome(value, acceptedCells) {
+  const acceptedCellCount = acceptedCells.length;
+  const expectedDescriptorCount = acceptedCells.reduce(
+    (total, cell) => total + cell.evidence.length,
+    0,
+  );
+  const outcome = exactKeys(
+    value,
+    [
+      'earliestRejectedCell',
+      'rejectedCellIndices',
+      'rejectedDescriptorCount',
+      'validatedDescriptorCount',
+    ],
+    'parent failure-evidence validation',
+  );
+  if (
+    !Number.isInteger(outcome.rejectedDescriptorCount) ||
+    outcome.rejectedDescriptorCount < 0 ||
+    !Number.isInteger(outcome.validatedDescriptorCount) ||
+    outcome.validatedDescriptorCount < 0 ||
+    !Array.isArray(outcome.rejectedCellIndices) ||
+    outcome.rejectedCellIndices.some(
+      (index, position) =>
+        !Number.isInteger(index) ||
+        index < 0 ||
+        index >= acceptedCellCount ||
+        (position > 0 &&
+          outcome.rejectedCellIndices[position - 1] >= index),
+    ) ||
+    outcome.earliestRejectedCell !==
+      (outcome.rejectedCellIndices[0] ?? null) ||
+    outcome.rejectedDescriptorCount <
+      outcome.rejectedCellIndices.length ||
+    outcome.validatedDescriptorCount +
+      outcome.rejectedDescriptorCount !==
+      expectedDescriptorCount ||
+    (outcome.rejectedDescriptorCount === 0) !==
+      (outcome.rejectedCellIndices.length === 0)
+  ) {
+    fail(
+      'parent failure-evidence validation result is invalid',
+      'SUPERVISOR_EVIDENCE_INVALID',
+    );
+  }
+  return outcome;
+}
+
+function replaceAcknowledgedCellWithEvidenceFailure(
+  acceptedCells,
+  failedIndex,
+) {
+  const cells = structuredClone(acceptedCells);
+  cells[failedIndex] = {
+    ...cells[failedIndex],
+    status: 'fail',
+    failure: {
+      blockedBy: null,
+      code: 'SUPERVISOR_EVIDENCE_INVALID',
+      summary: 'parent rejected untrusted worker evidence',
+    },
+  };
+  return cells;
 }
 
 export function supervisedFailureCells({
@@ -398,6 +500,7 @@ export async function superviseAcceptanceWorker({
   runId,
   runRoot,
   suiteStartedAt = performance.now(),
+  validateWorkerFailureEvidence,
   validateWorkerResult,
   validateExternalOwnershipRelease,
   workerModule,
@@ -723,6 +826,67 @@ export async function superviseAcceptanceWorker({
   let abnormal = outcome.kind === 'abnormal' ? outcome.reason : null;
   let closureClosed = false;
   let completedCleanup = null;
+  let acceptedFailureCells = acceptedCells;
+  if (!abnormal && outcome.code === 1) {
+    const directFailure = acceptedCells.at(-1);
+    abnormal =
+      directFailure?.status === 'fail'
+        ? new AcceptanceSupervisorError(
+            directFailure.failure.summary,
+            directFailure.failure.code,
+          )
+        : new AcceptanceSupervisorError(
+            'terminal failure omitted its acknowledged direct-failure cell',
+            'SUPERVISOR_IPC_INVALID',
+          );
+    completedCleanup = await terminateWorkerClosure({
+      child,
+      closureMonitor,
+      gracefulStopMs,
+    });
+    closureClosed = true;
+    let evidenceValidation;
+    let evidenceValidationFault = false;
+    try {
+      if (typeof validateWorkerFailureEvidence !== 'function') {
+        throw new AcceptanceSupervisorError(
+          'parent failure-evidence validator is absent',
+          'SUPERVISOR_EVIDENCE_INVALID',
+        );
+      }
+      evidenceValidation = await validateWorkerFailureEvidence({
+        acceptedCells: Object.freeze(structuredClone(acceptedCells)),
+        code: outcome.code,
+        runId,
+        runRoot,
+      });
+      evidenceValidation = validateFailureEvidenceOutcome(
+        evidenceValidation,
+        acceptedCells,
+      );
+    } catch {
+      evidenceValidationFault = true;
+    }
+    const directFailureIndex = acceptedCells.length - 1;
+    if (
+      evidenceValidationFault ||
+      (evidenceValidation.earliestRejectedCell !== null &&
+        evidenceValidation.earliestRejectedCell < directFailureIndex)
+    ) {
+      const failedIndex = evidenceValidationFault
+        ? directFailureIndex
+        : evidenceValidation.earliestRejectedCell;
+      acceptedFailureCells =
+        replaceAcknowledgedCellWithEvidenceFailure(
+          acceptedCells,
+          failedIndex,
+        );
+      abnormal = new AcceptanceSupervisorError(
+        'parent rejected untrusted worker evidence',
+        'SUPERVISOR_EVIDENCE_INVALID',
+      );
+    }
+  }
   if (!abnormal) {
     try {
       closureClosed = true;
@@ -810,13 +974,15 @@ export async function superviseAcceptanceWorker({
   });
   const cells = supervisedFailureCells({
     matrix,
-    acceptedCells,
+    acceptedCells: acceptedFailureCells,
     code: abnormal.code,
     summary: abnormal.message,
     durationMs: performance.now() - cellStartedAt,
   });
   await writeSupervisedFailure({
-    acceptedCells: Object.freeze(structuredClone(acceptedCells)),
+    acceptedCells: Object.freeze(
+      structuredClone(acceptedFailureCells),
+    ),
     cells,
     cleanup,
     reason: abnormal,

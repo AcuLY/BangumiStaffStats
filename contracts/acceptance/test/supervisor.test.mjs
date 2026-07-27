@@ -12,10 +12,21 @@ import {
   canonicalJsonDigest,
 } from '../lib/canonical-json.mjs';
 import {
+  isolateAndSanitizeFailureEvidence,
+  registerFailureEvidence,
+  validateAcknowledgedFailureEvidence,
+  validateEvidenceFiles,
+  writeAndVerifyCanonicalResult,
+  writeRetryableParentFailureEvidence,
+} from '../lib/evidence-validation.mjs';
+import {
   acceptedLoadedImageIdentity,
   SupervisorRuntimeOwnership,
 } from '../lib/supervisor-runtime.mjs';
-import { superviseAcceptanceWorker } from '../lib/supervisor.mjs';
+import {
+  createOnceAsyncOperation,
+  superviseAcceptanceWorker,
+} from '../lib/supervisor.mjs';
 
 const WORKER = fileURLToPath(
   new URL('./supervisor-worker.fixture.mjs', import.meta.url),
@@ -204,22 +215,22 @@ const configuration = Object.freeze({
         id: 'first.cell',
         owner: 'fixture-owner',
         phase: 'fixture',
-        timeoutMs: 300,
+        timeoutMs: 5_000,
         evidence: Object.freeze([]),
       }),
       Object.freeze({
         id: 'second.cell',
         owner: 'fixture-owner',
         phase: 'fixture',
-        timeoutMs: 300,
+        timeoutMs: 5_000,
         evidence: Object.freeze([]),
       }),
     ]),
   }),
   budgets: Object.freeze({
     timeouts: Object.freeze({
-      gracefulStopMs: 50,
-      suiteMs: 2_000,
+      gracefulStopMs: 250,
+      suiteMs: 30_000,
     }),
   }),
 });
@@ -280,6 +291,112 @@ async function runScenario(scenario) {
   }
 }
 
+function fixtureCell(id, status, evidence = []) {
+  return {
+    durationMs: 1,
+    evidence,
+    failure:
+      status === 'pass'
+        ? null
+        : {
+            blockedBy: null,
+            code: 'COMMAND_ERROR',
+            summary: 'fixture command failed',
+          },
+    id,
+    owner: 'fixture-owner',
+    status,
+  };
+}
+
+function writeFixtureEvidence(runRoot, relative, contents = `${relative}\n`) {
+  const output = path.join(runRoot, ...relative.split('/'));
+  fs.mkdirSync(path.dirname(output), {
+    recursive: true,
+    mode: 0o700,
+  });
+  const bytes = Buffer.from(contents);
+  fs.writeFileSync(output, bytes, { flag: 'wx', mode: 0o600 });
+  return {
+    kind: 'logs',
+    path: relative,
+    sha256: sha256(bytes),
+    summary: 'fixture failure evidence',
+  };
+}
+
+function injectedIoError(message) {
+  const error = new Error(message);
+  error.code = 'EIO';
+  return error;
+}
+
+async function runOrderlyScenario(
+  scenario,
+  {
+    cleanupFailures = [],
+    validateFailureEvidence = ({ acceptedCells, runRoot }) =>
+      validateAcknowledgedFailureEvidence({
+        cells: acceptedCells,
+        runRoot,
+      }),
+  } = {},
+) {
+  const allocation = allocateFixtureRunRoot();
+  const scenarioPath = path.join(
+    allocation.runRoot,
+    'supervised-input.json',
+  );
+  const scenarioInput = { scenario };
+  fs.writeFileSync(scenarioPath, canonicalJson(scenarioInput), {
+    flag: 'wx',
+    mode: 0o600,
+  });
+  const facts = {
+    cleanupCalls: 0,
+    failure: null,
+    greenValidationCalls: 0,
+    releaseValidationCalls: 0,
+  };
+  const cleanup = createOnceAsyncOperation(async () => {
+    facts.cleanupCalls += 1;
+    return {
+      failures: cleanupFailures,
+      residue: {
+        containers: 0,
+        images: 0,
+        networks: 0,
+      },
+    };
+  });
+  try {
+    const code = await superviseAcceptanceWorker({
+      cleanupExternalOwnership: cleanup,
+      configuration,
+      inputBeforeDigest: INPUT_DIGEST,
+      inputDocumentDigest: canonicalJsonDigest(scenarioInput),
+      inputPath: scenarioPath,
+      runId: allocation.runId,
+      runRoot: allocation.runRoot,
+      validateExternalOwnershipRelease: async () => {
+        facts.releaseValidationCalls += 1;
+      },
+      validateWorkerFailureEvidence: validateFailureEvidence,
+      validateWorkerResult: async () => {
+        facts.greenValidationCalls += 1;
+      },
+      workerModule: WORKER,
+      writeSupervisedFailure: async (failure) => {
+        facts.failure = failure;
+      },
+    });
+    return { allocation, code, facts };
+  } catch (error) {
+    cleanupFixtureRunRoot(allocation);
+    throw error;
+  }
+}
+
 for (const [scenario, code] of [
   ['malformed-ipc', 'SUPERVISOR_IPC_INVALID'],
   ['sync-loop', 'SUPERVISOR_CELL_TIMEOUT'],
@@ -330,6 +447,665 @@ test('parent supervisor kills a reparented late writer before result creation', 
       fs.existsSync(path.join(allocation.runRoot, 'late-descendant-marker')),
       false,
     );
+  } finally {
+    cleanupFixtureRunRoot(allocation);
+  }
+});
+
+test('orderly worker exit zero runs only strict green validation', async () => {
+  const { allocation, code, facts } =
+    await runOrderlyScenario('orderly-pass');
+  try {
+    assert.equal(code, 0);
+    assert.equal(facts.failure, null);
+    assert.equal(facts.greenValidationCalls, 1);
+    assert.equal(facts.releaseValidationCalls, 1);
+    assert.equal(facts.cleanupCalls, 0);
+  } finally {
+    cleanupFixtureRunRoot(allocation);
+  }
+});
+
+test('orderly direct failure remains primary and cleanup is exactly once', async () => {
+  const cleanupMessage = 'fixture cleanup reported residue';
+  const { allocation, code, facts } = await runOrderlyScenario(
+    'orderly-direct-failure',
+    { cleanupFailures: [cleanupMessage] },
+  );
+  try {
+    assert.equal(code, 1);
+    assert.equal(facts.greenValidationCalls, 0);
+    assert.equal(facts.releaseValidationCalls, 0);
+    assert.equal(facts.cleanupCalls, 1);
+    assert.equal(facts.failure.reason.code, 'COMMAND_ERROR');
+    assert.equal(facts.failure.cells[0].failure.code, 'COMMAND_ERROR');
+    assert.equal(facts.failure.cells[1].status, 'blocked');
+    assert.equal(
+      facts.failure.cleanup.cleanupFailures[0].message,
+      cleanupMessage,
+    );
+  } finally {
+    cleanupFixtureRunRoot(allocation);
+  }
+});
+
+test('earlier invalid acknowledged evidence replaces direct failure primary', async () => {
+  const { allocation, facts } = await runOrderlyScenario(
+    'orderly-earlier-pass-invalid-evidence',
+  );
+  try {
+    assert.equal(facts.failure.reason.code, 'SUPERVISOR_EVIDENCE_INVALID');
+    assert.equal(
+      facts.failure.cells[0].failure.code,
+      'SUPERVISOR_EVIDENCE_INVALID',
+    );
+    assert.equal(facts.failure.cells[1].status, 'blocked');
+  } finally {
+    cleanupFixtureRunRoot(allocation);
+  }
+});
+
+test('invalid evidence on the direct-failure cell does not replace its owner error', async () => {
+  const { allocation, facts } = await runOrderlyScenario(
+    'orderly-direct-failure-invalid-evidence',
+  );
+  try {
+    assert.equal(facts.failure.reason.code, 'COMMAND_ERROR');
+    assert.equal(facts.failure.cells[0].failure.code, 'COMMAND_ERROR');
+    assert.equal(facts.failure.cells[0].evidence.length, 1);
+  } finally {
+    cleanupFixtureRunRoot(allocation);
+  }
+});
+
+test('failure-evidence validation counts bind to acknowledged descriptors', async () => {
+  const { allocation, facts } = await runOrderlyScenario(
+    'orderly-direct-failure-valid-evidence',
+    {
+      validateFailureEvidence: async () => ({
+        earliestRejectedCell: null,
+        rejectedCellIndices: [],
+        rejectedDescriptorCount: 0,
+        validatedDescriptorCount: 0,
+      }),
+    },
+  );
+  try {
+    assert.equal(facts.failure.reason.code, 'SUPERVISOR_EVIDENCE_INVALID');
+    assert.equal(
+      facts.failure.cells[0].failure.code,
+      'SUPERVISOR_EVIDENCE_INVALID',
+    );
+  } finally {
+    cleanupFixtureRunRoot(allocation);
+  }
+});
+
+test('second-root rename failure restores only roots actually moved', async () => {
+  const allocation = allocateFixtureRunRoot();
+  const state = {};
+  const direct = writeFixtureEvidence(
+    allocation.runRoot,
+    'evidence/direct.log',
+    'direct\n',
+  );
+  writeFixtureEvidence(
+    allocation.runRoot,
+    'browser/evidence/browser.log',
+    'browser\n',
+  );
+  const evidenceIdentity = fs.lstatSync(
+    path.join(allocation.runRoot, 'evidence'),
+  ).ino;
+  const browserIdentity = fs.lstatSync(
+    path.join(allocation.runRoot, 'browser'),
+  ).ino;
+  const originalRenameSync = fs.renameSync;
+  let injected = false;
+  try {
+    fs.renameSync = (source, destination) => {
+      if (
+        !injected &&
+        source === path.join(allocation.runRoot, 'browser')
+      ) {
+        injected = true;
+        throw injectedIoError('second root rename failed');
+      }
+      return originalRenameSync(source, destination);
+    };
+    await assert.rejects(
+      isolateAndSanitizeFailureEvidence({
+        cells: [fixtureCell('first.cell', 'fail', [direct])],
+        isolationState: state,
+        runRoot: allocation.runRoot,
+      }),
+      /second root rename failed/u,
+    );
+  } finally {
+    fs.renameSync = originalRenameSync;
+  }
+  try {
+    assert.equal(state.phase, undefined);
+    assert.equal(
+      fs.lstatSync(path.join(allocation.runRoot, 'evidence')).ino,
+      evidenceIdentity,
+    );
+    assert.equal(
+      fs.lstatSync(path.join(allocation.runRoot, 'browser')).ino,
+      browserIdentity,
+    );
+    assert.equal(
+      fs.readFileSync(
+        path.join(allocation.runRoot, 'browser/evidence/browser.log'),
+        'utf8',
+      ),
+      'browser\n',
+    );
+    const isolated = await isolateAndSanitizeFailureEvidence({
+      cells: [fixtureCell('first.cell', 'fail', [direct])],
+      isolationState: state,
+      runRoot: allocation.runRoot,
+    });
+    assert.equal(state.phase, 'complete');
+    assert.equal(isolated.cells[0].evidence.length, 1);
+  } finally {
+    cleanupFixtureRunRoot(allocation);
+  }
+});
+
+test('post-move mkdir failure rolls back and retry retains direct log', async () => {
+  const allocation = allocateFixtureRunRoot();
+  const state = {};
+  const direct = writeFixtureEvidence(
+    allocation.runRoot,
+    'evidence/direct.log',
+    'direct\n',
+  );
+  const evidenceRoot = path.join(allocation.runRoot, 'evidence');
+  const evidenceIdentity = fs.lstatSync(evidenceRoot).ino;
+  const originalMkdirSync = fs.mkdirSync;
+  let injected = false;
+  try {
+    fs.mkdirSync = (candidate, options) => {
+      const result = originalMkdirSync(candidate, options);
+      if (!injected && candidate === evidenceRoot) {
+        injected = true;
+        throw injectedIoError('mkdir failed after creation');
+      }
+      return result;
+    };
+    await assert.rejects(
+      isolateAndSanitizeFailureEvidence({
+        cells: [fixtureCell('first.cell', 'fail', [direct])],
+        isolationState: state,
+        runRoot: allocation.runRoot,
+      }),
+      /mkdir failed after creation/u,
+    );
+  } finally {
+    fs.mkdirSync = originalMkdirSync;
+  }
+  try {
+    assert.equal(state.phase, undefined);
+    assert.equal(fs.lstatSync(evidenceRoot).ino, evidenceIdentity);
+    assert.equal(
+      fs.readFileSync(path.join(evidenceRoot, 'direct.log'), 'utf8'),
+      'direct\n',
+    );
+    const isolated = await isolateAndSanitizeFailureEvidence({
+      cells: [fixtureCell('first.cell', 'fail', [direct])],
+      isolationState: state,
+      runRoot: allocation.runRoot,
+    });
+    assert.equal(state.phase, 'complete');
+    assert.equal(isolated.cells[0].evidence[0].path, 'evidence/direct.log');
+  } finally {
+    cleanupFixtureRunRoot(allocation);
+  }
+});
+
+test('copy failure rolls back rebuilt roots before restoring originals', async () => {
+  const allocation = allocateFixtureRunRoot();
+  const state = {};
+  const direct = writeFixtureEvidence(
+    allocation.runRoot,
+    'evidence/direct.log',
+    'direct\n',
+  );
+  const evidenceRoot = path.join(allocation.runRoot, 'evidence');
+  const evidenceIdentity = fs.lstatSync(evidenceRoot).ino;
+  const originalCopyFileSync = fs.copyFileSync;
+  let injected = false;
+  try {
+    fs.copyFileSync = (source, destination, mode) => {
+      const result = originalCopyFileSync(source, destination, mode);
+      if (!injected) {
+        injected = true;
+        throw injectedIoError('copy failed after creation');
+      }
+      return result;
+    };
+    await assert.rejects(
+      isolateAndSanitizeFailureEvidence({
+        cells: [fixtureCell('first.cell', 'fail', [direct])],
+        isolationState: state,
+        runRoot: allocation.runRoot,
+      }),
+      /copy failed after creation/u,
+    );
+  } finally {
+    fs.copyFileSync = originalCopyFileSync;
+  }
+  try {
+    assert.equal(state.phase, undefined);
+    assert.equal(fs.lstatSync(evidenceRoot).ino, evidenceIdentity);
+    assert.equal(
+      fs.readFileSync(path.join(evidenceRoot, 'direct.log'), 'utf8'),
+      'direct\n',
+    );
+    const isolated = await isolateAndSanitizeFailureEvidence({
+      cells: [fixtureCell('first.cell', 'fail', [direct])],
+      isolationState: state,
+      runRoot: allocation.runRoot,
+    });
+    assert.equal(state.phase, 'complete');
+    assert.equal(isolated.cells[0].evidence.length, 1);
+  } finally {
+    cleanupFixtureRunRoot(allocation);
+  }
+});
+
+test('finish removal failure resumes prepared state without losing earlier pass evidence', async () => {
+  const allocation = allocateFixtureRunRoot();
+  const state = {};
+  const passEvidence = writeFixtureEvidence(
+    allocation.runRoot,
+    'evidence/pass.log',
+    'pass\n',
+  );
+  const directEvidence = writeFixtureEvidence(
+    allocation.runRoot,
+    'evidence/direct.log',
+    'direct\n',
+  );
+  const cells = [
+    fixtureCell('first.cell', 'pass', [passEvidence]),
+    fixtureCell('second.cell', 'fail', [directEvidence]),
+  ];
+  const originalUnlinkSync = fs.unlinkSync;
+  let injected = false;
+  try {
+    fs.unlinkSync = (candidate) => {
+      if (
+        !injected &&
+        candidate.includes('worker-evidence-quarantine-') &&
+        candidate.endsWith('pass.log')
+      ) {
+        injected = true;
+        throw injectedIoError('finish removal failed');
+      }
+      return originalUnlinkSync(candidate);
+    };
+    await assert.rejects(
+      isolateAndSanitizeFailureEvidence({
+        cells,
+        isolationState: state,
+        runRoot: allocation.runRoot,
+      }),
+      /finish removal failed/u,
+    );
+  } finally {
+    fs.unlinkSync = originalUnlinkSync;
+  }
+  try {
+    assert.equal(state.phase, 'prepared');
+    const isolated = await isolateAndSanitizeFailureEvidence({
+      cells,
+      isolationState: state,
+      runRoot: allocation.runRoot,
+    });
+    assert.equal(state.phase, 'complete');
+    assert.equal(isolated.earliestRejectedCell, null);
+    assert.equal(isolated.cells[0].evidence[0].path, 'evidence/pass.log');
+    assert.equal(
+      fs.readFileSync(
+        path.join(allocation.runRoot, 'evidence/pass.log'),
+        'utf8',
+      ),
+      'pass\n',
+    );
+    const reused = await isolateAndSanitizeFailureEvidence({
+      cells,
+      isolationState: state,
+      runRoot: allocation.runRoot,
+    });
+    assert.equal(reused.cells[0].evidence[0].path, 'evidence/pass.log');
+  } finally {
+    cleanupFixtureRunRoot(allocation);
+  }
+});
+
+test('manifest write failure restores originals and retries on the same state', async () => {
+  const allocation = allocateFixtureRunRoot();
+  const state = {};
+  const direct = writeFixtureEvidence(
+    allocation.runRoot,
+    'evidence/direct.log',
+    'direct\n',
+  );
+  const evidenceRoot = path.join(allocation.runRoot, 'evidence');
+  const evidenceIdentity = fs.lstatSync(evidenceRoot).ino;
+  const originalWriteFileSync = fs.writeFileSync;
+  let injected = false;
+  try {
+    fs.writeFileSync = (candidate, ...args) => {
+      const result = originalWriteFileSync(candidate, ...args);
+      if (!injected && Number.isInteger(candidate)) {
+        injected = true;
+        throw injectedIoError('manifest write failed');
+      }
+      return result;
+    };
+    await assert.rejects(
+      isolateAndSanitizeFailureEvidence({
+        cells: [fixtureCell('first.cell', 'fail', [direct])],
+        isolationState: state,
+        runRoot: allocation.runRoot,
+      }),
+      /manifest write failed/u,
+    );
+  } finally {
+    fs.writeFileSync = originalWriteFileSync;
+  }
+  try {
+    assert.equal(state.phase, undefined);
+    assert.equal(fs.lstatSync(evidenceRoot).ino, evidenceIdentity);
+    assert.equal(
+      fs.readFileSync(path.join(evidenceRoot, 'direct.log'), 'utf8'),
+      'direct\n',
+    );
+    const isolated = await isolateAndSanitizeFailureEvidence({
+      cells: [fixtureCell('first.cell', 'fail', [direct])],
+      isolationState: state,
+      runRoot: allocation.runRoot,
+    });
+    assert.equal(state.phase, 'complete');
+    assert.equal(isolated.cells[0].evidence.length, 1);
+  } finally {
+    cleanupFixtureRunRoot(allocation);
+  }
+});
+
+test('partial parent failure JSON is removed and retry records the writer fault', async () => {
+  const allocation = allocateFixtureRunRoot();
+  const state = {};
+  const originalOpenSync = fs.openSync;
+  const originalWriteFileSync = fs.writeFileSync;
+  let injected = false;
+  let targetDescriptor = null;
+  try {
+    fs.openSync = (candidate, ...args) => {
+      const descriptor = originalOpenSync(candidate, ...args);
+      if (
+        typeof candidate === 'string' &&
+        candidate.endsWith('.failure.json.parent-private.tmp')
+      ) {
+        targetDescriptor = descriptor;
+      }
+      return descriptor;
+    };
+    fs.writeFileSync = (candidate, value, ...args) => {
+      if (!injected && candidate === targetDescriptor) {
+        injected = true;
+        const bytes = Buffer.from(value);
+        originalWriteFileSync(
+          candidate,
+          bytes.subarray(0, Math.max(1, Math.floor(bytes.length / 2))),
+          ...args,
+        );
+        throw injectedIoError('parent evidence partial write failed');
+      }
+      return originalWriteFileSync(candidate, value, ...args);
+    };
+    await assert.rejects(
+      writeRetryableParentFailureEvidence({
+        kind: 'supervisorFailure',
+        runRoot: allocation.runRoot,
+        state,
+        summary: 'fixture parent failure',
+        value: { cleanup: { failures: [] }, schemaVersion: 1 },
+      }),
+      /parent evidence partial write failed/u,
+    );
+  } finally {
+    fs.openSync = originalOpenSync;
+    fs.writeFileSync = originalWriteFileSync;
+  }
+  try {
+    assert.equal(state.phase, 'prepared');
+    assert.deepEqual(fs.readdirSync(state.evidenceRoot), []);
+    await writeRetryableParentFailureEvidence({
+      kind: 'supervisorFailure',
+      runRoot: allocation.runRoot,
+      state,
+      summary: 'fixture parent failure',
+      value: {
+        cleanup: { failures: ['parent evidence partial write failed'] },
+        schemaVersion: 1,
+      },
+    });
+    const document = JSON.parse(
+      fs.readFileSync(
+        path.join(state.evidenceRoot, 'failure.json'),
+        'utf8',
+      ),
+    );
+    assert.deepEqual(document.cleanup.failures, [
+      'parent evidence partial write failed',
+    ]);
+    await writeRetryableParentFailureEvidence({
+      kind: 'supervisorFailure',
+      runRoot: allocation.runRoot,
+      state,
+      summary: 'fixture parent failure',
+      value: {
+        cleanup: {
+          failures: [
+            'parent evidence partial write failed',
+            'later parent index write failed',
+          ],
+        },
+        schemaVersion: 1,
+      },
+    });
+    const retryDocument = JSON.parse(
+      fs.readFileSync(
+        path.join(state.evidenceRoot, 'retry.json'),
+        'utf8',
+      ),
+    );
+    assert.deepEqual(retryDocument.cleanup.failures, [
+      'parent evidence partial write failed',
+      'later parent index write failed',
+    ]);
+    assert.deepEqual(
+      fs.readdirSync(state.evidenceRoot).sort(),
+      ['failure.json', 'retry.json'],
+    );
+    const cells = [fixtureCell('first.cell', 'fail')];
+    await registerFailureEvidence({
+      cells,
+      registrationState: {},
+      runRoot: allocation.runRoot,
+    });
+    await validateEvidenceFiles({
+      cells,
+      runRoot: allocation.runRoot,
+    });
+  } finally {
+    cleanupFixtureRunRoot(allocation);
+  }
+});
+
+test('partial parent failure index is removed and the same registration resumes', async () => {
+  const allocation = allocateFixtureRunRoot();
+  const parentState = {};
+  const registrationState = {};
+  await writeRetryableParentFailureEvidence({
+    kind: 'supervisorFailure',
+    runRoot: allocation.runRoot,
+    state: parentState,
+    summary: 'fixture parent failure',
+    value: { cleanup: { failures: [] }, schemaVersion: 1 },
+  });
+  const cells = [fixtureCell('first.cell', 'fail')];
+  const originalOpenSync = fs.openSync;
+  const originalWriteFileSync = fs.writeFileSync;
+  let injected = false;
+  let targetDescriptor = null;
+  try {
+    fs.openSync = (candidate, ...args) => {
+      const descriptor = originalOpenSync(candidate, ...args);
+      if (
+        typeof candidate === 'string' &&
+        candidate.endsWith('.index.json.parent-private.tmp')
+      ) {
+        targetDescriptor = descriptor;
+      }
+      return descriptor;
+    };
+    fs.writeFileSync = (candidate, value, ...args) => {
+      if (!injected && candidate === targetDescriptor) {
+        injected = true;
+        const bytes = Buffer.from(value);
+        originalWriteFileSync(
+          candidate,
+          bytes.subarray(0, Math.max(1, Math.floor(bytes.length / 2))),
+          ...args,
+        );
+        throw injectedIoError('parent index partial write failed');
+      }
+      return originalWriteFileSync(candidate, value, ...args);
+    };
+    await assert.rejects(
+      registerFailureEvidence({
+        cells,
+        registrationState,
+        runRoot: allocation.runRoot,
+      }),
+      /parent index partial write failed/u,
+    );
+  } finally {
+    fs.openSync = originalOpenSync;
+    fs.writeFileSync = originalWriteFileSync;
+  }
+  try {
+    assert.equal(registrationState.phase, 'prepared');
+    assert.equal(cells[0].evidence.length, 0);
+    assert.deepEqual(fs.readdirSync(registrationState.indexRoot), []);
+    await registerFailureEvidence({
+      cells,
+      registrationState,
+      runRoot: allocation.runRoot,
+    });
+    assert.equal(registrationState.phase, 'complete');
+    assert.deepEqual(
+      fs.readdirSync(registrationState.indexRoot),
+      ['index.json'],
+    );
+    await validateEvidenceFiles({
+      cells,
+      runRoot: allocation.runRoot,
+    });
+    const completedIndexRoot = registrationState.indexRoot;
+    const reusedCells = [fixtureCell('first.cell', 'fail')];
+    await registerFailureEvidence({
+      cells: reusedCells,
+      registrationState,
+      runRoot: allocation.runRoot,
+    });
+    assert.equal(fs.existsSync(completedIndexRoot), false);
+    assert.equal(registrationState.phase, 'complete');
+    assert.equal(reusedCells[0].evidence.length, 1);
+    await validateEvidenceFiles({
+      cells: reusedCells,
+      runRoot: allocation.runRoot,
+    });
+  } finally {
+    cleanupFixtureRunRoot(allocation);
+  }
+});
+
+test('completed parent index is rebuilt when retry facts add evidence', async () => {
+  const allocation = allocateFixtureRunRoot();
+  const parentState = {};
+  const registrationState = {};
+  try {
+    await writeRetryableParentFailureEvidence({
+      kind: 'supervisorFailure',
+      runRoot: allocation.runRoot,
+      state: parentState,
+      summary: 'fixture parent failure',
+      value: {
+        cleanup: { failures: [] },
+        reason: { code: 'COMMAND_ERROR' },
+        schemaVersion: 1,
+      },
+    });
+    const firstCells = [fixtureCell('first.cell', 'fail')];
+    await registerFailureEvidence({
+      cells: firstCells,
+      registrationState,
+      runRoot: allocation.runRoot,
+    });
+    const firstIndexRoot = registrationState.indexRoot;
+    assert.equal(registrationState.phase, 'complete');
+
+    await writeRetryableParentFailureEvidence({
+      kind: 'supervisorFailure',
+      runRoot: allocation.runRoot,
+      state: parentState,
+      summary: 'fixture parent failure',
+      value: {
+        cleanup: { failures: ['canonical result write failed'] },
+        reason: { code: 'COMMAND_ERROR' },
+        schemaVersion: 1,
+      },
+    });
+    const retryCells = [fixtureCell('first.cell', 'fail')];
+    await registerFailureEvidence({
+      cells: retryCells,
+      registrationState,
+      runRoot: allocation.runRoot,
+    });
+    assert.equal(fs.existsSync(firstIndexRoot), false);
+    assert.equal(registrationState.phase, 'complete');
+    const retryDocument = JSON.parse(
+      fs.readFileSync(
+        path.join(parentState.evidenceRoot, 'retry.json'),
+        'utf8',
+      ),
+    );
+    assert.equal(retryDocument.reason.code, 'COMMAND_ERROR');
+    assert.deepEqual(retryDocument.cleanup.failures, [
+      'canonical result write failed',
+    ]);
+    const index = JSON.parse(
+      fs.readFileSync(registrationState.indexPath, 'utf8'),
+    );
+    assert.deepEqual(
+      index.map((descriptor) => path.basename(descriptor.path)).sort(),
+      ['failure.json', 'retry.json'],
+    );
+    await validateEvidenceFiles({
+      cells: retryCells,
+      runRoot: allocation.runRoot,
+    });
+    const output = await writeAndVerifyCanonicalResult({
+      result: { closed: true },
+      runRoot: allocation.runRoot,
+    });
+    assert.equal(output.path, 'result.json');
   } finally {
     cleanupFixtureRunRoot(allocation);
   }

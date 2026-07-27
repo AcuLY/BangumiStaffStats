@@ -6,10 +6,12 @@ import { isDeepStrictEqual } from 'node:util';
 
 import {
   createGoSeedPlan,
+  removeGoMaterializationLocks,
   sealGoSeedPlan,
   copyCacheTree,
   seedGoModuleCache,
   seedNpmCache,
+  validateGoModuleContentSet,
   validateSeededGoToolchain,
 } from './cache.mjs';
 import { commandEvidence, writeEvidence } from './evidence.mjs';
@@ -42,6 +44,11 @@ import { verifyRuntimeClosures } from './tools.mjs';
 
 const SANDBOX_EXECUTABLE = '/usr/bin/sandbox-exec';
 const NETWORKLESS_PROFILE = '(version 1)(allow default)(deny network*)';
+const BACKEND_CHECK_LOOPBACK_PROFILE = [
+  NETWORKLESS_PROFILE,
+  '(allow network-inbound (local ip "localhost:*"))',
+  '(allow network-outbound (remote ip "localhost:*"))',
+].join('');
 const QUERY_GOLDEN_TIMEOUT_MS = 300_000;
 const QUERY_CODEGEN_DIRECT_ID = 'contracts-query-verify-codegen';
 const QUERY_CODEGEN_RUNTIME_PREFIX =
@@ -1431,6 +1438,13 @@ export function runtimeReadOnlySandboxProfile(roots, base = NETWORKLESS_PROFILE)
         : []),
     ]),
   ].join('');
+}
+
+export function backendCheckSandboxProfile(roots) {
+  return runtimeReadOnlySandboxProfile(
+    roots,
+    BACKEND_CHECK_LOOPBACK_PROFILE,
+  );
 }
 
 function runtimePaths(runtimeRoots, names) {
@@ -4741,6 +4755,7 @@ async function resealBackendAuthority({
 
 async function settleBackendMaterialization({
   backendRoot,
+  contentSet,
   implementation,
   moduleAuthority,
   primaryError,
@@ -4753,6 +4768,7 @@ async function settleBackendMaterialization({
   acceptedGoRoot,
 }) {
   const boundaryFailures = [];
+  let lockCleanup;
   let materializedSeedSeal;
   let preparedCacheSeal;
   try {
@@ -4799,10 +4815,24 @@ async function settleBackendMaterialization({
     }));
   }
   try {
+    lockCleanup = implementation.removeGoMaterializationLocks({
+      root: targetGoCache,
+      contentSet,
+    });
+  } catch (error) {
+    boundaryFailures.push(Object.freeze({
+      error,
+      stage: 'materialization:lock-cleanup',
+    }));
+  }
+  try {
     const materializedSeedPlan = implementation.createGoSeedPlan({
       source: targetGoCache,
       goSumPath: path.join(backendRoot, 'go.sum'),
     });
+    if (!isDeepStrictEqual(materializedSeedPlan.contentSet, contentSet)) {
+      fail('Backend Go content authority changed during materialization');
+    }
     materializedSeedSeal = await implementation.sealGoSeedPlan(
       materializedSeedPlan,
       targetGoCache,
@@ -4839,6 +4869,7 @@ async function settleBackendMaterialization({
     writeBoundaryEvidence: implementation.writeEvidence,
   });
   return Object.freeze({
+    lockCleanup,
     materializedSeedSeal,
     preparedCacheSeal,
   });
@@ -4848,14 +4879,16 @@ export function backendGoMaterializationCommandPlan({
   acceptedGoRoot,
   backendRoot,
   budgets,
+  contentSet,
   materializationRoot,
   runRoot,
   targetGoCache,
 }) {
+  validateGoModuleContentSet(contentSet);
   return Object.freeze({
     id: BACKEND_GO_MATERIALIZATION_ID,
     executable: path.join(acceptedGoRoot, 'bin', 'go'),
-    args: Object.freeze(['mod', 'download']),
+    args: Object.freeze(['mod', 'download', '--', ...contentSet.items]),
     cwd: backendRoot,
     environment: commandEnvironment({
       runRoot,
@@ -4902,6 +4935,95 @@ export function validateBackendGoMaterializationCommandPlan(
   return expected;
 }
 
+export function backendCheckCommandPlan({
+  backendRoot,
+  budgets,
+  environment,
+  readOnlyRoots,
+  runRoot,
+}) {
+  return Object.freeze({
+    id: 'owner-backend-check',
+    executable: path.join(backendRoot, 'scripts', 'check.sh'),
+    args: Object.freeze([]),
+    cwd: backendRoot,
+    environment,
+    timeoutMs: 3_600_000,
+    budgets,
+    runRoot,
+    profile: backendCheckSandboxProfile(readOnlyRoots),
+  });
+}
+
+export function validateBackendCheckCommandPlan(declaration, parameters) {
+  const expected = backendCheckCommandPlan(parameters);
+  if (
+    !declaration ||
+    declaration.id !== expected.id ||
+    declaration.executable !== expected.executable ||
+    declaration.cwd !== expected.cwd ||
+    declaration.timeoutMs !== expected.timeoutMs ||
+    declaration.runRoot !== expected.runRoot ||
+    declaration.budgets !== expected.budgets ||
+    declaration.profile !== expected.profile ||
+    !isDeepStrictEqual(declaration.args, expected.args) ||
+    !isDeepStrictEqual(declaration.environment, expected.environment)
+  ) {
+    fail('Backend check is not the exact closed command plan');
+  }
+  return expected;
+}
+
+export function backendQueryMeasurementCommandPlan({
+  acceptedGo,
+  backendRoot,
+  budgets,
+  environment,
+  queryTestBinary,
+  readOnlyRoots,
+  runRoot,
+}) {
+  return Object.freeze({
+    id: 'owner-backend-query-binary-measurement',
+    executable: acceptedGo,
+    args: Object.freeze([
+      'test',
+      '-c',
+      '-o',
+      queryTestBinary,
+      './internal/query',
+    ]),
+    cwd: backendRoot,
+    environment,
+    timeoutMs: 600_000,
+    budgets,
+    runRoot,
+    profile: runtimeReadOnlySandboxProfile(readOnlyRoots),
+  });
+}
+
+export function validateBackendQueryMeasurementCommandPlan(
+  declaration,
+  parameters,
+) {
+  const expected = backendQueryMeasurementCommandPlan(parameters);
+  if (
+    !declaration ||
+    declaration.id !== expected.id ||
+    declaration.executable !== expected.executable ||
+    declaration.cwd !== expected.cwd ||
+    declaration.timeoutMs !== expected.timeoutMs ||
+    declaration.runRoot !== expected.runRoot ||
+    declaration.budgets !== expected.budgets ||
+    declaration.profile !== expected.profile ||
+    !isDeepStrictEqual(declaration.args, expected.args) ||
+    !isDeepStrictEqual(declaration.environment, expected.environment)
+  ) {
+    fail('Backend query measurement is not the exact closed command plan');
+  }
+  return expected;
+}
+
 async function runBackendSealedOperation({
   authority,
   backendRoot,
@@ -4934,9 +5056,12 @@ async function runBackendSealedOperation({
 }
 
 const BACKEND_OWNER_PRODUCTION_IMPLEMENTATION = Object.freeze({
+  backendCheckCommandPlan,
   backendGoMaterializationCommandPlan,
+  backendQueryMeasurementCommandPlan,
   createGoSeedPlan,
   networklessCommand,
+  removeGoMaterializationLocks,
   sealGoSeedPlan,
   sealDirectoryTree,
   sealSingleFileDistribution,
@@ -5001,6 +5126,7 @@ async function executeBackendOwnerGate({
     destination: targetGoCache,
     goSumPath: path.join(backendRoot, 'go.sum'),
   });
+  const contentSet = validateGoModuleContentSet(seededGo.contentSet);
   const validated = implementation.validateSeededGoToolchain(targetGoCache);
   const seededMarkerSeal = await implementation.sealSingleFileDistribution(
     path.join(targetGoCache, '.seed-complete'),
@@ -5020,6 +5146,7 @@ async function executeBackendOwnerGate({
     acceptedGoRoot,
     backendRoot,
     budgets,
+    contentSet,
     materializationRoot,
     runRoot,
     targetGoCache,
@@ -5043,6 +5170,7 @@ async function executeBackendOwnerGate({
   const materialized = await settleBackendMaterialization({
     acceptedGoRoot,
     backendRoot,
+    contentSet,
     implementation,
     moduleAuthority,
     primaryError: materializationError,
@@ -5071,12 +5199,23 @@ async function executeBackendOwnerGate({
       REDOCLY_TELEMETRY: 'off',
     },
   });
-  const backendSandbox = runtimeReadOnlySandboxProfile([
+  const backendReadOnlyRoots = Object.freeze([
     ...runtimePaths(runtimeRoots, [
       ...CURRENT_NODE_RUNTIME_NAMES,
     ]),
     targetGoCache,
   ]);
+  const backendCheckPlanParameters = Object.freeze({
+    backendRoot,
+    budgets,
+    environment,
+    readOnlyRoots: backendReadOnlyRoots,
+    runRoot,
+  });
+  const backendCheckPlan = validateBackendCheckCommandPlan(
+    implementation.backendCheckCommandPlan(backendCheckPlanParameters),
+    backendCheckPlanParameters,
+  );
   const result = await runBackendSealedOperation({
     authority,
     backendRoot,
@@ -5085,22 +5224,45 @@ async function executeBackendOwnerGate({
     stage: 'owner-backend-check',
     targetGoCache,
     writeBoundaryEvidence: implementation.writeEvidence,
-    operation: () => implementation.networklessCommand({
-      id: 'owner-backend-check',
-      executable: path.join(backendRoot, 'scripts', 'check.sh'),
-      args: [],
-      cwd: backendRoot,
-      environment,
-      timeoutMs: 3_600_000,
-      budgets,
-      runRoot,
-      profile: backendSandbox,
-    }),
+    operation: () => implementation.networklessCommand(backendCheckPlan),
   });
   const measurementRoot = ensureEmptyDirectory(
     path.join(runRoot, 'control', 'backend-query-measurement'),
   );
   const queryTestBinary = path.join(measurementRoot, 'query.test');
+  const queryMeasurementEnvironment = commandEnvironment({
+    runRoot,
+    pathEntries: [path.dirname(acceptedGo)],
+    extra: {
+      CGO_ENABLED: '0',
+      GOCACHE: path.join(measurementRoot, 'go-build'),
+      GOENV: 'off',
+      GOFLAGS: '-mod=readonly',
+      GOMODCACHE: targetGoCache,
+      GOPATH: path.join(measurementRoot, 'go-path'),
+      GOPROXY: 'off',
+      GOROOT: acceptedGoRoot,
+      GOSUMDB: 'off',
+      GOTOOLCHAIN: 'local',
+      GOWORK: 'off',
+    },
+  });
+  const queryMeasurementPlanParameters = Object.freeze({
+    acceptedGo,
+    backendRoot,
+    budgets,
+    environment: queryMeasurementEnvironment,
+    queryTestBinary,
+    readOnlyRoots: backendReadOnlyRoots,
+    runRoot,
+  });
+  const queryMeasurementPlan =
+    validateBackendQueryMeasurementCommandPlan(
+      implementation.backendQueryMeasurementCommandPlan(
+        queryMeasurementPlanParameters,
+      ),
+      queryMeasurementPlanParameters,
+    );
   const queryMeasurement = await runBackendSealedOperation({
     authority,
     backendRoot,
@@ -5109,33 +5271,8 @@ async function executeBackendOwnerGate({
     stage: 'owner-backend-query-binary-measurement',
     targetGoCache,
     writeBoundaryEvidence: implementation.writeEvidence,
-    operation: () => implementation.networklessCommand({
-      id: 'owner-backend-query-binary-measurement',
-      executable: acceptedGo,
-      args: ['test', '-c', '-o', queryTestBinary, './internal/query'],
-      cwd: backendRoot,
-      environment: commandEnvironment({
-        runRoot,
-        pathEntries: [path.dirname(acceptedGo)],
-        extra: {
-          CGO_ENABLED: '0',
-          GOCACHE: path.join(measurementRoot, 'go-build'),
-          GOENV: 'off',
-          GOFLAGS: '-mod=readonly',
-          GOMODCACHE: targetGoCache,
-          GOPATH: path.join(measurementRoot, 'go-path'),
-          GOPROXY: 'off',
-          GOROOT: acceptedGoRoot,
-          GOSUMDB: 'off',
-          GOTOOLCHAIN: 'local',
-          GOWORK: 'off',
-        },
-      }),
-      timeoutMs: 600_000,
-      budgets,
-      runRoot,
-      profile: backendSandbox,
-    }),
+    operation: () =>
+      implementation.networklessCommand(queryMeasurementPlan),
   });
   const queryTestBinaryBytes = fs.statSync(queryTestBinary).size;
   if (
@@ -5172,6 +5309,12 @@ async function executeBackendOwnerGate({
       environmentKeys: {
         check: Object.keys(environment),
         materialization: Object.keys(materializationEnvironment),
+      },
+      materializationContentSet: {
+        count: contentSet.count,
+        lockCount: materialized.lockCleanup.count,
+        lockSetSha256: `sha256:${materialized.lockCleanup.setSha256}`,
+        setSha256: `sha256:${contentSet.setSha256}`,
       },
       goroot: `backend/.cache/go-mod/${BACKEND_ACCEPTANCE_GOROOT_RELATIVE}`,
       materializationCommandId: BACKEND_GO_MATERIALIZATION_ID,
