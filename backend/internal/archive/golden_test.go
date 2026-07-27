@@ -563,6 +563,8 @@ func TestCompiledContractConstantsMatchAuthority(t *testing.T) {
 			SQLiteSchemaVersion   int64  `json:"sqliteSchemaVersion"`
 			SQLiteApplicationID   int64  `json:"sqliteApplicationId"`
 			DataVersionAlgorithm  string `json:"dataVersionAlgorithm"`
+			DomainRulesVersion    string `json:"domainRulesVersion"`
+			CastRulesVersion      string `json:"castRulesVersion"`
 		} `json:"supported"`
 		CanonicalSchema struct {
 			SchemaSQLDigest string `json:"schemaSqlDigest"`
@@ -586,7 +588,9 @@ func TestCompiledContractConstantsMatchAuthority(t *testing.T) {
 		tuple.ManifestSchemaVersion != manifestSchemaVersion ||
 		tuple.SQLiteSchemaVersion != sqliteSchemaVersion ||
 		tuple.SQLiteApplicationID != sqliteApplicationID ||
-		tuple.DataVersionAlgorithm != dataVersionAlgorithm {
+		tuple.DataVersionAlgorithm != dataVersionAlgorithm ||
+		tuple.DomainRulesVersion != domainRulesVersion ||
+		tuple.CastRulesVersion != castRulesVersion {
 		t.Fatalf("compiled tuple drift: %+v", tuple)
 	}
 	if strings.Join(matrix.RequiredTables, "\x00") != strings.Join(requiredTableNames, "\x00") {

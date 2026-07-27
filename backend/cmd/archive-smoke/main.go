@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo"
 )
 
 type successResult struct {
@@ -31,10 +32,30 @@ func run(ctx context.Context, arguments []string, output io.Writer) int {
 	flags := flag.NewFlagSet("archive-smoke", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	archiveRoot := flags.String("archive-root", "", "")
+	buildInfo := flags.Bool("build-info", false, "")
 	dataVersion := flags.String("data-version", "", "")
 	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 {
 		_ = writeFailure(output, archive.CodeArchiveRootInvalid)
 		return 2
+	}
+	if *buildInfo {
+		if *archiveRoot != "" || *dataVersion != "" {
+			_ = writeFailure(output, archive.CodeArchiveRootInvalid)
+			return 2
+		}
+		info, err := releaseinfo.Current()
+		if err != nil {
+			return 1
+		}
+		encoded, err := info.CanonicalJSON()
+		if err != nil {
+			return 1
+		}
+		written, err := output.Write(encoded)
+		if err != nil || written != len(encoded) {
+			return 1
+		}
+		return 0
 	}
 	if *archiveRoot == "" {
 		_ = writeFailure(output, archive.CodeArchiveRootInvalid)

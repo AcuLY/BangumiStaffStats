@@ -587,6 +587,57 @@ func TestManifestCountMutationFailsLast(t *testing.T) {
 	requireCode(t, err, CodeSQLiteTableCountMismatch)
 }
 
+func TestUnsupportedRulePairFailsBeforeDataVersionAndSQLite(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*manifest)
+	}{
+		{
+			name: "domain rules",
+			mutate: func(value *manifest) {
+				value.DomainRulesVersion = "domain-other-v1"
+			},
+		},
+		{
+			name: "cast rules",
+			mutate: func(value *manifest) {
+				value.CastRulesVersion = "cast-other-v1"
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root, dataVersion := arrangeValidCandidate(t, false)
+			manifestPath := runtimeManifestPath(root, dataVersion)
+			var value manifest
+			mustDecodeJSON(t, mustReadFile(t, manifestPath), &value)
+			test.mutate(&value)
+			value.DataVersion = "dv1-" + strings.Repeat("0", 64)
+			writeManifest(t, manifestPath, value)
+
+			sqliteOpened := false
+			store, err := loadCandidate(
+				context.Background(),
+				root,
+				dataVersion,
+				loadHooks{
+					beforeSQLiteOpen: func() {
+						sqliteOpened = true
+					},
+				},
+			)
+			if store != nil {
+				store.Close()
+				t.Fatal("unsupported rule pair returned a store")
+			}
+			requireCode(t, err, CodeArchiveVersionUnsupported)
+			if sqliteOpened {
+				t.Fatal("unsupported rule pair reached SQLite open")
+			}
+		})
+	}
+}
+
 func TestSQLiteDigestMismatchPrecedesInvalidHeader(t *testing.T) {
 	root, dataVersion := arrangeValidCandidate(t, false)
 	sqlitePath := runtimeSQLitePath(root, dataVersion)

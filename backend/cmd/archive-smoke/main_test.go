@@ -77,6 +77,36 @@ func TestRunFailuresAreSanitized(t *testing.T) {
 	}
 }
 
+func TestRunBuildInfoIsExclusiveCanonicalJSON(t *testing.T) {
+	var output bytes.Buffer
+	if status := run(context.Background(), []string{"--build-info"}, &output); status != 0 {
+		t.Fatalf("status = %d, output = %q", status, output.String())
+	}
+	if got, want := output.String(), "{\"revision\":\"unknown\",\"version\":\"dev\"}\n"; got != want {
+		t.Fatalf("build info = %q, want %q", got, want)
+	}
+
+	root, dataVersion, _, _ := arrangeSmokeCandidate(t)
+	output.Reset()
+	status := run(
+		context.Background(),
+		[]string{"--build-info", "--archive-root", root, "--data-version", dataVersion},
+		&output,
+	)
+	if status != 2 {
+		t.Fatalf("mixed mode status = %d, output = %q", status, output.String())
+	}
+	if got, want := output.String(), "{\"ok\":false,\"code\":\"ARCHIVE_ROOT_INVALID\"}\n"; got != want {
+		t.Fatalf("mixed mode output = %q, want %q", got, want)
+	}
+}
+
+func TestRunBuildInfoReturnsNonZeroWhenOutputCannotBeWritten(t *testing.T) {
+	if status := run(context.Background(), []string{"--build-info"}, rejectingWriter{}); status == 0 {
+		t.Fatal("writer failure was reported as successful build-info inspection")
+	}
+}
+
 func TestRunReturnsNonZeroWhenSuccessOutputCannotBeWritten(t *testing.T) {
 	root, dataVersion, _, _ := arrangeSmokeCandidate(t)
 	status := run(

@@ -41,12 +41,12 @@ func TestProductionPackageDependencies(t *testing.T) {
 
 	allowedInternalImports := map[string][]string{
 		modulePath + "/cmd/api":                       {modulePath + "/internal/app"},
-		modulePath + "/cmd/archive-smoke":             {modulePath + "/internal/archive"},
+		modulePath + "/cmd/archive-smoke":             {modulePath + "/internal/archive", modulePath + "/internal/releaseinfo"},
 		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/costar", modulePath + "/internal/httpapi", modulePath + "/internal/observability", modulePath + "/internal/partners", modulePath + "/internal/persondetail", modulePath + "/internal/publiccollection", modulePath + "/internal/ranking", modulePath + "/internal/runtimecache"},
 		modulePath + "/internal/candidates":           {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
 		modulePath + "/internal/catalog":              {modulePath + "/internal/archive", modulePath + "/internal/httpapi/wire"},
 		modulePath + "/internal/costar":               {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
-		modulePath + "/internal/httpapi":              {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/catalog", modulePath + "/internal/costar", modulePath + "/internal/httpapi/wire", modulePath + "/internal/imageproxy", modulePath + "/internal/observability", modulePath + "/internal/partners", modulePath + "/internal/persondetail", modulePath + "/internal/querytiming", modulePath + "/internal/ranking"},
+		modulePath + "/internal/httpapi":              {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/catalog", modulePath + "/internal/costar", modulePath + "/internal/httpapi/wire", modulePath + "/internal/imageproxy", modulePath + "/internal/observability", modulePath + "/internal/partners", modulePath + "/internal/persondetail", modulePath + "/internal/querytiming", modulePath + "/internal/ranking", modulePath + "/internal/releaseinfo"},
 		modulePath + "/internal/httpapi/wire":         {},
 		modulePath + "/internal/imageproxy":           {},
 		modulePath + "/internal/observability":        {},
@@ -56,6 +56,7 @@ func TestProductionPackageDependencies(t *testing.T) {
 		modulePath + "/internal/query":                {modulePath + "/internal/archive"},
 		modulePath + "/internal/querytiming":          {},
 		modulePath + "/internal/ranking":              {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
+		modulePath + "/internal/releaseinfo":          {},
 		modulePath + "/internal/runtimecache":         {modulePath + "/internal/querytiming"},
 		modulePath + "/internal/statistics":           {modulePath + "/internal/archive", modulePath + "/internal/query"},
 		modulePath + "/internal/archive":              {},

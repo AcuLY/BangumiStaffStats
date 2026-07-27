@@ -12,6 +12,7 @@ import (
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/imageproxy"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/observability"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo"
 )
 
 const readinessProbeTimeout = time.Second
@@ -56,7 +57,14 @@ func NewRuntimeObservability(eventWriter io.Writer) (*RuntimeObservability, erro
 	if eventWriter == nil {
 		return nil, errors.New("httpapi: nil event writer")
 	}
-	metrics, err := observability.NewRegistry(observability.BuildInfo{})
+	info, err := releaseinfo.Current()
+	if err != nil {
+		return nil, err
+	}
+	metrics, err := observability.NewRegistry(observability.BuildInfo{
+		Version: info.Version,
+		Commit:  info.Revision,
+	})
 	if err != nil {
 		return nil, err
 	}

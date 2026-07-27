@@ -34,6 +34,13 @@ import (
 
 const (
 	componentID                    = "backend"
+	applicationVersion             = "v0.1.0"
+	applicationVersionInputPath    = "VERSION"
+	applicationVersionInputDigest  = "sha256:d0b4f9120ba026c00fa23cb84b4e1620a2e6436592e58155a5151653179572c0"
+	domainRulesVersion             = "domain-raw-v1"
+	castRulesVersion               = "cast-exact-v1"
+	compatibilityMatrixInputPath   = "contracts/schemas/archive/compatibility-matrix.json"
+	compatibilityMatrixDigest      = "sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac"
 	requiredBuildkitVersion        = "0.27.1"
 	requiredBuildxVersion          = "0.34.1"
 	requiredBuildkitImageDigest    = "sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368"
@@ -45,6 +52,8 @@ const (
 	archiveSmokeBundlePath         = "bin/archive-smoke"
 	apiExecutableRole              = "api-runtime"
 	archiveSmokeExecutableRole     = "archive-validation"
+	releaseinfoVersionSymbol       = "github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Version"
+	releaseinfoCommitSymbol        = "github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Commit"
 	checksumFileName               = "checksums.sha256"
 	sbomFileName                   = "backend.spdx.json"
 	statementFileName              = "component-statement.json"
@@ -64,6 +73,7 @@ const (
 
 var (
 	gitIDPattern       = regexp.MustCompile(`^(?:[0-9a-f]{40}|[0-9a-f]{64})$`)
+	revisionPattern    = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	digestPattern      = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 	pathPattern        = regexp.MustCompile(`^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$`)
 	imageReferenceExpr = regexp.MustCompile(`^[A-Za-z0-9._/:+-]+@sha256:[0-9a-f]{64}$`)
@@ -108,10 +118,13 @@ type versionRange struct {
 }
 
 type archiveCompatibility struct {
-	ManifestSchemaVersion versionRange `json:"manifestSchemaVersion"`
-	SQLiteSchemaVersion   versionRange `json:"sqliteSchemaVersion"`
-	ManifestSchemaDigest  string       `json:"manifestSchemaDigest"`
-	SchemaSQLDigest       string       `json:"schemaSqlDigest"`
+	ManifestSchemaVersion     versionRange `json:"manifestSchemaVersion"`
+	SQLiteSchemaVersion       versionRange `json:"sqliteSchemaVersion"`
+	ManifestSchemaDigest      string       `json:"manifestSchemaDigest"`
+	SchemaSQLDigest           string       `json:"schemaSqlDigest"`
+	DomainRulesVersion        string       `json:"domainRulesVersion"`
+	CastRulesVersion          string       `json:"castRulesVersion"`
+	CompatibilityMatrixDigest string       `json:"compatibilityMatrixDigest"`
 }
 
 type compatibilityFacts struct {
@@ -137,16 +150,17 @@ type executableFact struct {
 }
 
 type bundleMetadata struct {
-	SchemaVersion int                `json:"schemaVersion"`
-	Component     string             `json:"component"`
-	Source        sourceIdentity     `json:"source"`
-	Target        targetPlatform     `json:"target"`
-	Toolchain     []toolFact         `json:"toolchain"`
-	BaseImages    []baseImageFact    `json:"baseImages"`
-	Inputs        []inputFact        `json:"inputs"`
-	Compatibility compatibilityFacts `json:"compatibility"`
-	Image         imageMetadata      `json:"image"`
-	Executables   []executableFact   `json:"executables"`
+	SchemaVersion      int                `json:"schemaVersion"`
+	ApplicationVersion string             `json:"applicationVersion"`
+	Component          string             `json:"component"`
+	Source             sourceIdentity     `json:"source"`
+	Target             targetPlatform     `json:"target"`
+	Toolchain          []toolFact         `json:"toolchain"`
+	BaseImages         []baseImageFact    `json:"baseImages"`
+	Inputs             []inputFact        `json:"inputs"`
+	Compatibility      compatibilityFacts `json:"compatibility"`
+	Image              imageMetadata      `json:"image"`
+	Executables        []executableFact   `json:"executables"`
 }
 
 type fileRecord struct {
@@ -251,18 +265,19 @@ type sbomEvidence struct {
 }
 
 type componentStatement struct {
-	SchemaVersion     int                `json:"schemaVersion"`
-	Component         string             `json:"component"`
-	Source            sourceIdentity     `json:"source"`
-	Target            targetPlatform     `json:"target"`
-	Toolchain         []toolFact         `json:"toolchain"`
-	BaseImages        []baseImageFact    `json:"baseImages"`
-	Inputs            []inputFact        `json:"inputs"`
-	Compatibility     compatibilityFacts `json:"compatibility"`
-	Artifacts         []fileRecord       `json:"artifacts"`
-	ArtifactSetDigest string             `json:"artifactSetDigest"`
-	ChecksumInventory evidenceRecord     `json:"checksumInventory"`
-	SBOM              sbomEvidence       `json:"sbom"`
+	SchemaVersion      int                `json:"schemaVersion"`
+	ApplicationVersion string             `json:"applicationVersion"`
+	Component          string             `json:"component"`
+	Source             sourceIdentity     `json:"source"`
+	Target             targetPlatform     `json:"target"`
+	Toolchain          []toolFact         `json:"toolchain"`
+	BaseImages         []baseImageFact    `json:"baseImages"`
+	Inputs             []inputFact        `json:"inputs"`
+	Compatibility      compatibilityFacts `json:"compatibility"`
+	Artifacts          []fileRecord       `json:"artifacts"`
+	ArtifactSetDigest  string             `json:"artifactSetDigest"`
+	ChecksumInventory  evidenceRecord     `json:"checksumInventory"`
+	SBOM               sbomEvidence       `json:"sbom"`
 }
 
 func main() {
@@ -300,11 +315,15 @@ type packageOptions struct {
 	OutputPath                  string
 	SourceRevision              string
 	SourceTree                  string
+	ApplicationVersion          string
 	TargetOS                    string
 	TargetArchitecture          string
 	OpenAPIDigest               string
 	ArchiveManifestSchemaDigest string
 	ArchiveSchemaSQLDigest      string
+	ArchiveDomainRulesVersion   string
+	ArchiveCastRulesVersion     string
+	CompatibilityMatrixDigest   string
 	GoImageReference            string
 	RuntimeImageReference       string
 	Inputs                      inputFlags
@@ -354,6 +373,14 @@ func packageCommand(arguments []string) error {
 	); err != nil {
 		return err
 	}
+	if err := validateLinkedReleaseIdentity(
+		options.APIBinaryPath,
+		"API",
+		options.ApplicationVersion,
+		options.SourceRevision,
+	); err != nil {
+		return err
+	}
 	if err := validateELFFile(options.APIBinaryPath, "API"); err != nil {
 		return err
 	}
@@ -367,6 +394,14 @@ func packageCommand(arguments []string) error {
 		archiveSmokeModulePath,
 		options.TargetOS,
 		options.TargetArchitecture,
+	); err != nil {
+		return err
+	}
+	if err := validateLinkedReleaseIdentity(
+		options.ArchiveSmokeBinaryPath,
+		"Archive smoke",
+		options.ApplicationVersion,
+		options.SourceRevision,
 	); err != nil {
 		return err
 	}
@@ -412,8 +447,9 @@ func packageCommand(arguments []string) error {
 	image.OCITarSHA256 = ociDigest
 
 	metadata := bundleMetadata{
-		SchemaVersion: 2,
-		Component:     componentID,
+		SchemaVersion:      2,
+		ApplicationVersion: options.ApplicationVersion,
+		Component:          componentID,
 		Source: sourceIdentity{
 			Revision: options.SourceRevision,
 			Tree:     options.SourceTree,
@@ -430,10 +466,13 @@ func packageCommand(arguments []string) error {
 		Inputs: options.Inputs,
 		Compatibility: compatibilityFacts{
 			Archive: archiveCompatibility{
-				ManifestSchemaVersion: versionRange{Minimum: 1, Maximum: 1},
-				SQLiteSchemaVersion:   versionRange{Minimum: 1, Maximum: 1},
-				ManifestSchemaDigest:  options.ArchiveManifestSchemaDigest,
-				SchemaSQLDigest:       options.ArchiveSchemaSQLDigest,
+				ManifestSchemaVersion:     versionRange{Minimum: 1, Maximum: 1},
+				SQLiteSchemaVersion:       versionRange{Minimum: 1, Maximum: 1},
+				ManifestSchemaDigest:      options.ArchiveManifestSchemaDigest,
+				SchemaSQLDigest:           options.ArchiveSchemaSQLDigest,
+				DomainRulesVersion:        options.ArchiveDomainRulesVersion,
+				CastRulesVersion:          options.ArchiveCastRulesVersion,
+				CompatibilityMatrixDigest: options.CompatibilityMatrixDigest,
 			},
 			OpenAPIDigest: options.OpenAPIDigest,
 		},
@@ -473,6 +512,7 @@ func packageCommand(arguments []string) error {
 		inventoryDigest,
 		records,
 		[]*buildinfo.BuildInfo{apiBuild, archiveSmokeBuild},
+		options.ApplicationVersion,
 	)
 	if err != nil {
 		return err
@@ -490,8 +530,9 @@ func packageCommand(arguments []string) error {
 		return err
 	}
 	statement := componentStatement{
-		SchemaVersion: 1,
-		Component:     componentID,
+		SchemaVersion:      1,
+		ApplicationVersion: options.ApplicationVersion,
+		Component:          componentID,
 		Source: sourceIdentity{
 			Revision: options.SourceRevision,
 			Tree:     options.SourceTree,
@@ -505,10 +546,13 @@ func packageCommand(arguments []string) error {
 		Inputs:     options.Inputs,
 		Compatibility: compatibilityFacts{
 			Archive: archiveCompatibility{
-				ManifestSchemaVersion: versionRange{Minimum: 1, Maximum: 1},
-				SQLiteSchemaVersion:   versionRange{Minimum: 1, Maximum: 1},
-				ManifestSchemaDigest:  options.ArchiveManifestSchemaDigest,
-				SchemaSQLDigest:       options.ArchiveSchemaSQLDigest,
+				ManifestSchemaVersion:     versionRange{Minimum: 1, Maximum: 1},
+				SQLiteSchemaVersion:       versionRange{Minimum: 1, Maximum: 1},
+				ManifestSchemaDigest:      options.ArchiveManifestSchemaDigest,
+				SchemaSQLDigest:           options.ArchiveSchemaSQLDigest,
+				DomainRulesVersion:        options.ArchiveDomainRulesVersion,
+				CastRulesVersion:          options.ArchiveCastRulesVersion,
+				CompatibilityMatrixDigest: options.CompatibilityMatrixDigest,
 			},
 			OpenAPIDigest: options.OpenAPIDigest,
 		},
@@ -564,6 +608,12 @@ func parsePackageOptions(arguments []string) (packageOptions, error) {
 	flags.StringVar(&options.OutputPath, "output", "", "new output directory")
 	flags.StringVar(&options.SourceRevision, "source-revision", "", "40-hex source revision")
 	flags.StringVar(&options.SourceTree, "source-tree", "", "40-hex source tree")
+	flags.StringVar(
+		&options.ApplicationVersion,
+		"application-version",
+		"",
+		"root application release version",
+	)
 	flags.StringVar(&options.TargetOS, "target-os", "linux", "target operating system")
 	flags.StringVar(&options.TargetArchitecture, "target-arch", "", "target architecture")
 	flags.StringVar(&options.OpenAPIDigest, "openapi-sha256", "", "OpenAPI SHA-256")
@@ -578,6 +628,24 @@ func parsePackageOptions(arguments []string) (packageOptions, error) {
 		"archive-schema-sql-sha256",
 		"",
 		"Archive schema SQL SHA-256",
+	)
+	flags.StringVar(
+		&options.ArchiveDomainRulesVersion,
+		"archive-domain-rules-version",
+		"",
+		"Archive domain rules version",
+	)
+	flags.StringVar(
+		&options.ArchiveCastRulesVersion,
+		"archive-cast-rules-version",
+		"",
+		"Archive cast rules version",
+	)
+	flags.StringVar(
+		&options.CompatibilityMatrixDigest,
+		"archive-compatibility-matrix-sha256",
+		"",
+		"Archive compatibility matrix SHA-256",
 	)
 	flags.StringVar(
 		&options.GoImageReference,
@@ -612,13 +680,14 @@ func validatePackageOptions(options packageOptions) error {
 		"target-arch":          options.TargetArchitecture,
 		"source-revision":      options.SourceRevision,
 		"source-tree":          options.SourceTree,
+		"application-version":  options.ApplicationVersion,
 	} {
 		if value == "" {
 			return fmt.Errorf("%s is required", name)
 		}
 	}
-	if !gitIDPattern.MatchString(options.SourceRevision) {
-		return errors.New("source revision must be 40 or 64 lowercase hex characters")
+	if !revisionPattern.MatchString(options.SourceRevision) {
+		return errors.New("source revision must be exactly 40 lowercase hex characters")
 	}
 	if !gitIDPattern.MatchString(options.SourceTree) {
 		return errors.New("source tree must be 40 or 64 lowercase hex characters")
@@ -629,10 +698,22 @@ func validatePackageOptions(options packageOptions) error {
 	if options.TargetArchitecture != "amd64" && options.TargetArchitecture != "arm64" {
 		return fmt.Errorf("unsupported target architecture %q", options.TargetArchitecture)
 	}
+	if options.ApplicationVersion != applicationVersion {
+		return fmt.Errorf(
+			"application version = %q, want %q",
+			options.ApplicationVersion,
+			applicationVersion,
+		)
+	}
+	if options.ArchiveDomainRulesVersion != domainRulesVersion ||
+		options.ArchiveCastRulesVersion != castRulesVersion {
+		return errors.New("Archive rule pair does not match the supported compatibility tuple")
+	}
 	for name, value := range map[string]string{
-		"openapi":                 options.OpenAPIDigest,
-		"archive manifest schema": options.ArchiveManifestSchemaDigest,
-		"archive schema SQL":      options.ArchiveSchemaSQLDigest,
+		"openapi":                      options.OpenAPIDigest,
+		"archive manifest schema":      options.ArchiveManifestSchemaDigest,
+		"archive schema SQL":           options.ArchiveSchemaSQLDigest,
+		"Archive compatibility matrix": options.CompatibilityMatrixDigest,
 	} {
 		if !digestPattern.MatchString(value) {
 			return fmt.Errorf("%s digest must be canonical sha256:<hex>", name)
@@ -652,6 +733,8 @@ func validatePackageOptions(options packageOptions) error {
 		return options.Inputs[left].Path < options.Inputs[right].Path
 	})
 	foundBuildkitImage := false
+	foundVersion := false
+	foundCompatibilityMatrix := false
 	for index, input := range options.Inputs {
 		if index > 0 && options.Inputs[index-1].Path == input.Path {
 			return fmt.Errorf("duplicate declared input %q", input.Path)
@@ -666,11 +749,86 @@ func validatePackageOptions(options packageOptions) error {
 				)
 			}
 		}
+		if input.Path == applicationVersionInputPath {
+			foundVersion = true
+			if input.SHA256 != applicationVersionInputDigest {
+				return fmt.Errorf("VERSION digest = %q, want %q", input.SHA256, applicationVersionInputDigest)
+			}
+		}
+		if input.Path == compatibilityMatrixInputPath {
+			foundCompatibilityMatrix = true
+			if input.SHA256 != compatibilityMatrixDigest {
+				return fmt.Errorf(
+					"compatibility matrix input digest = %q, want %q",
+					input.SHA256,
+					compatibilityMatrixDigest,
+				)
+			}
+		}
 	}
 	if !foundBuildkitImage {
 		return fmt.Errorf("declared inputs omit %q", requiredBuildkitImageInputPath)
 	}
+	if !foundVersion {
+		return fmt.Errorf("declared inputs omit %q", applicationVersionInputPath)
+	}
+	if !foundCompatibilityMatrix {
+		return fmt.Errorf("declared inputs omit %q", compatibilityMatrixInputPath)
+	}
+	if options.CompatibilityMatrixDigest != compatibilityMatrixDigest {
+		return fmt.Errorf(
+			"Archive compatibility matrix digest = %q, want %q",
+			options.CompatibilityMatrixDigest,
+			compatibilityMatrixDigest,
+		)
+	}
 	return nil
+}
+
+func validateLinkedReleaseIdentity(
+	path string,
+	label string,
+	version string,
+	revision string,
+) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maxExecutableSize {
+		return fmt.Errorf("%s binary is not a bounded regular file", label)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	return validateLinkedReleaseIdentityBytes(content, label, version, revision)
+}
+
+func validateLinkedReleaseIdentityBytes(
+	content []byte,
+	label string,
+	version string,
+	revision string,
+) error {
+	if version != applicationVersion || !revisionPattern.MatchString(revision) {
+		return fmt.Errorf("%s expected release identity is invalid", label)
+	}
+	if !bytes.Contains(content, []byte(version)) ||
+		!bytes.Contains(content, []byte(revision)) {
+		return fmt.Errorf("%s binary omits the linked release identity", label)
+	}
+	return nil
+}
+
+func releaseLinkerFlags(version string, revision string) string {
+	return fmt.Sprintf(
+		"-buildid= -s -w -X %s=%s -X %s=%s",
+		releaseinfoVersionSymbol,
+		version,
+		releaseinfoCommitSymbol,
+		revision,
+	)
 }
 
 func validateBuildInfo(
@@ -1146,6 +1304,7 @@ func inspectOCI(layoutPath string, options packageOptions) (imageMetadata, error
 		return imageMetadata{}, fmt.Errorf("unexpected OCI entrypoint: %v", config.Config.Entrypoint)
 	}
 	requiredLabels := map[string]string{
+		"org.opencontainers.image.version":        options.ApplicationVersion,
 		"org.opencontainers.image.revision":       options.SourceRevision,
 		"io.bgmss.source-tree":                    options.SourceTree,
 		"io.bgmss.openapi.sha256":                 options.OpenAPIDigest,
@@ -1709,9 +1868,13 @@ func writeSPDX(
 	inventoryDigest string,
 	artifacts []fileRecord,
 	builds []*buildinfo.BuildInfo,
+	releaseVersion string,
 ) (spdxDocument, error) {
 	if !digestPattern.MatchString(inventoryDigest) {
 		return spdxDocument{}, errors.New("invalid inventory digest for SPDX namespace")
+	}
+	if releaseVersion != applicationVersion {
+		return spdxDocument{}, errors.New("invalid application version for SPDX")
 	}
 	namespaceSuffix := strings.TrimPrefix(inventoryDigest, "sha256:")
 	document := spdxDocument{
@@ -1732,6 +1895,7 @@ func writeSPDX(
 		document.Packages = append(document.Packages, spdxPackage{
 			Name:               artifact.Path,
 			SPDXID:             id,
+			VersionInfo:        releaseVersion,
 			Supplier:           "Organization: Bangumi Staff Statistics contributors",
 			DownloadLocation:   "NOASSERTION",
 			FilesAnalyzed:      false,
@@ -2000,6 +2164,7 @@ func verifySPDX(path string, records []fileRecord) (spdxDocument, error) {
 			return spdxDocument{}, fmt.Errorf("SPDX omits artifact %q", record.Path)
 		}
 		if packageRecord.FilesAnalyzed || len(packageRecord.Checksums) != 1 ||
+			packageRecord.VersionInfo != applicationVersion ||
 			packageRecord.Checksums[0].Algorithm != "SHA256" ||
 			packageRecord.Checksums[0].ChecksumValue != strings.TrimPrefix(record.SHA256, "sha256:") {
 			return spdxDocument{}, fmt.Errorf("SPDX checksum mismatch for %q", record.Path)
@@ -2016,6 +2181,9 @@ func verifyStatement(
 ) error {
 	if statement.SchemaVersion != 1 || statement.Component != componentID {
 		return errors.New("component statement identity is not Backend schema v1")
+	}
+	if statement.ApplicationVersion != applicationVersion {
+		return errors.New("component statement application version is invalid")
 	}
 	if !gitIDPattern.MatchString(statement.Source.Revision) ||
 		!gitIDPattern.MatchString(statement.Source.Tree) {
@@ -2048,6 +2216,8 @@ func verifyStatement(
 	}
 	previous = ""
 	foundBuildkitImage := false
+	foundVersion := false
+	foundCompatibilityMatrix := false
 	for _, input := range statement.Inputs {
 		if !safeRelativePath(input.Path) || !digestPattern.MatchString(input.SHA256) ||
 			input.Path <= previous {
@@ -2059,16 +2229,28 @@ func verifyStatement(
 				return errors.New("component statement BuildKit image digest is not pinned")
 			}
 		}
+		if input.Path == applicationVersionInputPath {
+			foundVersion = input.SHA256 == applicationVersionInputDigest
+		}
+		if input.Path == compatibilityMatrixInputPath {
+			foundCompatibilityMatrix = input.SHA256 == compatibilityMatrixDigest
+		}
 		previous = input.Path
 	}
 	if !foundBuildkitImage {
 		return errors.New("component statement omits the pinned BuildKit image input")
+	}
+	if !foundVersion || !foundCompatibilityMatrix {
+		return errors.New("component statement omits a release authority input")
 	}
 	compatibility := statement.Compatibility
 	if compatibility.Archive.ManifestSchemaVersion != (versionRange{Minimum: 1, Maximum: 1}) ||
 		compatibility.Archive.SQLiteSchemaVersion != (versionRange{Minimum: 1, Maximum: 1}) ||
 		!digestPattern.MatchString(compatibility.Archive.ManifestSchemaDigest) ||
 		!digestPattern.MatchString(compatibility.Archive.SchemaSQLDigest) ||
+		compatibility.Archive.DomainRulesVersion != domainRulesVersion ||
+		compatibility.Archive.CastRulesVersion != castRulesVersion ||
+		compatibility.Archive.CompatibilityMatrixDigest != compatibilityMatrixDigest ||
 		!digestPattern.MatchString(compatibility.OpenAPIDigest) {
 		return errors.New("component statement compatibility facts are invalid")
 	}
@@ -2150,7 +2332,8 @@ func verifyBundle(
 	if metadata.SchemaVersion != 2 || metadata.Component != componentID {
 		return errors.New("Backend bundle metadata is not schema version 2")
 	}
-	if metadata.Source != statement.Source ||
+	if metadata.ApplicationVersion != statement.ApplicationVersion ||
+		metadata.Source != statement.Source ||
 		metadata.Target != statement.Target ||
 		metadata.Compatibility != statement.Compatibility ||
 		!slices.Equal(metadata.Toolchain, statement.Toolchain) ||
@@ -2193,6 +2376,14 @@ func verifyBundle(
 	); err != nil {
 		return err
 	}
+	if err := validateLinkedReleaseIdentityBytes(
+		contents.API,
+		"bundled API",
+		statement.ApplicationVersion,
+		statement.Source.Revision,
+	); err != nil {
+		return err
+	}
 	if err := validateELFPolicy(bytes.NewReader(contents.API), "bundled API"); err != nil {
 		return err
 	}
@@ -2206,6 +2397,14 @@ func verifyBundle(
 		archiveSmokeModulePath,
 		statement.Target.OS,
 		statement.Target.Architecture,
+	); err != nil {
+		return err
+	}
+	if err := validateLinkedReleaseIdentityBytes(
+		contents.ArchiveSmoke,
+		"bundled Archive smoke",
+		statement.ApplicationVersion,
+		statement.Source.Revision,
 	); err != nil {
 		return err
 	}
@@ -2282,6 +2481,7 @@ func verifyImageArchive(
 	options := packageOptions{
 		SourceRevision:              statement.Source.Revision,
 		SourceTree:                  statement.Source.Tree,
+		ApplicationVersion:          statement.ApplicationVersion,
 		TargetOS:                    statement.Target.OS,
 		TargetArchitecture:          statement.Target.Architecture,
 		OpenAPIDigest:               statement.Compatibility.OpenAPIDigest,

@@ -69,6 +69,8 @@ type manifestIdentity struct {
 	DataVersionAlgorithm  string       `json:"dataVersionAlgorithm"`
 	DataVersion           string       `json:"dataVersion"`
 	SchemaSQLDigest       string       `json:"schemaSqlDigest"`
+	DomainRulesVersion    string       `json:"domainRulesVersion"`
+	CastRulesVersion      string       `json:"castRulesVersion"`
 	SourceFiles           []sourceFile `json:"sourceFiles"`
 	SQLiteFile            string       `json:"sqliteFile"`
 	SQLiteSize            int64        `json:"sqliteSize"`
@@ -112,6 +114,8 @@ type compatibilityTuple struct {
 	SQLiteSchemaVersion   int    `json:"sqliteSchemaVersion"`
 	SQLiteApplicationID   uint32 `json:"sqliteApplicationId"`
 	DataVersionAlgorithm  string `json:"dataVersionAlgorithm"`
+	DomainRulesVersion    string `json:"domainRulesVersion"`
+	CastRulesVersion      string `json:"castRulesVersion"`
 }
 
 type archiveAuthority struct {
@@ -166,6 +170,10 @@ func TestCorrectedRawDomainAuthority(t *testing.T) {
 	}
 	if len(authority.matrix.Supported) != 1 {
 		t.Fatalf("supported compatibility tuples = %d, want 1", len(authority.matrix.Supported))
+	}
+	if tuple := authority.matrix.Supported[0]; tuple.DomainRulesVersion != "domain-raw-v1" ||
+		tuple.CastRulesVersion != "cast-exact-v1" {
+		t.Fatalf("supported rule pair = %s/%s", tuple.DomainRulesVersion, tuple.CastRulesVersion)
 	}
 
 	schemaSQL := readFile(t, filepath.Join(authority.schemaRoot, schemaSQLFilename))
@@ -453,7 +461,9 @@ func supportedTuple(matrix compatibilityMatrix, manifest manifestIdentity, point
 		if pointerVersionMatches &&
 			candidate.ManifestSchemaVersion == manifest.ManifestSchemaVersion &&
 			candidate.SQLiteSchemaVersion == manifest.SQLiteSchemaVersion &&
-			candidate.DataVersionAlgorithm == manifest.DataVersionAlgorithm {
+			candidate.DataVersionAlgorithm == manifest.DataVersionAlgorithm &&
+			candidate.DomainRulesVersion == manifest.DomainRulesVersion &&
+			candidate.CastRulesVersion == manifest.CastRulesVersion {
 			return candidate, true
 		}
 	}

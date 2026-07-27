@@ -3,6 +3,8 @@ FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.26.5-bookworm@sha256:1
 ARG TARGETOS
 ARG TARGETARCH
 ARG SOURCE_DATE_EPOCH=0
+ARG SOURCE_REVISION
+ARG APPLICATION_VERSION
 
 ENV CGO_ENABLED=0 \
     GOENV=off \
@@ -22,14 +24,14 @@ RUN GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
     go build \
       -buildvcs=false \
       -trimpath \
-      -ldflags="-buildid= -s -w" \
+      -ldflags="-buildid= -s -w -X github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Version=${APPLICATION_VERSION} -X github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Commit=${SOURCE_REVISION}" \
       -o /out/bgmss-api \
       ./cmd/api
 RUN GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
     go build \
       -buildvcs=false \
       -trimpath \
-      -ldflags="-buildid= -s -w" \
+      -ldflags="-buildid= -s -w -X github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Version=${APPLICATION_VERSION} -X github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Commit=${SOURCE_REVISION}" \
       -o /out/archive-smoke \
       ./cmd/archive-smoke
 
@@ -42,11 +44,13 @@ FROM gcr.io/distroless/static-debian13:nonroot@sha256:f7f8f729987ad0fdf6b05eeeae
 
 ARG SOURCE_REVISION
 ARG SOURCE_TREE
+ARG APPLICATION_VERSION
 ARG OPENAPI_SHA256
 ARG ARCHIVE_MANIFEST_SCHEMA_SHA256
 ARG ARCHIVE_SCHEMA_SQL_SHA256
 
-LABEL org.opencontainers.image.revision="${SOURCE_REVISION}" \
+LABEL org.opencontainers.image.version="${APPLICATION_VERSION}" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}" \
       io.bgmss.source-tree="${SOURCE_TREE}" \
       io.bgmss.openapi.sha256="${OPENAPI_SHA256}" \
       io.bgmss.archive-manifest-schema.sha256="${ARCHIVE_MANIFEST_SCHEMA_SHA256}" \

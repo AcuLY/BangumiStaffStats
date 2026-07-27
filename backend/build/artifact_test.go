@@ -728,7 +728,15 @@ func TestBundleVerifierRejectsInnerDrift(t *testing.T) {
 
 func TestValidateBuildInfoRejectsWrongTarget(t *testing.T) {
 	options := fixtureOptions(t)
-	apiPath := buildFixtureBinary(t, "./cmd/api", "wrong-target-api", "linux", "amd64")
+	apiPath := buildFixtureBinary(
+		t,
+		"./cmd/api",
+		"wrong-target-api",
+		"linux",
+		"amd64",
+		options.ApplicationVersion,
+		options.SourceRevision,
+	)
 	build, err := buildinfo.ReadFile(apiPath)
 	if err != nil {
 		t.Fatal(err)
@@ -837,15 +845,21 @@ func fixtureOptions(t *testing.T) packageOptions {
 	return packageOptions{
 		SourceRevision:              revision,
 		SourceTree:                  tree,
+		ApplicationVersion:          applicationVersion,
 		TargetOS:                    "linux",
 		TargetArchitecture:          "arm64",
 		OpenAPIDigest:               "sha256:e7aba7c34b0d6f74e533e8e9fd31c8f0aa40ed15c440669ec87a7204c963cf11",
 		ArchiveManifestSchemaDigest: "sha256:5a2b0cd7294312e9dcbdd413a1b01c4218652c4c39fd7472b74e40622e7a3e73",
 		ArchiveSchemaSQLDigest:      "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0",
+		ArchiveDomainRulesVersion:   domainRulesVersion,
+		ArchiveCastRulesVersion:     castRulesVersion,
+		CompatibilityMatrixDigest:   compatibilityMatrixDigest,
 		GoImageReference:            "docker.io/library/golang:1.26.5-bookworm@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651",
 		RuntimeImageReference:       "gcr.io/distroless/static-debian13:nonroot@sha256:f7f8f729987ad0fdf6b05eeeae94b26e6a0f613bdf46feea7fc40f7bd72953e6",
 		Inputs: inputFlags{
+			{Path: applicationVersionInputPath, SHA256: applicationVersionInputDigest},
 			{Path: "backend/go.mod", SHA256: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			{Path: compatibilityMatrixInputPath, SHA256: compatibilityMatrixDigest},
 			{Path: requiredBuildkitImageInputPath, SHA256: requiredBuildkitImageDigest},
 		},
 	}
@@ -854,10 +868,13 @@ func fixtureOptions(t *testing.T) packageOptions {
 func fixtureCompatibility(options packageOptions) compatibilityFacts {
 	return compatibilityFacts{
 		Archive: archiveCompatibility{
-			ManifestSchemaVersion: versionRange{Minimum: 1, Maximum: 1},
-			SQLiteSchemaVersion:   versionRange{Minimum: 1, Maximum: 1},
-			ManifestSchemaDigest:  options.ArchiveManifestSchemaDigest,
-			SchemaSQLDigest:       options.ArchiveSchemaSQLDigest,
+			ManifestSchemaVersion:     versionRange{Minimum: 1, Maximum: 1},
+			SQLiteSchemaVersion:       versionRange{Minimum: 1, Maximum: 1},
+			ManifestSchemaDigest:      options.ArchiveManifestSchemaDigest,
+			SchemaSQLDigest:           options.ArchiveSchemaSQLDigest,
+			DomainRulesVersion:        options.ArchiveDomainRulesVersion,
+			CastRulesVersion:          options.ArchiveCastRulesVersion,
+			CompatibilityMatrixDigest: options.CompatibilityMatrixDigest,
 		},
 		OpenAPIDigest: options.OpenAPIDigest,
 	}
@@ -871,11 +888,15 @@ func packageArguments(options packageOptions) []string {
 		"--output", options.OutputPath,
 		"--source-revision", options.SourceRevision,
 		"--source-tree", options.SourceTree,
+		"--application-version", options.ApplicationVersion,
 		"--target-os", options.TargetOS,
 		"--target-arch", options.TargetArchitecture,
 		"--openapi-sha256", options.OpenAPIDigest,
 		"--archive-manifest-schema-sha256", options.ArchiveManifestSchemaDigest,
 		"--archive-schema-sql-sha256", options.ArchiveSchemaSQLDigest,
+		"--archive-domain-rules-version", options.ArchiveDomainRulesVersion,
+		"--archive-cast-rules-version", options.ArchiveCastRulesVersion,
+		"--archive-compatibility-matrix-sha256", options.CompatibilityMatrixDigest,
 		"--go-image", options.GoImageReference,
 		"--runtime-image", options.RuntimeImageReference,
 	}
@@ -893,6 +914,8 @@ func buildFixtureBinaries(t *testing.T, options packageOptions) (string, string)
 		"bgmss-api",
 		options.TargetOS,
 		options.TargetArchitecture,
+		options.ApplicationVersion,
+		options.SourceRevision,
 	)
 	archiveSmoke := buildFixtureBinary(
 		t,
@@ -900,6 +923,8 @@ func buildFixtureBinaries(t *testing.T, options packageOptions) (string, string)
 		"archive-smoke",
 		options.TargetOS,
 		options.TargetArchitecture,
+		options.ApplicationVersion,
+		options.SourceRevision,
 	)
 	return api, archiveSmoke
 }
@@ -910,6 +935,8 @@ func buildFixtureBinary(
 	name string,
 	targetOS string,
 	targetArchitecture string,
+	releaseVersion string,
+	revision string,
 ) string {
 	t.Helper()
 	output := filepath.Join(t.TempDir(), name)
@@ -918,7 +945,7 @@ func buildFixtureBinary(
 		"build",
 		"-buildvcs=false",
 		"-trimpath",
-		"-ldflags=-buildid= -s -w",
+		"-ldflags="+releaseLinkerFlags(releaseVersion, revision),
 		"-o",
 		output,
 		modulePath,
@@ -985,6 +1012,7 @@ func writeFixtureOCILayout(
 			"User":       "65532:65532",
 			"Entrypoint": []string{"/usr/local/bin/bgmss-api"},
 			"Labels": map[string]string{
+				"org.opencontainers.image.version":        options.ApplicationVersion,
 				"org.opencontainers.image.revision":       options.SourceRevision,
 				"io.bgmss.source-tree":                    options.SourceTree,
 				"io.bgmss.openapi.sha256":                 options.OpenAPIDigest,
@@ -1297,8 +1325,9 @@ func fixtureBundleMetadata(
 		t.Fatal(err)
 	}
 	return bundleMetadata{
-		SchemaVersion: 2,
-		Component:     componentID,
+		SchemaVersion:      2,
+		ApplicationVersion: options.ApplicationVersion,
+		Component:          componentID,
 		Source: sourceIdentity{
 			Revision: options.SourceRevision,
 			Tree:     options.SourceTree,
@@ -1324,8 +1353,9 @@ func fixtureStatement(
 	image imageMetadata,
 ) componentStatement {
 	return componentStatement{
-		SchemaVersion: 1,
-		Component:     componentID,
+		SchemaVersion:      1,
+		ApplicationVersion: options.ApplicationVersion,
+		Component:          componentID,
 		Source: sourceIdentity{
 			Revision: options.SourceRevision,
 			Tree:     options.SourceTree,

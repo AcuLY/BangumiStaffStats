@@ -76,6 +76,7 @@ const images = validated.statement.artifacts.filter((artifact) =>
 if (images.length !== 1) throw new Error('Backend statement must contain one OCI archive');
 process.stdout.write(
   [
+    validated.statement.applicationVersion,
     validated.statement.source.revision,
     validated.statement.target.architecture,
     images[0].path,
@@ -83,8 +84,9 @@ process.stdout.write(
 );
 NODE
 )"
-IFS=$'\t' read -r source_revision target_architecture oci_relative_path <<<"$statement_fields"
-if [[ -z "$source_revision" || -z "$target_architecture" || -z "$oci_relative_path" ]]; then
+IFS=$'\t' read -r application_version source_revision target_architecture oci_relative_path <<<"$statement_fields"
+if [[ -z "$application_version" || -z "$source_revision" ||
+  -z "$target_architecture" || -z "$oci_relative_path" ]]; then
   echo 'Contracts validator returned incomplete Backend statement fields' >&2
   exit 1
 fi
@@ -316,6 +318,8 @@ if ! probe_container_id="$(
     --cap-drop ALL \
     --security-opt no-new-privileges \
     --env "BGMSS_API_HOST=$api_container" \
+    --env "BGMSS_APPLICATION_VERSION=$application_version" \
+    --env "BGMSS_SOURCE_REVISION=$source_revision" \
     --entrypoint /bin/bash \
     "$go_image" \
     -ceu '
@@ -335,7 +339,8 @@ attempt=0
 while [ "$attempt" -lt 200 ]; do
   if request /livez "\"status\":\"live\"" &&
     request /readyz "\"status\":\"ready\"" &&
-    request /metrics "bgmss_current_snapshot_info"; then
+    request /metrics "bgmss_current_snapshot_info" &&
+    request /metrics "bgmss_build_info{commit=\"${BGMSS_SOURCE_REVISION}\",version=\"${BGMSS_APPLICATION_VERSION}\"} 1"; then
     exit 0
   fi
   attempt=$((attempt + 1))

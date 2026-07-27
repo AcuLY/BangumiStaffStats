@@ -208,6 +208,31 @@ if ! grep -Fxq 'USER 65532:65532' "$dockerfile" ||
   echo 'Backend Dockerfile does not enforce the reviewed non-root API entrypoint' >&2
   exit 1
 fi
+if [[ "$(grep -c 'internal/releaseinfo.Version=${APPLICATION_VERSION}' "$dockerfile")" != '2' ]] ||
+  [[ "$(grep -c 'internal/releaseinfo.Commit=${SOURCE_REVISION}' "$dockerfile")" != '2' ]] ||
+  ! grep -Fq 'org.opencontainers.image.version="${APPLICATION_VERSION}"' "$dockerfile" ||
+  ! grep -Fq 'org.opencontainers.image.revision="${SOURCE_REVISION}"' "$dockerfile"; then
+  echo 'Backend Dockerfile does not bind both binaries and OCI metadata to release identity' >&2
+  exit 1
+fi
+for required_release_input in \
+  "'VERSION'" \
+  "'contracts/schemas/archive/compatibility-matrix.json'" \
+  '--application-version "$application_version"' \
+  '--archive-domain-rules-version "$accepted_domain_rules_version"' \
+  '--archive-cast-rules-version "$accepted_cast_rules_version"' \
+  '--archive-compatibility-matrix-sha256 "$compatibility_matrix_digest"'; do
+  if ! grep -Fq -- "$required_release_input" "$build_root/build.sh"; then
+    echo "Backend build omits release authority: $required_release_input" >&2
+    exit 1
+  fi
+done
+if ! grep -Fq -- '--build-info' "$build_root/build.sh" ||
+  ! grep -Fq 'BGMSS_APPLICATION_VERSION=$application_version' "$build_root/smoke.sh" ||
+  ! grep -Fq 'BGMSS_SOURCE_REVISION=$source_revision' "$build_root/smoke.sh"; then
+  echo 'Backend artifact pipeline does not inspect both binary release identities' >&2
+  exit 1
+fi
 if ! grep -Fq -- '-o /out/archive-smoke' "$dockerfile" ||
   ! grep -Fxq 'COPY --from=build /out/archive-smoke /archive-smoke' "$dockerfile" ||
   grep -Eq '^COPY .*archive-smoke .*/usr/local/' "$dockerfile"; then

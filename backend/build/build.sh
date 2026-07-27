@@ -18,6 +18,11 @@ runtime_image='gcr.io/distroless/static-debian13:nonroot@sha256:f7f8f729987ad0fd
 accepted_openapi='sha256:e7aba7c34b0d6f74e533e8e9fd31c8f0aa40ed15c440669ec87a7204c963cf11'
 accepted_manifest_schema='sha256:5a2b0cd7294312e9dcbdd413a1b01c4218652c4c39fd7472b74e40622e7a3e73'
 accepted_schema_sql='sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0'
+accepted_application_version='v0.1.0'
+accepted_application_version_digest='sha256:d0b4f9120ba026c00fa23cb84b4e1620a2e6436592e58155a5151653179572c0'
+accepted_domain_rules_version='domain-raw-v1'
+accepted_cast_rules_version='cast-exact-v1'
+accepted_compatibility_matrix='sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac'
 
 target_architecture=''
 output_root="$generated_root/artifacts"
@@ -141,9 +146,16 @@ manifest_schema_digest="$(
   sha256_file "$snapshot_contracts_root/schemas/archive/archive-manifest.schema.json"
 )"
 schema_sql_digest="$(sha256_file "$snapshot_contracts_root/schemas/archive/schema.sql")"
+application_version_digest="$(sha256_file "$snapshot_root/VERSION")"
+compatibility_matrix_digest="$(
+  sha256_file "$snapshot_contracts_root/schemas/archive/compatibility-matrix.json"
+)"
+application_version="$accepted_application_version"
 if [[ "$openapi_digest" != "$accepted_openapi" ]] ||
   [[ "$manifest_schema_digest" != "$accepted_manifest_schema" ]] ||
-  [[ "$schema_sql_digest" != "$accepted_schema_sql" ]]; then
+  [[ "$schema_sql_digest" != "$accepted_schema_sql" ]] ||
+  [[ "$application_version_digest" != "$accepted_application_version_digest" ]] ||
+  [[ "$compatibility_matrix_digest" != "$accepted_compatibility_matrix" ]]; then
   echo 'accepted OpenAPI/Archive contract inputs have drifted' >&2
   exit 1
 fi
@@ -182,6 +194,7 @@ common_build_arguments=(
   --build-arg "SOURCE_DATE_EPOCH=$source_date_epoch"
   --build-arg "SOURCE_REVISION=$source_revision"
   --build-arg "SOURCE_TREE=$source_tree"
+  --build-arg "APPLICATION_VERSION=$application_version"
   --build-arg "OPENAPI_SHA256=$openapi_digest"
   --build-arg "ARCHIVE_MANIFEST_SCHEMA_SHA256=$manifest_schema_digest"
   --build-arg "ARCHIVE_SCHEMA_SQL_SHA256=$schema_sql_digest"
@@ -208,6 +221,27 @@ if [[ "$binary_inventory" != "$expected_binary_inventory" ]] ||
   echo 'BuildKit binary export did not produce exactly bgmss-api and archive-smoke' >&2
   exit 1
 fi
+archive_smoke_build_info="$(
+  docker run --rm \
+    --pull never \
+    --platform "linux/$target_architecture" \
+    --network none \
+    --read-only \
+    --cap-drop ALL \
+    --security-opt no-new-privileges \
+    --mount "type=bind,src=$binary_root,dst=/probe,readonly" \
+    --entrypoint /probe/archive-smoke \
+    "$go_image" \
+    --build-info
+)"
+expected_build_info="$(
+  printf '{"revision":"%s","version":"%s"}' \
+    "$source_revision" "$application_version"
+)"
+if [[ "$archive_smoke_build_info" != "$expected_build_info" ]]; then
+  echo 'Archive smoke binary does not report the declared release identity' >&2
+  exit 1
+fi
 
 raw_image_archive="$work_root/docker-export.tar"
 image_name="localhost/bgmss-backend-api:${source_revision}-${target_architecture}"
@@ -226,8 +260,10 @@ declared_inputs=(
   'backend/build/toolchain-policy.sh'
   'backend/go.mod'
   'backend/go.sum'
+  'VERSION'
   'contracts/openapi/openapi.yaml'
   'contracts/schemas/archive/archive-manifest.schema.json'
+  'contracts/schemas/archive/compatibility-matrix.json'
   'contracts/schemas/archive/schema.sql'
 )
 input_arguments=()
@@ -246,11 +282,15 @@ component_root="$work_root/component"
   --output "$component_root" \
   --source-revision "$source_revision" \
   --source-tree "$source_tree" \
+  --application-version "$application_version" \
   --target-os linux \
   --target-arch "$target_architecture" \
   --openapi-sha256 "$openapi_digest" \
   --archive-manifest-schema-sha256 "$manifest_schema_digest" \
   --archive-schema-sql-sha256 "$schema_sql_digest" \
+  --archive-domain-rules-version "$accepted_domain_rules_version" \
+  --archive-cast-rules-version "$accepted_cast_rules_version" \
+  --archive-compatibility-matrix-sha256 "$compatibility_matrix_digest" \
   --go-image "$go_image" \
   --runtime-image "$runtime_image" \
   "${input_arguments[@]}" >&2

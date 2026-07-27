@@ -104,6 +104,12 @@ func TestMetricsRouteSurvivesPanickingStatsAndUnreadableUpdaterSource(
 			metricsResponse.Body.String(),
 		)
 	}
+	if !strings.Contains(
+		metricsResponse.Body.String(),
+		`bgmss_build_info{commit="unknown",version="dev"} 1`,
+	) {
+		t.Fatalf("metrics omitted releaseinfo defaults: %q", metricsResponse.Body.String())
+	}
 	if response := performRequest(
 		handler,
 		http.MethodGet,

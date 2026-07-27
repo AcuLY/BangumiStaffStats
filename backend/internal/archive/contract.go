@@ -19,6 +19,8 @@ const (
 	sqliteSchemaVersion    = 1
 	sqliteApplicationID    = 1111969107
 	dataVersionAlgorithm   = "bgmss-archive-data-version-v1"
+	domainRulesVersion     = "domain-raw-v1"
+	castRulesVersion       = "cast-exact-v1"
 	schemaSQLDigest        = "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0"
 	schemaObjectAlgorithm  = "bgmss-sqlite-schema-objects-v1"
 	schemaObjectDigest     = "sha256:e0e7ad754cfd65ad7774479e495694b99b2fcae8a38f4c44686438bf8cddf9e0"
@@ -321,6 +323,8 @@ func validateCompatibility(manifestValue manifest) error {
 	if manifestValue.ManifestSchemaVersion != manifestSchemaVersion ||
 		manifestValue.SQLiteSchemaVersion != sqliteSchemaVersion ||
 		manifestValue.DataVersionAlgorithm != dataVersionAlgorithm ||
+		manifestValue.DomainRulesVersion != domainRulesVersion ||
+		manifestValue.CastRulesVersion != castRulesVersion ||
 		manifestValue.SchemaSQLDigest != schemaSQLDigest {
 		return outcome(CodeArchiveVersionUnsupported)
 	}
