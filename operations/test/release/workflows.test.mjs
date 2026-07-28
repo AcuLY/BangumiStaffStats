@@ -163,6 +163,30 @@ test('pull_request_target is forbidden', () => {
   assertRejected('.github/workflows/operations.yml', changed, 'TRIGGER');
 });
 
+test('operations push covers every branch and continues to exclude every tag', () => {
+  const narrowedBranches = replaceRequired(
+    sources['.github/workflows/operations.yml'],
+    '    branches:\n      - "**"',
+    '    branches:\n      - "main"',
+  );
+  assertRejected(
+    '.github/workflows/operations.yml',
+    narrowedBranches,
+    'TRIGGER',
+  );
+
+  const admittedTags = replaceRequired(
+    sources['.github/workflows/operations.yml'],
+    '    tags-ignore:\n      - "**"',
+    '    tags-ignore:\n      - "preview-*"',
+  );
+  assertRejected(
+    '.github/workflows/operations.yml',
+    admittedTags,
+    'TRIGGER',
+  );
+});
+
 test('operations workflow cannot acquire publication authority', () => {
   const changed = replaceRequired(
     sources['.github/workflows/operations.yml'],

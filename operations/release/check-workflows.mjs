@@ -973,6 +973,13 @@ function assertOperationsWorkflow(workflow, source) {
   }
   const push = assertObject(workflow.on.push, 'push trigger', source);
   if (
+    !Array.isArray(push.branches) ||
+    push.branches.length !== 1 ||
+    push.branches[0] !== '**'
+  ) {
+    fail('TRIGGER', 'operations push must include every branch', source);
+  }
+  if (
     !Array.isArray(push['tags-ignore']) ||
     push['tags-ignore'].length !== 1 ||
     push['tags-ignore'][0] !== '**'
@@ -983,7 +990,7 @@ function assertOperationsWorkflow(workflow, source) {
     const trigger = assertObject(workflow.on[event], `${event} trigger`, source);
     assertExactKeys(
       trigger,
-      event === 'push' ? ['paths', 'tags-ignore'] : ['paths'],
+      event === 'push' ? ['branches', 'paths', 'tags-ignore'] : ['paths'],
       `${event} trigger`,
       source,
     );

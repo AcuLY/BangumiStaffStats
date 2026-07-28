@@ -16,6 +16,8 @@ on:
       - "openspec/**"
       - "VERSION"
   push:
+    branches:
+      - "**"
     tags-ignore:
       - "**"
     paths:
