@@ -9,7 +9,7 @@ import {
   inventoryTree,
 } from '../../release/files.mjs';
 
-test('candidate-shaped immutable copies inventory BigInt-backed file modes', (t) => {
+test('candidate-shaped immutable copies admit top-level and nested destinations', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-release-files-test-'));
   t.after(() => fs.rmSync(root, { force: true, recursive: true }));
 

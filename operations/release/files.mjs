@@ -168,14 +168,15 @@ export function copyImmutableFile({
     label: `release destination ${relative}`,
   });
   if (fs.existsSync(destination)) fail(`release destination exists: ${relative}`);
-  fs.mkdirSync(path.dirname(destination), { mode: 0o700, recursive: true });
-  requireCanonicalPath(path.dirname(destination), {
-    below: root,
+  const destinationParent = path.dirname(destination);
+  fs.mkdirSync(destinationParent, { mode: 0o700, recursive: true });
+  requireCanonicalPath(destinationParent, {
+    ...(destinationParent === root ? {} : { below: root }),
     label: `release destination parent ${relative}`,
     type: 'directory',
   });
   const temporary = path.join(
-    path.dirname(destination),
+    destinationParent,
     `.bgmss-copy-${randomBytes(16).toString('hex')}`,
   );
   const sourceFlags = fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0);
@@ -232,7 +233,7 @@ export function copyImmutableFile({
     fs.closeSync(input);
     input = undefined;
     fs.renameSync(temporary, destination);
-    fsyncDirectory(path.dirname(destination));
+    fsyncDirectory(destinationParent);
     if (
       !sameFileIdentity(
         fs.lstatSync(destination, { bigint: true }),

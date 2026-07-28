@@ -112,18 +112,23 @@ test('double-build-shaped partial output with package symlinks is cleaned exactl
 
 test('read-only automatic Go toolchain cache is opened, admitted, and cleaned exactly', () => {
   const purpose = 'readonly-go-toolchain-cleanup-test';
-  const moduleRoot = [
+  const modulePrefix = [
     'set-two',
     'go-mod-cache',
     'golang.org',
-    'toolchain@v0.0.1-go1.26.5.linux-amd64',
   ].join('/');
+  const moduleName = 'toolchain@v0.0.1-go1.26.5.linux-amd64';
   const run = createRunRoot({
-    directories: [moduleRoot],
+    directories: [modulePrefix],
     purpose,
     tmpRoot: TEST_TMP,
   });
-  const absoluteModuleRoot = path.join(run.runRoot, ...moduleRoot.split('/'));
+  const absoluteModuleRoot = path.join(
+    run.runRoot,
+    ...modulePrefix.split('/'),
+    moduleName,
+  );
+  fs.mkdirSync(absoluteModuleRoot, { mode: 0o700 });
   const version = path.join(absoluteModuleRoot, 'VERSION');
   fs.writeFileSync(version, 'go1.26.5\n', { flag: 'wx', mode: 0o444 });
   fs.chmodSync(absoluteModuleRoot, 0o555);
