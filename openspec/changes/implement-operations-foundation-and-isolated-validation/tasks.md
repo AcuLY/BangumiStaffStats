@@ -192,7 +192,11 @@
   image/Compose/Frontend refs, per-reference atomic replacement ordered as API
   release ref → API restart/60-second readiness/build/data/minimal query →
   Frontend link last, canonical success/failure, reverse-order exact app
-  rollback, and no false cross-file atomicity claim.
+  rollback, and no false cross-file atomicity claim. For a strictly fresh root,
+  use that same fixed-input candidate Updater once to produce, smoke-check,
+  freeze/mark, and absent-create the initial `current.json` before API starts;
+  on failure leave all active refs absent and stop/remove the candidate
+  container without a host toolchain or fixture.
 - [ ] 3.6 Implement the one-shot Archive wrapper: pinned Updater and exact
   standalone release `bin/archive-smoke` mounted read-only/executable, actual
   data root as `produce --output-root`, sticky-root/closed-inventory ownership,

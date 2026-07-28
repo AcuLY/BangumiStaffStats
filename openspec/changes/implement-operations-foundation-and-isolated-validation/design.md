@@ -332,6 +332,15 @@ the API release reference first, restarts and verifies API, and atomically
 replaces `current-frontend` last. Any later failure restores every captured
 reference in reverse order and re-verifies the previous state.
 
+For a strictly fresh root only, there is no compatible `current.json` to
+admit. The same fixed deploy entry therefore renders the candidate environment
+to a temporary closed path, runs that release's pinned Updater once, admits
+exactly one published full Archive through standalone smoke and closed
+inventory checks, freezes and marks its version, and creates `current.json`
+only while it is still absent. API activation follows only after that commit.
+Any failure before it leaves all active application/data references absent and
+stops/removes the candidate container; no host Node, Go, or Python is involved.
+
 Archive scheduling is
 `OnCalendar=Sun *-*-* 03:30:00 Asia/Shanghai` with `Persistent=true`, invoking
 one six-hour oneshot wrapper. Updater remains a finite pinned-image command.

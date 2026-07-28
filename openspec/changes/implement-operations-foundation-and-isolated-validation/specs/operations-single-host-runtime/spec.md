@@ -98,6 +98,21 @@ SHALL restore all captured references in reverse order, restart, and verify
 the previous state before releasing the lock. The production host SHALL never
 build source or follow `latest`.
 
+If and only if preflight proves a strictly fresh root with no active
+application/data reference, status, producer stage, or version, the same
+fixed-argument transaction SHALL use the candidate release's pinned Updater
+once to acquire and validate the initial full Archive before starting API. It
+SHALL require one published status and one new closed data version, run the
+candidate standalone `archive-smoke`, freeze and mark that version immutable,
+and atomically create `current.json` under an absent precondition. Failure
+SHALL stop/remove the candidate container, leave `release.env`,
+`current-frontend`, and `current.json` absent, preserve closed failure
+evidence, and never substitute a fixture or host-side tool.
+
+#### Scenario: A fresh root receives its first accepted release and Archive
+- **WHEN** the root is provably empty and the release, bounded initial acquisition, Archive checks, API identity/readiness/query, and Frontend-last switch all pass
+- **THEN** exactly one application release and one generated Archive become current without another input or host toolchain
+
 #### Scenario: A compatible application release activates
 - **WHEN** manifest, checksums, disk, current Archive compatibility, exact images, Frontend install, readiness, build identity, data identity, and minimal query pass
 - **THEN** the new release becomes current and the previous accepted release remains available for bounded rollback
