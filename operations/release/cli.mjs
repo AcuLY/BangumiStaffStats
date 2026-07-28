@@ -8,6 +8,7 @@ import {
 import { SubprocessError } from '../lib/subprocess.mjs';
 
 const MAX_DIAGNOSTIC_DEPTH = 8;
+const MAX_DIAGNOSTIC_CHILDREN = 8;
 const MAX_DIAGNOSTIC_NODES = 16;
 const MAX_DIAGNOSTIC_TEXT = 2_048;
 const MAX_DIAGNOSTIC_OUTPUT = 4_096;
@@ -320,6 +321,10 @@ export function formatReleaseCliError(error) {
     if (aggregateErrors && typeof aggregateErrors[Symbol.iterator] === 'function') {
       let index = 0;
       for (const child of aggregateErrors) {
+        if (index >= MAX_DIAGNOSTIC_CHILDREN) {
+          lines.push(`${label}: diagnostic child limit reached`);
+          break;
+        }
         if (nodes >= MAX_DIAGNOSTIC_NODES) {
           lines.push(`${label}: diagnostic node limit reached`);
           break;

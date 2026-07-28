@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   canonicalJsonDigest,
 } from '../../lib/canonical-json.mjs';
+import { SchemaValidationError } from '../../lib/schema.mjs';
 import {
   assertInputSemantics,
   assertResourcesSemantics,
@@ -123,14 +124,14 @@ test('postflight comparison preserves concrete drift without overclaim', () => {
   remoteDocker.host.dockerEndpoint = 'ssh://foreign.invalid';
   assert.throws(
     () => comparePreflights(remoteDocker, remoteDocker),
-    ValidationPolicyError,
+    SchemaValidationError,
   );
 
   const missingHostCapability = clone(before);
   delete missingHostCapability.host.hostCapabilities.utilLinuxSetsidFork;
   assert.throws(
     () => comparePreflights(missingHostCapability, missingHostCapability),
-    ValidationPolicyError,
+    SchemaValidationError,
   );
 });
 

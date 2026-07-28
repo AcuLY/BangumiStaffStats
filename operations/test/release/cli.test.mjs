@@ -344,7 +344,7 @@ test('release diagnostics bound nested and circular error structures', () => {
       'component build and owned cleanup both failed',
     ),
   );
-  assert.match(report, /diagnostic node limit reached/u);
+  assert.match(report, /diagnostic child limit reached/u);
   assert.match(report, /root\.cleanup: Error: circular failure/u);
   assert.ok(report.length <= 16_385);
 });
