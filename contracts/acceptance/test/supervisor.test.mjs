@@ -23,14 +23,15 @@ import {
   acceptedLoadedImageIdentity,
   SupervisorRuntimeOwnership,
 } from '../lib/supervisor-runtime.mjs';
+import { startProcessClosureMonitor } from '../lib/runner.mjs';
 import {
   createOnceAsyncOperation,
   superviseAcceptanceWorker,
 } from '../lib/supervisor.mjs';
 
-const WORKER = fileURLToPath(
-  new URL('./supervisor-worker.fixture.mjs', import.meta.url),
-);
+const WORKER_URL =
+  new URL('./supervisor-worker.fixture.mjs', import.meta.url);
+const WORKER = fileURLToPath(WORKER_URL);
 const INPUT_DIGEST = `sha256:${'1'.repeat(64)}`;
 const BACKEND_REVISION = '2'.repeat(40);
 const BACKEND_IMAGE =
@@ -207,6 +208,62 @@ function cleanupFixtureRunRoot(allocation) {
   fs.rmSync(allocation.base, { force: false, recursive: true });
 }
 
+function allocateExecutableFixtureRoot(allocation) {
+  const root = fs.mkdtempSync(
+    path.join(
+      path.dirname(WORKER),
+      `.bgmss-${allocation.runId}-exec-`,
+    ),
+  );
+  try {
+    return fs.realpathSync.native(root);
+  } catch (error) {
+    fs.rmSync(root, { force: false, recursive: true });
+    throw error;
+  }
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((settle) => {
+    resolve = settle;
+  });
+  return Object.freeze({ promise, resolve });
+}
+
+function waitForFixtureFile(filePath, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let watcher;
+    let timer;
+    const cleanup = () => {
+      clearTimeout(timer);
+      watcher?.close();
+    };
+    const acceptIfPresent = () => {
+      if (!fs.existsSync(filePath)) return false;
+      cleanup();
+      resolve();
+      return true;
+    };
+    if (acceptIfPresent()) return;
+    try {
+      watcher = fs.watch(path.dirname(filePath), acceptIfPresent);
+      timer = setTimeout(() => {
+        cleanup();
+        reject(
+          new Error(
+            `fixture file did not appear before its deadline: ${filePath}`,
+          ),
+        );
+      }, timeoutMs);
+      acceptIfPresent();
+    } catch (error) {
+      cleanup();
+      reject(error);
+    }
+  });
+}
+
 const configuration = Object.freeze({
   matrix: Object.freeze({
     matrixVersion: 'supervisor-test-matrix',
@@ -334,10 +391,65 @@ function injectedIoError(message) {
   return error;
 }
 
+function writeCheckpointProbeWorker(allocation) {
+  const checkpointSent = path.join(
+    allocation.runRoot,
+    'checkpoint-sent-before-monitor-start',
+  );
+  const checkpointAcknowledged = path.join(
+    allocation.runRoot,
+    'checkpoint-acknowledged-after-monitor-start',
+  );
+  const workerModule = path.join(
+    allocation.runRoot,
+    'checkpoint-probe-worker.mjs',
+  );
+  fs.writeFileSync(
+    workerModule,
+    `import fs from 'node:fs';
+
+const checkpointSent = ${JSON.stringify(checkpointSent)};
+const checkpointAcknowledged = ${JSON.stringify(checkpointAcknowledged)};
+const originalSend = process.send;
+if (typeof originalSend !== 'function') {
+  throw new Error('checkpoint probe worker has no parent IPC channel');
+}
+process.send = function probedSend(message, ...args) {
+  const outcome = originalSend.call(process, message, ...args);
+  if (message?.type === 'checkpoint' && message.sequence === 0) {
+    fs.writeFileSync(checkpointSent, 'sent\\n', {
+      flag: 'wx',
+      mode: 0o600,
+    });
+  }
+  return outcome;
+};
+process.on('message', (message) => {
+  if (message?.type === 'ack' && message.sequence === 0) {
+    fs.writeFileSync(checkpointAcknowledged, 'acknowledged\\n', {
+      flag: 'wx',
+      mode: 0o600,
+    });
+  }
+});
+await import(${JSON.stringify(WORKER_URL.href)});
+`,
+    { flag: 'wx', mode: 0o600 },
+  );
+  return Object.freeze({
+    checkpointAcknowledged,
+    checkpointSent,
+    workerModule,
+  });
+}
+
 async function runOrderlyScenario(
   scenario,
   {
     cleanupFailures = [],
+    prepareWorker,
+    startClosureMonitor,
+    supervisorConfiguration = configuration,
     validateFailureEvidence = ({ acceptedCells, runRoot }) =>
       validateAcknowledgedFailureEvidence({
         cells: acceptedCells,
@@ -352,7 +464,7 @@ async function runOrderlyScenario(
   );
   const scenarioInput = {
     scenario,
-    timeoutMs: configuration.matrix.cells[0].timeoutMs,
+    timeoutMs: supervisorConfiguration.matrix.cells[0].timeoutMs,
   };
   fs.writeFileSync(scenarioPath, canonicalJson(scenarioInput), {
     flag: 'wx',
@@ -378,12 +490,15 @@ async function runOrderlyScenario(
   try {
     const code = await superviseAcceptanceWorker({
       cleanupExternalOwnership: cleanup,
-      configuration,
+      configuration: supervisorConfiguration,
       inputBeforeDigest: INPUT_DIGEST,
       inputDocumentDigest: canonicalJsonDigest(scenarioInput),
       inputPath: scenarioPath,
       runId: allocation.runId,
       runRoot: allocation.runRoot,
+      ...(startClosureMonitor === undefined
+        ? {}
+        : { startClosureMonitor }),
       validateExternalOwnershipRelease: async () => {
         facts.releaseValidationCalls += 1;
       },
@@ -391,7 +506,10 @@ async function runOrderlyScenario(
       validateWorkerResult: async () => {
         facts.greenValidationCalls += 1;
       },
-      workerModule: WORKER,
+      workerModule:
+        typeof prepareWorker === 'function'
+          ? prepareWorker(allocation)
+          : WORKER,
       writeSupervisedFailure: async (failure) => {
         facts.failure = failure;
       },
@@ -459,16 +577,66 @@ test('parent supervisor kills a reparented late writer before result creation', 
 });
 
 test('orderly worker exit zero runs only strict green validation', async () => {
-  const { allocation, code, facts } =
-    await runOrderlyScenario('orderly-pass');
+  const allowMonitorStart = deferred();
+  const delayedStartConfiguration = Object.freeze({
+    ...configuration,
+    budgets: Object.freeze({
+      ...configuration.budgets,
+      timeouts: Object.freeze({
+        ...configuration.budgets.timeouts,
+        gracefulStopMs: 4_750,
+      }),
+    }),
+  });
+  const monitorStartCalled = deferred();
+  let probe;
+  let result;
+  const scenario = runOrderlyScenario('orderly-pass', {
+    prepareWorker: (allocation) => {
+      probe = writeCheckpointProbeWorker(allocation);
+      return probe.workerModule;
+    },
+    startClosureMonitor: async (monitor, processGroupId) => {
+      monitorStartCalled.resolve();
+      await allowMonitorStart.promise;
+      return startProcessClosureMonitor(monitor, processGroupId);
+    },
+    supervisorConfiguration: delayedStartConfiguration,
+  });
   try {
+    const firstEvent = await Promise.race([
+      monitorStartCalled.promise.then(() => ({ kind: 'monitor-start' })),
+      scenario.then(
+        () => ({ kind: 'scenario-settled' }),
+        (error) => ({ error, kind: 'scenario-rejected' }),
+      ),
+    ]);
+    if (firstEvent.kind === 'scenario-rejected') throw firstEvent.error;
+    assert.equal(firstEvent.kind, 'monitor-start');
+    await waitForFixtureFile(
+      probe.checkpointSent,
+      3_000,
+    );
+    assert.equal(fs.existsSync(probe.checkpointAcknowledged), false);
+    allowMonitorStart.resolve();
+    result = await scenario;
+    const { code, facts } = result;
+    assert.equal(fs.existsSync(probe.checkpointAcknowledged), true);
     assert.equal(code, 0);
     assert.equal(facts.failure, null);
     assert.equal(facts.greenValidationCalls, 1);
     assert.equal(facts.releaseValidationCalls, 1);
     assert.equal(facts.cleanupCalls, 0);
   } finally {
-    cleanupFixtureRunRoot(allocation);
+    allowMonitorStart.resolve();
+    if (!result) {
+      try {
+        result = await scenario;
+      } catch {
+        // The scenario helper removes its allocation on rejection.
+      }
+    }
+    if (result) cleanupFixtureRunRoot(result.allocation);
   }
 });
 
@@ -1119,17 +1287,20 @@ test('completed parent index is rebuilt when retry facts add evidence', async ()
 
 test('parent runtime prepare receives full artifact attestation and removes only owned tags', async () => {
   const allocation = allocateFixtureRunRoot();
-  const socketRoot = fs.realpathSync.native(
-    fs.mkdtempSync('/tmp/bgmss-supervisor-socket-'),
-  );
-  const dockerSocket = path.join(socketRoot, 'docker.sock');
-  const server = net.createServer();
+  let executableRoot;
+  let server;
+  let socketRoot;
   const connections = new Set();
-  server.on('connection', (connection) => {
-    connections.add(connection);
-    connection.once('close', () => connections.delete(connection));
-  });
   try {
+    executableRoot = allocateExecutableFixtureRoot(allocation);
+    socketRoot = fs.mkdtempSync('/tmp/bgmss-supervisor-socket-');
+    socketRoot = fs.realpathSync.native(socketRoot);
+    const dockerSocket = path.join(socketRoot, 'docker.sock');
+    server = net.createServer();
+    server.on('connection', (connection) => {
+      connections.add(connection);
+      connection.once('close', () => connections.delete(connection));
+    });
     await new Promise((resolve, reject) => {
       server.once('error', reject);
       server.listen(dockerSocket, resolve);
@@ -1296,7 +1467,7 @@ test('parent runtime prepare receives full artifact attestation and removes only
         }),
       /unexpected repository digest/u,
     );
-    const docker = path.join(allocation.runRoot, 'fake-docker.sh');
+    const docker = path.join(executableRoot, 'fake-docker.sh');
     fs.writeFileSync(
       docker,
       `#!/bin/sh
@@ -1402,8 +1573,17 @@ if [ "$kind" = network ] && [ "$action" = inspect ]; then
 fi
 exit 9
 `,
-      { mode: 0o700 },
+      { flag: 'wx', mode: 0o700 },
     );
+    const dockerRelativeToRunRoot = path.relative(
+      allocation.runRoot,
+      docker,
+    );
+    assert.ok(
+      dockerRelativeToRunRoot === '..' ||
+        dockerRelativeToRunRoot.startsWith(`..${path.sep}`),
+    );
+    fs.accessSync(docker, fs.constants.X_OK);
     const artifactAttestation = {
       roots: {
         backend: backendRoot,
@@ -1537,8 +1717,20 @@ exit 9
     await interruptedOwnership.verifyReleased();
   } finally {
     for (const connection of connections) connection.destroy();
-    if (server.listening) server.close();
-    fs.rmSync(socketRoot, { force: false, recursive: true });
-    cleanupFixtureRunRoot(allocation);
+    if (server?.listening) server.close();
+    try {
+      if (socketRoot) {
+        fs.rmSync(socketRoot, { force: false, recursive: true });
+      }
+    } finally {
+      try {
+        if (executableRoot) {
+          fs.rmSync(executableRoot, { force: false, recursive: true });
+          assert.equal(fs.existsSync(executableRoot), false);
+        }
+      } finally {
+        cleanupFixtureRunRoot(allocation);
+      }
+    }
   }
 });

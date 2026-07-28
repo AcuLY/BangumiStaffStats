@@ -4,6 +4,7 @@ import path from 'node:path';
 import { validateResultEvidenceDescriptor } from './contracts.mjs';
 import {
   createProcessClosureMonitor,
+  startProcessClosureMonitor,
   stopProcessClosureMonitor,
   terminateOwnedProcesses,
 } from './runner.mjs';
@@ -499,6 +500,7 @@ export async function superviseAcceptanceWorker({
   nodeExecutable = process.execPath,
   runId,
   runRoot,
+  startClosureMonitor = startProcessClosureMonitor,
   suiteStartedAt = performance.now(),
   validateWorkerFailureEvidence,
   validateWorkerResult,
@@ -592,8 +594,6 @@ export async function superviseAcceptanceWorker({
       'SUPERVISOR_WORKER_START',
     );
   }
-  closureMonitor.postMessage({ type: 'start', processGroupId: child.pid });
-
   const stdout = { bytes: 0, chunks: [], truncated: false };
   const stderr = { bytes: 0, chunks: [], truncated: false };
   child.stdout.on('data', (chunk) => appendBounded(stdout, chunk));
@@ -652,6 +652,19 @@ export async function superviseAcceptanceWorker({
       ),
     suiteRemainingMs,
   );
+  const closureMonitorStarted = Promise.resolve().then(() =>
+    startClosureMonitor(closureMonitor, child.pid),
+  );
+  void closureMonitorStarted.catch((error) => {
+    abort(
+      new AcceptanceSupervisorError(
+        `process-closure monitor failed to start: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        'SUPERVISOR_PROCESS_LEDGER',
+      ),
+    );
+  });
 
   child.on('message', async (raw) => {
     const predecessor = messageQueue;
@@ -665,6 +678,8 @@ export async function superviseAcceptanceWorker({
       return;
     }
     try {
+      await closureMonitorStarted;
+      if (settled) return;
       const keys =
         raw?.type === 'checkpoint'
           ? [
