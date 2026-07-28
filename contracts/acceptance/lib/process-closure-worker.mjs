@@ -1,64 +1,48 @@
-import { spawnSync } from 'node:child_process';
-import { parentPort } from 'node:worker_threads';
+import { parentPort, workerData } from 'node:worker_threads';
+
+import {
+  sameProcessArguments,
+  sameProcessIdentity,
+  snapshotHostProcessInventory,
+} from './runner.mjs';
 
 if (!parentPort) throw new Error('process closure worker requires a parent port');
 
+if (
+  workerData?.processInventoryOptions !== undefined &&
+  (
+    workerData.processInventoryOptions === null ||
+    typeof workerData.processInventoryOptions !== 'object' ||
+    Array.isArray(workerData.processInventoryOptions)
+  )
+) {
+  throw new Error('process closure worker inventory options are invalid');
+}
+const configuredInventoryOptions =
+  workerData?.processInventoryOptions === undefined
+    ? Object.freeze({})
+    : Object.freeze({ ...workerData.processInventoryOptions });
+
 let processGroupId = null;
 let timer = null;
+let failure = null;
 const ledger = new Map();
 
+function sameOwnedProcess(left, right) {
+  return (
+    sameProcessIdentity(left, right) &&
+    sameProcessArguments(left, right)
+  );
+}
+
 function inventory() {
-  const result = spawnSync(
-    '/bin/ps',
-    ['-axo', 'pid=,ppid=,pgid=,uid=,lstart=,comm='],
-    {
-      encoding: 'utf8',
-      env: {
-        LANG: 'C',
-        LC_ALL: 'C',
-        PATH: '/usr/bin:/bin',
-      },
-      maxBuffer: 16 * 1024 * 1024,
-      timeout: 5_000,
-    },
-  );
-  if (result.error || result.status !== 0) {
-    throw new Error(
-      `process closure worker inventory failed: ${result.error?.message ?? result.status}`,
-    );
-  }
-  return result.stdout
-    .split(/\r?\n/u)
-    .filter((line) => line.trim() !== '')
-    .map((line) => {
-      const fields = line.trim().split(/\s+/u);
-      if (fields.length < 10) throw new Error('invalid process inventory row');
-      return {
-        pid: Number(fields[0]),
-        parentPid: Number(fields[1]),
-        processGroupId: Number(fields[2]),
-        userId: Number(fields[3]),
-        startToken: fields.slice(4, 9).join(' '),
-        command: fields.slice(9).join(' '),
-      };
-    });
-}
-
-function sameIdentity(left, right) {
-  return (
-    left?.pid === right?.pid &&
-    left?.userId === right?.userId &&
-    left?.startToken === right?.startToken &&
-    left?.command === right?.command
-  );
-}
-
-function sameStableProcess(left, right) {
-  return (
-    left?.pid === right?.pid &&
-    left?.userId === right?.userId &&
-    left?.startToken === right?.startToken
-  );
+  return snapshotHostProcessInventory({
+    ...configuredInventoryOptions,
+    timeoutMs: Math.min(
+      configuredInventoryOptions.timeoutMs ?? 5_000,
+      5_000,
+    ),
+  }).entries;
 }
 
 function poll() {
@@ -71,13 +55,17 @@ function poll() {
     for (const entry of entries) {
       const known = ledger.get(entry.pid);
       if (known) {
-        if (sameStableProcess(known, entry)) ledger.set(entry.pid, entry);
+        if (!sameOwnedProcess(known, entry)) {
+          throw new Error(
+            `process ${entry.pid} identity changed in the worker closure`,
+          );
+        }
         continue;
       }
       const parent = ledger.get(entry.parentPid);
       if (
         entry.processGroupId === processGroupId ||
-        (parent && sameIdentity(parent, byPid.get(entry.parentPid)))
+        (parent && sameOwnedProcess(parent, byPid.get(entry.parentPid)))
       ) {
         ledger.set(entry.pid, entry);
         changed = true;
@@ -86,28 +74,59 @@ function poll() {
   }
 }
 
+function stopPolling() {
+  clearInterval(timer);
+  timer = null;
+}
+
+function reportFailure(error) {
+  if (failure !== null) return;
+  stopPolling();
+  failure = error instanceof Error ? error.message : String(error);
+  parentPort.postMessage({
+    type: 'failure',
+    message: failure,
+  });
+}
+
+function guardedPoll() {
+  if (failure !== null) return;
+  try {
+    poll();
+  } catch (error) {
+    reportFailure(error);
+  }
+}
+
 parentPort.on('message', (message) => {
+  if (failure !== null) return;
   try {
     if (message?.type === 'start') {
+      if (
+        !Number.isSafeInteger(message.processGroupId) ||
+        message.processGroupId <= 0 ||
+        processGroupId !== null
+      ) {
+        throw new Error('process closure worker received an invalid start');
+      }
       processGroupId = message.processGroupId;
       poll();
-      timer = setInterval(poll, 10);
+      timer = setInterval(guardedPoll, 10);
+      parentPort.postMessage({ type: 'started' });
       return;
     }
     if (message?.type === 'stop') {
-      clearInterval(timer);
+      stopPolling();
       poll();
       parentPort.postMessage({
         type: 'stopped',
         entries: [...ledger.values()],
       });
+      return;
     }
+    throw new Error('process closure worker received an invalid message');
   } catch (error) {
-    clearInterval(timer);
-    parentPort.postMessage({
-      type: 'failure',
-      message: error instanceof Error ? error.message : String(error),
-    });
+    reportFailure(error);
   }
 });
 
