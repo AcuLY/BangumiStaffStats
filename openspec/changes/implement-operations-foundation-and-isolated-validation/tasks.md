@@ -8,7 +8,7 @@
 | Read-only protected inputs | All root authorities/oracle/product/Contracts/build sources and evidence; `.github/workflows/ci.yml`; OpenSpec outside this change; other owner groups while concurrent; registries/releases/environments/secrets/refs. On `myserver`, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, other `/srv/**`, all pre-existing Docker/Compose images/tags/volumes/networks/containers/projects, Nginx/systemd/TLS/DNS/firewall/users/cron, public listeners, legacy data/processes, and every undeclared path/ref. |
 | Deletion complement | No tracked or pre-existing state. Only closed run-owned local `.tmp` paths, remote validation path inventory, captured project resources, and still-identity-matching run-created image references may be removed. |
 | Mutable refs | Exact listed worktree files; main-agent commits/push/lifecycle; admitted validation root pointers/links and captured project/image refs. No tag, release, registry, Environment, secret, production/legacy ref, daemon, public route, or named volume is mutable. |
-| Consumes | Archived authorized CI/remote development-acceptance lifecycle bundle and frozen product revision/tree; accepted build/contracts/tool identities and prior artifact provenance; full inactive/minimal Archives; approved Operations specs; read-only host facts. The formal Darwin/ARM64 matrix remains explicitly unexecuted. |
+| Consumes | Archived authorized CI/remote development-acceptance lifecycle bundle and frozen product revision/tree; accepted build/contracts/tool identities; explicit `not-materialized-for-authorized-closure` prior-artifact status; full inactive/minimal Archives; approved Operations specs; read-only host facts. The formal Darwin/ARM64 matrix remains explicitly unexecuted. |
 | Produces | Repository Operations implementation/tests/workflows, accepted-development receipt, two clean frozen-product AMD64 validation sets/candidate, tag-release policy, canonical host validation result, cleanup/non-interference evidence, synchronized/archived specs, and green Actions. |
 | Dependencies | Complete and archive `complete-integrated-development-acceptance`; then foundation; release and runtime may implement in parallel after foundation; validation depends on both; clean AMD64 build depends on committed implementation; remote write depends on main-agent acceptance of read-only host preflight. |
 | Deliverables | Every path and evidence named above; no generated or remote validation residue. |
@@ -34,10 +34,12 @@
   product revision/tree, acceptance implementation, green Actions head/run,
   archived lifecycle commit, remote package/targeted counts, narrow Linux
   fixture exception, unexecuted formal cells, cleanup/audit facts, Operations
-  base identity, accepted tool/build/contract identities, and prior artifacts
-  explicitly as non-AMD64 provenance. Reject a formal result digest or
-  synthesized `development-accepted-operations-pending` verdict. Have the main
-  agent compare it with the archived acceptance evidence before use.
+  base identity, accepted tool/build/contract identities, and exact
+  `priorDevelopmentArtifacts.status=not-materialized-for-authorized-closure`.
+  Reject fabricated prior component/compatibility digests, a formal result
+  digest, or synthesized `development-accepted-operations-pending` verdict.
+  Have the main agent compare it with the archived acceptance evidence before
+  use.
 - [ ] 1.3 Add only `/operations/.tmp/` to root `.gitignore`; create the
   Operations package/lock with exact Node 24.18.0, npm 11.16.0, Ajv 8.20.0,
   YAML 2.9.0, and a lock-selected patched `fast-uri` 3.1.4 closure; reject
@@ -104,8 +106,10 @@
 - [ ] 2.5 Implement tag-release candidate and published-manifest verification
   without pushing: require the exact protected tag commit, prove all product/
   build/contract inputs equal the frozen accepted baseline and all intervening
-  paths are approved Operations/lifecycle, double-build that tag commit, bind
-  its new statements, then prove final GHCR graph/config/layer equivalence,
+  paths are limited to the exact audited `contracts/acceptance/**` restoration
+  and fixes through `b56ce858`, its archived lifecycle/main spec, or approved
+  Operations/lifecycle; double-build that tag commit, bind its new statements,
+  then prove final GHCR graph/config/layer equivalence,
   immutable Frontend/checksum/compatibility bytes, tag/version, and Prometheus
   digest. Reject both validation and tag candidates at the production deploy
   boundary.

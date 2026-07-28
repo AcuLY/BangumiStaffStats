@@ -10,7 +10,7 @@
 | Read-only protected inputs | Root authorities and oracle; all OpenSpec outside this change; `VERSION`; `.github/workflows/ci.yml`; `contracts/artifacts/**`; accepted immutable Backend/Updater/Frontend artifact roots; all `backend/**`, `updater/**`, `frontend/**`, and other `contracts/**`; runtime/recovery/validation owner paths; external refs, registries, releases, environments, secrets, hosts, and production state. |
 | Deletion complement | None. Generated release output may be removed only below a proven run-owned `operations/.tmp/**` root. |
 | Mutable refs | Only the listed repository worktree files. Running tag, registry, GitHub Release, production Environment, SSH, or deploy mutations is not authorized by this capability apply. |
-| Consumes | Archived `complete-integrated-development-acceptance` with exact status `development-acceptance-closed-by-authorized-ci-and-remote-evidence`; frozen product revision/tree `3f585cfe0a0dd61fe783a839528fef25470a58db`/`93e29a0c51c0305db8a43e7d029b8eaa3014a1b8`; acceptance implementation, green Actions, isolated remote targeted/exception/unexecuted-cell/cleanup/audit evidence; accepted product build definitions, statement/compatibility schemas and validators, toolchain/base identities, and prior artifact identities only as non-AMD64 provenance; `VERSION`; reviewed exact Actions/toolchain identities. This owner creates rather than consumes the new `linux/amd64` component artifacts. |
+| Consumes | Archived `complete-integrated-development-acceptance` with exact status `development-acceptance-closed-by-authorized-ci-and-remote-evidence`; frozen product revision/tree `3f585cfe0a0dd61fe783a839528fef25470a58db`/`93e29a0c51c0305db8a43e7d029b8eaa3014a1b8`; acceptance implementation, green Actions, isolated remote targeted/exception/unexecuted-cell/cleanup/audit evidence; accepted product build definitions, statement/compatibility schemas and validators, toolchain/base identities; explicit prior-artifact status `not-materialized-for-authorized-closure`; `VERSION`; reviewed exact Actions/toolchain identities. This owner creates rather than consumes the new `linux/amd64` component artifacts. |
 | Produces | A canonical accepted-development receipt; isolated-validation AMD64 candidate and tag-release candidate/published-release schemas, validators, and assemblers; checksum inventory; immutable AMD64 provenance; operations verification workflow; protected-tag release workflow; approval-gated deploy workflow; and negative policy tests. |
 | Dependencies | `complete-integrated-development-acceptance`, `contracts-rewrite-baseline`, `contracts-application-release-identity`, `contracts-artifact-compatibility`, `backend-build-artifact`, `updater-build-artifact`, and `frontend-build-artifact`. Dependency direction is product artifacts and Contracts → Operations release assembly → runtime/validation consumers; Operations never writes upstream evidence. |
 | Deliverables | The exact writable files, reproducibility/provenance/policy tests, and ephemeral candidate output below `operations/.tmp/**`. |
@@ -32,10 +32,12 @@ product revision/tree, acceptance implementation revision, green Actions
 head/tree/run ID and conclusion, archived acceptance lifecycle commit, remote
 source/runtime identity and package/targeted test counts, the one narrowly
 classified Linux fixture exception, the explicit unexecuted formal-cell set,
-cleanup and zero-P0/P1 audit facts, root application version, accepted
-build/statement/compatibility contract digests, and prior artifact identities
-labeled as non-AMD64 provenance. The receipt SHALL contain neither a formal
-result digest nor a synthesized
+cleanup and zero-P0/P1 audit facts, root application version, and accepted
+build/statement/compatibility contract digests. It SHALL record exact
+`priorDevelopmentArtifacts.status=not-materialized-for-authorized-closure`,
+contain no prior component/compatibility byte digest, and explain that
+ephemeral CI output is not a reusable Operations input. The receipt SHALL
+contain neither a formal result digest nor a synthesized
 `development-accepted-operations-pending` verdict. Repository gates SHALL
 verify every repository-resolvable field and fail if the receipt or its
 recorded authority drifts.
@@ -45,7 +47,7 @@ recorded authority drifts.
 - **THEN** its frozen product identity may authorize AMD64 validation assembly and later tag-baseline comparison
 
 #### Scenario: Acceptance evidence is missing or reinterpreted
-- **WHEN** a lifecycle/CI/remote/exception/unexecuted-cell/OID/contract fact is absent, changed, unresolved, a formal verdict is synthesized, or prior artifact identity is marked deployable for AMD64
+- **WHEN** a lifecycle/CI/remote/exception/unexecuted-cell/OID/contract fact is absent, changed, unresolved, a formal verdict or prior artifact identity is synthesized, or ephemeral CI output is marked deployable
 - **THEN** Operations verification and release stop before building
 
 ### Requirement: Operations validation assembly SHALL rebuild the frozen accepted product identity
@@ -110,17 +112,22 @@ build the tag's own exact commit twice, as required by the operations guide.
 Before build it SHALL verify the tag commit descends from the frozen accepted
 product, its product/build/contract inputs remain byte-identical to the
 accepted baseline, and every intervening change is confined to accepted
-Operations and OpenSpec lifecycle paths. Newly built component statements and
-compatibility evidence SHALL bind the tag commit revision/tree. One canonical
-tag-release candidate SHALL also bind the frozen accepted-product receipt and
-the tag's Operations controller identity.
+`contracts/acceptance/**` control-plane restoration/fixes through exact commit
+`b56ce858733b18875df3101a423c6d1b356eed54`, the exact archived
+development-acceptance lifecycle/main-spec paths, or accepted Operations and
+OpenSpec lifecycle paths. Every product/build/non-acceptance-Contracts
+authority blob and executable mode SHALL remain byte-identical to the frozen
+baseline. Newly built component statements and compatibility evidence SHALL
+bind the tag commit revision/tree. One canonical tag-release candidate SHALL
+also bind the frozen accepted-product receipt and the tag's Operations
+controller identity.
 
 #### Scenario: A reviewed Operations tag is prepared for release
-- **WHEN** the tag/version, exact tag checkout, accepted-baseline comparison, operations-only delta, two clean `linux/amd64` builds, and new evidence all pass
+- **WHEN** the tag/version, exact tag checkout, accepted-baseline authority comparison, exact acceptance-control plus Operations/lifecycle delta, two clean `linux/amd64` builds, and new evidence all pass
 - **THEN** a tag-release candidate bound to that one tag commit may proceed to publication
 
 #### Scenario: The tag differs in product or build semantics
-- **WHEN** any product/build/contract input differs from the accepted baseline or an intervening path is outside approved Operations/lifecycle scope
+- **WHEN** any product/build/non-acceptance-Contracts authority differs from the accepted baseline or an intervening path is outside the exact acceptance-control/Operations/lifecycle scope
 - **THEN** the workflow fails before registry login or release output
 
 ### Requirement: The published release manifest SHALL bind final distribution identities

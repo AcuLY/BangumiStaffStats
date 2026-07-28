@@ -1,10 +1,10 @@
 ## Context
 
 Development produced deterministic Backend, Updater, Frontend, and Contracts
-artifact machinery, but the formally accepted component bytes were built on a
-Darwin/ARM64 host. They prove the frozen product candidate and build contracts;
-they are not deployable AMD64 inputs. Operations must therefore keep two
-authorities separate:
+artifact machinery. The authorized acceptance closure did not materialize or
+retain the formal component-artifact set: CI built ephemeral AMD64 artifacts,
+while the formal Darwin/ARM64 matrix was unexecuted. Operations must not invent
+those byte identities and must keep two authorities separate:
 
 1. the frozen product revision/tree and build definitions bound by the
    authorized archived lifecycle evidence for
@@ -38,7 +38,7 @@ The exact current external scopes are:
 | Status | Investigated: complete; specified: complete after strict validation and main-agent review; implemented/verified/committed/pushed/released/deployed: no at proposal time. |
 | Owner | Main agent: decisions, spec audit, coordination, final acceptance/lifecycle. Subagents: disjoint foundation/release, runtime/recovery, and isolated-validation implementation blocks when parallel benefit exceeds handoff cost. |
 | Writable paths | Repository: `operations/**`, `.github/workflows/{operations,release,deploy}.yml`, exact `.gitignore` line `/operations/.tmp/`, this change, and later synchronized operations specs. External only after admission: newly created `/srv/bgmss-ops-validation/**`; project `bgmss_ops_validation` containers/network for services `api`, `updater`, `prometheus`; exact API bind; no named volume; two component load tags, three validation aliases, and one pinned Prometheus digest reference (six sealed image references across three images). |
-| Read-only protected inputs | All product/Contracts/authority/oracle/build inputs; archived authorized acceptance evidence and prior artifact provenance; `.github/workflows/ci.yml`; external refs/registries/releases/secrets. On `myserver`, every path/resource/ref except the admitted validation namespace and exact six previously absent image references, especially `/srv/bgmss`, `/srv/bgmss-v2`, current Compose/Docker state, Nginx/systemd/TLS, public listeners, and legacy processes/data. |
+| Read-only protected inputs | All product/Contracts/authority/oracle/build inputs and archived authorized acceptance evidence; `.github/workflows/ci.yml`; external refs/registries/releases/secrets. On `myserver`, every path/resource/ref except the admitted validation namespace and exact six previously absent image references, especially `/srv/bgmss`, `/srv/bgmss-v2`, current Compose/Docker state, Nginx/systemd/TLS, public listeners, and legacy processes/data. |
 | Deletion complement | No tracked or pre-existing state. Local/remote cleanup is limited to a closed run-created path inventory, immutable labeled project resources, and image references still resolving to their captured manifest/config/runtime identity with no foreign consumer. |
 | Mutable refs | Listed repository worktree files; isolated run marker/pointers/links; captured validation containers/network; exact six image references/three image identities. Commits/push/OpenSpec lifecycle are main-agent actions. No live, legacy, registry, release, tag, Environment, secret, daemon, or public-route ref is mutable. |
 | Consumes | Archived authorized CI/remote development-acceptance lifecycle bundle and frozen product identity; accepted build/contracts/tool identities; Archive/current/status contracts; full inactive and minimal validation Archives; read-only host facts. The formal Darwin/ARM64 matrix remains explicitly unexecuted and is never represented as green. |
@@ -114,7 +114,12 @@ For an actual later version tag, the operations guide requires every artifact
 to be built from the tag's own commit. The release workflow therefore
 double-builds that exact tag commit after proving its product/build/contract
 inputs remain byte-identical to the frozen baseline and every intervening path
-is approved Operations/OpenSpec lifecycle. Its statements bind the tag commit;
+is either the exact audited `contracts/acceptance/**` control-plane restoration
+and fixes through `b56ce858733b18875df3101a423c6d1b356eed54`, the exact archived
+development-acceptance lifecycle/main-spec delta, or approved
+Operations/OpenSpec lifecycle. Product, build, and non-acceptance Contracts
+authority blobs/modes remain byte-identical to the frozen baseline. Its
+statements bind the tag commit;
 it never promotes the earlier validation candidate.
 
 Alternative considered: build the current isolated-validation candidate from
@@ -135,9 +140,11 @@ The release control plane has four canonical closed documents:
   `development-acceptance-closed-by-authorized-ci-and-remote-evidence`, frozen
   product identity, acceptance implementation, CI head/run, archived lifecycle
   commit, remote package/targeted counts, the narrow Linux fixture exception,
-  unexecuted formal-cell inventory, cleanup/audit facts, accepted
-  build/contract digests, and prior artifacts explicitly as non-AMD64
-  provenance. It has no formal result digest or synthesized
+  unexecuted formal-cell inventory, cleanup/audit facts, and accepted
+  build/contract digests. It records
+  `priorDevelopmentArtifacts.status=not-materialized-for-authorized-closure`
+  and contains no fabricated component/compatibility byte identity, formal
+  result digest, or synthesized
   `development-accepted-operations-pending` verdict.
 - `validation-candidate-v1.json` is local and explicitly unpublished. It binds
   the frozen product and Operations controller identities, three newly built
