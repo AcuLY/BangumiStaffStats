@@ -289,7 +289,7 @@ ops_transaction_ref_seal_after() {
   OPS_TRANSACTION_REF_AFTER_STATES[$index]="sealed"
 }
 
-ops_transaction_publish_tracked_file() {
+ops_transaction_publish_tracked_file_guarded() {
   local key="$1"
   local source="$2"
   local index
@@ -321,7 +321,16 @@ ops_transaction_publish_tracked_file() {
   return "$result"
 }
 
-ops_transaction_publish_tracked_symlink() {
+ops_transaction_publish_tracked_file() {
+  # Dispatch a deferred signal only after the identity-sealing frame unwinds.
+  local result=0
+  ops_creation_guard_begin || return
+  ops_transaction_publish_tracked_file_guarded "$@" || result=$?
+  ops_creation_guard_end
+  return "$result"
+}
+
+ops_transaction_publish_tracked_symlink_guarded() {
   local key="$1"
   local target="$2"
   local index
@@ -346,6 +355,15 @@ ops_transaction_publish_tracked_symlink() {
   if [[ "$result" -eq 0 ]]; then
     ops_transaction_ref_seal_after "$key" || result=$?
   fi
+  ops_creation_guard_end
+  return "$result"
+}
+
+ops_transaction_publish_tracked_symlink() {
+  # Keep compensation outside the identity-sealing frame for the same reason.
+  local result=0
+  ops_creation_guard_begin || return
+  ops_transaction_publish_tracked_symlink_guarded "$@" || result=$?
   ops_creation_guard_end
   return "$result"
 }
