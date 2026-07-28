@@ -1,0 +1,32 @@
+{
+  "profiles": {
+    "production": {
+      "apiBind": {
+        "hostIp": "127.0.0.1",
+        "published": 18080,
+        "target": 8080
+      },
+      "project": "bgmss_v2",
+      "root": "/srv/bgmss-v2"
+    },
+    "validation": {
+      "apiBind": {
+        "hostIp": "127.0.0.1",
+        "published": 19090,
+        "target": 8080
+      },
+      "project": "bgmss_ops_validation",
+      "root": "/srv/bgmss-ops-validation"
+    }
+  },
+  "prometheus": {
+    "amd64DescriptorSize": 4067,
+    "amd64Manifest": "sha256:335b5796a6e4355530475575253f84de20b8ad07bf899f65ed218451ce4c60b4",
+    "image": "prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80",
+    "indexDigest": "sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80",
+    "runtimeGroup": 65532,
+    "runtimeUser": 65532,
+    "validationAlias": "localhost/bgmss-ops-validation-prometheus:v3.13.1-distroless-amd64"
+  },
+  "schemaVersion": "runtime-profiles-v1"
+}

@@ -1,0 +1,385 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+readonly BGMSS_CONTROLLER_ROOT="/usr/local/libexec/bgmss-v2"
+readonly BGMSS_CONTROLLER_PAYLOAD="${BGMSS_CONTROLLER_ROOT}/payload"
+readonly BGMSS_CONTROLLER_MANIFEST="${BGMSS_CONTROLLER_ROOT}/controller-manifest.json"
+readonly BGMSS_DEPLOY_PATH="/usr/local/sbin/bgmss-v2-deploy"
+readonly BGMSS_DEPLOY_LOCK="/run/bgmss-v2.lock"
+
+export PATH="/usr/sbin:/usr/bin:/sbin:/bin"
+umask 077
+unset BASH_ENV CDPATH ENV GLOBIGNORE IFS KSH_ENV NODE_OPTIONS NODE_PATH \
+  PERL5OPT PS4 PYTHONHOME PYTHONINSPECT PYTHONPATH PYTHONSTARTUP RUBYOPT \
+  ZDOTDIR
+
+if [[ "$0" != "$BGMSS_DEPLOY_PATH" ]]; then
+  exit 69
+fi
+if [[ "$EUID" -ne 0 ]]; then
+  if [[ "$#" -ne 1 || "$1" != "--ssh-forced-command" ||
+        "$(/usr/bin/id -un)" != "bgmss-deploy" ||
+        -z "${SSH_CONNECTION:-}" || -n "${SSH_TTY:-}" ||
+        ! -f "$BGMSS_DEPLOY_PATH" || -L "$BGMSS_DEPLOY_PATH" ||
+        "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_DEPLOY_PATH")" !=
+          "0:0:1:555" ||
+        ! "${SSH_ORIGINAL_COMMAND:-}" =~ ^sudo\ -n\ --\ /usr/local/sbin/bgmss-v2-deploy\ --version\ (v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))\ --manifest-digest\ (sha256:[0-9a-f]{64})$ ]]; then
+    exit 69
+  fi
+  requested_version="${BASH_REMATCH[1]}"
+  requested_manifest="${BASH_REMATCH[5]}"
+  if printf '%s\t%s\n' "$requested_version" "$requested_manifest" |
+    /usr/bin/sudo -n -- "$BGMSS_DEPLOY_PATH" --sudo-stdin; then
+    exit 0
+  else
+    exit "$?"
+  fi
+fi
+
+if [[ "$#" -eq 1 && "$1" == "--sudo-stdin" ]]; then
+  if [[ "${SUDO_USER:-}" != "bgmss-deploy" ||
+        "${SUDO_COMMAND:-}" != "${BGMSS_DEPLOY_PATH} --sudo-stdin" ]]; then
+    exit 69
+  fi
+  request_tsv="$(
+    /usr/bin/jq -Rser '
+      split("\n")
+      | select(length == 2 and .[1] == "")
+      | .[0]
+      | capture(
+          "^(?<version>v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))\\t(?<manifest>sha256:[0-9a-f]{64})$"
+        )
+      | [.version, .manifest]
+      | @tsv
+    '
+  )" || exit 64
+  if [[ ! "$request_tsv" =~ ^(v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'\t'(sha256:[0-9a-f]{64})$ ]]; then
+    exit 64
+  fi
+  set -- \
+    --version "${BASH_REMATCH[1]}" \
+    --manifest-digest "${BASH_REMATCH[5]}"
+elif [[ "${SUDO_USER:-}" == "bgmss-deploy" ]]; then
+  exit 69
+fi
+
+for directory in \
+  /run \
+  /srv \
+  /usr/local \
+  /usr/local/libexec \
+  /usr/local/sbin \
+  "$BGMSS_CONTROLLER_ROOT" \
+  "$BGMSS_CONTROLLER_PAYLOAD" \
+  "${BGMSS_CONTROLLER_PAYLOAD}/bin" \
+  "${BGMSS_CONTROLLER_PAYLOAD}/bin/lib" \
+  "${BGMSS_CONTROLLER_PAYLOAD}/compose" \
+  "${BGMSS_CONTROLLER_PAYLOAD}/observability" \
+  "${BGMSS_CONTROLLER_PAYLOAD}/observability/prometheus"; do
+  if [[ ! -d "$directory" || -L "$directory" ||
+        "$(/usr/bin/stat -Lc '%u:%g' "$directory")" != "0:0" ]]; then
+    exit 69
+  fi
+  directory_mode="$(/usr/bin/stat -Lc '%a' "$directory")"
+  if (( (8#$directory_mode & 0022) != 0 )); then
+    exit 69
+  fi
+done
+
+lock_created="no"
+if [[ -e "$BGMSS_DEPLOY_LOCK" || -L "$BGMSS_DEPLOY_LOCK" ]]; then
+  if [[ ! -f "$BGMSS_DEPLOY_LOCK" || -L "$BGMSS_DEPLOY_LOCK" ||
+        "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_DEPLOY_LOCK")" !=
+          "0:0:1:600" ]]; then
+    exit 69
+  fi
+else
+  lock_created="yes"
+fi
+exec {BGMSS_BOOTSTRAP_LOCK_FD}<>"$BGMSS_DEPLOY_LOCK"
+if [[ "$lock_created" == "yes" ]]; then
+  /usr/bin/chown 0:0 "$BGMSS_DEPLOY_LOCK"
+  /usr/bin/chmod 0600 "$BGMSS_DEPLOY_LOCK"
+fi
+if [[ "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_DEPLOY_LOCK")" !=
+      "0:0:1:600" ]] ||
+  ! /usr/bin/flock -n "$BGMSS_BOOTSTRAP_LOCK_FD"; then
+  exit 75
+fi
+
+if [[ ! -f "$BGMSS_CONTROLLER_MANIFEST" ||
+      -L "$BGMSS_CONTROLLER_MANIFEST" ||
+      "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_CONTROLLER_MANIFEST")" !=
+        "0:0:1:444" ]]; then
+  exit 69
+fi
+
+bootstrap_tmp_root="$(/usr/bin/mktemp -d /tmp/bgmss-controller.XXXXXXXX)"
+bootstrap_tmp_device="$(/usr/bin/stat -Lc '%d' "$bootstrap_tmp_root")"
+bootstrap_tmp_inode="$(/usr/bin/stat -Lc '%i' "$bootstrap_tmp_root")"
+actual_paths="${bootstrap_tmp_root}/actual-paths"
+expected_paths="${bootstrap_tmp_root}/expected-paths"
+bootstrap_tmp_paths=("$actual_paths" "$expected_paths")
+bootstrap_tmp_states=("absent" "absent")
+bootstrap_tmp_devices=("" "")
+bootstrap_tmp_inodes=("" "")
+bootstrap_tmp_owners=("" "")
+bootstrap_tmp_modes=("" "")
+bootstrap_tmp_digests=("" "")
+
+bootstrap_tmp_index() {
+  case "$1" in
+    "$actual_paths") printf '%s\n' 0 ;;
+    "$expected_paths") printf '%s\n' 1 ;;
+    *) return 1 ;;
+  esac
+}
+
+register_bootstrap_tmp_file() {
+  local candidate="$1"
+  local index
+  index="$(bootstrap_tmp_index "$candidate")" || return 78
+  if [[ ! -f "$candidate" || -L "$candidate" ||
+        "$(/usr/bin/stat -Lc '%u:%g:%h' "$candidate")" != "0:0:1" ]]; then
+    return 78
+  fi
+  bootstrap_tmp_devices[$index]="$(/usr/bin/stat -Lc '%d' "$candidate")"
+  bootstrap_tmp_inodes[$index]="$(/usr/bin/stat -Lc '%i' "$candidate")"
+  bootstrap_tmp_owners[$index]="$(/usr/bin/stat -Lc '%u:%g' "$candidate")"
+  bootstrap_tmp_modes[$index]="$(/usr/bin/stat -Lc '%a' "$candidate")"
+  bootstrap_tmp_digests[$index]="sha256:$(
+    /usr/bin/sha256sum "$candidate" | /usr/bin/awk '{print $1}'
+  )"
+  bootstrap_tmp_states[$index]="recorded"
+}
+
+bootstrap_tmp_file_matches() {
+  local index="$1"
+  local candidate="${bootstrap_tmp_paths[$index]}"
+  [[ "${bootstrap_tmp_states[$index]}" == "recorded" &&
+     -f "$candidate" && ! -L "$candidate" &&
+     "$(/usr/bin/stat -Lc '%d' "$candidate")" ==
+       "${bootstrap_tmp_devices[$index]}" &&
+     "$(/usr/bin/stat -Lc '%i' "$candidate")" ==
+       "${bootstrap_tmp_inodes[$index]}" &&
+     "$(/usr/bin/stat -Lc '%u:%g' "$candidate")" ==
+       "${bootstrap_tmp_owners[$index]}" &&
+     "$(/usr/bin/stat -Lc '%h' "$candidate")" == "1" &&
+     "$(/usr/bin/stat -Lc '%a' "$candidate")" ==
+       "${bootstrap_tmp_modes[$index]}" &&
+     "sha256:$(
+       /usr/bin/sha256sum "$candidate" | /usr/bin/awk '{print $1}'
+     )" == "${bootstrap_tmp_digests[$index]}" ]]
+}
+
+cleanup_bootstrap_tmp() {
+  if [[ ! -d "$bootstrap_tmp_root" || -L "$bootstrap_tmp_root" ||
+        "$(/usr/bin/stat -Lc '%d' "$bootstrap_tmp_root")" !=
+          "$bootstrap_tmp_device" ||
+        "$(/usr/bin/stat -Lc '%i' "$bootstrap_tmp_root")" !=
+          "$bootstrap_tmp_inode" ||
+        "$(/usr/bin/stat -Lc '%u:%g:%a' "$bootstrap_tmp_root")" !=
+          "0:0:700" ]]; then
+    return 78
+  fi
+  local candidate index
+  shopt -s nullglob dotglob
+  for candidate in "$bootstrap_tmp_root"/*; do
+    index="$(bootstrap_tmp_index "$candidate")" || {
+      shopt -u nullglob dotglob
+      return 78
+    }
+    bootstrap_tmp_file_matches "$index" || {
+      shopt -u nullglob dotglob
+      return 78
+    }
+  done
+  shopt -u nullglob dotglob
+  for index in "${!bootstrap_tmp_paths[@]}"; do
+    candidate="${bootstrap_tmp_paths[$index]}"
+    if [[ ! -e "$candidate" && ! -L "$candidate" ]]; then
+      bootstrap_tmp_states[$index]="absent"
+      continue
+    fi
+    bootstrap_tmp_file_matches "$index" || return 78
+    /usr/bin/unlink -- "$candidate" || return 78
+    bootstrap_tmp_states[$index]="absent"
+  done
+  /usr/bin/rmdir -- "$bootstrap_tmp_root"
+}
+
+cleanup_bootstrap_tmp_at_exit() {
+  local original_status="$?"
+  trap - EXIT
+  if cleanup_bootstrap_tmp; then
+    exit "$original_status"
+  fi
+  exit 78
+}
+
+trap cleanup_bootstrap_tmp_at_exit EXIT
+if [[ ! "$bootstrap_tmp_root" =~ ^/tmp/bgmss-controller\.[A-Za-z0-9]{8}$ ||
+      "$(/usr/bin/stat -Lc '%u:%g:%a' "$bootstrap_tmp_root")" !=
+        "0:0:700" ]]; then
+  exit 69
+fi
+/usr/bin/jq -cS . "$BGMSS_CONTROLLER_MANIFEST" |
+  /usr/bin/cmp --silent "$BGMSS_CONTROLLER_MANIFEST" -
+/usr/bin/jq -e '
+  type == "object" and
+  (keys == ["bootstrap","controllerRevision","files","schemaVersion"]) and
+  .schemaVersion == "controller-manifest-v1" and
+  (.controllerRevision | test("^[0-9a-f]{40}$")) and
+  (.bootstrap | keys == ["mode","path","sha256","size"]) and
+  .bootstrap.path == "bin/bgmss-v2-deploy" and
+  .bootstrap.mode == "0555" and
+  (.bootstrap.sha256 | test("^sha256:[0-9a-f]{64}$")) and
+  (.bootstrap.size | type == "number" and . > 0) and
+  (.files | type == "array" and length == 11) and
+  ([.files[].path] == [
+    "bin/bgmss-ops",
+    "bin/lib/common.sh",
+    "bin/lib/controller.sh",
+    "bin/lib/health.sh",
+    "bin/lib/preflight.sh",
+    "bin/lib/retention.sh",
+    "bin/lib/transaction.sh",
+    "compose/compose.yaml",
+    "compose/updater-current-deny",
+    "observability/prometheus/prometheus.yml",
+    "observability/prometheus/rules.yml"
+  ]) and
+  all(.files[];
+    (keys == ["mode","path","sha256","size"]) and
+    (.mode | IN("0000","0444","0555")) and
+    (.sha256 | test("^sha256:[0-9a-f]{64}$")) and
+    (.size | type == "number" and . > 0)
+  )
+' "$BGMSS_CONTROLLER_MANIFEST" >/dev/null
+
+bootstrap_tmp_states[0]="creating"
+/usr/bin/find "$BGMSS_CONTROLLER_ROOT" -mindepth 1 -printf '%P\n' |
+  /usr/bin/sort > "$actual_paths"
+register_bootstrap_tmp_file "$actual_paths"
+bootstrap_tmp_states[1]="creating"
+printf '%s\n' \
+  controller-manifest.json \
+  payload \
+  payload/bin \
+  payload/bin/bgmss-ops \
+  payload/bin/bgmss-v2-deploy \
+  payload/bin/lib \
+  payload/bin/lib/common.sh \
+  payload/bin/lib/controller.sh \
+  payload/bin/lib/health.sh \
+  payload/bin/lib/preflight.sh \
+  payload/bin/lib/retention.sh \
+  payload/bin/lib/transaction.sh \
+  payload/compose \
+  payload/compose/compose.yaml \
+  payload/compose/updater-current-deny \
+  payload/observability \
+  payload/observability/prometheus \
+  payload/observability/prometheus/prometheus.yml \
+  payload/observability/prometheus/rules.yml |
+  /usr/bin/sort > "$expected_paths"
+register_bootstrap_tmp_file "$expected_paths"
+/usr/bin/cmp --silent "$expected_paths" "$actual_paths"
+
+controller_files=(
+  bin/bgmss-ops
+  bin/lib/common.sh
+  bin/lib/controller.sh
+  bin/lib/health.sh
+  bin/lib/preflight.sh
+  bin/lib/retention.sh
+  bin/lib/transaction.sh
+  compose/compose.yaml
+  compose/updater-current-deny
+  observability/prometheus/prometheus.yml
+  observability/prometheus/rules.yml
+)
+for relative in "${controller_files[@]}"; do
+  candidate="${BGMSS_CONTROLLER_PAYLOAD}/${relative}"
+  if [[ ! -f "$candidate" || -L "$candidate" ]]; then
+    exit 69
+  fi
+  expected_digest="$(
+    /usr/bin/jq -er --arg path "$relative" \
+      '.files[] | select(.path == $path) | .sha256' \
+      "$BGMSS_CONTROLLER_MANIFEST"
+  )"
+  expected_mode="$(
+    /usr/bin/jq -er --arg path "$relative" \
+      '.files[] | select(.path == $path) | .mode' \
+      "$BGMSS_CONTROLLER_MANIFEST"
+  )"
+  expected_size="$(
+    /usr/bin/jq -er --arg path "$relative" \
+      '.files[] | select(.path == $path) | .size' \
+      "$BGMSS_CONTROLLER_MANIFEST"
+  )"
+  actual_digest="sha256:$(
+    /usr/bin/sha256sum "$candidate" | /usr/bin/awk '{print $1}'
+  )"
+  actual_mode="$(/usr/bin/stat -Lc '%a' "$candidate")"
+  if [[ "$(/usr/bin/stat -Lc '%u:%g:%h' "$candidate")" != "0:0:1" ||
+        ( "$expected_mode" == "0000" && "$actual_mode" != "0" ) ||
+        ( "$expected_mode" != "0000" && "0${actual_mode}" != "$expected_mode" ) ||
+        "$(/usr/bin/stat -Lc '%s' "$candidate")" != "$expected_size" ||
+        "$actual_digest" != "$expected_digest" ]]; then
+    exit 69
+  fi
+done
+
+bootstrap_payload="${BGMSS_CONTROLLER_PAYLOAD}/bin/bgmss-v2-deploy"
+bootstrap_digest="$(/usr/bin/jq -er '.bootstrap.sha256' "$BGMSS_CONTROLLER_MANIFEST")"
+bootstrap_size="$(/usr/bin/jq -er '.bootstrap.size' "$BGMSS_CONTROLLER_MANIFEST")"
+for candidate in "$bootstrap_payload" "$BGMSS_DEPLOY_PATH"; do
+  if [[ ! -f "$candidate" || -L "$candidate" ]]; then
+    exit 69
+  fi
+  actual_bootstrap="sha256:$(
+    /usr/bin/sha256sum "$candidate" | /usr/bin/awk '{print $1}'
+  )"
+  if [[ "$(/usr/bin/stat -Lc '%u:%g:%h' "$candidate")" != "0:0:1" ||
+        "$(/usr/bin/stat -Lc '%a' "$candidate")" != "555" ||
+        "$(/usr/bin/stat -Lc '%s' "$candidate")" != "$bootstrap_size" ||
+        "$actual_bootstrap" != "$bootstrap_digest" ]]; then
+    exit 69
+  fi
+done
+cleanup_bootstrap_tmp
+trap - EXIT
+
+source "${BGMSS_CONTROLLER_PAYLOAD}/bin/lib/common.sh"
+source "${BGMSS_CONTROLLER_PAYLOAD}/bin/lib/controller.sh"
+source "${BGMSS_CONTROLLER_PAYLOAD}/bin/lib/preflight.sh"
+source "${BGMSS_CONTROLLER_PAYLOAD}/bin/lib/health.sh"
+source "${BGMSS_CONTROLLER_PAYLOAD}/bin/lib/transaction.sh"
+source "${BGMSS_CONTROLLER_PAYLOAD}/bin/lib/retention.sh"
+
+ops_sanitize_process
+ops_init_context \
+  "$OPS_PRODUCTION_ROOT" \
+  "$OPS_PRODUCTION_PROJECT" \
+  "$OPS_PRODUCTION_PORT" \
+  "/usr/bin"
+ops_require_root
+OPS_LOCK_FD="$BGMSS_BOOTSTRAP_LOCK_FD"
+ops_install_transaction_traps
+
+if [[ "$#" -ne 4 || "$1" != "--version" || "$3" != "--manifest-digest" ]]; then
+  ops_emit_failure "DEPLOY_ARGUMENTS_INVALID" "admission" || true
+  exit 64
+fi
+version="$2"
+manifest_digest="$4"
+ops_is_version "$version" || exit 64
+ops_is_sha256 "$manifest_digest" || exit 64
+
+ops_bootstrap_controller "$BGMSS_CONTROLLER_ROOT"
+ops_preflight_controller_only
+run_id="$(ops_new_run_id)"
+ops_acquire_and_install_release "$version" "$manifest_digest" "$run_id"

@@ -1,0 +1,17 @@
+{
+  "bootstrap": "bin/bgmss-v2-deploy",
+  "files": [
+    "bin/bgmss-ops",
+    "bin/lib/common.sh",
+    "bin/lib/controller.sh",
+    "bin/lib/health.sh",
+    "bin/lib/preflight.sh",
+    "bin/lib/retention.sh",
+    "bin/lib/transaction.sh",
+    "compose/compose.yaml",
+    "compose/updater-current-deny",
+    "observability/prometheus/prometheus.yml",
+    "observability/prometheus/rules.yml"
+  ],
+  "schemaVersion": "controller-files-v1"
+}

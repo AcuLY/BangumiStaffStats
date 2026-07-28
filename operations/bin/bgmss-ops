@@ -1,0 +1,251 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+readonly BGMSS_OPS_ROOT="/srv/bgmss-v2"
+readonly BGMSS_OPS_SCRIPT_PATH="${BGMSS_OPS_ROOT}/bin/bgmss-ops"
+readonly BGMSS_OPS_SCRIPT_DIR="${BGMSS_OPS_ROOT}/bin"
+readonly BGMSS_OPS_MANIFEST="${BGMSS_OPS_ROOT}/controller-manifest.json"
+readonly BGMSS_OPS_LOCK="/run/bgmss-v2.lock"
+
+export PATH="/usr/sbin:/usr/bin:/sbin:/bin"
+umask 077
+unset BASH_ENV CDPATH ENV GLOBIGNORE IFS KSH_ENV NODE_OPTIONS NODE_PATH \
+  PERL5OPT PS4 PYTHONHOME PYTHONINSPECT PYTHONPATH PYTHONSTARTUP RUBYOPT \
+  ZDOTDIR
+
+[[ "$EUID" -eq 0 && "$0" == "$BGMSS_OPS_SCRIPT_PATH" ]] || exit 69
+
+for directory in /run /srv "$BGMSS_OPS_ROOT" \
+  "${BGMSS_OPS_ROOT}/bin" \
+  "${BGMSS_OPS_ROOT}/bin/lib" \
+  "${BGMSS_OPS_ROOT}/compose" \
+  "${BGMSS_OPS_ROOT}/observability" \
+  "${BGMSS_OPS_ROOT}/observability/prometheus"; do
+  if [[ ! -d "$directory" || -L "$directory" ||
+        "$(/usr/bin/stat -Lc '%u:%g' "$directory")" != "0:0" ]]; then
+    exit 69
+  fi
+  directory_mode="$(/usr/bin/stat -Lc '%a' "$directory")"
+  if (( (8#$directory_mode & 0022) != 0 )); then
+    exit 69
+  fi
+done
+
+lock_created="no"
+if [[ -e "$BGMSS_OPS_LOCK" || -L "$BGMSS_OPS_LOCK" ]]; then
+  if [[ ! -f "$BGMSS_OPS_LOCK" || -L "$BGMSS_OPS_LOCK" ||
+        "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_OPS_LOCK")" !=
+          "0:0:1:600" ]]; then
+    exit 69
+  fi
+else
+  lock_created="yes"
+fi
+exec {BGMSS_BOOTSTRAP_LOCK_FD}<>"$BGMSS_OPS_LOCK"
+if [[ "$lock_created" == "yes" ]]; then
+  /usr/bin/chown 0:0 "$BGMSS_OPS_LOCK"
+  /usr/bin/chmod 0600 "$BGMSS_OPS_LOCK"
+fi
+if [[ "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_OPS_LOCK")" !=
+      "0:0:1:600" ]] ||
+  ! /usr/bin/flock -n "$BGMSS_BOOTSTRAP_LOCK_FD"; then
+  exit 75
+fi
+
+if [[ ! -f "$BGMSS_OPS_MANIFEST" || -L "$BGMSS_OPS_MANIFEST" ||
+      "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_OPS_MANIFEST")" !=
+        "0:0:1:400" ]]; then
+  exit 69
+fi
+/usr/bin/jq -cS . "$BGMSS_OPS_MANIFEST" |
+  /usr/bin/cmp --silent "$BGMSS_OPS_MANIFEST" -
+/usr/bin/jq -e '
+  type == "object" and
+  (keys == ["bootstrap","controllerRevision","files","schemaVersion"]) and
+  .schemaVersion == "controller-manifest-v1" and
+  (.controllerRevision | test("^[0-9a-f]{40}$")) and
+  (.bootstrap | keys == ["mode","path","sha256","size"]) and
+  .bootstrap.path == "bin/bgmss-v2-deploy" and
+  .bootstrap.mode == "0555" and
+  (.bootstrap.sha256 | test("^sha256:[0-9a-f]{64}$")) and
+  (.bootstrap.size | type == "number" and . > 0) and
+  (.files | type == "array" and length == 11) and
+  ([.files[].path] == [
+    "bin/bgmss-ops",
+    "bin/lib/common.sh",
+    "bin/lib/controller.sh",
+    "bin/lib/health.sh",
+    "bin/lib/preflight.sh",
+    "bin/lib/retention.sh",
+    "bin/lib/transaction.sh",
+    "compose/compose.yaml",
+    "compose/updater-current-deny",
+    "observability/prometheus/prometheus.yml",
+    "observability/prometheus/rules.yml"
+  ]) and
+  all(.files[];
+    (keys == ["mode","path","sha256","size"]) and
+    (.mode | IN("0000","0444","0555")) and
+    (.sha256 | test("^sha256:[0-9a-f]{64}$")) and
+    (.size | type == "number" and . > 0)
+  )
+' "$BGMSS_OPS_MANIFEST" >/dev/null
+
+shopt -s nullglob dotglob
+for candidate in "$BGMSS_OPS_ROOT"/*; do
+  name="${candidate##*/}"
+  case "$name" in
+    bin|compose|controller-manifest.json|current-frontend|data|\
+    observability|recovery|releases|secrets) ;;
+    *) exit 69 ;;
+  esac
+done
+for candidate in "${BGMSS_OPS_ROOT}/bin"/*; do
+  name="${candidate##*/}"
+  case "$name" in
+    bgmss-ops|lib) ;;
+    *) exit 69 ;;
+  esac
+done
+for candidate in "${BGMSS_OPS_ROOT}/bin/lib"/*; do
+  name="${candidate##*/}"
+  case "$name" in
+    common.sh|controller.sh|health.sh|preflight.sh|retention.sh|\
+    transaction.sh) ;;
+    *) exit 69 ;;
+  esac
+done
+for candidate in "${BGMSS_OPS_ROOT}/compose"/*; do
+  name="${candidate##*/}"
+  case "$name" in
+    compose.yaml|previous-app.json|release.env|updater-current-deny) ;;
+    *) exit 69 ;;
+  esac
+done
+for candidate in "${BGMSS_OPS_ROOT}/observability/prometheus"/*; do
+  name="${candidate##*/}"
+  case "$name" in
+    prometheus.yml|rules.yml|tsdb) ;;
+    *) exit 69 ;;
+  esac
+done
+shopt -u nullglob dotglob
+
+controller_files=(
+  bin/bgmss-ops
+  bin/lib/common.sh
+  bin/lib/controller.sh
+  bin/lib/health.sh
+  bin/lib/preflight.sh
+  bin/lib/retention.sh
+  bin/lib/transaction.sh
+  compose/compose.yaml
+  compose/updater-current-deny
+  observability/prometheus/prometheus.yml
+  observability/prometheus/rules.yml
+)
+for relative in "${controller_files[@]}"; do
+  candidate="${BGMSS_OPS_ROOT}/${relative}"
+  if [[ ! -f "$candidate" || -L "$candidate" ]]; then
+    exit 69
+  fi
+  expected_digest="$(
+    /usr/bin/jq -er --arg path "$relative" \
+      '.files[] | select(.path == $path) | .sha256' \
+      "$BGMSS_OPS_MANIFEST"
+  )"
+  expected_mode="$(
+    /usr/bin/jq -er --arg path "$relative" \
+      '.files[] | select(.path == $path) | .mode' \
+      "$BGMSS_OPS_MANIFEST"
+  )"
+  expected_size="$(
+    /usr/bin/jq -er --arg path "$relative" \
+      '.files[] | select(.path == $path) | .size' \
+      "$BGMSS_OPS_MANIFEST"
+  )"
+  actual_digest="sha256:$(
+    /usr/bin/sha256sum -- "$candidate" | /usr/bin/awk '{print $1}'
+  )"
+  actual_mode="$(/usr/bin/stat -Lc '%a' "$candidate")"
+  if [[ "$(/usr/bin/stat -Lc '%u:%g:%h' "$candidate")" != "0:0:1" ||
+        ( "$expected_mode" == "0000" && "$actual_mode" != "0" ) ||
+        ( "$expected_mode" != "0000" && "0${actual_mode}" != "$expected_mode" ) ||
+        "$(/usr/bin/stat -Lc '%s' "$candidate")" != "$expected_size" ||
+        "$actual_digest" != "$expected_digest" ]]; then
+    exit 69
+  fi
+done
+
+source "${BGMSS_OPS_SCRIPT_DIR}/lib/common.sh"
+source "${BGMSS_OPS_SCRIPT_DIR}/lib/controller.sh"
+source "${BGMSS_OPS_SCRIPT_DIR}/lib/preflight.sh"
+source "${BGMSS_OPS_SCRIPT_DIR}/lib/health.sh"
+source "${BGMSS_OPS_SCRIPT_DIR}/lib/transaction.sh"
+source "${BGMSS_OPS_SCRIPT_DIR}/lib/retention.sh"
+
+ops_sanitize_process
+ops_init_context \
+  "$OPS_PRODUCTION_ROOT" \
+  "$OPS_PRODUCTION_PROJECT" \
+  "$OPS_PRODUCTION_PORT" \
+  "/usr/bin"
+ops_require_root
+OPS_LOCK_FD="$BGMSS_BOOTSTRAP_LOCK_FD"
+ops_install_transaction_traps
+
+if [[ "$#" -lt 1 ]]; then
+  ops_emit_failure "ACTION_REQUIRED" "admission" || true
+  exit 64
+fi
+
+action="$1"
+shift
+run_id="$(ops_new_run_id)"
+started="$(ops_now_seconds)"
+
+case "$action" in
+  preflight)
+    [[ "$#" -eq 0 ]] || exit 64
+    ops_preflight
+    ended="$(ops_now_seconds)"
+    ops_log_result "preflight" "$run_id" "succeeded" "$((ended - started))"
+    ;;
+  install)
+    [[ "$#" -eq 4 && "$1" == "--version" && "$3" == "--manifest-digest" ]] ||
+      exit 64
+    ops_preflight_controller_only
+    ops_acquire_and_install_release "$2" "$4" "$run_id"
+    ;;
+  update)
+    [[ "$#" -eq 0 ]] || exit 64
+    ops_preflight
+    ops_update_archive "$run_id"
+    ;;
+  rollback-app)
+    [[ "$#" -eq 2 && "$1" == "--expected-current-version" ]] || exit 64
+    ops_preflight
+    ops_rollback_app "$2" "$run_id"
+    ;;
+  rollback-data)
+    [[ "$#" -eq 2 && "$1" == "--expected-current-data-version" ]] || exit 64
+    ops_preflight
+    ops_rollback_data "$2" "$run_id"
+    ;;
+  check)
+    [[ "$#" -eq 0 ]] || exit 64
+    ops_run_checks
+    ended="$(ops_now_seconds)"
+    ops_log_result "check" "$run_id" "succeeded" "$((ended - started))"
+    ;;
+  cleanup)
+    [[ "$#" -eq 1 && ( "$1" == "--dry-run" || "$1" == "--apply" ) ]] ||
+      exit 64
+    ops_cleanup "${1#--}" "$run_id"
+    ;;
+  *)
+    ops_emit_failure "ACTION_INVALID" "admission" || true
+    exit 64
+    ;;
+esac

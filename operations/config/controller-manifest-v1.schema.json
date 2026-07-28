@@ -1,0 +1,67 @@
+{
+  "$id": "https://search.bgmss.fun/schemas/operations/controller-manifest-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "file": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "0000",
+            "0444",
+            "0555"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "format": "safe-relative-path",
+          "type": "string"
+        },
+        "sha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mode",
+        "path",
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "bootstrap": {
+      "$ref": "#/$defs/file"
+    },
+    "controllerRevision": {
+      "format": "git-oid",
+      "type": "string"
+    },
+    "files": {
+      "items": {
+        "$ref": "#/$defs/file"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "type": "array"
+    },
+    "schemaVersion": {
+      "const": "controller-manifest-v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "bootstrap",
+    "controllerRevision",
+    "files",
+    "schemaVersion"
+  ],
+  "type": "object"
+}

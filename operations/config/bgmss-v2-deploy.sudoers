@@ -1,0 +1,5 @@
+Defaults:bgmss-deploy env_reset, use_pty, !set_home
+
+Cmnd_Alias BGMSS_V2_DEPLOY = /usr/local/sbin/bgmss-v2-deploy --sudo-stdin
+
+bgmss-deploy ALL=(root) NOPASSWD: BGMSS_V2_DEPLOY

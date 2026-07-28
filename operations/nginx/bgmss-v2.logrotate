@@ -1,0 +1,13 @@
+/var/log/nginx/bgmss-v2-access.log /var/log/nginx/bgmss-v2-error.log {
+  daily
+  rotate 14
+  size 32M
+  missingok
+  notifempty
+  compress
+  delaycompress
+  sharedscripts
+  postrotate
+    test ! -r /run/nginx.pid || kill -USR1 "$(cat /run/nginx.pid)"
+  endscript
+}

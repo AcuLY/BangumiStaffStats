@@ -1,0 +1,74 @@
+groups:
+  - name: bgmss-api
+    interval: 30s
+    rules:
+      - alert: BgmssApiTargetMissing
+        expr: absent(up{job="bgmss-api"}) or max(up{job="bgmss-api"}) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: The private API metrics target is unavailable.
+      - alert: BgmssApiNotReady
+        expr: absent(bgmss_readiness) or max(bgmss_readiness) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: The API reports that its loaded Archive is not ready.
+      - alert: BgmssHttp5xxSustained
+        expr: sum(increase(bgmss_http_requests_total{status_class="5xx"}[10m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: API 5xx responses remain elevated.
+      - alert: BgmssUpstreamFailuresSustained
+        expr: sum(increase(bgmss_upstream_request_experiences_total{outcome=~"network_error|rate_limited|timeout|upstream_error"}[15m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Bangumi upstream failures remain elevated.
+      - alert: BgmssQueryQueueFull
+        expr: max(bgmss_query_executor_queued) >= 8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: The bounded query queue remains full.
+      - alert: BgmssCacheNearBudget
+        expr: sum(bgmss_query_cache_retained_bytes) > 241591911
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cache retained cost exceeds 90 percent of its 256 MiB budget.
+      - alert: BgmssCacheOversizeRejected
+        expr: sum(increase(bgmss_query_cache_oversize_values_total[10m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: At least one oversize cache value was rejected.
+  - name: bgmss-updater
+    interval: 30s
+    rules:
+      - alert: BgmssUpdaterStatusUnavailable
+        expr: bgmss_updater_status_configured != 1 or bgmss_updater_status_valid != 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: The updater status document is absent or invalid.
+      - alert: BgmssUpdaterLastAttemptFailed
+        expr: max by (phase, status) (bgmss_updater_last_attempt_info{status=~"canceled|failed"}) == 1
+        labels:
+          severity: warning
+        annotations:
+          summary: The most recent updater attempt failed or was canceled.
+      - alert: BgmssUpdaterTerminalDurationExceeded
+        expr: bgmss_updater_last_attempt_duration_seconds > 21600
+        labels:
+          severity: warning
+        annotations:
+          summary: A completed updater attempt exceeded the six-hour hard bound.

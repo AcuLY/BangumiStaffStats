@@ -1,0 +1,41 @@
+{
+  "$id": "https://search.bgmss.fun/schemas/operations/update-activated-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "app_version": {
+      "pattern": "^v(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$",
+      "type": "string"
+    },
+    "duration_seconds": {
+      "maximum": 21600,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "event": {
+      "const": "update_activated",
+      "type": "string"
+    },
+    "new_data_version": {
+      "pattern": "^dv1-[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "old_data_version": {
+      "pattern": "^dv1-[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^run-[0-9a-f]{32}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "app_version",
+    "duration_seconds",
+    "event",
+    "new_data_version",
+    "old_data_version",
+    "run_id"
+  ],
+  "type": "object"
+}

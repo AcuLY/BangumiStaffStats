@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly Bangumi Staff Stats v2 Archive update
+
+[Timer]
+OnCalendar=Sun *-*-* 03:30:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=0
+AccuracySec=1min
+Unit=bgmss-v2-archive-update.service
+
+[Install]
+WantedBy=timers.target

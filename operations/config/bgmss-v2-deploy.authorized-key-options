@@ -1,0 +1,1 @@
+restrict,command="/usr/local/sbin/bgmss-v2-deploy --ssh-forced-command"
