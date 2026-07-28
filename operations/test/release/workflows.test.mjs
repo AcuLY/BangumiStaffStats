@@ -154,6 +154,19 @@ test('reviewed Actions cannot select a different tool version', () => {
   );
 });
 
+test('release publisher cannot select a different ORAS version', () => {
+  const changed = replaceRequired(
+    sources['.github/workflows/release.yml'],
+    '          version: 1.3.2',
+    '          version: 1.3.3',
+  );
+  assertRejected(
+    '.github/workflows/release.yml',
+    changed,
+    'TOOL_IDENTITY',
+  );
+});
+
 test('pull_request_target is forbidden', () => {
   const changed = replaceRequired(
     sources['.github/workflows/operations.yml'],
@@ -185,6 +198,15 @@ test('operations push covers every branch and continues to exclude every tag', (
     admittedTags,
     'TRIGGER',
   );
+});
+
+test('operations triggers cannot omit the root generated-state boundary', () => {
+  const changed = replaceRequired(
+    sources['.github/workflows/operations.yml'],
+    '      - ".gitignore"\n',
+    '',
+  );
+  assertRejected('.github/workflows/operations.yml', changed, 'TRIGGER');
 });
 
 test('operations workflow cannot acquire publication authority', () => {
@@ -453,6 +475,24 @@ test('release publication cannot trust the docker push log as registry evidence'
   assertRejected('.github/workflows/release.yml', changed, 'ORDER');
 });
 
+test('release publication cannot route the OCI graph through classic Docker push', () => {
+  const changed = replaceRequired(
+    sources['.github/workflows/release.yml'],
+    '            oras cp --from-oci-layout \\',
+    '            docker push "$destination" #',
+  );
+  assertRejected('.github/workflows/release.yml', changed, 'ORDER');
+});
+
+test('release publication must compare candidate and registry manifest bytes', () => {
+  const changed = replaceRequired(
+    sources['.github/workflows/release.yml'],
+    '            cmp --silent "$candidate_manifest" "$manifest_file"\n',
+    '',
+  );
+  assertRejected('.github/workflows/release.yml', changed, 'ORDER');
+});
+
 test('release cannot consume the unpublished Operations validation handoff', () => {
   const changed = replaceRequired(
     sources['.github/workflows/release.yml'],
@@ -545,6 +585,27 @@ test('deploy verifier cannot omit complete manifest asset descriptor checks', ()
     '          test "$descriptor_count" -ge 1',
   );
   assertRejected('.github/workflows/deploy.yml', changed, 'REQUIRED_GATE');
+});
+
+test('deploy applies only the reviewed executable mode after descriptor verification', () => {
+  const changed = replaceRequired(
+    sources['.github/workflows/deploy.yml'],
+    '          chmod 0555 -- archive-smoke',
+    '          chmod 0555 -- archive-smoke backend.spdx.json',
+  );
+  assertRejected('.github/workflows/deploy.yml', changed, 'ASSET_MODE');
+});
+
+test('deploy cannot apply release asset modes before verifying their bytes', () => {
+  const changed = replaceRequired(
+    sources['.github/workflows/deploy.yml'],
+    '          descriptor_count=0',
+    [
+      '          chmod 0555 -- archive-smoke',
+      '          descriptor_count=0',
+    ].join('\n'),
+  );
+  assertRejected('.github/workflows/deploy.yml', changed, 'ASSET_MODE');
 });
 
 test('deploy verifier requires the canonical checksum inventory separator', () => {

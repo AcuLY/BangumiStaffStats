@@ -41,6 +41,8 @@ const REVIEWED_ACTIONS = Object.freeze({
     'c771a70e6277c0a99b617c7a806ffedaca235ff9',
   'docker/setup-buildx-action':
     'bb05f3f5519dd87d3ba754cc423b652a5edd6d2c',
+  'oras-project/setup-oras':
+    '1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d',
 });
 
 const TOP_LEVEL_KEYS = Object.freeze([
@@ -90,6 +92,7 @@ const PERMISSION_KEYS = new Set([
 
 const OPERATIONS_TRIGGER_PATHS = Object.freeze([
   'operations/**',
+  '.gitignore',
   '.github/workflows/ci.yml',
   '.github/workflows/operations.yml',
   '.github/workflows/release.yml',
@@ -388,6 +391,7 @@ function assertExactToolActions(
     go = false,
     uv = false,
     buildx = false,
+    oras = false,
   } = {},
   source,
 ) {
@@ -442,6 +446,16 @@ function assertExactToolActions(
         'driver-opts': BUILDKIT_DRIVER,
       },
       'setup-buildx-action',
+      source,
+    );
+  }
+  if (oras) {
+    assertExactWith(
+      requireAction(job, 'oras-project/setup-oras', source),
+      {
+        version: '1.3.2',
+      },
+      'setup-oras',
       source,
     );
   }
@@ -736,11 +750,15 @@ function assertReleaseTokenSteps(publish, source) {
       assertExactKeys(step.env, ['REGISTRY_TOKEN'], 'registry token env', source);
       if (
         step.env.REGISTRY_TOKEN !== '${{ github.token }}' ||
-        !run.includes('docker login ghcr.io') ||
+        !run.includes('oras login ghcr.io') ||
         !run.includes(`printf '%s' "$REGISTRY_TOKEN"`) ||
         /\b(?:echo|cat|tee)\b[^\n]*REGISTRY_TOKEN/iu.test(run)
       ) {
-        fail('TOKEN_FLOW', 'registry token may serve only password-stdin login', source);
+        fail(
+          'TOKEN_FLOW',
+          'registry token may serve only the reviewed ORAS password-stdin login',
+          source,
+        );
       }
       registrySteps += 1;
     } else {
@@ -821,7 +839,7 @@ function assertNoPublicationAuthority(
     }
     const commands = allRuns(job);
     if (
-      /\bdocker\s+(?:login|push)\b|\bgh\s+release\b|\b(?:ssh|scp|rsync)\b/iu.test(
+      /\bdocker\s+(?:login|push)\b|\boras\s+(?:login|cp|push)\b|\bgh\s+release\b|\b(?:ssh|scp|rsync)\b/iu.test(
         commands,
       )
     ) {
@@ -1256,6 +1274,7 @@ function assertReleaseWorkflow(workflow, source) {
       'actions/checkout',
       'actions/setup-node',
       'docker/setup-buildx-action',
+      'oras-project/setup-oras',
       'actions/download-artifact',
     ],
     'release publish',
@@ -1270,7 +1289,7 @@ function assertReleaseWorkflow(workflow, source) {
     },
     source,
   );
-  assertExactToolActions(publish, { buildx: true }, source);
+  assertExactToolActions(publish, { buildx: true, oras: true }, source);
   assertPermissions(
     prepare.permissions,
     { contents: 'read' },
@@ -1432,7 +1451,7 @@ function assertReleaseWorkflow(workflow, source) {
     source,
   );
   if (
-    /\bdocker\s+(?:login|push)\b|\bgh\s+release\b|\b(?:ssh|scp|rsync)\b/iu.test(
+    /\bdocker\s+(?:login|push)\b|\boras\s+(?:login|cp|push)\b|\bgh\s+release\b|\b(?:ssh|scp|rsync)\b/iu.test(
       prepareRuns,
     )
   ) {
@@ -1453,7 +1472,7 @@ function assertReleaseWorkflow(workflow, source) {
   );
   const loginIndex = findStep(
     publish,
-    (_step, run) => run.includes('docker login ghcr.io'),
+    (_step, run) => run.includes('oras login ghcr.io'),
   );
   const registryConflictIndex = findStep(
     publish,
@@ -1462,9 +1481,12 @@ function assertReleaseWorkflow(workflow, source) {
   const pushIndex = findStep(
     publish,
     (_step, run) =>
-      run.includes('docker push') &&
+      run.includes('oras manifest fetch') &&
+      run.includes('--oci-layout') &&
+      run.includes('oras cp --from-oci-layout') &&
       run.includes('docker buildx imagetools inspect') &&
       run.includes('--raw') &&
+      run.includes('cmp --silent "$candidate_manifest" "$manifest_file"') &&
       run.includes('sha256sum "$manifest_file"') &&
       run.includes('cmp --silent "$manifest_file" "$immutable_manifest"'),
   );
@@ -1529,6 +1551,9 @@ function assertReleaseWorkflow(workflow, source) {
     'tag-release-candidate.tar.sha256',
     'registry-publication-plan.json',
     'registry-evidence.json',
+    'oras manifest fetch',
+    'oras cp --from-oci-layout',
+    'cmp --silent "$candidate_manifest" "$manifest_file"',
     'ghcr.io/aculy/bangumi-staff-stats-api',
     'ghcr.io/aculy/bangumi-staff-stats-updater',
     'release-manifest.json',
@@ -1695,6 +1720,10 @@ function assertDeployWorkflow(workflow, source) {
     'and .version == "v0.1.0"',
     'descriptor_count=0',
     'test "$descriptor_count" -eq 10',
+    'chmod 0555 -- archive-smoke',
+    'chmod 0444 --',
+    'mode_descriptor_count=0',
+    'test "$mode_descriptor_count" -eq 10',
     '$0 !~ /^[0-9a-f]{64}  [A-Za-z0-9][A-Za-z0-9._-]*$/',
     'LC_ALL=C sort --check payload-checksums.sha256',
     'sha256sum --check --strict payload-checksums.sha256',
@@ -1791,6 +1820,42 @@ function assertDeployWorkflow(workflow, source) {
     fail(
       'ORDER',
       'deploy must validate, download, verify, then expose its one secret',
+      source,
+    );
+  }
+  const verifyRun = String(deploy.steps[verifyIndex].run);
+  const expectedModeApplication = [
+    'chmod 0555 -- archive-smoke',
+    'chmod 0444 -- \\',
+    '  backend-component-statement.json \\',
+    '  backend.spdx.json \\',
+    '  compatibility-manifest.json \\',
+    '  frontend-component-statement.json \\',
+    '  frontend-static-linux-amd64.tar \\',
+    '  frontend.spdx.json \\',
+    '  payload-checksums.sha256 \\',
+    '  updater-component-statement.json \\',
+    '  updater.spdx.json',
+  ].join('\n');
+  const descriptorIntegrityIndex = verifyRun.indexOf(
+    'test "sha256:$(sha256sum "$name"',
+  );
+  const modeApplicationIndex = verifyRun.indexOf(expectedModeApplication);
+  const descriptorModeIndex = verifyRun.indexOf(
+    `test "0$(stat --format='%a' "$name")" = "$mode"`,
+  );
+  const chmodCommandCount = verifyRun
+    .split('\n')
+    .filter((line) => line.trimStart().startsWith('chmod ')).length;
+  if (
+    descriptorIntegrityIndex < 0 ||
+    modeApplicationIndex <= descriptorIntegrityIndex ||
+    descriptorModeIndex <= modeApplicationIndex ||
+    chmodCommandCount !== 2
+  ) {
+    fail(
+      'ASSET_MODE',
+      'deploy must verify closed asset descriptors before applying exact target modes and rechecking them',
       source,
     );
   }

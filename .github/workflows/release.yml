@@ -154,6 +154,11 @@ jobs:
           version: v0.34.1
           driver-opts: image=docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368
 
+      - name: Install the reviewed OCI-preserving publisher
+        uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d
+        with:
+          version: 1.3.2
+
       - name: Download only the prepare job's named candidate
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
@@ -226,7 +231,7 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s' "$REGISTRY_TOKEN" \
-            | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+            | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
 
       - name: Refuse existing mutable version tags before any push
         shell: bash
@@ -281,19 +286,53 @@ jobs:
             esac
             test "$version_tag" = "$RELEASE_TAG"
             test -f "$candidate/$archive_path"
-            if docker image inspect "$load_reference" > /dev/null 2>&1; then
-              echo "declared load reference already exists on runner" >&2
-              exit 1
-            fi
-            docker load --input "$candidate/$archive_path" > /dev/null
-            docker image inspect "$load_reference" > /dev/null
+            archive_tag="${load_reference##*:}"
+            [[ "$archive_tag" =~ ^[0-9a-f]{40}-amd64$ ]]
             destination="$repository:$version_tag"
-            docker tag "$load_reference" "$destination"
+            candidate_manifest="$RUNNER_TEMP/bgmss-${component}-candidate-manifest.json"
+            oras manifest fetch \
+              --oci-layout "$candidate/$archive_path:$archive_tag" \
+              --output "$candidate_manifest"
+            candidate_manifest_digest="sha256:$(
+              sha256sum "$candidate_manifest" | awk '{print $1}'
+            )"
+            candidate_manifest_size="$(
+              wc -c < "$candidate_manifest" | tr -d '[:space:]'
+            )"
+            expected_manifest_digest="$(
+              jq -er \
+                --arg component "$component" '
+                  if $component == "backend" then
+                    .images.api.manifest.digest
+                  elif $component == "updater" then
+                    .images.updater.manifest.digest
+                  else
+                    error("unexpected component")
+                  end
+                ' "$candidate/tag-release-candidate-v1.json"
+            )"
+            expected_manifest_size="$(
+              jq -er \
+                --arg component "$component" '
+                  if $component == "backend" then
+                    .images.api.manifest.size
+                  elif $component == "updater" then
+                    .images.updater.manifest.size
+                  else
+                    error("unexpected component")
+                  end
+                ' "$candidate/tag-release-candidate-v1.json"
+            )"
+            test "$candidate_manifest_digest" = "$expected_manifest_digest"
+            test "$candidate_manifest_size" = "$expected_manifest_size"
 
-            docker push "$destination" > /dev/null
+            oras cp --from-oci-layout \
+              "$candidate/$archive_path:$archive_tag" \
+              "$destination"
             manifest_file="$RUNNER_TEMP/bgmss-${component}-registry-manifest.json"
             docker buildx imagetools inspect "$destination" --raw \
               > "$manifest_file"
+            cmp --silent "$candidate_manifest" "$manifest_file"
             manifest_digest="sha256:$(
               sha256sum "$manifest_file" | awk '{print $1}'
             )"
@@ -447,4 +486,4 @@ jobs:
       - name: Remove runner registry credentials
         if: always()
         shell: bash
-        run: docker logout ghcr.io > /dev/null 2>&1 || true
+        run: oras logout ghcr.io > /dev/null 2>&1 || true

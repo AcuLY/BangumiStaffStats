@@ -314,7 +314,6 @@ jobs:
             test ! -L "$name"
             test "sha256:$(sha256sum "$name" | awk '{print $1}')" = "$digest"
             test "$(stat --format='%s' "$name")" = "$size"
-            test "0$(stat --format='%a' "$name")" = "$mode"
             descriptor_count=$((descriptor_count + 1))
           done < <(
             jq -r '
@@ -330,6 +329,38 @@ jobs:
             ' release-manifest.json
           )
           test "$descriptor_count" -eq 10
+
+          chmod 0555 -- archive-smoke
+          chmod 0444 -- \
+            backend-component-statement.json \
+            backend.spdx.json \
+            compatibility-manifest.json \
+            frontend-component-statement.json \
+            frontend-static-linux-amd64.tar \
+            frontend.spdx.json \
+            payload-checksums.sha256 \
+            updater-component-statement.json \
+            updater.spdx.json
+
+          mode_descriptor_count=0
+          while IFS=$'\t' read -r name _digest _size mode extra; do
+            test -z "${extra:-}"
+            test "0$(stat --format='%a' "$name")" = "$mode"
+            mode_descriptor_count=$((mode_descriptor_count + 1))
+          done < <(
+            jq -r '
+              [
+                .assets.archiveSmoke,
+                .assets.compatibilityManifest,
+                .assets.frontend,
+                .assets.payloadChecksums,
+                .assets.provenance[]
+              ][]
+              | [.path, .sha256, (.size | tostring), .mode]
+              | @tsv
+            ' release-manifest.json
+          )
+          test "$mode_descriptor_count" -eq 10
 
           awk '
             $0 !~ /^[0-9a-f]{64}  [A-Za-z0-9][A-Za-z0-9._-]*$/ {

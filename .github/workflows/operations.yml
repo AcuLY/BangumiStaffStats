@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "operations/**"
+      - ".gitignore"
       - ".github/workflows/ci.yml"
       - ".github/workflows/operations.yml"
       - ".github/workflows/release.yml"
@@ -22,6 +23,7 @@ on:
       - "**"
     paths:
       - "operations/**"
+      - ".gitignore"
       - ".github/workflows/ci.yml"
       - ".github/workflows/operations.yml"
       - ".github/workflows/release.yml"
