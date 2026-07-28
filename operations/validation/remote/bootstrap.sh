@@ -32,7 +32,8 @@ readonly ownership_nonce="$6"
 [[ "$agent_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || fail
 [[ "$initial_deadline" =~ ^[1-9][0-9]{9}$ ]] || fail
 [[ "$ownership_nonce" =~ ^sha256:[0-9a-f]{64}$ ]] || fail
-readonly now="$(date +%s)"
+now="$(date +%s)" || fail
+readonly now
 (( initial_deadline > now && initial_deadline - now <= 25200 )) || fail
 [[ "$(id -u)" == "0" && -d /srv && ! -L /srv ]] || fail
 [[ ! -e "$target_root" && ! -L "$target_root" ]] || fail
@@ -64,7 +65,10 @@ signal_name=""
 current_head=""
 
 sha_file() {
-  printf 'sha256:%s\n' "$(sha256sum -- "$1" | awk '{print $1}')"
+  local digest
+  digest="$(sha256sum -- "$1" | awk '{print $1}')" || return
+  [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || return 1
+  printf 'sha256:%s\n' "$digest"
 }
 
 fsync_directory() {
@@ -337,10 +341,14 @@ sync -f "$agent"
 fsync_parent "$agent"
 [[ "$(sha_file "$agent")" == "$agent_digest" ]] || fail
 
-readonly root_device="$(stat -c '%d' -- "$root")"
-readonly root_inode="$(stat -c '%i' -- "$root")"
-readonly ledger_device="$(stat -c '%d' -- "$ledger")"
-readonly ledger_inode="$(stat -c '%i' -- "$ledger")"
+root_device="$(stat -c '%d' -- "$root")" || fail
+readonly root_device
+root_inode="$(stat -c '%i' -- "$root")" || fail
+readonly root_inode
+ledger_device="$(stat -c '%d' -- "$ledger")" || fail
+readonly ledger_device
+ledger_inode="$(stat -c '%i' -- "$ledger")" || fail
+readonly ledger_inode
 (
   set -o noclobber
   jq -cnS \
@@ -370,7 +378,8 @@ chmod 0400 "$marker"
 chown 0:0 "$marker"
 sync -f "$marker"
 fsync_parent "$marker"
-readonly marker_digest="$(sha_file "$marker")"
+marker_digest="$(sha_file "$marker")" || fail
+readonly marker_digest
 
 library_fd=""
 agent_fd=""

@@ -15,9 +15,12 @@ those byte identities and must keep two authorities separate:
 The production guide reserves a single-host topology with host Nginx/systemd,
 Compose API/Prometheus, and a one-shot Updater. The current authorization
 allows repository definitions and one isolated host validation, but not live
-activation. `myserver` currently presents the expected CentOS Stream 9 AMD64,
-Docker Engine 26.1.4, and Compose 2.27.1 profile; every fact is rechecked and
-sealed before a write because host state may drift.
+activation. `myserver` currently reports Linux AMD64, Docker Engine 26.1.4
+with negotiated API 1.45, and Compose 2.27.1. These observed identities are
+sealed for audit, while admission is based on the required Linux/local-Docker-
+socket/API-interval/Compose-command/host-command capabilities rather than a
+distribution brand or unrelated patch version. Every admitted capability and
+identity is rechecked before a write because host state may drift.
 
 The exact current external scopes are:
 
@@ -44,7 +47,7 @@ The exact current external scopes are:
 | Consumes | Archived authorized CI/remote development-acceptance lifecycle bundle and frozen product identity; accepted build/contracts/tool identities; Archive/current/status contracts; the minimal validation Archive; the candidate Updater's sealed acquisition implementation/configuration and public read-only upstream inputs; read-only host facts. The formal Darwin/ARM64 matrix remains explicitly unexecuted and is never represented as green. |
 | Produces | AMD64 component/compatibility/release evidence, release/deploy policy, production-boundary definitions, recovery entrypoints/runbooks, one remotely generated full inactive validation Archive, and canonical isolated-validation/non-interference evidence. |
 | Dependencies | Frozen product and Contracts → accepted-development receipt → fresh AMD64 validation candidate; for a later tag, frozen-baseline comparison → two builds of that exact tag commit → tag-release candidate/published manifest; runtime definitions → isolated validation. No reverse dependency or upstream rewrite is allowed. |
-| Deliverables | Proposal's exact repository artifacts, local gates, AMD64 candidate, and isolated validation/cleanup result. |
+| Deliverables | Proposal's exact repository artifacts, CI-owned gates, AMD64 candidate, and isolated validation/cleanup result. |
 | Acceptance | Per-spec gates plus cross-capability rendered topology, transaction, provenance, secret, negative, residue, and protected-state audits. |
 | Non-goals | Product/UI/API/statistics changes; reuse of ARM64 bytes as AMD64; production activation/build; release execution; public routing; scheduler installation or production weekly acquisition; SLO sign-off; migration/cutover; or legacy retirement. |
 | Operations deferred | Registry/GitHub publication; Environment/secret setup; `/srv/bgmss-v2` installation/start; Nginx/systemd/TLS/DNS/firewall/users; real timer/update; public preview/cutover; observation windows; and old-stack deletion. |
@@ -211,8 +214,12 @@ operations/
 
 Release/test control code uses exact Node 24.18.0 and npm 11.16.0. Host
 entrypoints use Bash, Docker Compose, `jq`, `curl`, `flock`, `sha256sum`,
-`tar`, and coreutils only; remote preflight verifies them before staging.
-No Node runtime or application source is installed on the host.
+`tar`, and coreutils only. Remote preflight binds Docker to the local Unix
+socket, admits negotiated Docker API 1.45 or newer only within the
+server-advertised interval, and verifies the exact command capabilities used
+later by mutation and cleanup. Host tool versions are evidence, not patch
+locks. No Node, Go, Python runtime, or application source is installed on the
+host.
 
 ### 4. Add only two control-plane libraries
 
@@ -447,8 +454,13 @@ The local validation controller:
 8. repeats the read-only inventory.
 
 It does not interpolate free-form user values into shell. The remote payload
-sets a restrictive umask, sanitizes environment, validates every input again,
-and records every created path/resource before later mutation. Archive inputs
+sets a restrictive umask, removes every inherited `DOCKER_*` and `COMPOSE_*`
+authority, fixes Docker to the local Unix socket and a proven-absent empty
+configuration path, seals both the Docker CLI and selected system Compose
+plugin bytes, validates every input again, and records every created
+path/resource before later mutation. Command-substitution results are assigned
+and checked before being marked read-only so declaration builtins cannot mask
+an upstream failure. Archive inputs
 begin with the small accepted compatible Archive used for safe pointer
 rollback. The candidate Updater performs one bounded real acquisition inside
 the isolated namespace to produce the full inactive Archive, and the
@@ -569,10 +581,13 @@ retroactively treated as green.
    archived, and committed with its exact authorized CI/remote lifecycle
    bundle; record the frozen product and evidence identities while preserving
    the fact that no canonical formal result was emitted.
-2. Implement and locally test the Operations foundation/release control plane.
-3. Implement and locally test the single-host runtime, recovery, observability,
-   and inert host-integration templates.
-4. Implement and locally test the isolated validation controller/payload.
+2. Implement the Operations foundation/release control plane and have
+   `operations.yml` execute its complete tests.
+3. Implement the single-host runtime, recovery, observability, and inert
+   host-integration templates, then have `operations.yml` execute its complete
+   disposable tests.
+4. Implement the isolated validation controller/payload and have
+   `operations.yml` execute its complete fake/disposable tests.
 5. Commit the reviewed Operations implementation so its controller identity is
    stable; keep release/deploy workflows undispatched.
 6. From the frozen accepted product revision/tree, build two clean AMD64 sets,

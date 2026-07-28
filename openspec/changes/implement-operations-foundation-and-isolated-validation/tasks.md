@@ -59,10 +59,11 @@
 - [ ] 1.6 Audit both library licenses, exact lock closure, advisory output, and
   absence from Frontend/API/Updater/host runtime; record the commands and
   decisions in the owner handoff without weakening a failure.
-- [ ] 1.7 Run
+- [ ] 1.7 Have `operations.yml` run
   `npm --prefix operations ci --ignore-scripts --no-audit --no-fund`,
   `npm --prefix operations run test:foundation`,
   `npm --prefix operations run check:dependencies`,
+  plus the aggregate Operations gates. Locally run only syntax/schema/OpenSpec,
   `git diff --check`, the exact owned-path diff, and `git status --short`;
   remove only run-owned `operations/.tmp/**`; report implemented/verified
   separately and do not stage.
@@ -147,11 +148,12 @@
   duplicate-key rejection and test permissions, triggers, action pins,
   commands, environments, secret flow, uploads, registry, SSH, and host
   boundaries. Add adversarial fixtures for each forbidden authority.
-- [ ] 2.10 Run
+- [ ] 2.10 Have `operations.yml` run
   `npm --prefix operations run test:release`,
   `npm --prefix operations run check:workflows`,
   `npm --prefix operations run check:release-schemas`,
-  `git diff --check`, exact owned-path/residue checks, and strict OpenSpec.
+  and the full release matrix. Locally run only syntax/schema/OpenSpec,
+  `git diff --check`, and exact owned-path/residue checks.
   Record results, remove only run-owned temporary fixtures, and do not run any
   tag, login, registry push, Release creation, Environment, SSH, or deploy.
 
@@ -227,14 +229,14 @@
   recovery. Every command must use the one fixed entrypoint and explicitly
   label repository-defined, installed, activated, released, and deployed
   states.
-- [ ] 3.11 Run
+- [ ] 3.11 Have `operations.yml` run
   `npm --prefix operations run test:runtime`,
   `npm --prefix operations run check:compose`,
   `npm --prefix operations run check:host-templates`,
   `npm --prefix operations run check:secrets`,
-  `bash -n operations/bin/*.sh`,
-  `git diff --check`, exact owned-path/residue checks, and strict OpenSpec.
-  Exercise success and every local injected failure; do not touch
+  and every disposable success/failure fixture. Locally run only
+  `bash -n operations/bin/*.sh`, JSON/JavaScript syntax, strict OpenSpec,
+  `git diff --check`, and exact owned-path/residue checks. Do not touch
   `/srv`, Docker, Nginx, systemd, TLS, or a remote host.
 
 ## 4. Isolated validation controller and payload
@@ -245,22 +247,32 @@
   this implementation group may write before the later Group 7 admission.
 - [ ] 4.2 Add strict validation input/result/resource schemas and fixtures
   binding Operations/frozen-product/release-candidate identities, full/minimal
-  Archives, exact host facts/root/project/services/API bind, all six image
+  Archives, exact host identity/capability evidence and
+  root/project/services/API bind, all six image
   references, three manifest/config/runtime identities, both network IDs,
   path manifest,
   commands/durations, primary/rollback/cleanup status, and protected
   before/after evidence without secrets.
 - [ ] 4.3 Implement a read-only SSH preflight that verifies
-  `myserver`, `x86_64`/CentOS Stream 9/Docker 26.1.4/Compose 2.27.1,
-  Nginx/systemd and required tools, disk/inodes, absent validation root/project/
-  services/network/named volumes, free `127.0.0.1:19090`, and absence of all
-  six image refs. Inventory protected root identities/static configs, projects,
-  resources, listeners, and processes without reading secret/live-data bytes.
+  `myserver`, root Linux `x86_64`, a client fixed to the local Docker Unix
+  socket, negotiated Docker API >=1.45 within the server interval, a
+  `linux/amd64` server, Compose v2 and every actually used Docker/Compose and
+  Bash/GNU/curl capability, Nginx/systemd, disk/inodes, absent validation
+  root/project/services/network/named volumes, free `127.0.0.1:19090`, and
+  absence of all six image refs. Remove all inherited `DOCKER_*`/`COMPOSE_*`
+  authority, use only the fixed local socket plus a proven-absent empty config,
+  and seal the selected system Compose plugin identity/bytes with the Docker
+  CLI. Record versions as evidence without a distribution or unrelated patch
+  gate; require no host Node/Go/Python.
+  Inventory protected root identities/static configs, projects, resources,
+  listeners, and processes without reading secret/live-data bytes.
 - [ ] 4.4 Implement the local sealed transfer and fixed remote payload:
   no free-form shell values; create only the absent validation root; closed
   file/path/mode/size/digest/device inventory; production-vs-validation render
-  diff permitting only the exact tuple/release/evidence substitutions; and
-  record each created object before load/pull/start.
+  diff permitting only the exact tuple/release/evidence substitutions; fail
+  every command substitution at its assignment before marking the value
+  read-only so Bash declarations cannot mask producer failure; and record each
+  created object before load/pull/start.
 - [ ] 4.5 Implement global image ownership: load the exact Backend/Updater
   archives, capture each artifact tag + OCI manifest/config + Docker runtime
   ID before aliasing, pull only the pinned Prometheus digest/architecture,
@@ -296,12 +308,13 @@
   process/six image refs absent, no named volume ever present, and protected
   before/after facts unchanged; state only isolated verification and keep
   released/deployed false.
-- [ ] 4.10 Run
+- [ ] 4.10 Have `operations.yml` run
   `npm --prefix operations run test:validation`,
   `npm --prefix operations run check:validation-schemas`,
   `npm --prefix operations run test:remote-fixtures`,
-  `git diff --check`, exact owned-path/residue checks, and strict OpenSpec
-  entirely against local fakes/disposable roots. Do not contact `myserver`
+  entirely against CI fakes/disposable roots. Locally run only
+  syntax/schema/OpenSpec, `git diff --check`, and exact owned-path/residue
+  checks. Do not contact `myserver`
   mutably or leave `operations/.tmp/**`.
 
 ## 5. Integrated repository acceptance and staged implementation commits
@@ -312,16 +325,14 @@
   paths dirty. Create `operations/README.md` only; it must route operators to
   fixed commands, distinguish local candidate/release/deploy/activation
   states, and repeat all current non-goals.
-- [ ] 5.2 Run from a fresh dependency install:
-  `npm --prefix operations ci --ignore-scripts --no-audit --no-fund`,
-  `npm --prefix operations test`,
-  `npm --prefix operations run check`,
-  `npm --prefix operations run check:workflows`,
-  `npm --prefix operations run check:compose`,
-  `npm --prefix operations run check:host-templates`,
-  `npm --prefix operations run check:secrets`,
+- [ ] 5.2 Run local syntax/schema-only checks (`node --check` for changed
+  JavaScript, `bash -n` for changed shell, and `jq empty` for changed JSON
+  schemas), plus
   `openspec validate implement-operations-foundation-and-isolated-validation --strict --json`,
-  `openspec validate --all --strict --json`, and `git diff --check`.
+  `openspec validate --all --strict --json`, and `git diff --check`. Execute
+  the complete Operations test/build/Compose/workflow/security matrix only in
+  `operations.yml`, and accept it only together with `ci.yml` when both are
+  green on the same exact commit.
 - [ ] 5.3 Audit exact tracked/untracked/ignored inventory, ensure generated
   state is only under then-removed `operations/.tmp/**`, prove every product/
   Contract/oracle/authority blob equals the approved base, and prove no nested
@@ -342,8 +353,9 @@
 - [ ] 6.1 **AMD64 execution owner preflight.** Require a clean committed
   Operations implementation, exact commit/tree approved by the main agent,
   archived authorized CI/remote acceptance input, frozen product OIDs, exact
-  Node/npm/Go/uv/Docker/Buildx/BuildKit identities, sufficient local space,
-  a working real AMD64 container-execution smoke on the admitted builder, and
+  Node/npm/Go/uv/Docker/Buildx/BuildKit identities on the admitted GitHub
+  Actions runner, sufficient runner space, a working real AMD64
+  container-execution smoke on the admitted builder, and
   no existing target output address with different bytes. Reject the host
   default Node/npm when it differs from the admitted versions.
 - [ ] 6.2 Set only task-specific absolute inputs, for example
@@ -352,8 +364,8 @@
   with the exact Node 24.18.0/npm 11.16.0 directory prepended to `PATH` and
   `DOCKER_DEFAULT_PLATFORM=linux/amd64`,
   `npm --prefix operations run build:amd64 -- --acceptance-input "$BGMSS_OPS_ACCEPTANCE_INPUT" --output "$BGMSS_OPS_AMD64_OUTPUT"`.
-  The command must create two isolated frozen-product checkouts/caches and no
-  external ref or registry write.
+  Run this command only in `operations.yml`; it must create two isolated
+  frozen-product checkouts/caches and no external ref or registry write.
 - [ ] 6.3 Run
   `npm --prefix operations run verify:candidate -- --root "$BGMSS_OPS_AMD64_OUTPUT/published/<content-address>"`,
   upstream offline component/compatibility validators, and a second independent
@@ -378,7 +390,8 @@
   run/head identity. Then run only
   `npm --prefix operations run preflight:myserver -- --candidate /absolute/path/to/candidate`.
   It must perform read-only SSH checks and emit a canonical preflight; any
-  unexpected host/tool/root/project/service/network/volume/port/image/path/
+  unsupported host capability or unexpected
+  root/project/service/network/volume/port/image/path/
   listener/process/space fact stops with zero remote writes.
 - [ ] 7.2 Main agent reviews the preflight against the exact boundary:
   `myserver:/srv/bgmss-ops-validation`, project
@@ -415,9 +428,10 @@
   protected paths; require zero P0/P1 and separately record investigated,
   specified, implemented, verified, committed, pushed, released, and deployed.
 - [ ] 8.2 Mark only evidence-backed task/status fields complete, re-run the
-  full aggregate/local strict gates and exact status/residue checks, then sync
-  all three delta specs to root specifications and archive this change using
-  the OpenSpec lifecycle skill. Validate the archived change and all root specs
+  local syntax/schema/OpenSpec/diff gates and exact status/residue checks,
+  require same-commit green `ci.yml` and `operations.yml`, then sync all three
+  delta specs to root specifications and archive this change using the
+  OpenSpec lifecycle skill. Validate the archived change and all root specs
   strictly.
 - [ ] 8.3 Commit the exact OpenSpec lifecycle delta as a separate main-agent
   commit with recorded parent/tree/path set. Prove the final branch contains no
@@ -426,8 +440,9 @@
 - [ ] 8.4 Push `codex/formal-rewrite` and monitor the new commit's
   `ci.yml` and `operations.yml` GitHub Actions runs. If a check fails, inspect
   exact logs, amend the relevant OpenSpec/owner implementation through the
-  established rules, rerun local gates, commit/push the correction, and wait
-  for green; do not run `release.yml` or `deploy.yml`.
+  established rules, rerun local syntax/schema/OpenSpec/diff gates, commit/push
+  the correction, and wait for green Actions; do not run `release.yml` or
+  `deploy.yml`.
 - [ ] 8.5 Final report links exact repository artifacts/commits and summarizes
   AMD64/host evidence and remaining deferred production steps. The maximum
   operational claim is that repository Operations definitions passed isolated

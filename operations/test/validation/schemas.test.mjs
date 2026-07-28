@@ -29,6 +29,62 @@ test('validation schemas accept one closed success-input evidence set', () => {
   assert.equal(validateValidationResources(resources), resources);
 });
 
+test('preflight schema records portable Linux and container capability evidence', () => {
+  const preflight = validPreflight();
+  preflight.host.composeVersion = '2.99.7';
+  preflight.host.dockerClientVersion = '28.4.0';
+  preflight.host.dockerNegotiatedApiVersion = '1.52';
+  preflight.host.dockerServerApiVersion = '1.52';
+  preflight.host.dockerServerVersion = '28.4.0';
+  preflight.host.kernelRelease = '6.12.0-generic.x86_64';
+  assert.equal(validateValidationPreflight(preflight), preflight);
+  assert.equal(
+    preflight.host.dockerEndpoint,
+    'unix:///var/run/docker.sock',
+  );
+  assert.equal(
+    preflight.host.dockerConfig,
+    '/run/bgmss-docker-config-absent',
+  );
+  assert.equal(
+    preflight.host.composePluginPath,
+    '/usr/libexec/docker/cli-plugins/docker-compose',
+  );
+
+  const branded = clone(preflight);
+  branded.host.osId = 'centos';
+  assert.throws(() => validateValidationPreflight(branded));
+
+  const composeV1 = clone(preflight);
+  composeV1.host.composeVersion = '1.29.2';
+  assert.throws(() => validateValidationPreflight(composeV1));
+
+  const remoteDocker = clone(preflight);
+  remoteDocker.host.dockerEndpoint = 'tcp://foreign.invalid:2376';
+  assert.throws(() => validateValidationPreflight(remoteDocker));
+
+  const injectedDockerConfig = clone(preflight);
+  injectedDockerConfig.host.dockerConfig = '/tmp/foreign';
+  assert.throws(() => validateValidationPreflight(injectedDockerConfig));
+
+  const userComposePlugin = clone(preflight);
+  userComposePlugin.host.composePluginPath =
+    '/home/foreign/.docker/cli-plugins/docker-compose';
+  assert.throws(() => validateValidationPreflight(userComposePlugin));
+
+  const missingCapability = clone(preflight);
+  delete missingCapability.host.hostCapabilities.coreutilsMvNoClobber;
+  assert.throws(() => validateValidationPreflight(missingCapability));
+
+  const falseCapability = clone(preflight);
+  falseCapability.host.hostCapabilities.curlMaxFilesize = false;
+  assert.throws(() => validateValidationPreflight(falseCapability));
+
+  const inventedCapability = clone(preflight);
+  inventedCapability.host.hostCapabilities.distributionBrand = true;
+  assert.throws(() => validateValidationPreflight(inventedCapability));
+});
+
 test('validation schemas reject unknown fields and unsafe digest/platform data', () => {
   const unknown = validInput();
   unknown.remote.extra = true;

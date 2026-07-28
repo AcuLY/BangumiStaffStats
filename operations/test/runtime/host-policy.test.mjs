@@ -191,28 +191,75 @@ test('Bash entrypoints and environment sanitizer pass their real preambles', () 
       `${relative} must reach its deliberate installed-path refusal`,
     );
   }
-  const sanitizer = spawnSync(
-    'bash',
-    [
-      '--noprofile',
-      '--norc',
-      '-c',
-      'source "$1"; ops_sanitize_process; test -n "$SHELLOPTS"',
-      'runtime-sanitizer-test',
-      path.join(OPERATIONS, 'bin/lib/common.sh'),
-    ],
-    {
-      encoding: 'utf8',
-      env: { PATH: '/usr/bin:/bin' },
-    },
-  );
-  assert.equal(sanitizer.status, 0, sanitizer.stderr);
+  if (process.platform === 'linux') {
+    const sanitizer = spawnSync(
+      'bash',
+      [
+        '--noprofile',
+        '--norc',
+        '-c',
+        [
+          'source "$1"',
+          'ops_sanitize_process',
+          'test -n "$SHELLOPTS"',
+          'test "$DOCKER_HOST" = "unix:///var/run/docker.sock"',
+          'test "$DOCKER_CONFIG" = "/run/bgmss-docker-config-absent"',
+          'test -z "${DOCKER_API_VERSION+x}"',
+          'test -z "${DOCKER_AUTH_CONFIG+x}"',
+          'test -z "${DOCKER_CERT_PATH+x}"',
+          'test -z "${DOCKER_CONTEXT+x}"',
+          'test -z "${DOCKER_CUSTOM_HEADERS+x}"',
+          'test -z "${DOCKER_DEFAULT_PLATFORM+x}"',
+          'test -z "${DOCKER_FUTURE_AUTHORITY+x}"',
+          'test -z "${DOCKER_TLS+x}"',
+          'test -z "${DOCKER_TLS_VERIFY+x}"',
+          'test -z "${COMPOSE_FUTURE_AUTHORITY+x}"',
+          'test -z "${COMPOSE_REMOVE_ORPHANS+x}"',
+          'test -z "${COMPOSE_STATUS_STDOUT+x}"',
+        ].join('; '),
+        'runtime-sanitizer-test',
+        path.join(OPERATIONS, 'bin/lib/common.sh'),
+      ],
+      {
+        encoding: 'utf8',
+        env: {
+          COMPOSE_FUTURE_AUTHORITY: 'foreign',
+          COMPOSE_REMOVE_ORPHANS: '1',
+          COMPOSE_STATUS_STDOUT: '1',
+          DOCKER_API_VERSION: '0.1',
+          DOCKER_AUTH_CONFIG: '{"auths":{"foreign.invalid":{}}}',
+          DOCKER_CERT_PATH: '/tmp/foreign',
+          DOCKER_CONFIG: '/tmp/foreign',
+          DOCKER_CONTEXT: 'foreign',
+          DOCKER_CUSTOM_HEADERS: 'X-Foreign=value',
+          DOCKER_DEFAULT_PLATFORM: 'linux/arm64',
+          DOCKER_FUTURE_AUTHORITY: 'foreign',
+          DOCKER_HOST: 'tcp://foreign.invalid:2376',
+          DOCKER_TLS: '1',
+          DOCKER_TLS_VERIFY: '1',
+          PATH: '/usr/bin:/bin',
+        },
+      },
+    );
+    assert.equal(sanitizer.status, 0, sanitizer.stderr);
+  }
   for (const source of [
     read('bin/bgmss-ops'),
     read('bin/bgmss-v2-deploy'),
     read('bin/lib/common.sh'),
   ]) {
     assert.doesNotMatch(source, /unset[\s\S]{0,240}\bSHELLOPTS\b/u);
+    assert.match(source, /unix:\/\/\/var\/run\/docker[.]sock/u);
+    assert.match(source, /\/run\/bgmss-docker-config-absent/u);
+    assert.match(source, /export DOCKER_HOST=/u);
+    assert.match(source, /export DOCKER_CONFIG=/u);
+    assert.match(source, /while IFS= read -r inherited_name/u);
+    assert.match(source, /DOCKER_[*] \| COMPOSE_[*]\)/u);
+    assert.match(source, /done < <\(compgen -e\)/u);
+    assert.match(
+      source,
+      /! -e "\$(?:OPS|BGMSS)_DOCKER_CONFIG" && ! -L "\$(?:OPS|BGMSS)_DOCKER_CONFIG"/u,
+    );
   }
 });
 

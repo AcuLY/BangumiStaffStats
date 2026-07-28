@@ -6,10 +6,30 @@ umask 077
 unset BASH_ENV CDPATH ENV GLOBIGNORE IFS KSH_ENV NODE_OPTIONS NODE_PATH \
   PERL5OPT PS4 PYTHONHOME PYTHONINSPECT PYTHONPATH PYTHONSTARTUP RUBYOPT \
   ZDOTDIR
+while IFS= read -r inherited_name; do
+  case "$inherited_name" in
+    DOCKER_* | COMPOSE_*)
+      unset "$inherited_name" || exit 1
+      ;;
+  esac
+done < <(compgen -e)
+unset inherited_name
 export LANG="C.UTF-8"
 export LC_ALL="C.UTF-8"
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export TZ="UTC"
+
+readonly docker_endpoint="unix:///var/run/docker.sock"
+readonly docker_config="/run/bgmss-docker-config-absent"
+[[ -d /run && ! -L /run &&
+   "$(stat -Lc '%u:%g' /run)" == "0:0" ]] || exit 1
+docker_config_parent_mode="$(stat -Lc '%a' /run)" || exit 1
+[[ "$docker_config_parent_mode" =~ ^[0-7]{3,4}$ ]] || exit 1
+(( (8#$docker_config_parent_mode & 0022) == 0 )) || exit 1
+unset docker_config_parent_mode
+[[ ! -e "$docker_config" && ! -L "$docker_config" ]] || exit 1
+export DOCKER_HOST="$docker_endpoint"
+export DOCKER_CONFIG="$docker_config"
 
 readonly root="/srv/bgmss-ops-validation"
 readonly project="bgmss_ops_validation"
@@ -162,7 +182,10 @@ fail() {
 }
 
 sha_file() {
-  printf 'sha256:%s\n' "$(sha256sum -- "$1" | awk '{print $1}')"
+  local digest
+  digest="$(sha256sum -- "$1" | awk '{print $1}')" || return
+  [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || return
+  printf 'sha256:%s\n' "$digest"
 }
 
 open_authority_fd() {
@@ -2897,9 +2920,12 @@ cleanup_lock_held="true"
 
 # A HUP-immune, new-session watchdog invokes the same sealed entry in recovery
 # mode if the SSH-owned main process disappears without reaching its EXIT trap.
-readonly entry_path="$(role_path remote-entry)"
-readonly entry_expected="$(jq -er \
-  '.transfer.files[] | select(.role == "remote-entry") | .sha256' "$input")"
+entry_path="$(role_path remote-entry)" || fail "WATCHDOG_ENTRY_INVALID"
+readonly entry_path
+entry_expected="$(jq -er \
+  '.transfer.files[] | select(.role == "remote-entry") | .sha256' "$input")" ||
+  fail "WATCHDOG_ENTRY_INVALID"
+readonly entry_expected
 [[ -f "$entry_path" && ! -L "$entry_path" &&
    "$(sha_file "$entry_path")" == "$entry_expected" ]] ||
   fail "WATCHDOG_ENTRY_INVALID"
@@ -3027,7 +3053,8 @@ chown 0:0 "$updater_current_mask"
 runtime_close_object "$updater_current_mask" ||
   fail "UPDATER_MASK_LEDGER_CLOSE_FAILED"
 
-readonly frontend_archive="$(role_path frontend)"
+frontend_archive="$(role_path frontend)" || fail "FRONTEND_INSTALL_FAILED"
+readonly frontend_archive
 frontend_install_command() {
   runtime_create_file "$frontend_listing" 0600 0 0 yes || return
   runtime_create_file "$frontend_verbose" 0600 0 0 yes || return
@@ -3143,12 +3170,24 @@ chown 0:0 "${data_root}/current.json"
 runtime_close_object "${data_root}/current.json" ||
   fail "CURRENT_POINTER_LEDGER_CLOSE_FAILED"
 
-readonly api_load_ref="$(jq -er '.images.api.declaredLoadReference' "$input")"
-readonly updater_load_ref="$(jq -er '.images.updater.declaredLoadReference' "$input")"
-readonly api_alias="$(jq -er '.images.api.validationAlias' "$input")"
-readonly updater_alias="$(jq -er '.images.updater.validationAlias' "$input")"
-readonly prometheus_ref="$(jq -er '.images.prometheus.reference' "$input")"
-readonly prometheus_alias="$(jq -er '.images.prometheus.validationAlias' "$input")"
+api_load_ref="$(jq -er '.images.api.declaredLoadReference' "$input")" ||
+  fail "API_IMAGE_INPUT_INVALID"
+readonly api_load_ref
+updater_load_ref="$(jq -er '.images.updater.declaredLoadReference' "$input")" ||
+  fail "UPDATER_IMAGE_INPUT_INVALID"
+readonly updater_load_ref
+api_alias="$(jq -er '.images.api.validationAlias' "$input")" ||
+  fail "API_IMAGE_INPUT_INVALID"
+readonly api_alias
+updater_alias="$(jq -er '.images.updater.validationAlias' "$input")" ||
+  fail "UPDATER_IMAGE_INPUT_INVALID"
+readonly updater_alias
+prometheus_ref="$(jq -er '.images.prometheus.reference' "$input")" ||
+  fail "PROMETHEUS_IMAGE_INPUT_INVALID"
+readonly prometheus_ref
+prometheus_alias="$(jq -er '.images.prometheus.validationAlias' "$input")" ||
+  fail "PROMETHEUS_IMAGE_INPUT_INVALID"
+readonly prometheus_alias
 api_image_intent="$(
   jq -cnS \
     --arg configDigest "$(jq -er '.images.api.config.digest' "$input")" \
@@ -3166,7 +3205,9 @@ ledger_resource_event resource-creating image "$api_image_intent" ||
   fail "API_IMAGE_LEDGER_INTENT_FAILED"
 run_recorded image-load-api success docker load --input "$(role_path api-image)" ||
   fail "API_IMAGE_LOAD_FAILED"
-readonly api_runtime="$(docker image inspect --format '{{.Id}}' "$api_load_ref")"
+api_runtime="$(docker image inspect --format '{{.Id}}' "$api_load_ref")" ||
+  fail "API_IMAGE_CONFIG_MISMATCH"
+readonly api_runtime
 [[ "$api_runtime" == "$(jq -er '.images.api.config.digest' "$input")" ]] ||
   fail "API_IMAGE_CONFIG_MISMATCH"
 docker tag "$api_load_ref" "$api_alias"
@@ -3206,7 +3247,9 @@ ledger_resource_event resource-creating image "$updater_image_intent" ||
   fail "UPDATER_IMAGE_LEDGER_INTENT_FAILED"
 run_recorded image-load-updater success docker load --input "$(role_path updater-image)" ||
   fail "UPDATER_IMAGE_LOAD_FAILED"
-readonly updater_runtime="$(docker image inspect --format '{{.Id}}' "$updater_load_ref")"
+updater_runtime="$(docker image inspect --format '{{.Id}}' "$updater_load_ref")" ||
+  fail "UPDATER_IMAGE_CONFIG_MISMATCH"
+readonly updater_runtime
 [[ "$updater_runtime" == "$(jq -er '.images.updater.config.digest' "$input")" ]] ||
   fail "UPDATER_IMAGE_CONFIG_MISMATCH"
 docker tag "$updater_load_ref" "$updater_alias"
@@ -3253,14 +3296,15 @@ jq -e \
     else false
     end
   ' "$manifest_inspect" >/dev/null || fail "PROMETHEUS_PLATFORM_MISMATCH"
-readonly prometheus_config="$(
+prometheus_config="$(
   jq -er \
     --arg digest "$(jq -er '.images.prometheus.amd64ManifestDigest' "$input")" '
       .[] |
       select(.Descriptor.digest == $digest) |
       .SchemaV2Manifest.config.digest
     ' "$manifest_inspect"
-)"
+)" || fail "PROMETHEUS_CONFIG_IDENTITY_INVALID"
+readonly prometheus_config
 [[ "$prometheus_config" =~ ^sha256:[0-9a-f]{64}$ ]] ||
   fail "PROMETHEUS_CONFIG_IDENTITY_INVALID"
 prometheus_image_intent="$(
@@ -3282,7 +3326,9 @@ ledger_resource_event resource-creating image "$prometheus_image_intent" ||
 run_recorded image-pull-prometheus success \
   docker pull --platform linux/amd64 "$prometheus_ref" ||
   fail "PROMETHEUS_PULL_FAILED"
-readonly prometheus_runtime="$(docker image inspect --format '{{.Id}}' "$prometheus_ref")"
+prometheus_runtime="$(docker image inspect --format '{{.Id}}' "$prometheus_ref")" ||
+  fail "PROMETHEUS_RUNTIME_POLICY_MISMATCH"
+readonly prometheus_runtime
 [[ "$prometheus_runtime" == "$prometheus_config" &&
    "$(docker image inspect --format '{{.Architecture}}/{{.Os}}' "$prometheus_ref")" == "amd64/linux" &&
    "$(docker image inspect --format '{{.Config.User}}' "$prometheus_ref")" == "65532" ]] ||
@@ -3908,9 +3954,10 @@ minimal_prometheus_digest_before="$(
 )" || fail "MINIMAL_PROMETHEUS_PROJECTION_DIGEST_FAILED"
 readonly minimal_prometheus_digest_before
 prometheus_id="$(docker inspect --format '{{.Id}}' "${project}-prometheus-1")"
-readonly minimal_api_container_id="$(
+minimal_api_container_id="$(
   docker inspect --format '{{.Id}}' "${project}-api-1"
-)"
+)" || fail "MINIMAL_RUNTIME_IDENTITY_INVALID"
+readonly minimal_api_container_id
 readonly minimal_prometheus_container_id="$prometheus_id"
 
 create_updater() {
@@ -3978,7 +4025,9 @@ create_updater failure none \
   contract-check --contracts-root /not-present ||
   fail "UPDATER_FAILURE_CREATE_FAILED"
 bad_id="$created_updater_id"
-readonly pointer_before_failure="$(sha_file "${data_root}/current.json")"
+pointer_before_failure="$(sha_file "${data_root}/current.json")" ||
+  fail "UPDATER_FAILURE_PROOF_FAILED"
+readonly pointer_before_failure
 run_recorded updater-intentional-failure failure docker start --attach "$bad_id" ||
   fail "UPDATER_FAILURE_NOT_OBSERVED"
 [[ "$(sha_file "${data_root}/current.json")" == "$pointer_before_failure" ]] ||
@@ -3988,7 +4037,9 @@ updater_failure="$(command_proof updater-intentional-failure)" ||
 
 common_value="$(awk -F= '$1=="BGMSS_COMMON_COMMIT" {print $2}' "$environment_path")"
 [[ "$common_value" =~ ^[0-9a-f]{40}$ ]] || fail "COMMON_COMMIT_INVALID"
-readonly pointer_before_acquisition="$(sha_file "${data_root}/current.json")"
+pointer_before_acquisition="$(sha_file "${data_root}/current.json")" ||
+  fail "UPDATER_ACQUISITION_POINTER_INVALID"
+readonly pointer_before_acquisition
 create_updater produce "${project}_outbound" \
   produce \
   --output-root /var/lib/bgmss/archive \
@@ -4163,8 +4214,12 @@ run_recorded archive-smoke-full success \
   "$smoke_path" -archive-root "$data_root" -data-version "$full_data" ||
   fail "FULL_ARCHIVE_SMOKE_FAILED"
 
-readonly full_manifest_digest="$(sha_file "${full_version}/manifest.json")"
-readonly full_sqlite_digest="$(sha_file "${full_version}/bangumi.sqlite")"
+full_manifest_digest="$(sha_file "${full_version}/manifest.json")" ||
+  fail "UPDATER_FULL_IDENTITY_INVALID"
+readonly full_manifest_digest
+full_sqlite_digest="$(sha_file "${full_version}/bangumi.sqlite")" ||
+  fail "UPDATER_FULL_IDENTITY_INVALID"
+readonly full_sqlite_digest
 chmod 0440 "${full_version}/manifest.json" "${full_version}/bangumi.sqlite"
 chmod 0550 "$full_version"
 chown 0:65532 "$full_version" "${full_version}/manifest.json" \

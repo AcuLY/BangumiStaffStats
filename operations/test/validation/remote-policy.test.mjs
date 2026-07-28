@@ -3,6 +3,8 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import test from 'node:test';
 
+import { MINIMUM_DOCKER_API_VERSION } from '../../release/docker-capability.mjs';
+
 const read = (name) =>
   fs.readFileSync(
     new URL(`../../validation/remote/${name}`, import.meta.url),
@@ -35,6 +37,167 @@ test('preflight seals complete protected trees with explicit fail-closed bounds'
   assert.match(source, /maximum_lines=100000; maximum_bytes=16777216/u);
 });
 
+test('preflight captures a digest and count from the same bounded stream', () => {
+  const source = read('preflight.sh');
+  const start = source.indexOf('bounded_seal() {');
+  const end = source.indexOf('\ntree_records() {', start);
+  assert.ok(start >= 0 && end > start);
+  const result = spawnSync('/bin/bash', ['--noprofile', '--norc', '-c', `
+    set -Eeuo pipefail
+    die() { return 1; }
+    sha256sum() {
+      cat >/dev/null
+      printf '%064d  -\\n' 0
+    }
+    jq() { printf '{}\\n'; }
+    sample_records() { printf 'first\\nsecond\\n'; }
+    ${source.slice(start, end)}
+    bounded_seal sample 'sample coverage' sample_records
+  `], {
+    encoding: 'utf8',
+    timeout: 5_000,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '{}\n');
+});
+
+test(
+  'remote Docker entry preambles remove inherited Docker and Compose authority',
+  { skip: process.platform !== 'linux' },
+  () => {
+    for (const name of ['preflight.sh', 'entry.sh']) {
+      const source = read(name);
+      const exportEnd =
+        source.indexOf('export DOCKER_CONFIG="$docker_config"') +
+        'export DOCKER_CONFIG="$docker_config"'.length;
+      assert.ok(exportEnd > 0, name);
+      const result = spawnSync('/bin/bash', ['--noprofile', '--norc', '-c', `
+        ${source.slice(0, exportEnd)}
+        test "$DOCKER_HOST" = "unix:///var/run/docker.sock"
+        test "$DOCKER_CONFIG" = "/run/bgmss-docker-config-absent"
+        while IFS= read -r inherited_name; do
+          case "$inherited_name" in
+            DOCKER_HOST|DOCKER_CONFIG) ;;
+            DOCKER_*|COMPOSE_*) exit 90 ;;
+          esac
+        done < <(compgen -e)
+      `], {
+        encoding: 'utf8',
+        env: {
+          COMPOSE_FUTURE_AUTHORITY: 'foreign',
+          COMPOSE_REMOVE_ORPHANS: '1',
+          COMPOSE_STATUS_STDOUT: '1',
+          DOCKER_AUTH_CONFIG: '{"auths":{"foreign.invalid":{}}}',
+          DOCKER_DEFAULT_PLATFORM: 'linux/arm64',
+          DOCKER_FUTURE_AUTHORITY: 'foreign',
+          DOCKER_HOST: 'tcp://foreign.invalid:2376',
+          PATH: '/usr/bin:/bin',
+        },
+        timeout: 5_000,
+      });
+      assert.equal(result.status, 0, `${name}: ${result.stderr}`);
+    }
+  },
+);
+
+test('preflight admits Linux container capabilities without a distro or patch gate', () => {
+  const source = read('preflight.sh');
+  assert.match(source, /kernel_name="\$\(uname -s\)" \|\| die/u);
+  assert.match(source, /readonly kernel_name/u);
+  assert.match(source, /\$kernel_name" == "Linux"/u);
+  assert.doesNotMatch(source, /\/etc\/os-release|CentOS|VERSION_ID/u);
+  assert.match(source, /while IFS= read -r inherited_name/u);
+  assert.match(source, /DOCKER_[*] \| COMPOSE_[*]\)/u);
+  assert.match(source, /done < <\(compgen -e\)/u);
+  assert.match(
+    source,
+    /readonly docker_endpoint="unix:\/\/\/var\/run\/docker[.]sock"/u,
+  );
+  assert.match(
+    source,
+    /readonly docker_config="\/run\/bgmss-docker-config-absent"/u,
+  );
+  assert.match(source, /! -e "\$docker_config" && ! -L "\$docker_config"/u);
+  assert.match(source, /export DOCKER_HOST="\$docker_endpoint"/u);
+  assert.match(source, /export DOCKER_CONFIG="\$docker_config"/u);
+  assert.equal(
+    /minimum_docker_api_version="([^"]+)"/u.exec(source)?.[1],
+    MINIMUM_DOCKER_API_VERSION,
+  );
+  assert.equal((source.match(/docker version --format/gu) ?? []).length, 1);
+  assert.match(source, /\{\{json [.]\}\}/u);
+  assert.match(source, /head -c 65537/u);
+  assert.match(source, /docker_version_bytes[\s\S]*?" -le 65536/u);
+  assert.match(source, /[.]key == "ApiVersion"/u);
+  assert.match(source, /[.]key == "APIVersion"/u);
+  assert.match(source, /\(\$matches \| length\) == 1/u);
+  assert.equal(
+    (
+      source.match(
+        /docker info --format '\{\{json [.]ClientInfo[.]Plugins\}\}'/gu,
+      ) ?? []
+    ).length,
+    1,
+  );
+  assert.match(source, /[.]Name[?] == "compose"/u);
+  assert.match(source, /\(\$matches \| length\) == 1/u);
+  assert.match(source, /compose_plugin_canonical" == "\$compose_plugin_path"/u);
+  assert.match(source, /compose_plugin_links" == "1"/u);
+  assert.match(source, /8#\$compose_plugin_mode & 0022/u);
+  assert.match(source, /"docker-compose-plugin"/u);
+  assert.match(
+    source,
+    /"\$metadata" == "\$compose_plugin_metadata"[\s\S]*?"\$digest" == "\$compose_plugin_digest"/u,
+  );
+  assert.doesNotMatch(
+    source,
+    /^readonly [A-Za-z_][A-Za-z0-9_]*="\$\(/mu,
+  );
+  assert.match(
+    source,
+    /"\$docker_negotiated_api_version" "\$minimum_docker_api_version"/u,
+  );
+  assert.match(
+    source,
+    /"\$docker_negotiated_api_version" "\$docker_server_minimum_api_version"/u,
+  );
+  assert.match(
+    source,
+    /"\$docker_server_api_version" "\$docker_negotiated_api_version"/u,
+  );
+  for (const flag of [
+    '--env-file',
+    '--file',
+    '--profile',
+    '--project-name',
+    '--quiet',
+    '--no-build',
+    '--no-recreate',
+  ]) {
+    assert.match(source, new RegExp(flag, 'u'));
+  }
+  assert.doesNotMatch(source, /compose_version" == "2[.]/u);
+});
+
+test('preflight gates the fixed Bash, GNU, util-linux, and curl feature set', () => {
+  const source = read('preflight.sh');
+  for (const capability of [
+    'declare -A associative',
+    'mapfile -t records',
+    'exec {descriptor}</dev/null',
+    '--no-clobber',
+    '--fork',
+    '--file-system',
+    '-printf',
+    '+%s%3N',
+    '--max-filesize',
+  ]) {
+    assert.ok(source.includes(capability), capability);
+  }
+  assert.match(source, /mv --help[\s\S]*?-T/u);
+  assert.match(source, /date_milliseconds[\s\S]*?\^\[0-9\]\{13\}\$/u);
+});
+
 test('remote scripts use only the exact validation root and avoid broad deletion', () => {
   for (const name of [
     'bootstrap.sh',
@@ -54,6 +217,22 @@ test('remote scripts use only the exact validation root and avoid broad deletion
     assert.doesNotMatch(source, /\/srv\/bgmss\//u);
     assert.doesNotMatch(source, /\b(node|npm|go|python3?)\b/u);
     assert.doesNotMatch(source, /unset[^\n]*(?:\\\n[^\n]*)*SHELLOPTS/u);
+  }
+});
+
+test('remote scripts never combine readonly declaration with command substitution', () => {
+  const declarationWithSubstitution =
+    /^\s*readonly(?:\s+-[aA])?\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*(?:"[^"]*\$\(|\$\()/mu;
+  for (const name of [
+    'bootstrap.sh',
+    'entry.sh',
+    'launch.sh',
+    'ownership-ledger.sh',
+    'preflight.sh',
+    'recover.sh',
+    'transfer-agent.sh',
+  ]) {
+    assert.doesNotMatch(read(name), declarationWithSubstitution, name);
   }
 });
 
@@ -118,6 +297,19 @@ test('bootstrap and launch seal ownership before executing a descriptor-open pay
 
 test('entry has disconnect recovery and identity-gated cleanup', () => {
   const source = read('entry.sh');
+  assert.match(
+    source,
+    /readonly docker_endpoint="unix:\/\/\/var\/run\/docker[.]sock"/u,
+  );
+  assert.match(source, /export DOCKER_HOST="\$docker_endpoint"/u);
+  assert.match(source, /while IFS= read -r inherited_name/u);
+  assert.match(source, /DOCKER_[*] \| COMPOSE_[*]\)/u);
+  assert.match(source, /done < <\(compgen -e\)/u);
+  assert.match(
+    source,
+    /readonly docker_config="\/run\/bgmss-docker-config-absent"/u,
+  );
+  assert.match(source, /export DOCKER_CONFIG="\$docker_config"/u);
   assert.match(source, /trap on_signal HUP INT TERM/u);
   assert.match(source, /setsid --fork \/usr\/bin\/bash "\$entry_fd_path"/u);
   assert.match(source, /--watchdog "\$run_id" "\$input_digest"/u);
@@ -225,7 +417,10 @@ test('remote validation performs one acquisition and preserves typed minimal ide
 
 test('recovery preserves unknown or replaced state', () => {
   const source = read('recover.sh');
-  assert.match(source, /readonly observed_phase=/u);
+  assert.match(
+    source,
+    /observed_phase="\$\(jq -rse [\s\S]*?\)" \|\| fail\nreadonly observed_phase/u,
+  );
   assert.match(source, /bootstrap\|transfer/u);
   assert.match(source, /entry-preparing/u);
   assert.match(source, /entry-preparing\|cleanup\|run-owned\)/u);

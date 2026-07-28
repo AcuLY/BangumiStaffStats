@@ -28,6 +28,8 @@ readonly OPS_FRONTEND_MEMBER_MAX_BYTES="268435456"
 readonly OPS_FRONTEND_EXPANDED_MAX_BYTES="1073741824"
 readonly OPS_FRONTEND_MEMBER_MAX_COUNT="20000"
 readonly OPS_UPDATER_OUTPUT_MAX_BYTES="1048576"
+readonly OPS_DOCKER_ENDPOINT="unix:///var/run/docker.sock"
+readonly OPS_DOCKER_CONFIG="/run/bgmss-docker-config-absent"
 
 OPS_ROOT=""
 OPS_PROJECT=""
@@ -40,6 +42,22 @@ ops_sanitize_process() {
   unset BASH_ENV CDPATH ENV GLOBIGNORE IFS KSH_ENV NODE_OPTIONS NODE_PATH \
     PERL5OPT PS4 PYTHONHOME PYTHONINSPECT PYTHONPATH PYTHONSTARTUP RUBYOPT \
     ZDOTDIR
+  local inherited_name docker_config_parent_mode
+  while IFS= read -r inherited_name; do
+    case "$inherited_name" in
+      DOCKER_* | COMPOSE_*)
+        unset "$inherited_name" || return
+        ;;
+    esac
+  done < <(compgen -e)
+  [[ -d /run && ! -L /run &&
+     "$(/usr/bin/stat -Lc '%u:%g' /run)" == "0:0" ]] || return
+  docker_config_parent_mode="$(/usr/bin/stat -Lc '%a' /run)" || return
+  [[ "$docker_config_parent_mode" =~ ^[0-7]{3,4}$ ]] || return
+  (( (8#$docker_config_parent_mode & 0022) == 0 )) || return
+  [[ ! -e "$OPS_DOCKER_CONFIG" && ! -L "$OPS_DOCKER_CONFIG" ]] || return
+  export DOCKER_HOST="$OPS_DOCKER_ENDPOINT"
+  export DOCKER_CONFIG="$OPS_DOCKER_CONFIG"
   export LANG="C.UTF-8"
   export LC_ALL="C.UTF-8"
   export PATH="/usr/sbin:/usr/bin:/sbin:/bin"

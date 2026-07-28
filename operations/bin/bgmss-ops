@@ -7,12 +7,31 @@ readonly BGMSS_OPS_SCRIPT_PATH="${BGMSS_OPS_ROOT}/bin/bgmss-ops"
 readonly BGMSS_OPS_SCRIPT_DIR="${BGMSS_OPS_ROOT}/bin"
 readonly BGMSS_OPS_MANIFEST="${BGMSS_OPS_ROOT}/controller-manifest.json"
 readonly BGMSS_OPS_LOCK="/run/bgmss-v2.lock"
+readonly BGMSS_DOCKER_ENDPOINT="unix:///var/run/docker.sock"
+readonly BGMSS_DOCKER_CONFIG="/run/bgmss-docker-config-absent"
 
 export PATH="/usr/sbin:/usr/bin:/sbin:/bin"
 umask 077
 unset BASH_ENV CDPATH ENV GLOBIGNORE IFS KSH_ENV NODE_OPTIONS NODE_PATH \
   PERL5OPT PS4 PYTHONHOME PYTHONINSPECT PYTHONPATH PYTHONSTARTUP RUBYOPT \
   ZDOTDIR
+while IFS= read -r inherited_name; do
+  case "$inherited_name" in
+    DOCKER_* | COMPOSE_*)
+      unset "$inherited_name" || exit 69
+      ;;
+  esac
+done < <(compgen -e)
+unset inherited_name
+[[ -d /run && ! -L /run &&
+   "$(/usr/bin/stat -Lc '%u:%g' /run)" == "0:0" ]] || exit 69
+docker_config_parent_mode="$(/usr/bin/stat -Lc '%a' /run)" || exit 69
+[[ "$docker_config_parent_mode" =~ ^[0-7]{3,4}$ ]] || exit 69
+(( (8#$docker_config_parent_mode & 0022) == 0 )) || exit 69
+unset docker_config_parent_mode
+[[ ! -e "$BGMSS_DOCKER_CONFIG" && ! -L "$BGMSS_DOCKER_CONFIG" ]] || exit 69
+export DOCKER_HOST="$BGMSS_DOCKER_ENDPOINT"
+export DOCKER_CONFIG="$BGMSS_DOCKER_CONFIG"
 
 [[ "$EUID" -eq 0 && "$0" == "$BGMSS_OPS_SCRIPT_PATH" ]] || exit 69
 

@@ -200,7 +200,8 @@ while IFS= read -r -d '' candidate; do
 done < <(find "${root}/incoming/files" -mindepth 1 -maxdepth 1 -print0)
 [[ "$actual_count" -eq 18 ]] || fail
 
-readonly entry_id="$(jq -er '.runtime.remoteEntryFileId' "$input_fd_path")"
+entry_id="$(jq -er '.runtime.remoteEntryFileId' "$input_fd_path")" || fail
+readonly entry_id
 readonly entry="${root}/incoming/files/${entry_id}"
 entry_fd=""
 open_regular_fd "$entry" read "0:0:1:500" entry_fd || fail

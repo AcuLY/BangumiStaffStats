@@ -190,11 +190,33 @@ function archiveIdentity(root) {
 
 export function controllerFilesDigest() {
   const paths = [
+    '../VERSION',
+    '../contracts/artifacts/lib/canonical-json.mjs',
+    '../contracts/artifacts/lib/strict-json.mjs',
+    '../contracts/artifacts/lib/validation.mjs',
+    '../contracts/schemas/archive/compatibility-matrix.json',
     'compose/model.mjs',
     'compose/render.mjs',
     'config/runtime-profiles.json',
+    'lib/canonical-json.mjs',
+    'lib/digest.mjs',
+    'lib/evidence-policy.mjs',
+    'lib/immutable-output.mjs',
+    'lib/path-policy.mjs',
+    'lib/schema.mjs',
+    'lib/strict-json.mjs',
     'prometheus/prometheus.yml',
     'prometheus/rules.yml',
+    'release/constants.mjs',
+    'release/docker-capability.mjs',
+    'release/files.mjs',
+    'release/oci.mjs',
+    'release/receipt.mjs',
+    'release/tar.mjs',
+    'release/verify-candidate-lib.mjs',
+    'schemas/release-accepted-development-v1.schema.json',
+    'schemas/release-tag-candidate-v1.schema.json',
+    'schemas/release-validation-candidate-v1.schema.json',
     'validation/actions-handoff.mjs',
     'validation/authority.mjs',
     'validation/constants.mjs',
@@ -205,6 +227,7 @@ export function controllerFilesDigest() {
     'validation/remote/entry.sh',
     'validation/remote/launch.sh',
     'validation/remote/ownership-ledger.sh',
+    'validation/remote/preflight.sh',
     'validation/remote/recover.sh',
     'validation/remote/transfer-agent.sh',
     'validation/schema.mjs',
@@ -375,12 +398,14 @@ export function createValidationPackage({
     archivePath: apiImageSource,
     declaredLoadReference:
       handoff.candidate.images.api.declaredLoadReference,
+    expectedMtime: 0,
     includeRuntimeDefaults: true,
   });
   const updaterGraph = inspectOciArchive({
     archivePath: updaterImageSource,
     declaredLoadReference:
       handoff.candidate.images.updater.declaredLoadReference,
+    expectedMtime: handoff.candidate.sourceEpoch,
     includeRuntimeDefaults: true,
   });
   for (const [role, graph] of [

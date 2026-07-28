@@ -105,6 +105,33 @@ test('postflight comparison preserves concrete drift without overclaim', () => {
   assert.deepEqual(comparePreflights(before, insufficient).differences, [
     'capacity.admission',
   ]);
+
+  for (const [field, value] of [
+    ['dockerNegotiatedApiVersion', '1.44'],
+    ['dockerServerMinimumApiVersion', '1.46'],
+    ['dockerServerApiVersion', '1.44'],
+  ]) {
+    const unsupported = clone(before);
+    unsupported.host[field] = value;
+    assert.throws(
+      () => comparePreflights(unsupported, unsupported),
+      ValidationPolicyError,
+    );
+  }
+
+  const remoteDocker = clone(before);
+  remoteDocker.host.dockerEndpoint = 'ssh://foreign.invalid';
+  assert.throws(
+    () => comparePreflights(remoteDocker, remoteDocker),
+    ValidationPolicyError,
+  );
+
+  const missingHostCapability = clone(before);
+  delete missingHostCapability.host.hostCapabilities.utilLinuxSetsidFork;
+  assert.throws(
+    () => comparePreflights(missingHostCapability, missingHostCapability),
+    ValidationPolicyError,
+  );
 });
 
 test('resource evidence requires exact network and image ownership', () => {

@@ -87,8 +87,12 @@ open_regular_fd "$ledger" read-write "0:0:1:600" ledger_bootstrap_fd || fail
 readonly library_fd_path="/proc/self/fd/${library_fd}"
 readonly agent_fd_path="/proc/self/fd/${agent_fd}"
 readonly ledger_bootstrap_fd_path="/proc/self/fd/${ledger_bootstrap_fd}"
-readonly expected_library_digest="$(jq -er '.libraryDigest' "$marker_fd_path")"
-readonly expected_agent_digest="$(jq -er '.agentDigest' "$marker_fd_path")"
+expected_library_digest="$(
+  jq -er '.libraryDigest' "$marker_fd_path"
+)" || fail
+readonly expected_library_digest
+expected_agent_digest="$(jq -er '.agentDigest' "$marker_fd_path")" || fail
+readonly expected_agent_digest
 [[ "sha256:$(sha256sum "$library_fd_path" | awk '{print $1}')" == \
      "$expected_library_digest" &&
    "sha256:$(sha256sum "$agent_fd_path" | awk '{print $1}')" == \
@@ -98,8 +102,10 @@ readonly expected_agent_digest="$(jq -er '.agentDigest' "$marker_fd_path")"
 source "$library_fd_path"
 readonly ledger_run_id="$run_id"
 readonly ledger_input_digest="$input_digest"
-readonly expected_ledger_device="$(jq -er '.ledgerDevice' "$marker_fd_path")"
-readonly expected_ledger_inode="$(jq -er '.ledgerInode' "$marker_fd_path")"
+expected_ledger_device="$(jq -er '.ledgerDevice' "$marker_fd_path")" || fail
+readonly expected_ledger_device
+expected_ledger_inode="$(jq -er '.ledgerInode' "$marker_fd_path")" || fail
+readonly expected_ledger_inode
 ledger_adopt_authority \
   "$ledger_bootstrap_fd" "$expected_ledger_device" "$expected_ledger_inode" ||
   fail
@@ -396,7 +402,8 @@ latest_object_states() {
   ' "$ledger_fd_path"
 }
 
-readonly ownership_nonce_value="$(jq -er '.ownershipNonce' "$marker_fd_path")"
+ownership_nonce_value="$(jq -er '.ownershipNonce' "$marker_fd_path")" || fail
+readonly ownership_nonce_value
 readonly ownership_nonce_hex="${ownership_nonce_value#sha256:}"
 readonly finalizer_lease="/srv/.bgmss-ops-validation-final-${run_id}-${ownership_nonce_hex}.json"
 readonly finalizer_ready="/srv/.bgmss-ops-validation-final-${run_id}-${ownership_nonce_hex}.ready"

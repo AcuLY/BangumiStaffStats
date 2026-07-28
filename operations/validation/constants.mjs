@@ -18,12 +18,6 @@ export const NETWORKS = Object.freeze([
   `${PROJECT}_runtime`,
 ]);
 
-export const EXPECTED_HOST = Object.freeze({
-  architecture: 'x86_64',
-  osId: 'centos',
-  osVersionId: '9',
-});
-
 export const PROMETHEUS = Object.freeze({
   amd64ManifestDigest:
     'sha256:335b5796a6e4355530475575253f84de20b8ad07bf899f65ed218451ce4c60b4',

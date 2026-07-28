@@ -11,6 +11,7 @@ import {
 } from '../lib/canonical-json.mjs';
 import { assertSha256, sha256, sha256File } from '../lib/digest.mjs';
 import { COMMON_COMMIT } from '../release/constants.mjs';
+import { MINIMUM_DOCKER_API_VERSION } from '../release/docker-capability.mjs';
 import {
   API_BIND,
   CLAIM,
@@ -311,6 +312,25 @@ export function assertInputSemantics(input) {
 
 export function protectedPreflightProjection(preflight) {
   validateValidationPreflight(preflight);
+  const negotiated = preflight.host.dockerNegotiatedApiVersion
+    .split('.')
+    .map(Number);
+  const serverMinimum = preflight.host.dockerServerMinimumApiVersion
+    .split('.')
+    .map(Number);
+  const serverMaximum = preflight.host.dockerServerApiVersion
+    .split('.')
+    .map(Number);
+  const required = MINIMUM_DOCKER_API_VERSION.split('.').map(Number);
+  const compare = (left, right) =>
+    left[0] - right[0] || left[1] - right[1];
+  if (
+    compare(negotiated, required) < 0 ||
+    compare(negotiated, serverMinimum) < 0 ||
+    compare(negotiated, serverMaximum) > 0
+  ) {
+    fail('validation Docker negotiated API capability is not admitted');
+  }
   return deepFreeze({
     absence: preflight.absence,
     host: preflight.host,

@@ -545,9 +545,10 @@ readonly library_fd_path="/proc/self/fd/${library_fd}"
 readonly agent_fd_path="/proc/self/fd/${agent_fd}"
 readonly ledger_bootstrap_fd_path="/proc/self/fd/${ledger_bootstrap_fd}"
 jq -cS . "$marker_fd_path" | cmp --silent "$marker_fd_path" - || fail
-readonly observed_marker_digest="sha256:$(
+observed_marker_digest="sha256:$(
   sha256sum "$marker_fd_path" | awk '{print $1}'
-)"
+)" || fail
+readonly observed_marker_digest
 [[ "$marker_selector" == "discover" ||
    "$marker_selector" == "$observed_marker_digest" ]] || fail
 jq -e \
@@ -822,7 +823,8 @@ run_agent_cleanup() {
     "$observed_head"
 }
 
-readonly observed_phase="$(jq -rse '.[-1].payload.phase' "$ledger_fd_path")"
+observed_phase="$(jq -rse '.[-1].payload.phase' "$ledger_fd_path")" || fail
+readonly observed_phase
 case "$observed_phase" in
   bootstrap|transfer)
     if watchdog_record_live ".transfer-watchdog.json"; then

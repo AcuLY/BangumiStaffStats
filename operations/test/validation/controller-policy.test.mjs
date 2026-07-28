@@ -225,3 +225,42 @@ test('controller seals local command, security, and continuous-health authority'
     /validation input authority differs from the local closed model/u,
   );
 });
+
+test('controller digest closes preflight and its transitive repository dependencies', () => {
+  const packageSource = source('package.mjs');
+  assert.match(
+    packageSource,
+    /images[.]api[.]declaredLoadReference,\s*expectedMtime: 0/u,
+  );
+  assert.match(
+    packageSource,
+    /images[.]updater[.]declaredLoadReference,\s*expectedMtime: handoff[.]candidate[.]sourceEpoch/u,
+  );
+  for (const relative of [
+    '../VERSION',
+    '../contracts/artifacts/lib/canonical-json.mjs',
+    '../contracts/artifacts/lib/strict-json.mjs',
+    '../contracts/artifacts/lib/validation.mjs',
+    '../contracts/schemas/archive/compatibility-matrix.json',
+    'lib/canonical-json.mjs',
+    'lib/digest.mjs',
+    'lib/evidence-policy.mjs',
+    'lib/immutable-output.mjs',
+    'lib/path-policy.mjs',
+    'lib/schema.mjs',
+    'lib/strict-json.mjs',
+    'release/constants.mjs',
+    'release/docker-capability.mjs',
+    'release/files.mjs',
+    'release/oci.mjs',
+    'release/receipt.mjs',
+    'release/tar.mjs',
+    'release/verify-candidate-lib.mjs',
+    'schemas/release-accepted-development-v1.schema.json',
+    'schemas/release-tag-candidate-v1.schema.json',
+    'schemas/release-validation-candidate-v1.schema.json',
+    'validation/remote/preflight.sh',
+  ]) {
+    assert.ok(packageSource.includes(`'${relative}'`), relative);
+  }
+});
