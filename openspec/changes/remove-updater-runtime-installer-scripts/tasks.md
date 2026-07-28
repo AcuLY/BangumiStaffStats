@@ -30,7 +30,7 @@
 
 ## 2. Updater Runtime Pruning
 
-- [ ] 2.1 In `updater/build/runtime_prune.py`, admit the direct real runtime
+- [x] 2.1 In `updater/build/runtime_prune.py`, admit the direct real runtime
   `bin` subtree only when every regular file has one exact safe installed
   `RECORD` owner; bind admission to non-following descriptors and stable
   identities, atomically quarantine with Linux/Darwin no-replace rename and
@@ -39,7 +39,7 @@
   pre-delete tree, retain terminal quarantine instead of restoring after any
   successful deletion, and make verification reject any residual direct
   `bin` or quarantine child.
-- [ ] 2.2 In `updater/build/test_artifact.py`, add producer-shaped fixtures for
+- [x] 2.2 In `updater/build/test_artifact.py`, add producer-shaped fixtures for
   `bin/jsonschema`, matching `RECORD` digest/size, two distinct absolute
   interpreter shebangs with identical pruned results, supported-launcher
   preservation, unrecorded/duplicate/missing/symlink/residual rejection, and
@@ -48,7 +48,7 @@
   collision, quarantine-root replacement before restore, and a second-entry
   failure after the first unlink, proving terminal residue/original `RECORD`
   and no partial public `bin`.
-- [ ] 2.3 End the implementation group with read-only status/diff review,
+- [x] 2.3 End the implementation group with read-only status/diff review,
   allowed static checks, `git diff --check`, and no generated residue. Do not
   run local product tests, builds, Docker, cleanup, staging, commit, or push;
   hand the unstaged two-file candidate to the main agent.
@@ -64,15 +64,19 @@
   correction evidence, synchronize the delta into
   `openspec/specs/updater-build-artifact/spec.md`, archive this change, and
   strictly validate all OpenSpec with clean diff/residue evidence.
-- [ ] 3.3 Create and strictly approve a separate acceptance-refresh OpenSpec,
-  then bind the exact acceptance-free product revision/tree to the Updater
-  checks and one compatible acceptance-control revision/tree to the existing
-  isolated remote package, supervisor, targeted,
-  exception/unexecuted-cell, cleanup, and zero-P0/P1 audit closure. Prove by
-  exact Git byte/mode inventory that the control revision differs from the
-  product only in its declared harness/lifecycle paths. The Darwin formal
-  matrix remains explicitly unexecuted.
-- [ ] 3.4 Only after that refresh is archived, hand its accepted product and
-  lifecycle identities to the active Operations change for explicit
-  receipt/build-definition rebinding; make no release, deployment,
-  production-host/service/public-route mutation in this correction.
+
+## Downstream handoff (not correction completion tasks)
+
+After this correction is archived, create and strictly approve a separate
+acceptance-refresh OpenSpec. Bind the exact acceptance-free product
+revision/tree to the Updater checks and one compatible acceptance-control
+revision/tree to the existing isolated remote package, supervisor, targeted,
+exception/unexecuted-cell, cleanup, and zero-P0/P1 audit closure. Prove by
+exact Git byte/mode inventory that the control revision differs from the
+product only in its declared harness/lifecycle paths. The Darwin formal matrix
+remains explicitly unexecuted.
+
+Only after that refresh is archived may its accepted product and lifecycle
+identities pass to the active Operations change for explicit
+receipt/build-definition rebinding. This correction makes no release,
+deployment, production-host/service/public-route mutation.

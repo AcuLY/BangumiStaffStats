@@ -77,6 +77,14 @@ through held parent descriptors. The quarantine boundary compares the stable
 directory identity rather than treating a rename-permitted root-directory
 timestamp change as content drift.
 
+Pruning starts only after the installer has exited, inside one producer-owned
+private disposable work root, before any publication. Stable owner-writer
+settlement is therefore a precondition: the helper detects deterministic
+replacement at every declared revalidation boundary, but does not claim
+resistance to a hostile same-UID process mutating a pathname between the last
+identity check and the kernel pathname operation. If exclusive ownership
+cannot be established, the producer must not call pruning.
+
 The helper tracks whether the first admitted entry has actually been removed.
 Before that point, failure may restore only a root whose device, inode, type,
 and mode still match admission, and restoration also uses no-replace rename.
