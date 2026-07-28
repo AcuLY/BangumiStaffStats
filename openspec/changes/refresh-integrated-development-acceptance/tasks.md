@@ -2,9 +2,9 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H3 implementation and exact-head Actions completed; fresh H3 run failed supervisor 13/21 and was exactly cleaned; H4 specification in review; H4 implementation, Actions, fresh verification, evidence closure, archive, commit, and push remain pending. |
+| Status | H3 implementation and exact-head Actions completed; fresh H3 run failed supervisor 13/21 and was exactly cleaned; initial H4 implementation is under review with confirmed-absence and Linux group-signal corrections pending; H4 Actions, fresh verification, evidence closure, archive, commit, and push remain pending. |
 | Owner | Main agent owns identities, specification, admission, audit, lifecycle, and Git. One delegated execution owner may perform the closed Git-evidence and remote/container command set. |
-| Writable paths | This change, its later synchronized root spec/archive, H4 changes only existing `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/test/core.test.mjs`, and optionally `contracts/acceptance/test/supervisor.test.mjs`, one exact absent remote run root, uniquely labelled run containers, and only conditionally owned fixed image references. H3 `supervisor.mjs` and the closed package inventory remain unchanged. |
+| Writable paths | This change, its later synchronized root spec/archive, H4 changes only existing `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/lib/supervisor.mjs`, `contracts/acceptance/test/core.test.mjs`, and `contracts/acceptance/test/supervisor.test.mjs`, one exact absent remote run root, uniquely labelled run containers, and only conditionally owned fixed image references. The H4 supervisor delta is limited to Linux direct-child/identity-proven closure signaling and preserves the H3 start barrier; the closed package inventory remains unchanged. |
 | Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`, failed Harness source, H2 `1e3ecf120da02d642a5d63f75a6795ba2946e11d`, H3 `cd203aa777e14879a7baf1bafd01ee319af246c5`, every implementation path outside the exact H4 allowance, oracle, other OpenSpec, Git history outside main-agent commits, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, legacy/production containers, networks, volumes, Nginx/systemd/TLS, listeners, processes, routes, and data. |
 | Deletion complement | No tracked or pre-existing object. Cleanup is limited to exact manifest-bound run files/directories, run containers by immutable ID and label, and a fixed image reference only if this run alone pulled and still exclusively owns it. |
 | Mutable refs | Lifecycle commits/push, one run root, run containers, and conditionally run-owned image references. No tag, release, product ref, deployment ref, service, route, port, network, volume, or production/legacy object. |
@@ -34,9 +34,10 @@
 - [ ] 1.4 Implement the H4 correction only in `.github/workflows/ci.yml`,
   `contracts/acceptance/lib/runner.mjs`,
   `contracts/acceptance/lib/process-closure-worker.mjs`,
-  `contracts/acceptance/test/core.test.mjs`, and, only if required,
-  `contracts/acceptance/test/supervisor.test.mjs`. Preserve H3
-  `contracts/acceptance/lib/supervisor.mjs`. Export pure inventory and
+  `contracts/acceptance/lib/supervisor.mjs`,
+  `contracts/acceptance/test/core.test.mjs`, and
+  `contracts/acceptance/test/supervisor.test.mjs`. Preserve the H3
+  monitor-start barrier. Export pure inventory and
   complete-command helpers from `runner.mjs`; statically import them in the
   worker and reuse the complete-command helper from the core test. Keep module
   import free of top-level process spawn/signal, worker creation, filesystem
@@ -50,12 +51,15 @@
   cwd containment close; unrelated terminal tombstones do not poison
   ownership; same-generation owned tombstones receive zero signal and must be
   boundedly reaped; first-observed owned tombstones and reuse fail closed;
+  retained PIDs omitted before `/proc` enumeration still receive two absence
+  confirmations; Linux runner/supervisor issue no negative-PGID TERM/KILL and
+  signal only the trusted direct child plus freshly proven live descendants;
   parenthesized `stat` comm fields are parsed without
   whole-row whitespace splitting; confirmed `ENOENT` races omit only vanished
   PIDs; reuse, permission/format ambiguity, malformed fields, and escape fail
   before signaling; imports have no top-level mutation; Darwin `ps`/`lsof`
   behavior is unchanged.
-- [ ] 1.6 Stage only the changed subset of the exact five H4 files, create
+- [ ] 1.6 Stage only the changed subset of the exact six H4 files, create
   and push one clean corrected Harness implementation commit, and record its
   commit/tree as H4. Prove H4 descends Product, the failed Harness source, H2,
   H3, and the specification-revision commit. Do not amend, rebase, tag,
@@ -280,9 +284,11 @@
   tasks before implementation. Keep the H4 code boundary to
   `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`,
   `contracts/acceptance/lib/process-closure-worker.mjs`,
-  `contracts/acceptance/test/core.test.mjs`, and only if required
-  `contracts/acceptance/test/supervisor.test.mjs`; preserve H3
-  `supervisor.mjs`.
+  `contracts/acceptance/lib/supervisor.mjs`,
+  `contracts/acceptance/test/core.test.mjs`, and
+  `contracts/acceptance/test/supervisor.test.mjs`; limit the supervisor delta
+  to Linux direct-child/identity-proven closure signaling and preserve the H3
+  monitor-start barrier.
 - [ ] 8.2 Implement bounded Linux live entries plus terminal tombstones.
   Bind terminal generation through stable `stat`/UID rereads; handle
   live-to-terminal and terminal-to-disappearance explicitly; include
@@ -293,12 +299,16 @@
   reject a first-observed relationship-owned tombstone, a persistent owned
   tombstone, PID reuse, identity/relation ambiguity, or incomplete signal
   identity. Preserve exact live executable/argv checks before every signal,
-  confirmed absence, Darwin behavior, and the H3 start barrier.
+  require two absence confirmations even for a retained PID omitted before
+  `/proc` enumeration, remove Linux negative-PGID TERM/KILL from runner and
+  supervisor cleanup, and preserve Darwin behavior plus the H3 start barrier.
 - [ ] 8.4 Add focused synthetic coverage for unrelated tombstone plus owned
   live process, live-to-terminal, zero-signal owned terminal and bounded reap,
   first-observed owned terminal failure, terminal generation/relation races,
-  and live/terminal PID reuse within the frozen selected Linux inventory and
-  owned-cleanup top-level tests so the selected manifest stays exactly 21.
+  live/terminal PID reuse, pre-enumeration disappearance confirmation, and
+  Linux runner/supervisor zero negative-PGID signaling within the frozen
+  selected Linux inventory/owned-cleanup tests and existing supervisor tests
+  so the selected manifest stays exactly 21.
   Retain the H3 malformed-IPC, late-writer,
   orderly, direct-failure, evidence, runtime-prepare, delayed-start, and
   no-exec regressions.

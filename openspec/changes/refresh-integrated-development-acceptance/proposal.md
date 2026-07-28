@@ -60,6 +60,13 @@ run can close acceptance.
   an already observed or relationship-proven owned terminal remains bound to
   its exact generation, is never signalled through an incomplete identity,
   and fails closed when ownership or reuse is ambiguous.
+- Remove Linux negative-PGID TERM/KILL from both runner and supervisor cleanup.
+  Signal only the directly spawned child through its trusted `ChildProcess`
+  handle while the closure monitor remains active, then signal only
+  freshly identity-and-argv-proven live descendants. Keep terminal evidence
+  at zero signal, require double confirmed absence even when a retained PID
+  was missing from the initial `/proc` directory listing, and preserve the
+  existing Darwin process-group behavior.
 - Add the exact 21-test supervisor suite to Development Actions so a green
   Harness head proves this control gate before another remote write.
 - On `myserver`, run the Product Updater pruning tests from Product and the
@@ -105,9 +112,9 @@ None.
 
 | Field | Declaration |
 |---|---|
-| Status | H3 implementation and exact-head Actions completed; fresh H3 supervisor failed 13/21 and was exactly cleaned; H4 specification revision in progress; H4 implementation/verification/archive: no; released/deployed/activated: no. |
+| Status | H3 implementation and exact-head Actions completed; fresh H3 supervisor failed 13/21 and was exactly cleaned; initial H4 implementation is under review with audit-discovered confirmed-absence and Linux group-signal corrections pending; H4 verified/archived: no; released/deployed/activated: no. |
 | Owner | Main agent owns specification, identity decisions, audit, acceptance, Git, and lifecycle. One delegated execution owner may run the closed remote command set because the remote/container detail is context-heavy and independently bounded. |
-| Writable paths | Repository planning: `openspec/changes/refresh-integrated-development-acceptance/**`, followed by synchronization to `openspec/specs/contracts-development-acceptance/spec.md` and archive lifecycle. H4 implementation: only existing `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/test/core.test.mjs`, and, only if required for an explicit regression, `contracts/acceptance/test/supervisor.test.mjs`; H3 `supervisor.mjs`, every package/inventory file, and product code remain unchanged. Remote only after H4 review, exact-head H4 Actions, and read-only admission: one previously absent regular root `/srv/bgmss-development-acceptance-refresh-<run-id>/**`; uniquely named run-labeled networkless containers; and only the two fixed Tencent-mirror RepoDigest/config image identities if that run proves both identities absent and pulls them. |
+| Writable paths | Repository planning: `openspec/changes/refresh-integrated-development-acceptance/**`, followed by synchronization to `openspec/specs/contracts-development-acceptance/spec.md` and archive lifecycle. H4 implementation: only existing `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/lib/supervisor.mjs`, `contracts/acceptance/test/core.test.mjs`, and `contracts/acceptance/test/supervisor.test.mjs`; the H4 `supervisor.mjs` delta is limited to Linux direct-child/identity-proven closure signaling and MUST preserve the H3 start barrier. Every package/inventory file and product code remain unchanged. Remote only after H4 review, exact-head H4 Actions, and read-only admission: one previously absent regular root `/srv/bgmss-development-acceptance-refresh-<run-id>/**`; uniquely named run-labeled networkless containers; and only the two fixed Tencent-mirror RepoDigest/config image identities if that run proves both identities absent and pulls them. |
 | Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`; oracle; every product, UI, API, statistical, non-acceptance Contracts, Operations, workflow, package-lock, and Harness implementation path outside the exact writable list; every OpenSpec outside this change and its later root-spec sync; Git history outside main-agent commits; external registries except exact image reads; and all remote state outside the admitted run root/container/image complement. On `myserver`, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, pre-existing containers/images/networks/volumes, Nginx/systemd/TLS/configuration, listeners, processes, and legacy data remain read-only. |
 | Deletion complement | No tracked file and no pre-existing remote object. Cleanup may remove only run-created files/directories from the exact owned manifest, run-labeled containers by immutable ID, and an exact image reference only if the run pulled it, its identity still matches, and no pre-existing or foreign reference/container uses it. No Docker prune, Git clean, glob cleanup, broad recursive target, network, volume, Compose, or service deletion. |
 | Mutable refs | This change, later synchronized root spec/archive, main-agent commits/push, exact run root files, run containers, and conditionally run-pulled fixed image references. No product/Harness source ref, tag, release, registry publication, production/legacy ref, route, service, volume, network, or public port is mutable. |
@@ -121,7 +128,7 @@ None.
 | Stop/rollback conditions | Stop before remote writes on non-green/mismatched Product Actions, dirty or wrong revisions, ancestry/difference failure, absent tool capability, existing/symlinked root, image ownership ambiguity, protected-state inventory failure, or undeclared network/port/volume need. After an owned write, preserve the primary failure, clean only identity-matching run-owned objects, report ambiguous residue, and never touch protected state to force success. |
 
 This change touches no other repository. Its H4 implementation mutation is
-closed to the five declared workflow/acceptance paths, and its only external mutation
+closed to the six declared workflow/acceptance paths, and its only external mutation
 is the explicitly bounded isolated validation above; production state remains
 unchanged. Apply is blocked until proposal, specification, design, and tasks
 are complete, strict-valid, and approved by the main agent.

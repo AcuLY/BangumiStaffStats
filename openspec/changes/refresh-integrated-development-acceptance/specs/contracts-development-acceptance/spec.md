@@ -2,9 +2,9 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H3 implementation and exact-head Actions completed; fresh H3 supervisor failed 13/21 and was exactly cleaned; H4 terminal-inventory correction specified; H4 implemented/verified/archived: no; released/deployed/activated: no. |
+| Status | H3 implementation and exact-head Actions completed; fresh H3 supervisor failed 13/21 and was exactly cleaned; initial H4 implementation is under review with confirmed-absence and Linux group-signal corrections pending; H4 verified/archived: no; released/deployed/activated: no. |
 | Owner | Main-agent specification/audit/lifecycle owner and one bounded remote execution owner. |
-| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/test/core.test.mjs`, optionally `contracts/acceptance/test/supervisor.test.mjs`, and the proposal-declared run-owned remote complement only. H3 `contracts/acceptance/lib/supervisor.mjs` and the closed package inventory remain unchanged. |
+| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/lib/supervisor.mjs`, `contracts/acceptance/test/core.test.mjs`, `contracts/acceptance/test/supervisor.test.mjs`, and the proposal-declared run-owned remote complement only. The H4 supervisor delta is limited to Linux direct-child/identity-proven closure signaling and preserves the H3 start barrier; the closed package inventory remains unchanged. |
 | Read-only protected inputs | Final Product, failed Harness source, oracle, every implementation path outside the exact allowance, other OpenSpec, Git objects outside lifecycle commits, and all non-admitted remote state. |
 | Deletion complement | No tracked/pre-existing object; only identity-proven run-created files/containers and conditionally run-pulled fixed image refs. |
 | Mutable refs | Exact change/root-spec/archive, main-agent commits/push, one run root, run containers, and conditionally owned image refs. |
@@ -74,8 +74,11 @@ remain unchanged. The H3 correction itself SHALL change only
 supervisor barrier and may change only `.github/workflows/ci.yml`,
 `contracts/acceptance/lib/runner.mjs`,
 `contracts/acceptance/lib/process-closure-worker.mjs`,
-`contracts/acceptance/test/core.test.mjs`, and, only if an explicit regression
-requires it, `contracts/acceptance/test/supervisor.test.mjs`.
+`contracts/acceptance/lib/supervisor.mjs`,
+`contracts/acceptance/test/core.test.mjs`, and
+`contracts/acceptance/test/supervisor.test.mjs`. The H4 supervisor delta SHALL
+be limited to Linux termination signaling and SHALL preserve the H3
+monitor-start barrier.
 
 Each complete live Linux entry SHALL bind PID, UID, kernel start time, and executable
 read-link as the immutable process identity; parent PID and process-group ID
@@ -118,6 +121,20 @@ ambiguous relation change, or unconfirmed disappearance SHALL fail. Every
 complete live signal path SHALL retain the existing exact executable and argv
 revalidation.
 
+Every retained Linux PID omitted from a full `/proc` directory listing SHALL
+still receive two bounded `lstat` absence confirmations. If either check finds
+the PID, the Harness SHALL take a targeted complete live-or-terminal snapshot
+and revalidate its generation; one Map miss SHALL NOT count as cleanup
+success. Runner finalization SHALL pass every retained non-root ledger record
+through this rule.
+
+On Linux, runner and supervisor cleanup SHALL NOT send TERM/KILL to a negative
+process-group ID. They MAY signal the exact directly spawned child through its
+trusted `ChildProcess` handle while its closure monitor remains active, then
+MAY signal only complete live descendants after fresh exact identity and argv
+revalidation. Retained and first-observed terminal evidence SHALL receive zero
+TERM/KILL attempts. Darwin process-group termination SHALL remain unchanged.
+
 The parent supervisor SHALL start the closure monitor through the shared
 `startProcessClosureMonitor` handshake and await its `started` response before
 acknowledging the worker's first checkpoint or trusting terminal/result IPC.
@@ -152,6 +169,16 @@ while parent ancestry still exists.
 
 - **WHEN** a tombstone first appears in the target process group or below an exactly retained parent but has no previously complete signal identity
 - **THEN** the Harness SHALL fail closed without dropping or signalling that PID
+
+#### Scenario: A retained terminal is absent from the directory listing
+
+- **WHEN** one full Linux `/proc` inventory omits a retained terminal PID
+- **THEN** the Harness SHALL require two bounded absence confirmations, re-read and fail on reuse if either check finds the PID, and SHALL NOT accept the single omission as cleanup success
+
+#### Scenario: Linux cleanup stops a process closure
+
+- **WHEN** the runner or supervisor stops a Linux child and its owned closure
+- **THEN** it SHALL use the trusted child handle plus identity-proven live descendant signals, SHALL issue no negative-PGID TERM/KILL, and SHALL make zero TERM/KILL attempts against terminal evidence
 
 #### Scenario: Darwin process inventory is used
 

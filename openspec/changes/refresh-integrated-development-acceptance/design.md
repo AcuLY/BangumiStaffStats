@@ -71,9 +71,9 @@ identical byte digest. The real rerun program SHA-256 was
 
 | Field | Declaration |
 |---|---|
-| Status | H3 implementation and Actions completed; fresh H3 supervisor failed 13/21 and was exactly cleaned; H4 terminal-inventory design in progress; H4 implementation/verification/archive not started. |
+| Status | H3 implementation and Actions completed; fresh H3 supervisor failed 13/21 and was exactly cleaned; initial H4 implementation is under review with confirmed-absence and Linux group-signal corrections pending; H4 verification/archive not started. |
 | Owner | Main agent: identities, specification, audit, lifecycle, commits/push. Delegated execution owner: exact remote/container command set and evidence handoff only. |
-| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H4 implementation is limited to existing `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/test/core.test.mjs`, and, only if required, `contracts/acceptance/test/supervisor.test.mjs`. H3 `supervisor.mjs`, package/inventory files, product, non-acceptance Harness, and Operations remain read-only. |
+| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H4 implementation is limited to existing `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/lib/supervisor.mjs`, `contracts/acceptance/test/core.test.mjs`, and `contracts/acceptance/test/supervisor.test.mjs`. The H4 supervisor delta is limited to Linux direct-child/identity-proven closure signaling and preserves the H3 start barrier. Package/inventory files, product, non-acceptance Harness, and Operations remain read-only. |
 | Read-only protected inputs | P, failed Harness source, oracle, all implementation outside the exact H4 allowance, other OpenSpec, and all remote state outside the admitted run complement. |
 | Deletion complement | No tracked or pre-existing object. Only manifest-bound run files, immutable-ID run containers, and safely proven run-pulled fixed image refs. |
 | Mutable refs | This change/root-spec/archive lifecycle, main-agent commits/push, one run root, run containers, and conditionally run-pulled images. |
@@ -196,6 +196,7 @@ Only these Harness paths may change:
 
 - `contracts/acceptance/lib/runner.mjs`;
 - `contracts/acceptance/lib/process-closure-worker.mjs`;
+- necessary `contracts/acceptance/lib/supervisor.mjs`;
 - necessary `contracts/acceptance/test/core.test.mjs`;
 - necessary `contracts/acceptance/test/supervisor.test.mjs`.
 
@@ -274,7 +275,7 @@ inventory; the parent could acknowledge that checkpoint before the ledger had
 retained the worker. A detached late writer could lose its parent relation, or
 an orderly worker could exit, before the parent had a usable closure.
 
-H3 changes only `contracts/acceptance/lib/supervisor.mjs` and
+H3 changed only `contracts/acceptance/lib/supervisor.mjs` and
 `contracts/acceptance/test/supervisor.test.mjs`. The supervisor SHALL await the
 shared monitor-start handshake after fork and before it can acknowledge the
 first checkpoint or accept terminal/result IPC. A worker checkpoint arriving
@@ -285,6 +286,14 @@ worker closure. The existing late-descendant, orderly-success, and
 direct-failure-primary tests are mandatory regressions; an explicit delayed
 start/early checkpoint case SHALL prove ordering without a sleep-only race
 assertion.
+
+H4 SHALL preserve that start/acknowledgement ordering while narrowing Linux
+termination only. On Linux, the parent SHALL signal the directly spawned
+worker through its trusted `ChildProcess` handle while the closure monitor
+continues polling until the worker closes; afterward it SHALL clean only
+freshly identity-and-argv-proven live descendants through
+`terminateOwnedProcesses`. It SHALL NOT issue TERM/KILL to a negative PGID.
+Darwin SHALL retain the existing process-group termination behavior.
 
 The fixed container keeps `/tmp` mounted `noexec`. The generated fake-Docker
 fixture SHALL be created in an explicitly run-owned exec-capable directory,
@@ -341,10 +350,27 @@ each signal. A different generation, UID, `comm`, executable, or argv
 preserves the PID and fails. Darwin behavior and the H3 monitor-start barrier
 remain observably unchanged.
 
+For every retained Linux PID omitted from a full `/proc` directory listing,
+cleanup SHALL perform the same two bounded `lstat` absence confirmations
+before treating it as reaped. If either confirmation observes the PID, cleanup
+SHALL take a targeted complete live-or-terminal snapshot and revalidate the
+generation; a reuse or ambiguity fails closed. Runner finalization SHALL pass
+all retained non-root ledger records through this check and MUST NOT discard a
+record merely because one global inventory Map omitted it.
+
+Linux runner and supervisor cleanup SHALL never send TERM/KILL to a negative
+PGID. They may signal the exact directly spawned child through its trusted
+`ChildProcess` handle while the monitor remains active, then signal only
+complete live descendants after the existing fresh identity and exact argv
+checks. A retained or first-observed terminal receives zero TERM/KILL attempts.
+Darwin's existing process-group behavior remains unchanged.
+
 Focused tests SHALL cover an unrelated stable zombie beside an owned live
 process, live-to-terminal transition, an already observed owned terminal with
 zero signal and bounded reap, a first-observed relationship-proven terminal
-failure, terminal generation/relation races, and live/terminal PID reuse. The
+failure, pre-directory-listing terminal disappearance with two absence
+confirmations, terminal generation/relation races, live/terminal PID reuse,
+and Linux runner/supervisor cleanup with no negative-PGID TERM/KILL. The
 existing H3 delayed-start, malformed-IPC, late-writer, orderly,
 direct-failure, evidence, and runtime-prepare regressions remain mandatory.
 
