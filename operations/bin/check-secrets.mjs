@@ -22,7 +22,7 @@ const SECRET_VALUE = [
   /\bsk-[A-Za-z0-9_-]{20,}\b/u,
   /:\/\/[^/\s:@]+:[^/\s@]+@/u,
 ];
-const ASSIGNED_SECRET =
+const ASSIGNED_CREDENTIAL =
   /(?:password|private[_-]?key|registry[_-]?auth|secret|ssh[_-]?key|token)\s*[:=]\s*["']?[^\s"'${][^\s"']*/iu;
 
 function walk(directory) {
@@ -55,7 +55,7 @@ for (const file of files) {
   for (const pattern of SECRET_VALUE) {
     if (pattern.test(source)) throw new Error(`secret-shaped value in ${file}`);
   }
-  if (ASSIGNED_SECRET.test(source)) {
+  if (ASSIGNED_CREDENTIAL.test(source)) {
     throw new Error(`assigned secret-shaped field in ${file}`);
   }
 }
