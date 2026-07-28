@@ -300,8 +300,10 @@ Corrected H3 owns:
    `contracts/acceptance/test/core.test.mjs`.
 
 The selected core set is closed to the Backend content/lock/handshake/
-materialization/check/query-measurement families; the three reparented-runner
-tests; and the evidence/result/parent-supervisor families named in tasks.
+materialization/check families; the Linux procfs positive and owned-cleanup
+identity tests; injected Darwin parity; the three reparented-runner tests; and
+the evidence/result/parent-supervisor families named in tasks. A test declared
+to skip on Linux is excluded from this fixed Linux run.
 TAP parsing records actual pass/fail/skip and selected names. All 21 supervisor
 tests and every frozen selected core test must pass. The former
 `escaped fixture process identity differs before cleanup` classification is

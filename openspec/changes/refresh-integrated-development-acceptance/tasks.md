@@ -143,9 +143,9 @@
   - `Backend owner handshake fixes seed, materialization, acceptance environment, write denial, and reseal order`
   - `Backend materialization closed plan rejects every widening before the networkless seam`
   - `Backend check closed plan rejects every broader network profile before execution`
-  - `Backend query measurement rejects loopback or broader network access before execution`
-  - `Backend materialization command remains primary while every safe authority check and boundary evidence completes`
-  - `Backend-check sandbox permits ephemeral loopback HTTP and denies public TCP`
+  - `Linux process inventory uses only bounded procfs evidence and exact argv/cwd identity`
+  - `owned Linux cleanup rejects PID reuse or argv drift before signaling`
+  - `Darwin process inventory preserves absolute ps and lsof behavior`
   - `runner rejects and force-cleans a reparented child with empty env and escaped cwd`
   - `escaped fixture fallback cleans only an exact owned process identity`
   - `runner cleans reparented children before reporting nonzero and timeout outcomes`

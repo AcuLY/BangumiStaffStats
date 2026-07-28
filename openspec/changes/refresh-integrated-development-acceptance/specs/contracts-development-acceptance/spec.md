@@ -162,7 +162,9 @@ supervisor tests, and run one frozen exact-name selected core set. The selected
 set and actual TAP pass/fail/skip counts SHALL be recorded. All 21 supervisor
 tests and every selected core test, including
 `escaped fixture fallback cleans only an exact owned process identity`, SHALL
-pass. The former
+pass. The selected manifest SHALL contain the Linux procfs positive test,
+owned-cleanup PID-reuse/argv-drift test, and platform-injected Darwin parity
+test; it SHALL NOT contain a test whose declaration skips on Linux. The former
 `escaped fixture process identity differs before cleanup` classification is
 superseded failure evidence, not an H3 exception. Every failure, missing
 selected name, extra selected name, or result-parse ambiguity SHALL fail the
