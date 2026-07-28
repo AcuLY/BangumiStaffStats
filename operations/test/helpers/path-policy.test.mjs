@@ -29,7 +29,20 @@ test('relative and absolute path syntax is closed', () => {
     '/srv/bgmss-ops-validation',
   );
   assert.equal(assertSafeRelativePath('evidence/result.json'), 'evidence/result.json');
-  for (const value of ['../escape', './result', 'a//b', '/absolute', 'a\\b']) {
+  assert.equal(
+    assertSafeRelativePath('.bgmss-operations-run.json'),
+    '.bgmss-operations-run.json',
+  );
+  for (const value of [
+    '../escape',
+    './result',
+    '.',
+    '..',
+    '.-hidden',
+    'a//b',
+    '/absolute',
+    'a\\b',
+  ]) {
     assert.throws(() => assertSafeRelativePath(value), PathPolicyError);
   }
   for (const value of [

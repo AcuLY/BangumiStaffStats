@@ -55,7 +55,10 @@ export function assertSafeRelativePath(value, label = 'path') {
         segment.length === 0 ||
         segment === '.' ||
         segment === '..' ||
-        !/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/u.test(segment),
+        !(
+          /^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/u.test(segment) ||
+          /^\.[A-Za-z0-9][A-Za-z0-9._-]{0,253}$/u.test(segment)
+        ),
     )
   ) {
     fail(`${label} contains an unsafe path segment`);
