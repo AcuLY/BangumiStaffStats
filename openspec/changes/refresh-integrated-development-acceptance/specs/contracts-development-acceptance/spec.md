@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H4 `930690068a02eeec3c7b140c29796aef3b4a719a` is pushed but exact-head Actions `30402531154` passed supervisor 8/21 and failed 13/21 because unrelated PID 1 denied `/proc/1/exe`; all other Development gates were green and no remote write followed. H4 is superseded; H5 specification correction is in progress; verified/archived/released/deployed/activated: no. |
+| Status | H4 `930690068a02eeec3c7b140c29796aef3b4a719a` is pushed but exact-head Actions `30402531154` passed supervisor 8/21 and failed 13/21 because unrelated PID 1 denied `/proc/1/exe`; all other Development gates were green and no remote write followed. H4 is superseded; H5 specification commit `e06365f943a2c85280b9786ac4705bb7d303267b` is pushed and implementation is pending; verified/archived/released/deployed/activated: no. |
 | Owner | Main-agent specification/audit/lifecycle owner and one bounded remote execution owner. |
 | Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/test/core.test.mjs`, and the proposal-declared run-owned remote complement only. H4 workflow/supervisor behavior, the H3 start barrier, and the closed package inventory remain unchanged. |
 | Read-only protected inputs | Final Product, failed Harness source, oracle, every implementation path outside the exact allowance, other OpenSpec, Git objects outside lifecycle commits, and all non-admitted remote state. |

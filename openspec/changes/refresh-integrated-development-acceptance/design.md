@@ -79,7 +79,7 @@ identical byte digest. The real rerun program SHA-256 was
 
 | Field | Declaration |
 |---|---|
-| Status | H4 `930690068a02eeec3c7b140c29796aef3b4a719a` is implemented/pushed but Actions `30402531154` passed supervisor 8/21 and failed 13/21 on unrelated PID 1 `/proc/1/exe` `EACCES`; other Development gates were green and no remote write followed. H5 specification correction is in progress; verification/archive not started. |
+| Status | H4 `930690068a02eeec3c7b140c29796aef3b4a719a` is implemented/pushed but Actions `30402531154` passed supervisor 8/21 and failed 13/21 on unrelated PID 1 `/proc/1/exe` `EACCES`; other Development gates were green and no remote write followed. H5 specification commit `e06365f943a2c85280b9786ac4705bb7d303267b` is pushed and implementation is pending; verification/archive not started. |
 | Owner | Main agent: identities, specification, audit, lifecycle, commits/push. Delegated execution owner: exact remote/container command set and evidence handoff only. |
 | Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H5 implementation is limited to existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, and `contracts/acceptance/test/core.test.mjs`. H4 workflow/supervisor code, the H3 start barrier, package/inventory files, product, non-acceptance Harness, and Operations remain read-only. |
 | Read-only protected inputs | P, failed Harness/H2/H3/H4 sources, oracle, all implementation outside the exact H5 allowance, other OpenSpec, and all remote state outside the admitted run complement. |

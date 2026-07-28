@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H4 `930690068a02eeec3c7b140c29796aef3b4a719a` is implemented/pushed, but exact-head Actions `30402531154` passed supervisor 8/21 and failed 13/21 because unrelated PID 1 denied `/proc/1/exe`; every other Development gate was green and no remote write followed. H4 is superseded; H5 specification correction is in progress. |
+| Status | H4 `930690068a02eeec3c7b140c29796aef3b4a719a` is implemented/pushed, but exact-head Actions `30402531154` passed supervisor 8/21 and failed 13/21 because unrelated PID 1 denied `/proc/1/exe`; every other Development gate was green and no remote write followed. H4 is superseded; H5 specification commit `e06365f943a2c85280b9786ac4705bb7d303267b` is pushed and implementation is pending. |
 | Owner | Main agent owns identities, specification, admission, audit, lifecycle, and Git. One delegated execution owner may perform the closed Git-evidence and remote/container command set. |
 | Writable paths | This change, its later synchronized root spec/archive, H5 changes only existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, and `contracts/acceptance/test/core.test.mjs`, one exact absent remote run root, uniquely labelled run containers, and only conditionally owned fixed image references. H4 workflow/supervisor behavior, the H3 start barrier, and the closed package inventory remain unchanged. |
 | Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`, failed Harness source, H2 `1e3ecf120da02d642a5d63f75a6795ba2946e11d`, H3 `cd203aa777e14879a7baf1bafd01ee319af246c5`, failed H4 `930690068a02eeec3c7b140c29796aef3b4a719a`, every implementation path outside the exact H5 allowance, oracle, other OpenSpec, Git history outside main-agent commits, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, legacy/production containers, networks, volumes, Nginx/systemd/TLS, listeners, processes, routes, and data. |
@@ -339,7 +339,7 @@
   `30402531154` as superseded fail-closed evidence: supervisor passed 8/21
   with 13 same-root-cause failures at unrelated PID 1 `/proc/1/exe` `EACCES`; Backend,
   Updater, Frontend, and package artifact gates green; no remote write.
-- [ ] 9.2 Revise and main-agent approve proposal, design, delta spec, and
+- [x] 9.2 Revise and main-agent approve proposal, design, delta spec, and
   tasks before H5 implementation; strict-validate and commit/push this
   four-artifact revision separately. Keep the new code delta to
   `contracts/acceptance/lib/runner.mjs`,
