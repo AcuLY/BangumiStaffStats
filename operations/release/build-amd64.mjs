@@ -25,7 +25,7 @@ import {
   FROZEN_PRODUCT,
   REPOSITORY_ROOT,
 } from './constants.mjs';
-import { admitDockerCapability } from './docker-capability.mjs';
+import { parseDockerVersionEvidence } from './docker-capability.mjs';
 import {
   optionPath,
   parseOptions,
@@ -238,22 +238,12 @@ async function prepareBuilder({
     args: [
       'version',
       '--format',
-      '{{.Client.Version}}\t{{.Client.APIVersion}}\t{{.Server.Version}}\t{{.Server.APIVersion}}\t{{.Server.MinAPIVersion}}\t{{.Server.Os}}\t{{.Server.Arch}}',
+      '{{json .}}',
     ],
   });
-  const dockerFields = dockerIdentity.stdout.trim().split('\t');
-  if (dockerFields.length !== 7) {
-    fail('Docker version evidence does not contain the closed capability fields');
-  }
-  const dockerCapability = admitDockerCapability({
-    dockerClientVersion: dockerFields[0],
-    dockerNegotiatedApiVersion: dockerFields[1],
-    dockerServerApiVersion: dockerFields[3],
-    dockerServerArchitecture: dockerFields[6],
-    dockerServerMinimumApiVersion: dockerFields[4],
-    dockerServerOs: dockerFields[5],
-    dockerServerVersion: dockerFields[2],
-  });
+  const dockerCapability = parseDockerVersionEvidence(
+    dockerIdentity.stdout,
+  );
   const endpoint = await command({
     ...common,
     args: [

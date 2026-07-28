@@ -21,6 +21,7 @@ import { ACCEPTED_DEVELOPMENT_SHA256 } from '../../release/constants.mjs';
 import {
   admitDockerCapability,
   MINIMUM_DOCKER_API_VERSION,
+  parseDockerVersionEvidence,
 } from '../../release/docker-capability.mjs';
 
 const FIXTURES = path.join(import.meta.dirname, 'fixtures');
@@ -110,18 +111,52 @@ test('both unpublished candidate schemas bind the exact build toolchain closure'
 });
 
 test('Docker admission uses API capability while preserving version evidence', () => {
-  const admitted = admitDockerCapability({
-    dockerClientVersion: '28.0.4+azure-1',
-    dockerNegotiatedApiVersion: '1.48',
-    dockerServerApiVersion: '1.48',
-    dockerServerArchitecture: 'x86_64',
-    dockerServerMinimumApiVersion: '1.24',
-    dockerServerOs: 'linux',
-    dockerServerVersion: '28.0.4+azure-1',
+  const docker28 = JSON.stringify({
+    Client: {
+      ApiVersion: '1.48',
+      DefaultAPIVersion: '1.48',
+      Version: '28.0.4+azure-1',
+    },
+    Server: {
+      ApiVersion: '1.48',
+      Arch: 'x86_64',
+      Components: [],
+      MinAPIVersion: '1.24',
+      Os: 'linux',
+      Version: '28.0.4+azure-1',
+    },
   });
+  const admitted = parseDockerVersionEvidence(`${docker28}\n`);
   assert.equal(admitted.dockerClientVersion, '28.0.4+azure-1');
   assert.equal(admitted.dockerServerArchitecture, 'amd64');
   assert.equal(MINIMUM_DOCKER_API_VERSION, '1.45');
+
+  const docker29 = JSON.parse(docker28);
+  docker29.Client.APIVersion = docker29.Client.ApiVersion;
+  docker29.Server.APIVersion = docker29.Server.ApiVersion;
+  delete docker29.Client.ApiVersion;
+  delete docker29.Server.ApiVersion;
+  assert.doesNotThrow(() =>
+    parseDockerVersionEvidence(JSON.stringify(docker29)),
+  );
+
+  const missingServerMinimum = JSON.parse(docker28);
+  delete missingServerMinimum.Server.MinAPIVersion;
+  for (const invalid of [
+    '{',
+    '{}',
+    '{"Client":{},"Client":{},"Server":{}}',
+    JSON.stringify(missingServerMinimum),
+    JSON.stringify({
+      ...docker29,
+      Client: {
+        ...docker29.Client,
+        ApiVersion: docker29.Client.APIVersion,
+      },
+    }),
+  ]) {
+    assert.throws(() => parseDockerVersionEvidence(invalid));
+  }
 
   for (const changed of [
     { dockerNegotiatedApiVersion: '1.44' },

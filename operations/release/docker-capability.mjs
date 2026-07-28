@@ -1,4 +1,5 @@
 import { deepFreeze } from '../lib/canonical-json.mjs';
+import { parseJsonStrict } from '../lib/strict-json.mjs';
 
 export const MINIMUM_DOCKER_API_VERSION = '1.45';
 
@@ -9,6 +10,35 @@ const DOCKER_API_VERSION =
 
 function fail(message) {
   throw new Error(message);
+}
+
+function requireObject(value, label) {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    Array.isArray(value)
+  ) {
+    fail(`Docker version evidence ${label} must be an object`);
+  }
+  return value;
+}
+
+function objectField(value, key, label) {
+  const object = requireObject(value, `container for ${label}`);
+  if (!Object.hasOwn(object, key)) {
+    fail(`Docker version evidence is missing ${label}`);
+  }
+  return object[key];
+}
+
+function apiField(value, label) {
+  const object = requireObject(value, label);
+  const candidates = ['ApiVersion', 'APIVersion']
+    .filter((key) => Object.hasOwn(object, key));
+  if (candidates.length !== 1) {
+    fail(`Docker version evidence has ambiguous ${label}`);
+  }
+  return object[candidates[0]];
 }
 
 function apiVersionParts(value, label) {
@@ -100,5 +130,49 @@ export function admitDockerCapability({
     dockerServerMinimumApiVersion,
     dockerServerOs,
     dockerServerVersion,
+  });
+}
+
+export function parseDockerVersionEvidence(source) {
+  if (
+    typeof source !== 'string' ||
+    source.length === 0 ||
+    Buffer.byteLength(source, 'utf8') > 65_536
+  ) {
+    fail('Docker version evidence is outside the closed byte bound');
+  }
+  const value = parseJsonStrict(source, 'Docker version evidence');
+  const client = requireObject(
+    objectField(value, 'Client', 'Client'),
+    'Client',
+  );
+  const server = requireObject(
+    objectField(value, 'Server', 'Server'),
+    'Server',
+  );
+  return admitDockerCapability({
+    dockerClientVersion: objectField(
+      client,
+      'Version',
+      'Client.Version',
+    ),
+    dockerNegotiatedApiVersion: apiField(client, 'Client API version'),
+    dockerServerApiVersion: apiField(server, 'Server API version'),
+    dockerServerArchitecture: objectField(
+      server,
+      'Arch',
+      'Server.Arch',
+    ),
+    dockerServerMinimumApiVersion: objectField(
+      server,
+      'MinAPIVersion',
+      'Server.MinAPIVersion',
+    ),
+    dockerServerOs: objectField(server, 'Os', 'Server.Os'),
+    dockerServerVersion: objectField(
+      server,
+      'Version',
+      'Server.Version',
+    ),
   });
 }
