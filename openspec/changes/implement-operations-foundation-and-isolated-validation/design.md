@@ -203,7 +203,11 @@ No Node runtime or application source is installed on the host.
 | Library | Purpose | Alternatives | Owner/cost | Acceptance |
 |---|---|---|---|---|
 | `ajv` 8.20.0 | Draft 2020-12 validation for strict Operations release and validation evidence. | Hand-written schema walkers would duplicate mature boundary/error handling. | Operations control plane only; no browser, API, Updater image, or host runtime bytes. Exact lock and transitive closure are committed. | `npm ci --ignore-scripts`, schema positive/negative corpus, unknown/duplicate/path/tamper cases, lock integrity, license/advisory review. |
-| `yaml` 2.8.1 | Parse workflow/Compose/template YAML for repository-owned policy tests before tool-specific rendering. | Regex parsing is unsafe; relying only on GitHub or Compose misses cross-file policy. | Operations test/release control plane only; no product or host runtime bytes. Exact lock committed. | Frozen install, duplicate-key rejection, closed workflow/Compose fixtures, round-trip-independent semantic assertions, license/advisory review. |
+| `yaml` 2.9.0 | Parse workflow/Compose/template YAML for repository-owned policy tests before tool-specific rendering. Version 2.8.1 is forbidden because it is affected by GHSA-48c2-rrv3-qjmp; 2.9.0 is the current stable patched line. | Regex parsing is unsafe; relying only on GitHub or Compose misses cross-file policy. | Operations test/release control plane only; no product or host runtime bytes. Exact lock committed. | Frozen install, duplicate-key rejection, deeply nested collection rejection, closed workflow/Compose fixtures, round-trip-independent semantic assertions, license/advisory review. |
+
+Ajv remains pinned at 8.20.0, and its exact lock closure SHALL select
+`fast-uri` 3.1.4 or a later separately reviewed patched version; known
+vulnerable 3.1.0, 3.1.1, and 3.1.3 closures are not admissible.
 
 Node built-ins remain authoritative for canonical JSON, hashes, subprocesses,
 and filesystem containment. `bash -n`, `docker compose config`,

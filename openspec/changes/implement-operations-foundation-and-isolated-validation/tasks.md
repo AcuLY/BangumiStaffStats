@@ -40,9 +40,11 @@
   agent compare it with the archived acceptance evidence before use.
 - [ ] 1.3 Add only `/operations/.tmp/` to root `.gitignore`; create the
   Operations package/lock with exact Node 24.18.0, npm 11.16.0, Ajv 8.20.0,
-  and YAML 2.8.1; disable install scripts/audit/fund/update-notifier in fixed
-  commands; and add final script names for release, runtime, validation, and
-  aggregate gates so later owners do not edit package control files.
+  YAML 2.9.0, and a lock-selected patched `fast-uri` 3.1.4 closure; reject
+  vulnerable YAML <2.8.3 and `fast-uri` 3.1.0/3.1.1/3.1.3; disable install
+  scripts/audit/fund/update-notifier in fixed commands; and add final script
+  names for release, runtime, validation, and aggregate gates so later owners
+  do not edit package control files.
 - [ ] 1.4 Implement shared canonical JSON, strict schema, SHA-256, subprocess
   environment, safe-path, immutable-output, run-root, and primary/secondary
   failure helpers under `operations/lib/**`, with path containment and
