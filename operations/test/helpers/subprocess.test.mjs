@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
+import { sha256 } from '../../lib/digest.mjs';
 import {
   cleanupRunRoot,
   createRunRoot,
@@ -74,7 +75,25 @@ test('subprocess environment is explicit, sanitized, and shell-free', async (t) 
     timeoutMs: 5_000,
   });
   assert.equal(result.stdout, literal);
+  assert.equal(Object.hasOwn(result, 'stdoutSha256'), false);
   assert.equal(fs.existsSync(path.join(run.runRoot, 'should-not-exist')), false);
+});
+
+test('subprocess can hash original stdout bytes without changing the default result shape', async (t) => {
+  const { environment, run } = subprocessFixture(t, 'subprocess-stdout-hash-test');
+  const bytes = Buffer.from([0, 255, 10, 128, 65]);
+  const result = await runSubprocess({
+    command: process.execPath,
+    args: [
+      '-e',
+      'process.stdout.write(Buffer.from([0, 255, 10, 128, 65]))',
+    ],
+    cwd: run.runRoot,
+    environment,
+    hashStdout: true,
+    timeoutMs: 5_000,
+  });
+  assert.equal(result.stdoutSha256, sha256(bytes));
 });
 
 test('subprocess rejects forged and loader-injected environments', async (t) => {

@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -139,6 +140,7 @@ function appendBounded(state, chunk) {
   if (!Buffer.isBuffer(chunk)) {
     throw new TypeError('subprocess output chunk must be a Buffer');
   }
+  state.hash?.update(chunk);
   if (!state.truncated && state.bytes + chunk.length <= state.limit) {
     state.chunks.push(chunk);
     state.bytes += chunk.length;
@@ -204,6 +206,10 @@ function boundedOutputSnapshot(state) {
   };
 }
 
+function rawOutputDigest(state) {
+  return `sha256:${state.hash.digest('hex')}`;
+}
+
 function signalProcess(child, signal) {
   try {
     if (process.platform === 'win32') {
@@ -236,6 +242,7 @@ export async function runSubprocess({
   acceptedExitCodes = [0],
   timeoutMs = 60_000,
   gracefulStopMs = 1_000,
+  hashStdout = false,
   maxOutputBytes = 4 * 1024 * 1024,
   signal,
 }) {
@@ -298,12 +305,16 @@ export async function runSubprocess({
   ) {
     throw new TypeError('subprocess output bound is invalid');
   }
+  if (typeof hashStdout !== 'boolean') {
+    throw new TypeError('subprocess stdout hash selection must be boolean');
+  }
 
   return await new Promise((resolve, reject) => {
     const started = performance.now();
     const stdout = {
       bytes: 0,
       chunks: [],
+      hash: hashStdout ? createHash('sha256') : null,
       head: Buffer.alloc(0),
       limit: maxOutputBytes,
       tail: Buffer.alloc(0),
@@ -312,6 +323,7 @@ export async function runSubprocess({
     const stderr = {
       bytes: 0,
       chunks: [],
+      hash: null,
       head: Buffer.alloc(0),
       limit: maxOutputBytes,
       tail: Buffer.alloc(0),
@@ -325,7 +337,7 @@ export async function runSubprocess({
     function result(code, childSignal) {
       const stdoutSnapshot = boundedOutputSnapshot(stdout);
       const stderrSnapshot = boundedOutputSnapshot(stderr);
-      return deepFreeze({
+      const completed = {
         command: executable,
         args: boundedArgs,
         cwd: canonicalCwd,
@@ -339,7 +351,9 @@ export async function runSubprocess({
         stderrTail: stderrSnapshot.tail,
         stdoutTruncated: stdout.truncated,
         stderrTruncated: stderr.truncated,
-      });
+      };
+      if (hashStdout) completed.stdoutSha256 = rawOutputDigest(stdout);
+      return deepFreeze(completed);
     }
 
     function terminate(reason) {

@@ -13,7 +13,10 @@ import { parseJsonStrict } from '../lib/strict-json.mjs';
 import { SOURCE_EPOCH_RANGE } from './constants.mjs';
 
 const OBJECT_ID = /^[0-9a-f]{40}$/u;
+const ZERO_OBJECT_ID = '0000000000000000000000000000000000000000';
 const TREE_LINE = /^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/u;
+const RAW_DIFFERENCE_HEADER =
+  /^:(000000|100644|100755) (000000|100644|100755) ([0-9a-f]{40}) ([0-9a-f]{40}) ([AMD])$/u;
 
 export class ReleaseGitError extends Error {
   constructor(message, options) {
@@ -24,6 +27,100 @@ export class ReleaseGitError extends Error {
 
 function fail(message, cause) {
   throw new ReleaseGitError(message, cause ? { cause } : undefined);
+}
+
+function assertDifferencePath(relativePath) {
+  if (
+    typeof relativePath !== 'string' ||
+    relativePath.length === 0 ||
+    relativePath.length > 4096 ||
+    !/^[A-Za-z0-9._/-]+$/u.test(relativePath) ||
+    relativePath.startsWith('/') ||
+    relativePath.endsWith('/') ||
+    relativePath.includes('//') ||
+    relativePath.split('/').some((entry) => entry === '.' || entry === '..')
+  ) {
+    fail('Git difference path is outside the closed ASCII path policy');
+  }
+  return relativePath;
+}
+
+function assertDifferenceShape({
+  newGitBlob,
+  newMode,
+  oldGitBlob,
+  oldMode,
+  status,
+}) {
+  const oldAbsent = oldMode === '000000' && oldGitBlob === ZERO_OBJECT_ID;
+  const newAbsent = newMode === '000000' && newGitBlob === ZERO_OBJECT_ID;
+  const oldRegular =
+    ['100644', '100755'].includes(oldMode) &&
+    OBJECT_ID.test(oldGitBlob) &&
+    oldGitBlob !== ZERO_OBJECT_ID;
+  const newRegular =
+    ['100644', '100755'].includes(newMode) &&
+    OBJECT_ID.test(newGitBlob) &&
+    newGitBlob !== ZERO_OBJECT_ID;
+  if (
+    (status === 'A' && (!oldAbsent || !newRegular)) ||
+    (status === 'D' && (!oldRegular || !newAbsent)) ||
+    (
+      status === 'M' &&
+      (
+        !oldRegular ||
+        !newRegular ||
+        (oldMode === newMode && oldGitBlob === newGitBlob)
+      )
+    )
+  ) {
+    fail('Git difference modes and blobs disagree with its A/M/D status');
+  }
+}
+
+export function parseRawDifferenceRecords(output) {
+  if (typeof output !== 'string') {
+    throw new TypeError('raw Git difference output must be text');
+  }
+  if (output.length === 0) return Object.freeze([]);
+  if (!output.endsWith('\0')) {
+    fail('Git raw difference output is not NUL terminated');
+  }
+  const fields = output.split('\0');
+  fields.pop();
+  if (fields.length % 2 !== 0) {
+    fail('Git raw difference output has an ambiguous path record');
+  }
+  const records = [];
+  const paths = new Set();
+  for (let index = 0; index < fields.length; index += 2) {
+    const match = RAW_DIFFERENCE_HEADER.exec(fields[index]);
+    if (!match) {
+      fail('Git raw difference record is not one ordinary A/M/D entry');
+    }
+    const [, oldMode, newMode, oldGitBlob, newGitBlob, status] = match;
+    const changedPath = assertDifferencePath(fields[index + 1]);
+    if (paths.has(changedPath)) {
+      fail('Git raw difference contains a duplicate path');
+    }
+    paths.add(changedPath);
+    assertDifferenceShape({
+      newGitBlob,
+      newMode,
+      oldGitBlob,
+      oldMode,
+      status,
+    });
+    records.push(Object.freeze({
+      newGitBlob,
+      newMode,
+      oldGitBlob,
+      oldMode,
+      path: changedPath,
+      status,
+    }));
+  }
+  return Object.freeze(records);
 }
 
 export function executableFromPath(name, searchPath = process.env.PATH) {
@@ -96,6 +193,7 @@ export class GitRepository {
   async command(args, {
     cwd = this.repositoryRoot,
     acceptedExitCodes = [0],
+    hashStdout = false,
     maxOutputBytes = 8 * 1024 * 1024,
     timeoutMs = 120_000,
   } = {}) {
@@ -105,6 +203,7 @@ export class GitRepository {
       command: this.git,
       cwd,
       environment: this.environment,
+      hashStdout,
       maxOutputBytes,
       timeoutMs,
     });
@@ -239,6 +338,43 @@ export class GitRepository {
       { acceptedExitCodes: [0, 1] },
     );
     return result.exitCode === 0;
+  }
+
+  async differenceRecords(fromRevision, toRevision) {
+    const source = await this.resolve(fromRevision);
+    const target = await this.resolve(toRevision);
+    const output = await this.text([
+      'diff',
+      '--raw',
+      '-z',
+      '--no-renames',
+      '--no-abbrev',
+      source,
+      target,
+      '--',
+    ]);
+    return parseRawDifferenceRecords(output);
+  }
+
+  async blobSha256(gitBlob) {
+    if (
+      typeof gitBlob !== 'string' ||
+      !OBJECT_ID.test(gitBlob) ||
+      gitBlob === ZERO_OBJECT_ID
+    ) {
+      fail('Git blob object ID is invalid');
+    }
+    const result = await this.command(
+      ['cat-file', 'blob', gitBlob],
+      {
+        hashStdout: true,
+        maxOutputBytes: 64 * 1024 * 1024,
+      },
+    );
+    if (result.stdoutTruncated || result.stderrTruncated) {
+      fail(`Git blob output was truncated for ${gitBlob}`);
+    }
+    return result.stdoutSha256;
   }
 
   async changedPaths(fromRevision, toRevision) {
