@@ -267,14 +267,16 @@
   create the three exact validation aliases, use `pull_policy: never`, and
   reject replacement/shared/colliding refs.
 - [ ] 4.6 Implement candidate-only success validation: Frontend install/hash/
-  link rollback, Updater `doctor` and embedded contract check, then one bounded
-  real Updater `produce` acquisition on the exact validation `outbound`
-  network with public upstream release/digest/source-accounting, duration,
-  peak-memory and no-OOM evidence within the initial 640 MiB cap. Verify the
-  generated full inactive Archive through the standalone `archive-smoke` and
-  closed inventory. Start API on the minimal Archive, verify `/livez`,
+  link rollback; start API on the minimal Archive and verify `/livez`,
   `/readyz`, expected data/build identities, a minimal typed query, and
-  internal Prometheus scrape; then perform minimal→full activation,
+  internal Prometheus scrape; while that accepted API remains live, run
+  Updater `doctor`, embedded contract check, and exactly one bounded real
+  Updater `produce` acquisition on the exact validation `outbound` network.
+  Require the minimal pointer/API/query/scrape identities to remain unchanged
+  throughout acquisition, and record public upstream release/digest/source-
+  accounting, duration, peak-memory, and no-OOM evidence within the initial
+  640 MiB cap. Verify the generated full inactive Archive through standalone
+  `archive-smoke` and closed inventory; then perform minimal→full activation,
   full→minimal rollback, and final full reactivation. Label the acquisition
   observation migration evidence rather than a formal benchmark; a breach
   blocks production activation pending spec review. Never install/invoke the

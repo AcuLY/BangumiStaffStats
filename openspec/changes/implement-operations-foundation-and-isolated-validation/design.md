@@ -460,12 +460,14 @@ weekly timer is installed or invoked.
 
 Remote success validation uses product artifacts only:
 
-- Updater `doctor`, embedded contract check, and one bounded real `produce`
-  acquisition whose public input identities and peak memory are recorded;
 - installed Frontend hashes and atomic link rollback;
 - API `/livez`, `/readyz`, expected `dataVersion` and
   `bgmss_build_info`, and a minimal typed query;
 - Prometheus internal scrape;
+- while that minimal API and scrape remain healthy, Updater `doctor`, embedded
+  contract check, and exactly one bounded real `produce` acquisition whose
+  public input identities and peak memory are recorded without changing the
+  accepted minimal pointer/API/query identity;
 - minimal → full Archive activation, full → minimal rollback, and final
   minimal → full activation through the validation wrapper;
 - the generated full-Archive Updater peak-memory/no-OOM evidence under the

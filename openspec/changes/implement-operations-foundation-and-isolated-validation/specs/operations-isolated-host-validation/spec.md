@@ -105,23 +105,26 @@ publish metrics/public ports, start Nginx/systemd, or contact a legacy process.
 ### Requirement: Success-path validation SHALL exercise artifact-only operation
 
 With product source absent, validation SHALL load the two accepted AMD64
-images, install and hash the Frontend release, run Updater `doctor` and
-embedded `contract-check`, then run the same candidate Updater once to produce
-a full inactive Archive from its embedded producer inputs and public read-only
-upstreams. The run SHALL have the six-hour/CPU/I/O/memory bounds, record exact
-upstream/status/source-accounting/duration/peak-memory/OOM evidence, and admit
-the new Archive only after standalone `archive-smoke` and closed-inventory
-verification. Validation SHALL start API on the minimal accepted Archive and
-verify loopback `/livez`, `/readyz`, expected minimal `dataVersion`,
-`bgmss_build_info` version/commit, a minimal typed query, and Prometheus scrape
-of the API. It SHALL then activate the generated full inactive Archive through
-the run-owned wrapper, verify the new exact `dataVersion`, status/event,
-readiness, metrics, and query, roll back to the compatible minimal pointer and
-verify again, and finally re-activate the full version. Frontend symlink
-installation/rollback SHALL be verified by exact bytes without changing host
-Nginx. The memory observation SHALL be labeled isolated migration evidence,
-not a formal development benchmark; an OOM or cap breach SHALL fail validation
-and block production activation pending specification review.
+images, install and hash the Frontend release, start API on the minimal
+accepted Archive, and verify loopback `/livez`, `/readyz`, expected minimal
+`dataVersion`, `bgmss_build_info` version/commit, a minimal typed query, and
+Prometheus scrape of the API. While that accepted minimal API remains live,
+validation SHALL run Updater `doctor` and embedded `contract-check`, then run
+the same candidate Updater exactly once to produce a full inactive Archive
+from its embedded producer inputs and public read-only upstreams. The
+acquisition SHALL leave the minimal pointer, API identity, query result
+identity, and Prometheus scrape healthy and unchanged. The run SHALL have the
+six-hour/CPU/I/O/memory bounds, record exact upstream/status/source-accounting/
+duration/peak-memory/OOM evidence, and admit the new Archive only after
+standalone `archive-smoke` and closed-inventory verification. Validation SHALL
+then activate the generated full inactive Archive through the run-owned
+wrapper, verify the new exact `dataVersion`, status/event, readiness, metrics,
+and query, roll back to the compatible minimal pointer and verify again, and
+finally re-activate the full version. Frontend symlink installation/rollback
+SHALL be verified by exact bytes without changing host Nginx. The memory
+observation SHALL be labeled isolated migration evidence, not a formal
+development benchmark; an OOM or cap breach SHALL fail validation and block
+production activation pending specification review.
 
 #### Scenario: Candidate produces and operates two Archives in isolation
 - **WHEN** all artifact-only health, update-tool, static, scrape, activation, rollback, and re-activation checks pass
