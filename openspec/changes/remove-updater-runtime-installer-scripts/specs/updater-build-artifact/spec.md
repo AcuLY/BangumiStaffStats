@@ -10,9 +10,9 @@
 | Mutable refs | None during apply. |
 | Consumes | Existing `updater-build-artifact`, uv 0.11.32 target-install layout, frozen dependency metadata, and the current runtime-prune verifier. |
 | Produces | Native and OCI runtime closures with no installer-generated command shim or interpreter-path byte. |
-| Dependencies | `implement-operations-foundation-and-isolated-validation` pauses candidate assembly until this correction passes exact-head Development Actions, is synchronized/archived, and a separate acceptance-refresh change closes same-source remote targeted evidence; Operations then separately rebinds its frozen product receipt. |
+| Dependencies | `implement-operations-foundation-and-isolated-validation` pauses candidate assembly until this correction passes exact-head Development Actions, is synchronized/archived, and a separate acceptance-refresh change closes same-product, dual-identity remote targeted evidence; Operations then separately rebinds its frozen product receipt. |
 | Deliverables | Two exact implementation/test files and this strict-valid delta. |
-| Acceptance | Focused positive/negative/path-independence tests in exact-head Development Actions; clean residue/diff; separate same-source remote targeted acceptance refresh; subsequent Operations cross-checkout Updater byte-and-mode equality. |
+| Acceptance | Focused positive/negative/path-independence tests in exact-head Development Actions; clean residue/diff; acceptance-free product identity plus exact-compatible acceptance-control identity for the separate remote targeted refresh; subsequent Operations cross-checkout Updater byte-and-mode equality. |
 | Non-goals | No supported Updater CLI, module, dependency, lock, Archive, API, schema, acquisition, scheduling, activation, or product behavior change. |
 | Operations deferred | Release, registry, deployment, activation, host/service/public-route mutation, scheduling, cutover, and legacy retirement. |
 | Stop/rollback conditions | Stop on edits outside the writable set, incomplete or ambiguous generated-file ownership, `RECORD` invalidity, imported-module deletion, surviving root installer scripts, behavior/dependency drift, or external mutation need. |

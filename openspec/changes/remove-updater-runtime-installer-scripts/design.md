@@ -19,9 +19,9 @@ although its path happens to be stable.
 | Mutable refs | None during implementation. |
 | Consumes | Existing native and Docker calls to the shared prune helper, uv target layout, and installed wheel metadata. |
 | Produces | One shared closed pruning rule used unchanged by native and OCI builds. |
-| Dependencies | Updater correction precedes refreshed Development Actions and a separately specified same-source remote targeted acceptance refresh; the active Operations change consumes only that newly closed frozen result. Direction is Updater correction → Development Actions → remote acceptance refresh → Operations receipt/candidate. |
+| Dependencies | Updater correction precedes refreshed Development Actions and a separately specified same-product, dual-identity remote targeted acceptance refresh; the active Operations change consumes only that newly closed frozen result. Direction is Updater correction → Development Actions → remote acceptance refresh → Operations receipt/candidate. |
 | Deliverables | Closed prune/verify logic, producer-shaped regression tests, strict OpenSpec and Actions evidence. |
-| Acceptance | Static checks locally; complete exact-head Development Actions; separate same-source remote package/supervisor/targeted/cleanup/audit evidence; then Operations independent checkout comparison. |
+| Acceptance | Static checks locally; complete exact-head Development Actions; acceptance-free product identity plus compatible acceptance-control identity, their exact non-harness/lifecycle byte-and-mode equality, isolated remote package/supervisor/targeted/cleanup/audit evidence, and then Operations independent checkout comparison. |
 | Non-goals | No tool/dependency upgrade, public behavior, runtime module, artifact schema, or Operations comparison change. |
 | Operations deferred | All live release/deployment/activation and host mutation. |
 | Stop/rollback conditions | Same as the capability boundary; rollback is limited to this owner's exact uncommitted files/generated ignored output. |
@@ -119,8 +119,9 @@ business behavior changes, so no new prototype screenshot is required.
 2. Commit and push the correction with its planning artifacts.
 3. Require exact-head Development success; do not use a prior green run.
 4. Synchronize/archive this change, then complete and archive a separate
-   same-source remote targeted acceptance refresh for the new product
-   revision/tree.
+   dual-identity remote targeted acceptance refresh: the new acceptance-free
+   product revision/tree supplies Updater bytes and the compatible control
+   revision/tree supplies only the acceptance harness/lifecycle delta.
 5. Update the Operations frozen-product receipt/build-definition and refresh
    lifecycle digests,
    then resume its unchanged independent candidate comparison.
