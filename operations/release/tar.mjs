@@ -13,6 +13,11 @@ const MAX_ARCHIVE_SIZE = 512 * 1024 * 1024;
 const MAX_MEMBER_SIZE = 256 * 1024 * 1024;
 const MAX_JSON_BYTES = 4 * 1024 * 1024;
 const MAX_MEMBER_COUNT = 8192;
+const MAX_USTAR_MTIME = 0o77_777_777_777;
+const DEFAULT_HEADER_POLICY = deepFreeze({
+  allowedDirectories: [],
+  expectedMtime: 0,
+});
 
 export class ReleaseTarError extends Error {
   constructor(message, options) {
@@ -77,6 +82,35 @@ function parseOctal(buffer, start, length, label) {
   return parsed;
 }
 
+function headerPolicy({
+  allowedDirectories = [],
+  expectedMtime = 0,
+} = {}) {
+  if (
+    !Array.isArray(allowedDirectories) ||
+    allowedDirectories.length > 32
+  ) {
+    throw new TypeError('tar allowed directories must be one bounded array');
+  }
+  const normalized = allowedDirectories.map((entry) =>
+    assertSafeRelativePath(entry, 'tar allowed directory'),
+  );
+  if (new Set(normalized).size !== normalized.length) {
+    throw new TypeError('tar allowed directories must be unique');
+  }
+  if (
+    !Number.isSafeInteger(expectedMtime) ||
+    expectedMtime < 0 ||
+    expectedMtime > MAX_USTAR_MTIME
+  ) {
+    throw new TypeError('tar expected mtime is outside the USTAR bound');
+  }
+  return deepFreeze({
+    allowedDirectories: normalized,
+    expectedMtime,
+  });
+}
+
 function headerChecksum(header) {
   let total = 0;
   for (let index = 0; index < BLOCK; index += 1) {
@@ -85,7 +119,7 @@ function headerChecksum(header) {
   return total;
 }
 
-function parseHeader(header) {
+function parseHeader(header, policy = DEFAULT_HEADER_POLICY) {
   if (header.length !== BLOCK) fail('short tar header');
   if (header.equals(ZERO_BLOCK)) return null;
   const storedChecksum = parseOctal(header, 148, 8, 'checksum');
@@ -97,11 +131,25 @@ function parseHeader(header) {
   }
   const name = parseString(header, 0, 100);
   const prefix = parseString(header, 345, 155);
-  const memberPath = prefix ? `${prefix}/${name}` : name;
+  const rawMemberPath = prefix ? `${prefix}/${name}` : name;
+  const typeByte = header[156];
+  const directory = typeByte === 0x35;
+  const regular = typeByte === 0 || typeByte === 0x30;
+  if (!directory && !regular) {
+    fail(`tar member has an unsupported type: ${rawMemberPath}`);
+  }
+  if (
+    directory &&
+    (!rawMemberPath.endsWith('/') || rawMemberPath.endsWith('//'))
+  ) {
+    fail(`tar directory member is not canonically terminated: ${rawMemberPath}`);
+  }
+  const memberPath = directory
+    ? rawMemberPath.slice(0, -1)
+    : rawMemberPath;
   assertSafeRelativePath(memberPath, 'tar member path');
-  const type = header[156];
-  if (type !== 0 && type !== 0x30) {
-    fail(`tar member must be a regular file: ${memberPath}`);
+  if (directory && !policy.allowedDirectories.includes(memberPath)) {
+    fail(`tar contains an unadmitted directory member: ${memberPath}`);
   }
   const mode = parseOctal(header, 100, 8, 'mode');
   const uid = parseOctal(header, 108, 8, 'uid');
@@ -110,10 +158,14 @@ function parseHeader(header) {
   const mtime = parseOctal(header, 136, 12, 'mtime');
   if (size > MAX_MEMBER_SIZE) fail(`tar member exceeds size bound: ${memberPath}`);
   if (
-    ![0o444, 0o555, 0o644, 0o755].includes(mode) ||
+    (
+      directory
+        ? mode !== 0o555 || size !== 0
+        : ![0o444, 0o555, 0o644, 0o755].includes(mode)
+    ) ||
     uid !== 0 ||
     gid !== 0 ||
-    mtime !== 0
+    mtime !== policy.expectedMtime
   ) {
     fail(`tar member metadata is not normalized: ${memberPath}`);
   }
@@ -124,10 +176,16 @@ function parseHeader(header) {
   ) {
     fail(`tar member contains link, owner, or device metadata: ${memberPath}`);
   }
-  return deepFreeze({ mode, path: memberPath, size });
+  return deepFreeze({
+    mode,
+    mtime,
+    path: memberPath,
+    size,
+    type: directory ? 'directory' : 'file',
+  });
 }
 
-function inspectOpenedTar(descriptor, information) {
+function inspectOpenedTar(descriptor, information, policy) {
   const members = [];
   const seen = new Set();
   let offset = 0;
@@ -137,7 +195,7 @@ function inspectOpenedTar(descriptor, information) {
     const count = fs.readSync(descriptor, header, 0, BLOCK, offset);
     if (count !== BLOCK) fail('tar archive ends inside a header');
     offset += BLOCK;
-    const parsed = parseHeader(header);
+    const parsed = parseHeader(header, policy);
     if (parsed === null) {
       zeros += 1;
       if (zeros === 2) break;
@@ -147,10 +205,10 @@ function inspectOpenedTar(descriptor, information) {
     if (seen.has(parsed.path)) fail(`duplicate tar member: ${parsed.path}`);
     seen.add(parsed.path);
     members.push(deepFreeze({ ...parsed, offset }));
-      assertTarExpansionBounds({
-        expandedBytes: offset,
-        memberCount: members.length,
-      });
+    assertTarExpansionBounds({
+      expandedBytes: offset,
+      memberCount: members.length,
+    });
     offset += Math.ceil(parsed.size / BLOCK) * BLOCK;
     if (offset > Number(information.size)) {
       fail(`tar member exceeds archive boundary: ${parsed.path}`);
@@ -175,8 +233,11 @@ function inspectOpenedTar(descriptor, information) {
   return deepFreeze(members);
 }
 
-export function withInspectedTarFile(archivePath, callback) {
+export function withInspectedTarFile(archivePath, callback, options) {
   if (typeof callback !== 'function') throw new TypeError('tar callback is required');
+  const policy = options === undefined
+    ? DEFAULT_HEADER_POLICY
+    : headerPolicy(options);
   const archive = requireCanonicalPath(archivePath, {
     label: 'tar archive',
     requireSingleLink: true,
@@ -201,7 +262,7 @@ export function withInspectedTarFile(archivePath, callback) {
     fail('tar archive changed before inspection');
   }
   try {
-    const members = inspectOpenedTar(descriptor, information);
+    const members = inspectOpenedTar(descriptor, information, policy);
     const result = callback(
       deepFreeze({ archive, descriptor, identity: information, members }),
     );
@@ -376,19 +437,37 @@ function splitUstarPath(memberPath) {
   fail(`tar path exceeds USTAR bounds: ${memberPath}`);
 }
 
-function makeHeader({ mode, path: memberPath, size }) {
+function makeHeader({
+  mode,
+  mtime = 0,
+  path: memberPath,
+  size,
+  type = 'file',
+}) {
   assertSafeRelativePath(memberPath, 'tar output member path');
-  if (![0o444, 0o555].includes(mode)) fail('tar output mode must be 0444 or 0555');
-  const { name, prefix } = splitUstarPath(memberPath);
+  if (
+    !['directory', 'file'].includes(type) ||
+    (type === 'directory'
+      ? mode !== 0o555 || size !== 0
+      : ![0o444, 0o555].includes(mode)) ||
+    !Number.isSafeInteger(mtime) ||
+    mtime < 0 ||
+    mtime > MAX_USTAR_MTIME
+  ) {
+    fail('tar output member type or metadata is invalid');
+  }
+  const { name, prefix } = splitUstarPath(
+    type === 'directory' ? `${memberPath}/` : memberPath,
+  );
   const header = Buffer.alloc(BLOCK);
   assignText(header, 0, 100, name);
   octalField(mode, 8).copy(header, 100);
   octalField(0, 8).copy(header, 108);
   octalField(0, 8).copy(header, 116);
   octalField(size, 12).copy(header, 124);
-  octalField(0, 12).copy(header, 136);
+  octalField(mtime, 12).copy(header, 136);
   Buffer.from('        ', 'ascii').copy(header, 148);
-  header[156] = 0x30;
+  header[156] = type === 'directory' ? 0x35 : 0x30;
   assignText(header, 257, 6, 'ustar');
   assignText(header, 263, 2, '00');
   assignText(header, 345, 155, prefix);
@@ -410,6 +489,42 @@ export function writeDeterministicTar({ archivePath, members }) {
   if (fs.existsSync(output)) fail('tar output already exists');
   const normalized = members
     .map((member) => {
+      const type = member.type ?? 'file';
+      const memberPath = assertSafeRelativePath(
+        member.path,
+        'tar output member',
+      );
+      const mtime = member.mtime ?? 0;
+      if (type === 'directory') {
+        if (
+          member.source !== undefined ||
+          member.mode !== 0o555 ||
+          !Number.isSafeInteger(mtime) ||
+          mtime < 0 ||
+          mtime > MAX_USTAR_MTIME
+        ) {
+          fail(`tar directory member is invalid: ${memberPath}`);
+        }
+        return {
+          identity: null,
+          mode: member.mode,
+          mtime,
+          path: memberPath,
+          size: 0,
+          source: null,
+          type,
+        };
+      }
+      if (type !== 'file') {
+        fail(`tar output member has an unsupported type: ${memberPath}`);
+      }
+      if (
+        !Number.isSafeInteger(mtime) ||
+        mtime < 0 ||
+        mtime > MAX_USTAR_MTIME
+      ) {
+        fail(`tar output member mtime is invalid: ${memberPath}`);
+      }
       const source = requireCanonicalPath(member.source, {
         label: `tar source ${member.path}`,
         requireSingleLink: true,
@@ -427,9 +542,11 @@ export function writeDeterministicTar({ archivePath, members }) {
       return {
         identity: information,
         mode: member.mode,
-        path: assertSafeRelativePath(member.path, 'tar output member'),
+        mtime,
+        path: memberPath,
         size: Number(information.size),
         source,
+        type,
       };
     })
     .sort((left, right) => left.path.localeCompare(right.path, 'en'));
@@ -442,6 +559,10 @@ export function writeDeterministicTar({ archivePath, members }) {
     fail('tar output members contain duplicate paths');
   }
   if (normalized.length > MAX_MEMBER_COUNT) fail('tar output has too many members');
+  const mtimes = new Set(normalized.map((member) => member.mtime));
+  if (mtimes.size !== 1) {
+    fail('tar output members must use one normalized mtime');
+  }
   const projectedSize =
     normalized.reduce(
       (total, member) => total + BLOCK + Math.ceil(member.size / BLOCK) * BLOCK,
@@ -463,6 +584,7 @@ export function writeDeterministicTar({ archivePath, members }) {
     const buffer = Buffer.allocUnsafe(1024 * 1024);
     for (const member of normalized) {
       fs.writeSync(outputDescriptor, makeHeader(member));
+      if (member.type === 'directory') continue;
       const inputDescriptor = fs.openSync(
         member.source,
         fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0),
@@ -536,7 +658,17 @@ export function writeDeterministicTar({ archivePath, members }) {
   ) {
     fail('tar output identity changed during publication');
   }
-  inspectTarFile(output);
+  const allowedDirectories = normalized
+    .filter((member) => member.type === 'directory')
+    .map((member) => member.path);
+  withInspectedTarFile(
+    output,
+    () => undefined,
+    {
+      allowedDirectories,
+      expectedMtime: normalized[0].mtime,
+    },
+  );
   return deepFreeze({
     path: output,
     sha256: sha256File(output),
@@ -659,11 +791,17 @@ export function writePrefixedTar({
 }
 
 export async function extractGzipTarMember({
+  allowedDirectories = [],
   archivePath,
   destinationPath,
+  expectedMtime = 0,
   memberPath,
   mode = 0o555,
 }) {
+  const policy = headerPolicy({
+    allowedDirectories,
+    expectedMtime,
+  });
   const archive = requireCanonicalPath(archivePath, {
     label: 'gzip tar archive',
     requireSingleLink: true,
@@ -715,7 +853,7 @@ export async function extractGzipTarMember({
   let selectedCount = 0;
   let selectedSize = 0;
   let expandedBytes = 0;
-  const seen = new Set();
+  const seen = new Map();
   function consume() {
     while (true) {
       if (current) {
@@ -760,19 +898,22 @@ export async function extractGzipTarMember({
       if (pending.length < BLOCK) return;
       const header = pending.subarray(0, BLOCK);
       pending = pending.subarray(BLOCK);
-      const parsed = parseHeader(header);
+      const parsed = parseHeader(header, policy);
       if (parsed === null) {
         zeros += 1;
         continue;
       }
       if (zeros !== 0) fail('gzip tar contains an isolated zero block');
       if (seen.has(parsed.path)) fail(`duplicate gzip tar member: ${parsed.path}`);
-      seen.add(parsed.path);
+      seen.set(parsed.path, parsed.type);
       assertTarExpansionBounds({
         expandedBytes,
         memberCount: seen.size,
       });
       if (parsed.path === selected) {
+        if (parsed.type !== 'file') {
+          fail(`gzip tar selected member is not a regular file: ${selected}`);
+        }
         selectedCount += 1;
         selectedSize = parsed.size;
       }
@@ -806,6 +947,11 @@ export async function extractGzipTarMember({
     consume();
     if (current || pending.length !== 0 || zeros < 2) {
       fail('gzip tar stream ended before its normalized terminator');
+    }
+    for (const requiredDirectory of policy.allowedDirectories) {
+      if (seen.get(requiredDirectory) !== 'directory') {
+        fail(`gzip tar omits required directory: ${requiredDirectory}`);
+      }
     }
     if (selectedCount !== 1) fail(`gzip tar does not contain exactly one ${selected}`);
     if (

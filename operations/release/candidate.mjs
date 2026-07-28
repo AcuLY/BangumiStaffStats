@@ -27,6 +27,7 @@ import {
   COMPONENTS,
   FROZEN_PRODUCT,
   OPENAPI_DIGEST,
+  SOURCE_EPOCH_RANGE,
   TARGET,
 } from './constants.mjs';
 import {
@@ -217,11 +218,19 @@ export async function assembleReleaseCandidate({
   outputRoot,
   releaseTag,
   source,
+  sourceEpoch,
   sourceController,
   toolchain,
 }) {
   if (!['tag-release', 'validation'].includes(candidateKind)) {
     throw new TypeError('candidate kind must be validation or tag-release');
+  }
+  if (
+    !Number.isSafeInteger(sourceEpoch) ||
+    sourceEpoch < SOURCE_EPOCH_RANGE.minimum ||
+    sourceEpoch > SOURCE_EPOCH_RANGE.maximum
+  ) {
+    throw new TypeError('candidate source epoch is outside the admitted range');
   }
   const output = ensureOutputRoot(outputRoot);
   const runTmpRoot = path.join(output, '.candidate-runs');
@@ -307,8 +316,10 @@ export async function assembleReleaseCandidate({
       sourceArchive: frontendTar.source,
     });
     await extractGzipTarMember({
+      allowedDirectories: ['bin', 'metadata'],
       archivePath: backendBundle.source,
       destinationPath: path.join(candidateRoot, 'release', 'archive-smoke'),
+      expectedMtime: 0,
       memberPath: 'bin/archive-smoke',
       mode: 0o555,
     });
@@ -347,6 +358,7 @@ export async function assembleReleaseCandidate({
         'backend-api-linux-amd64.oci.tar',
       ),
       declaredLoadReference: backendLoadReference,
+      expectedMtime: 0,
     });
     const updaterGraph = inspectOciArchive({
       archivePath: path.join(
@@ -355,6 +367,7 @@ export async function assembleReleaseCandidate({
         'updater-image-linux-amd64.oci.tar',
       ),
       declaredLoadReference: updaterLoadReference,
+      expectedMtime: sourceEpoch,
     });
     const compatibility = compatibilityRecord(assembly);
     const records = inventoryTree(candidateRoot, {
@@ -412,6 +425,7 @@ export async function assembleReleaseCandidate({
         fileCount: records.length,
       },
       receipt: descriptorForFile(candidateRoot, 'accepted-development.json'),
+      sourceEpoch,
       target: TARGET,
       toolchain,
     };

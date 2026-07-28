@@ -10,6 +10,7 @@ import {
   runSubprocess,
 } from '../lib/subprocess.mjs';
 import { parseJsonStrict } from '../lib/strict-json.mjs';
+import { SOURCE_EPOCH_RANGE } from './constants.mjs';
 
 const OBJECT_ID = /^[0-9a-f]{40}$/u;
 const TREE_LINE = /^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/u;
@@ -145,6 +146,28 @@ export class GitRepository {
     ])).trim();
     if (!OBJECT_ID.test(value)) fail('Git did not resolve one tree object');
     return value;
+  }
+
+  async commitEpoch(revision) {
+    const commit = await this.resolve(revision);
+    const value = (await this.text([
+      'show',
+      '--no-patch',
+      '--format=%ct',
+      commit,
+    ])).trim();
+    if (!/^(?:0|[1-9][0-9]{0,15})$/u.test(value)) {
+      fail('Git did not emit one canonical commit epoch');
+    }
+    const epoch = Number(value);
+    if (
+      !Number.isSafeInteger(epoch) ||
+      epoch < SOURCE_EPOCH_RANGE.minimum ||
+      epoch > SOURCE_EPOCH_RANGE.maximum
+    ) {
+      fail('Git commit epoch is outside the admitted range');
+    }
+    return epoch;
   }
 
   async fileAtRevision(revision, relativePath) {

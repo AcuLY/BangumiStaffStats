@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { gzipSync } from 'node:zlib';
 
 import { createRunRoot } from '../../lib/run-root.mjs';
 import {
@@ -12,6 +13,7 @@ import {
 import { cleanupOwnedRunRoot } from '../../release/owned-cleanup.mjs';
 import {
   assertTarExpansionBounds,
+  extractGzipTarMember,
   extractTarFile,
   RELEASE_TAR_LIMITS,
   withInspectedTarFile,
@@ -136,6 +138,60 @@ test('tar extraction rejects extra members and enforces resource bounds', () => 
       assertTarExpansionBounds({
         expandedBytes: 1,
         memberCount: RELEASE_TAR_LIMITS.memberCount + 1,
+      }),
+    );
+  } finally {
+    cleanup(run, purpose);
+  }
+});
+
+test('gzip member extraction admits only the exact normalized directories', async () => {
+  const purpose = 'gzip-directory-test';
+  const run = ownedRun(purpose, ['source', 'archive', 'extract']);
+  try {
+    const executable = path.join(run.runRoot, 'source', 'archive-smoke');
+    const metadata = path.join(run.runRoot, 'source', 'build.json');
+    fs.writeFileSync(executable, 'executable\n', {
+      flag: 'wx',
+      mode: 0o444,
+    });
+    fs.writeFileSync(metadata, '{}\n', { flag: 'wx', mode: 0o444 });
+    const tarPath = path.join(run.runRoot, 'archive', 'bundle.tar');
+    writeDeterministicTar({
+      archivePath: tarPath,
+      members: [
+        { mode: 0o555, path: 'bin', type: 'directory' },
+        {
+          mode: 0o555,
+          path: 'bin/archive-smoke',
+          source: executable,
+        },
+        { mode: 0o555, path: 'metadata', type: 'directory' },
+        {
+          mode: 0o444,
+          path: 'metadata/build.json',
+          source: metadata,
+        },
+      ],
+    });
+    const archive = path.join(run.runRoot, 'archive', 'bundle.tar.gz');
+    fs.writeFileSync(archive, gzipSync(fs.readFileSync(tarPath)), {
+      flag: 'wx',
+      mode: 0o444,
+    });
+    const destination = path.join(run.runRoot, 'extract', 'archive-smoke');
+    await extractGzipTarMember({
+      allowedDirectories: ['bin', 'metadata'],
+      archivePath: archive,
+      destinationPath: destination,
+      memberPath: 'bin/archive-smoke',
+    });
+    assert.equal(fs.readFileSync(destination, 'utf8'), 'executable\n');
+    await assert.rejects(() =>
+      extractGzipTarMember({
+        archivePath: archive,
+        destinationPath: path.join(run.runRoot, 'extract', 'rejected'),
+        memberPath: 'bin/archive-smoke',
       }),
     );
   } finally {

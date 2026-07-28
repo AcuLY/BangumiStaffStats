@@ -22,6 +22,7 @@ import {
   BUILD_TOOLCHAIN,
   COMPONENTS,
   FROZEN_PRODUCT,
+  SOURCE_EPOCH_RANGE,
   TARGET,
 } from './constants.mjs';
 import { admitDockerCapability } from './docker-capability.mjs';
@@ -150,7 +151,13 @@ function verifyComponent(root, candidate, component, source) {
   return verified;
 }
 
-function verifyImage(root, image, expectedArchivePath, loadReference) {
+function verifyImage(
+  root,
+  image,
+  expectedArchivePath,
+  loadReference,
+  expectedMtime,
+) {
   if (
     image.archive.path !== expectedArchivePath ||
     image.declaredLoadReference !== loadReference
@@ -161,6 +168,7 @@ function verifyImage(root, image, expectedArchivePath, loadReference) {
   const graph = inspectOciArchive({
     archivePath: path.join(root, ...expectedArchivePath.split('/')),
     declaredLoadReference: loadReference,
+    expectedMtime,
   });
   if (canonicalJsonDigest(graph) !== canonicalJsonDigest({
     config: image.config,
@@ -234,6 +242,13 @@ export function verifyCandidateStructure(candidateRoot) {
     fail('candidate execution and selected host toolchain identities disagree');
   }
   const source = expectedSource(candidate, document.kind);
+  if (
+    !Number.isSafeInteger(candidate.sourceEpoch) ||
+    candidate.sourceEpoch < SOURCE_EPOCH_RANGE.minimum ||
+    candidate.sourceEpoch > SOURCE_EPOCH_RANGE.maximum
+  ) {
+    fail('candidate source epoch is outside the admitted range');
+  }
   const receipt = verifyDescriptor(root, candidate.receipt, 'accepted receipt');
   if (
     candidate.receipt.path !== 'accepted-development.json' ||
@@ -280,12 +295,14 @@ export function verifyCandidateStructure(candidateRoot) {
     candidate.images.api,
     'release/backend-api-linux-amd64.oci.tar',
     backendLoadReference,
+    0,
   );
   verifyImage(
     root,
     candidate.images.updater,
     'release/updater-image-linux-amd64.oci.tar',
     updaterLoadReference,
+    candidate.sourceEpoch,
   );
   for (const [name, expectedPath] of [
     ['archiveSmoke', 'release/archive-smoke'],

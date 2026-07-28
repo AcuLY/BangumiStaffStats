@@ -77,6 +77,12 @@ test('both unpublished candidate schemas bind the exact build toolchain closure'
   ]) {
     const schema = readJsonStrict(path.join(SCHEMAS, name));
     assert.ok(schema.required.includes('toolchain'));
+    assert.ok(schema.required.includes('sourceEpoch'));
+    assert.deepEqual(schema.properties.sourceEpoch, {
+      maximum: 8_589_934_591,
+      minimum: 315_532_800,
+      type: 'integer',
+    });
     assert.equal(schema.$defs.toolchain.additionalProperties, false);
     assert.equal(
       schema.$defs.toolchain.properties.buildxVersion.const,

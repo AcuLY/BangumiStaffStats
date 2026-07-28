@@ -189,6 +189,7 @@ function runtimeDefaults(config) {
 export function inspectOciArchive({
   archivePath,
   declaredLoadReference,
+  expectedMtime = 0,
   includeRuntimeDefaults = false,
   target = TARGET,
 }) {
@@ -339,12 +340,16 @@ export function inspectOciArchive({
     ...layers.map((entry) => blobPath(entry.digest)),
   ]);
   const allowedMembers = new Set([
+    'blobs',
+    'blobs/sha256',
     'index.json',
     'manifest.json',
     'oci-layout',
     ...allowedBlobs,
   ]);
   if (
+    members.get('blobs')?.type !== 'directory' ||
+    members.get('blobs/sha256')?.type !== 'directory' ||
     membersArray.length !== allowedMembers.size ||
     membersArray.some((member) => !allowedMembers.has(member.path))
   ) {
@@ -394,5 +399,8 @@ export function inspectOciArchive({
     result.runtimeDefaults = runtimeDefaults(config);
   }
   return deepFreeze(result);
+  }, {
+    allowedDirectories: ['blobs', 'blobs/sha256'],
+    expectedMtime,
   });
 }

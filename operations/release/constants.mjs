@@ -7,6 +7,10 @@ export const REPOSITORY_ROOT = path.dirname(OPERATIONS_ROOT);
 
 export const APPLICATION_VERSION = 'v0.1.0';
 export const TARGET = Object.freeze({ architecture: 'amd64', os: 'linux' });
+export const SOURCE_EPOCH_RANGE = Object.freeze({
+  maximum: 8_589_934_591,
+  minimum: 315_532_800,
+});
 
 export const FROZEN_PRODUCT = Object.freeze({
   revision: '3f585cfe0a0dd61fe783a839528fef25470a58db',

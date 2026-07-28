@@ -39,6 +39,8 @@ function sourceFile(root, name, bytes) {
 function buildArchive({
   configArchitecture = 'amd64',
   extraMember = false,
+  memberMtime = 0,
+  omitDirectories = false,
   orphanBlob = false,
   rootfsDiffIds = [
     'sha256:1111111111111111111111111111111111111111111111111111111111111111',
@@ -116,6 +118,20 @@ function buildArchive({
     'utf8',
   );
   const members = [
+    ...(
+      omitDirectories
+        ? []
+        : [
+            {
+              path: 'blobs',
+              type: 'directory',
+            },
+            {
+              path: 'blobs/sha256',
+              type: 'directory',
+            },
+          ]
+    ),
     {
       path: 'index.json',
       bytes: indexBytes,
@@ -154,11 +170,21 @@ function buildArchive({
       path: `blobs/sha256/${sha256(bytes).slice(7)}`,
     });
   }
-  const tarMembers = members.map((member, index) => ({
-    mode: 0o444,
-    path: member.path,
-    source: sourceFile(source, `member-${index}`, member.bytes),
-  }));
+  const tarMembers = members.map((member, index) =>
+    member.type === 'directory'
+      ? {
+          mode: 0o555,
+          mtime: memberMtime,
+          path: member.path,
+          type: 'directory',
+        }
+      : {
+          mode: 0o444,
+          mtime: memberMtime,
+          path: member.path,
+          source: sourceFile(source, `member-${index}`, member.bytes),
+        },
+  );
   const archive = path.join(run.runRoot, 'archive', 'image.oci.tar');
   writeDeterministicTar({ archivePath: archive, members: tarMembers });
   return { archive, purpose, run };
@@ -189,6 +215,7 @@ test('OCI inspector accepts one closed linux/amd64 graph', () => {
 for (const [name, mutation] of [
   ['config platform mismatch', { configArchitecture: 'arm64' }],
   ['extra top-level member', { extraMember: true }],
+  ['missing normalized directories', { omitDirectories: true }],
   ['orphan blob', { orphanBlob: true }],
   ['rootfs and manifest layer mismatch', { rootfsDiffIds: [] }],
 ]) {
@@ -208,6 +235,29 @@ for (const [name, mutation] of [
     }
   });
 }
+
+test('OCI inspector binds the normalized source epoch', () => {
+  const memberMtime = 1_700_000_000;
+  const fixture = buildArchive({ memberMtime });
+  try {
+    assert.doesNotThrow(() =>
+      inspectOciArchive({
+        archivePath: fixture.archive,
+        declaredLoadReference: LOAD_REFERENCE,
+        expectedMtime: memberMtime,
+      }),
+    );
+    assert.throws(() =>
+      inspectOciArchive({
+        archivePath: fixture.archive,
+        declaredLoadReference: LOAD_REFERENCE,
+        expectedMtime: memberMtime + 1,
+      }),
+    );
+  } finally {
+    cleanup(fixture);
+  }
+});
 
 test('OCI archive inspection rejects same-byte pathname replacement', () => {
   const fixture = buildArchive();

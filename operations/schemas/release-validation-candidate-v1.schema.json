@@ -499,6 +499,11 @@
       ],
       "type": "object"
     },
+    "sourceEpoch": {
+      "maximum": 8589934591,
+      "minimum": 315532800,
+      "type": "integer"
+    },
     "target": {
       "additionalProperties": false,
       "properties": {
@@ -531,6 +536,7 @@
     "receipt",
     "schemaVersion",
     "source",
+    "sourceEpoch",
     "target",
     "toolchain"
   ],

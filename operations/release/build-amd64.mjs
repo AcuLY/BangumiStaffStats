@@ -133,14 +133,26 @@ function extraEnvironment(setRoot, builderName, buildxPlugin) {
     BUILDX_BUILDER: builderName,
     DOCKER_CONFIG: dockerConfig,
     DOCKER_DEFAULT_PLATFORM: 'linux/amd64',
+    GOCACHE: path.join(setRoot, 'go-build-cache'),
+    GOFLAGS: '-modcacherw',
+    GOMODCACHE: path.join(setRoot, 'go-mod-cache'),
+    GOPATH: path.join(setRoot, 'go-path'),
     GOTOOLCHAIN: 'go1.26.5+auto',
     NPM_CONFIG_CACHE: path.join(setRoot, 'npm-cache'),
     PYTHONDONTWRITEBYTECODE: '1',
     UV_CACHE_DIR: path.join(setRoot, 'uv-cache'),
+    UV_LINK_MODE: 'copy',
     UV_NO_PROGRESS: '1',
   };
-  fs.mkdirSync(extra.NPM_CONFIG_CACHE, { mode: 0o700 });
-  fs.mkdirSync(extra.UV_CACHE_DIR, { mode: 0o700 });
+  for (const directory of [
+    extra.GOCACHE,
+    extra.GOMODCACHE,
+    extra.GOPATH,
+    extra.NPM_CONFIG_CACHE,
+    extra.UV_CACHE_DIR,
+  ]) {
+    fs.mkdirSync(directory, { mode: 0o700 });
+  }
   return extra;
 }
 
@@ -437,10 +449,22 @@ async function buildSet({
       environment,
       executable: node,
     });
-    const [backend, frontend] = await Promise.all([
+    const [backendOutcome, frontendOutcome] = await Promise.allSettled([
       backendPromise,
       frontendPromise,
     ]);
+    const parallelErrors = [backendOutcome, frontendOutcome]
+      .filter((outcome) => outcome.status === 'rejected')
+      .map((outcome) => outcome.reason);
+    if (parallelErrors.length === 1) throw parallelErrors[0];
+    if (parallelErrors.length > 1) {
+      throw new AggregateError(
+        parallelErrors,
+        'parallel Backend and Frontend component builds failed',
+      );
+    }
+    const backend = backendOutcome.value;
+    const frontend = frontendOutcome.value;
     const updaterRoot = path.join(checkout.root, 'updater');
     await command({
       args: ['-m', 'venv', '--copies', '.venv'],
@@ -669,6 +693,7 @@ export async function doubleBuildReleaseCandidate({
       fail('--source-ref may only restate the frozen product revision');
     }
     const sourceTree = await repository.tree(sourceRevision);
+    const sourceEpoch = await repository.commitEpoch(sourceRevision);
     if (
       candidateKind === 'validation' &&
       sourceTree !== FROZEN_PRODUCT.tree
@@ -731,6 +756,7 @@ export async function doubleBuildReleaseCandidate({
       outputRoot: canonicalOutput,
       releaseTag,
       source: { revision: sourceRevision, tree: sourceTree },
+      sourceEpoch,
       sourceController: {
         revision: controllerRevision,
         tree: controllerTree,

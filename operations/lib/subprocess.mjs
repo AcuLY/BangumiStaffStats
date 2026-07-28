@@ -136,15 +136,72 @@ export function buildSanitizedEnvironment({
 }
 
 function appendBounded(state, chunk) {
-  if (state.bytes >= state.limit) {
+  if (!Buffer.isBuffer(chunk)) {
+    throw new TypeError('subprocess output chunk must be a Buffer');
+  }
+  if (!state.truncated && state.bytes + chunk.length <= state.limit) {
+    state.chunks.push(chunk);
+    state.bytes += chunk.length;
+    return;
+  }
+
+  if (!state.truncated) {
+    const buffered = Buffer.concat(state.chunks, state.bytes);
+    const headLimit = Math.floor(state.limit / 2);
+    const tailLimit = state.limit - headLimit;
+    if (headLimit > 0) {
+      if (buffered.length >= headLimit) {
+        state.head = Buffer.from(buffered.subarray(0, headLimit));
+      } else {
+        state.head = Buffer.concat(
+          [
+            buffered,
+            chunk.subarray(0, headLimit - buffered.length),
+          ],
+          headLimit,
+        );
+      }
+    }
+    if (chunk.length >= tailLimit) {
+      state.tail = Buffer.from(chunk.subarray(chunk.length - tailLimit));
+    } else {
+      const priorTailLength = tailLimit - chunk.length;
+      state.tail = Buffer.concat(
+        [
+          buffered.subarray(buffered.length - priorTailLength),
+          chunk,
+        ],
+        tailLimit,
+      );
+    }
+    state.chunks = [];
+    state.bytes = 0;
     state.truncated = true;
     return;
   }
-  const remaining = state.limit - state.bytes;
-  const accepted = chunk.length <= remaining ? chunk : chunk.subarray(0, remaining);
-  state.chunks.push(accepted);
-  state.bytes += accepted.length;
-  if (accepted.length !== chunk.length) state.truncated = true;
+
+  if (chunk.length >= state.tail.length) {
+    state.tail = Buffer.from(chunk.subarray(chunk.length - state.tail.length));
+    return;
+  }
+  state.tail = Buffer.concat(
+    [
+      state.tail.subarray(chunk.length),
+      chunk,
+    ],
+    state.tail.length,
+  );
+}
+
+function boundedOutputSnapshot(state) {
+  if (!state.truncated) {
+    const full = Buffer.concat(state.chunks, state.bytes).toString('utf8');
+    return { head: full, tail: full };
+  }
+  return {
+    head: state.head.toString('utf8'),
+    tail: state.tail.toString('utf8'),
+  };
 }
 
 function signalProcess(child, signal) {
@@ -244,14 +301,30 @@ export async function runSubprocess({
 
   return await new Promise((resolve, reject) => {
     const started = performance.now();
-    const stdout = { bytes: 0, chunks: [], limit: maxOutputBytes, truncated: false };
-    const stderr = { bytes: 0, chunks: [], limit: maxOutputBytes, truncated: false };
+    const stdout = {
+      bytes: 0,
+      chunks: [],
+      head: Buffer.alloc(0),
+      limit: maxOutputBytes,
+      tail: Buffer.alloc(0),
+      truncated: false,
+    };
+    const stderr = {
+      bytes: 0,
+      chunks: [],
+      head: Buffer.alloc(0),
+      limit: maxOutputBytes,
+      tail: Buffer.alloc(0),
+      truncated: false,
+    };
     let terminationReason = null;
     let forcedTimer;
     let settled = false;
     let child;
 
     function result(code, childSignal) {
+      const stdoutSnapshot = boundedOutputSnapshot(stdout);
+      const stderrSnapshot = boundedOutputSnapshot(stderr);
       return deepFreeze({
         command: executable,
         args: boundedArgs,
@@ -260,8 +333,10 @@ export async function runSubprocess({
         signal: childSignal,
         terminationReason,
         durationMs: Math.round(performance.now() - started),
-        stdout: Buffer.concat(stdout.chunks).toString('utf8'),
-        stderr: Buffer.concat(stderr.chunks).toString('utf8'),
+        stdout: stdoutSnapshot.head,
+        stdoutTail: stdoutSnapshot.tail,
+        stderr: stderrSnapshot.head,
+        stderrTail: stderrSnapshot.tail,
         stdoutTruncated: stdout.truncated,
         stderrTruncated: stderr.truncated,
       });

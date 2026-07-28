@@ -124,21 +124,60 @@ test('subprocess timeout terminates its isolated process group', async (t) => {
   );
 });
 
-test('subprocess output is bounded and a truncation is a failure', async (t) => {
+test('subprocess output keeps bounded real tails and truncation remains a failure', async (t) => {
   const { environment, run } = subprocessFixture(t, 'subprocess-output-test');
+  let captured;
   await assert.rejects(
     () =>
       runSubprocess({
         command: process.execPath,
-        args: ['-e', 'process.stdout.write("x".repeat(8192))'],
+        args: [
+          '-e',
+          [
+            'let stopping = false;',
+            'let hold;',
+            "process.on('SIGTERM', () => {",
+            '  if (stopping) return;',
+            '  stopping = true;',
+            '  clearInterval(hold);',
+            "  process.stdout.write('\\nactual-stdout-tail\\n');",
+            "  process.stderr.write('\\nactual-stderr-tail\\n', () => process.exit(0));",
+            '});',
+            "process.stdout.write('stdout-head\\n' + 'x'.repeat(4096));",
+            "process.stderr.write('stderr-head\\n' + 'y'.repeat(4096));",
+            'hold = setInterval(() => {}, 1_000);',
+          ].join('\n'),
+        ],
         cwd: run.runRoot,
         environment,
         timeoutMs: 5_000,
+        gracefulStopMs: 1_000,
         maxOutputBytes: 256,
       }),
-    (error) =>
-      error instanceof SubprocessError &&
-      error.result?.terminationReason === 'output-limit' &&
-      error.result.stdoutTruncated === true,
+    (error) => {
+      captured = error;
+      return (
+        error instanceof SubprocessError &&
+        error.result?.terminationReason === 'output-limit' &&
+        error.result.stdoutTruncated === true &&
+        error.result.stderrTruncated === true
+      );
+    },
+  );
+  assert.match(captured.result.stdout, /^stdout-head/u);
+  assert.equal(captured.result.stdout.includes('actual-stdout-tail'), false);
+  assert.match(captured.result.stdoutTail, /actual-stdout-tail\n$/u);
+  assert.match(captured.result.stderr, /^stderr-head/u);
+  assert.equal(captured.result.stderr.includes('actual-stderr-tail'), false);
+  assert.match(captured.result.stderrTail, /actual-stderr-tail\n$/u);
+  assert.ok(
+    Buffer.byteLength(captured.result.stdout) +
+      Buffer.byteLength(captured.result.stdoutTail) <=
+      256,
+  );
+  assert.ok(
+    Buffer.byteLength(captured.result.stderr) +
+      Buffer.byteLength(captured.result.stderrTail) <=
+      256,
   );
 });
