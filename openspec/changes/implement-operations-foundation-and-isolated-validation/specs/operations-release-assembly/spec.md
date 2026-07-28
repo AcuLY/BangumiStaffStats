@@ -90,7 +90,9 @@ The coordinator SHALL use the exact admitted Node 24.18.0/npm 11.16.0 rather
 than the host default, set the Docker default platform to `linux/amd64`, bind
 the selected Buildx/BuildKit identities, and require real Backend, Updater, and
 coordinator AMD64 execution smokes. An advertised platform without working
-QEMU/binfmt execution SHALL fail closed.
+actual AMD64 execution SHALL fail closed. Native AMD64 runners SHALL execute
+directly; only a different host MAY use an exact admitted and recorded
+QEMU/binfmt path.
 
 #### Scenario: The same frozen AMD64 validation inputs are assembled twice
 - **WHEN** two fresh builds and two validation-candidate assemblies use the same clean authority and exact toolchains
@@ -100,8 +102,8 @@ QEMU/binfmt execution SHALL fail closed.
 - **WHEN** a component has another source/tree/platform, the OCI graph is not one `linux/amd64` image, `archive-smoke` is absent or mismatched, or Frontend/compatibility evidence differs
 - **THEN** no validation candidate is emitted and no existing content address is changed
 
-#### Scenario: The host default toolchain or AMD64 emulator is unsuitable
-- **WHEN** PATH selects another Node/npm, Docker defaults to the host platform, the admitted builder lacks AMD64, or a generated-image smoke cannot execute through the admitted binfmt path
+#### Scenario: The host default toolchain or AMD64 execution path is unsuitable
+- **WHEN** PATH selects another Node/npm, Docker defaults to the host platform, the admitted builder lacks AMD64, or a generated-image smoke cannot execute natively on AMD64 or through the admitted emulator on a different host
 - **THEN** the build stops without accepting statements, assembling a candidate, or relabeling an ARM64 result
 
 ### Requirement: A tag release candidate SHALL build the tagged commit

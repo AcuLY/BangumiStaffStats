@@ -103,12 +103,14 @@ the exact admitted Node 24.18.0/npm 11.16.0 directory instead of accepting the
 host default, fixes `DOCKER_DEFAULT_PLATFORM=linux/amd64`, and binds the
 selected Buildx/BuildKit builder identities. Backend, Updater, and coordinator
 smokes SHALL actually execute the generated AMD64 images, so a missing or
-broken QEMU/binfmt path is a blocking failure rather than an inferred
-capability. Their new statements and compatibility manifests bind the frozen
-product identity. The Operations controller identity is recorded in
-validation-candidate control metadata, not substituted into product evidence.
-Accepted Darwin/ARM64 roots remain read-only provenance and are never copied
-into the AMD64 candidate.
+broken execution path is a blocking failure rather than an inferred
+capability. Native AMD64 runners execute directly; a different host may use
+only an exact admitted and recorded QEMU/binfmt path. Their new statements and
+compatibility manifests bind the frozen product identity. The Operations
+controller identity is recorded in validation-candidate control metadata, not
+substituted into product evidence. No prior formal artifact root is available
+to copy; any caller-supplied prior artifact identity is rejected rather than
+inserted into the AMD64 candidate.
 
 For an actual later version tag, the operations guide requires every artifact
 to be built from the tag's own commit. The release workflow therefore
@@ -459,9 +461,10 @@ retroactively treated as green.
 - **[AMD64 builds are expensive]** → Two fully isolated end-to-end sets are
   required only at operations verification/release gates; caches are separate
   for proof but may use a pre-sealed immutable dependency cache.
-- **[A builder advertises AMD64 but emulation is unusable]** → Admission binds
+- **[A builder advertises AMD64 but execution is unusable]** → Admission binds
   the builder/platform facts, while Backend, Updater, and coordinator smokes
-  must really execute the generated AMD64 images before acceptance.
+  must really execute the generated AMD64 images natively on AMD64 or through
+  the exact admitted emulator on a different host before acceptance.
 - **[Product and Operations identities differ]** → Both are first-class fields;
   binaries/statements bind product, release control evidence binds Operations,
   and deploy verifies both.

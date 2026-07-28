@@ -95,7 +95,9 @@
   `DOCKER_DEFAULT_PLATFORM=linux/amd64`, binds the selected Buildx/BuildKit
   identities, invokes the accepted Backend/Updater/Frontend build entrypoints
   for `linux/amd64`, and requires real Backend/Updater/coordinator AMD64 smokes
-  to prove QEMU/binfmt execution. It independently verifies the new
+  to prove actual execution—native on an AMD64 runner, or through an exact
+  admitted QEMU/binfmt path only when the host differs. It independently
+  verifies the new
   statements/artifacts, assembles compatibility, and compares the two complete
   sets byte-for-byte. It must reject ARM64 bytes as AMD64 and remove no
   source/evidence on failure.
