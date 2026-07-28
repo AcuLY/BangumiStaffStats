@@ -10,7 +10,7 @@
 | Read-only protected inputs | Root authorities and oracle; all OpenSpec outside this change; `VERSION`; `.github/workflows/ci.yml`; `contracts/artifacts/**`; accepted immutable Backend/Updater/Frontend artifact roots; all `backend/**`, `updater/**`, `frontend/**`, and other `contracts/**`; runtime/recovery/validation owner paths; external refs, registries, releases, environments, secrets, hosts, and production state. |
 | Deletion complement | None. Generated release output may be removed only below a proven run-owned `operations/.tmp/**` root. |
 | Mutable refs | Only the listed repository worktree files. Running tag, registry, GitHub Release, production Environment, SSH, or deploy mutations is not authorized by this capability apply. |
-| Consumes | Archived `complete-integrated-development-acceptance` with exact status `development-acceptance-closed-by-authorized-ci-and-remote-evidence`; frozen product revision/tree `3f585cfe0a0dd61fe783a839528fef25470a58db`/`93e29a0c51c0305db8a43e7d029b8eaa3014a1b8`; acceptance implementation, green Actions, isolated remote targeted/exception/unexecuted-cell/cleanup/audit evidence; accepted product build definitions, statement/compatibility schemas and validators, toolchain/base identities; explicit prior-artifact status `not-materialized-for-authorized-closure`; `VERSION`; reviewed exact Actions/toolchain identities. This owner creates rather than consumes the new `linux/amd64` component artifacts. |
+| Consumes | Final acceptance-free Product revision/tree with exact-head green Development Actions; descendant Harness implementation revision/tree; descendant archived `refresh-integrated-development-acceptance` revision/tree with exact status `development-acceptance-closed-by-authorized-ci-and-remote-evidence`; exact ancestry and Product/Harness byte-and-mode difference proof restricted to receipt-declared acceptance/lifecycle paths; immutable Product and Harness source archives/inventories; Product-owned Updater targeted evidence; Harness-owned package/supervisor/targeted evidence; exception/unexecuted-cell/cleanup/audit evidence; thirteen Product build definitions including `updater/build/runtime_prune.py`; statement/compatibility schemas and validators, toolchain/base identities; explicit prior-artifact status `not-materialized-for-authorized-closure`; `VERSION`; reviewed exact Actions/toolchain identities. This owner creates rather than consumes the new `linux/amd64` component artifacts. |
 | Produces | A canonical accepted-development receipt; isolated-validation AMD64 candidate and tag-release candidate/published-release schemas, validators, and assemblers; checksum inventory; immutable AMD64 provenance; operations verification workflow; protected-tag release workflow; approval-gated deploy workflow; and negative policy tests. |
 | Dependencies | `complete-integrated-development-acceptance`, `contracts-rewrite-baseline`, `contracts-application-release-identity`, `contracts-artifact-compatibility`, `backend-build-artifact`, `updater-build-artifact`, and `frontend-build-artifact`. Dependency direction is product artifacts and Contracts → Operations release assembly → runtime/validation consumers; Operations never writes upstream evidence. |
 | Deliverables | The exact writable files, reproducibility/provenance/policy tests, and ephemeral candidate output below `operations/.tmp/**`. |
@@ -25,29 +25,41 @@
 
 Operations SHALL contain one canonical, immutable
 `operations/release/accepted-development.json` derived from the
-main-agent-audited authorized CI/remote acceptance lifecycle bundle. The
+main-agent-audited refreshed CI/remote acceptance lifecycle bundle. The
 receipt SHALL bind exact lifecycle status
-`development-acceptance-closed-by-authorized-ci-and-remote-evidence`, frozen
-product revision/tree, acceptance implementation revision, green Actions
-head/tree/run ID and conclusion, archived acceptance lifecycle commit, remote
-source/runtime identity and package/targeted test counts, the one narrowly
-classified Linux fixture exception, the explicit unexecuted formal-cell set,
-cleanup and zero-P0/P1 audit facts, root application version, and accepted
-build/statement/compatibility contract digests. It SHALL record exact
+`development-acceptance-closed-by-authorized-ci-and-remote-evidence`, final
+acceptance-free Product revision/tree, descendant Harness implementation
+revision/tree, descendant Harness archive revision/tree, exact Product →
+Harness implementation → Harness archive ancestry, and exact-head green
+Development Actions whose head/tree equal Product. It SHALL bind two immutable
+source archives with size/mode/content-inventory digests; one complete sorted
+Git byte-and-mode difference inventory whose allowed paths are closed to the
+acceptance harness and its exact active/archived lifecycle/main-spec paths;
+Product-owned Updater targeted command/count/TAP/log evidence; Harness-owned
+package verification, supervisor and selected targeted command/count/TAP/log
+evidence; remote runtime/container identities; the one narrowly classified
+Linux fixture exception; the explicit unexecuted formal-cell set; cleanup and
+zero-P0/P1 audit facts; and root application version. It SHALL bind exactly
+thirteen Product-revision build definitions, with
+`updater/build/runtime_prune.py` ordered between `updater/build/check.py` and
+`updater/build/smoke.py`, plus Product-bound statement/compatibility contract
+digests and `VERSION`. It SHALL record exact
 `priorDevelopmentArtifacts.status=not-materialized-for-authorized-closure`,
 contain no prior component/compatibility byte digest, and explain that
 ephemeral CI output is not a reusable Operations input. The receipt SHALL
 contain neither a formal result digest nor a synthesized
 `development-accepted-operations-pending` verdict. Repository gates SHALL
-verify every repository-resolvable field and fail if the receipt or its
-recorded authority drifts.
+verify every repository-resolvable field, recompute ancestry and the complete
+Product/Harness Git difference inventory, and fail if the receipt or any
+recorded authority drifts. Harness evidence SHALL never be represented as
+having run from Product.
 
 #### Scenario: Operations reads the accepted receipt
-- **WHEN** the canonical receipt, archived acceptance lifecycle evidence, Git objects, root version, and accepted contract/build digests all agree
+- **WHEN** the canonical receipt, Product → Harness implementation → Harness archive ancestry, exact allowed Product/Harness byte-and-mode delta, separately attributed evidence, Git objects, root version, and thirteen accepted contract/build authorities all agree
 - **THEN** its frozen product identity may authorize AMD64 validation assembly and later tag-baseline comparison
 
 #### Scenario: Acceptance evidence is missing or reinterpreted
-- **WHEN** a lifecycle/CI/remote/exception/unexecuted-cell/OID/contract fact is absent, changed, unresolved, a formal verdict or prior artifact identity is synthesized, or ephemeral CI output is marked deployable
+- **WHEN** a lifecycle/CI/remote/exception/unexecuted-cell/OID/contract fact is absent, changed, unresolved, Actions differs from Product, ancestry fails, a non-allowed Product/Harness path differs, Harness evidence is attributed to Product, a formal verdict or prior artifact identity is synthesized, or ephemeral CI output is marked deployable
 - **THEN** Operations verification and release stop before building
 
 ### Requirement: Operations validation assembly SHALL rebuild the frozen accepted product identity
@@ -123,15 +135,15 @@ validation candidate. For a protected version tag, it SHALL check out and
 build the tag's own exact commit twice, as required by the operations guide.
 Before build it SHALL verify the tag commit descends from the frozen accepted
 product, its product/build/contract inputs remain byte-identical to the
-accepted baseline, and every intervening change is confined to accepted
-`contracts/acceptance/**` control-plane restoration/fixes through exact commit
-`b56ce858733b18875df3101a423c6d1b356eed54`, the exact archived
-development-acceptance lifecycle/main-spec paths, or accepted Operations and
-OpenSpec lifecycle paths. Every product/build/non-acceptance-Contracts
-authority blob and executable mode SHALL remain byte-identical to the frozen
-baseline. Newly built component statements and compatibility evidence SHALL
-bind the tag commit revision/tree. One canonical tag-release candidate SHALL
-also bind the frozen accepted-product receipt and the tag's Operations
+accepted baseline, and every intervening change is confined to the exact
+receipt-recomputed Product/Harness acceptance/lifecycle difference inventory
+or accepted Operations/OpenSpec lifecycle paths. Broad `openspec/**` or
+prefix-only allowance is forbidden. Every product/build/non-acceptance-
+Contracts authority blob and executable mode SHALL remain byte-identical to
+the frozen baseline; `contracts/acceptance/**` SHALL match the admitted Harness
+implementation. Newly built component statements and compatibility evidence
+SHALL bind the tag commit revision/tree. One canonical tag-release candidate
+SHALL also bind the frozen accepted-product receipt and the tag's Operations
 controller identity.
 
 #### Scenario: A reviewed Operations tag is prepared for release

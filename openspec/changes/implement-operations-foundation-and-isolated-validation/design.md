@@ -4,13 +4,17 @@ Development produced deterministic Backend, Updater, Frontend, and Contracts
 artifact machinery. The authorized acceptance closure did not materialize or
 retain the formal component-artifact set: CI built ephemeral AMD64 artifacts,
 while the formal Darwin/ARM64 matrix was unexecuted. Operations must not invent
-those byte identities and must keep two authorities separate:
+those byte identities and must keep four authorities separate:
 
-1. the frozen product revision/tree and build definitions bound by the
-   authorized archived lifecycle evidence for
-   `complete-integrated-development-acceptance`; and
-2. the later Operations controller revision/tree that assembles, releases,
-   deploys, and validates that product.
+1. the final acceptance-free Product revision/tree and thirteen build
+   definitions, including `updater/build/runtime_prune.py`;
+2. the descendant Harness implementation revision/tree that owns remote
+   package/supervisor/targeted evidence and differs from Product only through
+   an exact receipt-declared acceptance/lifecycle byte-and-mode inventory;
+3. the descendant archived acceptance-refresh revision/tree that owns the
+   refreshed lifecycle descriptors; and
+4. the later Operations controller revision/tree that assembles, releases,
+   deploys, and validates the Product.
 
 The production guide reserves a single-host topology with host Nginx/systemd,
 Compose API/Prometheus, and a one-shot Updater. The current authorization
@@ -91,14 +95,18 @@ The exact current external scopes are:
 
 ### 1. Rebuild the frozen product in two isolated local checkouts
 
-The Operations controller reads the archived authorized acceptance receipt and
-extracts its exact frozen product revision/tree
-`3f585cfe0a0dd61fe783a839528fef25470a58db`/
-`93e29a0c51c0305db8a43e7d029b8eaa3014a1b8`. It creates two independently owned
-temporary Git checkouts below `operations/.tmp/**`, with no credentialed
-remote and no push capability. Each checkout must be the exact frozen product
-commit, with raw tracked bytes/modes matching Git, no dirty/untracked
-non-ignored content, and no `assume-unchanged`/`skip-worktree` flags.
+The Operations controller reads the final refreshed acceptance receipt and
+extracts its exact frozen acceptance-free Product revision/tree. It first
+proves exact Product → Harness implementation → Harness archive ancestry,
+recomputes the complete Product/Harness Git byte-and-mode difference
+inventory, and accepts only the closed receipt-declared acceptance/lifecycle
+path set. It also requires the recorded Development Actions head/tree to equal
+Product exactly and all build/contract/VERSION authorities to resolve from
+Product. It then creates two independently owned temporary Git checkouts below
+`operations/.tmp/**`, with no credentialed remote and no push capability. Each
+checkout must be the exact Product commit, with raw tracked bytes/modes
+matching Git, no dirty/untracked non-ignored content, and no
+`assume-unchanged`/`skip-worktree` flags.
 
 For current isolated validation, the accepted component entrypoints run for
 `linux/amd64` in both checkouts with separate caches. The controller prepends
@@ -119,12 +127,10 @@ For an actual later version tag, the operations guide requires every artifact
 to be built from the tag's own commit. The release workflow therefore
 double-builds that exact tag commit after proving its product/build/contract
 inputs remain byte-identical to the frozen baseline and every intervening path
-is either the exact audited `contracts/acceptance/**` control-plane restoration
-and fixes through `b56ce858733b18875df3101a423c6d1b356eed54`, the exact archived
-development-acceptance lifecycle/main-spec delta, or approved
-Operations/OpenSpec lifecycle. Product, build, and non-acceptance Contracts
-authority blobs/modes remain byte-identical to the frozen baseline. Its
-statements bind the tag commit;
+is either an exact path in the receipt-recomputed Product/Harness
+acceptance/lifecycle inventory or approved Operations/OpenSpec lifecycle.
+Product, build, and non-acceptance Contracts authority blobs/modes remain
+byte-identical to the frozen baseline. Its statements bind the tag commit;
 it never promotes the earlier validation candidate.
 
 Alternative considered: build the current isolated-validation candidate from
@@ -140,13 +146,18 @@ runtime bytes are not interchangeable.
 The release control plane has four canonical closed documents:
 
 - `accepted-development.json` is the main-agent-audited receipt derived from
-  the exact archived authorized CI/remote lifecycle bundle. It binds lifecycle
+  the exact archived refreshed CI/remote lifecycle bundle. It binds lifecycle
   status
-  `development-acceptance-closed-by-authorized-ci-and-remote-evidence`, frozen
-  product identity, acceptance implementation, CI head/run, archived lifecycle
-  commit, remote package/targeted counts, the narrow Linux fixture exception,
-  unexecuted formal-cell inventory, cleanup/audit facts, and accepted
-  build/contract digests. It records
+  `development-acceptance-closed-by-authorized-ci-and-remote-evidence`, final
+  acceptance-free Product identity, equal exact-head Development Actions,
+  descendant Harness implementation identity, descendant Harness archive
+  identity, both immutable source archives/inventories, the exact allowed
+  Product/Harness Git byte-and-mode difference inventory, Product-owned
+  Updater targeted evidence, Harness-owned package/supervisor/targeted
+  evidence, the narrow Linux fixture exception, unexecuted formal-cell
+  inventory, cleanup/audit facts, and thirteen Product-bound build definitions
+  including `updater/build/runtime_prune.py` plus accepted contract digests. It
+  records
   `priorDevelopmentArtifacts.status=not-materialized-for-authorized-closure`
   and contains no fabricated component/compatibility byte identity, formal
   result digest, or synthesized
@@ -548,9 +559,11 @@ retroactively treated as green.
   the builder/platform facts, while Backend, Updater, and coordinator smokes
   must really execute the generated AMD64 images natively on AMD64 or through
   the exact admitted emulator on a different host before acceptance.
-- **[Product and Operations identities differ]** → Both are first-class fields;
-  binaries/statements bind product, release control evidence binds Operations,
-  and deploy verifies both.
+- **[Product, Harness, archive, and Operations identities differ]** → All four
+  are first-class fields; Actions/build/product statements bind Product,
+  remote harness evidence binds Harness, lifecycle descriptors bind the Harness
+  archive, release control evidence binds Operations, and verifiers recompute
+  ancestry plus the exact allowed Product/Harness byte-and-mode delta.
 - **[A protected host changes concurrently]** → Admission and final inventory
   fail conservatively. No compensating mutation of the legacy service is
   attempted.
@@ -577,28 +590,34 @@ retroactively treated as green.
 
 ## Migration Plan
 
-1. Require `complete-integrated-development-acceptance` to be synchronized,
-   archived, and committed with its exact authorized CI/remote lifecycle
-   bundle; record the frozen product and evidence identities while preserving
-   the fact that no canonical formal result was emitted.
-2. Implement the Operations foundation/release control plane and have
+1. Require the Updater correction to be archived at final Product P and
+   Development Actions to be green at that exact Product head.
+2. Merge P into the compatible Harness control line, complete and archive
+   `refresh-integrated-development-acceptance`, and record H implementation,
+   H archive, both source inventories, exact allowed P/H byte-and-mode delta,
+   separately attributed P/H test evidence, exception/unexecuted cells,
+   cleanup, and zero-P0/P1 audit while preserving that no canonical formal
+   result was emitted.
+3. Rebind the Operations receipt/schema/verifier/tag baseline to P → H →
+   archive, thirteen Product build definitions, and the canonical receipt
+   digest; then implement the Operations foundation/release control plane and have
    `operations.yml` execute its complete tests.
-3. Implement the single-host runtime, recovery, observability, and inert
+4. Implement the single-host runtime, recovery, observability, and inert
    host-integration templates, then have `operations.yml` execute its complete
    disposable tests.
-4. Implement the isolated validation controller/payload and have
+5. Implement the isolated validation controller/payload and have
    `operations.yml` execute its complete fake/disposable tests.
-5. Commit the reviewed Operations implementation so its controller identity is
+6. Commit the reviewed Operations implementation so its controller identity is
    stable; keep release/deploy workflows undispatched.
-6. From the frozen accepted product revision/tree, build two clean AMD64 sets,
+7. From the frozen accepted product revision/tree, build two clean AMD64 sets,
    verify byte identity, and assemble the unpublished candidate.
-7. Run the read-only `myserver` preflight. Stop without writes on any mismatch.
-8. Create only `/srv/bgmss-ops-validation`, run isolated success/failure
+8. Run the read-only `myserver` preflight. Stop without writes on any mismatch.
+9. Create only `/srv/bgmss-ops-validation`, run isolated success/failure
    validation, pull evidence, perform bounded cleanup, and prove
    non-interference/zero residue.
-9. Mark verified task evidence, synchronize/archive the change, and run final
+10. Mark verified task evidence, synchronize/archive the change, and run final
    repository/Actions checks. Report released/deployed as false.
-10. A later explicit activation change may configure secrets/users, install
+11. A later explicit activation change may configure secrets/users, install
     root-owned files, create `/srv/bgmss-v2`, start `bgmss_v2`, install/reload
     Nginx/systemd, and exercise live rollback. Publication, cutover, observation,
     and retirement remain separately gated.

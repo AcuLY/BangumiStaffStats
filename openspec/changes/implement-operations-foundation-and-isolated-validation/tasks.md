@@ -8,9 +8,9 @@
 | Read-only protected inputs | All root authorities/oracle/product/Contracts/build sources and evidence; `.github/workflows/ci.yml`; OpenSpec outside this change; other owner groups while concurrent; registries/releases/environments/secrets/refs. On `myserver`, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, other `/srv/**`, all pre-existing Docker/Compose images/tags/volumes/networks/containers/projects, Nginx/systemd/TLS/DNS/firewall/users/cron, public listeners, legacy data/processes, and every undeclared path/ref. |
 | Deletion complement | No tracked or pre-existing state. Only closed run-owned local `.tmp` paths, remote validation path inventory, captured project resources, and still-identity-matching run-created image references may be removed. |
 | Mutable refs | Exact listed worktree files; main-agent commits/push/lifecycle; admitted validation root pointers/links and captured project/image refs. No tag, release, registry, Environment, secret, production/legacy ref, daemon, public route, or named volume is mutable. |
-| Consumes | Archived authorized CI/remote development-acceptance lifecycle bundle and frozen product revision/tree; accepted build/contracts/tool identities; explicit `not-materialized-for-authorized-closure` prior-artifact status; the minimal Archive fixture; the candidate Updater's sealed acquisition implementation/configuration and public read-only upstream inputs; approved Operations specs; read-only host facts. The formal Darwin/ARM64 matrix remains explicitly unexecuted. |
+| Consumes | Final acceptance-free Product with exact-head green Development Actions; descendant Harness implementation and archived acceptance refresh; exact Product/Harness ancestry and allowed byte/mode delta; separately attributed Product/Harness remote evidence; thirteen Product-bound build definitions including `updater/build/runtime_prune.py`; accepted contracts/tool identities; explicit `not-materialized-for-authorized-closure` prior-artifact status; the minimal Archive fixture; the candidate Updater's sealed acquisition implementation/configuration and public read-only upstream inputs; approved Operations specs; read-only host facts. The formal Darwin/ARM64 matrix remains explicitly unexecuted. |
 | Produces | Repository Operations implementation/tests/workflows, accepted-development receipt, two clean frozen-product AMD64 validation sets/candidate, tag-release policy, canonical host validation result, cleanup/non-interference evidence, synchronized/archived specs, and green Actions. |
-| Dependencies | Complete and archive `complete-integrated-development-acceptance`; then foundation; release and runtime may implement in parallel after foundation; validation depends on both; clean AMD64 build depends on committed implementation; remote write depends on main-agent acceptance of read-only host preflight. |
+| Dependencies | Archive the Updater correction and exact-head Product Actions, then complete/archive the dual-identity acceptance refresh and rebind the Operations receipt; foundation follows; release and runtime may implement in parallel after foundation; validation depends on both; clean AMD64 build depends on committed implementation; remote write depends on main-agent acceptance of read-only host preflight. |
 | Deliverables | Every path and evidence named above; no generated or remote validation residue. |
 | Acceptance | All three capability acceptance sets, exact commands below, zero P0/P1 main-agent audit, strict validation, staged commit boundaries, push, and green branch Actions; released/deployed remain false. Browser/oracle rerun is not applicable because exact path gates prohibit UI/product edits; preservation authority is the immutable oracle contract plus green Frontend source/artifact Actions evidence, not an unexecuted formal browser matrix. |
 | Non-goals | Product or contract changes; use of ARM64 bytes as AMD64; production release/deploy/activation; Nginx/systemd/TLS/users/firewall/public-route mutation; real scheduled acquisition; SLO/cutover/observation; or legacy retirement/deletion. |
@@ -19,9 +19,10 @@
 
 ## 1. Admission and shared Operations foundation
 
-- [ ] 1.1 **Foundation owner preflight.** After the development acceptance
-  lifecycle bundle is synchronized, archived, committed, and explicitly
-  authorized for Operations without a canonical formal result, verify branch
+- [ ] 1.1 **Foundation owner preflight.** After the Updater correction and
+  dual-identity development acceptance refresh are synchronized, archived,
+  committed, and explicitly authorized for Operations without a canonical
+  formal result, verify branch
   `codex/formal-rewrite`; compare `HEAD` and `HEAD^{tree}` with the full
   main-agent-approved base OIDs recorded in the handoff; require a clean
   staged/unstaged/untracked non-ignored state; require no active change except
@@ -30,11 +31,14 @@
   and stop without edits on any mismatch.
 - [ ] 1.2 Record a canonical local authorization input below
   `operations/.tmp/inputs/**` that binds lifecycle status
-  `development-acceptance-closed-by-authorized-ci-and-remote-evidence`, frozen
-  product revision/tree, acceptance implementation, green Actions head/run,
-  archived lifecycle commit, remote package/targeted counts, narrow Linux
+  `development-acceptance-closed-by-authorized-ci-and-remote-evidence`, final
+  Product revision/tree, equal exact-head green Actions, descendant Harness
+  implementation and archive identities, both source archives/inventories,
+  exact allowed Product/Harness byte-and-mode delta, separately attributed
+  Product Updater and Harness package/supervisor/targeted evidence, narrow Linux
   fixture exception, unexecuted formal cells, cleanup/audit facts, Operations
-  base identity, accepted tool/build/contract identities, and exact
+  base identity, thirteen Product build definitions, accepted tool/contract
+  identities, and exact
   `priorDevelopmentArtifacts.status=not-materialized-for-authorized-closure`.
   Reject fabricated prior component/compatibility digests, a formal result
   digest, or synthesized `development-accepted-operations-pending` verdict.
@@ -84,7 +88,10 @@
   `validation-candidate-v1`, tag-release-candidate-v1, and published
   `release-manifest-v1` schemas, canonical validators, and negative fixtures.
   Bind the authorized lifecycle/CI/remote/exception/unexecuted-cell evidence,
-  frozen product, acceptance control, archived lifecycle, and Operations/tag
+  final Product, equal Actions, descendant Harness implementation, descendant
+  Harness archive, both source inventories, exact allowed Product/Harness
+  byte-and-mode difference inventory, separately attributed Product/Harness
+  test evidence, thirteen Product build definitions, and Operations/tag
   identities separately; bind exact target,
   components, OCI graph/config, Backend `archive-smoke`, Frontend,
   compatibility/OpenAPI/Archive facts, Prometheus digest, standalone verified
@@ -115,9 +122,10 @@
 - [ ] 2.5 Implement tag-release candidate and published-manifest verification
   without pushing: require the exact protected tag commit, prove all product/
   build/contract inputs equal the frozen accepted baseline and all intervening
-  paths are limited to the exact audited `contracts/acceptance/**` restoration
-  and fixes through `b56ce858`, its archived lifecycle/main spec, or approved
-  Operations/lifecycle; double-build that tag commit, bind its new statements,
+  paths are limited to the exact receipt-recomputed Product/Harness
+  acceptance/lifecycle inventory or approved Operations/lifecycle; require
+  `contracts/acceptance/**` to match the Harness implementation, reject broad
+  `openspec/**` allowance, double-build that tag commit, bind its new statements,
   then prove final GHCR graph/config/layer equivalence,
   immutable Frontend/checksum/compatibility bytes, tag/version, and Prometheus
   digest. Reject both validation and tag candidates at the production deploy
@@ -156,6 +164,17 @@
   `git diff --check`, and exact owned-path/residue checks.
   Record results, remove only run-owned temporary fixtures, and do not run any
   tag, login, registry push, Release creation, Environment, SSH, or deploy.
+- [ ] 2.11 Rebind `accepted-development.json`, its schema/verifier/constants,
+  tag-baseline policy, and release tests to the final Product → Harness
+  implementation → Harness archive chain. Require Actions=Product; every
+  build/contract/VERSION authority=Product; exactly thirteen ordered build
+  definitions including `updater/build/runtime_prune.py`; recomputed exact
+  allowed Product/Harness byte-and-mode differences; and separately attributed
+  Product/Harness evidence. Canonicalize the final receipt with one LF, compute
+  its SHA-256 from those exact bytes, propagate the digest and final Product
+  identity through release-manifest schema, `deploy.yml`, transaction policy,
+  workflow checker, fixtures/tests, and add direct tag-baseline
+  positive/negative coverage before candidate assembly.
 
 ## 3. Single-host runtime and recovery definitions
 
@@ -352,7 +371,9 @@
 
 - [ ] 6.1 **AMD64 execution owner preflight.** Require a clean committed
   Operations implementation, exact commit/tree approved by the main agent,
-  archived authorized CI/remote acceptance input, frozen product OIDs, exact
+  archived refreshed dual-identity CI/remote acceptance input, frozen Product
+  OIDs, verified Product → Harness → archive ancestry and allowed byte/mode
+  delta, exact
   Node/npm/Go/uv/Docker/Buildx/BuildKit identities on the admitted GitHub
   Actions runner, sufficient runner space, a working real AMD64
   container-execution smoke on the admitted builder, and
