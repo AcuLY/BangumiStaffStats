@@ -40,9 +40,12 @@ function fsyncDirectory(directory) {
 }
 
 function unlinkCaptured(candidate, identity) {
-  assertPathIdentity(candidate, identity, {
+  const metadataIdentity = Object.fromEntries(
+    Object.entries(identity).filter(([key]) => key !== 'sha256'),
+  );
+  assertPathIdentity(candidate, metadataIdentity, {
     label: 'temporary immutable output',
-    requireSingleLink: identity.links === 1,
+    includeDigest: false,
   });
   fs.unlinkSync(candidate);
 }

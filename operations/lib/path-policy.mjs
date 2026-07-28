@@ -209,17 +209,12 @@ function pathType(information) {
 
 export function capturePathIdentity(
   candidate,
-  {
-    label = 'path identity',
-    includeDigest = false,
-    below,
-    requireSingleLink = includeDigest,
-  } = {},
+  { label = 'path identity', includeDigest = false, below } = {},
 ) {
   const canonical = requireCanonicalPath(candidate, {
     label,
     below,
-    requireSingleLink,
+    requireSingleLink: includeDigest,
   });
   const information = fs.lstatSync(canonical, { bigint: true });
   const type = pathType(information);
@@ -245,16 +240,11 @@ export function capturePathIdentity(
 export function assertPathIdentity(
   candidate,
   expected,
-  {
-    label = 'path identity',
-    includeDigest = Object.hasOwn(expected, 'sha256'),
-    requireSingleLink = includeDigest,
-  } = {},
+  { label = 'path identity', includeDigest = Object.hasOwn(expected, 'sha256') } = {},
 ) {
   const actual = capturePathIdentity(candidate, {
     label,
     includeDigest,
-    requireSingleLink,
   });
   const keys = Object.keys(expected).sort();
   if (
