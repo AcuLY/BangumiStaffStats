@@ -42,6 +42,7 @@ function fsyncDirectory(directory) {
 function unlinkCaptured(candidate, identity) {
   assertPathIdentity(candidate, identity, {
     label: 'temporary immutable output',
+    requireSingleLink: identity.links === 1,
   });
   fs.unlinkSync(candidate);
 }
