@@ -83,15 +83,26 @@ selected name, or result-parse ambiguity SHALL fail the refresh.
 ### Requirement: Refresh cleanup SHALL prove non-interference and preserve formal omissions
 
 Before the first write, the refresh SHALL record the absent/non-symlinked run
-root, image pre-existence, legacy `/srv/bgmss` identity and Git-status digest,
-stable existing container/network/volume inventories, `nginx -T` digest,
-listener/process facts, and one actual Host/SNI loopback route
-status/header/body digest. Cleanup SHALL remove only manifest-bound run files
-and directories bottom-up, run containers by immutable ID/label, and a fixed
-image reference only when this run pulled it and its ownership/identity remain
-exclusive. Broad recursive cleanup, wildcard deletion, Docker prune, Git
-clean, Compose down, network/volume removal, service change, and production or
-legacy mutation SHALL be forbidden.
+root and image pre-existence. For legacy `/srv/bgmss`, it SHALL record lstat,
+realpath, filesystem identity, a complete path-bound lstat
+metadata inventory digest, and type/count/logical-size distribution. It SHALL
+NOT open or hash regular-file contents or emit secret/live-data path names.
+When and only when that root is a Git worktree, it SHALL additionally record
+Git identity and status digest. A non-Git published legacy root SHALL be
+represented explicitly and SHALL NOT be mislabeled as Git. The preflight
+SHALL also record stable existing container/network/volume inventories,
+`nginx -T` digest, listener/process facts, and one actual Host/SNI loopback
+route status/header/body digest.
+
+When a fixed image is absent, the exact digest pull MAY be the first bounded
+post-admission mutation. Its immutable ID, digest, OS, architecture, and
+runtime version SHALL validate before cache preparation or tests; registry
+probe or pull failure SHALL fail closed. Cleanup SHALL remove only
+manifest-bound run files and directories bottom-up, run containers by
+immutable ID/label, and a fixed image reference only when this run pulled it
+and its ownership/identity remain exclusive. Broad recursive cleanup,
+wildcard deletion, Docker prune, Git clean, Compose down, network/volume
+removal, service change, and production or legacy mutation SHALL be forbidden.
 
 Postflight SHALL require every protected seal unchanged and all run roots,
 containers, archives, caches, dependency trees, and source residue absent or

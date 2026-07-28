@@ -52,17 +52,26 @@
 
 - [ ] 3.1 Select one opaque run ID and perform a read-only `myserver`
   preflight. Require the exact `/srv/bgmss-development-acceptance-refresh-<run-id>`
-  root absent and non-symlinked; verify Docker and fixed image/platform
-  capability without installing host tools or changing state.
-- [ ] 3.2 Seal protected preflight evidence: `/srv/bgmss` identity and Git
-  status digest, stable existing-container inspect projection,
-  network/volume inventories, `nginx -T` digest, listeners/process facts, and
-  an actual Host/SNI loopback route status/header/body digest. Record fixed
-  image pre-existence and stop for main-agent admission on any ambiguity.
+  root absent and non-symlinked; verify Docker engine/API and linux/amd64
+  capability without installing host tools or changing state. Record exact
+  fixed-image pre-existence; an absent image does not require a successful
+  unauthenticated registry manifest probe before admission.
+- [ ] 3.2 Seal protected preflight evidence: `/srv/bgmss` lstat, realpath,
+  filesystem identity, complete path-bound lstat metadata
+  inventory digest, and type/count/logical-size distribution without opening
+  or hashing regular-file contents or emitting secret/live-data path names;
+  add Git identity/status digest only if it is a Git worktree, otherwise
+  record `non-git-published-root`. Also seal stable existing-container inspect
+  projection, network/volume inventories, `nginx -T` digest,
+  listeners/process facts, and an actual Host/SNI loopback route
+  status/header/body digest. Stop for main-agent admission on any ambiguity.
 - [ ] 3.3 After admission only, create the exact run root, ownership marker,
   closed write/delete manifest, P/H archive copies, and uniquely labelled
-  containers. Create no Compose project, network, volume, published port,
-  listener, daemon, service change, or production/legacy path.
+  containers. If a fixed image was absent, make its exact digest pull the
+  first bounded image mutation and verify immutable ID/digest/platform/runtime
+  version before cache preparation or tests. Create no Compose project,
+  network, volume, published port, listener, daemon, service change, or
+  production/legacy path.
 
 ## 4. Execute separately attributed container gates
 

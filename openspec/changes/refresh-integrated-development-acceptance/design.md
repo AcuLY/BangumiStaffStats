@@ -95,7 +95,14 @@ as acceptance evidence. The actual Harness install is:
 `npm ci --ignore-scripts --omit=optional --offline --no-audit --no-fund`.
 
 Unsupported image digest/platform/version or an unsealed cache fails before
-tests.
+tests. Read-only preflight records the engine platform and whether each fixed
+reference already exists. When a fixed reference is absent, registry
+reachability and image platform are not guessed from an unauthenticated
+manifest probe: after main-agent admission, the exact digest pull is the
+run's first bounded image mutation, and the pulled reference's immutable ID,
+digest, OS, architecture, and runtime version are verified before cache
+preparation or any gate. A failed pull or identity check stops and invokes
+only the declared owned-image cleanup.
 
 ### 3. Freeze one Product test owner and three Harness gates
 
@@ -138,10 +145,16 @@ The main agent selects one opaque run ID and exact root:
 `/srv/bgmss-development-acceptance-refresh-<run-id>`.
 
 Read-only preflight requires it absent and non-symlinked, captures the fixed
-images' pre-existence, and seals protected state: `/srv/bgmss` identity/Git
-status digest, legacy container stable inspect projection, Docker
-network/volume inventories, `nginx -T` digest, current listeners/process
-facts, and one actual Host/SNI loopback route status/header/body digest.
+images' pre-existence, and seals protected state: `/srv/bgmss` lstat,
+realpath, filesystem identity, complete path-bound lstat
+metadata inventory digest, and type/count/logical-size distribution. Regular
+file contents are deliberately not opened or hashed, and secret/live-data
+path names are not emitted. When and only when that root is a Git worktree,
+its Git identity and status digest are added. The seal also includes the
+legacy container stable inspect projection, Docker network/volume inventories,
+`nginx -T` digest, current listeners/process facts, and one actual Host/SNI
+loopback route status/header/body digest. A non-Git published legacy root is
+an explicit filesystem state, not an admission failure.
 
 After admission, the run creates the root with an ownership marker and a
 closed file manifest, transfers P/H archives, and uses uniquely named
