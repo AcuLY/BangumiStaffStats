@@ -30,22 +30,25 @@
 
 ## 2. Updater Runtime Pruning
 
-- [x] 2.1 In `updater/build/runtime_prune.py`, admit the direct real runtime
+- [ ] 2.1 In `updater/build/runtime_prune.py`, admit the direct real runtime
   `bin` subtree only when every regular file has one exact safe installed
   `RECORD` owner; bind admission to non-following descriptors and stable
-  identities, atomically quarantine and completely rescan the owned tree
-  before the first unlink, remove only those files/empty directories and rows,
-  preserve all other bytes/rows, safely restore a complete pre-delete failure,
-  and make post-prune verification reject any residual direct `bin` or
-  quarantine child.
-- [x] 2.2 In `updater/build/test_artifact.py`, add producer-shaped fixtures for
+  identities, atomically quarantine with Linux/Darwin no-replace rename and
+  completely rescan the owned tree before the first unlink, remove only those
+  files/empty directories and rows, restore only an identity-matching complete
+  pre-delete tree, retain terminal quarantine instead of restoring after any
+  successful deletion, and make verification reject any residual direct
+  `bin` or quarantine child.
+- [ ] 2.2 In `updater/build/test_artifact.py`, add producer-shaped fixtures for
   `bin/jsonschema`, matching `RECORD` digest/size, two distinct absolute
   interpreter shebangs with identical pruned results, supported-launcher
   preservation, unrecorded/duplicate/missing/symlink/residual rejection, and
   deterministic late file/hard-link/intermediate-directory replacement hooks
-  proving no earlier unlink, external-sentinel mutation, or quarantine
-  residue.
-- [x] 2.3 End the implementation group with read-only status/diff review,
+  proving no earlier unlink or external-sentinel mutation. Cover destination
+  collision, quarantine-root replacement before restore, and a second-entry
+  failure after the first unlink, proving terminal residue/original `RECORD`
+  and no partial public `bin`.
+- [ ] 2.3 End the implementation group with read-only status/diff review,
   allowed static checks, `git diff --check`, and no generated residue. Do not
   run local product tests, builds, Docker, cleanup, staging, commit, or push;
   hand the unstaged two-file candidate to the main agent.

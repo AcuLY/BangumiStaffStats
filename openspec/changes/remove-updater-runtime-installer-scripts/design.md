@@ -66,15 +66,24 @@ digest-mismatched entry fails rather than being silently cleaned.
 
 The destructive phase is descriptor-relative. After one complete admission
 and one complete pre-delete rescan, the helper atomically renames the admitted
-`bin` directory to one pre-checked internal quarantine name, proves that the
+`bin` directory with an atomic no-replace primitive: Linux uses
+`renameat2(RENAME_NOREPLACE)` and Darwin uses
+`renameatx_np(RENAME_EXCL)`. Unsupported kernels/filesystems fail closed
+rather than falling back to check-then-rename. The helper proves that the
 moved directory has the admitted identity, proves the public `bin` name was
 not recreated, and rescans every child before the first unlink. It then opens
 every intermediate directory with `O_DIRECTORY | O_NOFOLLOW` and deletes only
 through held parent descriptors. The quarantine boundary compares the stable
 directory identity rather than treating a rename-permitted root-directory
-timestamp change as content drift. A pre-delete failure restores the complete
-quarantine only when its public destination is still absent; verification
-rejects either public `bin` or quarantine residue.
+timestamp change as content drift.
+
+The helper tracks whether the first admitted entry has actually been removed.
+Before that point, failure may restore only a root whose device, inode, type,
+and mode still match admission, and restoration also uses no-replace rename.
+After that point, failure deliberately leaves terminal quarantine residue and
+the original `RECORD`; the generated work root is failed and disposable, so a
+partial tree is never relabelled as public `bin` and can never verify or
+publish. Verification rejects either public `bin` or quarantine residue.
 
 Deleting a broad name anywhere below the runtime was rejected because Python
 packages may legitimately contain their own nested `bin` directories.
@@ -103,10 +112,11 @@ business behavior changes, so no new prototype screenshot is required.
   this correction fails any retained direct `bin`.
 - **A malformed `RECORD` or late pathname replacement causes partial or
   escaping deletion** → Validate the complete ownership/digest set, isolate
-  the exact admitted tree by atomic descriptor-relative rename, rescan before
-  the first unlink, delete only through held non-following descriptors, and
-  then atomically rewrite each surviving `RECORD` with existing temporary-file
-  replacement.
+  the exact admitted tree by atomic no-replace descriptor-relative rename,
+  rescan before the first unlink, delete only through held non-following
+  descriptors, restore only before any successful deletion, and otherwise
+  leave a terminal failed work root; only a fully successful deletion may
+  atomically rewrite each surviving `RECORD`.
 - **The test models the wrong uv target layout** → Use the exact observed
   `bin/jsonschema` row and exercise both native-shaped absolute paths.
 - **Refreshed acceptance broadens scope** → Freeze only the reviewed product
