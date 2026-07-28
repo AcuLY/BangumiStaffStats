@@ -13,6 +13,15 @@ purpose is narrower: re-prove the corrected Product's directly affected
 Updater closure, re-prove the accepted Harness control surfaces, and preserve
 the exact non-green lifecycle boundary needed by Operations.
 
+The first admitted acquisition attempt
+`20b2f5df80c7a941d9a6b3e9` made no test claim: three pulls stopped at the
+unreachable Docker Hub registry, then exact cleanup and every protected seal
+closed unchanged. Subsequent read-only investigation also proved the original
+Node root `sha256:6f7b03f7d42f...6ecb20` did not exist; it was a transcribed
+digest, not an immutable object. That failed attempt remains failure evidence
+only. This revision corrects the root and fixes an identity-equivalent
+Tencent VPC mirror transport before another admitted run.
+
 | Field | Declaration |
 |---|---|
 | Status | Design complete after main-agent review; execution/verification/archive not started. |
@@ -80,11 +89,29 @@ rejected because it would erase evidence ownership.
 
 Node gates use:
 
-`node@sha256:6f7b03f7d42f2d5afd5c6c51d917732a316b94908531295d9d23c4c1936ecb20`
+`mirror.ccs.tencentyun.com/library/node@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d`
 
-and assert Node 24.18.0/npm 11.16.0. Python gates use:
+whose unique linux/amd64 child is
+`sha256:d45d78e7929b46875bbd4e29bea672d5bc48186c6c3588306521c815e78352d6`
+and config/image ID is
+`sha256:2f35c3d18013b7d65e31c40f0602e4c0a65a18efc65c16e2b98497f13f4da921`;
+gates assert Node 24.18.0/npm 11.16.0. Python gates use:
 
-`python:3.14.6-slim-bookworm@sha256:86f975aca15cf04a40b399eebede9aea7c82eae084d1f1a0a6ef6bcaae871a30`.
+`mirror.ccs.tencentyun.com/library/python@sha256:86f975aca15cf04a40b399eebede9aea7c82eae084d1f1a0a6ef6bcaae871a30`,
+
+whose unique linux/amd64 child is
+`sha256:f70215e5dbe2a47dee6d23f9c6d358bf3c148f59cce2fd165b61118e9d80f2bb`
+and config/image ID is
+`sha256:c42d4d39d945cdfc11f65c2bdbcbc174b9d01563225ca182aff28c25248378c4`.
+
+The registry name is transport, not image authority. Before pull, the run
+fetches raw OCI index, unique linux/amd64 child, config, and layer descriptors
+from the two exact mirror RepoDigests; it locally recomputes every digest,
+requires every descriptor size and layer availability, and records the graph.
+The run neither resolves a tag nor changes daemon/mirror/proxy configuration.
+After pull, `RepoDigests`, immutable config ID, OS/architecture, config
+diff-IDs, and the recorded graph must agree. Version checks and every later
+container use the immutable config image ID.
 
 Actual gates run with `--network none`, a read-only container root, `/tmp`
 tmpfs, no host toolchain, no port, no Docker network, and only writable
@@ -96,13 +123,12 @@ as acceptance evidence. The actual Harness install is:
 
 Unsupported image digest/platform/version or an unsealed cache fails before
 tests. Read-only preflight records the engine platform and whether each fixed
-reference already exists. When a fixed reference is absent, registry
-reachability and image platform are not guessed from an unauthenticated
-manifest probe: after main-agent admission, the exact digest pull is the
-run's first bounded image mutation, and the pulled reference's immutable ID,
-digest, OS, architecture, and runtime version are verified before cache
-preparation or any gate. A failed pull or identity check stops and invokes
-only the declared owned-image cleanup.
+RepoDigest and config image ID already exist. When both identities are absent,
+the exact mirror RepoDigest pull is the run's first bounded image mutation;
+the pulled graph, OS, architecture, and runtime versions are verified before
+cache preparation or any gate. A missing/ambiguous descriptor, digest/size
+mismatch, Docker Hub fallback, pre-existing config ownership, failed pull, or
+identity check stops and invokes only the declared owned-image cleanup.
 
 ### 3. Freeze one Product test owner and three Harness gates
 
@@ -189,6 +215,9 @@ emitted.
   results.
 - **[Online cache preparation is mistaken for a test]** → End preparation
   before the run evidence phase; all gates remain offline/networkless.
+- **[A registry name is mistaken for image authority]** → Pin the corrected
+  root, child, config, and descriptor graph; recompute raw bytes and execute
+  only by config image ID. Never resolve a tag or trust a mirror header alone.
 - **[A remote object collides or changes concurrently]** → Stop before writes
   or preserve ambiguous residue; never compensate with broader deletion.
 - **[A Linux fixture exception grows]** → Match one exact name and error only;
@@ -198,8 +227,8 @@ emitted.
 
 1. Wait for exact-head P Development Actions success.
 2. Commit strict-valid refresh artifacts; that commit/tree is H implementation.
-3. Prove ancestry/differences, perform read-only preflight, then run the closed
-   remote container gates.
+3. Prove ancestry/differences, perform read-only preflight, attest the fixed
+   mirror OCI graphs, then pull and run the closed remote container gates.
 4. Pull/hash bounded evidence, clean the run complement, repeat protected
    inventories, and obtain independent zero-P0/P1 review.
 5. Record exact identities/results, sync the delta, archive the change, commit,

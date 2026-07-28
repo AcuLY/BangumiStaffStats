@@ -52,11 +52,15 @@ archive as the other.
 The refresh SHALL run on the explicitly approved `myserver` only below one
 previously absent owned root
 `/srv/bgmss-development-acceptance-refresh-<run-id>`. Actual gates SHALL use
-the exact digest-addressed Node 24.18.0/npm 11.16.0 and Python 3.14.6 images
-declared by the change, `--network none`, read-only container roots, `/tmp`
-tmpfs, no published port, no Compose project, no Docker network or volume, and
-only run-owned writable mounts. Host Node, npm, Python, Go, or application
-toolchains SHALL NOT be admission gates.
+the corrected exact Tencent-mirror RepoDigest/root, unique linux/amd64 child,
+config image ID, and layer graph for Node 24.18.0/npm 11.16.0 and Python
+3.14.6 declared by the change. The registry name SHALL be transport only:
+raw OCI bytes, descriptor sizes, `RepoDigests`, config diff-IDs, OS/arch, and
+in-container versions SHALL validate, no tag may resolve, and every gate
+SHALL run by config image ID. Gates SHALL use `--network none`, read-only
+container roots, `/tmp` tmpfs, no published port, no Compose project, no
+Docker network or volume, and only run-owned writable mounts. Host Node, npm,
+Python, Go, or application toolchains SHALL NOT be admission gates.
 
 Product SHALL execute
 `python -m unittest -v build.test_artifact.RuntimePruneTests` from Product's
@@ -94,10 +98,15 @@ SHALL also record stable existing container/network/volume inventories,
 `nginx -T` digest, listener/process facts, and one actual Host/SNI loopback
 route status/header/body digest.
 
-When a fixed image is absent, the exact digest pull MAY be the first bounded
-post-admission mutation. Its immutable ID, digest, OS, architecture, and
-runtime version SHALL validate before cache preparation or tests; registry
-probe or pull failure SHALL fail closed. Cleanup SHALL remove only
+When both a fixed RepoDigest and its config image ID are absent, the exact
+mirror RepoDigest pull MAY be the first bounded post-admission mutation.
+Before pull, the run SHALL recompute and bind the root, unique linux/amd64
+child, config, and every layer digest/size. After pull, the immutable config
+ID, `RepoDigests`, diff-IDs, OS, architecture, and runtime version SHALL
+validate before cache preparation or tests. A tag lookup, descriptor
+ambiguity, Docker Hub fallback, pre-existing config ownership, digest/size
+mismatch, registry probe, or pull failure SHALL fail closed. Cleanup SHALL
+remove only
 manifest-bound run files and directories bottom-up, run containers by
 immutable ID/label, and a fixed image reference only when this run pulled it
 and its ownership/identity remain exclusive. Broad recursive cleanup,

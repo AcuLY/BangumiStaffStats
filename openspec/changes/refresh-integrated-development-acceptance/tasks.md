@@ -8,7 +8,7 @@
 | Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`, Harness source outside lifecycle artifacts, oracle and all implementation, other OpenSpec, Git history outside main-agent commits, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, legacy/production containers, networks, volumes, Nginx/systemd/TLS, listeners, processes, routes, and data. |
 | Deletion complement | No tracked or pre-existing object. Cleanup is limited to exact manifest-bound run files/directories, run containers by immutable ID and label, and a fixed image reference only if this run alone pulled and still exclusively owns it. |
 | Mutable refs | Lifecycle commits/push, one run root, run containers, and conditionally run-owned image references. No tag, release, product ref, deployment ref, service, route, port, network, volume, or production/legacy object. |
-| Consumes | Exact-head Product Actions; descendant Harness; exact Product/Harness Git inventories; fixed Node/Python image digests; read-only `myserver` capability/protected-state preflight. |
+| Consumes | Exact-head Product Actions; descendant Harness; exact Product/Harness Git inventories; corrected fixed Node/Python root/child/config/layer graphs through the Tencent VPC mirror; read-only `myserver` capability/protected-state preflight. |
 | Produces | Ordered Product/Harness/archive identities, two source archive attestations, separately attributed targeted evidence, exact cleanup/non-interference evidence, and an archived refresh consumable by Operations. |
 | Dependencies | Product Actions green → strict Harness implementation commit → P/H proof → read-only remote admission → isolated gates → cleanup/postflight → zero-P0/P1 → archive. |
 | Deliverables | Strict-valid lifecycle, H implementation identity, complete bounded evidence, synchronized root spec, H archive identity, clean/pushed branch, and zero remote residue. |
@@ -54,8 +54,11 @@
   preflight. Require the exact `/srv/bgmss-development-acceptance-refresh-<run-id>`
   root absent and non-symlinked; verify Docker engine/API and linux/amd64
   capability without installing host tools or changing state. Record exact
-  fixed-image pre-existence; an absent image does not require a successful
-  unauthenticated registry manifest probe before admission.
+  fixed mirror RepoDigest and config-image-ID pre-existence. Fetch and
+  locally hash the exact raw OCI roots, unique linux/amd64 children, configs,
+  and every layer descriptor; require declared digest/size/availability
+  before admission without resolving a tag or changing daemon/proxy/mirror
+  configuration.
 - [ ] 3.2 Seal protected preflight evidence: `/srv/bgmss` lstat, realpath,
   filesystem identity, complete path-bound lstat metadata
   inventory digest, and type/count/logical-size distribution without opening
@@ -67,17 +70,19 @@
   status/header/body digest. Stop for main-agent admission on any ambiguity.
 - [ ] 3.3 After admission only, create the exact run root, ownership marker,
   closed write/delete manifest, P/H archive copies, and uniquely labelled
-  containers. If a fixed image was absent, make its exact digest pull the
-  first bounded image mutation and verify immutable ID/digest/platform/runtime
-  version before cache preparation or tests. Create no Compose project,
-  network, volume, published port, listener, daemon, service change, or
+  containers. If both fixed image identities were absent, make the two exact
+  Tencent-mirror RepoDigest pulls the first bounded image mutations; verify
+  `RepoDigests`, declared config image IDs/diff-IDs, descriptor graph,
+  linux/amd64, and in-container versions, then use only config image IDs.
+  Create no tag, Docker Hub fallback, Compose project, network, volume,
+  published port, listener, daemon/proxy/mirror/service change, or
   production/legacy path.
 
 ## 4. Execute separately attributed container gates
 
 - [ ] 4.1 If required, prepare a run-owned npm cache as a separately recorded
   prerequisite, then seal it. Acceptance evidence begins only after
-  preparation; every actual gate uses its fixed digest-addressed image,
+  preparation; every actual gate uses its verified immutable config image ID,
   `--network none`, read-only container root, `/tmp` tmpfs, no port/network/
   volume/Compose state, and only declared run-owned writable mounts.
 - [ ] 4.2 From the P archive, assert Python image/platform/version and execute
@@ -134,8 +139,9 @@
   56 Archive/artifact/API/browser/oracle/performance/residue cells executed.
 - [ ] 5.2 Stop/remove run containers only by captured immutable ID and run
   label; delete manifest files individually and directories bottom-up. Remove
-  a fixed image reference only when this run pulled it, its identity still
-  matches, and no pre-existing/foreign reference or container uses it.
+  a fixed mirror RepoDigest/config image only when this run pulled it, both
+  identities still match the recorded graph, and no pre-existing/foreign
+  reference or container uses either identity.
   Forbid recursive/glob cleanup, Docker prune, Git clean, Compose down, and
   network/volume/service/legacy/production deletion.
 - [ ] 5.3 Repeat every protected preflight seal and require exact equality;
@@ -150,6 +156,7 @@
 
 - [ ] 6.1 Update this change with exact P/H identities, Actions run, source
   archive/inventory/difference digests, test names/counts/results/log digests,
+  superseded failed-acquisition evidence, verified OCI graphs,
   image/container identities, exception classification, cleanup/postflight,
   unexecuted-cell inventory, and zero-P0/P1 review. Check tasks only when
   their evidence exists.
