@@ -18,6 +18,10 @@ import {
   assertPublishedReleaseAuthority,
 } from '../../release/publication.mjs';
 import { ACCEPTED_DEVELOPMENT_SHA256 } from '../../release/constants.mjs';
+import {
+  admitDockerCapability,
+  MINIMUM_DOCKER_API_VERSION,
+} from '../../release/docker-capability.mjs';
 
 const FIXTURES = path.join(import.meta.dirname, 'fixtures');
 const SCHEMAS = path.resolve(import.meta.dirname, '..', '..', 'schemas');
@@ -88,6 +92,52 @@ test('both unpublished candidate schemas bind the exact build toolchain closure'
     assert.equal(
       schema.$defs.toolchain.properties.npmVersion.const,
       '11.16.0',
+    );
+    assert.ok(
+      schema.$defs.toolchain.required.includes(
+        'dockerNegotiatedApiVersion',
+      ),
+    );
+    assert.ok(
+      schema.$defs.toolchain.required.includes('dockerServerApiVersion'),
+    );
+    assert.ok(
+      schema.$defs.toolchain.required.includes(
+        'dockerServerMinimumApiVersion',
+      ),
+    );
+  }
+});
+
+test('Docker admission uses API capability while preserving version evidence', () => {
+  const admitted = admitDockerCapability({
+    dockerClientVersion: '28.0.4+azure-1',
+    dockerNegotiatedApiVersion: '1.48',
+    dockerServerApiVersion: '1.48',
+    dockerServerArchitecture: 'x86_64',
+    dockerServerMinimumApiVersion: '1.24',
+    dockerServerOs: 'linux',
+    dockerServerVersion: '28.0.4+azure-1',
+  });
+  assert.equal(admitted.dockerClientVersion, '28.0.4+azure-1');
+  assert.equal(admitted.dockerServerArchitecture, 'amd64');
+  assert.equal(MINIMUM_DOCKER_API_VERSION, '1.45');
+
+  for (const changed of [
+    { dockerNegotiatedApiVersion: '1.44' },
+    { dockerNegotiatedApiVersion: '1.49' },
+    {
+      dockerNegotiatedApiVersion: '1.45',
+      dockerServerMinimumApiVersion: '1.46',
+    },
+    { dockerServerOs: 'windows' },
+    { dockerServerVersion: '28.0.4 vendor' },
+  ]) {
+    assert.throws(() =>
+      admitDockerCapability({
+        ...admitted,
+        ...changed,
+      }),
     );
   }
 });

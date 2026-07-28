@@ -149,7 +149,12 @@
           "const": "0.34.1"
         },
         "dockerClientVersion": {
-          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$",
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9.+_-]*$",
+          "type": "string"
+        },
+        "dockerNegotiatedApiVersion": {
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$",
           "type": "string"
         },
         "dockerEndpoint": {
@@ -162,11 +167,20 @@
           ],
           "type": "string"
         },
+        "dockerServerApiVersion": {
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$",
+          "type": "string"
+        },
+        "dockerServerMinimumApiVersion": {
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$",
+          "type": "string"
+        },
         "dockerServerOs": {
           "const": "linux"
         },
         "dockerServerVersion": {
-          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$",
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9.+_-]*$",
           "type": "string"
         },
         "goHostArchitecture": {
@@ -197,8 +211,11 @@
         "buildkitVersion",
         "buildxVersion",
         "dockerClientVersion",
+        "dockerNegotiatedApiVersion",
         "dockerEndpoint",
+        "dockerServerApiVersion",
         "dockerServerArchitecture",
+        "dockerServerMinimumApiVersion",
         "dockerServerOs",
         "dockerServerVersion",
         "goHostArchitecture",

@@ -25,6 +25,7 @@ import {
   FROZEN_PRODUCT,
   REPOSITORY_ROOT,
 } from './constants.mjs';
+import { admitDockerCapability } from './docker-capability.mjs';
 import {
   optionPath,
   parseOptions,
@@ -45,9 +46,6 @@ import { cleanupOwnedRunRoot } from './owned-cleanup.mjs';
 function fail(message) {
   throw new Error(message);
 }
-
-const STABLE_VERSION =
-  /^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u;
 
 function admittedArchitecture(value, label) {
   const normalized =
@@ -235,39 +233,27 @@ async function prepareBuilder({
 }) {
   const builderName = environment.BUILDX_BUILDER;
   const common = { cwd: setRoot, environment, executable: docker };
-  const dockerVersion = await command({
-    ...common,
-    args: ['--version'],
-  });
-  const dockerCliMatch =
-    /^Docker version ((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)), build [0-9a-f]+$/u.exec(
-      dockerVersion.stdout.trim(),
-    );
-  if (!dockerCliMatch) {
-    fail('Docker CLI version output is not one exact stable release identity');
-  }
   const dockerIdentity = await command({
     ...common,
     args: [
       'version',
       '--format',
-      '{{.Client.Version}}\t{{.Server.Version}}\t{{.Server.Os}}\t{{.Server.Arch}}',
+      '{{.Client.Version}}\t{{.Client.APIVersion}}\t{{.Server.Version}}\t{{.Server.APIVersion}}\t{{.Server.MinAPIVersion}}\t{{.Server.Os}}\t{{.Server.Arch}}',
     ],
   });
   const dockerFields = dockerIdentity.stdout.trim().split('\t');
-  if (
-    dockerFields.length !== 4 ||
-    !STABLE_VERSION.test(dockerFields[0]) ||
-    !STABLE_VERSION.test(dockerFields[1]) ||
-    dockerFields[0] !== dockerCliMatch[1] ||
-    dockerFields[2] !== 'linux'
-  ) {
-    fail('Docker client/server identity is outside the admitted stable Linux profile');
+  if (dockerFields.length !== 7) {
+    fail('Docker version evidence does not contain the closed capability fields');
   }
-  const dockerServerArchitecture = admittedArchitecture(
-    dockerFields[3],
-    'Docker server',
-  );
+  const dockerCapability = admitDockerCapability({
+    dockerClientVersion: dockerFields[0],
+    dockerNegotiatedApiVersion: dockerFields[1],
+    dockerServerApiVersion: dockerFields[3],
+    dockerServerArchitecture: dockerFields[6],
+    dockerServerMinimumApiVersion: dockerFields[4],
+    dockerServerOs: dockerFields[5],
+    dockerServerVersion: dockerFields[2],
+  });
   const endpoint = await command({
     ...common,
     args: [
@@ -343,11 +329,8 @@ async function prepareBuilder({
     buildkitImage: BUILD_TOOLCHAIN.buildkitImage,
     buildkitVersion: BUILD_TOOLCHAIN.buildkitVersion,
     buildxVersion: BUILD_TOOLCHAIN.buildxVersion,
-    dockerClientVersion: dockerFields[0],
+    ...dockerCapability,
     dockerEndpoint: 'unix:///var/run/docker.sock',
-    dockerServerArchitecture,
-    dockerServerOs: dockerFields[2],
-    dockerServerVersion: dockerFields[1],
   });
 }
 

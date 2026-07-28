@@ -24,6 +24,7 @@ import {
   FROZEN_PRODUCT,
   TARGET,
 } from './constants.mjs';
+import { admitDockerCapability } from './docker-capability.mjs';
 import {
   completeInventoryDocument,
   descriptorForFile,
@@ -188,6 +189,17 @@ function verifyToolchain(toolchain) {
     if (toolchain[key] !== value) {
       fail(`candidate toolchain.${key} differs from the admitted identity`);
     }
+  }
+  try {
+    const admittedDocker = admitDockerCapability(toolchain);
+    if (
+      admittedDocker.dockerServerArchitecture !==
+      toolchain.dockerServerArchitecture
+    ) {
+      fail('candidate Docker server architecture is not normalized');
+    }
+  } catch (error) {
+    fail('candidate Docker capability evidence is not admitted', error);
   }
   if (
     !['amd64', 'arm64'].includes(toolchain.dockerServerArchitecture) ||
