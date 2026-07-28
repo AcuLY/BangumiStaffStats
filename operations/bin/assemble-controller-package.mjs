@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { renderCompose } from '../compose/render.mjs';
 import { assertGitOid, sha256File } from '../lib/digest.mjs';
 import {
   assertAbsoluteNormalizedPath,
@@ -133,9 +134,16 @@ function ensurePayloadDirectories(payloadRoot, inventory) {
 
 function copyInventory(operationsRoot, payloadRoot, inventory) {
   for (const relative of inventory) {
-    const source = sourceFile(operationsRoot, relative);
     const destination = path.join(payloadRoot, ...relative.split('/'));
-    fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
+    if (relative === 'compose/compose.yaml') {
+      fs.writeFileSync(destination, renderCompose('production'), {
+        flag: 'wx',
+        mode: 0o444,
+      });
+    } else {
+      const source = sourceFile(operationsRoot, relative);
+      fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
+    }
     fs.chmodSync(
       destination,
       relative === 'compose/updater-current-deny'

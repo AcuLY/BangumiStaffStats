@@ -264,7 +264,7 @@ ops_verify_version_directory() {
           "$(ops_stat_value '%u' "$candidate")" != "$OPS_ROOT_UID" ||
           "$(ops_stat_value '%g' "$candidate")" != "$OPS_RUNTIME_GID" ||
           "$(ops_stat_value '%a' "$candidate")" != "440" ||
-          "$(ops_stat_value '%d' "$candidate")" !=
+          "$(ops_stat_value '%d' "$candidate")" != \
             "$(ops_stat_value '%d' "$directory")" ]]; then
       ops_fail "DATA_VERSION_FILE_INVALID" "inventory"
       return

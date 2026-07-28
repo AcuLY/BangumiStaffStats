@@ -76,7 +76,7 @@ ops_load_release_env() {
     ops_fail "MANIFEST_DIGEST_INVALID" "identity"
     return
   }
-  if [[ "${OPS_RELEASE_ENV[BGMSS_RELEASE_ROOT]}" !=
+  if [[ "${OPS_RELEASE_ENV[BGMSS_RELEASE_ROOT]}" != \
         "${OPS_ROOT}/releases/${OPS_RELEASE_ENV[BGMSS_APP_VERSION]}" ]]; then
     ops_fail "RELEASE_ROOT_INVALID" "identity"
     return
@@ -90,9 +90,9 @@ ops_load_release_env() {
       ops_fail "UPDATER_IMAGE_INVALID" "identity"
       return
     }
-  elif [[ "${OPS_RELEASE_ENV[BGMSS_API_IMAGE]}" !=
+  elif [[ "${OPS_RELEASE_ENV[BGMSS_API_IMAGE]}" != \
           "localhost/bgmss-ops-validation-api:${OPS_RELEASE_ENV[BGMSS_APP_REVISION]}-amd64" ||
-          "${OPS_RELEASE_ENV[BGMSS_UPDATER_IMAGE]}" !=
+          "${OPS_RELEASE_ENV[BGMSS_UPDATER_IMAGE]}" != \
           "localhost/bgmss-ops-validation-updater:${OPS_RELEASE_ENV[BGMSS_APP_REVISION]}-amd64" ]]; then
     ops_fail "VALIDATION_IMAGE_ALIAS_INVALID" "identity"
     return
@@ -303,7 +303,7 @@ ops_verify_manifest_identity() {
     ops_fail "RELEASE_MANIFEST_MISSING" "check"
     return
   fi
-  if [[ "$(ops_sha256_file "$manifest")" !=
+  if [[ "$(ops_sha256_file "$manifest")" != \
         "${OPS_RELEASE_ENV[BGMSS_RELEASE_MANIFEST_DIGEST]}" ]]; then
     ops_fail "RELEASE_MANIFEST_MISMATCH" "check"
     return

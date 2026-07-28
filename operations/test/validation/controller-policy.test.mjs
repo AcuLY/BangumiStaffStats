@@ -215,5 +215,13 @@ test('controller seals local command, security, and continuous-health authority'
   );
   assert.match(policy, /assertCommandSemantics/u);
   assert.match(policy, /assertContinuousHealth/u);
-  assert.match(policy, /locally recomputed authority/u);
+  assert.match(policy, /const expectedAuthority = expectedValidationAuthority\(\{/u);
+  assert.match(
+    policy,
+    /canonicalJson\(input\.authority\) !== canonicalJson\(expectedAuthority\)/u,
+  );
+  assert.match(
+    policy,
+    /validation input authority differs from the local closed model/u,
+  );
 });

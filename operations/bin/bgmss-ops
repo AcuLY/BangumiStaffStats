@@ -35,7 +35,7 @@ done
 lock_created="no"
 if [[ -e "$BGMSS_OPS_LOCK" || -L "$BGMSS_OPS_LOCK" ]]; then
   if [[ ! -f "$BGMSS_OPS_LOCK" || -L "$BGMSS_OPS_LOCK" ||
-        "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_OPS_LOCK")" !=
+        "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_OPS_LOCK")" != \
           "0:0:1:600" ]]; then
     exit 69
   fi
@@ -47,14 +47,14 @@ if [[ "$lock_created" == "yes" ]]; then
   /usr/bin/chown 0:0 "$BGMSS_OPS_LOCK"
   /usr/bin/chmod 0600 "$BGMSS_OPS_LOCK"
 fi
-if [[ "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_OPS_LOCK")" !=
+if [[ "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_OPS_LOCK")" != \
       "0:0:1:600" ]] ||
   ! /usr/bin/flock -n "$BGMSS_BOOTSTRAP_LOCK_FD"; then
   exit 75
 fi
 
 if [[ ! -f "$BGMSS_OPS_MANIFEST" || -L "$BGMSS_OPS_MANIFEST" ||
-      "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_OPS_MANIFEST")" !=
+      "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_OPS_MANIFEST")" != \
         "0:0:1:400" ]]; then
   exit 69
 fi

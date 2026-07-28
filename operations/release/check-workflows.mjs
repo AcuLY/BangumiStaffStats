@@ -117,7 +117,8 @@ const FORBIDDEN_COMMAND_PATTERNS = Object.freeze([
   },
   {
     code: 'DYNAMIC_COMMAND',
-    pattern: /\b(?:eval|source)\b|\b(?:bash|sh)\s+-c\b/iu,
+    pattern:
+      /(?<![.$'"A-Za-z0-9_])(?:eval|source)(?=\s|[;&|()]|$)|\b(?:bash|sh)\s+-c\b/imu,
   },
   {
     code: 'BROAD_DELETE',
@@ -1484,7 +1485,12 @@ function assertReleaseWorkflow(workflow, source) {
       run.includes('oras manifest fetch') &&
       run.includes('--oci-layout') &&
       run.includes('oras cp --from-oci-layout') &&
-      run.includes('docker buildx imagetools inspect') &&
+      run.includes(
+        'docker buildx imagetools inspect "$destination" --raw',
+      ) &&
+      run.includes(
+        'docker buildx imagetools inspect "$immutable_reference" --raw',
+      ) &&
       run.includes('--raw') &&
       run.includes('cmp --silent "$candidate_manifest" "$manifest_file"') &&
       run.includes('sha256sum "$manifest_file"') &&

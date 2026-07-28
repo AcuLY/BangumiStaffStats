@@ -358,6 +358,19 @@ test('workflow run scripts cannot copy into protected product trees', () => {
   );
 });
 
+test('workflow run scripts cannot execute dynamic shell source commands', () => {
+  const changed = replaceRequired(
+    sources['.github/workflows/operations.yml'],
+    '          git diff --check',
+    '          source ./unreviewed.sh\n          git diff --check',
+  );
+  assertRejected(
+    '.github/workflows/operations.yml',
+    changed,
+    'DYNAMIC_COMMAND',
+  );
+});
+
 test('release prepare cannot receive package write permission', () => {
   const changed = replaceRequired(
     sources['.github/workflows/release.yml'],

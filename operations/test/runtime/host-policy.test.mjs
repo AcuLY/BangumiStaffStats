@@ -255,7 +255,7 @@ test('fresh-root, immutable-data, atomic-ref, and bounded updater policies stay 
   assert.match(controller, /set -o noclobber; : > "\$destination"/u);
   assert.match(transaction, /"\$chown" \\\n\s+"\$\{OPS_ROOT_UID\}:\$\{OPS_RUNTIME_GID\}"/u);
   assert.match(transaction, /"\$chmod" 0550 "\$directory"/u);
-  assert.match(transaction, /"\$chmod" 0440 \\\/u);
+  assert.match(transaction, /"\$chmod" 0440 \\/u);
   assert.match(transaction, /directoryInode:\$directoryInode/u);
   assert.match(transaction, /sqliteDigest:\$sqliteDigest/u);
   assert.match(common, /destination_inode/u);

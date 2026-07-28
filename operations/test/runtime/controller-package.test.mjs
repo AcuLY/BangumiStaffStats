@@ -15,6 +15,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
+import { renderCompose } from '../../compose/render.mjs';
+
 const OPERATIONS = path.resolve(import.meta.dirname, '..', '..');
 const ASSEMBLER = path.join(
   OPERATIONS,
@@ -42,6 +44,13 @@ function expectedMode(relative) {
     return 0o555;
   }
   return 0o444;
+}
+
+function expectedBytes(relative) {
+  if (relative === 'compose/compose.yaml') {
+    return Buffer.from(renderCompose('production'));
+  }
+  return readFileSync(path.join(OPERATIONS, relative));
 }
 
 function listTree(root, relative = '') {
@@ -120,7 +129,7 @@ function verifyPackage(root, revision) {
     ...manifest.files.map((descriptor) => [descriptor.path, descriptor]),
   ]);
   for (const relative of INVENTORY) {
-    const sourceBytes = readFileSync(path.join(OPERATIONS, relative));
+    const sourceBytes = expectedBytes(relative);
     const packaged = path.join(root, 'payload', relative);
     const information = statSync(packaged);
     const descriptor = descriptors.get(relative);

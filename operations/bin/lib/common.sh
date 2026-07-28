@@ -466,8 +466,7 @@ ops_atomic_replace_file() {
         "$(ops_stat_value '%d' "$destination")" != "$temporary_device" ||
         "$(ops_stat_value '%i' "$destination")" != "$temporary_inode" ||
         "$(ops_sha256_file "$destination")" != "$source_digest" ||
-        "$(ops_stat_value '%u:%g:%a' "$destination")" !=
-          "${uid}:${gid}:${mode}" ]]; then
+        "$(ops_stat_value '%u:%g:%a' "$destination")" != "${uid}:${gid}:${mode}" ]]; then
     ops_fail "ATOMIC_RESULT_INVALID" "switch"
     return
   fi

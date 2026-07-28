@@ -250,22 +250,22 @@ ops_bootstrap_object_matches() {
     "${OPS_BOOTSTRAP_OBJECT_PATHS[$index]}" "$actual_root")" || return
   if [[ "${OPS_BOOTSTRAP_OBJECT_TYPES[$index]}" == "file" ]]; then
     [[ -f "$candidate" && ! -L "$candidate" &&
-      "$(ops_stat_value '%h' "$candidate")" ==
+      "$(ops_stat_value '%h' "$candidate")" == \
         "${OPS_BOOTSTRAP_OBJECT_LINKS[$index]}" &&
-      "$(ops_stat_value '%s' "$candidate")" ==
+      "$(ops_stat_value '%s' "$candidate")" == \
         "${OPS_BOOTSTRAP_OBJECT_SIZES[$index]}" &&
-      "$(ops_sha256_file "$candidate")" ==
+      "$(ops_sha256_file "$candidate")" == \
         "${OPS_BOOTSTRAP_OBJECT_DIGESTS[$index]}" ]] || return 1
   else
     [[ -d "$candidate" && ! -L "$candidate" ]] || return 1
   fi
-  [[ "$(ops_stat_value '%d' "$candidate")" ==
+  [[ "$(ops_stat_value '%d' "$candidate")" == \
       "${OPS_BOOTSTRAP_OBJECT_DEVICES[$index]}" &&
-    "$(ops_stat_value '%i' "$candidate")" ==
+    "$(ops_stat_value '%i' "$candidate")" == \
       "${OPS_BOOTSTRAP_OBJECT_INODES[$index]}" &&
-    "$(ops_stat_value '%u:%g' "$candidate")" ==
+    "$(ops_stat_value '%u:%g' "$candidate")" == \
       "${OPS_BOOTSTRAP_OBJECT_OWNERS[$index]}" &&
-    "$(ops_stat_value '%a' "$candidate")" ==
+    "$(ops_stat_value '%a' "$candidate")" == \
       "${OPS_BOOTSTRAP_OBJECT_MODES[$index]}" ]]
 }
 
@@ -349,9 +349,9 @@ ops_cleanup_registered_bootstrap_stage() {
   local actual_root=""
   if [[ -d "$OPS_BOOTSTRAP_STAGE_PATH" &&
         ! -L "$OPS_BOOTSTRAP_STAGE_PATH" &&
-        "$(ops_stat_value '%d' "$OPS_BOOTSTRAP_STAGE_PATH")" ==
+        "$(ops_stat_value '%d' "$OPS_BOOTSTRAP_STAGE_PATH")" == \
           "$OPS_BOOTSTRAP_STAGE_DEVICE" &&
-        "$(ops_stat_value '%i' "$OPS_BOOTSTRAP_STAGE_PATH")" ==
+        "$(ops_stat_value '%i' "$OPS_BOOTSTRAP_STAGE_PATH")" == \
           "$OPS_BOOTSTRAP_STAGE_INODE" ]]; then
     if [[ -e "$OPS_ROOT" || -L "$OPS_ROOT" ]]; then
       ops_emit_failure "BOOTSTRAP_PUBLICATION_COLLISION" \
@@ -360,9 +360,9 @@ ops_cleanup_registered_bootstrap_stage() {
     fi
     actual_root="$OPS_BOOTSTRAP_STAGE_PATH"
   elif [[ -d "$OPS_ROOT" && ! -L "$OPS_ROOT" &&
-          "$(ops_stat_value '%d' "$OPS_ROOT")" ==
+          "$(ops_stat_value '%d' "$OPS_ROOT")" == \
             "$OPS_BOOTSTRAP_STAGE_DEVICE" &&
-          "$(ops_stat_value '%i' "$OPS_ROOT")" ==
+          "$(ops_stat_value '%i' "$OPS_ROOT")" == \
             "$OPS_BOOTSTRAP_STAGE_INODE" ]]; then
     actual_root="$OPS_ROOT"
   else
@@ -526,7 +526,7 @@ ops_bootstrap_controller() {
       return
     fi
     ops_preflight_controller_only || return
-    if [[ "$(ops_sha256_file "${OPS_ROOT}/${OPS_CONTROLLER_MANIFEST_NAME}")" !=
+    if [[ "$(ops_sha256_file "${OPS_ROOT}/${OPS_CONTROLLER_MANIFEST_NAME}")" != \
           "$(ops_sha256_file "$package_manifest")" ]]; then
       ops_fail "CONTROLLER_UPGRADE_NOT_ADMITTED" "bootstrap"
       return

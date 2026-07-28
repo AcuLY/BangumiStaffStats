@@ -36,11 +36,12 @@ test('subprocess environment is explicit, sanitized, and shell-free', async (t) 
   assert.equal(Object.hasOwn(environment, 'SSH_AUTH_SOCK'), false);
   assert.equal(Object.hasOwn(environment, 'NODE_OPTIONS'), false);
   assert.equal(environment.BGMSS_TEST_VALUE, 'literal-value');
+  const admittedPathEntries = environment.PATH.split(path.delimiter);
   assert.throws(
     () =>
       buildSanitizedEnvironment({
         runRoot: run.runRoot,
-        pathEntries: ['/usr/bin', '/bin'],
+        pathEntries: admittedPathEntries,
         extra: { DEPLOY_TOKEN: 'canary' },
         allowedExtraNames: ['DEPLOY_TOKEN'],
     }),
@@ -56,7 +57,7 @@ test('subprocess environment is explicit, sanitized, and shell-free', async (t) 
       () =>
         buildSanitizedEnvironment({
           runRoot: run.runRoot,
-          pathEntries: ['/usr/bin', '/bin'],
+          pathEntries: admittedPathEntries,
           extra: { [name]: 'injected' },
           allowedExtraNames: [name],
         }),

@@ -162,7 +162,7 @@ ops_transaction_ref_identity() {
   case "$type" in
     file)
       if [[ ! -f "$path" || -L "$path" ||
-            "$(ops_stat_value '%u:%g:%h:%a' "$path")" !=
+            "$(ops_stat_value '%u:%g:%h:%a' "$path")" != \
               "0:0:1:${mode}" ]]; then
         ops_fail "TRANSACTION_REF_FILE_INVALID" "transaction"
         return
@@ -175,7 +175,7 @@ ops_transaction_ref_identity() {
       links="$(ops_stat_value '%h' "$path")" || return
       size="$(ops_stat_value '%s' "$path")" || return
       digest="$(ops_sha256_file "$path")" || return
-      if [[ "$(ops_stat_value '%d:%i' "$path")" !=
+      if [[ "$(ops_stat_value '%d:%i' "$path")" != \
             "${device}:${inode}" ]]; then
         ops_fail "TRANSACTION_REF_FILE_RACED" "transaction"
         return
@@ -200,7 +200,7 @@ ops_transaction_ref_identity() {
       links="$(ops_lstat_value '%h' "$path")" || return
       target="$("$readlink" -- "$path")" || return
       if [[ ! "$target" =~ ^releases/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)/frontend$ ||
-            "$(ops_lstat_value '%d:%i' "$path")" !=
+            "$(ops_lstat_value '%d:%i' "$path")" != \
               "${device}:${inode}" ]]; then
         ops_fail "TRANSACTION_REF_SYMLINK_RACED" "transaction"
         return
@@ -265,14 +265,14 @@ ops_transaction_ref_matches_before() {
     return
   fi
   [[ "${OPS_TRANSACTION_REF_BEFORE_STATES[$index]}" == "present" ]] || return 1
-  [[ "$(ops_transaction_ref_current_identity "$index")" ==
+  [[ "$(ops_transaction_ref_current_identity "$index")" == \
     "${OPS_TRANSACTION_REF_BEFORE_IDENTITIES[$index]}" ]]
 }
 
 ops_transaction_ref_matches_after() {
   local index="$1"
   [[ "${OPS_TRANSACTION_REF_AFTER_STATES[$index]}" == "sealed" ]] || return 1
-  [[ "$(ops_transaction_ref_current_identity "$index")" ==
+  [[ "$(ops_transaction_ref_current_identity "$index")" == \
     "${OPS_TRANSACTION_REF_AFTER_IDENTITIES[$index]}" ]]
 }
 
@@ -601,14 +601,14 @@ ops_cleanup_registered_temporary_path() {
   fi
   if [[ ! -f "$candidate" || -L "$candidate" ||
         "$(ops_stat_value '%h' "$candidate")" != "1" ||
-        "$(ops_stat_value '%d' "$candidate")" !=
+        "$(ops_stat_value '%d' "$candidate")" != \
           "${OPS_TRANSACTION_TEMP_DEVICES[$index]}" ||
-        "$(ops_stat_value '%i' "$candidate")" !=
+        "$(ops_stat_value '%i' "$candidate")" != \
           "${OPS_TRANSACTION_TEMP_INODES[$index]}" ||
-        "$(ops_stat_value '%u:%g' "$candidate")" !=
+        "$(ops_stat_value '%u:%g' "$candidate")" != \
           "${OPS_TRANSACTION_TEMP_OWNERS[$index]}" ||
         ( -n "${OPS_TRANSACTION_TEMP_DIGESTS[$index]}" &&
-          "$(ops_sha256_file "$candidate")" !=
+          "$(ops_sha256_file "$candidate")" != \
             "${OPS_TRANSACTION_TEMP_DIGESTS[$index]}" ) ]]; then
     ops_emit_failure "TEMPORARY_IDENTITY_CHANGED" \
       "manual-recovery" || true
@@ -655,11 +655,11 @@ ops_cleanup_registered_temporary_symlink() {
   if [[ ! -L "$candidate" ||
         "$(ops_lstat_value '%h' "$candidate")" != "1" ||
         "$(ops_lstat_value '%u:%g' "$candidate")" != "0:0" ||
-        "$(ops_lstat_value '%d' "$candidate")" !=
+        "$(ops_lstat_value '%d' "$candidate")" != \
           "${OPS_TRANSACTION_TEMP_SYMLINK_DEVICES[$index]}" ||
-        "$(ops_lstat_value '%i' "$candidate")" !=
+        "$(ops_lstat_value '%i' "$candidate")" != \
           "${OPS_TRANSACTION_TEMP_SYMLINK_INODES[$index]}" ||
-        "$("$readlink" -- "$candidate")" !=
+        "$("$readlink" -- "$candidate")" != \
           "${OPS_TRANSACTION_TEMP_SYMLINK_TARGETS[$index]}" ]]; then
     ops_emit_failure "TEMPORARY_SYMLINK_IDENTITY_CHANGED" \
       "manual-recovery" || true
@@ -932,7 +932,7 @@ ops_transaction_compensate_data() {
     data-current "$OPS_TRANSACTION_OLD_CURRENT" || return
   ops_transaction_restore_secondary || return
   ops_transaction_restore_evidence || return
-  if [[ "$(ops_sha256_file "${OPS_ROOT}/compose/release.env")" !=
+  if [[ "$(ops_sha256_file "${OPS_ROOT}/compose/release.env")" != \
         "$OPS_TRANSACTION_APP_ENV_DIGEST" ||
         "$(ops_readlink_frontend)" != "$OPS_TRANSACTION_APP_FRONTEND" ]]; then
     ops_fail "TRANSACTION_CROSS_DIMENSION_CHANGE" "compensation"
@@ -1167,7 +1167,7 @@ ops_updater_container_matches() {
     -n "$OPS_TRANSACTION_UPDATER_CONTAINER_ID" &&
     -n "$OPS_TRANSACTION_UPDATER_CONTAINER_IDENTITY" &&
     "$(ops_updater_container_identity \
-      "$OPS_TRANSACTION_UPDATER_CONTAINER_ID")" ==
+      "$OPS_TRANSACTION_UPDATER_CONTAINER_ID")" == \
       "$OPS_TRANSACTION_UPDATER_CONTAINER_IDENTITY" ]]
 }
 
@@ -1221,7 +1221,7 @@ ops_transaction_compensate_updater() {
     "$OPS_TRANSACTION_CURRENT_IDENTITY" \
     "$OPS_TRANSACTION_API_IDENTITY" \
     "$OPS_TRANSACTION_EXPECTED_DATA" || return
-  if [[ "$(ops_sha256_file "${OPS_ROOT}/compose/release.env")" !=
+  if [[ "$(ops_sha256_file "${OPS_ROOT}/compose/release.env")" != \
         "$OPS_TRANSACTION_APP_ENV_DIGEST" ||
         "$(ops_readlink_frontend)" != "$OPS_TRANSACTION_APP_FRONTEND" ]]; then
     ops_fail "UPDATER_CROSS_DIMENSION_CHANGE" "compensation"
@@ -1232,10 +1232,10 @@ ops_transaction_compensate_updater() {
 ops_transaction_compensate_published() {
   ops_stop_updater_containers || return
   if [[ "$(ops_stat_value '%d:%i' "${OPS_ROOT}/data/current.json"):$(ops_sha256_file \
-      "${OPS_ROOT}/data/current.json")" !=
+      "${OPS_ROOT}/data/current.json")" != \
         "$OPS_TRANSACTION_CURRENT_IDENTITY" ||
         "$(ops_current_api_identity)" != "$OPS_TRANSACTION_API_IDENTITY" ||
-        "$(ops_sha256_file "${OPS_ROOT}/compose/release.env")" !=
+        "$(ops_sha256_file "${OPS_ROOT}/compose/release.env")" != \
           "$OPS_TRANSACTION_APP_ENV_DIGEST" ||
         "$(ops_readlink_frontend)" != "$OPS_TRANSACTION_APP_FRONTEND" ]]; then
     ops_fail "PUBLISHED_STATE_DRIFT" "compensation"
@@ -1842,25 +1842,25 @@ ops_verify_managed_release_at() {
   local controller_revision
   controller_revision="$(ops_manifest_value \
     "${OPS_ROOT}/controller-manifest.json" '.controllerRevision')" || return
-  if [[ "$(ops_stat_value '%d' "$payload_root")" !=
+  if [[ "$(ops_stat_value '%d' "$payload_root")" != \
           "$(ops_manifest_value "$marker" '.payloadRootDevice')" ||
-        "$(ops_stat_value '%i' "$payload_root")" !=
+        "$(ops_stat_value '%i' "$payload_root")" != \
           "$(ops_manifest_value "$marker" '.payloadRootInode')" ||
-        "$(ops_stat_value '%d' "$release_root")" !=
+        "$(ops_stat_value '%d' "$release_root")" != \
           "$(ops_manifest_value "$marker" '.releaseRootDevice')" ||
-        "$(ops_stat_value '%i' "$release_root")" !=
+        "$(ops_stat_value '%i' "$release_root")" != \
           "$(ops_manifest_value "$marker" '.releaseRootInode')" ||
-        "$(ops_sha256_file "${release_root}/release-manifest.json")" !=
+        "$(ops_sha256_file "${release_root}/release-manifest.json")" != \
           "$(ops_manifest_value "$marker" '.manifestDigest')" ||
-        "$(ops_sha256_file "${payload_root}/release-manifest.json")" !=
+        "$(ops_sha256_file "${payload_root}/release-manifest.json")" != \
           "$(ops_manifest_value "$marker" '.manifestDigest')" ||
-        "$(ops_sha256_file "${payload_root}/payload-checksums.sha256")" !=
+        "$(ops_sha256_file "${payload_root}/payload-checksums.sha256")" != \
           "$(ops_manifest_value "$marker" '.payloadChecksumsDigest')" ||
-        "$(ops_sha256_file "${release_root}/checksums.txt")" !=
+        "$(ops_sha256_file "${release_root}/checksums.txt")" != \
           "$(ops_manifest_value "$marker" '.payloadChecksumsDigest')" ||
-        "$(ops_sha256_file "$inventory")" !=
+        "$(ops_sha256_file "$inventory")" != \
           "$(ops_manifest_value "$marker" '.runtimeInventoryDigest')" ||
-        "$(ops_manifest_value "$marker" '.controllerRevision')" !=
+        "$(ops_manifest_value "$marker" '.controllerRevision')" != \
           "$controller_revision" ]]; then
     ops_fail "MANAGED_RELEASE_IDENTITY_CHANGED" "release"
     return
@@ -2969,12 +2969,12 @@ ops_acquisition_object_matches() {
   if [[ "${OPS_TRANSACTION_ACQUISITION_TYPES[$index]}" == "file" ]]; then
     [[ ( "$state" == "mutable" || "$state" == "closed" ) &&
       -f "$candidate" && ! -L "$candidate" &&
-      "$(ops_stat_value '%h' "$candidate")" ==
+      "$(ops_stat_value '%h' "$candidate")" == \
         "${OPS_TRANSACTION_ACQUISITION_LINKS[$index]}" ]] || return 1
     if [[ "$state" == "closed" ]] &&
-      [[ "$(ops_stat_value '%s' "$candidate")" !=
+      [[ "$(ops_stat_value '%s' "$candidate")" != \
             "${OPS_TRANSACTION_ACQUISITION_SIZES[$index]}" ||
-         "$(ops_sha256_file "$candidate")" !=
+         "$(ops_sha256_file "$candidate")" != \
             "${OPS_TRANSACTION_ACQUISITION_DIGESTS[$index]}" ]]; then
       return 1
     fi
@@ -2982,13 +2982,13 @@ ops_acquisition_object_matches() {
     [[ "$state" == "recorded" &&
       -d "$candidate" && ! -L "$candidate" ]] || return 1
   fi
-  [[ "$(ops_stat_value '%d' "$candidate")" ==
+  [[ "$(ops_stat_value '%d' "$candidate")" == \
       "${OPS_TRANSACTION_ACQUISITION_DEVICES[$index]}" &&
-    "$(ops_stat_value '%i' "$candidate")" ==
+    "$(ops_stat_value '%i' "$candidate")" == \
       "${OPS_TRANSACTION_ACQUISITION_INODES[$index]}" &&
-    "$(ops_stat_value '%u:%g' "$candidate")" ==
+    "$(ops_stat_value '%u:%g' "$candidate")" == \
       "${OPS_TRANSACTION_ACQUISITION_OWNERS[$index]}" &&
-    "$(ops_stat_value '%a' "$candidate")" ==
+    "$(ops_stat_value '%a' "$candidate")" == \
       "${OPS_TRANSACTION_ACQUISITION_MODES[$index]}" ]]
 }
 
@@ -4014,7 +4014,7 @@ ops_run_updater() {
   ) > "$output" 2>&1 || logs_result=$?
   ops_stop_updater_containers || cleanup_result=$?
   if [[ ! -f "$output" || -L "$output" ||
-        "$(ops_stat_value '%s' "$output")" -gt
+        "$(ops_stat_value '%s' "$output")" -gt \
           "$OPS_UPDATER_OUTPUT_MAX_BYTES" ]]; then
     ops_fail "UPDATER_OUTPUT_LIMIT" "updater"
     return 1
@@ -4079,7 +4079,7 @@ ops_verify_candidate_version_directory() {
   local data_version="${directory##*/}"
   if ! ops_is_data_version "$data_version" ||
     [[ ! -d "$directory" || -L "$directory" ||
-       "$(ops_stat_value '%u:%g' "$directory")" !=
+       "$(ops_stat_value '%u:%g' "$directory")" != \
          "${OPS_UPDATER_UID}:${OPS_RUNTIME_GID}" ]]; then
     ops_fail "CANDIDATE_DATA_VERSION_INVALID" "activation"
     return
@@ -4103,7 +4103,7 @@ ops_verify_candidate_version_directory() {
         ;;
     esac
     if [[ ! -f "$candidate" || -L "$candidate" ||
-          "$(ops_stat_value '%u:%g:%h:%d' "$candidate")" !=
+          "$(ops_stat_value '%u:%g:%h:%d' "$candidate")" != \
             "${OPS_UPDATER_UID}:${OPS_RUNTIME_GID}:1:$(ops_stat_value '%d' "$directory")" ]]; then
       shopt -u nullglob dotglob
       ops_fail "CANDIDATE_DATA_VERSION_FILE" "activation"
@@ -4279,37 +4279,37 @@ ops_verify_managed_data_version() {
     return
   fi
   ops_verify_version_directory "$directory" || return
-  if [[ "$(ops_stat_value '%d' "$directory")" !=
+  if [[ "$(ops_stat_value '%d' "$directory")" != \
           "$(ops_manifest_value "$marker" '.directoryDevice')" ||
-        "$(ops_stat_value '%i' "$directory")" !=
+        "$(ops_stat_value '%i' "$directory")" != \
           "$(ops_manifest_value "$marker" '.directoryInode')" ||
-        "$(ops_stat_value '%a' "$directory")" !=
+        "$(ops_stat_value '%a' "$directory")" != \
           "$(ops_manifest_value "$marker" '.directoryMode')" ||
-        "$(ops_stat_value '%u:%g' "$directory")" !=
+        "$(ops_stat_value '%u:%g' "$directory")" != \
           "$(ops_manifest_value "$marker" '.directoryOwner')" ||
-        "$(ops_stat_value '%d' "${directory}/manifest.json")" !=
+        "$(ops_stat_value '%d' "${directory}/manifest.json")" != \
           "$(ops_manifest_value "$marker" '.manifestDevice')" ||
-        "$(ops_stat_value '%i' "${directory}/manifest.json")" !=
+        "$(ops_stat_value '%i' "${directory}/manifest.json")" != \
           "$(ops_manifest_value "$marker" '.manifestInode')" ||
-        "$(ops_stat_value '%a' "${directory}/manifest.json")" !=
+        "$(ops_stat_value '%a' "${directory}/manifest.json")" != \
           "$(ops_manifest_value "$marker" '.manifestMode')" ||
-        "$(ops_stat_value '%u:%g' "${directory}/manifest.json")" !=
+        "$(ops_stat_value '%u:%g' "${directory}/manifest.json")" != \
           "$(ops_manifest_value "$marker" '.manifestOwner')" ||
-        "$(ops_stat_value '%s' "${directory}/manifest.json")" !=
+        "$(ops_stat_value '%s' "${directory}/manifest.json")" != \
           "$(ops_manifest_value "$marker" '.manifestSize')" ||
-        "$(ops_sha256_file "${directory}/manifest.json")" !=
+        "$(ops_sha256_file "${directory}/manifest.json")" != \
           "$(ops_manifest_value "$marker" '.manifestDigest')" ||
-        "$(ops_stat_value '%d' "${directory}/bangumi.sqlite")" !=
+        "$(ops_stat_value '%d' "${directory}/bangumi.sqlite")" != \
           "$(ops_manifest_value "$marker" '.sqliteDevice')" ||
-        "$(ops_stat_value '%i' "${directory}/bangumi.sqlite")" !=
+        "$(ops_stat_value '%i' "${directory}/bangumi.sqlite")" != \
           "$(ops_manifest_value "$marker" '.sqliteInode')" ||
-        "$(ops_stat_value '%a' "${directory}/bangumi.sqlite")" !=
+        "$(ops_stat_value '%a' "${directory}/bangumi.sqlite")" != \
           "$(ops_manifest_value "$marker" '.sqliteMode')" ||
-        "$(ops_stat_value '%u:%g' "${directory}/bangumi.sqlite")" !=
+        "$(ops_stat_value '%u:%g' "${directory}/bangumi.sqlite")" != \
           "$(ops_manifest_value "$marker" '.sqliteOwner')" ||
-        "$(ops_stat_value '%s' "${directory}/bangumi.sqlite")" !=
+        "$(ops_stat_value '%s' "${directory}/bangumi.sqlite")" != \
           "$(ops_manifest_value "$marker" '.sqliteSize')" ||
-        "$(ops_sha256_file "${directory}/bangumi.sqlite")" !=
+        "$(ops_sha256_file "${directory}/bangumi.sqlite")" != \
           "$(ops_manifest_value "$marker" '.sqliteDigest')" ]]; then
     ops_fail "DATA_OWNERSHIP_IDENTITY_CHANGED" "cleanup"
     return
@@ -4415,7 +4415,7 @@ ops_verify_updater_unchanged() {
     after_versions "${OPS_ROOT}/recovery/.versions-after.XXXXXXXX" || return
   ops_write_version_identity "$after_versions" || return
   local result=0
-  if [[ "$(ops_stat_value '%d:%i' "${OPS_ROOT}/data/current.json"):$(ops_sha256_file "${OPS_ROOT}/data/current.json")" !=
+  if [[ "$(ops_stat_value '%d:%i' "${OPS_ROOT}/data/current.json"):$(ops_sha256_file "${OPS_ROOT}/data/current.json")" != \
         "$expected_current" ]] ||
     ! "$cmp" --silent "$before_versions" "$after_versions" ||
     [[ "$(ops_current_api_identity)" != "$expected_api" ]] ||
@@ -4628,10 +4628,10 @@ ops_update_archive() {
     return
   fi
   if [[ "$(ops_current_api_identity)" != "$api_identity" ]] ||
-    [[ "$(ops_sha256_file "${OPS_ROOT}/compose/release.env")" !=
+    [[ "$(ops_sha256_file "${OPS_ROOT}/compose/release.env")" != \
       "$app_env_identity" ]] ||
     [[ "$(ops_readlink_frontend)" != "$app_front_identity" ]] ||
-    [[ "$(ops_stat_value '%d:%i' "${OPS_ROOT}/data/current.json"):$(ops_sha256_file "${OPS_ROOT}/data/current.json")" !=
+    [[ "$(ops_stat_value '%d:%i' "${OPS_ROOT}/data/current.json"):$(ops_sha256_file "${OPS_ROOT}/data/current.json")" != \
       "$current_identity" ]] ||
     ! ops_verify_published_version_delta "$before_versions" "$new_data"; then
     ops_emit_failure "PUBLISHED_STATE_DRIFT" "manual-recovery" || true
@@ -5011,7 +5011,7 @@ ops_rollback_data() {
     ops_dispose_temporary_paths "$old_copy"
     return 1
   }
-  if [[ "$(ops_sha256_file "${OPS_ROOT}/compose/release.env")" !=
+  if [[ "$(ops_sha256_file "${OPS_ROOT}/compose/release.env")" != \
         "$app_identity" ||
         "$(ops_readlink_frontend)" != "$app_front_identity" ]]; then
     ops_dispose_temporary_paths "$old_copy"
@@ -5058,7 +5058,7 @@ ops_rollback_data() {
     ops_dispose_temporary_paths "$old_copy"
     return "$OPS_MANUAL_RECOVERY_EXIT"
   fi
-  if [[ "$(ops_sha256_file "${OPS_ROOT}/compose/release.env")" !=
+  if [[ "$(ops_sha256_file "${OPS_ROOT}/compose/release.env")" != \
         "$app_identity" ||
         "$(ops_readlink_frontend)" != "$app_front_identity" ]]; then
     if ops_transaction_restore_tracked_file data-current "$old_copy" &&

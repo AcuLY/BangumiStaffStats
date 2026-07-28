@@ -10,7 +10,10 @@ import {
   readJsonStrict,
 } from '../../lib/strict-json.mjs';
 import { assertVersionTag } from '../../release/cli.mjs';
-import { readAcceptedDevelopment } from '../../release/receipt.mjs';
+import {
+  parseAcceptedDevelopment,
+  readAcceptedDevelopment,
+} from '../../release/receipt.mjs';
 import {
   assertPublishedReleaseAuthority,
 } from '../../release/publication.mjs';
@@ -102,6 +105,22 @@ test('checked-in accepted-development receipt retains its fixed closure', () => 
   assert.equal(
     receipt.value.remoteEvidence.formalMatrix.unexecutedCells.length,
     56,
+  );
+
+  const duplicatePath = structuredClone(receipt.value);
+  duplicatePath.authorities.buildDefinitions[1].path =
+    duplicatePath.authorities.buildDefinitions[0].path;
+  assert.throws(
+    () => parseAcceptedDevelopment(canonicalJson(duplicatePath)),
+    /unique and path-sorted/u,
+  );
+
+  const duplicateTool = structuredClone(receipt.value);
+  duplicateTool.authorities.toolchains[1].name =
+    duplicateTool.authorities.toolchains[0].name;
+  assert.throws(
+    () => parseAcceptedDevelopment(canonicalJson(duplicateTool)),
+    /unique and name-sorted/u,
   );
 });
 

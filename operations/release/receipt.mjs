@@ -1,6 +1,10 @@
 import fs from 'node:fs';
 
-import { canonicalJsonDigest, deepFreeze } from '../lib/canonical-json.mjs';
+import {
+  canonicalJson,
+  canonicalJsonDigest,
+  deepFreeze,
+} from '../lib/canonical-json.mjs';
 import { assertSha256, sha256 } from '../lib/digest.mjs';
 import { assertEvidenceSafe } from '../lib/evidence-policy.mjs';
 import {
@@ -29,6 +33,14 @@ const schema = readJsonStrict(SCHEMA_URL);
 const validateSchema = compileStrictSchema(schema, {
   label: 'accepted development receipt schema',
 });
+
+function validateReceiptSchema(value, label) {
+  // AJV's object-array uniqueness helper assumes Object.prototype methods.
+  // Validate an ordinary canonical projection while retaining the
+  // null-prototype strict-parser value as the receipt authority.
+  validateSchema(JSON.parse(canonicalJson(value)), label);
+  return value;
+}
 
 export class AcceptedDevelopmentError extends Error {
   constructor(message, options) {
@@ -84,7 +96,7 @@ function assertFixedReceipt(value) {
 }
 
 export function parseAcceptedDevelopment(source) {
-  const value = parseAndValidateCanonicalJson(source, validateSchema, {
+  const value = parseAndValidateCanonicalJson(source, validateReceiptSchema, {
     label: 'accepted development receipt',
     policy: assertEvidenceSafe,
   });

@@ -22,7 +22,7 @@ if [[ "$EUID" -ne 0 ]]; then
         "$(/usr/bin/id -un)" != "bgmss-deploy" ||
         -z "${SSH_CONNECTION:-}" || -n "${SSH_TTY:-}" ||
         ! -f "$BGMSS_DEPLOY_PATH" || -L "$BGMSS_DEPLOY_PATH" ||
-        "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_DEPLOY_PATH")" !=
+        "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_DEPLOY_PATH")" != \
           "0:0:1:555" ||
         ! "${SSH_ORIGINAL_COMMAND:-}" =~ ^sudo\ -n\ --\ /usr/local/sbin/bgmss-v2-deploy\ --version\ (v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))\ --manifest-digest\ (sha256:[0-9a-f]{64})$ ]]; then
     exit 69
@@ -90,7 +90,7 @@ done
 lock_created="no"
 if [[ -e "$BGMSS_DEPLOY_LOCK" || -L "$BGMSS_DEPLOY_LOCK" ]]; then
   if [[ ! -f "$BGMSS_DEPLOY_LOCK" || -L "$BGMSS_DEPLOY_LOCK" ||
-        "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_DEPLOY_LOCK")" !=
+        "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_DEPLOY_LOCK")" != \
           "0:0:1:600" ]]; then
     exit 69
   fi
@@ -102,7 +102,7 @@ if [[ "$lock_created" == "yes" ]]; then
   /usr/bin/chown 0:0 "$BGMSS_DEPLOY_LOCK"
   /usr/bin/chmod 0600 "$BGMSS_DEPLOY_LOCK"
 fi
-if [[ "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_DEPLOY_LOCK")" !=
+if [[ "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_DEPLOY_LOCK")" != \
       "0:0:1:600" ]] ||
   ! /usr/bin/flock -n "$BGMSS_BOOTSTRAP_LOCK_FD"; then
   exit 75
@@ -110,7 +110,7 @@ fi
 
 if [[ ! -f "$BGMSS_CONTROLLER_MANIFEST" ||
       -L "$BGMSS_CONTROLLER_MANIFEST" ||
-      "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_CONTROLLER_MANIFEST")" !=
+      "$(/usr/bin/stat -Lc '%u:%g:%h:%a' "$BGMSS_CONTROLLER_MANIFEST")" != \
         "0:0:1:444" ]]; then
   exit 69
 fi
@@ -159,14 +159,14 @@ bootstrap_tmp_file_matches() {
   local candidate="${bootstrap_tmp_paths[$index]}"
   [[ "${bootstrap_tmp_states[$index]}" == "recorded" &&
      -f "$candidate" && ! -L "$candidate" &&
-     "$(/usr/bin/stat -Lc '%d' "$candidate")" ==
+     "$(/usr/bin/stat -Lc '%d' "$candidate")" == \
        "${bootstrap_tmp_devices[$index]}" &&
-     "$(/usr/bin/stat -Lc '%i' "$candidate")" ==
+     "$(/usr/bin/stat -Lc '%i' "$candidate")" == \
        "${bootstrap_tmp_inodes[$index]}" &&
-     "$(/usr/bin/stat -Lc '%u:%g' "$candidate")" ==
+     "$(/usr/bin/stat -Lc '%u:%g' "$candidate")" == \
        "${bootstrap_tmp_owners[$index]}" &&
      "$(/usr/bin/stat -Lc '%h' "$candidate")" == "1" &&
-     "$(/usr/bin/stat -Lc '%a' "$candidate")" ==
+     "$(/usr/bin/stat -Lc '%a' "$candidate")" == \
        "${bootstrap_tmp_modes[$index]}" &&
      "sha256:$(
        /usr/bin/sha256sum "$candidate" | /usr/bin/awk '{print $1}'
@@ -175,11 +175,11 @@ bootstrap_tmp_file_matches() {
 
 cleanup_bootstrap_tmp() {
   if [[ ! -d "$bootstrap_tmp_root" || -L "$bootstrap_tmp_root" ||
-        "$(/usr/bin/stat -Lc '%d' "$bootstrap_tmp_root")" !=
+        "$(/usr/bin/stat -Lc '%d' "$bootstrap_tmp_root")" != \
           "$bootstrap_tmp_device" ||
-        "$(/usr/bin/stat -Lc '%i' "$bootstrap_tmp_root")" !=
+        "$(/usr/bin/stat -Lc '%i' "$bootstrap_tmp_root")" != \
           "$bootstrap_tmp_inode" ||
-        "$(/usr/bin/stat -Lc '%u:%g:%a' "$bootstrap_tmp_root")" !=
+        "$(/usr/bin/stat -Lc '%u:%g:%a' "$bootstrap_tmp_root")" != \
           "0:0:700" ]]; then
     return 78
   fi
@@ -220,7 +220,7 @@ cleanup_bootstrap_tmp_at_exit() {
 
 trap cleanup_bootstrap_tmp_at_exit EXIT
 if [[ ! "$bootstrap_tmp_root" =~ ^/tmp/bgmss-controller\.[A-Za-z0-9]{8}$ ||
-      "$(/usr/bin/stat -Lc '%u:%g:%a' "$bootstrap_tmp_root")" !=
+      "$(/usr/bin/stat -Lc '%u:%g:%a' "$bootstrap_tmp_root")" != \
         "0:0:700" ]]; then
   exit 69
 fi

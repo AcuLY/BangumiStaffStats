@@ -113,15 +113,15 @@ ops_remove_closed_tree() {
   for index in "${!directories[@]}"; do
     candidate="${directories[$index]}"
     if [[ ! -d "$candidate" || -L "$candidate" ||
-          "$(ops_stat_value '%d' "$candidate")" !=
+          "$(ops_stat_value '%d' "$candidate")" != \
             "${directory_devices[$index]}" ||
-          "$(ops_stat_value '%i' "$candidate")" !=
+          "$(ops_stat_value '%i' "$candidate")" != \
             "${directory_inodes[$index]}" ||
-          "$(ops_stat_value '%u:%g' "$candidate")" !=
+          "$(ops_stat_value '%u:%g' "$candidate")" != \
             "${directory_owners[$index]}" ||
-          "$(ops_stat_value '%a' "$candidate")" !=
+          "$(ops_stat_value '%a' "$candidate")" != \
             "${directory_modes[$index]}" ||
-          "$("$find" "$candidate" -mindepth 1 -maxdepth 1 -print -quit)" !=
+          "$("$find" "$candidate" -mindepth 1 -maxdepth 1 -print -quit)" != \
             "" ]]; then
       ops_fail "CLEANUP_DIRECTORY_REPLACED" "cleanup"
       return

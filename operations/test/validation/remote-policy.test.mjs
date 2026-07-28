@@ -102,11 +102,18 @@ test('bootstrap and launch seal ownership before executing a descriptor-open pay
   assert.match(launch, /length == 18/u);
   assert.match(launch, /verify_transferred_identity/u);
   assert.match(launch, /"\$expected_head"/u);
-  assert.match(launch, /sha256sum \/proc\/self\/fd\/9/u);
-  assert.match(
-    launch,
-    /exec \/usr\/bin\/bash \/proc\/self\/fd\/9/u,
+  const entryOpen = launch.indexOf(
+    'open_regular_fd "$entry" read "0:0:1:500" entry_fd',
   );
+  const entryHash = launch.indexOf(
+    'sha256sum "/proc/self/fd/${entry_fd}"',
+  );
+  const entryExec = launch.indexOf(
+    'exec /usr/bin/bash "/proc/self/fd/${entry_fd}"',
+  );
+  assert.ok(entryOpen > 0);
+  assert.ok(entryOpen < entryHash);
+  assert.ok(entryHash < entryExec);
 });
 
 test('entry has disconnect recovery and identity-gated cleanup', () => {
@@ -164,7 +171,11 @@ test('remote validation performs one acquisition and preserves typed minimal ide
   );
   assert.doesNotMatch(source, /create_updater nochange/u);
   assert.match(source, /pageSize:5/u);
-  assert.match(source, /typedQuery:true/u);
+  assert.match(source, /subjectType:\$subjectType/u);
+  assert.match(
+    source,
+    /'\{dataVersion:\$dataVersion,page:1,pageSize:5,typed:true\}'/u,
+  );
   assert.match(source, /minimal_query_digest_before/u);
   assert.match(source, /minimal_prometheus_digest_before/u);
   assert.match(source, /UPDATER_CHANGED_CURRENT_POINTER/u);
@@ -177,7 +188,7 @@ test('recovery preserves unknown or replaced state', () => {
   assert.match(source, /readonly observed_phase=/u);
   assert.match(source, /bootstrap\|transfer/u);
   assert.match(source, /entry-preparing/u);
-  assert.match(source, /cleanup\)/u);
+  assert.match(source, /entry-preparing\|cleanup\|run-owned\)/u);
   assert.match(source, /run-owned/u);
   assert.match(source, /latest_identity_for/u);
   assert.match(source, /ledger_verify_identity/u);
