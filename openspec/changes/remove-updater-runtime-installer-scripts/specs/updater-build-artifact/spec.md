@@ -32,6 +32,18 @@ runtime metadata. A symlink, special file, unsafe path, unrecorded file,
 duplicate owner, missing recorded file, or residual direct `bin` child SHALL
 fail closed.
 
+Admission and deletion SHALL remain bound to opened directory and file
+identities. Before the first unlink, the helper SHALL rescan the complete
+subtree through non-following directory descriptors, atomically isolate the
+admitted `bin` tree under one collision-free internal quarantine name, and
+revalidate its device, inode, type, mode, link count, size, digest, and stable
+timestamps as applicable. A replaced directory, file, hard link, recreated
+public `bin`, or pre-existing/transient quarantine residue SHALL fail without
+following an external path or deleting either an unadmitted replacement or an
+earlier admitted file. A pre-delete failure SHALL restore the isolated tree to
+`bin` when and only when the public name is still absent and the quarantined
+identity remains owned.
+
 The supported native `bundle_root/bin/bgmss-updater` launcher is created
 outside this pruned install root and SHALL remain unchanged. The OCI runtime
 continues to invoke the package module directly. No absolute build, checkout,
@@ -51,6 +63,10 @@ runtime through an installer command shim.
 - **WHEN** direct `bin` contains a symlink, special or unrecorded file, a duplicate-record owner, an unsafe path, or a `RECORD` row whose file is absent or mismatched
 - **THEN** pruning fails without accepting or publishing a runtime
 
+#### Scenario: An admitted installer entry is replaced before deletion
+- **WHEN** a file, hard link, or intermediate directory is replaced after admission or after quarantine but before the first unlink
+- **THEN** descriptor-relative identity revalidation rejects the tree, preserves every not-yet-deleted admitted file and every replacement, does not touch an external sentinel, and leaves no quarantine residue after safe restoration
+
 #### Scenario: A pruned runtime retains an installer directory
-- **WHEN** runtime verification observes any direct `bin` child after pruning
+- **WHEN** runtime verification observes any direct `bin` child or internal installer quarantine residue after pruning
 - **THEN** verification rejects the runtime even if all imported Python packages remain valid

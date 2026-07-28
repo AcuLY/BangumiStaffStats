@@ -32,13 +32,19 @@
 
 - [ ] 2.1 In `updater/build/runtime_prune.py`, admit the direct real runtime
   `bin` subtree only when every regular file has one exact safe installed
-  `RECORD` owner; validate the complete set before mutation, remove only those
-  files/empty directories and rows, preserve all other bytes/rows, and make
-  post-prune verification reject any residual direct `bin` child.
+  `RECORD` owner; bind admission to non-following descriptors and stable
+  identities, atomically quarantine and completely rescan the owned tree
+  before the first unlink, remove only those files/empty directories and rows,
+  preserve all other bytes/rows, safely restore a complete pre-delete failure,
+  and make post-prune verification reject any residual direct `bin` or
+  quarantine child.
 - [ ] 2.2 In `updater/build/test_artifact.py`, add producer-shaped fixtures for
   `bin/jsonschema`, matching `RECORD` digest/size, two distinct absolute
   interpreter shebangs with identical pruned results, supported-launcher
-  preservation, and unrecorded/duplicate/missing/symlink/residual rejection.
+  preservation, unrecorded/duplicate/missing/symlink/residual rejection, and
+  deterministic late file/hard-link/intermediate-directory replacement hooks
+  proving no earlier unlink, external-sentinel mutation, or quarantine
+  residue.
 - [ ] 2.3 End the implementation group with read-only status/diff review,
   allowed static checks, `git diff --check`, and no generated residue. Do not
   run local product tests, builds, Docker, cleanup, staging, commit, or push;
