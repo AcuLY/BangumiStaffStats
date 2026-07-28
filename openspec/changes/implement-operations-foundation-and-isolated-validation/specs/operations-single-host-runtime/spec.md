@@ -27,8 +27,13 @@ Repository production definitions SHALL render only for application root
 `/srv/bgmss-v2`, Compose project `bgmss_v2`, and API publication
 `127.0.0.1:18080:8080`. Long-lived services SHALL be `api` and `prometheus`;
 `updater` SHALL be one-shot with no restart policy. API SHALL explicitly listen
-on `0.0.0.0:8080` inside the private Compose network. Prometheus SHALL scrape
-API `/metrics` every 30 seconds and expose no host or public port. Frontend
+on `0.0.0.0:8080`. One internal project network named from `runtime` SHALL
+connect only API and Prometheus. A separate project network named from
+`outbound` SHALL connect only API and Updater, publish no port, and be
+egress-capable in the production profile because image proxying and real
+Archive acquisition require upstream HTTPS. Prometheus SHALL never join it.
+Prometheus SHALL scrape API `/metrics` every 30 seconds and expose no host or
+public port. Frontend
 files SHALL be installed into versioned host directories for host Nginx, not
 served by another long-lived container. No service SHALL join a legacy
 network or share a legacy writable path/volume. Prometheus SHALL be exact
@@ -40,10 +45,10 @@ shell-dependent health or control command.
 
 #### Scenario: Production configuration is rendered
 - **WHEN** the exact production profile is rendered and normalized
-- **THEN** its root, project, services, loopback API bind, internal networks, mounts, restart policies, and absence of named/legacy volumes match the closed topology
+- **THEN** its root, project, services, loopback API bind, exact runtime/outbound membership and egress policy, mounts, restart policies, and absence of named/legacy volumes match the closed topology
 
 #### Scenario: A setting could expose or collide with a service
-- **WHEN** a wildcard/public bind, another port/root/project, public metrics, extra long-lived service, mutable image tag, legacy network, or shared writable path appears
+- **WHEN** a wildcard/public bind, another port/root/project, public metrics, extra long-lived service, mutable image tag, legacy network, Prometheus outbound membership, host networking, or shared writable path appears
 - **THEN** configuration verification fails before any Compose command
 
 ### Requirement: Filesystem, privilege, and secret boundaries SHALL be explicit

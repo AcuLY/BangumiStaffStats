@@ -4,7 +4,7 @@
 |---|---|
 | Status | Investigated: complete; specified: complete after strict validation/main-agent approval; implemented, verified, committed, pushed, released, deployed: no at task creation. |
 | Owner | Main agent reviews/amends specs, selects exact base/evidence, audits, commits/pushes, and performs lifecycle. Subagents own the disjoint substantive implementation groups below. A main-agent mechanical correction is allowed only under the root governance rule and never expands external state. |
-| Writable paths | Foundation/release: root `.gitignore` exact `/operations/.tmp/` line, exact `operations/.gitignore` line `/node_modules/`, `operations/{package.json,package-lock.json,lib/**,schemas/release-*.schema.json,release/**,test/helpers/**,test/release/**}`, `.github/workflows/{operations,release,deploy}.yml`. Runtime: `operations/{compose/**,config/**,prometheus/**,nginx/**,systemd/**,bin/**,runbooks/**,test/runtime/**}`. Validation: `operations/{validation/**,test/validation/**}`. Integration documentation: `operations/README.md`. Generated local state: `operations/.tmp/**`, absent at handoff. Planning/lifecycle: only this change and future synchronized root operations specs. Remote validation after admission: only `/srv/bgmss-ops-validation/**`, Compose project `bgmss_ops_validation` services `api`/`updater`/`prometheus`, project containers/network, API `127.0.0.1:19090:8080`, no named volume, and the six sealed previously absent image references/three captured image identities defined by the specs. |
+| Writable paths | Foundation/release: root `.gitignore` exact `/operations/.tmp/` line, exact `operations/.gitignore` line `/node_modules/`, `operations/{package.json,package-lock.json,lib/**,schemas/release-*.schema.json,release/**,test/helpers/**,test/release/**}`, `.github/workflows/{operations,release,deploy}.yml`. Runtime: `operations/{compose/**,config/**,prometheus/**,nginx/**,systemd/**,bin/**,runbooks/**,test/runtime/**}`. Validation: `operations/{validation/**,test/validation/**}`. Integration documentation: `operations/README.md`. Generated local state: `operations/.tmp/**`, absent at handoff. Planning/lifecycle: only this change and future synchronized root operations specs. Remote validation after admission: only `/srv/bgmss-ops-validation/**`, Compose project `bgmss_ops_validation` services `api`/`updater`/`prometheus`, project containers and exact `runtime`/`outbound` networks, API `127.0.0.1:19090:8080`, no named volume, and the six sealed previously absent image references/three captured image identities defined by the specs. |
 | Read-only protected inputs | All root authorities/oracle/product/Contracts/build sources and evidence; `.github/workflows/ci.yml`; OpenSpec outside this change; other owner groups while concurrent; registries/releases/environments/secrets/refs. On `myserver`, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, other `/srv/**`, all pre-existing Docker/Compose images/tags/volumes/networks/containers/projects, Nginx/systemd/TLS/DNS/firewall/users/cron, public listeners, legacy data/processes, and every undeclared path/ref. |
 | Deletion complement | No tracked or pre-existing state. Only closed run-owned local `.tmp` paths, remote validation path inventory, captured project resources, and still-identity-matching run-created image references may be removed. |
 | Mutable refs | Exact listed worktree files; main-agent commits/push/lifecycle; admitted validation root pointers/links and captured project/image refs. No tag, release, registry, Environment, secret, production/legacy ref, daemon, public route, or named volume is mutable. |
@@ -162,9 +162,12 @@
   production interfaces/pins. Its validator SHALL accept only
   `/srv/bgmss-v2` + `bgmss_v2` +
   `127.0.0.1:18080:8080` or the exact isolated tuple; services are
-  long-lived `api`/`prometheus` and one-shot `updater`; mounts are exact bind
-  mounts; no named/legacy volumes, public metrics, mutable image tag, extra
-  service, Docker socket, source, or undeclared secret is allowed.
+  long-lived `api`/`prometheus` and one-shot `updater`; exact networks are
+  internal `runtime` for API/Prometheus and API/Updater-only `outbound`,
+  egress-capable only in production and internal in validation; mounts are
+  exact bind mounts; no named/legacy volumes, public metrics, mutable image
+  tag, extra service, host networking, Docker socket, source, or undeclared
+  secret is allowed.
 - [ ] 3.3 Add runtime security/resource policy: explicit API
   `0.0.0.0:8080`, non-root users, capability drop/no-new-privileges, read-only
   API Archive/status, bounded Updater/Prometheus writers, API 1536 MiB,
@@ -235,7 +238,8 @@
 - [ ] 4.2 Add strict validation input/result/resource schemas and fixtures
   binding Operations/frozen-product/release-candidate identities, full/minimal
   Archives, exact host facts/root/project/services/API bind, all six image
-  references and three manifest/config/runtime identities, path manifest,
+  references, three manifest/config/runtime identities, both network IDs,
+  path manifest,
   commands/durations, primary/rollback/cleanup status, and protected
   before/after evidence without secrets.
 - [ ] 4.3 Implement a read-only SSH preflight that verifies
@@ -268,8 +272,8 @@
   manifests/platform/checksums, disk, interrupted staging, foreign
   replacement, updater no-change/failure/timeout, incompatible Archive,
   Frontend/app failure, previous failure, SIGTERM, and cleanup faults.
-- [ ] 4.8 Implement identity cleanup: recheck container/network ID +
-  project/service/run labels; recheck all image refs against captured
+- [ ] 4.8 Implement identity cleanup: recheck container IDs and both network
+  IDs + project/service/run labels; recheck all image refs against captured
   manifest/config/runtime identity and foreign consumers; remove no image with
   force; remove files individually and directories bottom-up only from the
   unchanged closed manifest; preserve/report replacements and unknown entries.

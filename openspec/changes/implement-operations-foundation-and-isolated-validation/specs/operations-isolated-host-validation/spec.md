@@ -6,7 +6,7 @@
 |---|---|
 | Status | Investigated: complete; specified: complete only after strict validation and main-agent approval; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no. |
 | Owner | Operations isolated-host validation apply group. |
-| Writable paths | Repository: `operations/validation/**`, `operations/test/validation/**`, and generated ignored `operations/.tmp/**`. External after successful preflight: only newly created paths below `myserver:/srv/bgmss-ops-validation/**`; Compose project `bgmss_ops_validation` services `api`, `updater`, `prometheus`; project-labeled containers/network; no named volumes; the two artifact-declared Backend/Updater load tags; their two aliases `localhost/bgmss-ops-validation-{api,updater}:<accepted-product-revision>-amd64`; the exact pinned upstream Prometheus digest reference; and alias `localhost/bgmss-ops-validation-prometheus:<reviewed-version>-amd64`. All six image references are sealed and proven absent before load/pull. For each of the three images the input and run evidence bind all refs, OCI manifest digest, config digest, and Docker runtime ID. API publication is exactly `127.0.0.1:19090:8080`. |
+| Writable paths | Repository: `operations/validation/**`, `operations/test/validation/**`, and generated ignored `operations/.tmp/**`. External after successful preflight: only newly created paths below `myserver:/srv/bgmss-ops-validation/**`; Compose project `bgmss_ops_validation` services `api`, `updater`, `prometheus`; project-labeled containers plus exact internal `runtime` and `outbound` networks; no named volumes; the two artifact-declared Backend/Updater load tags; their two aliases `localhost/bgmss-ops-validation-{api,updater}:<accepted-product-revision>-amd64`; the exact pinned upstream Prometheus digest reference; and alias `localhost/bgmss-ops-validation-prometheus:<reviewed-version>-amd64`. All six image references are sealed and proven absent before load/pull. For each of the three images the input and run evidence bind all refs, OCI manifest digest, config digest, and Docker runtime ID. API publication is exactly `127.0.0.1:19090:8080`. |
 | Read-only protected inputs | All repository paths outside the listed owner paths; operations-built AMD64 release candidate/artifacts and validation Archive inputs; SSH configuration/credentials. On `myserver`: `/srv/bgmss/**`; `/srv/bgmss-v2/**`; every other `/srv/**` path; every pre-existing Compose project, container, network, image/tag, and volume; all Nginx/systemd/TLS/secret/user/firewall/cron state; public ports; legacy data/processes; and every port other than the exact validation bind. Only the six input-declared image references that preflight proves absent are excluded from the image/tag read-only set. |
 | Deletion complement | No repository or pre-existing remote state. Cleanup may remove only the exact run-created path inventory; captured validation container/network IDs whose names plus project/service/run labels still match; and each exact run-created image reference only when it still resolves to the captured OCI manifest/config/runtime identity and no foreign container uses it. |
 | Mutable refs | The listed repository files and ephemeral `operations/.tmp/**`; after admission, the validation root's run marker, release/data pointers, captured validation project resources, and the six exact image references/three image identities. No other image/tag, Git ref, registry/release, production/legacy ref, named volume, host service, or external configuration is mutable. |
@@ -76,10 +76,15 @@ API bind, release source, and validation-only evidence hooks.
 ### Requirement: Validation runtime SHALL remain isolated and loopback-only
 
 The run SHALL use only `/srv/bgmss-ops-validation`, Compose project
-`bgmss_ops_validation`, services `api`, `updater`, and `prometheus`, one
-run-owned project network, bind-mounted run-owned state, no named volume, and
+`bgmss_ops_validation`, services `api`, `updater`, and `prometheus`, two
+run-owned project networks named from `runtime` and `outbound`, bind-mounted
+run-owned state, no named volume, and
 API publication `127.0.0.1:19090:8080`. API and Prometheus SHALL use the same
 security/resource semantics as production; Updater SHALL remain one-shot.
+Both validation networks SHALL be internal: Prometheus joins only `runtime`,
+Updater only `outbound`, and API both. This is the exact admitted
+production-vs-validation network substitution and prevents validation
+acquisition/image-proxy egress.
 No validation service SHALL join a pre-existing network, mount
 `/srv/bgmss`, `/srv/bgmss-v2`, `/etc`, Docker socket, host secrets, or source,
 publish metrics/public ports, start Nginx/systemd, or contact a legacy process.
@@ -140,7 +145,7 @@ only safe process containment.
 
 ### Requirement: Cleanup SHALL prove identity before every removal
 
-The controller SHALL capture immutable container/network IDs and their
+The controller SHALL capture immutable container IDs and both network IDs with their
 expected name plus project/service/run labels at creation, and each loaded
 Backend/Updater image's two tags and Prometheus image's digest reference/alias,
 plus each image's OCI manifest digest, config digest, and Docker runtime ID,
