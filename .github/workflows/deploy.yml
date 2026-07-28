@@ -1,0 +1,475 @@
+name: production-deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing immutable release version (vMAJOR.MINOR.PATCH)
+        required: true
+        type: string
+      manifest_digest:
+        description: Exact sha256 digest of release-manifest.json
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: verify and invoke the reviewed production transaction
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: production
+    permissions:
+      contents: read
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_MANIFEST_DIGEST: ${{ inputs.manifest_digest }}
+    steps:
+      - name: Validate bounded dispatch inputs before reading a secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$RELEASE_MANIFEST_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+
+      - name: Download the existing published release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_root="$RUNNER_TEMP/bgmss-existing-release"
+          mkdir -m 0700 "$release_root"
+          gh release download "$RELEASE_VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir "$release_root" \
+            --pattern release-manifest.json \
+            --pattern payload-checksums.sha256 \
+            --pattern compatibility-manifest.json \
+            --pattern frontend-static-linux-amd64.tar \
+            --pattern archive-smoke \
+            --pattern backend.spdx.json \
+            --pattern updater.spdx.json \
+            --pattern frontend.spdx.json \
+            --pattern backend-component-statement.json \
+            --pattern updater-component-statement.json \
+            --pattern frontend-component-statement.json
+          test "$(find "$release_root" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 11
+
+      - name: Verify the immutable published manifest and assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_root="$RUNNER_TEMP/bgmss-existing-release"
+          actual_digest="sha256:$(
+            sha256sum "$release_root/release-manifest.json" | awk '{print $1}'
+          )"
+          test "$actual_digest" = "$RELEASE_MANIFEST_DIGEST"
+          jq -cS . "$release_root/release-manifest.json" \
+            > "$RUNNER_TEMP/release-manifest.canonical.json"
+          cmp --silent \
+            "$release_root/release-manifest.json" \
+            "$RUNNER_TEMP/release-manifest.canonical.json"
+
+          jq -e --arg version "$RELEASE_VERSION" '
+            def exact($expected): keys == ($expected | sort);
+            def sha256:
+              type == "string"
+              and test("^sha256:[0-9a-f]{64}$");
+            def oid:
+              type == "string"
+              and test("^[0-9a-f]{40}$");
+            def uint:
+              type == "number"
+              and . >= 0
+              and . == floor;
+            def git_identity:
+              type == "object"
+              and exact(["revision", "tree"])
+              and (.revision | oid)
+              and (.tree | oid);
+            def file($path; $mode):
+              type == "object"
+              and exact(["mode", "path", "sha256", "size"])
+              and .mode == $mode
+              and .path == $path
+              and (.sha256 | sha256)
+              and (.size | uint);
+            def descriptor($media_type):
+              type == "object"
+              and exact(["digest", "mediaType", "size"])
+              and (.digest | sha256)
+              and .mediaType == $media_type
+              and (.size | uint);
+            def published_image($repository):
+              type == "object"
+              and exact(["config", "immutableReference", "layers", "manifest"])
+              and (
+                .config
+                | descriptor("application/vnd.oci.image.config.v1+json")
+              )
+              and (
+                .manifest
+                | descriptor("application/vnd.oci.image.manifest.v1+json")
+              )
+              and (.layers | type == "array" and length > 0)
+              and all(
+                .layers[];
+                descriptor("application/vnd.oci.image.layer.v1.tar+gzip")
+              )
+              and .immutableReference
+                == ($repository + "@" + .manifest.digest);
+
+            exact([
+              "acceptedDevelopment",
+              "assets",
+              "compatibility",
+              "images",
+              "publicationState",
+              "release",
+              "schemaVersion",
+              "source",
+              "target"
+            ])
+            and .schemaVersion == "operations-release-manifest-v1"
+            and .publicationState == "published"
+            and (
+              .acceptedDevelopment
+              | exact(["frozenProduct", "receiptDigest"])
+              and .frozenProduct == {
+                revision: "3f585cfe0a0dd61fe783a839528fef25470a58db",
+                tree: "93e29a0c51c0305db8a43e7d029b8eaa3014a1b8"
+              }
+              and .receiptDigest
+                == "sha256:17145d4869050dc2ff347e4dbfb60a5a6369d32890f0abc3e8f766b8ea28a80a"
+            )
+            and (
+              .assets
+              | exact([
+                  "archiveSmoke",
+                  "compatibilityManifest",
+                  "frontend",
+                  "payloadChecksums",
+                  "provenance"
+                ])
+              and (.archiveSmoke | file("archive-smoke"; "0555"))
+              and (
+                .compatibilityManifest
+                | file("compatibility-manifest.json"; "0444")
+              )
+              and (
+                .frontend
+                | file("frontend-static-linux-amd64.tar"; "0444")
+              )
+              and (
+                .payloadChecksums
+                | file("payload-checksums.sha256"; "0444")
+              )
+              and (
+                .provenance
+                | type == "array"
+                and map(.path) == [
+                  "backend-component-statement.json",
+                  "backend.spdx.json",
+                  "frontend-component-statement.json",
+                  "frontend.spdx.json",
+                  "updater-component-statement.json",
+                  "updater.spdx.json"
+                ]
+                and all(.[]; file(.path; "0444"))
+              )
+            )
+            and (
+              .compatibility
+              | exact(["archive", "openapiDigest"])
+              and .openapiDigest
+                == "sha256:e7aba7c34b0d6f74e533e8e9fd31c8f0aa40ed15c440669ec87a7204c963cf11"
+              and (
+                .archive
+                | exact([
+                    "castRulesVersion",
+                    "commonCommit",
+                    "compatibilityMatrixDigest",
+                    "domainRulesVersion",
+                    "manifestSchemaDigest",
+                    "schemaSqlDigest"
+                  ])
+                and .castRulesVersion == "cast-exact-v1"
+                and .commonCommit
+                  == "6a8442c17143a870357a5ff812362e8b5cfe9f9d"
+                and .compatibilityMatrixDigest
+                  == "sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac"
+                and .domainRulesVersion == "domain-raw-v1"
+                and .manifestSchemaDigest
+                  == "sha256:5a2b0cd7294312e9dcbdd413a1b01c4218652c4c39fd7472b74e40622e7a3e73"
+                and .schemaSqlDigest
+                  == "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0"
+              )
+            )
+            and (
+              .images
+              | exact(["api", "prometheus", "updater"])
+              and (
+                .api
+                | published_image(
+                    "ghcr.io/aculy/bangumi-staff-stats-api"
+                  )
+              )
+              and (
+                .updater
+                | published_image(
+                    "ghcr.io/aculy/bangumi-staff-stats-updater"
+                  )
+              )
+              and (
+                .prometheus
+                | exact([
+                    "amd64ManifestDigest",
+                    "amd64ManifestSize",
+                    "indexDigest",
+                    "reference",
+                    "runtimeGid",
+                    "runtimeUid"
+                  ])
+                and .amd64ManifestDigest
+                  == "sha256:335b5796a6e4355530475575253f84de20b8ad07bf899f65ed218451ce4c60b4"
+                and .amd64ManifestSize == 4067
+                and .indexDigest
+                  == "sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80"
+                and .reference
+                  == "prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80"
+                and .runtimeGid == 65532
+                and .runtimeUid == 65532
+              )
+            )
+            and (
+              .release
+              | exact(["tag", "version"])
+              and .tag == $version
+              and .version == $version
+              and .tag == "v0.1.0"
+              and .version == "v0.1.0"
+            )
+            and (
+              .source
+              | exact(["operationsController", "release"])
+              and (.operationsController | git_identity)
+              and (.release | git_identity)
+              and .operationsController == .release
+            )
+            and (
+              .target
+              | exact(["architecture", "os"])
+              and .architecture == "amd64"
+              and .os == "linux"
+            )
+          ' "$release_root/release-manifest.json" > /dev/null
+
+          cd "$release_root"
+          find . -mindepth 1 -maxdepth 1 -printf '%f\t%y\n' \
+            | LC_ALL=C sort > "$RUNNER_TEMP/release-files.actual"
+          printf '%s\n' \
+            $'archive-smoke\tf' \
+            $'backend-component-statement.json\tf' \
+            $'backend.spdx.json\tf' \
+            $'compatibility-manifest.json\tf' \
+            $'frontend-component-statement.json\tf' \
+            $'frontend-static-linux-amd64.tar\tf' \
+            $'frontend.spdx.json\tf' \
+            $'payload-checksums.sha256\tf' \
+            $'release-manifest.json\tf' \
+            $'updater-component-statement.json\tf' \
+            $'updater.spdx.json\tf' \
+            > "$RUNNER_TEMP/release-files.expected"
+          cmp --silent \
+            "$RUNNER_TEMP/release-files.expected" \
+            "$RUNNER_TEMP/release-files.actual"
+
+          descriptor_count=0
+          while IFS=$'\t' read -r name digest size mode extra; do
+            test -z "${extra:-}"
+            case "$name:$mode" in
+              archive-smoke:0555 | \
+              backend-component-statement.json:0444 | \
+              backend.spdx.json:0444 | \
+              compatibility-manifest.json:0444 | \
+              frontend-component-statement.json:0444 | \
+              frontend-static-linux-amd64.tar:0444 | \
+              frontend.spdx.json:0444 | \
+              payload-checksums.sha256:0444 | \
+              updater-component-statement.json:0444 | \
+              updater.spdx.json:0444)
+                ;;
+              *)
+                exit 1
+                ;;
+            esac
+            test -f "$name"
+            test ! -L "$name"
+            test "sha256:$(sha256sum "$name" | awk '{print $1}')" = "$digest"
+            test "$(stat --format='%s' "$name")" = "$size"
+            test "0$(stat --format='%a' "$name")" = "$mode"
+            descriptor_count=$((descriptor_count + 1))
+          done < <(
+            jq -r '
+              [
+                .assets.archiveSmoke,
+                .assets.compatibilityManifest,
+                .assets.frontend,
+                .assets.payloadChecksums,
+                .assets.provenance[]
+              ][]
+              | [.path, .sha256, (.size | tostring), .mode]
+              | @tsv
+            ' release-manifest.json
+          )
+          test "$descriptor_count" -eq 10
+
+          awk '
+            $0 !~ /^[0-9a-f]{64}  [A-Za-z0-9][A-Za-z0-9._-]*$/ {
+              exit 1
+            }
+          ' payload-checksums.sha256
+          test "$(wc -l < payload-checksums.sha256)" -eq 9
+          awk '{ print $2 }' payload-checksums.sha256 | LC_ALL=C sort \
+            > "$RUNNER_TEMP/release-payload.actual"
+          printf '%s\n' \
+            archive-smoke \
+            backend-component-statement.json \
+            backend.spdx.json \
+            compatibility-manifest.json \
+            frontend-component-statement.json \
+            frontend-static-linux-amd64.tar \
+            frontend.spdx.json \
+            updater-component-statement.json \
+            updater.spdx.json \
+            > "$RUNNER_TEMP/release-payload.expected"
+          cmp --silent \
+            "$RUNNER_TEMP/release-payload.expected" \
+            "$RUNNER_TEMP/release-payload.actual"
+          LC_ALL=C sort --check payload-checksums.sha256
+          sha256sum --check --strict payload-checksums.sha256
+
+          release_revision="$(
+            jq -r '.source.release.revision' release-manifest.json
+          )"
+          release_tree="$(
+            jq -r '.source.release.tree' release-manifest.json
+          )"
+          for component in backend frontend updater; do
+            jq -e \
+              --arg component "$component" \
+              --arg version "$RELEASE_VERSION" \
+              --arg revision "$release_revision" \
+              --arg tree "$release_tree" \
+              --slurpfile release release-manifest.json '
+                .schemaVersion == 1
+                and .component == $component
+                and .applicationVersion == $version
+                and .source == {
+                  revision: $revision,
+                  tree: $tree
+                }
+                and .target == {
+                  architecture: "amd64",
+                  os: "linux"
+                }
+                and .sbom.path == ($component + ".spdx.json")
+                and .sbom.sha256 == (
+                  $release[0].assets.provenance[]
+                  | select(.path == ($component + ".spdx.json"))
+                  | .sha256
+                )
+                and .sbom.size == (
+                  $release[0].assets.provenance[]
+                  | select(.path == ($component + ".spdx.json"))
+                  | .size
+                )
+              ' "$component-component-statement.json" > /dev/null
+          done
+          jq -e \
+            --arg version "$RELEASE_VERSION" \
+            --arg revision "$release_revision" \
+            --arg tree "$release_tree" \
+            --slurpfile release release-manifest.json '
+              .schemaVersion == 1
+              and .applicationVersion == $version
+              and .source == {
+                revision: $revision,
+                tree: $tree
+              }
+              and .target == {
+                architecture: "amd64",
+                os: "linux"
+              }
+              and .compatibility.openapiDigest
+                == $release[0].compatibility.openapiDigest
+              and .compatibility.archive.castRulesVersion
+                == $release[0].compatibility.archive.castRulesVersion
+              and .compatibility.archive.compatibilityMatrixDigest
+                == $release[0].compatibility.archive.compatibilityMatrixDigest
+              and .compatibility.archive.domainRulesVersion
+                == $release[0].compatibility.archive.domainRulesVersion
+              and .compatibility.archive.manifestSchemaDigest
+                == $release[0].compatibility.archive.manifestSchemaDigest
+              and .compatibility.archive.schemaSqlDigest
+                == $release[0].compatibility.archive.schemaSqlDigest
+            ' compatibility-manifest.json > /dev/null
+
+      - name: Invoke the single reviewed production deployment transaction
+        shell: bash
+        env:
+          BGMSS_PRODUCTION_SSH_PRIVATE_KEY: ${{ secrets.BGMSS_PRODUCTION_SSH_PRIVATE_KEY }}
+          BGMSS_PRODUCTION_SSH_HOST: ${{ vars.BGMSS_PRODUCTION_SSH_HOST }}
+          BGMSS_PRODUCTION_SSH_KNOWN_HOST: ${{ vars.BGMSS_PRODUCTION_SSH_KNOWN_HOST }}
+        run: |
+          set -euo pipefail
+          [[ "$BGMSS_PRODUCTION_SSH_HOST" =~ ^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$ ]]
+          case "$BGMSS_PRODUCTION_SSH_KNOWN_HOST" in
+            *$'\r'* | *$'\n'*) exit 1 ;;
+          esac
+          read -r known_host key_type key_material extra \
+            <<< "$BGMSS_PRODUCTION_SSH_KNOWN_HOST"
+          test "$known_host" = "$BGMSS_PRODUCTION_SSH_HOST"
+          test "$key_type" = ssh-ed25519
+          [[ "$key_material" =~ ^[A-Za-z0-9+/=]+$ ]]
+          test -z "${extra:-}"
+          case "$BGMSS_PRODUCTION_SSH_PRIVATE_KEY" in
+            "-----BEGIN OPENSSH PRIVATE KEY-----"$'\n'*)
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+          ssh_root="$RUNNER_TEMP/bgmss-production-ssh"
+          key_file="$ssh_root/id_ed25519"
+          known_hosts_file="$ssh_root/known_hosts"
+          mkdir -m 0700 "$ssh_root"
+          trap 'rm -f -- "$key_file" "$known_hosts_file"' EXIT
+          printf '%s\n' "$BGMSS_PRODUCTION_SSH_PRIVATE_KEY" > "$key_file"
+          printf '%s\n' "$BGMSS_PRODUCTION_SSH_KNOWN_HOST" > "$known_hosts_file"
+          chmod 0600 "$key_file" "$known_hosts_file"
+          ssh \
+            -F /dev/null \
+            -i "$key_file" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o ForwardAgent=no \
+            -o IdentitiesOnly=yes \
+            -o KbdInteractiveAuthentication=no \
+            -o PasswordAuthentication=no \
+            -o RequestTTY=no \
+            -o ServerAliveCountMax=2 \
+            -o ServerAliveInterval=15 \
+            -o StrictHostKeyChecking=yes \
+            -o "UserKnownHostsFile=$known_hosts_file" \
+            -- "bgmss-deploy@$BGMSS_PRODUCTION_SSH_HOST" \
+            sudo -n -- /usr/local/sbin/bgmss-v2-deploy \
+            --version "$RELEASE_VERSION" \
+            --manifest-digest "$RELEASE_MANIFEST_DIGEST"

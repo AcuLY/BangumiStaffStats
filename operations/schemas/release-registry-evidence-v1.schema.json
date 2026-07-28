@@ -1,0 +1,112 @@
+{
+  "$defs": {
+    "descriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "digest",
+        "mediaType",
+        "size"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://bangumi-staff-stats.invalid/operations/release-registry-evidence-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "images": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "component": {
+            "enum": [
+              "backend",
+              "updater"
+            ],
+            "type": "string"
+          },
+          "config": {
+            "$ref": "#/$defs/descriptor"
+          },
+          "immutableReference": {
+            "format": "container-image-reference",
+            "type": "string"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/$defs/descriptor"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "manifest": {
+            "$ref": "#/$defs/descriptor"
+          },
+          "platform": {
+            "additionalProperties": false,
+            "properties": {
+              "architecture": {
+                "const": "amd64"
+              },
+              "os": {
+                "const": "linux"
+              }
+            },
+            "required": [
+              "architecture",
+              "os"
+            ],
+            "type": "object"
+          },
+          "repository": {
+            "enum": [
+              "ghcr.io/aculy/bangumi-staff-stats-api",
+              "ghcr.io/aculy/bangumi-staff-stats-updater"
+            ],
+            "type": "string"
+          },
+          "versionTag": {
+            "pattern": "^v(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component",
+          "config",
+          "immutableReference",
+          "layers",
+          "manifest",
+          "platform",
+          "repository",
+          "versionTag"
+        ],
+        "type": "object"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "schemaVersion": {
+      "const": 1
+    }
+  },
+  "required": [
+    "images",
+    "schemaVersion"
+  ],
+  "title": "Operations registry publication evidence",
+  "type": "object"
+}

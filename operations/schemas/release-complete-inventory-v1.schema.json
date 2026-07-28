@@ -1,0 +1,79 @@
+{
+  "$id": "https://bangumi-staff-stats.invalid/operations/release-complete-inventory-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "candidateDocument": {
+      "format": "safe-relative-path",
+      "type": "string"
+    },
+    "candidateKind": {
+      "enum": [
+        "tag-release",
+        "validation"
+      ],
+      "type": "string"
+    },
+    "contentAddress": {
+      "format": "sha256",
+      "type": "string"
+    },
+    "fileCount": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "files": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "enum": [
+              "0444",
+              "0555"
+            ],
+            "type": "string"
+          },
+          "path": {
+            "format": "safe-relative-path",
+            "type": "string"
+          },
+          "sha256": {
+            "format": "sha256",
+            "type": "string"
+          },
+          "size": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mode",
+          "path",
+          "sha256",
+          "size"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schemaVersion": {
+      "const": "operations-candidate-complete-inventory-v1"
+    },
+    "totalSize": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "candidateDocument",
+    "candidateKind",
+    "contentAddress",
+    "fileCount",
+    "files",
+    "schemaVersion",
+    "totalSize"
+  ],
+  "title": "Operations complete candidate inventory",
+  "type": "object"
+}

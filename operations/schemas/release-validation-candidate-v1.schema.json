@@ -1,0 +1,522 @@
+{
+  "$defs": {
+    "component": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactSetDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "root": {
+          "format": "safe-relative-path",
+          "type": "string"
+        },
+        "statement": {
+          "$ref": "#/$defs/file"
+        },
+        "treeDigest": {
+          "format": "sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifactSetDigest",
+        "root",
+        "statement",
+        "treeDigest"
+      ],
+      "type": "object"
+    },
+    "descriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "mediaType": {
+          "enum": [
+            "application/vnd.oci.image.config.v1+json",
+            "application/vnd.oci.image.layer.v1.tar+gzip",
+            "application/vnd.oci.image.manifest.v1+json"
+          ],
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "digest",
+        "mediaType",
+        "size"
+      ],
+      "type": "object"
+    },
+    "file": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "0444",
+            "0555"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "format": "safe-relative-path",
+          "type": "string"
+        },
+        "sha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mode",
+        "path",
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "gitIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "tree": {
+          "format": "git-oid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "revision",
+        "tree"
+      ],
+      "type": "object"
+    },
+    "image": {
+      "additionalProperties": false,
+      "properties": {
+        "archive": {
+          "$ref": "#/$defs/file"
+        },
+        "config": {
+          "$ref": "#/$defs/descriptor"
+        },
+        "declaredLoadReference": {
+          "format": "container-image-reference",
+          "type": "string"
+        },
+        "indexDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "layers": {
+          "items": {
+            "$ref": "#/$defs/descriptor"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "manifest": {
+          "$ref": "#/$defs/descriptor"
+        }
+      },
+      "required": [
+        "archive",
+        "config",
+        "declaredLoadReference",
+        "indexDigest",
+        "layers",
+        "manifest"
+      ],
+      "type": "object"
+    },
+    "toolchain": {
+      "additionalProperties": false,
+      "properties": {
+        "buildkitImage": {
+          "const": "docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368"
+        },
+        "buildkitVersion": {
+          "const": "0.27.1"
+        },
+        "buildxVersion": {
+          "const": "0.34.1"
+        },
+        "dockerClientVersion": {
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$",
+          "type": "string"
+        },
+        "dockerEndpoint": {
+          "const": "unix:///var/run/docker.sock"
+        },
+        "dockerServerArchitecture": {
+          "enum": [
+            "amd64",
+            "arm64"
+          ],
+          "type": "string"
+        },
+        "dockerServerOs": {
+          "const": "linux"
+        },
+        "dockerServerVersion": {
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$",
+          "type": "string"
+        },
+        "goHostArchitecture": {
+          "enum": [
+            "amd64",
+            "arm64"
+          ],
+          "type": "string"
+        },
+        "goVersion": {
+          "const": "1.26.5"
+        },
+        "nodeVersion": {
+          "const": "24.18.0"
+        },
+        "npmVersion": {
+          "const": "11.16.0"
+        },
+        "pythonVersion": {
+          "const": "3.14.6"
+        },
+        "uvVersion": {
+          "const": "0.11.32"
+        }
+      },
+      "required": [
+        "buildkitImage",
+        "buildkitVersion",
+        "buildxVersion",
+        "dockerClientVersion",
+        "dockerEndpoint",
+        "dockerServerArchitecture",
+        "dockerServerOs",
+        "dockerServerVersion",
+        "goHostArchitecture",
+        "goVersion",
+        "nodeVersion",
+        "npmVersion",
+        "pythonVersion",
+        "uvVersion"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://bangumi-staff-stats.invalid/operations/release-validation-candidate-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "applicationVersion": {
+      "const": "v0.1.0",
+      "type": "string"
+    },
+    "assets": {
+      "additionalProperties": false,
+      "properties": {
+        "archiveSmoke": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "release/archive-smoke"
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "compatibilityManifest": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "release/compatibility-manifest.json"
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "frontend": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "release/frontend-static-linux-amd64.tar"
+                }
+              },
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "required": [
+        "archiveSmoke",
+        "compatibilityManifest",
+        "frontend"
+      ],
+      "type": "object"
+    },
+    "compatibility": {
+      "additionalProperties": false,
+      "properties": {
+        "archive": {
+          "additionalProperties": false,
+          "properties": {
+            "castRulesVersion": {
+              "const": "cast-exact-v1"
+            },
+            "commonCommit": {
+              "const": "6a8442c17143a870357a5ff812362e8b5cfe9f9d"
+            },
+            "compatibilityMatrixDigest": {
+              "const": "sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac"
+            },
+            "domainRulesVersion": {
+              "const": "domain-raw-v1"
+            },
+            "manifestSchemaDigest": {
+              "const": "sha256:5a2b0cd7294312e9dcbdd413a1b01c4218652c4c39fd7472b74e40622e7a3e73"
+            },
+            "schemaSqlDigest": {
+              "const": "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0"
+            }
+          },
+          "required": [
+            "castRulesVersion",
+            "commonCommit",
+            "compatibilityMatrixDigest",
+            "domainRulesVersion",
+            "manifestSchemaDigest",
+            "schemaSqlDigest"
+          ],
+          "type": "object"
+        },
+        "openapiDigest": {
+          "const": "sha256:e7aba7c34b0d6f74e533e8e9fd31c8f0aa40ed15c440669ec87a7204c963cf11"
+        }
+      },
+      "required": [
+        "archive",
+        "openapiDigest"
+      ],
+      "type": "object"
+    },
+    "components": {
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "$ref": "#/$defs/component"
+        },
+        "frontend": {
+          "$ref": "#/$defs/component"
+        },
+        "updater": {
+          "$ref": "#/$defs/component"
+        }
+      },
+      "required": [
+        "backend",
+        "frontend",
+        "updater"
+      ],
+      "type": "object"
+    },
+    "execution": {
+      "additionalProperties": false,
+      "properties": {
+        "emulation": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "evidenceDigest": {
+                  "format": "sha256",
+                  "type": "string"
+                },
+                "provider": {
+                  "const": "docker-buildx"
+                },
+                "target": {
+                  "const": "linux/amd64"
+                }
+              },
+              "required": [
+                "evidenceDigest",
+                "provider",
+                "target"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "hostArchitecture": {
+          "enum": [
+            "amd64",
+            "arm64"
+          ],
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "native-amd64",
+            "admitted-qemu-binfmt"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "emulation",
+        "hostArchitecture",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "images": {
+      "additionalProperties": false,
+      "properties": {
+        "api": {
+          "$ref": "#/$defs/image"
+        },
+        "updater": {
+          "$ref": "#/$defs/image"
+        }
+      },
+      "required": [
+        "api",
+        "updater"
+      ],
+      "type": "object"
+    },
+    "payloadChecksums": {
+      "additionalProperties": false,
+      "properties": {
+        "fileCount": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "mode": {
+          "const": "0444"
+        },
+        "path": {
+          "const": "payload-checksums.sha256"
+        },
+        "sha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "fileCount",
+        "mode",
+        "path",
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "publicationState": {
+      "const": "unpublished-validation"
+    },
+    "receipt": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/file"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "accepted-development.json"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "schemaVersion": {
+      "const": "operations-validation-candidate-v1"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "operationsController": {
+          "$ref": "#/$defs/gitIdentity"
+        },
+        "product": {
+          "$ref": "#/$defs/gitIdentity"
+        }
+      },
+      "required": [
+        "operationsController",
+        "product"
+      ],
+      "type": "object"
+    },
+    "target": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "const": "amd64"
+        },
+        "os": {
+          "const": "linux"
+        }
+      },
+      "required": [
+        "architecture",
+        "os"
+      ],
+      "type": "object"
+    },
+    "toolchain": {
+      "$ref": "#/$defs/toolchain"
+    }
+  },
+  "required": [
+    "applicationVersion",
+    "assets",
+    "compatibility",
+    "components",
+    "execution",
+    "images",
+    "payloadChecksums",
+    "publicationState",
+    "receipt",
+    "schemaVersion",
+    "source",
+    "target",
+    "toolchain"
+  ],
+  "title": "Operations AMD64 validation candidate",
+  "type": "object"
+}

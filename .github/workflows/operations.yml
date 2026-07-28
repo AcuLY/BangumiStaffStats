@@ -1,0 +1,216 @@
+name: operations-verification
+
+on:
+  pull_request:
+    paths:
+      - "operations/**"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/operations.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/deploy.yml"
+      - "backend/build/**"
+      - "updater/build/**"
+      - "frontend/build/**"
+      - "contracts/artifacts/**"
+      - "contracts/acceptance/**"
+      - "openspec/**"
+      - "VERSION"
+  push:
+    tags-ignore:
+      - "**"
+    paths:
+      - "operations/**"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/operations.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/deploy.yml"
+      - "backend/build/**"
+      - "updater/build/**"
+      - "frontend/build/**"
+      - "contracts/artifacts/**"
+      - "contracts/acceptance/**"
+      - "openspec/**"
+      - "VERSION"
+  workflow_dispatch:
+    inputs:
+      verify_candidate:
+        description: Build and verify the unpublished linux/amd64 candidate
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: operations-verification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-policy:
+    name: release schemas, workflow policy, and release tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out without stored credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install exact Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          check-latest: false
+          cache: npm
+          cache-dependency-path: operations/package-lock.json
+
+      - name: Install exact npm
+        shell: bash
+        run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Install frozen Operations dependencies
+        shell: bash
+        run: npm --prefix operations ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run the complete Operations policy and test set
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix operations run check
+
+      - name: Audit repository residue and diff hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d operations/.tmp || \
+            test -z "$(find operations/.tmp -mindepth 1 -print -quit)"
+
+  verify-candidate:
+    name: double-build and verify unpublished linux/amd64 candidate
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.verify_candidate)
+    needs: verify-policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    env:
+      DOCKER_DEFAULT_PLATFORM: linux/amd64
+      GOTOOLCHAIN: go1.26.5+auto
+    steps:
+      - name: Check out complete history without stored credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install reviewed Go bootstrap
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: 1.26.4
+          check-latest: false
+          cache: false
+
+      - name: Install exact Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          check-latest: false
+
+      - name: Install exact npm
+        shell: bash
+        run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Install exact uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.11.32
+          enable-cache: false
+
+      - name: Create the reviewed local-only BuildKit builder
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+        with:
+          version: v0.34.1
+          driver-opts: image=docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368
+
+      - name: Install frozen Operations dependencies
+        shell: bash
+        run: npm --prefix operations ci --ignore-scripts --no-audit --no-fund
+
+      - name: Build twice and verify the closed unpublished candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate_output="$RUNNER_TEMP/bgmss-operations-candidate"
+          mkdir -p "$candidate_output"
+          npm --prefix operations run build:amd64 -- \
+            --acceptance-input \
+            "$GITHUB_WORKSPACE/operations/release/accepted-development.json" \
+            --output "$candidate_output"
+          mapfile -t candidate_roots < <(
+            find "$candidate_output/published" \
+              -mindepth 1 -maxdepth 1 -type d -print | LC_ALL=C sort
+          )
+          test "${#candidate_roots[@]}" -eq 1
+          npm --prefix operations run verify:candidate -- \
+            --root "${candidate_roots[0]}"
+          handoff_output="$GITHUB_WORKSPACE/operations/.tmp/actions-validation-handoff"
+          mkdir -p "$handoff_output"
+          node operations/release/prepare-validation-handoff.mjs \
+            --candidate "${candidate_roots[0]}" \
+            --output "$handoff_output"
+          cd "$handoff_output"
+          sha256sum --check validation-candidate.tar.sha256
+          test -f validation-candidate.tar
+          test -s validation-candidate.tar
+          test -f candidate-complete-inventory.json
+          test -s candidate-complete-inventory.json
+
+      - name: Upload only the sealed unpublished validation handoff
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: bgmss-operations-validation-${{ github.sha }}
+          path: |
+            operations/.tmp/actions-validation-handoff/validation-candidate.tar
+            operations/.tmp/actions-validation-handoff/validation-candidate.tar.sha256
+            operations/.tmp/actions-validation-handoff/candidate-complete-inventory.json
+          if-no-files-found: error
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+          retention-days: 1
+
+      - name: Remove only the exact run-owned handoff files
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          handoff_output="$GITHUB_WORKSPACE/operations/.tmp/actions-validation-handoff"
+          if test -d "$handoff_output"; then
+            rm -f -- \
+              "$handoff_output/validation-candidate.tar" \
+              "$handoff_output/validation-candidate.tar.sha256" \
+              "$handoff_output/candidate-complete-inventory.json"
+            rmdir "$handoff_output"
+          fi
+          if test -d "$GITHUB_WORKSPACE/operations/.tmp"; then
+            rmdir "$GITHUB_WORKSPACE/operations/.tmp"
+          fi
+
+      - name: Audit local-only output and repository residue
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d operations/.tmp || \
+            test -z "$(find operations/.tmp -mindepth 1 -print -quit)"

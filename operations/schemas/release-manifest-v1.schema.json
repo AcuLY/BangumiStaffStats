@@ -1,0 +1,334 @@
+{
+  "$defs": {
+    "descriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "digest",
+        "mediaType",
+        "size"
+      ],
+      "type": "object"
+    },
+    "file": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "0444",
+            "0555"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "format": "safe-relative-path",
+          "type": "string"
+        },
+        "sha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mode",
+        "path",
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "git": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "tree": {
+          "format": "git-oid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "revision",
+        "tree"
+      ],
+      "type": "object"
+    },
+    "publishedImage": {
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "$ref": "#/$defs/descriptor"
+        },
+        "immutableReference": {
+          "format": "container-image-reference",
+          "type": "string"
+        },
+        "layers": {
+          "items": {
+            "$ref": "#/$defs/descriptor"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "manifest": {
+          "$ref": "#/$defs/descriptor"
+        }
+      },
+      "required": [
+        "config",
+        "immutableReference",
+        "layers",
+        "manifest"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://bangumi-staff-stats.invalid/operations/release-manifest-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "acceptedDevelopment": {
+      "additionalProperties": false,
+      "properties": {
+        "frozenProduct": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/git"
+            },
+            {
+              "properties": {
+                "revision": {
+                  "const": "3f585cfe0a0dd61fe783a839528fef25470a58db"
+                },
+                "tree": {
+                  "const": "93e29a0c51c0305db8a43e7d029b8eaa3014a1b8"
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "receiptDigest": {
+          "const": "sha256:17145d4869050dc2ff347e4dbfb60a5a6369d32890f0abc3e8f766b8ea28a80a"
+        }
+      },
+      "required": [
+        "frozenProduct",
+        "receiptDigest"
+      ],
+      "type": "object"
+    },
+    "assets": {
+      "additionalProperties": false,
+      "properties": {
+        "archiveSmoke": {
+          "$ref": "#/$defs/file"
+        },
+        "compatibilityManifest": {
+          "$ref": "#/$defs/file"
+        },
+        "frontend": {
+          "$ref": "#/$defs/file"
+        },
+        "payloadChecksums": {
+          "$ref": "#/$defs/file"
+        },
+        "provenance": {
+          "items": {
+            "$ref": "#/$defs/file"
+          },
+          "maxItems": 6,
+          "minItems": 6,
+          "type": "array"
+        }
+      },
+      "required": [
+        "archiveSmoke",
+        "compatibilityManifest",
+        "frontend",
+        "payloadChecksums",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "compatibility": {
+      "additionalProperties": false,
+      "properties": {
+        "archive": {
+          "additionalProperties": false,
+          "properties": {
+            "castRulesVersion": {
+              "const": "cast-exact-v1"
+            },
+            "commonCommit": {
+              "const": "6a8442c17143a870357a5ff812362e8b5cfe9f9d"
+            },
+            "compatibilityMatrixDigest": {
+              "const": "sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac"
+            },
+            "domainRulesVersion": {
+              "const": "domain-raw-v1"
+            },
+            "manifestSchemaDigest": {
+              "const": "sha256:5a2b0cd7294312e9dcbdd413a1b01c4218652c4c39fd7472b74e40622e7a3e73"
+            },
+            "schemaSqlDigest": {
+              "const": "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0"
+            }
+          },
+          "required": [
+            "castRulesVersion",
+            "commonCommit",
+            "compatibilityMatrixDigest",
+            "domainRulesVersion",
+            "manifestSchemaDigest",
+            "schemaSqlDigest"
+          ],
+          "type": "object"
+        },
+        "openapiDigest": {
+          "const": "sha256:e7aba7c34b0d6f74e533e8e9fd31c8f0aa40ed15c440669ec87a7204c963cf11"
+        }
+      },
+      "required": [
+        "archive",
+        "openapiDigest"
+      ],
+      "type": "object"
+    },
+    "images": {
+      "additionalProperties": false,
+      "properties": {
+        "api": {
+          "$ref": "#/$defs/publishedImage"
+        },
+        "prometheus": {
+          "additionalProperties": false,
+          "properties": {
+            "amd64ManifestDigest": {
+              "const": "sha256:335b5796a6e4355530475575253f84de20b8ad07bf899f65ed218451ce4c60b4"
+            },
+            "amd64ManifestSize": {
+              "const": 4067
+            },
+            "indexDigest": {
+              "const": "sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80"
+            },
+            "reference": {
+              "const": "prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80"
+            },
+            "runtimeGid": {
+              "const": 65532
+            },
+            "runtimeUid": {
+              "const": 65532
+            }
+          },
+          "required": [
+            "amd64ManifestDigest",
+            "amd64ManifestSize",
+            "indexDigest",
+            "reference",
+            "runtimeGid",
+            "runtimeUid"
+          ],
+          "type": "object"
+        },
+        "updater": {
+          "$ref": "#/$defs/publishedImage"
+        }
+      },
+      "required": [
+        "api",
+        "prometheus",
+        "updater"
+      ],
+      "type": "object"
+    },
+    "publicationState": {
+      "const": "published"
+    },
+    "release": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "v0.1.0"
+        },
+        "version": {
+          "const": "v0.1.0"
+        }
+      },
+      "required": [
+        "tag",
+        "version"
+      ],
+      "type": "object"
+    },
+    "schemaVersion": {
+      "const": "operations-release-manifest-v1"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "operationsController": {
+          "$ref": "#/$defs/git"
+        },
+        "release": {
+          "$ref": "#/$defs/git"
+        }
+      },
+      "required": [
+        "operationsController",
+        "release"
+      ],
+      "type": "object"
+    },
+    "target": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "const": "amd64"
+        },
+        "os": {
+          "const": "linux"
+        }
+      },
+      "required": [
+        "architecture",
+        "os"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "acceptedDevelopment",
+    "assets",
+    "compatibility",
+    "images",
+    "publicationState",
+    "release",
+    "schemaVersion",
+    "source",
+    "target"
+  ],
+  "title": "Operations published release manifest",
+  "type": "object"
+}

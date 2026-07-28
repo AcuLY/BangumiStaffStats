@@ -1,0 +1,450 @@
+name: protected-version-release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protected-version-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: prepare one closed tag candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    outputs:
+      artifact-digest: ${{ steps.upload.outputs.artifact-digest }}
+    env:
+      DOCKER_DEFAULT_PLATFORM: linux/amd64
+      GOTOOLCHAIN: go1.26.5+auto
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Check out the exact tag commit without stored credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Admit the protected version tag and checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          test "$RELEASE_TAG" = "$(tr -d '\r\n' < VERSION)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+
+      - name: Install reviewed Go bootstrap
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: 1.26.4
+          check-latest: false
+          cache: false
+
+      - name: Install exact Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          check-latest: false
+
+      - name: Install exact npm
+        shell: bash
+        run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Install exact uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.11.32
+          enable-cache: false
+
+      - name: Create the reviewed local-only BuildKit builder
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+        with:
+          version: v0.34.1
+          driver-opts: image=docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368
+
+      - name: Install frozen Operations dependencies
+        shell: bash
+        run: npm --prefix operations ci --ignore-scripts --no-audit --no-fund
+
+      - name: Double-build the exact tag and seal its transfer
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/bgmss-tag-release"
+          node operations/release/prepare-tag-release.mjs \
+            --tag "$RELEASE_TAG" \
+            --acceptance-input \
+            "$GITHUB_WORKSPACE/operations/release/accepted-development.json" \
+            --output "$output"
+          cd "$output/transfer"
+          sha256sum --check tag-release-candidate.tar.sha256
+          test -f tag-release-candidate.tar
+          test -s tag-release-candidate.tar
+
+      - name: Upload only the sealed tag candidate
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: bgmss-tag-release-candidate
+          path: |
+            ${{ runner.temp }}/bgmss-tag-release/transfer/tag-release-candidate.tar
+            ${{ runner.temp }}/bgmss-tag-release/transfer/tag-release-candidate.tar.sha256
+          if-no-files-found: error
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+          retention-days: 1
+
+      - name: Audit repository residue
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d operations/.tmp || \
+            test -z "$(find operations/.tmp -mindepth 1 -print -quit)"
+
+  publish:
+    name: publish verified immutable distribution
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: release
+    permissions:
+      contents: write
+      packages: write
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Check out only the tag's release controller
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Install exact Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          check-latest: false
+
+      - name: Install exact npm
+        shell: bash
+        run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Install frozen Operations dependencies
+        shell: bash
+        run: npm --prefix operations ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install the reviewed registry inspection client
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+        with:
+          version: v0.34.1
+          driver-opts: image=docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368
+
+      - name: Download only the prepare job's named candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: bgmss-tag-release-candidate
+          path: ${{ runner.temp }}/bgmss-tag-release-download
+
+      - name: Verify artifact handoff and safely extract the closed candidate
+        shell: bash
+        env:
+          EXPECTED_ARTIFACT_DIGEST: ${{ needs.prepare.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_ARTIFACT_DIGEST" =~ ^(sha256:)?[0-9a-f]{64}$ ]]
+          incoming="$RUNNER_TEMP/bgmss-tag-release-download"
+          extract_root="$RUNNER_TEMP/bgmss-tag-release-extract"
+          mkdir -m 0700 "$extract_root"
+          node operations/release/verify-handoff.mjs \
+            --archive "$incoming/tag-release-candidate.tar" \
+            --checksum "$incoming/tag-release-candidate.tar.sha256" \
+            --kind tag-release \
+            --output "$extract_root" \
+            --repository "$GITHUB_REPOSITORY"
+          jq -e \
+            --arg tag "$RELEASE_TAG" \
+            --slurpfile candidate "$extract_root/candidate/tag-release-candidate-v1.json" '
+            .schemaVersion == 1
+            and (.entries | type == "array" and length == 2)
+            and ([.entries[].component] | sort == ["backend", "updater"])
+            and (
+              [.entries[] | select(
+                .component == "backend"
+                and .archivePath == "release/backend-api-linux-amd64.oci.tar"
+                and .loadReference == $candidate[0].images.api.declaredLoadReference
+                and .destinationRepository == "ghcr.io/aculy/bangumi-staff-stats-api"
+                and .versionTag == $tag
+              )] | length == 1
+            )
+            and (
+              [.entries[] | select(
+                .component == "updater"
+                and .archivePath == "release/updater-image-linux-amd64.oci.tar"
+                and .loadReference == $candidate[0].images.updater.declaredLoadReference
+                and .destinationRepository == "ghcr.io/aculy/bangumi-staff-stats-updater"
+                and .versionTag == $tag
+              )] | length == 1
+            )
+          ' "$extract_root/registry-publication-plan.json" > /dev/null
+
+      - name: Refuse an existing GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          error_file="$RUNNER_TEMP/bgmss-release-view.err"
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            > /dev/null 2> "$error_file"; then
+            echo "release already exists; refusing replacement" >&2
+            exit 1
+          fi
+          if ! grep --ignore-case --quiet 'release not found' "$error_file"; then
+            sed -n '1,20p' "$error_file" >&2
+            exit 1
+          fi
+
+      - name: Log in to GHCR only after candidate revalidation
+        shell: bash
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" \
+            | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Refuse existing mutable version tags before any push
+        shell: bash
+        run: |
+          set -euo pipefail
+          plan="$RUNNER_TEMP/bgmss-tag-release-extract/registry-publication-plan.json"
+          while IFS=$'\t' read -r component repository version_tag; do
+            case "$component:$repository" in
+              backend:ghcr.io/aculy/bangumi-staff-stats-api | updater:ghcr.io/aculy/bangumi-staff-stats-updater)
+                ;;
+              *)
+                exit 1
+                ;;
+            esac
+            test "$version_tag" = "$RELEASE_TAG"
+            error_file="$RUNNER_TEMP/bgmss-${component}-manifest-inspect.err"
+            if docker manifest inspect "$repository:$version_tag" \
+              > /dev/null 2> "$error_file"; then
+              echo "registry version tag already exists; refusing replacement" >&2
+              exit 1
+            fi
+            if ! grep --ignore-case --extended-regexp --quiet \
+              'manifest unknown|no such manifest|not found' "$error_file"; then
+              sed -n '1,20p' "$error_file" >&2
+              exit 1
+            fi
+          done < <(
+            jq -r '
+              .entries[] |
+              [.component, .destinationRepository, .versionTag] |
+              @tsv
+            ' "$plan"
+          )
+
+      - name: Push exact image graphs and capture immutable registry evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          extract_root="$RUNNER_TEMP/bgmss-tag-release-extract"
+          candidate="$extract_root/candidate"
+          plan="$extract_root/registry-publication-plan.json"
+          evidence_rows="$RUNNER_TEMP/bgmss-registry-evidence-rows"
+          mkdir -m 0700 "$evidence_rows"
+
+          while IFS=$'\t' read -r component archive_path load_reference repository version_tag; do
+            case "$component:$repository:$archive_path" in
+              backend:ghcr.io/aculy/bangumi-staff-stats-api:release/backend-api-linux-amd64.oci.tar | updater:ghcr.io/aculy/bangumi-staff-stats-updater:release/updater-image-linux-amd64.oci.tar)
+                ;;
+              *)
+                exit 1
+                ;;
+            esac
+            test "$version_tag" = "$RELEASE_TAG"
+            test -f "$candidate/$archive_path"
+            if docker image inspect "$load_reference" > /dev/null 2>&1; then
+              echo "declared load reference already exists on runner" >&2
+              exit 1
+            fi
+            docker load --input "$candidate/$archive_path" > /dev/null
+            docker image inspect "$load_reference" > /dev/null
+            destination="$repository:$version_tag"
+            docker tag "$load_reference" "$destination"
+
+            docker push "$destination" > /dev/null
+            manifest_file="$RUNNER_TEMP/bgmss-${component}-registry-manifest.json"
+            docker buildx imagetools inspect "$destination" --raw \
+              > "$manifest_file"
+            manifest_digest="sha256:$(
+              sha256sum "$manifest_file" | awk '{print $1}'
+            )"
+            manifest_size="$(wc -c < "$manifest_file" | tr -d '[:space:]')"
+            [[ "$manifest_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            [[ "$manifest_size" =~ ^[1-9][0-9]*$ ]]
+            immutable_reference="$repository@$manifest_digest"
+            immutable_manifest="$RUNNER_TEMP/bgmss-${component}-registry-manifest-immutable.json"
+            docker buildx imagetools inspect "$immutable_reference" --raw \
+              > "$immutable_manifest"
+            cmp --silent "$manifest_file" "$immutable_manifest"
+            jq -e '
+              .schemaVersion == 2
+              and (.mediaType | type == "string" and length > 0)
+              and (.config.digest | test("^sha256:[0-9a-f]{64}$"))
+              and (.config.mediaType | type == "string" and length > 0)
+              and (.config.size | type == "number" and . > 0)
+              and (.layers | type == "array" and length > 0)
+              and all(.layers[];
+                (.digest | test("^sha256:[0-9a-f]{64}$"))
+                and (.mediaType | type == "string" and length > 0)
+                and (.size | type == "number" and . > 0)
+              )
+            ' "$manifest_file" > /dev/null
+            jq -cS -n \
+              --arg component "$component" \
+              --arg repository "$repository" \
+              --arg versionTag "$version_tag" \
+              --arg immutableReference "$immutable_reference" \
+              --arg manifestDigest "$manifest_digest" \
+              --arg manifestMediaType "$(jq -r '.mediaType' "$manifest_file")" \
+              --argjson manifestSize "$manifest_size" \
+              --slurpfile registryManifest "$manifest_file" '
+                {
+                  component: $component,
+                  repository: $repository,
+                  versionTag: $versionTag,
+                  immutableReference: $immutableReference,
+                  platform: {
+                    os: "linux",
+                    architecture: "amd64"
+                  },
+                  manifest: {
+                    digest: $manifestDigest,
+                    mediaType: $manifestMediaType,
+                    size: $manifestSize
+                  },
+                  config: {
+                    digest: $registryManifest[0].config.digest,
+                    mediaType: $registryManifest[0].config.mediaType,
+                    size: $registryManifest[0].config.size
+                  },
+                  layers: [
+                    $registryManifest[0].layers[] |
+                    {
+                      digest: .digest,
+                      mediaType: .mediaType,
+                      size: .size
+                    }
+                  ]
+                }
+              ' > "$evidence_rows/$component.json"
+          done < <(
+            jq -r '
+              .entries[] |
+              [
+                .component,
+                .archivePath,
+                .loadReference,
+                .destinationRepository,
+                .versionTag
+              ] | @tsv
+            ' "$plan"
+          )
+
+          test "$(find "$evidence_rows" -type f -name '*.json' | wc -l)" -eq 2
+          jq -s -cS '
+            sort_by(.component) as $images |
+            {
+              schemaVersion: 1,
+              images: $images
+            }
+          ' "$evidence_rows/backend.json" "$evidence_rows/updater.json" \
+            > "$RUNNER_TEMP/registry-evidence.json"
+
+      - name: Derive the canonical published release
+        shell: bash
+        run: |
+          set -euo pipefail
+          extract_root="$RUNNER_TEMP/bgmss-tag-release-extract"
+          release_root="$RUNNER_TEMP/bgmss-published-release"
+          node operations/release/publish-release.mjs \
+            --candidate "$extract_root/candidate" \
+            --output "$release_root" \
+            --repository "$GITHUB_REPOSITORY" \
+            --registry-evidence "$RUNNER_TEMP/registry-evidence.json"
+          manifest_digest="sha256:$(
+            sha256sum "$release_root/release-manifest.json" | awk '{print $1}'
+          )"
+          printf '%s\n' "$manifest_digest" \
+            > "$RUNNER_TEMP/release-manifest.digest"
+
+      - name: Verify the canonical published release and exact assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_root="$RUNNER_TEMP/bgmss-published-release"
+          manifest_digest="$(tr -d '\r\n' < "$RUNNER_TEMP/release-manifest.digest")"
+          [[ "$manifest_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          node operations/release/verify-published-release.mjs \
+            --manifest "$release_root/release-manifest.json" \
+            --expected-digest "$manifest_digest" \
+            --asset-root "$release_root"
+
+      - name: Audit repository residue before the final release mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -d operations/.tmp || \
+            test -z "$(find operations/.tmp -mindepth 1 -print -quit)"
+
+      - name: Create one immutable GitHub Release asset set
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_root="$RUNNER_TEMP/bgmss-published-release"
+          manifest_digest="$(tr -d '\r\n' < "$RUNNER_TEMP/release-manifest.digest")"
+          [[ "$manifest_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --latest=false \
+            --title "$RELEASE_TAG" \
+            --notes "Immutable linux/amd64 release $RELEASE_TAG; release-manifest.json $manifest_digest" \
+            "$release_root/release-manifest.json" \
+            "$release_root/payload-checksums.sha256" \
+            "$release_root/compatibility-manifest.json" \
+            "$release_root/frontend-static-linux-amd64.tar" \
+            "$release_root/archive-smoke" \
+            "$release_root/backend.spdx.json" \
+            "$release_root/updater.spdx.json" \
+            "$release_root/frontend.spdx.json" \
+            "$release_root/backend-component-statement.json" \
+            "$release_root/updater-component-statement.json" \
+            "$release_root/frontend-component-statement.json"
+
+      - name: Remove runner registry credentials
+        if: always()
+        shell: bash
+        run: docker logout ghcr.io > /dev/null 2>&1 || true

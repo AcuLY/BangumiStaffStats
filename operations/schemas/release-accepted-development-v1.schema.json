@@ -1,0 +1,487 @@
+{
+  "$id": "https://bangumi-staff-stats.invalid/operations/release-accepted-development-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "acceptanceControl": {
+      "additionalProperties": false,
+      "properties": {
+        "archiveLifecycleCommit": {
+          "const": "00d15f18e51141645cb6fa04b837139ad9a0c6f3",
+          "format": "git-oid",
+          "type": "string"
+        },
+        "archiveLifecycleTree": {
+          "const": "3a6cfe3f539205c3e9f1c0ca56d789582e7ab66e",
+          "format": "git-oid",
+          "type": "string"
+        },
+        "formalResultPresent": {
+          "const": false,
+          "type": "boolean"
+        },
+        "formalVerdictPresent": {
+          "const": false,
+          "type": "boolean"
+        },
+        "implementationRevision": {
+          "const": "b56ce858733b18875df3101a423c6d1b356eed54",
+          "format": "git-oid",
+          "type": "string"
+        },
+        "implementationTree": {
+          "const": "12ffad17e74852409fd52eed7f538364c7acd698",
+          "format": "git-oid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "archiveLifecycleCommit",
+        "archiveLifecycleTree",
+        "formalResultPresent",
+        "formalVerdictPresent",
+        "implementationRevision",
+        "implementationTree"
+      ],
+      "type": "object"
+    },
+    "actionsEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "conclusion": {
+          "const": "success",
+          "type": "string"
+        },
+        "headRevision": {
+          "const": "111bc57b15d16a4aadf155ee503bc12c8065caef",
+          "format": "git-oid",
+          "type": "string"
+        },
+        "headTree": {
+          "const": "4489591ae54ea3b71e4ba86e41d935065276113e",
+          "format": "git-oid",
+          "type": "string"
+        },
+        "runId": {
+          "const": "30264329846",
+          "type": "string"
+        },
+        "url": {
+          "const": "https://github.com/AcuLY/BangumiStaffStats/actions/runs/30264329846",
+          "type": "string"
+        },
+        "workflowAuthority": {
+          "$ref": "#/$defs/repositoryFile"
+        }
+      },
+      "required": [
+        "conclusion",
+        "headRevision",
+        "headTree",
+        "runId",
+        "url",
+        "workflowAuthority"
+      ],
+      "type": "object"
+    },
+    "applicationVersion": {
+      "const": "v0.1.0",
+      "type": "string"
+    },
+    "authorities": {
+      "additionalProperties": false,
+      "properties": {
+        "buildDefinitions": {
+          "items": {
+            "$ref": "#/$defs/repositoryFile"
+          },
+          "minItems": 12,
+          "maxItems": 12,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "contracts": {
+          "items": {
+            "$ref": "#/$defs/repositoryFile"
+          },
+          "minItems": 8,
+          "maxItems": 8,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "lifecycle": {
+          "items": {
+            "$ref": "#/$defs/repositoryFile"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "toolchains": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "format": "bounded-identifier",
+                "type": "string"
+              },
+              "version": {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "identity",
+              "name",
+              "version"
+            ],
+            "type": "object"
+          },
+          "minItems": 7,
+          "maxItems": 7,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "versionFile": {
+          "$ref": "#/$defs/repositoryFile"
+        }
+      },
+      "required": [
+        "buildDefinitions",
+        "contracts",
+        "lifecycle",
+        "toolchains",
+        "versionFile"
+      ],
+      "type": "object"
+    },
+    "frozenProduct": {
+      "$ref": "#/$defs/gitIdentity"
+    },
+    "lifecycleStatus": {
+      "const": "development-acceptance-closed-by-authorized-ci-and-remote-evidence",
+      "type": "string"
+    },
+    "priorDevelopmentArtifacts": {
+      "additionalProperties": false,
+      "properties": {
+        "componentOrCompatibilityDigestsPresent": {
+          "const": false,
+          "type": "boolean"
+        },
+        "reusePolicy": {
+          "const": "ephemeral-ci-output-is-not-a-reusable-operations-input",
+          "type": "string"
+        },
+        "status": {
+          "const": "not-materialized-for-authorized-closure",
+          "type": "string"
+        }
+      },
+      "required": [
+        "componentOrCompatibilityDigestsPresent",
+        "reusePolicy",
+        "status"
+      ],
+      "type": "object"
+    },
+    "remoteEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "audit": {
+          "additionalProperties": false,
+          "properties": {
+            "p0Findings": {
+              "const": 0,
+              "type": "integer"
+            },
+            "p1Findings": {
+              "const": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "p0Findings",
+            "p1Findings"
+          ],
+          "type": "object"
+        },
+        "cleanup": {
+          "additionalProperties": false,
+          "properties": {
+            "buildkitCacheRemoved": {
+              "const": true,
+              "type": "boolean"
+            },
+            "legacyResourceDriftCount": {
+              "const": 0,
+              "type": "integer"
+            },
+            "sourceCopyRemoved": {
+              "const": true,
+              "type": "boolean"
+            },
+            "transferArchiveRemoved": {
+              "const": true,
+              "type": "boolean"
+            },
+            "validationImageRemoved": {
+              "const": true,
+              "type": "boolean"
+            },
+            "validationRootRemoved": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "buildkitCacheRemoved",
+            "legacyResourceDriftCount",
+            "sourceCopyRemoved",
+            "transferArchiveRemoved",
+            "validationImageRemoved",
+            "validationRootRemoved"
+          ],
+          "type": "object"
+        },
+        "exception": {
+          "additionalProperties": false,
+          "properties": {
+            "classification": {
+              "const": "darwin-process-identity-text-fixture-mismatch-on-linux",
+              "type": "string"
+            },
+            "expectedPlatform": {
+              "const": "darwin",
+              "type": "string"
+            },
+            "id": {
+              "const": "escaped fixture fallback cleans only an exact owned process identity",
+              "type": "string"
+            },
+            "observedPlatform": {
+              "const": "linux",
+              "type": "string"
+            },
+            "productionBehaviorWaived": {
+              "const": false,
+              "type": "boolean"
+            },
+            "rationale": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "classification",
+            "expectedPlatform",
+            "id",
+            "observedPlatform",
+            "productionBehaviorWaived",
+            "rationale"
+          ],
+          "type": "object"
+        },
+        "formalMatrix": {
+          "additionalProperties": false,
+          "properties": {
+            "cellCount": {
+              "const": 56,
+              "type": "integer"
+            },
+            "gitBlob": {
+              "const": "aa783a58d70e867b87751b8562ad1251f6aca3a1",
+              "format": "git-oid",
+              "type": "string"
+            },
+            "path": {
+              "const": "contracts/acceptance/matrix.json",
+              "type": "string"
+            },
+            "sha256": {
+              "const": "sha256:531d5a5337cfd09e8f60df44614f783ed6c92e71f115d958b1bfc2477cbcb2c5",
+              "format": "sha256",
+              "type": "string"
+            },
+            "unexecutedCells": {
+              "items": {
+                "format": "bounded-identifier",
+                "type": "string"
+              },
+              "minItems": 56,
+              "maxItems": 56,
+              "type": "array",
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "cellCount",
+            "gitBlob",
+            "path",
+            "sha256",
+            "unexecutedCells"
+          ],
+          "type": "object"
+        },
+        "runtime": {
+          "additionalProperties": false,
+          "properties": {
+            "architecture": {
+              "const": "amd64",
+              "type": "string"
+            },
+            "nodeImage": {
+              "const": "node@sha256:6f7b03f7d42f2d5afd5c6c51d917732a316b94908531295d9d23c4c1936ecb20",
+              "type": "string"
+            },
+            "nodeVersion": {
+              "const": "24.18.0",
+              "type": "string"
+            },
+            "npmVersion": {
+              "const": "11.16.0",
+              "type": "string"
+            },
+            "platform": {
+              "const": "linux",
+              "type": "string"
+            }
+          },
+          "required": [
+            "architecture",
+            "nodeImage",
+            "nodeVersion",
+            "npmVersion",
+            "platform"
+          ],
+          "type": "object"
+        },
+        "sourceArchiveSha256": {
+          "const": "sha256:9ce38b792dbbcf8dc6992122ee5af4cdfcfc3914214497108980e01672b4ed14",
+          "format": "sha256",
+          "type": "string"
+        },
+        "supervisorTests": {
+          "$ref": "#/$defs/testCount"
+        },
+        "targetedTests": {
+          "$ref": "#/$defs/testCount"
+        },
+        "verifyPackagePassed": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "audit",
+        "cleanup",
+        "exception",
+        "formalMatrix",
+        "runtime",
+        "sourceArchiveSha256",
+        "supervisorTests",
+        "targetedTests",
+        "verifyPackagePassed"
+      ],
+      "type": "object"
+    },
+    "schemaVersion": {
+      "const": "operations-accepted-development-v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "acceptanceControl",
+    "actionsEvidence",
+    "applicationVersion",
+    "authorities",
+    "frozenProduct",
+    "lifecycleStatus",
+    "priorDevelopmentArtifacts",
+    "remoteEvidence",
+    "schemaVersion"
+  ],
+  "type": "object",
+  "$defs": {
+    "gitIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "tree": {
+          "format": "git-oid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "revision",
+        "tree"
+      ],
+      "type": "object"
+    },
+    "repositoryFile": {
+      "additionalProperties": false,
+      "properties": {
+        "gitBlob": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "100644",
+            "100755"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "format": "safe-relative-path",
+          "type": "string"
+        },
+        "revision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "sha256": {
+          "format": "sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "gitBlob",
+        "mode",
+        "path",
+        "revision",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "testCount": {
+      "additionalProperties": false,
+      "properties": {
+        "passed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "passed",
+        "total"
+      ],
+      "type": "object"
+    }
+  }
+}
