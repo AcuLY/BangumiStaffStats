@@ -4,17 +4,17 @@
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: complete; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: complete; implemented: complete; verified: complete through the authorized CI/remote lifecycle closure, while the formal Darwin/ARM64 matrix remains unexecuted; committed: complete; pushed: complete; released: no; deployed: no |
 | Owner | One Contracts acceptance apply agent implements only this capability; the main agent reviews the specification and owns final acceptance and repository lifecycle. |
 | Writable paths | Apply: only `contracts/acceptance/**`. OpenSpec lifecycle: only this change's `.openspec.yaml`, proposal, design, tasks, and `specs/**`; apply cannot edit them. Generated evidence: only ignored `contracts/acceptance/.tmp/**`, absent at handoff. |
 | Read-only protected inputs | Every path outside the exact owned paths, especially Backend/Updater/Frontend source/tests/build definitions, existing Contracts artifacts/schemas/goldens/OpenAPI, root documents/config, `.impeccable/**`, root specs and sibling changes; fixed oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; accepted candidate/artifact/full-Archive inputs; external repositories, refs/remotes, registries, hosts, services, secrets, production state, and public Internet. |
 | Deletion complement | None. Cleanup may delete only one harness-created run root below `contracts/acceptance/.tmp/**` after exact containment, type, and ownership validation. |
 | Mutable refs | None. |
 | Consumes | Archived `produce-development-artifacts` and `close-release-readiness-identities`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three component artifact roots and compatibility manifest; caller-supplied official full inactive Archive; existing component/contract/race/artifact commands; fixed oracle; pinned current and historical-golden toolchains; caller-provisioned sealed caches; pinned browser. |
-| Produces | A versioned closed matrix, strict input/result/budget/exception schemas, local orchestrator, browser scenarios, focused/negative tests, README, and ignored per-run evidence. Only a complete green result emits `development-accepted-operations-pending`. |
+| Produces | A versioned closed matrix, strict input/result/budget/exception schemas, local orchestrator, browser scenarios, focused/negative tests, README, and ignored per-run evidence. Only a complete green result emits `development-accepted-operations-pending`; this change's one authorized repository-lifecycle closure is a separate non-CLI, non-green status. |
 | Dependencies | Exact direct dependencies: `produce-development-artifacts` and `close-release-readiness-identities`, both completed and archived. Apply also requires no active change besides this acceptance change, no dirty product candidate, and no dirty harness/control checkout. |
 | Deliverables | Only tracked source/config/schema/test/lock/docs below `contracts/acceptance/**`; no generated run result, screenshot, trace, browser, cache, Archive copy, process file, or credential. |
-| Acceptance | Immutable-input attestation; existing cross-language/component/race/artifact gates; full-Archive disposable runtime; immutable Updater artifact checks; packaged Backend/API/Frontend E2E; oracle shadow/golden and browser matrix; bounded development performance; negative/tamper/timeout/network/residue gates; strict OpenSpec/exact-path/residue/diff checks. |
+| Acceptance | Canonical path: immutable-input attestation; existing cross-language/component/race/artifact gates; full-Archive disposable runtime; immutable Updater artifact checks; packaged Backend/API/Frontend E2E; oracle shadow/golden and browser matrix; bounded development performance; negative/tamper/timeout/network/residue gates. Authorized lifecycle path for this change only: exact green Actions plus isolated remote package/supervisor/targeted evidence, explicit exception and omitted-cell inventory, exact cleanup, zero-P0/P1 audit, and strict OpenSpec/exact-path/residue/diff checks. |
 | Non-goals | Product fixes/refactors/tests/dependency changes outside the owner, new API/UI behavior, Archive acquisition/production, live personal-network E2E, release/deploy/activation, production load/resource/SLO/readiness claims. |
 | Operations deferred | Production Compose/nginx/systemd/timers, users/paths/permissions/TLS/secrets, real pointer activation/restart/rollback/cleanup/`update_activated`, registry/release/deploy/SSH, production monitoring/SLO, cutover/observation/migration/rollback drill/legacy removal. |
 | Stop/rollback conditions | Stop on an unarchived dependency, another active change, dirty/mixed/mutable/missing input, unreviewed artifacts, path overlap, undeclared dependency/network/state, protected mutation, fixture-backed production path, oracle drift, timeout, residue, unbounded benchmark, or owner-repair attempt. Roll back only uncommitted owned files and the validated owned run root. |
@@ -1223,3 +1223,67 @@ or operations change.
   activated, SLO-certified, or operations-complete
 - **THEN** the report SHALL be rejected even if every development matrix cell
   passed
+
+### Requirement: This change MAY close through its authorized CI and remote evidence bundle
+
+For the repository lifecycle of
+`complete-integrated-development-acceptance` only, explicit user authorization
+MAY replace the final formal-run archival gate with the exact immutable
+evidence bundle recorded in this change's `proposal.md`: pushed commit/tree
+identity, one successful fixed-toolchain GitHub Actions run, isolated
+Linux/AMD64 package and targeted acceptance-control checks, the exact
+platform-specific failing test and its narrow classification, explicit
+inventory of unexecuted formal cells, exact cleanup, and a zero-P0/P1
+main-agent audit.
+
+When and only when that complete bundle is present, repository lifecycle MAY
+record the exact status
+`development-acceptance-closed-by-authorized-ci-and-remote-evidence`, sync this
+specification, and archive the change. This status SHALL remain outside the
+acceptance CLI and result schema. It SHALL NOT mark, rewrite, omit, or infer a
+formal matrix cell as passed; emit
+`development-accepted-operations-pending`; or be described as a canonical
+green acceptance result.
+
+The explicit bundle for this closure records the formal full-Archive,
+packaged-runtime/API/UI, oracle/browser, and development-performance cells as
+unexecuted. Its one 82/83 targeted-test exception is
+`escaped fixture fallback cleans only an exact owned process identity`, whose
+Darwin process-identity text fixture does not match Linux. The exception is
+limited to that fixture on the recorded Linux host and SHALL NOT waive a
+production behavior, another test failure, a future regression, or a future
+formal run.
+
+This lifecycle closure MAY unblock implementation of the separately reviewed
+Operations OpenSpec. It SHALL NOT by itself authorize release, deployment,
+host cutover, production data activation, nginx mutation, legacy retirement,
+or a claim of production readiness. Downstream Operations acceptance SHALL
+perform its own Linux/AMD64 build, artifact, container-runtime, rollback,
+cleanup, and isolation verification against the exact candidate it consumes.
+
+#### Scenario: The exact authorized bundle closes the change
+
+- **WHEN** every identity, green CI result, remote targeted result, explicit
+  exception, omitted-cell record, cleanup fact, and audit fact in the fixed
+  bundle is present and the user explicitly authorizes replacement of the
+  formal archival gate
+- **THEN** OpenSpec lifecycle MAY sync and archive this change with status
+  `development-acceptance-closed-by-authorized-ci-and-remote-evidence`
+- **AND** reports SHALL state that the formal Darwin/ARM64 matrix was not
+  completed and no canonical green result was emitted
+
+#### Scenario: The replacement is mistaken for a formal pass
+
+- **WHEN** any consumer marks an unexecuted cell as passed, synthesizes the
+  formal verdict, broadens the Linux fixture exception, or treats the
+  lifecycle status as release/deployment/production-readiness evidence
+- **THEN** that consumer SHALL fail closed and SHALL NOT use this archive as
+  proof of the claimed result
+
+#### Scenario: An Operations candidate consumes the archived lifecycle status
+
+- **WHEN** the separately specified Operations implementation begins from
+  this archived change without a canonical formal result
+- **THEN** it SHALL bind the exact authorized lifecycle bundle and independently
+  verify its Linux/AMD64 release assembly, isolated runtime, rollback, cleanup,
+  and host non-interference before any later release or deployment decision

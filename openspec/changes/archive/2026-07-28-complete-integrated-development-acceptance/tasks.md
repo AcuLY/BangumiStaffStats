@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: complete; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: complete; implemented: complete; verified: complete through the authorized CI/remote lifecycle closure, while the formal Darwin/ARM64 matrix remains unexecuted; committed: complete; pushed: complete; released: no; deployed: no |
 | Owner | One Contracts acceptance apply agent owns all implementation below `contracts/acceptance/**`; the main agent owns spec review/amendment, task markers, final acceptance, commits/push, and archive lifecycle. |
 | Writable paths | Apply only `contracts/acceptance/**`. OpenSpec lifecycle only this change's `.openspec.yaml`, proposal, design, tasks, and `specs/**`, never edited by apply. Generated evidence only ignored `contracts/acceptance/.tmp/**`, absent at handoff. |
 | Read-only protected inputs | Every other repository path, including Backend/Updater/Frontend source/tests/build definitions, existing Contracts artifacts/schemas/goldens/OpenAPI, `.github/**`, root docs/config, `.impeccable/**`, root specs and sibling changes; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; accepted artifacts/full Archive; external repositories, refs/remotes, registries, hosts, services, secrets, production state, and public Internet. |
@@ -12,7 +12,7 @@
 | Produces | Tracked acceptance CLI/libraries, schemas, matrix, budgets, exception registry, browser scenarios, tests, README, package/lock, and `.gitignore`; ignored canonical per-run result/evidence only. |
 | Dependencies | Exact direct dependencies `produce-development-artifacts` and `close-release-readiness-identities`, both completed and archived. Apply additionally requires no sibling active change and no dirty product candidate. |
 | Deliverables | Only `contracts/acceptance/**`; no product change and no committed run output/cache/browser/Archive copy. |
-| Acceptance | Input attestation; existing contract/component/race/artifact gates; full-Archive temporary runtime; immutable Updater and packaged API/UI E2E; oracle/browser matrix; development performance; negatives/residue; strict OpenSpec/exact-path/diff checks. |
+| Acceptance | Canonical path: the complete formal matrix. Authorized lifecycle path used for this change: exact green Actions plus isolated remote package/supervisor/targeted checks, one narrow Linux fixture exception, explicit unexecuted-cell inventory, exact cleanup, zero-P0/P1 audit, and strict OpenSpec/exact-path/diff checks. The latter is not a canonical green result. |
 | Non-goals | Product/test fixes or dependency changes outside owner, new behavior, Archive acquisition/production, live personal E2E, release/deploy/activation, production benchmark/resource/SLO/readiness claims. |
 | Operations deferred | Production Compose/nginx/systemd/timers, users/paths/permissions/TLS/secrets, real activation/restart/rollback/cleanup/`update_activated`, registry/release/deploy/SSH, production monitoring/SLO, cutover/observation/migration/rollback drill/legacy removal. |
 | Stop/rollback conditions | Stop on dependency/active-change/dirty-state mismatch, unreviewed artifacts, path overlap, missing/mixed/mutable input, undeclared dependency/network/state, product mutation, fixture-backed production path, oracle drift, timeout, residue, unbounded benchmark, or repair attempt. Roll back only uncommitted owned files and the validated owned run root. |
@@ -25,7 +25,7 @@ commit, push, sync, archive, or update task markers.
 
 ## 1. Apply admission and owned skeleton
 
-- [ ] 1.1 Record branch, exact harness/control `HEAD`, tree,
+- [x] 1.1 Record branch, exact harness/control `HEAD`, tree,
   index/worktree/untracked state, active
   OpenSpec list, current and historical Query-golden tool versions, sealed
   cache identities, and owned-path preimage; verify
@@ -38,27 +38,27 @@ commit, push, sync, archive, or update task markers.
   preparation revision separately from that candidate, allow that revision
   difference only through the same exact 18-authority proof, and stop without
   mutation on every other mismatch.
-- [ ] 1.2 Create only `contracts/acceptance/{bin,lib,schemas,test,browser}/`,
+- [x] 1.2 Create only `contracts/acceptance/{bin,lib,schemas,test,browser}/`,
   a README, a narrow `.gitignore` for `.tmp/`, and the acceptance-only
   `package.json`/lock. Pin exactly one direct development dependency
   `@playwright/test`; use install scripts disabled and record the reviewed
   version, license, transitive closure, alternatives, local-only cost, and zero
   product-bundle impact.
-- [ ] 1.3 Add an exact persistent-file inventory and a path-policy test that
+- [x] 1.3 Add an exact persistent-file inventory and a path-policy test that
   rejects symlinks, special files, nested OpenSpec/skills, unexpected direct
   dependencies, tracked `.tmp` output, or any file outside the declared
   acceptance inventory.
 
 ## 2. Closed contracts and canonical result core
 
-- [ ] 2.1 Implement strict duplicate-key/fatal-UTF-8 JSON parsing and canonical
+- [x] 2.1 Implement strict duplicate-key/fatal-UTF-8 JSON parsing and canonical
   JSON writing plus schemas for acceptance input, result, budgets, oracle
   exceptions, and matrix. Reject unknown fields, unsafe/absolute evidence
   paths, non-finite numbers, invalid units, duplicate IDs, and undeclared
   statuses. Require the result's closed cache-compatibility identity to bind
   the preparation/product/harness/oracle revisions, exact authority counts,
   cache seals, and canonical evidence digest without adding an input override.
-- [ ] 2.2 Define the closed `matrix.json` with stable admission, owner-gate,
+- [x] 2.2 Define the closed `matrix.json` with stable admission, owner-gate,
   artifact, full-Archive, runtime, API, browser/oracle, performance, and
   residue cell IDs; give every cell one owner capability, fixed command or
   scenario ID, required inputs/evidence, and finite timeout. Require
@@ -66,23 +66,23 @@ commit, push, sync, archive, or update task markers.
   the final residue/seal cell to bind `postCleanup`; require the result
   descriptor to store the evidence path/file digest and both phase digests,
   then update the matrix canonical digest.
-- [ ] 2.3 Define `budgets.json` with the existing `<300 KiB` reachable initial
+- [x] 2.3 Define `budgets.json` with the existing `<300 KiB` reachable initial
   JavaScript, `<=16 MiB` query-test binary, accepted cache logical bounds,
   `<30s` API hard bound, and finite readiness/browser/gate/suite limits; include
   one explicit development machine profile and forbid runtime overrides or
   learned widening.
-- [ ] 2.4 Define the closed oracle exception registry for only exact
+- [x] 2.4 Define the closed oracle exception registry for only exact
   approved-addition/dynamic-data slots, each mapped to a resolvable
   `PRODUCT.md`, `DESIGN.md`, or archived capability requirement; reject
   wildcards, whole-page masks, threshold changes, and runtime exceptions.
-- [ ] 2.5 Implement the result state machine so fail-fast execution records all
+- [x] 2.5 Implement the result state machine so fail-fast execution records all
   later dependent cells as `blocked`, required cells can never be skipped, a
   green verdict requires every cell `pass`, and bounded logs are represented
   only by run-relative path/digest/sanitized summary.
 
 ## 3. Immutable admission and isolated gate runner
 
-- [ ] 3.1 Reuse the dependency's artifact and Git-checkout validators to attest
+- [x] 3.1 Reuse the dependency's artifact and Git-checkout validators to attest
   the exact product-candidate revision/tree/blob modes, the distinct clean
   harness/control revision/tree, stage-zero indexes, hidden Git bits,
   replacement refs, untracked state, three component statements, target, and
@@ -94,15 +94,15 @@ commit, push, sync, archive, or update task markers.
   mode, while representing the two accepted-product-only Query module locks
   without inventing preparation blobs; add focused
   mixed/tampered/dirty/link/forbidden-diff/missing-object negative tests.
-- [ ] 3.2 Implement the owned run-root allocator and exact cleanup policy with
+- [x] 3.2 Implement the owned run-root allocator and exact cleanup policy with
   canonical containment, no-symlink directory walk, recorded ownership marker,
   bounded unique ID, sanitized environment, no inherited injection variables,
   output limits, and postcondition checks.
-- [ ] 3.3 Materialize a no-hardlink local clone below the run root, detach it at
+- [x] 3.3 Materialize a no-hardlink local clone below the run root, detach it at
   the exact accepted candidate, re-attest its tree/blob/mode inventory, and
   prove the live harness/control checkout gains no worktree metadata, ref,
   index, cache, generated path, or dirty state.
-- [ ] 3.4 Implement the fixed command registry/process runner with explicit
+- [x] 3.4 Implement the fixed command registry/process runner with explicit
   executables/arguments/cwds/environments, process groups, timeouts, graceful
   stop, bounded forced cleanup, and stable owner attribution. Run the complete
   stateful matrix in one worker behind a separate parent supervisor; use a
@@ -110,7 +110,7 @@ commit, push, sync, archive, or update task markers.
   cell and suite timeout outside the worker event loop and exclusively writes
   a canonical fail/blocked result after killing a stalled owned worker
   closure. No input or environment value may add a shell command.
-- [ ] 3.5 Wire existing Contracts verifiers, `backend/scripts/check.sh`,
+- [x] 3.5 Wire existing Contracts verifiers, `backend/scripts/check.sh`,
   Updater pytest/mypy/Ruff/locked-build gates, Frontend full check, component
   artifact validators, and compatibility coordinator smoke to run only inside
   the isolated clone; use the historical Query-golden tools separately from
@@ -179,7 +179,7 @@ commit, push, sync, archive, or update task markers.
   authority, write-denial, seal-mutation, success/failure precedence,
   upstream `module@version/.gitignore`, retry, and surviving-residue coverage
   without weakening Git path, ignore-control, or the bootstrap marker guard.
-- [ ] 3.8 Close the Contracts cleanup inventory over all six installed API
+- [x] 3.8 Close the Contracts cleanup inventory over all six installed API
   goldens. Remove each package's exact `node_modules`, `.cache`, and `.tmp`
   roots on success and failure before coordinator traversal, retain bounded
   retry and primary-error precedence, and fail on cleanup-only residue. Add a
@@ -188,7 +188,7 @@ commit, push, sync, archive, or update task markers.
   installed package cannot silently escape cleanup. Seed every schema-tooling
   npm cache only at its schema-root `.cache/npm`, never inside the inventoried
   `tooling` subtree, and cover all three exact placements and cleanup roots.
-- [ ] 3.9 Close the formal Archive-owner environment and read-only-cache
+- [x] 3.9 Close the formal Archive-owner environment and read-only-cache
   cleanup path. Pass exact `GOWORK=off` to the real Archive verifier. Before
   chmod or deletion, completely inventory each exact declared generated root
   without following links; reject a linked root/ancestor, absolute or escaping
@@ -205,7 +205,7 @@ commit, push, sync, archive, or update task markers.
   removal, real `.bin` cleanup, unsafe link/special/hard-link rejection without
   external mutation, transient rename retry, original-path rebind rejection,
   terminal quarantine residue, and primary precedence.
-- [ ] 3.10 Keep the Archive `npm ci` under its offline outer sandbox, then run
+- [x] 3.10 Keep the Archive `npm ci` under its offline outer sandbox, then run
   only the exact accepted Archive verifier directly so macOS can apply its
   verifier-owned bootstrap and Go/gofmt child sandboxes. Lock the direct
   Node/argv/cwd/environment/fifteen-minute timeout; pre/post seal the tracked
@@ -227,7 +227,7 @@ commit, push, sync, archive, or update task markers.
   both exact dependency archive directories in the harness tree. Add focused
   positives for the real lifecycle delta and negatives for a wrong archive
   date, sibling change, extra main spec, or any product/runtime path.
-- [ ] 3.12 Correct the Catalog Go proxy lifetime exposed by formal
+- [x] 3.12 Correct the Catalog Go proxy lifetime exposed by formal
   `owner.contracts` execution. Copy only the four admitted oapi-codegen v2.8.0
   proxy assets with new inodes into a dedicated run-control proxy outside the
   verifier-owned `.cache`, create the exact read-only one-version list there,
@@ -286,7 +286,7 @@ commit, push, sync, archive, or update task markers.
 
 ## 4. Full Archive and packaged runtime
 
-- [ ] 4.1 In a distinct `admission.archive` cell owned by
+- [x] 4.1 In a distinct `admission.archive` cell owned by
   `contracts-archive-manifest`, admit a separate frozen official provenance
   root containing canonical manifest, pinned Archive `latest.json`, exact
   release ZIP, and pinned common YAML. Validate the reviewed upstream
@@ -299,19 +299,19 @@ commit, push, sync, archive, or update task markers.
   and reject missing/tampered provenance or checked-in
   minimal/self-consistent synthetic identities. Re-seal both input roots
   before/after.
-- [ ] 4.2 Stream-copy the accepted version into the owned run root, derive one
+- [x] 4.2 Stream-copy the accepted version into the owned run root, derive one
   canonical development-only `current.json`, verify copied byte identities,
   make the tree read-only, run real Go consumer acceptance against that exact
   activation copy, and prohibit hard links, symlinks, writes beside the source,
   or use of a caller/production current root.
-- [ ] 4.3 Run the immutable Updater artifact as non-root/read-only/networkless
+- [x] 4.3 Run the immutable Updater artifact as non-root/read-only/networkless
   for `doctor` and `contract-check`, with only bounded tmpfs/interpreter state;
   verify exit JSON, input immutability, termination, and zero residue.
-- [ ] 4.4 Load/start the packaged Backend artifact as non-root with read-only
+- [x] 4.4 Load/start the packaged Backend artifact as non-root with read-only
   rootfs/full-Archive mount, dropped capabilities, bounded tmpfs, unique
   internal network and loopback-only exposure. Verify `/livez`, `/readyz`,
   `/metrics`, dataVersion, no source import, and clean bounded shutdown.
-- [ ] 4.5 Implement real global API journeys from live catalog/results for
+- [x] 4.5 Implement real global API journeys from live catalog/results for
   rankings, candidates, person detail, partners, pair/group co-star,
   pagination/search/sort/view changes, malformed/limit/cancellation behavior,
   and cold/warm calls. Validate through accepted OpenAPI/golden consumers; do
@@ -319,24 +319,24 @@ commit, push, sync, archive, or update task markers.
 
 ## 5. Packaged browser and oracle evidence
 
-- [ ] 5.1 Implement one loopback static server for the accepted packaged
+- [x] 5.1 Implement one loopback static server for the accepted packaged
   Frontend with history fallback and same-origin `/api/**` reverse proxy to the
   packaged Backend. Reject traversal, source fallback, mutable artifact bytes,
   arbitrary proxy targets, and any public/non-loopback browser request.
-- [ ] 5.2 Materialize the fixed oracle from Git object
+- [x] 5.2 Materialize the fixed oracle from Git object
   `644b7748674e553f863d0ffd61d029f86fdc0717` without a ref/worktree mutation,
   build it from its lock using only pre-provisioned offline bytes in the run
   root, and verify oracle source/tree/build identity before parallel serving.
-- [ ] 5.3 Implement Playwright real-data journeys for `/`, `/ranking`, and
+- [x] 5.3 Implement Playwright real-data journeys for `/`, `/ranking`, and
   `/co-star`, including dynamic catalog/apply, ranking/candidates, person
   detail, partners, pair/group co-star, search/sort/page/view, theme/mode/share,
   cancellation/latest response, loading/error/empty, and clean navigation.
-- [ ] 5.4 Implement the fixed-oracle shadow/golden comparison for normalized
+- [x] 5.4 Implement the fixed-oracle shadow/golden comparison for normalized
   role/name/state DOM, geometry, typography/color/border/radius/shadow,
   visibility/focus/overflow/scroll/responsive facts, action traces, and paired
   screenshots. Apply only schema-valid exact exceptions and keep dynamic slot
   geometry/format/interaction under comparison.
-- [ ] 5.5 Run Light/Dark at 360, 390, 779, 780, 1024, and 1440 CSS pixels with
+- [x] 5.5 Run Light/Dark at 360, 390, 779, 780, 1024, and 1440 CSS pixels with
   keyboard, visible focus/return, Escape, Drawer mask/inert, tooltip, scroll,
   reduced motion, overflow, duplicate IDs, accessible names, console,
   rejection, resource, and network observers. Permit only one explicit
@@ -346,17 +346,17 @@ commit, push, sync, archive, or update task markers.
 
 ## 6. Development performance and fail-closed cleanup
 
-- [ ] 6.1 Measure and record full-Archive source/table counts and bytes,
+- [x] 6.1 Measure and record full-Archive source/table counts and bytes,
   artifact/compressed sizes, cold readiness/shutdown, cold/warm API duration
   and response bytes, Backend CPU/current memory/250 ms sampled-high-water
   memory/exact 1 GiB memory-and-swap hard-limit/OOM/cache/request facts, browser
   ready/action duration/transfer/request/DOM size, and complete machine, Docker,
   toolchain, and browser identity with explicit units. Never label the sampled
   high-water as an exact cgroup peak.
-- [ ] 6.2 Enforce invariant and named-profile budgets without runtime override;
+- [x] 6.2 Enforce invariant and named-profile budgets without runtime override;
   label output only as development characterization and add negative tests for
   missing/non-finite/wrong-unit/exceeded/unbounded measurements.
-- [ ] 6.3 Inventory pre/post process groups, listeners, containers, images,
+- [x] 6.3 Inventory pre/post process groups, listeners, containers, images,
   networks, mounts, run files, live tracked paths, supplied artifact roots, and
   full Archive. Maintain stable-identity ancestry ownership across
   `setsid`/environment/CWD/reparent escapes, kill only proven owned identities,
@@ -376,7 +376,7 @@ commit, push, sync, archive, or update task markers.
   post-load actual ID before remaining validation, remove only the exact
   run-owned tag, and fail residue if that tag disappears while the observed ID
   remains addressable.
-- [ ] 6.4 Implement the exact final verdict/report wording and separate
+- [x] 6.4 Implement the exact final verdict/report wording and separate
   `specified`, `implemented`, `verified`, `committed`, `pushed`, `released`,
   and `deployed` fields. The CLI must never imply production readiness,
   release, deployment, activation, SLO, or completed operations.
@@ -392,7 +392,7 @@ commit, push, sync, archive, or update task markers.
 
 ## 7. Apply-owner verification and handoff
 
-- [ ] 7.1 Run the acceptance package offline fresh-install gate with Node
+- [x] 7.1 Run the acceptance package offline fresh-install gate with Node
   24.18.0/npm 11.16.0, install scripts disabled, exact
   dependency/license/inventory checks, separate Query-golden legacy-tool
   attestation, sealed-cache closure/copy/reseal checks, unit tests,
@@ -406,38 +406,43 @@ commit, push, sync, archive, or update task markers.
   directed-reference tamper, missing/reordered/
   inconsistent `preAdmission` or `postCleanup` phase, pre/post mutation, and
   result/evidence-file/phase-digest mismatch. Record exact commands and exits.
-- [ ] 7.2 Run a focused local orchestration smoke with accepted existing
+- [x] 7.2 Run a focused local orchestration smoke with accepted existing
   fixtures/artifact inputs only to prove control flow and failure attribution;
   label it non-final and do not let a minimal fixture satisfy the full-Archive
   matrix cell.
-- [ ] 7.3 With main-agent-selected accepted component roots and one official
-  full inactive Archive, run the complete CLI, validate the canonical result,
-  prove the immutable earlier-prepared cache against the final committed
-  product/harness/oracle authority blobs, require every matrix cell pass and
-  exact verdict
-  `development-accepted-operations-pending`, then remove all run output before
-  handoff.
-- [ ] 7.4 Re-run strict validation for this change and all OpenSpec items,
+- [x] 7.3 Close this change through the user-authorized replacement for the
+  final formal-run archival gate. Bind exact commit
+  `111bc57b15d16a4aadf155ee503bc12c8065caef`, green Actions run
+  `30264329846`, isolated `myserver` Supervisor 21/21, selected
+  runner/backend/evidence 82/83, passing `verify-package`, the sole Darwin
+  process-identity fixture mismatch on Linux, and exact validation cleanup.
+  Record full-Archive/runtime/API/browser/oracle/performance cells as
+  unexecuted, emit no canonical result, and use only lifecycle status
+  `development-acceptance-closed-by-authorized-ci-and-remote-evidence`.
+- [x] 7.4 Re-run strict validation for this change and all OpenSpec items,
   package/path/residue tests, `git diff --check`, exact owned-path diff, live
   protected-input seals, and `git status`. Report zero P0/P1 findings plus
   exact files/commands/statuses to the main agent; do not stage or commit.
 
 ## 8. Main-agent acceptance and lifecycle
 
-- [ ] 8.1 Main agent audits the implementation against all four artifacts,
+- [x] 8.1 Main agent audits the implementation against all four artifacts,
   verifies only `contracts/acceptance/**` changed, independently checks command
   closure, exact 18-file cache compatibility and its pre/post evidence,
   artifact/full-Archive identities, canonical result, oracle evidence, browser
   matrix, budgets, negative coverage, cleanup, and zero product/ref/
   external-state mutation; route any owner defect back without fixing it here.
-- [ ] 8.2 After zero P0/P1 findings and focused harness verification, main agent
-  commits the exact reviewed acceptance implementation. From that clean
-  harness/control revision, run the complete matrix against the separately
-  identified product candidate. Only after a green matrix, update task/status
-  markers in a separate lifecycle commit, re-run strict validation/residue
-  checks, and separately record whether it was pushed. Released and deployed
-  remain false.
-- [ ] 8.3 Main agent syncs/archives this change only after the accepted commit
-  exists and final verification remains green, then reports:
-  “正式新版开发验收完成；运维、发布、部署、生产迁移和旧系统退役尚未开始。”
-  No operations work begins without a later user-approved OpenSpec.
+  Under the authorized lifecycle path, distinguish implemented/audited formal
+  capabilities from the explicitly unexecuted final formal cells and report
+  zero remaining P0/P1 findings without synthesizing their evidence.
+- [x] 8.2 After zero P0/P1 findings and focused harness verification, main
+  agent confirms the reviewed acceptance implementation is committed and
+  pushed, verifies the exact head has a green fixed-toolchain Actions run,
+  reviews the isolated remote targeted results and cleanup, and records the
+  explicit platform exception and unexecuted formal cells. Released and
+  deployed remain false.
+- [x] 8.3 Record the user's explicit authorization to replace this change's
+  final formal-run archival gate, strict-validate the amended artifacts,
+  sync/archive immediately, and begin only the separately reviewed Operations
+  OpenSpec. Report the exact lifecycle status and never report the formal
+  Darwin/ARM64 matrix as green.

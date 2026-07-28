@@ -5,6 +5,11 @@ accepted independently, but the repository still lacks one repeatable,
 read-only decision that proves those exact parts work together. This final
 development change adds that decision without repairing product code or
 starting release, deployment, activation, or production operations.
+The formal Darwin/ARM64 matrix remains the canonical harness-verdict path.
+For this change's repository lifecycle only, the user has authorized an
+explicitly non-equivalent closure path based on a green CI run plus isolated
+Linux/AMD64 container and targeted harness evidence, with every omitted formal
+cell and platform exception recorded rather than inferred as passing.
 
 ## What Changes
 
@@ -65,10 +70,11 @@ None.
 
 - investigated: complete
 - specified: complete
-- implemented: no
-- verified: no
-- committed: no
-- pushed: no
+- implemented: complete
+- verified: complete through the authorized CI and remote-evidence closure;
+  the formal Darwin/ARM64 matrix was not completed
+- committed: complete
+- pushed: complete
 - released: no
 - deployed: no
 
@@ -204,8 +210,14 @@ None.
   Archive, oracle, toolchain, browser, cache preparation provenance and
   current-candidate compatibility evidence, host profile, commands,
   durations, memory, byte counts, and every pass/fail/blocked decision.
-- Only a fully green run may emit the exact verdict
+- Only a fully green formal run may emit the exact CLI verdict
   `development-accepted-operations-pending`.
+- This change's repository lifecycle MAY instead close with the exact
+  non-CLI status
+  `development-acceptance-closed-by-authorized-ci-and-remote-evidence` only
+  when the immutable evidence bundle below is complete. That status is not a
+  green matrix result and cannot be supplied to the CLI, result schema, or a
+  future release decision as if every formal cell passed.
 
 ### Dependencies
 
@@ -230,6 +242,40 @@ admission.
 
 ### Acceptance
 
+- The user-authorized archival replacement binds Git commit
+  `111bc57b15d16a4aadf155ee503bc12c8065caef` and tree
+  `4489591ae54ea3b71e4ba86e41d935065276113e`; its only delta from accepted
+  harness implementation commit
+  `b56ce858733b18875df3101a423c6d1b356eed54` is the reviewed
+  `implement-operations-foundation-and-isolated-validation` OpenSpec.
+- GitHub Actions run
+  `https://github.com/AcuLY/BangumiStaffStats/actions/runs/30264329846`
+  completed successfully for that exact head. Its fixed-toolchain job passed
+  Backend, Updater, Frontend, Contracts/policy, two independent AMD64 builds,
+  artifact assembly/smoke, and generated-residue/diff-hygiene gates.
+- On `myserver`, the exact source archive SHA-256
+  `9ce38b792dbbcf8dc6992122ee5af4cdfcfc3914214497108980e01672b4ed14`
+  was exercised only below an isolated temporary validation root with Node
+  24.18.0/npm 11.16.0 extracted from official image
+  `node@sha256:6f7b03f7d42f2d5afd5c6c51d917732a316b94908531295d9d23c4c1936ecb20`.
+  Supervisor tests passed 21/21, the selected runner/backend/evidence set
+  passed 82/83, and `verify-package` passed. The sole selected-test failure,
+  `escaped fixture fallback cleans only an exact owned process identity`, is
+  classified narrowly as a Darwin-process-identity-format fixture mismatch on
+  Linux; it does not waive the production process-ownership implementation or
+  any other failing test.
+- The complete formal full-Archive/runtime/API/browser/oracle/performance
+  matrix was not run on Darwin and is not represented as green. The Linux
+  host is not a supported substitute for that frozen Darwin/ARM64 profile.
+  This replacement therefore closes this development change for archival and
+  permits the separately specified Operations implementation to begin, but it
+  emits no canonical acceptance result and conveys no release, deployment,
+  production-readiness, browser-parity, performance, or SLO verdict.
+- The remote validation root, source copy, extracted validation image, owned
+  BuildKit cache, and local transfer archive were removed by exact identity;
+  the pre-existing `/srv/bgmss` stack, its nginx routing, containers, images,
+  volumes, and processes were unchanged. Main-agent audit reported zero
+  remaining P0/P1 findings.
 - Both exact dependencies are archived in the harness/control revision; both
   repository identities are clean and attested; the harness/control revision
   differs from the accepted product candidate only in

@@ -61,14 +61,14 @@ The relevant existing boundaries are:
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: complete; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
+| Status | investigated: complete; specified: complete; implemented: complete; verified: complete through the authorized CI/remote closure, while the formal Darwin/ARM64 matrix remains unexecuted; committed: complete; pushed: complete; released: no; deployed: no |
 | Owner | One Contracts acceptance apply agent owns implementation; the main agent owns specification review, final acceptance, task markers, and repository lifecycle. |
 | Writable paths | Apply: only `contracts/acceptance/**`. OpenSpec lifecycle: only this change's `.openspec.yaml`, proposal, design, tasks, and `specs/**`; the apply agent cannot edit them. Generated evidence: only ignored `contracts/acceptance/.tmp/**`, absent at handoff. |
 | Read-only protected inputs | Every repository path outside the exact owned paths, including all Backend/Updater/Frontend code and tests, artifact code, existing Contracts schemas/goldens/OpenAPI, root documents/config, `.impeccable/**`, root specs and sibling changes; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; accepted artifact/full-Archive inputs; external repositories, refs/remotes, registries, hosts, services, secrets, production paths/state, and public Internet. |
 | Deletion complement | None. Only one harness-created run directory below `contracts/acceptance/.tmp/**` may be removed by exact path after containment/type/ownership checks. |
 | Mutable refs | None. |
 | Consumes | Archived `produce-development-artifacts` and `close-release-readiness-identities`; one clean accepted product-candidate revision/tree named by the artifacts; one later clean harness/control revision/tree; three accepted component roots and their compatibility manifest; one caller-supplied official full inactive Archive; fixed oracle; existing contract/golden/component/race/artifact commands; pinned current and historical-golden toolchains; caller-provisioned sealed caches; pinned browser runtime. |
-| Produces | Versioned acceptance input/result/budget/exception schemas, a closed matrix, local orchestrator, browser journeys, focused/negative tests, README, and ignored per-run evidence. Only a green complete matrix emits `development-accepted-operations-pending`. |
+| Produces | Versioned acceptance input/result/budget/exception schemas, a closed matrix, local orchestrator, browser journeys, focused/negative tests, README, and ignored per-run evidence. Only a green complete matrix emits `development-accepted-operations-pending`; this change's one authorized lifecycle closure is a separate non-CLI, non-green status. |
 | Dependencies | Exact direct dependencies: `produce-development-artifacts` and `close-release-readiness-identities`, both completed and archived. Their transitive closure supplies all component capabilities. Apply additionally requires no active change besides this acceptance change, no dirty product candidate, and no dirty harness/control checkout. |
 | Deliverables | Only `contracts/acceptance/**`: CLI and libraries, schemas, matrix, oracle-exception registry, browser scenarios, development budgets, tests, package manifest/lock, README, and narrow `.gitignore`. No run output is committed. |
 | Acceptance | Clean/immutable input attestation; existing contract/component/race/artifact gates; full-Archive temporary activation copy; immutable Updater artifact checks; packaged Backend API/UI E2E; fixed-oracle shadow/golden comparison; required browser matrix; bounded performance measurements; tamper/timeout/network/residue negatives; strict OpenSpec/exact-path/residue/diff checks. |
@@ -872,6 +872,36 @@ are always ignored and deleted before handoff. A developer may preserve one
 failed run temporarily for diagnosis, but it remains untracked and cannot be
 used as acceptance after inputs change.
 
+### Authorized lifecycle closure for this change
+
+The repository lifecycle has a second, deliberately non-equivalent decision
+edge for this one change:
+
+```text
+exact pushed commit
+  -> green fixed-toolchain GitHub Actions
+  -> isolated myserver package + supervisor + targeted control-plane checks
+  -> explicit Linux-only fixture exception and omitted-cell inventory
+  -> exact cleanup plus zero-P0/P1 main-agent audit
+  -> development-acceptance-closed-by-authorized-ci-and-remote-evidence
+```
+
+This edge is authorized by the user and may satisfy OpenSpec sync/archive
+admission. It does not enter the acceptance CLI state machine, synthesize a
+result document, change any matrix cell, or emit
+`development-accepted-operations-pending`. The evidence identities and counts
+are fixed in `proposal.md`; later green runs cannot silently replace them.
+The full Archive, packaged runtime/API/UI, oracle/browser matrix, and
+performance cells are recorded as unexecuted under this edge, not as passed.
+
+The downstream Operations change may use the archived lifecycle status only
+as proof that the development implementation and its artifact pipeline are
+available for isolated operations work. It must independently build,
+assemble, inspect, run, roll back, and clean the Linux/AMD64 operations
+candidate. Release, deployment, production cutover, or an assertion that the
+formal development matrix passed still requires its own explicit evidence and
+authorization.
+
 Alternative considered: commit the latest report for audit history. Rejected
 because it embeds machine- and run-specific generated state and makes normal
 acceptance mutate the repository.
@@ -938,12 +968,15 @@ This is a development-only additive harness, so there is no runtime migration.
 3. Run focused negative tests with synthetic harness inputs.
 4. Main agent audits exact paths, dependency closure, result semantics,
    protected-input seals, residue, browser evidence, and performance profile.
-5. Commit only the reviewed harness source/config/schema/test files, then run
-   the complete final matrix from that clean harness/control commit against
-   the accepted product-candidate artifacts and caller-supplied full inactive
-   Archive.
-6. After the green matrix, update lifecycle records in a separate commit,
-   remove all ignored run output, then sync/archive this change.
+5. Commit and push only the reviewed harness source/config/schema/test files.
+6. Close through either the canonical formal path (run the complete matrix
+   from the clean harness/control commit and obtain its green result) or this
+   change's user-authorized non-green lifecycle path (bind the exact green
+   Actions run, isolated remote targeted evidence, explicit platform
+   exception, omitted-cell inventory, cleanup, and zero-P0/P1 audit).
+7. Update lifecycle records without changing CLI result semantics, remove all
+   ignored/transferred run output, then sync/archive this change. Record which
+   closure path was used.
 
 Rollback before commit deletes only uncommitted
 `contracts/acceptance/**` files and the validated owned `.tmp` root. After
