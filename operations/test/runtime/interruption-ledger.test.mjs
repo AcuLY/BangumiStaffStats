@@ -122,8 +122,8 @@ ops_test_trace_ref_failure() {
   local before_state="missing"
   local after_state="missing"
   if ref_index="$(ops_transaction_ref_index "$key")"; then
-    before_state="${OPS_TRANSACTION_REF_BEFORE_STATES[$ref_index]:-missing}"
-    after_state="${OPS_TRANSACTION_REF_AFTER_STATES[$ref_index]:-missing}"
+    before_state="\${OPS_TRANSACTION_REF_BEFORE_STATES[$ref_index]:-missing}"
+    after_state="\${OPS_TRANSACTION_REF_AFTER_STATES[$ref_index]:-missing}"
     current_identity="$(
       ops_transaction_ref_current_identity "$ref_index" 2>&1 || true
     )"
