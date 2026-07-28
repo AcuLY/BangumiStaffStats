@@ -2,16 +2,16 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H4 `930690068a02eeec3c7b140c29796aef3b4a719a` is pushed but exact-head Actions `30402531154` passed supervisor 8/21 and failed 13/21 because unrelated PID 1 denied `/proc/1/exe`; all other Development gates were green and no remote write followed. H4 is superseded; H5 specification commit `e06365f943a2c85280b9786ac4705bb7d303267b` is pushed and implementation is pending; verified/archived/released/deployed/activated: no. |
+| Status | H5 `3091e54603b91c56cbdda7d30be7f3a08c7957a9` is pushed, but exact-head Actions `30406392084` passed Backend, Updater, Frontend, and artifact tests 51/51 while supervisor passed 8/21 and failed 13/21 because PID 2's canonical process group zero was rejected before status/`Kthread` classification. No remote write followed. H5 is superseded; H6 specification/implementation/verification/archive/release/deploy/activation are pending. |
 | Owner | Main-agent specification/audit/lifecycle owner and one bounded remote execution owner. |
-| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/test/core.test.mjs`, and the proposal-declared run-owned remote complement only. H4 workflow/supervisor behavior, the H3 start barrier, and the closed package inventory remain unchanged. |
-| Read-only protected inputs | Final Product, failed Harness source, oracle, every implementation path outside the exact allowance, other OpenSpec, Git objects outside lifecycle commits, and all non-admitted remote state. |
+| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/test/core.test.mjs`, and the proposal-declared run-owned remote complement only. Worker, workflow, supervisor, H3/H4/H5 behavior, and the closed package inventory remain unchanged. |
+| Read-only protected inputs | Final Product, failed Harness/H2/H3/H4/H5 sources, oracle, every implementation path outside the exact H6 allowance, other OpenSpec, Git objects outside lifecycle commits, and all non-admitted remote state. |
 | Deletion complement | No tracked/pre-existing object; only identity-proven run-created files/containers and conditionally run-pulled fixed image refs. |
 | Mutable refs | Exact change/root-spec/archive, main-agent commits/push, one run root, run containers, and conditionally owned image refs. |
 | Consumes | Product exact-head Actions, superseded fixed-image failure, Harness package, Linux `/proc` and preserved Darwin process-discovery behavior, fixed container digests, remote Docker capability, and prior non-green lifecycle semantics. |
-| Produces | Final H5 ownership-aware Linux terminal/opaque correction with preserved H3/H4 behavior, exact supervisor Actions gate, ordered Product/H5/archive identities, exact difference proof, separately attributed targeted evidence, cleanup/non-interference/audit closure. |
-| Dependencies | Product Actions → superseded H2/H3/H4 implementations and failed runs → reviewed H5 specification → H5 implementation/review/commit/Actions including supervisor 21/21 → identity proof → remote admission/gates → cleanup/audit → archive. |
-| Deliverables | Strict-valid specification, separate focused H5 implementation/tests commit, exact evidence fields including superseded attempts, synchronized root requirement, archive identity, zero residue. |
+| Produces | Final H6 kernel-thread-zero-PGID correction over the H5 ownership-aware Linux terminal/opaque model, with preserved H3/H4/H5 behavior, exact supervisor Actions gate, ordered Product/H6/archive identities, exact difference proof, separately attributed targeted evidence, cleanup/non-interference/audit closure. |
+| Dependencies | Product Actions → superseded H2/H3/H4/H5 implementations and failed runs → reviewed H6 specification → H6 implementation/review/commit/Actions including supervisor 21/21 → identity proof → remote admission/gates → cleanup/audit → archive. |
+| Deliverables | Strict-valid specification, separate focused H6 implementation/tests commit, exact evidence fields including superseded attempts, synchronized root requirement, archive identity, zero residue. |
 | Acceptance | Proposal/design acceptance and every scenario below. |
 | Non-goals | Formal 56-cell result, product/Operations implementation, release/deploy/production/SLO claim, local product execution. |
 | Operations deferred | Receipt/code rebinding and all Operations candidate/host validation remain separate. |
@@ -22,30 +22,30 @@
 ### Requirement: An authorized targeted refresh SHALL preserve dual source identity
 
 An authorized non-green acceptance refresh SHALL bind one final
-acceptance-free Product revision/tree, one corrected descendant Harness H5
+acceptance-free Product revision/tree, one corrected descendant Harness H6
 implementation revision/tree, and one descendant archived-refresh
-revision/tree as distinct identities. H5 SHALL also descend the Harness source
+revision/tree as distinct identities. H6 SHALL also descend H5 and the Harness source
 used by superseded run `6e0140e1c4dda68bb263c1d8` and superseded H2
 `1e3ecf120da02d642a5d63f75a6795ba2946e11d`, plus H3
 `cd203aa777e14879a7baf1bafd01ee319af246c5` and failed H4
 `930690068a02eeec3c7b140c29796aef3b4a719a`. The complete Development
 workflow SHALL succeed at the exact Product head before remote mutation. Git
 ancestry and a complete sorted path/status/mode/blob-or-byte inventory SHALL
-prove that Product and H5 differ only in the unchanged exact receipt-declared
+prove that Product and H6 differ only in the unchanged exact receipt-declared
 acceptance and lifecycle path families plus exact `.github/workflows/ci.yml`;
 the non-allowed difference count SHALL be zero. No new OpenSpec change
 directory MAY widen those families.
 
-The refresh SHALL transfer and attest separate immutable Product and H5
+The refresh SHALL transfer and attest separate immutable Product and H6
 source archives and complete extracted inventories. Product SHALL own the
-Updater `RuntimePruneTests`; H5 SHALL own package verification,
+Updater `RuntimePruneTests`; H6 SHALL own package verification,
 supervisor, and selected targeted acceptance-control tests. No result MAY
-represent an H5 command as executed from Product or relabel one source
+represent an H6 command as executed from Product or relabel one source
 archive as the other.
 
 #### Scenario: Product and Harness are compatible
 
-- **WHEN** exact-head Product Actions are green, H5 descends Product, the failed Harness source, H2, H3, and failed H4, both source archives/inventories validate, and every changed mode/blob is in the exact declared acceptance/lifecycle set
+- **WHEN** exact-head Product Actions are green, H6 descends Product, the failed Harness source, H2, H3, failed H4, and failed H5, both source archives/inventories validate, and every changed mode/blob is in the exact declared acceptance/lifecycle set
 - **THEN** Product-owned and Harness-owned targeted gates may run under their respective immutable identities
 
 #### Scenario: Product or Harness identity is widened
@@ -83,6 +83,9 @@ monitor-start barrier.
 H5 SHALL preserve all H3/H4 workflow and supervisor behavior and may change
 only `contracts/acceptance/lib/runner.mjs`,
 `contracts/acceptance/lib/process-closure-worker.mjs`, and
+`contracts/acceptance/test/core.test.mjs`.
+H6 SHALL preserve all H3/H4/H5 behavior and may change only
+`contracts/acceptance/lib/runner.mjs` and
 `contracts/acceptance/test/core.test.mjs`.
 
 Each complete live Linux entry SHALL bind PID, UID, kernel start time, and executable
@@ -169,6 +172,21 @@ failure, malformed or oversized evidence, terminal-to-live reuse, unconfirmed
 disappearance or reappearance, or any sampled identity/relation drift SHALL fail closed
 and SHALL NOT become opaque.
 
+The Linux stat parser MAY carry canonical process-group and start-time values
+of zero as provisional evidence while determining the final entry kind. Start
+time zero SHALL remain a stable generation token for every kind and SHALL
+participate unchanged in identity comparison and digest binding. A final
+entry with process group zero MAY exist only as an unrelated
+`kind === "opaque"` entry with reason `kernel-thread`, after stable
+nonterminal generation/relation sampling, a real UID different from the
+Harness real UID, and exactly one canonical `Kthread: 1` row in both status
+samples. Complete live entries, terminal tombstones, permission-denied opaque
+entries, same-UID or non-authoritative evidence, retained entries,
+target-group or exact-retained-parent relations, targeted cleanup/Map-miss
+revalidation, and every signal target SHALL require a positive process group
+and SHALL fail closed with zero signal when given zero. In-sample start-token
+or zero/nonzero process-group drift SHALL remain an identity/relation failure.
+
 Every retained Linux PID omitted from a full `/proc` directory listing SHALL
 still receive two bounded `lstat` absence confirmations. If either check finds
 the PID, the Harness SHALL take a targeted complete live-or-terminal snapshot
@@ -217,6 +235,21 @@ while parent ancestry still exists.
 
 - **WHEN** two stable status samples for an unrelated different-UID live PID each contain exactly one canonical `Kthread: 1` row
 - **THEN** the Harness SHALL bind a kernel-thread-reason opaque entry without reading cmdline, exe, or cwd
+
+#### Scenario: Authoritative unrelated kernel thread has process group zero
+
+- **WHEN** a canonical zero process-group field belongs to an unrelated different-UID nonterminal PID whose two stable status samples each contain exactly one canonical `Kthread: 1` row
+- **THEN** the Harness SHALL bind a kernel-thread-reason opaque entry with process group zero, perform no live-only reads, and never treat the entry as owned or signalable
+
+#### Scenario: Process group zero is not an ownership shortcut
+
+- **WHEN** process group zero appears on complete live, terminal, permission-denied opaque, same-UID or non-authoritative evidence, a retained PID, an ownership relation, or a targeted cleanup/signal path
+- **THEN** the Harness SHALL fail closed before any signal and SHALL NOT reinterpret the entry as an unrelated kernel thread
+
+#### Scenario: Zero start time remains a generation token
+
+- **WHEN** a canonically zero Linux start-time tick is stable across bounded samples
+- **THEN** the Harness SHALL bind it as the exact generation token for the classified entry, and any later change SHALL fail identity validation
 
 #### Scenario: Kernel-thread inference is not authoritative
 
@@ -281,7 +314,7 @@ because the fixed image lacked `/bin/ps` and `/usr/sbin/lsof`, and selected
 core did not execute. Its evidence manifest SHA-256 is
 `0e3ae22bd8165e7a164bd21f4f516bfa08988cdc8bde5f5d89c1ed49c0ec078c`;
 its status is `fail-closed` / not archivable. No passed sub-gate from that run
-MAY enter H5 accepted `testEvidence` or be represented as fresh closure.
+MAY enter H6 accepted `testEvidence` or be represented as fresh closure.
 
 Controller attempt `351a80613c7a782c1d41ba61` SHALL remain a
 `controller-precondition-failed` superseded attempt: unsupported
@@ -292,7 +325,7 @@ Product passed 22/22 and Harness package/offline-install prerequisites passed,
 but supervisor passed only 17/21; selected tests and verify-after did not run.
 Its evidence-manifest digest is
 `6ccd7891d015bbbcbed868fdf4837cd81a87a7e01f71f6892356bee7025c3b54`.
-No passed prerequisite from either attempt MAY enter H5 accepted
+No passed prerequisite from either attempt MAY enter H6 accepted
 `testEvidence`.
 
 H3 run `8fb2588bd5699acc97454a93` SHALL remain fail-closed superseded
@@ -304,7 +337,13 @@ its evidence-manifest SHA-256 is
 `134705b09199e2c2b2bf7df794af1ec7133913e3e8851239bd72215b009871a0`.
 All seven containers, both run-owned images, and 5,495 run-root records were
 exactly cleaned; all 80 protected stable fields matched. No passed H3
-prerequisite MAY enter H5 accepted `testEvidence`.
+prerequisite MAY enter H6 accepted `testEvidence`.
+
+H4 Actions run `30402531154` and H5 Actions run `30406392084` SHALL remain
+fail-closed superseded evidence. Each passed Backend, Updater, Frontend, and
+artifact gates but failed the exact supervisor gate 13 times at one shared
+unrelated-process inventory boundary; neither authorized a remote write. No
+passed prerequisite from either run MAY enter H6 accepted `testEvidence`.
 
 Product SHALL execute
 `python -m unittest -v build.test_artifact.RuntimePruneTests` from Product's
@@ -318,7 +357,7 @@ pass. The selected manifest SHALL contain the Linux procfs positive test,
 owned-cleanup PID-reuse/argv-drift test, and platform-injected Darwin parity
 test; it SHALL NOT contain a test whose declaration skips on Linux. The former
 `escaped fixture process identity differs before cleanup` classification is
-superseded failure evidence, not an H5 exception. Every failure, missing
+superseded failure evidence, not an H6 exception. Every failure, missing
 selected name, extra selected name, or result-parse ambiguity SHALL fail the
 refresh.
 
