@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | Investigated: complete; specified: complete after strict validation; implemented, verified, committed, pushed, released, and deployed: no. |
+| Status | Investigated, specified, implemented, zero-P0/P1 audited, committed, pushed, exact-head Development verified, synchronized, and archived: yes; verified Product `4b5bdf9f27ea0e3db95009a7fcb3ef912c3948c2` / tree `72028c6356616bf0e5905529d807247ad390af9e`, Actions run `30373636575`; released and deployed: no. |
 | Owner | Updater artifact apply owner; main agent specification/audit/acceptance owner. |
 | Writable paths | `updater/build/runtime_prune.py`, `updater/build/test_artifact.py`, and this active change. |
 | Read-only protected inputs | Every other repository path, including Updater artifact/check/smoke/Dockerfile/source/configuration/lock, Backend/Frontend/Contracts/Operations implementation, root authorities, other OpenSpec, and all external state. |

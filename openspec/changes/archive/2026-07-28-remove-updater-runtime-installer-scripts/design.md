@@ -11,7 +11,7 @@ although its path happens to be stable.
 
 | Field | Declaration |
 |---|---|
-| Status | Root cause complete; design complete after main-agent review; apply/verification/commit/push/release/deploy not complete. |
+| Status | Root cause/design/implementation/zero-P0/P1 audit/commit/push/synchronization/archive complete; exact-head Product Development run `30373636575` succeeded at `4b5bdf9f27ea0e3db95009a7fcb3ef912c3948c2` / tree `72028c6356616bf0e5905529d807247ad390af9e`; release/deploy not performed. |
 | Owner | One delegated Updater implementation owner; main agent controls specification, integration decisions, audit, and acceptance. |
 | Writable paths | `updater/build/runtime_prune.py`, `updater/build/test_artifact.py`, and this change. |
 | Read-only protected inputs | All other repository and external paths, including the existing callers of `prune_runtime_tree`. |

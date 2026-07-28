@@ -39,7 +39,7 @@ None.
 
 | Field | Declaration |
 |---|---|
-| Status | Root cause investigated: complete; specified, implemented, verified, committed, pushed, released, and deployed: no. |
+| Status | Root cause investigated, specified, implemented, zero-P0/P1 audited, committed, pushed, exact-head Development verified, synchronized, and archived: yes; verified Product `4b5bdf9f27ea0e3db95009a7fcb3ef912c3948c2` / tree `72028c6356616bf0e5905529d807247ad390af9e`, Actions run `30373636575`; released and deployed: no. |
 | Owner | Updater artifact apply owner; the main agent owns this specification, coordination, audit, and acceptance. |
 | Writable paths | `updater/build/runtime_prune.py`, `updater/build/test_artifact.py`, and this active change. Later lifecycle work may synchronize only `openspec/specs/updater-build-artifact/spec.md` and archive this change. |
 | Read-only protected inputs | All other repository paths, including `updater/build/artifact.py`, `updater/build/check.py`, `updater/Dockerfile`, Updater source/configuration/lock/README/tests outside the exact writable files, all Backend/Frontend/Contracts/Operations implementation, root authorities, other OpenSpec, external repositories, hosts, services, and production state. |

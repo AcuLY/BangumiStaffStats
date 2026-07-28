@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | Planning in progress until strict validation/main-agent approval; implementation, verification, commit, push, release, and deploy not complete. |
+| Status | Planning, implementation, main-agent and independent zero-P0/P1 audit, commit, push, exact-head Development verification, synchronization, and archive complete; verified Product `4b5bdf9f27ea0e3db95009a7fcb3ef912c3948c2` / tree `72028c6356616bf0e5905529d807247ad390af9e`, Actions run `30373636575`; release/deploy not performed. |
 | Owner | One delegated Updater implementation owner for groups 1–2; main agent for specification, audit, exact staging/commit/push, Actions acceptance, sync/archive, and Operations handoff. |
 | Writable paths | Implementation owner: `updater/build/runtime_prune.py` and `updater/build/test_artifact.py` only. Main agent: this active change and later exact synchronization/archive paths. |
 | Read-only protected inputs | Every other repository and external path, including the current unrelated `operations/release/files.mjs` and `operations/test/release/files.test.mjs` diagnostic candidate. |
@@ -55,12 +55,12 @@
 
 ## 3. Acceptance and Lifecycle
 
-- [ ] 3.1 Main agent audits the implementation/specification for zero P0/P1,
+- [x] 3.1 Main agent audits the implementation/specification for zero P0/P1,
   confirms the earlier main-owned Operations diagnostic checkpoint remains
   separate, stages only the reviewed change and exact implementation files,
   commits and pushes one intentional implementation checkpoint, and requires
   the complete Development workflow to succeed at that exact head.
-- [ ] 3.2 After exact-head Development success, record the run identity and
+- [x] 3.2 After exact-head Development success, record the run identity and
   correction evidence, synchronize the delta into
   `openspec/specs/updater-build-artifact/spec.md`, archive this change, and
   strictly validate all OpenSpec with clean diff/residue evidence.
