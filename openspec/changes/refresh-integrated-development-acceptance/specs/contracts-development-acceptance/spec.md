@@ -2,16 +2,16 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H2 Actions green but isolated supervisor failed 17/21 and was exactly cleaned; H3 correction specified; H3 implemented/verified/committed/pushed/archived: no; released/deployed/activated: no. |
+| Status | H3 implementation and exact-head Actions completed; fresh H3 supervisor failed 13/21 and was exactly cleaned; H4 terminal-inventory correction specified; H4 implemented/verified/archived: no; released/deployed/activated: no. |
 | Owner | Main-agent specification/audit/lifecycle owner and one bounded remote execution owner. |
-| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/lib/supervisor.mjs`, `contracts/acceptance/test/core.test.mjs`, `contracts/acceptance/test/supervisor.test.mjs`, and the proposal-declared run-owned remote complement only. The closed package inventory remains unchanged. |
+| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/test/core.test.mjs`, optionally `contracts/acceptance/test/supervisor.test.mjs`, and the proposal-declared run-owned remote complement only. H3 `contracts/acceptance/lib/supervisor.mjs` and the closed package inventory remain unchanged. |
 | Read-only protected inputs | Final Product, failed Harness source, oracle, every implementation path outside the exact allowance, other OpenSpec, Git objects outside lifecycle commits, and all non-admitted remote state. |
 | Deletion complement | No tracked/pre-existing object; only identity-proven run-created files/containers and conditionally run-pulled fixed image refs. |
 | Mutable refs | Exact change/root-spec/archive, main-agent commits/push, one run root, run containers, and conditionally owned image refs. |
 | Consumes | Product exact-head Actions, superseded fixed-image failure, Harness package, Linux `/proc` and preserved Darwin process-discovery behavior, fixed container digests, remote Docker capability, and prior non-green lifecycle semantics. |
-| Produces | Minimal H3 supervisor-handshake and no-exec-fixture correction, ordered Product/H3/archive identities, exact difference proof, separately attributed targeted evidence, cleanup/non-interference/audit closure. |
-| Dependencies | Product Actions → superseded H2 implementation/Actions/failed remote run → reviewed H3 specification → H3 implementation/review/commit/Actions → identity proof → remote admission/gates → cleanup/audit → archive. |
-| Deliverables | Strict-valid specification, separate focused H3 implementation/tests commit, exact evidence fields including superseded attempts, synchronized root requirement, archive identity, zero residue. |
+| Produces | Minimal H4 ownership-aware Linux terminal correction with preserved H3 barrier, exact supervisor Actions gate, ordered Product/H4/archive identities, exact difference proof, separately attributed targeted evidence, cleanup/non-interference/audit closure. |
+| Dependencies | Product Actions → superseded H2/H3 implementations and failed remote runs → reviewed H4 specification → H4 implementation/review/commit/Actions including supervisor 21/21 → identity proof → remote admission/gates → cleanup/audit → archive. |
+| Deliverables | Strict-valid specification, separate focused H4 implementation/tests/workflow commit, exact evidence fields including superseded attempts, synchronized root requirement, archive identity, zero residue. |
 | Acceptance | Proposal/design acceptance and every scenario below. |
 | Non-goals | Formal 56-cell result, product/Operations implementation, release/deploy/production/SLO claim, local product execution. |
 | Operations deferred | Receipt/code rebinding and all Operations candidate/host validation remain separate. |
@@ -22,27 +22,29 @@
 ### Requirement: An authorized targeted refresh SHALL preserve dual source identity
 
 An authorized non-green acceptance refresh SHALL bind one final
-acceptance-free Product revision/tree, one corrected descendant Harness H3
+acceptance-free Product revision/tree, one corrected descendant Harness H4
 implementation revision/tree, and one descendant archived-refresh
-revision/tree as distinct identities. H3 SHALL also descend the Harness source
+revision/tree as distinct identities. H4 SHALL also descend the Harness source
 used by superseded run `6e0140e1c4dda68bb263c1d8` and superseded H2
-`1e3ecf120da02d642a5d63f75a6795ba2946e11d`. The complete Development
+`1e3ecf120da02d642a5d63f75a6795ba2946e11d`, plus H3
+`cd203aa777e14879a7baf1bafd01ee319af246c5`. The complete Development
 workflow SHALL succeed at the exact Product head before remote mutation. Git
 ancestry and a complete sorted path/status/mode/blob-or-byte inventory SHALL
-prove that Product and H3 differ only in the unchanged exact receipt-declared
-acceptance and lifecycle path families; the non-allowed difference count
-SHALL be zero. No new OpenSpec change directory MAY widen those families.
+prove that Product and H4 differ only in the unchanged exact receipt-declared
+acceptance and lifecycle path families plus exact `.github/workflows/ci.yml`;
+the non-allowed difference count SHALL be zero. No new OpenSpec change
+directory MAY widen those families.
 
-The refresh SHALL transfer and attest separate immutable Product and H3
+The refresh SHALL transfer and attest separate immutable Product and H4
 source archives and complete extracted inventories. Product SHALL own the
-Updater `RuntimePruneTests`; H3 SHALL own package verification,
+Updater `RuntimePruneTests`; H4 SHALL own package verification,
 supervisor, and selected targeted acceptance-control tests. No result MAY
-represent an H3 command as executed from Product or relabel one source
+represent an H4 command as executed from Product or relabel one source
 archive as the other.
 
 #### Scenario: Product and Harness are compatible
 
-- **WHEN** exact-head Product Actions are green, H3 descends Product, the failed Harness source, and H2, both source archives/inventories validate, and every changed mode/blob is in the exact declared acceptance/lifecycle set
+- **WHEN** exact-head Product Actions are green, H4 descends Product, the failed Harness source, H2, and H3, both source archives/inventories validate, and every changed mode/blob is in the exact declared acceptance/lifecycle set
 - **THEN** Product-owned and Harness-owned targeted gates may run under their respective immutable identities
 
 #### Scenario: Product or Harness identity is widened
@@ -68,10 +70,14 @@ write no file, and take no inventory at module top level. The existing Darwin
 absolute `ps`/`lsof` commands, parsing, and observable safety behavior SHALL
 remain unchanged. The H3 correction itself SHALL change only
 `contracts/acceptance/lib/supervisor.mjs` and
-`contracts/acceptance/test/supervisor.test.mjs`; the prior H2 runner, worker,
-and core-test bytes remain fixed.
+`contracts/acceptance/test/supervisor.test.mjs`. H4 SHALL preserve the H3
+supervisor barrier and may change only `.github/workflows/ci.yml`,
+`contracts/acceptance/lib/runner.mjs`,
+`contracts/acceptance/lib/process-closure-worker.mjs`,
+`contracts/acceptance/test/core.test.mjs`, and, only if an explicit regression
+requires it, `contracts/acceptance/test/supervisor.test.mjs`.
 
-Each Linux entry SHALL bind PID, UID, kernel start time, and executable
+Each complete live Linux entry SHALL bind PID, UID, kernel start time, and executable
 read-link as the immutable process identity; parent PID and process-group ID
 SHALL come from the same validated `stat` generation. The inventory SHALL
 read and validate `/proc/<pid>/stat`, `/proc/<pid>/status`,
@@ -94,6 +100,24 @@ SHALL re-read and match its exact PID/UID/start-time/executable identity and
 expected argv for every identity-addressed escaped/closure cleanup signal. A
 mismatch SHALL preserve the process and fail.
 
+A stable Linux `Z`, `X`, or `x` process SHALL be represented as a terminal
+tombstone bound to PID, real UID, kernel start time, `comm`, state, parent PID,
+and process-group ID. The Harness SHALL NOT invent or require unavailable
+terminal `exe`, `cwd`, or `cmdline` fields. The inventory digest SHALL include
+terminal tombstones, but a tombstone unrelated to the owned ledger, target
+process group, or an exactly retained parent generation SHALL NOT make
+owned-cwd or closure discovery fail.
+
+An already retained complete owned process that becomes terminal in the same
+generation SHALL remain attributed, receive no further signal, and be awaited
+boundedly until confirmed absent. A first-observed terminal PID selected by
+the target process group or exact retained-parent relation lacks a complete
+signal identity and SHALL fail closed without signalling. A persistent owned
+tombstone, terminal-to-live transition, changed start time/UID/`comm`,
+ambiguous relation change, or unconfirmed disappearance SHALL fail. Every
+complete live signal path SHALL retain the existing exact executable and argv
+revalidation.
+
 The parent supervisor SHALL start the closure monitor through the shared
 `startProcessClosureMonitor` handshake and await its `started` response before
 acknowledging the worker's first checkpoint or trusting terminal/result IPC.
@@ -114,6 +138,21 @@ while parent ancestry still exists.
 - **WHEN** a PID is reused, one identity field changes, cwd escapes, cmdline is malformed, permission is denied, an entry disappears without confirmed absence, or any partial row cannot be validated
 - **THEN** the Harness SHALL fail before signaling that process and SHALL NOT reinterpret the ambiguity as cleanup success
 
+#### Scenario: Unrelated terminal process exists
+
+- **WHEN** a stable terminal PID is outside the exact owned ledger, target process group, and retained-parent closure
+- **THEN** the Harness SHALL bind it into host inventory evidence without reading unavailable live-only fields and SHALL continue owned discovery
+
+#### Scenario: Owned process becomes terminal
+
+- **WHEN** an exactly retained owned live generation becomes terminal
+- **THEN** the Harness SHALL retain its ownership, send no terminal signal, require bounded confirmed disappearance, and fail if it persists or its generation changes
+
+#### Scenario: A terminal process is first observed as an owned candidate
+
+- **WHEN** a tombstone first appears in the target process group or below an exactly retained parent but has no previously complete signal identity
+- **THEN** the Harness SHALL fail closed without dropping or signalling that PID
+
 #### Scenario: Darwin process inventory is used
 
 - **WHEN** the same Harness process contract executes on Darwin
@@ -130,9 +169,11 @@ config image ID, and layer graph for Node 24.18.0/npm 11.16.0 and Python
 raw OCI bytes, descriptor sizes, `RepoDigests`, config diff-IDs, OS/arch, and
 in-container versions SHALL validate, no tag may resolve, and every gate
 SHALL run by config image ID. Gates SHALL use `--network none`, read-only
-container roots, `/tmp` tmpfs, no published port, no Compose project, no
-Docker network or volume, and only run-owned writable mounts. Host Node, npm,
-Python, Go, or application toolchains SHALL NOT be admission gates.
+container roots, `/tmp` no-exec tmpfs, no published port, no Compose project,
+no Docker network or volume, and only run-owned writable mounts. Supervisor
+and selected-core containers SHALL use Docker's built-in `--init` reaper; this
+does not relax owned-terminal attribution or bounded disappearance. Host Node,
+npm, Python, Go, or application toolchains SHALL NOT be admission gates.
 
 Run `6e0140e1c4dda68bb263c1d8` SHALL remain superseded failure evidence:
 Product `RuntimePruneTests` passed 22/22, Harness supervisor stopped at 17/21
@@ -140,7 +181,7 @@ because the fixed image lacked `/bin/ps` and `/usr/sbin/lsof`, and selected
 core did not execute. Its evidence manifest SHA-256 is
 `0e3ae22bd8165e7a164bd21f4f516bfa08988cdc8bde5f5d89c1ed49c0ec078c`;
 its status is `fail-closed` / not archivable. No passed sub-gate from that run
-MAY be combined with H3 evidence or represented as fresh closure.
+MAY enter H4 accepted `testEvidence` or be represented as fresh closure.
 
 Controller attempt `351a80613c7a782c1d41ba61` SHALL remain a
 `controller-precondition-failed` superseded attempt: unsupported
@@ -151,8 +192,19 @@ Product passed 22/22 and Harness package/offline-install prerequisites passed,
 but supervisor passed only 17/21; selected tests and verify-after did not run.
 Its evidence-manifest digest is
 `6ccd7891d015bbbcbed868fdf4837cd81a87a7e01f71f6892356bee7025c3b54`.
-No passed prerequisite from either attempt MAY enter H3 accepted
+No passed prerequisite from either attempt MAY enter H4 accepted
 `testEvidence`.
+
+H3 run `8fb2588bd5699acc97454a93` SHALL remain fail-closed superseded
+evidence. Product passed 22/22 and Harness verify/offline-install passed, but
+supervisor passed 13/21 and selected core plus verify-after did not run. Its
+supervisor log SHA-256 is
+`0870a2aa2f0ee4ca186f989a862654bd16481d161da2bf5289bbdadf177d2300`;
+its evidence-manifest SHA-256 is
+`134705b09199e2c2b2bf7df794af1ec7133913e3e8851239bd72215b009871a0`.
+All seven containers, both run-owned images, and 5,495 run-root records were
+exactly cleaned; all 80 protected stable fields matched. No passed H3
+prerequisite MAY enter H4 accepted `testEvidence`.
 
 Product SHALL execute
 `python -m unittest -v build.test_artifact.RuntimePruneTests` from Product's
@@ -166,9 +218,15 @@ pass. The selected manifest SHALL contain the Linux procfs positive test,
 owned-cleanup PID-reuse/argv-drift test, and platform-injected Darwin parity
 test; it SHALL NOT contain a test whose declaration skips on Linux. The former
 `escaped fixture process identity differs before cleanup` classification is
-superseded failure evidence, not an H3 exception. Every failure, missing
+superseded failure evidence, not an H4 exception. Every failure, missing
 selected name, extra selected name, or result-parse ambiguity SHALL fail the
 refresh.
+
+Before any new remote write, exact-head Development Actions SHALL itself run
+`node --test contracts/acceptance/test/supervisor.test.mjs` and record 21/21.
+The Actions gate does not replace the fixed-image remote run, which repeats the
+same suite and the frozen selected core set under the exact networkless,
+read-only, no-exec, init-reaped container contract.
 
 The fixed test environment SHALL keep `/tmp` as a no-exec tmpfs. A generated
 fixture that must be spawned, including fake Docker, SHALL use an explicitly

@@ -22,17 +22,27 @@ fake-Docker test fixture attempted to execute from the required no-exec
 verification did not run. A preceding controller attempt
 `351a80613c7a782c1d41ba61` also failed before archive creation because it used
 an unsupported `dd` flag. Both attempts were exactly cleaned, protected state
-was unchanged, and neither is accepted evidence. The Harness therefore needs
-one further narrow H3 correction before a fresh run can close acceptance.
+was unchanged, and neither is accepted evidence. H3
+`cd203aa777e14879a7baf1bafd01ee319af246c5` then implemented the awaited
+monitor-start barrier, passed exact-head Development Actions, and preserved
+Product 22/22 plus package/offline-install success. Fresh isolated run
+`8fb2588bd5699acc97454a93` nevertheless stopped at supervisor 13/21 because
+the shared Linux inventory rejected an unrelated terminal `/proc` entry
+before it applied process ownership. Selected core and verify-after did not
+run; seven containers, both run-owned fixed images, and all 5,495 run-root
+objects were exactly removed, and all 80 protected stable fields remained
+equal. The Harness therefore needs one final narrow H4 process-inventory
+correction and an Actions gate for the exact supervisor suite before a fresh
+run can close acceptance.
 
 ## What Changes
 
 - Freeze final Product revision
   `34176077787b7942741ae412d3f012c732a51ee0` and require the complete
   Development workflow to succeed at that exact head before remote mutation.
-- Bind one corrected descendant Harness implementation revision H3 that
-  descends the superseded H2 implementation
-  `1e3ecf120da02d642a5d63f75a6795ba2946e11d`,
+- Bind one corrected descendant Harness implementation revision H4 that
+  descends H3 `cd203aa777e14879a7baf1bafd01ee319af246c5` and the superseded H2
+  implementation `1e3ecf120da02d642a5d63f75a6795ba2946e11d`,
   contains the existing acceptance package, this same active change, and only
   the declared acceptance-process correction; prove by complete Git
   byte-and-mode inventory that it differs from Product only in the unchanged
@@ -45,6 +55,13 @@ one further narrow H3 correction before a fresh run can close acceptance.
   reread, confirmed disappearance, malformed input, permission failure, or
   cwd escape. The parent supervisor must await the existing monitor-start
   handshake before acknowledging worker progress.
+- Separate stable terminal `/proc` tombstones from complete live-process
+  entries. Unrelated terminal entries must not poison global inventory, while
+  an already observed or relationship-proven owned terminal remains bound to
+  its exact generation, is never signalled through an incomplete identity,
+  and fails closed when ownership or reuse is ambiguous.
+- Add the exact 21-test supervisor suite to Development Actions so a green
+  Harness head proves this control gate before another remote write.
 - On `myserver`, run the Product Updater pruning tests from Product and the
   package, supervisor, and selected targeted acceptance tests from Harness in
   fixed digest-addressed, networkless, read-only containers below one absent
@@ -88,23 +105,23 @@ None.
 
 | Field | Declaration |
 |---|---|
-| Status | H2 isolated supervisor failure classified and exactly cleaned; H3 specification revision in progress; corrected H3 implementation/verification/commit/push/archive: no; released/deployed/activated: no. |
+| Status | H3 implementation and exact-head Actions completed; fresh H3 supervisor failed 13/21 and was exactly cleaned; H4 specification revision in progress; H4 implementation/verification/archive: no; released/deployed/activated: no. |
 | Owner | Main agent owns specification, identity decisions, audit, acceptance, Git, and lifecycle. One delegated execution owner may run the closed remote command set because the remote/container detail is context-heavy and independently bounded. |
-| Writable paths | Repository planning: `openspec/changes/refresh-integrated-development-acceptance/**`, followed by synchronization to `openspec/specs/contracts-development-acceptance/spec.md` and archive lifecycle. H3 implementation: only existing `contracts/acceptance/lib/supervisor.mjs` and `contracts/acceptance/test/supervisor.test.mjs`; prior H2 implementation files and the closed package inventory remain unchanged. Remote only after H3 review, exact-head H3 Actions, and read-only admission: one previously absent regular root `/srv/bgmss-development-acceptance-refresh-<run-id>/**`; uniquely named run-labeled networkless containers; and only the two fixed Tencent-mirror RepoDigest/config image identities if that run proves both identities absent and pulls them. |
+| Writable paths | Repository planning: `openspec/changes/refresh-integrated-development-acceptance/**`, followed by synchronization to `openspec/specs/contracts-development-acceptance/spec.md` and archive lifecycle. H4 implementation: only existing `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/test/core.test.mjs`, and, only if required for an explicit regression, `contracts/acceptance/test/supervisor.test.mjs`; H3 `supervisor.mjs`, every package/inventory file, and product code remain unchanged. Remote only after H4 review, exact-head H4 Actions, and read-only admission: one previously absent regular root `/srv/bgmss-development-acceptance-refresh-<run-id>/**`; uniquely named run-labeled networkless containers; and only the two fixed Tencent-mirror RepoDigest/config image identities if that run proves both identities absent and pulls them. |
 | Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`; oracle; every product, UI, API, statistical, non-acceptance Contracts, Operations, workflow, package-lock, and Harness implementation path outside the exact writable list; every OpenSpec outside this change and its later root-spec sync; Git history outside main-agent commits; external registries except exact image reads; and all remote state outside the admitted run root/container/image complement. On `myserver`, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, pre-existing containers/images/networks/volumes, Nginx/systemd/TLS/configuration, listeners, processes, and legacy data remain read-only. |
 | Deletion complement | No tracked file and no pre-existing remote object. Cleanup may remove only run-created files/directories from the exact owned manifest, run-labeled containers by immutable ID, and an exact image reference only if the run pulled it, its identity still matches, and no pre-existing or foreign reference/container uses it. No Docker prune, Git clean, glob cleanup, broad recursive target, network, volume, Compose, or service deletion. |
 | Mutable refs | This change, later synchronized root spec/archive, main-agent commits/push, exact run root files, run containers, and conditionally run-pulled fixed image references. No product/Harness source ref, tag, release, registry publication, production/legacy ref, route, service, volume, network, or public port is mutable. |
 | Consumes | Final Product revision/tree and exact-head Development Actions; the failed Harness run and its source identity; existing acceptance package/supervisor/targeted harness; Linux `/proc` ABI and existing Darwin `ps`/`lsof` contract; corrected fixed Node 24.18.0/npm 11.16.0 and Python 3.14.6 OCI root/child/config/layer identities; Tencent VPC mirror reachability; current `myserver` Docker capability; prior non-green lifecycle semantics and explicit 56-cell unexecuted inventory. |
-| Produces | Minimal H3 process-monitor/race/no-exec-fixture correction with Darwin parity; exact Product/H3 ancestry and difference proof; two immutable source identities; verified OCI acquisition graphs; Product-owned 22-test Updater evidence; Harness-owned package/supervisor/selected-targeted evidence; superseded-failure/unexecuted/cleanup/non-interference/audit evidence; one archived refresh identity consumable by Operations. |
-| Dependencies | Product exact-head Development run must be green; H3 must descend Product, the failed Harness source, and H2; Product/H3 non-allowed byte-or-mode difference count must be zero; H3 code/audit must prove no Linux external-process inventory dependency and preserve Darwin behavior; read-only remote collision/protected-state preflight must pass before writes. |
-| Deliverables | Strict-valid proposal/design/delta/tasks before implementation; reviewed H3 implementation and focused tests in only the declared files; separate clean H3 implementation commit; canonical run input/result summaries and hashed logs kept only as bounded execution evidence; archived refresh plus synchronized root requirement; no remote or generated residue. |
+| Produces | Minimal H4 ownership-aware terminal-process correction with preserved H3 barrier and Darwin parity; an exact supervisor Actions gate; exact Product/H4 ancestry and difference proof; two immutable source identities; verified OCI acquisition graphs; Product-owned 22-test Updater evidence; Harness-owned package/supervisor/selected-targeted evidence; superseded-failure/unexecuted/cleanup/non-interference/audit evidence; one archived refresh identity consumable by Operations. |
+| Dependencies | Product exact-head Development run remains green; H4 must descend Product, H2, and H3; Product/H4 non-allowed byte-or-mode difference count must be zero; H4 code/audit must prove ownership-aware Linux terminal handling, no external-process inventory dependency, preserved H3 barrier, and preserved Darwin behavior; exact-head H4 Actions including supervisor 21/21 and read-only remote collision/protected-state preflight must pass before writes. |
+| Deliverables | Strict-valid proposal/design/delta/tasks before implementation; reviewed H4 implementation and focused tests in only the declared files; separate clean H4 implementation commit; canonical run input/result summaries and hashed logs kept only as bounded execution evidence; archived refresh plus synchronized root requirement; no remote or generated residue. |
 | Acceptance | Pinned OpenSpec strict validation and diff hygiene; exact-head Product Actions; Git ancestry and full byte/mode inventory; Linux positive/negative process-inventory coverage without `ps`/`lsof` or another external binary and preserved Darwin behavior; fixed OCI root/child/config/layer and in-container version verification; Product `RuntimePruneTests` with actual count; Harness `verify-package`, 21/21 supervisor tests, and the frozen selected targeted set with every selected test passing; one byte-identical protected-seal program and robust same-input route parser before/after; networkless/read-only container execution; before/after legacy/container/network/volume/Nginx/route comparison; exact cleanup; zero P0/P1 review. |
 | Non-goals | No product/UI/API/statistical or non-acceptance contract implementation change; no host package injection, `apt`, derived runtime image, mutable image, or acceptance failure waiver; no local product test/build/Docker; no full formal 56-cell Archive/API/browser/oracle/performance execution; no canonical formal result; no `development-accepted-operations-pending`; no Operations candidate build; no release, deployment, production activation, or SLO claim. |
 | Operations deferred | Operations receipt/code rebinding, AMD64 candidate assembly, Operations Actions, `/srv/bgmss-ops-validation` runtime validation, and every release/deploy/production/host-integration action remain in the separate Operations change. |
 | Stop/rollback conditions | Stop before remote writes on non-green/mismatched Product Actions, dirty or wrong revisions, ancestry/difference failure, absent tool capability, existing/symlinked root, image ownership ambiguity, protected-state inventory failure, or undeclared network/port/volume need. After an owned write, preserve the primary failure, clean only identity-matching run-owned objects, report ambiguous residue, and never touch protected state to force success. |
 
-This change touches no other repository. Its implementation mutation is
-closed to the two declared H3 acceptance paths, and its only external mutation
+This change touches no other repository. Its H4 implementation mutation is
+closed to the five declared workflow/acceptance paths, and its only external mutation
 is the explicitly bounded isolated validation above; production state remains
 unchanged. Apply is blocked until proposal, specification, design, and tasks
 are complete, strict-valid, and approved by the main agent.
