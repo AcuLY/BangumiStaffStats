@@ -2,16 +2,16 @@
 
 | Field | Declaration |
 |---|---|
-| Status | Fixed-image failure classified; revised planning awaiting main-agent approval; H2 implementation, fresh verification, evidence recording, synchronization, archive, commit, and push remain pending. |
+| Status | H2 implementation and exact-head Actions completed; isolated run failed supervisor 17/21 and was exactly cleaned; H3 specification approved; H3 implementation, Actions, fresh verification, evidence closure, archive, commit, and push remain pending. |
 | Owner | Main agent owns identities, specification, admission, audit, lifecycle, and Git. One delegated execution owner may perform the closed Git-evidence and remote/container command set. |
-| Writable paths | This change, its later synchronized root spec/archive, only existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/test/core.test.mjs`, `contracts/acceptance/test/supervisor.test.mjs`, one exact absent remote run root, uniquely labelled run containers, and only conditionally owned fixed image references. The closed package inventory remains unchanged. |
-| Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`, failed Harness source, every implementation path outside the exact four-path allowance, oracle, other OpenSpec, Git history outside main-agent commits, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, legacy/production containers, networks, volumes, Nginx/systemd/TLS, listeners, processes, routes, and data. |
+| Writable paths | This change, its later synchronized root spec/archive, H3 changes only existing `contracts/acceptance/lib/supervisor.mjs` and `contracts/acceptance/test/supervisor.test.mjs`, one exact absent remote run root, uniquely labelled run containers, and only conditionally owned fixed image references. The H2 implementation paths and closed package inventory remain unchanged. |
+| Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`, failed Harness source, H2 `1e3ecf120da02d642a5d63f75a6795ba2946e11d`, every implementation path outside the exact two-path H3 allowance, oracle, other OpenSpec, Git history outside main-agent commits, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, legacy/production containers, networks, volumes, Nginx/systemd/TLS, listeners, processes, routes, and data. |
 | Deletion complement | No tracked or pre-existing object. Cleanup is limited to exact manifest-bound run files/directories, run containers by immutable ID and label, and a fixed image reference only if this run alone pulled and still exclusively owns it. |
 | Mutable refs | Lifecycle commits/push, one run root, run containers, and conditionally run-owned image references. No tag, release, product ref, deployment ref, service, route, port, network, volume, or production/legacy object. |
-| Consumes | Exact-head Product Actions; failed run `6e0140e1c4dda68bb263c1d8`; failed Harness source; Linux `/proc` and preserved Darwin inventory behavior; exact Product/H2 Git inventories; corrected fixed Node/Python root/child/config/layer graphs through the Tencent VPC mirror; read-only `myserver` capability/protected-state preflight. |
-| Produces | Minimal H2 Linux process-inventory correction, ordered Product/H2/archive identities, two source archive attestations, separately attributed targeted evidence, exact cleanup/non-interference evidence, and an archived refresh consumable by Operations. |
-| Dependencies | Product Actions green → reviewed specification-only commit → H2 implementation/tests/review/clean commit → P/H2 proof → read-only remote admission → isolated gates → cleanup/postflight → zero-P0/P1 → archive. |
-| Deliverables | Strict-valid specification-revision commit, separate focused H2 implementation/tests commit and identity, complete bounded evidence, synchronized root spec, H2 archive identity, clean/pushed branch, and zero remote residue. |
+| Consumes | Exact-head Product and H2 Actions; failed runs `6e0140e1c4dda68bb263c1d8`, `351a80613c7a782c1d41ba61`, and `9af7301665f286f015a2397f`; H2 failure evidence; existing monitor-start API; no-exec `/tmp`; exact Product/H3 Git inventories; fixed Node/Python OCI graphs; read-only `myserver` capability/protected-state preflight. |
+| Produces | Minimal H3 supervisor-handshake/no-exec-fixture correction, ordered Product/H3/archive identities, two source archive attestations, separately attributed targeted evidence, exact cleanup/non-interference evidence, and an archived refresh consumable by Operations. |
+| Dependencies | Product Actions green → superseded H2 evidence → H3 spec → H3 implementation/tests/review/clean commit → exact-head H3 Actions → P/H3 proof → read-only remote admission → isolated gates → cleanup/postflight → zero-P0/P1 → archive. |
+| Deliverables | Strict-valid H3 specification, separate focused two-file H3 implementation/tests commit and identity, complete bounded evidence including all superseded attempts, synchronized root spec, H3 archive identity, clean/pushed branch, and zero remote residue. |
 | Acceptance | Every checklist item below, with no broader command, exception, mutation, or claim. |
 | Non-goals | Local product test/build/Docker; full 56-cell formal acceptance; product/Operations implementation; release, deploy, activation, production readiness, or SLO claims. |
 | Operations deferred | Receipt/schema/verifier rebinding, candidate assembly, Operations Actions, and `/srv/bgmss-ops-validation` remain in the separate Operations change. |
@@ -193,7 +193,7 @@
 
 ## 6. Record and archive the refresh
 
-- [ ] 6.1 Update this change with exact P/failed-H/H2 identities, Actions run, source
+- [ ] 6.1 Update this change with exact P/failed-H/H2/H3 identities, Actions run, source
   archive/inventory/difference digests, test names/counts/results/log digests,
   both superseded failed runs (including Product 22/22, Harness supervisor
   17/21, selected-core unexecuted, fail-closed/not-archivable status, evidence
@@ -202,17 +202,57 @@
   and real seal-program SHA-256
   `22ec7fa006997a94fffa21a7344dcfc402b1a4bcff1bc06751fc0cfbda7b88c4`
   for `6e0140e1c4dda68bb263c1d8`), verified
-  OCI graphs, image/container identities, no-exception H2 result,
+  OCI graphs, image/container identities, no-exception H3 result,
   cleanup/postflight,
   unexecuted-cell inventory, and zero-P0/P1 review. Check tasks only when
   their evidence exists.
 - [ ] 6.2 Re-run pinned strict validation and diff hygiene, synchronize the
   delta to `openspec/specs/contracts-development-acceptance/spec.md`, archive
-  the change, and create/push one clean H2 archive commit. Record its
-  commit/tree and prove `P <= H2 implementation <= H2 archive`.
-- [ ] 6.3 Hand Product, H2 implementation, H2 archive, exact Actions, dual
+  the change, and create/push one clean H3 archive commit. Record its
+  commit/tree and prove `P <= H2 <= H3 implementation <= H3 archive`.
+- [ ] 6.3 Hand Product, H3 implementation, H3 archive, exact Actions, dual
   source, separated test, cleanup/non-interference, superseded-failure, and audit
   evidence to the Operations change. The maximum claim is
   `development-acceptance-closed-by-authorized-ci-and-remote-evidence`;
   released, deployed, activated, production-ready, SLO-complete, and
   `development-accepted-operations-pending` remain false.
+
+## 7. Correct and verify H3 after the isolated H2 failure
+
+- [x] 7.1 Classify controller run `351a80613c7a782c1d41ba61` as
+  `controller-precondition-failed`, prove its archive was never created, remove
+  only its owner marker and nine empty directories bottom-up, and require its
+  byte-identical postflight to match all 80 protected stable fields.
+- [x] 7.2 Classify H2 run `9af7301665f286f015a2397f` as fail-closed /
+  not archivable. Record Product 22/22, Harness verify-before/offline-install
+  success, supervisor 17/21 with the exact four failures, selected and
+  verify-after not executed, seven-container/image/5,495-record cleanup,
+  80-field protected-state equality, and evidence-manifest SHA-256
+  `6ccd7891d015bbbcbed868fdf4837cd81a87a7e01f71f6892356bee7025c3b54`.
+  Do not reuse either run ID or combine a passed prerequisite with future
+  accepted evidence.
+- [ ] 7.3 In existing `contracts/acceptance/lib/supervisor.mjs`, replace the
+  raw monitor-start message with an awaited
+  `startProcessClosureMonitor()` barrier before first-checkpoint
+  acknowledgement or terminal/result trust. Bound startup failure, accept no
+  worker result on failure, and terminate only the identity-proven closure.
+  Change no other implementation file.
+- [ ] 7.4 In existing `contracts/acceptance/test/supervisor.test.mjs`, retain
+  the late-writer, orderly-pass, and direct-failure-primary regressions; add a
+  deterministic delayed-start/early-checkpoint ordering regression; and move
+  the generated fake-Docker executable to an explicitly run-owned
+  exec-capable fixture directory with exact cleanup. Keep `/tmp` no-exec and
+  change no other test/package file.
+- [ ] 7.5 Obtain independent review with zero P0/P1, run only allowed static
+  checks locally, create one clean H3 implementation commit containing exactly
+  those two files, push it, and require the complete Development Actions to
+  succeed at that exact H3 revision before any new remote write.
+- [ ] 7.6 Under a new opaque run ID, repeat the complete dual-source,
+  fixed-image, Product 22/22, Harness verify/offline/supervisor 21/21/selected
+  21/21/verify-after, source-inventory, exact cleanup, byte-identical
+  postflight, and zero-P0/P1 audit closure with no retry, exception, or
+  production mutation.
+- [ ] 7.7 Replace every prospective final H2 identity in sections 2, 4, 5,
+  and 6 with final H3/archive evidence, retain all H2/controller attempts only
+  under `supersededAttempts`, then strict-validate, synchronize, archive,
+  commit, and push.

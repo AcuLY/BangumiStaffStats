@@ -31,8 +31,16 @@ state was boundedly cleaned. This run is superseded failure evidence only and
 cannot contribute a successful Harness gate or lifecycle claim. Its bounded
 evidence manifest SHA-256 is
 `0e3ae22bd8165e7a164bd21f4f516bfa08988cdc8bde5f5d89c1ed49c0ec078c`;
-the run summary remains `fail-closed` / not archivable. A fresh H2
-implementation and run are required.
+	the run summary remains `fail-closed` / not archivable. H2
+	`1e3ecf120da02d642a5d63f75a6795ba2946e11d` removed the external Linux
+	inventory dependency and passed exact-head Actions, but remote run
+	`9af7301665f286f015a2397f` still passed only 17/21 supervisor tests. The
+	parent bypassed the existing monitor-start handshake, and the fake-Docker
+	fixture assumed executable `/tmp`. Its selected set and verify-after did not
+	run; exact cleanup and all 80 protected fields closed. Evidence-manifest
+	SHA-256 is
+	`6ccd7891d015bbbcbed868fdf4837cd81a87a7e01f71f6892356bee7025c3b54`.
+	A narrow H3 implementation and fresh run are required.
 
 The executor's initially saved 7,340-byte postflight program was later proved
 to be a doubly escaped source extraction rather than the actual bytes supplied
@@ -52,16 +60,16 @@ identical byte digest. The real rerun program SHA-256 was
 
 | Field | Declaration |
 |---|---|
-| Status | Fixed-image failure classified; H2 process-inventory design complete; H2 implementation/fresh execution/verification/archive not started. |
+| Status | H2 Actions green and remote supervisor failure classified/cleaned; H3 handshake/no-exec-fixture design complete; H3 implementation/fresh execution/verification/archive not started. |
 | Owner | Main agent: identities, specification, audit, lifecycle, commits/push. Delegated execution owner: exact remote/container command set and evidence handoff only. |
-| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal, plus only the four declared existing Harness process-inventory implementation/test paths. No package-inventory, product, non-acceptance Harness, or Operations implementation write. |
+| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H3 implementation is limited to existing `contracts/acceptance/lib/supervisor.mjs` and `contracts/acceptance/test/supervisor.test.mjs`; the prior H2 process-inventory files remain read-only. No package-inventory, product, non-acceptance Harness, or Operations implementation write. |
 | Read-only protected inputs | P, failed Harness source, oracle, all implementation outside the exact four-path allowance, other OpenSpec, and all remote state outside the admitted run complement. |
 | Deletion complement | No tracked or pre-existing object. Only manifest-bound run files, immutable-ID run containers, and safely proven run-pulled fixed image refs. |
 | Mutable refs | This change/root-spec/archive lifecycle, main-agent commits/push, one run root, run containers, and conditionally run-pulled images. |
 | Consumes | P exact-head Development result, failed H run/source, Harness acceptance package, Linux `/proc` and existing Darwin inventory behavior, fixed image digests, existing remote host/Docker and protected-state facts. |
-| Produces | Minimal H2 Linux inventory correction, P/H2 ancestry/delta proof, separated P/H2 test evidence, immutable source identities, cleanup/non-interference audit, H2 implementation and archive identities. |
-| Dependencies | P Actions green → H2 implementation/review/clean commit → P/H2 proof → remote read-only admission → isolated tests → cleanup/non-interference → zero-P0/P1 → archive. |
-| Deliverables | Proposal/delta/design/tasks, exact allowed H2 source/test changes, clean H2 implementation commit, evidence values/digests recorded into the change, synchronized root spec, archive commit. |
+| Produces | Minimal H3 supervisor-start ordering and no-exec-fixture correction, P/H3 ancestry/delta proof, separated P/H3 test evidence, immutable source identities, cleanup/non-interference audit, H3 implementation and archive identities. |
+| Dependencies | P Actions green → superseded H2 evidence → H3 implementation/review/clean commit and exact-head Actions → P/H3 proof → remote read-only admission → isolated tests → cleanup/non-interference → zero-P0/P1 → archive. |
+| Deliverables | Proposal/delta/design/tasks, exact two-file H3 change, clean H3 implementation commit, evidence values/digests recorded into the change, synchronized root spec, archive commit. |
 | Acceptance | Proposal acceptance table plus the closed commands and invariants below. |
 | Non-goals | Formal matrix or product/Operations implementation; release/deploy/activation; host toolchain installation; production readiness. |
 | Operations deferred | Receipt/schema/code rebinding and every Operations candidate/host-validation step. |
@@ -71,12 +79,12 @@ identical byte digest. The real rerun program SHA-256 was
 
 **Goals:**
 
-- Make P, H2 implementation, and H2 archive distinct, ordered identities.
-- Prove every non-declared P/H2 product path has identical Git mode and blob.
-- Execute the corrected Product Updater tests from P, not H2.
+- Make P, H3 implementation, and H3 archive distinct, ordered identities.
+- Prove every non-declared P/H3 product path has identical Git mode and blob.
+- Execute the corrected Product Updater tests from P, not H3.
 - Replace only Linux process/owned-cwd discovery with fail-closed Node built-in
   `/proc` reads while preserving current Darwin `ps`/`lsof` behavior.
-- Execute Harness package/supervisor/selected control tests from corrected H2,
+- Execute Harness package/supervisor/selected control tests from corrected H3,
   not P or the failed Harness source.
 - Leave `myserver`, both worktrees, and all protected resources unchanged.
 
@@ -242,6 +250,36 @@ external-inventory execution all fail closed without signaling a foreign
 process. Darwin tests and/or platform-injected coverage SHALL prove the
 existing `ps`/`lsof` command and observable behavior remain unchanged.
 
+### 3a. Close the H3 supervisor start barrier and no-exec fixture
+
+H2 exposed an ordering bug outside the shared `/proc` parser. The parent
+created the closure monitor, forked the supervised worker, and sent a raw
+`start` message without awaiting the existing
+`startProcessClosureMonitor()` acknowledgement. The worker could therefore
+send its first checkpoint while the monitor was still taking its first Linux
+inventory; the parent could acknowledge that checkpoint before the ledger had
+retained the worker. A detached late writer could lose its parent relation, or
+an orderly worker could exit, before the parent had a usable closure.
+
+H3 changes only `contracts/acceptance/lib/supervisor.mjs` and
+`contracts/acceptance/test/supervisor.test.mjs`. The supervisor SHALL await the
+shared monitor-start handshake after fork and before it can acknowledge the
+first checkpoint or accept terminal/result IPC. A worker checkpoint arriving
+during that wait remains queued and unacknowledged, so the worker remains live
+and attributable. Startup timeout/failure remains bounded by the suite/startup
+deadline, accepts no worker result, and terminates only the identity-proven
+worker closure. The existing late-descendant, orderly-success, and
+direct-failure-primary tests are mandatory regressions; an explicit delayed
+start/early checkpoint case SHALL prove ordering without a sleep-only race
+assertion.
+
+The fixed container keeps `/tmp` mounted `noexec`. The generated fake-Docker
+fixture SHALL be created in an explicitly run-owned exec-capable directory,
+spawned directly without a shell/evaluation widening, and removed by the
+existing exact fixture cleanup. The test SHALL prove that its no-exec
+`os.tmpdir()` run root does not need to become executable and leaves no
+fixture residue.
+
 ### 4. Freeze one Product test owner and three Harness gates
 
 P owns:
@@ -252,7 +290,7 @@ from P's `updater/` copy. The expected discovered class currently has 22 test
 methods, but evidence records the actual executed count and names rather than
 accepting a declaration.
 
-Corrected H2 owns:
+Corrected H3 owns:
 
 1. `node contracts/acceptance/bin/acceptance.mjs verify-package` before install;
 2. the offline install, then
@@ -267,7 +305,7 @@ tests; and the evidence/result/parent-supervisor families named in tasks.
 TAP parsing records actual pass/fail/skip and selected names. All 21 supervisor
 tests and every frozen selected core test must pass. The former
 `escaped fixture process identity differs before cleanup` classification is
-not an exception for H2: observing it again proves the Linux inventory
+not an exception for H3: observing it again proves the Linux inventory
 correction did not close and fails the run. Any failure, missing selected
 name, widened pattern, or count drift fails.
 
@@ -376,14 +414,17 @@ emitted.
 1. Wait for exact-head P Development Actions success.
 2. Strict-validate, main-review, commit, and push this OpenSpec revision by
    itself.
-3. Implement and review only the four declared Linux process-inventory paths,
-   preserving Darwin, then commit and push H2 source/tests by themselves.
-4. Prove P/H2 and failed-H/H2 ancestry/differences, perform read-only preflight, attest the fixed
-   mirror OCI graphs, then pull and run the closed remote container gates.
-5. Pull/hash bounded evidence, clean the run complement, repeat protected
+3. Retain H2 and runs `351a80613c7a782c1d41ba61` /
+   `9af7301665f286f015a2397f` as superseded evidence only.
+4. Implement/review only the two H3 supervisor/test paths, then commit and push
+   H3 and require exact-head Development Actions success.
+5. Prove P/H3, failed-H/H3, and H2/H3 ancestry/differences, perform read-only
+   preflight, attest the fixed mirror OCI graphs, then run the closed remote
+   container gates under a new opaque run ID.
+6. Pull/hash bounded evidence, clean the run complement, repeat protected
    inventories, and obtain independent zero-P0/P1 review.
-6. Record exact identities/results, sync the delta, archive the change, commit,
-   push, and hand P/H2/archive identities to Operations.
+7. Record exact identities/results, sync the delta, archive the change, commit,
+   push, and hand P/H3/archive identities to Operations.
 
 Failure before remote mutation changes no external state. Failure afterward
 invokes only the exact identity cleanup above; it never modifies Product,
@@ -391,5 +432,5 @@ legacy, production, or host integration.
 
 ## Open Questions
 
-None. Actual fresh run ID, H2 OIDs, test counts, source/archive digests, container
+None. Actual fresh run ID, H3 OIDs, test counts, source/archive digests, container
 IDs, and log/TAP digests are evidence outputs and must not be guessed.
