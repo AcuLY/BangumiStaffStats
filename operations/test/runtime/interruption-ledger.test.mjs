@@ -113,6 +113,29 @@ ops_test_command() {
 ops_command() {
   ops_test_command "$1"
 }
+
+ops_test_trace_ref_failure() {
+  local key="$1"
+  local restore_status="$2"
+  local ref_index="missing"
+  local current_identity="missing"
+  local before_state="missing"
+  local after_state="missing"
+  if ref_index="$(ops_transaction_ref_index "$key")"; then
+    before_state="${OPS_TRANSACTION_REF_BEFORE_STATES[$ref_index]:-missing}"
+    after_state="${OPS_TRANSACTION_REF_AFTER_STATES[$ref_index]:-missing}"
+    current_identity="$(
+      ops_transaction_ref_current_identity "$ref_index" 2>&1 || true
+    )"
+  fi
+  printf 'COMPENSATION_TRACE=%s|%s|%s|%s|%s|%s\n' \
+    "$key" \
+    "$restore_status" \
+    "$ref_index" \
+    "$before_state" \
+    "$after_state" \
+    "$current_identity" >&2
+}
 `;
 
 function runHarness(root, body, extraEnvironment = {}) {
@@ -171,6 +194,18 @@ set -Eeuo pipefail
   } finally {
     rmSync(commandRoot, { force: true, recursive: true });
   }
+}
+
+function transactionFailureContext(root, result) {
+  const recovery = path.join(root, 'recovery', `manual-${RUN_ID}.json`);
+  return [
+    result.stderr,
+    existsSync(recovery)
+      ? `manual-recovery=${readFileSync(recovery, 'utf8')}`
+      : 'manual-recovery=absent',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function makeRoot(prefix) {
@@ -498,7 +533,11 @@ ops_atomic_replace_file() {
   fi
 }
 ops_transaction_compensate() {
-  ops_transaction_restore_secondary
+  local restore_status=0
+  ops_transaction_restore_secondary || restore_status=$?
+  [[ "$restore_status" -eq 0 ]] ||
+    ops_test_trace_ref_failure secondary "$restore_status"
+  return "$restore_status"
 }
 ops_install_transaction_traps
 ops_transaction_arm update "$OPS_TEST_RUN_ID" data
@@ -515,7 +554,7 @@ exit 99
         OPS_TEST_RUN_ID: RUN_ID,
       },
     );
-    assert.equal(result.status, 143, result.stderr);
+    assert.equal(result.status, 143, transactionFailureContext(root, result));
     assert.equal(existsSync(path.join(root, 'data', 'previous.json')), false);
     assert.match(result.stderr, /TRANSACTION_INTERRUPTED/u);
   } finally {
@@ -541,7 +580,11 @@ ops_atomic_replace_file() {
   fi
 }
 ops_transaction_compensate() {
-  ops_transaction_restore_evidence
+  local restore_status=0
+  ops_transaction_restore_evidence || restore_status=$?
+  [[ "$restore_status" -eq 0 ]] ||
+    ops_test_trace_ref_failure evidence "$restore_status"
+  return "$restore_status"
 }
 ops_install_transaction_traps
 ops_transaction_arm rollback-data "$OPS_TEST_RUN_ID" data
@@ -555,7 +598,7 @@ exit 99
         OPS_TEST_RUN_ID: RUN_ID,
       },
     );
-    assert.equal(result.status, 143, result.stderr);
+    assert.equal(result.status, 143, transactionFailureContext(root, result));
     assert.equal(
       existsSync(path.join(root, 'recovery', 'rollback-exercised.json')),
       false,
