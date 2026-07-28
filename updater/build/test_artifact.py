@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import gzip
 import io
 import json
@@ -13,6 +14,7 @@ import tarfile
 import tempfile
 import unittest
 from contextlib import redirect_stderr
+from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 from unittest.mock import patch
@@ -710,21 +712,9 @@ class ArchiveTests(GeneratedDirectoryTestCase):
 
 
 class RuntimePruneTests(GeneratedDirectoryTestCase):
-    def _make_runtime(self) -> Path:
-        runtime = self.root / "runtime"
-        distribution = runtime / "fixture-1.0.dist-info"
-        distribution.mkdir(parents=True)
-        files = {
-            "fixture/__init__.py": "production\n",
-            "fixture/tests/test_fixture.py": "test\n",
-            "fixture/benchmarks/run.py": "benchmark\n",
-            "fixture-1.0.dist-info/METADATA": "Name: fixture\nVersion: 1.0\n",
-            "fixture-1.0.dist-info/uv_cache.json": '{"timestamp":"unstable"}\n',
-        }
-        for relative, value in files.items():
-            path = runtime / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(value, encoding="utf-8")
+    @staticmethod
+    def _write_record(runtime: Path, distribution_name: str, files: dict[str, str]) -> None:
+        distribution = runtime / distribution_name
         record = distribution / "RECORD"
         rows = [
             (
@@ -734,11 +724,71 @@ class RuntimePruneTests(GeneratedDirectoryTestCase):
             )
             for relative in sorted(files)
         ]
-        rows.append(("fixture-1.0.dist-info/RECORD", "", ""))
+        rows.append((f"{distribution_name}/RECORD", "", ""))
         record.write_text(
             "".join(f"{relative},{digest},{size}\n" for relative, digest, size in rows),
             encoding="utf-8",
         )
+
+    @staticmethod
+    def _append_record_owner(record: Path, runtime: Path, relative: str) -> None:
+        target = runtime / relative
+        with record.open("a", encoding="utf-8", newline="") as output:
+            output.write(
+                f"{relative},sha256={runtime_prune._record_digest(target)},"
+                f"{target.stat().st_size}\n"
+            )
+
+    @staticmethod
+    def _inventory(runtime: Path) -> dict[str, tuple[int, bytes]]:
+        return {
+            path.relative_to(runtime).as_posix(): (
+                path.stat().st_mode & 0o777,
+                path.read_bytes(),
+            )
+            for path in sorted(runtime.rglob("*"))
+            if path.is_file()
+        }
+
+    def _make_runtime(
+        self,
+        runtime: Path | None = None,
+        *,
+        interpreter: str | None = None,
+    ) -> Path:
+        runtime = runtime or self.root / "runtime"
+        distribution = runtime / "fixture-1.0.dist-info"
+        distribution.mkdir(parents=True)
+        fixture_files = {
+            "fixture/__init__.py": "production\n",
+            "fixture/tests/test_fixture.py": "test\n",
+            "fixture/benchmarks/run.py": "benchmark\n",
+            "fixture-1.0.dist-info/METADATA": "Name: fixture\nVersion: 1.0\n",
+            "fixture-1.0.dist-info/uv_cache.json": '{"timestamp":"unstable"}\n',
+        }
+        for relative, value in fixture_files.items():
+            path = runtime / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(value, encoding="utf-8")
+        self._write_record(runtime, distribution.name, fixture_files)
+
+        if interpreter is not None:
+            installer_files = {
+                "bin/jsonschema": (
+                    f"#!{interpreter}\nfrom jsonschema.cli import main\nraise SystemExit(main())\n"
+                ),
+                "jsonschema/__init__.py": '"""Importable runtime package."""\n',
+                "jsonschema-4.26.0.dist-info/METADATA": ("Name: jsonschema\nVersion: 4.26.0\n"),
+            }
+            for relative, value in installer_files.items():
+                path = runtime / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(value, encoding="utf-8")
+            self._write_record(
+                runtime,
+                "jsonschema-4.26.0.dist-info",
+                installer_files,
+            )
         return runtime
 
     def test_prune_removes_only_development_content_and_repairs_record(self) -> None:
@@ -770,6 +820,515 @@ class RuntimePruneTests(GeneratedDirectoryTestCase):
             "missing file",
         ):
             runtime_prune.prune_runtime_tree(runtime)
+
+    def test_installer_scripts_are_path_independent_and_preserve_supported_launcher(
+        self,
+    ) -> None:
+        first_bundle = self.root / "first-bundle"
+        second_bundle = self.root / "second-bundle"
+        launcher_bytes = b"#!/usr/bin/env python3\nprint('supported')\n"
+        for bundle in (first_bundle, second_bundle):
+            launcher = bundle / "bin" / "bgmss-updater"
+            launcher.parent.mkdir(parents=True)
+            launcher.write_bytes(launcher_bytes)
+            launcher.chmod(0o755)
+        first = self._make_runtime(
+            first_bundle / "site-packages",
+            interpreter="/checkout-one/updater/.venv/bin/python",
+        )
+        second = self._make_runtime(
+            second_bundle / "site-packages",
+            interpreter="/checkout-two/updater/.venv/bin/python",
+        )
+
+        first_removed = runtime_prune.prune_runtime_tree(first)
+        second_removed = runtime_prune.prune_runtime_tree(second)
+
+        self.assertEqual(first_removed, second_removed)
+        self.assertIn("bin/jsonschema", first_removed)
+        self.assertEqual(self._inventory(first), self._inventory(second))
+        self.assertFalse((first / "bin").exists())
+        self.assertFalse((second / "bin").exists())
+        self.assertTrue((first / "jsonschema/__init__.py").is_file())
+        self.assertEqual(
+            (first_bundle / "bin/bgmss-updater").read_bytes(),
+            launcher_bytes,
+        )
+        inventory_bytes = b"".join(content for _mode, content in self._inventory(first).values())
+        self.assertNotIn(b"/checkout-one", inventory_bytes)
+        self.assertNotIn(b"/checkout-two", inventory_bytes)
+
+    def test_prune_rejects_unrecorded_installer_script(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        unrecorded = runtime / "bin/unrecorded"
+        unrecorded.write_text("#!/two/python\n", encoding="utf-8")
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "no RECORD owner",
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+        self.assertTrue((runtime / "fixture/tests/test_fixture.py").is_file())
+
+    def test_prune_rejects_duplicate_installer_script_owner(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        self._append_record_owner(
+            runtime / "fixture-1.0.dist-info/RECORD",
+            runtime,
+            "bin/jsonschema",
+        )
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "multiple RECORD owners",
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+        self.assertTrue((runtime / "fixture/tests/test_fixture.py").is_file())
+
+    def test_prune_rejects_missing_installer_script_before_mutation(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        record = runtime / "jsonschema-4.26.0.dist-info/RECORD"
+        record_bytes = record.read_bytes()
+        (runtime / "bin/jsonschema").unlink()
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "missing file",
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+        self.assertTrue((runtime / "fixture/tests/test_fixture.py").is_file())
+        self.assertEqual(record.read_bytes(), record_bytes)
+
+    def test_prune_rejects_mismatched_installer_script_before_mutation(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        script = runtime / "bin/jsonschema"
+        script.write_text("#!/changed/python\n", encoding="utf-8")
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "digest or size mismatch",
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+        self.assertTrue((runtime / "fixture/tests/test_fixture.py").is_file())
+
+    def test_prune_rejects_unsafe_installer_record_before_mutation(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        record = runtime / "jsonschema-4.26.0.dist-info/RECORD"
+        record.write_text(
+            record.read_text(encoding="utf-8").replace(
+                "bin/jsonschema,",
+                "bin/../jsonschema,",
+                1,
+            ),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "unsafe RECORD path",
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+        self.assertTrue((runtime / "fixture/tests/test_fixture.py").is_file())
+        self.assertTrue((runtime / "bin/jsonschema").is_file())
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "requires POSIX FIFO support")
+    def test_prune_rejects_special_installer_file_before_mutation(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        special = runtime / "bin/installer-pipe"
+        os.mkfifo(special)
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "special file",
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+        self.assertTrue((runtime / "fixture/tests/test_fixture.py").is_file())
+        self.assertTrue((runtime / "bin/jsonschema").is_file())
+
+    def test_prune_rejects_hard_linked_installer_file_before_mutation(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        script = runtime / "bin/jsonschema"
+        os.link(script, runtime / "jsonschema/installer-script-link")
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "multiple hard links",
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+        self.assertTrue((runtime / "fixture/tests/test_fixture.py").is_file())
+        self.assertTrue(script.is_file())
+
+    def test_prune_rechecks_all_files_before_deleting_replacement(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        early = runtime / "bin/aaa"
+        early.write_text("#!/one/python\n", encoding="utf-8")
+        self._append_record_owner(
+            runtime / "jsonschema-4.26.0.dist-info/RECORD",
+            runtime,
+            "bin/aaa",
+        )
+        record = runtime / "jsonschema-4.26.0.dist-info/RECORD"
+        record_bytes = record.read_bytes()
+        script = runtime / "bin/jsonschema"
+        admitted_copy = runtime / "jsonschema/admitted-installer-script"
+        replacement_bytes = b"#!/unreviewed/python\n"
+        original_remove = runtime_prune._remove_installer_tree
+
+        def replace_then_remove(*arguments: Any) -> None:
+            script.replace(admitted_copy)
+            script.write_bytes(replacement_bytes)
+            original_remove(*arguments)
+
+        with (
+            patch.object(
+                runtime_prune,
+                "_remove_installer_tree",
+                side_effect=replace_then_remove,
+            ),
+            self.assertRaisesRegex(
+                runtime_prune.RuntimePruneError,
+                "digest or size mismatch|changed before deletion",
+            ),
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+
+        self.assertTrue(early.is_file())
+        self.assertEqual(script.read_bytes(), replacement_bytes)
+        self.assertTrue(admitted_copy.is_file())
+        self.assertTrue((runtime / "fixture/tests/test_fixture.py").is_file())
+        self.assertEqual(record.read_bytes(), record_bytes)
+
+    def test_quarantine_rechecks_late_replacement_before_first_unlink(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        early = runtime / "bin/aaa"
+        early.write_text("#!/one/python\n", encoding="utf-8")
+        record = runtime / "jsonschema-4.26.0.dist-info/RECORD"
+        self._append_record_owner(record, runtime, "bin/aaa")
+        record_bytes = record.read_bytes()
+        admitted_copy = runtime / "jsonschema/admitted-installer-script"
+        replacement_bytes = b"#!/late-unreviewed/python\n"
+        original_delete = runtime_prune._delete_quarantined_installer_tree
+
+        def replace_then_delete(*arguments: Any) -> None:
+            quarantine = runtime / runtime_prune._INSTALLER_QUARANTINE_NAME
+            quarantined_script = quarantine / "jsonschema"
+            quarantined_script.replace(admitted_copy)
+            quarantined_script.write_bytes(replacement_bytes)
+            original_delete(*arguments)
+
+        with (
+            patch.object(
+                runtime_prune,
+                "_delete_quarantined_installer_tree",
+                side_effect=replace_then_delete,
+            ),
+            self.assertRaisesRegex(
+                runtime_prune.RuntimePruneError,
+                "digest or size mismatch|changed before deletion",
+            ),
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+
+        self.assertTrue(early.is_file())
+        self.assertEqual((runtime / "bin/jsonschema").read_bytes(), replacement_bytes)
+        self.assertTrue(admitted_copy.is_file())
+        self.assertEqual(record.read_bytes(), record_bytes)
+        self.assertFalse((runtime / runtime_prune._INSTALLER_QUARANTINE_NAME).exists())
+
+    def test_quarantine_allows_root_directory_rename_metadata_change(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        original_scan = runtime_prune._scan_installer_tree
+
+        def scan_with_rename_metadata(*arguments: Any, **keywords: Any) -> Any:
+            plan = original_scan(*arguments, **keywords)
+            if (
+                plan is None
+                or keywords.get("entry_name") != runtime_prune._INSTALLER_QUARANTINE_NAME
+            ):
+                return plan
+            return replace(
+                plan,
+                directories=tuple(
+                    replace(
+                        entry,
+                        size=entry.size + 1,
+                        modified_ns=entry.modified_ns + 1,
+                        changed_ns=entry.changed_ns + 1,
+                    )
+                    if entry.path == "bin"
+                    else entry
+                    for entry in plan.directories
+                ),
+            )
+
+        with patch.object(
+            runtime_prune,
+            "_scan_installer_tree",
+            side_effect=scan_with_rename_metadata,
+        ):
+            removed = runtime_prune.prune_runtime_tree(runtime)
+
+        self.assertIn("bin/jsonschema", removed)
+        self.assertFalse((runtime / "bin").exists())
+        self.assertFalse((runtime / runtime_prune._INSTALLER_QUARANTINE_NAME).exists())
+
+    def test_quarantine_destination_creation_race_preserves_sentinel(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        quarantine = runtime / runtime_prune._INSTALLER_QUARANTINE_NAME
+        sentinel = quarantine / "sentinel"
+        sentinel_bytes = b"foreign quarantine sentinel\n"
+        original_rename = runtime_prune._native_noreplace_rename
+
+        def create_destination_then_rename(
+            parent_descriptor: int,
+            source: str,
+            destination: str,
+        ) -> None:
+            if source == "bin":
+                quarantine.mkdir()
+                sentinel.write_bytes(sentinel_bytes)
+            original_rename(parent_descriptor, source, destination)
+
+        with (
+            patch.object(
+                runtime_prune,
+                "_native_noreplace_rename",
+                side_effect=create_destination_then_rename,
+            ),
+            self.assertRaisesRegex(
+                runtime_prune.RuntimePruneError,
+                "atomic no-replace rename failed",
+            ),
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+
+        self.assertTrue((runtime / "bin/jsonschema").is_file())
+        self.assertEqual(sentinel.read_bytes(), sentinel_bytes)
+
+    def test_restore_rejects_replaced_quarantine_root(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        record = runtime / "jsonschema-4.26.0.dist-info/RECORD"
+        record_bytes = record.read_bytes()
+        admitted_quarantine = runtime / "jsonschema/admitted-quarantine"
+        quarantine = runtime / runtime_prune._INSTALLER_QUARANTINE_NAME
+        sentinel_bytes = b"foreign replacement root\n"
+
+        def replace_root_then_fail(*arguments: Any) -> None:
+            quarantine.replace(admitted_quarantine)
+            quarantine.mkdir()
+            (quarantine / "sentinel").write_bytes(sentinel_bytes)
+            raise runtime_prune.RuntimePruneError("injected pre-delete failure")
+
+        with (
+            patch.object(
+                runtime_prune,
+                "_delete_quarantined_installer_tree",
+                side_effect=replace_root_then_fail,
+            ),
+            self.assertRaisesRegex(
+                runtime_prune.RuntimePruneError,
+                "not the admitted root",
+            ),
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+
+        self.assertFalse((runtime / "bin").exists())
+        self.assertEqual((quarantine / "sentinel").read_bytes(), sentinel_bytes)
+        self.assertTrue((admitted_quarantine / "jsonschema").is_file())
+        self.assertEqual(record.read_bytes(), record_bytes)
+
+    def test_restore_destination_race_preserves_bin_sentinel(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        record = runtime / "jsonschema-4.26.0.dist-info/RECORD"
+        record_bytes = record.read_bytes()
+        sentinel_bytes = b"foreign bin sentinel\n"
+
+        def create_bin_then_fail(*arguments: Any) -> None:
+            bin_root = runtime / "bin"
+            bin_root.mkdir()
+            (bin_root / "sentinel").write_bytes(sentinel_bytes)
+            raise runtime_prune.RuntimePruneError("injected pre-delete failure")
+
+        with (
+            patch.object(
+                runtime_prune,
+                "_delete_quarantined_installer_tree",
+                side_effect=create_bin_then_fail,
+            ),
+            self.assertRaisesRegex(
+                runtime_prune.RuntimePruneError,
+                "atomic no-replace rename failed",
+            ),
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+
+        quarantine = runtime / runtime_prune._INSTALLER_QUARANTINE_NAME
+        self.assertEqual((runtime / "bin/sentinel").read_bytes(), sentinel_bytes)
+        self.assertTrue((quarantine / "jsonschema").is_file())
+        self.assertEqual(record.read_bytes(), record_bytes)
+
+    def test_partial_delete_leaves_terminal_quarantine_and_record(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        early = runtime / "bin/aaa"
+        early.write_text("#!/one/python\n", encoding="utf-8")
+        record = runtime / "jsonschema-4.26.0.dist-info/RECORD"
+        self._append_record_owner(record, runtime, "bin/aaa")
+        record_bytes = record.read_bytes()
+        real_unlink = os.unlink
+        unlink_count = 0
+
+        def fail_second_unlink(
+            path: str | bytes,
+            *,
+            dir_fd: int | None = None,
+        ) -> None:
+            nonlocal unlink_count
+            unlink_count += 1
+            if unlink_count == 1:
+                real_unlink(path, dir_fd=dir_fd)
+                return
+            raise OSError(errno.EIO, "injected second unlink failure")
+
+        with (
+            patch.object(
+                runtime_prune.os,
+                "unlink",
+                side_effect=fail_second_unlink,
+            ),
+            self.assertRaisesRegex(
+                runtime_prune.RuntimePruneError,
+                "cannot delete admitted runtime installer file",
+            ),
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+
+        quarantine = runtime / runtime_prune._INSTALLER_QUARANTINE_NAME
+        self.assertEqual(unlink_count, 2)
+        self.assertFalse((runtime / "bin").exists())
+        self.assertTrue(quarantine.is_dir())
+        self.assertFalse((quarantine / "aaa").exists())
+        self.assertTrue((quarantine / "jsonschema").is_file())
+        self.assertEqual(record.read_bytes(), record_bytes)
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "quarantine residue",
+        ):
+            runtime_prune.verify_runtime_tree(runtime)
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "pre-existing installer quarantine",
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+
+    def test_prune_does_not_follow_replaced_intermediate_directory(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        script = runtime / "bin/jsonschema"
+        tools = runtime / "bin/tools"
+        tools.mkdir()
+        nested_script = tools / script.name
+        script.replace(nested_script)
+        record = runtime / "jsonschema-4.26.0.dist-info/RECORD"
+        record.write_text(
+            record.read_text(encoding="utf-8").replace(
+                "bin/jsonschema,",
+                "bin/tools/jsonschema,",
+                1,
+            ),
+            encoding="utf-8",
+        )
+        outside = self.root / "outside"
+        outside.mkdir()
+        sentinel = outside / "sentinel"
+        sentinel_bytes = b"must remain outside the runtime\n"
+        sentinel.write_bytes(sentinel_bytes)
+        admitted_tools = runtime / "jsonschema/admitted-tools"
+        original_remove = runtime_prune._remove_installer_tree
+
+        def replace_then_remove(*arguments: Any) -> None:
+            tools.replace(admitted_tools)
+            tools.symlink_to(outside, target_is_directory=True)
+            original_remove(*arguments)
+
+        with (
+            patch.object(
+                runtime_prune,
+                "_remove_installer_tree",
+                side_effect=replace_then_remove,
+            ),
+            self.assertRaisesRegex(
+                runtime_prune.RuntimePruneError,
+                "symlink|stable real directory|changed before deletion",
+            ),
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+
+        self.assertEqual(sentinel.read_bytes(), sentinel_bytes)
+        self.assertTrue((admitted_tools / "jsonschema").is_file())
+        self.assertTrue((runtime / "fixture/tests/test_fixture.py").is_file())
+
+    def test_prune_does_not_unlink_external_hard_link_replacement(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        script = runtime / "bin/jsonschema"
+        outside = self.root / "outside"
+        outside.mkdir()
+        sentinel = outside / "sentinel"
+        sentinel_bytes = b"external sentinel\n"
+        sentinel.write_bytes(sentinel_bytes)
+        admitted_copy = runtime / "jsonschema/admitted-installer-script"
+        original_remove = runtime_prune._remove_installer_tree
+
+        def replace_then_remove(*arguments: Any) -> None:
+            script.replace(admitted_copy)
+            os.link(sentinel, script)
+            original_remove(*arguments)
+
+        with (
+            patch.object(
+                runtime_prune,
+                "_remove_installer_tree",
+                side_effect=replace_then_remove,
+            ),
+            self.assertRaisesRegex(
+                runtime_prune.RuntimePruneError,
+                "multiple hard links|changed before deletion",
+            ),
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+
+        self.assertEqual(sentinel.read_bytes(), sentinel_bytes)
+        self.assertEqual(script.read_bytes(), sentinel_bytes)
+        self.assertTrue(admitted_copy.is_file())
+        self.assertTrue((runtime / "fixture/tests/test_fixture.py").is_file())
+
+    def test_prune_rejects_linked_installer_script(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        script = runtime / "bin/jsonschema"
+        script.unlink()
+        script.symlink_to(runtime / "jsonschema/__init__.py")
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "symlink",
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+        self.assertTrue((runtime / "fixture/tests/test_fixture.py").is_file())
+
+    def test_verify_rejects_residual_direct_installer_bin(self) -> None:
+        runtime = self._make_runtime()
+        (runtime / "bin").mkdir()
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "retains direct installer bin",
+        ):
+            runtime_prune.verify_runtime_tree(runtime)
+
+    def test_prune_and_verify_reject_preexisting_quarantine_residue(self) -> None:
+        runtime = self._make_runtime()
+        quarantine = runtime / runtime_prune._INSTALLER_QUARANTINE_NAME
+        quarantine.mkdir()
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "pre-existing installer quarantine",
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+        self.assertTrue((runtime / "fixture/tests/test_fixture.py").is_file())
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "quarantine residue",
+        ):
+            runtime_prune.verify_runtime_tree(runtime)
 
 
 class InventoryTests(GeneratedDirectoryTestCase):
