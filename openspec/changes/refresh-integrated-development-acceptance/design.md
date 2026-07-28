@@ -425,6 +425,12 @@ identity, complete-command, owned-cwd, and signal path SHALL explicitly
 exclude `kind === "opaque"`; Linux live entries remain `kind === "live"`,
 while unchanged legacy Darwin entries keep their existing schema. Unrelated
 opaque evidence is excluded from owned-cwd and closure ownership. An opaque
+generation key used by `newHostProcesses` SHALL bind kind, PID, UID, start
+time, `comm`, and reason, but SHALL exclude schedulable nonterminal state and
+relation fields; the full inventory digest still binds those observations.
+Therefore normal state/reparent/process-group changes across two independent
+global snapshots do not invent a new generation, while an in-snapshot
+relation drift still fails classification. An opaque
 PID already retained in the ledger, in the target process group, or parented
 by an exact retained generation is ambiguous owned evidence: record/fail
 closed and send zero signals. A fresh cleanup or targeted Map-miss snapshot

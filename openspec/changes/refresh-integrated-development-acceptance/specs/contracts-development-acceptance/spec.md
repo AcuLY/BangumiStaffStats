@@ -156,6 +156,12 @@ parent SHALL fail closed as ambiguous owned evidence with zero signal. An
 opaque entry observed while freshly revalidating an expected cleanup PID,
 including after a global Map miss, SHALL be an identity mismatch and SHALL NOT
 count as absence.
+The opaque generation key used for before/after new-process comparison SHALL
+bind kind, PID, UID, start time, `comm`, and reason, but SHALL exclude
+nonterminal state, parent PID, and process group. The full inventory digest
+SHALL still bind those observed fields. Normal state/relation changes across
+independent snapshots SHALL therefore not invent a new generation; relation
+drift within one classification sample remains failure.
 Stable live-to-terminal transition and double-confirmed disappearance SHALL
 continue through the existing tombstone/absence contracts and SHALL NOT
 become opaque. Same-UID denial, unreadable/malformed UID, non-permission

@@ -374,8 +374,10 @@
   with zero live-only reads, missing/zero/drifting Kthread, empty-cmdline or
   missing-exe non-inference, same-UID and UID failures, target group,
   retained parent/PID, cleanup/Map-miss, strict kind, sampled field races,
-  terminal/disappearance transitions, non-permission/malformed input, and
-  zero-signal behavior. Keep all existing H3/H4 regressions unchanged.
+  terminal/disappearance transitions, non-permission/malformed input,
+  full-digest binding but generation-key stability across independent
+  nonterminal state/relation changes, and zero-signal behavior. Keep all
+  existing H3/H4 regressions unchanged.
 - [ ] 9.6 Obtain independent zero-P0/P1 review; run only local static
   `node --check`, `git diff --check`, and pinned OpenSpec strict validation;
   stage only the three H5 files and create/push one clean H5 implementation
