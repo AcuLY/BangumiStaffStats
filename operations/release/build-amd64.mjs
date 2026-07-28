@@ -80,16 +80,7 @@ function pathDirectories(searchPath = process.env.PATH) {
 
 function dockerBuildxPlugin() {
   const candidates = [];
-  try {
-    candidates.push(executableFromPath('docker-buildx'));
-  } catch {}
-  for (const candidate of [
-    '/usr/libexec/docker/cli-plugins/docker-buildx',
-    '/usr/local/lib/docker/cli-plugins/docker-buildx',
-    ...(typeof process.env.HOME === 'string'
-      ? [path.join(process.env.HOME, '.docker', 'cli-plugins', 'docker-buildx')]
-      : []),
-  ]) {
+  function addCandidate(candidate) {
     try {
       const canonical = requireCanonicalPath(fs.realpathSync.native(candidate), {
         label: 'Docker Buildx CLI plugin',
@@ -99,6 +90,25 @@ function dockerBuildxPlugin() {
     } catch (error) {
       if (!['ENOENT', 'ENOTDIR'].includes(error?.code)) throw error;
     }
+  }
+  if (typeof process.env.HOME === 'string') {
+    addCandidate(
+      path.join(
+        process.env.HOME,
+        '.docker',
+        'cli-plugins',
+        'docker-buildx',
+      ),
+    );
+  }
+  try {
+    candidates.push(executableFromPath('docker-buildx'));
+  } catch {}
+  for (const candidate of [
+    '/usr/libexec/docker/cli-plugins/docker-buildx',
+    '/usr/local/lib/docker/cli-plugins/docker-buildx',
+  ]) {
+    addCandidate(candidate);
   }
   const unique = [...new Set(candidates)];
   if (unique.length === 0) fail('exact Docker Buildx CLI plugin is unavailable');
