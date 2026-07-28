@@ -179,16 +179,23 @@ JSON, or digest/compatibility mismatch.
 ordinary pushes, and manual verification with `contents: read` only. It SHALL
 install exact reviewed tools, use frozen locks, run release/runtime/validation
 policy tests, build and compare local `linux/amd64` artifacts, assemble and
-verify an unpublished candidate, and audit residue. It SHALL not read secrets,
-log in to a registry, upload a release, use OIDC, select an Environment, use
-SSH, invoke a host, or activate any deployment.
+verify an unpublished candidate, and audit residue. Only after verification,
+it MAY upload exactly one named sealed validation handoff containing the
+candidate archive, its SHA-256 file, and complete external inventory through
+exact
+`actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`
+(`v7.0.1`) with one-day retention and no overwrite. That handoff is ephemeral
+Actions transport only and SHALL be reverified before isolated remote use;
+release and deploy SHALL reject it. The workflow SHALL not read secrets, log
+in to a registry, upload a GitHub Release, use OIDC, select an Environment,
+use SSH, invoke a host, or activate any deployment.
 
 #### Scenario: An ordinary branch is verified
 - **WHEN** the operations workflow runs for a pull request or branch push
-- **THEN** all output remains runner-local and the workflow has no publication or host-mutation authority
+- **THEN** all output remains runner-local except the one sealed one-day validation handoff, and the workflow has no release, registry, deploy, or host-mutation authority
 
 #### Scenario: Read-only policy is weakened
-- **WHEN** permissions, triggers, actions, commands, environments, secret data flow, or uploads add release/deploy authority
+- **WHEN** permissions, triggers, actions, commands, environments, secret data flow, or any upload exceeds the exact sealed validation handoff
 - **THEN** repository-owned workflow policy tests fail
 
 ### Requirement: Release publication SHALL be tag-bound and least-privileged

@@ -123,8 +123,11 @@
   boundary.
 - [ ] 2.6 Create `.github/workflows/operations.yml` with relevant
   pull-request/push/manual triggers, exact tool/action pins, `contents: read`,
-  local double AMD64 build/assembly/tests/residue, and no secret/login/upload/
-  Environment/SSH/host state.
+  local double AMD64 build/assembly/tests/residue, followed only on success by
+  one named sealed validation-candidate archive + SHA-256 + complete external
+  inventory uploaded through pinned upload-artifact v7.0.1 with one-day
+  retention and no overwrite. It has no secret/login/release/registry/OIDC/
+  Environment/SSH/host state, and release/deploy reject this handoff.
 - [ ] 2.7 Create `.github/workflows/release.yml` for only a protected `v*` tag
   exactly matching `VERSION`: a read-only `prepare` job performs
   accepted-baseline comparison and two clean builds of that exact tag commit
@@ -345,7 +348,11 @@
   upstream offline component/compatibility validators, and a second independent
   digest/inventory comparison. Require exact `linux/amd64`, byte-identical
   sets, product/controller identities, image graphs, Frontend/archive-smoke,
-  Prometheus pin, and canonical candidate/checksums.
+  Prometheus pin, and canonical candidate/checksums. Pack the accepted
+  candidate once as a deterministic sealed validation handoff whose separate
+  SHA-256 and complete external inventory are uploaded by `operations.yml`;
+  after authenticated download, reverify all three before any remote
+  preflight or transfer.
 - [ ] 6.4 Main agent audits the candidate and records exact roots/digests and
   zero P0/P1. Preserve the accepted content-addressed input only until remote
   validation completes; remove all other run-owned checkouts/caches and prove
@@ -354,7 +361,10 @@
 ## 7. Read-only admission and isolated `myserver` validation
 
 - [ ] 7.1 **Remote execution owner preflight.** Verify the clean committed
-  Operations controller and audited AMD64 candidate, then run only
+  Operations controller and audited AMD64 candidate from the authenticated
+  one-day Operations Actions handoff; reject a missing/mismatched archive
+  digest, external inventory, candidate content address, or workflow
+  run/head identity. Then run only
   `npm --prefix operations run preflight:myserver -- --candidate /absolute/path/to/candidate`.
   It must perform read-only SSH checks and emit a canonical preflight; any
   unexpected host/tool/root/project/service/network/volume/port/image/path/

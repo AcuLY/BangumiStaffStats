@@ -364,8 +364,16 @@ that an Environment, secret, forced command, release, or deployment exists.
 ### 9. Separate workflow authorities by trigger and job
 
 `operations.yml` handles pull requests, ordinary pushes, and manual
-verification with `contents: read`. It builds locally, never logs into a
-registry, never selects an Environment, and never contacts a host.
+verification with `contents: read`. After its two builds and offline
+verification agree, it may transfer exactly one sealed validation-candidate
+archive plus digest through the pinned
+`actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`
+action with one-day retention. That authenticated Actions handoff is
+unpublished validation transport, not a release or deployment input: it
+contains the complete external inventory, is reverified before remote use,
+and may never be promoted by `release.yml` or accepted by `deploy.yml`.
+The workflow never logs into a registry, selects an Environment, reads a
+secret, or contacts a host.
 
 `release.yml` runs only from a version tag equal to root `VERSION`. Only the
 publishing job receives `contents: write` and `packages: write`; all
