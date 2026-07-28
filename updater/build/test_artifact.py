@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import gzip
 import io
 import json
@@ -1063,6 +1064,154 @@ class RuntimePruneTests(GeneratedDirectoryTestCase):
         self.assertIn("bin/jsonschema", removed)
         self.assertFalse((runtime / "bin").exists())
         self.assertFalse((runtime / runtime_prune._INSTALLER_QUARANTINE_NAME).exists())
+
+    def test_quarantine_destination_creation_race_preserves_sentinel(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        quarantine = runtime / runtime_prune._INSTALLER_QUARANTINE_NAME
+        sentinel = quarantine / "sentinel"
+        sentinel_bytes = b"foreign quarantine sentinel\n"
+        original_rename = runtime_prune._native_noreplace_rename
+
+        def create_destination_then_rename(
+            parent_descriptor: int,
+            source: str,
+            destination: str,
+        ) -> None:
+            if source == "bin":
+                quarantine.mkdir()
+                sentinel.write_bytes(sentinel_bytes)
+            original_rename(parent_descriptor, source, destination)
+
+        with (
+            patch.object(
+                runtime_prune,
+                "_native_noreplace_rename",
+                side_effect=create_destination_then_rename,
+            ),
+            self.assertRaisesRegex(
+                runtime_prune.RuntimePruneError,
+                "atomic no-replace rename failed",
+            ),
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+
+        self.assertTrue((runtime / "bin/jsonschema").is_file())
+        self.assertEqual(sentinel.read_bytes(), sentinel_bytes)
+
+    def test_restore_rejects_replaced_quarantine_root(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        record = runtime / "jsonschema-4.26.0.dist-info/RECORD"
+        record_bytes = record.read_bytes()
+        admitted_quarantine = runtime / "jsonschema/admitted-quarantine"
+        quarantine = runtime / runtime_prune._INSTALLER_QUARANTINE_NAME
+        sentinel_bytes = b"foreign replacement root\n"
+
+        def replace_root_then_fail(*arguments: Any) -> None:
+            quarantine.replace(admitted_quarantine)
+            quarantine.mkdir()
+            (quarantine / "sentinel").write_bytes(sentinel_bytes)
+            raise runtime_prune.RuntimePruneError("injected pre-delete failure")
+
+        with (
+            patch.object(
+                runtime_prune,
+                "_delete_quarantined_installer_tree",
+                side_effect=replace_root_then_fail,
+            ),
+            self.assertRaisesRegex(
+                runtime_prune.RuntimePruneError,
+                "not the admitted root",
+            ),
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+
+        self.assertFalse((runtime / "bin").exists())
+        self.assertEqual((quarantine / "sentinel").read_bytes(), sentinel_bytes)
+        self.assertTrue((admitted_quarantine / "jsonschema").is_file())
+        self.assertEqual(record.read_bytes(), record_bytes)
+
+    def test_restore_destination_race_preserves_bin_sentinel(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        record = runtime / "jsonschema-4.26.0.dist-info/RECORD"
+        record_bytes = record.read_bytes()
+        sentinel_bytes = b"foreign bin sentinel\n"
+
+        def create_bin_then_fail(*arguments: Any) -> None:
+            bin_root = runtime / "bin"
+            bin_root.mkdir()
+            (bin_root / "sentinel").write_bytes(sentinel_bytes)
+            raise runtime_prune.RuntimePruneError("injected pre-delete failure")
+
+        with (
+            patch.object(
+                runtime_prune,
+                "_delete_quarantined_installer_tree",
+                side_effect=create_bin_then_fail,
+            ),
+            self.assertRaisesRegex(
+                runtime_prune.RuntimePruneError,
+                "atomic no-replace rename failed",
+            ),
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+
+        quarantine = runtime / runtime_prune._INSTALLER_QUARANTINE_NAME
+        self.assertEqual((runtime / "bin/sentinel").read_bytes(), sentinel_bytes)
+        self.assertTrue((quarantine / "jsonschema").is_file())
+        self.assertEqual(record.read_bytes(), record_bytes)
+
+    def test_partial_delete_leaves_terminal_quarantine_and_record(self) -> None:
+        runtime = self._make_runtime(interpreter="/one/python")
+        early = runtime / "bin/aaa"
+        early.write_text("#!/one/python\n", encoding="utf-8")
+        record = runtime / "jsonschema-4.26.0.dist-info/RECORD"
+        self._append_record_owner(record, runtime, "bin/aaa")
+        record_bytes = record.read_bytes()
+        real_unlink = os.unlink
+        unlink_count = 0
+
+        def fail_second_unlink(
+            path: str | bytes,
+            *,
+            dir_fd: int | None = None,
+        ) -> None:
+            nonlocal unlink_count
+            unlink_count += 1
+            if unlink_count == 1:
+                real_unlink(path, dir_fd=dir_fd)
+                return
+            raise OSError(errno.EIO, "injected second unlink failure")
+
+        with (
+            patch.object(
+                runtime_prune.os,
+                "unlink",
+                side_effect=fail_second_unlink,
+            ),
+            self.assertRaisesRegex(
+                runtime_prune.RuntimePruneError,
+                "cannot delete admitted runtime installer file",
+            ),
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
+
+        quarantine = runtime / runtime_prune._INSTALLER_QUARANTINE_NAME
+        self.assertEqual(unlink_count, 2)
+        self.assertFalse((runtime / "bin").exists())
+        self.assertTrue(quarantine.is_dir())
+        self.assertFalse((quarantine / "aaa").exists())
+        self.assertTrue((quarantine / "jsonschema").is_file())
+        self.assertEqual(record.read_bytes(), record_bytes)
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "quarantine residue",
+        ):
+            runtime_prune.verify_runtime_tree(runtime)
+        with self.assertRaisesRegex(
+            runtime_prune.RuntimePruneError,
+            "pre-existing installer quarantine",
+        ):
+            runtime_prune.prune_runtime_tree(runtime)
 
     def test_prune_does_not_follow_replaced_intermediate_directory(self) -> None:
         runtime = self._make_runtime(interpreter="/one/python")

@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import base64
 import csv
+import ctypes
+import errno
 import fnmatch
 import hashlib
 import io
@@ -58,6 +60,11 @@ class _FileEvidence:
 class _InstallerPlan:
     directories: tuple[_DirectoryEvidence, ...]
     files: tuple[_FileEvidence, ...]
+
+
+@dataclass
+class _DeletionState:
+    changed: bool = False
 
 
 def _safe_record_path(value: str) -> PurePosixPath:
@@ -454,28 +461,58 @@ def _required_stat_at(
         ) from error
 
 
-def _rename_at(
+def _native_noreplace_rename(
     parent_descriptor: int,
     source: str,
     destination: str,
 ) -> None:
     try:
-        os.rename(
-            source,
-            destination,
-            src_dir_fd=parent_descriptor,
-            dst_dir_fd=parent_descriptor,
+        library = ctypes.CDLL(None, use_errno=True)
+        if sys.platform.startswith("linux"):
+            function = library.renameat2
+            flag = 1  # RENAME_NOREPLACE
+        elif sys.platform == "darwin":
+            function = library.renameatx_np
+            flag = 0x00000004  # RENAME_EXCL
+        else:
+            raise RuntimePruneError(f"atomic no-replace rename is unsupported on {sys.platform}")
+        function.argtypes = (
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
         )
-    except OSError as error:
+        function.restype = ctypes.c_int
+    except (AttributeError, OSError) as error:
+        raise RuntimePruneError("atomic no-replace rename is unavailable") from error
+
+    ctypes.set_errno(0)
+    result = function(
+        parent_descriptor,
+        os.fsencode(source),
+        parent_descriptor,
+        os.fsencode(destination),
+        flag,
+    )
+    if result != 0:
+        error_number = ctypes.get_errno() or errno.ENOSYS
+        error = OSError(
+            error_number,
+            os.strerror(error_number),
+            f"{source} -> {destination}",
+        )
         raise RuntimePruneError(
-            f"cannot isolate runtime installer tree: {source} -> {destination}"
+            f"atomic no-replace rename failed: {source} -> {destination}"
         ) from error
 
 
 def _delete_quarantined_installer_tree(
     root_descriptor: int,
+    quarantine_descriptor: int,
     owners: dict[str, tuple[Path, str, int]],
     admitted: _InstallerPlan,
+    deletion_state: _DeletionState,
 ) -> None:
     current = _scan_installer_tree(
         root_descriptor,
@@ -491,17 +528,15 @@ def _delete_quarantined_installer_tree(
     if _entry_exists_at(root_descriptor, "bin"):
         raise RuntimePruneError("runtime installer bin was recreated before quarantine deletion")
 
-    installer_descriptor = _open_directory_at(
-        root_descriptor,
-        _INSTALLER_QUARANTINE_NAME,
-        _INSTALLER_QUARANTINE_NAME,
-    )
     installer_root = next(entry for entry in admitted.directories if entry.path == "bin")
-    if not _same_directory_identity(installer_root, os.fstat(installer_descriptor)):
-        os.close(installer_descriptor)
+    if not _same_directory_identity(
+        installer_root,
+        os.fstat(quarantine_descriptor),
+    ):
         raise RuntimePruneError("runtime installer quarantine identity changed before deletion")
 
     expected_directories = {entry.path: entry for entry in admitted.directories}
+    installer_descriptor = os.dup(quarantine_descriptor)
     try:
         for expected in admitted.files:
             relative = PurePosixPath(*PurePosixPath(expected.path).parts[1:])
@@ -546,6 +581,7 @@ def _delete_quarantined_installer_tree(
                     raise RuntimePruneError(
                         f"cannot delete admitted runtime installer file: {expected.path}"
                     ) from error
+                deletion_state.changed = True
             finally:
                 os.close(parent_descriptor)
 
@@ -603,6 +639,7 @@ def _delete_quarantined_installer_tree(
                     raise RuntimePruneError(
                         f"cannot delete empty runtime installer directory: {expected.path}"
                     ) from error
+                deletion_state.changed = True
             finally:
                 os.close(parent_descriptor)
     finally:
@@ -619,6 +656,36 @@ def _delete_quarantined_installer_tree(
         os.rmdir(_INSTALLER_QUARANTINE_NAME, dir_fd=root_descriptor)
     except OSError as error:
         raise RuntimePruneError("cannot remove empty runtime installer quarantine") from error
+    deletion_state.changed = True
+
+
+def _restore_quarantine_if_owned(
+    root_descriptor: int,
+    quarantine_descriptor: int,
+    admitted: _InstallerPlan,
+) -> None:
+    installer_root = next(entry for entry in admitted.directories if entry.path == "bin")
+    named = _required_stat_at(
+        root_descriptor,
+        _INSTALLER_QUARANTINE_NAME,
+        _INSTALLER_QUARANTINE_NAME,
+    )
+    held = os.fstat(quarantine_descriptor)
+    if (
+        not _same_directory_identity(installer_root, named)
+        or not _same_directory_identity(installer_root, held)
+        or named.st_dev != held.st_dev
+        or named.st_ino != held.st_ino
+        or named.st_mode != held.st_mode
+    ):
+        raise RuntimePruneError(
+            "runtime installer quarantine is not the admitted root; refusing restore"
+        )
+    _native_noreplace_rename(
+        root_descriptor,
+        _INSTALLER_QUARANTINE_NAME,
+        "bin",
+    )
 
 
 def _remove_installer_tree(
@@ -629,16 +696,27 @@ def _remove_installer_tree(
     current = _scan_installer_tree(root_descriptor, owners)
     if not _installer_plans_match(admitted, current):
         raise RuntimePruneError("runtime installer tree changed before quarantine")
-    if _entry_exists_at(root_descriptor, _INSTALLER_QUARANTINE_NAME):
-        raise RuntimePruneError("runtime installer quarantine destination already exists")
 
-    _rename_at(
+    _native_noreplace_rename(
         root_descriptor,
         "bin",
         _INSTALLER_QUARANTINE_NAME,
     )
     quarantined = True
+    deletion_state = _DeletionState()
+    quarantine_descriptor: int | None = None
     try:
+        quarantine_descriptor = _open_directory_at(
+            root_descriptor,
+            _INSTALLER_QUARANTINE_NAME,
+            _INSTALLER_QUARANTINE_NAME,
+        )
+        installer_root = next(entry for entry in admitted.directories if entry.path == "bin")
+        if not _same_directory_identity(
+            installer_root,
+            os.fstat(quarantine_descriptor),
+        ):
+            raise RuntimePruneError("runtime installer identity changed while entering quarantine")
         isolated = _scan_installer_tree(
             root_descriptor,
             owners,
@@ -652,21 +730,23 @@ def _remove_installer_tree(
             raise RuntimePruneError("runtime installer identity changed while entering quarantine")
         _delete_quarantined_installer_tree(
             root_descriptor,
+            quarantine_descriptor,
             owners,
             admitted,
+            deletion_state,
         )
         quarantined = False
     finally:
-        if (
-            quarantined
-            and not _entry_exists_at(root_descriptor, "bin")
-            and _entry_exists_at(root_descriptor, _INSTALLER_QUARANTINE_NAME)
-        ):
-            _rename_at(
-                root_descriptor,
-                _INSTALLER_QUARANTINE_NAME,
-                "bin",
-            )
+        try:
+            if quarantined and not deletion_state.changed and quarantine_descriptor is not None:
+                _restore_quarantine_if_owned(
+                    root_descriptor,
+                    quarantine_descriptor,
+                    admitted,
+                )
+        finally:
+            if quarantine_descriptor is not None:
+                os.close(quarantine_descriptor)
 
 
 def verify_runtime_tree(root: Path) -> None:

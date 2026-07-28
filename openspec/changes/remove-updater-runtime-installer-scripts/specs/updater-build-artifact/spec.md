@@ -33,15 +33,18 @@ duplicate owner, missing recorded file, or residual direct `bin` child SHALL
 fail closed.
 
 Admission and deletion SHALL remain bound to opened directory and file
-identities. Before the first unlink, the helper SHALL rescan the complete
-subtree through non-following directory descriptors, atomically isolate the
-admitted `bin` tree under one internal quarantine name with a platform-native
-no-replace rename, and revalidate its device, inode, type, mode, link count,
-size, digest, and stable timestamps as applicable. A replaced directory,
-file, hard link, recreated public `bin`, quarantine-name collision, or
-pre-existing/transient quarantine residue SHALL fail without following an
-external path or deleting either an unadmitted replacement or an earlier
-admitted file.
+identities. Pruning SHALL start only after installer/writer settlement inside
+one producer-owned private disposable work root and before publication; it
+does not claim resistance to a hostile same-UID process mutating that private
+root after settlement. Before the first unlink, the helper SHALL rescan the
+complete subtree through non-following directory descriptors, atomically
+isolate the admitted `bin` tree under one internal quarantine name with a
+platform-native no-replace rename, and revalidate its device, inode, type,
+mode, link count, size, digest, and stable timestamps as applicable. A
+replaced directory, file, hard link, recreated public `bin`, quarantine-name
+collision, or pre-existing/transient quarantine residue observed at a required
+revalidation boundary SHALL fail without following an external path or
+deleting either an unadmitted replacement or an earlier admitted file.
 
 A failure before the first successful unlink/rmdir SHALL restore the isolated
 tree to `bin` only after revalidating the quarantine-root device, inode, type,
@@ -72,7 +75,7 @@ runtime through an installer command shim.
 - **THEN** pruning fails without accepting or publishing a runtime
 
 #### Scenario: An admitted installer entry is replaced before deletion
-- **WHEN** a file, hard link, or intermediate directory is replaced after admission or after quarantine but before the first unlink
+- **WHEN** a deterministic test hook replaces a file, hard link, or intermediate directory after admission or after quarantine but before a required identity revalidation and the first unlink
 - **THEN** descriptor-relative identity revalidation rejects the tree, preserves every not-yet-deleted admitted file and every replacement, does not touch an external sentinel, and leaves no quarantine residue after safe restoration
 
 #### Scenario: Deletion fails after one admitted entry was removed
