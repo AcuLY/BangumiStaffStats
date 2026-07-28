@@ -832,12 +832,12 @@ ops_transaction_restore_secondary() {
   case "$OPS_TRANSACTION_SECONDARY_STATE" in
     present)
       ops_transaction_restore_tracked_file \
-        secondary "$OPS_TRANSACTION_SECONDARY_COPY"
-      return
+        secondary "$OPS_TRANSACTION_SECONDARY_COPY" || return
+      return 0
       ;;
     absent)
-      ops_transaction_remove_tracked_ref secondary
-      return
+      ops_transaction_remove_tracked_ref secondary || return
+      return 0
       ;;
     *)
     ops_fail "TRANSACTION_SECONDARY_STATE_INVALID" "compensation"
@@ -872,12 +872,12 @@ ops_transaction_restore_evidence() {
   case "$OPS_TRANSACTION_EVIDENCE_STATE" in
     present)
       ops_transaction_restore_tracked_file \
-        evidence "$OPS_TRANSACTION_EVIDENCE_COPY"
-      return
+        evidence "$OPS_TRANSACTION_EVIDENCE_COPY" || return
+      return 0
       ;;
     absent)
-      ops_transaction_remove_tracked_ref evidence
-      return
+      ops_transaction_remove_tracked_ref evidence || return
+      return 0
       ;;
     *)
     ops_fail "TRANSACTION_EVIDENCE_STATE_INVALID" "compensation"

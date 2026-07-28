@@ -113,29 +113,6 @@ ops_test_command() {
 ops_command() {
   ops_test_command "$1"
 }
-
-ops_test_trace_ref_failure() {
-  local key="$1"
-  local restore_status="$2"
-  local ref_index="missing"
-  local current_identity="missing"
-  local before_state="missing"
-  local after_state="missing"
-  if ref_index="$(ops_transaction_ref_index "$key")"; then
-    before_state="\${OPS_TRANSACTION_REF_BEFORE_STATES[$ref_index]:-missing}"
-    after_state="\${OPS_TRANSACTION_REF_AFTER_STATES[$ref_index]:-missing}"
-    current_identity="$(
-      ops_transaction_ref_current_identity "$ref_index" 2>&1 || true
-    )"
-  fi
-  printf 'COMPENSATION_TRACE=%s|%s|%s|%s|%s|%s\n' \
-    "$key" \
-    "$restore_status" \
-    "$ref_index" \
-    "$before_state" \
-    "$after_state" \
-    "$current_identity" >&2
-}
 `;
 
 function runHarness(root, body, extraEnvironment = {}) {
@@ -533,11 +510,7 @@ ops_atomic_replace_file() {
   fi
 }
 ops_transaction_compensate() {
-  local restore_status=0
-  ops_transaction_restore_secondary || restore_status=$?
-  [[ "$restore_status" -eq 0 ]] ||
-    ops_test_trace_ref_failure secondary "$restore_status"
-  return "$restore_status"
+  ops_transaction_restore_secondary
 }
 ops_install_transaction_traps
 ops_transaction_arm update "$OPS_TEST_RUN_ID" data
@@ -580,11 +553,7 @@ ops_atomic_replace_file() {
   fi
 }
 ops_transaction_compensate() {
-  local restore_status=0
-  ops_transaction_restore_evidence || restore_status=$?
-  [[ "$restore_status" -eq 0 ]] ||
-    ops_test_trace_ref_failure evidence "$restore_status"
-  return "$restore_status"
+  ops_transaction_restore_evidence
 }
 ops_install_transaction_traps
 ops_transaction_arm rollback-data "$OPS_TEST_RUN_ID" data
