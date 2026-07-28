@@ -35,14 +35,22 @@ fail closed.
 Admission and deletion SHALL remain bound to opened directory and file
 identities. Before the first unlink, the helper SHALL rescan the complete
 subtree through non-following directory descriptors, atomically isolate the
-admitted `bin` tree under one collision-free internal quarantine name, and
-revalidate its device, inode, type, mode, link count, size, digest, and stable
-timestamps as applicable. A replaced directory, file, hard link, recreated
-public `bin`, or pre-existing/transient quarantine residue SHALL fail without
-following an external path or deleting either an unadmitted replacement or an
-earlier admitted file. A pre-delete failure SHALL restore the isolated tree to
-`bin` when and only when the public name is still absent and the quarantined
-identity remains owned.
+admitted `bin` tree under one internal quarantine name with a platform-native
+no-replace rename, and revalidate its device, inode, type, mode, link count,
+size, digest, and stable timestamps as applicable. A replaced directory,
+file, hard link, recreated public `bin`, quarantine-name collision, or
+pre-existing/transient quarantine residue SHALL fail without following an
+external path or deleting either an unadmitted replacement or an earlier
+admitted file.
+
+A failure before the first successful unlink/rmdir SHALL restore the isolated
+tree to `bin` only after revalidating the quarantine-root device, inode, type,
+and mode, and only through another atomic no-replace rename. Once any admitted
+entry has been deleted, a later failure SHALL NOT restore a partial tree under
+the public `bin` name or rewrite `RECORD`; it SHALL leave terminal quarantine
+residue, invalidate the entire generated work root, and block retry,
+verification, and publication until the owning artifact builder removes that
+exact disposable work root.
 
 The supported native `bundle_root/bin/bgmss-updater` launcher is created
 outside this pruned install root and SHALL remain unchanged. The OCI runtime
@@ -66,6 +74,14 @@ runtime through an installer command shim.
 #### Scenario: An admitted installer entry is replaced before deletion
 - **WHEN** a file, hard link, or intermediate directory is replaced after admission or after quarantine but before the first unlink
 - **THEN** descriptor-relative identity revalidation rejects the tree, preserves every not-yet-deleted admitted file and every replacement, does not touch an external sentinel, and leaves no quarantine residue after safe restoration
+
+#### Scenario: Deletion fails after one admitted entry was removed
+- **WHEN** one admitted file or directory has been deleted and a later identity check or deletion fails
+- **THEN** pruning leaves the partial tree only under terminal quarantine, preserves the original `RECORD`, restores no public `bin`, and makes the generated work root unverifiable and unpublishable
+
+#### Scenario: The quarantine name races with isolation or restoration
+- **WHEN** an unowned entry appears at the quarantine destination before isolation, or the quarantine root is replaced before restoration
+- **THEN** atomic no-replace rename or root-identity revalidation fails without deleting the unowned entry or moving it to public `bin`
 
 #### Scenario: A pruned runtime retains an installer directory
 - **WHEN** runtime verification observes any direct `bin` child or internal installer quarantine residue after pruning
