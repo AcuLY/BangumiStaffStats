@@ -22,18 +22,46 @@ digest, not an immutable object. That failed attempt remains failure evidence
 only. This revision corrects the root and fixes an identity-equivalent
 Tencent VPC mirror transport before another admitted run.
 
+The next admitted run `6e0140e1c4dda68bb263c1d8` acquired and verified the
+fixed images and proved Product `RuntimePruneTests` 22/22. Harness supervisor
+execution stopped at 17/21: each of the four failures was caused by the fixed
+Node 24.18.0 bookworm-slim config image intentionally lacking `/bin/ps` and
+`/usr/sbin/lsof`. The selected core set did not execute. All run-owned remote
+state was boundedly cleaned. This run is superseded failure evidence only and
+cannot contribute a successful Harness gate or lifecycle claim. Its bounded
+evidence manifest SHA-256 is
+`0e3ae22bd8165e7a164bd21f4f516bfa08988cdc8bde5f5d89c1ed49c0ec078c`;
+the run summary remains `fail-closed` / not archivable. A fresh H2
+implementation and run are required.
+
+The executor's initially saved 7,340-byte postflight program was later proved
+to be a doubly escaped source extraction rather than the actual bytes supplied
+to the earlier SSH standard input. Its mismatch and route-parser exception
+therefore are not authoritative protected-state evidence and do not justify
+relaxing a seal. A read-only rerun from the actual transmitted bytes proved
+network, volume, normalized Nginx, listener, process, legacy-root, route,
+run-root, and image seals exactly equal. Only the existing-container aggregate
+differed: despite excluding State/Health, it still included the entirely
+mutable Docker `NetworkSettings` object, and the preflight had retained only
+an aggregate digest so the differing container could not be localized. This
+revision excludes that object only, strengthens per-container diagnostics,
+and leaves every other protected seal exact. Every future before/postflight
+comparison must bind the actual transmitted program bytes and use the
+identical byte digest. The real rerun program SHA-256 was
+`22ec7fa006997a94fffa21a7344dcfc402b1a4bcff1bc06751fc0cfbda7b88c4`.
+
 | Field | Declaration |
 |---|---|
-| Status | Design complete after main-agent review; execution/verification/archive not started. |
+| Status | Fixed-image failure classified; H2 process-inventory design complete; H2 implementation/fresh execution/verification/archive not started. |
 | Owner | Main agent: identities, specification, audit, lifecycle, commits/push. Delegated execution owner: exact remote/container command set and evidence handoff only. |
-| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. No product, Harness package, or Operations implementation write. |
-| Read-only protected inputs | P, containing H, oracle, all source/Contracts/Operations implementation, other OpenSpec, and all remote state outside the admitted run complement. |
+| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal, plus only the four declared existing Harness process-inventory implementation/test paths. No package-inventory, product, non-acceptance Harness, or Operations implementation write. |
+| Read-only protected inputs | P, failed Harness source, oracle, all implementation outside the exact four-path allowance, other OpenSpec, and all remote state outside the admitted run complement. |
 | Deletion complement | No tracked or pre-existing object. Only manifest-bound run files, immutable-ID run containers, and safely proven run-pulled fixed image refs. |
 | Mutable refs | This change/root-spec/archive lifecycle, main-agent commits/push, one run root, run containers, and conditionally run-pulled images. |
-| Consumes | P exact-head Development result, H acceptance package, fixed image digests, existing remote host/Docker and protected-state facts. |
-| Produces | P/H ancestry/delta proof, separated P/H test evidence, immutable source identities, cleanup/non-interference audit, H implementation and archive identities. |
-| Dependencies | P Actions green → H clean commit → P/H proof → remote read-only admission → isolated tests → cleanup/non-interference → zero-P0/P1 → archive. |
-| Deliverables | Proposal/delta/design/tasks, clean H implementation commit, evidence values/digests recorded into the change, synchronized root spec, archive commit. |
+| Consumes | P exact-head Development result, failed H run/source, Harness acceptance package, Linux `/proc` and existing Darwin inventory behavior, fixed image digests, existing remote host/Docker and protected-state facts. |
+| Produces | Minimal H2 Linux inventory correction, P/H2 ancestry/delta proof, separated P/H2 test evidence, immutable source identities, cleanup/non-interference audit, H2 implementation and archive identities. |
+| Dependencies | P Actions green → H2 implementation/review/clean commit → P/H2 proof → remote read-only admission → isolated tests → cleanup/non-interference → zero-P0/P1 → archive. |
+| Deliverables | Proposal/delta/design/tasks, exact allowed H2 source/test changes, clean H2 implementation commit, evidence values/digests recorded into the change, synchronized root spec, archive commit. |
 | Acceptance | Proposal acceptance table plus the closed commands and invariants below. |
 | Non-goals | Formal matrix or product/Operations implementation; release/deploy/activation; host toolchain installation; production readiness. |
 | Operations deferred | Receipt/schema/code rebinding and every Operations candidate/host-validation step. |
@@ -43,10 +71,13 @@ Tencent VPC mirror transport before another admitted run.
 
 **Goals:**
 
-- Make P, H implementation, and H archive distinct, ordered identities.
-- Prove every non-declared P/H product path has identical Git mode and blob.
-- Execute the corrected Product Updater tests from P, not H.
-- Execute Harness package/supervisor/selected control tests from H, not P.
+- Make P, H2 implementation, and H2 archive distinct, ordered identities.
+- Prove every non-declared P/H2 product path has identical Git mode and blob.
+- Execute the corrected Product Updater tests from P, not H2.
+- Replace only Linux process/owned-cwd discovery with fail-closed Node built-in
+  `/proc` reads while preserving current Darwin `ps`/`lsof` behavior.
+- Execute Harness package/supervisor/selected control tests from corrected H2,
+  not P or the failed Harness source.
 - Leave `myserver`, both worktrees, and all protected resources unchanged.
 
 **Non-Goals:**
@@ -55,16 +86,19 @@ Tencent VPC mirror transport before another admitted run.
   or production claim.
 - No local product test/build/Docker.
 - No tool installation on `myserver`; Node and Python execute in containers.
+- No host `ps`/`lsof` injection, `apt`, derived runtime image, mutable image,
+  fallback process identity, or accepted test exception.
 - No Compose, network, volume, published port, service reload, or product
   deployment.
 
 ## Decisions
 
-### 1. Treat P and H as separate immutable sources
+### 1. Treat P and corrected H2 as separate immutable sources
 
-H SHALL descend P. Before transfer, Git SHALL produce complete sorted
-mode/blob inventories for both revisions and one changed-path inventory. The
-allowed difference set is closed to:
+H2 SHALL descend both P and the Harness revision used by the superseded run.
+Before transfer, Git SHALL produce complete sorted mode/blob inventories for
+P and H2 and one changed-path inventory. The allowed difference set remains
+closed to:
 
 - `contracts/acceptance/**`;
 - active and archived
@@ -75,10 +109,12 @@ allowed difference set is closed to:
   `implement-operations-foundation-and-isolated-validation` change already
   present on the control line.
 
-No `operations/**`, product, build, non-acceptance Contracts, workflow,
-package-lock authority, or other path may differ. Every allowed changed path
-records status, mode, and blob/byte digest; non-allowed difference count must
-be zero.
+No new OpenSpec change directory is added. No `operations/**`, product, build,
+non-acceptance Contracts, workflow, package-lock authority, or other path may
+differ. The H2 implementation is restricted to the existing
+`contracts/acceptance/**` family already admitted by this closure. Every
+allowed changed path records status, mode, and blob/byte digest; non-allowed
+difference count must be zero.
 
 Each revision is transferred as its own Git archive. The controller records
 commit/tree, archive SHA-256/size/mode, and a complete extracted
@@ -111,7 +147,10 @@ requires every descriptor size and layer availability, and records the graph.
 The run neither resolves a tag nor changes daemon/mirror/proxy configuration.
 After pull, `RepoDigests`, immutable config ID, OS/architecture, config
 diff-IDs, and the recorded graph must agree. Version checks and every later
-container use the immutable config image ID.
+container use the immutable config image ID. The fixed Node config's absence
+of `/bin/ps` and `/usr/sbin/lsof` is a supported slim-image property, not
+authority to install a host package, run `apt`, inject a binary, derive a
+replacement image, or change the immutable runtime identity.
 
 Actual gates run with `--network none`, a read-only container root, `/tmp`
 tmpfs, no host toolchain, no port, no Docker network, and only writable
@@ -130,7 +169,80 @@ cache preparation or any gate. A missing/ambiguous descriptor, digest/size
 mismatch, Docker Hub fallback, pre-existing config ownership, failed pull, or
 identity check stops and invokes only the declared owned-image cleanup.
 
-### 3. Freeze one Product test owner and three Harness gates
+### 3. Make Linux process attribution self-contained and fail closed
+
+Only these Harness paths may change:
+
+- `contracts/acceptance/lib/runner.mjs`;
+- `contracts/acceptance/lib/process-closure-worker.mjs`;
+- necessary `contracts/acceptance/test/core.test.mjs`;
+- necessary `contracts/acceptance/test/supervisor.test.mjs`.
+
+The closed package file inventory remains unchanged. `runner.mjs` SHALL export
+the pure platform inventory and complete-command helpers;
+`process-closure-worker.mjs` SHALL statically import those helpers. This does
+not form a static cycle because `runner.mjs` only constructs the worker URL
+inside `createProcessClosureMonitor`; importing either module MUST perform no
+top-level process spawn, process signal, filesystem write, worker creation, or
+inventory read. `core.test.mjs` SHALL reuse the exported complete-command
+helper rather than retain an independent platform parser.
+
+The runner and worker SHALL thereby share one process-inventory contract. On
+Linux it uses only Node built-ins to enumerate numeric `/proc/<pid>` entries
+and read `stat`, `status`, `exe`, `cwd`, and raw `cmdline`; it MUST NOT spawn
+or probe `ps`, `lsof`, a shell, or any other external inventory binary. On
+Darwin it retains the existing absolute `/bin/ps` and `/usr/sbin/lsof`
+commands, parsing, and safety behavior. Windows remains explicitly
+unsupported.
+
+For each Linux PID, one bounded snapshot reads and validates:
+
+- PID, parent PID, process-group ID, and start-time field from `/proc/<pid>/stat`;
+- one unambiguous real UID from `/proc/<pid>/status`;
+- absolute executable and cwd link targets from `/proc/<pid>/exe` and
+  `/proc/<pid>/cwd`;
+- a bounded raw `/proc/<pid>/cmdline`, parsed as NUL-delimited bytes into an
+  exact argv array without whitespace joining, empty-middle-field removal, or
+  text-shell interpretation.
+
+The `stat` parser SHALL recognize the PID and complete parenthesized `comm`
+field before indexing Linux fields 4 (parent PID), 5 (process group), and 22
+(start time); it MUST NOT whitespace-split the whole row because `comm` may
+contain spaces or closing parentheses. Numeric fields must be canonical,
+positive where required, and within JavaScript safe-integer bounds.
+
+The snapshot reads `stat` before and after the other fields. Its immutable
+identity tuple is PID + UID + kernel start time + executable link target. A
+changed tuple, a PID that disappears and reappears, an invalid relationship,
+an unbounded/malformed field, unexpected empty argv, a relative or malformed
+link, `EACCES`/`EPERM`, or any other permission/format ambiguity fails closed.
+`ENOENT`/`ESRCH` during enumeration is treated as a normal exit only after a
+bounded confirmation proves that exact PID entry remains absent; otherwise
+the snapshot rejects the race. It never silently converts a partial row into
+an absent process.
+
+Closure ancestry, new-host-process detection, owned-cwd before/after
+difference, escaped-fixture command matching, and pre-signal cleanup
+revalidation all use the same identity tuple. Cwd ownership is accepted only
+when the read-link target equals the canonical run root or is contained below
+it by path-segment comparison; lexical-prefix matches, deleted/relative
+targets, symlink escape, and changed identity are rejected. Before every
+identity-addressed signal from escaped/closure cleanup, a fresh snapshot must
+match both immutable identity and the exact argv required by that owned
+process. PID reuse or any mismatch MUST preserve the process and fail rather
+than signal it.
+
+Focused tests SHALL prove positive operation when `/bin/ps` and
+`/usr/sbin/lsof` are absent, worker/runner semantic parity, confirmed
+disappearance handling, exact NUL argv parsing, cwd containment, and cleanup
+of an exact owned identity. Negative tests SHALL prove malformed/truncated
+`stat`, ambiguous/missing UID, malformed/oversized cmdline, permission
+failure, unreadable/escaped cwd or executable, PID reuse, and unexpected
+external-inventory execution all fail closed without signaling a foreign
+process. Darwin tests and/or platform-injected coverage SHALL prove the
+existing `ps`/`lsof` command and observable behavior remain unchanged.
+
+### 4. Freeze one Product test owner and three Harness gates
 
 P owns:
 
@@ -140,7 +252,7 @@ from P's `updater/` copy. The expected discovered class currently has 22 test
 methods, but evidence records the actual executed count and names rather than
 accepting a declaration.
 
-H owns:
+Corrected H2 owns:
 
 1. `node contracts/acceptance/bin/acceptance.mjs verify-package` before install;
 2. the offline install, then
@@ -152,19 +264,18 @@ H owns:
 The selected core set is closed to the Backend content/lock/handshake/
 materialization/check/query-measurement families; the three reparented-runner
 tests; and the evidence/result/parent-supervisor families named in tasks.
-TAP parsing records actual pass/fail/skip and selected names. The only
-permitted nonzero is exact test
-`escaped fixture fallback cleans only an exact owned process identity` with
-exact message
-`escaped fixture process identity differs before cleanup`; it is a Darwin text
-fixture mismatch on Linux and waives no production behavior. Any other
-failure, missing selected name, widened pattern, or count drift fails.
+TAP parsing records actual pass/fail/skip and selected names. All 21 supervisor
+tests and every frozen selected core test must pass. The former
+`escaped fixture process identity differs before cleanup` classification is
+not an exception for H2: observing it again proves the Linux inventory
+correction did not close and fails the run. Any failure, missing selected
+name, widened pattern, or count drift fails.
 
 Afterward the run removes only generated `node_modules`/`.tmp` from the
 run-owned H copy and `updater/build/.tmp` plus Python cache residue from the
 run-owned P copy, then repeats `verify-package` and both source inventories.
 
-### 4. Use one absent remote root and no runtime topology
+### 5. Use one absent remote root and no runtime topology
 
 The main agent selects one opaque run ID and exact root:
 
@@ -177,17 +288,49 @@ metadata inventory digest, and type/count/logical-size distribution. Regular
 file contents are deliberately not opened or hashed, and secret/live-data
 path names are not emitted. When and only when that root is a Git worktree,
 its Git identity and status digest are added. The seal also includes the
-legacy container stable inspect projection, Docker network/volume inventories,
-`nginx -T` digest, current listeners/process facts, and one actual Host/SNI
-loopback route status/header/body digest. A non-Git published legacy root is
-an explicit filesystem state, not an admission failure.
+existing-container stable inspect projection, Docker network/volume
+inventories, `nginx -T` digest, current listeners/process facts, and one actual
+Host/SNI loopback route status/header/body digest. A non-Git published legacy
+root is an explicit filesystem state, not an admission failure.
+
+For each pre-existing container, the stable inspect record is canonical and
+closed to immutable identity/configuration: container ID and name, image ID,
+a redacted digest of `Config`, mounts, declared/exposed ports and host port
+bindings, restart policy, and the stable host-configuration fields. The entire
+`State`/`Health` and `NetworkSettings` objects are excluded because their PID,
+timestamps, health counters/logs, sandbox/endpoint IDs, dynamic addresses, and
+runtime counters are observations rather than immutable container
+configuration. Network attachment/configuration remains independently bound by
+the exact Docker-network seal. Preflight records the sorted container IDs and
+one redacted canonical record digest per container as well as their aggregate;
+postflight compares each record before comparing the aggregate, so a mismatch
+is attributable without emitting environment values, bind-source secrets, or
+other sensitive configuration. Count, ID, name, image, Config digest, mount,
+declared-port/port-binding, restart-policy, or stable HostConfig drift fails.
+No other protected seal is weakened.
+
+The controller SHALL construct one exact protected-seal program as a byte
+array, record its SHA-256 and size, and transmit those actual bytes for both
+preflight and postflight. Reconstructed JavaScript source, shell-escaped
+display text, logs, or command serialization are not substitutes for the
+transport bytes. Both executions SHALL self-report the same program SHA and
+version before their result can be compared. The route probe SHALL make one
+Host/SNI loopback request per phase and parse that same captured response with
+the same parser: status is validated as a bounded decimal HTTP status, headers
+are parsed by the first colon after CRLF normalization with duplicate fields
+preserved, the header-terminating blank line is handled explicitly, and body
+bytes are kept separate from headers/status. Duplicate headers and values that
+contain colons remain data rather than parser errors. Malformed framing,
+missing status, an invalid header line, truncation, or cross-phase input
+substitution fails closed with the raw bounded evidence digest rather than
+throwing an unclassified parser exception or emitting a partial seal.
 
 After admission, the run creates the root with an ownership marker and a
-closed file manifest, transfers P/H archives, and uses uniquely named
+closed file manifest, transfers P/H2 archives, and uses uniquely named
 run-labeled containers only. It creates no Compose project, Docker network,
 volume, port, listener, daemon, or production path.
 
-### 5. Make cleanup and claims exact
+### 6. Make cleanup and claims exact
 
 Cleanup stops/removes containers only by captured immutable ID and run label,
 removes files individually and directories bottom-up from the closed manifest,
@@ -198,16 +341,17 @@ than force-removed. Docker prune, broad recursive deletion, wildcard targets,
 Git clean, Compose down, network/volume deletion, and legacy cleanup are
 forbidden.
 
-The postflight repeats every protected inventory and requires the run root,
-containers, archives, caches, and source residue absent. The maximum lifecycle
-claim remains
+The postflight re-executes the exact same protected-seal program bytes and
+repeats every protected inventory; any program digest/version difference is
+itself a failed seal. It requires the run root, containers, archives, caches,
+and source residue absent. The maximum lifecycle claim remains
 `development-acceptance-closed-by-authorized-ci-and-remote-evidence`; all 56
 formal cells remain explicitly unexecuted and no canonical result/verdict is
 emitted.
 
 ## Risks / Trade-offs
 
-- **[H contains planning-only lifecycle paths absent from P]** → Bind the exact
+- **[H2 contains planning-only lifecycle paths absent from P]** → Bind the exact
   path/mode/blob inventory; never allow a broad prefix or any implementation
   path.
 - **[A selected test pattern silently widens or skips]** → Freeze exact names,
@@ -220,19 +364,26 @@ emitted.
   only by config image ID. Never resolve a tag or trust a mirror header alone.
 - **[A remote object collides or changes concurrently]** → Stop before writes
   or preserve ambiguous residue; never compensate with broader deletion.
-- **[A Linux fixture exception grows]** → Match one exact name and error only;
-  any second failure blocks closure.
+- **[The former Linux fixture mismatch returns]** → H2 removes the exception
+  entirely, so the former exact mismatch or any other failure blocks closure.
+- **[Displayed command text differs from executed seal bytes]** → Hash the
+  actual transport byte array before each SSH invocation, require the remote
+  program to report the same digest/version, and reject reconstructed or
+  doubly escaped source.
 
 ## Migration Plan
 
 1. Wait for exact-head P Development Actions success.
-2. Commit strict-valid refresh artifacts; that commit/tree is H implementation.
-3. Prove ancestry/differences, perform read-only preflight, attest the fixed
+2. Strict-validate, main-review, commit, and push this OpenSpec revision by
+   itself.
+3. Implement and review only the four declared Linux process-inventory paths,
+   preserving Darwin, then commit and push H2 source/tests by themselves.
+4. Prove P/H2 and failed-H/H2 ancestry/differences, perform read-only preflight, attest the fixed
    mirror OCI graphs, then pull and run the closed remote container gates.
-4. Pull/hash bounded evidence, clean the run complement, repeat protected
+5. Pull/hash bounded evidence, clean the run complement, repeat protected
    inventories, and obtain independent zero-P0/P1 review.
-5. Record exact identities/results, sync the delta, archive the change, commit,
-   push, and hand P/H/archive identities to Operations.
+6. Record exact identities/results, sync the delta, archive the change, commit,
+   push, and hand P/H2/archive identities to Operations.
 
 Failure before remote mutation changes no external state. Failure afterward
 invokes only the exact identity cleanup above; it never modifies Product,
@@ -240,5 +391,5 @@ legacy, production, or host integration.
 
 ## Open Questions
 
-None. Actual run ID, H OIDs, test counts, source/archive digests, container
+None. Actual fresh run ID, H2 OIDs, test counts, source/archive digests, container
 IDs, and log/TAP digests are evidence outputs and must not be guessed.
