@@ -10,7 +10,7 @@
 | Read-only protected inputs | Root authorities and oracle; all OpenSpec outside this change; `VERSION`; `.github/workflows/ci.yml`; `contracts/artifacts/**`; accepted immutable Backend/Updater/Frontend artifact roots; all `backend/**`, `updater/**`, `frontend/**`, and other `contracts/**`; runtime/recovery/validation owner paths; external refs, registries, releases, environments, secrets, hosts, and production state. |
 | Deletion complement | None. Generated release output may be removed only below a proven run-owned `operations/.tmp/**` root. |
 | Mutable refs | Only the listed repository worktree files. Running tag, registry, GitHub Release, production Environment, SSH, or deploy mutations is not authorized by this capability apply. |
-| Consumes | Archived green `complete-integrated-development-acceptance`; its exact frozen accepted product revision/tree; accepted product build definitions, statement/compatibility schemas and validators, toolchain/base identities, and Darwin/ARM64 evidence only as provenance; `VERSION`; reviewed exact Actions/toolchain identities. This owner creates rather than consumes the new `linux/amd64` component artifacts. |
+| Consumes | Archived `complete-integrated-development-acceptance` with exact status `development-acceptance-closed-by-authorized-ci-and-remote-evidence`; frozen product revision/tree `3f585cfe0a0dd61fe783a839528fef25470a58db`/`93e29a0c51c0305db8a43e7d029b8eaa3014a1b8`; acceptance implementation, green Actions, isolated remote targeted/exception/unexecuted-cell/cleanup/audit evidence; accepted product build definitions, statement/compatibility schemas and validators, toolchain/base identities, and prior artifact identities only as non-AMD64 provenance; `VERSION`; reviewed exact Actions/toolchain identities. This owner creates rather than consumes the new `linux/amd64` component artifacts. |
 | Produces | A canonical accepted-development receipt; isolated-validation AMD64 candidate and tag-release candidate/published-release schemas, validators, and assemblers; checksum inventory; immutable AMD64 provenance; operations verification workflow; protected-tag release workflow; approval-gated deploy workflow; and negative policy tests. |
 | Dependencies | `complete-integrated-development-acceptance`, `contracts-rewrite-baseline`, `contracts-application-release-identity`, `contracts-artifact-compatibility`, `backend-build-artifact`, `updater-build-artifact`, and `frontend-build-artifact`. Dependency direction is product artifacts and Contracts → Operations release assembly → runtime/validation consumers; Operations never writes upstream evidence. |
 | Deliverables | The exact writable files, reproducibility/provenance/policy tests, and ephemeral candidate output below `operations/.tmp/**`. |
@@ -24,29 +24,36 @@
 ### Requirement: An accepted-development receipt SHALL anchor Operations
 
 Operations SHALL contain one canonical, immutable
-`operations/release/accepted-development.json` derived from the main-agent
-audited green acceptance result and its lifecycle-recorded digest/identities.
-The receipt SHALL bind the result schema/digest and exact verdict
-`development-accepted-operations-pending`, frozen product revision/tree,
-acceptance control revision/tree, archived acceptance lifecycle commit, root
-application version, accepted build/statement/compatibility contract digests,
-and the Darwin/ARM64 artifact identities labeled as provenance rather than
-AMD64 inputs. Repository gates SHALL verify every repository-resolvable field
-and fail if the receipt or its recorded authority drifts.
+`operations/release/accepted-development.json` derived from the
+main-agent-audited authorized CI/remote acceptance lifecycle bundle. The
+receipt SHALL bind exact lifecycle status
+`development-acceptance-closed-by-authorized-ci-and-remote-evidence`, frozen
+product revision/tree, acceptance implementation revision, green Actions
+head/tree/run ID and conclusion, archived acceptance lifecycle commit, remote
+source/runtime identity and package/targeted test counts, the one narrowly
+classified Linux fixture exception, the explicit unexecuted formal-cell set,
+cleanup and zero-P0/P1 audit facts, root application version, accepted
+build/statement/compatibility contract digests, and prior artifact identities
+labeled as non-AMD64 provenance. The receipt SHALL contain neither a formal
+result digest nor a synthesized
+`development-accepted-operations-pending` verdict. Repository gates SHALL
+verify every repository-resolvable field and fail if the receipt or its
+recorded authority drifts.
 
 #### Scenario: Operations reads the accepted receipt
 - **WHEN** the canonical receipt, archived acceptance lifecycle evidence, Git objects, root version, and accepted contract/build digests all agree
 - **THEN** its frozen product identity may authorize AMD64 validation assembly and later tag-baseline comparison
 
 #### Scenario: Acceptance evidence is missing or reinterpreted
-- **WHEN** the verdict/digest/OID/contract fact is absent, changed, unresolved, or an ARM64 identity is marked deployable for AMD64
+- **WHEN** a lifecycle/CI/remote/exception/unexecuted-cell/OID/contract fact is absent, changed, unresolved, a formal verdict is synthesized, or prior artifact identity is marked deployable for AMD64
 - **THEN** Operations verification and release stop before building
 
 ### Requirement: Operations validation assembly SHALL rebuild the frozen accepted product identity
 
 Operations SHALL admit only the exact product revision/tree frozen by the
-archived green development-acceptance result. A run-owned isolated checkout of
-that identity SHALL prove clean index, tracked worktree, modes, untracked
+archived authorized development-acceptance lifecycle bundle. A run-owned
+isolated checkout of that identity SHALL prove clean index, tracked worktree,
+modes, untracked
 non-ignored set, and absence of content-hiding flags before invoking its
 accepted build definitions. The operations controller revision/tree SHALL be
 recorded separately and SHALL NOT replace the product identity embedded in
@@ -55,7 +62,7 @@ artifact bytes prove prior development acceptance but SHALL NOT be relabeled,
 retagged, or reused as `linux/amd64`.
 
 #### Scenario: The frozen product is rebuilt for isolated validation
-- **WHEN** the archived result, exact isolated product checkout, accepted build definitions/contracts/toolchains, and operations controller identity all pass
+- **WHEN** the archived authorized receipt, exact isolated product checkout, accepted build definitions/contracts/toolchains, and operations controller identity all pass
 - **THEN** Operations may create fresh unpublished validation component statements and bytes whose product source is the frozen accepted revision/tree and whose target is `linux/amd64`
 
 #### Scenario: Product or evidence drift is present

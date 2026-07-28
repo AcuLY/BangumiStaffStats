@@ -8,11 +8,11 @@
 | Read-only protected inputs | All root authorities/oracle/product/Contracts/build sources and evidence; `.github/workflows/ci.yml`; OpenSpec outside this change; other owner groups while concurrent; registries/releases/environments/secrets/refs. On `myserver`, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, other `/srv/**`, all pre-existing Docker/Compose images/tags/volumes/networks/containers/projects, Nginx/systemd/TLS/DNS/firewall/users/cron, public listeners, legacy data/processes, and every undeclared path/ref. |
 | Deletion complement | No tracked or pre-existing state. Only closed run-owned local `.tmp` paths, remote validation path inventory, captured project resources, and still-identity-matching run-created image references may be removed. |
 | Mutable refs | Exact listed worktree files; main-agent commits/push/lifecycle; admitted validation root pointers/links and captured project/image refs. No tag, release, registry, Environment, secret, production/legacy ref, daemon, public route, or named volume is mutable. |
-| Consumes | Archived green development acceptance and frozen product revision/tree; accepted build/contracts/tool identities and ARM64 provenance; full inactive/minimal Archives; approved Operations specs; read-only host facts. |
+| Consumes | Archived authorized CI/remote development-acceptance lifecycle bundle and frozen product revision/tree; accepted build/contracts/tool identities and prior artifact provenance; full inactive/minimal Archives; approved Operations specs; read-only host facts. The formal Darwin/ARM64 matrix remains explicitly unexecuted. |
 | Produces | Repository Operations implementation/tests/workflows, accepted-development receipt, two clean frozen-product AMD64 validation sets/candidate, tag-release policy, canonical host validation result, cleanup/non-interference evidence, synchronized/archived specs, and green Actions. |
 | Dependencies | Complete and archive `complete-integrated-development-acceptance`; then foundation; release and runtime may implement in parallel after foundation; validation depends on both; clean AMD64 build depends on committed implementation; remote write depends on main-agent acceptance of read-only host preflight. |
 | Deliverables | Every path and evidence named above; no generated or remote validation residue. |
-| Acceptance | All three capability acceptance sets, exact commands below, zero P0/P1 main-agent audit, strict validation, staged commit boundaries, push, and green branch Actions; released/deployed remain false. Browser/oracle rerun is not applicable because exact path gates prohibit UI/product edits and the development acceptance remains authoritative. |
+| Acceptance | All three capability acceptance sets, exact commands below, zero P0/P1 main-agent audit, strict validation, staged commit boundaries, push, and green branch Actions; released/deployed remain false. Browser/oracle rerun is not applicable because exact path gates prohibit UI/product edits; preservation authority is the immutable oracle contract plus green Frontend source/artifact Actions evidence, not an unexecuted formal browser matrix. |
 | Non-goals | Product or contract changes; use of ARM64 bytes as AMD64; production release/deploy/activation; Nginx/systemd/TLS/users/firewall/public-route mutation; real scheduled acquisition; SLO/cutover/observation; or legacy retirement/deletion. |
 | Operations deferred | GHCR/GitHub Release/tag execution, Environment/secrets/forced-command setup, `/srv/bgmss-v2` mutation/start, host integration/reload, real timer/update, preview/cutover, stability windows, and old-stack cleanup. |
 | Stop/rollback conditions | Every group stops on branch/HEAD/review/dirty/owned-path mismatch and preserves state for audit. Never use `git reset --hard`, checkout-based rollback, `git clean`, `git add -A`, broad recursive deletion, unresolved variables/globs as deletion targets, or writes outside the exact owner. Remote validation stops before writes on any collision/fact/space/identity ambiguity; after mutation it restores/cleans only captured run-owned state and preserves primary plus secondary faults. |
@@ -20,7 +20,8 @@
 ## 1. Admission and shared Operations foundation
 
 - [ ] 1.1 **Foundation owner preflight.** After the development acceptance
-  result is green, synchronized, archived, and committed, verify branch
+  lifecycle bundle is synchronized, archived, committed, and explicitly
+  authorized for Operations without a canonical formal result, verify branch
   `codex/formal-rewrite`; compare `HEAD` and `HEAD^{tree}` with the full
   main-agent-approved base OIDs recorded in the handoff; require a clean
   staged/unstaged/untracked non-ignored state; require no active change except
@@ -28,11 +29,15 @@
   `openspec validate implement-operations-foundation-and-isolated-validation --strict --json`;
   and stop without edits on any mismatch.
 - [ ] 1.2 Record a canonical local authorization input below
-  `operations/.tmp/inputs/**` that binds the audited green result digest and
-  exact verdict `development-accepted-operations-pending`, frozen product
-  revision/tree, Operations base identity, accepted tool/build/contract
-  identities, and ARM64 evidence explicitly as non-AMD64 provenance. Have the
-  main agent compare it with the audited acceptance evidence before use.
+  `operations/.tmp/inputs/**` that binds lifecycle status
+  `development-acceptance-closed-by-authorized-ci-and-remote-evidence`, frozen
+  product revision/tree, acceptance implementation, green Actions head/run,
+  archived lifecycle commit, remote package/targeted counts, narrow Linux
+  fixture exception, unexecuted formal cells, cleanup/audit facts, Operations
+  base identity, accepted tool/build/contract identities, and prior artifacts
+  explicitly as non-AMD64 provenance. Reject a formal result digest or
+  synthesized `development-accepted-operations-pending` verdict. Have the main
+  agent compare it with the archived acceptance evidence before use.
 - [ ] 1.3 Add only `/operations/.tmp/` to root `.gitignore`; create the
   Operations package/lock with exact Node 24.18.0, npm 11.16.0, Ajv 8.20.0,
   and YAML 2.8.1; disable install scripts/audit/fund/update-notifier in fixed
@@ -72,8 +77,9 @@
   `operations/release/accepted-development.json` receipt plus receipt,
   `validation-candidate-v1`, tag-release-candidate-v1, and published
   `release-manifest-v1` schemas, canonical validators, and negative fixtures.
-  Bind the accepted result/verdict/digest, frozen product, acceptance control,
-  archived lifecycle, and Operations/tag identities separately; bind exact target,
+  Bind the authorized lifecycle/CI/remote/exception/unexecuted-cell evidence,
+  frozen product, acceptance control, archived lifecycle, and Operations/tag
+  identities separately; bind exact target,
   components, OCI graph/config, Backend `archive-smoke`, Frontend,
   compatibility/OpenAPI/Archive facts, Prometheus digest, checksums, and
   published-vs-unpublished state.
@@ -287,7 +293,7 @@
 
 - [ ] 6.1 **AMD64 execution owner preflight.** Require a clean committed
   Operations implementation, exact commit/tree approved by the main agent,
-  archived green acceptance authorization input, frozen product OIDs, exact
+  archived authorized CI/remote acceptance input, frozen product OIDs, exact
   Node/npm/Go/uv/Docker/Buildx/BuildKit identities, sufficient local space,
   a working real AMD64 container-execution smoke on the admitted builder, and
   no existing target output address with different bytes. Reject the host

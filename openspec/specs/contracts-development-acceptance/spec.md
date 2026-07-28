@@ -1291,4 +1291,3 @@ cleanup, and isolation verification against the exact candidate it consumes.
 - **THEN** it SHALL bind the exact authorized lifecycle bundle and independently
   verify its Linux/AMD64 release assembly, isolated runtime, rollback, cleanup,
   and host non-interference before any later release or deployment decision
-
