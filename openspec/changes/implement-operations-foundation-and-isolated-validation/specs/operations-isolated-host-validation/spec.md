@@ -34,6 +34,12 @@ Prometheus digest reference are absent, and no requested
 container/network/name/label collides. It SHALL inventory and seal protected
 legacy/production paths, Compose/Docker resources, listeners, Nginx/systemd
 state, and process identities without reading secret contents.
+The Prometheus input SHALL be exact
+`prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80`
+and admit only its `linux/amd64` child manifest
+`sha256:335b5796a6e4355530475575253f84de20b8ad07bf899f65ed218451ce4c60b4`
+with descriptor size `4067`, runtime UID/GID `65532`, and no shell-dependent
+command.
 
 #### Scenario: The approved namespace is free
 - **WHEN** every expected host fact and absence/collision/space/protected-state check passes
@@ -50,8 +56,8 @@ committed operations revision/tree, release-candidate/checksum identities,
 exact Backend and Updater image archive references/digests plus their
 artifact-declared load tags, exact validation aliases, and expected OCI
 manifest/config identities, plus the exact Prometheus digest/reference/alias,
-Frontend and
-`archive-smoke` bytes, compatibility manifest, full and minimal Archive
+Frontend and standalone `archive-smoke` release-asset bytes with source
+member/size/digest/mode, compatibility manifest, full and minimal Archive
 identities, target root/project/services/port, and expected app/data results.
 Transfer SHALL use a new run-owned staging directory below the validation root,
 verify every checksum and closed path/mode inventory on the host, and publish
@@ -95,10 +101,13 @@ verify loopback `/livez`, `/readyz`, expected minimal `dataVersion`,
 `bgmss_build_info` version/commit, a minimal typed query, and Prometheus scrape
 of the API. It SHALL then activate the accepted full inactive Archive through
 the run-owned wrapper, verify the new exact `dataVersion`, status/event,
-readiness, metrics, and query, roll back to the compatible minimal pointer and
+readiness, metrics, query, and Updater peak-memory/no-OOM evidence within the
+initial 640 MiB cap, roll back to the compatible minimal pointer and
 verify again, and finally re-activate the full version. Frontend symlink
 installation/rollback SHALL be verified by exact bytes without changing host
-Nginx.
+Nginx. The memory observation SHALL be labeled isolated migration evidence,
+not a formal development benchmark; an OOM or cap breach SHALL fail validation
+and block production activation pending specification review.
 
 #### Scenario: Candidate and two Archives operate in isolation
 - **WHEN** all artifact-only health, update-tool, static, scrape, activation, rollback, and re-activation checks pass

@@ -151,8 +151,13 @@ The release control plane has four canonical closed documents:
 - `validation-candidate-v1.json` is local and explicitly unpublished. It binds
   the frozen product and Operations controller identities, three newly built
   AMD64 component statements/artifact sets, compatibility manifest,
-  Backend/Updater OCI graph identities and archives, Backend `archive-smoke`,
-  Frontend tar, Prometheus reviewed digest, and a sorted checksum inventory.
+  Backend/Updater OCI graph identities and archives, the standalone
+  `archive-smoke` extracted and verified from the Backend bundle, Frontend tar,
+  Prometheus reviewed digest, and a sorted payload-checksum inventory. That
+  inventory excludes the candidate and itself; a separate complete-file
+  inventory outside the addressed directory enumerates every candidate file
+  and derives the directory content address without embedding itself or the
+  address.
 - The tag-release candidate is also unpublished but binds a later version tag's
   exact commit, its two fresh AMD64 builds, the accepted-development baseline,
   and the Operations controller at that tag. It never reuses the validation
@@ -161,8 +166,10 @@ The release control plane has four canonical closed documents:
   after the release workflow verifies the final GHCR digests for the exact
   tag-release candidate graphs. It binds tag/version, accepted baseline,
   tag/Operations source authority, two image digests,
-  Frontend/checksum/compatibility facts, OpenAPI and Archive compatibility,
-  and Prometheus digest.
+  Frontend/standalone-`archive-smoke`/payload-checksum/compatibility facts,
+  OpenAPI and Archive compatibility, and Prometheus digest. The payload
+  inventory excludes the release manifest and itself; the manifest digest is
+  a separate immutable release-asset identity and deploy input.
 
 All four document/schema families are operations-owned because they assemble deployment facts;
 they embed but do not redefine the Contracts compatibility authority.
@@ -259,21 +266,28 @@ the two exact tuples.
 The production semantic layout is fixed under `/srv/bgmss-v2`:
 
 ```text
-releases/<version>/{release-manifest.json,checksums.txt,frontend/}
+releases/<version>/{release-manifest.json,checksums.txt,frontend/,bin/archive-smoke}
 current-frontend -> releases/<version>/frontend
 compose/{compose.yaml,release.env}
 data/{current.json,update-status.json,updater.lock}
 data/versions/<dataVersion>/{bangumi.sqlite,manifest.json}
-data/.staging/<run-id>/
+data/.bgmss-stage-<run-id>/
 observability/prometheus/
 secrets/
 ```
 
 Root owns scripts, release definitions, and secret interfaces. Nginx is a
 read-only Frontend consumer. API is a read-only Archive/status consumer.
-Updater alone writes its staging/version/status paths. Prometheus alone writes
-its TSDB. The deploy/activation wrapper alone changes current release/data
-refs and controls Compose. No two actors share an undeclared writable path.
+The data root is root-owned, group-writable only by the Updater group, and
+sticky (`01770`); the existing `current.json` is root-owned so the Updater
+cannot replace or remove it. Updater alone creates and writes its actual
+`.bgmss-stage-*`, `versions`, and `update-status.json` objects. The
+deploy/activation wrapper validates the closed root inventory before and after
+Updater execution, is the sole `current.json` writer, and mounts the verified
+release asset `releases/<version>/bin/archive-smoke` read-only and executable
+at `/opt/bgmss/release/archive-smoke`. Prometheus alone writes its TSDB. The
+wrapper alone changes current release/data refs and controls Compose. No two
+actors share an undeclared writable path.
 
 The validation root uses the same shape plus a run-ownership marker and
 evidence directory. It contains no production or legacy mount.
@@ -287,9 +301,8 @@ admit lock/input/space/compatibility
   -> stage immutable bytes
   -> verify closed bytes and permissions
   -> capture previous refs
-  -> atomic switch
-  -> restart
-  -> readiness + app/data identity + minimal query
+  -> atomically replace one declared ref
+  -> restart + readiness + app/data identity + minimal query
   -> commit status/event/retention
 ```
 
@@ -304,12 +317,25 @@ data. Data rollback changes `current.json` and API process generation but not
 application/Frontend. A combined transaction requires a later explicit schema
 release authorization.
 
+Application activation does not pretend `compose/release.env` and
+`current-frontend` are one filesystem-atomic switch. It atomically replaces
+the API release reference first, restarts and verifies API, and atomically
+replaces `current-frontend` last. Any later failure restores every captured
+reference in reverse order and re-verifies the previous state.
+
 Archive scheduling is
 `OnCalendar=Sun *-*-* 03:30:00 Asia/Shanghai` with `Persistent=true`, invoking
 one six-hour oneshot wrapper. Updater remains a finite pinned-image command.
 `no-change`
 and pre-switch failures leave current untouched. Only verified activation
-emits one `update_activated` event.
+emits one LF-terminated canonical JSON event with exactly `event`,
+`run_id`, `app_version`, `old_data_version`, `new_data_version`, and
+`duration_seconds`; `event` is exactly `update_activated`.
+
+The initial Updater container limit is the guide's 640 MiB migration baseline,
+not a claimed formal benchmark. Isolated full-Archive validation records peak
+memory and proves no OOM within that cap; failure stops activation and requires
+a reviewed specification amendment before production use.
 
 ### 8. Treat repository definitions, validation, activation, and retirement as separate states
 
@@ -361,6 +387,13 @@ therefore enumerates six image references across three image identities:
 5. the exact reviewed upstream Prometheus digest reference; and
 6. `localhost/bgmss-ops-validation-prometheus:<reviewed-version>-amd64`.
 
+The selected reference is
+`prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80`.
+Admission requires its `linux/amd64` child manifest
+`sha256:335b5796a6e4355530475575253f84de20b8ad07bf899f65ed218451ce4c60b4`
+with descriptor size `4067`, runtime UID/GID `65532`, and no shell-dependent
+health or control command.
+
 Preflight requires all six absent. Backend/Updater load captures the OCI
 manifest and config digests plus the Docker runtime ID before aliasing.
 Prometheus pull accepts only the exact digest/architecture, captures the same
@@ -401,7 +434,10 @@ Remote success validation uses product artifacts only:
   `bgmss_build_info`, and a minimal typed query;
 - Prometheus internal scrape;
 - minimal → full Archive activation, full → minimal rollback, and final
-  minimal → full activation through the validation wrapper.
+  minimal → full activation through the validation wrapper;
+- full-Archive Updater peak-memory/no-OOM evidence under the initial 640 MiB
+  cap, explicitly recorded as an isolated migration measurement rather than a
+  formal benchmark.
 
 Safe run-owned failure exercises cover a lock collision and a post-switch
 readiness failure/rollback. The complete fault matrix—including disk,
@@ -522,7 +558,7 @@ the legacy stack.
 
 ## Open Questions
 
-None. Exact Prometheus and host-tool identities are implementation inputs
-selected and pinned under the acceptance rules; any mismatch observed at
-apply/validation time is a stop condition requiring specification review, not
-an implicit fallback.
+None. The Prometheus identity is pinned above. Required host control-plane
+facts are implementation inputs selected under the acceptance rules; any
+mismatch observed at apply/validation time is a stop condition requiring
+specification review, not an implicit fallback.

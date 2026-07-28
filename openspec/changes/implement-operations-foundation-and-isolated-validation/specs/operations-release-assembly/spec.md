@@ -6,7 +6,7 @@
 |---|---|
 | Status | Investigated: complete; specified: complete only after strict validation and main-agent approval; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no. |
 | Owner | Operations release/workflow apply group. |
-| Writable paths | `operations/package.json`, `operations/package-lock.json`, `operations/lib/**`, `operations/release/**`, `operations/schemas/release-*.schema.json`, `operations/test/helpers/**`, `operations/test/release/**`, `.github/workflows/operations.yml`, `.github/workflows/release.yml`, `.github/workflows/deploy.yml`, and only the exact root `.gitignore` addition `/operations/.tmp/`; generated output only below ignored `operations/.tmp/**`. |
+| Writable paths | `operations/.gitignore`, `operations/package.json`, `operations/package-lock.json`, `operations/lib/**`, `operations/release/**`, `operations/schemas/release-*.schema.json`, `operations/test/helpers/**`, `operations/test/release/**`, `.github/workflows/operations.yml`, `.github/workflows/release.yml`, `.github/workflows/deploy.yml`, and only the exact root `.gitignore` addition `/operations/.tmp/`; generated output only below ignored `operations/.tmp/**`. |
 | Read-only protected inputs | Root authorities and oracle; all OpenSpec outside this change; `VERSION`; `.github/workflows/ci.yml`; `contracts/artifacts/**`; accepted immutable Backend/Updater/Frontend artifact roots; all `backend/**`, `updater/**`, `frontend/**`, and other `contracts/**`; runtime/recovery/validation owner paths; external refs, registries, releases, environments, secrets, hosts, and production state. |
 | Deletion complement | None. Generated release output may be removed only below a proven run-owned `operations/.tmp/**` root. |
 | Mutable refs | Only the listed repository worktree files. Running tag, registry, GitHub Release, production Environment, SSH, or deploy mutations is not authorized by this capability apply. |
@@ -81,8 +81,10 @@ statements, compare every component and compatibility byte, and assemble one can
 product source revision/tree, operations controller revision/tree, target, all
 three statement and artifact-set digests,
 the compatibility-manifest digest, Backend and Updater OCI archive bytes and
-verified OCI manifest/config identities, the Backend `archive-smoke` member,
-the Frontend static tar, and one sorted checksum inventory. It SHALL declare
+verified OCI manifest/config identities, the Backend `archive-smoke` member
+extracted from its verified binary bundle with exact source member/path,
+size/digest/mode, the Frontend static tar, and one sorted payload-checksum
+inventory. It SHALL declare
 itself unpublished and SHALL contain neither a registry credential nor a
 deployable mutable tag.
 
@@ -97,6 +99,14 @@ QEMU/binfmt path.
 #### Scenario: The same frozen AMD64 validation inputs are assembled twice
 - **WHEN** two fresh builds and two validation-candidate assemblies use the same clean authority and exact toolchains
 - **THEN** all component directories, compatibility manifest, candidate document, checksum inventory, and release payload bytes are byte-identical
+
+The validation candidate's payload-checksum inventory SHALL cover only its
+immutable payload/receipt/component/compatibility files. It SHALL exclude the
+candidate JSON and inventory itself. After both are canonicalized, a separate
+closed complete-file inventory stored outside the addressed candidate
+directory SHALL enumerate every candidate file and derive its content address;
+neither that inventory nor the address SHALL be embedded into any covered
+file.
 
 #### Scenario: An artifact set is mixed or not AMD64
 - **WHEN** a component has another source/tree/platform, the OCI graph is not one `linux/amd64` image, `archive-smoke` is absent or mismatched, or Frontend/compatibility evidence differs
@@ -142,8 +152,16 @@ tag release source revision/tree, Operations controller revision/tree,
 `linux/amd64`,
 both image digests, Frontend archive digest/size, release checksum digest,
 compatibility-manifest digest, exact OpenAPI digest, Archive
-manifest/SQLite/domain/cast compatibility, and the reviewed Prometheus image
-digest. Production deployment SHALL accept only this published form and
+manifest/SQLite/domain/cast compatibility, the verified standalone
+`archive-smoke` release asset's source member/size/digest/mode, and the
+reviewed Prometheus image digest. The manifest-bound payload-checksum
+inventory SHALL include only immutable distribution payload files such as the
+Frontend archive, compatibility manifest, `archive-smoke`, and any reviewed
+SBOM/provenance documents; it SHALL exclude `release-manifest.json` and the
+inventory itself. The manifest's own digest SHALL be verified as the immutable
+GitHub release asset identity and required deploy input, outside the inventory,
+so no document contains its own digest. Production deployment SHALL accept
+only this published form and
 SHALL reject a local candidate, tag-only image, unknown field, non-canonical
 JSON, or digest/compatibility mismatch.
 
@@ -177,13 +195,20 @@ SSH, invoke a host, or activate any deployment.
 
 `.github/workflows/release.yml` SHALL run only for a protected `v*` tag whose
 value exactly equals root `VERSION` and whose commit is the checkout it builds.
-It SHALL use pinned third-party Action commits, one release concurrency key,
-job-scoped minimum `contents: write` and `packages: write`, fresh reproducible
-AMD64 assembly, exact registry login scope, immutable image digest
-verification, and one GitHub Release containing the Frontend tar,
-`release-manifest.json`, compatibility manifest, and checksums. It SHALL not
-use a self-hosted runner, production secret, SSH, deployment Environment,
-`latest`, source build on the server, or unverified attestation.
+It SHALL use pinned third-party Action commits and one release concurrency key.
+One `prepare` job with `contents: read` only SHALL perform the fresh
+reproducible AMD64 assembly and upload one closed candidate through exact
+`actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`
+(`v7.0.1`). A dependent `publish` job alone SHALL receive job-scoped minimum
+`contents: write` and `packages: write`, download only that named candidate
+through exact
+`actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c`
+(`v8.0.1`), revalidate its complete inventory and source authority before
+registry login, verify immutable image digests, and create one GitHub Release
+containing the Frontend tar, standalone `archive-smoke`,
+`release-manifest.json`, compatibility manifest, and payload checksums. It
+SHALL not use a self-hosted runner, production secret, SSH, deployment
+Environment, `latest`, source build on the server, or unverified attestation.
 
 #### Scenario: A protected version tag is released
 - **WHEN** tag/version/source, double builds, evidence, registry digests, canonical manifest, and checksums all pass

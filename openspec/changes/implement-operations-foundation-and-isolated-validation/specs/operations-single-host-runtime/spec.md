@@ -31,7 +31,12 @@ on `0.0.0.0:8080` inside the private Compose network. Prometheus SHALL scrape
 API `/metrics` every 30 seconds and expose no host or public port. Frontend
 files SHALL be installed into versioned host directories for host Nginx, not
 served by another long-lived container. No service SHALL join a legacy
-network or share a legacy writable path/volume.
+network or share a legacy writable path/volume. Prometheus SHALL be exact
+`prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80`;
+its admitted `linux/amd64` child manifest SHALL be
+`sha256:335b5796a6e4355530475575253f84de20b8ad07bf899f65ed218451ce4c60b4`
+with descriptor size `4067`. It SHALL run as UID/GID `65532` without any
+shell-dependent health or control command.
 
 #### Scenario: Production configuration is rendered
 - **WHEN** the exact production profile is rendered and normalized
@@ -45,11 +50,18 @@ network or share a legacy writable path/volume.
 
 The production layout SHALL use versioned immutable releases, an atomic
 `current-frontend` link, root-owned Compose/release definitions, `data/current.json`,
-`data/update-status.json`, `data/versions`, `data/.staging`, a fixed host lock,
-Prometheus TSDB, and a separate secret directory. API SHALL mount Archive and
-status inputs read-only; Updater SHALL write only its staging/version/status
-paths; Prometheus SHALL write only its TSDB; Nginx SHALL read only the current
-Frontend tree. Runtime containers SHALL be non-root, drop unnecessary
+`data/update-status.json`, `data/versions`, actual
+`data/.bgmss-stage-*` producer paths, a fixed host lock, Prometheus TSDB, and a
+separate secret directory. Each release SHALL contain the verified standalone
+`bin/archive-smoke`. The data root SHALL be root-owned, Updater-group-writable,
+and sticky (`01770`); existing `current.json` SHALL remain root-owned. API
+SHALL mount Archive and status inputs read-only. Updater SHALL receive the
+actual data root as `produce --output-root`, may write only the
+`.bgmss-stage-*`, `versions`, and `update-status.json` objects it owns, and
+SHALL neither read nor write `current.json`. The root wrapper SHALL verify a
+closed ownership/inventory policy before and after the producer and SHALL be
+the sole current-pointer writer. Prometheus SHALL write only its TSDB; Nginx
+SHALL read only the current Frontend tree. Runtime containers SHALL be non-root, drop unnecessary
 capabilities, use `no-new-privileges`, and receive no Docker socket, source
 tree, compiler, package manager, SSH material, registry credential, or
 undeclared host path. Secret values SHALL be untracked host files, never image
@@ -70,12 +82,14 @@ published release-manifest digest. After acquiring the shared non-waiting host
 `flock`, it SHALL record the previous manifest, exact image digests, Compose
 reference, and Frontend link; verify checksums, source/version/platform and
 current Archive compatibility; pull exact image digests; install the Frontend
-into a new versioned directory; atomically update release references; start or
-restart the single API; and require `/readyz`, expected
+into a new versioned directory; atomically replace the API release reference;
+start or restart the single API; require `/readyz`, expected
 `bgmss_build_info`, expected `dataVersion`, and a minimal query within 60
-seconds. Success SHALL commit one current release state. Failure SHALL restore
-the previous image references and Frontend link, restart, and verify the
-previous state before releasing the lock. The production host SHALL never
+seconds; and only then atomically replace `current-frontend` last. These two
+references SHALL NOT be represented as one cross-file atomic operation.
+Success SHALL commit one current release state. Failure at any later step
+SHALL restore all captured references in reverse order, restart, and verify
+the previous state before releasing the lock. The production host SHALL never
 build source or follow `latest`.
 
 #### Scenario: A compatible application release activates
@@ -95,12 +109,17 @@ priority. Deploy,
 schema release, scheduled/manual update, and data rollback SHALL share one
 fixed non-waiting `flock`. The wrapper SHALL run the release-manifest-pinned
 Updater image once with the accepted embedded contracts/catalog and exact
-Backend `archive-smoke`, leaving current data untouched on no-change or
-failure. For a published version it SHALL validate paths, permissions,
+standalone `releases/<version>/bin/archive-smoke` mounted read-only and
+executable as `/opt/bgmss/release/archive-smoke`, leaving current data
+untouched on no-change or failure. It SHALL pass the actual data root to
+`produce --output-root`; only the wrapper may inspect and replace
+`current.json`. For a published version it SHALL validate paths, permissions,
 manifest/SQLite digests, schema/domain/cast compatibility, and disk; atomically
 switch `current.json`; restart API; and require expected readiness/data/app
 identity within 60 seconds. Success SHALL emit exactly one canonical
-`update_activated` event. Failure SHALL restore the prior pointer, restart and
+LF-terminated JSON event with exactly `event`, `run_id`, `app_version`,
+`old_data_version`, `new_data_version`, and `duration_seconds`, where `event`
+is `update_activated`. Failure SHALL restore the prior pointer, restart and
 verify it, and SHALL stop automatic cycling if both new and previous states
 fail.
 
@@ -141,12 +160,18 @@ The production profile SHALL enforce the guide's single-stack baseline:
 API hard memory limit 1536 MiB, `GOMEMLIMIT=1024MiB`, existing product cache
 and concurrency semantics, 30-second request bound, Prometheus hard limit 512
 MiB with seven-day/512 MiB TSDB retention, and a one-shot low-priority Updater
-whose final limit is fixed by accepted full-Archive measurement. Compose logs
+with an initial hard limit of 640 MiB. Isolated full-Archive validation SHALL
+measure peak memory and prove no OOM within that cap; failure SHALL stop before
+production activation and require a reviewed specification amendment. This
+measurement SHALL NOT be reported as the formal development benchmark. Compose logs
 SHALL use journald; application journal retention SHALL be 7–14 days and at
 most 512 MiB through documented host policy. Nginx logging SHALL exclude query
-strings and use bounded rotation. Checks SHALL cover readiness, last Archive
-success older than nine days, 5xx/upstream/queue/RSS/cache/oversize/update
-failures, and app/data/manifest inconsistency. Prometheus failure SHALL NOT
+strings and use bounded rotation. Prometheus rules SHALL cover only signals
+actually exported by the API, including available 5xx/upstream/queue/cache/
+oversize/update failure metrics. Bounded `bgmss-ops check` host facts SHALL
+cover readiness, API RSS, last Archive success older than nine days, and
+manifest/app/data identity consistency; no unexported product metric may be
+invented. Prometheus failure SHALL NOT
 make API unready or restart API.
 
 #### Scenario: Runtime policy is rendered and queried
@@ -162,7 +187,7 @@ make API unready or restart API.
 Cleanup definitions SHALL retain only current and previous accepted
 application/Frontend releases, current and previous successful snapshots,
 bounded status/log/TSDB state, and explicitly documented immutable recovery
-evidence. They SHALL clean only staging directories carrying a completed run
+evidence. They SHALL clean only `.bgmss-stage-*` directories carrying a completed run
 identity and only releases/snapshots proven neither current nor previous.
 Before removal they SHALL verify exact root, no symlink traversal, device,
 ownership marker, closed inventory, free-space/recovery gates, and one

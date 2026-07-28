@@ -4,7 +4,7 @@
 |---|---|
 | Status | Investigated: complete; specified: complete after strict validation/main-agent approval; implemented, verified, committed, pushed, released, deployed: no at task creation. |
 | Owner | Main agent reviews/amends specs, selects exact base/evidence, audits, commits/pushes, and performs lifecycle. Subagents own the disjoint substantive implementation groups below. A main-agent mechanical correction is allowed only under the root governance rule and never expands external state. |
-| Writable paths | Foundation/release: `.gitignore` exact `/operations/.tmp/` line, `operations/{package.json,package-lock.json,lib/**,schemas/release-*.schema.json,release/**,test/helpers/**,test/release/**}`, `.github/workflows/{operations,release,deploy}.yml`. Runtime: `operations/{compose/**,config/**,prometheus/**,nginx/**,systemd/**,bin/**,runbooks/**,test/runtime/**}`. Validation: `operations/{validation/**,test/validation/**}`. Integration documentation: `operations/README.md`. Generated local state: `operations/.tmp/**`, absent at handoff. Planning/lifecycle: only this change and future synchronized root operations specs. Remote validation after admission: only `/srv/bgmss-ops-validation/**`, Compose project `bgmss_ops_validation` services `api`/`updater`/`prometheus`, project containers/network, API `127.0.0.1:19090:8080`, no named volume, and the six sealed previously absent image references/three captured image identities defined by the specs. |
+| Writable paths | Foundation/release: root `.gitignore` exact `/operations/.tmp/` line, exact `operations/.gitignore` line `/node_modules/`, `operations/{package.json,package-lock.json,lib/**,schemas/release-*.schema.json,release/**,test/helpers/**,test/release/**}`, `.github/workflows/{operations,release,deploy}.yml`. Runtime: `operations/{compose/**,config/**,prometheus/**,nginx/**,systemd/**,bin/**,runbooks/**,test/runtime/**}`. Validation: `operations/{validation/**,test/validation/**}`. Integration documentation: `operations/README.md`. Generated local state: `operations/.tmp/**`, absent at handoff. Planning/lifecycle: only this change and future synchronized root operations specs. Remote validation after admission: only `/srv/bgmss-ops-validation/**`, Compose project `bgmss_ops_validation` services `api`/`updater`/`prometheus`, project containers/network, API `127.0.0.1:19090:8080`, no named volume, and the six sealed previously absent image references/three captured image identities defined by the specs. |
 | Read-only protected inputs | All root authorities/oracle/product/Contracts/build sources and evidence; `.github/workflows/ci.yml`; OpenSpec outside this change; other owner groups while concurrent; registries/releases/environments/secrets/refs. On `myserver`, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, other `/srv/**`, all pre-existing Docker/Compose images/tags/volumes/networks/containers/projects, Nginx/systemd/TLS/DNS/firewall/users/cron, public listeners, legacy data/processes, and every undeclared path/ref. |
 | Deletion complement | No tracked or pre-existing state. Only closed run-owned local `.tmp` paths, remote validation path inventory, captured project resources, and still-identity-matching run-created image references may be removed. |
 | Mutable refs | Exact listed worktree files; main-agent commits/push/lifecycle; admitted validation root pointers/links and captured project/image refs. No tag, release, registry, Environment, secret, production/legacy ref, daemon, public route, or named volume is mutable. |
@@ -40,7 +40,8 @@
   digest, or synthesized `development-accepted-operations-pending` verdict.
   Have the main agent compare it with the archived acceptance evidence before
   use.
-- [ ] 1.3 Add only `/operations/.tmp/` to root `.gitignore`; create the
+- [ ] 1.3 Add only `/operations/.tmp/` to root `.gitignore` and only
+  `/node_modules/` to `operations/.gitignore`; create the
   Operations package/lock with exact Node 24.18.0, npm 11.16.0, Ajv 8.20.0,
   YAML 2.9.0, and a lock-selected patched `fast-uri` 3.1.4 closure; reject
   vulnerable YAML <2.8.3 and `fast-uri` 3.1.0/3.1.1/3.1.3; disable install
@@ -85,7 +86,8 @@
   frozen product, acceptance control, archived lifecycle, and Operations/tag
   identities separately; bind exact target,
   components, OCI graph/config, Backend `archive-smoke`, Frontend,
-  compatibility/OpenAPI/Archive facts, Prometheus digest, checksums, and
+  compatibility/OpenAPI/Archive facts, Prometheus digest, standalone verified
+  `archive-smoke`, non-self-referential payload checksums, and
   published-vs-unpublished state.
 - [ ] 2.3 Implement the AMD64 build coordinator so it creates two distinct
   run-owned clean local Git checkouts of the exact frozen accepted product
@@ -104,7 +106,11 @@
 - [ ] 2.4 Implement deterministic validation-candidate assembly, verification,
   checksum inventory, content-addressed publication below
   `operations/.tmp/**`, and tamper/mix/platform/archive/path/nondeterminism
-  tests; never rewrite an upstream component statement or artifact.
+  tests. Payload checksums exclude the candidate and inventory; a second
+  complete-file inventory outside the addressed directory enumerates every
+  candidate file and derives the directory content address without embedding
+  itself or that address. Never rewrite an upstream component statement or
+  artifact.
 - [ ] 2.5 Implement tag-release candidate and published-manifest verification
   without pushing: require the exact protected tag commit, prove all product/
   build/contract inputs equal the frozen accepted baseline and all intervening
@@ -120,10 +126,14 @@
   local double AMD64 build/assembly/tests/residue, and no secret/login/upload/
   Environment/SSH/host state.
 - [ ] 2.7 Create `.github/workflows/release.yml` for only a protected `v*` tag
-  exactly matching `VERSION`, with job-scoped minimum contents/packages write,
-  accepted-baseline comparison, two clean builds of that exact tag commit
-  (never promotion of the validation candidate), GHCR digest verification,
-  immutable Release assets, concurrency, conflict refusal, and no
+  exactly matching `VERSION`: a read-only `prepare` job performs
+  accepted-baseline comparison and two clean builds of that exact tag commit
+  (never promotion of the validation candidate), then transfers one closed
+  candidate through pinned upload-artifact v7.0.1; only the dependent
+  contents/packages-write `publish` job uses pinned download-artifact v8.0.1,
+  revalidates before login, verifies GHCR digests, publishes Frontend,
+  standalone `archive-smoke`, compatibility, non-self-referential payload
+  checksums, and release manifest, with concurrency/conflict refusal and no
   deploy/production authority.
 - [ ] 2.8 Create `.github/workflows/deploy.yml` with only
   `workflow_dispatch`, strict version/manifest-digest inputs, one production
@@ -159,8 +169,11 @@
   `0.0.0.0:8080`, non-root users, capability drop/no-new-privileges, read-only
   API Archive/status, bounded Updater/Prometheus writers, API 1536 MiB,
   `GOMEMLIMIT=1024MiB`, Prometheus 512 MiB/7-day/512 MiB TSDB, journald, low
-  priority Updater, exact request/update/readiness bounds, and a reviewed
-  digest-pinned AMD64 Prometheus image.
+  priority Updater with initial 640 MiB cap, exact request/update/readiness
+  bounds, and exact
+  `prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80`
+  with its admitted AMD64 child digest/size, UID/GID 65532, and no shell
+  dependency.
 - [ ] 3.4 Implement fixed host path/ownership/secret-interface preflight and
   rendering under `operations/bin/**`; accept only the reserved production
   tuple or sealed validation tuple, use restrictive umask/sanitized
@@ -169,22 +182,28 @@
 - [ ] 3.5 Implement the shared non-waiting `flock` and application install/
   activation transaction: strict version + published-manifest digest,
   checksums/compatibility/space, immutable install, captured previous
-  image/Compose/Frontend refs, atomic switch, API restart, 60-second readiness,
-  expected build/data/minimal query, canonical success/failure, and exact app
-  rollback.
+  image/Compose/Frontend refs, per-reference atomic replacement ordered as API
+  release ref → API restart/60-second readiness/build/data/minimal query →
+  Frontend link last, canonical success/failure, reverse-order exact app
+  rollback, and no false cross-file atomicity claim.
 - [ ] 3.6 Implement the one-shot Archive wrapper: pinned Updater and exact
-  `archive-smoke`, no-change/pre-switch failure behavior, six-hour timeout and
-  low priority, new version validation, atomic current switch, restart/
-  readiness/data/app checks, exactly one `update_activated`, previous-pointer
-  rollback, and terminal manual-recovery state if previous also fails.
+  standalone release `bin/archive-smoke` mounted read-only/executable, actual
+  data root as `produce --output-root`, sticky-root/closed-inventory ownership,
+  sole-wrapper `current.json` authority, no-change/pre-switch failure behavior,
+  six-hour timeout and low priority, new version validation, atomic current
+  switch, restart/readiness/data/app checks, exactly one canonical LF event
+  with `event`/`run_id`/`app_version`/`old_data_version`/
+  `new_data_version`/`duration_seconds`, previous-pointer rollback, and
+  terminal manual-recovery state if previous also fails.
 - [ ] 3.7 Implement separate application rollback, data rollback, run checks,
   and closed retention/cleanup. Refuse cross-dimension rollback, active/
   previous/symlink/device/foreign/unknown targets, broad recursion, and legacy
   volume deletion; preserve primary and secondary errors.
-- [ ] 3.8 Add Prometheus scrape/retention config and reproducible checks for
-  readiness, stale Archive, 5xx/upstream/queue/RSS/cache/oversize/update and
-  app/data/manifest mismatch. Verify Prometheus failure cannot make API
-  unready/restart and metrics/UI has no host/public bind.
+- [ ] 3.8 Add Prometheus scrape/retention rules only for metrics the API
+  actually exports. Add bounded `bgmss-ops check` host facts for readiness,
+  API RSS, stale Archive, and app/data/manifest mismatch; do not invent
+  product PromQL. Verify Prometheus failure cannot make API unready/restart and
+  metrics/UI has no host/public bind.
 - [ ] 3.9 Add inert Nginx and systemd templates: static current Frontend,
   approved API/image proxies to `127.0.0.1:18080`, private metrics, path-only
   `$uri` logs, `strict-origin-when-cross-origin`, no legacy host or
@@ -239,8 +258,11 @@
   link rollback, Updater `doctor` and embedded contract check, API minimal
   Archive startup, `/livez`, `/readyz`, expected data/build identities,
   minimal typed query, internal Prometheus scrape, minimal→full activation,
-  full→minimal rollback, and final full reactivation. Never run real
-  acquisition, Nginx/systemd, public routing, or product source.
+  full→minimal rollback, final full reactivation, and isolated full-Archive
+  Updater peak-memory/no-OOM evidence within the initial 640 MiB cap. Label it
+  migration evidence rather than a formal benchmark; a breach blocks
+  production activation pending spec review. Never run real acquisition,
+  Nginx/systemd, public routing, or product source.
 - [ ] 4.7 Implement safe remote lock-contention and post-switch readiness
   failure/rollback exercises, and local disposable fault coverage for invalid
   manifests/platform/checksums, disk, interrupted staging, foreign
