@@ -2,16 +2,16 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H3 implementation and exact-head Actions completed; fresh H3 supervisor failed 13/21 and was exactly cleaned; initial H4 implementation is under review with confirmed-absence and Linux group-signal corrections pending; H4 verified/archived: no; released/deployed/activated: no. |
+| Status | H4 `930690068a02eeec3c7b140c29796aef3b4a719a` is pushed but exact-head Actions `30402531154` passed supervisor 8/21 and failed 13/21 because unrelated PID 1 denied `/proc/1/exe`; all other Development gates were green and no remote write followed. H4 is superseded; H5 specification correction is in progress; verified/archived/released/deployed/activated: no. |
 | Owner | Main-agent specification/audit/lifecycle owner and one bounded remote execution owner. |
-| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/lib/supervisor.mjs`, `contracts/acceptance/test/core.test.mjs`, `contracts/acceptance/test/supervisor.test.mjs`, and the proposal-declared run-owned remote complement only. The H4 supervisor delta is limited to Linux direct-child/identity-proven closure signaling and preserves the H3 start barrier; the closed package inventory remains unchanged. |
+| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/test/core.test.mjs`, and the proposal-declared run-owned remote complement only. H4 workflow/supervisor behavior, the H3 start barrier, and the closed package inventory remain unchanged. |
 | Read-only protected inputs | Final Product, failed Harness source, oracle, every implementation path outside the exact allowance, other OpenSpec, Git objects outside lifecycle commits, and all non-admitted remote state. |
 | Deletion complement | No tracked/pre-existing object; only identity-proven run-created files/containers and conditionally run-pulled fixed image refs. |
 | Mutable refs | Exact change/root-spec/archive, main-agent commits/push, one run root, run containers, and conditionally owned image refs. |
 | Consumes | Product exact-head Actions, superseded fixed-image failure, Harness package, Linux `/proc` and preserved Darwin process-discovery behavior, fixed container digests, remote Docker capability, and prior non-green lifecycle semantics. |
-| Produces | Minimal H4 ownership-aware Linux terminal correction with preserved H3 barrier, exact supervisor Actions gate, ordered Product/H4/archive identities, exact difference proof, separately attributed targeted evidence, cleanup/non-interference/audit closure. |
-| Dependencies | Product Actions → superseded H2/H3 implementations and failed remote runs → reviewed H4 specification → H4 implementation/review/commit/Actions including supervisor 21/21 → identity proof → remote admission/gates → cleanup/audit → archive. |
-| Deliverables | Strict-valid specification, separate focused H4 implementation/tests/workflow commit, exact evidence fields including superseded attempts, synchronized root requirement, archive identity, zero residue. |
+| Produces | Final H5 ownership-aware Linux terminal/opaque correction with preserved H3/H4 behavior, exact supervisor Actions gate, ordered Product/H5/archive identities, exact difference proof, separately attributed targeted evidence, cleanup/non-interference/audit closure. |
+| Dependencies | Product Actions → superseded H2/H3/H4 implementations and failed runs → reviewed H5 specification → H5 implementation/review/commit/Actions including supervisor 21/21 → identity proof → remote admission/gates → cleanup/audit → archive. |
+| Deliverables | Strict-valid specification, separate focused H5 implementation/tests commit, exact evidence fields including superseded attempts, synchronized root requirement, archive identity, zero residue. |
 | Acceptance | Proposal/design acceptance and every scenario below. |
 | Non-goals | Formal 56-cell result, product/Operations implementation, release/deploy/production/SLO claim, local product execution. |
 | Operations deferred | Receipt/code rebinding and all Operations candidate/host validation remain separate. |
@@ -22,29 +22,30 @@
 ### Requirement: An authorized targeted refresh SHALL preserve dual source identity
 
 An authorized non-green acceptance refresh SHALL bind one final
-acceptance-free Product revision/tree, one corrected descendant Harness H4
+acceptance-free Product revision/tree, one corrected descendant Harness H5
 implementation revision/tree, and one descendant archived-refresh
-revision/tree as distinct identities. H4 SHALL also descend the Harness source
+revision/tree as distinct identities. H5 SHALL also descend the Harness source
 used by superseded run `6e0140e1c4dda68bb263c1d8` and superseded H2
 `1e3ecf120da02d642a5d63f75a6795ba2946e11d`, plus H3
-`cd203aa777e14879a7baf1bafd01ee319af246c5`. The complete Development
+`cd203aa777e14879a7baf1bafd01ee319af246c5` and failed H4
+`930690068a02eeec3c7b140c29796aef3b4a719a`. The complete Development
 workflow SHALL succeed at the exact Product head before remote mutation. Git
 ancestry and a complete sorted path/status/mode/blob-or-byte inventory SHALL
-prove that Product and H4 differ only in the unchanged exact receipt-declared
+prove that Product and H5 differ only in the unchanged exact receipt-declared
 acceptance and lifecycle path families plus exact `.github/workflows/ci.yml`;
 the non-allowed difference count SHALL be zero. No new OpenSpec change
 directory MAY widen those families.
 
-The refresh SHALL transfer and attest separate immutable Product and H4
+The refresh SHALL transfer and attest separate immutable Product and H5
 source archives and complete extracted inventories. Product SHALL own the
-Updater `RuntimePruneTests`; H4 SHALL own package verification,
+Updater `RuntimePruneTests`; H5 SHALL own package verification,
 supervisor, and selected targeted acceptance-control tests. No result MAY
-represent an H4 command as executed from Product or relabel one source
+represent an H5 command as executed from Product or relabel one source
 archive as the other.
 
 #### Scenario: Product and Harness are compatible
 
-- **WHEN** exact-head Product Actions are green, H4 descends Product, the failed Harness source, H2, and H3, both source archives/inventories validate, and every changed mode/blob is in the exact declared acceptance/lifecycle set
+- **WHEN** exact-head Product Actions are green, H5 descends Product, the failed Harness source, H2, H3, and failed H4, both source archives/inventories validate, and every changed mode/blob is in the exact declared acceptance/lifecycle set
 - **THEN** Product-owned and Harness-owned targeted gates may run under their respective immutable identities
 
 #### Scenario: Product or Harness identity is widened
@@ -79,6 +80,10 @@ supervisor barrier and may change only `.github/workflows/ci.yml`,
 `contracts/acceptance/test/supervisor.test.mjs`. The H4 supervisor delta SHALL
 be limited to Linux termination signaling and SHALL preserve the H3
 monitor-start barrier.
+H5 SHALL preserve all H3/H4 workflow and supervisor behavior and may change
+only `contracts/acceptance/lib/runner.mjs`,
+`contracts/acceptance/lib/process-closure-worker.mjs`, and
+`contracts/acceptance/test/core.test.mjs`.
 
 Each complete live Linux entry SHALL bind PID, UID, kernel start time, and executable
 read-link as the immutable process identity; parent PID and process-group ID
@@ -95,10 +100,12 @@ is forbidden because `comm` may contain spaces or closing parentheses. Every
 numeric field SHALL be canonical and within safe bounds.
 
 A raced `ENOENT`/`ESRCH` MAY omit an entry only after bounded confirmation
-that the exact PID remains absent. PID disappearance/reappearance, changed
-identity, malformed/truncated/unbounded fields, missing or ambiguous UID,
-unexpected empty argv, permission failure, invalid executable/cwd link, or
-cwd escape SHALL fail closed. Before signaling an owned process, the Harness
+that the exact PID remains absent. Unconfirmed PID disappearance or
+reappearance, changed identity, malformed/truncated/unbounded fields, missing
+or ambiguous UID, unexpected empty argv, invalid executable/cwd link, or cwd
+escape SHALL fail closed except for the exact different-UID opaque cases
+below. Permission failure SHALL also fail closed outside those cases. Before
+signaling an owned process, the Harness
 SHALL re-read and match its exact PID/UID/start-time/executable identity and
 expected argv for every identity-addressed escaped/closure cleanup signal. A
 mismatch SHALL preserve the process and fail.
@@ -120,6 +127,41 @@ tombstone, terminal-to-live transition, changed start time/UID/`comm`,
 ambiguous relation change, or unconfirmed disappearance SHALL fail. Every
 complete live signal path SHALL retain the existing exact executable and argv
 revalidation.
+
+A live Linux PID MAY be represented as `opaque` only when bounded
+`stat`/`status`/`stat` sampling first proves a stable generation and one
+unambiguous real UID different from the Harness real UID, and a live-only
+`exe`, `cwd`, or `cmdline` read then fails with `EACCES`/`EPERM`, or both
+status samples contain exactly one canonical `Kthread: 1` row. The
+kernel-thread case SHALL perform no live-only command/cwd reads; empty
+cmdline, missing exe/cwd, or `ENOENT`/`ESRCH` alone SHALL NOT prove a kernel
+thread. Classification SHALL repeat UID, optional kernel-thread flag, and
+`stat` sampling and require unchanged PID,
+UID, start time, `comm`, parent PID, and process group, with both samples
+nonterminal. A normal scheduling transition among nonterminal
+`R`/`S`/`D`/`I` states SHALL NOT be identity drift. The opaque entry SHALL
+bind its explicit kind, exact `permission-denied` or `kernel-thread` reason,
+final observed nonterminal state, and all stable fields into the inventory
+and digest, but SHALL contain no invented command, cwd, or argv. A
+kernel-thread flag used for classification SHALL remain exactly `1`;
+missing, zero, duplicated, malformed, or drifting flags SHALL fail.
+
+Opaque is a third entry kind and SHALL NOT satisfy Linux complete-live
+predicates. Linux live entries remain `kind === "live"` and every common
+identity/cwd/command/signal consumer SHALL explicitly reject opaque without
+changing the legacy Darwin entry schema. An unrelated opaque entry SHALL be
+excluded from owned-cwd and closure ownership. An opaque PID already retained
+in the ledger, in the target process group, or below an exactly retained
+parent SHALL fail closed as ambiguous owned evidence with zero signal. An
+opaque entry observed while freshly revalidating an expected cleanup PID,
+including after a global Map miss, SHALL be an identity mismatch and SHALL NOT
+count as absence.
+Stable live-to-terminal transition and double-confirmed disappearance SHALL
+continue through the existing tombstone/absence contracts and SHALL NOT
+become opaque. Same-UID denial, unreadable/malformed UID, non-permission
+failure, malformed or oversized evidence, terminal-to-live reuse, unconfirmed
+disappearance or reappearance, or any sampled identity/relation drift SHALL fail closed
+and SHALL NOT become opaque.
 
 Every retained Linux PID omitted from a full `/proc` directory listing SHALL
 still receive two bounded `lstat` absence confirmations. If either check finds
@@ -152,13 +194,38 @@ while parent ancestry still exists.
 
 #### Scenario: Linux process evidence is raced or ambiguous
 
-- **WHEN** a PID is reused, one identity field changes, cwd escapes, cmdline is malformed, permission is denied, an entry disappears without confirmed absence, or any partial row cannot be validated
+- **WHEN** a PID is reused, one identity field changes, cwd escapes, cmdline is malformed, permission is denied outside the exact different-UID opaque case, an entry disappears without confirmed absence, or any partial row cannot be validated
 - **THEN** the Harness SHALL fail before signaling that process and SHALL NOT reinterpret the ambiguity as cleanup success
 
 #### Scenario: Unrelated terminal process exists
 
 - **WHEN** a stable terminal PID is outside the exact owned ledger, target process group, and retained-parent closure
 - **THEN** the Harness SHALL bind it into host inventory evidence without reading unavailable live-only fields and SHALL continue owned discovery
+
+#### Scenario: Unrelated different-UID live process denies command evidence
+
+- **WHEN** a stably sampled live PID has a real UID different from the Harness, is unrelated to the target group and retained parent chain, and one live-only command field denies access with `EACCES` or `EPERM`
+- **THEN** the Harness SHALL bind a digest-visible opaque entry, omit no PID, and continue without treating it as complete live or owned-cwd evidence
+
+#### Scenario: Unrelated different-UID kernel thread has no command evidence
+
+- **WHEN** two stable status samples for an unrelated different-UID live PID each contain exactly one canonical `Kthread: 1` row
+- **THEN** the Harness SHALL bind a kernel-thread-reason opaque entry without reading cmdline, exe, or cwd
+
+#### Scenario: Kernel-thread inference is not authoritative
+
+- **WHEN** `Kthread` is missing, zero, duplicated, malformed, or changes, or only empty cmdline or missing exe/cwd suggests a kernel thread
+- **THEN** the Harness SHALL NOT infer a kernel thread and SHALL fail closed if complete live evidence cannot be obtained
+
+#### Scenario: Opaque classification is unsafe
+
+- **WHEN** UID is the Harness UID or is unreadable, the PID is retained or relationship-owned, a non-permission/malformed failure occurs, terminal evidence returns to live, disappearance/reappearance is unconfirmed, or generation/UID/relation changes
+- **THEN** the Harness SHALL fail closed, preserve the PID, and send zero signals
+
+Normal scheduling changes among nonterminal `R`/`S`/`D`/`I` samples are
+allowed, while a stable live-to-terminal transition and double-confirmed
+absence continue through the existing H4 contracts rather than this failure
+scenario.
 
 #### Scenario: Owned process becomes terminal
 
@@ -208,7 +275,7 @@ because the fixed image lacked `/bin/ps` and `/usr/sbin/lsof`, and selected
 core did not execute. Its evidence manifest SHA-256 is
 `0e3ae22bd8165e7a164bd21f4f516bfa08988cdc8bde5f5d89c1ed49c0ec078c`;
 its status is `fail-closed` / not archivable. No passed sub-gate from that run
-MAY enter H4 accepted `testEvidence` or be represented as fresh closure.
+MAY enter H5 accepted `testEvidence` or be represented as fresh closure.
 
 Controller attempt `351a80613c7a782c1d41ba61` SHALL remain a
 `controller-precondition-failed` superseded attempt: unsupported
@@ -219,7 +286,7 @@ Product passed 22/22 and Harness package/offline-install prerequisites passed,
 but supervisor passed only 17/21; selected tests and verify-after did not run.
 Its evidence-manifest digest is
 `6ccd7891d015bbbcbed868fdf4837cd81a87a7e01f71f6892356bee7025c3b54`.
-No passed prerequisite from either attempt MAY enter H4 accepted
+No passed prerequisite from either attempt MAY enter H5 accepted
 `testEvidence`.
 
 H3 run `8fb2588bd5699acc97454a93` SHALL remain fail-closed superseded
@@ -231,7 +298,7 @@ its evidence-manifest SHA-256 is
 `134705b09199e2c2b2bf7df794af1ec7133913e3e8851239bd72215b009871a0`.
 All seven containers, both run-owned images, and 5,495 run-root records were
 exactly cleaned; all 80 protected stable fields matched. No passed H3
-prerequisite MAY enter H4 accepted `testEvidence`.
+prerequisite MAY enter H5 accepted `testEvidence`.
 
 Product SHALL execute
 `python -m unittest -v build.test_artifact.RuntimePruneTests` from Product's
@@ -245,7 +312,7 @@ pass. The selected manifest SHALL contain the Linux procfs positive test,
 owned-cleanup PID-reuse/argv-drift test, and platform-injected Darwin parity
 test; it SHALL NOT contain a test whose declaration skips on Linux. The former
 `escaped fixture process identity differs before cleanup` classification is
-superseded failure evidence, not an H4 exception. Every failure, missing
+superseded failure evidence, not an H5 exception. Every failure, missing
 selected name, extra selected name, or result-parse ambiguity SHALL fail the
 refresh.
 

@@ -2,16 +2,16 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H3 implementation and exact-head Actions completed; fresh H3 run failed supervisor 13/21 and was exactly cleaned; initial H4 implementation is under review with confirmed-absence and Linux group-signal corrections pending; H4 Actions, fresh verification, evidence closure, archive, commit, and push remain pending. |
+| Status | H4 `930690068a02eeec3c7b140c29796aef3b4a719a` is implemented/pushed, but exact-head Actions `30402531154` passed supervisor 8/21 and failed 13/21 because unrelated PID 1 denied `/proc/1/exe`; every other Development gate was green and no remote write followed. H4 is superseded; H5 specification correction is in progress. |
 | Owner | Main agent owns identities, specification, admission, audit, lifecycle, and Git. One delegated execution owner may perform the closed Git-evidence and remote/container command set. |
-| Writable paths | This change, its later synchronized root spec/archive, H4 changes only existing `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/lib/supervisor.mjs`, `contracts/acceptance/test/core.test.mjs`, and `contracts/acceptance/test/supervisor.test.mjs`, one exact absent remote run root, uniquely labelled run containers, and only conditionally owned fixed image references. The H4 supervisor delta is limited to Linux direct-child/identity-proven closure signaling and preserves the H3 start barrier; the closed package inventory remains unchanged. |
-| Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`, failed Harness source, H2 `1e3ecf120da02d642a5d63f75a6795ba2946e11d`, H3 `cd203aa777e14879a7baf1bafd01ee319af246c5`, every implementation path outside the exact H4 allowance, oracle, other OpenSpec, Git history outside main-agent commits, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, legacy/production containers, networks, volumes, Nginx/systemd/TLS, listeners, processes, routes, and data. |
+| Writable paths | This change, its later synchronized root spec/archive, H5 changes only existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, and `contracts/acceptance/test/core.test.mjs`, one exact absent remote run root, uniquely labelled run containers, and only conditionally owned fixed image references. H4 workflow/supervisor behavior, the H3 start barrier, and the closed package inventory remain unchanged. |
+| Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`, failed Harness source, H2 `1e3ecf120da02d642a5d63f75a6795ba2946e11d`, H3 `cd203aa777e14879a7baf1bafd01ee319af246c5`, failed H4 `930690068a02eeec3c7b140c29796aef3b4a719a`, every implementation path outside the exact H5 allowance, oracle, other OpenSpec, Git history outside main-agent commits, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, legacy/production containers, networks, volumes, Nginx/systemd/TLS, listeners, processes, routes, and data. |
 | Deletion complement | No tracked or pre-existing object. Cleanup is limited to exact manifest-bound run files/directories, run containers by immutable ID and label, and a fixed image reference only if this run alone pulled and still exclusively owns it. |
 | Mutable refs | Lifecycle commits/push, one run root, run containers, and conditionally run-owned image references. No tag, release, product ref, deployment ref, service, route, port, network, volume, or production/legacy object. |
-| Consumes | Exact-head Product and H3 Actions; failed runs `6e0140e1c4dda68bb263c1d8`, `351a80613c7a782c1d41ba61`, `9af7301665f286f015a2397f`, and `8fb2588bd5699acc97454a93`; H2/H3 failure evidence; existing monitor-start API; no-exec `/tmp`; exact Product/H4 Git inventories; fixed Node/Python OCI graphs; read-only `myserver` capability/protected-state preflight. |
-| Produces | Minimal H4 ownership-aware terminal-process correction with preserved H3 barrier, exact supervisor Actions gate, ordered Product/H4/archive identities, two source archive attestations, separately attributed targeted evidence, exact cleanup/non-interference evidence, and an archived refresh consumable by Operations. |
-| Dependencies | Product Actions green → superseded H2/H3 evidence → H4 spec → H4 implementation/tests/review/clean commit → exact-head H4 Actions including supervisor 21/21 → P/H4 proof → read-only remote admission → isolated gates → cleanup/postflight → zero-P0/P1 → archive. |
-| Deliverables | Strict-valid H4 specification, separate focused H4 implementation/tests/workflow commit and identity, complete bounded evidence including all superseded attempts, synchronized root spec, H4 archive identity, clean/pushed branch, and zero remote residue. |
+| Consumes | Exact-head Product and H3 Actions; failed runs `6e0140e1c4dda68bb263c1d8`, `351a80613c7a782c1d41ba61`, `9af7301665f286f015a2397f`, `8fb2588bd5699acc97454a93`, and H4 Actions `30402531154`; H2/H3/H4 failure evidence; existing monitor-start API; no-exec `/tmp`; exact Product/H5 Git inventories; fixed Node/Python OCI graphs; read-only `myserver` capability/protected-state preflight. |
+| Produces | Final H5 ownership-aware terminal/opaque-process correction with preserved H3/H4 behavior, exact supervisor Actions gate, ordered Product/H5/archive identities, two source archive attestations, separately attributed targeted evidence, exact cleanup/non-interference evidence, and an archived refresh consumable by Operations. |
+| Dependencies | Product Actions green → superseded H2/H3/H4 evidence → H5 spec → H5 implementation/tests/review/clean commit → exact-head H5 Actions including supervisor 21/21 → P/H5 proof → read-only remote admission → isolated gates → cleanup/postflight → zero-P0/P1 → archive. |
+| Deliverables | Strict-valid H5 specification, separate focused H5 implementation/tests commit and identity, complete bounded evidence including all superseded attempts, synchronized root spec, H5 archive identity, clean/pushed branch, and zero remote residue. |
 | Acceptance | Every checklist item below, with no broader command, exception, mutation, or claim. |
 | Non-goals | Local product test/build/Docker; full 56-cell formal acceptance; product/Operations implementation; release, deploy, activation, production readiness, or SLO claims. |
 | Operations deferred | Receipt/schema/verifier rebinding, candidate assembly, Operations Actions, and `/srv/bgmss-ops-validation` remain in the separate Operations change. |
@@ -31,7 +31,7 @@
   create and push one clean specification-revision commit before delegating
   implementation. Include no implementation, generated evidence, archive,
   root-spec sync, amend, rebase, tag, or release.
-- [ ] 1.4 Implement the H4 correction only in `.github/workflows/ci.yml`,
+- [x] 1.4 Implement the H4 correction only in `.github/workflows/ci.yml`,
   `contracts/acceptance/lib/runner.mjs`,
   `contracts/acceptance/lib/process-closure-worker.mjs`,
   `contracts/acceptance/lib/supervisor.mjs`,
@@ -45,7 +45,7 @@
   module, package-inventory edit, external executable, `apt`, host dependency,
   derived image, fallback exception, or package/inventory change. Add only the
   exact supervisor command to the existing Development workflow.
-- [ ] 1.5 Prove by focused positive/negative coverage and read-only review:
+- [x] 1.5 Prove by focused positive/negative coverage and read-only review:
   Linux works with `/bin/ps` and `/usr/sbin/lsof` absent; runner and worker
   share PID/UID/start-time/executable identity; exact NUL argv and canonical
   cwd containment close; unrelated terminal tombstones do not poison
@@ -59,7 +59,7 @@
   PIDs; reuse, permission/format ambiguity, malformed fields, and escape fail
   before signaling; imports have no top-level mutation; Darwin `ps`/`lsof`
   behavior is unchanged.
-- [ ] 1.6 Stage only the changed subset of the exact six H4 files, create
+- [x] 1.6 Stage only the changed subset of the exact six H4 files, create
   and push one clean corrected Harness implementation commit, and record its
   commit/tree as H4. Prove H4 descends Product, the failed Harness source, H2,
   H3, and the specification-revision commit. Do not amend, rebase, tag,
@@ -69,17 +69,18 @@
 
 - [ ] 2.1 Retain the successful Product workflow evidence and require the
   complete `development-artifacts` workflow, now including the exact 21-test
-  supervisor command, to conclude success at exact H4 head; record workflow,
+  supervisor command, to conclude success at exact H5 head; record workflow,
   run/job URL, commit/tree, conclusion, timestamps, supervisor 21/21, and
   immutable log/archive digests.
-- [ ] 2.2 Prove `P <= H2 <= H3 <= H4` and `failed H <= H4` ancestry and generate complete sorted Git
+- [ ] 2.2 Prove `P <= H2 <= H3 <= failed-H4 <= H5` and `failed H <= H5`
+  ancestry and generate complete sorted Git
   path/mode/blob inventories plus an exact changed-path
   status/old-mode/new-mode/old-blob/new-blob inventory. Reject every changed
   path outside the closed acceptance/lifecycle families and exact
   `.github/workflows/ci.yml` in the design, including any `operations/**`,
   other workflow, product, build,
   non-acceptance Contracts, or package-lock change.
-- [ ] 2.3 Create separate `git archive` inputs for P and H4. Record for each
+- [ ] 2.3 Create separate `git archive` inputs for P and H5. Record for each
   commit/tree, archive SHA-256/size/mode, and a complete extracted
   path/mode/content-SHA-256 inventory; verify archive identity against the Git
   inventory before transfer.
@@ -117,7 +118,7 @@
   first colon while preserving duplicates, and keep body bytes separate. Stop
   for main-agent admission on any ambiguity.
 - [ ] 3.3 After admission only, create the exact run root, ownership marker,
-  closed write/delete manifest, P/H4 archive copies, and uniquely labelled
+  closed write/delete manifest, P/H5 archive copies, and uniquely labelled
   containers. If both fixed image identities were absent, make the two exact
   Tencent-mirror RepoDigest pulls the first bounded image mutations; verify
   `RepoDigests`, declared config image IDs/diff-IDs, descriptor graph,
@@ -139,7 +140,7 @@
   `updater/`. Record all discovered names, actual count, result, command,
   image/container identity, and complete log digest; require every test to
   pass.
-- [ ] 4.3 From the H4 archive, assert Node 24.18.0 and npm 11.16.0, assert
+- [ ] 4.3 From the H5 archive, assert Node 24.18.0 and npm 11.16.0, assert
   `/bin/ps` and `/usr/sbin/lsof` are absent, run
   `verify-package`, then exact offline install
   `npm ci --ignore-scripts --omit=optional --offline --no-audit --no-fund`,
@@ -174,7 +175,7 @@
   Treat `escaped fixture process identity differs before cleanup`, any other
   failure, any missing/extra selected name, external process-inventory
   execution, terminal ownership/reaping ambiguity, or parse ambiguity as a
-  failed H4 run with no exception.
+  failed H5 run with no exception.
 - [ ] 4.6 Remove only generated dependency/temp/cache residue from the
   run-owned source copies, repeat `verify-package`, and repeat both complete
   extracted source inventories. Require byte/mode identity with their sealed
@@ -201,30 +202,31 @@
   instead of force-removing it.
 - [ ] 5.4 Obtain an independent read-only review of identities, attribution,
   fixed commands, result parsing, superseded-failure classification,
-  no-exception H4 result, evidence digests, cleanup, and protected-state
+  no-exception H5 result, evidence digests, cleanup, and protected-state
   comparison. Resolve every P0/P1 before lifecycle closure.
 
 ## 6. Record and archive the refresh
 
-- [ ] 6.1 Update this change with exact P/failed-H/H2/H3/H4 identities, Actions run, source
+- [ ] 6.1 Update this change with exact P/failed-H/H2/H3/failed-H4/H5 identities,
+  Actions run, source
   archive/inventory/difference digests, test names/counts/results/log digests,
-  all superseded controller/H2/H3 failed runs (including Product 22/22, Harness supervisor
+  all superseded controller/H2/H3/H4 failed runs (including Product 22/22, Harness supervisor
   17/21, selected-core unexecuted, fail-closed/not-archivable status, evidence
   manifest SHA-256
   `0e3ae22bd8165e7a164bd21f4f516bfa08988cdc8bde5f5d89c1ed49c0ec078c`,
   and real seal-program SHA-256
   `22ec7fa006997a94fffa21a7344dcfc402b1a4bcff1bc06751fc0cfbda7b88c4`
   for `6e0140e1c4dda68bb263c1d8`), verified
-  OCI graphs, image/container identities, no-exception H4 result,
+  OCI graphs, image/container identities, no-exception H5 result,
   cleanup/postflight,
   unexecuted-cell inventory, and zero-P0/P1 review. Check tasks only when
   their evidence exists.
 - [ ] 6.2 Re-run pinned strict validation and diff hygiene, synchronize the
   delta to `openspec/specs/contracts-development-acceptance/spec.md`, archive
-  the change, and create/push one clean H4 archive commit. Record its
+  the change, and create/push one clean H5 archive commit. Record its
   commit/tree and prove
-  `P <= H2 <= H3 implementation <= H4 implementation <= H4 archive`.
-- [ ] 6.3 Hand Product, H4 implementation, H4 archive, exact Actions, dual
+  `P <= H2 <= H3 implementation <= failed-H4 <= H5 implementation <= H5 archive`.
+- [ ] 6.3 Hand Product, H5 implementation, H5 archive, exact Actions, dual
   source, separated test, cleanup/non-interference, superseded-failure, and audit
   evidence to the Operations change. The maximum claim is
   `development-acceptance-closed-by-authorized-ci-and-remote-evidence`;
@@ -289,12 +291,12 @@
   `contracts/acceptance/test/supervisor.test.mjs`; limit the supervisor delta
   to Linux direct-child/identity-proven closure signaling and preserve the H3
   monitor-start barrier.
-- [ ] 8.2 Implement bounded Linux live entries plus terminal tombstones.
+- [x] 8.2 Implement bounded Linux live entries plus terminal tombstones.
   Bind terminal generation through stable `stat`/UID rereads; handle
   live-to-terminal and terminal-to-disappearance explicitly; include
   tombstones in inventory digest; allow unrelated tombstones to remain
   diagnostic without poisoning owned-cwd or closure discovery.
-- [ ] 8.3 Make runner/worker closure and cleanup ownership-aware. Retain and
+- [x] 8.3 Make runner/worker closure and cleanup ownership-aware. Retain and
   boundedly await a same-generation owned tombstone without signalling it;
   reject a first-observed relationship-owned tombstone, a persistent owned
   tombstone, PID reuse, identity/relation ambiguity, or incomplete signal
@@ -302,7 +304,7 @@
   require two absence confirmations even for a retained PID omitted before
   `/proc` enumeration, remove Linux negative-PGID TERM/KILL from runner and
   supervisor cleanup, and preserve Darwin behavior plus the H3 start barrier.
-- [ ] 8.4 Add focused synthetic coverage for unrelated tombstone plus owned
+- [x] 8.4 Add focused synthetic coverage for unrelated tombstone plus owned
   live process, live-to-terminal, zero-signal owned terminal and bounded reap,
   first-observed owned terminal failure, terminal generation/relation races,
   live/terminal PID reuse, pre-enumeration disappearance confirmation, and
@@ -312,20 +314,77 @@
   Retain the H3 malformed-IPC, late-writer,
   orderly, direct-failure, evidence, runtime-prepare, delayed-start, and
   no-exec regressions.
-- [ ] 8.5 Add the exact command
+- [x] 8.5 Add the exact command
   `node --test contracts/acceptance/test/supervisor.test.mjs` to Development
   Actions. Use no new package, host process utility, test waiver, or hidden
   retry. Static checks and pinned OpenSpec validation may run locally; all
   executable product/Harness tests remain Actions or isolated-remote owned.
-- [ ] 8.6 Obtain independent zero-P0/P1 review, stage only the H4 allowance,
-  create and push one clean H4 implementation commit, and require exact-head
-  Development Actions success including supervisor 21/21 before remote
-  mutation.
-- [ ] 8.7 Under one new opaque run ID, repeat P 22/22, verify-before,
-  offline-install, supervisor 21/21, selected core 21/21, verify-after,
-  inventories, and exact cleanup. Supervisor and selected-core containers use
-  the fixed image by config ID with `--init`, `--network none`, read-only root,
-  and `/tmp` no-exec; the reaper does not waive any ownership assertion.
-- [ ] 8.8 Record H4/archive identities and all H3 failure evidence, strict
-  validate, synchronize, archive, commit, push, and hand only the final
-  accepted Product/H4/archive receipt to Operations.
+- [x] 8.6 Obtain independent zero-P0/P1 review, stage only the H4 allowance,
+  and create/push clean H4 implementation
+  `930690068a02eeec3c7b140c29796aef3b4a719a`. Its exact-head Actions did not
+  reach the required supervisor result, so it remained fail closed and
+  correctly blocked remote mutation.
+- [x] 8.7 Do not execute an H4 remote run after the failed Actions gate.
+  Supersede this identity and move the complete isolated run unchanged to H5
+  task 9.7 and detailed sections 2–5.
+- [x] 8.8 Record H4 and Actions `30402531154` as superseded failure evidence
+  only. Move final synchronization, archive, and Operations receipt to H5
+  task 9.8 and section 6.
+
+## 9. Correct and verify H5 after exact-head H4 Actions
+
+- [x] 9.1 Record H4 implementation
+  `930690068a02eeec3c7b140c29796aef3b4a719a`, tree
+  `359bf0abea2ddbfb70128a3e5259c01e5b195db4`, and Actions run
+  `30402531154` as superseded fail-closed evidence: supervisor passed 8/21
+  with 13 same-root-cause failures at unrelated PID 1 `/proc/1/exe` `EACCES`; Backend,
+  Updater, Frontend, and package artifact gates green; no remote write.
+- [ ] 9.2 Revise and main-agent approve proposal, design, delta spec, and
+  tasks before H5 implementation; strict-validate and commit/push this
+  four-artifact revision separately. Keep the new code delta to
+  `contracts/acceptance/lib/runner.mjs`,
+  `contracts/acceptance/lib/process-closure-worker.mjs`, and
+  `contracts/acceptance/test/core.test.mjs`; preserve H3/H4 workflow,
+  supervisor, signaling, terminal, Darwin, package, and selected-count
+  behavior.
+- [ ] 9.3 Add one validated current-real-UID inventory input, shared unchanged
+  with the closure worker. For Linux live PIDs, bind stable
+  `stat`/real-UID/`stat` before classification. Only a different-UID process
+  whose live-only `exe`, `cwd`, or `cmdline` read returns `EACCES`/`EPERM`
+  or whose two stable status samples both contain canonical `Kthread: 1` may
+  become explicit digest-bound `opaque`. A proven kernel thread performs no
+  live-only reads; empty cmdline or missing exe/cwd alone proves nothing.
+  Bind exact opaque reason. Same UID, UID failure, non-permission/malformed
+  evidence, terminal-to-live reuse, unconfirmed disappearance/reappearance,
+  and any PID/start/`comm`/parent/group/UID drift fail closed. Both samples
+  must be nonterminal, but normal `R`/`S`/`D`/`I` scheduling changes are not
+  identity drift. Stable live-to-terminal and double-confirmed disappearance
+  continue through the H4 tombstone/absence contracts and never become opaque.
+- [ ] 9.4 Make opaque a strict third kind: Linux complete-live predicates
+  require `kind === "live"` and common consumers explicitly reject opaque
+  while preserving the legacy Darwin schema; opaque is present in
+  inventory/Map/digest but never in complete command, cwd, argv, owned-cwd, or
+  signal paths. Ignore only unrelated opaque evidence. Retained PID,
+  target-PGID, exact-retained-parent, cleanup revalidation, and targeted
+  Map-miss opaque evidence fail closed with zero signal.
+- [ ] 9.5 Fold synthetic positive/negative coverage into the existing selected
+  Linux inventory/owned-cleanup top-level tests without changing the exact
+  selected manifest of 21. Cover each denied live-only field, runner/worker
+  parity, digest/reason binding, authoritative different-UID `Kthread: 1`
+  with zero live-only reads, missing/zero/drifting Kthread, empty-cmdline or
+  missing-exe non-inference, same-UID and UID failures, target group,
+  retained parent/PID, cleanup/Map-miss, strict kind, sampled field races,
+  terminal/disappearance transitions, non-permission/malformed input, and
+  zero-signal behavior. Keep all existing H3/H4 regressions unchanged.
+- [ ] 9.6 Obtain independent zero-P0/P1 review; run only local static
+  `node --check`, `git diff --check`, and pinned OpenSpec strict validation;
+  stage only the three H5 files and create/push one clean H5 implementation
+  commit descending the H5 spec revision and failed H4.
+- [ ] 9.7 Require exact-head H5 Development Actions green with supervisor
+  21/21 before any remote mutation. Then prove
+  `P <= H2 <= H3 <= failed-H4 <= H5`, repeat the complete isolated Product
+  22/22 plus Harness package/supervisor/selected 21/21 validation under one
+  new run ID, and close cleanup/protected-state/audit evidence.
+- [ ] 9.8 Record exact H5/archive identities and all superseded failures, strict
+  validate, synchronize, archive, commit, push, and hand only the accepted
+  Product/H5/archive receipt to Operations.

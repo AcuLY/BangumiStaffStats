@@ -53,6 +53,14 @@ manifest SHA-256 is
 It remains fail-closed / not archivable. A narrow H4 inventory correction
 and an exact supervisor Actions gate are required.
 
+H4 `930690068a02eeec3c7b140c29796aef3b4a719a` implemented that correction
+and gate. Exact-head Actions run `30402531154` passed Backend, Updater,
+Frontend, and package artifacts, but supervisor passed 8/21 and failed 13/21:
+all 13 failures came from the same permission denial while globally reading
+unrelated PID 1 `/proc/1/exe`. No remote admission or write followed. H4 is
+therefore superseded fail-closed evidence. H5 is a smaller follow-up limited
+to stable different-UID opaque live evidence.
+
 The executor's initially saved 7,340-byte postflight program was later proved
 to be a doubly escaped source extraction rather than the actual bytes supplied
 to the earlier SSH standard input. Its mismatch and route-parser exception
@@ -71,16 +79,16 @@ identical byte digest. The real rerun program SHA-256 was
 
 | Field | Declaration |
 |---|---|
-| Status | H3 implementation and Actions completed; fresh H3 supervisor failed 13/21 and was exactly cleaned; initial H4 implementation is under review with confirmed-absence and Linux group-signal corrections pending; H4 verification/archive not started. |
+| Status | H4 `930690068a02eeec3c7b140c29796aef3b4a719a` is implemented/pushed but Actions `30402531154` passed supervisor 8/21 and failed 13/21 on unrelated PID 1 `/proc/1/exe` `EACCES`; other Development gates were green and no remote write followed. H5 specification correction is in progress; verification/archive not started. |
 | Owner | Main agent: identities, specification, audit, lifecycle, commits/push. Delegated execution owner: exact remote/container command set and evidence handoff only. |
-| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H4 implementation is limited to existing `.github/workflows/ci.yml`, `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, `contracts/acceptance/lib/supervisor.mjs`, `contracts/acceptance/test/core.test.mjs`, and `contracts/acceptance/test/supervisor.test.mjs`. The H4 supervisor delta is limited to Linux direct-child/identity-proven closure signaling and preserves the H3 start barrier. Package/inventory files, product, non-acceptance Harness, and Operations remain read-only. |
-| Read-only protected inputs | P, failed Harness source, oracle, all implementation outside the exact H4 allowance, other OpenSpec, and all remote state outside the admitted run complement. |
+| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H5 implementation is limited to existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/process-closure-worker.mjs`, and `contracts/acceptance/test/core.test.mjs`. H4 workflow/supervisor code, the H3 start barrier, package/inventory files, product, non-acceptance Harness, and Operations remain read-only. |
+| Read-only protected inputs | P, failed Harness/H2/H3/H4 sources, oracle, all implementation outside the exact H5 allowance, other OpenSpec, and all remote state outside the admitted run complement. |
 | Deletion complement | No tracked or pre-existing object. Only manifest-bound run files, immutable-ID run containers, and safely proven run-pulled fixed image refs. |
 | Mutable refs | This change/root-spec/archive lifecycle, main-agent commits/push, one run root, run containers, and conditionally run-pulled images. |
 | Consumes | P exact-head Development result, failed H run/source, Harness acceptance package, Linux `/proc` and existing Darwin inventory behavior, fixed image digests, existing remote host/Docker and protected-state facts. |
-| Produces | Minimal H4 ownership-aware terminal-process correction, preserved H3 ordering, exact supervisor Actions gate, P/H4 ancestry/delta proof, separated P/H4 test evidence, immutable source identities, cleanup/non-interference audit, H4 implementation and archive identities. |
-| Dependencies | P Actions green → superseded H2/H3 evidence → H4 implementation/review/clean commit and exact-head Actions including supervisor 21/21 → P/H4 proof → remote read-only admission → isolated tests → cleanup/non-interference → zero-P0/P1 → archive. |
-| Deliverables | Proposal/delta/design/tasks, closed H4 change, clean H4 implementation commit, evidence values/digests recorded into the change, synchronized root spec, archive commit. |
+| Produces | Final H5 ownership-aware terminal/opaque-process correction, preserved H3/H4 ordering and signaling, exact supervisor Actions gate, P/H5 ancestry/delta proof, separated P/H5 test evidence, immutable source identities, cleanup/non-interference audit, H5 implementation and archive identities. |
+| Dependencies | P Actions green → superseded H2/H3/H4 evidence → H5 implementation/review/clean commit and exact-head Actions including supervisor 21/21 → P/H5 proof → remote read-only admission → isolated tests → cleanup/non-interference → zero-P0/P1 → archive. |
+| Deliverables | Proposal/delta/design/tasks, closed H5 correction, clean H5 implementation commit, evidence values/digests recorded into the change, synchronized root spec, archive commit. |
 | Acceptance | Proposal acceptance table plus the closed commands and invariants below. |
 | Non-goals | Formal matrix or product/Operations implementation; release/deploy/activation; host toolchain installation; production readiness. |
 | Operations deferred | Receipt/schema/code rebinding and every Operations candidate/host-validation step. |
@@ -90,12 +98,12 @@ identical byte digest. The real rerun program SHA-256 was
 
 **Goals:**
 
-- Make P, H4 implementation, and H4 archive distinct, ordered identities.
-- Prove every non-declared P/H4 product path has identical Git mode and blob.
-- Execute the corrected Product Updater tests from P, not H4.
+- Make P, H5 implementation, and H5 archive distinct, ordered identities.
+- Prove every non-declared P/H5 product path has identical Git mode and blob.
+- Execute the corrected Product Updater tests from P, not H5.
 - Replace only Linux process/owned-cwd discovery with fail-closed Node built-in
   `/proc` reads while preserving current Darwin `ps`/`lsof` behavior.
-- Execute Harness package/supervisor/selected control tests from corrected H4,
+- Execute Harness package/supervisor/selected control tests from corrected H5,
   not P or the failed Harness source.
 - Leave `myserver`, both worktrees, and all protected resources unchanged.
 
@@ -112,12 +120,13 @@ identical byte digest. The real rerun program SHA-256 was
 
 ## Decisions
 
-### 1. Treat P and corrected H4 as separate immutable sources
+### 1. Treat P and corrected H5 as separate immutable sources
 
-H4 SHALL descend P, the Harness revision used by the superseded run, H2, and
-H3 `cd203aa777e14879a7baf1bafd01ee319af246c5`.
+H5 SHALL descend P, the Harness revision used by the superseded run, H2, H3
+`cd203aa777e14879a7baf1bafd01ee319af246c5`, and failed H4
+`930690068a02eeec3c7b140c29796aef3b4a719a`.
 Before transfer, Git SHALL produce complete sorted mode/blob inventories for
-P and H4 and one changed-path inventory. The allowed difference set remains
+P and H5 and one changed-path inventory. The allowed difference set remains
 closed to:
 
 - `contracts/acceptance/**`;
@@ -135,7 +144,10 @@ non-acceptance Contracts, other workflow, package-lock authority, or other
 path may differ. The H4 implementation is restricted to the exact workflow
 and acceptance files declared by the proposal. Every
 allowed changed path records status, mode, and blob/byte digest; non-allowed
-difference count must be zero.
+difference count must be zero. The accumulated Harness implementation remains
+restricted to the exact workflow and acceptance files declared by the
+proposal; H5 narrows its new delta to `runner.mjs`,
+`process-closure-worker.mjs`, and `core.test.mjs`.
 
 Each revision is transferred as its own Git archive. The controller records
 commit/tree, archive SHA-256/size/mode, and a complete extracted
@@ -383,6 +395,59 @@ environment hygiene: it cannot replace terminal ownership, generation,
 zero-signal, or bounded-disappearance tests and cannot turn ambiguous owned
 evidence into success.
 
+### 3c. Admit only stable unrelated different-UID opaque live evidence in H5
+
+The H4 Actions failure is not a waiver for unreadable process identity.
+Linux must first establish a stable live PID generation through bounded
+`stat` → `status` → `stat` sampling and obtain one unambiguous real UID.
+Only when that UID differs from the Harness real UID may either `EACCES` or
+`EPERM` while reading live-only `exe`, `cwd`, or `cmdline` evidence, or an
+authoritative `Kthread: 1` status row, produce a third `opaque` entry. A
+kernel-thread classification SHALL observe exactly one canonical
+`Kthread: 1` row in both status samples and SHALL not read meaningless
+live-only command fields. Empty cmdline or `exe`/`cwd` `ENOENT` alone is never
+kernel-thread proof. H5 SHALL repeat UID, optional kernel-thread flag, and
+`stat` sampling and require
+unchanged PID, UID, start time, `comm`, parent PID, and process group, with
+both samples nonterminal. Normal scheduling changes among nonterminal
+`R`/`S`/`D`/`I` states are not identity drift. A live-to-terminal transition
+and a double-confirmed disappearance
+continue through the H4 tombstone/absence contracts and never become opaque.
+UID failure, same-UID denial, any non-permission evidence failure, malformed
+or oversized input, terminal-to-live reuse, unconfirmed disappearance or
+reappearance, or relation/generation drift remains fail closed.
+
+An opaque entry SHALL bind all stable fields, its explicit kind, and its exact
+`permission-denied` or `kernel-thread` reason into the global inventory and
+digest; it is neither a complete live entry nor a terminal tombstone. Every
+Linux complete-live predicate and every complete
+identity, complete-command, owned-cwd, and signal path SHALL explicitly
+exclude `kind === "opaque"`; Linux live entries remain `kind === "live"`,
+while unchanged legacy Darwin entries keep their existing schema. Unrelated
+opaque evidence is excluded from owned-cwd and closure ownership. An opaque
+PID already retained in the ledger, in the target process group, or parented
+by an exact retained generation is ambiguous owned evidence: record/fail
+closed and send zero signals. A fresh cleanup or targeted Map-miss snapshot
+that observes opaque evidence for an expected PID is an identity mismatch,
+never confirmed absence.
+
+The worker SHALL receive the same validated Harness real UID through its
+existing immutable inventory options so runner and worker classification are
+identical. Darwin, H3 monitor-start ordering, H4 terminal behavior, H4 direct
+child/descendant signaling, the workflow command, and selected top-level test
+counts remain unchanged.
+
+Focused synthetic coverage SHALL prove different-UID permission denial and a
+twice-proven different-UID `Kthread: 1` can coexist as unrelated digest-bound
+opaque evidence. Kernel-thread proof SHALL perform zero live-only reads;
+missing/zero/drifting `Kthread`, empty cmdline, or missing exe without that
+proof remains failure. Same-UID, unreadable UID, target-group, exact-parent,
+retained-PID, cleanup/Map-miss, and all sampled identity/relation races fail
+before signal; opaque evidence never becomes live by negation; and worker
+behavior matches runner behavior. These assertions SHALL be folded into the
+already selected Linux inventory/owned-cleanup top-level tests so the
+selected manifest remains exactly 21.
+
 ### 4. Freeze one Product test owner and three Harness gates
 
 P owns:
@@ -393,7 +458,7 @@ from P's `updater/` copy. The expected discovered class currently has 22 test
 methods, but evidence records the actual executed count and names rather than
 accepting a declaration.
 
-Corrected H4 owns:
+Corrected H5 owns:
 
 1. `node contracts/acceptance/bin/acceptance.mjs verify-package` before install;
 2. the offline install, then
@@ -410,7 +475,7 @@ to skip on Linux is excluded from this fixed Linux run.
 TAP parsing records actual pass/fail/skip and selected names. All 21 supervisor
 tests and every frozen selected core test must pass. The former
 `escaped fixture process identity differs before cleanup` classification is
-not an exception for H4: observing it again proves the Linux inventory
+not an exception for H5: observing it again proves the Linux inventory
 correction did not close and fails the run. Any failure, missing selected
 name, widened pattern, or count drift fails.
 
@@ -469,7 +534,7 @@ substitution fails closed with the raw bounded evidence digest rather than
 throwing an unclassified parser exception or emitting a partial seal.
 
 After admission, the run creates the root with an ownership marker and a
-closed file manifest, transfers P/H4 archives, and uses uniquely named
+closed file manifest, transfers P/H5 archives, and uses uniquely named
 run-labeled containers only. It creates no Compose project, Docker network,
 volume, port, listener, daemon, or production path.
 
@@ -494,7 +559,7 @@ emitted.
 
 ## Risks / Trade-offs
 
-- **[H4 contains planning-only lifecycle paths absent from P]** → Bind the exact
+- **[H5 contains planning-only lifecycle paths absent from P]** → Bind the exact
   path/mode/blob inventory; never allow a broad prefix or any implementation
   path.
 - **[A selected test pattern silently widens or skips]** → Freeze exact names,
@@ -507,7 +572,7 @@ emitted.
   only by config image ID. Never resolve a tag or trust a mirror header alone.
 - **[A remote object collides or changes concurrently]** → Stop before writes
   or preserve ambiguous residue; never compensate with broader deletion.
-- **[The former Linux fixture mismatch returns]** → H4 removes the exception
+- **[The former Linux fixture mismatch returns]** → H5 keeps the exception
   entirely, so the former exact mismatch or any other failure blocks closure.
 - **[Displayed command text differs from executed seal bytes]** → Hash the
   actual transport byte array before each SSH invocation, require the remote
@@ -516,19 +581,20 @@ emitted.
 
 ## Migration Plan
 
-1. Retain P's exact-head Development Actions and all H2/H3 failures as
+1. Retain P's exact-head Development Actions and all H2/H3/H4 failures as
    superseded evidence only.
-2. Strict-validate and main-review this H4 OpenSpec revision before code.
-3. Implement/review only the declared H4 workflow/inventory/test paths, then
-   commit and push H4 and require exact-head Development Actions including
+2. Strict-validate and main-review this H5 OpenSpec revision before code.
+3. Implement/review only the declared H5 inventory/test paths, then
+   commit and push H5 and require exact-head Development Actions including
    supervisor 21/21.
-4. Prove P/H4 plus failed-H/H4, H2/H4, and H3/H4 ancestry/differences; perform
+4. Prove P/H5 plus failed-H/H5, H2/H5, H3/H5, and failed-H4/H5
+   ancestry/differences; perform
    read-only preflight, attest the fixed mirror OCI graphs, then run the closed
    remote container gates under a new opaque run ID.
 5. Pull/hash bounded evidence, clean the run complement, repeat protected
    inventories, and obtain independent zero-P0/P1 review.
 6. Record exact identities/results, sync the delta, archive the change, commit,
-   push, and hand P/H4/archive identities to Operations.
+   push, and hand P/H5/archive identities to Operations.
 
 Failure before remote mutation changes no external state. Failure afterward
 invokes only the exact identity cleanup above; it never modifies Product,
@@ -536,5 +602,5 @@ legacy, production, or host integration.
 
 ## Open Questions
 
-None. Actual fresh run ID, H4 OIDs, test counts, source/archive digests, container
+None. Actual fresh run ID, H5 OIDs, test counts, source/archive digests, container
 IDs, and log/TAP digests are evidence outputs and must not be guessed.
