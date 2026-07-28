@@ -1502,7 +1502,7 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
       cwd: siblingCwd,
       pid: siblingPid,
       processGroupId: 701,
-      startToken: '123457',
+      startToken: '0',
       userId: 1000,
     });
     writeLinuxProcTerminal(procRoot, {
@@ -1510,7 +1510,7 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
       parentPid: 19,
       pid: unrelatedTerminalPid,
       processGroupId: 799,
-      startToken: '123458',
+      startToken: '0',
       userId: 1001,
     });
     const forbidExternalInventory = () => {
@@ -1543,11 +1543,13 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
       parentPid: 19,
       pid: unrelatedTerminalPid,
       processGroupId: 799,
-      startToken: '123458',
+      startToken: '0',
       state: 'Z',
       userId: 1001,
     });
     assert.equal(inventory.digest, canonicalJsonDigest(inventory.entries));
+    assert.equal(inventory.entries[1].startToken, '0');
+    assert.deepEqual(newHostProcesses(inventory, inventory), []);
     assert.throws(
       () => completeProcessCommand(unrelatedTerminalPid, options),
       /terminal without a complete command identity/u,
@@ -1710,13 +1712,15 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
         fixtureRoot,
         `proc-opaque-${deniedField}`,
       );
+      const opaqueStartToken =
+        deniedField === 'cmdline' ? '0' : String(opaquePid);
       const opaqueProcessRoot = writeLinuxProcProcess(opaqueProcRoot, {
         comm: `opaque ${deniedField}`,
         cwd: ownedCwd,
         parentPid: 61,
         pid: opaquePid,
         processGroupId: 810,
-        startToken: String(opaquePid),
+        startToken: opaqueStartToken,
         userId: unrelatedUserId,
       });
       const baseIo = linuxProcIo();
@@ -1737,7 +1741,7 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
                   parentPid: 61,
                   pid: opaquePid,
                   processGroupId: 810,
-                  startToken: String(opaquePid),
+                  startToken: opaqueStartToken,
                   state,
                 }),
               );
@@ -1780,7 +1784,7 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
           pid: opaquePid,
           processGroupId: 810,
           reason: 'permission-denied',
-          startToken: String(opaquePid),
+          startToken: opaqueStartToken,
           state: stateSamples.at(-1),
           userId: unrelatedUserId,
         },
@@ -2152,6 +2156,469 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
       () => completeProcessCommand(kernelPid, kernelOptions),
       /opaque/u,
     );
+
+    const zeroKernelProcRoot = path.join(
+      fixtureRoot,
+      'proc-opaque-kthread-zero',
+    );
+    const zeroKernelPid = 400_016;
+    const zeroKernelProcessRoot = writeLinuxProcProcess(
+      zeroKernelProcRoot,
+      {
+        comm: 'fixture zero kthread',
+        cwd: ownedCwd,
+        parentPid: 0,
+        pid: zeroKernelPid,
+        processGroupId: 0,
+        startToken: '0',
+        userId: unrelatedUserId,
+      },
+    );
+    fs.writeFileSync(
+      path.join(zeroKernelProcessRoot, 'status'),
+      [
+        'Name:\tfixture-zero-kthread',
+        `Uid:\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}`,
+        'Kthread:\t1',
+        '',
+      ].join('\n'),
+    );
+    for (const liveOnlyField of ['cmdline', 'exe', 'cwd']) {
+      fs.rmSync(path.join(zeroKernelProcessRoot, liveOnlyField));
+    }
+    const zeroKernelBaseIo = linuxProcIo();
+    let zeroKernelStatReads = 0;
+    let zeroKernelStatusReads = 0;
+    let zeroKernelLiveOnlyReads = 0;
+    const zeroKernelInventory = snapshotHostProcessInventory({
+      currentUserId: harnessUserId,
+      io: linuxProcIo({
+        readFile(candidate, maximumBytes) {
+          if (candidate === path.join(zeroKernelProcessRoot, 'stat')) {
+            const state = ['R', 'I', 'S'][
+              Math.min(zeroKernelStatReads, 2)
+            ];
+            zeroKernelStatReads += 1;
+            return Buffer.from(
+              linuxProcessStat({
+                comm: 'fixture zero kthread',
+                parentPid: 0,
+                pid: zeroKernelPid,
+                processGroupId: 0,
+                startToken: '0',
+                state,
+              }),
+            );
+          }
+          if (candidate === path.join(zeroKernelProcessRoot, 'status')) {
+            zeroKernelStatusReads += 1;
+          }
+          if (candidate === path.join(zeroKernelProcessRoot, 'cmdline')) {
+            zeroKernelLiveOnlyReads += 1;
+            assert.fail('zero-PGID Kthread read cmdline');
+          }
+          return zeroKernelBaseIo.readFile(candidate, maximumBytes);
+        },
+        readLink(candidate) {
+          if (
+            candidate === path.join(zeroKernelProcessRoot, 'exe') ||
+            candidate === path.join(zeroKernelProcessRoot, 'cwd')
+          ) {
+            zeroKernelLiveOnlyReads += 1;
+            assert.fail('zero-PGID Kthread read a live-only link');
+          }
+          return zeroKernelBaseIo.readLink(candidate);
+        },
+      }),
+      platform: 'linux',
+      procRoot: zeroKernelProcRoot,
+      spawnSync: forbidExternalInventory,
+    });
+    assert.equal(zeroKernelStatReads, 3);
+    assert.equal(zeroKernelStatusReads, 2);
+    assert.equal(zeroKernelLiveOnlyReads, 0);
+    assert.deepEqual(zeroKernelInventory.entries, [
+      {
+        comm: 'fixture zero kthread',
+        kind: 'opaque',
+        parentPid: 0,
+        pid: zeroKernelPid,
+        processGroupId: 0,
+        reason: 'kernel-thread',
+        startToken: '0',
+        state: 'S',
+        userId: unrelatedUserId,
+      },
+    ]);
+    assert.equal(
+      zeroKernelInventory.digest,
+      canonicalJsonDigest(zeroKernelInventory.entries),
+    );
+    const changedZeroKernelStart = Object.freeze({
+      ...zeroKernelInventory.entries[0],
+      startToken: '1',
+    });
+    assert.notEqual(
+      canonicalJsonDigest([changedZeroKernelStart]),
+      zeroKernelInventory.digest,
+    );
+    assert.deepEqual(
+      newHostProcesses(
+        zeroKernelInventory,
+        {
+          digest: canonicalJsonDigest([changedZeroKernelStart]),
+          entries: [changedZeroKernelStart],
+        },
+      ),
+      [changedZeroKernelStart],
+    );
+    const zeroKernelEntry = zeroKernelInventory.entries[0];
+    const unrelatedZeroKernelLedger = new Map();
+    reconcileProcessClosure(
+      unrelatedZeroKernelLedger,
+      owned.processGroupId,
+      [zeroKernelEntry],
+    );
+    assert.equal(unrelatedZeroKernelLedger.size, 0);
+    const retainedZeroKernelLedger = new Map([
+      [
+        zeroKernelEntry.pid,
+        Object.freeze({
+          ...owned,
+          comm: zeroKernelEntry.comm,
+          pid: zeroKernelEntry.pid,
+          startToken: zeroKernelEntry.startToken,
+          userId: zeroKernelEntry.userId,
+        }),
+      ],
+    ]);
+    assert.throws(
+      () =>
+        reconcileProcessClosure(
+          retainedZeroKernelLedger,
+          owned.processGroupId,
+          [zeroKernelEntry],
+        ),
+      /became opaque in the owned closure/u,
+    );
+    const relatedZeroKernelLedger = new Map([[owned.pid, owned]]);
+    assert.throws(
+      () =>
+        reconcileProcessClosure(
+          relatedZeroKernelLedger,
+          owned.processGroupId,
+          [
+            owned,
+            {
+              ...zeroKernelEntry,
+              parentPid: owned.pid,
+            },
+          ],
+        ),
+      /owned opaque evidence/u,
+    );
+
+    {
+      let zeroGroupFixtureIndex = 0;
+      const zeroGroupFixture = () => {
+        const localFixtureRoot = path.join(
+          fixtureRoot,
+          `zero-group-negative-${zeroGroupFixtureIndex}`,
+        );
+        zeroGroupFixtureIndex += 1;
+        const localProcRoot = path.join(localFixtureRoot, 'proc');
+        const localCwd = path.join(localFixtureRoot, 'cwd');
+        const pid = 410_101 + zeroGroupFixtureIndex;
+        fs.mkdirSync(localProcRoot, { recursive: true, mode: 0o700 });
+        fs.mkdirSync(localCwd, { mode: 0o700 });
+        const processRoot = writeLinuxProcProcess(localProcRoot, {
+          cwd: localCwd,
+          pid,
+          processGroupId: 710,
+          startToken: '7001',
+          userId: 1000,
+        });
+        return {
+          fixtureRoot: localFixtureRoot,
+          pid,
+          procRoot: localProcRoot,
+          processRoot,
+        };
+      };
+      const expectZeroGroupFailure = (
+        state,
+        io,
+        pattern,
+        currentUserId = undefined,
+      ) => {
+        assert.throws(
+          () =>
+            snapshotHostProcessInventory({
+              ...(currentUserId === undefined ? {} : { currentUserId }),
+              io,
+              platform: 'linux',
+              procRoot: state.procRoot,
+              spawnSync: forbidExternalInventory,
+            }),
+          pattern,
+        );
+      };
+      const statusText = (userId, kthreadRow = null) =>
+        [
+          'Name:\tfixture',
+          `Uid:\t${userId}\t${userId}\t${userId}\t${userId}`,
+          ...(kthreadRow === null ? [] : [kthreadRow]),
+          '',
+        ].join('\n');
+      const writeZeroStat = (
+        state,
+        {
+          processGroupId = 0,
+          startToken = '0',
+          processState = 'S',
+        } = {},
+      ) => {
+        fs.writeFileSync(
+          path.join(state.processRoot, 'stat'),
+          linuxProcessStat({
+            pid: state.pid,
+            processGroupId,
+            startToken,
+            state: processState,
+          }),
+        );
+      };
+
+      for (const kthreadRow of [null, 'Kthread:\t0']) {
+        const state = zeroGroupFixture();
+        try {
+          writeZeroStat(state);
+          fs.writeFileSync(
+            path.join(state.processRoot, 'status'),
+            statusText(unrelatedUserId, kthreadRow),
+          );
+          expectZeroGroupFailure(
+            state,
+            linuxProcIo(),
+            /complete live evidence requires a positive process group/u,
+            harnessUserId,
+          );
+        } finally {
+          fs.rmSync(state.fixtureRoot, {
+            recursive: true,
+            force: false,
+          });
+        }
+      }
+
+      const permissionDenied = zeroGroupFixture();
+      try {
+        writeZeroStat(permissionDenied);
+        fs.writeFileSync(
+          path.join(permissionDenied.processRoot, 'status'),
+          statusText(unrelatedUserId),
+        );
+        const base = linuxProcIo();
+        let deniedReads = 0;
+        expectZeroGroupFailure(
+          permissionDenied,
+          linuxProcIo({
+            readFile(candidate, maximumBytes) {
+              if (
+                candidate ===
+                path.join(permissionDenied.processRoot, 'cmdline')
+              ) {
+                deniedReads += 1;
+                throw fixtureSystemError(
+                  'EACCES',
+                  'zero-PGID command evidence denied',
+                );
+              }
+              return base.readFile(candidate, maximumBytes);
+            },
+          }),
+          /permission-denied opaque evidence requires a positive process group/u,
+          harnessUserId,
+        );
+        assert.equal(deniedReads, 1);
+      } finally {
+        fs.rmSync(permissionDenied.fixtureRoot, {
+          recursive: true,
+          force: false,
+        });
+      }
+
+      const terminal = zeroGroupFixture();
+      try {
+        writeZeroStat(terminal, { processState: 'Z' });
+        expectZeroGroupFailure(
+          terminal,
+          linuxProcIo(),
+          /terminal evidence requires a positive process group/u,
+          harnessUserId,
+        );
+      } finally {
+        fs.rmSync(terminal.fixtureRoot, {
+          recursive: true,
+          force: false,
+        });
+      }
+
+      const sameUidKernelThread = zeroGroupFixture();
+      try {
+        writeZeroStat(sameUidKernelThread);
+        fs.writeFileSync(
+          path.join(sameUidKernelThread.processRoot, 'status'),
+          statusText(harnessUserId, 'Kthread:\t1'),
+        );
+        const base = linuxProcIo();
+        let liveOnlyReads = 0;
+        expectZeroGroupFailure(
+          sameUidKernelThread,
+          linuxProcIo({
+            readFile(candidate, maximumBytes) {
+              if (
+                candidate ===
+                path.join(sameUidKernelThread.processRoot, 'cmdline')
+              ) {
+                liveOnlyReads += 1;
+              }
+              return base.readFile(candidate, maximumBytes);
+            },
+            readLink(candidate) {
+              if (
+                candidate ===
+                  path.join(sameUidKernelThread.processRoot, 'exe') ||
+                candidate ===
+                  path.join(sameUidKernelThread.processRoot, 'cwd')
+              ) {
+                liveOnlyReads += 1;
+              }
+              return base.readLink(candidate);
+            },
+          }),
+          /kernel-thread evidence belongs to the current real UID/u,
+          harnessUserId,
+        );
+        assert.equal(liveOnlyReads, 0);
+      } finally {
+        fs.rmSync(sameUidKernelThread.fixtureRoot, {
+          recursive: true,
+          force: false,
+        });
+      }
+
+      for (const [firstGroup, secondGroup] of [
+        [0, 710],
+        [710, 0],
+      ]) {
+        const state = zeroGroupFixture();
+        try {
+          fs.writeFileSync(
+            path.join(state.processRoot, 'status'),
+            statusText(unrelatedUserId, 'Kthread:\t1'),
+          );
+          const base = linuxProcIo();
+          let statReads = 0;
+          let liveOnlyReads = 0;
+          expectZeroGroupFailure(
+            state,
+            linuxProcIo({
+              readFile(candidate, maximumBytes) {
+                if (candidate === path.join(state.processRoot, 'stat')) {
+                  statReads += 1;
+                  return Buffer.from(
+                    linuxProcessStat({
+                      pid: state.pid,
+                      processGroupId:
+                        statReads === 1 ? firstGroup : secondGroup,
+                      startToken: '0',
+                    }),
+                  );
+                }
+                if (candidate === path.join(state.processRoot, 'cmdline')) {
+                  liveOnlyReads += 1;
+                }
+                return base.readFile(candidate, maximumBytes);
+              },
+              readLink(candidate) {
+                if (
+                  candidate === path.join(state.processRoot, 'exe') ||
+                  candidate === path.join(state.processRoot, 'cwd')
+                ) {
+                  liveOnlyReads += 1;
+                }
+                return base.readLink(candidate);
+              },
+            }),
+            /process-group zero classification changed while inventory was read/u,
+            harnessUserId,
+          );
+          assert.equal(statReads, 2);
+          assert.equal(liveOnlyReads, 0);
+        } finally {
+          fs.rmSync(state.fixtureRoot, {
+            recursive: true,
+            force: false,
+          });
+        }
+      }
+
+      const startTokenDrift = zeroGroupFixture();
+      try {
+        fs.writeFileSync(
+          path.join(startTokenDrift.processRoot, 'status'),
+          statusText(unrelatedUserId, 'Kthread:\t1'),
+        );
+        const base = linuxProcIo();
+        let statReads = 0;
+        let liveOnlyReads = 0;
+        expectZeroGroupFailure(
+          startTokenDrift,
+          linuxProcIo({
+            readFile(candidate, maximumBytes) {
+              if (
+                candidate === path.join(startTokenDrift.processRoot, 'stat')
+              ) {
+                statReads += 1;
+                return Buffer.from(
+                  linuxProcessStat({
+                    pid: startTokenDrift.pid,
+                    processGroupId: 0,
+                    startToken: statReads === 1 ? '0' : '1',
+                  }),
+                );
+              }
+              if (
+                candidate ===
+                path.join(startTokenDrift.processRoot, 'cmdline')
+              ) {
+                liveOnlyReads += 1;
+              }
+              return base.readFile(candidate, maximumBytes);
+            },
+            readLink(candidate) {
+              if (
+                candidate === path.join(startTokenDrift.processRoot, 'exe') ||
+                candidate === path.join(startTokenDrift.processRoot, 'cwd')
+              ) {
+                liveOnlyReads += 1;
+              }
+              return base.readLink(candidate);
+            },
+          }),
+          /identity changed while inventory was read/u,
+          harnessUserId,
+        );
+        assert.equal(statReads, 2);
+        assert.equal(liveOnlyReads, 0);
+      } finally {
+        fs.rmSync(startTokenDrift.fixtureRoot, {
+          recursive: true,
+          force: false,
+        });
+      }
+    }
 
     const createOpaqueFailureFixture = (label, pid) => {
       const failureProcRoot = path.join(
@@ -4313,6 +4780,160 @@ test('owned Linux cleanup rejects PID reuse or argv drift before signaling', asy
       /lacks a complete signal identity/u,
     );
     assert.equal(rejectedInputInventoryReads, 0);
+    assert.deepEqual(signals, []);
+
+    const zeroCleanupPid = 420_004;
+    const zeroCleanupRoot = writeLinuxProcProcess(procRoot, {
+      arguments_: [process.execPath, 'owned-before-zero-kthread'],
+      comm: 'zero cleanup kthread',
+      cwd,
+      pid: zeroCleanupPid,
+      processGroupId: 723,
+      startToken: '0',
+      userId: cleanupHarnessUserId + 1,
+    });
+    const zeroCleanupExpected = snapshotHostProcessInventory({
+      currentUserId: cleanupHarnessUserId,
+      platform: 'linux',
+      procRoot,
+    }).entries.find((entry) => entry.pid === zeroCleanupPid);
+    fs.writeFileSync(
+      path.join(zeroCleanupRoot, 'stat'),
+      linuxProcessStat({
+        comm: 'zero cleanup kthread',
+        pid: zeroCleanupPid,
+        processGroupId: 0,
+        startToken: '0',
+      }),
+    );
+    fs.writeFileSync(
+      path.join(zeroCleanupRoot, 'status'),
+      [
+        'Name:\tzero-cleanup-kthread',
+        `Uid:\t${cleanupHarnessUserId + 1}\t${cleanupHarnessUserId + 1}\t${cleanupHarnessUserId + 1}\t${cleanupHarnessUserId + 1}`,
+        'Kthread:\t1',
+        '',
+      ].join('\n'),
+    );
+    const zeroCleanupBaseIo = linuxProcIo();
+    let zeroCleanupLiveOnlyReads = 0;
+    const zeroCleanupIo = (hideFromListing) =>
+      linuxProcIo({
+        readDirectory(directory) {
+          const entries = zeroCleanupBaseIo.readDirectory(directory);
+          return hideFromListing
+            ? entries.filter(
+              (entry) => entry.name !== String(zeroCleanupPid),
+            )
+            : entries;
+        },
+        readFile(candidate, maximumBytes) {
+          if (candidate === path.join(zeroCleanupRoot, 'cmdline')) {
+            zeroCleanupLiveOnlyReads += 1;
+          }
+          return zeroCleanupBaseIo.readFile(candidate, maximumBytes);
+        },
+        readLink(candidate) {
+          if (
+            candidate === path.join(zeroCleanupRoot, 'exe') ||
+            candidate === path.join(zeroCleanupRoot, 'cwd')
+          ) {
+            zeroCleanupLiveOnlyReads += 1;
+          }
+          return zeroCleanupBaseIo.readLink(candidate);
+        },
+      });
+    for (const hideFromListing of [false, true]) {
+      signals.length = 0;
+      await assert.rejects(
+        terminateOwnedProcesses([zeroCleanupExpected], 50, {
+          inventoryOptions: {
+            currentUserId: cleanupHarnessUserId,
+            io: zeroCleanupIo(hideFromListing),
+            platform: 'linux',
+            procRoot,
+          },
+          killProcess(...args) {
+            signals.push(args);
+          },
+        }),
+        /opaque evidence/u,
+      );
+      assert.deepEqual(signals, []);
+    }
+    assert.equal(zeroCleanupLiveOnlyReads, 0);
+
+    let zeroSignalInventoryReads = 0;
+    signals.length = 0;
+    await assert.rejects(
+      terminateOwnedProcesses(
+        [
+          {
+            ...zeroCleanupExpected,
+            processGroupId: 0,
+          },
+        ],
+        50,
+        {
+          inventoryOptions: {
+            io: linuxProcIo({
+              readDirectory(directory) {
+                zeroSignalInventoryReads += 1;
+                return zeroCleanupBaseIo.readDirectory(directory);
+              },
+            }),
+            platform: 'linux',
+            procRoot,
+          },
+          killProcess(...args) {
+            signals.push(args);
+          },
+        },
+      ),
+      /cleanup requires a positive process group/u,
+    );
+    assert.equal(zeroSignalInventoryReads, 0);
+    assert.deepEqual(signals, []);
+
+    zeroSignalInventoryReads = 0;
+    signals.length = 0;
+    await assert.rejects(
+      terminateOwnedProcesses(
+        [
+          {
+            ...zeroCleanupExpected,
+            terminalTombstone: {
+              comm: zeroCleanupExpected.comm,
+              kind: 'terminal',
+              parentPid: zeroCleanupExpected.parentPid,
+              pid: zeroCleanupExpected.pid,
+              processGroupId: 0,
+              startToken: zeroCleanupExpected.startToken,
+              state: 'Z',
+              userId: zeroCleanupExpected.userId,
+            },
+          },
+        ],
+        50,
+        {
+          inventoryOptions: {
+            io: linuxProcIo({
+              readDirectory(directory) {
+                zeroSignalInventoryReads += 1;
+                return zeroCleanupBaseIo.readDirectory(directory);
+              },
+            }),
+            platform: 'linux',
+            procRoot,
+          },
+          killProcess(...args) {
+            signals.push(args);
+          },
+        },
+      ),
+      /terminal evidence requires a positive process group/u,
+    );
+    assert.equal(zeroSignalInventoryReads, 0);
     assert.deepEqual(signals, []);
   } finally {
     fs.rmSync(fixtureRoot, { recursive: true, force: false });

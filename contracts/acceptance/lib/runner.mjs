@@ -252,12 +252,10 @@ function parseLinuxProcessStat(bytes, expectedPid) {
   const processGroupId = canonicalInteger(
     fields[2],
     `process ${expectedPid} process group`,
-    { minimum: 1 },
   );
   canonicalInteger(
     fields[19],
     `process ${expectedPid} start time`,
-    { minimum: 1 },
   );
   return Object.freeze({
     comm,
@@ -463,6 +461,25 @@ function assertSameLinuxProcessGeneration(pid, before, after) {
   ) {
     fail(`process ${pid} identity changed while inventory was read`);
   }
+  if (
+    (before.processGroupId === 0) !==
+    (after.processGroupId === 0)
+  ) {
+    fail(
+      `process ${pid} process-group zero classification changed while inventory was read`,
+    );
+  }
+}
+
+function assertPositiveLinuxProcessGroup(stat, evidenceKind) {
+  if (
+    !Number.isSafeInteger(stat.processGroupId) ||
+    stat.processGroupId <= 0
+  ) {
+    fail(
+      `process ${stat.pid} ${evidenceKind} requires a positive process group`,
+    );
+  }
 }
 
 function assertLinuxProcessRemainedLive(pid, before, after) {
@@ -514,6 +531,12 @@ function opaqueLinuxProcessEntry(stat, status, reason) {
   if (terminalLinuxProcessState(stat.state)) {
     fail(`process ${stat.pid} terminal evidence cannot become opaque`);
   }
+  if (reason === 'permission-denied') {
+    assertPositiveLinuxProcessGroup(
+      stat,
+      'permission-denied opaque evidence',
+    );
+  }
   return Object.freeze({
     comm: stat.comm,
     kind: 'opaque',
@@ -561,6 +584,7 @@ function readStableLinuxTerminalEntry(
   if (firstUserId !== secondUserId) {
     fail(`process ${pid} terminal UID changed while inventory was read`);
   }
+  assertPositiveLinuxProcessGroup(finalStat, 'terminal evidence');
   return Object.freeze({
     comm: finalStat.comm,
     kind: 'terminal',
@@ -804,6 +828,10 @@ function readLinuxProcessEntry(runtime, pid) {
     ) {
       fail(`process ${pid} identity, cwd, or argv changed while inventory was read`);
     }
+    assertPositiveLinuxProcessGroup(
+      finalContinuation.stat,
+      'complete live evidence',
+    );
     return Object.freeze({
       ...evidenceAfter,
       comm: finalContinuation.stat.comm,
@@ -1712,6 +1740,15 @@ export async function terminateOwnedProcesses(
     ) {
       fail('owned process cleanup lacks a complete signal identity');
     }
+    if (
+      inventoryRuntime.platform === 'linux' &&
+      (
+        !Number.isSafeInteger(entry.processGroupId) ||
+        entry.processGroupId <= 0
+      )
+    ) {
+      fail('owned process cleanup requires a positive process group');
+    }
     expectedByPid.set(entry.pid, entry);
     if (entry.terminalTombstone !== undefined) {
       if (
@@ -1719,6 +1756,19 @@ export async function terminateOwnedProcesses(
         !sameProcessGeneration(entry, entry.terminalTombstone)
       ) {
         fail('owned process cleanup terminal evidence is invalid');
+      }
+      if (
+        inventoryRuntime.platform === 'linux' &&
+        (
+          !Number.isSafeInteger(
+            entry.terminalTombstone.processGroupId,
+          ) ||
+          entry.terminalTombstone.processGroupId <= 0
+        )
+      ) {
+        fail(
+          'owned process cleanup terminal evidence requires a positive process group',
+        );
       }
       retainedTerminalByPid.set(entry.pid, entry.terminalTombstone);
     }
