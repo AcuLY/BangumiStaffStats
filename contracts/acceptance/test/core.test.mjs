@@ -137,6 +137,8 @@ import {
   completeProcessCommand,
   completeProcessCommandMatches,
   createProcessClosureMonitor,
+  isOpaqueProcessEntry,
+  newHostProcesses,
   newOwnedCwdProcesses,
   reconcileProcessClosure,
   runCommand,
@@ -1475,6 +1477,10 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
   const ownedPid = 400_001;
   const siblingPid = 400_002;
   const unrelatedTerminalPid = 400_003;
+  const workerFallbackUserId = process.getuid?.() ?? 0;
+  const harnessUserId =
+    workerFallbackUserId === 90_000 ? 90_001 : 90_000;
+  const unrelatedUserId = harnessUserId + 1;
   const expectedArgv = Object.freeze([
     process.execPath,
     'argument with spaces',
@@ -1511,6 +1517,7 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
       assert.fail('Linux process inventory invoked an external executable');
     };
     const options = {
+      currentUserId: harnessUserId,
       platform: 'linux',
       procRoot,
       spawnSync: forbidExternalInventory,
@@ -1627,6 +1634,875 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
     assert.equal(newOwnedCwdProcesses([], cwdEntries).length, 1);
     assert.equal(newOwnedCwdProcesses(cwdEntries, cwdEntries).length, 0);
 
+    for (const [index, nonterminalState] of [
+      'T',
+      't',
+      'K',
+      'P',
+      'W',
+    ].entries()) {
+      const livePid = 400_030 + index;
+      const liveProcRoot = path.join(
+        fixtureRoot,
+        `proc-live-relation-${index}`,
+      );
+      const liveProcessRoot = writeLinuxProcProcess(liveProcRoot, {
+        comm: `live ${nonterminalState}`,
+        cwd: ownedCwd,
+        parentPid: 70,
+        pid: livePid,
+        processGroupId: 820,
+        startToken: String(livePid),
+        userId: unrelatedUserId,
+      });
+      const baseIo = linuxProcIo();
+      const stateSamples = [nonterminalState, 'S', nonterminalState, 'S'];
+      let statReads = 0;
+      let statusReads = 0;
+      const liveInventory = snapshotHostProcessInventory({
+        currentUserId: harnessUserId,
+        io: linuxProcIo({
+          readFile(candidate, maximumBytes) {
+            if (candidate === path.join(liveProcessRoot, 'stat')) {
+              const sample = Math.min(statReads, stateSamples.length - 1);
+              statReads += 1;
+              return Buffer.from(
+                linuxProcessStat({
+                  comm: `live ${nonterminalState}`,
+                  parentPid: 70 + sample,
+                  pid: livePid,
+                  processGroupId: 820 + sample,
+                  startToken: String(livePid),
+                  state: stateSamples[sample],
+                }),
+              );
+            }
+            if (candidate === path.join(liveProcessRoot, 'status')) {
+              statusReads += 1;
+            }
+            return baseIo.readFile(candidate, maximumBytes);
+          },
+        }),
+        platform: 'linux',
+        procRoot: liveProcRoot,
+        spawnSync: forbidExternalInventory,
+      });
+      assert.equal(statReads, 4, `${nonterminalState} stat samples`);
+      assert.equal(statusReads, 3, `${nonterminalState} status samples`);
+      assert.equal(liveInventory.entries[0].kind, 'live');
+      assert.equal(liveInventory.entries[0].parentPid, 73);
+      assert.equal(liveInventory.entries[0].processGroupId, 823);
+    }
+
+    const opaquePermissionEntries = [];
+    let opaqueCwdOptions;
+    for (const [
+      deniedField,
+      deniedCode,
+      stateSamples,
+      opaquePid,
+    ] of [
+      ['cmdline', 'EACCES', ['R', 'S', 'D'], 400_010],
+      ['exe', 'EPERM', ['S', 'D', 'I'], 400_011],
+      ['cwd', 'EACCES', ['D', 'I', 'R'], 400_012],
+    ]) {
+      const opaqueProcRoot = path.join(
+        fixtureRoot,
+        `proc-opaque-${deniedField}`,
+      );
+      const opaqueProcessRoot = writeLinuxProcProcess(opaqueProcRoot, {
+        comm: `opaque ${deniedField}`,
+        cwd: ownedCwd,
+        parentPid: 61,
+        pid: opaquePid,
+        processGroupId: 810,
+        startToken: String(opaquePid),
+        userId: unrelatedUserId,
+      });
+      const baseIo = linuxProcIo();
+      let deniedReads = 0;
+      let statReads = 0;
+      let statusReads = 0;
+      const opaqueOptions = {
+        currentUserId: harnessUserId,
+        io: linuxProcIo({
+          readFile(candidate, maximumBytes) {
+            if (candidate === path.join(opaqueProcessRoot, 'stat')) {
+              const state =
+                stateSamples[Math.min(statReads, stateSamples.length - 1)];
+              statReads += 1;
+              return Buffer.from(
+                linuxProcessStat({
+                  comm: `opaque ${deniedField}`,
+                  parentPid: 61,
+                  pid: opaquePid,
+                  processGroupId: 810,
+                  startToken: String(opaquePid),
+                  state,
+                }),
+              );
+            }
+            if (candidate === path.join(opaqueProcessRoot, 'status')) {
+              statusReads += 1;
+            }
+            if (
+              deniedField === 'cmdline' &&
+              candidate === path.join(opaqueProcessRoot, 'cmdline')
+            ) {
+              deniedReads += 1;
+              throw fixtureSystemError(deniedCode, `${deniedField} denied`);
+            }
+            return baseIo.readFile(candidate, maximumBytes);
+          },
+          readLink(candidate) {
+            if (
+              candidate === path.join(opaqueProcessRoot, deniedField)
+            ) {
+              deniedReads += 1;
+              throw fixtureSystemError(deniedCode, `${deniedField} denied`);
+            }
+            return baseIo.readLink(candidate);
+          },
+        }),
+        platform: 'linux',
+        procRoot: opaqueProcRoot,
+        spawnSync: forbidExternalInventory,
+      };
+      const opaqueInventory = snapshotHostProcessInventory(opaqueOptions);
+      assert.equal(statReads, 3, `${deniedField} stable stat samples`);
+      assert.equal(statusReads, 2, `${deniedField} stable status samples`);
+      assert.equal(deniedReads, 1, `${deniedField} denied read count`);
+      assert.deepEqual(opaqueInventory.entries, [
+        {
+          comm: `opaque ${deniedField}`,
+          kind: 'opaque',
+          parentPid: 61,
+          pid: opaquePid,
+          processGroupId: 810,
+          reason: 'permission-denied',
+          startToken: String(opaquePid),
+          state: stateSamples.at(-1),
+          userId: unrelatedUserId,
+        },
+      ]);
+      const [opaqueEntry] = opaqueInventory.entries;
+      assert.equal(isOpaqueProcessEntry(opaqueEntry), true);
+      assert.equal('argv' in opaqueEntry, false);
+      assert.equal('command' in opaqueEntry, false);
+      assert.equal('cwd' in opaqueEntry, false);
+      assert.equal(
+        opaqueInventory.digest,
+        canonicalJsonDigest(opaqueInventory.entries),
+      );
+      for (const changed of [
+        { ...opaqueEntry, reason: 'kernel-thread' },
+        {
+          ...opaqueEntry,
+          parentPid: opaqueEntry.parentPid + 1,
+        },
+        {
+          ...opaqueEntry,
+          processGroupId: opaqueEntry.processGroupId + 1,
+        },
+        {
+          ...opaqueEntry,
+          state: opaqueEntry.state === 'R' ? 'I' : 'R',
+        },
+      ]) {
+        assert.notEqual(
+          canonicalJsonDigest([changed]),
+          opaqueInventory.digest,
+          `${deniedField} opaque digest binds changed evidence`,
+        );
+      }
+      const rescheduledAndReparented = Object.freeze({
+        ...opaqueEntry,
+        parentPid: opaqueEntry.parentPid + 1,
+        processGroupId: opaqueEntry.processGroupId + 1,
+        state: opaqueEntry.state === 'I' ? 'R' : 'I',
+      });
+      const changedInventory = Object.freeze({
+        digest: canonicalJsonDigest([rescheduledAndReparented]),
+        entries: Object.freeze([rescheduledAndReparented]),
+      });
+      assert.notEqual(changedInventory.digest, opaqueInventory.digest);
+      assert.deepEqual(
+        newHostProcesses(opaqueInventory, changedInventory),
+        [],
+        `${deniedField} opaque generation survives unrelated state/relation changes`,
+      );
+      const changedReasonEntry = Object.freeze({
+        ...opaqueEntry,
+        reason: 'kernel-thread',
+      });
+      assert.deepEqual(
+        newHostProcesses(
+          opaqueInventory,
+          {
+            digest: canonicalJsonDigest([changedReasonEntry]),
+            entries: [changedReasonEntry],
+          },
+        ),
+        [changedReasonEntry],
+        `${deniedField} opaque reason changes its generation key`,
+      );
+      assert.throws(
+        () => completeProcessCommand(opaquePid, opaqueOptions),
+        /opaque/u,
+      );
+      opaquePermissionEntries.push(opaqueEntry);
+      if (deniedField === 'cwd') opaqueCwdOptions = opaqueOptions;
+    }
+
+    for (const [
+      deniedField,
+      deniedCode,
+      stateSamples,
+      opaquePid,
+    ] of [
+      ['cmdline', 'EPERM', ['R', 'S', 'D', 'I'], 400_040],
+      ['exe', 'EACCES', ['S', 'D', 'I', 'R'], 400_041],
+      ['cwd', 'EPERM', ['D', 'I', 'R', 'S'], 400_042],
+    ]) {
+      const opaqueProcRoot = path.join(
+        fixtureRoot,
+        `proc-opaque-second-${deniedField}`,
+      );
+      const opaqueProcessRoot = writeLinuxProcProcess(opaqueProcRoot, {
+        comm: `opaque second ${deniedField}`,
+        cwd: ownedCwd,
+        parentPid: 62,
+        pid: opaquePid,
+        processGroupId: 811,
+        startToken: String(opaquePid),
+        userId: unrelatedUserId,
+      });
+      const baseIo = linuxProcIo();
+      let deniedFieldReads = 0;
+      let statReads = 0;
+      let statusReads = 0;
+      const readDeniedField = (candidate, read) => {
+        if (candidate !== path.join(opaqueProcessRoot, deniedField)) {
+          return read();
+        }
+        deniedFieldReads += 1;
+        if (deniedFieldReads === 2) {
+          throw fixtureSystemError(
+            deniedCode,
+            `second ${deniedField} denied`,
+          );
+        }
+        return read();
+      };
+      const opaqueInventory = snapshotHostProcessInventory({
+        currentUserId: harnessUserId,
+        io: linuxProcIo({
+          readFile(candidate, maximumBytes) {
+            if (candidate === path.join(opaqueProcessRoot, 'stat')) {
+              const state =
+                stateSamples[Math.min(statReads, stateSamples.length - 1)];
+              statReads += 1;
+              return Buffer.from(
+                linuxProcessStat({
+                  comm: `opaque second ${deniedField}`,
+                  parentPid: 62,
+                  pid: opaquePid,
+                  processGroupId: 811,
+                  startToken: String(opaquePid),
+                  state,
+                }),
+              );
+            }
+            if (candidate === path.join(opaqueProcessRoot, 'status')) {
+              statusReads += 1;
+            }
+            if (deniedField === 'cmdline') {
+              return readDeniedField(
+                candidate,
+                () => baseIo.readFile(candidate, maximumBytes),
+              );
+            }
+            return baseIo.readFile(candidate, maximumBytes);
+          },
+          readLink(candidate) {
+            if (deniedField === 'exe' || deniedField === 'cwd') {
+              return readDeniedField(
+                candidate,
+                () => baseIo.readLink(candidate),
+              );
+            }
+            return baseIo.readLink(candidate);
+          },
+        }),
+        platform: 'linux',
+        procRoot: opaqueProcRoot,
+        spawnSync: forbidExternalInventory,
+      });
+      assert.equal(
+        deniedFieldReads,
+        2,
+        `${deniedField} second evidence read`,
+      );
+      assert.equal(statReads, 4, `${deniedField} second-failure stat samples`);
+      assert.equal(
+        statusReads,
+        3,
+        `${deniedField} second-failure status samples`,
+      );
+      assert.deepEqual(opaqueInventory.entries, [
+        {
+          comm: `opaque second ${deniedField}`,
+          kind: 'opaque',
+          parentPid: 62,
+          pid: opaquePid,
+          processGroupId: 811,
+          reason: 'permission-denied',
+          startToken: String(opaquePid),
+          state: stateSamples.at(-1),
+          userId: unrelatedUserId,
+        },
+      ]);
+    }
+
+    assert.deepEqual(
+      snapshotOwnedCwdProcesses(ownedRoot, opaqueCwdOptions),
+      [],
+    );
+
+    const relationOpaque = opaquePermissionEntries[0];
+    const unrelatedOpaqueLedger = new Map();
+    reconcileProcessClosure(
+      unrelatedOpaqueLedger,
+      899,
+      [relationOpaque],
+    );
+    assert.equal(unrelatedOpaqueLedger.size, 0);
+    assert.throws(
+      () => newOwnedCwdProcesses([], [relationOpaque]),
+      /cannot contain opaque evidence/u,
+    );
+    assert.throws(
+      () => newOwnedCwdProcesses([relationOpaque], []),
+      /cannot contain opaque evidence/u,
+    );
+    const targetGroupLedger = new Map();
+    assert.throws(
+      () =>
+        reconcileProcessClosure(
+          targetGroupLedger,
+          relationOpaque.processGroupId,
+          [relationOpaque],
+      ),
+      /owned opaque evidence/u,
+    );
+    assert.equal(
+      targetGroupLedger.get(relationOpaque.pid)?.ambiguousOwnedOpaque,
+      true,
+    );
+    const retainedOpaqueLedger = new Map([
+      [
+        relationOpaque.pid,
+        Object.freeze({
+          argv: [process.execPath, 'retained-before-opaque'],
+          command: process.execPath,
+          comm: relationOpaque.comm,
+          cwd: ownedCwd,
+          kind: 'live',
+          parentPid: relationOpaque.parentPid,
+          pid: relationOpaque.pid,
+          processGroupId: relationOpaque.processGroupId,
+          startToken: relationOpaque.startToken,
+          userId: relationOpaque.userId,
+        }),
+      ],
+    ]);
+    assert.throws(
+      () =>
+        reconcileProcessClosure(
+          retainedOpaqueLedger,
+          899,
+          [relationOpaque],
+        ),
+      /became opaque in the owned closure/u,
+    );
+    const exactParentOpaque = Object.freeze({
+      ...opaquePermissionEntries[1],
+      parentPid: owned.pid,
+      pid: 400_013,
+      processGroupId: 811,
+    });
+    const exactParentOpaqueLedger = new Map([[owned.pid, owned]]);
+    assert.throws(
+      () =>
+        reconcileProcessClosure(
+          exactParentOpaqueLedger,
+          owned.processGroupId,
+          [owned, exactParentOpaque],
+      ),
+      /owned opaque evidence/u,
+    );
+    assert.equal(
+      exactParentOpaqueLedger.get(exactParentOpaque.pid)
+        ?.ambiguousOwnedOpaque,
+      true,
+    );
+
+    const kernelProcRoot = path.join(fixtureRoot, 'proc-opaque-kthread');
+    const kernelPid = 400_014;
+    const kernelProcessRoot = writeLinuxProcProcess(kernelProcRoot, {
+      comm: 'fixture kthread',
+      cwd: ownedCwd,
+      parentPid: 2,
+      pid: kernelPid,
+      processGroupId: 812,
+      startToken: String(kernelPid),
+      userId: unrelatedUserId,
+    });
+    fs.writeFileSync(
+      path.join(kernelProcessRoot, 'status'),
+      [
+        'Name:\tfixture-kthread',
+        `Uid:\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}`,
+        'Kthread:\t1',
+        '',
+      ].join('\n'),
+    );
+    for (const liveOnlyField of ['cmdline', 'exe', 'cwd']) {
+      fs.rmSync(path.join(kernelProcessRoot, liveOnlyField));
+    }
+    const kernelBaseIo = linuxProcIo();
+    let kernelStatReads = 0;
+    let kernelStatusReads = 0;
+    let kernelLiveOnlyReads = 0;
+    const kernelOptions = {
+      currentUserId: harnessUserId,
+      io: linuxProcIo({
+        readFile(candidate, maximumBytes) {
+          if (candidate === path.join(kernelProcessRoot, 'stat')) {
+            const state = ['R', 'I', 'S'][
+              Math.min(kernelStatReads, 2)
+            ];
+            kernelStatReads += 1;
+            return Buffer.from(
+              linuxProcessStat({
+                comm: 'fixture kthread',
+                parentPid: 2,
+                pid: kernelPid,
+                processGroupId: 812,
+                startToken: String(kernelPid),
+                state,
+              }),
+            );
+          }
+          if (candidate === path.join(kernelProcessRoot, 'status')) {
+            kernelStatusReads += 1;
+          }
+          if (candidate === path.join(kernelProcessRoot, 'cmdline')) {
+            kernelLiveOnlyReads += 1;
+            assert.fail('authoritative Kthread read cmdline');
+          }
+          return kernelBaseIo.readFile(candidate, maximumBytes);
+        },
+        readLink(candidate) {
+          if (
+            candidate === path.join(kernelProcessRoot, 'exe') ||
+            candidate === path.join(kernelProcessRoot, 'cwd')
+          ) {
+            kernelLiveOnlyReads += 1;
+            assert.fail('authoritative Kthread read a live-only link');
+          }
+          return kernelBaseIo.readLink(candidate);
+        },
+      }),
+      platform: 'linux',
+      procRoot: kernelProcRoot,
+      spawnSync: forbidExternalInventory,
+    };
+    const kernelInventory = snapshotHostProcessInventory(kernelOptions);
+    assert.equal(kernelStatReads, 3);
+    assert.equal(kernelStatusReads, 2);
+    assert.equal(kernelLiveOnlyReads, 0);
+    assert.deepEqual(kernelInventory.entries, [
+      {
+        comm: 'fixture kthread',
+        kind: 'opaque',
+        parentPid: 2,
+        pid: kernelPid,
+        processGroupId: 812,
+        reason: 'kernel-thread',
+        startToken: String(kernelPid),
+        state: 'S',
+        userId: unrelatedUserId,
+      },
+    ]);
+    assert.equal(
+      kernelInventory.digest,
+      canonicalJsonDigest(kernelInventory.entries),
+    );
+    assert.notEqual(
+      kernelInventory.digest,
+      canonicalJsonDigest([
+        {
+          ...kernelInventory.entries[0],
+          reason: 'permission-denied',
+        },
+      ]),
+    );
+    assert.throws(
+      () => completeProcessCommand(kernelPid, kernelOptions),
+      /opaque/u,
+    );
+
+    const createOpaqueFailureFixture = (label, pid) => {
+      const failureProcRoot = path.join(
+        fixtureRoot,
+        `proc-opaque-failure-${label}`,
+      );
+      const failureCwd = path.join(
+        fixtureRoot,
+        `opaque-failure-cwd-${label}`,
+      );
+      fs.mkdirSync(failureCwd, { mode: 0o700 });
+      const processRoot = writeLinuxProcProcess(failureProcRoot, {
+        cwd: failureCwd,
+        pid,
+        processGroupId: 814,
+        startToken: String(pid),
+        userId: unrelatedUserId,
+      });
+      return Object.freeze({
+        pid,
+        processRoot,
+        procRoot: failureProcRoot,
+      });
+    };
+    const expectOpaqueFailure = (state, io, pattern) => {
+      assert.throws(
+        () =>
+          snapshotHostProcessInventory({
+            currentUserId: harnessUserId,
+            io,
+            platform: 'linux',
+            procRoot: state.procRoot,
+            spawnSync: forbidExternalInventory,
+          }),
+        pattern,
+      );
+    };
+    const statusText = (userId, kthreadRows = []) =>
+      [
+        'Name:\tfixture',
+        `Uid:\t${userId}\t${userId}\t${userId}\t${userId}`,
+        ...kthreadRows,
+        '',
+      ].join('\n');
+
+    for (const {
+      code,
+      label,
+      pattern,
+      userId,
+    } of [
+      {
+        code: 'EACCES',
+        label: 'same-uid',
+        pattern: /permission-denied live evidence belongs to the current real UID/u,
+        userId: harnessUserId,
+      },
+      {
+        code: 'EIO',
+        label: 'non-permission',
+        pattern: /inventory failed: non-permission opaque failure/u,
+        userId: unrelatedUserId,
+      },
+    ]) {
+      const state = createOpaqueFailureFixture(
+        label,
+        label === 'same-uid' ? 400_020 : 400_021,
+      );
+      fs.writeFileSync(
+        path.join(state.processRoot, 'status'),
+        statusText(userId),
+      );
+      const baseIo = linuxProcIo();
+      expectOpaqueFailure(
+        state,
+        linuxProcIo({
+          readFile(candidate, maximumBytes) {
+            if (candidate === path.join(state.processRoot, 'cmdline')) {
+              throw fixtureSystemError(
+                code,
+                'non-permission opaque failure',
+              );
+            }
+            return baseIo.readFile(candidate, maximumBytes);
+          },
+        }),
+        pattern,
+      );
+    }
+
+    for (const [label, kthreadRows, expectedKind] of [
+      ['missing', [], 'live'],
+      ['zero', ['Kthread:\t0'], 'live'],
+    ]) {
+      const state = createOpaqueFailureFixture(
+        `kthread-complete-${label}`,
+        label === 'missing' ? 400_022 : 400_023,
+      );
+      fs.writeFileSync(
+        path.join(state.processRoot, 'status'),
+        statusText(unrelatedUserId, kthreadRows),
+      );
+      const [entry] = snapshotHostProcessInventory({
+        currentUserId: harnessUserId,
+        platform: 'linux',
+        procRoot: state.procRoot,
+        spawnSync: forbidExternalInventory,
+      }).entries;
+      assert.equal(entry.kind, expectedKind);
+      assert.equal(isOpaqueProcessEntry(entry), false);
+      assert.equal('reason' in entry, false);
+      fs.writeFileSync(
+        path.join(state.processRoot, 'cmdline'),
+        Buffer.alloc(0),
+      );
+      expectOpaqueFailure(
+        state,
+        linuxProcIo(),
+        /non-empty NUL-terminated argv/u,
+      );
+    }
+
+    for (const [label, kthreadRows, pattern] of [
+      [
+        'duplicate',
+        ['Kthread:\t1', 'Kthread:\t1'],
+        /duplicate Kthread rows/u,
+      ],
+      [
+        'malformed',
+        ['Kthread:\tyes'],
+        /malformed Kthread row/u,
+      ],
+    ]) {
+      const state = createOpaqueFailureFixture(
+        `kthread-${label}`,
+        label === 'duplicate' ? 400_024 : 400_025,
+      );
+      fs.writeFileSync(
+        path.join(state.processRoot, 'status'),
+        statusText(unrelatedUserId, kthreadRows),
+      );
+      expectOpaqueFailure(state, linuxProcIo(), pattern);
+    }
+
+    const missingExeState = createOpaqueFailureFixture(
+      'kthread-missing-exe',
+      400_026,
+    );
+    fs.rmSync(path.join(missingExeState.processRoot, 'exe'));
+    expectOpaqueFailure(
+      missingExeState,
+      linuxProcIo(),
+      /raced without confirmed absence/u,
+    );
+
+    const sameUidKthreadState = createOpaqueFailureFixture(
+      'kthread-same-uid',
+      400_027,
+    );
+    fs.writeFileSync(
+      path.join(sameUidKthreadState.processRoot, 'status'),
+      statusText(harnessUserId, ['Kthread:\t1']),
+    );
+    expectOpaqueFailure(
+      sameUidKthreadState,
+      linuxProcIo(),
+      /kernel-thread evidence belongs to the current real UID/u,
+    );
+
+    const driftingKthreadState = createOpaqueFailureFixture(
+      'kthread-drift',
+      400_028,
+    );
+    const driftingKthreadBaseIo = linuxProcIo();
+    let driftingKthreadStatusReads = 0;
+    let driftingKthreadLiveOnlyReads = 0;
+    expectOpaqueFailure(
+      driftingKthreadState,
+      linuxProcIo({
+        readFile(candidate, maximumBytes) {
+          if (
+            candidate ===
+            path.join(driftingKthreadState.processRoot, 'status')
+          ) {
+            driftingKthreadStatusReads += 1;
+            return Buffer.from(
+              statusText(
+                unrelatedUserId,
+                [
+                  `Kthread:\t${
+                    driftingKthreadStatusReads === 1 ? '1' : '0'
+                  }`,
+                ],
+              ),
+            );
+          }
+          if (
+            candidate ===
+            path.join(driftingKthreadState.processRoot, 'cmdline')
+          ) {
+            driftingKthreadLiveOnlyReads += 1;
+          }
+          return driftingKthreadBaseIo.readFile(candidate, maximumBytes);
+        },
+        readLink(candidate) {
+          if (
+            candidate ===
+              path.join(driftingKthreadState.processRoot, 'exe') ||
+            candidate ===
+              path.join(driftingKthreadState.processRoot, 'cwd')
+          ) {
+            driftingKthreadLiveOnlyReads += 1;
+          }
+          return driftingKthreadBaseIo.readLink(candidate);
+        },
+      }),
+      /Kthread flag changed while inventory was read/u,
+    );
+    assert.equal(driftingKthreadStatusReads, 2);
+    assert.equal(driftingKthreadLiveOnlyReads, 0);
+
+    for (const [label, changedStat, pattern] of [
+      [
+        'pid',
+        linuxProcessStat({
+          pid: 400_030,
+          processGroupId: 814,
+          startToken: '400029',
+        }),
+        /stat has the wrong PID prefix/u,
+      ],
+      [
+        'start',
+        linuxProcessStat({
+          pid: 400_029,
+          processGroupId: 814,
+          startToken: '400030',
+        }),
+        /identity changed while inventory was read/u,
+      ],
+      [
+        'comm',
+        linuxProcessStat({
+          comm: 'replacement',
+          pid: 400_029,
+          processGroupId: 814,
+          startToken: '400029',
+        }),
+        /identity changed while inventory was read/u,
+      ],
+      [
+        'parent',
+        linuxProcessStat({
+          parentPid: 2,
+          pid: 400_029,
+          processGroupId: 814,
+          startToken: '400029',
+        }),
+        /live relation changed while inventory was read/u,
+      ],
+      [
+        'group',
+        linuxProcessStat({
+          pid: 400_029,
+          processGroupId: 815,
+          startToken: '400029',
+        }),
+        /live relation changed while inventory was read/u,
+      ],
+    ]) {
+      const state = createOpaqueFailureFixture(
+        `sample-${label}`,
+        400_029,
+      );
+      const baseIo = linuxProcIo();
+      let statReads = 0;
+      expectOpaqueFailure(
+        state,
+        linuxProcIo({
+          readFile(candidate, maximumBytes) {
+            if (candidate === path.join(state.processRoot, 'stat')) {
+              statReads += 1;
+              if (statReads === 3) return Buffer.from(changedStat);
+            }
+            if (candidate === path.join(state.processRoot, 'cmdline')) {
+              throw fixtureSystemError('EACCES', 'sample race denied');
+            }
+            return baseIo.readFile(candidate, maximumBytes);
+          },
+        }),
+        pattern,
+      );
+      assert.equal(statReads, 3, label);
+    }
+
+    const driftingUidState = createOpaqueFailureFixture(
+      'sample-uid',
+      400_031,
+    );
+    const driftingUidBaseIo = linuxProcIo();
+    let driftingUidStatusReads = 0;
+    expectOpaqueFailure(
+      driftingUidState,
+      linuxProcIo({
+        readFile(candidate, maximumBytes) {
+          if (
+            candidate === path.join(driftingUidState.processRoot, 'status')
+          ) {
+            driftingUidStatusReads += 1;
+            return Buffer.from(
+              statusText(
+                unrelatedUserId + driftingUidStatusReads - 1,
+              ),
+            );
+          }
+          if (
+            candidate === path.join(driftingUidState.processRoot, 'cmdline')
+          ) {
+            throw fixtureSystemError('EACCES', 'sample UID race denied');
+          }
+          return driftingUidBaseIo.readFile(candidate, maximumBytes);
+        },
+      }),
+      /live UID changed while inventory was read/u,
+    );
+    assert.equal(driftingUidStatusReads, 2);
+
+    const workerOpaquePid = 400_015;
+    const workerOpaqueRoot = writeLinuxProcProcess(procRoot, {
+      comm: 'worker kthread',
+      cwd: ownedCwd,
+      parentPid: 2,
+      pid: workerOpaquePid,
+      processGroupId: 813,
+      startToken: String(workerOpaquePid),
+      userId: workerFallbackUserId,
+    });
+    fs.writeFileSync(
+      path.join(workerOpaqueRoot, 'status'),
+      [
+        'Name:\tworker-kthread',
+        `Uid:\t${workerFallbackUserId}\t${workerFallbackUserId}\t${workerFallbackUserId}\t${workerFallbackUserId}`,
+        'Kthread:\t1',
+        '',
+      ].join('\n'),
+    );
+    for (const liveOnlyField of ['cmdline', 'exe', 'cwd']) {
+      fs.rmSync(path.join(workerOpaqueRoot, liveOnlyField));
+    }
+
     const parityMonitor = await createProcessClosureMonitor(options);
     await startProcessClosureMonitor(parityMonitor, 700);
     const reparentedWorkerTerminal = Object.freeze({
@@ -1662,6 +2538,20 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
         processGroupId: owned.processGroupId,
         startToken: owned.startToken,
       }),
+    );
+
+    const workerOwnedOpaqueMonitor =
+      await createProcessClosureMonitor({
+        ...options,
+        currentUserId: harnessUserId,
+      });
+    await assert.rejects(
+      startProcessClosureMonitor(workerOwnedOpaqueMonitor, 813),
+      /owned opaque evidence/u,
+    );
+    await assert.rejects(
+      stopProcessClosureMonitor(workerOwnedOpaqueMonitor),
+      /owned opaque evidence/u,
     );
 
     const firstGroupTerminalMonitor =
@@ -1841,8 +2731,81 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
     }
 
     {
+      const transitionProcRoot = path.join(
+        fixtureRoot,
+        'proc-live-to-terminal-permission-denied',
+      );
+      const transitionCwd = path.join(
+        fixtureRoot,
+        'transition-permission-cwd',
+      );
+      const transitionPid = 400_006;
+      fs.mkdirSync(transitionProcRoot, { mode: 0o700 });
+      fs.mkdirSync(transitionCwd, { mode: 0o700 });
+      const transitionProcessRoot = writeLinuxProcProcess(
+        transitionProcRoot,
+        {
+          comm: 'transition permission',
+          cwd: transitionCwd,
+          parentPid: 30,
+          pid: transitionPid,
+          processGroupId: 706,
+          startToken: '123461',
+          userId: unrelatedUserId,
+        },
+      );
+      const baseIo = linuxProcIo();
+      let transitioned = false;
+      const transitionInventory = snapshotHostProcessInventory({
+        currentUserId: harnessUserId,
+        io: linuxProcIo({
+          readFile(candidate, maximumBytes) {
+            if (
+              !transitioned &&
+              candidate === path.join(transitionProcessRoot, 'cmdline')
+            ) {
+              transitioned = true;
+              fs.writeFileSync(
+                path.join(transitionProcessRoot, 'stat'),
+                linuxProcessStat({
+                  comm: 'transition permission',
+                  parentPid: 30,
+                  pid: transitionPid,
+                  processGroupId: 706,
+                  startToken: '123461',
+                  state: 'Z',
+                }),
+              );
+              throw fixtureSystemError(
+                'EACCES',
+                'terminal command evidence denied',
+              );
+            }
+            return baseIo.readFile(candidate, maximumBytes);
+          },
+        }),
+        platform: 'linux',
+        procRoot: transitionProcRoot,
+        spawnSync: forbidExternalInventory,
+      });
+      assert.equal(transitioned, true);
+      assert.deepEqual(transitionInventory.entries, [
+        {
+          comm: 'transition permission',
+          kind: 'terminal',
+          parentPid: 30,
+          pid: transitionPid,
+          processGroupId: 706,
+          startToken: '123461',
+          state: 'Z',
+          userId: unrelatedUserId,
+        },
+      ]);
+    }
+
+    {
       const raceProcRoot = path.join(fixtureRoot, 'proc-terminal-races');
-      const racePid = 400_006;
+      const racePid = 400_007;
       fs.mkdirSync(raceProcRoot, { mode: 0o700 });
       const raceProcessRoot = writeLinuxProcTerminal(raceProcRoot, {
         comm: 'terminal race',
@@ -2005,6 +2968,8 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
 });
 
 test('Linux process inventory fails closed on malformed, raced, or inaccessible procfs evidence', async (t) => {
+  const harnessUserId = 90_000;
+  const unrelatedUserId = harnessUserId + 1;
   const fixture = () => {
     const fixtureRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'bgmss-linux-proc-negative-'),
@@ -2023,10 +2988,16 @@ test('Linux process inventory fails closed on malformed, raced, or inaccessible 
     });
     return { cwd, fixtureRoot, pid, procRoot, processRoot };
   };
-  const expectFailure = (state, io, pattern) => {
+  const expectFailure = (
+    state,
+    io,
+    pattern,
+    currentUserId = undefined,
+  ) => {
     assert.throws(
       () =>
         snapshotHostProcessInventory({
+          ...(currentUserId === undefined ? {} : { currentUserId }),
           io,
           platform: 'linux',
           procRoot: state.procRoot,
@@ -2087,6 +3058,33 @@ test('Linux process inventory fails closed on malformed, raced, or inaccessible 
     }
   });
 
+  await t.test('canonical UID rejects malformed or partial duplicate rows', () => {
+    const canonical =
+      `Uid:\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}`;
+    for (const duplicate of [
+      `Uid:\t${unrelatedUserId}\t${unrelatedUserId}`,
+      `Uid:\t${unrelatedUserId}\tinvalid\t${unrelatedUserId}\t${unrelatedUserId}`,
+      `${canonical}\textra`,
+      canonical,
+    ]) {
+      const state = fixture();
+      try {
+        fs.writeFileSync(
+          path.join(state.processRoot, 'status'),
+          ['Name:\tfixture', canonical, duplicate, ''].join('\n'),
+        );
+        expectFailure(
+          state,
+          linuxProcIo(),
+          /Uid row/u,
+          harnessUserId,
+        );
+      } finally {
+        fs.rmSync(state.fixtureRoot, { recursive: true, force: false });
+      }
+    }
+  });
+
   await t.test('malformed and oversized cmdline', () => {
     const state = fixture();
     try {
@@ -2133,6 +3131,362 @@ test('Linux process inventory fails closed on malformed, raced, or inaccessible 
       );
     } finally {
       fs.rmSync(state.fixtureRoot, { recursive: true, force: false });
+    }
+  });
+
+  await t.test('opaque permission classification rejects same-UID and non-permission failures', () => {
+    for (const {
+      code,
+      message,
+      pattern,
+      userId,
+    } of [
+      {
+        code: 'EACCES',
+        message: 'same UID denied',
+        pattern: /permission-denied live evidence belongs to the current real UID/u,
+        userId: harnessUserId,
+      },
+      {
+        code: 'EIO',
+        message: 'unclassified command failure',
+        pattern: /inventory failed: unclassified command failure/u,
+        userId: unrelatedUserId,
+      },
+    ]) {
+      const state = fixture();
+      try {
+        fs.writeFileSync(
+          path.join(state.processRoot, 'status'),
+          `Name:\tfixture\nUid:\t${userId}\t${userId}\t${userId}\t${userId}\n`,
+        );
+        const base = linuxProcIo();
+        expectFailure(
+          state,
+          linuxProcIo({
+            readFile(candidate, maximumBytes) {
+              if (candidate === path.join(state.processRoot, 'cmdline')) {
+                throw fixtureSystemError(code, message);
+              }
+              return base.readFile(candidate, maximumBytes);
+            },
+          }),
+          pattern,
+          harnessUserId,
+        );
+      } finally {
+        fs.rmSync(state.fixtureRoot, { recursive: true, force: false });
+      }
+    }
+  });
+
+  await t.test('Kthread inference requires two canonical stable status samples', () => {
+    for (const kthreadRow of [null, 'Kthread:\t0']) {
+      const state = fixture();
+      try {
+        fs.writeFileSync(
+          path.join(state.processRoot, 'status'),
+          [
+            'Name:\tfixture',
+            `Uid:\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}`,
+            ...(kthreadRow === null ? [] : [kthreadRow]),
+            '',
+          ].join('\n'),
+        );
+        const [entry] = snapshotHostProcessInventory({
+          currentUserId: harnessUserId,
+          platform: 'linux',
+          procRoot: state.procRoot,
+        }).entries;
+        assert.equal(entry.kind, 'live');
+        assert.equal(isOpaqueProcessEntry(entry), false);
+        assert.equal('reason' in entry, false);
+      } finally {
+        fs.rmSync(state.fixtureRoot, { recursive: true, force: false });
+      }
+    }
+
+    for (const {
+      kthreadRows,
+      mutate,
+      pattern,
+    } of [
+      {
+        kthreadRows: [],
+        mutate(state) {
+          fs.writeFileSync(
+            path.join(state.processRoot, 'cmdline'),
+            Buffer.alloc(0),
+          );
+        },
+        pattern: /non-empty NUL-terminated argv/u,
+      },
+      {
+        kthreadRows: ['Kthread:\t0'],
+        mutate(state) {
+          fs.writeFileSync(
+            path.join(state.processRoot, 'cmdline'),
+            Buffer.alloc(0),
+          );
+        },
+        pattern: /non-empty NUL-terminated argv/u,
+      },
+      {
+        kthreadRows: [],
+        mutate(state) {
+          fs.rmSync(path.join(state.processRoot, 'exe'));
+        },
+        pattern: /raced without confirmed absence/u,
+      },
+      {
+        kthreadRows: ['Kthread:\t1', 'Kthread:\t1'],
+        mutate() {},
+        pattern: /duplicate Kthread rows/u,
+      },
+      {
+        kthreadRows: ['Kthread:\tyes'],
+        mutate() {},
+        pattern: /malformed Kthread row/u,
+      },
+    ]) {
+      const state = fixture();
+      try {
+        fs.writeFileSync(
+          path.join(state.processRoot, 'status'),
+          [
+            'Name:\tfixture',
+            `Uid:\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}`,
+            ...kthreadRows,
+            '',
+          ].join('\n'),
+        );
+        mutate(state);
+        expectFailure(
+          state,
+          linuxProcIo(),
+          pattern,
+          harnessUserId,
+        );
+      } finally {
+        fs.rmSync(state.fixtureRoot, { recursive: true, force: false });
+      }
+    }
+
+    const sameUidKernelThread = fixture();
+    try {
+      fs.writeFileSync(
+        path.join(sameUidKernelThread.processRoot, 'status'),
+        [
+          'Name:\tfixture',
+          `Uid:\t${harnessUserId}\t${harnessUserId}\t${harnessUserId}\t${harnessUserId}`,
+          'Kthread:\t1',
+          '',
+        ].join('\n'),
+      );
+      const base = linuxProcIo();
+      let liveOnlyReads = 0;
+      expectFailure(
+        sameUidKernelThread,
+        linuxProcIo({
+          readFile(candidate, maximumBytes) {
+            if (
+              candidate ===
+              path.join(sameUidKernelThread.processRoot, 'cmdline')
+            ) {
+              liveOnlyReads += 1;
+            }
+            return base.readFile(candidate, maximumBytes);
+          },
+          readLink(candidate) {
+            if (
+              candidate ===
+                path.join(sameUidKernelThread.processRoot, 'exe') ||
+              candidate ===
+                path.join(sameUidKernelThread.processRoot, 'cwd')
+            ) {
+              liveOnlyReads += 1;
+            }
+            return base.readLink(candidate);
+          },
+        }),
+        /kernel-thread evidence belongs to the current real UID/u,
+        harnessUserId,
+      );
+      assert.equal(liveOnlyReads, 0);
+    } finally {
+      fs.rmSync(
+        sameUidKernelThread.fixtureRoot,
+        { recursive: true, force: false },
+      );
+    }
+
+    const drift = fixture();
+    try {
+      const base = linuxProcIo();
+      let statusReads = 0;
+      let liveOnlyReads = 0;
+      expectFailure(
+        drift,
+        linuxProcIo({
+          readFile(candidate, maximumBytes) {
+            if (candidate === path.join(drift.processRoot, 'status')) {
+              statusReads += 1;
+              return Buffer.from(
+                [
+                  'Name:\tfixture',
+                  `Uid:\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}`,
+                  `Kthread:\t${statusReads === 1 ? '1' : '0'}`,
+                  '',
+                ].join('\n'),
+              );
+            }
+            if (candidate === path.join(drift.processRoot, 'cmdline')) {
+              liveOnlyReads += 1;
+            }
+            return base.readFile(candidate, maximumBytes);
+          },
+          readLink(candidate) {
+            if (
+              candidate === path.join(drift.processRoot, 'exe') ||
+              candidate === path.join(drift.processRoot, 'cwd')
+            ) {
+              liveOnlyReads += 1;
+            }
+            return base.readLink(candidate);
+          },
+        }),
+        /Kthread flag changed while inventory was read/u,
+        harnessUserId,
+      );
+      assert.equal(statusReads, 2);
+      assert.equal(liveOnlyReads, 0);
+    } finally {
+      fs.rmSync(drift.fixtureRoot, { recursive: true, force: false });
+    }
+  });
+
+  await t.test('opaque sampling rejects identity, UID, and relation drift', () => {
+    const statRaces = [
+      {
+        name: 'PID',
+        stat(state) {
+          return linuxProcessStat({
+            pid: state.pid + 1,
+            processGroupId: 710,
+            startToken: '7001',
+          });
+        },
+        pattern: /stat has the wrong PID prefix/u,
+      },
+      {
+        name: 'start token',
+        stat(state) {
+          return linuxProcessStat({
+            pid: state.pid,
+            processGroupId: 710,
+            startToken: '7002',
+          });
+        },
+        pattern: /identity changed while inventory was read/u,
+      },
+      {
+        name: 'comm',
+        stat(state) {
+          return linuxProcessStat({
+            comm: 'replacement',
+            pid: state.pid,
+            processGroupId: 710,
+            startToken: '7001',
+          });
+        },
+        pattern: /identity changed while inventory was read/u,
+      },
+      {
+        name: 'parent',
+        stat(state) {
+          return linuxProcessStat({
+            parentPid: 2,
+            pid: state.pid,
+            processGroupId: 710,
+            startToken: '7001',
+          });
+        },
+        pattern: /live relation changed while inventory was read/u,
+      },
+      {
+        name: 'process group',
+        stat(state) {
+          return linuxProcessStat({
+            pid: state.pid,
+            processGroupId: 711,
+            startToken: '7001',
+          });
+        },
+        pattern: /live relation changed while inventory was read/u,
+      },
+    ];
+    for (const race of statRaces) {
+      const state = fixture();
+      try {
+        fs.writeFileSync(
+          path.join(state.processRoot, 'status'),
+          `Name:\tfixture\nUid:\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}\n`,
+        );
+        const base = linuxProcIo();
+        let statReads = 0;
+        expectFailure(
+          state,
+          linuxProcIo({
+            readFile(candidate, maximumBytes) {
+              if (candidate === path.join(state.processRoot, 'stat')) {
+                statReads += 1;
+                if (statReads === 3) {
+                  return Buffer.from(race.stat(state));
+                }
+              }
+              if (candidate === path.join(state.processRoot, 'cmdline')) {
+                throw fixtureSystemError('EACCES', 'opaque race denied');
+              }
+              return base.readFile(candidate, maximumBytes);
+            },
+          }),
+          race.pattern,
+          harnessUserId,
+        );
+        assert.equal(statReads, 3, race.name);
+      } finally {
+        fs.rmSync(state.fixtureRoot, { recursive: true, force: false });
+      }
+    }
+
+    const uidRace = fixture();
+    try {
+      const base = linuxProcIo();
+      let statusReads = 0;
+      expectFailure(
+        uidRace,
+        linuxProcIo({
+          readFile(candidate, maximumBytes) {
+            if (candidate === path.join(uidRace.processRoot, 'status')) {
+              statusReads += 1;
+              const userId =
+                statusReads === 1 ? unrelatedUserId : unrelatedUserId + 1;
+              return Buffer.from(
+                `Name:\tfixture\nUid:\t${userId}\t${userId}\t${userId}\t${userId}\n`,
+              );
+            }
+            if (candidate === path.join(uidRace.processRoot, 'cmdline')) {
+              throw fixtureSystemError('EACCES', 'opaque UID race denied');
+            }
+            return base.readFile(candidate, maximumBytes);
+          },
+        }),
+        /live UID changed while inventory was read/u,
+        harnessUserId,
+      );
+      assert.equal(statusReads, 2);
+    } finally {
+      fs.rmSync(uidRace.fixtureRoot, { recursive: true, force: false });
     }
   });
 
@@ -2823,6 +4177,143 @@ test('owned Linux cleanup rejects PID reuse or argv drift before signaling', asy
     assert.equal(mixedResult.length, 2);
     assert.deepEqual(signals, [[pid, 'SIGTERM']]);
     assert.equal(signals.some(([targetPid]) => targetPid < 0), false);
+
+    const cleanupOpaquePid = 420_003;
+    const cleanupHarnessUserId = 90_000;
+    const cleanupOpaqueRoot = writeLinuxProcProcess(procRoot, {
+      arguments_: [process.execPath, 'owned-before-opaque'],
+      cwd,
+      pid: cleanupOpaquePid,
+      processGroupId: 722,
+      startToken: '8006',
+      userId: cleanupHarnessUserId + 1,
+    });
+    const cleanupExpected = snapshotHostProcessInventory({
+      currentUserId: cleanupHarnessUserId,
+      platform: 'linux',
+      procRoot,
+    }).entries.find((entry) => entry.pid === cleanupOpaquePid);
+    const cleanupBaseIo = linuxProcIo();
+    let cleanupOpaqueReads = 0;
+    let targetedPresenceChecks = 0;
+    signals.length = 0;
+    await assert.rejects(
+      terminateOwnedProcesses([cleanupExpected], 50, {
+        inventoryOptions: {
+          currentUserId: cleanupHarnessUserId,
+          io: linuxProcIo({
+            lstat(candidate) {
+              if (candidate === cleanupOpaqueRoot) {
+                targetedPresenceChecks += 1;
+              }
+              return cleanupBaseIo.lstat(candidate);
+            },
+            readDirectory(directory) {
+              return cleanupBaseIo.readDirectory(directory).filter(
+                (entry) => entry.name !== String(cleanupOpaquePid),
+              );
+            },
+            readFile(candidate, maximumBytes) {
+              if (
+                candidate === path.join(cleanupOpaqueRoot, 'cmdline')
+              ) {
+                cleanupOpaqueReads += 1;
+                throw fixtureSystemError(
+                  'EACCES',
+                  'cleanup target became opaque',
+                );
+              }
+              return cleanupBaseIo.readFile(candidate, maximumBytes);
+            },
+          }),
+          platform: 'linux',
+          procRoot,
+        },
+        killProcess(...args) {
+          signals.push(args);
+        },
+      }),
+      /opaque evidence/u,
+    );
+    assert.ok(targetedPresenceChecks >= 1);
+    assert.equal(cleanupOpaqueReads, 1);
+    assert.deepEqual(signals, []);
+
+    let globalOpaqueReads = 0;
+    const globalOpaqueIo = linuxProcIo({
+      readFile(candidate, maximumBytes) {
+        if (candidate === path.join(cleanupOpaqueRoot, 'cmdline')) {
+          globalOpaqueReads += 1;
+          throw fixtureSystemError(
+            'EPERM',
+            'globally listed cleanup target became opaque',
+          );
+        }
+        return cleanupBaseIo.readFile(candidate, maximumBytes);
+      },
+    });
+    signals.length = 0;
+    await assert.rejects(
+      terminateOwnedProcesses([cleanupExpected], 50, {
+        inventoryOptions: {
+          currentUserId: cleanupHarnessUserId,
+          io: globalOpaqueIo,
+          platform: 'linux',
+          procRoot,
+        },
+        killProcess(...args) {
+          signals.push(args);
+        },
+      }),
+      /opaque evidence/u,
+    );
+    assert.equal(globalOpaqueReads, 1);
+    assert.deepEqual(signals, []);
+
+    let initialOpaqueReads = 0;
+    const initialOpaqueIo = linuxProcIo({
+      readFile(candidate, maximumBytes) {
+        if (candidate === path.join(cleanupOpaqueRoot, 'cmdline')) {
+          initialOpaqueReads += 1;
+          throw fixtureSystemError(
+            'EACCES',
+            'initial cleanup target is opaque',
+          );
+        }
+        return cleanupBaseIo.readFile(candidate, maximumBytes);
+      },
+    });
+    const initialOpaque = snapshotHostProcessInventory({
+      currentUserId: cleanupHarnessUserId,
+      io: initialOpaqueIo,
+      platform: 'linux',
+      procRoot,
+    }).entries.find((entry) => entry.pid === cleanupOpaquePid);
+    assert.equal(isOpaqueProcessEntry(initialOpaque), true);
+    assert.equal(initialOpaqueReads, 1);
+    let rejectedInputInventoryReads = 0;
+    signals.length = 0;
+    await assert.rejects(
+      terminateOwnedProcesses([initialOpaque], 50, {
+        inventoryOptions: {
+          currentUserId: cleanupHarnessUserId,
+          io: linuxProcIo({
+            readDirectory(directory) {
+              rejectedInputInventoryReads += 1;
+              return cleanupBaseIo.readDirectory(directory);
+            },
+          }),
+          platform: 'linux',
+          procRoot,
+        },
+        killProcess(...args) {
+          signals.push(args);
+        },
+      }),
+      /lacks a complete signal identity/u,
+    );
+    assert.equal(rejectedInputInventoryReads, 0);
+    assert.deepEqual(signals, []);
   } finally {
     fs.rmSync(fixtureRoot, { recursive: true, force: false });
   }

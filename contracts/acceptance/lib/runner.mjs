@@ -114,6 +114,19 @@ function processInventoryRuntime(options = {}) {
   if (!['darwin', 'linux', 'win32'].includes(platform)) {
     fail(`process inventory platform is unsupported: ${platform}`);
   }
+  let currentUserId = null;
+  if (platform === 'linux') {
+    currentUserId =
+      options.currentUserId === undefined
+        ? process.getuid?.()
+        : options.currentUserId;
+    if (
+      !Number.isSafeInteger(currentUserId) ||
+      currentUserId < 0
+    ) {
+      fail('process inventory current real UID is invalid');
+    }
+  }
   const procRoot = options.procRoot ?? '/proc';
   if (
     typeof procRoot !== 'string' ||
@@ -143,6 +156,7 @@ function processInventoryRuntime(options = {}) {
     fail('process inventory spawnSync dependency is invalid');
   }
   return Object.freeze({
+    currentUserId,
     fileSystem,
     io,
     platform,
@@ -255,21 +269,60 @@ function parseLinuxProcessStat(bytes, expectedPid) {
   });
 }
 
-function parseLinuxProcessUserId(bytes, pid) {
+function parseLinuxProcessStatusText(bytes, pid) {
   const text = decodeUtf8(bytes, `process ${pid} status`);
   if (text.includes('\0')) fail(`process ${pid} status contains NUL`);
-  const matches = [
-    ...text.matchAll(
-      /^Uid:[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]*$/gmu,
-    ),
-  ];
-  if (matches.length !== 1) {
+  return text;
+}
+
+function parseLinuxProcessUserIdFromText(text, pid) {
+  const userIdRows = text
+    .split('\n')
+    .filter((line) => line.trimStart().startsWith('Uid'));
+  if (userIdRows.length !== 1) {
     fail(`process ${pid} status must contain one complete Uid row`);
   }
-  for (const [index, value] of matches[0].slice(1).entries()) {
+  const match =
+    /^Uid:[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]*$/u.exec(
+      userIdRows[0],
+    );
+  if (match === null) {
+    fail(`process ${pid} status must contain one complete Uid row`);
+  }
+  for (const [index, value] of match.slice(1).entries()) {
     canonicalInteger(value, `process ${pid} UID field ${index + 1}`);
   }
-  return canonicalInteger(matches[0][1], `process ${pid} real UID`);
+  return canonicalInteger(match[1], `process ${pid} real UID`);
+}
+
+function parseLinuxProcessUserId(bytes, pid) {
+  return parseLinuxProcessUserIdFromText(
+    parseLinuxProcessStatusText(bytes, pid),
+    pid,
+  );
+}
+
+function parseLinuxLiveProcessStatus(bytes, pid) {
+  const text = parseLinuxProcessStatusText(bytes, pid);
+  const kernelThreadRows = text
+    .split('\n')
+    .filter((line) => line.trimStart().startsWith('Kthread'));
+  if (kernelThreadRows.length > 1) {
+    fail(`process ${pid} status contains duplicate Kthread rows`);
+  }
+  let kernelThread = null;
+  if (kernelThreadRows.length === 1) {
+    const match =
+      /^Kthread:[ \t]+([01])[ \t]*$/u.exec(kernelThreadRows[0]);
+    if (match === null) {
+      fail(`process ${pid} status contains a malformed Kthread row`);
+    }
+    kernelThread = match[1] === '1';
+  }
+  return Object.freeze({
+    kernelThread,
+    userId: parseLinuxProcessUserIdFromText(text, pid),
+  });
 }
 
 function parseLinuxProcessArguments(bytes, pid) {
@@ -363,7 +416,19 @@ function readLinuxProcessUserId(runtime, processRoot, pid) {
   );
 }
 
-function readLinuxProcessEvidence(runtime, processRoot, pid) {
+function readLinuxLiveProcessStatus(runtime, processRoot, pid) {
+  return parseLinuxLiveProcessStatus(
+    checkedInventoryRead(
+      runtime,
+      path.posix.join(processRoot, 'status'),
+      PROCESS_STATUS_MAX_BYTES,
+      `process ${pid} status`,
+    ),
+    pid,
+  );
+}
+
+function readLinuxProcessCommandEvidence(runtime, processRoot, pid) {
   return Object.freeze({
     argv: parseLinuxProcessArguments(
       checkedInventoryRead(
@@ -384,7 +449,6 @@ function readLinuxProcessEvidence(runtime, processRoot, pid) {
       pid,
       'cwd',
     ),
-    userId: readLinuxProcessUserId(runtime, processRoot, pid),
   });
 }
 
@@ -399,6 +463,68 @@ function assertSameLinuxProcessGeneration(pid, before, after) {
   ) {
     fail(`process ${pid} identity changed while inventory was read`);
   }
+}
+
+function assertLinuxProcessRemainedLive(pid, before, after) {
+  assertSameLinuxProcessGeneration(pid, before, after);
+  if (
+    terminalLinuxProcessState(before.state) ||
+    terminalLinuxProcessState(after.state)
+  ) {
+    fail(`process ${pid} live sample changed to terminal state`);
+  }
+}
+
+function assertStableLinuxOpaqueRelation(pid, samples) {
+  if (!Array.isArray(samples) || samples.length < 2) {
+    fail(`process ${pid} opaque relation samples are invalid`);
+  }
+  const [first, ...remaining] = samples;
+  if (
+    remaining.some(
+      (sample) =>
+        sample.parentPid !== first.parentPid ||
+        sample.processGroupId !== first.processGroupId,
+    )
+  ) {
+    fail(`process ${pid} live relation changed while inventory was read`);
+  }
+}
+
+function assertStableLinuxLiveStatus(pid, before, after) {
+  if (before.userId !== after.userId) {
+    fail(`process ${pid} live UID changed while inventory was read`);
+  }
+  if (before.kernelThread !== after.kernelThread) {
+    fail(`process ${pid} Kthread flag changed while inventory was read`);
+  }
+}
+
+function isPermissionDeniedError(error) {
+  return error?.code === 'EACCES' || error?.code === 'EPERM';
+}
+
+function opaqueLinuxProcessEntry(stat, status, reason) {
+  if (
+    reason !== 'permission-denied' &&
+    reason !== 'kernel-thread'
+  ) {
+    fail(`process ${stat.pid} opaque reason is invalid`);
+  }
+  if (terminalLinuxProcessState(stat.state)) {
+    fail(`process ${stat.pid} terminal evidence cannot become opaque`);
+  }
+  return Object.freeze({
+    comm: stat.comm,
+    kind: 'opaque',
+    parentPid: stat.parentPid,
+    pid: stat.pid,
+    processGroupId: stat.processGroupId,
+    reason,
+    startToken: stat.startToken,
+    state: stat.state,
+    userId: status.userId,
+  });
 }
 
 function assertStableLinuxTerminalSample(pid, before, after) {
@@ -470,6 +596,50 @@ function reclassifyLinuxEvidenceFailure(
   return terminal;
 }
 
+function readLinuxLiveContinuation(
+  runtime,
+  processRoot,
+  pid,
+  previousStat,
+  previousStatus,
+) {
+  let status;
+  try {
+    status = readLinuxLiveProcessStatus(runtime, processRoot, pid);
+  } catch (error) {
+    return Object.freeze({
+      terminal: reclassifyLinuxEvidenceFailure(
+        runtime,
+        processRoot,
+        pid,
+        previousStat,
+        previousStatus.userId,
+        error,
+      ),
+    });
+  }
+  const stat = readLinuxProcessStat(runtime, processRoot, pid);
+  assertSameLinuxProcessGeneration(pid, previousStat, stat);
+  if (terminalLinuxProcessState(stat.state)) {
+    if (previousStatus.userId !== status.userId) {
+      fail(`process ${pid} UID changed during live-to-terminal transition`);
+    }
+    const terminal = readStableLinuxTerminalEntry(
+      runtime,
+      processRoot,
+      pid,
+      stat,
+    );
+    if (status.userId !== terminal.userId) {
+      fail(`process ${pid} UID changed during live-to-terminal transition`);
+    }
+    return Object.freeze({ terminal });
+  }
+  assertLinuxProcessRemainedLive(pid, previousStat, stat);
+  assertStableLinuxLiveStatus(pid, previousStatus, status);
+  return Object.freeze({ stat, status, terminal: null });
+}
+
 function readLinuxProcessEntry(runtime, pid) {
   const processRoot = path.posix.join(runtime.procRoot, String(pid));
   let statBefore;
@@ -483,9 +653,13 @@ function readLinuxProcessEntry(runtime, pid) {
         statBefore,
       );
     }
-    let evidenceBefore;
+    let statusBefore;
     try {
-      evidenceBefore = readLinuxProcessEvidence(runtime, processRoot, pid);
+      statusBefore = readLinuxLiveProcessStatus(
+        runtime,
+        processRoot,
+        pid,
+      );
     } catch (error) {
       return reclassifyLinuxEvidenceFailure(
         runtime,
@@ -505,40 +679,125 @@ function readLinuxProcessEntry(runtime, pid) {
         pid,
         statMiddle,
       );
-      if (terminal.userId !== evidenceBefore.userId) {
+      if (terminal.userId !== statusBefore.userId) {
         fail(`process ${pid} UID changed during live-to-terminal transition`);
       }
       return terminal;
     }
-    let evidenceAfter;
-    try {
-      evidenceAfter = readLinuxProcessEvidence(runtime, processRoot, pid);
-    } catch (error) {
-      return reclassifyLinuxEvidenceFailure(
+    assertLinuxProcessRemainedLive(pid, statBefore, statMiddle);
+
+    if (statusBefore.kernelThread === true) {
+      const continuation = readLinuxLiveContinuation(
         runtime,
         processRoot,
         pid,
         statMiddle,
-        evidenceBefore.userId,
-        error,
+        statusBefore,
+      );
+      if (continuation.terminal !== null) return continuation.terminal;
+      if (continuation.status.userId === runtime.currentUserId) {
+        fail(
+          `process ${pid} kernel-thread evidence belongs to the current real UID`,
+        );
+      }
+      assertStableLinuxOpaqueRelation(
+        pid,
+        [statBefore, statMiddle, continuation.stat],
+      );
+      return opaqueLinuxProcessEntry(
+        continuation.stat,
+        continuation.status,
+        'kernel-thread',
       );
     }
-    const statAfter = readLinuxProcessStat(runtime, processRoot, pid);
-    assertSameLinuxProcessGeneration(pid, statMiddle, statAfter);
-    if (terminalLinuxProcessState(statAfter.state)) {
-      const terminal = readStableLinuxTerminalEntry(
+
+    let evidenceBefore;
+    let evidenceBeforeError = null;
+    try {
+      evidenceBefore = readLinuxProcessCommandEvidence(
         runtime,
         processRoot,
         pid,
-        statAfter,
       );
-      if (terminal.userId !== evidenceAfter.userId) {
-        fail(`process ${pid} UID changed during live-to-terminal transition`);
+    } catch (error) {
+      evidenceBeforeError = error;
+    }
+    const middleContinuation = readLinuxLiveContinuation(
+      runtime,
+      processRoot,
+      pid,
+      statMiddle,
+      statusBefore,
+    );
+    if (middleContinuation.terminal !== null) {
+      return middleContinuation.terminal;
+    }
+    if (evidenceBeforeError !== null) {
+      if (!isPermissionDeniedError(evidenceBeforeError)) {
+        throw evidenceBeforeError;
       }
-      return terminal;
+      if (middleContinuation.status.userId === runtime.currentUserId) {
+        fail(
+          `process ${pid} permission-denied live evidence belongs to the current real UID`,
+        );
+      }
+      assertStableLinuxOpaqueRelation(
+        pid,
+        [statBefore, statMiddle, middleContinuation.stat],
+      );
+      return opaqueLinuxProcessEntry(
+        middleContinuation.stat,
+        middleContinuation.status,
+        'permission-denied',
+      );
+    }
+
+    let evidenceAfter;
+    let evidenceAfterError = null;
+    try {
+      evidenceAfter = readLinuxProcessCommandEvidence(
+        runtime,
+        processRoot,
+        pid,
+      );
+    } catch (error) {
+      evidenceAfterError = error;
+    }
+    const finalContinuation = readLinuxLiveContinuation(
+      runtime,
+      processRoot,
+      pid,
+      middleContinuation.stat,
+      middleContinuation.status,
+    );
+    if (finalContinuation.terminal !== null) {
+      return finalContinuation.terminal;
+    }
+    if (evidenceAfterError !== null) {
+      if (!isPermissionDeniedError(evidenceAfterError)) {
+        throw evidenceAfterError;
+      }
+      if (finalContinuation.status.userId === runtime.currentUserId) {
+        fail(
+          `process ${pid} permission-denied live evidence belongs to the current real UID`,
+        );
+      }
+      assertStableLinuxOpaqueRelation(
+        pid,
+        [
+          statBefore,
+          statMiddle,
+          middleContinuation.stat,
+          finalContinuation.stat,
+        ],
+      );
+      return opaqueLinuxProcessEntry(
+        finalContinuation.stat,
+        finalContinuation.status,
+        'permission-denied',
+      );
     }
     if (
-      evidenceBefore.userId !== evidenceAfter.userId ||
       evidenceBefore.command !== evidenceAfter.command ||
       evidenceBefore.cwd !== evidenceAfter.cwd ||
       !sameProcessArguments(evidenceBefore, evidenceAfter)
@@ -547,12 +806,13 @@ function readLinuxProcessEntry(runtime, pid) {
     }
     return Object.freeze({
       ...evidenceAfter,
-      comm: statAfter.comm,
+      comm: finalContinuation.stat.comm,
       kind: 'live',
-      parentPid: statAfter.parentPid,
+      parentPid: finalContinuation.stat.parentPid,
       pid,
-      processGroupId: statAfter.processGroupId,
-      startToken: statAfter.startToken,
+      processGroupId: finalContinuation.stat.processGroupId,
+      startToken: finalContinuation.stat.startToken,
+      userId: finalContinuation.status.userId,
     });
   } catch (error) {
     if (isDisappearanceError(error)) {
@@ -700,8 +960,20 @@ export function isTerminalProcessEntry(entry) {
   return entry?.kind === 'terminal';
 }
 
+export function isOpaqueProcessEntry(entry) {
+  return entry?.kind === 'opaque';
+}
+
 function isLiveProcessEntry(entry) {
-  return !isTerminalProcessEntry(entry);
+  if (entry?.kind === 'live') return true;
+  return (
+    entry?.kind === undefined &&
+    typeof entry?.command === 'string' &&
+    entry.command !== '' &&
+    entry?.comm === undefined &&
+    entry?.argv === undefined &&
+    entry?.state === undefined
+  );
 }
 
 export function sameProcessGeneration(left, right) {
@@ -728,16 +1000,35 @@ function processIdentityKey(entry) {
       entry.processGroupId,
     ].join('\0');
   }
+  if (isOpaqueProcessEntry(entry)) {
+    return [
+      'opaque',
+      entry.pid,
+      entry.userId,
+      entry.startToken,
+      entry.comm,
+      entry.reason,
+    ].join('\0');
+  }
+  if (!isLiveProcessEntry(entry)) {
+    fail(`process ${entry?.pid ?? 'unknown'} inventory kind is invalid`);
+  }
   return `${entry.pid}\0${entry.userId}\0${entry.startToken}\0${entry.command}`;
 }
 
 export function sameProcessIdentity(left, right) {
+  if (isOpaqueProcessEntry(left) || isOpaqueProcessEntry(right)) {
+    return false;
+  }
   if (isTerminalProcessEntry(left) || isTerminalProcessEntry(right)) {
     return (
       isTerminalProcessEntry(left) &&
       isTerminalProcessEntry(right) &&
       sameProcessGeneration(left, right)
     );
+  }
+  if (!isLiveProcessEntry(left) || !isLiveProcessEntry(right)) {
+    return false;
   }
   return (
     left?.pid === right?.pid &&
@@ -748,7 +1039,12 @@ export function sameProcessIdentity(left, right) {
 }
 
 export function sameProcessArguments(left, right) {
-  if (isTerminalProcessEntry(left) || isTerminalProcessEntry(right)) {
+  if (
+    isTerminalProcessEntry(left) ||
+    isTerminalProcessEntry(right) ||
+    isOpaqueProcessEntry(left) ||
+    isOpaqueProcessEntry(right)
+  ) {
     return false;
   }
   if (left?.argv === undefined && right?.argv === undefined) return true;
@@ -844,6 +1140,9 @@ export function newOwnedCwdProcesses(before, after) {
   if (!Array.isArray(before) || !Array.isArray(after)) {
     fail('owned cwd process inventories must be arrays');
   }
+  if ([...before, ...after].some(isOpaqueProcessEntry)) {
+    fail('owned cwd process inventories cannot contain opaque evidence');
+  }
   const key = (entry) => `${processIdentityKey(entry)}\0${entry.cwd}`;
   const existing = new Set(before.map(key));
   return Object.freeze(after.filter((entry) => !existing.has(key(entry))));
@@ -862,6 +1161,9 @@ export function completeProcessCommand(pid, options = {}) {
     if (entry === null) return null;
     if (isTerminalProcessEntry(entry)) {
       fail(`process ${pid} is terminal without a complete command identity`);
+    }
+    if (isOpaqueProcessEntry(entry)) {
+      fail(`process ${pid} is opaque without a complete command identity`);
     }
     return Object.freeze({
       argv: entry.argv,
@@ -1091,8 +1393,12 @@ function mergeOwnedProcessRecord(existing, observed) {
   if (
     isTerminalProcessEntry(existing) ||
     isTerminalProcessEntry(observed) ||
+    isOpaqueProcessEntry(existing) ||
+    isOpaqueProcessEntry(observed) ||
     existing?.ambiguousOwnedTerminal === true ||
     observed?.ambiguousOwnedTerminal === true ||
+    existing?.ambiguousOwnedOpaque === true ||
+    observed?.ambiguousOwnedOpaque === true ||
     !sameOwnedProcess(existing, observed)
   ) {
     fail(`process ${observed?.pid ?? existing?.pid} identity changed in owned evidence`);
@@ -1148,6 +1454,12 @@ export function reconcileProcessClosure(
         if (known.ambiguousOwnedTerminal === true) {
           fail(`process ${entry.pid} has ambiguous terminal ownership`);
         }
+        if (known.ambiguousOwnedOpaque === true) {
+          fail(`process ${entry.pid} has ambiguous opaque ownership`);
+        }
+        if (isOpaqueProcessEntry(entry)) {
+          fail(`process ${entry.pid} became opaque in the owned closure`);
+        }
         const retainedTerminal = ownedTerminalTombstone(known);
         if (retainedTerminal !== null) {
           if (!sameTerminalTombstone(retainedTerminal, entry)) {
@@ -1181,6 +1493,16 @@ export function reconcileProcessClosure(
           retainedParentMatchesCurrent(parent, currentParent)
         );
       if (!relationOwned) continue;
+      if (isOpaqueProcessEntry(entry)) {
+        ledger.set(
+          entry.pid,
+          Object.freeze({
+            ambiguousOwnedOpaque: true,
+            ...entry,
+          }),
+        );
+        fail(`process ${entry.pid} was first observed as owned opaque evidence`);
+      }
       if (isTerminalProcessEntry(entry)) {
         ledger.set(
           entry.pid,
@@ -1218,6 +1540,9 @@ export async function createProcessClosureMonitor(
       type: 'module',
       workerData: {
         processInventoryOptions: {
+          ...(runtime.platform === 'linux'
+            ? { currentUserId: runtime.currentUserId }
+            : {}),
           platform: runtime.platform,
           procRoot: runtime.procRoot,
           timeoutMs: Math.min(runtime.timeoutMs, 5_000),
@@ -1381,7 +1706,9 @@ export async function terminateOwnedProcesses(
     }
     if (
       isTerminalProcessEntry(entry) ||
-      entry.ambiguousOwnedTerminal === true
+      isOpaqueProcessEntry(entry) ||
+      entry.ambiguousOwnedTerminal === true ||
+      entry.ambiguousOwnedOpaque === true
     ) {
       fail('owned process cleanup lacks a complete signal identity');
     }
@@ -1403,6 +1730,7 @@ export async function terminateOwnedProcesses(
       ),
     );
     const live = [];
+    const opaque = [];
     const terminal = [];
     const mismatched = [];
     for (const entry of expectedByPid.values()) {
@@ -1417,6 +1745,10 @@ export async function terminateOwnedProcesses(
         );
       }
       if (!current) continue;
+      if (isOpaqueProcessEntry(current)) {
+        opaque.push(Object.freeze({ expected: entry, current }));
+        continue;
+      }
       const retainedTerminal = retainedTerminalByPid.get(entry.pid);
       if (retainedTerminal !== undefined) {
         if (sameTerminalTombstone(retainedTerminal, current)) {
@@ -1440,12 +1772,18 @@ export async function terminateOwnedProcesses(
       }
       mismatched.push(Object.freeze({ expected: entry, current }));
     }
-    return { live, mismatched, terminal };
+    return { live, mismatched, opaque, terminal };
+  };
+  const assertSafeCleanupState = (state, mismatchMessage) => {
+    if (state.opaque.length > 0) {
+      fail('owned process cleanup observed opaque evidence');
+    }
+    if (state.mismatched.length > 0) fail(mismatchMessage);
   };
   const signalFreshMatches = (candidates, signal, mismatchMessage) => {
     const candidatePids = new Set(candidates.map((entry) => entry.pid));
     const preflight = matching();
-    if (preflight.mismatched.length > 0) fail(mismatchMessage);
+    assertSafeCleanupState(preflight, mismatchMessage);
     const preflightLive = new Map(
       preflight.live
         .filter((entry) => candidatePids.has(entry.pid))
@@ -1454,7 +1792,7 @@ export async function terminateOwnedProcesses(
     for (const candidate of candidates) {
       if (!preflightLive.has(candidate.pid)) continue;
       const fresh = matching();
-      if (fresh.mismatched.length > 0) fail(mismatchMessage);
+      assertSafeCleanupState(fresh, mismatchMessage);
       const current = fresh.live.find(
         (entry) => entry.pid === candidate.pid,
       );
@@ -1468,9 +1806,10 @@ export async function terminateOwnedProcesses(
     }
   };
   let state = matching();
-  if (state.mismatched.length > 0) {
-    fail('owned process PID identity or argv changed before cleanup');
-  }
+  assertSafeCleanupState(
+    state,
+    'owned process PID identity or argv changed before cleanup',
+  );
   const initial = Object.freeze([...state.live, ...state.terminal]);
   if (initial.length === 0) return Object.freeze([]);
   signalFreshMatches(
@@ -1483,16 +1822,18 @@ export async function terminateOwnedProcesses(
   while (performance.now() - started < gracefulStopMs) {
     await new Promise((resolve) => setTimeout(resolve, 10));
     state = matching();
-    if (state.mismatched.length > 0) {
-      fail('owned process PID identity or argv changed during graceful cleanup');
-    }
+    assertSafeCleanupState(
+      state,
+      'owned process PID identity or argv changed during graceful cleanup',
+    );
     remaining = [...state.live, ...state.terminal];
     if (remaining.length === 0) return Object.freeze(initial);
   }
   state = matching();
-  if (state.mismatched.length > 0) {
-    fail('owned process PID identity or argv changed before SIGKILL');
-  }
+  assertSafeCleanupState(
+    state,
+    'owned process PID identity or argv changed before SIGKILL',
+  );
   remaining = [...state.live, ...state.terminal];
   if (remaining.length === 0) return Object.freeze(initial);
   signalFreshMatches(
@@ -1504,9 +1845,10 @@ export async function terminateOwnedProcesses(
   while (performance.now() - forcedStarted < Math.max(250, gracefulStopMs)) {
     await new Promise((resolve) => setTimeout(resolve, 10));
     state = matching();
-    if (state.mismatched.length > 0) {
-      fail('owned process PID identity or argv changed during forced cleanup');
-    }
+    assertSafeCleanupState(
+      state,
+      'owned process PID identity or argv changed during forced cleanup',
+    );
     remaining = [...state.live, ...state.terminal];
     if (remaining.length === 0) return Object.freeze(initial);
   }

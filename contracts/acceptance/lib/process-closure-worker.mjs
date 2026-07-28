@@ -21,6 +21,17 @@ const configuredInventoryOptions =
   workerData?.processInventoryOptions === undefined
     ? Object.freeze({})
     : Object.freeze({ ...workerData.processInventoryOptions });
+if (
+  (configuredInventoryOptions.platform ?? process.platform) === 'linux' &&
+  (
+    !Number.isSafeInteger(configuredInventoryOptions.currentUserId) ||
+    configuredInventoryOptions.currentUserId < 0
+  )
+) {
+  throw new Error(
+    'process closure worker current real UID is invalid',
+  );
+}
 
 let processGroupId = null;
 let timer = null;
