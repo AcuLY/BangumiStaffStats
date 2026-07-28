@@ -1,0 +1,501 @@
+{
+  "$defs": {
+    "mountProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "bindCreateHostPath": { "const": false },
+        "propagation": { "const": "rprivate" },
+        "readOnly": { "type": "boolean" },
+        "source": {
+          "pattern": "^/srv/bgmss-ops-validation(?:/[A-Za-z0-9._-]+)+$",
+          "type": "string"
+        },
+        "target": {
+          "pattern": "^/(?:[A-Za-z0-9._-]+/?)+$",
+          "type": "string"
+        },
+        "type": { "const": "bind" }
+      },
+      "required": [
+        "bindCreateHostPath",
+        "propagation",
+        "readOnly",
+        "source",
+        "target",
+        "type"
+      ],
+      "type": "object"
+    },
+    "portProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "hostIp": { "const": "127.0.0.1" },
+        "protocol": { "const": "tcp" },
+        "published": { "const": 19090 },
+        "target": { "const": 8080 }
+      },
+      "required": [ "hostIp", "protocol", "published", "target" ],
+      "type": "object"
+    },
+    "securityProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": "operations-validation-security-projection-v1"
+        },
+        "services": {
+          "items": {
+            "$ref": "#/$defs/serviceSecurityProjection"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        }
+      },
+      "required": [ "schemaVersion", "services" ],
+      "type": "object"
+    },
+    "serviceSecurityProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "capAdd": { "maxItems": 0, "type": "array" },
+        "capDrop": {
+          "items": { "type": "string" },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "command": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array"
+        },
+        "entrypoint": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array"
+        },
+        "environment": {
+          "additionalProperties": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "propertyNames": {
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+          },
+          "type": "object"
+        },
+        "image": {
+          "format": "container-image-reference",
+          "type": "string"
+        },
+        "init": { "const": true },
+        "labels": {
+          "additionalProperties": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "maxProperties": 64,
+          "minProperties": 3,
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
+          },
+          "type": "object"
+        },
+        "logging": {
+          "additionalProperties": false,
+          "properties": {
+            "driver": { "const": "journald" },
+            "options": {
+              "additionalProperties": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxProperties": 4,
+              "minProperties": 1,
+              "type": "object"
+            }
+          },
+          "required": [ "driver", "options" ],
+          "type": "object"
+        },
+        "memoryBytes": {
+          "maximum": 1610612736,
+          "minimum": 536870912,
+          "type": "integer"
+        },
+        "mounts": {
+          "items": { "$ref": "#/$defs/mountProjection" },
+          "maxItems": 3,
+          "type": "array"
+        },
+        "nanoCpus": {
+          "maximum": 1500000000,
+          "minimum": 500000000,
+          "type": "integer"
+        },
+        "networks": {
+          "items": {
+            "enum": [
+              "bgmss_ops_validation_outbound",
+              "bgmss_ops_validation_runtime"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "maximumProcesses": {
+          "maximum": 256,
+          "minimum": 128,
+          "type": "integer"
+        },
+        "ports": {
+          "items": { "$ref": "#/$defs/portProjection" },
+          "maxItems": 1,
+          "type": "array"
+        },
+        "privileged": { "const": false },
+        "readOnlyRootFilesystem": { "const": true },
+        "restart": {
+          "enum": [ "no", "unless-stopped" ],
+          "type": "string"
+        },
+        "securityOptions": {
+          "items": { "type": "string" },
+          "maxItems": 4,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "service": {
+          "enum": [ "api", "prometheus", "updater" ],
+          "type": "string"
+        },
+        "stopGracePeriodSeconds": { "const": 30 },
+        "tmpfs": {
+          "items": {
+            "pattern": "^/[A-Za-z0-9._/-]+:rw,noexec,nosuid,nodev,size=[0-9]+m$",
+            "type": "string"
+          },
+          "maxItems": 2,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "user": { "const": "65532:65532" }
+      },
+      "required": [
+        "capAdd",
+        "capDrop",
+        "command",
+        "entrypoint",
+        "environment",
+        "image",
+        "init",
+        "labels",
+        "logging",
+        "maximumProcesses",
+        "memoryBytes",
+        "mounts",
+        "nanoCpus",
+        "networks",
+        "ports",
+        "privileged",
+        "readOnlyRootFilesystem",
+        "restart",
+        "securityOptions",
+        "service",
+        "stopGracePeriodSeconds",
+        "tmpfs",
+        "user"
+      ],
+      "type": "object"
+    },
+    "container": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "name": {
+          "pattern": "^/?bgmss_ops_validation[-_][A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "project": {
+          "const": "bgmss_ops_validation"
+        },
+        "runId": {
+          "pattern": "^run-[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "securityDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "service": {
+          "enum": [
+            "api",
+            "prometheus",
+            "updater"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "project",
+        "runId",
+        "securityDigest",
+        "service"
+      ],
+      "type": "object"
+    },
+    "image": {
+      "additionalProperties": false,
+      "properties": {
+        "configDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "graphDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "manifestDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "references": {
+          "items": {
+            "format": "container-image-reference",
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "role": {
+          "enum": [
+            "api",
+            "prometheus",
+            "updater"
+          ],
+          "type": "string"
+        },
+        "runtimeId": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "rootfsDiffIds": {
+          "items": {
+            "format": "sha256",
+            "type": "string"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "configDigest",
+        "graphDigest",
+        "manifestDigest",
+        "references",
+        "role",
+        "runtimeId",
+        "rootfsDiffIds"
+      ],
+      "type": "object"
+    },
+    "network": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "internal": {
+          "type": "boolean"
+        },
+        "name": {
+          "enum": [
+            "bgmss_ops_validation_outbound",
+            "bgmss_ops_validation_runtime"
+          ],
+          "type": "string"
+        },
+        "project": {
+          "const": "bgmss_ops_validation"
+        },
+        "runId": {
+          "pattern": "^run-[0-9a-f]{32}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "internal",
+        "name",
+        "project",
+        "runId"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://bangumi-staff-stats.invalid/operations/validation-resources-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "containers": {
+      "items": {
+        "$ref": "#/$defs/container"
+      },
+      "maxItems": 8,
+      "minItems": 0,
+      "type": "array"
+    },
+    "images": {
+      "items": {
+        "$ref": "#/$defs/image"
+      },
+      "maxItems": 3,
+      "minItems": 0,
+      "type": "array"
+    },
+    "namedVolumeObserved": {
+      "type": "boolean"
+    },
+    "networks": {
+      "items": {
+        "$ref": "#/$defs/network"
+      },
+      "maxItems": 2,
+      "minItems": 0,
+      "type": "array"
+    },
+    "pathManifest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "device": {
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "directoryCount": {
+              "maximum": 100000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "fileCount": {
+              "maximum": 100000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "inventoryDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "markerDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "rootInode": {
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "device",
+            "directoryCount",
+            "fileCount",
+            "inventoryDigest",
+            "markerDigest",
+            "rootInode"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "port": {
+      "additionalProperties": false,
+      "properties": {
+        "hostIp": {
+          "const": "127.0.0.1"
+        },
+        "published": {
+          "const": 19090
+        },
+        "target": {
+          "const": 8080
+        }
+      },
+      "required": [
+        "hostIp",
+        "published",
+        "target"
+      ],
+      "type": "object"
+    },
+    "project": {
+      "const": "bgmss_ops_validation"
+    },
+    "runId": {
+      "pattern": "^run-[0-9a-f]{32}$",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "operations-validation-resources-v1"
+    },
+    "securityProjection": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/securityProjection" }
+      ]
+    },
+    "securityProjectionDigest": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "format": "sha256",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "required": [
+    "containers",
+    "images",
+    "namedVolumeObserved",
+    "networks",
+    "pathManifest",
+    "port",
+    "project",
+    "runId",
+    "schemaVersion",
+    "securityProjection",
+    "securityProjectionDigest"
+  ],
+  "title": "Operations isolated validation resource identities",
+  "type": "object"
+}

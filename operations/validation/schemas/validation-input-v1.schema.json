@@ -1,0 +1,1334 @@
+{
+  "$defs": {
+    "commandContract": {
+      "additionalProperties": false,
+      "properties": {
+        "argv": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 2,
+          "type": "array"
+        },
+        "expectedExitCode": {
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "expectedOutcome": {
+          "enum": [
+            "expected-failure",
+            "succeeded"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9-]{1,63}$",
+          "type": "string"
+        },
+        "maximumDurationMs": {
+          "maximum": 21600000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "proof": {
+          "pattern": "^[a-z][a-z0-9-]{1,63}$",
+          "type": "string"
+        },
+        "specDigest": {
+          "format": "sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "argv",
+        "expectedExitCode",
+        "expectedOutcome",
+        "id",
+        "maximumDurationMs",
+        "proof",
+        "specDigest"
+      ],
+      "type": "object"
+    },
+    "continuousHealthAuthority": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "expected": {
+          "additionalProperties": false,
+          "properties": {
+            "apiImage": {
+              "format": "container-image-reference",
+              "type": "string"
+            },
+            "apiRevision": {
+              "format": "git-oid",
+              "type": "string"
+            },
+            "apiVersion": {
+              "pattern": "^v(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$",
+              "type": "string"
+            },
+            "dataVersion": {
+              "pattern": "^dv1-[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "pointerDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "pointerMode": {
+              "const": "0644"
+            },
+            "projectionDigests": {
+              "additionalProperties": false,
+              "properties": {
+                "buildDigest": {
+                  "format": "sha256",
+                  "type": "string"
+                },
+                "metricsDigest": {
+                  "format": "sha256",
+                  "type": "string"
+                },
+                "prometheusDigest": {
+                  "format": "sha256",
+                  "type": "string"
+                },
+                "readyDigest": {
+                  "format": "sha256",
+                  "type": "string"
+                },
+                "typedQueryDigest": {
+                  "format": "sha256",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "buildDigest",
+                "metricsDigest",
+                "prometheusDigest",
+                "readyDigest",
+                "typedQueryDigest"
+              ],
+              "type": "object"
+            },
+            "prometheusImage": {
+              "format": "container-image-reference",
+              "type": "string"
+            }
+          },
+          "required": [
+            "apiImage",
+            "apiRevision",
+            "apiVersion",
+            "dataVersion",
+            "pointerDigest",
+            "pointerMode",
+            "projectionDigests",
+            "prometheusImage"
+          ],
+          "type": "object"
+        },
+        "policy": {
+          "additionalProperties": false,
+          "properties": {
+            "intervalSeconds": {
+              "const": 30
+            },
+            "intervalToleranceMs": {
+              "const": 5000
+            },
+            "maximumEndGapMs": {
+              "const": 35000
+            },
+            "maximumSamples": {
+              "const": 721
+            },
+            "maximumStartDelayMs": {
+              "const": 5000
+            },
+            "minimumSamples": {
+              "const": 2
+            }
+          },
+          "required": [
+            "intervalToleranceMs",
+            "intervalSeconds",
+            "maximumEndGapMs",
+            "maximumSamples",
+            "maximumStartDelayMs",
+            "minimumSamples"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "digest",
+        "expected",
+        "policy"
+      ],
+      "type": "object"
+    },
+    "mountProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "bindCreateHostPath": {
+          "const": false
+        },
+        "propagation": {
+          "const": "rprivate"
+        },
+        "readOnly": {
+          "type": "boolean"
+        },
+        "source": {
+          "pattern": "^/srv/bgmss-ops-validation(?:/[A-Za-z0-9._-]+)+$",
+          "type": "string"
+        },
+        "target": {
+          "pattern": "^/(?:[A-Za-z0-9._-]+/?)+$",
+          "type": "string"
+        },
+        "type": {
+          "const": "bind"
+        }
+      },
+      "required": [
+        "bindCreateHostPath",
+        "propagation",
+        "readOnly",
+        "source",
+        "target",
+        "type"
+      ],
+      "type": "object"
+    },
+    "portProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "hostIp": {
+          "const": "127.0.0.1"
+        },
+        "protocol": {
+          "const": "tcp"
+        },
+        "published": {
+          "const": 19090
+        },
+        "target": {
+          "const": 8080
+        }
+      },
+      "required": [
+        "hostIp",
+        "protocol",
+        "published",
+        "target"
+      ],
+      "type": "object"
+    },
+    "securityProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": "operations-validation-security-projection-v1"
+        },
+        "services": {
+          "items": {
+            "$ref": "#/$defs/serviceSecurityProjection"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "services"
+      ],
+      "type": "object"
+    },
+    "serviceSecurityProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "capAdd": {
+          "maxItems": 0,
+          "type": "array"
+        },
+        "capDrop": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "command": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array"
+        },
+        "entrypoint": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array"
+        },
+        "environment": {
+          "additionalProperties": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "propertyNames": {
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+          },
+          "type": "object"
+        },
+        "image": {
+          "format": "container-image-reference",
+          "type": "string"
+        },
+        "init": {
+          "const": true
+        },
+        "labels": {
+          "additionalProperties": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "maxProperties": 64,
+          "minProperties": 3,
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
+          },
+          "type": "object"
+        },
+        "logging": {
+          "additionalProperties": false,
+          "properties": {
+            "driver": {
+              "const": "journald"
+            },
+            "options": {
+              "additionalProperties": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxProperties": 4,
+              "minProperties": 1,
+              "type": "object"
+            }
+          },
+          "required": [
+            "driver",
+            "options"
+          ],
+          "type": "object"
+        },
+        "memoryBytes": {
+          "maximum": 1610612736,
+          "minimum": 536870912,
+          "type": "integer"
+        },
+        "mounts": {
+          "items": {
+            "$ref": "#/$defs/mountProjection"
+          },
+          "maxItems": 3,
+          "type": "array"
+        },
+        "nanoCpus": {
+          "maximum": 1500000000,
+          "minimum": 500000000,
+          "type": "integer"
+        },
+        "networks": {
+          "items": {
+            "enum": [
+              "bgmss_ops_validation_outbound",
+              "bgmss_ops_validation_runtime"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "maximumProcesses": {
+          "maximum": 256,
+          "minimum": 128,
+          "type": "integer"
+        },
+        "ports": {
+          "items": {
+            "$ref": "#/$defs/portProjection"
+          },
+          "maxItems": 1,
+          "type": "array"
+        },
+        "privileged": {
+          "const": false
+        },
+        "readOnlyRootFilesystem": {
+          "const": true
+        },
+        "restart": {
+          "enum": [
+            "no",
+            "unless-stopped"
+          ],
+          "type": "string"
+        },
+        "securityOptions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "service": {
+          "enum": [
+            "api",
+            "prometheus",
+            "updater"
+          ],
+          "type": "string"
+        },
+        "stopGracePeriodSeconds": {
+          "const": 30
+        },
+        "tmpfs": {
+          "items": {
+            "pattern": "^/[A-Za-z0-9._/-]+:rw,noexec,nosuid,nodev,size=[0-9]+m$",
+            "type": "string"
+          },
+          "maxItems": 2,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "user": {
+          "const": "65532:65532"
+        }
+      },
+      "required": [
+        "capAdd",
+        "capDrop",
+        "command",
+        "entrypoint",
+        "environment",
+        "image",
+        "init",
+        "labels",
+        "logging",
+        "maximumProcesses",
+        "memoryBytes",
+        "mounts",
+        "nanoCpus",
+        "networks",
+        "ports",
+        "privileged",
+        "readOnlyRootFilesystem",
+        "restart",
+        "securityOptions",
+        "service",
+        "stopGracePeriodSeconds",
+        "tmpfs",
+        "user"
+      ],
+      "type": "object"
+    },
+    "validationAuthority": {
+      "additionalProperties": false,
+      "properties": {
+        "commands": {
+          "additionalProperties": false,
+          "properties": {
+            "digest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "records": {
+              "items": {
+                "$ref": "#/$defs/commandContract"
+              },
+              "maxItems": 64,
+              "minItems": 28,
+              "type": "array"
+            }
+          },
+          "required": [
+            "digest",
+            "records"
+          ],
+          "type": "object"
+        },
+        "continuousHealth": {
+          "$ref": "#/$defs/continuousHealthAuthority"
+        },
+        "security": {
+          "additionalProperties": false,
+          "properties": {
+            "digest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "projection": {
+              "$ref": "#/$defs/securityProjection"
+            }
+          },
+          "required": [
+            "digest",
+            "projection"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "commands",
+        "continuousHealth",
+        "security"
+      ],
+      "type": "object"
+    },
+    "actionsAuthority": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "additionalProperties": false,
+          "properties": {
+            "creationEpochMs": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "digest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "expirationEpochMs": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "expired": {
+              "const": false
+            },
+            "headRepositoryId": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "headSha": {
+              "format": "git-oid",
+              "type": "string"
+            },
+            "id": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "name": {
+              "pattern": "^bgmss-operations-validation-[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "repositoryId": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "runId": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "sizeInBytes": {
+              "maximum": 17179869184,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "creationEpochMs",
+            "digest",
+            "expirationEpochMs",
+            "expired",
+            "headRepositoryId",
+            "headSha",
+            "id",
+            "name",
+            "repositoryId",
+            "runId",
+            "sizeInBytes"
+          ],
+          "type": "object"
+        },
+        "repository": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "name": {
+              "const": "BangumiStaffStats"
+            },
+            "owner": {
+              "const": "AcuLY"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "owner"
+          ],
+          "type": "object"
+        },
+        "run": {
+          "additionalProperties": false,
+          "properties": {
+            "attempt": {
+              "maximum": 2147483647,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "attemptStartedEpochMs": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "conclusion": {
+              "const": "success"
+            },
+            "event": {
+              "enum": [
+                "pull_request",
+                "push",
+                "workflow_dispatch"
+              ],
+              "type": "string"
+            },
+            "headRepositoryFullName": {
+              "const": "AcuLY/BangumiStaffStats"
+            },
+            "headRepositoryId": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "headSha": {
+              "format": "git-oid",
+              "type": "string"
+            },
+            "id": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "status": {
+              "const": "completed"
+            },
+            "workflowPathAtRef": {
+              "pattern": "^[.]github/workflows/operations[.]yml@[A-Za-z0-9_./-]{1,255}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "attempt",
+            "attemptStartedEpochMs",
+            "conclusion",
+            "event",
+            "headRepositoryFullName",
+            "headRepositoryId",
+            "headSha",
+            "id",
+            "status",
+            "workflowPathAtRef"
+          ],
+          "type": "object"
+        },
+        "workflow": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "name": {
+              "const": "operations-verification"
+            },
+            "path": {
+              "const": ".github/workflows/operations.yml"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "path"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "artifact",
+        "repository",
+        "run",
+        "workflow"
+      ],
+      "type": "object"
+    },
+    "descriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "mediaType": {
+          "enum": [
+            "application/vnd.oci.image.config.v1+json",
+            "application/vnd.oci.image.manifest.v1+json"
+          ],
+          "type": "string"
+        },
+        "size": {
+          "maximum": 8589934592,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "digest",
+        "mediaType",
+        "size"
+      ],
+      "type": "object"
+    },
+    "file": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "0400",
+            "0500"
+          ],
+          "type": "string"
+        },
+        "remoteName": {
+          "pattern": "^files/f[0-9]{4}$",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "accepted-receipt",
+            "api-image",
+            "archive-smoke",
+            "candidate-checksums",
+            "candidate-document",
+            "candidate-inventory",
+            "compatibility",
+            "compose",
+            "frontend",
+            "minimal-manifest",
+            "minimal-sqlite",
+            "preflight-evidence",
+            "prometheus-config",
+            "prometheus-rules",
+            "release-environment",
+            "remote-entry",
+            "run-overlay",
+            "updater-image"
+          ],
+          "type": "string"
+        },
+        "sha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "size": {
+          "maximum": 8589934592,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "mode",
+        "remoteName",
+        "role",
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "gitIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "tree": {
+          "format": "git-oid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "revision",
+        "tree"
+      ],
+      "type": "object"
+    },
+    "imageRuntimeDefaults": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "entrypoint": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array"
+        },
+        "environment": {
+          "additionalProperties": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "propertyNames": {
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+          },
+          "type": "object"
+        },
+        "labels": {
+          "additionalProperties": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "maxProperties": 64,
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
+          },
+          "type": "object"
+        },
+        "user": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "command",
+        "entrypoint",
+        "environment",
+        "labels",
+        "user"
+      ],
+      "type": "object"
+    },
+    "image": {
+      "additionalProperties": false,
+      "properties": {
+        "archiveFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "config": {
+          "$ref": "#/$defs/descriptor"
+        },
+        "declaredLoadReference": {
+          "format": "container-image-reference",
+          "type": "string"
+        },
+        "graphDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/descriptor"
+        },
+        "runtimeDefaults": {
+          "$ref": "#/$defs/imageRuntimeDefaults"
+        },
+        "rootfsDiffIds": {
+          "items": {
+            "format": "sha256",
+            "type": "string"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "type": "array"
+        },
+        "validationAlias": {
+          "format": "container-image-reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "archiveFileId",
+        "config",
+        "declaredLoadReference",
+        "graphDigest",
+        "manifest",
+        "rootfsDiffIds",
+        "runtimeDefaults",
+        "validationAlias"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://bangumi-staff-stats.invalid/operations/validation-input-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority": {
+      "$ref": "#/$defs/validationAuthority"
+    },
+    "bounds": {
+      "additionalProperties": false,
+      "properties": {
+        "apiReadySeconds": {
+          "const": 60
+        },
+        "commandOutputBytes": {
+          "const": 4194304
+        },
+        "producerCpu": {
+          "const": "1.0"
+        },
+        "producerIoPriority": {
+          "const": "idle"
+        },
+        "producerMemoryBytes": {
+          "const": 671088640
+        },
+        "producerTimeoutSeconds": {
+          "const": 21600
+        }
+      },
+      "required": [
+        "apiReadySeconds",
+        "commandOutputBytes",
+        "producerCpu",
+        "producerIoPriority",
+        "producerMemoryBytes",
+        "producerTimeoutSeconds"
+      ],
+      "type": "object"
+    },
+    "candidate": {
+      "additionalProperties": false,
+      "properties": {
+      "applicationVersion": {
+        "pattern": "^v(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$",
+        "type": "string"
+      },
+        "candidateDocumentFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "candidateDocumentSha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "completeInventoryFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "contentAddress": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "publicationState": {
+          "const": "unpublished-validation"
+        },
+        "target": {
+          "const": "linux/amd64"
+        }
+      },
+      "required": [
+        "applicationVersion",
+        "candidateDocumentFileId",
+        "candidateDocumentSha256",
+        "completeInventoryFileId",
+        "contentAddress",
+        "publicationState",
+        "target"
+      ],
+      "type": "object"
+    },
+    "claim": {
+      "const": "isolated-validation-input-production-not-activated"
+    },
+    "images": {
+      "additionalProperties": false,
+      "properties": {
+        "api": {
+          "$ref": "#/$defs/image"
+        },
+        "prometheus": {
+          "additionalProperties": false,
+          "properties": {
+            "amd64ManifestDigest": {
+              "const": "sha256:335b5796a6e4355530475575253f84de20b8ad07bf899f65ed218451ce4c60b4"
+            },
+            "amd64ManifestSize": {
+              "const": 4067
+            },
+            "configIdentityPolicy": {
+              "const": "capture-after-exact-digest-pull"
+            },
+            "indexDigest": {
+              "const": "sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80"
+            },
+            "reference": {
+              "const": "prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80"
+            },
+            "runtimeDefaults": {
+              "$ref": "#/$defs/imageRuntimeDefaults"
+            },
+            "runtimeGid": {
+              "const": 65532
+            },
+            "runtimeUid": {
+              "const": 65532
+            },
+            "validationAlias": {
+              "const": "localhost/bgmss-ops-validation-prometheus:v3.13.1-distroless-amd64"
+            }
+          },
+          "required": [
+            "amd64ManifestDigest",
+            "amd64ManifestSize",
+            "configIdentityPolicy",
+            "indexDigest",
+            "reference",
+            "runtimeDefaults",
+            "runtimeGid",
+            "runtimeUid",
+            "validationAlias"
+          ],
+          "type": "object"
+        },
+        "updater": {
+          "$ref": "#/$defs/image"
+        }
+      },
+      "required": [
+        "api",
+        "prometheus",
+        "updater"
+      ],
+      "type": "object"
+    },
+    "minimalArchive": {
+      "additionalProperties": false,
+      "properties": {
+        "dataVersion": {
+          "pattern": "^dv1-[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "manifestDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "manifestFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "sqliteDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "sqliteFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "sqliteSize": {
+          "maximum": 1073741824,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "dataVersion",
+        "manifestDigest",
+        "manifestFileId",
+        "sqliteDigest",
+        "sqliteFileId",
+        "sqliteSize"
+      ],
+      "type": "object"
+    },
+    "preflight": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "fileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "digest",
+        "fileId"
+      ],
+      "type": "object"
+    },
+    "remote": {
+      "additionalProperties": false,
+      "properties": {
+        "apiBind": {
+          "const": "127.0.0.1:19090:8080"
+        },
+        "hostAlias": {
+          "const": "myserver"
+        },
+        "legacyRoot": {
+          "const": "/srv/bgmss"
+        },
+        "networks": {
+          "const": [
+            "bgmss_ops_validation_outbound",
+            "bgmss_ops_validation_runtime"
+          ]
+        },
+        "outboundEgress": {
+          "const": true
+        },
+        "productionRoot": {
+          "const": "/srv/bgmss-v2"
+        },
+        "project": {
+          "const": "bgmss_ops_validation"
+        },
+        "root": {
+          "const": "/srv/bgmss-ops-validation"
+        },
+        "services": {
+          "const": [
+            "api",
+            "prometheus",
+            "updater"
+          ]
+        }
+      },
+      "required": [
+        "apiBind",
+        "hostAlias",
+        "legacyRoot",
+        "networks",
+        "outboundEgress",
+        "productionRoot",
+        "project",
+        "root",
+        "services"
+      ],
+      "type": "object"
+    },
+    "runId": {
+      "pattern": "^run-[0-9a-f]{32}$",
+      "type": "string"
+    },
+    "runtime": {
+      "additionalProperties": false,
+      "properties": {
+        "compatibilityFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "composeFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "controllerFilesDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "frontendFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "prometheusConfigFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "prometheusRulesFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "releaseEnvironmentFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "remoteEntryFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "runOverlayFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        },
+        "smokeFileId": {
+          "pattern": "^f[0-9]{4}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "compatibilityFileId",
+        "composeFileId",
+        "controllerFilesDigest",
+        "frontendFileId",
+        "prometheusConfigFileId",
+        "prometheusRulesFileId",
+        "releaseEnvironmentFileId",
+        "remoteEntryFileId",
+        "runOverlayFileId",
+        "smokeFileId"
+      ],
+      "type": "object"
+    },
+    "schemaVersion": {
+      "const": "operations-validation-input-v1"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "operations": {
+          "$ref": "#/$defs/gitIdentity"
+        },
+        "product": {
+          "$ref": "#/$defs/gitIdentity"
+        }
+      },
+      "required": [
+        "operations",
+        "product"
+      ],
+      "type": "object"
+    },
+    "states": {
+      "additionalProperties": false,
+      "properties": {
+        "deployed": {
+          "const": false
+        },
+        "productionActivated": {
+          "const": false
+        },
+        "released": {
+          "const": false
+        }
+      },
+      "required": [
+        "deployed",
+        "productionActivated",
+        "released"
+      ],
+      "type": "object"
+    },
+    "transfer": {
+      "additionalProperties": false,
+      "properties": {
+        "fileCount": {
+          "maximum": 64,
+          "minimum": 14,
+          "type": "integer"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/file"
+          },
+          "maxItems": 64,
+          "minItems": 14,
+          "type": "array"
+        },
+        "totalSize": {
+          "maximum": 17179869184,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "fileCount",
+        "files",
+        "totalSize"
+      ],
+      "type": "object"
+    },
+    "transport": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "$ref": "#/$defs/actionsAuthority"
+        },
+        "candidateArchiveSha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "externalInventorySha256": {
+          "format": "sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actions",
+        "candidateArchiveSha256",
+        "externalInventorySha256"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "authority",
+    "bounds",
+    "candidate",
+    "claim",
+    "images",
+    "minimalArchive",
+    "preflight",
+    "remote",
+    "runId",
+    "runtime",
+    "schemaVersion",
+    "source",
+    "states",
+    "transfer",
+    "transport"
+  ],
+  "title": "Operations isolated validation sealed input",
+  "type": "object"
+}

@@ -1,0 +1,460 @@
+{
+  "$defs": {
+    "pathState": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "const": "absent"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "device": {
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "gid": {
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "inode": {
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "mode": {
+              "pattern": "^[0-7]{3,4}$",
+              "type": "string"
+            },
+            "state": {
+              "const": "present"
+            },
+            "type": {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z -]+$",
+              "type": "string"
+            },
+            "uid": {
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "device",
+            "gid",
+            "inode",
+            "mode",
+            "state",
+            "type",
+            "uid"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "seal": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "coverage": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9 /;,.:-]+$",
+          "type": "string"
+        },
+        "digest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "id": {
+          "enum": [
+            "docker-containers",
+            "docker-images",
+            "docker-networks",
+            "docker-volumes",
+            "legacy-bounded-tree",
+            "listeners",
+            "nginx-tree",
+            "processes",
+            "required-tools",
+            "systemd-etc-tree",
+            "systemd-runtime",
+            "systemd-vendor-tree",
+            "tls-letsencrypt-tree",
+            "tls-pki-tree"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "coverage",
+        "digest",
+        "id"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://bangumi-staff-stats.invalid/operations/validation-preflight-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "absence": {
+      "additionalProperties": false,
+      "properties": {
+        "imageReferences": {
+          "items": {
+            "format": "container-image-reference",
+            "type": "string"
+          },
+          "maxItems": 6,
+          "minItems": 6,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "imagesAbsent": {
+          "type": "boolean"
+        },
+        "namedVolumesAbsent": {
+          "type": "boolean"
+        },
+        "portFree": {
+          "type": "boolean"
+        },
+        "projectAbsent": {
+          "type": "boolean"
+        },
+        "rootAbsent": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "imageReferences",
+        "imagesAbsent",
+        "namedVolumesAbsent",
+        "portFree",
+        "projectAbsent",
+        "rootAbsent"
+      ],
+      "type": "object"
+    },
+    "capacity": {
+      "additionalProperties": false,
+      "properties": {
+        "availableBytes": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "availableInodes": {
+          "maximum": 9007199254740991,
+          "minimum": 100000,
+          "type": "integer"
+        },
+        "requiredBytes": {
+          "maximum": 17179869184,
+          "minimum": 1073741824,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "availableBytes",
+        "availableInodes",
+        "requiredBytes"
+      ],
+      "type": "object"
+    },
+    "conclusion": {
+      "enum": [ "admitted", "observed" ],
+      "type": "string"
+    },
+    "host": {
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "const": "myserver"
+        },
+        "architecture": {
+          "const": "x86_64"
+        },
+        "composeVersion": {
+          "pattern": "^2[.][0-9]+[.][0-9]+(?:[-+][A-Za-z0-9.-]+)?$",
+          "type": "string"
+        },
+        "containerCapabilities": {
+          "additionalProperties": false,
+          "properties": {
+            "composeConfigHash": {
+              "const": true
+            },
+            "composeCreateNoBuild": {
+              "const": true
+            },
+            "composeCreateNoRecreate": {
+              "const": true
+            },
+            "composeProfiles": {
+              "const": true
+            },
+            "dockerImageInspect": {
+              "const": true
+            },
+            "dockerLabelFilter": {
+              "const": true
+            },
+            "dockerManifestVerbose": {
+              "const": true
+            },
+            "dockerPlatformPull": {
+              "const": true
+            },
+            "dockerServerLinuxAmd64": {
+              "const": true
+            }
+          },
+          "required": [
+            "composeConfigHash",
+            "composeCreateNoBuild",
+            "composeCreateNoRecreate",
+            "composeProfiles",
+            "dockerImageInspect",
+            "dockerLabelFilter",
+            "dockerManifestVerbose",
+            "dockerPlatformPull",
+            "dockerServerLinuxAmd64"
+          ],
+          "type": "object"
+        },
+        "dockerApiVersion": {
+          "pattern": "^[0-9]+[.][0-9]+$",
+          "type": "string"
+        },
+        "dockerVersion": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9.+_-]*$",
+          "type": "string"
+        },
+        "osId": {
+          "const": "centos"
+        },
+        "osPrettyName": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "osVersionId": {
+          "const": "9"
+        },
+        "uid": {
+          "const": 0
+        }
+      },
+      "required": [
+        "alias",
+        "architecture",
+        "composeVersion",
+        "containerCapabilities",
+        "dockerApiVersion",
+        "dockerVersion",
+        "osId",
+        "osPrettyName",
+        "osVersionId",
+        "uid"
+      ],
+      "type": "object"
+    },
+    "protected": {
+      "additionalProperties": false,
+      "properties": {
+        "docker": {
+          "additionalProperties": false,
+          "properties": {
+            "containers": {
+              "$ref": "#/$defs/seal"
+            },
+            "images": {
+              "$ref": "#/$defs/seal"
+            },
+            "networks": {
+              "$ref": "#/$defs/seal"
+            },
+            "volumes": {
+              "$ref": "#/$defs/seal"
+            }
+          },
+          "required": [
+            "containers",
+            "images",
+            "networks",
+            "volumes"
+          ],
+          "type": "object"
+        },
+        "legacyRoot": {
+          "$ref": "#/$defs/pathState"
+        },
+        "legacyTree": {
+          "$ref": "#/$defs/seal"
+        },
+        "listeners": {
+          "$ref": "#/$defs/seal"
+        },
+        "nginx": {
+          "$ref": "#/$defs/seal"
+        },
+        "processes": {
+          "$ref": "#/$defs/seal"
+        },
+        "productionRoot": {
+          "$ref": "#/$defs/pathState"
+        },
+        "systemd": {
+          "additionalProperties": false,
+          "properties": {
+            "etc": {
+              "$ref": "#/$defs/seal"
+            },
+            "runtime": {
+              "$ref": "#/$defs/seal"
+            },
+            "vendor": {
+              "$ref": "#/$defs/seal"
+            }
+          },
+          "required": [
+            "etc",
+            "runtime",
+            "vendor"
+          ],
+          "type": "object"
+        },
+        "tls": {
+          "additionalProperties": false,
+          "properties": {
+            "letsencrypt": {
+              "$ref": "#/$defs/seal"
+            },
+            "pki": {
+              "$ref": "#/$defs/seal"
+            }
+          },
+          "required": [
+            "letsencrypt",
+            "pki"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "docker",
+        "legacyRoot",
+        "legacyTree",
+        "listeners",
+        "nginx",
+        "processes",
+        "productionRoot",
+        "systemd",
+        "tls"
+      ],
+      "type": "object"
+    },
+    "schemaVersion": {
+      "const": "operations-validation-preflight-v1"
+    },
+    "tools": {
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "$ref": "#/$defs/seal"
+        },
+        "names": {
+          "items": {
+            "enum": [
+          "awk",
+          "base64",
+          "bash",
+          "chmod",
+          "chown",
+          "cmp",
+          "cp",
+          "curl",
+          "cut",
+          "date",
+          "dd",
+          "df",
+          "docker",
+          "find",
+          "flock",
+          "grep",
+          "head",
+          "id",
+          "install",
+          "ionice",
+          "jq",
+          "ln",
+          "mkdir",
+          "mv",
+          "nginx",
+          "nice",
+          "od",
+          "ps",
+          "readlink",
+          "renice",
+          "rm",
+          "rmdir",
+          "sed",
+          "setsid",
+          "sha256sum",
+          "sleep",
+          "sort",
+          "ss",
+          "stat",
+          "sync",
+          "systemctl",
+          "tail",
+          "tar",
+          "tee",
+          "timeout",
+          "tr",
+          "uname",
+          "wc"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "identity",
+        "names"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "absence",
+    "capacity",
+    "conclusion",
+    "host",
+    "protected",
+    "schemaVersion",
+    "tools"
+  ],
+  "title": "Operations isolated validation read-only preflight",
+  "type": "object"
+}

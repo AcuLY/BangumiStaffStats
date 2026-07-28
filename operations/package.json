@@ -23,7 +23,7 @@
     "check:compose": "node bin/check-compose.mjs",
     "check:host-templates": "node bin/check-host-templates.mjs",
     "check:secrets": "node bin/check-secrets.mjs",
-    "check:validation-schemas": "node validation/check-validation-schemas.mjs",
+    "check:validation-schemas": "node validation/check-schemas.mjs",
     "build:amd64": "node release/build-amd64.mjs",
     "verify:candidate": "node release/verify-candidate.mjs",
     "preflight:myserver": "node validation/preflight-myserver.mjs",

@@ -1,0 +1,1345 @@
+{
+  "$defs": {
+    "mountProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "bindCreateHostPath": { "const": false },
+        "propagation": { "const": "rprivate" },
+        "readOnly": { "type": "boolean" },
+        "source": {
+          "pattern": "^/srv/bgmss-ops-validation(?:/[A-Za-z0-9._-]+)+$",
+          "type": "string"
+        },
+        "target": {
+          "pattern": "^/(?:[A-Za-z0-9._-]+/?)+$",
+          "type": "string"
+        },
+        "type": { "const": "bind" }
+      },
+      "required": [
+        "bindCreateHostPath",
+        "propagation",
+        "readOnly",
+        "source",
+        "target",
+        "type"
+      ],
+      "type": "object"
+    },
+    "portProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "hostIp": { "const": "127.0.0.1" },
+        "protocol": { "const": "tcp" },
+        "published": { "const": 19090 },
+        "target": { "const": 8080 }
+      },
+      "required": [ "hostIp", "protocol", "published", "target" ],
+      "type": "object"
+    },
+    "securityProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": "operations-validation-security-projection-v1"
+        },
+        "services": {
+          "items": {
+            "$ref": "#/$defs/serviceSecurityProjection"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        }
+      },
+      "required": [ "schemaVersion", "services" ],
+      "type": "object"
+    },
+    "serviceSecurityProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "capAdd": { "maxItems": 0, "type": "array" },
+        "capDrop": {
+          "items": { "type": "string" },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "command": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array"
+        },
+        "entrypoint": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array"
+        },
+        "environment": {
+          "additionalProperties": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "propertyNames": {
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+          },
+          "type": "object"
+        },
+        "image": {
+          "format": "container-image-reference",
+          "type": "string"
+        },
+        "init": { "const": true },
+        "labels": {
+          "additionalProperties": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "maxProperties": 64,
+          "minProperties": 3,
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
+          },
+          "type": "object"
+        },
+        "logging": {
+          "additionalProperties": false,
+          "properties": {
+            "driver": { "const": "journald" },
+            "options": {
+              "additionalProperties": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxProperties": 4,
+              "minProperties": 1,
+              "type": "object"
+            }
+          },
+          "required": [ "driver", "options" ],
+          "type": "object"
+        },
+        "memoryBytes": {
+          "maximum": 1610612736,
+          "minimum": 536870912,
+          "type": "integer"
+        },
+        "mounts": {
+          "items": { "$ref": "#/$defs/mountProjection" },
+          "maxItems": 3,
+          "type": "array"
+        },
+        "nanoCpus": {
+          "maximum": 1500000000,
+          "minimum": 500000000,
+          "type": "integer"
+        },
+        "networks": {
+          "items": {
+            "enum": [
+              "bgmss_ops_validation_outbound",
+              "bgmss_ops_validation_runtime"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "maximumProcesses": {
+          "maximum": 256,
+          "minimum": 128,
+          "type": "integer"
+        },
+        "ports": {
+          "items": { "$ref": "#/$defs/portProjection" },
+          "maxItems": 1,
+          "type": "array"
+        },
+        "privileged": { "const": false },
+        "readOnlyRootFilesystem": { "const": true },
+        "restart": {
+          "enum": [ "no", "unless-stopped" ],
+          "type": "string"
+        },
+        "securityOptions": {
+          "items": { "type": "string" },
+          "maxItems": 4,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "service": {
+          "enum": [ "api", "prometheus", "updater" ],
+          "type": "string"
+        },
+        "stopGracePeriodSeconds": { "const": 30 },
+        "tmpfs": {
+          "items": {
+            "pattern": "^/[A-Za-z0-9._/-]+:rw,noexec,nosuid,nodev,size=[0-9]+m$",
+            "type": "string"
+          },
+          "maxItems": 2,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "user": { "const": "65532:65532" }
+      },
+      "required": [
+        "capAdd",
+        "capDrop",
+        "command",
+        "entrypoint",
+        "environment",
+        "image",
+        "init",
+        "labels",
+        "logging",
+        "maximumProcesses",
+        "memoryBytes",
+        "mounts",
+        "nanoCpus",
+        "networks",
+        "ports",
+        "privileged",
+        "readOnlyRootFilesystem",
+        "restart",
+        "securityOptions",
+        "service",
+        "stopGracePeriodSeconds",
+        "tmpfs",
+        "user"
+      ],
+      "type": "object"
+    },
+    "continuousRuntimeIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "containerId": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "imageReference": {
+          "format": "container-image-reference",
+          "type": "string"
+        },
+        "imageRuntimeId": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "restartCount": {
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "running": {
+          "const": true
+        },
+        "securityDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "startDigest": {
+          "format": "sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "containerId",
+        "imageReference",
+        "imageRuntimeId",
+        "restartCount",
+        "running",
+        "securityDigest",
+        "startDigest"
+      ],
+      "type": "object"
+    },
+    "continuousHealthState": {
+      "additionalProperties": false,
+      "properties": {
+        "api": {
+          "$ref": "#/$defs/continuousRuntimeIdentity"
+        },
+        "apiRevision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "apiVersion": {
+          "pattern": "^v(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$",
+          "type": "string"
+        },
+        "dataVersion": {
+          "pattern": "^dv1-[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "failureCode": {
+          "type": "null"
+        },
+        "pointer": {
+          "additionalProperties": false,
+          "properties": {
+            "digest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "inode": {
+              "pattern": "^[1-9][0-9]*$",
+              "type": "string"
+            },
+            "mode": {
+              "const": "0644"
+            }
+          },
+          "required": [ "digest", "inode", "mode" ],
+          "type": "object"
+        },
+        "projections": {
+          "additionalProperties": false,
+          "properties": {
+            "buildDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "metricsDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "prometheusDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "readyDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "typedQueryDigest": {
+              "format": "sha256",
+              "type": "string"
+            }
+          },
+          "required": [
+            "buildDigest",
+            "metricsDigest",
+            "prometheusDigest",
+            "readyDigest",
+            "typedQueryDigest"
+          ],
+          "type": "object"
+        },
+        "prometheus": {
+          "$ref": "#/$defs/continuousRuntimeIdentity"
+        }
+      },
+      "required": [
+        "api",
+        "apiRevision",
+        "apiVersion",
+        "dataVersion",
+        "failureCode",
+        "pointer",
+        "projections",
+        "prometheus"
+      ],
+      "type": "object"
+    },
+    "continuousHealthSample": {
+      "additionalProperties": false,
+      "properties": {
+        "chainDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "elapsedMs": {
+          "maximum": 21600000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "observedEpochMs": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "observedMonotonicNs": {
+          "pattern": "^[1-9][0-9]{6,20}$",
+          "type": "string"
+        },
+        "ordinal": {
+          "maximum": 720,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "previousDigest": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "format": "sha256",
+              "type": "string"
+            }
+          ]
+        },
+        "state": {
+          "$ref": "#/$defs/continuousHealthState"
+        },
+        "stateDigest": {
+          "format": "sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "chainDigest",
+        "elapsedMs",
+        "observedEpochMs",
+        "observedMonotonicNs",
+        "ordinal",
+        "previousDigest",
+        "state",
+        "stateDigest"
+      ],
+      "type": "object"
+    },
+    "continuousHealthEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "$ref": "#/$defs/continuousHealthState"
+        },
+        "authorityDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "before": {
+          "$ref": "#/$defs/continuousHealthState"
+        },
+        "count": {
+          "maximum": 721,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "firstDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "intervalSeconds": {
+          "const": 30
+        },
+        "endedEpochMs": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "endedMonotonicNs": {
+          "pattern": "^[1-9][0-9]{6,20}$",
+          "type": "string"
+        },
+        "lastDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "samples": {
+          "items": {
+            "$ref": "#/$defs/continuousHealthSample"
+          },
+          "maxItems": 721,
+          "minItems": 2,
+          "type": "array"
+        },
+        "status": {
+          "const": "passed"
+        },
+        "proofCommandId": {
+          "const": "updater-produce"
+        },
+        "proofDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "startedEpochMs": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "startedMonotonicNs": {
+          "pattern": "^[1-9][0-9]{6,20}$",
+          "type": "string"
+        },
+        "verificationProof": {
+          "$ref": "#/$defs/commandProof"
+        }
+      },
+      "required": [
+        "after",
+        "authorityDigest",
+        "before",
+        "count",
+        "endedEpochMs",
+        "endedMonotonicNs",
+        "firstDigest",
+        "intervalSeconds",
+        "lastDigest",
+        "proofCommandId",
+        "proofDigest",
+        "samples",
+        "startedEpochMs",
+        "startedMonotonicNs",
+        "status",
+        "verificationProof"
+      ],
+      "type": "object"
+    },
+    "actionsAuthority": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "additionalProperties": false,
+          "properties": {
+            "creationEpochMs": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "digest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "expirationEpochMs": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "expired": {
+              "const": false
+            },
+            "headRepositoryId": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "headSha": {
+              "format": "git-oid",
+              "type": "string"
+            },
+            "id": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "name": {
+              "pattern": "^bgmss-operations-validation-[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "repositoryId": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "runId": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "sizeInBytes": {
+              "maximum": 17179869184,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "creationEpochMs",
+            "digest",
+            "expirationEpochMs",
+            "expired",
+            "headRepositoryId",
+            "headSha",
+            "id",
+            "name",
+            "repositoryId",
+            "runId",
+            "sizeInBytes"
+          ],
+          "type": "object"
+        },
+        "repository": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "name": {
+              "const": "BangumiStaffStats"
+            },
+            "owner": {
+              "const": "AcuLY"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "owner"
+          ],
+          "type": "object"
+        },
+        "run": {
+          "additionalProperties": false,
+          "properties": {
+            "attempt": {
+              "maximum": 2147483647,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "attemptStartedEpochMs": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "conclusion": {
+              "const": "success"
+            },
+            "event": {
+              "enum": [
+                "pull_request",
+                "push",
+                "workflow_dispatch"
+              ],
+              "type": "string"
+            },
+            "headRepositoryFullName": {
+              "const": "AcuLY/BangumiStaffStats"
+            },
+            "headRepositoryId": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "headSha": {
+              "format": "git-oid",
+              "type": "string"
+            },
+            "id": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "status": {
+              "const": "completed"
+            },
+            "workflowPathAtRef": {
+              "pattern": "^[.]github/workflows/operations[.]yml@[A-Za-z0-9_./-]{1,255}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "attempt",
+            "attemptStartedEpochMs",
+            "conclusion",
+            "event",
+            "headRepositoryFullName",
+            "headRepositoryId",
+            "headSha",
+            "id",
+            "status",
+            "workflowPathAtRef"
+          ],
+          "type": "object"
+        },
+        "workflow": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "name": {
+              "const": "operations-verification"
+            },
+            "path": {
+              "const": ".github/workflows/operations.yml"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "path"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "artifact",
+        "repository",
+        "run",
+        "workflow"
+      ],
+      "type": "object"
+    },
+    "command": {
+      "additionalProperties": false,
+      "properties": {
+        "argvDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "durationMs": {
+          "maximum": 21600000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "exitCode": {
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9-]{1,63}$",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "expected-failure",
+            "succeeded"
+          ],
+          "type": "string"
+        },
+        "outputDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "proof": {
+          "pattern": "^[a-z][a-z0-9-]{1,63}$",
+          "type": "string"
+        },
+        "specDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "startedEpochMs": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "startedMonotonicNs": {
+          "pattern": "^[1-9][0-9]{6,20}$",
+          "type": "string"
+        },
+        "endedEpochMs": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "endedMonotonicNs": {
+          "pattern": "^[1-9][0-9]{6,20}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "argvDigest",
+        "durationMs",
+        "endedEpochMs",
+        "endedMonotonicNs",
+        "exitCode",
+        "id",
+        "outcome",
+        "outputDigest",
+        "proof",
+        "specDigest",
+        "startedEpochMs",
+        "startedMonotonicNs"
+      ],
+      "type": "object"
+    },
+    "gitIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "tree": {
+          "format": "git-oid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "revision",
+        "tree"
+      ],
+      "type": "object"
+    },
+    "commandProof": {
+      "additionalProperties": false,
+      "properties": {
+        "passed": {
+          "const": true
+        },
+        "proofCommandId": {
+          "pattern": "^[a-z][a-z0-9-]{1,63}$",
+          "type": "string"
+        },
+        "proofDigest": {
+          "format": "sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "passed",
+        "proofCommandId",
+        "proofDigest"
+      ],
+      "type": "object"
+    },
+    "health": {
+      "additionalProperties": false,
+      "properties": {
+        "proofCommandId": {
+          "pattern": "^[a-z][a-z0-9-]{1,63}$",
+          "type": "string"
+        },
+        "proofDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/continuousHealthState"
+        },
+        "stateDigest": {
+          "format": "sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "proofCommandId",
+        "proofDigest",
+        "state",
+        "stateDigest"
+      ],
+      "type": "object"
+    },
+    "status": {
+      "enum": [
+        "failed",
+        "not-needed",
+        "succeeded"
+      ],
+      "type": "string"
+    }
+  },
+  "$id": "https://bangumi-staff-stats.invalid/operations/validation-result-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "claim": {
+      "enum": [
+        "isolated-operations-validated-production-not-activated",
+        "isolated-operations-validation-failed-production-not-activated"
+      ],
+      "type": "string"
+    },
+    "cleanup": {
+      "additionalProperties": false,
+      "properties": {
+        "namedVolumesNeverObserved": {
+          "type": "boolean"
+        },
+        "residue": {
+          "items": {
+            "format": "bounded-identifier",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "rootAbsent": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "zeroResidue": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "namedVolumesNeverObserved",
+        "residue",
+        "rootAbsent",
+        "status",
+        "zeroResidue"
+      ],
+      "type": "object"
+    },
+    "commands": {
+      "items": {
+        "$ref": "#/$defs/command"
+      },
+      "maxItems": 64,
+      "minItems": 0,
+      "type": "array"
+    },
+    "continuousHealth": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/continuousHealthEvidence"
+        }
+      ]
+    },
+    "conclusion": {
+      "enum": [
+        "failed",
+        "isolated-operations-validated-production-not-activated"
+      ],
+      "type": "string"
+    },
+    "errors": {
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+              "type": "string"
+            }
+          ]
+        },
+        "secondary": {
+          "items": {
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "primary",
+        "secondary"
+      ],
+      "type": "object"
+    },
+    "exercises": {
+      "additionalProperties": false,
+      "properties": {
+        "actionsCoveredExercises": {
+          "additionalProperties": false,
+          "properties": {
+            "candidateDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "operationsRevision": {
+              "format": "git-oid",
+              "type": "string"
+            },
+            "updaterNoChange": {
+              "const": true
+            },
+            "updaterTimeout": {
+              "const": true
+            },
+            "workflowHead": {
+              "format": "git-oid",
+              "type": "string"
+            },
+            "workflowRunId": {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            "workflowRunAttempt": {
+              "maximum": 2147483647,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "candidateDigest",
+            "operationsRevision",
+            "updaterNoChange",
+            "updaterTimeout",
+            "workflowHead",
+            "workflowRunAttempt",
+            "workflowRunId"
+          ],
+          "type": "object"
+        },
+        "remoteExercises": {
+          "additionalProperties": false,
+          "properties": {
+            "archiveCorruptionRejected": {
+              "oneOf": [
+                { "type": "null" },
+                { "$ref": "#/$defs/commandProof" }
+              ]
+            },
+            "frontendRollback": {
+              "oneOf": [
+                { "type": "null" },
+                { "$ref": "#/$defs/commandProof" }
+              ]
+            },
+            "lockContentionRejected": {
+              "oneOf": [
+                { "type": "null" },
+                { "$ref": "#/$defs/commandProof" }
+              ]
+            },
+            "postSwitchRollback": {
+              "oneOf": [
+                { "type": "null" },
+                { "$ref": "#/$defs/commandProof" }
+              ]
+            },
+            "updaterFailure": {
+              "oneOf": [
+                { "type": "null" },
+                { "$ref": "#/$defs/commandProof" }
+              ]
+            }
+          },
+          "required": [
+            "archiveCorruptionRejected",
+            "frontendRollback",
+            "lockContentionRejected",
+            "postSwitchRollback",
+            "updaterFailure"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "actionsCoveredExercises",
+        "remoteExercises"
+      ],
+      "type": "object"
+    },
+    "health": {
+      "additionalProperties": false,
+      "properties": {
+        "full": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/health"
+            }
+          ]
+        },
+        "minimal": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/health"
+            }
+          ]
+        },
+        "reactivated": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/health"
+            }
+          ]
+        },
+        "rolledBack": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/health"
+            }
+          ]
+        }
+      },
+      "required": [
+        "full",
+        "minimal",
+        "reactivated",
+        "rolledBack"
+      ],
+      "type": "object"
+    },
+    "inputDigest": {
+      "format": "sha256",
+      "type": "string"
+    },
+    "nonInterference": {
+      "additionalProperties": false,
+      "properties": {
+        "afterDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "beforeDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "differences": {
+          "items": {
+            "enum": [
+              "absence.imageReferences",
+              "absence.imagesAbsent",
+              "absence.namedVolumesAbsent",
+              "absence.portFree",
+              "absence.projectAbsent",
+              "absence.rootAbsent",
+              "capacity.admission",
+              "capacity.requiredBytes",
+              "host",
+              "protected",
+              "tools"
+            ],
+            "type": "string"
+          },
+          "maxItems": 11,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "equal": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "afterDigest",
+        "beforeDigest",
+        "differences",
+        "equal"
+      ],
+      "type": "object"
+    },
+    "preflightDigest": {
+      "format": "sha256",
+      "type": "string"
+    },
+    "producer": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "dataVersion": {
+              "pattern": "^dv1-[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "durationSeconds": {
+              "maximum": 21600,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "inputRows": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "manifestDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "memoryLimitBytes": {
+              "const": 671088640
+            },
+            "oomKilled": {
+              "const": false
+            },
+            "outputRows": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "peakMemoryBytes": {
+              "maximum": 671088640,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "qualityDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "proofCommandId": {
+              "const": "updater-produce"
+            },
+            "proofDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "sqliteDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "statusDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "upstreamDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "upstreamRelease": {
+              "pattern": "^dump-[0-9]{4}-[0-9]{2}-[0-9]{2}[.][0-9]{6}Z$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "dataVersion",
+            "durationSeconds",
+            "inputRows",
+            "manifestDigest",
+            "memoryLimitBytes",
+            "oomKilled",
+            "outputRows",
+            "peakMemoryBytes",
+            "proofCommandId",
+            "proofDigest",
+            "qualityDigest",
+            "sqliteDigest",
+            "statusDigest",
+            "upstreamDigest",
+            "upstreamRelease"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "released": {
+      "const": false
+    },
+    "deployed": {
+      "const": false
+    },
+    "productionActivated": {
+      "const": false
+    },
+    "resourcesDigest": {
+      "format": "sha256",
+      "type": "string"
+    },
+    "runId": {
+      "pattern": "^run-[0-9a-f]{32}$",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "operations-validation-result-v1"
+    },
+    "securityProjection": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/securityProjection" }
+      ]
+    },
+    "securityProjectionDigest": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "format": "sha256",
+          "type": "string"
+        }
+      ]
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "operations": {
+          "$ref": "#/$defs/gitIdentity"
+        },
+        "product": {
+          "$ref": "#/$defs/gitIdentity"
+        }
+      },
+      "required": [
+        "operations",
+        "product"
+      ],
+      "type": "object"
+    },
+    "statuses": {
+      "additionalProperties": false,
+      "properties": {
+        "cleanup": {
+          "$ref": "#/$defs/status"
+        },
+        "primary": {
+          "$ref": "#/$defs/status"
+        },
+        "rollback": {
+          "$ref": "#/$defs/status"
+        }
+      },
+      "required": [
+        "cleanup",
+        "primary",
+        "rollback"
+      ],
+      "type": "object"
+    },
+    "transport": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "$ref": "#/$defs/actionsAuthority"
+        },
+        "candidateArchiveSha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "externalInventorySha256": {
+          "format": "sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actions",
+        "candidateArchiveSha256",
+        "externalInventorySha256"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "claim",
+    "cleanup",
+    "commands",
+    "continuousHealth",
+    "conclusion",
+    "deployed",
+    "errors",
+    "exercises",
+    "health",
+    "inputDigest",
+    "nonInterference",
+    "preflightDigest",
+    "producer",
+    "productionActivated",
+    "released",
+    "resourcesDigest",
+    "runId",
+    "schemaVersion",
+    "securityProjection",
+    "securityProjectionDigest",
+    "source",
+    "statuses",
+    "transport"
+  ],
+  "title": "Operations isolated validation result",
+  "type": "object"
+}

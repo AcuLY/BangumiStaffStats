@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 
-import { deepFreeze } from '../lib/canonical-json.mjs';
+import {
+  canonicalJsonDigest,
+  deepFreeze,
+} from '../lib/canonical-json.mjs';
 import { assertSha256 } from '../lib/digest.mjs';
 import { parseJsonStrict } from '../lib/strict-json.mjs';
 import { requireCanonicalPath } from '../lib/path-policy.mjs';
@@ -119,9 +122,74 @@ function parseMemberJson(descriptor, member, label) {
   return value;
 }
 
+function runtimeDefaults(config) {
+  const runtime = config.config;
+  const environment = Object.create(null);
+  for (const entry of runtime.Env ?? []) {
+    if (typeof entry !== 'string' || !entry.includes('=')) {
+      fail('OCI runtime environment contains an invalid entry');
+    }
+    const separator = entry.indexOf('=');
+    const name = entry.slice(0, separator);
+    const value = entry.slice(separator + 1);
+    if (
+      !/^[A-Z][A-Z0-9_]{0,63}$/u.test(name) ||
+      Object.hasOwn(environment, name)
+    ) {
+      fail('OCI runtime environment is not a closed unique map');
+    }
+    environment[name] = value;
+  }
+  const labels = runtime.Labels ?? {};
+  if (
+    labels === null ||
+    typeof labels !== 'object' ||
+    Array.isArray(labels) ||
+    Object.entries(labels).some(
+      ([name, value]) =>
+        !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/u.test(name) ||
+        typeof value !== 'string',
+    )
+  ) {
+    fail('OCI runtime labels are not a closed string map');
+  }
+  for (const [name, value] of Object.entries({
+    command: runtime.Cmd ?? [],
+    entrypoint: runtime.Entrypoint ?? [],
+  })) {
+    if (
+      !Array.isArray(value) ||
+      value.some(
+        (entry) =>
+          typeof entry !== 'string' ||
+          entry.length === 0 ||
+          entry.length > 4096,
+      )
+    ) {
+      fail(`OCI runtime ${name} is not a closed string vector`);
+    }
+  }
+  return deepFreeze({
+    command: [...(runtime.Cmd ?? [])],
+    entrypoint: [...(runtime.Entrypoint ?? [])],
+    environment: Object.fromEntries(
+      Object.entries(environment).sort(([left], [right]) =>
+        left.localeCompare(right, 'en'),
+      ),
+    ),
+    labels: Object.fromEntries(
+      Object.entries(labels).sort(([left], [right]) =>
+        left.localeCompare(right, 'en'),
+      ),
+    ),
+    user: runtime.User,
+  });
+}
+
 export function inspectOciArchive({
   archivePath,
   declaredLoadReference,
+  includeRuntimeDefaults = false,
   target = TARGET,
 }) {
   const archive = requireCanonicalPath(archivePath, {
@@ -311,11 +379,20 @@ export function inspectOciArchive({
   ) {
     fail('Docker compatibility manifest does not bind the OCI graph and load reference');
   }
-  return deepFreeze({
+  const result = {
     config: configDescriptor,
     indexDigest: digestMember(archiveDescriptor, members.get('index.json')),
     layers,
     manifest: manifestDescriptor,
-  });
+  };
+  if (includeRuntimeDefaults) {
+    result.graphDigest = canonicalJsonDigest({
+      configDigest: configDescriptor.digest,
+      rootfsDiffIds: config.rootfs.diff_ids,
+    });
+    result.rootfsDiffIds = [...config.rootfs.diff_ids];
+    result.runtimeDefaults = runtimeDefaults(config);
+  }
+  return deepFreeze(result);
   });
 }
