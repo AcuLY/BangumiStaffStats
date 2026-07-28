@@ -124,20 +124,32 @@ export function inventoryTree(root, { exclude = [] } = {}) {
 }
 
 export function compareInventories(first, second, label = 'release trees') {
-  if (
-    first.length !== second.length ||
-    first.some((record, index) => {
-      const other = second[index];
-      return (
-        !other ||
-        record.mode !== other.mode ||
-        record.path !== other.path ||
-        record.sha256 !== other.sha256 ||
-        record.size !== other.size
-      );
-    })
-  ) {
-    fail(`${label} are not byte-and-mode identical`);
+  let mismatchIndex;
+  for (let index = 0; index < Math.max(first.length, second.length); index += 1) {
+    const record = first[index];
+    const other = second[index];
+    if (
+      !record ||
+      !other ||
+      record.mode !== other.mode ||
+      record.path !== other.path ||
+      record.sha256 !== other.sha256 ||
+      record.size !== other.size
+    ) {
+      mismatchIndex = index;
+      break;
+    }
+  }
+  if (mismatchIndex !== undefined) {
+    const describe = (record) =>
+      record
+        ? `path=${record.path},mode=${record.mode},size=${record.size},sha256=${record.sha256}`
+        : '<missing>';
+    fail(
+      `${label} are not byte-and-mode identical at inventory index ${mismatchIndex}: ` +
+        `first(${describe(first[mismatchIndex])}); ` +
+        `second(${describe(second[mismatchIndex])})`,
+    );
   }
   return first;
 }

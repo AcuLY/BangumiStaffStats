@@ -5,9 +5,38 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  compareInventories,
   copyImmutableFile,
   inventoryTree,
 } from '../../release/files.mjs';
+
+test('inventory comparison reports the first closed-record difference', () => {
+  const shared = {
+    mode: '0444',
+    path: 'artifacts/updater.whl',
+    sha256: `sha256:${'a'.repeat(64)}`,
+    size: 128,
+  };
+  const changed = {
+    ...shared,
+    sha256: `sha256:${'b'.repeat(64)}`,
+    size: 129,
+  };
+
+  assert.throws(
+    () => compareInventories([shared], [changed], 'independent updater builds'),
+    new RegExp(
+      String.raw`independent updater builds are not byte-and-mode identical at inventory index 0: ` +
+        String.raw`first\(path=artifacts/updater\.whl,mode=0444,size=128,sha256=sha256:a{64}\); ` +
+        String.raw`second\(path=artifacts/updater\.whl,mode=0444,size=129,sha256=sha256:b{64}\)`,
+      'u',
+    ),
+  );
+  assert.throws(
+    () => compareInventories([shared], [], 'independent updater builds'),
+    /second\(<missing>\)$/u,
+  );
+});
 
 test('candidate-shaped immutable copies admit top-level and nested destinations', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-release-files-test-'));
