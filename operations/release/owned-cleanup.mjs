@@ -56,10 +56,46 @@ function assertIdentity(absolute, expected, label) {
   } catch (error) {
     fail(`${label} disappeared or cannot be inspected`, error);
   }
+  assertCapturedIdentity(actual, expected, label);
+}
+
+function assertCapturedIdentity(actual, expected, label) {
   for (const key of Object.keys(expected)) {
     if (actual[key] !== expected[key]) {
       fail(`${label} differs from its captured identity`);
     }
+  }
+}
+
+function admitOwnerCleanupPermissions(absolute, expected, label) {
+  const admittedMode = expected.mode | 0o700;
+  if (admittedMode === expected.mode) return expected;
+  let descriptor;
+  try {
+    descriptor = fs.openSync(
+      absolute,
+      fs.constants.O_RDONLY |
+        fs.constants.O_DIRECTORY |
+        fs.constants.O_NOFOLLOW,
+    );
+    assertCapturedIdentity(
+      identity(fs.fstatSync(descriptor, { bigint: true }), null),
+      expected,
+      label,
+    );
+    fs.fchmodSync(descriptor, admittedMode);
+    const admitted = deepFreeze({ ...expected, mode: admittedMode });
+    assertCapturedIdentity(
+      identity(fs.fstatSync(descriptor, { bigint: true }), null),
+      admitted,
+      label,
+    );
+    return admitted;
+  } catch (error) {
+    if (error instanceof OwnedCleanupError) throw error;
+    fail(`${label} owner cleanup permission admission failed`, error);
+  } finally {
+    if (descriptor !== undefined) fs.closeSync(descriptor);
   }
 }
 
@@ -138,6 +174,23 @@ export function cleanupOwnedRunInventory(inventory) {
     fail('owned cleanup requires an inventory captured by this process');
   }
   assertInventoryStillClosed(inventory);
+  const directoryIdentities = new Map();
+  for (const entry of [
+    { identity: inventory.rootIdentity, path: '' },
+    ...inventory.entries.filter((candidate) => candidate.type === 'directory'),
+  ]) {
+    const absolute = entry.path
+      ? path.join(inventory.runRoot, ...entry.path.split('/'))
+      : inventory.runRoot;
+    directoryIdentities.set(
+      entry.path,
+      admitOwnerCleanupPermissions(
+        absolute,
+        entry.identity,
+        `owned run directory ${entry.path || '.'}`,
+      ),
+    );
+  }
   const leaves = inventory.entries
     .filter((entry) => entry.type !== 'directory')
     .sort((left, right) => right.path.localeCompare(left.path, 'en'));
@@ -147,6 +200,13 @@ export function cleanupOwnedRunInventory(inventory) {
       ...entry.path.split('/'),
     );
     assertIdentity(absolute, entry.identity, `owned run ${entry.path}`);
+    const parent = path.posix.dirname(entry.path);
+    const parentRelative = parent === '.' ? '' : parent;
+    assertStableContainer(
+      path.dirname(absolute),
+      directoryIdentities.get(parentRelative),
+      `owned run directory ${parentRelative || '.'}`,
+    );
     fs.unlinkSync(absolute);
   }
   const directories = inventory.entries
@@ -163,7 +223,7 @@ export function cleanupOwnedRunInventory(inventory) {
     );
     assertStableContainer(
       absolute,
-      entry.identity,
+      directoryIdentities.get(entry.path),
       `owned run directory ${entry.path}`,
     );
     if (fs.readdirSync(absolute).length !== 0) {
@@ -173,7 +233,7 @@ export function cleanupOwnedRunInventory(inventory) {
   }
   assertStableContainer(
     inventory.runRoot,
-    inventory.rootIdentity,
+    directoryIdentities.get(''),
     'owned run root',
   );
   if (fs.readdirSync(inventory.runRoot).length !== 0) {

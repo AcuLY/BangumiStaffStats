@@ -15,7 +15,7 @@ const VERIFY_CANDIDATE_SOURCE = fs.readFileSync(
   'utf8',
 );
 
-test('AMD64 build caches remain single-link and owner-writable for exact cleanup', () => {
+test('AMD64 build caches avoid uv hard links and isolate the Go module cache', () => {
   assert.match(BUILD_SOURCE, /UV_LINK_MODE: 'copy'/u);
   assert.match(BUILD_SOURCE, /GOFLAGS: '-modcacherw'/u);
   assert.match(
