@@ -30,7 +30,7 @@ function fail(message, cause) {
 }
 
 function normalizedMode(information) {
-  return (information.mode & 0o111) === 0 ? '0444' : '0555';
+  return (information.mode & 0o111n) === 0n ? '0444' : '0555';
 }
 
 function assertRealRegularFile(filePath, label = 'release input') {
