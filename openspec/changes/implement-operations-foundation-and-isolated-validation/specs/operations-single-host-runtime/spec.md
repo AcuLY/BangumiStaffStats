@@ -30,8 +30,9 @@ Repository production definitions SHALL render only for application root
 on `0.0.0.0:8080`. One internal project network named from `runtime` SHALL
 connect only API and Prometheus. A separate project network named from
 `outbound` SHALL connect only API and Updater, publish no port, and be
-egress-capable in the production profile because image proxying and real
-Archive acquisition require upstream HTTPS. Prometheus SHALL never join it.
+egress-capable because image proxying, production Archive acquisition, and the
+one bounded isolated-validation acquisition require upstream HTTPS.
+Prometheus SHALL never join it.
 Prometheus SHALL scrape API `/metrics` every 30 seconds and expose no host or
 public port. Frontend
 files SHALL be installed into versioned host directories for host Nginx, not

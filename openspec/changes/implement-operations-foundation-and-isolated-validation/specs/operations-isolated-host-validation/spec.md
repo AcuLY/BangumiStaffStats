@@ -6,16 +6,16 @@
 |---|---|
 | Status | Investigated: complete; specified: complete only after strict validation and main-agent approval; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no. |
 | Owner | Operations isolated-host validation apply group. |
-| Writable paths | Repository: `operations/validation/**`, `operations/test/validation/**`, and generated ignored `operations/.tmp/**`. External after successful preflight: only newly created paths below `myserver:/srv/bgmss-ops-validation/**`; Compose project `bgmss_ops_validation` services `api`, `updater`, `prometheus`; project-labeled containers plus exact internal `runtime` and `outbound` networks; no named volumes; the two artifact-declared Backend/Updater load tags; their two aliases `localhost/bgmss-ops-validation-{api,updater}:<accepted-product-revision>-amd64`; the exact pinned upstream Prometheus digest reference; and alias `localhost/bgmss-ops-validation-prometheus:<reviewed-version>-amd64`. All six image references are sealed and proven absent before load/pull. For each of the three images the input and run evidence bind all refs, OCI manifest digest, config digest, and Docker runtime ID. API publication is exactly `127.0.0.1:19090:8080`. |
-| Read-only protected inputs | All repository paths outside the listed owner paths; operations-built AMD64 release candidate/artifacts and validation Archive inputs; SSH configuration/credentials. On `myserver`: `/srv/bgmss/**`; `/srv/bgmss-v2/**`; every other `/srv/**` path; every pre-existing Compose project, container, network, image/tag, and volume; all Nginx/systemd/TLS/secret/user/firewall/cron state; public ports; legacy data/processes; and every port other than the exact validation bind. Only the six input-declared image references that preflight proves absent are excluded from the image/tag read-only set. |
+| Writable paths | Repository: `operations/validation/**`, `operations/test/validation/**`, and generated ignored `operations/.tmp/**`. External after successful preflight: only newly created paths below `myserver:/srv/bgmss-ops-validation/**`; Compose project `bgmss_ops_validation` services `api`, `updater`, `prometheus`; project-labeled containers plus exact internal `runtime` and egress-capable `outbound` networks; no named volumes; the two artifact-declared Backend/Updater load tags; their two aliases `localhost/bgmss-ops-validation-{api,updater}:<accepted-product-revision>-amd64`; the exact pinned upstream Prometheus digest reference; and alias `localhost/bgmss-ops-validation-prometheus:<reviewed-version>-amd64`. All six image references are sealed and proven absent before load/pull. For each of the three images the input and run evidence bind all refs, OCI manifest digest, config digest, and Docker runtime ID. API publication is exactly `127.0.0.1:19090:8080`. The candidate Updater alone may use `outbound` once to create its inactive full Archive, status, and staging objects below the validation root. |
+| Read-only protected inputs | All repository paths outside the listed owner paths; operations-built AMD64 release candidate/artifacts, the minimal validation Archive, candidate-embedded producer inputs, public read-only upstream inputs, and SSH configuration/credentials. On `myserver`: `/srv/bgmss/**`; `/srv/bgmss-v2/**`; every other `/srv/**` path; every pre-existing Compose project, container, network, image/tag, and volume; all Nginx/systemd/TLS/secret/user/firewall/cron state; public ports; legacy data/processes; and every port other than the exact validation bind. Only the six input-declared image references that preflight proves absent are excluded from the image/tag read-only set. |
 | Deletion complement | No repository or pre-existing remote state. Cleanup may remove only the exact run-created path inventory; captured validation container/network IDs whose names plus project/service/run labels still match; and each exact run-created image reference only when it still resolves to the captured OCI manifest/config/runtime identity and no foreign container uses it. |
 | Mutable refs | The listed repository files and ephemeral `operations/.tmp/**`; after admission, the validation root's run marker, release/data pointers, captured validation project resources, and the six exact image references/three image identities. No other image/tag, Git ref, registry/release, production/legacy ref, named volume, host service, or external configuration is mutable. |
-| Consumes | Committed operations implementation; accepted clean `linux/amd64` release candidate obtained from the exact one-day sealed Operations Actions handoff and reverified from its archive digest plus complete external inventory; exact component/compatibility evidence; one accepted full inactive Archive plus an accepted minimal rollback Archive; expected app/data identities; read-only host/tool/resource snapshots. |
-| Produces | Strict validation-input/result/resource schemas; transfer/render/run/cleanup entrypoints; local negative tests; canonical before/result/after evidence; and one isolated success/failure report whose highest claim is operations definitions validated in a non-live namespace. |
+| Consumes | Committed operations implementation; accepted clean `linux/amd64` release candidate obtained from the exact one-day sealed Operations Actions handoff and reverified from its archive digest plus complete external inventory; exact component/compatibility evidence; the accepted minimal rollback Archive; the candidate Updater's sealed acquisition implementation/configuration and public read-only upstream inputs; expected app/minimal-data identities; read-only host/tool/resource snapshots. |
+| Produces | One verified full inactive Archive generated by the candidate Updater; strict validation-input/result/resource schemas; transfer/render/run/cleanup entrypoints; local negative tests; canonical before/result/after evidence; and one isolated success/failure report whose highest claim is operations definitions validated in a non-live namespace. |
 | Dependencies | `operations-release-assembly`, `operations-single-host-runtime`, archived authorized CI/remote development-acceptance lifecycle bundle, accepted Archive contracts/fixtures, and explicit user authorization for `myserver`. Direction is accepted candidate/runtime definitions → isolated validation; no validation observation becomes product semantics. |
 | Deliverables | Exact repository owner paths, local failure tests, ephemeral sealed host evidence, and zero-residue/non-interference proof. |
 | Acceptance | Exact expected host facts; no-collision before-write proof; sealed transfer; production-vs-validation render diff; image/load ownership; Compose/API/Updater/Prometheus/Frontend install checks; safe release/data switch and rollback exercise; lock/timeout/signal/failure injection; closed cleanup; after-state comparison; no residual path/project/container/network/image/port/process; protected-state seals; strict OpenSpec; exact paths; and diff hygiene. |
-| Non-goals | Production activation, public preview, Nginx/systemd/TLS/user/firewall mutation, real scheduler install, real weekly acquisition, GHCR/GitHub Release/deploy execution, SLO/capacity certification, legacy traffic/routing/data/process mutation, cutover, stability observation, or retirement. |
+| Non-goals | Production activation, public preview, Nginx/systemd/TLS/user/firewall mutation, scheduler installation or invocation, production weekly-operation evidence, GHCR/GitHub Release/deploy execution, SLO/capacity certification, legacy traffic/routing/data/process mutation, cutover, stability observation, or retirement. |
 | Operations deferred | All live-state actions listed in Non-goals plus any validation on a different host/root/project/port or reuse of an existing validation namespace. |
 | Stop/rollback conditions | Stop before first write if host/tool facts drift, target root/project/service/image/tag/port/path ownership is non-empty or ambiguous, required space is insufficient, accepted inputs fail seals, or protected resources cannot be inventoried. After mutation, stop activation on any failure; restore only run-owned prior pointers, terminate only captured validation resources, preserve primary and cleanup failures, and never touch a protected resource to complete cleanup. |
 
@@ -57,8 +57,12 @@ exact Backend and Updater image archive references/digests plus their
 artifact-declared load tags, exact validation aliases, and expected OCI
 manifest/config identities, plus the exact Prometheus digest/reference/alias,
 Frontend and standalone `archive-smoke` release-asset bytes with source
-member/size/digest/mode, compatibility manifest, full and minimal Archive
-identities, target root/project/services/port, and expected app/data results.
+member/size/digest/mode, compatibility manifest, the minimal Archive identity,
+target root/project/services/port, and expected app/minimal-data results. The
+full Archive identity is not caller-supplied authority: the remote result SHALL
+bind the exact newly generated version, manifest/SQLite/source-accounting
+digests, Updater status, upstream release identity, duration, peak memory, and
+OOM state.
 Transfer SHALL use a new run-owned staging directory below the validation root,
 verify every checksum and closed path/mode inventory on the host, and publish
 the run marker before loading an image or starting Compose. Remote rendering
@@ -81,10 +85,11 @@ run-owned project networks named from `runtime` and `outbound`, bind-mounted
 run-owned state, no named volume, and
 API publication `127.0.0.1:19090:8080`. API and Prometheus SHALL use the same
 security/resource semantics as production; Updater SHALL remain one-shot.
-Both validation networks SHALL be internal: Prometheus joins only `runtime`,
-Updater only `outbound`, and API both. This is the exact admitted
-production-vs-validation network substitution and prevents validation
-acquisition/image-proxy egress.
+`runtime` SHALL be internal. The separate `outbound` network SHALL be
+egress-capable, publish no port, and connect only API and Updater; only the
+candidate Updater's single bounded acquisition is an admitted outbound
+validation workload. The controller SHALL issue no image-proxy request and
+SHALL reject any other observed outbound validation command.
 No validation service SHALL join a pre-existing network, mount
 `/srv/bgmss`, `/srv/bgmss-v2`, `/etc`, Docker socket, host secrets, or source,
 publish metrics/public ports, start Nginx/systemd, or contact a legacy process.
@@ -101,25 +106,29 @@ publish metrics/public ports, start Nginx/systemd, or contact a legacy process.
 
 With product source absent, validation SHALL load the two accepted AMD64
 images, install and hash the Frontend release, run Updater `doctor` and
-embedded `contract-check`, start API on the minimal accepted Archive, and
+embedded `contract-check`, then run the same candidate Updater once to produce
+a full inactive Archive from its embedded producer inputs and public read-only
+upstreams. The run SHALL have the six-hour/CPU/I/O/memory bounds, record exact
+upstream/status/source-accounting/duration/peak-memory/OOM evidence, and admit
+the new Archive only after standalone `archive-smoke` and closed-inventory
+verification. Validation SHALL start API on the minimal accepted Archive and
 verify loopback `/livez`, `/readyz`, expected minimal `dataVersion`,
 `bgmss_build_info` version/commit, a minimal typed query, and Prometheus scrape
-of the API. It SHALL then activate the accepted full inactive Archive through
+of the API. It SHALL then activate the generated full inactive Archive through
 the run-owned wrapper, verify the new exact `dataVersion`, status/event,
-readiness, metrics, query, and Updater peak-memory/no-OOM evidence within the
-initial 640 MiB cap, roll back to the compatible minimal pointer and
+readiness, metrics, and query, roll back to the compatible minimal pointer and
 verify again, and finally re-activate the full version. Frontend symlink
 installation/rollback SHALL be verified by exact bytes without changing host
 Nginx. The memory observation SHALL be labeled isolated migration evidence,
 not a formal development benchmark; an OOM or cap breach SHALL fail validation
 and block production activation pending specification review.
 
-#### Scenario: Candidate and two Archives operate in isolation
+#### Scenario: Candidate produces and operates two Archives in isolation
 - **WHEN** all artifact-only health, update-tool, static, scrape, activation, rollback, and re-activation checks pass
 - **THEN** the canonical result records every expected app/data/resource identity and marks isolated validation successful
 
-#### Scenario: Source, external service, or manual repair is required
-- **WHEN** success requires source checkout, a production/legacy path, public route, host daemon change, undeclared download, or manual byte edit
+#### Scenario: Source, undeclared external service, or manual repair is required
+- **WHEN** success requires source checkout, a production/legacy path, public route, host daemon change, an outbound workload other than the one admitted Updater acquisition, an undeclared download, or manual byte edit
 - **THEN** validation fails and cannot claim the operations definitions passed
 
 ### Requirement: Failure paths SHALL preserve the last accepted validation state

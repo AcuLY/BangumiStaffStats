@@ -41,12 +41,12 @@ The exact current external scopes are:
 | Read-only protected inputs | All product/Contracts/authority/oracle/build inputs and archived authorized acceptance evidence; `.github/workflows/ci.yml`; external refs/registries/releases/secrets. On `myserver`, every path/resource/ref except the admitted validation namespace and exact six previously absent image references, especially `/srv/bgmss`, `/srv/bgmss-v2`, current Compose/Docker state, Nginx/systemd/TLS, public listeners, and legacy processes/data. |
 | Deletion complement | No tracked or pre-existing state. Local/remote cleanup is limited to a closed run-created path inventory, immutable labeled project resources, and image references still resolving to their captured manifest/config/runtime identity with no foreign consumer. |
 | Mutable refs | Listed repository worktree files; isolated run marker/pointers/links; captured validation containers and two networks; exact six image references/three image identities. Commits/push/OpenSpec lifecycle are main-agent actions. No live, legacy, registry, release, tag, Environment, secret, daemon, or public-route ref is mutable. |
-| Consumes | Archived authorized CI/remote development-acceptance lifecycle bundle and frozen product identity; accepted build/contracts/tool identities; Archive/current/status contracts; full inactive and minimal validation Archives; read-only host facts. The formal Darwin/ARM64 matrix remains explicitly unexecuted and is never represented as green. |
-| Produces | AMD64 component/compatibility/release evidence, release/deploy policy, production-boundary definitions, recovery entrypoints/runbooks, and canonical isolated-validation/non-interference evidence. |
+| Consumes | Archived authorized CI/remote development-acceptance lifecycle bundle and frozen product identity; accepted build/contracts/tool identities; Archive/current/status contracts; the minimal validation Archive; the candidate Updater's sealed acquisition implementation/configuration and public read-only upstream inputs; read-only host facts. The formal Darwin/ARM64 matrix remains explicitly unexecuted and is never represented as green. |
+| Produces | AMD64 component/compatibility/release evidence, release/deploy policy, production-boundary definitions, recovery entrypoints/runbooks, one remotely generated full inactive validation Archive, and canonical isolated-validation/non-interference evidence. |
 | Dependencies | Frozen product and Contracts → accepted-development receipt → fresh AMD64 validation candidate; for a later tag, frozen-baseline comparison → two builds of that exact tag commit → tag-release candidate/published manifest; runtime definitions → isolated validation. No reverse dependency or upstream rewrite is allowed. |
 | Deliverables | Proposal's exact repository artifacts, local gates, AMD64 candidate, and isolated validation/cleanup result. |
 | Acceptance | Per-spec gates plus cross-capability rendered topology, transaction, provenance, secret, negative, residue, and protected-state audits. |
-| Non-goals | Product/UI/API/statistics changes; reuse of ARM64 bytes as AMD64; production activation/build; release execution; public routing; real scheduler/acquisition; SLO sign-off; migration/cutover; or legacy retirement. |
+| Non-goals | Product/UI/API/statistics changes; reuse of ARM64 bytes as AMD64; production activation/build; release execution; public routing; scheduler installation or production weekly acquisition; SLO sign-off; migration/cutover; or legacy retirement. |
 | Operations deferred | Registry/GitHub publication; Environment/secret setup; `/srv/bgmss-v2` installation/start; Nginx/systemd/TLS/DNS/firewall/users; real timer/update; public preview/cutover; observation windows; and old-stack deletion. |
 | Stop/rollback conditions | Stop before first mutation on authority/identity/tool/path/project/port/image/space ambiguity. After a validation mutation, preserve primary failure, restore only captured run-owned state, conditionally clean only still-owned resources, record secondary rollback/cleanup faults, and never touch protected state to force completion. |
 
@@ -243,7 +243,7 @@ closed tuples:
 | API bind | `127.0.0.1:18080:8080` | `127.0.0.1:19090:8080` |
 | Long-lived services | `api`, `prometheus` | `api`, `prometheus` |
 | One-shot service | `updater` | `updater` |
-| Networks | internal `runtime` for API/Prometheus; egress-capable `outbound` for API/Updater | internal `runtime` for API/Prometheus; also-internal `outbound` for API/Updater |
+| Networks | internal `runtime` for API/Prometheus; egress-capable `outbound` for API/Updater | internal `runtime` for API/Prometheus; egress-capable `outbound` for API/Updater |
 | Volumes | Exact bind mounts below root | Exact bind mounts below validation root |
 | Named volumes | none | none |
 | Public metrics/Prometheus | none | none |
@@ -253,9 +253,11 @@ The API command explicitly passes `-listen-address 0.0.0.0:8080`,
 `-archive-root`, and the read-only update-status path. The internal `runtime`
 network carries API-to-Prometheus traffic. A distinct project-scoped
 `outbound` network is attached only to API and Updater because the image proxy
-and real acquisition require upstream HTTPS; it publishes no port and is
-non-internal only in production. The isolated profile renders the same second
-network as internal, so validation cannot use it for external acquisition.
+and real acquisition require upstream HTTPS; it publishes no port. The
+isolated profile keeps that network egress-capable solely so the candidate
+Updater can perform one bounded acquisition whose source/status/accounting
+evidence is sealed. The controller issues no image-proxy request and rejects
+any other outbound validation workload.
 Compose uses immutable
 digests in production and captured local validation aliases with
 `pull_policy: never` during isolated validation. Containers run non-root,
@@ -438,23 +440,28 @@ The local validation controller:
 It does not interpolate free-form user values into shell. The remote payload
 sets a restrictive umask, sanitizes environment, validates every input again,
 and records every created path/resource before later mutation. Archive inputs
-are the accepted full inactive Archive plus a small accepted compatible
-Archive for safe pointer rollback; no real acquisition or weekly timer runs.
+begin with the small accepted compatible Archive used for safe pointer
+rollback. The candidate Updater performs one bounded real acquisition inside
+the isolated namespace to produce the full inactive Archive, and the
+controller admits it only after the standalone `archive-smoke`, closed
+inventory, source accounting, status, memory, and no-OOM checks pass. No
+weekly timer is installed or invoked.
 
 ### 12. Exercise success and failure without touching host daemons
 
 Remote success validation uses product artifacts only:
 
-- Updater `doctor` and embedded contract check;
+- Updater `doctor`, embedded contract check, and one bounded real `produce`
+  acquisition whose public input identities and peak memory are recorded;
 - installed Frontend hashes and atomic link rollback;
 - API `/livez`, `/readyz`, expected `dataVersion` and
   `bgmss_build_info`, and a minimal typed query;
 - Prometheus internal scrape;
 - minimal → full Archive activation, full → minimal rollback, and final
   minimal → full activation through the validation wrapper;
-- full-Archive Updater peak-memory/no-OOM evidence under the initial 640 MiB
-  cap, explicitly recorded as an isolated migration measurement rather than a
-  formal benchmark.
+- the generated full-Archive Updater peak-memory/no-OOM evidence under the
+  initial 640 MiB cap, explicitly recorded as an isolated migration
+  measurement rather than a formal benchmark.
 
 Safe run-owned failure exercises cover a lock collision and a post-switch
 readiness failure/rollback. The complete fault matrix—including disk,
@@ -533,9 +540,11 @@ retroactively treated as green.
 - **[Bash transaction logic can be hard to test]** → Keep host entrypoints
   small, route parsing/canonical evidence through `jq`, inject fixed tool
   adapters locally, and exercise real safe paths in isolation.
-- **[No remote real acquisition or timer]** → This validation proves config,
-  artifact execution, activation, rollback, and monitoring, not production
-  weekly behavior or SLO. Those remain later gates.
+- **[Remote acquisition is variable and outbound]** → Only the sealed candidate
+  Updater may perform one bounded acquisition on the exact validation
+  `outbound` network. Its upstream release/digests, status, source accounting,
+  duration, peak memory, and OOM state are recorded; no timer is installed, and
+  the observation is not production weekly-behavior or SLO evidence.
 - **[Templates can drift before live installation]** → `operations.yml`
   continuously renders/tests them, while later activation must repeat exact
   host preflight and syntax checks.

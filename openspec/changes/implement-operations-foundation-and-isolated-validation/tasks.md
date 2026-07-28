@@ -8,7 +8,7 @@
 | Read-only protected inputs | All root authorities/oracle/product/Contracts/build sources and evidence; `.github/workflows/ci.yml`; OpenSpec outside this change; other owner groups while concurrent; registries/releases/environments/secrets/refs. On `myserver`, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, other `/srv/**`, all pre-existing Docker/Compose images/tags/volumes/networks/containers/projects, Nginx/systemd/TLS/DNS/firewall/users/cron, public listeners, legacy data/processes, and every undeclared path/ref. |
 | Deletion complement | No tracked or pre-existing state. Only closed run-owned local `.tmp` paths, remote validation path inventory, captured project resources, and still-identity-matching run-created image references may be removed. |
 | Mutable refs | Exact listed worktree files; main-agent commits/push/lifecycle; admitted validation root pointers/links and captured project/image refs. No tag, release, registry, Environment, secret, production/legacy ref, daemon, public route, or named volume is mutable. |
-| Consumes | Archived authorized CI/remote development-acceptance lifecycle bundle and frozen product revision/tree; accepted build/contracts/tool identities; explicit `not-materialized-for-authorized-closure` prior-artifact status; full inactive/minimal Archives; approved Operations specs; read-only host facts. The formal Darwin/ARM64 matrix remains explicitly unexecuted. |
+| Consumes | Archived authorized CI/remote development-acceptance lifecycle bundle and frozen product revision/tree; accepted build/contracts/tool identities; explicit `not-materialized-for-authorized-closure` prior-artifact status; the minimal Archive fixture; the candidate Updater's sealed acquisition implementation/configuration and public read-only upstream inputs; approved Operations specs; read-only host facts. The formal Darwin/ARM64 matrix remains explicitly unexecuted. |
 | Produces | Repository Operations implementation/tests/workflows, accepted-development receipt, two clean frozen-product AMD64 validation sets/candidate, tag-release policy, canonical host validation result, cleanup/non-interference evidence, synchronized/archived specs, and green Actions. |
 | Dependencies | Complete and archive `complete-integrated-development-acceptance`; then foundation; release and runtime may implement in parallel after foundation; validation depends on both; clean AMD64 build depends on committed implementation; remote write depends on main-agent acceptance of read-only host preflight. |
 | Deliverables | Every path and evidence named above; no generated or remote validation residue. |
@@ -167,7 +167,8 @@
   `127.0.0.1:18080:8080` or the exact isolated tuple; services are
   long-lived `api`/`prometheus` and one-shot `updater`; exact networks are
   internal `runtime` for API/Prometheus and API/Updater-only `outbound`,
-  egress-capable only in production and internal in validation; mounts are
+  egress-capable in both profiles so the isolated candidate Updater can perform
+  its one bounded acquisition; mounts are
   exact bind mounts; no named/legacy volumes, public metrics, mutable image
   tag, extra service, host networking, Docker socket, source, or undeclared
   secret is allowed.
@@ -261,15 +262,19 @@
   ID before aliasing, pull only the pinned Prometheus digest/architecture,
   create the three exact validation aliases, use `pull_policy: never`, and
   reject replacement/shared/colliding refs.
-- [ ] 4.6 Implement artifact-only success validation: Frontend install/hash/
-  link rollback, Updater `doctor` and embedded contract check, API minimal
-  Archive startup, `/livez`, `/readyz`, expected data/build identities,
-  minimal typed query, internal Prometheus scrape, minimal→full activation,
-  full→minimal rollback, final full reactivation, and isolated full-Archive
-  Updater peak-memory/no-OOM evidence within the initial 640 MiB cap. Label it
-  migration evidence rather than a formal benchmark; a breach blocks
-  production activation pending spec review. Never run real acquisition,
-  Nginx/systemd, public routing, or product source.
+- [ ] 4.6 Implement candidate-only success validation: Frontend install/hash/
+  link rollback, Updater `doctor` and embedded contract check, then one bounded
+  real Updater `produce` acquisition on the exact validation `outbound`
+  network with public upstream release/digest/source-accounting, duration,
+  peak-memory and no-OOM evidence within the initial 640 MiB cap. Verify the
+  generated full inactive Archive through the standalone `archive-smoke` and
+  closed inventory. Start API on the minimal Archive, verify `/livez`,
+  `/readyz`, expected data/build identities, a minimal typed query, and
+  internal Prometheus scrape; then perform minimal→full activation,
+  full→minimal rollback, and final full reactivation. Label the acquisition
+  observation migration evidence rather than a formal benchmark; a breach
+  blocks production activation pending spec review. Never install/invoke the
+  weekly timer, Nginx/systemd, public routing, or product source.
 - [ ] 4.7 Implement safe remote lock-contention and post-switch readiness
   failure/rollback exercises, and local disposable fault coverage for invalid
   manifests/platform/checksums, disk, interrupted staging, foreign
