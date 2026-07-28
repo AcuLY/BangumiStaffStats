@@ -1719,7 +1719,7 @@ function assertDeployWorkflow(workflow, source) {
   for (const required of [
     'gh release download',
     'jq -cS .',
-    'def exact($expected):',
+    'def exact($expected): keys == ($expected | sort);',
     'exact(["revision", "tree"])',
     'sha256:17145d4869050dc2ff347e4dbfb60a5a6369d32890f0abc3e8f766b8ea28a80a',
     'and .operationsController == .release',
@@ -1779,9 +1779,21 @@ function assertDeployWorkflow(workflow, source) {
       source,
     );
   }
+  const fixedRemoteTransaction = [
+    '-- "bgmss-deploy@$BGMSS_PRODUCTION_SSH_HOST" \\',
+    'sudo -n -- /usr/local/sbin/bgmss-v2-deploy \\',
+    '--version "$RELEASE_VERSION" \\',
+    '--manifest-digest "$RELEASE_MANIFEST_DIGEST"',
+  ];
+  const actualRemoteTransaction = runs
+    .trimEnd()
+    .split('\n')
+    .slice(-fixedRemoteTransaction.length)
+    .map((line) => line.trimStart());
   if (
-    !/-- "bgmss-deploy@\$BGMSS_PRODUCTION_SSH_HOST" \\\r?\n[ \t]*sudo -n -- \/usr\/local\/sbin\/bgmss-v2-deploy \\\r?\n[ \t]*--version "\$RELEASE_VERSION" \\\r?\n[ \t]*--manifest-digest "\$RELEASE_MANIFEST_DIGEST"[ \t]*$/u.test(
-      runs,
+    actualRemoteTransaction.length !== fixedRemoteTransaction.length ||
+    actualRemoteTransaction.some(
+      (line, index) => line !== fixedRemoteTransaction[index],
     )
   ) {
     fail(

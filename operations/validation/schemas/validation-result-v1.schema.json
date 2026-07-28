@@ -322,6 +322,14 @@
               "format": "sha256",
               "type": "string"
             },
+            "prometheusScrapeDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "queryResultDigest": {
+              "format": "sha256",
+              "type": "string"
+            },
             "readyDigest": {
               "format": "sha256",
               "type": "string"
@@ -335,6 +343,8 @@
             "buildDigest",
             "metricsDigest",
             "prometheusDigest",
+            "prometheusScrapeDigest",
+            "queryResultDigest",
             "readyDigest",
             "typedQueryDigest"
           ],

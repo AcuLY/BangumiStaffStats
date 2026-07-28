@@ -77,6 +77,18 @@ test('authority projection schemas stay structurally aligned and reject weakened
     schemas.input.$defs.serviceSecurityProjection,
     schemas.result.$defs.serviceSecurityProjection,
   );
+  assert.deepEqual(
+    schemas.result.$defs.continuousHealthState.properties.projections.required,
+    [
+      'buildDigest',
+      'metricsDigest',
+      'prometheusDigest',
+      'prometheusScrapeDigest',
+      'queryResultDigest',
+      'readyDigest',
+      'typedQueryDigest',
+    ],
+  );
 
   const command = clone(validInput());
   command.authority.commands.records.pop();

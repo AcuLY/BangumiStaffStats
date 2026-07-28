@@ -243,6 +243,16 @@ test('green result is impossible with partial health, residue, or overclaim', ()
     },
     transport: input.transport,
   };
+  for (const evidence of Object.values(result.health)) {
+    result.commands.find(
+      (command) => command.id === evidence.proofCommandId,
+    ).outputDigest = evidence.stateDigest;
+  }
+  result.commands.find(
+    (command) =>
+      command.id ===
+      result.continuousHealth.verificationProof.proofCommandId,
+  ).outputDigest = result.continuousHealth.verificationProof.proofDigest;
   assert.equal(
     assertResultSemantics({ after, before, input, resources, result }),
     result,
@@ -356,6 +366,10 @@ test('green result is impossible with partial health, residue, or overclaim', ()
         fixtureDigest('1');
     },
     (value) => {
+      value.continuousHealth.samples[1].state.projections.queryResultDigest =
+        fixtureDigest('1');
+    },
+    (value) => {
       value.continuousHealth.samples[1].previousDigest =
         fixtureDigest('1');
     },
@@ -382,6 +396,58 @@ test('green result is impossible with partial health, residue, or overclaim', ()
       }),
     );
   }
+
+  const detachedHealthProof = clone(result);
+  detachedHealthProof.health.minimal.proofDigest = fixtureDigest('8');
+  detachedHealthProof.commands.find(
+    (command) => command.id === 'minimal-health',
+  ).outputDigest = fixtureDigest('8');
+  assert.throws(() =>
+    assertResultSemantics({
+      after,
+      before,
+      input,
+      resources,
+      result: detachedHealthProof,
+    }),
+  );
+
+  const detachedContinuousProof = clone(result);
+  detachedContinuousProof.continuousHealth.verificationProof.proofDigest =
+    fixtureDigest('8');
+  detachedContinuousProof.commands.find(
+    (command) => command.id === 'producer-minimal-health',
+  ).outputDigest = fixtureDigest('8');
+  assert.throws(() =>
+    assertResultSemantics({
+      after,
+      before,
+      input,
+      resources,
+      result: detachedContinuousProof,
+    }),
+  );
+
+  const rollbackProjectionDrift = clone(result);
+  rollbackProjectionDrift.health.rolledBack.state.projections.queryResultDigest =
+    fixtureDigest('8');
+  rollbackProjectionDrift.health.rolledBack.stateDigest = canonicalJsonDigest(
+    rollbackProjectionDrift.health.rolledBack.state,
+  );
+  rollbackProjectionDrift.health.rolledBack.proofDigest =
+    rollbackProjectionDrift.health.rolledBack.stateDigest;
+  rollbackProjectionDrift.commands.find(
+    (command) => command.id === 'rollback-health',
+  ).outputDigest = rollbackProjectionDrift.health.rolledBack.stateDigest;
+  assert.throws(() =>
+    assertResultSemantics({
+      after,
+      before,
+      input,
+      resources,
+      result: rollbackProjectionDrift,
+    }),
+  );
 });
 
 test('security authority is closed over environment, command, mount, restart, and digest', () => {

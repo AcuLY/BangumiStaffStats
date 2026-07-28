@@ -50,7 +50,10 @@ function expectedBytes(relative) {
   if (relative === 'compose/compose.yaml') {
     return Buffer.from(renderCompose('production'));
   }
-  return readFileSync(path.join(OPERATIONS, relative));
+  const sourceRelative = relative.startsWith('observability/prometheus/')
+    ? relative.slice('observability/'.length)
+    : relative;
+  return readFileSync(path.join(OPERATIONS, sourceRelative));
 }
 
 function listTree(root, relative = '') {

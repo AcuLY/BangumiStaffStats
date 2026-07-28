@@ -112,7 +112,7 @@ test('checked-in accepted-development receipt retains its fixed closure', () => 
     duplicatePath.authorities.buildDefinitions[0].path;
   assert.throws(
     () => parseAcceptedDevelopment(canonicalJson(duplicatePath)),
-    /unique and path-sorted/u,
+    /fixed inventory and order/u,
   );
 
   const duplicateTool = structuredClone(receipt.value);
@@ -120,7 +120,7 @@ test('checked-in accepted-development receipt retains its fixed closure', () => 
     duplicateTool.authorities.toolchains[0].name;
   assert.throws(
     () => parseAcceptedDevelopment(canonicalJson(duplicateTool)),
-    /unique and name-sorted/u,
+    /fixed inventory and order/u,
   );
 });
 

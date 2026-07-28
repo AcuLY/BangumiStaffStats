@@ -176,8 +176,48 @@ test('remote validation performs one acquisition and preserves typed minimal ide
     source,
     /'\{dataVersion:\$dataVersion,page:1,pageSize:5,typed:true\}'/u,
   );
+  assert.match(source, /typedQueryDigest:\$typedQueryDigest/u);
+  assert.match(source, /prometheusDigest:\$prometheusDigest/u);
+  assert.match(source, /queryResultDigest:\$queryResultDigest/u);
+  assert.match(source, /prometheusScrapeDigest:\$prometheusScrapeDigest/u);
   assert.match(source, /minimal_query_digest_before/u);
   assert.match(source, /minimal_prometheus_digest_before/u);
+  const continuousSample = source.slice(
+    source.indexOf('capture_continuous_sample() {'),
+    source.indexOf('build_continuous_health_evidence() {'),
+  );
+  assert.match(continuousSample, /health_state_command "\$minimal_data"/u);
+  assert.match(
+    continuousSample,
+    /expected_state="\$\(jq -ceS '\.state' <<< "\$minimal_health"\)"/u,
+  );
+  assert.match(continuousSample, /\[\[ "\$state" == "\$expected_state" \]\]/u);
+  assert.match(
+    continuousSample,
+    /"\$query_projection_digest" == "\$minimal_query_digest_before"/u,
+  );
+  assert.match(
+    continuousSample,
+    /"\$prometheus_projection_digest" == "\$minimal_prometheus_digest_before"/u,
+  );
+  const continuousEvidence = source.slice(
+    source.indexOf('build_continuous_health_evidence() {'),
+    source.indexOf('verify_continuous_health_command() {'),
+  );
+  assert.match(continuousEvidence, /\[\[ "\$before" == "\$after" \]\]/u);
+  const continuousVerifier = source.slice(
+    source.indexOf('verify_continuous_health_command() {'),
+    source.indexOf('run_recorded compose-start-api'),
+  );
+  assert.match(
+    continuousVerifier,
+    /\$\{#continuous_health_unverified_json\} \+ 1 <= maximum_output/u,
+  );
+  assert.match(
+    continuousVerifier,
+    /printf '%s\\n' "\$continuous_health_unverified_json"/u,
+  );
+  assert.doesNotMatch(continuousVerifier, /sha256sum/u);
   assert.match(source, /UPDATER_CHANGED_CURRENT_POINTER/u);
   assert.match(source, /updater-current-deny/u);
   assert.match(source, /peak_memory" -gt 0/u);

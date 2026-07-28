@@ -7,11 +7,14 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
+
+import { renderCompose } from '../../compose/render.mjs';
 
 const OPERATIONS = path.resolve(import.meta.dirname, '..', '..');
 const read = (relative) =>
@@ -28,11 +31,22 @@ test('controller executable modes generate an exact 0555 manifest contract', () 
   const payload = path.join(temporary, 'payload');
   try {
     for (const relative of [definitions.bootstrap, ...definitions.files]) {
-      const source = path.join(OPERATIONS, relative);
       const destination = path.join(payload, relative);
       mkdirSync(path.dirname(destination), { recursive: true });
-      copyFileSync(source, destination);
-      chmodSync(destination, statSync(source).mode & 0o777);
+      if (relative === 'compose/compose.yaml') {
+        writeFileSync(destination, renderCompose('production'), {
+          mode: 0o644,
+        });
+      } else {
+        const sourceRelative = relative.startsWith(
+          'observability/prometheus/',
+        )
+          ? relative.slice('observability/'.length)
+          : relative;
+        const source = path.join(OPERATIONS, sourceRelative);
+        copyFileSync(source, destination);
+        chmodSync(destination, statSync(source).mode & 0o777);
+      }
     }
     const result = spawnSync(
       process.execPath,
@@ -285,9 +299,21 @@ test('fresh-root, immutable-data, atomic-ref, and bounded updater policies stay 
         'ops_run_updater "$output" "$candidate_env" "$run_id"',
       ),
   );
+  const updaterResult = transaction.indexOf(
+    'local updater_result=0 cleanup_result=0',
+  );
+  const stopFreshCandidate = transaction.indexOf(
+    'ops_stop_fresh_candidate "$candidate_env"',
+    updaterResult,
+  );
+  const removeFreshMask = transaction.indexOf(
+    'ops_remove_fresh_current_mask',
+    stopFreshCandidate,
+  );
   assert.ok(
-    transaction.indexOf('ops_stop_fresh_candidate "$candidate_env"') <
-      transaction.indexOf('ops_remove_fresh_current_mask'),
+    updaterResult >= 0 &&
+      stopFreshCandidate > updaterResult &&
+      removeFreshMask > stopFreshCandidate,
   );
   const retention = read('bin/lib/retention.sh');
   for (const identity of [

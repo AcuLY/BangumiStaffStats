@@ -7,6 +7,7 @@ import {
   readFileSync,
   readlinkSync,
   readdirSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -94,26 +95,82 @@ ops_lstat_value() {
     /usr/bin/stat -c "$1" -- "$2"
   fi
 }
+
+ops_test_command() {
+  case "$1" in
+    awk)
+      printf '%s\n' "$OPS_TEST_AWK"
+      ;;
+    chown|install)
+      printf '%s/%s\n' "$OPS_TEST_COMMAND_ROOT" "$1"
+      ;;
+    *)
+      printf '/usr/bin/%s\n' "$1"
+      ;;
+  esac
+}
+
+ops_command() {
+  ops_test_command "$1"
+}
 `;
 
 function runHarness(root, body, extraEnvironment = {}) {
-  return spawnSync(
-    'bash',
-    ['--noprofile', '--norc', '-c', `${COMMON_HARNESS}\n${body}`],
-    {
-      encoding: 'utf8',
-      env: {
-        LANG: 'C.UTF-8',
-        LC_ALL: 'C.UTF-8',
-        OPS_TEST_OPERATIONS: OPERATIONS,
-        OPS_TEST_FORCE_ZERO_MODE: 'no',
-        OPS_TEST_ROOT: root,
-        PATH: '/usr/bin:/bin',
-        TZ: 'UTC',
-        ...extraEnvironment,
-      },
-    },
+  const commandRoot = mkdtempSync(
+    path.join(tmpdir(), 'bgmss-runtime-test-commands-'),
   );
+  writeExecutable(
+    path.join(commandRoot, 'chown'),
+    String.raw`#!/usr/bin/env bash
+set -Eeuo pipefail
+[[ "$#" -ge 2 ]]
+`,
+  );
+  writeExecutable(
+    path.join(commandRoot, 'install'),
+    [
+      '#!/usr/bin/env bash',
+      'set -Eeuo pipefail',
+      'declare -a arguments=()',
+      'while [[ "$#" -gt 0 ]]; do',
+      '  case "$1" in',
+      '    -g|-o)',
+      '      [[ "$#" -ge 2 ]]',
+      '      shift 2',
+      '      ;;',
+      '    *)',
+      '      arguments+=("$1")',
+      '      shift',
+      '      ;;',
+      '  esac',
+      'done',
+      'exec /usr/bin/install "${arguments[@]}"',
+      '',
+    ].join('\n'),
+  );
+  try {
+    return spawnSync(
+      'bash',
+      ['--noprofile', '--norc', '-c', `${COMMON_HARNESS}\n${body}`],
+      {
+        encoding: 'utf8',
+        env: {
+          LANG: 'C.UTF-8',
+          LC_ALL: 'C.UTF-8',
+          OPS_TEST_AWK: realpathSync('/usr/bin/awk'),
+          OPS_TEST_COMMAND_ROOT: commandRoot,
+          OPS_TEST_OPERATIONS: OPERATIONS,
+          OPS_TEST_FORCE_ZERO_MODE: 'no',
+          OPS_TEST_ROOT: root,
+          PATH: '/usr/bin:/bin',
+          TZ: 'UTC',
+          ...extraEnvironment,
+        },
+      },
+    );
+  } finally {
+    rmSync(commandRoot, { force: true, recursive: true });
+  }
 }
 
 function makeRoot(prefix) {
@@ -185,7 +242,7 @@ ops_command() {
   if [[ "$1" == mkdir ]]; then
     printf '%s\n' "$OPS_TEST_SIGNAL_MKDIR"
   else
-    printf '/usr/bin/%s\n' "$1"
+    ops_test_command "$1"
   fi
 }
 ops_install_transaction_traps
@@ -243,7 +300,7 @@ ops_command() {
   if [[ "$1" == mktemp ]]; then
     printf '%s\n' "$OPS_TEST_SIGNAL_MKTEMP"
   else
-    printf '/usr/bin/%s\n' "$1"
+    ops_test_command "$1"
   fi
 }
 ops_install_transaction_traps
@@ -435,13 +492,17 @@ test('secondary publication is sealed before deferred TERM compensation', () => 
       String.raw`
 ops_atomic_replace_file() {
   /usr/bin/install -m "$3" -- "$1" "$2" || return
-  /usr/bin/kill -TERM "$$"
+  if [[ "$signal_after_atomic" == "yes" ]]; then
+    signal_after_atomic="no"
+    /usr/bin/kill -TERM "$$"
+  fi
 }
 ops_transaction_compensate() {
   ops_transaction_restore_secondary
 }
 ops_install_transaction_traps
 ops_transaction_arm update "$OPS_TEST_RUN_ID" data
+signal_after_atomic="yes"
 ops_transaction_capture_secondary \
   "$OPS_ROOT/data/previous.json" \
   "$OPS_ROOT/recovery/.previous-before.XXXXXXXX" \
@@ -474,13 +535,17 @@ test('rollback evidence publication is sealed before deferred TERM compensation'
       String.raw`
 ops_atomic_replace_file() {
   /usr/bin/install -m "$3" -- "$1" "$2" || return
-  /usr/bin/kill -TERM "$$"
+  if [[ "$signal_after_atomic" == "yes" ]]; then
+    signal_after_atomic="no"
+    /usr/bin/kill -TERM "$$"
+  fi
 }
 ops_transaction_compensate() {
   ops_transaction_restore_evidence
 }
 ops_install_transaction_traps
 ops_transaction_arm rollback-data "$OPS_TEST_RUN_ID" data
+signal_after_atomic="yes"
 ops_transaction_capture_evidence
 ops_transaction_publish_tracked_file \
   evidence "$OPS_ROOT/recovery/evidence-candidate"
@@ -528,7 +593,7 @@ ops_command() {
   if [[ "$1" == docker ]]; then
     printf '%s\n' "$OPS_TEST_DOCKER"
   else
-    printf '/usr/bin/%s\n' "$1"
+    ops_test_command "$1"
   fi
 }
 ops_load_release_env() {

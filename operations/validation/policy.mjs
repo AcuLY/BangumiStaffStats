@@ -640,6 +640,30 @@ function stateProjectionAuthority(input, dataVersion, manifestDigest) {
   };
 }
 
+function semanticProjectionDigests(projections) {
+  return {
+    buildDigest: projections.buildDigest,
+    metricsDigest: projections.metricsDigest,
+    prometheusDigest: projections.prometheusDigest,
+    readyDigest: projections.readyDigest,
+    typedQueryDigest: projections.typedQueryDigest,
+  };
+}
+
+function observedProjectionDigests(state) {
+  return {
+    prometheusScrapeDigest: state.projections.prometheusScrapeDigest,
+    queryResultDigest: state.projections.queryResultDigest,
+  };
+}
+
+function sameObservedProjectionDigests(left, right) {
+  return (
+    canonicalJson(observedProjectionDigests(left)) ===
+    canonicalJson(observedProjectionDigests(right))
+  );
+}
+
 function assertHealthState(
   state,
   input,
@@ -664,7 +688,7 @@ function assertHealthState(
     state.apiVersion !== expected.apiVersion ||
     state.pointer.digest !== dynamic.pointerDigest ||
     state.pointer.mode !== expected.pointerMode ||
-    canonicalJson(state.projections) !==
+    canonicalJson(semanticProjectionDigests(state.projections)) !==
       canonicalJson(dynamic.projectionDigests) ||
     state.api.containerId !== apiContainer.id ||
     state.api.imageReference !== expected.apiImage ||
@@ -699,6 +723,7 @@ function assertContinuousHealth(
   resources,
   producer,
   commands,
+  minimalState,
 ) {
   const authority = input.authority.continuousHealth;
   const produce = commands.get('updater-produce');
@@ -720,9 +745,17 @@ function assertContinuousHealth(
   ) {
     fail('continuous health authority, interval, or count drifted');
   }
+  const { verificationProof, ...unverifiedEvidence } = evidence;
+  if (
+    verificationProof.proofDigest !==
+    canonicalJsonDigest(unverifiedEvidence)
+  ) {
+    fail('continuous health verification proof does not bind its evidence');
+  }
   const first = evidence.samples[0];
   const last = evidence.samples.at(-1);
   if (
+    canonicalJson(evidence.before) !== canonicalJson(minimalState) ||
     canonicalJson(evidence.before) !== canonicalJson(first.state) ||
     canonicalJson(evidence.after) !== canonicalJson(last.state) ||
     canonicalJson(evidence.before) !== canonicalJson(evidence.after) ||
@@ -828,7 +861,8 @@ function assertHealthEvidence(
     !evidence ||
     evidence.proofCommandId !== commandId ||
     evidence.proofDigest !== commands.get(commandId)?.outputDigest ||
-    evidence.stateDigest !== canonicalJsonDigest(evidence.state)
+    evidence.stateDigest !== canonicalJsonDigest(evidence.state) ||
+    evidence.proofDigest !== evidence.stateDigest
   ) {
     fail(`validation health evidence is not command-bound: ${commandId}`);
   }
@@ -992,12 +1026,25 @@ export function assertResultSemantics({
       result.producer.dataVersion,
       result.producer.manifestDigest,
     );
+    if (
+      !sameObservedProjectionDigests(
+        result.health.minimal.state,
+        result.health.rolledBack.state,
+      ) ||
+      !sameObservedProjectionDigests(
+        result.health.full.state,
+        result.health.reactivated.state,
+      )
+    ) {
+      fail('validation live query or scrape projection identity drifted');
+    }
     assertContinuousHealth(
       result.continuousHealth,
       input,
       resources,
       result.producer,
       commands,
+      result.health.minimal.state,
     );
   } else if (
     result.conclusion !== 'failed' ||

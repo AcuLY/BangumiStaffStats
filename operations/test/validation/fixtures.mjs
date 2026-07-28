@@ -609,6 +609,16 @@ export function validHealthState(
         job: 'bgmss-api',
         up: 1,
       }),
+      prometheusScrapeDigest: canonicalJsonDigest({
+        series: [{ job: 'bgmss-api', up: 1 }],
+      }),
+      queryResultDigest: canonicalJsonDigest({
+        data: { items: [{ dataVersion }] },
+        meta: {
+          dataVersion,
+          pagination: { page: 1, pageSize: 5 },
+        },
+      }),
       readyDigest: canonicalJsonDigest({ dataVersion, ready: true }),
       typedQueryDigest: canonicalJsonDigest({
         dataVersion,
@@ -647,11 +657,12 @@ export function validHealthEvidence(
     input,
     resources,
   );
+  const stateDigest = canonicalJsonDigest(state);
   return {
     proofCommandId: command.id,
-    proofDigest: command.outputDigest,
+    proofDigest: stateDigest,
     state,
-    stateDigest: canonicalJsonDigest(state),
+    stateDigest,
   };
 }
 
@@ -705,7 +716,7 @@ export function validContinuousHealth(
     });
     previousDigest = chainDigest;
   }
-  return {
+  const evidence = {
     after: state,
     authorityDigest: input.authority.continuousHealth.digest,
     before: state,
@@ -721,10 +732,13 @@ export function validContinuousHealth(
     startedEpochMs,
     startedMonotonicNs: `${startedMonotonicNs}`,
     status: 'passed',
+  };
+  return {
+    ...evidence,
     verificationProof: {
       passed: true,
       proofCommandId: verification.id,
-      proofDigest: verification.outputDigest,
+      proofDigest: canonicalJsonDigest(evidence),
     },
   };
 }

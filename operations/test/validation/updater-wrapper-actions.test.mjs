@@ -11,6 +11,8 @@ const transaction = new URL(
   '../../bin/lib/transaction.sh',
   import.meta.url,
 ).pathname;
+const RUN_ID = `run-${'8'.repeat(32)}`;
+const CONTAINER_ID = '9'.repeat(64);
 
 function digest(file) {
   return createHash('sha256').update(fs.readFileSync(file)).digest('hex');
@@ -67,21 +69,44 @@ exec "$@"
     path.join(commands, 'docker'),
     `#!/usr/bin/env bash
 set -Eeuo pipefail
-expected=(
-  compose
-  --project-name bgmss_ops_validation
-  --file "$OPS_TEST_ROOT/compose/compose.yaml"
-  --env-file "$OPS_TEST_ROOT/release.env"
-  --profile oneshot
-  run --rm --no-deps updater
-)
-actual=("$@")
-[[ "$#" -eq "\${#expected[@]}" ]]
-for index in "\${!expected[@]}"; do
-  [[ "\${actual[$index]}" == "\${expected[$index]}" ]]
-done
 printf 'docker:%s\\n' "$*" >> "$TRACE_FILE"
-printf '%s\\n' '{"event":"update_no_change","status":"no-change"}'
+case "$1" in
+  ps)
+    [[ "$2" == "-aq" ]]
+    ;;
+  compose)
+    expected=(
+      compose
+      --project-name bgmss_ops_validation
+      --file "$OPS_TEST_ROOT/compose/compose.yaml"
+      --env-file "$OPS_TEST_ROOT/release.env"
+      --profile oneshot
+      run --detach --no-deps
+      --name "bgmss_ops_validation-updater-$OPS_TEST_RUN_ID"
+      --label "fun.bgmss.run-id=$OPS_TEST_RUN_ID"
+      updater
+    )
+    actual=("$@")
+    [[ "$#" -eq "\${#expected[@]}" ]]
+    for index in "\${!expected[@]}"; do
+      [[ "\${actual[$index]}" == "\${expected[$index]}" ]]
+    done
+    printf '%s\\n' "$OPS_TEST_CONTAINER_ID"
+    ;;
+  wait)
+    [[ "$#" -eq 2 && "$2" == "$OPS_TEST_CONTAINER_ID" ]]
+    printf '%s\\n' 0
+    ;;
+  logs)
+    [[ "$#" -eq 2 && "$2" == "$OPS_TEST_CONTAINER_ID" ]]
+    if [[ "$UPDATER_TEST_MODE" != "timeout" ]]; then
+      printf '%s\\n' '{"event":"update_no_change","status":"no-change"}'
+    fi
+    ;;
+  *)
+    exit 64
+    ;;
+esac
 `,
   );
 
@@ -111,8 +136,23 @@ ops_stat_value() {
   [[ "$1" == "%s" ]]
   wc -c < "$2" | tr -d ' '
 }
+ops_load_release_env() {
+  OPS_RELEASE_ENV=()
+}
+ops_seal_updater_container() {
+  [[ "$1" == "$OPS_TEST_CONTAINER_ID" ]]
+  [[ "$2" == "bgmss_ops_validation-updater-$OPS_TEST_RUN_ID" ]]
+  [[ "$3" == "$OPS_TEST_RUN_ID" ]]
+  OPS_TRANSACTION_UPDATER_CONTAINER_IDENTITY="sealed-fixture"
+  OPS_TRANSACTION_UPDATER_CONTAINER_STATE="sealed"
+}
+ops_stop_updater_containers() {
+  [[ "$OPS_TRANSACTION_UPDATER_CONTAINER_STATE" == "sealed" ]]
+  printf 'cleanup:%s\\n' "$OPS_TRANSACTION_UPDATER_CONTAINER_ID" >> "$TRACE_FILE"
+  OPS_TRANSACTION_UPDATER_CONTAINER_STATE="removed"
+}
 set +e
-ops_run_updater "$5" "$3/release.env"
+ops_run_updater "$5" "$3/release.env" "$OPS_TEST_RUN_ID"
 status="$?"
 set -e
 printf '%s\\n' "$status"
@@ -133,7 +173,9 @@ printf '%s\\n' "$status"
       encoding: 'utf8',
       env: {
         ...process.env,
+        OPS_TEST_CONTAINER_ID: CONTAINER_ID,
         OPS_TEST_ROOT: value.root,
+        OPS_TEST_RUN_ID: RUN_ID,
         TRACE_FILE: value.trace,
         UPDATER_TEST_MODE: value.mode,
       },
@@ -155,8 +197,10 @@ test('Actions exercises the production updater wrapper no-change path', (t) => {
   assert.match(trace, /--signal=TERM --kill-after=30s 21000/u);
   assert.match(
     trace,
-    /docker:compose --project-name bgmss_ops_validation .* run --rm --no-deps updater/u,
+    /docker:compose --project-name bgmss_ops_validation .* run --detach --no-deps .* updater/u,
   );
+  assert.match(trace, new RegExp(`docker:wait ${CONTAINER_ID}`, 'u'));
+  assert.match(trace, new RegExp(`cleanup:${CONTAINER_ID}`, 'u'));
 });
 
 test('Actions exercises the production updater wrapper timeout path', (t) => {
@@ -167,5 +211,11 @@ test('Actions exercises the production updater wrapper timeout path', (t) => {
   assert.equal(fs.readFileSync(value.output, 'utf8'), '');
   const trace = fs.readFileSync(value.trace, 'utf8');
   assert.match(trace, /--signal=TERM --kill-after=30s 21000/u);
-  assert.doesNotMatch(trace, /docker:/u);
+  assert.match(
+    trace,
+    /docker:compose --project-name bgmss_ops_validation .* run --detach --no-deps .* updater/u,
+  );
+  assert.doesNotMatch(trace, /docker:wait/u);
+  assert.match(trace, new RegExp(`docker:logs ${CONTAINER_ID}`, 'u'));
+  assert.match(trace, new RegExp(`cleanup:${CONTAINER_ID}`, 'u'));
 });

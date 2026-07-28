@@ -3566,7 +3566,10 @@ health_state_command() {
   done
   local api_inspect prometheus_inspect pointer_mode
   local build_digest ready_digest metrics_digest typed_digest prometheus_digest
+  local query_result_digest prometheus_scrape_digest
   local api_security prometheus_security api_started prometheus_started
+  query_result_digest="$(sha_file "$query_projection")" || return
+  prometheus_scrape_digest="$(sha_file "$prometheus_projection")" || return
   api_inspect="$(docker inspect "${project}-api-1")" || return
   prometheus_inspect="$(docker inspect "${project}-prometheus-1")" || return
   api_security="$(
@@ -3632,6 +3635,8 @@ health_state_command() {
     --arg buildDigest "$build_digest" \
     --arg metricsDigest "$metrics_digest" \
     --arg prometheusDigest "$prometheus_digest" \
+    --arg prometheusScrapeDigest "$prometheus_scrape_digest" \
+    --arg queryResultDigest "$query_result_digest" \
     --arg readyDigest "$ready_digest" \
     --arg typedQueryDigest "$typed_digest" \
     --arg apiContainerId "$(jq -er '.[0].Id' <<< "$api_inspect")" \
@@ -3677,6 +3682,8 @@ health_state_command() {
         buildDigest:$buildDigest,
         metricsDigest:$metricsDigest,
         prometheusDigest:$prometheusDigest,
+        prometheusScrapeDigest:$prometheusScrapeDigest,
+        queryResultDigest:$queryResultDigest,
         readyDigest:$readyDigest,
         typedQueryDigest:$typedQueryDigest
       },
@@ -3730,6 +3737,7 @@ capture_continuous_sample() {
   local samples_file="${evidence_root}/continuous-health.jsonl"
   local observed_epoch observed_monotonic state expected_state
   local elapsed state_digest chain_digest previous_json
+  local query_projection_digest prometheus_projection_digest
   if [[ "$reuse" == "yes" ]]; then
     runtime_open_mutation "$state_file" || return
   else
@@ -3738,6 +3746,15 @@ capture_continuous_sample() {
   health_state_command "$minimal_data" \
     "$(jq -er '.minimalArchive.manifestDigest' "$input")" \
     continuous "$reuse" > "$state_file" || return
+  query_projection_digest="$(
+    sha_file "${evidence_root}/continuous-rankings-projection"
+  )" || return
+  prometheus_projection_digest="$(
+    sha_file "${evidence_root}/continuous-prometheus-projection"
+  )" || return
+  [[ "$query_projection_digest" == "$minimal_query_digest_before" &&
+     "$prometheus_projection_digest" == "$minimal_prometheus_digest_before" ]] ||
+    return 1
   observed_monotonic="$(monotonic_ns)" || return
   observed_epoch="$(date +%s%3N)" || return
   kill -0 "$produce_client" >/dev/null 2>&1 || return
@@ -3745,6 +3762,10 @@ capture_continuous_sample() {
        "true" ]] || return
   runtime_close_object "$state_file" || return
   state="$(jq -ceS . "$state_file")" || return
+  [[ "$(jq -er '.projections.queryResultDigest' <<< "$state")" == \
+       "$query_projection_digest" &&
+     "$(jq -er '.projections.prometheusScrapeDigest' <<< "$state")" == \
+       "$prometheus_projection_digest" ]] || return 1
   expected_state="$(jq -ceS '.state' <<< "$minimal_health")" || return
   [[ "$state" == "$expected_state" ]] || return 1
   if [[ "$continuous_sample_count" -eq 0 ]]; then
@@ -3866,9 +3887,8 @@ verify_continuous_health_command() {
       .count >= 2 and
       all(.samples[]; .state == $expected)
     ' <<< "$continuous_health_unverified_json" >/dev/null || return
-  printf '%s\n' "$continuous_health_unverified_json" |
-    sha256sum |
-    awk '{print "sha256:" $1}'
+  (( ${#continuous_health_unverified_json} + 1 <= maximum_output )) || return 1
+  printf '%s\n' "$continuous_health_unverified_json"
 }
 
 run_recorded compose-start-api success "${compose[@]}" start api ||
@@ -3879,6 +3899,14 @@ record_health_state minimal-health "$minimal_data" \
   "$(jq -er '.minimalArchive.manifestDigest' "$input")" minimal ||
   fail "MINIMAL_HEALTH_FAILED"
 minimal_health="$recorded_health_json"
+minimal_query_digest_before="$(
+  jq -er '.state.projections.queryResultDigest' <<< "$minimal_health"
+)" || fail "MINIMAL_QUERY_PROJECTION_DIGEST_FAILED"
+readonly minimal_query_digest_before
+minimal_prometheus_digest_before="$(
+  jq -er '.state.projections.prometheusScrapeDigest' <<< "$minimal_health"
+)" || fail "MINIMAL_PROMETHEUS_PROJECTION_DIGEST_FAILED"
+readonly minimal_prometheus_digest_before
 prometheus_id="$(docker inspect --format '{{.Id}}' "${project}-prometheus-1")"
 readonly minimal_api_container_id="$(
   docker inspect --format '{{.Id}}' "${project}-api-1"

@@ -34,6 +34,46 @@ const validateSchema = compileStrictSchema(schema, {
   label: 'accepted development receipt schema',
 });
 
+const FIXED_AUTHORITY_PATHS = Object.freeze({
+  buildDefinitions: Object.freeze([
+    'backend/build/build.sh',
+    'backend/build/check.sh',
+    'backend/build/smoke.sh',
+    'contracts/artifacts/bin/artifacts.mjs',
+    'contracts/artifacts/bin/coordinator.mjs',
+    'contracts/artifacts/lib/validation.mjs',
+    'frontend/build/artifact.mjs',
+    'frontend/build/check.mjs',
+    'frontend/build/smoke.mjs',
+    'updater/build/artifact.py',
+    'updater/build/check.py',
+    'updater/build/smoke.py',
+  ]),
+  contracts: Object.freeze([
+    'contracts/artifacts/schemas/checksum-inventory-v1.schema.json',
+    'contracts/artifacts/schemas/compatibility-manifest-v1.schema.json',
+    'contracts/artifacts/schemas/component-statement-v1.schema.json',
+    'contracts/artifacts/producer-runtime-inputs-v1.json',
+    'contracts/openapi/openapi.yaml',
+    'contracts/schemas/archive/archive-manifest.schema.json',
+    'contracts/schemas/archive/compatibility-matrix.json',
+    'contracts/schemas/archive/schema.sql',
+  ]),
+  lifecycle: Object.freeze([
+    'openspec/changes/archive/2026-07-28-complete-integrated-development-acceptance/proposal.md',
+    'openspec/specs/contracts-development-acceptance/spec.md',
+  ]),
+  toolchains: Object.freeze([
+    'buildkit',
+    'docker-buildx',
+    'go',
+    'node',
+    'npm',
+    'python',
+    'uv',
+  ]),
+});
+
 function validateReceiptSchema(value, label) {
   // AJV's object-array uniqueness helper assumes Object.prototype methods.
   // Validate an ordinary canonical projection while retaining the
@@ -53,11 +93,12 @@ function fail(message, cause) {
   throw new AcceptedDevelopmentError(message, cause ? { cause } : undefined);
 }
 
-function assertSortedByPath(records, label) {
-  const paths = records.map((record) => record.path);
-  const sorted = [...paths].sort((left, right) => left.localeCompare(right, 'en'));
-  if (new Set(paths).size !== paths.length || paths.some((entry, index) => entry !== sorted[index])) {
-    fail(`${label} must be unique and path-sorted`);
+function assertFixedSequence(actual, expected, label) {
+  if (
+    actual.length !== expected.length ||
+    actual.some((entry, index) => entry !== expected[index])
+  ) {
+    fail(`${label} must retain its fixed inventory and order`);
   }
 }
 
@@ -81,17 +122,18 @@ function assertFixedReceipt(value) {
   ) {
     fail('accepted development receipt disagrees with fixed Operations authority');
   }
-  assertSortedByPath(value.authorities.buildDefinitions, 'build authorities');
-  assertSortedByPath(value.authorities.contracts, 'contract authorities');
-  assertSortedByPath(value.authorities.lifecycle, 'lifecycle authorities');
-  const toolNames = value.authorities.toolchains.map((entry) => entry.name);
-  const sortedTools = [...toolNames].sort((left, right) => left.localeCompare(right, 'en'));
-  if (
-    new Set(toolNames).size !== toolNames.length ||
-    toolNames.some((entry, index) => entry !== sortedTools[index])
-  ) {
-    fail('toolchain authorities must be unique and name-sorted');
+  for (const name of ['buildDefinitions', 'contracts', 'lifecycle']) {
+    assertFixedSequence(
+      value.authorities[name].map((entry) => entry.path),
+      FIXED_AUTHORITY_PATHS[name],
+      `${name} authorities`,
+    );
   }
+  assertFixedSequence(
+    value.authorities.toolchains.map((entry) => entry.name),
+    FIXED_AUTHORITY_PATHS.toolchains,
+    'toolchain authorities',
+  );
   return deepFreeze(value);
 }
 

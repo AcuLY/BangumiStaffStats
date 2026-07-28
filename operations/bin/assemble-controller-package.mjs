@@ -98,9 +98,17 @@ function packageMode(relative) {
   return '0444';
 }
 
+function inventorySourceRelative(relative) {
+  if (relative.startsWith('observability/prometheus/')) {
+    return relative.slice('observability/'.length);
+  }
+  return relative;
+}
+
 function sourceFile(operationsRoot, relative) {
+  const sourceRelative = inventorySourceRelative(relative);
   return requireCanonicalPath(
-    path.join(operationsRoot, ...relative.split('/')),
+    path.join(operationsRoot, ...sourceRelative.split('/')),
     {
       below: operationsRoot,
       label: `controller source ${relative}`,
