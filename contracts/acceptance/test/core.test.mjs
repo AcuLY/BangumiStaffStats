@@ -138,6 +138,7 @@ import {
   completeProcessCommandMatches,
   createProcessClosureMonitor,
   newOwnedCwdProcesses,
+  reconcileProcessClosure,
   runCommand,
   sanitizedEnvironment,
   snapshotHostProcessInventory,
@@ -802,6 +803,40 @@ function writeLinuxProcProcess(
   return processRoot;
 }
 
+function writeLinuxProcTerminal(
+  procRoot,
+  {
+    comm = 'node',
+    parentPid = 1,
+    pid,
+    processGroupId = pid,
+    startToken = '100',
+    state = 'Z',
+    userId = process.getuid?.() ?? 0,
+  },
+) {
+  const processRoot = path.join(procRoot, String(pid));
+  fs.mkdirSync(processRoot, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(
+    path.join(processRoot, 'stat'),
+    linuxProcessStat({
+      comm,
+      parentPid,
+      pid,
+      processGroupId,
+      startToken,
+      state,
+    }),
+    { mode: 0o600 },
+  );
+  fs.writeFileSync(
+    path.join(processRoot, 'status'),
+    `Name:\tfixture\nUid:\t${userId}\t${userId}\t${userId}\t${userId}\n`,
+    { mode: 0o600 },
+  );
+  return processRoot;
+}
+
 function linuxProcIo(overrides = {}) {
   return {
     lstat: (candidate) => fs.lstatSync(candidate),
@@ -1439,6 +1474,7 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
   fs.mkdirSync(siblingCwd, { mode: 0o700 });
   const ownedPid = 400_001;
   const siblingPid = 400_002;
+  const unrelatedTerminalPid = 400_003;
   const expectedArgv = Object.freeze([
     process.execPath,
     'argument with spaces',
@@ -1463,6 +1499,14 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
       startToken: '123457',
       userId: 1000,
     });
+    writeLinuxProcTerminal(procRoot, {
+      comm: 'finished) worker',
+      parentPid: 19,
+      pid: unrelatedTerminalPid,
+      processGroupId: 799,
+      startToken: '123458',
+      userId: 1001,
+    });
     const forbidExternalInventory = () => {
       assert.fail('Linux process inventory invoked an external executable');
     };
@@ -1474,9 +1518,11 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
     const inventory = snapshotHostProcessInventory(options);
     assert.deepEqual(
       inventory.entries.map((entry) => entry.pid),
-      [ownedPid, siblingPid],
+      [ownedPid, siblingPid, unrelatedTerminalPid],
     );
     const owned = inventory.entries[0];
+    assert.equal(owned.kind, 'live');
+    assert.equal(owned.comm, 'node worker) tricky');
     assert.equal(owned.parentPid, 17);
     assert.equal(owned.processGroupId, 700);
     assert.equal(owned.userId, 1000);
@@ -1484,7 +1530,86 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
     assert.equal(owned.command, process.execPath);
     assert.equal(owned.cwd, ownedCwd);
     assert.deepEqual(owned.argv, expectedArgv);
+    assert.deepEqual(inventory.entries[2], {
+      comm: 'finished) worker',
+      kind: 'terminal',
+      parentPid: 19,
+      pid: unrelatedTerminalPid,
+      processGroupId: 799,
+      startToken: '123458',
+      state: 'Z',
+      userId: 1001,
+    });
     assert.equal(inventory.digest, canonicalJsonDigest(inventory.entries));
+    assert.throws(
+      () => completeProcessCommand(unrelatedTerminalPid, options),
+      /terminal without a complete command identity/u,
+    );
+
+    const ownedTerminal = Object.freeze({
+      comm: owned.comm,
+      kind: 'terminal',
+      parentPid: owned.parentPid,
+      pid: owned.pid,
+      processGroupId: owned.processGroupId,
+      startToken: owned.startToken,
+      state: 'Z',
+      userId: owned.userId,
+    });
+    const retainedLedger = new Map([[owned.pid, owned]]);
+    reconcileProcessClosure(
+      retainedLedger,
+      owned.processGroupId,
+      [ownedTerminal, inventory.entries[2]],
+    );
+    assert.deepEqual(retainedLedger.get(owned.pid), {
+      ...owned,
+      terminalTombstone: ownedTerminal,
+    });
+
+    const groupCandidateLedger = new Map();
+    assert.throws(
+      () =>
+        reconcileProcessClosure(
+          groupCandidateLedger,
+          798,
+          [
+            {
+              ...inventory.entries[2],
+              processGroupId: 798,
+            },
+          ],
+        ),
+      /first observed as an owned terminal/u,
+    );
+    assert.equal(
+      groupCandidateLedger.get(unrelatedTerminalPid)
+        ?.ambiguousOwnedTerminal,
+      true,
+    );
+
+    const childCandidateLedger = new Map([[owned.pid, owned]]);
+    assert.throws(
+      () =>
+        reconcileProcessClosure(
+          childCandidateLedger,
+          owned.processGroupId,
+          [
+            owned,
+            {
+              ...inventory.entries[2],
+              parentPid: owned.pid,
+              processGroupId: 797,
+            },
+          ],
+        ),
+      /first observed as an owned terminal/u,
+    );
+    assert.equal(
+      childCandidateLedger.get(unrelatedTerminalPid)
+        ?.ambiguousOwnedTerminal,
+      true,
+    );
 
     const complete = completeProcessCommand(ownedPid, options);
     assert.equal(complete.kind, 'argv');
@@ -1504,10 +1629,325 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
 
     const parityMonitor = await createProcessClosureMonitor(options);
     await startProcessClosureMonitor(parityMonitor, 700);
+    const reparentedWorkerTerminal = Object.freeze({
+      ...ownedTerminal,
+      parentPid: 1,
+    });
+    fs.writeFileSync(
+      path.join(procRoot, String(ownedPid), 'stat'),
+      linuxProcessStat({
+        comm: owned.comm,
+        parentPid: reparentedWorkerTerminal.parentPid,
+        pid: ownedPid,
+        processGroupId: owned.processGroupId,
+        startToken: owned.startToken,
+        state: 'Z',
+      }),
+    );
     assert.deepEqual(
       await stopProcessClosureMonitor(parityMonitor),
-      [owned],
+      [
+        {
+          ...owned,
+          terminalTombstone: reparentedWorkerTerminal,
+        },
+      ],
     );
+    fs.writeFileSync(
+      path.join(procRoot, String(ownedPid), 'stat'),
+      linuxProcessStat({
+        comm: owned.comm,
+        parentPid: owned.parentPid,
+        pid: ownedPid,
+        processGroupId: owned.processGroupId,
+        startToken: owned.startToken,
+      }),
+    );
+
+    const firstGroupTerminalMonitor =
+      await createProcessClosureMonitor(options);
+    await assert.rejects(
+      startProcessClosureMonitor(firstGroupTerminalMonitor, 799),
+      /first observed as an owned terminal/u,
+    );
+    await assert.rejects(
+      stopProcessClosureMonitor(firstGroupTerminalMonitor),
+      /first observed as an owned terminal/u,
+    );
+
+    fs.writeFileSync(
+      path.join(procRoot, String(unrelatedTerminalPid), 'stat'),
+      linuxProcessStat({
+        comm: inventory.entries[2].comm,
+        parentPid: ownedPid,
+        pid: unrelatedTerminalPid,
+        processGroupId: 797,
+        startToken: inventory.entries[2].startToken,
+        state: 'Z',
+      }),
+    );
+    const firstChildTerminalMonitor =
+      await createProcessClosureMonitor(options);
+    await assert.rejects(
+      startProcessClosureMonitor(firstChildTerminalMonitor, 700),
+      /first observed as an owned terminal/u,
+    );
+    await assert.rejects(
+      stopProcessClosureMonitor(firstChildTerminalMonitor),
+      /first observed as an owned terminal/u,
+    );
+    fs.writeFileSync(
+      path.join(procRoot, String(unrelatedTerminalPid), 'stat'),
+      linuxProcessStat({
+        comm: inventory.entries[2].comm,
+        parentPid: inventory.entries[2].parentPid,
+        pid: unrelatedTerminalPid,
+        processGroupId: inventory.entries[2].processGroupId,
+        startToken: inventory.entries[2].startToken,
+        state: 'Z',
+      }),
+    );
+
+    {
+      const transitionProcRoot = path.join(
+        fixtureRoot,
+        'proc-live-to-terminal-empty-cmdline',
+      );
+      const transitionCwd = path.join(fixtureRoot, 'transition-empty-cwd');
+      const transitionPid = 400_004;
+      fs.mkdirSync(transitionProcRoot, { mode: 0o700 });
+      fs.mkdirSync(transitionCwd, { mode: 0o700 });
+      const transitionProcessRoot = writeLinuxProcProcess(
+        transitionProcRoot,
+        {
+          comm: 'transition empty',
+          cwd: transitionCwd,
+          parentPid: 23,
+          pid: transitionPid,
+          processGroupId: 704,
+          startToken: '123459',
+          userId: 1002,
+        },
+      );
+      const baseIo = linuxProcIo();
+      let transitioned = false;
+      const transitionInventory = snapshotHostProcessInventory({
+        io: linuxProcIo({
+          readFile(candidate, maximumBytes) {
+            if (
+              !transitioned &&
+              candidate === path.join(transitionProcessRoot, 'cmdline')
+            ) {
+              transitioned = true;
+              fs.writeFileSync(
+                path.join(transitionProcessRoot, 'stat'),
+                linuxProcessStat({
+                  comm: 'transition empty',
+                  parentPid: 23,
+                  pid: transitionPid,
+                  processGroupId: 704,
+                  startToken: '123459',
+                  state: 'Z',
+                }),
+              );
+              return Buffer.alloc(0);
+            }
+            return baseIo.readFile(candidate, maximumBytes);
+          },
+        }),
+        platform: 'linux',
+        procRoot: transitionProcRoot,
+        spawnSync: forbidExternalInventory,
+      });
+      assert.equal(transitioned, true);
+      assert.deepEqual(transitionInventory.entries, [
+        {
+          comm: 'transition empty',
+          kind: 'terminal',
+          parentPid: 23,
+          pid: transitionPid,
+          processGroupId: 704,
+          startToken: '123459',
+          state: 'Z',
+          userId: 1002,
+        },
+      ]);
+    }
+
+    {
+      const transitionProcRoot = path.join(
+        fixtureRoot,
+        'proc-live-to-terminal-missing-link',
+      );
+      const transitionCwd = path.join(fixtureRoot, 'transition-link-cwd');
+      const transitionPid = 400_005;
+      fs.mkdirSync(transitionProcRoot, { mode: 0o700 });
+      fs.mkdirSync(transitionCwd, { mode: 0o700 });
+      const transitionProcessRoot = writeLinuxProcProcess(
+        transitionProcRoot,
+        {
+          comm: 'transition link',
+          cwd: transitionCwd,
+          parentPid: 29,
+          pid: transitionPid,
+          processGroupId: 705,
+          startToken: '123460',
+          userId: 1003,
+        },
+      );
+      const baseIo = linuxProcIo();
+      let transitioned = false;
+      const transitionInventory = snapshotHostProcessInventory({
+        io: linuxProcIo({
+          readLink(candidate) {
+            if (
+              !transitioned &&
+              candidate === path.join(transitionProcessRoot, 'exe')
+            ) {
+              transitioned = true;
+              fs.writeFileSync(
+                path.join(transitionProcessRoot, 'stat'),
+                linuxProcessStat({
+                  comm: 'transition link',
+                  parentPid: 29,
+                  pid: transitionPid,
+                  processGroupId: 705,
+                  startToken: '123460',
+                  state: 'Z',
+                }),
+              );
+              throw fixtureSystemError('ENOENT', 'terminal executable absent');
+            }
+            return baseIo.readLink(candidate);
+          },
+        }),
+        platform: 'linux',
+        procRoot: transitionProcRoot,
+        spawnSync: forbidExternalInventory,
+      });
+      assert.equal(transitioned, true);
+      assert.deepEqual(transitionInventory.entries, [
+        {
+          comm: 'transition link',
+          kind: 'terminal',
+          parentPid: 29,
+          pid: transitionPid,
+          processGroupId: 705,
+          startToken: '123460',
+          state: 'Z',
+          userId: 1003,
+        },
+      ]);
+    }
+
+    {
+      const raceProcRoot = path.join(fixtureRoot, 'proc-terminal-races');
+      const racePid = 400_006;
+      fs.mkdirSync(raceProcRoot, { mode: 0o700 });
+      const raceProcessRoot = writeLinuxProcTerminal(raceProcRoot, {
+        comm: 'terminal race',
+        parentPid: 31,
+        pid: racePid,
+        processGroupId: 706,
+        startToken: '123461',
+        userId: 1004,
+      });
+      const baseIo = linuxProcIo();
+      const expectTerminalRace = ({
+        changedStat,
+        changedStatus,
+        pattern,
+      }) => {
+        let statReads = 0;
+        let statusReads = 0;
+        assert.throws(
+          () =>
+            snapshotHostProcessInventory({
+              io: linuxProcIo({
+                readFile(candidate, maximumBytes) {
+                  if (candidate === path.join(raceProcessRoot, 'stat')) {
+                    statReads += 1;
+                    if (statReads === 2 && changedStat !== undefined) {
+                      return Buffer.from(changedStat, 'utf8');
+                    }
+                  }
+                  if (candidate === path.join(raceProcessRoot, 'status')) {
+                    statusReads += 1;
+                    if (statusReads === 2 && changedStatus !== undefined) {
+                      return Buffer.from(changedStatus, 'utf8');
+                    }
+                  }
+                  return baseIo.readFile(candidate, maximumBytes);
+                },
+              }),
+              platform: 'linux',
+              procRoot: raceProcRoot,
+              spawnSync: forbidExternalInventory,
+            }),
+          pattern,
+        );
+      };
+      expectTerminalRace({
+        changedStatus:
+          'Name:\tfixture\nUid:\t1005\t1005\t1005\t1005\n',
+        pattern: /terminal UID changed while inventory was read/u,
+      });
+      expectTerminalRace({
+        changedStat: linuxProcessStat({
+          comm: 'terminal race',
+          parentPid: 31,
+          pid: racePid,
+          processGroupId: 706,
+          startToken: '123462',
+          state: 'Z',
+        }),
+        pattern: /identity changed while inventory was read/u,
+      });
+      expectTerminalRace({
+        changedStat: linuxProcessStat({
+          comm: 'terminal reused',
+          parentPid: 31,
+          pid: racePid,
+          processGroupId: 706,
+          startToken: '123461',
+          state: 'Z',
+        }),
+        pattern: /identity changed while inventory was read/u,
+      });
+      expectTerminalRace({
+        changedStat: linuxProcessStat({
+          comm: 'terminal race',
+          parentPid: 32,
+          pid: racePid,
+          processGroupId: 706,
+          startToken: '123461',
+          state: 'Z',
+        }),
+        pattern: /terminal relation changed while inventory was read/u,
+      });
+      expectTerminalRace({
+        changedStat: linuxProcessStat({
+          comm: 'terminal race',
+          parentPid: 31,
+          pid: racePid,
+          processGroupId: 707,
+          startToken: '123461',
+          state: 'Z',
+        }),
+        pattern: /terminal relation changed while inventory was read/u,
+      });
+      expectTerminalRace({
+        changedStat: linuxProcessStat({
+          comm: 'terminal race',
+          parentPid: 31,
+          pid: racePid,
+          processGroupId: 706,
+          startToken: '123461',
+          state: 'S',
+        }),
+        pattern: /terminal generation changed back to live state/u,
+      });
+    }
 
     const ownedStatus = path.join(procRoot, String(ownedPid), 'status');
     const initialStatus = fs.readFileSync(ownedStatus);
@@ -1855,20 +2295,6 @@ test('Linux process inventory fails closed on malformed, raced, or inaccessible 
           new RegExp(`${suffix === 'exe' ? 'executable' : 'cwd'} link is not valid UTF-8`, 'u'),
         );
       }
-      fs.writeFileSync(
-        path.join(state.processRoot, 'stat'),
-        linuxProcessStat({
-          pid: state.pid,
-          processGroupId: 710,
-          state: 'Z',
-          startToken: '7001',
-        }),
-      );
-      expectFailure(
-        state,
-        base,
-        /entered terminal state Z without complete identity/u,
-      );
     } finally {
       fs.rmSync(state.fixtureRoot, { recursive: true, force: false });
     }
@@ -2010,6 +2436,393 @@ test('owned Linux cleanup rejects PID reuse or argv drift before signaling', asy
       signals.filter(([, signal]) => signal === 'SIGKILL'),
       [[pid, 'SIGKILL']],
     );
+
+    fs.writeFileSync(
+      path.join(processRoot, 'stat'),
+      linuxProcessStat({
+        pid,
+        processGroupId: 720,
+        startToken: '8001',
+        state: 'Z',
+      }),
+    );
+    signals.length = 0;
+    const baseIo = linuxProcIo();
+    let cleanupInventories = 0;
+    let disappearanceConfirmations = 0;
+    const cleaned = await terminateOwnedProcesses([expected], 100, {
+      inventoryOptions: {
+        io: linuxProcIo({
+          lstat(candidate) {
+            if (
+              candidate === processRoot &&
+              !fs.existsSync(processRoot)
+            ) {
+              disappearanceConfirmations += 1;
+            }
+            return baseIo.lstat(candidate);
+          },
+          readDirectory(directory) {
+            cleanupInventories += 1;
+            const entries = baseIo.readDirectory(directory);
+            if (
+              cleanupInventories === 3 &&
+              fs.existsSync(processRoot)
+            ) {
+              fs.rmSync(processRoot, { recursive: true, force: false });
+            }
+            return entries;
+          },
+        }),
+        platform: 'linux',
+        procRoot,
+      },
+      killProcess(...args) {
+        signals.push(args);
+      },
+    });
+    assert.ok(cleanupInventories >= 3);
+    assert.equal(disappearanceConfirmations, 2);
+    assert.deepEqual(signals, []);
+    assert.equal(cleaned.length, 1);
+    assert.equal(cleaned[0].pid, pid);
+
+    writeLinuxProcProcess(procRoot, {
+      arguments_: [process.execPath, 'owned'],
+      cwd,
+      pid,
+      processGroupId: 720,
+      startToken: '8001',
+      userId: 1000,
+    });
+    fs.writeFileSync(
+      path.join(processRoot, 'stat'),
+      linuxProcessStat({
+        pid,
+        processGroupId: 720,
+        startToken: '8001',
+        state: 'Z',
+      }),
+    );
+    signals.length = 0;
+    await assert.rejects(
+      terminateOwnedProcesses([expected], 50, {
+        inventoryOptions,
+        killProcess(...args) {
+          signals.push(args);
+        },
+      }),
+      /terminal processes survived bounded cleanup/u,
+    );
+    assert.deepEqual(signals, []);
+
+    for (const retainedTerminalRace of [
+      {
+        name: 'terminal-to-live',
+        state: 'S',
+      },
+      {
+        name: 'terminal UID reuse',
+        userId: 1009,
+      },
+      {
+        name: 'terminal start-token reuse',
+        startToken: '8999',
+      },
+      {
+        comm: 'node replacement',
+        name: 'terminal comm reuse',
+      },
+      {
+        name: 'terminal parent relation drift',
+        parentPid: 2,
+      },
+      {
+        name: 'terminal process-group relation drift',
+        processGroupId: 721,
+      },
+    ]) {
+      fs.rmSync(processRoot, { recursive: true, force: false });
+      writeLinuxProcProcess(procRoot, {
+        arguments_: [process.execPath, 'owned'],
+        cwd,
+        pid,
+        processGroupId: 720,
+        startToken: '8001',
+        userId: 1000,
+      });
+      fs.writeFileSync(
+        path.join(processRoot, 'stat'),
+        linuxProcessStat({
+          pid,
+          processGroupId: 720,
+          startToken: '8001',
+          state: 'Z',
+        }),
+      );
+      let raceInventories = 0;
+      let raceApplied = false;
+      signals.length = 0;
+      await assert.rejects(
+        terminateOwnedProcesses([expected], 50, {
+          inventoryOptions: {
+            io: linuxProcIo({
+              readDirectory(directory) {
+                raceInventories += 1;
+                if (raceInventories === 3) {
+                  raceApplied = true;
+                  const userId = retainedTerminalRace.userId ?? 1000;
+                  fs.writeFileSync(
+                    path.join(processRoot, 'stat'),
+                    linuxProcessStat({
+                      comm: retainedTerminalRace.comm ?? 'node',
+                      parentPid: retainedTerminalRace.parentPid ?? 1,
+                      pid,
+                      processGroupId:
+                        retainedTerminalRace.processGroupId ?? 720,
+                      startToken:
+                        retainedTerminalRace.startToken ?? '8001',
+                      state: retainedTerminalRace.state ?? 'Z',
+                    }),
+                  );
+                  fs.writeFileSync(
+                    path.join(processRoot, 'status'),
+                    `Name:\tfixture\nUid:\t${userId}\t${userId}\t${userId}\t${userId}\n`,
+                  );
+                }
+                return baseIo.readDirectory(directory);
+              },
+            }),
+            platform: 'linux',
+            procRoot,
+          },
+          killProcess(...args) {
+            signals.push(args);
+          },
+        }),
+        /identity or argv changed during graceful cleanup/u,
+        retainedTerminalRace.name,
+      );
+      assert.equal(raceApplied, true, retainedTerminalRace.name);
+      assert.ok(raceInventories >= 3, retainedTerminalRace.name);
+      assert.deepEqual(signals, [], retainedTerminalRace.name);
+    }
+
+    for (const terminalReuse of [
+      {
+        comm: 'node',
+        startToken: '8999',
+        status:
+          'Name:\tfixture\nUid:\t1000\t1000\t1000\t1000\n',
+      },
+      {
+        comm: 'node replacement',
+        startToken: '8001',
+        status:
+          'Name:\tfixture\nUid:\t1000\t1000\t1000\t1000\n',
+      },
+      {
+        comm: 'node',
+        startToken: '8001',
+        status:
+          'Name:\tfixture\nUid:\t1009\t1009\t1009\t1009\n',
+      },
+    ]) {
+      fs.writeFileSync(
+        path.join(processRoot, 'stat'),
+        linuxProcessStat({
+          comm: terminalReuse.comm,
+          pid,
+          processGroupId: 720,
+          startToken: terminalReuse.startToken,
+          state: 'Z',
+        }),
+      );
+      fs.writeFileSync(
+        path.join(processRoot, 'status'),
+        terminalReuse.status,
+      );
+      signals.length = 0;
+      await assert.rejects(
+        terminateOwnedProcesses([expected], 50, {
+          inventoryOptions,
+          killProcess(...args) {
+            signals.push(args);
+          },
+        }),
+        /identity or argv changed before cleanup/u,
+      );
+      assert.deepEqual(signals, []);
+    }
+
+    fs.rmSync(processRoot, { recursive: true, force: false });
+    let preEnumerationAbsentChecks = 0;
+    signals.length = 0;
+    assert.deepEqual(
+      await terminateOwnedProcesses([expected], 50, {
+        inventoryOptions: {
+          io: linuxProcIo({
+            lstat(candidate) {
+              if (candidate === processRoot) {
+                preEnumerationAbsentChecks += 1;
+                throw fixtureSystemError('ENOENT', 'absent before listing');
+              }
+              return baseIo.lstat(candidate);
+            },
+            readDirectory(directory) {
+              return baseIo.readDirectory(directory).filter(
+                (entry) => entry.name !== String(pid),
+              );
+            },
+          }),
+          platform: 'linux',
+          procRoot,
+        },
+        killProcess(...args) {
+          signals.push(args);
+        },
+      }),
+      [],
+    );
+    assert.equal(preEnumerationAbsentChecks, 2);
+    assert.deepEqual(signals, []);
+
+    writeLinuxProcProcess(procRoot, {
+      arguments_: [process.execPath, 'owned'],
+      cwd,
+      pid,
+      processGroupId: 720,
+      startToken: '8001',
+      userId: 1000,
+    });
+    signals.length = 0;
+    const hiddenPresentResult = await terminateOwnedProcesses(
+      [expected],
+      50,
+      {
+        inventoryOptions: {
+          io: linuxProcIo({
+            readDirectory(directory) {
+              return baseIo.readDirectory(directory).filter(
+                (entry) => entry.name !== String(pid),
+              );
+            },
+          }),
+          platform: 'linux',
+          procRoot,
+        },
+        killProcess(targetPid, signal) {
+          signals.push([targetPid, signal]);
+          if (targetPid === pid && signal === 'SIGTERM') {
+            fs.rmSync(processRoot, { recursive: true, force: false });
+          }
+        },
+      },
+    );
+    assert.equal(hiddenPresentResult.length, 1);
+    assert.deepEqual(signals, [[pid, 'SIGTERM']]);
+    assert.equal(signals.every(([targetPid]) => targetPid > 0), true);
+
+    writeLinuxProcProcess(procRoot, {
+      arguments_: [process.execPath, 'owned'],
+      cwd,
+      pid,
+      processGroupId: 720,
+      startToken: '8999',
+      userId: 1000,
+    });
+    let absentThenReuseChecks = 0;
+    signals.length = 0;
+    await assert.rejects(
+      terminateOwnedProcesses([expected], 50, {
+        inventoryOptions: {
+          io: linuxProcIo({
+            lstat(candidate) {
+              if (candidate === processRoot) {
+                absentThenReuseChecks += 1;
+                if (absentThenReuseChecks === 1) {
+                  throw fixtureSystemError(
+                    'ENOENT',
+                    'absent before PID reuse',
+                  );
+                }
+              }
+              return baseIo.lstat(candidate);
+            },
+            readDirectory(directory) {
+              return baseIo.readDirectory(directory).filter(
+                (entry) => entry.name !== String(pid),
+              );
+            },
+          }),
+          platform: 'linux',
+          procRoot,
+        },
+        killProcess(...args) {
+          signals.push(args);
+        },
+      }),
+      /identity or argv changed before cleanup/u,
+    );
+    assert.equal(absentThenReuseChecks, 2);
+    assert.deepEqual(signals, []);
+
+    fs.rmSync(processRoot, { recursive: true, force: false });
+    fs.rmSync(secondProcessRoot, { recursive: true, force: false });
+    writeLinuxProcProcess(procRoot, {
+      arguments_: [process.execPath, 'owned'],
+      cwd,
+      pid,
+      processGroupId: 720,
+      startToken: '8001',
+      userId: 1000,
+    });
+    writeLinuxProcProcess(procRoot, {
+      arguments_: [process.execPath, 'owned-second'],
+      cwd,
+      pid: secondPid,
+      processGroupId: 720,
+      startToken: '8003',
+      userId: 1000,
+    });
+    fs.writeFileSync(
+      path.join(secondProcessRoot, 'stat'),
+      linuxProcessStat({
+        pid: secondPid,
+        processGroupId: 720,
+        startToken: '8003',
+        state: 'Z',
+      }),
+    );
+    const mixedTerminal = snapshotHostProcessInventory(
+      inventoryOptions,
+    ).entries.find((entry) => entry.pid === secondPid);
+    const retainedMixedTerminal = Object.freeze({
+      ...secondExpected,
+      terminalTombstone: mixedTerminal,
+    });
+    signals.length = 0;
+    const mixedResult = await terminateOwnedProcesses(
+      [expected, retainedMixedTerminal],
+      50,
+      {
+        inventoryOptions,
+        killProcess(targetPid, signal) {
+          signals.push([targetPid, signal]);
+          assert.ok(targetPid > 0);
+          if (targetPid === pid && signal === 'SIGTERM') {
+            fs.rmSync(processRoot, { recursive: true, force: false });
+            fs.rmSync(secondProcessRoot, {
+              recursive: true,
+              force: false,
+            });
+          }
+        },
+      },
+    );
+    assert.equal(mixedResult.length, 2);
+    assert.deepEqual(signals, [[pid, 'SIGTERM']]);
+    assert.equal(signals.some(([targetPid]) => targetPid < 0), false);
   } finally {
     fs.rmSync(fixtureRoot, { recursive: true, force: false });
   }

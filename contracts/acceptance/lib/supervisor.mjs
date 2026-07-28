@@ -381,6 +381,21 @@ function signalWorkerGroup(child, signal) {
   }
 }
 
+function signalWorkerDirectly(child, signal) {
+  if (
+    !child.pid ||
+    child.exitCode !== null ||
+    child.signalCode !== null
+  ) {
+    return;
+  }
+  try {
+    child.kill(signal);
+  } catch (error) {
+    if (error?.code !== 'ESRCH') throw error;
+  }
+}
+
 function waitForChildClose(child, timeoutMs) {
   if (child.exitCode !== null || child.signalCode !== null) {
     return Promise.resolve(true);
@@ -429,38 +444,46 @@ async function closeProcessLedger(
   });
 }
 
-async function terminateWorkerClosure({
-  child,
-  closureMonitor,
-  gracefulStopMs,
-}) {
+async function terminateDarwinWorkerClosure(
+  {
+    child,
+    closureMonitor,
+    gracefulStopMs,
+  },
+  {
+    signalProcessGroup,
+    stopLedger,
+    terminateProcesses,
+    waitForClose,
+  },
+) {
   const cleanupFailures = [];
   try {
-    signalWorkerGroup(child, 'SIGTERM');
+    signalProcessGroup(child, 'SIGTERM');
   } catch (error) {
     cleanupFailures.push(error);
   }
   let ledger = { observed: [], descendants: [] };
   try {
-    ledger = await stopProcessLedger(closureMonitor, child.pid);
+    ledger = await stopLedger(closureMonitor, child.pid);
   } catch (error) {
     cleanupFailures.push(error);
   }
-  const descendantCleanup = terminateOwnedProcesses(
+  const descendantCleanup = terminateProcesses(
     ledger.descendants,
     gracefulStopMs,
   ).catch((error) => {
     cleanupFailures.push(error);
     return [];
   });
-  if (!(await waitForChildClose(child, gracefulStopMs))) {
+  if (!(await waitForClose(child, gracefulStopMs))) {
     try {
-      signalWorkerGroup(child, 'SIGKILL');
+      signalProcessGroup(child, 'SIGKILL');
     } catch (error) {
       cleanupFailures.push(error);
     }
     if (
-      !(await waitForChildClose(
+      !(await waitForClose(
         child,
         Math.max(250, Math.min(2_000, gracefulStopMs)),
       ))
@@ -478,6 +501,98 @@ async function terminateWorkerClosure({
     cleanupFailures: Object.freeze(cleanupFailures),
     observedProcessCount: ledger.observed.length,
     terminatedDescendantCount: terminated.length,
+  });
+}
+
+async function terminateDirectWorkerClosure(
+  {
+    child,
+    closureMonitor,
+    gracefulStopMs,
+  },
+  {
+    signalDirectWorker,
+    stopLedger,
+    terminateProcesses,
+    waitForClose,
+  },
+) {
+  const cleanupFailures = [];
+  try {
+    signalDirectWorker(child, 'SIGTERM');
+  } catch (error) {
+    cleanupFailures.push(error);
+  }
+  if (!(await waitForClose(child, gracefulStopMs))) {
+    try {
+      signalDirectWorker(child, 'SIGKILL');
+    } catch (error) {
+      cleanupFailures.push(error);
+    }
+    if (
+      !(await waitForClose(
+        child,
+        Math.max(250, Math.min(2_000, gracefulStopMs)),
+      ))
+    ) {
+      cleanupFailures.push(
+        new AcceptanceSupervisorError(
+          'supervised worker survived forced cleanup',
+          'SUPERVISOR_WORKER_SURVIVED',
+        ),
+      );
+    }
+  }
+  let ledger = { observed: [], descendants: [] };
+  try {
+    ledger = await stopLedger(closureMonitor, child.pid);
+  } catch (error) {
+    cleanupFailures.push(error);
+  }
+  let terminated = [];
+  try {
+    terminated = await terminateProcesses(
+      ledger.descendants,
+      gracefulStopMs,
+    );
+  } catch (error) {
+    cleanupFailures.push(error);
+  }
+  return Object.freeze({
+    cleanupFailures: Object.freeze(cleanupFailures),
+    observedProcessCount: ledger.observed.length,
+    terminatedDescendantCount: terminated.length,
+  });
+}
+
+export async function terminateWorkerClosure(
+  {
+    child,
+    closureMonitor,
+    gracefulStopMs,
+  },
+  {
+    platform = process.platform,
+    signalDirectWorker = signalWorkerDirectly,
+    signalProcessGroup = signalWorkerGroup,
+    stopLedger = stopProcessLedger,
+    terminateProcesses = terminateOwnedProcesses,
+    waitForClose = waitForChildClose,
+  } = {},
+) {
+  const input = { child, closureMonitor, gracefulStopMs };
+  const dependencies = {
+    signalProcessGroup,
+    stopLedger,
+    terminateProcesses,
+    waitForClose,
+  };
+  if (platform === 'darwin') {
+    return terminateDarwinWorkerClosure(input, dependencies);
+  }
+  return terminateDirectWorkerClosure(input, {
+    ...dependencies,
+    signalDirectWorker,
   });
 }
 

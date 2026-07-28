@@ -27,6 +27,7 @@ import { startProcessClosureMonitor } from '../lib/runner.mjs';
 import {
   createOnceAsyncOperation,
   superviseAcceptanceWorker,
+  terminateWorkerClosure,
 } from '../lib/supervisor.mjs';
 
 const WORKER_URL =
@@ -561,6 +562,101 @@ test('parent supervisor never acknowledges malformed IPC', async () => {
 });
 
 test('parent supervisor kills a reparented late writer before result creation', async () => {
+  const cleanupEvents = [];
+  const processGroupSignals = [];
+  const closureMonitor = { active: true, workerClosed: false };
+  const child = {
+    exitCode: null,
+    pid: 42_001,
+    signalCode: null,
+    kill(signal) {
+      assert.equal(closureMonitor.active, true);
+      cleanupEvents.push(`direct:${this.pid}:${signal}`);
+      return true;
+    },
+  };
+  const workerEntry = Object.freeze({
+    argv: Object.freeze(['/usr/bin/node', '/owned/supervisor-worker.mjs']),
+    command: '/usr/bin/node',
+    comm: 'node',
+    cwd: '/owned',
+    kind: 'live',
+    parentPid: process.pid,
+    pid: child.pid,
+    processGroupId: child.pid,
+    startToken: '101',
+    userId: process.getuid(),
+  });
+  const descendantEntry = Object.freeze({
+    argv: Object.freeze(['/usr/bin/node', '/owned/late-writer.mjs']),
+    command: '/usr/bin/node',
+    comm: 'node',
+    cwd: '/owned',
+    kind: 'live',
+    parentPid: child.pid,
+    pid: child.pid + 1,
+    processGroupId: child.pid,
+    startToken: '102',
+    userId: process.getuid(),
+  });
+  let closeChecks = 0;
+  const linuxCleanup = await terminateWorkerClosure(
+    {
+      child,
+      closureMonitor,
+      gracefulStopMs: 250,
+    },
+    {
+      platform: 'linux',
+      signalProcessGroup(target, signal) {
+        processGroupSignals.push([-target.pid, signal]);
+      },
+      stopLedger: async (monitor, workerPid) => {
+        assert.equal(monitor, closureMonitor);
+        assert.equal(workerPid, child.pid);
+        assert.equal(monitor.active, true);
+        assert.equal(monitor.workerClosed, true);
+        monitor.active = false;
+        cleanupEvents.push('stop-ledger');
+        return {
+          descendants: [descendantEntry],
+          observed: [workerEntry, descendantEntry],
+        };
+      },
+      terminateProcesses: async (entries, gracefulStopMs) => {
+        assert.equal(closureMonitor.active, false);
+        assert.equal(gracefulStopMs, 250);
+        assert.deepEqual(entries, [descendantEntry]);
+        cleanupEvents.push('terminate-owned-processes');
+        return entries;
+      },
+      waitForClose: async (target) => {
+        assert.equal(target, child);
+        assert.equal(closureMonitor.active, true);
+        closeChecks += 1;
+        cleanupEvents.push(`wait-for-close:${closeChecks}`);
+        if (closeChecks === 1) return false;
+        child.signalCode = 'SIGKILL';
+        closureMonitor.workerClosed = true;
+        cleanupEvents.push('worker-close');
+        return true;
+      },
+    },
+  );
+  assert.deepEqual(processGroupSignals, []);
+  assert.deepEqual(cleanupEvents, [
+    'direct:42001:SIGTERM',
+    'wait-for-close:1',
+    'direct:42001:SIGKILL',
+    'wait-for-close:2',
+    'worker-close',
+    'stop-ledger',
+    'terminate-owned-processes',
+  ]);
+  assert.equal(linuxCleanup.cleanupFailures.length, 0);
+  assert.equal(linuxCleanup.observedProcessCount, 2);
+  assert.equal(linuxCleanup.terminatedDescendantCount, 1);
+
   const { allocation, failure } = await runScenario('late-descendant');
   try {
     assert.equal(failure.reason.code, 'SUPERVISOR_CELL_TIMEOUT');

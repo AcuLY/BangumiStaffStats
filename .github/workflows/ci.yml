@@ -108,6 +108,7 @@ jobs:
         run: |
           set -euo pipefail
           node --test contracts/artifacts/test/*.test.mjs
+          node --test contracts/acceptance/test/supervisor.test.mjs
           node contracts/artifacts/bin/artifacts.mjs verify-component \
             contracts/artifacts/fixtures/positive/backend backend
           node contracts/artifacts/bin/artifacts.mjs verify-component \

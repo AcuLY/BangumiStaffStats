@@ -351,6 +351,18 @@ function readLinuxProcessStat(runtime, processRoot, pid) {
   );
 }
 
+function readLinuxProcessUserId(runtime, processRoot, pid) {
+  return parseLinuxProcessUserId(
+    checkedInventoryRead(
+      runtime,
+      path.posix.join(processRoot, 'status'),
+      PROCESS_STATUS_MAX_BYTES,
+      `process ${pid} status`,
+    ),
+    pid,
+  );
+}
+
 function readLinuxProcessEvidence(runtime, processRoot, pid) {
   return Object.freeze({
     argv: parseLinuxProcessArguments(
@@ -372,15 +384,7 @@ function readLinuxProcessEvidence(runtime, processRoot, pid) {
       pid,
       'cwd',
     ),
-    userId: parseLinuxProcessUserId(
-      checkedInventoryRead(
-        runtime,
-        path.posix.join(processRoot, 'status'),
-        PROCESS_STATUS_MAX_BYTES,
-        `process ${pid} status`,
-      ),
-      pid,
-    ),
+    userId: readLinuxProcessUserId(runtime, processRoot, pid),
   });
 }
 
@@ -395,14 +399,75 @@ function assertSameLinuxProcessGeneration(pid, before, after) {
   ) {
     fail(`process ${pid} identity changed while inventory was read`);
   }
+}
+
+function assertStableLinuxTerminalSample(pid, before, after) {
+  assertSameLinuxProcessGeneration(pid, before, after);
   if (
-    terminalLinuxProcessState(before.state) ||
-    terminalLinuxProcessState(after.state)
+    !terminalLinuxProcessState(before.state) ||
+    !terminalLinuxProcessState(after.state)
   ) {
     fail(
-      `process ${pid} entered terminal state ${after.state} without complete identity`,
+      `process ${pid} terminal generation changed back to live state`,
     );
   }
+  if (
+    before.state !== after.state ||
+    before.parentPid !== after.parentPid ||
+    before.processGroupId !== after.processGroupId
+  ) {
+    fail(`process ${pid} terminal relation changed while inventory was read`);
+  }
+}
+
+function readStableLinuxTerminalEntry(
+  runtime,
+  processRoot,
+  pid,
+  firstStat,
+) {
+  const firstUserId = readLinuxProcessUserId(runtime, processRoot, pid);
+  const middleStat = readLinuxProcessStat(runtime, processRoot, pid);
+  assertStableLinuxTerminalSample(pid, firstStat, middleStat);
+  const secondUserId = readLinuxProcessUserId(runtime, processRoot, pid);
+  const finalStat = readLinuxProcessStat(runtime, processRoot, pid);
+  assertStableLinuxTerminalSample(pid, middleStat, finalStat);
+  if (firstUserId !== secondUserId) {
+    fail(`process ${pid} terminal UID changed while inventory was read`);
+  }
+  return Object.freeze({
+    comm: finalStat.comm,
+    kind: 'terminal',
+    parentPid: finalStat.parentPid,
+    pid,
+    processGroupId: finalStat.processGroupId,
+    startToken: finalStat.startToken,
+    state: finalStat.state,
+    userId: secondUserId,
+  });
+}
+
+function reclassifyLinuxEvidenceFailure(
+  runtime,
+  processRoot,
+  pid,
+  firstStat,
+  firstUserId,
+  evidenceError,
+) {
+  const finalStat = readLinuxProcessStat(runtime, processRoot, pid);
+  assertSameLinuxProcessGeneration(pid, firstStat, finalStat);
+  if (!terminalLinuxProcessState(finalStat.state)) throw evidenceError;
+  const terminal = readStableLinuxTerminalEntry(
+    runtime,
+    processRoot,
+    pid,
+    finalStat,
+  );
+  if (firstUserId !== undefined && firstUserId !== terminal.userId) {
+    fail(`process ${pid} UID changed during live-to-terminal transition`);
+  }
+  return terminal;
 }
 
 function readLinuxProcessEntry(runtime, pid) {
@@ -411,18 +476,67 @@ function readLinuxProcessEntry(runtime, pid) {
   try {
     statBefore = readLinuxProcessStat(runtime, processRoot, pid);
     if (terminalLinuxProcessState(statBefore.state)) {
-      assertSameLinuxProcessGeneration(
+      return readStableLinuxTerminalEntry(
+        runtime,
+        processRoot,
         pid,
         statBefore,
-        readLinuxProcessStat(runtime, processRoot, pid),
       );
     }
-    const evidenceBefore = readLinuxProcessEvidence(runtime, processRoot, pid);
+    let evidenceBefore;
+    try {
+      evidenceBefore = readLinuxProcessEvidence(runtime, processRoot, pid);
+    } catch (error) {
+      return reclassifyLinuxEvidenceFailure(
+        runtime,
+        processRoot,
+        pid,
+        statBefore,
+        undefined,
+        error,
+      );
+    }
     const statMiddle = readLinuxProcessStat(runtime, processRoot, pid);
     assertSameLinuxProcessGeneration(pid, statBefore, statMiddle);
-    const evidenceAfter = readLinuxProcessEvidence(runtime, processRoot, pid);
+    if (terminalLinuxProcessState(statMiddle.state)) {
+      const terminal = readStableLinuxTerminalEntry(
+        runtime,
+        processRoot,
+        pid,
+        statMiddle,
+      );
+      if (terminal.userId !== evidenceBefore.userId) {
+        fail(`process ${pid} UID changed during live-to-terminal transition`);
+      }
+      return terminal;
+    }
+    let evidenceAfter;
+    try {
+      evidenceAfter = readLinuxProcessEvidence(runtime, processRoot, pid);
+    } catch (error) {
+      return reclassifyLinuxEvidenceFailure(
+        runtime,
+        processRoot,
+        pid,
+        statMiddle,
+        evidenceBefore.userId,
+        error,
+      );
+    }
     const statAfter = readLinuxProcessStat(runtime, processRoot, pid);
     assertSameLinuxProcessGeneration(pid, statMiddle, statAfter);
+    if (terminalLinuxProcessState(statAfter.state)) {
+      const terminal = readStableLinuxTerminalEntry(
+        runtime,
+        processRoot,
+        pid,
+        statAfter,
+      );
+      if (terminal.userId !== evidenceAfter.userId) {
+        fail(`process ${pid} UID changed during live-to-terminal transition`);
+      }
+      return terminal;
+    }
     if (
       evidenceBefore.userId !== evidenceAfter.userId ||
       evidenceBefore.command !== evidenceAfter.command ||
@@ -433,6 +547,8 @@ function readLinuxProcessEntry(runtime, pid) {
     }
     return Object.freeze({
       ...evidenceAfter,
+      comm: statAfter.comm,
+      kind: 'live',
       parentPid: statAfter.parentPid,
       pid,
       processGroupId: statAfter.processGroupId,
@@ -464,6 +580,30 @@ function readLinuxProcessEntry(runtime, pid) {
     if (error instanceof CommandError) throw error;
     fail(`process ${pid} inventory failed: ${error.message}`);
   }
+}
+
+function readTargetedLinuxProcessAfterMapMiss(runtime, pid) {
+  const processRoot = path.posix.join(runtime.procRoot, String(pid));
+  let observed = false;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      runtime.io.lstat(processRoot);
+      observed = true;
+      break;
+    } catch (error) {
+      if (!isDisappearanceError(error)) {
+        fail(
+          `process ${pid} targeted absence confirmation failed: ${error.message}`,
+        );
+      }
+    }
+  }
+  if (!observed) return null;
+  const entry = readLinuxProcessEntry(runtime, pid);
+  if (entry === null) {
+    fail(`process ${pid} disappeared after targeted presence confirmation`);
+  }
+  return entry;
 }
 
 function snapshotLinuxProcessInventory(runtime) {
@@ -556,11 +696,49 @@ export function snapshotHostProcessInventory(options = {}) {
   });
 }
 
+export function isTerminalProcessEntry(entry) {
+  return entry?.kind === 'terminal';
+}
+
+function isLiveProcessEntry(entry) {
+  return !isTerminalProcessEntry(entry);
+}
+
+export function sameProcessGeneration(left, right) {
+  return (
+    left?.pid === right?.pid &&
+    left?.userId === right?.userId &&
+    left?.startToken === right?.startToken &&
+    typeof left?.comm === 'string' &&
+    left.comm !== '' &&
+    left.comm === right?.comm
+  );
+}
+
 function processIdentityKey(entry) {
+  if (isTerminalProcessEntry(entry)) {
+    return [
+      'terminal',
+      entry.pid,
+      entry.userId,
+      entry.startToken,
+      entry.comm,
+      entry.state,
+      entry.parentPid,
+      entry.processGroupId,
+    ].join('\0');
+  }
   return `${entry.pid}\0${entry.userId}\0${entry.startToken}\0${entry.command}`;
 }
 
 export function sameProcessIdentity(left, right) {
+  if (isTerminalProcessEntry(left) || isTerminalProcessEntry(right)) {
+    return (
+      isTerminalProcessEntry(left) &&
+      isTerminalProcessEntry(right) &&
+      sameProcessGeneration(left, right)
+    );
+  }
   return (
     left?.pid === right?.pid &&
     left?.userId === right?.userId &&
@@ -570,6 +748,9 @@ export function sameProcessIdentity(left, right) {
 }
 
 export function sameProcessArguments(left, right) {
+  if (isTerminalProcessEntry(left) || isTerminalProcessEntry(right)) {
+    return false;
+  }
   if (left?.argv === undefined && right?.argv === undefined) return true;
   return (
     Array.isArray(left?.argv) &&
@@ -612,6 +793,7 @@ export function snapshotOwnedCwdProcesses(runRoot, options = {}) {
     return Object.freeze(
       snapshotHostProcessInventory(options).entries.filter(
         (entry) =>
+          isLiveProcessEntry(entry) &&
           entry.pid !== process.pid &&
           containedPath(canonicalRoot, entry.cwd, runtime.platform),
       ),
@@ -678,6 +860,9 @@ export function completeProcessCommand(pid, options = {}) {
   if (runtime.platform === 'linux') {
     const entry = readLinuxProcessEntry(runtime, pid);
     if (entry === null) return null;
+    if (isTerminalProcessEntry(entry)) {
+      fail(`process ${pid} is terminal without a complete command identity`);
+    }
     return Object.freeze({
       argv: entry.argv,
       kind: 'argv',
@@ -792,6 +977,37 @@ function signalProcessGroup(child, processGroupId, signal) {
   }
 }
 
+function signalTrustedCommandChild(child, processGroupId, signal) {
+  if (process.platform !== 'linux') {
+    signalProcessGroup(child, processGroupId, signal);
+    return;
+  }
+  try {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill(signal);
+    }
+  } catch (error) {
+    if (error?.code !== 'ESRCH') throw error;
+  }
+}
+
+function waitForTrustedChildClose(child, timeoutMs) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return Promise.resolve(true);
+  }
+  return new Promise((resolve) => {
+    const onClose = () => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    const timer = setTimeout(() => {
+      child.removeListener('close', onClose);
+      resolve(false);
+    }, timeoutMs);
+    child.once('close', onClose);
+  });
+}
+
 function processGroupExists(processGroupId) {
   if (process.platform === 'win32') return false;
   try {
@@ -837,9 +1053,149 @@ async function terminateProcessGroup(
 
 function sameOwnedProcess(left, right) {
   return (
+    isLiveProcessEntry(left) &&
+    isLiveProcessEntry(right) &&
     sameProcessIdentity(left, right) &&
     sameProcessArguments(left, right)
   );
+}
+
+function sameTerminalTombstone(left, right) {
+  return (
+    isTerminalProcessEntry(left) &&
+    isTerminalProcessEntry(right) &&
+    sameProcessGeneration(left, right) &&
+    left.state === right.state &&
+    left.parentPid === right.parentPid &&
+    left.processGroupId === right.processGroupId
+  );
+}
+
+function ownedTerminalTombstone(entry) {
+  return isTerminalProcessEntry(entry)
+    ? entry
+    : entry?.terminalTombstone ?? null;
+}
+
+function retainOwnedTerminal(liveEntry, tombstone) {
+  if (!sameProcessGeneration(liveEntry, tombstone)) {
+    fail(`process ${tombstone.pid} generation changed in the owned closure`);
+  }
+  return Object.freeze({
+    ...liveEntry,
+    terminalTombstone: tombstone,
+  });
+}
+
+function mergeOwnedProcessRecord(existing, observed) {
+  if (
+    isTerminalProcessEntry(existing) ||
+    isTerminalProcessEntry(observed) ||
+    existing?.ambiguousOwnedTerminal === true ||
+    observed?.ambiguousOwnedTerminal === true ||
+    !sameOwnedProcess(existing, observed)
+  ) {
+    fail(`process ${observed?.pid ?? existing?.pid} identity changed in owned evidence`);
+  }
+  const existingTerminal = ownedTerminalTombstone(existing);
+  const observedTerminal = ownedTerminalTombstone(observed);
+  if (existingTerminal !== null && observedTerminal !== null) {
+    if (!sameTerminalTombstone(existingTerminal, observedTerminal)) {
+      fail(`process ${observed.pid} terminal evidence changed`);
+    }
+    return existing;
+  }
+  if (existingTerminal !== null) {
+    fail(`process ${observed.pid} returned to live state after terminal evidence`);
+  }
+  if (observedTerminal !== null) return observed;
+  return observed;
+}
+
+function retainedParentMatchesCurrent(parent, currentParent) {
+  const terminal = ownedTerminalTombstone(parent);
+  if (terminal !== null) {
+    return sameTerminalTombstone(terminal, currentParent);
+  }
+  return (
+    sameOwnedProcess(parent, currentParent) ||
+    (
+      isTerminalProcessEntry(currentParent) &&
+      sameProcessGeneration(parent, currentParent)
+    )
+  );
+}
+
+export function reconcileProcessClosure(
+  ledger,
+  processGroupId,
+  entries,
+) {
+  if (!(ledger instanceof Map)) fail('process closure ledger must be a Map');
+  if (!Number.isSafeInteger(processGroupId) || processGroupId <= 0) {
+    fail('process closure requires a positive process group');
+  }
+  if (!Array.isArray(entries)) {
+    fail('process closure inventory entries must be an array');
+  }
+  const byPid = new Map(entries.map((entry) => [entry.pid, entry]));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const entry of entries) {
+      const known = ledger.get(entry.pid);
+      if (known) {
+        if (known.ambiguousOwnedTerminal === true) {
+          fail(`process ${entry.pid} has ambiguous terminal ownership`);
+        }
+        const retainedTerminal = ownedTerminalTombstone(known);
+        if (retainedTerminal !== null) {
+          if (!sameTerminalTombstone(retainedTerminal, entry)) {
+            fail(`process ${entry.pid} terminal generation changed in the owned closure`);
+          }
+          continue;
+        }
+        if (isTerminalProcessEntry(entry)) {
+          ledger.set(entry.pid, retainOwnedTerminal(known, entry));
+          continue;
+        }
+        if (!sameOwnedProcess(known, entry)) {
+          fail(`process ${entry.pid} identity changed in the owned closure`);
+        }
+        if (
+          known.parentPid !== entry.parentPid ||
+          known.processGroupId !== entry.processGroupId
+        ) {
+          ledger.set(entry.pid, entry);
+        }
+        continue;
+      }
+      if (entry.pid === process.pid) continue;
+      const parent = ledger.get(entry.parentPid);
+      const currentParent = byPid.get(entry.parentPid);
+      const relationOwned =
+        entry.processGroupId === processGroupId ||
+        (
+          parent &&
+          currentParent &&
+          retainedParentMatchesCurrent(parent, currentParent)
+        );
+      if (!relationOwned) continue;
+      if (isTerminalProcessEntry(entry)) {
+        ledger.set(
+          entry.pid,
+          Object.freeze({
+            ambiguousOwnedTerminal: true,
+            ...entry,
+          }),
+        );
+        fail(`process ${entry.pid} was first observed as an owned terminal`);
+      }
+      ledger.set(entry.pid, entry);
+      changed = true;
+    }
+  }
+  return ledger;
 }
 
 function discoverProcessClosure(
@@ -848,30 +1204,7 @@ function discoverProcessClosure(
   processInventoryOptions = {},
 ) {
   const inventory = snapshotHostProcessInventory(processInventoryOptions);
-  const byPid = new Map(inventory.entries.map((entry) => [entry.pid, entry]));
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const entry of inventory.entries) {
-      const known = ledger.get(entry.pid);
-      if (known) {
-        if (!sameOwnedProcess(known, entry)) {
-          fail(`process ${entry.pid} identity changed in the owned closure`);
-        }
-        continue;
-      }
-      if (entry.pid === process.pid) continue;
-      const parent = ledger.get(entry.parentPid);
-      const currentParent = byPid.get(entry.parentPid);
-      if (
-        entry.processGroupId === processGroupId ||
-        (parent && sameOwnedProcess(parent, currentParent))
-      ) {
-        ledger.set(entry.pid, entry);
-        changed = true;
-      }
-    }
-  }
+  reconcileProcessClosure(ledger, processGroupId, inventory.entries);
   return inventory;
 }
 
@@ -1031,9 +1364,37 @@ export async function terminateOwnedProcesses(
     fail('owned process cleanup options must be an object');
   }
   const inventoryOptions = options.inventoryOptions ?? {};
+  const inventoryRuntime = processInventoryRuntime(inventoryOptions);
   const killProcess = options.killProcess ?? process.kill.bind(process);
   if (typeof killProcess !== 'function') {
     fail('owned process cleanup signal dependency is invalid');
+  }
+  const expectedByPid = new Map();
+  const retainedTerminalByPid = new Map();
+  for (const entry of processes) {
+    if (
+      !Number.isSafeInteger(entry?.pid) ||
+      entry.pid <= 0 ||
+      expectedByPid.has(entry.pid)
+    ) {
+      fail('owned process cleanup contains an invalid or duplicate PID');
+    }
+    if (
+      isTerminalProcessEntry(entry) ||
+      entry.ambiguousOwnedTerminal === true
+    ) {
+      fail('owned process cleanup lacks a complete signal identity');
+    }
+    expectedByPid.set(entry.pid, entry);
+    if (entry.terminalTombstone !== undefined) {
+      if (
+        !isTerminalProcessEntry(entry.terminalTombstone) ||
+        !sameProcessGeneration(entry, entry.terminalTombstone)
+      ) {
+        fail('owned process cleanup terminal evidence is invalid');
+      }
+      retainedTerminalByPid.set(entry.pid, entry.terminalTombstone);
+    }
   }
   const matching = () => {
     const byPid = new Map(
@@ -1041,21 +1402,62 @@ export async function terminateOwnedProcesses(
         (entry) => [entry.pid, entry],
       ),
     );
-    const exact = [];
+    const live = [];
+    const terminal = [];
     const mismatched = [];
-    for (const entry of processes) {
-      const current = byPid.get(entry.pid);
+    for (const entry of expectedByPid.values()) {
+      let current = byPid.get(entry.pid);
+      if (
+        current === undefined &&
+        inventoryRuntime.platform === 'linux'
+      ) {
+        current = readTargetedLinuxProcessAfterMapMiss(
+          inventoryRuntime,
+          entry.pid,
+        );
+      }
       if (!current) continue;
-      if (sameOwnedProcess(entry, current)) exact.push(current);
-      else mismatched.push(Object.freeze({ expected: entry, current }));
+      const retainedTerminal = retainedTerminalByPid.get(entry.pid);
+      if (retainedTerminal !== undefined) {
+        if (sameTerminalTombstone(retainedTerminal, current)) {
+          terminal.push(current);
+        } else {
+          mismatched.push(Object.freeze({ expected: entry, current }));
+        }
+        continue;
+      }
+      if (sameOwnedProcess(entry, current)) {
+        live.push(current);
+        continue;
+      }
+      if (
+        isTerminalProcessEntry(current) &&
+        sameProcessGeneration(entry, current)
+      ) {
+        retainedTerminalByPid.set(entry.pid, current);
+        terminal.push(current);
+        continue;
+      }
+      mismatched.push(Object.freeze({ expected: entry, current }));
     }
-    return { exact, mismatched };
+    return { live, mismatched, terminal };
   };
   const signalFreshMatches = (candidates, signal, mismatchMessage) => {
+    const candidatePids = new Set(candidates.map((entry) => entry.pid));
+    const preflight = matching();
+    if (preflight.mismatched.length > 0) fail(mismatchMessage);
+    const preflightLive = new Map(
+      preflight.live
+        .filter((entry) => candidatePids.has(entry.pid))
+        .map((entry) => [entry.pid, entry]),
+    );
     for (const candidate of candidates) {
+      if (!preflightLive.has(candidate.pid)) continue;
       const fresh = matching();
       if (fresh.mismatched.length > 0) fail(mismatchMessage);
-      const current = fresh.exact.find((entry) => entry.pid === candidate.pid);
+      const current = fresh.live.find(
+        (entry) => entry.pid === candidate.pid,
+      );
       if (current === undefined) continue;
       if (!sameOwnedProcess(candidate, current)) fail(mismatchMessage);
       try {
@@ -1069,10 +1471,10 @@ export async function terminateOwnedProcesses(
   if (state.mismatched.length > 0) {
     fail('owned process PID identity or argv changed before cleanup');
   }
-  const initial = state.exact;
+  const initial = Object.freeze([...state.live, ...state.terminal]);
   if (initial.length === 0) return Object.freeze([]);
   signalFreshMatches(
-    initial,
+    state.live,
     'SIGTERM',
     'owned process PID identity or argv changed before SIGTERM',
   );
@@ -1084,17 +1486,17 @@ export async function terminateOwnedProcesses(
     if (state.mismatched.length > 0) {
       fail('owned process PID identity or argv changed during graceful cleanup');
     }
-    remaining = state.exact;
+    remaining = [...state.live, ...state.terminal];
     if (remaining.length === 0) return Object.freeze(initial);
   }
   state = matching();
   if (state.mismatched.length > 0) {
     fail('owned process PID identity or argv changed before SIGKILL');
   }
-  remaining = state.exact;
+  remaining = [...state.live, ...state.terminal];
   if (remaining.length === 0) return Object.freeze(initial);
   signalFreshMatches(
-    remaining,
+    state.live,
     'SIGKILL',
     'owned process PID identity or argv changed before SIGKILL',
   );
@@ -1105,8 +1507,11 @@ export async function terminateOwnedProcesses(
     if (state.mismatched.length > 0) {
       fail('owned process PID identity or argv changed during forced cleanup');
     }
-    remaining = state.exact;
+    remaining = [...state.live, ...state.terminal];
     if (remaining.length === 0) return Object.freeze(initial);
+  }
+  if (state.terminal.length > 0) {
+    fail('run-owned terminal processes survived bounded cleanup');
   }
   fail('run-owned cwd processes survived forced cleanup');
 }
@@ -1190,13 +1595,13 @@ export async function runCommand({
     if (stopRequested) return;
     stopRequested = true;
     if (validProcessGroup) {
-      signalProcessGroup(child, processGroupId, 'SIGTERM');
+      signalTrustedCommandChild(child, processGroupId, 'SIGTERM');
     } else {
       child.kill('SIGKILL');
       return;
     }
     forceTimer = setTimeout(
-      () => signalProcessGroup(child, processGroupId, 'SIGKILL'),
+      () => signalTrustedCommandChild(child, processGroupId, 'SIGKILL'),
       gracefulStopMs,
     );
     forceTimer.unref();
@@ -1217,7 +1622,7 @@ export async function runCommand({
   });
   try {
     registerOwnedChildProcess(child, {
-      detached: process.platform !== 'win32',
+      detached: process.platform === 'darwin',
     });
     if (!validProcessGroup) {
       fail(`command ${id} did not receive a valid process-group identity`);
@@ -1242,14 +1647,37 @@ export async function runCommand({
     outcome = await outcomePromise;
   } catch (error) {
     requestStop();
+    if (process.platform === 'linux') {
+      const closeBudget =
+        gracefulStopMs + Math.max(250, Math.min(2_000, gracefulStopMs));
+      if (!(await waitForTrustedChildClose(child, closeBudget))) {
+        try {
+          signalTrustedCommandChild(child, processGroupId, 'SIGKILL');
+          await waitForTrustedChildClose(
+            child,
+            Math.max(250, Math.min(2_000, gracefulStopMs)),
+          );
+        } catch {
+          // Preserve the child-process error; the ledger remains authoritative.
+        }
+      }
+    }
     try {
       for (const entry of await stopProcessClosureMonitor(processMonitor)) {
-        if (!processLedger.has(entry.pid)) processLedger.set(entry.pid, entry);
+        const known = processLedger.get(entry.pid);
+        processLedger.set(
+          entry.pid,
+          known ? mergeOwnedProcessRecord(known, entry) : entry,
+        );
       }
     } catch {
       // Preserve the child-process error while retaining fail-closed cleanup.
     }
-    if (validProcessGroup && processGroupExists(processGroupId)) {
+    if (
+      process.platform !== 'linux' &&
+      validProcessGroup &&
+      processGroupExists(processGroupId)
+    ) {
       try {
         await terminateProcessGroup(child, processGroupId, gracefulStopMs);
       } catch {
@@ -1285,22 +1713,26 @@ export async function runCommand({
   try {
     for (const entry of await stopProcessClosureMonitor(processMonitor)) {
       const known = processLedger.get(entry.pid);
-      if (known && !sameOwnedProcess(known, entry)) {
-        fail(`process ${entry.pid} identity changed in worker closure evidence`);
-      }
-      if (!known) processLedger.set(entry.pid, Object.freeze(entry));
+      processLedger.set(
+        entry.pid,
+        known
+          ? mergeOwnedProcessRecord(known, entry)
+          : Object.freeze(entry),
+      );
     }
   } catch (error) {
     ledgerFailure ??= error;
   }
   let descendantResidue = false;
-  try {
-    descendantResidue = processGroupExists(processGroupId);
-    if (descendantResidue) {
-      await terminateProcessGroup(child, processGroupId, gracefulStopMs);
+  if (process.platform !== 'linux') {
+    try {
+      descendantResidue = processGroupExists(processGroupId);
+      if (descendantResidue) {
+        await terminateProcessGroup(child, processGroupId, gracefulStopMs);
+      }
+    } catch (error) {
+      ledgerFailure ??= error;
     }
-  } catch (error) {
-    ledgerFailure ??= error;
   }
   let ownedCwdResidue = [];
   try {
@@ -1311,55 +1743,34 @@ export async function runCommand({
   } catch (error) {
     ledgerFailure ??= error;
   }
-  let terminalByPid = null;
-  try {
-    terminalByPid = new Map(
-      snapshotHostProcessInventory(processInventoryOptions).entries.map(
-        (entry) => [entry.pid, entry],
-      ),
-    );
-  } catch (error) {
-    ledgerFailure ??= error;
-  }
   for (const entry of ownedCwdResidue) {
     const known = processLedger.get(entry.pid);
-    if (known && !sameOwnedProcess(known, entry)) {
-      ledgerFailure ??= new CommandError(
-        `process ${entry.pid} identity changed in owned-cwd evidence`,
-      );
+    try {
+      if (known) {
+        processLedger.set(
+          entry.pid,
+          mergeOwnedProcessRecord(known, entry),
+        );
+      } else {
+        processLedger.set(entry.pid, entry);
+      }
+    } catch (error) {
+      ledgerFailure ??= error;
       continue;
     }
-    if (terminalByPid !== null) {
-      const current = terminalByPid.get(entry.pid);
-      if (!current) continue;
-      if (!sameOwnedProcess(entry, current)) {
-        ledgerFailure ??= new CommandError(
-          `process ${entry.pid} identity changed in owned-cwd evidence`,
-        );
-        continue;
-      }
-    }
-    processLedger.set(entry.pid, entry);
   }
-  const ledgerResidue = [];
-  for (const entry of processLedger.values()) {
-    if (entry.pid === processGroupId) continue;
-    if (terminalByPid !== null) {
-      const current = terminalByPid.get(entry.pid);
-      if (!current) continue;
-      if (!sameOwnedProcess(entry, current)) {
-        ledgerFailure ??= new CommandError(
-          `process ${entry.pid} identity changed before terminal cleanup`,
-        );
-        continue;
-      }
-    }
-    ledgerResidue.push(entry);
-  }
+  const ledgerResidue = [...processLedger.values()].filter(
+    (entry) => entry.pid !== processGroupId,
+  );
+  let initiallyPresentLedgerResidue = [];
   try {
-    await terminateOwnedProcesses(ledgerResidue, gracefulStopMs, {
-      inventoryOptions: processInventoryOptions,
-    });
+    initiallyPresentLedgerResidue = await terminateOwnedProcesses(
+      ledgerResidue,
+      gracefulStopMs,
+      {
+        inventoryOptions: processInventoryOptions,
+      },
+    );
   } catch (error) {
     ledgerFailure ??= error;
   }
@@ -1398,7 +1809,7 @@ export async function runCommand({
       result,
     );
   }
-  if (descendantResidue || ledgerResidue.length > 0) {
+  if (descendantResidue || initiallyPresentLedgerResidue.length > 0) {
     throw new CommandError(
       `command ${id} left descendant processes in its owned process closure`,
       result,

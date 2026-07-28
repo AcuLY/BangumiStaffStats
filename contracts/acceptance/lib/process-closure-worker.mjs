@@ -1,8 +1,7 @@
 import { parentPort, workerData } from 'node:worker_threads';
 
 import {
-  sameProcessArguments,
-  sameProcessIdentity,
+  reconcileProcessClosure,
   snapshotHostProcessInventory,
 } from './runner.mjs';
 
@@ -28,13 +27,6 @@ let timer = null;
 let failure = null;
 const ledger = new Map();
 
-function sameOwnedProcess(left, right) {
-  return (
-    sameProcessIdentity(left, right) &&
-    sameProcessArguments(left, right)
-  );
-}
-
 function inventory() {
   return snapshotHostProcessInventory({
     ...configuredInventoryOptions,
@@ -48,30 +40,7 @@ function inventory() {
 function poll() {
   if (processGroupId === null) return;
   const entries = inventory();
-  const byPid = new Map(entries.map((entry) => [entry.pid, entry]));
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const entry of entries) {
-      const known = ledger.get(entry.pid);
-      if (known) {
-        if (!sameOwnedProcess(known, entry)) {
-          throw new Error(
-            `process ${entry.pid} identity changed in the worker closure`,
-          );
-        }
-        continue;
-      }
-      const parent = ledger.get(entry.parentPid);
-      if (
-        entry.processGroupId === processGroupId ||
-        (parent && sameOwnedProcess(parent, byPid.get(entry.parentPid)))
-      ) {
-        ledger.set(entry.pid, entry);
-        changed = true;
-      }
-    }
-  }
+  reconcileProcessClosure(ledger, processGroupId, entries);
 }
 
 function stopPolling() {
