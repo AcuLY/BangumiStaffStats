@@ -1,0 +1,383 @@
+{
+  "$id": "https://bangumi-staff-stats.invalid/operations/authorization-input-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "acceptanceControl": {
+      "additionalProperties": false,
+      "properties": {
+        "archiveLifecycleCommit": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "formalResultPresent": {
+          "const": false,
+          "type": "boolean"
+        },
+        "formalVerdictPresent": {
+          "const": false,
+          "type": "boolean"
+        },
+        "implementationRevision": {
+          "format": "git-oid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "archiveLifecycleCommit",
+        "formalResultPresent",
+        "formalVerdictPresent",
+        "implementationRevision"
+      ],
+      "type": "object"
+    },
+    "actionsEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "conclusion": {
+          "const": "success",
+          "type": "string"
+        },
+        "headRevision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "headTree": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "runId": {
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conclusion",
+        "headRevision",
+        "headTree",
+        "runId"
+      ],
+      "type": "object"
+    },
+    "applicationVersion": {
+      "const": "v0.1.0",
+      "type": "string"
+    },
+    "authorities": {
+      "additionalProperties": false,
+      "properties": {
+        "buildDefinitions": {
+          "items": {
+            "$ref": "#/$defs/pathDigest"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "contracts": {
+          "items": {
+            "$ref": "#/$defs/pathDigest"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "priorDevelopmentArtifacts": {
+          "additionalProperties": false,
+          "properties": {
+            "reusePolicy": {
+              "const": "ephemeral-ci-output-is-not-a-reusable-operations-input",
+              "type": "string"
+            },
+            "status": {
+              "const": "not-materialized-for-authorized-closure",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reusePolicy",
+            "status"
+          ],
+          "type": "object"
+        },
+        "toolchains": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "identityDigest": {
+                "format": "sha256",
+                "type": "string"
+              },
+              "name": {
+                "format": "bounded-identifier",
+                "type": "string"
+              },
+              "version": {
+                "format": "bounded-identifier",
+                "type": "string"
+              }
+            },
+            "required": [
+              "identityDigest",
+              "name",
+              "version"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "buildDefinitions",
+        "contracts",
+        "priorDevelopmentArtifacts",
+        "toolchains"
+      ],
+      "type": "object"
+    },
+    "frozenProduct": {
+      "$ref": "#/$defs/gitIdentity"
+    },
+    "lifecycleStatus": {
+      "const": "development-acceptance-closed-by-authorized-ci-and-remote-evidence",
+      "type": "string"
+    },
+    "operationsBase": {
+      "$ref": "#/$defs/gitIdentity"
+    },
+    "remoteEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "audit": {
+          "additionalProperties": false,
+          "properties": {
+            "p0Findings": {
+              "const": 0,
+              "type": "integer"
+            },
+            "p1Findings": {
+              "const": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "p0Findings",
+            "p1Findings"
+          ],
+          "type": "object"
+        },
+        "cleanup": {
+          "additionalProperties": false,
+          "properties": {
+            "buildCacheBytesAfter": {
+              "const": 0,
+              "type": "integer"
+            },
+            "legacyResourceDriftCount": {
+              "const": 0,
+              "type": "integer"
+            },
+            "temporarySourceArchiveRemoved": {
+              "const": true,
+              "type": "boolean"
+            },
+            "validationRootRemoved": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "buildCacheBytesAfter",
+            "legacyResourceDriftCount",
+            "temporarySourceArchiveRemoved",
+            "validationRootRemoved"
+          ],
+          "type": "object"
+        },
+        "exceptions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "classification": {
+                "const": "platform-specific-process-identity",
+                "type": "string"
+              },
+              "expectedPlatform": {
+                "const": "darwin",
+                "type": "string"
+              },
+              "id": {
+                "format": "bounded-identifier",
+                "type": "string"
+              },
+              "observedPlatform": {
+                "const": "linux",
+                "type": "string"
+              },
+              "rationale": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "classification",
+              "expectedPlatform",
+              "id",
+              "observedPlatform",
+              "rationale"
+            ],
+            "type": "object"
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "type": "array"
+        },
+        "runtime": {
+          "additionalProperties": false,
+          "properties": {
+            "architecture": {
+              "const": "amd64",
+              "type": "string"
+            },
+            "nodeVersion": {
+              "const": "24.18.0",
+              "type": "string"
+            },
+            "npmVersion": {
+              "const": "11.16.0",
+              "type": "string"
+            },
+            "platform": {
+              "const": "linux",
+              "type": "string"
+            }
+          },
+          "required": [
+            "architecture",
+            "nodeVersion",
+            "npmVersion",
+            "platform"
+          ],
+          "type": "object"
+        },
+        "sourceArchiveSha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "supervisorTests": {
+          "additionalProperties": false,
+          "properties": {
+            "passed": {
+              "const": 21,
+              "type": "integer"
+            },
+            "total": {
+              "const": 21,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "passed",
+            "total"
+          ],
+          "type": "object"
+        },
+        "targetedTests": {
+          "additionalProperties": false,
+          "properties": {
+            "passed": {
+              "const": 82,
+              "type": "integer"
+            },
+            "total": {
+              "const": 83,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "passed",
+            "total"
+          ],
+          "type": "object"
+        },
+        "unexecutedFormalCells": {
+          "items": {
+            "format": "bounded-identifier",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "audit",
+        "cleanup",
+        "exceptions",
+        "runtime",
+        "sourceArchiveSha256",
+        "supervisorTests",
+        "targetedTests",
+        "unexecutedFormalCells"
+      ],
+      "type": "object"
+    },
+    "schemaVersion": {
+      "const": "operations-authorization-input-v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "acceptanceControl",
+    "actionsEvidence",
+    "applicationVersion",
+    "authorities",
+    "frozenProduct",
+    "lifecycleStatus",
+    "operationsBase",
+    "remoteEvidence",
+    "schemaVersion"
+  ],
+  "type": "object",
+  "$defs": {
+    "gitIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "tree": {
+          "format": "git-oid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "revision",
+        "tree"
+      ],
+      "type": "object"
+    },
+    "pathDigest": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "format": "safe-relative-path",
+          "type": "string"
+        },
+        "sha256": {
+          "format": "sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    }
+  }
+}

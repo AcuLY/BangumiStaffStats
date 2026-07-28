@@ -1,0 +1,36 @@
+{
+  "name": "@bangumi-staff-stats/operations",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "npm@11.16.0",
+  "engines": {
+    "node": "24.18.0",
+    "npm": "11.16.0"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 test/helpers/*.test.mjs test/release/*.test.mjs test/runtime/*.test.mjs test/validation/*.test.mjs",
+    "test:foundation": "node --test --test-concurrency=1 test/helpers/*.test.mjs",
+    "test:release": "node --test --test-concurrency=1 test/release/*.test.mjs",
+    "test:runtime": "node --test --test-concurrency=1 test/runtime/*.test.mjs",
+    "test:validation": "node --test --test-concurrency=1 test/validation/*.test.mjs",
+    "test:remote-fixtures": "node --test --test-concurrency=1 test/validation/remote-*.test.mjs",
+    "check": "npm_config_ignore_scripts=true npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false npm run check:dependencies && npm_config_ignore_scripts=true npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false npm run test && npm_config_ignore_scripts=true npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false npm run check:release-schemas && npm_config_ignore_scripts=true npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false npm run check:workflows && npm_config_ignore_scripts=true npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false npm run check:compose && npm_config_ignore_scripts=true npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false npm run check:host-templates && npm_config_ignore_scripts=true npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false npm run check:secrets && npm_config_ignore_scripts=true npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false npm run check:validation-schemas",
+    "check:dependencies": "node test/helpers/check-dependencies.mjs",
+    "check:release-schemas": "node release/check-release-schemas.mjs",
+    "check:workflows": "node release/check-workflows.mjs",
+    "check:compose": "node bin/check-compose.mjs",
+    "check:host-templates": "node bin/check-host-templates.mjs",
+    "check:secrets": "node bin/check-secrets.mjs",
+    "check:validation-schemas": "node validation/check-validation-schemas.mjs",
+    "build:amd64": "node release/build-amd64.mjs",
+    "verify:candidate": "node release/verify-candidate.mjs",
+    "preflight:myserver": "node validation/preflight-myserver.mjs",
+    "validate:myserver": "node validation/validate-myserver.mjs"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "yaml": "2.9.0"
+  }
+}

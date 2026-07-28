@@ -1,0 +1,40 @@
+{
+  "$id": "https://bangumi-staff-stats.invalid/operations/foundation-boundaries-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "absolutePath": {
+      "format": "absolute-posix-path",
+      "type": "string"
+    },
+    "gitOid": {
+      "format": "git-oid",
+      "type": "string"
+    },
+    "imageReference": {
+      "format": "container-image-reference",
+      "type": "string"
+    },
+    "relativePath": {
+      "format": "safe-relative-path",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "foundation-boundaries-v1",
+      "type": "string"
+    },
+    "sha256": {
+      "format": "sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "absolutePath",
+    "gitOid",
+    "imageReference",
+    "relativePath",
+    "schemaVersion",
+    "sha256"
+  ],
+  "type": "object"
+}
