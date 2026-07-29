@@ -1,12 +1,15 @@
 ## Context
 
-The product-bearing implementation is fixed at
-`bd3197d639a32831f3fbcfab698cc387393d2928`; Development and the single
-`linux/amd64` operations bundle passed in Actions run `30426027299`, and that
-bundle already passed isolated validation on `myserver`. Production activation
-was intentionally deferred. The user has now authorized it and expanded the
-host from 3.57 GiB to 7.5 GiB RAM; the new boot currently exposes about
-6.0 GiB available.
+The initial product-bearing bundle
+`bd3197d639a32831f3fbcfab698cc387393d2928` is already deployed privately at
+`/srv/bgmss-v2`; its API/Prometheus/catalog are healthy on loopback. The exact
+legacy loader is stopped while the legacy serving path remains public and
+healthy. Updater attempt `72f6dc91-2738-4388-9f0b-a9d7a3d388c7` failed safely
+with `HTTPS_REQUEST_FAILED`, published no version, and left the minimal fixture
+active. The explicit-proxy implementation is accepted at A2
+`7d2aa05853e55499a35d0afd9f6e4cb2dd3be17a`; replacement artifact source B2
+`016160f7a63d68639a50e226c052fe75d5888f5f` passed both jobs in run
+`30444069918`.
 
 The legacy `bgmss` API/MySQL/Redis serving path must remain running; legacy
 loader container
@@ -17,13 +20,13 @@ are excluded from both writable scope and acceptance probes.
 
 | Field | Declaration |
 |---|---|
-| Status | Proposal and design complete; apply pending strict validation and main-agent approval. |
+| Status | Partial private activation complete; exact proxy-artifact recovery is specified and awaits amended-change validation, review, commit, and push. |
 | Owner | Main agent owns decisions/spec/audit/acceptance. One production-deployment subagent owns the exact remote steps. |
-| Writable paths | Exact repository, local transfer, and `myserver` paths/objects in the proposal and delta spec, including both fixed incoming roots, only the running-to-stopped state of legacy loader ID `84d7ca5dcf10b5aae2eb44bf942f2730c3a155ae771aec57946ddfea1eff2bc9` after its labels and protected fields still match baseline, and the Nginx temporary path. |
-| Read-only protected inputs | Product/operations implementation, legacy project/root and all its state except the exact loader running-state transition; loader image/labels/policy/mounts/config/data; TLS material; unrelated host state; and every undeclared object. |
-| Deletion complement | No protected object; only exact new-project stop/removal is allowed on failure, with the production root preserved. |
-| Mutable refs | OpenSpec/Git lifecycle, new runtime refs, running-to-stopped state of exact legacy-loader ID `84d7ca5dcf10b5aae2eb44bf942f2730c3a155ae771aec57946ddfea1eff2bc9`, exact Nginx active file/backup, project `bgmss-v2`, and new timer links. |
-| Consumes | Exact admitted bundle, expanded host, existing TLS vhost, product endpoints, and pinned Prometheus image. |
+| Writable paths | Exact repository, replacement local transfer root, and `myserver` paths/objects in the proposal and delta spec, including existing root transactions, new incoming root, three closed runtime definitions, and the Nginx temporary path. |
+| Read-only protected inputs | Product/operations implementation outside the closed inventory; legacy project/root and every field including the exact stopped loader state; proxy/network lifecycle/config; TLS material; unrelated host state; and every undeclared object. |
+| Deletion complement | No protected object and no removal of the existing `bgmss-v2` project/root. Recovery failure restores the historical application/env/operations state; Nginx failure restores the exact backup. |
+| Mutable refs | OpenSpec/Git lifecycle, runtime refs/project containers only under the existing transaction, exact Nginx active file/backup, and new timer links. |
+| Consumes | Historical private baseline plus exact admitted replacement artifact `8721121158`, existing `proxy-net`/`myserver-proxy:7897`, expanded host, existing TLS vhost, product endpoints, and pinned Prometheus image. |
 | Produces | Live new frontend/API, real Archive, metrics/logging/update timer, and exact legacy traffic rollback. |
 | Dependencies | Reboot/capacity gate → artifact gate → private deploy → real Archive → private checks → host templates → Nginx cutover → public/legacy checks. |
 | Deliverables | Proposal deliverables only. |
@@ -54,13 +57,37 @@ No live-host state writes back into repository or product owners.
 
 ## Decisions
 
-### 1. Reuse the exact green Actions artifact
+### 1. Upgrade only from exact green Actions artifacts
 
-The deployment downloads run `30426027299` and admits its exact artifact rather
-than rebuilding locally or on `myserver`. This preserves the already verified
-source/platform/checksum binding and avoids host toolchain drift. If the
-artifact expires or its identity differs, apply stops; a same-revision Actions
-rerun is required rather than substituting another build.
+The initial private deployment used run `30426027299`/artifact `8713954047`.
+Recovery admits only run `30444069918`, artifact `8721121158`, name
+`operations-preview-016160f7a63d68639a50e226c052fe75d5888f5f`, source
+`016160f7a63d68639a50e226c052fe75d5888f5f`, tree
+`d9217a277e587fbc7ab32a477a7b4241bcd77c81`, and `linux/amd64`. It is downloaded
+to `/tmp/bgmss-production-artifact-30444069918`, then transferred only to
+`/srv/bgmss-v2/incoming/run-30444069918`; no local or host rebuild is allowed.
+If identity, closed inventory, or checksums differ, recovery stops.
+
+The bundle intentionally excludes operations definitions. Recovery therefore
+admits only this closed, separately transferred runtime inventory:
+
+| Repository path | Git mode / blob | SHA-256 | Host target / mode |
+|---|---|---|---|
+| `operations/bin/deploy` | `100755` / `9adeb63e2398eb1f5ce52ea176a67b41c0672a42` | `aa4b519d452be3aa16a9d1bdef1615f99039c6f148dd1fe7b4b483e2c33adf94` | `/srv/bgmss-v2/operations/bin/deploy` / `0555` |
+| `operations/lib/common.sh` | `100644` / `0a0a95ab3ecbd98f6c2015e647fdad424626df7d` | `6d0c7df4c98dba7ad0af3756cba9166ae330ae5282a08b5fb9d414ddae249f8a` | `/srv/bgmss-v2/operations/lib/common.sh` / `0444` |
+| `operations/compose.updater-proxy.yaml` | `100644` / `0570c3bc02a9883dd44b8ce7c52a1dd26f009200` | `6a1c65dbe7dee0701a3ad697d3a6b9dccdc89fe6a6e11ff3c62671f79fdc7dfa` | `/srv/bgmss-v2/compose/compose.updater-proxy.yaml` / `0644` |
+
+Existing `deploy` and `common.sh` bytes are copied to an identity-bound rollback
+directory before replacement. A failed candidate restores them and removes
+only the newly introduced overlay.
+
+The historical rollback identity is closed as follows:
+
+| Historical path/state | Git mode / blob at `bd3197d…` | SHA-256 | Host mode |
+|---|---|---|---|
+| `operations/bin/deploy` | `100755` / `b477edc7e6a10eb15f299b93134e4f5f99479176` | `43892f9fde8b06439f5e013c0749f96f40c40a111228f8ac3a155db5d3f5e825` | `0555` |
+| `operations/lib/common.sh` | `100644` / `5183f264cbf99023d955ecfc970602a40bdcede5` | `2d963d890aa0154c9592041f77dd9fb620c739f87d3093cd9ffd7281b9a37320` | `0444` |
+| `operations/compose.updater-proxy.yaml` | absent | absent | absent |
 
 ### 2. Keep production isolated from the legacy stack
 
@@ -68,19 +95,17 @@ The new topology uses `/srv/bgmss-v2`, project/network prefix `bgmss-v2`, and
 loopback ports `18080`/`19090`. It mounts no legacy path or volume. The expanded
 memory gate provides room for both stacks and the bounded updater.
 
-The post-reboot legacy loader is not reaching its normal hourly sleep: it fails
-on a casts foreign-key error and is immediately restarted by
-`unless-stopped`. Running the new updater concurrently would violate the
-serialization and CPU assumptions. The user subsequently authorized stopping
-this background updater because the old serving stack will soon be retired.
-Apply therefore re-inspects exact loader container ID
-`84d7ca5dcf10b5aae2eb44bf942f2730c3a155ae771aec57946ddfea1eff2bc9`,
-requires it to still be running with project `bgmss`/service `loader` labels
-and all protected fields equal to the recorded baseline, stops only that
-literal ID, and verifies the legacy API/MySQL/Redis serving path remains
-healthy. The same container remains present and stopped with its
-`unless-stopped` policy; its bytes, mounts, configuration, and data are not
-changed, and its application error is not repaired here.
+The post-reboot legacy loader was not reaching its normal hourly sleep: it
+failed on a casts foreign-key error and was immediately restarted by
+`unless-stopped`. The user authorized stopping this background updater, and
+the completed historical step stopped exact container ID
+`84d7ca5dcf10b5aae2eb44bf942f2730c3a155ae771aec57946ddfea1eff2bc9`
+after its project/service labels and protected fields matched the recorded
+baseline. Recovery now requires that same container to remain present and
+stopped with unchanged identity, `unless-stopped` policy, bytes, mounts,
+configuration, and data while the legacy API/MySQL/Redis serving path remains
+healthy. This change has no further write authority over the loader and does
+not repair its application error.
 
 ### 3. Separate private bootstrap from traffic eligibility
 
@@ -93,9 +118,14 @@ first `previous.json` can refer to the fixture, the old stack—not
 creates a second production data version.
 
 Alternative rejected: serving the fixture temporarily, because it would expose
-incomplete data. Alternative rejected: changing updater code now, because the
-retained old stack already provides the safe first-release rollback without
-changing accepted product bytes.
+incomplete data. The first direct attempt proved transport resolution was
+required, so the separately reviewed proxy change adds only explicit transport:
+release env selects mode `proxy`, URL `http://myserver-proxy:7897`, and existing
+external network `proxy-net`; only updater joins it. API and Prometheus remain
+closed. Preflight is limited to read-only proxy/network identity and listener
+inspection plus static Compose projection; it creates no probe container and
+makes no extra acquisition request. The single production updater retry is the
+only live CONNECT/destination-TLS/publication attempt.
 
 ### 4. Patch one existing TLS vhost with an exact backup
 
@@ -134,9 +164,9 @@ tracing, alert-routing systems, and custom proof controllers remain absent.
 - **The real updater may take time or fail upstream** → keep all public traffic
   on the old serving stack and leave the private candidate available for
   diagnosis.
-- **The legacy loader has no idle window** → stop only its captured container
-  under explicit user authorization, retain the same identity/policy in
-  stopped state, and verify old serving health before any later action.
+- **The legacy loader had no idle window** → retain the already stopped captured
+  container with the same identity/policy and verify old serving health before
+  every later action.
 - **The first new-stack data rollback target is the fixture** → forbid that
   production rollback and restore traffic to the still-running legacy stack.
 - **Nginx editing can affect unrelated routes** → exact backup, narrow
@@ -151,20 +181,18 @@ tracing, alert-routing systems, and custom proof controllers remain absent.
 
 ## Migration Plan
 
-1. Strict-validate and approve this change.
-2. Record the post-reboot host, legacy, Nginx hash/content markers, exact byte
-   capacity, path/project/port/unit/logrotate, and known-failure baseline; stop
-   on drift.
-3. Download and verify artifact ID `8713954047` at exact absent local
-   `/tmp/bgmss-production-artifact-30426027299`, create
-   `/srv/bgmss-v2/incoming/run-30426027299`, and transfer only there.
-4. Create `/srv/bgmss-v2`, install reviewed operations bytes, seed the fixture,
-   and deploy privately.
-5. Re-inspect and stop only legacy loader ID
-   `84d7ca5dcf10b5aae2eb44bf942f2730c3a155ae771aec57946ddfea1eff2bc9`,
-   leave it stopped with unchanged identity/config/policy, verify old serving
-   health, then obtain one non-minimal active Archive and complete private
-   health/metrics/logging acceptance.
+1. Historical completed steps: strict validation; post-reboot/admission
+   preflight; run `30426027299` transfer; private baseline deployment; exact
+   legacy-loader stop; and one safe failed updater attempt with no publication.
+2. Strict-validate/review this recovery amendment, synchronize/archive the
+   proxy change, commit/push, and require the remote branch to match.
+3. Re-preflight the exact historical current release, health, stopped loader,
+   free/collision paths, proxy identity/connectivity, and target-byte hashes.
+4. Admit/transfer replacement artifact `8721121158` and the closed three-file
+   operations inventory, preserving prior operations bytes for rollback.
+5. Transactionally deploy B2 with exact proxy URL/network, verify that only
+   updater receives them, then run exactly one updater retry and require one
+   non-minimal active Archive with observer agreement.
 6. Install/validate the systemd and logrotate configuration; leave global
    journald unchanged and enable—but do not start—the weekly timer.
 7. Create the exact Nginx backup, narrowly integrate the new frontend/API,

@@ -14,9 +14,42 @@ canonical, non-symlink output root and filesystem as `versions/`. One
 development writer per output root SHALL be a caller precondition until the
 deferred operations lock exists.
 
+Acquisition SHALL continue to use direct HTTPS and ignore every generic
+upper/lower-case HTTP, HTTPS, ALL, and NO proxy environment variable when
+`BGMSS_HTTPS_PROXY` is absent. When that dedicated input is present, it SHALL
+accept only one credential-free canonical `http://HOST:PORT` value of at most
+320 ASCII bytes. `HOST` SHALL be at most 253 lowercase ASCII DNS-label bytes,
+each label SHALL contain 1–63 lowercase letters/digits/hyphens without an edge
+hyphen, and `PORT` SHALL be canonical decimal `1..65535`; userinfo, trailing
+slash, path, query, fragment, defaulted/zero-padded port, IPv6 literal, and
+every other spelling SHALL be rejected. Invalid or empty configuration SHALL
+fail before staging or external network access and MAY write only sanitized
+lifecycle event/status evidence. Dedicated proxy mode SHALL not consult
+ambient bypass rules, including `NO_PROXY=*`, and SHALL use the value only as
+the HTTPS transport proxy. Approved destination and redirect hosts, normal
+destination TLS certificate/hostname verification, response bounds, digests,
+cancellation, and sanitized output SHALL remain identical. The proxy value
+SHALL NOT appear in events or errors.
+
 #### Scenario: Source identity or container is unsafe
 - **WHEN** status/origin/redirect/size/digest/commit/member set differs, a ZIP entry escapes/links/duplicates/exceeds bounds, or cancellation occurs
 - **THEN** the command SHALL return one sanitized stable failure, remove only its staging, and leave no final version
+
+#### Scenario: Dedicated proxy is valid
+- **WHEN** `BGMSS_HTTPS_PROXY` is one valid credential-free HTTP proxy URL and the proxy completes CONNECT to an approved HTTPS destination
+- **THEN** acquisition SHALL preserve destination TLS and every existing origin, redirect, response, identity, and publication gate
+
+#### Scenario: Proxy configuration is absent or invalid
+- **WHEN** the dedicated input is absent, empty, over 320 bytes, non-ASCII, noncanonical, malformed, credentialed, non-HTTP, contains an invalid host/port, or contains slash/path/query/fragment data
+- **THEN** absence SHALL retain direct mode while any present invalid value SHALL fail before staging or external network access without revealing the value except through sanitized lifecycle event/status evidence
+
+#### Scenario: Ambient proxy variables are present
+- **WHEN** generic upper/lower-case HTTP, HTTPS, ALL, or NO proxy variables exist without the dedicated input
+- **THEN** acquisition SHALL ignore them and retain the existing direct transport
+
+#### Scenario: Ambient bypass attempts to skip the dedicated proxy
+- **WHEN** the dedicated input is valid while `NO_PROXY`, `no_proxy`, or another generic bypass variable requests an approved destination be direct
+- **THEN** acquisition SHALL still use the dedicated proxy and preserve destination TLS and identity gates
 
 ### Requirement: Every source record SHALL be streamed and accounted
 

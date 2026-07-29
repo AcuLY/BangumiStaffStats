@@ -1,6 +1,6 @@
 | Field | Declaration |
 |---|---|
-| Status | Apply-ready only after strict validation and explicit zero-P0/P1 main-agent approval. |
+| Status | Completed and archived after delta sync, exact-head Actions acceptance, and activation handoff. |
 | Owner | Main agent: spec/audit/task state/Git/acceptance. One implementation subagent: exact updater and operations repository block. |
 | Writable paths | This change and exact proposal-declared updater/operations source, tests including `operations/test/updater-proxy.sh`, documentation, overlay, `operations/bin/build-bundle.sh`, and artifact-inventory paths. |
 | Read-only protected inputs | Every other repository path; all external repositories, hosts, proxies, production state, artifacts, and refs until separately authorized lifecycle steps. |
@@ -34,9 +34,9 @@
 ## 4. Main-agent candidate and Actions acceptance
 
 - [x] 4.1 Audit every implementation byte against both deltas, require zero P0/P1 findings, run strict OpenSpec/all-spec and diff/status checks, and narrowly create implementation commit A without changing the existing accepted-product pin.
-- [ ] 4.2 Change only the reviewed accepted-product revision in `operations/bin/build-bundle.sh` to exact implementation commit A, re-audit the guard, create artifact commit B, narrowly push both commits, and verify the remote branch equals B.
-- [ ] 4.3 Require green Development Actions for exact artifact commit B and admit exactly one new `linux/amd64` operations artifact with matching source/platform/closed inventory/checksums.
+- [x] 4.2 Create implementation A1 `25791670b38914c4d7d1e885df5d719c061acf50` and pin B1 `2ed66558f55ed13f16dcafedf61afd5797b512cb`; after run `30443632555` exposed only an untyped private-attribute assertion, create focused fix A2 `7d2aa05853e55499a35d0afd9f6e4cb2dd3be17a`, change only the accepted-product revision in final artifact commit B2 `016160f7a63d68639a50e226c052fe75d5888f5f`, narrowly push, and verify the remote branch equals B2.
+- [x] 4.3 Require and record green Development Actions run `30444069918` for exact B2 and admit the single `linux/amd64` artifact ID `8721121158`, name `operations-preview-016160f7a63d68639a50e226c052fe75d5888f5f`, size `63282540`, digest `sha256:dcbe316408344c80754cc0248fb924356c5f578d16bf8fe5f36ca34a2dee2ed8`, matching source/tree/platform/closed inventory/checksums.
 
 ## 5. Main-agent lifecycle
 
-- [ ] 5.1 Sync both deltas to main specs, archive this completed change, strict-validate all specs, narrowly commit/push the lifecycle, and amend `activate-single-host-production` with exact B/run/artifact plus a closed Git-blob/hash inventory for the separately transferred operations definitions (including the overlay) and the reviewed production proxy projection before any retry.
+- [x] 5.1 Sync both deltas to main specs, archive this completed change, strict-validate all specs, narrowly commit/push the lifecycle, and amend `activate-single-host-production` with exact B2/run/artifact plus a closed Git-blob/hash inventory for the separately transferred operations definitions (including the overlay) and the reviewed production proxy projection before any retry.

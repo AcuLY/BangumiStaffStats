@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | Optional updater proxy projection specified; repository apply pending. |
+| Status | Optional updater proxy projection implemented and accepted at A2/B2 with green exact-head Actions. |
 | Owner | Operations implementation owner; main agent specification/audit/acceptance. |
 | Writable paths | Operations paths/tests declared in the proposal and this delta. |
 | Read-only protected inputs | Product artifacts, host/proxy state, base API/Prometheus behavior, unrelated operations files, production, and every undeclared path. |

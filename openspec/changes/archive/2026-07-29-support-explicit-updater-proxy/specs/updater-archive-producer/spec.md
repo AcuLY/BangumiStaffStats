@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | Modified transport behavior specified; repository apply pending. |
+| Status | Modified transport behavior implemented and accepted at A2/B2 with green exact-head Actions. |
 | Owner | Updater implementation owner; main agent specification/audit/acceptance. |
 | Writable paths | Updater source/tests declared in the proposal and this delta. |
 | Read-only protected inputs | Contracts, source origin/redirect allowlists, content bounds/digests, data semantics, other components, host/proxy state, and every undeclared path. |

@@ -10,7 +10,7 @@ source identity or broaden production authority.
 
 | Field | Declaration |
 |---|---|
-| Status | Design complete; apply blocked until both delta specs, tasks, strict validation, and zero-P0/P1 main-agent approval complete. |
+| Status | Design implemented and accepted; repository and Actions gates are complete, with production application deferred to the activation change. |
 | Owner | Main agent owns design/spec/audit/acceptance. One implementation subagent owns the exact repository block. |
 | Writable paths | Exact paths declared in the proposal, plus this change's artifacts/task state. |
 | Read-only protected inputs | Product/contracts, backend/frontend, unrelated updater/operations behavior, `myserver`, the running proxy, production roots/services, and every undeclared repository path. |
@@ -18,9 +18,9 @@ source identity or broaden production authority.
 | Mutable refs | Change task state, implementation commit A, exact accepted-product pin commit B, and branch push. No host, deployment, release, or public ref. |
 | Consumes | Strict HTTPS client, one-shot producer request, release env, Compose base file, operations transaction/rollback, and read-only proxy topology evidence. |
 | Produces | Dedicated proxy input and optional tracked Compose overlay without new dependencies. |
-| Dependencies | Approved OpenSpec → repository apply → implementation commit A → `build-bundle.sh` pins exact A in commit B → green Actions/new bundle at B → activation change amendment → separately authorized production application. |
+| Dependencies | Approved OpenSpec → A1 `25791670b38914c4d7d1e885df5d719c061acf50` → B1 `2ed66558f55ed13f16dcafedf61afd5797b512cb` → failed run `30443632555` → focused typing fix A2 `7d2aa05853e55499a35d0afd9f6e4cb2dd3be17a` → final B2 `016160f7a63d68639a50e226c052fe75d5888f5f` → green run `30444069918`/artifact `8721121158` → activation amendment → separately authorized production application. |
 | Deliverables | Proposal deliverables only. |
-| Acceptance | Delta scenarios, existing updater/operations gates, full Development Actions, exact artifact inventory. |
+| Acceptance | Satisfied: delta scenarios, existing updater/operations gates, full Development Actions, and exact artifact inventory/checksums all passed at B2. |
 | Non-goals | Proposal non-goals only. |
 | Operations deferred | Proposal deferred items only. |
 | Stop/rollback conditions | Proposal stop/rollback conditions only. |
@@ -139,13 +139,18 @@ rejected: host TUN/NAT, because it adds privileged, opaque host state.
 ## Migration Plan
 
 1. Implement updater input/validation and operations overlay/release support
-   and complete the main-agent candidate audit.
-2. Create implementation commit A; then change only the reviewed
-   `operations/bin/build-bundle.sh` accepted-product revision to exact A and
-   create artifact commit B. Push B and require green Development Actions plus
-   a new exact `linux/amd64` operations artifact bound to B.
-3. Amend `activate-single-host-production` with exact B/run/artifact
-   and exact `proxy-net`/`myserver-proxy:7897` preflight.
+   and complete the main-agent candidate audit. Completed in A1
+   `25791670b38914c4d7d1e885df5d719c061acf50`.
+2. Pin A1 in B1 `2ed66558f55ed13f16dcafedf61afd5797b512cb`.
+   Run `30443632555` passed all pytest behavior but failed mypy because one
+   test inspected an untyped private standard-library attribute. A2
+   `7d2aa05853e55499a35d0afd9f6e4cb2dd3be17a` changed only that assertion and
+   B2 `016160f7a63d68639a50e226c052fe75d5888f5f` repinned the accepted product.
+   Run `30444069918` then passed both jobs and emitted artifact `8721121158`,
+   `operations-preview-016160f7a63d68639a50e226c052fe75d5888f5f`,
+   digest `sha256:dcbe316408344c80754cc0248fb924356c5f578d16bf8fe5f36ca34a2dee2ed8`.
+3. Amend `activate-single-host-production` with exact B2/run/artifact and exact
+   `proxy-net`/`http://myserver-proxy:7897` read-only preflight/projection.
 4. Deploy the new revision transactionally, verify the projected updater
    environment/network/TLS path, and permit one production updater retry.
 5. On deployment/projection failure, restore the previous release env,
