@@ -1,0 +1,123 @@
+name: operations-preview
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-bundle:
+    name: build one linux/amd64 operations bundle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out the candidate without stored credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Enforce static operations policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow=.github/workflows/operations-preview.yml
+          script=operations/bin/build-bundle.sh
+
+          bash -n "$script"
+          test "$(grep -Ec '^  workflow_dispatch:$' "$workflow")" -eq 1
+          ! head -n 8 "$workflow" | grep -Eq 'pull_request|push:|schedule:'
+          test "$(grep -Ec '^permissions:$' "$workflow")" -eq 1
+          test "$(grep -Ec '^  contents: read$' "$workflow")" -eq 1
+          test "$(grep -Ec '^  [a-z-]+: (read|write)$' "$workflow")" -eq 1
+
+          action_refs=(
+            'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+            'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
+            'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020'
+            'astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9'
+            'docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c'
+            'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
+          )
+          test "$(grep -Ec '^[[:space:]]+uses:' "$workflow")" -eq "${#action_refs[@]}"
+          for action_ref in "${action_refs[@]}"; do
+            test "$(grep -Fxc "        uses: $action_ref" "$workflow")" -eq 1
+          done
+
+          test "$(grep -Fc 'backend/build/build.sh' "$script")" -eq 1
+          test "$(grep -Fc 'updater/build/artifact.py" build' "$script")" -eq 1
+          test "$(grep -Ec '^  npm ci ' "$script")" -eq 1
+          test "$(grep -Ec '^  npm run build$' "$script")" -eq 1
+          test "$(grep -Ec '^  npm run check:artifact$' "$script")" -eq 1
+          test "$(grep -Fc 'expected_bundle_inventory=' "$script")" -eq 1
+          test "$(grep -Fc 'actual_bundle_inventory=' "$script")" -eq 1
+          test "$(grep -Fc 'assembled bundle inventory is not closed' "$script")" -eq 1
+
+          forbidden_authority='docker[[:space:]]+login|docker[[:space:]]+push'
+          forbidden_authority+='|gh[[:space:]]+rele''ase|kube''ctl|helm[[:space:]]'
+          forbidden_authority+='|secr''ets[.]|id-token:[[:space:]]+write'
+          ! grep -Eiq "$forbidden_authority" "$workflow" "$script"
+
+      - name: Install reviewed Go bootstrap
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: 1.26.4
+          check-latest: false
+          cache: false
+
+      - name: Install exact Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          check-latest: false
+
+      - name: Install exact npm
+        shell: bash
+        run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Install exact uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.11.32
+          enable-cache: false
+
+      - name: Create a local-only BuildKit builder
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+        with:
+          version: v0.34.1
+          driver-opts: image=docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368
+
+      - name: Prepare and verify exact toolchains
+        shell: bash
+        env:
+          GOMODCACHE: ${{ runner.temp }}/bgmss-operations-go-mod
+          GOTOOLCHAIN: go1.26.5+auto
+        run: |
+          set -euo pipefail
+          go version >/dev/null
+          node contracts/artifacts/bin/ci-toolchain-identity.mjs
+
+      - name: Build and assemble once
+        id: bundle
+        shell: bash
+        env:
+          GOTOOLCHAIN: go1.26.5+auto
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/operations-bundle.log"
+          operations/bin/build-bundle.sh | tee "$log"
+          mapfile -t roots < <(sed -n 's/^BUNDLE_ROOT=//p' "$log")
+          test "${#roots[@]}" -eq 1
+          test -d "${roots[0]}"
+          test ! -L "${roots[0]}"
+          printf 'bundle_root=%s\n' "${roots[0]}" >>"$GITHUB_OUTPUT"
+
+      - name: Upload the one-day bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: operations-preview-${{ github.sha }}
+          path: ${{ steps.bundle.outputs.bundle_root }}
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
