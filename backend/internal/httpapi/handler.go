@@ -45,17 +45,33 @@ type routeHandler struct {
 	coStar       coStarExecutor
 }
 
-// RuntimeObservability owns the HTTP registry and typed event sink while
-// keeping the application package dependent only on httpapi.
+// RuntimeObservability owns the HTTP registry, typed event sink, and configured
+// image client while keeping the application package dependent only on httpapi.
 type RuntimeObservability struct {
 	metrics *observability.Registry
 	events  *observability.EventSink
+	images  imageFetcher
 }
 
 // NewRuntimeObservability constructs process-scoped runtime instrumentation.
 func NewRuntimeObservability(eventWriter io.Writer) (*RuntimeObservability, error) {
+	return NewRuntimeObservabilityWithImageHTTPSProxy(eventWriter, nil)
+}
+
+// NewRuntimeObservabilityWithImageHTTPSProxy constructs process-scoped runtime
+// instrumentation and the image client before the process begins serving.
+// A nil proxy selects direct mode; a present empty or invalid value fails
+// without reflecting the value.
+func NewRuntimeObservabilityWithImageHTTPSProxy(
+	eventWriter io.Writer,
+	imageHTTPSProxy *string,
+) (*RuntimeObservability, error) {
 	if eventWriter == nil {
 		return nil, errors.New("httpapi: nil event writer")
+	}
+	images, err := imageproxy.NewClientWithHTTPSProxy(imageHTTPSProxy)
+	if err != nil {
+		return nil, errors.New("httpapi: invalid image proxy configuration")
 	}
 	info, err := releaseinfo.Current()
 	if err != nil {
@@ -71,6 +87,7 @@ func NewRuntimeObservability(eventWriter io.Writer) (*RuntimeObservability, erro
 	return &RuntimeObservability{
 		metrics: metrics,
 		events:  observability.NewEventSink(eventWriter),
+		images:  images,
 	}, nil
 }
 
@@ -185,7 +202,7 @@ func (r *RuntimeObservability) HandlerWithCoStarDependencies(
 	return newHandler(readiness, r.metrics, middlewareOptions{
 		requestTimeout: DefaultRequestTimeout,
 		metrics:        r.metrics,
-		images:         imageproxy.NewClient(),
+		images:         r.images,
 		events:         r.events,
 		catalogs:       catalogs,
 		rankings:       rankings,

@@ -22,9 +22,15 @@ const (
 	// MaxBodyBytes is the largest image body the proxy will stream.
 	MaxBodyBytes = 8 << 20
 
-	defaultTimeout     = 8 * time.Second
-	defaultConcurrency = 16
-	upstreamOrigin     = "https://api.bgm.tv"
+	defaultTimeout       = 8 * time.Second
+	defaultConcurrency   = 16
+	maxRedirectURLBytes  = 2048
+	maxHTTPSProxyBytes   = 320
+	upstreamOrigin       = "https://api.bgm.tv"
+	upstreamHost         = "api.bgm.tv"
+	imageHost            = "lain.bgm.tv"
+	defaultHTTPSPort     = "443"
+	proxyConfigurationID = "image proxy: invalid HTTPS proxy configuration"
 )
 
 // Resource is a closed Bangumi image resource collection.
@@ -104,6 +110,8 @@ var (
 	// ErrBodyTooLarge is returned by a response body before it can yield a byte
 	// beyond MaxBodyBytes.
 	ErrBodyTooLarge = errors.New("image proxy: body too large")
+
+	errInvalidHTTPSProxy = errors.New(proxyConfigurationID)
 )
 
 // Request contains only validated image identity and reviewed conditionals.
@@ -135,19 +143,44 @@ type Client struct {
 	permits    chan struct{}
 }
 
-// NewClient constructs the production client. The origin cannot be supplied
-// by a caller, environment proxy variables are ignored, and redirects are
-// never followed.
+// NewClient constructs the direct production client. The origin cannot be
+// supplied by a caller, environment proxy variables are ignored, and
+// redirects are never followed automatically.
 func NewClient() *Client {
+	client, err := NewClientWithHTTPSProxy(nil)
+	if err != nil {
+		panic(proxyConfigurationID)
+	}
+	return client
+}
+
+// NewClientWithHTTPSProxy constructs a production client using only an
+// explicitly supplied dedicated proxy value. A nil value selects direct mode;
+// a present empty or invalid value fails without reflecting the value.
+func NewClientWithHTTPSProxy(proxyValue *string) (*Client, error) {
+	proxyURL, err := parseHTTPSProxy(proxyValue)
+	if err != nil {
+		return nil, errInvalidHTTPSProxy
+	}
+
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.Proxy = nil
-	transport.DialContext = fixedOriginDialer{
-		resolver: net.DefaultResolver,
-		dialer: &net.Dialer{
-			Timeout:   defaultTimeout,
-			KeepAlive: 30 * time.Second,
-		},
-	}.DialContext
+	dialer := &net.Dialer{
+		Timeout:   defaultTimeout,
+		KeepAlive: 30 * time.Second,
+	}
+	if proxyURL == nil {
+		transport.Proxy = nil
+		transport.DialContext = fixedOriginDialer{
+			resolver: net.DefaultResolver,
+			dialer:   dialer,
+		}.DialContext
+	} else {
+		transport.Proxy = http.ProxyURL(proxyURL)
+		transport.DialContext = fixedProxyDialer{
+			address: proxyURL.Host,
+			dialer:  dialer,
+		}.DialContext
+	}
 	transport.DisableCompression = true
 	transport.MaxConnsPerHost = defaultConcurrency
 	transport.MaxIdleConnsPerHost = defaultConcurrency
@@ -164,7 +197,85 @@ func NewClient() *Client {
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
-	}, *origin, defaultTimeout, MaxBodyBytes, defaultConcurrency)
+	}, *origin, defaultTimeout, MaxBodyBytes, defaultConcurrency), nil
+}
+
+func parseHTTPSProxy(value *string) (*url.URL, error) {
+	if value == nil {
+		return nil, nil
+	}
+	raw := *value
+	if raw == "" || len(raw) > maxHTTPSProxyBytes || !strings.HasPrefix(raw, "http://") {
+		return nil, errInvalidHTTPSProxy
+	}
+	for index := range len(raw) {
+		if raw[index] > 0x7f {
+			return nil, errInvalidHTTPSProxy
+		}
+	}
+	authority := strings.TrimPrefix(raw, "http://")
+	if strings.Count(authority, ":") != 1 {
+		return nil, errInvalidHTTPSProxy
+	}
+	host, port, ok := strings.Cut(authority, ":")
+	if !ok || !validProxyHost(host) || !validProxyPort(port) {
+		return nil, errInvalidHTTPSProxy
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil ||
+		parsed.Scheme != "http" ||
+		parsed.Host != authority ||
+		parsed.Hostname() != host ||
+		parsed.Port() != port ||
+		parsed.User != nil ||
+		parsed.Path != "" ||
+		parsed.RawPath != "" ||
+		parsed.RawQuery != "" ||
+		parsed.ForceQuery ||
+		parsed.Fragment != "" ||
+		parsed.String() != raw {
+		return nil, errInvalidHTTPSProxy
+	}
+	return parsed, nil
+}
+
+func validProxyHost(host string) bool {
+	if host == "" || len(host) > 253 || strings.HasPrefix(host, ".") ||
+		strings.HasSuffix(host, ".") {
+		return false
+	}
+	for _, label := range strings.Split(host, ".") {
+		if len(label) == 0 || len(label) > 63 ||
+			!asciiLowerOrDigit(label[0]) ||
+			!asciiLowerOrDigit(label[len(label)-1]) {
+			return false
+		}
+		for index := 1; index < len(label)-1; index++ {
+			character := label[index]
+			if !asciiLowerOrDigit(character) && character != '-' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func asciiLowerOrDigit(character byte) bool {
+	return character >= 'a' && character <= 'z' ||
+		character >= '0' && character <= '9'
+}
+
+func validProxyPort(port string) bool {
+	if port == "" || len(port) > 5 || port[0] == '0' {
+		return false
+	}
+	for index := range len(port) {
+		if port[index] < '0' || port[index] > '9' {
+			return false
+		}
+	}
+	value, err := strconv.ParseUint(port, 10, 16)
+	return err == nil && value > 0
 }
 
 type netIPResolver interface {
@@ -188,7 +299,7 @@ func (d fixedOriginDialer) DialContext(ctx context.Context, network, address str
 		return nil, errors.New("image proxy: invalid network")
 	}
 	host, port, err := net.SplitHostPort(address)
-	if err != nil || host != "api.bgm.tv" || port != "443" {
+	if err != nil || !approvedUpstreamHost(host) || port != defaultHTTPSPort {
 		return nil, errors.New("image proxy: invalid dial target")
 	}
 	addresses, err := d.resolver.LookupNetIP(ctx, "ip", host)
@@ -218,6 +329,28 @@ func (d fixedOriginDialer) DialContext(ctx context.Context, network, address str
 		return nil, errors.New("image proxy: fixed origin has no public address")
 	}
 	return nil, errors.New("image proxy: fixed origin unavailable")
+}
+
+func approvedUpstreamHost(host string) bool {
+	return host == upstreamHost || host == imageHost
+}
+
+type fixedProxyDialer struct {
+	address string
+	dialer  contextDialer
+}
+
+func (d fixedProxyDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	if ctx == nil || d.address == "" || d.dialer == nil {
+		return nil, errors.New("image proxy: invalid fixed proxy dialer")
+	}
+	if network != "tcp" && network != "tcp4" && network != "tcp6" {
+		return nil, errors.New("image proxy: invalid proxy network")
+	}
+	if address != d.address {
+		return nil, errors.New("image proxy: invalid proxy dial target")
+	}
+	return d.dialer.DialContext(ctx, network, address)
 }
 
 func publicUpstreamAddress(address netip.Addr) bool {
@@ -300,17 +433,10 @@ func (c *Client) Fetch(ctx context.Context, request Request) (*Response, error) 
 	upstreamURL.RawQuery = "type=" + string(request.Type)
 	upstreamURL.Fragment = ""
 
-	upstreamRequest, err := http.NewRequestWithContext(requestContext, http.MethodGet, upstreamURL.String(), nil)
+	upstreamRequest, err := newUpstreamRequest(requestContext, upstreamURL, request)
 	if err != nil {
 		release()
 		return nil, proxyError(ErrorInvalid)
-	}
-	upstreamRequest.Header.Set("Accept", "image/avif,image/webp,image/png,image/jpeg,image/gif")
-	if request.IfNoneMatch != "" {
-		upstreamRequest.Header.Set("If-None-Match", request.IfNoneMatch)
-	}
-	if request.IfModifiedSince != "" {
-		upstreamRequest.Header.Set("If-Modified-Since", request.IfModifiedSince)
 	}
 
 	upstreamResponse, err := c.httpClient.Do(upstreamRequest)
@@ -321,6 +447,29 @@ func (c *Client) Fetch(ctx context.Context, request Request) (*Response, error) 
 	if upstreamResponse == nil || upstreamResponse.Body == nil {
 		release()
 		return nil, proxyError(ErrorProtocol)
+	}
+
+	if upstreamResponse.StatusCode == http.StatusFound {
+		redirectURL, redirectErr := reviewedRedirectURL(upstreamResponse)
+		_ = upstreamResponse.Body.Close()
+		if redirectErr != nil {
+			release()
+			return nil, proxyError(ErrorProtocol)
+		}
+		upstreamRequest, err = newUpstreamRequest(requestContext, *redirectURL, request)
+		if err != nil {
+			release()
+			return nil, proxyError(ErrorProtocol)
+		}
+		upstreamResponse, err = c.httpClient.Do(upstreamRequest)
+		if err != nil {
+			release()
+			return nil, classifyRequestError(ctx, requestContext, err)
+		}
+		if upstreamResponse == nil || upstreamResponse.Body == nil {
+			release()
+			return nil, proxyError(ErrorProtocol)
+		}
 	}
 
 	closeFailure := func(kind ErrorKind) (*Response, error) {
@@ -391,6 +540,61 @@ func (c *Client) Fetch(ctx context.Context, request Request) (*Response, error) 
 			release:   release,
 		},
 	}, nil
+}
+
+func newUpstreamRequest(
+	ctx context.Context,
+	target url.URL,
+	request Request,
+) (*http.Request, error) {
+	upstreamRequest, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		target.String(),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	upstreamRequest.Header.Set(
+		"Accept",
+		"image/avif,image/webp,image/png,image/jpeg,image/gif",
+	)
+	if request.IfNoneMatch != "" {
+		upstreamRequest.Header.Set("If-None-Match", request.IfNoneMatch)
+	}
+	if request.IfModifiedSince != "" {
+		upstreamRequest.Header.Set("If-Modified-Since", request.IfModifiedSince)
+	}
+	return upstreamRequest, nil
+}
+
+func reviewedRedirectURL(response *http.Response) (*url.URL, error) {
+	if response == nil || response.StatusCode != http.StatusFound {
+		return nil, errors.New("unreviewed image redirect")
+	}
+	locations := response.Header.Values("Location")
+	if len(locations) != 1 {
+		return nil, errors.New("unreviewed image redirect")
+	}
+	raw := locations[0]
+	if raw == "" || len(raw) > maxRedirectURLBytes ||
+		strings.ContainsAny(raw, "\r\n#") {
+		return nil, errors.New("unreviewed image redirect")
+	}
+	target, err := url.Parse(raw)
+	if err != nil ||
+		target.Scheme != "https" ||
+		target.Hostname() != imageHost ||
+		target.Host != imageHost && target.Host != imageHost+":"+defaultHTTPSPort ||
+		target.User != nil ||
+		target.Fragment != "" ||
+		target.Opaque != "" ||
+		target.Path == "" ||
+		!strings.HasPrefix(target.Path, "/") {
+		return nil, errors.New("unreviewed image redirect")
+	}
+	return target, nil
 }
 
 type readerCloser struct {

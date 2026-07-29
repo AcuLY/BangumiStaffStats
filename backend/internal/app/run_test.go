@@ -649,6 +649,23 @@ func TestRunListenerWithOptionsRejectsUnsafeUpdateStatusPath(t *testing.T) {
 	}
 }
 
+func TestRunListenerWithOptionsRejectsInvalidImageProxyBeforeServing(t *testing.T) {
+	proxy := "http://CALLER-CONTROLLED.invalid:0"
+	err := RunListenerWithOptions(
+		context.Background(),
+		nil,
+		"/unused",
+		RunOptions{ImageHTTPSProxy: &proxy},
+	)
+	if err == nil ||
+		!strings.Contains(err.Error(), "create runtime observability") ||
+		!strings.Contains(err.Error(), "invalid image proxy configuration") ||
+		strings.Contains(err.Error(), proxy) ||
+		strings.Contains(err.Error(), "CALLER-CONTROLLED") {
+		t.Fatalf("RunListenerWithOptions error = %v", err)
+	}
+}
+
 func networkDependencies(
 	state archiveRuntime,
 	runtimeObservability *httpapi.RuntimeObservability,

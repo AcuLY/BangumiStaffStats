@@ -52,11 +52,17 @@ The source must be a non-symlink regular file, is capped at 64 KiB, and never
 changes readiness or ordinary API behavior. Its `dataVersion`, error code,
 path, and content never become labels.
 
-The image route constructs only fixed `https://api.bgm.tv/v0/...` requests,
-ignores environment proxies, rejects redirects and arbitrary request headers,
-uses an independent timeout and concurrency pool, admits only reviewed image
-MIME values, and streams at most 8 MiB. It stores no image bytes and does not
-choose an image type for the frontend.
+The image route starts only at fixed `https://api.bgm.tv/v0/...` requests. It
+ignores generic `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and `NO_PROXY`
+settings; an optional `BGMSS_IMAGE_HTTPS_PROXY=http://HOST:PORT` selects one
+strictly validated canonical, credential-free dedicated egress proxy. A
+present empty, invalid, or noncanonical value fails startup without reflecting
+the value. The client manually accepts at most one exact `302` redirect to
+absolute `https://lain.bgm.tv/...` (default HTTPS port only) and rejects every
+other or second redirect. Both hops share one image-specific timeout and
+concurrency permit, arbitrary request headers remain excluded, only reviewed
+image MIME values are admitted, and at most 8 MiB is streamed. The backend
+stores no image bytes and does not choose an image type for the frontend.
 
 `GET /api/v1/catalog` projects the currently published immutable Archive Store
 into the generated `CatalogSuccessEnvelopeV1`. It performs fresh fixed reads,

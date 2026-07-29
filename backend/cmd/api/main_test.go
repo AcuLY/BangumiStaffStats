@@ -6,6 +6,26 @@ import (
 	"testing"
 )
 
+func TestRunOptionsPreservesDedicatedProxyPresence(t *testing.T) {
+	absent := runOptions("/status.json", "", false)
+	if absent.UpdateStatusPath != "/status.json" ||
+		absent.ImageHTTPSProxy != nil {
+		t.Fatalf("absent run options = %#v", absent)
+	}
+
+	presentEmpty := runOptions("", "", true)
+	if presentEmpty.ImageHTTPSProxy == nil ||
+		*presentEmpty.ImageHTTPSProxy != "" {
+		t.Fatalf("present-empty run options = %#v", presentEmpty)
+	}
+
+	present := runOptions("", "http://proxy.internal:7897", true)
+	if present.ImageHTTPSProxy == nil ||
+		*present.ImageHTTPSProxy != "http://proxy.internal:7897" {
+		t.Fatalf("present run options = %#v", present)
+	}
+}
+
 func TestParseCommandOptionsAcceptsBoundedListeners(t *testing.T) {
 	t.Parallel()
 

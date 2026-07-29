@@ -21,6 +21,7 @@ import (
 const (
 	defaultListenAddress           = "127.0.0.1:8080"
 	invalidCommandArgumentsMessage = "invalid command arguments"
+	imageHTTPSProxyEnvironment     = "BGMSS_IMAGE_HTTPS_PROXY"
 )
 
 var errInvalidCommandArguments = errors.New(invalidCommandArgumentsMessage)
@@ -114,6 +115,18 @@ func validateListenAddress(address string) error {
 	return nil
 }
 
+func runOptions(
+	updateStatusPath string,
+	imageHTTPSProxy string,
+	imageHTTPSProxyPresent bool,
+) app.RunOptions {
+	options := app.RunOptions{UpdateStatusPath: updateStatusPath}
+	if imageHTTPSProxyPresent {
+		options.ImageHTTPSProxy = &imageHTTPSProxy
+	}
+	return options
+}
+
 func main() {
 	options, err := parseCommandOptions(os.Args[1:])
 	if err != nil {
@@ -124,11 +137,18 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	imageHTTPSProxy, imageHTTPSProxyPresent := os.LookupEnv(
+		imageHTTPSProxyEnvironment,
+	)
 	if err := app.RunWithOptions(
 		ctx,
 		options.listenAddress,
 		options.archiveRoot,
-		app.RunOptions{UpdateStatusPath: options.updateStatusPath},
+		runOptions(
+			options.updateStatusPath,
+			imageHTTPSProxy,
+			imageHTTPSProxyPresent,
+		),
 	); err != nil && !errors.Is(err, context.Canceled) {
 		log.Printf("api stopped with an error: %v", err)
 		os.Exit(1)

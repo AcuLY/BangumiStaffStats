@@ -320,14 +320,22 @@ env \
   jq -e '
     .services.updater.environment.BGMSS_HTTPS_PROXY == "http://proxy.internal:7897"
     and ((.services.updater.networks | keys | sort) == ["backend","updater_proxy"])
-    and ((.services.api.networks | keys | sort) == ["backend"])
+    and (((.services.updater.environment // {})
+      | with_entries(select(.key | test("proxy"; "i")))
+      | keys) == ["BGMSS_HTTPS_PROXY"])
+    and .services.api.environment.BGMSS_IMAGE_HTTPS_PROXY == "http://proxy.internal:7897"
+    and ((.services.api.networks | keys | sort) == ["backend","updater_proxy"])
+    and (((.services.api.environment // {})
+      | with_entries(select(.key | test("proxy"; "i")))
+      | keys) == ["BGMSS_IMAGE_HTTPS_PROXY"])
     and ((.services.prometheus.networks | keys | sort) == ["backend"])
-    and ((.services.api.environment // {}) | has("BGMSS_HTTPS_PROXY") | not)
-    and ((.services.prometheus.environment // {}) | has("BGMSS_HTTPS_PROXY") | not)
+    and (((.services.prometheus.environment // {})
+      | with_entries(select(.key | test("proxy"; "i")))
+      | keys) == [])
     and .networks.updater_proxy.external == true
     and .networks.updater_proxy.name == "bgmss_proxy_validation"
   ' >/dev/null ||
-  die "updater proxy overlay static projection is not closed"
+  die "proxy overlay static projection is not closed"
 rm -f -- "$proxy_render_env"
 
 "$root/operations/bin/deploy" \

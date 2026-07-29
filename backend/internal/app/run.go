@@ -26,9 +26,10 @@ const readinessQuery = "SELECT data_version FROM archive_meta WHERE singleton = 
 
 var errReadinessProbe = errors.New("app: Archive readiness probe failed")
 
-// RunOptions contains optional, non-critical process instrumentation inputs.
+// RunOptions contains explicit optional process inputs.
 type RunOptions struct {
 	UpdateStatusPath string
+	ImageHTTPSProxy  *string
 }
 
 // Run listens on address and serves until ctx is cancelled or serving fails.
@@ -36,8 +37,8 @@ func Run(ctx context.Context, address, archiveRoot string) error {
 	return RunWithOptions(ctx, address, archiveRoot, RunOptions{})
 }
 
-// RunWithOptions preserves Run semantics while admitting an explicit optional
-// read-only updater status source.
+// RunWithOptions preserves Run semantics while admitting explicit optional
+// process configuration.
 func RunWithOptions(
 	ctx context.Context,
 	address string,
@@ -68,14 +69,18 @@ func RunListener(ctx context.Context, listener net.Listener, archiveRoot string)
 	)
 }
 
-// RunListenerWithOptions serves with optional non-critical instrumentation.
+// RunListenerWithOptions validates optional process configuration before
+// loading the Archive or serving.
 func RunListenerWithOptions(
 	ctx context.Context,
 	listener net.Listener,
 	archiveRoot string,
 	options RunOptions,
 ) error {
-	runtimeObservability, err := httpapi.NewRuntimeObservability(os.Stderr)
+	runtimeObservability, err := httpapi.NewRuntimeObservabilityWithImageHTTPSProxy(
+		os.Stderr,
+		options.ImageHTTPSProxy,
+	)
 	if err != nil {
 		return fmt.Errorf("create runtime observability: %w", err)
 	}

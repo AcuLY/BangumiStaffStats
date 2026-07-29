@@ -119,6 +119,49 @@ func TestMetricsRouteSurvivesPanickingStatsAndUnreadableUpdaterSource(
 	}
 }
 
+func TestRuntimeObservabilityConstructsImageClientFromDedicatedProxy(t *testing.T) {
+	proxy := "http://proxy.internal:7897"
+	runtimeObservability, err := NewRuntimeObservabilityWithImageHTTPSProxy(
+		io.Discard,
+		&proxy,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtimeObservability.images == nil {
+		t.Fatal("runtime observability omitted its configured image client")
+	}
+
+	direct, err := NewRuntimeObservabilityWithImageHTTPSProxy(io.Discard, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if direct.images == nil {
+		t.Fatal("runtime observability omitted its direct image client")
+	}
+}
+
+func TestRuntimeObservabilityRejectsInvalidImageProxyWithoutReflection(t *testing.T) {
+	for _, value := range []string{
+		"",
+		"https://proxy.internal:7897",
+		"http://CALLER-CONTROLLED.invalid:7897",
+	} {
+		value := value
+		t.Run(value, func(t *testing.T) {
+			_, err := NewRuntimeObservabilityWithImageHTTPSProxy(
+				io.Discard,
+				&value,
+			)
+			if err == nil ||
+				err.Error() != "httpapi: invalid image proxy configuration" ||
+				value != "" && strings.Contains(err.Error(), value) {
+				t.Fatalf("image proxy configuration error = %q", err)
+			}
+		})
+	}
+}
+
 func TestReadinessFailuresReturnGeneratedNotReadyWithoutDataVersion(t *testing.T) {
 	testCases := []struct {
 		name  string

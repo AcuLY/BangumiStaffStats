@@ -100,19 +100,22 @@ returns `129`, `130`, or `143` as appropriate.
 Release env records `BGMSS_UPDATER_TRANSPORT=direct|proxy`. Deploy defaults to
 `--updater-transport preserve`: it retains a valid current direct/proxy state
 and treats a pre-change env with no transport fields as direct. Explicit
-`direct` removes the proxy pair. Explicit `proxy` requires both a canonical
-credential-free `--updater-https-proxy http://HOST:PORT` and an existing
+`direct` removes the proxy pair and leaves both updater and API image transport
+direct. Explicit `proxy` requires both a canonical credential-free
+`--updater-https-proxy http://HOST:PORT` and an existing
 `--updater-proxy-network NAME`; the network is inspected but never created or
-managed. Preserve/direct reject proxy arguments, partial or duplicate
-arguments fail before the state lock and image loading, and rollback keeps the
-previous env bytes so its exact transport state is restored.
+managed. Preserve/direct reject proxy arguments, partial or duplicate arguments
+fail before the state lock and image loading, and rollback keeps the previous
+env bytes so its exact transport state is restored.
 
 Only proxy mode selects `compose.updater-proxy.yaml`. The overlay maps the
-release URL to updater-only `BGMSS_HTTPS_PROXY` and attaches only updater to the
-named external network. API and Prometheus retain the base backend network and
-receive no proxy input. The common Compose wrapper validates transport only
-from root-managed `state/current.env` and clears conflicting calling-shell
-transport/URL/network values before Compose interpolation.
+root-managed release URL to updater-only `BGMSS_HTTPS_PROXY` and API-only
+`BGMSS_IMAGE_HTTPS_PROXY`, then attaches both services to the named external
+network in addition to `backend`. Prometheus remains on `backend` and receives
+neither input. No generic HTTP/HTTPS/ALL/NO proxy variable is projected. The
+common Compose wrapper validates transport only from root-managed
+`state/current.env` and clears conflicting calling-shell transport/URL/network
+values before Compose interpolation.
 
 ```sh
 /srv/bgmss-v2/operations/bin/deploy \
@@ -124,7 +127,7 @@ transport/URL/network values before Compose interpolation.
   --prometheus-port 19090 \
   --prometheus-image prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80
 
-# Explicitly enable the updater-only proxy transport:
+# Explicitly enable updater and API image proxy transport:
 /srv/bgmss-v2/operations/bin/deploy \
   --root /srv/bgmss-v2 \
   --bundle /path/to/admitted-bundle \
@@ -196,9 +199,9 @@ deferred. Before those checks it inspects the real API/Prometheus containers and
 a create-only updater container for the exact non-root user, read-only rootfs,
 capability/security settings, CPU/memory/PID bounds, journald driver, mount
 direction, and closed loopback-only port bindings.
-It also installs the tracked updater proxy overlay and statically renders it
-with synthetic safe values, proving that only updater gains the dedicated
-environment entry and external network. The separate
-`test/updater-proxy.sh` build gate covers release transitions, invalid timing,
-calling-shell conflicts, and direct/proxy Compose JSON projection without
-starting an updater or creating an external network.
+It also installs the tracked proxy overlay and statically renders it with
+synthetic safe values, proving that updater and API receive only their dedicated
+environment entries and external network while Prometheus remains isolated.
+The separate `test/updater-proxy.sh` build gate covers release transitions,
+invalid timing, calling-shell conflicts, and direct/proxy Compose JSON
+projection without starting an updater or creating an external network.

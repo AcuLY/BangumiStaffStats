@@ -78,6 +78,189 @@ func TestFetchBuildsOnlyTheFixedRequestAndSanitizesMetadata(t *testing.T) {
 	}
 }
 
+func TestFetchFollowsOneReviewedImageRedirectAndPreservesBounds(t *testing.T) {
+	var calls []*http.Request
+	var intermediateClosed atomic.Bool
+	client := testClient(roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		calls = append(calls, request.Clone(request.Context()))
+		switch len(calls) {
+		case 1:
+			return &http.Response{
+				StatusCode: http.StatusFound,
+				Header: http.Header{
+					"Location": {"https://lain.bgm.tv/r/400/pic/cover/g/aa/bb/1_test.jpg?r=1"},
+				},
+				Body: &trackedBody{
+					Reader: strings.NewReader("redirect"),
+					closed: &intermediateClosed,
+				},
+				ContentLength: 8,
+			}, nil
+		case 2:
+			response := imageResponse(http.StatusOK, "image/jpeg", []byte("image"))
+			response.Header.Set("ETag", `"image-v1"`)
+			response.Header.Set("Cache-Control", "public, max-age=60")
+			return response, nil
+		default:
+			t.Fatalf("unexpected transport call %d", len(calls))
+			return nil, nil
+		}
+	}), time.Second, 64, 1)
+
+	response, err := client.Fetch(context.Background(), Request{
+		Resource:        ResourceSubjects,
+		ID:              1,
+		Type:            TypeGrid,
+		IfNoneMatch:     `"image-v1"`,
+		IfModifiedSince: "Wed, 21 Oct 2015 07:28:00 GMT",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := response.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != "image" || response.ContentType != "image/jpeg" ||
+		response.ContentLength != 5 || response.ETag != `"image-v1"` ||
+		response.CacheControl != "public, max-age=60" {
+		t.Fatalf("response = %#v body = %q", response, body)
+	}
+	if !intermediateClosed.Load() {
+		t.Fatal("intermediate redirect body was not closed")
+	}
+	if len(calls) != 2 ||
+		calls[0].URL.String() != "https://api.bgm.tv/v0/subjects/1/image?type=grid" ||
+		calls[1].URL.String() != "https://lain.bgm.tv/r/400/pic/cover/g/aa/bb/1_test.jpg?r=1" {
+		t.Fatalf("upstream calls = %#v", calls)
+	}
+	for _, call := range calls {
+		if call.Method != http.MethodGet ||
+			call.Header.Get("Accept") == "" ||
+			call.Header.Get("If-None-Match") != `"image-v1"` ||
+			call.Header.Get("If-Modified-Since") != "Wed, 21 Oct 2015 07:28:00 GMT" ||
+			call.Header.Get("Cookie") != "" ||
+			call.Header.Get("Authorization") != "" ||
+			call.Header.Get("Proxy-Authorization") != "" {
+			t.Fatalf("reviewed request headers = %#v", call)
+		}
+	}
+}
+
+func TestFetchAcceptsTheOfficialDefaultImageRedirect(t *testing.T) {
+	var calls atomic.Int64
+	client := testClient(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		switch calls.Add(1) {
+		case 1:
+			return redirectResponse("https://lain.bgm.tv/img/no_icon_subject.png"), nil
+		case 2:
+			return imageResponse(http.StatusOK, "image/png", []byte("default")), nil
+		default:
+			t.Fatal("unexpected extra request")
+			return nil, nil
+		}
+	}), time.Second, 64, 1)
+	response, err := client.Fetch(context.Background(), validTestRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if string(body) != "default" || calls.Load() != 2 {
+		t.Fatalf("body/calls = %q/%d", body, calls.Load())
+	}
+}
+
+func TestFetchRejectsUnreviewedRedirectsBeforeTheirTargets(t *testing.T) {
+	testCases := []struct {
+		name      string
+		status    int
+		locations []string
+	}{
+		{name: "relative", status: http.StatusFound, locations: []string{"/pic/cover/a.jpg"}},
+		{name: "plain HTTP", status: http.StatusFound, locations: []string{"http://lain.bgm.tv/pic/cover/a.jpg"}},
+		{name: "other host", status: http.StatusFound, locations: []string{"https://example.com/pic/cover/a.jpg"}},
+		{name: "nondefault port", status: http.StatusFound, locations: []string{"https://lain.bgm.tv:444/pic/cover/a.jpg"}},
+		{name: "userinfo", status: http.StatusFound, locations: []string{"https://user@lain.bgm.tv/pic/cover/a.jpg"}},
+		{name: "fragment", status: http.StatusFound, locations: []string{"https://lain.bgm.tv/pic/cover/a.jpg#private"}},
+		{name: "empty fragment", status: http.StatusFound, locations: []string{"https://lain.bgm.tv/pic/cover/a.jpg#"}},
+		{name: "missing path", status: http.StatusFound, locations: []string{"https://lain.bgm.tv"}},
+		{name: "malformed", status: http.StatusFound, locations: []string{"https://lain.bgm.tv/%"}},
+		{name: "oversized", status: http.StatusFound, locations: []string{"https://lain.bgm.tv/" + strings.Repeat("a", maxRedirectURLBytes)}},
+		{name: "missing", status: http.StatusFound},
+		{name: "duplicate", status: http.StatusFound, locations: []string{"https://lain.bgm.tv/a", "https://lain.bgm.tv/b"}},
+		{name: "other redirect status", status: http.StatusMovedPermanently, locations: []string{"https://lain.bgm.tv/a"}},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			var calls atomic.Int64
+			var closed atomic.Bool
+			client := testClient(roundTripFunc(func(*http.Request) (*http.Response, error) {
+				calls.Add(1)
+				header := make(http.Header)
+				for _, location := range testCase.locations {
+					header.Add("Location", location)
+				}
+				return &http.Response{
+					StatusCode: testCase.status,
+					Header:     header,
+					Body: &trackedBody{
+						Reader: strings.NewReader("redirect"),
+						closed: &closed,
+					},
+					ContentLength: 8,
+				}, nil
+			}), time.Second, 64, 1)
+			if _, err := client.Fetch(context.Background(), validTestRequest()); kind(t, err) != ErrorProtocol {
+				t.Fatalf("redirect error = %v", err)
+			}
+			if calls.Load() != 1 || !closed.Load() {
+				t.Fatalf("calls/closed = %d/%t", calls.Load(), closed.Load())
+			}
+		})
+	}
+}
+
+func TestFetchRejectsASecondRedirectAndClosesBothBodies(t *testing.T) {
+	var calls atomic.Int64
+	var firstClosed atomic.Bool
+	var secondClosed atomic.Bool
+	client := testClient(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		switch calls.Add(1) {
+		case 1:
+			response := redirectResponse("https://lain.bgm.tv/pic/cover/a.jpg")
+			response.Body = &trackedBody{Reader: strings.NewReader("one"), closed: &firstClosed}
+			response.ContentLength = 3
+			return response, nil
+		case 2:
+			response := redirectResponse("https://lain.bgm.tv/pic/cover/b.jpg")
+			response.Body = &trackedBody{Reader: strings.NewReader("two"), closed: &secondClosed}
+			response.ContentLength = 3
+			return response, nil
+		default:
+			t.Fatal("second redirect was followed")
+			return nil, nil
+		}
+	}), time.Second, 64, 1)
+	if _, err := client.Fetch(context.Background(), validTestRequest()); kind(t, err) != ErrorProtocol {
+		t.Fatalf("second redirect error = %v", err)
+	}
+	if calls.Load() != 2 || !firstClosed.Load() || !secondClosed.Load() {
+		t.Fatalf(
+			"calls/closed = %d/%t/%t",
+			calls.Load(),
+			firstClosed.Load(),
+			secondClosed.Load(),
+		)
+	}
+}
+
 func TestFetchRejectsInvalidIdentityAndConditionalsBeforeTransport(t *testing.T) {
 	var calls atomic.Int64
 	client := testClient(roundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -269,6 +452,95 @@ func TestProductionClientHasNoCallerControlledOriginRedirectOrEnvironmentProxy(t
 	}
 }
 
+func TestDedicatedHTTPSProxyIsCanonicalAndIgnoresAmbientProxyState(t *testing.T) {
+	t.Setenv("HTTP_PROXY", "http://ambient.invalid:1")
+	t.Setenv("HTTPS_PROXY", "http://ambient.invalid:2")
+	t.Setenv("ALL_PROXY", "http://ambient.invalid:3")
+	t.Setenv("NO_PROXY", "*")
+	t.Setenv("http_proxy", "http://ambient.invalid:4")
+	t.Setenv("https_proxy", "http://ambient.invalid:5")
+	t.Setenv("all_proxy", "http://ambient.invalid:6")
+	t.Setenv("no_proxy", "*")
+
+	direct, err := NewClientWithHTTPSProxy(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	directTransport := direct.httpClient.Transport.(*http.Transport)
+	if directTransport.Proxy != nil {
+		t.Fatal("ambient proxy selected in direct mode")
+	}
+
+	value := "http://proxy-1.internal.example:7897"
+	proxied, err := NewClientWithHTTPSProxy(&value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport := proxied.httpClient.Transport.(*http.Transport)
+	for _, target := range []string{
+		"https://api.bgm.tv/v0/subjects/1/image?type=grid",
+		"https://lain.bgm.tv/pic/cover/a.jpg",
+	} {
+		request, requestErr := http.NewRequest(http.MethodGet, target, nil)
+		if requestErr != nil {
+			t.Fatal(requestErr)
+		}
+		proxyURL, proxyErr := transport.Proxy(request)
+		if proxyErr != nil || proxyURL == nil || proxyURL.String() != value {
+			t.Fatalf("proxy for %q = %v, %v", target, proxyURL, proxyErr)
+		}
+	}
+}
+
+func TestDedicatedHTTPSProxyRejectsEveryNoncanonicalSpelling(t *testing.T) {
+	host253 := strings.Join([]string{
+		strings.Repeat("a", 63),
+		strings.Repeat("b", 63),
+		strings.Repeat("c", 63),
+		strings.Repeat("d", 61),
+	}, ".")
+	accepted := "http://" + host253 + ":65535"
+	if _, err := NewClientWithHTTPSProxy(&accepted); err != nil {
+		t.Fatalf("boundary proxy rejected: %v", err)
+	}
+
+	values := []string{
+		"",
+		"https://proxy.example:7897",
+		"http://proxy.example",
+		"http://proxy.example:0",
+		"http://proxy.example:01",
+		"http://proxy.example:65536",
+		"http://Proxy.example:7897",
+		"http://-proxy.example:7897",
+		"http://proxy-.example:7897",
+		"http://proxy..example:7897",
+		"http://proxy.example.:7897",
+		"http://user@proxy.example:7897",
+		"http://proxy.example:7897/",
+		"http://proxy.example:7897/path",
+		"http://proxy.example:7897?query",
+		"http://proxy.example:7897?",
+		"http://proxy.example:7897#fragment",
+		"http://proxy.example:7897#",
+		"http://[::1]:7897",
+		"http://pröxy.example:7897",
+		"http://" + strings.Repeat("a", 254) + ":7897",
+		strings.Repeat("x", maxHTTPSProxyBytes+1),
+	}
+	for _, value := range values {
+		value := value
+		t.Run(value, func(t *testing.T) {
+			_, err := NewClientWithHTTPSProxy(&value)
+			if !errors.Is(err, errInvalidHTTPSProxy) ||
+				err.Error() != proxyConfigurationID ||
+				value != "" && strings.Contains(err.Error(), value) {
+				t.Fatalf("proxy error = %v", err)
+			}
+		})
+	}
+}
+
 func TestFixedOriginDialerRejectsHostPortAndNonPublicDNSAnswers(t *testing.T) {
 	privateAddresses := []netip.Addr{
 		netip.MustParseAddr("0.0.0.1"),
@@ -314,42 +586,129 @@ func TestFixedOriginDialerRejectsHostPortAndNonPublicDNSAnswers(t *testing.T) {
 	}
 }
 
-func TestFixedOriginDialerPinsAResolvedPublicIPWithoutSecondLookup(t *testing.T) {
-	var resolutions atomic.Int64
-	var addressesMu sync.Mutex
-	var dialed []string
-	dialer := fixedOriginDialer{
-		resolver: resolverFunc(func(_ context.Context, network, host string) ([]netip.Addr, error) {
-			resolutions.Add(1)
-			if network != "ip" || host != "api.bgm.tv" {
-				t.Fatalf("lookup = %q %q", network, host)
+func TestFixedOriginDialerPinsBothApprovedHostsWithoutSecondLookup(t *testing.T) {
+	for _, approvedHost := range []string{upstreamHost, imageHost} {
+		t.Run(approvedHost, func(t *testing.T) {
+			var resolutions atomic.Int64
+			var addressesMu sync.Mutex
+			var dialed []string
+			dialer := fixedOriginDialer{
+				resolver: resolverFunc(func(_ context.Context, network, host string) ([]netip.Addr, error) {
+					resolutions.Add(1)
+					if network != "ip" || host != approvedHost {
+						t.Fatalf("lookup = %q %q", network, host)
+					}
+					return []netip.Addr{
+						netip.MustParseAddr("169.254.169.254"),
+						netip.MustParseAddr("93.184.216.34"),
+					}, nil
+				}),
+				dialer: dialerFunc(func(_ context.Context, network, address string) (net.Conn, error) {
+					addressesMu.Lock()
+					dialed = append(dialed, network+" "+address)
+					addressesMu.Unlock()
+					clientConnection, serverConnection := net.Pipe()
+					_ = serverConnection.Close()
+					return clientConnection, nil
+				}),
 			}
-			return []netip.Addr{
-				netip.MustParseAddr("169.254.169.254"),
-				netip.MustParseAddr("93.184.216.34"),
-			}, nil
-		}),
-		dialer: dialerFunc(func(_ context.Context, network, address string) (net.Conn, error) {
+			connection, err := dialer.DialContext(
+				context.Background(),
+				"tcp",
+				approvedHost+":443",
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_ = connection.Close()
+			if resolutions.Load() != 1 {
+				t.Fatalf("resolution count = %d", resolutions.Load())
+			}
 			addressesMu.Lock()
-			dialed = append(dialed, network+" "+address)
-			addressesMu.Unlock()
+			defer addressesMu.Unlock()
+			if len(dialed) != 1 || dialed[0] != "tcp 93.184.216.34:443" {
+				t.Fatalf("dialed targets = %#v", dialed)
+			}
+		})
+	}
+}
+
+func TestFixedProxyDialerReachesOnlyTheConfiguredProxy(t *testing.T) {
+	var calls atomic.Int64
+	dialer := fixedProxyDialer{
+		address: "proxy.internal:7897",
+		dialer: dialerFunc(func(_ context.Context, network, address string) (net.Conn, error) {
+			calls.Add(1)
+			if network != "tcp" || address != "proxy.internal:7897" {
+				t.Fatalf("dial = %q %q", network, address)
+			}
 			clientConnection, serverConnection := net.Pipe()
 			_ = serverConnection.Close()
 			return clientConnection, nil
 		}),
 	}
-	connection, err := dialer.DialContext(context.Background(), "tcp", "api.bgm.tv:443")
+	connection, err := dialer.DialContext(
+		context.Background(),
+		"tcp",
+		"proxy.internal:7897",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_ = connection.Close()
-	if resolutions.Load() != 1 {
-		t.Fatalf("resolution count = %d", resolutions.Load())
+	for _, target := range []string{"api.bgm.tv:443", "other.internal:7897"} {
+		if _, err := dialer.DialContext(context.Background(), "tcp", target); err == nil {
+			t.Fatalf("dial target %q was accepted", target)
+		}
 	}
-	addressesMu.Lock()
-	defer addressesMu.Unlock()
-	if len(dialed) != 1 || dialed[0] != "tcp 93.184.216.34:443" {
-		t.Fatalf("dialed targets = %#v", dialed)
+	if _, err := dialer.DialContext(
+		context.Background(),
+		"udp",
+		"proxy.internal:7897",
+	); err == nil {
+		t.Fatal("non-TCP proxy network was accepted")
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("proxy dial calls = %d", calls.Load())
+	}
+}
+
+func TestRedirectSharesCancellationAndPermitUntilTerminalFailure(t *testing.T) {
+	parent, cancel := context.WithCancel(context.Background())
+	finalStarted := make(chan struct{})
+	var finalOnce sync.Once
+	client := testClient(roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Host == upstreamHost {
+			return redirectResponse("https://lain.bgm.tv/pic/cover/a.jpg"), nil
+		}
+		finalOnce.Do(func() { close(finalStarted) })
+		<-request.Context().Done()
+		return nil, request.Context().Err()
+	}), time.Second, 64, 1)
+	result := make(chan error, 1)
+	go func() {
+		_, err := client.Fetch(parent, validTestRequest())
+		result <- err
+	}()
+	select {
+	case <-finalStarted:
+	case <-time.After(time.Second):
+		t.Fatal("redirect target request did not start")
+	}
+	if _, err := client.Fetch(context.Background(), validTestRequest()); kind(t, err) != ErrorBusy {
+		t.Fatalf("concurrent redirect error = %v", err)
+	}
+	cancel()
+	select {
+	case err := <-result:
+		if kind(t, err) != ErrorCanceled {
+			t.Fatalf("redirect cancellation error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("redirect cancellation did not return")
+	}
+	if len(client.permits) != 0 {
+		t.Fatal("redirect cancellation retained its permit")
 	}
 }
 
@@ -408,6 +767,15 @@ func imageResponse(status int, contentType string, body []byte) *http.Response {
 		Header:        http.Header{"Content-Type": {contentType}},
 		Body:          io.NopCloser(bytes.NewReader(body)),
 		ContentLength: int64(len(body)),
+	}
+}
+
+func redirectResponse(location string) *http.Response {
+	return &http.Response{
+		StatusCode:    http.StatusFound,
+		Header:        http.Header{"Location": {location}},
+		Body:          http.NoBody,
+		ContentLength: 0,
 	}
 }
 

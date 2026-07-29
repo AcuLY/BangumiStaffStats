@@ -8,18 +8,25 @@
 
 ## 2. Backend image transport
 
-- [ ] 2.1 In `backend/internal/imageproxy/{client.go,client_test.go}`, implement canonical dedicated-proxy validation, closed direct/explicit-proxy transports, manual one-hop `api.bgm.tv` to `lain.bgm.tv` handling, and all existing transfer/error/cache bounds.
-- [ ] 2.2 In `backend/cmd/api`, `backend/internal/app`, and `backend/internal/httpapi`, pass the optional environment value into image-client construction before serving without adding an `app -> imageproxy` dependency; update focused tests and `backend/README.md`.
-- [ ] 2.3 Test exact `302 -> 200` and default-image success; invalid/credentialed/ambient/bypassed proxy inputs; invalid and second redirects; direct/proxy dial targets; conditional `304`; timeout/cancellation/permit release; status/MIME/header/declared-and-actual-size bounds; metadata sanitization; and safe error mapping.
+- [x] 2.1 In `backend/internal/imageproxy/{client.go,client_test.go}`, implement canonical dedicated-proxy validation, closed direct/explicit-proxy transports, manual one-hop `api.bgm.tv` to `lain.bgm.tv` handling, and all existing transfer/error/cache bounds.
+- [x] 2.2 In `backend/cmd/api`, `backend/internal/app`, and `backend/internal/httpapi`, pass the optional environment value into image-client construction before serving without adding an `app -> imageproxy` dependency; update focused tests and `backend/README.md`.
+- [ ] 2.3 Execute the focused Backend tests for exact `302 -> 200` and
+  default-image success; invalid/credentialed/ambient/bypassed proxy inputs;
+  invalid and second redirects; direct/proxy dial targets; conditional `304`;
+  timeout/cancellation/permit release; status/MIME/header/declared-and-actual-size
+  bounds; metadata sanitization; and safe error mapping. The cases are
+  implemented and statically reviewed, but no Go test was run locally.
 
 ## 3. Operations projection
 
-- [ ] 3.1 Update only `operations/compose.updater-proxy.yaml` so API receives `BGMSS_IMAGE_HTTPS_PROXY` and joins `updater_proxy`; keep updater unchanged and Prometheus isolated.
-- [ ] 3.2 Update `operations/test/updater-proxy.sh`, the static render in `operations/bin/validate-isolated`, and proxy wording in `operations/README.md`; prove direct mode remains closed and proxy mode gives each service only its intended environment/network projection.
-- [ ] 3.3 Run local static checks only. Run build, Go tests, Compose projection
-  tests, and isolated validation through Development Actions or the approved
-  remote container environment without starting updater or changing the
-  external network.
+- [x] 3.1 Update only `operations/compose.updater-proxy.yaml` so API receives `BGMSS_IMAGE_HTTPS_PROXY` and joins `updater_proxy`; keep updater unchanged and Prometheus isolated.
+- [x] 3.2 Update `operations/test/updater-proxy.sh`, the static render in `operations/bin/validate-isolated`, and proxy wording in `operations/README.md`; prove direct mode remains closed and proxy mode gives each service only its intended environment/network projection.
+- [ ] 3.3 Run build, Go tests, Compose projection tests, and isolated validation
+  through Development Actions or the approved remote container environment
+  without starting updater or changing the external network. Permitted local
+  checks completed: `gofmt`, Bash syntax, YAML parse, `git diff --check`, and
+  strict OpenSpec validation; no Go, Compose, Docker, or container gate was run
+  locally.
 
 ## 4. Repository and artifact acceptance
 
