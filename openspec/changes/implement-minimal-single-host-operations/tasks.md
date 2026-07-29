@@ -54,8 +54,9 @@
 - [ ] 3.3 Implement small `deploy`, `update`, `rollback-app`, `rollback-data`,
   `check`, and isolated-validation commands. Require exact arguments/root,
   one non-waiting lock, checksum admission, atomic env/pointer/link switches,
-  bounded readiness, separate rollback dimensions, and current/previous
-  retention.
+  bounded readiness, separate rollback dimensions, and explicit
+  current/previous rollback references. Do not automatically delete historical
+  releases or Archive versions.
 - [ ] 3.4 Add inert Nginx, logrotate, systemd service/timer/journal, Prometheus
   scrape/rule files, and concise operator README. Keep public activation,
   secrets, service enablement, Nginx reload, and legacy retirement absent.

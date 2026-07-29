@@ -17,8 +17,10 @@ the observability already required by the operations guide, and an isolated
   logging, and no shared writable state with the legacy project.
 - Add small host scripts for bundle installation, health checks, weekly
   Archive update/activation, application or data rollback, and isolated
-  validation. They use one fixed `flock`, retain only current/previous state,
-  and restore the previous state when readiness fails.
+  validation. They use one fixed `flock`, preserve explicit current/previous
+  rollback references, and restore the previous state when readiness fails.
+  Automatic historical release or Archive deletion is outside this minimal
+  path.
 - Add inert Nginx, systemd timer/service, log rotation, Prometheus scrape/rule,
   and operator documentation matching the existing operations guide.
 - Validate the bundle and topology in one absent run-owned directory on

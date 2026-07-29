@@ -94,7 +94,10 @@ previous API.
 `update` runs the fixed updater service, obtains its terminal data version,
 creates `current.json` atomically, restarts API, and restores the previous
 pointer if readiness fails. `rollback-app` and `rollback-data` change only
-their own dimension. Retention is limited to current and previous states.
+their own dimension. Each successful switch maintains explicit current and
+previous rollback references. Historical release and Archive pruning is not
+automatic: the operations guide requires a separate successful rollback drill
+before an older version may be deleted.
 
 This deliberately avoids inode ledgers, a control runtime, or recovery
 schemas. Strict argument validation, canonical fixed roots, atomic rename, a
@@ -108,6 +111,11 @@ API down/not-ready, sustained 5xx/upstream failures, queue/cache pressure, and
 updater failure/age. Compose logs go to journald; host templates bound journal
 size and rotate Nginx access/error logs. No additional observability stack is
 introduced.
+
+The reviewed Prometheus input for the AMD64 rehearsal is
+`prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80`.
+The isolated validator may pull that exact digest when absent and must remove
+the image afterward only when the current run introduced it.
 
 ### 5. Validate host integration inertly
 
