@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import { compileStrictSchema } from '../../lib/schema.mjs';
 import { readJsonStrict } from '../../lib/strict-json.mjs';
+import { readAcceptedDevelopment } from '../../release/receipt.mjs';
 
 const CONFIG = path.resolve(import.meta.dirname, '..', '..', 'config');
 const readSchema = (name) => readJsonStrict(path.join(CONFIG, name));
@@ -71,17 +72,29 @@ test('runtime release and update event schemas close their field sets', () => {
 });
 
 test('host release admission binds the published fixture authority constants', () => {
+  const receipt = readAcceptedDevelopment();
   const fixture = readJsonStrict(
     new URL('../release/fixtures/release-manifest.valid.json', import.meta.url),
+  );
+  const acceptedDevelopment = {
+    frozenProduct: { ...receipt.value.frozenProduct },
+    receiptDigest: receipt.digest,
+  };
+  assert.deepEqual(
+    {
+      frozenProduct: { ...fixture.acceptedDevelopment.frozenProduct },
+      receiptDigest: fixture.acceptedDevelopment.receiptDigest,
+    },
+    acceptedDevelopment,
   );
   const transaction = fs.readFileSync(
     new URL('../../bin/lib/transaction.sh', import.meta.url),
     'utf8',
   );
   for (const value of [
-    fixture.acceptedDevelopment.receiptDigest,
-    fixture.acceptedDevelopment.frozenProduct.revision,
-    fixture.acceptedDevelopment.frozenProduct.tree,
+    acceptedDevelopment.receiptDigest,
+    acceptedDevelopment.frozenProduct.revision,
+    acceptedDevelopment.frozenProduct.tree,
     fixture.compatibility.archive.commonCommit,
     fixture.compatibility.archive.compatibilityMatrixDigest,
     fixture.compatibility.archive.manifestSchemaDigest,
@@ -100,4 +113,47 @@ test('host release admission binds the published fixture authority constants', (
     transaction,
     /\.source\.operationsController\.revision == \$controllerRevision/u,
   );
+  const fixedAuthority = [
+    [
+      'OPS_ACCEPTED_DEVELOPMENT_SHA256',
+      acceptedDevelopment.receiptDigest,
+    ],
+    [
+      'OPS_FINAL_PRODUCT_REVISION',
+      acceptedDevelopment.frozenProduct.revision,
+    ],
+    [
+      'OPS_FINAL_PRODUCT_TREE',
+      acceptedDevelopment.frozenProduct.tree,
+    ],
+  ];
+  const assertFixedAuthority = (source) => {
+    for (const [name, value] of fixedAuthority) {
+      assert.ok(
+        source.includes(`readonly ${name}="${value}"`),
+        `runtime fixed authority ${name} differs from the canonical receipt`,
+      );
+    }
+  };
+  assertFixedAuthority(transaction);
+  for (const [name, value] of fixedAuthority) {
+    const changed = transaction.replace(
+      `readonly ${name}="${value}"`,
+      `readonly ${name}="__MUTATED_${name}__"`,
+    );
+    assert.throws(() => assertFixedAuthority(changed));
+  }
+  for (const binding of [
+    '--arg acceptedDevelopmentSha256 "$OPS_ACCEPTED_DEVELOPMENT_SHA256"',
+    '--arg finalProductRevision "$OPS_FINAL_PRODUCT_REVISION"',
+    '--arg finalProductTree "$OPS_FINAL_PRODUCT_TREE"',
+    '.acceptedDevelopment.receiptDigest ==\n      $acceptedDevelopmentSha256',
+    '.acceptedDevelopment.frozenProduct.revision ==\n      $finalProductRevision',
+    '.acceptedDevelopment.frozenProduct.tree ==\n      $finalProductTree',
+  ]) {
+    assert.ok(
+      transaction.includes(binding),
+      `missing fixed accepted-development transaction binding ${binding}`,
+    );
+  }
 });

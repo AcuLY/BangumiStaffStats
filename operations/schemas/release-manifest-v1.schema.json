@@ -116,10 +116,10 @@
             {
               "properties": {
                 "revision": {
-                  "const": "3f585cfe0a0dd61fe783a839528fef25470a58db"
+                  "const": "__BGMSS_FINAL_PRODUCT_REVISION__"
                 },
                 "tree": {
-                  "const": "93e29a0c51c0305db8a43e7d029b8eaa3014a1b8"
+                  "const": "__BGMSS_FINAL_PRODUCT_TREE__"
                 }
               },
               "type": "object"
@@ -127,7 +127,7 @@
           ]
         },
         "receiptDigest": {
-          "const": "sha256:17145d4869050dc2ff347e4dbfb60a5a6369d32890f0abc3e8f766b8ea28a80a"
+          "const": "__BGMSS_ACCEPTED_DEVELOPMENT_SHA256__"
         }
       },
       "required": [

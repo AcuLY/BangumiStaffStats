@@ -2,6 +2,10 @@
 
 set -Eeuo pipefail
 
+readonly OPS_ACCEPTED_DEVELOPMENT_SHA256="__BGMSS_ACCEPTED_DEVELOPMENT_SHA256__"
+readonly OPS_FINAL_PRODUCT_REVISION="__BGMSS_FINAL_PRODUCT_REVISION__"
+readonly OPS_FINAL_PRODUCT_TREE="__BGMSS_FINAL_PRODUCT_TREE__"
+
 declare -Ag OPS_MANIFEST=()
 OPS_LOCK_FD=""
 OPS_FRESH_MASK_DEVICE=""
@@ -1411,7 +1415,10 @@ ops_validate_release_manifest() {
   controller_revision="$(ops_manifest_value \
     "${OPS_ROOT}/controller-manifest.json" '.controllerRevision')" || return
   if ! "$jq" -e \
+    --arg acceptedDevelopmentSha256 "$OPS_ACCEPTED_DEVELOPMENT_SHA256" \
     --arg controllerRevision "$controller_revision" \
+    --arg finalProductRevision "$OPS_FINAL_PRODUCT_REVISION" \
+    --arg finalProductTree "$OPS_FINAL_PRODUCT_TREE" \
     --arg version "$version" '
     type == "object" and
     (keys == [
@@ -1430,14 +1437,14 @@ ops_validate_release_manifest() {
     (.acceptedDevelopment | keys == ["frozenProduct","receiptDigest"]) and
     (.acceptedDevelopment.receiptDigest | test("^sha256:[0-9a-f]{64}$")) and
     .acceptedDevelopment.receiptDigest ==
-      "sha256:17145d4869050dc2ff347e4dbfb60a5a6369d32890f0abc3e8f766b8ea28a80a" and
+      $acceptedDevelopmentSha256 and
     (.acceptedDevelopment.frozenProduct | keys == ["revision","tree"]) and
     (.acceptedDevelopment.frozenProduct.revision | test("^[0-9a-f]{40}$")) and
     (.acceptedDevelopment.frozenProduct.tree | test("^[0-9a-f]{40}$")) and
     .acceptedDevelopment.frozenProduct.revision ==
-      "3f585cfe0a0dd61fe783a839528fef25470a58db" and
+      $finalProductRevision and
     .acceptedDevelopment.frozenProduct.tree ==
-      "93e29a0c51c0305db8a43e7d029b8eaa3014a1b8" and
+      $finalProductTree and
     .release.version == $version and
     .release.tag == $version and
     (.release | keys == ["tag","version"]) and
@@ -1614,7 +1621,8 @@ ops_verify_payload_checksums() {
     fi
     digest="${BASH_REMATCH[1]}"
     relative="${BASH_REMATCH[2]}"
-    if [[ -v "observed[$relative]" || ( -n "$previous" && "$relative" < "$previous" ) ]]; then
+    if [[ -n "${observed[$relative]+present}" ]] ||
+      [[ -n "$previous" && "$relative" < "$previous" ]]; then
       ops_fail "CHECKSUM_PATH_INVALID" "checksums"
       return
     fi
@@ -1647,7 +1655,7 @@ ops_verify_payload_checksums() {
     case "$name" in
       managed-release.json|payload-checksums.sha256|release-manifest.json|runtime-inventory.sha256) ;;
       *)
-        if [[ ! -v "observed[$name]" ]]; then
+        if [[ -z "${observed[$name]+present}" ]]; then
           ops_fail "UNLISTED_PAYLOAD_FILE" "checksums"
           return
         fi
@@ -1719,9 +1727,9 @@ ops_verify_runtime_inventory() {
     fi
     digest="${BASH_REMATCH[1]}"
     relative="${BASH_REMATCH[2]}"
-    if [[ "$relative" == /* || "$relative" =~ (^|/)\.\.?(/|$) ||
-          -v "listed[$relative]" ||
-          ( -n "$previous" && "$relative" < "$previous" ) ]]; then
+    if [[ "$relative" == /* || "$relative" =~ (^|/)\.\.?(/|$) ]] ||
+      [[ -n "${listed[$relative]+present}" ]] ||
+      [[ -n "$previous" && "$relative" < "$previous" ]]; then
       ops_fail "RUNTIME_INVENTORY_PATH" "release"
       return
     fi
@@ -1748,11 +1756,11 @@ ops_verify_runtime_inventory() {
     done
     count=$((count + 1))
   done < "$inventory"
-  if [[ "$count" -lt 4 ||
-        ! -v "listed[bin/archive-smoke]" ||
-        ! -v "listed[checksums.txt]" ||
-        ! -v "listed[frontend/index.html]" ||
-        ! -v "listed[release-manifest.json]" ]]; then
+  if [[ "$count" -lt 4 ]] ||
+    [[ -z "${listed[bin/archive-smoke]+present}" ]] ||
+    [[ -z "${listed[checksums.txt]+present}" ]] ||
+    [[ -z "${listed[frontend/index.html]+present}" ]] ||
+    [[ -z "${listed[release-manifest.json]+present}" ]]; then
     ops_fail "RUNTIME_INVENTORY_INCOMPLETE" "release"
     return
   fi
@@ -1760,7 +1768,7 @@ ops_verify_runtime_inventory() {
   find="$(ops_command find)" || return
   while IFS= read -r -d '' candidate; do
     relative_path="${candidate#${release_root}/}"
-    if [[ ! -v "listed[$relative_path]" ]]; then
+    if [[ -z "${listed[$relative_path]+present}" ]]; then
       ops_fail "UNLISTED_RUNTIME_FILE" "release"
       return
     fi
@@ -1773,7 +1781,7 @@ ops_verify_runtime_inventory() {
   while IFS= read -r -d '' candidate; do
     [[ "$candidate" == "$release_root" ]] && continue
     relative_path="${candidate#${release_root}/}"
-    if [[ ! -v "listed_directories[$relative_path]" ]]; then
+    if [[ -z "${listed_directories[$relative_path]+present}" ]]; then
       ops_fail "UNLISTED_RUNTIME_DIRECTORY" "release"
       return
     fi
@@ -2224,14 +2232,15 @@ ops_verify_frontend_tar() {
     if [[ "$normalized" != "frontend" &&
           ! "$normalized" =~ ^frontend(/[A-Za-z0-9][A-Za-z0-9._-]{0,254})+$ ]] ||
       [[ "$normalized" =~ (^|/)\.\.?(/|$) ||
-         -v "observed[$normalized]" ]]; then
+         -n "${observed[$normalized]+present}" ]]; then
       ops_fail "FRONTEND_TAR_PATH_INVALID" "acquisition"
       return
     fi
     observed["$normalized"]=1
     count=$((count + 1))
   done < "$listing"
-  if [[ "$count" -lt 2 || ! -v "observed[frontend/index.html]" ]]; then
+  if [[ "$count" -lt 2 ||
+        -z "${observed[frontend/index.html]+present}" ]]; then
     ops_fail "FRONTEND_TAR_INCOMPLETE" "acquisition"
     return
   fi

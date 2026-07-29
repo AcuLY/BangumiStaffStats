@@ -96,6 +96,48 @@ test('subprocess can hash original stdout bytes without changing the default res
   assert.equal(result.stdoutSha256, sha256(bytes));
 });
 
+test('subprocess hash-and-byte-count sink consumes stdout beyond 64 MiB without treating diagnostic truncation as execution failure', async (t) => {
+  const { environment, run } = subprocessFixture(
+    t,
+    'subprocess-large-stdout-hash-test',
+  );
+  const chunkSize = 1024 * 1024;
+  const chunkCount = 65;
+  const chunk = Buffer.alloc(chunkSize, 0x61);
+  const expected = Buffer.alloc(chunkSize * chunkCount, 0x61);
+  const result = await runSubprocess({
+    command: process.execPath,
+    args: [
+      '-e',
+      [
+        `const chunk = Buffer.alloc(${chunkSize}, 0x61);`,
+        `let remaining = ${chunkCount};`,
+        'function write() {',
+        '  while (remaining > 0) {',
+        '    remaining -= 1;',
+        "    if (!process.stdout.write(chunk)) {",
+        "      process.stdout.once('drain', write);",
+        '      return;',
+        '    }',
+        '  }',
+        '}',
+        'write();',
+      ].join('\n'),
+    ],
+    cwd: run.runRoot,
+    environment,
+    hashAndCountStdout: true,
+    maxOutputBytes: 1024,
+    timeoutMs: 30_000,
+  });
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.terminationReason, null);
+  assert.equal(result.stdoutTruncated, true);
+  assert.equal(result.stderrTruncated, false);
+  assert.equal(result.stdoutByteCount, chunkSize * chunkCount);
+  assert.equal(result.stdoutSha256, sha256(expected));
+});
+
 test('subprocess rejects forged and loader-injected environments', async (t) => {
   const { environment, run } = subprocessFixture(t, 'subprocess-admission-test');
   await assert.rejects(

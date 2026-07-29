@@ -6,9 +6,10 @@ import path from 'node:path';
 import { canonicalJson } from '../lib/canonical-json.mjs';
 import { createRunRoot } from '../lib/run-root.mjs';
 import { requireCanonicalPath } from '../lib/path-policy.mjs';
+import { assertExactOperationsControlRuntime } from './control-runtime.mjs';
 import {
+  approvedGithubCliExecutable,
   parseWorkflowRunId,
-  resolveSuccessfulWorkflowRun,
   verifyAuthenticatedActionsHandoff,
 } from './actions-handoff.mjs';
 import { MAXIMUMS } from './constants.mjs';
@@ -45,13 +46,13 @@ function parseArguments(argv) {
       values.has(name)
     ) {
       fail(
-        'usage: preflight-myserver.mjs --candidate /absolute/downloaded-handoff [--workflow-run-id positive-decimal]',
+        'usage: preflight-myserver.mjs --candidate /absolute/downloaded-handoff --workflow-run-id positive-decimal',
       );
     }
     values.set(name, value);
   }
-  if (!values.has('--candidate')) {
-    fail('downloaded Actions handoff is required');
+  if (!values.has('--candidate') || !values.has('--workflow-run-id')) {
+    fail('downloaded Actions handoff and reviewed workflow run ID are required');
   }
   const candidate = requireCanonicalPath(
     path.resolve(values.get('--candidate')),
@@ -62,9 +63,7 @@ function parseArguments(argv) {
   );
   return {
     candidate,
-    workflowRunId: values.has('--workflow-run-id')
-      ? parseWorkflowRunId(values.get('--workflow-run-id'))
-      : undefined,
+    workflowRunId: parseWorkflowRunId(values.get('--workflow-run-id')),
   };
 }
 
@@ -80,11 +79,12 @@ function requiredRemoteBytes(candidateSize) {
 }
 
 async function main() {
+  assertExactOperationsControlRuntime({
+    expectedLifecycleEvent: 'preflight:myserver',
+  });
+  approvedGithubCliExecutable();
   const argumentsValue = parseArguments(process.argv.slice(2));
   const operationsIdentity = currentOperationsIdentity();
-  const workflowRunId =
-    argumentsValue.workflowRunId ??
-    resolveSuccessfulWorkflowRun(operationsIdentity.revision);
   const run = createRunRoot({
     directories: ['authenticated', 'candidate', 'package'],
     purpose: 'isolated-host-validation',
@@ -93,7 +93,7 @@ async function main() {
     authenticatedDownloadRoot: path.join(run.runRoot, 'authenticated'),
     handoffDirectory: argumentsValue.candidate,
     workflowHead: operationsIdentity.revision,
-    workflowRunId,
+    workflowRunId: argumentsValue.workflowRunId,
   });
   const handoff = verifyDownloadedHandoff({
     extractionRoot: path.join(run.runRoot, 'candidate'),

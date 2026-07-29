@@ -6,6 +6,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { parseDocument } from 'yaml';
 
+import {
+  ACCEPTED_DEVELOPMENT_SHA256,
+  FROZEN_PRODUCT,
+} from './constants.mjs';
+
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 export const REPOSITORY_ROOT = path.resolve(MODULE_DIRECTORY, '..', '..');
 
@@ -25,6 +30,42 @@ const WORKFLOW_NAMES = Object.freeze({
 
 const CI_SHA256 =
   'ad34efcc8a957e8758db945d25911181f10d41e6dd0d18b6b6919247e75cd1bc';
+
+const DEPLOY_REVIEWED_STEPS = Object.freeze([
+  Object.freeze({
+    env: null,
+    name: 'Validate bounded dispatch inputs before reading a secret',
+    runSha256:
+      'b655779b4a0f51bd429b2897b2064f9bbb7772ec9aceef9d39744e815f1f9106',
+  }),
+  Object.freeze({
+    env: Object.freeze({
+      GH_TOKEN: '${{ github.token }}',
+    }),
+    name: 'Download the existing published release assets',
+    runSha256:
+      'f01669d832d48c846a286004e0f867b03e047bd868f8867e5694088ab11337fa',
+  }),
+  Object.freeze({
+    env: null,
+    name: 'Verify the immutable published manifest and assets',
+    runSha256:
+      '4c24ff996fd8c5f992ef1503528da6a9d989cf742e68e4e5e82e3d05e3beb484',
+  }),
+  Object.freeze({
+    env: Object.freeze({
+      BGMSS_PRODUCTION_SSH_HOST:
+        '${{ vars.BGMSS_PRODUCTION_SSH_HOST }}',
+      BGMSS_PRODUCTION_SSH_KNOWN_HOST:
+        '${{ vars.BGMSS_PRODUCTION_SSH_KNOWN_HOST }}',
+      BGMSS_PRODUCTION_SSH_PRIVATE_KEY:
+        '${{ secrets.BGMSS_PRODUCTION_SSH_PRIVATE_KEY }}',
+    }),
+    name: 'Invoke the single reviewed production deployment transaction',
+    runSha256:
+      '566df723f79534771dfed6bd263684da3e70b847c1b0238ea22c04fa3b7c6fbf',
+  }),
+]);
 
 const REVIEWED_ACTIONS = Object.freeze({
   'actions/checkout':
@@ -829,6 +870,65 @@ function assertDeploySensitiveSteps(deploy, source) {
   }
 }
 
+function assertDeployClosedProgram(deploy, source) {
+  if (deploy.steps.length !== DEPLOY_REVIEWED_STEPS.length) {
+    fail(
+      'DEPLOY_PROGRAM',
+      'deploy must contain exactly the four reviewed steps',
+      source,
+    );
+  }
+  for (let index = 0; index < DEPLOY_REVIEWED_STEPS.length; index += 1) {
+    const step = deploy.steps[index];
+    const reviewed = DEPLOY_REVIEWED_STEPS[index];
+    assertExactKeys(
+      step,
+      reviewed.env === null
+        ? ['name', 'run', 'shell']
+        : ['env', 'name', 'run', 'shell'],
+      `deploy reviewed step ${index}`,
+      source,
+    );
+    if (
+      step.name !== reviewed.name ||
+      step.shell !== 'bash' ||
+      crypto.createHash('sha256').update(step.run, 'utf8').digest('hex') !==
+        reviewed.runSha256
+    ) {
+      fail(
+        'DEPLOY_PROGRAM',
+        `deploy step ${index} differs from its reviewed run block`,
+        source,
+      );
+    }
+    if (reviewed.env === null) {
+      if (Object.hasOwn(step, 'env')) {
+        fail(
+          'DEPLOY_PROGRAM',
+          `deploy step ${index} must not receive a step environment`,
+          source,
+        );
+      }
+    } else {
+      assertExactKeys(
+        step.env,
+        Object.keys(reviewed.env),
+        `deploy reviewed step ${index} env`,
+        source,
+      );
+      for (const [name, value] of Object.entries(reviewed.env)) {
+        if (step.env[name] !== value) {
+          fail(
+            'DEPLOY_PROGRAM',
+            `deploy step ${index} environment differs from policy`,
+            source,
+          );
+        }
+      }
+    }
+  }
+}
+
 function assertNoPublicationAuthority(
   workflow,
   source,
@@ -1593,6 +1693,17 @@ function assertReleaseWorkflow(workflow, source) {
 }
 
 function assertDeployWorkflow(workflow, source) {
+  if (
+    !/^sha256:[0-9a-f]{64}$/u.test(ACCEPTED_DEVELOPMENT_SHA256) ||
+    !/^[0-9a-f]{40}$/u.test(FROZEN_PRODUCT.revision) ||
+    !/^[0-9a-f]{40}$/u.test(FROZEN_PRODUCT.tree)
+  ) {
+    fail(
+      'ACCEPTANCE_BASELINE',
+      'deploy policy remains fail-closed until the final receipt and Product identity are injected',
+      source,
+    );
+  }
   assertTriggerKeys(workflow, ['workflow_dispatch'], source);
   assertConcurrency(workflow.concurrency, {
     group: 'production-deploy',
@@ -1625,15 +1736,50 @@ function assertDeployWorkflow(workflow, source) {
   }
   assertExactKeys(
     deploy.env,
-    ['RELEASE_MANIFEST_DIGEST', 'RELEASE_VERSION'],
+    [
+      'ACCEPTED_DEVELOPMENT_SHA256',
+      'FINAL_PRODUCT_REVISION',
+      'FINAL_PRODUCT_TREE',
+      'RELEASE_MANIFEST_DIGEST',
+      'RELEASE_VERSION',
+    ],
     'deploy env',
     source,
   );
   if (
+    deploy.env.ACCEPTED_DEVELOPMENT_SHA256 !==
+      ACCEPTED_DEVELOPMENT_SHA256 ||
+    deploy.env.FINAL_PRODUCT_REVISION !== FROZEN_PRODUCT.revision ||
+    deploy.env.FINAL_PRODUCT_TREE !== FROZEN_PRODUCT.tree ||
     deploy.env.RELEASE_VERSION !== '${{ inputs.version }}' ||
     deploy.env.RELEASE_MANIFEST_DIGEST !== '${{ inputs.manifest_digest }}'
   ) {
-    fail('INPUT_FLOW', 'deploy inputs may flow only into bounded release env', source);
+    fail(
+      'INPUT_FLOW',
+      'deploy may use only the fixed acceptance baseline and bounded release inputs',
+      source,
+    );
+  }
+  const fixedJobEnvironment = [
+    'ACCEPTED_DEVELOPMENT_SHA256',
+    'FINAL_PRODUCT_REVISION',
+    'FINAL_PRODUCT_TREE',
+    'RELEASE_MANIFEST_DIGEST',
+    'RELEASE_VERSION',
+  ];
+  for (const [index, step] of deploy.steps.entries()) {
+    const stepEnvironment = Object.hasOwn(step, 'env')
+      ? assertObject(step.env, `deploy step ${index} env`, source)
+      : {};
+    for (const name of fixedJobEnvironment) {
+      if (Object.hasOwn(stepEnvironment, name)) {
+        fail(
+          'INPUT_FLOW',
+          `deploy step ${index} may not override fixed job environment ${name}`,
+          source,
+        );
+      }
+    }
   }
 
   const dispatch = assertObject(
@@ -1707,6 +1853,42 @@ function assertDeployWorkflow(workflow, source) {
   }
   const runs = allRuns(deploy);
   if (
+    collectStrings(deploy).some(({ value }) =>
+      /\bGITHUB_(?:ENV|PATH)\b/u.test(value),
+    )
+  ) {
+    fail(
+      'INPUT_FLOW',
+      'deploy steps may not use GitHub environment or PATH command files',
+      source,
+    );
+  }
+  if (
+    /(?:^|\n)[ \t]*(?:(?:export|readonly)[ \t]+|declare[ \t]+(?:-[A-Za-z]+[ \t]+)?)?(?:ACCEPTED_DEVELOPMENT_SHA256|FINAL_PRODUCT_REVISION|FINAL_PRODUCT_TREE)=/u.test(
+      runs,
+    )
+  ) {
+    fail(
+      'INPUT_FLOW',
+      'deploy steps may not replace the fixed acceptance baseline job environment',
+      source,
+    );
+  }
+  for (const name of [
+    'ACCEPTED_DEVELOPMENT_SHA256',
+    'FINAL_PRODUCT_REVISION',
+    'FINAL_PRODUCT_TREE',
+  ]) {
+    const occurrences = [...runs.matchAll(new RegExp(`\\b${name}\\b`, 'gu'))];
+    if (occurrences.length !== 2) {
+      fail(
+        'INPUT_FLOW',
+        `deploy steps must use fixed baseline ${name} exactly for format and jq binding`,
+        source,
+      );
+    }
+  }
+  if (
     runs.includes('bgmss-operations-validation-') ||
     runs.includes('validation-candidate.tar')
   ) {
@@ -1721,7 +1903,10 @@ function assertDeployWorkflow(workflow, source) {
     'jq -cS .',
     'def exact($expected): keys == ($expected | sort);',
     'exact(["revision", "tree"])',
-    'sha256:17145d4869050dc2ff347e4dbfb60a5a6369d32890f0abc3e8f766b8ea28a80a',
+    'exact(["frozenProduct", "receiptDigest"])',
+    '--arg acceptedDevelopmentSha256 "$ACCEPTED_DEVELOPMENT_SHA256"',
+    '--arg finalProductRevision "$FINAL_PRODUCT_REVISION"',
+    '--arg finalProductTree "$FINAL_PRODUCT_TREE"',
     'and .operationsController == .release',
     'and .version == "v0.1.0"',
     'descriptor_count=0',
@@ -1744,6 +1929,23 @@ function assertDeployWorkflow(workflow, source) {
     }
   }
   if (
+    !/\.frozenProduct\s*==\s*\{\s*revision:\s*\$finalProductRevision,\s*tree:\s*\$finalProductTree\s*\}/u.test(
+      runs,
+    ) ||
+    !/\.receiptDigest\s*==\s*\$acceptedDevelopmentSha256/u.test(runs)
+  ) {
+    fail(
+      'REQUIRED_GATE',
+      'deploy must cross-check receipt digest and final Product against its fixed baseline',
+      source,
+    );
+  }
+  if (
+    !runs.includes(
+      '[[ "$ACCEPTED_DEVELOPMENT_SHA256" =~ ^sha256:[0-9a-f]{64}$ ]]',
+    ) ||
+    !runs.includes('[[ "$FINAL_PRODUCT_REVISION" =~ ^[0-9a-f]{40}$ ]]') ||
+    !runs.includes('[[ "$FINAL_PRODUCT_TREE" =~ ^[0-9a-f]{40}$ ]]') ||
     !runs.includes(
       '[[ "$RELEASE_MANIFEST_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]',
     ) ||
@@ -1877,6 +2079,7 @@ function assertDeployWorkflow(workflow, source) {
       source,
     );
   }
+  assertDeployClosedProgram(deploy, source);
 }
 
 export function validateWorkflowSource(relativePath, sourceText) {

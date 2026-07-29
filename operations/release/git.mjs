@@ -180,12 +180,16 @@ export class GitRepository {
       label: 'Git repository root',
       type: 'directory',
     });
+    this.runRoot = requireCanonicalPath(runRoot, {
+      label: 'Git controller run root',
+      type: 'directory',
+    });
     this.git = requireCanonicalPath(git, {
       label: 'Git executable',
       type: 'file',
     });
     this.environment = buildSanitizedEnvironment({
-      runRoot,
+      runRoot: this.runRoot,
       pathEntries: pathDirectories(searchPath),
     });
   }
@@ -193,6 +197,7 @@ export class GitRepository {
   async command(args, {
     cwd = this.repositoryRoot,
     acceptedExitCodes = [0],
+    hashAndCountStdout = false,
     hashStdout = false,
     maxOutputBytes = 8 * 1024 * 1024,
     timeoutMs = 120_000,
@@ -203,6 +208,7 @@ export class GitRepository {
       command: this.git,
       cwd,
       environment: this.environment,
+      hashAndCountStdout,
       hashStdout,
       maxOutputBytes,
       timeoutMs,
@@ -367,12 +373,22 @@ export class GitRepository {
     const result = await this.command(
       ['cat-file', 'blob', gitBlob],
       {
-        hashStdout: true,
-        maxOutputBytes: 64 * 1024 * 1024,
+        hashAndCountStdout: true,
+        maxOutputBytes: 1024 * 1024,
       },
     );
-    if (result.stdoutTruncated || result.stderrTruncated) {
-      fail(`Git blob output was truncated for ${gitBlob}`);
+    const expectedSizeText = (
+      await this.text(['cat-file', '-s', gitBlob])
+    ).trim();
+    const expectedSize = Number(expectedSizeText);
+    if (
+      result.stderrTruncated ||
+      !/^(?:0|[1-9][0-9]{0,15})$/u.test(expectedSizeText) ||
+      !Number.isSafeInteger(expectedSize) ||
+      expectedSize < 0 ||
+      result.stdoutByteCount !== expectedSize
+    ) {
+      fail(`Git blob hash-and-byte-count evidence drifted for ${gitBlob}`);
     }
     return result.stdoutSha256;
   }

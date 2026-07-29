@@ -6,6 +6,7 @@ import {
   verifyComponentDirectory,
 } from '../../contracts/artifacts/lib/validation.mjs';
 import { canonicalJsonDigest, deepFreeze } from '../lib/canonical-json.mjs';
+import { assertSha256, sha256 } from '../lib/digest.mjs';
 import { assertEvidenceSafe } from '../lib/evidence-policy.mjs';
 import {
   requireCanonicalPath,
@@ -15,7 +16,11 @@ import {
   compileStrictSchema,
   parseAndValidateCanonicalJson,
 } from '../lib/schema.mjs';
-import { parseCanonicalJson, readJsonStrict } from '../lib/strict-json.mjs';
+import {
+  decodeUtf8Strict,
+  parseCanonicalJson,
+  readJsonStrict,
+} from '../lib/strict-json.mjs';
 import {
   ACCEPTED_DEVELOPMENT_SHA256,
   APPLICATION_VERSION,
@@ -48,6 +53,8 @@ const validateValidation = compileStrictSchema(VALIDATION_SCHEMA, {
 const validateTag = compileStrictSchema(TAG_SCHEMA, {
   label: 'tag release candidate schema',
 });
+const ACCEPTED_RECEIPT_PATH = 'accepted-development.json';
+const MAX_ACCEPTED_RECEIPT_BYTES = 4 * 1024 * 1024;
 
 export class CandidateVerificationError extends Error {
   constructor(message, options) {
@@ -75,6 +82,179 @@ function verifyDescriptor(root, expected, label) {
   const actual = descriptorForFile(root, expected.path);
   sameDescriptor(expected, actual, label);
   return actual;
+}
+
+function receiptIdentity(information) {
+  return {
+    changedNs: information.ctimeNs,
+    device: information.dev,
+    inode: information.ino,
+    links: information.nlink,
+    mode: information.mode,
+    modifiedNs: information.mtimeNs,
+    size: information.size,
+  };
+}
+
+function sameReceiptIdentity(actual, expected) {
+  return (
+    actual.isFile() &&
+    actual.dev === expected.device &&
+    actual.ino === expected.inode &&
+    actual.nlink === expected.links &&
+    actual.mode === expected.mode &&
+    actual.ctimeNs === expected.changedNs &&
+    actual.mtimeNs === expected.modifiedNs &&
+    actual.size === expected.size
+  );
+}
+
+function readOpenedReceipt(descriptor, size) {
+  const bytes = Buffer.alloc(size);
+  let offset = 0;
+  try {
+    while (offset < size) {
+      const count = fs.readSync(
+        descriptor,
+        bytes,
+        offset,
+        size - offset,
+        offset,
+      );
+      if (count === 0) {
+        return {
+          bytes: bytes.subarray(0, offset),
+          error: new Error(
+            'candidate accepted-development receipt ended before its captured size',
+          ),
+        };
+      }
+      offset += count;
+    }
+    const trailing = Buffer.allocUnsafe(1);
+    if (fs.readSync(descriptor, trailing, 0, 1, size) !== 0) {
+      return {
+        bytes,
+        error: new Error(
+          'candidate accepted-development receipt grew while it was read',
+        ),
+      };
+    }
+  } catch (error) {
+    return {
+      bytes: bytes.subarray(0, offset),
+      error,
+    };
+  }
+  return { bytes, error: undefined };
+}
+
+export function readCandidateAcceptedDevelopment(candidateRoot, expected) {
+  const root = requireCanonicalPath(candidateRoot, {
+    label: 'candidate root',
+    type: 'directory',
+  });
+  if (expected?.path !== ACCEPTED_RECEIPT_PATH) {
+    fail('candidate accepted-development receipt path drifted');
+  }
+  let fixedDigest;
+  try {
+    fixedDigest = assertSha256(
+      ACCEPTED_DEVELOPMENT_SHA256,
+      'fixed accepted-development receipt digest',
+    );
+  } catch (error) {
+    fail('fixed accepted-development receipt digest is not injected', error);
+  }
+
+  const receiptPath = path.join(root, ACCEPTED_RECEIPT_PATH);
+  if (!Number.isInteger(fs.constants.O_NOFOLLOW)) {
+    fail('O_NOFOLLOW is required for candidate accepted-development receipts');
+  }
+  const flags =
+    fs.constants.O_RDONLY |
+    fs.constants.O_NOFOLLOW |
+    (fs.constants.O_CLOEXEC ?? 0);
+  let descriptor;
+  try {
+    descriptor = fs.openSync(receiptPath, flags);
+    const before = fs.fstatSync(descriptor, { bigint: true });
+    if (
+      !before.isFile() ||
+      before.nlink !== 1n ||
+      (before.mode & 0o7777n) !== 0o444n ||
+      before.size < 1n ||
+      before.size > BigInt(MAX_ACCEPTED_RECEIPT_BYTES)
+    ) {
+      fail(
+        'candidate accepted-development receipt must be one bounded single-link regular file',
+      );
+    }
+    const size = Number(before.size);
+    if (!Number.isSafeInteger(size)) {
+      fail('candidate accepted-development receipt size is unsafe');
+    }
+    const identity = receiptIdentity(before);
+    const read = readOpenedReceipt(descriptor, size);
+    const { bytes } = read;
+    const digest = sha256(bytes);
+    let value;
+    let parseError;
+    if (!read.error && digest === fixedDigest) {
+      try {
+        value = parseAcceptedDevelopment(
+          decodeUtf8Strict(bytes, receiptPath),
+        );
+      } catch (error) {
+        parseError = error;
+      }
+    }
+
+    const after = fs.fstatSync(descriptor, { bigint: true });
+    let pathInformation;
+    try {
+      pathInformation = fs.lstatSync(receiptPath, { bigint: true });
+    } catch (error) {
+      fail('candidate accepted-development receipt path changed after opening', error);
+    }
+    if (
+      !sameReceiptIdentity(after, identity) ||
+      !sameReceiptIdentity(pathInformation, identity)
+    ) {
+      fail('candidate accepted-development receipt identity changed while it was read');
+    }
+    if (read.error) {
+      fail(
+        'candidate accepted-development receipt could not be read completely',
+        read.error,
+      );
+    }
+    const actual = {
+      mode: '0444',
+      path: ACCEPTED_RECEIPT_PATH,
+      sha256: digest,
+      size,
+    };
+    sameDescriptor(expected, actual, 'accepted receipt');
+    if (digest !== fixedDigest) {
+      fail('candidate accepted-development receipt digest drifted');
+    }
+    if (parseError) {
+      fail('candidate accepted-development receipt is invalid', parseError);
+    }
+    return deepFreeze({
+      descriptor: actual,
+      digest,
+      path: receiptPath,
+      size,
+      value,
+    });
+  } catch (error) {
+    if (error instanceof CandidateVerificationError) throw error;
+    fail('candidate accepted-development receipt cannot be read safely', error);
+  } finally {
+    if (descriptor !== undefined) fs.closeSync(descriptor);
+  }
 }
 
 function readCandidateDocument(root) {
@@ -249,15 +429,9 @@ export function verifyCandidateStructure(candidateRoot) {
   ) {
     fail('candidate source epoch is outside the admitted range');
   }
-  const receipt = verifyDescriptor(root, candidate.receipt, 'accepted receipt');
-  if (
-    candidate.receipt.path !== 'accepted-development.json' ||
-    receipt.sha256 !== ACCEPTED_DEVELOPMENT_SHA256
-  ) {
-    fail('candidate accepted-development receipt digest drifted');
-  }
-  parseAcceptedDevelopment(
-    fs.readFileSync(path.join(root, candidate.receipt.path), 'utf8'),
+  const acceptedDevelopment = readCandidateAcceptedDevelopment(
+    root,
+    candidate.receipt,
   );
   const components = Object.fromEntries(
     COMPONENTS.map((component) => [
@@ -356,6 +530,7 @@ export function verifyCandidateStructure(candidateRoot) {
     candidateDocument: document.relative,
     completeInventory,
     components,
+    acceptedDevelopment,
     root,
     source,
   });

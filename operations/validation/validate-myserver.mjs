@@ -13,6 +13,7 @@ import { writeCanonicalJsonFile } from '../lib/immutable-output.mjs';
 import { requireCanonicalPath } from '../lib/path-policy.mjs';
 import { parseJsonStrict } from '../lib/strict-json.mjs';
 import {
+  approvedGithubCliExecutable,
   verifyAuthenticatedActionsHandoff,
 } from './actions-handoff.mjs';
 import {
@@ -21,6 +22,7 @@ import {
   REMOTE_ROOT,
   REPOSITORY_ROOT,
 } from './constants.mjs';
+import { assertExactOperationsControlRuntime } from './control-runtime.mjs';
 import { currentOperationsIdentity } from './package.mjs';
 import {
   assertResourcesSemantics,
@@ -486,6 +488,10 @@ function prepareReverificationRoots(runRoot, suffix = '') {
 }
 
 async function main() {
+  assertExactOperationsControlRuntime({
+    expectedLifecycleEvent: 'validate:myserver',
+  });
+  approvedGithubCliExecutable();
   const removeSignalRecovery = installSignalRecovery();
   try {
   const argumentsValue = parseArguments(process.argv.slice(2));

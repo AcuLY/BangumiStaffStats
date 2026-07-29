@@ -10,6 +10,7 @@ import {
   validateWorkflowSet,
   validateWorkflowSource,
 } from '../../release/check-workflows.mjs';
+import { readAcceptedDevelopment } from '../../release/receipt.mjs';
 
 const sources = readWorkflowSources();
 
@@ -582,13 +583,193 @@ test('deploy verifier cannot drop closed manifest unknown-field rejection', () =
   assertRejected('.github/workflows/deploy.yml', changed, 'REQUIRED_GATE');
 });
 
-test('deploy verifier cannot weaken accepted authority binding', () => {
+test('deploy cannot replace the fixed accepted receipt or final Product baseline', () => {
+  const receipt = readAcceptedDevelopment();
+  for (const [before, after] of [
+    [
+      receipt.digest,
+      '__MUTATED_ACCEPTED_DEVELOPMENT_SHA256__',
+    ],
+    [
+      receipt.value.frozenProduct.revision,
+      '__MUTATED_FINAL_PRODUCT_REVISION__',
+    ],
+    [
+      receipt.value.frozenProduct.tree,
+      '__MUTATED_FINAL_PRODUCT_TREE__',
+    ],
+  ]) {
+    const changed = replaceRequired(
+      sources['.github/workflows/deploy.yml'],
+      before,
+      after,
+    );
+    assertRejected('.github/workflows/deploy.yml', changed, 'INPUT_FLOW');
+  }
+});
+
+test('deploy job baseline equals the untouched canonical accepted-development receipt', () => {
+  const receipt = readAcceptedDevelopment();
+  const deploy = parseWorkflowSource(
+    sources['.github/workflows/deploy.yml'],
+    '.github/workflows/deploy.yml',
+  ).jobs.deploy;
+  assert.deepEqual(
+    {
+      frozenProduct: {
+        revision: deploy.env.FINAL_PRODUCT_REVISION,
+        tree: deploy.env.FINAL_PRODUCT_TREE,
+      },
+      receiptDigest: deploy.env.ACCEPTED_DEVELOPMENT_SHA256,
+    },
+    {
+      frozenProduct: { ...receipt.value.frozenProduct },
+      receiptDigest: receipt.digest,
+    },
+  );
+});
+
+test('deploy steps cannot reassign the fixed accepted-development baseline', () => {
   const changed = replaceRequired(
     sources['.github/workflows/deploy.yml'],
-    'sha256:17145d4869050dc2ff347e4dbfb60a5a6369d32890f0abc3e8f766b8ea28a80a',
-    'sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+    '          actual_digest="sha256:$(\n',
+    [
+      '          FINAL_PRODUCT_REVISION=ffffffffffffffffffffffffffffffffffffffff',
+      '          actual_digest="sha256:$(',
+      '',
+    ].join('\n'),
   );
-  assertRejected('.github/workflows/deploy.yml', changed, 'REQUIRED_GATE');
+  assertRejected('.github/workflows/deploy.yml', changed, 'INPUT_FLOW');
+});
+
+test('deploy steps cannot override job authority or dispatch inputs through step env', () => {
+  for (const name of [
+    'ACCEPTED_DEVELOPMENT_SHA256',
+    'FINAL_PRODUCT_REVISION',
+    'FINAL_PRODUCT_TREE',
+    'RELEASE_MANIFEST_DIGEST',
+    'RELEASE_VERSION',
+  ]) {
+    const changed = replaceRequired(
+      sources['.github/workflows/deploy.yml'],
+      '      - name: Validate bounded dispatch inputs before reading a secret\n        shell: bash',
+      [
+        '      - name: Validate bounded dispatch inputs before reading a secret',
+        '        shell: bash',
+        '        env:',
+        `          ${name}: unreviewed-step-override`,
+      ].join('\n'),
+    );
+    assertRejected('.github/workflows/deploy.yml', changed, 'INPUT_FLOW');
+  }
+});
+
+test('deploy steps cannot use GitHub environment or PATH command files', () => {
+  for (const commandFile of ['GITHUB_ENV', 'GITHUB_PATH']) {
+    const changed = replaceRequired(
+      sources['.github/workflows/deploy.yml'],
+      '          set -euo pipefail\n',
+      [
+        '          set -euo pipefail',
+        `          printf '%s\\n' unreviewed >> "$${commandFile}"`,
+        '',
+      ].join('\n'),
+    );
+    assertRejected('.github/workflows/deploy.yml', changed, 'INPUT_FLOW');
+  }
+});
+
+test('deploy program rejects extra steps even when they carry no obvious forbidden command', () => {
+  const changed = replaceRequired(
+    sources['.github/workflows/deploy.yml'],
+    '      - name: Validate bounded dispatch inputs before reading a secret',
+    [
+      '      - name: Unreviewed preparation',
+      '        shell: bash',
+      '        run: |',
+      '          set -euo pipefail',
+      '          true',
+      '      - name: Validate bounded dispatch inputs before reading a secret',
+    ].join('\n'),
+  );
+  assertRejected('.github/workflows/deploy.yml', changed, 'DEPLOY_PROGRAM');
+});
+
+test('deploy validate and verify steps reject shell startup environments', () => {
+  for (const [stepName, startupName] of [
+    [
+      'Validate bounded dispatch inputs before reading a secret',
+      'BASH_ENV',
+    ],
+    [
+      'Verify the immutable published manifest and assets',
+      'ENV',
+    ],
+  ]) {
+    const changed = replaceRequired(
+      sources['.github/workflows/deploy.yml'],
+      `      - name: ${stepName}\n        shell: bash`,
+      [
+        `      - name: ${stepName}`,
+        '        shell: bash',
+        '        env:',
+        `          ${startupName}: /tmp/unreviewed-startup`,
+      ].join('\n'),
+    );
+    assertRejected('.github/workflows/deploy.yml', changed, 'DEPLOY_PROGRAM');
+  }
+});
+
+test('deploy exact run blocks reject obfuscated GitHub command-file writes', () => {
+  const changed = replaceRequired(
+    sources['.github/workflows/deploy.yml'],
+    '          set -euo pipefail\n',
+    [
+      '          set -euo pipefail',
+      "          command_file='GITHUB_'",
+      "          command_file+='ENV'",
+      '          printf \'%s\\n\' unreviewed >> "${!command_file}"',
+      '',
+    ].join('\n'),
+  );
+  assertRejected('.github/workflows/deploy.yml', changed, 'DEPLOY_PROGRAM');
+});
+
+test('deploy exact reviewed run blocks reject otherwise innocuous script drift', () => {
+  const changed = replaceRequired(
+    sources['.github/workflows/deploy.yml'],
+    '          release_root="$RUNNER_TEMP/bgmss-existing-release"\n',
+    [
+      '          : "unreviewed but superficially harmless change"',
+      '          release_root="$RUNNER_TEMP/bgmss-existing-release"',
+      '',
+    ].join('\n'),
+  );
+  assertRejected('.github/workflows/deploy.yml', changed, 'DEPLOY_PROGRAM');
+});
+
+test('deploy verifier cannot drop receipt and final Product cross-checks', () => {
+  for (const [before, after] of [
+    [
+      '                revision: $finalProductRevision,',
+      '                revision: $finalProductTree,',
+    ],
+    [
+      '                tree: $finalProductTree',
+      '                tree: $finalProductRevision',
+    ],
+    [
+      '              and .receiptDigest\n                == $acceptedDevelopmentSha256',
+      '              and (.receiptDigest | type == "string")',
+    ],
+  ]) {
+    const changed = replaceRequired(
+      sources['.github/workflows/deploy.yml'],
+      before,
+      after,
+    );
+    assertRejected('.github/workflows/deploy.yml', changed, 'REQUIRED_GATE');
+  }
 });
 
 test('deploy verifier cannot omit complete manifest asset descriptor checks', () => {

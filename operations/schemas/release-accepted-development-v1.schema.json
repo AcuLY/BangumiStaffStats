@@ -7,12 +7,10 @@
       "additionalProperties": false,
       "properties": {
         "archiveLifecycleCommit": {
-          "const": "00d15f18e51141645cb6fa04b837139ad9a0c6f3",
           "format": "git-oid",
           "type": "string"
         },
         "archiveLifecycleTree": {
-          "const": "3a6cfe3f539205c3e9f1c0ca56d789582e7ab66e",
           "format": "git-oid",
           "type": "string"
         },
@@ -25,14 +23,15 @@
           "type": "boolean"
         },
         "implementationRevision": {
-          "const": "b56ce858733b18875df3101a423c6d1b356eed54",
           "format": "git-oid",
           "type": "string"
         },
         "implementationTree": {
-          "const": "12ffad17e74852409fd52eed7f538364c7acd698",
           "format": "git-oid",
           "type": "string"
+        },
+        "productHarnessDifference": {
+          "$ref": "#/$defs/productHarnessDifference"
         }
       },
       "required": [
@@ -41,7 +40,8 @@
         "formalResultPresent",
         "formalVerdictPresent",
         "implementationRevision",
-        "implementationTree"
+        "implementationTree",
+        "productHarnessDifference"
       ],
       "type": "object"
     },
@@ -53,34 +53,51 @@
           "type": "string"
         },
         "headRevision": {
-          "const": "111bc57b15d16a4aadf155ee503bc12c8065caef",
           "format": "git-oid",
           "type": "string"
         },
         "headTree": {
-          "const": "4489591ae54ea3b71e4ba86e41d935065276113e",
           "format": "git-oid",
           "type": "string"
         },
-        "runId": {
-          "const": "30264329846",
+        "jobId": {
+          "pattern": "^[1-9][0-9]{0,19}$",
           "type": "string"
         },
-        "url": {
-          "const": "https://github.com/AcuLY/BangumiStaffStats/actions/runs/30264329846",
+        "jobUrl": {
+          "pattern": "^https://github\\.com/AcuLY/BangumiStaffStats/actions/runs/[1-9][0-9]{0,19}/job/[1-9][0-9]{0,19}$",
+          "type": "string"
+        },
+        "log": {
+          "$ref": "#/$defs/evidenceFile"
+        },
+        "runId": {
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "type": "string"
+        },
+        "runUrl": {
+          "pattern": "^https://github\\.com/AcuLY/BangumiStaffStats/actions/runs/[1-9][0-9]{0,19}$",
           "type": "string"
         },
         "workflowAuthority": {
           "$ref": "#/$defs/repositoryFile"
+        },
+        "workflowName": {
+          "const": "development-artifacts",
+          "type": "string"
         }
       },
       "required": [
         "conclusion",
         "headRevision",
         "headTree",
+        "jobId",
+        "jobUrl",
+        "log",
         "runId",
-        "url",
-        "workflowAuthority"
+        "runUrl",
+        "workflowAuthority",
+        "workflowName"
       ],
       "type": "object"
     },
@@ -95,8 +112,8 @@
           "items": {
             "$ref": "#/$defs/repositoryFile"
           },
-          "minItems": 12,
-          "maxItems": 12,
+          "maxItems": 13,
+          "minItems": 13,
           "type": "array",
           "uniqueItems": true
         },
@@ -104,8 +121,8 @@
           "items": {
             "$ref": "#/$defs/repositoryFile"
           },
-          "minItems": 8,
           "maxItems": 8,
+          "minItems": 8,
           "type": "array",
           "uniqueItems": true
         },
@@ -113,8 +130,8 @@
           "items": {
             "$ref": "#/$defs/repositoryFile"
           },
-          "minItems": 2,
           "maxItems": 2,
+          "minItems": 2,
           "type": "array",
           "uniqueItems": true
         },
@@ -144,8 +161,8 @@
             ],
             "type": "object"
           },
-          "minItems": 7,
           "maxItems": 7,
+          "minItems": 7,
           "type": "array",
           "uniqueItems": true
         },
@@ -198,6 +215,14 @@
         "audit": {
           "additionalProperties": false,
           "properties": {
+            "archiveRevision": {
+              "format": "git-oid",
+              "type": "string"
+            },
+            "harnessRevision": {
+              "format": "git-oid",
+              "type": "string"
+            },
             "p0Findings": {
               "const": 0,
               "type": "integer"
@@ -205,18 +230,60 @@
             "p1Findings": {
               "const": 0,
               "type": "integer"
+            },
+            "productRevision": {
+              "format": "git-oid",
+              "type": "string"
+            },
+            "report": {
+              "$ref": "#/$defs/evidenceDescriptor"
+            },
+            "reviewedEvidenceDigests": {
+              "items": {
+                "format": "sha256",
+                "type": "string"
+              },
+              "maxItems": 64,
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "reviewedProgramDigests": {
+              "items": {
+                "format": "sha256",
+                "type": "string"
+              },
+              "maxItems": 64,
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "scope": {
+              "const": "exact-product-harness-archive-evidence",
+              "type": "string"
             }
           },
           "required": [
+            "archiveRevision",
+            "harnessRevision",
             "p0Findings",
-            "p1Findings"
+            "p1Findings",
+            "productRevision",
+            "report",
+            "reviewedEvidenceDigests",
+            "reviewedProgramDigests",
+            "scope"
           ],
           "type": "object"
         },
         "cleanup": {
           "additionalProperties": false,
           "properties": {
-            "buildkitCacheRemoved": {
+            "ambiguousResidueCount": {
+              "const": 0,
+              "type": "integer"
+            },
+            "dependencyTreesRemoved": {
               "const": true,
               "type": "boolean"
             },
@@ -224,71 +291,46 @@
               "const": 0,
               "type": "integer"
             },
-            "sourceCopyRemoved": {
+            "protectedSealMismatchCount": {
+              "const": 0,
+              "type": "integer"
+            },
+            "runCachesRemoved": {
               "const": true,
               "type": "boolean"
             },
-            "transferArchiveRemoved": {
+            "runContainersRemoved": {
               "const": true,
               "type": "boolean"
             },
-            "validationImageRemoved": {
+            "runImagesRemoved": {
               "const": true,
               "type": "boolean"
             },
-            "validationRootRemoved": {
+            "runRootRemoved": {
+              "const": true,
+              "type": "boolean"
+            },
+            "sourceArchivesRemoved": {
               "const": true,
               "type": "boolean"
             }
           },
           "required": [
-            "buildkitCacheRemoved",
+            "ambiguousResidueCount",
+            "dependencyTreesRemoved",
             "legacyResourceDriftCount",
-            "sourceCopyRemoved",
-            "transferArchiveRemoved",
-            "validationImageRemoved",
-            "validationRootRemoved"
+            "protectedSealMismatchCount",
+            "runCachesRemoved",
+            "runContainersRemoved",
+            "runImagesRemoved",
+            "runRootRemoved",
+            "sourceArchivesRemoved"
           ],
           "type": "object"
         },
-        "exception": {
-          "additionalProperties": false,
-          "properties": {
-            "classification": {
-              "const": "darwin-process-identity-text-fixture-mismatch-on-linux",
-              "type": "string"
-            },
-            "expectedPlatform": {
-              "const": "darwin",
-              "type": "string"
-            },
-            "id": {
-              "const": "escaped fixture fallback cleans only an exact owned process identity",
-              "type": "string"
-            },
-            "observedPlatform": {
-              "const": "linux",
-              "type": "string"
-            },
-            "productionBehaviorWaived": {
-              "const": false,
-              "type": "boolean"
-            },
-            "rationale": {
-              "maxLength": 1024,
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          "required": [
-            "classification",
-            "expectedPlatform",
-            "id",
-            "observedPlatform",
-            "productionBehaviorWaived",
-            "rationale"
-          ],
-          "type": "object"
+        "evidenceBundle": {
+          "$ref": "#/$defs/evidenceBundleDescriptor"
         },
         "formalMatrix": {
           "additionalProperties": false,
@@ -298,7 +340,6 @@
               "type": "integer"
             },
             "gitBlob": {
-              "const": "aa783a58d70e867b87751b8562ad1251f6aca3a1",
               "format": "git-oid",
               "type": "string"
             },
@@ -307,7 +348,6 @@
               "type": "string"
             },
             "sha256": {
-              "const": "sha256:531d5a5337cfd09e8f60df44614f783ed6c92e71f115d958b1bfc2477cbcb2c5",
               "format": "sha256",
               "type": "string"
             },
@@ -316,8 +356,8 @@
                 "format": "bounded-identifier",
                 "type": "string"
               },
-              "minItems": 56,
               "maxItems": 56,
+              "minItems": 56,
               "type": "array",
               "uniqueItems": true
             }
@@ -331,71 +371,219 @@
           ],
           "type": "object"
         },
-        "runtime": {
+        "host": {
           "additionalProperties": false,
           "properties": {
             "architecture": {
               "const": "amd64",
               "type": "string"
             },
-            "nodeImage": {
-              "const": "node@sha256:6f7b03f7d42f2d5afd5c6c51d917732a316b94908531295d9d23c4c1936ecb20",
+            "dockerApiVersion": {
+              "pattern": "^[1-9][0-9]*\\.[0-9]+$",
               "type": "string"
             },
-            "nodeVersion": {
-              "const": "24.18.0",
+            "dockerServerVersion": {
+              "maxLength": 128,
+              "minLength": 1,
               "type": "string"
             },
-            "npmVersion": {
-              "const": "11.16.0",
+            "legacyRootKind": {
+              "const": "non-git-published-root",
               "type": "string"
             },
-            "platform": {
+            "os": {
               "const": "linux",
               "type": "string"
             }
           },
           "required": [
             "architecture",
-            "nodeImage",
-            "nodeVersion",
-            "npmVersion",
-            "platform"
+            "dockerApiVersion",
+            "dockerServerVersion",
+            "legacyRootKind",
+            "os"
           ],
           "type": "object"
         },
-        "sourceArchiveSha256": {
-          "const": "sha256:9ce38b792dbbcf8dc6992122ee5af4cdfcfc3914214497108980e01672b4ed14",
-          "format": "sha256",
-          "type": "string"
+        "protectedState": {
+          "additionalProperties": false,
+          "properties": {
+            "afterRaw": {
+              "$ref": "#/$defs/evidenceDescriptor"
+            },
+            "afterSemanticSha256": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "beforeRaw": {
+              "$ref": "#/$defs/evidenceDescriptor"
+            },
+            "beforeSemanticSha256": {
+              "format": "sha256",
+              "type": "string"
+            },
+            "executedSealProgram": {
+              "$ref": "#/$defs/executedProgram"
+            },
+            "matched": {
+              "const": true,
+              "type": "boolean"
+            },
+            "projectionAlgorithm": {
+              "const": "canonical-protected-state-projection-v1",
+              "type": "string"
+            }
+          },
+          "required": [
+            "afterRaw",
+            "afterSemanticSha256",
+            "beforeRaw",
+            "beforeSemanticSha256",
+            "executedSealProgram",
+            "matched",
+            "projectionAlgorithm"
+          ],
+          "type": "object"
         },
-        "supervisorTests": {
-          "$ref": "#/$defs/testCount"
+        "runtimes": {
+          "additionalProperties": false,
+          "properties": {
+            "node": {
+              "$ref": "#/$defs/nodeRuntimeImage"
+            },
+            "python": {
+              "$ref": "#/$defs/pythonRuntimeImage"
+            }
+          },
+          "required": [
+            "node",
+            "python"
+          ],
+          "type": "object"
         },
-        "targetedTests": {
-          "$ref": "#/$defs/testCount"
-        },
-        "verifyPackagePassed": {
-          "const": true,
-          "type": "boolean"
+        "supersededAttempts": {
+          "items": {
+            "$ref": "#/$defs/supersededAttempt"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array"
         }
       },
       "required": [
         "audit",
         "cleanup",
-        "exception",
+        "evidenceBundle",
         "formalMatrix",
-        "runtime",
-        "sourceArchiveSha256",
-        "supervisorTests",
-        "targetedTests",
-        "verifyPackagePassed"
+        "host",
+        "protectedState",
+        "runtimes",
+        "supersededAttempts"
       ],
       "type": "object"
     },
     "schemaVersion": {
       "const": "operations-accepted-development-v1",
       "type": "string"
+    },
+    "sourceArchives": {
+      "additionalProperties": false,
+      "properties": {
+        "harness": {
+          "$ref": "#/$defs/sourceArchive"
+        },
+        "product": {
+          "$ref": "#/$defs/sourceArchive"
+        }
+      },
+      "required": [
+        "harness",
+        "product"
+      ],
+      "type": "object"
+    },
+    "testEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "harness": {
+          "additionalProperties": false,
+          "properties": {
+            "offlineInstall": {
+              "$ref": "#/$defs/commandResult"
+            },
+            "runId": {
+              "$ref": "#/$defs/runId"
+            },
+            "sourceRevision": {
+              "format": "git-oid",
+              "type": "string"
+            },
+            "supervisor": {
+              "$ref": "#/$defs/testRun"
+            },
+            "targeted": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/testRun"
+                },
+                {
+                  "properties": {
+                    "testNames": {
+                      "$ref": "#/$defs/selectedTargetTestNames"
+                    }
+                  },
+                  "required": [
+                    "testNames"
+                  ],
+                  "type": "object"
+                }
+              ]
+            },
+            "verifyPackageAfter": {
+              "$ref": "#/$defs/commandResult"
+            },
+            "verifyPackageBefore": {
+              "$ref": "#/$defs/commandResult"
+            }
+          },
+          "required": [
+            "offlineInstall",
+            "runId",
+            "sourceRevision",
+            "supervisor",
+            "targeted",
+            "verifyPackageAfter",
+            "verifyPackageBefore"
+          ],
+          "type": "object"
+        },
+        "product": {
+          "additionalProperties": false,
+          "properties": {
+            "runId": {
+              "$ref": "#/$defs/runId"
+            },
+            "runtimePrune": {
+              "$ref": "#/$defs/testRun"
+            },
+            "sourceRevision": {
+              "format": "git-oid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "runId",
+            "runtimePrune",
+            "sourceRevision"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "harness",
+        "product"
+      ],
+      "type": "object"
     }
   },
   "required": [
@@ -407,10 +595,262 @@
     "lifecycleStatus",
     "priorDevelopmentArtifacts",
     "remoteEvidence",
-    "schemaVersion"
+    "schemaVersion",
+    "sourceArchives",
+    "testEvidence"
   ],
   "type": "object",
   "$defs": {
+    "commandResult": {
+      "additionalProperties": false,
+      "properties": {
+        "argv": {
+          "$ref": "#/$defs/argv"
+        },
+        "containerId": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "log": {
+          "$ref": "#/$defs/evidenceFile"
+        },
+        "passed": {
+          "const": true,
+          "type": "boolean"
+        },
+        "runId": {
+          "$ref": "#/$defs/runId"
+        },
+        "runtimeConfigImageId": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "sourceRevision": {
+          "format": "git-oid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "argv",
+        "containerId",
+        "log",
+        "passed",
+        "runId",
+        "runtimeConfigImageId",
+        "sourceRevision"
+      ],
+      "type": "object"
+    },
+    "differenceEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "newContentSha256": {
+          "oneOf": [
+            {
+              "format": "sha256",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "newGitBlob": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "newMode": {
+          "enum": [
+            "000000",
+            "100644",
+            "100755"
+          ],
+          "type": "string"
+        },
+        "oldContentSha256": {
+          "oneOf": [
+            {
+              "format": "sha256",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "oldGitBlob": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "oldMode": {
+          "enum": [
+            "000000",
+            "100644",
+            "100755"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "format": "safe-relative-path",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "A",
+            "D",
+            "M"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "newContentSha256",
+        "newGitBlob",
+        "newMode",
+        "oldContentSha256",
+        "oldGitBlob",
+        "oldMode",
+        "path",
+        "status"
+      ],
+      "type": "object"
+    },
+    "argv": {
+      "items": {
+        "maxLength": 4096,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "type": "array"
+    },
+    "evidenceFile": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "evidenceDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "format": "safe-relative-path",
+          "type": "string"
+        },
+        "schemaVersion": {
+          "format": "bounded-identifier",
+          "type": "string"
+        },
+        "sha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "schemaVersion",
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "evidenceBundleDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptedRunIds": {
+          "items": {
+            "$ref": "#/$defs/runId"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "path": {
+          "format": "safe-relative-path",
+          "type": "string"
+        },
+        "schemaVersion": {
+          "const": "integrated-development-evidence-bundle-v1",
+          "type": "string"
+        },
+        "sha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "supersededRunIds": {
+          "items": {
+            "$ref": "#/$defs/runId"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "acceptedRunIds",
+        "path",
+        "schemaVersion",
+        "sha256",
+        "size",
+        "supersededRunIds"
+      ],
+      "type": "object"
+    },
+    "executedProgram": {
+      "additionalProperties": false,
+      "properties": {
+        "executed": {
+          "const": true,
+          "type": "boolean"
+        },
+        "executionId": {
+          "$ref": "#/$defs/runId"
+        },
+        "path": {
+          "format": "safe-relative-path",
+          "type": "string"
+        },
+        "sha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "executed",
+        "executionId",
+        "path",
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
     "gitIdentity": {
       "additionalProperties": false,
       "properties": {
@@ -426,6 +866,341 @@
       "required": [
         "revision",
         "tree"
+      ],
+      "type": "object"
+    },
+    "nodeRuntimeImage": {
+      "additionalProperties": false,
+      "properties": {
+        "amd64ManifestDigest": {
+          "const": "sha256:d45d78e7929b46875bbd4e29bea672d5bc48186c6c3588306521c815e78352d6",
+          "type": "string"
+        },
+        "amd64ManifestSize": {
+          "const": 1929,
+          "type": "integer"
+        },
+        "architecture": {
+          "const": "amd64",
+          "type": "string"
+        },
+        "configDiffIds": {
+          "items": false,
+          "maxItems": 5,
+          "minItems": 5,
+          "prefixItems": [
+            {
+              "const": "sha256:81f823b9617547261c907396f63f770deaa554748ff739bedfa650e3bb74595a"
+            },
+            {
+              "const": "sha256:e8e8bcb08674cd0ecf9850d66bc246bb95fa086eb6c988ab48d0404501029ddc"
+            },
+            {
+              "const": "sha256:ec5d0255c8bf10ce4313e611ec0a35f9de699c6284e69e4c4fdcc5ea6e82adbf"
+            },
+            {
+              "const": "sha256:625ca884ca91515900d06a970e88957ac4d2e8963c4a0cc699e069ef7e3c7371"
+            },
+            {
+              "const": "sha256:7ad824b880674ec5cd6d6ef28d7d4783bcd5194ccf30ae225d5eeed0093ff31a"
+            }
+          ],
+          "type": "array",
+          "uniqueItems": true
+        },
+        "configDigest": {
+          "const": "sha256:2f35c3d18013b7d65e31c40f0602e4c0a65a18efc65c16e2b98497f13f4da921",
+          "type": "string"
+        },
+        "configImageId": {
+          "const": "sha256:2f35c3d18013b7d65e31c40f0602e4c0a65a18efc65c16e2b98497f13f4da921",
+          "type": "string"
+        },
+        "configSize": {
+          "const": 6827,
+          "type": "integer"
+        },
+        "layers": {
+          "items": false,
+          "maxItems": 5,
+          "minItems": 5,
+          "prefixItems": [
+            {
+              "const": {
+                "digest": "sha256:597c6c618d36213af657a6a8444a5d87801f9a219682b206ad21ccb8f3e57bbd",
+                "size": 28232643
+              }
+            },
+            {
+              "const": {
+                "digest": "sha256:af54a8f1f08bff19af42c05615745e74742a74437bb1c5e1e99bf0dcb8048257",
+                "size": 3311
+              }
+            },
+            {
+              "const": {
+                "digest": "sha256:35e38e1826d7cdf22ea45a4223741e4cc126db5a2a07cf2072b229270180f920",
+                "size": 50334796
+              }
+            },
+            {
+              "const": {
+                "digest": "sha256:15f27b93c93d3aaa4df09438a96bad3709b6cbbc38659014d17cc61d8d4fabb9",
+                "size": 1712639
+              }
+            },
+            {
+              "const": {
+                "digest": "sha256:3f4664f9b20d6f144b2674c2c40de02509aabd87eae0a2d31a62de37444d13e8",
+                "size": 448
+              }
+            }
+          ],
+          "type": "array",
+          "uniqueItems": true
+        },
+        "npmVersion": {
+          "const": "11.16.0",
+          "type": "string"
+        },
+        "nodeVersion": {
+          "const": "24.18.0",
+          "type": "string"
+        },
+        "os": {
+          "const": "linux",
+          "type": "string"
+        },
+        "repoDigests": {
+          "items": {
+            "format": "container-image-reference",
+            "type": "string"
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "rootDigest": {
+          "const": "sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d",
+          "type": "string"
+        },
+        "rootSize": {
+          "const": 3929,
+          "type": "integer"
+        },
+        "transportReference": {
+          "const": "mirror.ccs.tencentyun.com/library/node@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amd64ManifestDigest",
+        "amd64ManifestSize",
+        "architecture",
+        "configDiffIds",
+        "configDigest",
+        "configImageId",
+        "configSize",
+        "layers",
+        "npmVersion",
+        "nodeVersion",
+        "os",
+        "repoDigests",
+        "rootDigest",
+        "rootSize",
+        "transportReference"
+      ],
+      "type": "object"
+    },
+    "ociDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "digest",
+        "size"
+      ],
+      "type": "object"
+    },
+    "productHarnessDifference": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/differenceEntry"
+          },
+          "maxItems": 4096,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "harnessRevision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "inventoryDigest": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "nonAllowedDifferenceCount": {
+          "const": 0,
+          "type": "integer"
+        },
+        "productRevision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "schemaVersion": {
+          "const": "operations-product-harness-difference-v1",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entries",
+        "harnessRevision",
+        "inventoryDigest",
+        "nonAllowedDifferenceCount",
+        "productRevision",
+        "schemaVersion"
+      ],
+      "type": "object"
+    },
+    "pythonRuntimeImage": {
+      "additionalProperties": false,
+      "properties": {
+        "amd64ManifestDigest": {
+          "const": "sha256:f70215e5dbe2a47dee6d23f9c6d358bf3c148f59cce2fd165b61118e9d80f2bb",
+          "type": "string"
+        },
+        "amd64ManifestSize": {
+          "const": 1751,
+          "type": "integer"
+        },
+        "architecture": {
+          "const": "amd64",
+          "type": "string"
+        },
+        "configDiffIds": {
+          "items": false,
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "const": "sha256:81f823b9617547261c907396f63f770deaa554748ff739bedfa650e3bb74595a"
+            },
+            {
+              "const": "sha256:88ded20513bbb0399023378e80dbaf890a2ef38e88f9025b4997c735286a1044"
+            },
+            {
+              "const": "sha256:7bb16f3d38f0926965028ca5205d7493ba4a31a6cd5d147b804af96e6214817b"
+            },
+            {
+              "const": "sha256:821a723c8d9c144a7dc22080d3f33417252ccec2a2a0a7902574ec80643acd68"
+            }
+          ],
+          "type": "array",
+          "uniqueItems": true
+        },
+        "configDigest": {
+          "const": "sha256:c42d4d39d945cdfc11f65c2bdbcbc174b9d01563225ca182aff28c25248378c4",
+          "type": "string"
+        },
+        "configImageId": {
+          "const": "sha256:c42d4d39d945cdfc11f65c2bdbcbc174b9d01563225ca182aff28c25248378c4",
+          "type": "string"
+        },
+        "configSize": {
+          "const": 4954,
+          "type": "integer"
+        },
+        "layers": {
+          "items": false,
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "const": {
+                "digest": "sha256:597c6c618d36213af657a6a8444a5d87801f9a219682b206ad21ccb8f3e57bbd",
+                "size": 28232643
+              }
+            },
+            {
+              "const": {
+                "digest": "sha256:b3c0372e9a70cbddcdce9556e198340bc9a962df8817055a65da673095863355",
+                "size": 3520805
+              }
+            },
+            {
+              "const": {
+                "digest": "sha256:6766af63796a43dfc1a7e5d2b453f06260d39ed534df6e986abf0661528470fd",
+                "size": 13011443
+              }
+            },
+            {
+              "const": {
+                "digest": "sha256:81ec15f604cb77969e09c5429c44bbe14aa4df208f060591375d325f39529ece",
+                "size": 248
+              }
+            }
+          ],
+          "type": "array",
+          "uniqueItems": true
+        },
+        "os": {
+          "const": "linux",
+          "type": "string"
+        },
+        "pythonVersion": {
+          "const": "3.14.6",
+          "type": "string"
+        },
+        "repoDigests": {
+          "items": {
+            "format": "container-image-reference",
+            "type": "string"
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "rootDigest": {
+          "const": "sha256:86f975aca15cf04a40b399eebede9aea7c82eae084d1f1a0a6ef6bcaae871a30",
+          "type": "string"
+        },
+        "rootSize": {
+          "const": 9124,
+          "type": "integer"
+        },
+        "transportReference": {
+          "const": "mirror.ccs.tencentyun.com/library/python@sha256:86f975aca15cf04a40b399eebede9aea7c82eae084d1f1a0a6ef6bcaae871a30",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amd64ManifestDigest",
+        "amd64ManifestSize",
+        "architecture",
+        "configDiffIds",
+        "configDigest",
+        "configImageId",
+        "configSize",
+        "layers",
+        "os",
+        "pythonVersion",
+        "repoDigests",
+        "rootDigest",
+        "rootSize",
+        "transportReference"
       ],
       "type": "object"
     },
@@ -465,12 +1240,318 @@
       ],
       "type": "object"
     },
-    "testCount": {
+    "runId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "selectedTargetTestNames": {
+      "items": false,
+      "maxItems": 21,
+      "minItems": 21,
+      "prefixItems": [
+        {
+          "const": "Backend Go content authority is the exact 62-record localeCompare set with four assets per record",
+          "type": "string"
+        },
+        {
+          "const": "Backend Go lock cleanup validates the complete closed set before unlink and proves absence",
+          "type": "string"
+        },
+        {
+          "const": "Backend Go lock cleanup rejects missing, extra, changed, linked, symlinked, or temporary state without broad deletion",
+          "type": "string"
+        },
+        {
+          "const": "Backend Go lock cleanup rejects an equal-attribute inode rebind at the private-staging boundary without deleting either inode",
+          "type": "string"
+        },
+        {
+          "const": "Backend owner handshake fixes seed, materialization, acceptance environment, write denial, and reseal order",
+          "type": "string"
+        },
+        {
+          "const": "Backend materialization closed plan rejects every widening before the networkless seam",
+          "type": "string"
+        },
+        {
+          "const": "Backend check closed plan rejects every broader network profile before execution",
+          "type": "string"
+        },
+        {
+          "const": "Linux process inventory uses only bounded procfs evidence and exact argv/cwd identity",
+          "type": "string"
+        },
+        {
+          "const": "owned Linux cleanup rejects PID reuse or argv drift before signaling",
+          "type": "string"
+        },
+        {
+          "const": "Darwin process inventory preserves absolute ps and lsof behavior",
+          "type": "string"
+        },
+        {
+          "const": "runner rejects and force-cleans a reparented child with empty env and escaped cwd",
+          "type": "string"
+        },
+        {
+          "const": "escaped fixture fallback cleans only an exact owned process identity",
+          "type": "string"
+        },
+        {
+          "const": "runner cleans reparented children before reporting nonzero and timeout outcomes",
+          "type": "string"
+        },
+        {
+          "const": "evidence validation opens every registered file and rejects tamper or residue",
+          "type": "string"
+        },
+        {
+          "const": "failed result evidence registration closes files written before a cell aborts",
+          "type": "string"
+        },
+        {
+          "const": "parent failure evidence budget reserves exactly two terminal descriptors",
+          "type": "string"
+        },
+        {
+          "const": "evidence recursion ignores cache authority bindings but closes explicit screenshots",
+          "type": "string"
+        },
+        {
+          "const": "canonical result output is exclusively written and verified after re-read",
+          "type": "string"
+        },
+        {
+          "const": "parent supervisor replaces a fake partial result with one canonical fail-fast result",
+          "type": "string"
+        },
+        {
+          "const": "parent failure registration uses a unique index and folds a full direct-fail evidence array",
+          "type": "string"
+        },
+        {
+          "const": "parent supervisor quarantines corrupt worker evidence and still writes one closed 56-cell failure",
+          "type": "string"
+        }
+      ],
+      "type": "array"
+    },
+    "sourceArchive": {
       "additionalProperties": false,
       "properties": {
+        "archiveCommand": {
+          "const": "git archive --format=tar --prefix=source/ --output=<run-owned-file> <revision>",
+          "type": "string"
+        },
+        "archiveFormat": {
+          "const": "git-archive-source-prefixed-tar-v1",
+          "type": "string"
+        },
+        "archiveMode": {
+          "enum": [
+            "0400",
+            "0440",
+            "0444",
+            "0600",
+            "0640",
+            "0644"
+          ],
+          "type": "string"
+        },
+        "archiveSha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "archiveSize": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "inventoryEntryCount": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "inventorySha256": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "inventorySchemaVersion": {
+          "const": "operations-source-archive-member-inventory-v1",
+          "type": "string"
+        },
+        "inventoryTotalBytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "revision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "tree": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "memberPrefix": {
+          "const": "source/",
+          "type": "string"
+        }
+      },
+      "required": [
+        "archiveCommand",
+        "archiveFormat",
+        "archiveMode",
+        "archiveSha256",
+        "archiveSize",
+        "inventoryEntryCount",
+        "inventorySha256",
+        "inventorySchemaVersion",
+        "inventoryTotalBytes",
+        "memberPrefix",
+        "revision",
+        "tree"
+      ],
+      "type": "object"
+    },
+    "supersededAttempt": {
+      "additionalProperties": false,
+      "properties": {
+        "accepted": {
+          "const": false,
+          "type": "boolean"
+        },
+        "classification": {
+          "format": "bounded-identifier",
+          "type": "string"
+        },
+        "cleanup": {
+          "additionalProperties": false,
+          "properties": {
+            "ambiguousResidueCount": {
+              "const": 0,
+              "type": "integer"
+            },
+            "completed": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "ambiguousResidueCount",
+            "completed"
+          ],
+          "type": "object"
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidenceDescriptor"
+        },
+        "log": {
+          "$ref": "#/$defs/evidenceDescriptor"
+        },
+        "outcome": {
+          "enum": [
+            "failed",
+            "interrupted"
+          ],
+          "type": "string"
+        },
+        "runId": {
+          "$ref": "#/$defs/runId"
+        },
+        "runtimeConfigImageId": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "sourceRevision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "status": {
+          "const": "superseded-not-accepted",
+          "type": "string"
+        },
+        "unexecutedScope": {
+          "items": {
+            "format": "bounded-identifier",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "minItems": 0,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "accepted",
+        "classification",
+        "cleanup",
+        "evidence",
+        "log",
+        "outcome",
+        "runId",
+        "runtimeConfigImageId",
+        "sourceRevision",
+        "status",
+        "unexecutedScope"
+      ],
+      "type": "object"
+    },
+    "testRun": {
+      "additionalProperties": false,
+      "properties": {
+        "argv": {
+          "$ref": "#/$defs/argv"
+        },
+        "containerId": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "failed": {
+          "const": 0,
+          "type": "integer"
+        },
+        "outcome": {
+          "const": "passed",
+          "type": "string"
+        },
         "passed": {
           "minimum": 0,
           "type": "integer"
+        },
+        "resultFormat": {
+          "enum": [
+            "tap",
+            "unittest-log"
+          ],
+          "type": "string"
+        },
+        "resultLog": {
+          "$ref": "#/$defs/evidenceFile"
+        },
+        "runId": {
+          "$ref": "#/$defs/runId"
+        },
+        "runtimeConfigImageId": {
+          "format": "sha256",
+          "type": "string"
+        },
+        "skipped": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sourceRevision": {
+          "format": "git-oid",
+          "type": "string"
+        },
+        "testNames": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         "total": {
           "minimum": 1,
@@ -478,7 +1559,18 @@
         }
       },
       "required": [
+        "argv",
+        "containerId",
+        "failed",
+        "outcome",
         "passed",
+        "resultFormat",
+        "resultLog",
+        "runId",
+        "runtimeConfigImageId",
+        "skipped",
+        "sourceRevision",
+        "testNames",
         "total"
       ],
       "type": "object"

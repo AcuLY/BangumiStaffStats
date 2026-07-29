@@ -26,8 +26,8 @@
     "check:validation-schemas": "node validation/check-schemas.mjs",
     "build:amd64": "node release/build-amd64.mjs",
     "verify:candidate": "node release/verify-candidate.mjs",
-    "preflight:myserver": "node validation/preflight-myserver.mjs",
-    "validate:myserver": "node validation/validate-myserver.mjs"
+    "preflight:myserver": "\"$BGMSS_OPS_TOOL_DIR/node\" --import ./validation/control-runtime-preload.mjs validation/preflight-myserver.mjs",
+    "validate:myserver": "\"$BGMSS_OPS_TOOL_DIR/node\" --import ./validation/control-runtime-preload.mjs validation/validate-myserver.mjs"
   },
   "dependencies": {
     "ajv": "8.20.0",

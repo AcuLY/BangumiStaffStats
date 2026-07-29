@@ -41,6 +41,7 @@ import {
 } from './files.mjs';
 import { cleanupOwnedRunRoot } from './owned-cleanup.mjs';
 import { inspectTarFile } from './tar.mjs';
+import { readAcceptedDevelopment } from './receipt.mjs';
 import { verifyCandidateStructure } from './verify-candidate-lib.mjs';
 
 const REGISTRY_SCHEMA = readJsonStrict(
@@ -146,6 +147,45 @@ function validateRegistry(candidate, evidence, repository) {
   return deepFreeze(result);
 }
 
+function acceptedDevelopmentFromCandidate(candidateResult) {
+  const { acceptedDevelopment: receipt, candidate } = candidateResult;
+  if (candidate.receipt.path !== 'accepted-development.json') {
+    fail('tag candidate receipt path drifted');
+  }
+  if (
+    receipt.descriptor.mode !== '0444' ||
+    receipt.descriptor.path !== 'accepted-development.json' ||
+    candidate.receipt.mode !== receipt.descriptor.mode ||
+    candidate.receipt.path !== 'accepted-development.json' ||
+    candidate.receipt.sha256 !== receipt.digest ||
+    candidate.receipt.size !== receipt.size
+  ) {
+    fail('tag candidate receipt descriptor differs from its parsed canonical bytes');
+  }
+  if (receipt.digest !== ACCEPTED_DEVELOPMENT_SHA256) {
+    fail('tag candidate receipt digest differs from the fixed accepted receipt');
+  }
+  if (
+    receipt.value.actionsEvidence.headRevision !==
+      receipt.value.frozenProduct.revision ||
+    receipt.value.actionsEvidence.headTree !== receipt.value.frozenProduct.tree
+  ) {
+    fail('accepted receipt Actions identity differs from its final Product');
+  }
+  if (
+    canonicalJson(receipt.value.frozenProduct) !==
+      canonicalJson(FROZEN_PRODUCT) ||
+    canonicalJson(receipt.value.frozenProduct) !==
+      canonicalJson(candidate.source.frozenBaseline)
+  ) {
+    fail('tag candidate frozen baseline differs from its accepted receipt');
+  }
+  return deepFreeze({
+    frozenProduct: receipt.value.frozenProduct,
+    receiptDigest: receipt.digest,
+  });
+}
+
 function copyReleaseAssets(candidateRoot, stageRoot) {
   const sources = new Map([
     ['archive-smoke', 'release/archive-smoke'],
@@ -239,6 +279,7 @@ export function publishRelease({
   ) {
     fail('publication accepts only an unpublished tag-release candidate');
   }
+  const acceptedDevelopment = acceptedDevelopmentFromCandidate(candidateResult);
   const registryIdentity = capturePathIdentity(registryEvidencePath, {
     includeDigest: true,
     label: 'registry publication evidence',
@@ -288,10 +329,7 @@ export function publishRelease({
       .sort((left, right) => left.localeCompare(right, 'en'))
       .map((relative) => descriptorForFile(stage, relative));
     const manifest = {
-      acceptedDevelopment: {
-        frozenProduct: FROZEN_PRODUCT,
-        receiptDigest: candidate.receipt.sha256,
-      },
+      acceptedDevelopment,
       assets: {
         archiveSmoke: descriptorForFile(stage, 'archive-smoke'),
         compatibilityManifest: descriptorForFile(
@@ -444,13 +482,16 @@ function verifyProvenance(root, manifest) {
 }
 
 export function assertPublishedReleaseAuthority(manifest) {
+  const checkedInReceipt = readAcceptedDevelopment();
+  const acceptedDevelopment = {
+    frozenProduct: checkedInReceipt.value.frozenProduct,
+    receiptDigest: checkedInReceipt.digest,
+  };
   if (
     manifest.release.tag !== APPLICATION_VERSION ||
     manifest.release.version !== APPLICATION_VERSION ||
-    canonicalJson(manifest.acceptedDevelopment.frozenProduct) !==
-      canonicalJson(FROZEN_PRODUCT) ||
-    manifest.acceptedDevelopment.receiptDigest !==
-      ACCEPTED_DEVELOPMENT_SHA256 ||
+    canonicalJson(manifest.acceptedDevelopment) !==
+      canonicalJson(acceptedDevelopment) ||
     canonicalJson(manifest.source.operationsController) !==
       canonicalJson(manifest.source.release)
   ) {

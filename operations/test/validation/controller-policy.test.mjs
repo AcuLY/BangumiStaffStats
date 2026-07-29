@@ -1,15 +1,28 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import {
   ActionsHandoffError,
+  approvedGithubCliExecutable,
   validateActionsAuthorityMetadata,
 } from '../../validation/actions-handoff.mjs';
 
 function source(relative) {
   return fs.readFileSync(
     new URL(`../../validation/${relative}`, import.meta.url),
+    'utf8',
+  );
+}
+
+function operationsTasksSource() {
+  return fs.readFileSync(
+    new URL(
+      '../../../openspec/changes/implement-operations-foundation-and-isolated-validation/tasks.md',
+      import.meta.url,
+    ),
     'utf8',
   );
 }
@@ -165,6 +178,72 @@ test('Actions handoff discovery rejects exact-name ambiguity and rechecks author
   assert.match(actions, /ARTIFACT_MAXIMUM_AGE_MS/u);
 });
 
+test('Actions handoff accepts only the reviewed canonical GitHub CLI without search fallback', () => {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'bgmss-approved-gh-')),
+  );
+  try {
+    const approved = path.join(root, 'approved-gh');
+    fs.writeFileSync(approved, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+    assert.equal(
+      approvedGithubCliExecutable({
+        BGMSS_OPS_GH: approved,
+        PATH: root,
+      }),
+      approved,
+    );
+
+    assert.throws(
+      () => approvedGithubCliExecutable({ PATH: root }),
+      ActionsHandoffError,
+    );
+    assert.throws(
+      () =>
+        approvedGithubCliExecutable({
+          BGMSS_OPS_GH: 'approved-gh',
+          PATH: root,
+        }),
+      ActionsHandoffError,
+    );
+    assert.throws(
+      () =>
+        approvedGithubCliExecutable({
+          BGMSS_OPS_GH: path.resolve(
+            import.meta.dirname,
+            '..',
+            '..',
+            'bin',
+            'bgmss-ops',
+          ),
+        }),
+      ActionsHandoffError,
+    );
+
+    const alias = path.join(root, 'gh-alias');
+    fs.symlinkSync(approved, alias);
+    assert.throws(
+      () => approvedGithubCliExecutable({ BGMSS_OPS_GH: alias }),
+      ActionsHandoffError,
+    );
+
+    const hardlink = path.join(root, 'gh-hardlink');
+    fs.linkSync(approved, hardlink);
+    assert.throws(
+      () => approvedGithubCliExecutable({ BGMSS_OPS_GH: approved }),
+      ActionsHandoffError,
+    );
+    fs.unlinkSync(hardlink);
+
+    fs.chmodSync(approved, 0o600);
+    assert.throws(
+      () => approvedGithubCliExecutable({ BGMSS_OPS_GH: approved }),
+      ActionsHandoffError,
+    );
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test('validation repeats Actions, package, identity, and preflight before mutation', () => {
   const value = source('validate-myserver.mjs');
   const bootstrap = value.indexOf("new URL('./remote/bootstrap.sh'");
@@ -197,6 +276,121 @@ test('capacity projection fails instead of clipping above sixteen GiB', () => {
     /validation capacity projection exceeds the admitted transfer bound/u,
   );
   assert.doesNotMatch(value, /Math\.min\([^)]*transferTotalBytes/u);
+});
+
+test('remote controllers gate their exact Node/npm runtime before SSH or writes', () => {
+  const preflightSource = source('preflight-myserver.mjs');
+  const validationSource = source('validate-myserver.mjs');
+  const preflight = preflightSource.slice(
+    preflightSource.indexOf('async function main()'),
+  );
+  const validation = validationSource.slice(
+    validationSource.indexOf('async function main()'),
+  );
+  const preflightGate = preflight.indexOf(
+    'assertExactOperationsControlRuntime({',
+  );
+  const validationGate = validation.indexOf(
+    'assertExactOperationsControlRuntime({',
+  );
+  const preflightGh = preflight.indexOf('approvedGithubCliExecutable();');
+  const validationGh = validation.indexOf('approvedGithubCliExecutable();');
+  assert.ok(preflightGate > 0);
+  assert.ok(validationGate > 0);
+  assert.ok(preflightGh > preflightGate);
+  assert.ok(validationGh > validationGate);
+  assert.ok(preflightGate < preflight.indexOf('const argumentsValue ='));
+  assert.ok(preflightGh < preflight.indexOf('const argumentsValue ='));
+  assert.ok(preflightGate < preflight.indexOf('const run = createRunRoot'));
+  assert.ok(preflightGate < preflight.indexOf('await runSshScript({'));
+  assert.match(
+    preflightSource,
+    /workflowRunId: parseWorkflowRunId\(values\.get\('--workflow-run-id'\)\)/u,
+  );
+  assert.doesNotMatch(preflightSource, /resolveSuccessfulWorkflowRun/u);
+  assert.ok(
+    validationGate <
+      validation.indexOf(
+        'const removeSignalRecovery = installSignalRecovery();',
+      ),
+  );
+  assert.ok(validationGate < validation.indexOf('const argumentsValue ='));
+  assert.ok(validationGh < validation.indexOf('const argumentsValue ='));
+  assert.ok(
+    validationGate <
+      validation.indexOf('verifyAuthenticatedActionsHandoff({'),
+  );
+  assert.ok(validationGate < validation.indexOf('await runSshScript({'));
+});
+
+test('remote validation runbook uses closed absolute tools and banner-free preflight capture', () => {
+  const tasks = operationsTasksSource();
+  const runbook = tasks.slice(tasks.indexOf('## 7.'));
+  assert.ok((runbook.match(/set -euo pipefail/gu) ?? []).length >= 2);
+  assert.match(
+    runbook,
+    /export PATH="\$BGMSS_OPS_TOOL_DIR:\/usr\/bin:\/bin"/u,
+  );
+  assert.match(runbook, /"\$BGMSS_OPS_GH" run download/u);
+  assert.match(runbook, /"\$BGMSS_OPS_JQ" -er/u);
+  assert.match(
+    runbook,
+    /\[\[ "\$BGMSS_OPS_OPERATIONS_REVISION" =~ \^\[0-9a-f\]\{40\}\$ \]\]/u,
+  );
+  assert.match(
+    runbook,
+    /\[\[ "\$BGMSS_OPS_WORKFLOW_RUN_ID" =~ \^\[1-9\]\[0-9\]\{0,19\}\$ \]\]/u,
+  );
+  assert.match(
+    runbook,
+    /\/usr\/bin\/env -i/u,
+  );
+  assert.match(
+    runbook,
+    /BGMSS_OPS_CONTROL_ENVIRONMENT=operations-control-environment-v1/u,
+  );
+  assert.match(
+    runbook,
+    /--script-shell=\/bin\/bash --node-options=/u,
+  );
+  assert.match(
+    runbook,
+    /operations\/validation\/control-launch\.mjs preflight:myserver/u,
+  );
+  assert.match(
+    runbook,
+    /operations\/validation\/control-launch\.mjs validate:myserver/u,
+  );
+  for (const name of [
+    'BASH_ENV',
+    'ENV',
+    'NODE_OPTIONS',
+    'NODE_PATH',
+    'NPM_CONFIG_NODE_OPTIONS',
+    'NPM_CONFIG_SCRIPT_SHELL',
+    'LD_PRELOAD',
+    'DYLD_INSERT_LIBRARIES',
+  ]) {
+    assert.match(
+      runbook,
+      new RegExp(`unset[\\s\\S]+?${name}`, 'u'),
+      name,
+    );
+  }
+  assert.doesNotMatch(
+    runbook,
+    /"\$BGMSS_OPS_TOOL_DIR\/npm" --silent --prefix operations run (?:preflight|validate):myserver/u,
+  );
+  assert.doesNotMatch(
+    runbook,
+    /export BGMSS_OPS_VALIDATION_INPUT="\$\(/u,
+  );
+  assert.match(
+    runbook,
+    /BGMSS_OPS_VALIDATION_INPUT="\$\([\s\S]+?\)"\s+export BGMSS_OPS_VALIDATION_INPUT/u,
+  );
+  assert.doesNotMatch(runbook, /\$PATH/u);
+  assert.doesNotMatch(runbook, /\n\s*(?:gh|jq) /u);
 });
 
 test('controller seals local command, security, and continuous-health authority', () => {
@@ -259,6 +453,9 @@ test('controller digest closes preflight and its transitive repository dependenc
     'schemas/release-accepted-development-v1.schema.json',
     'schemas/release-tag-candidate-v1.schema.json',
     'schemas/release-validation-candidate-v1.schema.json',
+    'validation/control-launch.mjs',
+    'validation/control-runtime-preload.mjs',
+    'validation/control-runtime.mjs',
     'validation/remote/preflight.sh',
   ]) {
     assert.ok(packageSource.includes(`'${relative}'`), relative);

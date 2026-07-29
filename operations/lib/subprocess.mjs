@@ -140,6 +140,7 @@ function appendBounded(state, chunk) {
   if (!Buffer.isBuffer(chunk)) {
     throw new TypeError('subprocess output chunk must be a Buffer');
   }
+  state.totalBytes += chunk.length;
   state.hash?.update(chunk);
   if (!state.truncated && state.bytes + chunk.length <= state.limit) {
     state.chunks.push(chunk);
@@ -243,6 +244,7 @@ export async function runSubprocess({
   timeoutMs = 60_000,
   gracefulStopMs = 1_000,
   hashStdout = false,
+  hashAndCountStdout = false,
   maxOutputBytes = 4 * 1024 * 1024,
   signal,
 }) {
@@ -308,16 +310,25 @@ export async function runSubprocess({
   if (typeof hashStdout !== 'boolean') {
     throw new TypeError('subprocess stdout hash selection must be boolean');
   }
+  if (typeof hashAndCountStdout !== 'boolean') {
+    throw new TypeError(
+      'subprocess stdout hash-and-byte-count selection must be boolean',
+    );
+  }
 
   return await new Promise((resolve, reject) => {
     const started = performance.now();
     const stdout = {
       bytes: 0,
       chunks: [],
-      hash: hashStdout ? createHash('sha256') : null,
+      hash:
+        hashStdout || hashAndCountStdout
+          ? createHash('sha256')
+          : null,
       head: Buffer.alloc(0),
       limit: maxOutputBytes,
       tail: Buffer.alloc(0),
+      totalBytes: 0,
       truncated: false,
     };
     const stderr = {
@@ -327,6 +338,7 @@ export async function runSubprocess({
       head: Buffer.alloc(0),
       limit: maxOutputBytes,
       tail: Buffer.alloc(0),
+      totalBytes: 0,
       truncated: false,
     };
     let terminationReason = null;
@@ -352,7 +364,12 @@ export async function runSubprocess({
         stdoutTruncated: stdout.truncated,
         stderrTruncated: stderr.truncated,
       };
-      if (hashStdout) completed.stdoutSha256 = rawOutputDigest(stdout);
+      if (hashStdout || hashAndCountStdout) {
+        completed.stdoutSha256 = rawOutputDigest(stdout);
+      }
+      if (hashAndCountStdout) {
+        completed.stdoutByteCount = stdout.totalBytes;
+      }
       return deepFreeze(completed);
     }
 
@@ -409,7 +426,9 @@ export async function runSubprocess({
 
     child.stdout.on('data', (chunk) => {
       appendBounded(stdout, chunk);
-      if (stdout.truncated) terminate('output-limit');
+      if (stdout.truncated && !hashAndCountStdout) {
+        terminate('output-limit');
+      }
     });
     child.stderr.on('data', (chunk) => {
       appendBounded(stderr, chunk);
@@ -449,7 +468,7 @@ export async function runSubprocess({
       if (
         terminationReason !== null ||
         !acceptedExitCodes.includes(code) ||
-        completed.stdoutTruncated ||
+        (completed.stdoutTruncated && !hashAndCountStdout) ||
         completed.stderrTruncated
       ) {
         try {

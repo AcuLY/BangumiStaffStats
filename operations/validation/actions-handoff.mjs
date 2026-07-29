@@ -37,38 +37,38 @@ function fail(message, cause) {
   throw new ActionsHandoffError(message, cause ? { cause } : undefined);
 }
 
-function ghExecutable() {
-  const candidates = [
-    '/usr/bin/gh',
-    '/usr/local/bin/gh',
-    '/opt/homebrew/bin/gh',
-    ...String(process.env.PATH ?? '')
-      .split(path.delimiter)
-      .filter((entry) => path.isAbsolute(entry))
-      .map((entry) => path.join(entry, 'gh')),
-  ];
-  for (const candidate of candidates) {
-    try {
-      if (!path.isAbsolute(candidate)) continue;
-      const resolved = fs.realpathSync.native(candidate);
-      const canonical = requireCanonicalPath(resolved, {
-        label: 'GitHub CLI executable',
-        requireSingleLink: true,
-        type: 'file',
-      });
-      const information = fs.lstatSync(canonical);
-      if (
-        !information.isSymbolicLink() &&
-        information.nlink === 1 &&
-        canonical !== REPOSITORY_ROOT &&
-        !canonical.startsWith(`${REPOSITORY_ROOT}${path.sep}`) &&
-        (information.mode & 0o111) !== 0
-      ) {
-        return canonical;
-      }
-    } catch {}
+export function approvedGithubCliExecutable(environment = process.env) {
+  const candidate = environment.BGMSS_OPS_GH;
+  if (
+    typeof candidate !== 'string' ||
+    !path.isAbsolute(candidate) ||
+    path.normalize(candidate) !== candidate ||
+    candidate.includes('\0')
+  ) {
+    fail('BGMSS_OPS_GH must name the reviewed canonical GitHub CLI');
   }
-  fail('authenticated GitHub CLI is unavailable');
+  let canonical;
+  let information;
+  try {
+    canonical = requireCanonicalPath(candidate, {
+      label: 'reviewed GitHub CLI executable',
+      requireSingleLink: true,
+      type: 'file',
+    });
+    information = fs.lstatSync(canonical);
+  } catch (error) {
+    fail('BGMSS_OPS_GH is not the reviewed canonical GitHub CLI', error);
+  }
+  if (
+    information.isSymbolicLink() ||
+    information.nlink !== 1 ||
+    canonical === REPOSITORY_ROOT ||
+    canonical.startsWith(`${REPOSITORY_ROOT}${path.sep}`) ||
+    (information.mode & 0o111) === 0
+  ) {
+    fail('BGMSS_OPS_GH is outside the closed GitHub CLI authority');
+  }
+  return canonical;
 }
 
 function ghEnvironment() {
@@ -76,11 +76,12 @@ function ghEnvironment() {
     HOME: process.env.HOME,
     LANG: 'C.UTF-8',
     LC_ALL: 'C.UTF-8',
+    GH_HOST: GITHUB_HOST,
     NO_COLOR: '1',
     PATH: '/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin',
     TZ: 'UTC',
   };
-  for (const name of ['GH_CONFIG_DIR', 'GH_ENTERPRISE_TOKEN', 'GH_HOST', 'GH_TOKEN']) {
+  for (const name of ['GH_CONFIG_DIR', 'GH_TOKEN']) {
     if (
       typeof process.env[name] === 'string' &&
       process.env[name].length > 0 &&
@@ -93,7 +94,7 @@ function ghEnvironment() {
 }
 
 function runGh(argumentsList, label) {
-  const result = spawnSync(ghExecutable(), argumentsList, {
+  const result = spawnSync(approvedGithubCliExecutable(), argumentsList, {
     cwd: REPOSITORY_ROOT,
     encoding: 'utf8',
     env: ghEnvironment(),
@@ -120,7 +121,7 @@ function runGhToFile(argumentsList, label, output) {
   const descriptor = fs.openSync(output, 'wx', 0o600);
   let result;
   try {
-    result = spawnSync(ghExecutable(), argumentsList, {
+    result = spawnSync(approvedGithubCliExecutable(), argumentsList, {
       cwd: REPOSITORY_ROOT,
       encoding: 'utf8',
       env: ghEnvironment(),
@@ -652,57 +653,6 @@ export function parseWorkflowHead(value) {
     throw new TypeError('workflow head must be an exact Git object ID');
   }
   return text;
-}
-
-export function resolveSuccessfulWorkflowRun(workflowHead) {
-  const head = parseWorkflowHead(workflowHead);
-  const workflow = workflowIdentity(
-    apiObject(
-      `repos/${REPOSITORY}/actions/workflows/operations.yml`,
-      'GitHub Actions workflow discovery',
-    ),
-  );
-  const pages = apiPages(
-    `repos/${REPOSITORY}/actions/workflows/${workflow.id}/runs?head_sha=${head}&status=success&per_page=100`,
-    'GitHub Actions successful run discovery',
-  );
-  const candidates = pages
-    .flatMap((page) => {
-      if (!Array.isArray(page.workflow_runs)) {
-        fail('GitHub Actions workflow run discovery lacks its run array');
-      }
-      return page.workflow_runs;
-    })
-    .filter((run) => {
-      const runId = String(run?.id ?? '');
-      return (
-        /^[1-9][0-9]{0,19}$/u.test(runId) &&
-        run.head_sha === head &&
-        String(run.workflow_id) === workflow.id &&
-        run.name === WORKFLOW_NAME &&
-        run.status === 'completed' &&
-        run.conclusion === 'success' &&
-        ALLOWED_EVENTS.includes(run.event)
-      );
-    });
-  const authenticated = [];
-  for (const candidate of candidates) {
-    const runId = String(candidate.id);
-    try {
-      const authority = authenticatedActionsAuthority(runId, head);
-      authenticated.push(authority);
-    } catch (error) {
-      if (!(error instanceof ActionsHandoffError)) throw error;
-    }
-  }
-  if (authenticated.length !== 1) {
-    fail(
-      authenticated.length === 0
-        ? 'no live green Operations Actions handoff exists for the exact head'
-        : 'multiple live green Operations Actions handoffs exist for the exact head; select one run ID',
-    );
-  }
-  return authenticated[0].run.id;
 }
 
 export function verifyAuthenticatedActionsHandoff({
