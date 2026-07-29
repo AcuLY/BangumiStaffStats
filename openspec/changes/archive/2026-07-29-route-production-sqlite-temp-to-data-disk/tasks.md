@@ -28,9 +28,9 @@
 ## 3. Main-agent candidate and Actions acceptance
 
 - [x] 3.1 Audit the complete candidate against the delta, require zero P0/P1 findings, strict-valid OpenSpec/all-spec and clean diff/status, then create and push one narrow implementation commit; require the remote branch to match.
-- [ ] 3.2 Require one exact-head workflow-dispatch Development Actions run with both jobs green; verify the operations projection test ran and admit its source identity without deploying the generated product bundle.
+- [x] 3.2 Require one exact-head workflow-dispatch Development Actions run with both jobs green; verify run `30452886753` completed both jobs successfully at source `1505c5d7c36f457ed8d9e3be542e2422fe2811fc`, including the operations projection test in both build paths; admit artifact `8724804723` as evidence only without deploying its product bundle.
 
 ## 4. Main-agent lifecycle and production handoff
 
-- [ ] 4.1 Sync/archive this change, strict-validate all specs, and amend `activate-single-host-production` with failed run `6d7dd3d4-9eb4-472e-af09-0561dc313617`, current source/env/status/data baseline, exact old/new Compose identities, and exactly one newly authorized updater invocation.
-- [ ] 4.2 Narrowly commit/push only the OpenSpec lifecycle/handoff, require the remote branch to match, and keep host execution blocked until that activation amendment is accepted.
+- [x] 4.1 Sync/archive this change and amend `activate-single-host-production` with failed run `6d7dd3d4-9eb4-472e-af09-0561dc313617`, current source/env/status/data baseline, exact old/new Compose identities, and exactly one newly authorized updater invocation.
+- [x] 4.2 Strict-validate all specs and prepare one narrow OpenSpec lifecycle/handoff commit; keep host execution blocked until its push succeeds and the remote branch matches.

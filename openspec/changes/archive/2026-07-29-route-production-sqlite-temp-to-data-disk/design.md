@@ -13,7 +13,7 @@ write and execute permission.
 
 | Field | Declaration |
 |---|---|
-| Status | Design complete; implementation remains blocked on strict validation and zero-P0/P1 review. |
+| Status | Implemented and accepted: exact source `1505c5d7c36f457ed8d9e3be542e2422fe2811fc` passed both jobs in workflow-dispatch run `30452886753`; artifact `8724804723` is evidence only and is not deployed. |
 | Owner | Main agent directly owns the sequential correction. |
 | Writable paths | Proposal writable paths only. |
 | Read-only protected inputs | Proposal protected inputs only. |

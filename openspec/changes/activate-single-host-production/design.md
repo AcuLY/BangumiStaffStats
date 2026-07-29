@@ -1,23 +1,24 @@
 ## Context
 
-Explicit-proxy source B2
-`016160f7a63d68639a50e226c052fe75d5888f5f` is already deployed privately at
+Explicit-proxy source
+`be48847bc26bcda28c9f08f6807f5dec40d479f4` is deployed privately at
 `/srv/bgmss-v2`; its API/Prometheus/catalog are healthy on loopback. The exact
 legacy loader is stopped while the legacy serving path remains public and
 healthy. Earlier direct updater attempt
 `72f6dc91-2738-4388-9f0b-a9d7a3d388c7` failed safely with
 `HTTPS_REQUEST_FAILED`. Proxy updater run
-`1f1ef640-6ece-4c53-8cf1-2df480746891` then fetched official metadata but
-failed with `ARCHIVE_IDENTITY_INVALID` because the product compared the dump
-filename timestamp with GitHub's independent asset creation timestamp. It
-published no version, left only the minimal fixture active, and left status
-SHA-256
-`156ec67a19d497df8fc62a9e39b5fae46a79356c81483cf9d246e9143703ed46`.
-
-The unsupported comparison is removed in accepted product
-`8282996f3f0cb0e2cde2a91ce71d425217ffa9d6`. Final artifact source
-`be48847bc26bcda28c9f08f6807f5dec40d479f4` passed both jobs in run
-`30449279352`.
+`1f1ef640-6ece-4c53-8cf1-2df480746891` then exposed an unsupported timestamp
+comparison. Accepted product
+`8282996f3f0cb0e2cde2a91ce71d425217ffa9d6` removed it entirely, and artifact
+source `be48847bc26bcda28c9f08f6807f5dec40d479f4` passed run `30449279352`
+before private deployment. Its one authorized updater run
+`6d7dd3d4-9eb4-472e-af09-0561dc313617` authenticated and acquired the official
+426 MiB Archive, then failed after 402 seconds with `SQLITE_BUILD_FAILED`.
+The builder explicitly uses `PRAGMA temp_store=FILE`; updater `/tmp` is a
+256 MiB tmpfs, while no kernel or Docker OOM occurred and more than 50 GiB of
+disk remained. It published no version, left only the minimal fixture active,
+and left status SHA-256
+`a10facccaa15ea9383414350c6a09550a0b2d23927573308292a0ff62ac1d3da`.
 
 The legacy `bgmss` API/MySQL/Redis serving path must remain running; legacy
 loader container
@@ -28,15 +29,15 @@ are excluded from both writable scope and acceptance probes.
 
 | Field | Declaration |
 |---|---|
-| Status | B2 private activation and one safe proxy failure are complete; timestamp-fix artifact deployment, one new updater invocation, and public integration await this amendment's validation/commit/push. |
+| Status | Timestamp-fix source is healthy and private; one safe SQLite build failure is recorded. Exact operations source `1505c5d7c36f457ed8d9e3be542e2422fe2811fc`, one Compose-file transaction, one new updater invocation, and public integration await this amendment's validation/commit/push. |
 | Owner | Main agent directly owns decisions, spec, repository lifecycle, exact remote steps, audit, and acceptance. |
-| Writable paths | Exact repository, replacement local transfer root `/tmp/bgmss-production-artifact-30449279352`, and `myserver` paths/objects in the proposal and delta spec, including existing root transactions, new incoming root, and the Nginx temporary path. Installed operations/proxy definitions remain read-only. |
+| Writable paths | Exact repository and `myserver` paths/objects in the proposal and delta spec, including `/srv/bgmss-v2/incoming/run-30452886753`, the single installed Compose target/temporary, updater data transaction, systemd/logrotate targets, and Nginx candidate/backup/temporary. Application release/env/images and other installed operations/proxy definitions remain read-only. |
 | Read-only protected inputs | Product/operations implementation outside the closed inventory; legacy project/root and every field including the exact stopped loader state; proxy/network lifecycle/config; TLS material; unrelated host state; and every undeclared object. |
-| Deletion complement | No protected object and no removal of the existing `bgmss-v2` project/root. Deployment failure restores exact B2 application/env state without altering installed operations/proxy definitions; Nginx failure restores the exact backup. |
+| Deletion complement | No protected object and no removal of the existing `bgmss-v2` project/root. Projection failure restores the exact old Compose bytes; updater failure retains the exact application/minimal-data baseline; Nginx failure restores the exact backup. |
 | Mutable refs | OpenSpec/Git lifecycle, runtime refs/project containers only under the existing transaction, exact Nginx active file/backup, and new timer links. |
-| Consumes | Current private B2 baseline plus exact admitted artifact `8723283346`, existing `proxy-net`/`myserver-proxy:7897`, expanded host, existing TLS vhost, product endpoints, and pinned Prometheus image. |
+| Consumes | Current private source/env/status/minimal-data baseline; exact old/new Compose blobs and hashes; exact-head run `30452886753`; existing `proxy-net`/`myserver-proxy:7897`; expanded host; existing TLS vhost; product endpoints; and pinned Prometheus image. |
 | Produces | Live new frontend/API, real Archive, metrics/logging/update timer, and exact legacy traffic rollback. |
-| Dependencies | Reboot/capacity gate → artifact gate → private deploy → real Archive → private checks → host templates → Nginx cutover → public/legacy checks. |
+| Dependencies | Exact-head Actions and lifecycle → current/capacity/Compose gate → one-file transaction → one updater run and real Archive → private checks → host templates → Nginx cutover → public/legacy checks. |
 | Deliverables | Proposal deliverables only. |
 | Acceptance | Delta scenarios and unchanged main-spec runtime/transaction requirements. |
 | Non-goals | Proposal non-goals only. |
@@ -68,7 +69,7 @@ No live-host state writes back into repository or product owners.
 ### 1. Upgrade only from exact green Actions artifacts
 
 The initial private deployment used run `30426027299`/artifact `8713954047`.
-The remaining deployment admits only run `30449279352`, artifact
+The completed timestamp-fix deployment admitted only run `30449279352`, artifact
 `8723283346`, name
 `operations-preview-be48847bc26bcda28c9f08f6807f5dec40d479f4`, source
 `be48847bc26bcda28c9f08f6807f5dec40d479f4`, tree
@@ -91,11 +92,25 @@ new source. This deployment re-verifies but does not replace them:
 | `operations/lib/common.sh` | `100644` / `0a0a95ab3ecbd98f6c2015e647fdad424626df7d` | `6d0c7df4c98dba7ad0af3756cba9166ae330ae5282a08b5fb9d414ddae249f8a` | `/srv/bgmss-v2/operations/lib/common.sh` / `0444` |
 | `operations/compose.updater-proxy.yaml` | `100644` / `0570c3bc02a9883dd44b8ce7c52a1dd26f009200` | `6a1c65dbe7dee0701a3ad697d3a6b9dccdc89fe6a6e11ff3c62671f79fdc7dfa` | `/srv/bgmss-v2/compose/compose.updater-proxy.yaml` / `0644` |
 
-The exact B2 current/previous env SHA-256 values are
-`f2f63a26d9178e3f9effd6acb8b1ca195056be2050b157bf871386d45c280646`
-and `a74981042693c818b72fe0065128be8ca12a63d630473a643b2f6b12109dc757`.
-Transactional deploy makes B2 the immediate application rollback and does not
-mutate the installed operations inventory.
+The resulting current/previous env SHA-256 values are
+`76de7645452162d04afe0679e346d6b61661c80aec15036814ec1ae5c58ab1ce`
+and `f2f63a26d9178e3f9effd6acb8b1ca195056be2050b157bf871386d45c280646`.
+No further application deployment is authorized by this amendment.
+
+Exact-head operations source
+`1505c5d7c36f457ed8d9e3be542e2422fe2811fc` changes only the updater Compose
+projection, its focused tests, documentation, and OpenSpec. Installed
+`compose.yaml` is Git blob
+`00951ee0ffe23e4d2e5723857a54d2eceee51a63` with SHA-256
+`dfe55f7124454075b36131302b14dd3dd4ef10c310328bfefa62169ba29a3a2a`;
+the candidate is blob `0daee531f811ff826bba1836897eb9cc54d6d529`
+with SHA-256
+`13d0608d29b38cedc62821bb02f5646bf702e9419b8ee946c60c8580485cb272`.
+Both are mode `0644`. The old bytes are copied under exact incoming root
+`/srv/bgmss-v2/incoming/run-30452886753`, the candidate is transferred there,
+and a same-directory temporary atomically replaces only the installed Compose
+file. Static projection failure atomically restores the saved old bytes before
+any updater invocation.
 
 ### 2. Keep production isolated from the legacy stack
 
@@ -132,9 +147,14 @@ release env selects mode `proxy`, URL `http://myserver-proxy:7897`, and existing
 external network `proxy-net`; only updater joins it. API and Prometheus remain
 closed. Preflight is limited to read-only proxy/network identity and listener
 inspection plus static Compose projection; it creates no probe container and
-makes no extra acquisition request. After the recorded failed run, this
-amendment authorizes exactly one new production updater invocation as the only
-remaining live CONNECT/destination-TLS/publication attempt.
+makes no extra acquisition request. The new Compose value is the fixed
+updater-only `SQLITE_TMPDIR=/var/lib/bgmss/archive`, which routes SQLite
+file-backed temporary work to the existing writable disk-backed Archive mount
+while retaining the 256 MiB `/tmp` tmpfs. API and Prometheus receive no
+`SQLITE_TMPDIR`; all resource, security, mount, network, and proxy boundaries
+remain otherwise identical. After static projection succeeds, this amendment
+authorizes exactly one new production updater invocation as the only remaining
+live CONNECT/destination-TLS/publication attempt.
 
 ### 4. Patch one existing TLS vhost with an exact backup
 
@@ -196,23 +216,25 @@ tracing, alert-routing systems, and custom proof controllers remain absent.
 2. Completed B2 recovery: proxy OpenSpec lifecycle, artifact transfer,
    operations installation, transactional B2 deploy, static projection, and
    one safe failed updater invocation with no publication.
-3. Strict-validate/review the timestamp-fix and this production amendment,
-   archive the product change, commit/push, and require the remote branch to
-   match.
-4. Re-preflight exact B2 current/previous env, failed status, minimal-only
-   data, health, stopped loader, free/collision paths, proxy identity, and
-   installed operations hashes.
-5. Admit/transfer artifact `8723283346`, transactionally deploy source
-   `be48847bc26bcda28c9f08f6807f5dec40d479f4`, verify updater-only projection,
-   then run exactly one newly authorized updater invocation and require one
+3. Completed timestamp recovery: archive the timestamp change, deploy exact
+   source `be48847bc26bcda28c9f08f6807f5dec40d479f4`, and record one safe
+   `SQLITE_BUILD_FAILED` run with no publication.
+4. Require green exact-head run `30452886753`; sync/archive the focused SQLite
+   storage change; validate/commit/push this production amendment; and require
+   the remote branch to match.
+5. Re-preflight exact current/previous env, failed status, minimal-only data,
+   health, stopped loader, capacity/collision paths, proxy identity, and old
+   Compose identity. Transfer candidate Compose bytes, retain exact old bytes,
+   atomically install, and verify exact updater-only SQLite/proxy projection.
+6. Run exactly one newly authorized updater invocation and require one
    non-minimal active Archive with observer agreement.
-6. Install/validate the systemd and logrotate configuration; leave global
+7. Install/validate the systemd and logrotate configuration; leave global
    journald unchanged and enable—but do not start—the weekly timer.
-7. Create the exact Nginx backup, narrowly integrate the new frontend/API,
+8. Create the exact Nginx backup, narrowly integrate the new frontend/API,
    validate, reload, and run public plus retained-legacy probes.
-8. Restore/reload/probe the legacy backup once, then reapply/reload/probe the
+9. Restore/reload/probe the legacy backup once, then reapply/reload/probe the
    retained candidate; on any failure leave the legacy backup active.
-9. Archive/sync the OpenSpec and commit/push the documentation lifecycle.
+10. Archive/sync the OpenSpec and commit/push the documentation lifecycle.
 
 ## Open Questions
 

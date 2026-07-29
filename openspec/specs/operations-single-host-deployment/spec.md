@@ -5,7 +5,6 @@ Define the bounded GitHub Actions bundle, single-host Compose runtime,
 transactional update and rollback commands, simple host observability
 templates, and legacy-safe isolated validation required for a normal
 `linux/amd64` deployment without claiming production activation.
-
 ## Requirements
 ### Requirement: Actions SHALL produce one bounded AMD64 deployment bundle
 
@@ -176,3 +175,25 @@ services, ports, data, and images SHALL remain unchanged.
 
 - **WHEN** the root/project already exists, either port is occupied, a run-owned identity changes, or any protected legacy field differs
 - **THEN** validation SHALL stop, clean only still-matching run-owned objects, and SHALL NOT modify protected state to force success
+
+### Requirement: Production updater SQLite temporary storage SHALL use the Archive disk
+
+The production updater SHALL set exactly
+`SQLITE_TMPDIR=/var/lib/bgmss/archive` so SQLite file-backed temporary tables
+and indices use the existing writable, disk-backed Archive bind mount instead
+of the bounded `/tmp` tmpfs. This input SHALL apply only to updater. API and
+Prometheus SHALL receive no `SQLITE_TMPDIR`; the updater's `/tmp` tmpfs,
+resource limits, security controls, Archive mount, proxy behavior, and
+publication transaction SHALL remain unchanged.
+
+#### Scenario: Direct updater projection uses disk-backed SQLite temporary storage
+- **WHEN** Compose renders a valid direct updater release
+- **THEN** updater SHALL receive the exact fixed `SQLITE_TMPDIR`, API and Prometheus SHALL not receive it, and all three services SHALL retain their existing networks and resource/security settings
+
+#### Scenario: Proxy updater projection uses the same disk-backed SQLite temporary storage
+- **WHEN** Compose renders a valid proxy updater release
+- **THEN** updater SHALL receive both the exact fixed `SQLITE_TMPDIR` and the exact dedicated proxy input while API and Prometheus receive neither
+
+#### Scenario: SQLite temporary storage authority widens
+- **WHEN** the value differs, resolves outside the Archive mount, appears on API or Prometheus, replaces `/tmp`, changes a resource/security/mount boundary, or becomes operator-controlled release state
+- **THEN** operations verification and deployment SHALL fail before another production updater invocation

@@ -43,7 +43,7 @@ None.
 
 | Field | Declaration |
 |---|---|
-| Status | Proposed after one safe production build failure; apply is blocked until all artifacts are complete, strict-valid, reviewed with zero P0/P1 findings, and approved. |
+| Status | Implemented and accepted at source `1505c5d7c36f457ed8d9e3be542e2422fe2811fc`: exact workflow-dispatch run `30452886753` completed with both jobs green and operations-preview artifact `8724804723`; the main spec is synchronized, this change is archived, and the exact production handoff is prepared. |
 | Owner | Main agent directly owns specification, implementation, audit, Actions acceptance, Git, and the later activation amendment because this is one small sequential operations correction. |
 | Writable paths | This change and archive destination; `operations/compose.yaml`; `operations/test/updater-proxy.sh`; `operations/README.md`; `openspec/specs/operations-single-host-deployment/spec.md`; and the four existing `activate-single-host-production` proposal/design/spec/tasks artifacts. |
 | Read-only protected inputs | All product source, contracts, artifact inputs, other operations definitions, current branch history, accepted Actions artifacts, upstream data, and all `myserver`/external state. |

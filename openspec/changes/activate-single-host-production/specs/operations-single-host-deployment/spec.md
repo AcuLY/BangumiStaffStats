@@ -2,15 +2,15 @@
 
 | Field | Declaration |
 |---|---|
-| Status | B2 private activation and one safe proxy updater failure completed; timestamp-fix artifact deployment, one new updater invocation, and public integration remain explicitly authorized and pending. |
+| Status | Timestamp-fix source is healthy and private; one safe SQLite build failure is recorded. Exact operations source `1505c5d7c36f457ed8d9e3be542e2422fe2811fc`, one Compose-file transaction, one new updater invocation, and public integration remain explicitly authorized and pending after lifecycle commit/push. |
 | Owner | Operations. Main agent directly owns specification, exact remote apply, audit, and acceptance. |
-| Writable paths | This change and exact local `/tmp/bgmss-production-artifact-30449279352`. On `myserver`, only existing `/srv/bgmss-v2/**` through declared transactions, including new `/srv/bgmss-v2/incoming/run-30449279352`, new release, and current/previous refs; `/etc/nginx/nginx.conf`, absent `/etc/nginx/nginx.conf.pre-bgmss-v2`, transient `/etc/nginx/.nginx.conf.bgmss-v2.tmp`, `/etc/systemd/system/bgmss-archive-update.{service,timer}`, `/etc/logrotate.d/bgmss-nginx`, Compose project `bgmss-v2` only through transactional replacement/restore, admitted API/updater images, pinned Prometheus image, and loopback ports `18080`/`19090`. Installed operations/proxy definitions and `proxy-net` remain read-only. |
+| Writable paths | This change. On `myserver`, exact new incoming `/srv/bgmss-v2/incoming/run-30452886753` containing only candidate and old Compose evidence; `/srv/bgmss-v2/compose/compose.yaml`; transient `/srv/bgmss-v2/compose/.compose.yaml.sqlite-temp.tmp`; updater publication paths under `/srv/bgmss-v2/data/**` through the existing transaction; `/etc/nginx/nginx.conf`, absent `/etc/nginx/nginx.conf.pre-bgmss-v2`, transient `/etc/nginx/.nginx.conf.bgmss-v2.tmp`, `/etc/systemd/system/bgmss-archive-update.{service,timer}`, `/etc/logrotate.d/bgmss-nginx`, Compose project `bgmss-v2` only through updater publication/restart, and new timer enablement links. Application releases/env/images, other operations/proxy definitions, pinned Prometheus image, loopback ports, and `proxy-net` remain read-only. |
 | Read-only protected inputs | Accepted implementation/artifacts outside the closed inventory; historical current release until transaction commit; `/srv/bgmss/**`; every Compose project `bgmss` object/field; exact stopped loader ID `84d7ca5dcf10b5aae2eb44bf942f2730c3a155ae771aec57946ddfea1eff2bc9` including running state/image/labels/restart policy/mounts/config/data; existing `proxy-net` and `myserver-proxy` lifecycle/config/credentials; TLS keys/certificates; DNS/firewall/SSH; every unrelated vhost, route, service, process, container, image, volume, network, log, data path, and host file. |
-| Deletion complement | No protected object and no removal of the existing `bgmss-v2` project/root. The exact local transfer root and identity-matching new run-owned incoming temporaries may be removed after transfer/rollback. Deployment failure SHALL restore and verify exact B2 application/env state without altering installed operations/proxy definitions; the exact Nginx backup restores traffic. No prune, legacy cleanup, broad deletion, or Archive retention cleanup. |
-| Mutable refs | Branch documentation commit/push, runtime current/previous application and data refs under its lock, project `bgmss-v2` only through declared transactions, exact Nginx active file/backup, and new systemd enablement links. |
-| Consumes | Current private B2 `016160f7a63d68639a50e226c052fe75d5888f5f`; accepted product `8282996f3f0cb0e2cde2a91ce71d425217ffa9d6`; green run `30449279352`; bundle source `be48847bc26bcda28c9f08f6807f5dec40d479f4`; artifact `8723283346`; failed updater UUID `1f1ef640-6ece-4c53-8cf1-2df480746891`; existing `proxy-net`/`myserver-proxy:7897`; pinned Prometheus digest; expanded `myserver`; existing TLS vhost; and accepted runtime endpoints. |
+| Deletion complement | No protected object and no removal of the existing `bgmss-v2` project/root. Projection failure SHALL restore the exact saved old Compose bytes before any updater invocation. Updater failure SHALL preserve the current application/env and minimal data pointer through the existing transaction; the exact Nginx backup restores traffic. No prune, legacy cleanup, broad deletion, application redeploy, or Archive retention cleanup. |
+| Mutable refs | Branch documentation commit/push, exact installed Compose file, current/previous data refs under the existing lock, project `bgmss-v2` only through updater publication/restart, exact Nginx active file/backup, and new systemd enablement links. Application release/env refs remain immutable. |
+| Consumes | Current private source `be48847bc26bcda28c9f08f6807f5dec40d479f4`; accepted product `8282996f3f0cb0e2cde2a91ce71d425217ffa9d6`; current/previous env SHA-256 `76de7645452162d04afe0679e346d6b61661c80aec15036814ec1ae5c58ab1ce`/`f2f63a26d9178e3f9effd6acb8b1ca195056be2050b157bf871386d45c280646`; failed updater UUID `6d7dd3d4-9eb4-472e-af09-0561dc313617` and status SHA `a10facccaa15ea9383414350c6a09550a0b2d23927573308292a0ff62ac1d3da`; exact operations source/run `1505c5d7c36f457ed8d9e3be542e2422fe2811fc`/`30452886753`; old Compose blob/SHA-256 `00951ee0ffe23e4d2e5723857a54d2eceee51a63`/`dfe55f7124454075b36131302b14dd3dd4ef10c310328bfefa62169ba29a3a2a`; candidate blob/SHA-256 `0daee531f811ff826bba1836897eb9cc54d6d529`/`13d0608d29b38cedc62821bb02f5646bf702e9419b8ee946c60c8580485cb272`; existing `proxy-net`/`myserver-proxy:7897`; pinned Prometheus digest; expanded `myserver`; existing TLS vhost; and accepted runtime endpoints. |
 | Produces | A live, observable, independently named new stack with a real Archive and a reversible public traffic switch while the legacy API/MySQL/Redis serving path remains running and the exact loader remains intentionally stopped. |
-| Dependencies | Exact B2/current-status/capacity/collision gate; exact replacement artifact and installed-operations identity admission; read-only proxy/network/listener inspection; updater-only projection; internal deployment health; the single newly authorized updater invocation succeeds; Nginx syntax/hash success; content-aware public probe success. |
+| Dependencies | Exact current source/env/status/data/capacity/collision/old-Compose gate; exact-head Actions and candidate identity admission; read-only proxy/network/listener inspection; updater-only exact SQLite/proxy projection; internal health; the single newly authorized updater invocation succeeds; Nginx syntax/hash success; content-aware public probe success. |
 | Deliverables | Production root/runtime, real Archive, host timer/log configuration, live frontend/API, exact Nginx rollback, archived OpenSpec, commit, and push. |
 | Acceptance | All scenarios below plus the unchanged isolated-validation requirements in the main capability. |
 | Non-goals | Product changes, build/release systems, TLS/DNS/firewall/secrets, extended observability, unrelated-service repair, load/soak sign-off, or legacy retirement. |
@@ -34,31 +34,37 @@ present but stopped with unchanged protected fields.
 Existing `/srv/bgmss-v2`, project `bgmss-v2`, loopback ports
 `18080`/`19090`, current frontend/tools links, API/Prometheus/catalog/metrics,
 and current images SHALL identify source
-`016160f7a63d68639a50e226c052fe75d5888f5f`. Current/previous env SHA-256
+`be48847bc26bcda28c9f08f6807f5dec40d479f4`. Current/previous env SHA-256
 SHALL equal
-`f2f63a26d9178e3f9effd6acb8b1ca195056be2050b157bf871386d45c280646`
-and `a74981042693c818b72fe0065128be8ca12a63d630473a643b2f6b12109dc757`.
+`76de7645452162d04afe0679e346d6b61661c80aec15036814ec1ae5c58ab1ce`
+and `f2f63a26d9178e3f9effd6acb8b1ca195056be2050b157bf871386d45c280646`.
 `/srv/bgmss-v2/data/update-status.json` SHALL be mode/owner `0600`/
 `65532:65532`, SHA-256
-`156ec67a19d497df8fc62a9e39b5fae46a79356c81483cf9d246e9143703ed46`,
-and report the recorded acquisition failure without success. `current.json`
+`a10facccaa15ea9383414350c6a09550a0b2d23927573308292a0ff62ac1d3da`,
+and report recorded run `6d7dd3d4-9eb4-472e-af09-0561dc313617` as
+`SQLITE_BUILD_FAILED` without success. `current.json`
 SHALL identify only
 `dv1-0a1fa3e9acdb06be34e3535b3c68e322e7d3f4cd87ac30cd4b608b2276ba3ca1`,
 `previous.json` SHALL be absent, and exactly that fixture version SHALL exist.
 
 The exact remote incoming root
-`/srv/bgmss-v2/incoming/run-30449279352`, Nginx
+`/srv/bgmss-v2/incoming/run-30452886753`, transient
+`/srv/bgmss-v2/compose/.compose.yaml.sqlite-temp.tmp`, Nginx
 backup/temporary/candidate, updater unit/timer identities, and logrotate file
-SHALL be absent before the write. Local root
-`/tmp/bgmss-production-artifact-30449279352` SHALL contain only artifact ID
-`8723283346`, name
-`operations-preview-be48847bc26bcda28c9f08f6807f5dec40d479f4`, source
-`be48847bc26bcda28c9f08f6807f5dec40d479f4`, tree
-`52dd582016d40569327c0b87f9fad1cadf5252bb`, run `30449279352`, size
-`63282532`, GitHub digest
-`sha256:e7aec802a2f95ece998d369e834813bab1800f0cf9e59e2c63466e9932a32bb0`,
-`linux/amd64`, the exact nine-file inventory, eight valid checksum entries,
-and no symlink or AppleDouble entry.
+SHALL be absent before the write. Exact-head run `30452886753` SHALL have both
+jobs green for source
+`1505c5d7c36f457ed8d9e3be542e2422fe2811fc`. The installed
+`/srv/bgmss-v2/compose/compose.yaml` SHALL be regular mode/owner `0644`/`0:0`,
+Git blob `00951ee0ffe23e4d2e5723857a54d2eceee51a63`, and SHA-256
+`dfe55f7124454075b36131302b14dd3dd4ef10c310328bfefa62169ba29a3a2a`.
+The admitted candidate SHALL be regular Git mode `100644`, blob
+`0daee531f811ff826bba1836897eb9cc54d6d529`, and SHA-256
+`13d0608d29b38cedc62821bb02f5646bf702e9419b8ee946c60c8580485cb272`.
+Apply SHALL create the exact incoming root, copy the hash-equal old file to
+`compose.yaml.before-sqlite-temp`, transfer only the candidate as
+`compose.yaml`, and atomically install through the exact same-directory
+temporary. If projection fails, apply SHALL atomically restore and verify the
+saved old file before any updater invocation.
 
 Existing external network `proxy-net` and endpoint `myserver-proxy:7897`
 SHALL pass read-only identity/network/listener inspection and SHALL NOT be
@@ -94,9 +100,12 @@ rollback dependency.
 
 Replacement deployment SHALL preserve exact transport `proxy`, URL
 `http://myserver-proxy:7897`, and network `proxy-net`. Compose projection SHALL
-attach only updater to that external network and pass only updater the
-container input `BGMSS_HTTPS_PROXY`; API and Prometheus SHALL remain absent
-from `proxy-net`. After candidate health, read-only proxy/network/listener
+attach only updater to that external network and pass only updater both
+`BGMSS_HTTPS_PROXY=http://myserver-proxy:7897` and
+`SQLITE_TMPDIR=/var/lib/bgmss/archive`; API and Prometheus SHALL receive
+neither input and SHALL remain absent from `proxy-net`. Updater `/tmp`, mounts,
+resources, security controls, and every other service/network value SHALL
+remain unchanged. After candidate health, read-only proxy/network/listener
 inspection, and static projection checks pass, the operator MAY invoke the
 updater exactly once under this new authorization. No other updater invocation
 or acquisition request is authorized. A successful invocation SHALL publish
@@ -116,11 +125,11 @@ minimal fixture.
 - **THEN** the exact legacy loader SHALL remain stopped, public routing SHALL remain on the legacy stack, and the new project MAY remain private for diagnosis
 
 #### Scenario: Proxy transport is projected exactly
-- **WHEN** source `be48847bc26bcda28c9f08f6807f5dec40d479f4` deploys with the admitted transport URL/network pair and private checks pass
-- **THEN** only updater SHALL join `proxy-net` with `BGMSS_HTTPS_PROXY=http://myserver-proxy:7897`, and exactly one newly authorized production updater invocation MAY run
+- **WHEN** candidate Compose blob `0daee531f811ff826bba1836897eb9cc54d6d529` installs over the exact admitted old bytes and private checks pass
+- **THEN** only updater SHALL join `proxy-net` with exact proxy and SQLite inputs, API and Prometheus SHALL receive neither, and exactly one newly authorized production updater invocation MAY run
 
 #### Scenario: Proxy deployment widens authority
-- **WHEN** API or Prometheus joins `proxy-net`, another proxy value/network is projected, the endpoint/network is mutated, or another updater invocation is requested after the newly authorized attempt
+- **WHEN** API or Prometheus joins `proxy-net` or receives either updater input, another proxy/SQLite value or network is projected, another Compose field changes, the endpoint/network is mutated, or another updater invocation is requested after the newly authorized attempt
 - **THEN** deployment SHALL stop, retain or restore legacy public routing, and SHALL NOT force progress
 
 #### Scenario: Legacy background updater is retired
