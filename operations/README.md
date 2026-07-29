@@ -27,9 +27,23 @@ The root layout is fixed:
   previous-frontend -> releases/<revision>/frontend
   current-tools -> releases/<revision>/tools
   previous-tools -> releases/<revision>/tools
-  data/{current.json,previous.json,update-status.json,operations.lock,versions}
+  data/                         # root:65532, mode 1770 (sticky)
+    current.json               # root:65532, mode 0640
+    previous.json              # root:65532, mode 0640, once available
+    operations.lock            # root:root, mode 0600, pre-created
+    update-status.json         # updater-owned status output
+    versions/                  # root:65532, mode 1770 (sticky)
+      <dataVersion>/           # recursively root:65532, dirs 0550/files 0440
   prometheus/
 ```
+
+The updater remains able to create same-filesystem `.bgmss-stage-*` directories,
+its status file, and an absent version below `versions/`. Sticky directories
+prevent UID/GID `65532:65532` from replacing the root-owned pointers or fixed
+lock. After the updater exits, the host recursively changes the published
+version to root ownership and read-only group access before activation. The API
+uses the same numeric group and proves that read path through readiness/catalog
+checks.
 
 Only current and previous application/Archive references are active.
 Application rollback swaps env/tools/frontend but never data. Data rollback
@@ -40,26 +54,29 @@ cleanup is a separate reviewed operation with exact targets.
 ## Prerequisites and bootstrap
 
 The host needs Bash, Docker with Compose v2, `curl`, `flock`, `jq`, GNU
-`realpath`, GNU `sha256sum`, and `tar`. Nginx and `systemd-analyze` are needed
-only for template validation. Prometheus must be a reviewed pinned tag or
-digest already available to Docker; `latest` is rejected.
+`realpath`, GNU `sha256sum`, GNU `stat`, and `tar`. Nginx and
+`systemd-analyze` are needed only for template validation. Prometheus must be a
+reviewed pinned tag or digest already available to Docker; `latest` is rejected.
 
 Create the exact root and permissions once. This is an explicit production
 preparation action, not something the deployment command infers:
 
 ```sh
 install -d -m 0755 /srv/bgmss-v2 /srv/bgmss-v2/releases
-install -d -m 0750 /srv/bgmss-v2/{compose,config/prometheus,operations,operations/bin,operations/lib,state,data,data/versions,prometheus}
+install -d -m 0750 /srv/bgmss-v2/{compose,config/prometheus,operations,operations/bin,operations/lib,state,prometheus}
+install -d -o root -g 65532 -m 1770 /srv/bgmss-v2/data /srv/bgmss-v2/data/versions
+install -o root -g root -m 0600 /dev/null /srv/bgmss-v2/data/operations.lock
 install -m 0644 operations/compose.yaml /srv/bgmss-v2/compose/compose.yaml
 install -m 0644 operations/prometheus/*.yml /srv/bgmss-v2/config/prometheus/
 install -m 0555 operations/bin/{deploy,update,rollback-app,rollback-data,check} /srv/bgmss-v2/operations/bin/
 install -m 0444 operations/lib/common.sh /srv/bgmss-v2/operations/lib/common.sh
-chown -R 65532:65532 /srv/bgmss-v2/data
 chown -R 65532:65532 /srv/bgmss-v2/prometheus
 ```
 
 Seed `data/current.json` and its immutable `data/versions/<dataVersion>`
-before the first deploy. Never mutate the active SQLite file in place.
+before the first deploy. Install the pointer as `root:65532` mode `0640`;
+recursively install the version as `root:65532` with directory mode `0550` and
+file mode `0440`. Never mutate the active SQLite file in place.
 
 ## Commands
 
@@ -73,7 +90,9 @@ previous state. A later deploy may change only the API/updater image revision;
 project, root, Prometheus image, ports, and the production/validation resource
 profile must exactly match `state/current.env`. Any failure while installing
 or activating a newly absent release removes only that exact, still-inactive
-candidate, so the same admitted bundle can be retried.
+candidate, so the same admitted bundle can be retried. `ERR`, `HUP`, `INT`, and
+`TERM` use the same transaction restoration path; successful signal recovery
+returns `129`, `130`, or `143` as appropriate.
 
 ```sh
 /srv/bgmss-v2/operations/bin/deploy \
@@ -109,8 +128,9 @@ systemd-analyze verify operations/systemd/bgmss-archive-update.service operation
 
 Prometheus scrapes every 30 seconds and retains seven days/512 MiB. The first
 rules cover API down/not-ready, sustained 5xx/upstream errors, queue/cache
-pressure and oversize rejection, and updater failure/age/duration. Prometheus
-failure does not participate in API readiness.
+pressure and oversize rejection, updater failure/age/duration, an
+unconfigured/invalid updater status source, and a valid source that has never
+succeeded. Prometheus failure does not participate in API readiness.
 
 ## Isolated validation
 
@@ -128,4 +148,7 @@ run-owned objects. Postflight directly requires the exact validation
 root/project to be absent and both ports free. It never installs, enables,
 starts, repairs, reloads, or edits anything below `/etc`. It runs only updater
 `doctor` and embedded `contract-check`; a real Archive production build is
-deferred.
+deferred. Before those checks it inspects the real API/Prometheus containers and
+a create-only updater container for the exact non-root user, read-only rootfs,
+capability/security settings, CPU/memory/PID bounds, journald driver, mount
+direction, and closed loopback-only port bindings.

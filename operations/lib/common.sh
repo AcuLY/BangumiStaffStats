@@ -65,20 +65,44 @@ require_image() {
 }
 
 require_root_layout() {
-  local root=$1
+  local root=$1 pointer
   require_existing_directory "$root" root
+  require_command stat
   for directory in data releases state compose config/prometheus prometheus; do
     [[ -d "$root/$directory" && ! -L "$root/$directory" ]] ||
       die "missing real root directory: $root/$directory"
   done
+  [[ "$(stat -c '%u:%g:%a' -- "$root/data")" == "0:65532:1770" ]] ||
+    die "data root must be root:65532 mode 1770"
+  [[ -d "$root/data/versions" && ! -L "$root/data/versions" ]] ||
+    die "Archive versions root must be a real directory"
+  [[ "$(stat -c '%u:%g:%a' -- "$root/data/versions")" == "0:65532:1770" ]] ||
+    die "Archive versions root must be root:65532 mode 1770"
+  [[ -f "$root/data/operations.lock" && ! -L "$root/data/operations.lock" ]] ||
+    die "state lock must be a pre-created regular file"
+  [[ "$(stat -c '%u:%g:%a' -- "$root/data/operations.lock")" == "0:0:600" ]] ||
+    die "state lock must be root:root mode 0600"
+  for pointer in current.json previous.json; do
+    if [[ -e "$root/data/$pointer" || -L "$root/data/$pointer" ]]; then
+      [[ -f "$root/data/$pointer" && ! -L "$root/data/$pointer" ]] ||
+        die "data pointer must be a regular file: $pointer"
+      [[ "$(stat -c '%u:%g:%a' -- "$root/data/$pointer")" == "0:65532:640" ]] ||
+        die "data pointer must be root:65532 mode 0640: $pointer"
+    fi
+  done
+  [[ -f "$root/data/current.json" && ! -L "$root/data/current.json" ]] ||
+    die "current data pointer is required"
 }
 
 acquire_state_lock() {
   local root=$1
   require_command flock
   local lock_path="$root/data/operations.lock"
-  [[ ! -L "$lock_path" ]] || die "state lock must not be a symlink"
-  exec {BGMSS_LOCK_FD}>"$lock_path"
+  [[ -f "$lock_path" && ! -L "$lock_path" ]] ||
+    die "state lock must be a pre-created regular file"
+  [[ "$(stat -c '%u:%g:%a' -- "$lock_path")" == "0:0:600" ]] ||
+    die "state lock must be root:root mode 0600"
+  exec {BGMSS_LOCK_FD}<>"$lock_path"
   flock -n "$BGMSS_LOCK_FD" || die "another state-changing operation owns $lock_path"
   readonly BGMSS_LOCK_FD
 }
@@ -112,6 +136,28 @@ atomic_symlink() {
   [[ ! -e "$temporary" && ! -L "$temporary" ]] || die "temporary symlink already exists"
   ln -s -- "$target" "$temporary"
   mv -fT -- "$temporary" "$destination"
+}
+
+restore_optional_file() {
+  local snapshot=$1 destination=$2
+  if [[ -n "$snapshot" ]]; then
+    atomic_copy "$snapshot" "$destination"
+  elif [[ -f "$destination" && ! -L "$destination" ]]; then
+    rm -f -- "$destination"
+  elif [[ -e "$destination" || -L "$destination" ]]; then
+    die "cannot restore absent file over an invalid path: $destination"
+  fi
+}
+
+restore_optional_symlink() {
+  local target=$1 destination=$2
+  if [[ -n "$target" ]]; then
+    atomic_symlink "$target" "$destination"
+  elif [[ -L "$destination" ]]; then
+    rm -f -- "$destination"
+  elif [[ -e "$destination" ]]; then
+    die "cannot restore absent symlink over an invalid path: $destination"
+  fi
 }
 
 read_link_or_empty() {
@@ -174,6 +220,33 @@ pointer_data_version() {
     | .dataVersion
     | select(test("^dv1-[0-9a-f]{64}$"))
   ' "$1"
+}
+
+freeze_archive_version() {
+  local root=$1 data_version=$2 version_root special invalid
+  [[ "$data_version" =~ ^dv1-[0-9a-f]{64}$ ]] ||
+    die "cannot freeze an invalid Archive data version"
+  version_root="$root/data/versions/$data_version"
+  [[ -d "$version_root" && ! -L "$version_root" ]] ||
+    die "published Archive version is not a real directory"
+  [[ "$(realpath "$version_root")" == "$version_root" &&
+    "$(realpath "$root/data/versions")" == "${version_root%/*}" ]] ||
+    die "published Archive version escaped the versions root"
+  special=$(find "$version_root" ! -type d ! -type f -print -quit)
+  [[ -z "$special" ]] ||
+    die "published Archive version contains a symlink or special file: $special"
+  chown -R 0:65532 -- "$version_root"
+  find "$version_root" -type d -exec chmod 0550 -- {} +
+  find "$version_root" -type f -exec chmod 0440 -- {} +
+  invalid=$(find "$version_root" \( ! -uid 0 -o ! -gid 65532 \) -print -quit)
+  [[ -z "$invalid" ]] ||
+    die "published Archive version ownership was not frozen: $invalid"
+  invalid=$(find "$version_root" -type d ! -perm 0550 -print -quit)
+  [[ -z "$invalid" ]] ||
+    die "published Archive directory mode was not frozen: $invalid"
+  invalid=$(find "$version_root" -type f ! -perm 0440 -print -quit)
+  [[ -z "$invalid" ]] ||
+    die "published Archive file mode was not frozen: $invalid"
 }
 
 verify_bundle() {

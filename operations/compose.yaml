@@ -61,6 +61,8 @@ services:
       - no-new-privileges:true
     restart: "no"
     volumes:
+      # The host root is root:65532 mode 1770 with sticky protection:
+      # updater may stage/publish, but cannot replace root-owned pointers/lock.
       - type: bind
         source: ${BGMSS_ROOT}/data
         target: /var/lib/bgmss/archive

@@ -156,7 +156,7 @@ cleanup() {
   local result=$? cleanup_failed=false container current_id image expected_id
   local cleanup_env=
   local image_revision image_and_id expected_digest port
-  trap - EXIT INT TERM
+  trap - EXIT HUP INT TERM
   if [[ -d "$root" && ! -L "$root" && "$(realpath "$root")" == "$root" &&
     "${root##*/}" == "$project" ]]; then
     while IFS= read -r container; do
@@ -257,6 +257,7 @@ cleanup() {
   exit "$result"
 }
 trap cleanup EXIT
+trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
@@ -270,8 +271,9 @@ install -d -m 0755 "$root" "$root/releases"
 install -d -m 0750 \
   "$root/compose" "$root/config" "$root/config/prometheus" \
   "$root/operations" "$root/operations/bin" "$root/operations/lib" \
-  "$root/state" "$root/data" "$root/data/versions" \
-  "$root/prometheus"
+  "$root/state" "$root/prometheus"
+install -d -o 0 -g 65532 -m 1770 "$root/data" "$root/data/versions"
+install -o 0 -g 0 -m 0600 /dev/null "$root/data/operations.lock"
 install -m 0644 "$operations/compose.yaml" "$root/compose/compose.yaml"
 install -m 0644 "$operations/prometheus/prometheus.yml" \
   "$root/config/prometheus/prometheus.yml"
@@ -282,15 +284,16 @@ for command in deploy update rollback-app rollback-data check; do
   install -m 0555 "$operations/bin/$command" "$root/operations/bin/$command"
 done
 version_root="$root/data/versions/$BGMSS_MINIMAL_DATA_VERSION"
-install -d -m 0750 "$version_root"
-install -m 0640 "$bundle/minimal-archive/current.json" "$root/data/current.json"
-install -m 0440 \
+install -d -o 0 -g 65532 -m 0750 "$version_root"
+install -o 0 -g 65532 -m 0640 \
+  "$bundle/minimal-archive/current.json" "$root/data/current.json"
+install -o 0 -g 65532 -m 0440 \
   "$bundle/minimal-archive/versions/$BGMSS_MINIMAL_DATA_VERSION/manifest.json" \
   "$version_root/manifest.json"
-install -m 0440 \
+install -o 0 -g 65532 -m 0440 \
   "$bundle/minimal-archive/versions/$BGMSS_MINIMAL_DATA_VERSION/bangumi.sqlite" \
   "$version_root/bangumi.sqlite"
-chown -R 65532:65532 "$root/data"
+freeze_archive_version "$root" "$BGMSS_MINIMAL_DATA_VERSION"
 chown -R 65532:65532 "$root/prometheus"
 
 "$root/operations/bin/deploy" \
@@ -304,6 +307,153 @@ chown -R 65532:65532 "$root/prometheus"
   --profile validation
 api_image_id=$(docker image inspect --format '{{.Id}}' "$api_image")
 updater_image_id=$(docker image inspect --format '{{.Id}}' "$updater_image")
+
+assert_container_projection() {
+  local service=$1 container=$2 nano_cpus=$3 memory=$4 pids=$5
+  local expected_network=$6 container_port=${7:-} host_port=${8:-}
+  [[ "$container" =~ ^[0-9a-f]{12,64}$ ]] ||
+    die "$service did not resolve to one container ID"
+  if ! docker inspect "$container" |
+    jq -e \
+      --arg container_port "$container_port" \
+      --arg host_port "$host_port" \
+      --arg expected_network "$expected_network" \
+      --argjson nano_cpus "$nano_cpus" \
+      --argjson memory "$memory" \
+      --argjson pids "$pids" '
+        length == 1
+        and (
+          .[0] as $container
+          | ($container.HostConfig.PortBindings // {}) as $bindings
+          | ($container.HostConfig.CapAdd // []) as $cap_add
+          | ($container.HostConfig.CapDrop // []) as $cap_drop
+          | ($container.HostConfig.SecurityOpt // []) as $security
+          | ($container.HostConfig.Devices // []) as $devices
+          | ($container.HostConfig.DeviceRequests // []) as $device_requests
+          | ($container.HostConfig.DeviceCgroupRules // []) as $device_rules
+          | $container.Config.User == "65532:65532"
+            and $container.HostConfig.ReadonlyRootfs == true
+            and $container.HostConfig.Init == true
+            and $container.HostConfig.Privileged == false
+            and $container.HostConfig.PidMode == ""
+            and $container.HostConfig.NetworkMode == $expected_network
+            and ($cap_add | length) == 0
+            and (($cap_drop | sort) == ["ALL"])
+            and (($security | sort) == ["no-new-privileges:true"])
+            and ($devices | length) == 0
+            and ($device_requests | length) == 0
+            and ($device_rules | length) == 0
+            and $container.HostConfig.NanoCpus == $nano_cpus
+            and $container.HostConfig.Memory == $memory
+            and $container.HostConfig.PidsLimit == $pids
+            and $container.HostConfig.LogConfig.Type == "journald"
+            and (
+              if $container_port == "" then
+                ($bindings | length) == 0
+              else
+                ($bindings | keys) == [$container_port]
+                and ($bindings[$container_port] | length) == 1
+                and $bindings[$container_port][0].HostIp == "127.0.0.1"
+                and $bindings[$container_port][0].HostPort == $host_port
+              end
+            )
+        )
+      ' >/dev/null; then
+    die "$service container security/resource/port projection differs"
+  fi
+}
+
+assert_mount_projection() {
+  local service=$1 container=$2 expected_mounts=$3
+  if ! docker inspect "$container" |
+    jq -e \
+      --argjson expected_mounts "$expected_mounts" '
+        length == 1
+        and (
+          (
+            [.[0].Mounts[] | {Source, Destination, Type, RW}]
+            | sort_by(.Destination)
+          ) == ($expected_mounts | sort_by(.Destination))
+        )
+      ' >/dev/null; then
+    die "$service bind mount projection is not the exact closed set"
+  fi
+}
+
+api_mounts=$(jq -cn --arg data "$root/data" '
+  [{
+    Source: $data,
+    Destination: "/var/lib/bgmss/archive",
+    Type: "bind",
+    RW: false
+  }]
+')
+prometheus_mounts=$(jq -cn \
+  --arg config "$root/config/prometheus/prometheus.yml" \
+  --arg rules "$root/config/prometheus/rules.yml" \
+  --arg data "$root/prometheus" '
+    [
+      {
+        Source: $config,
+        Destination: "/etc/prometheus/prometheus.yml",
+        Type: "bind",
+        RW: false
+      },
+      {
+        Source: $rules,
+        Destination: "/etc/prometheus/rules.yml",
+        Type: "bind",
+        RW: false
+      },
+      {
+        Source: $data,
+        Destination: "/prometheus",
+        Type: "bind",
+        RW: true
+      }
+    ]
+  ')
+updater_mounts=$(jq -cn \
+  --arg data "$root/data" \
+  --arg tool "$root/current-tools/archive-smoke" '
+    [
+      {
+        Source: $data,
+        Destination: "/var/lib/bgmss/archive",
+        Type: "bind",
+        RW: true
+      },
+      {
+        Source: $tool,
+        Destination: "/opt/bgmss/bin/archive-smoke",
+        Type: "bind",
+        RW: false
+      }
+    ]
+  ')
+
+api_container=$(compose "$root" ps --quiet api)
+prometheus_container=$(compose "$root" ps --quiet prometheus)
+assert_container_projection \
+  api "$api_container" 1500000000 805306368 256 \
+  "${project}_backend" "8080/tcp" "$api_port"
+assert_container_projection \
+  prometheus "$prometheus_container" 500000000 201326592 128 \
+  "${project}_backend" "9090/tcp" "$prometheus_port"
+assert_mount_projection api "$api_container" "$api_mounts"
+assert_mount_projection \
+  prometheus "$prometheus_container" "$prometheus_mounts"
+
+[[ -z "$(compose "$root" ps --all --quiet updater)" ]] ||
+  die "updater container unexpectedly exists before projection validation"
+compose "$root" create updater >/dev/null
+updater_container=$(compose "$root" ps --all --quiet updater)
+assert_container_projection \
+  updater "$updater_container" 1000000000 536870912 256 "${project}_backend"
+assert_mount_projection updater "$updater_container" "$updater_mounts"
+compose "$root" rm --force --stop updater >/dev/null
+[[ -z "$(compose "$root" ps --all --quiet updater)" ]] ||
+  die "updater projection container was not removed"
 
 runtime_sample() {
   local sample_available
@@ -334,7 +484,7 @@ cp --preserve=mode,ownership -- "$root/data/current.json" "$saved_pointer"
 invalid_version="dv1-ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 printf '{"pointerSchemaVersion":1,"dataVersion":"%s","manifestDigest":"sha256:%064d"}\n' \
   "$invalid_version" 0 | atomic_write "$root/data/current.json" 0640
-chown 65532:65532 "$root/data/current.json"
+chown 0:65532 "$root/data/current.json"
 if BGMSS_READY_ATTEMPTS=3 restart_and_wait "$root" "$invalid_version"; then
   die "API unexpectedly became ready with an absent validation pointer"
 fi

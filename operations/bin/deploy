@@ -87,10 +87,15 @@ release="$root/releases/$version"
 candidate_activated=false
 release_owned=false
 old_env=
+old_previous_env=
+old_frontend=
+old_tools=
+old_previous_frontend=
+old_previous_tools=
 
 cleanup_candidate_release() {
-  local result=$? link target linked=false
-  trap - EXIT
+  local result=$? link target temporary linked=false
+  trap - EXIT ERR HUP INT TERM
   if [[ "$release_owned" == true && "$candidate_activated" == false &&
     (-e "$release" || -L "$release") ]]; then
     for link in \
@@ -118,13 +123,22 @@ cleanup_candidate_release() {
       result=1
     fi
   fi
-  if [[ -n "$old_env" && -f "$old_env" && ! -L "$old_env" &&
-    "${old_env%/*}" == "$root/state" ]]; then
-    rm -f -- "$old_env" || result=1
-  fi
+  for temporary in "$old_env" "$old_previous_env"; do
+    [[ -n "$temporary" ]] || continue
+    if [[ -f "$temporary" && ! -L "$temporary" &&
+      "${temporary%/*}" == "$root/state" ]]; then
+      rm -f -- "$temporary" || result=1
+    elif [[ -e "$temporary" || -L "$temporary" ]]; then
+      log "preserving invalid transaction temporary: $temporary"
+      result=1
+    fi
+  done
   exit "$result"
 }
 trap cleanup_candidate_release EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 mkdir -m 0755 "$release"
 release_owned=true
@@ -146,18 +160,26 @@ if [[ -f "$root/state/current.env" && ! -L "$root/state/current.env" ]]; then
 elif [[ -e "$root/state/current.env" || -L "$root/state/current.env" ]]; then
   die "current env has an invalid type"
 fi
+if [[ -f "$root/state/previous.env" && ! -L "$root/state/previous.env" ]]; then
+  old_previous_env=$(mktemp "$root/state/.previous-rollback-env.XXXXXX")
+  cp -- "$root/state/previous.env" "$old_previous_env"
+elif [[ -e "$root/state/previous.env" || -L "$root/state/previous.env" ]]; then
+  die "previous env has an invalid type"
+fi
 old_frontend=$(read_link_or_empty "$root/current-frontend")
 old_tools=$(read_link_or_empty "$root/current-tools")
+old_previous_frontend=$(read_link_or_empty "$root/previous-frontend")
+old_previous_tools=$(read_link_or_empty "$root/previous-tools")
 
 restore_application() {
-  local failed=$?
-  trap - ERR
+  local failed=$1
+  (( failed != 0 )) || failed=1
+  trap - ERR HUP INT TERM
   log "candidate application did not become ready; restoring previous application state"
   if [[ -n "$old_env" ]]; then
     atomic_copy "$old_env" "$root/state/current.env"
-    if [[ -n "$old_tools" ]]; then
-      atomic_symlink "$old_tools" "$root/current-tools"
-    fi
+    restore_optional_symlink "$old_tools" "$root/current-tools"
+    restore_optional_symlink "$old_frontend" "$root/current-frontend"
     if ! restart_and_wait "$root" "$(pointer_data_version "$root/data/current.json")"; then
       die "candidate failed and previous application did not recover"
     fi
@@ -165,11 +187,20 @@ restore_application() {
     if ! compose "$root" down --remove-orphans >/dev/null 2>&1; then
       die "candidate failed and its Compose project did not stop cleanly"
     fi
-    rm -f -- "$root/state/current.env" "$root/current-tools"
+    restore_optional_file "" "$root/state/current.env"
+    restore_optional_symlink "$old_tools" "$root/current-tools"
+    restore_optional_symlink "$old_frontend" "$root/current-frontend"
   fi
+  restore_optional_file "$old_previous_env" "$root/state/previous.env"
+  restore_optional_symlink "$old_previous_tools" "$root/previous-tools"
+  restore_optional_symlink "$old_previous_frontend" "$root/previous-frontend"
+  candidate_activated=false
   exit "$failed"
 }
-trap restore_application ERR
+trap 'restore_application "$?"' ERR
+trap 'restore_application 129' HUP
+trap 'restore_application 130' INT
+trap 'restore_application 143' TERM
 
 atomic_copy "$release/release.env" "$root/state/current.env"
 compose "$root" config --quiet
@@ -185,6 +216,5 @@ fi
 # Frontend is deliberately the last active-state switch.
 atomic_symlink "releases/$version/frontend" "$root/current-frontend"
 candidate_activated=true
-trap - ERR
-[[ -n "$old_env" ]] && rm -f -- "$old_env"
+trap - ERR HUP INT TERM
 log "deployed $version; API ready and frontend switched last"

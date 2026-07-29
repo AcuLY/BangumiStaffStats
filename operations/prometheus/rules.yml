@@ -25,6 +25,12 @@ groups:
       - alert: BgmssUpdaterFailed
         expr: bgmss_updater_last_attempt_info{status=~"failed|canceled"} == 1
         for: 5m
+      - alert: BgmssUpdaterStatusUnavailable
+        expr: bgmss_updater_status_configured != 1 or bgmss_updater_status_valid != 1
+        for: 5m
+      - alert: BgmssUpdaterNeverSucceeded
+        expr: (bgmss_updater_status_configured == 1 and bgmss_updater_status_valid == 1) unless bgmss_updater_last_success_time_seconds
+        for: 30m
       - alert: BgmssUpdaterSuccessTooOld
         expr: time() - bgmss_updater_last_success_time_seconds > 777600
         for: 30m

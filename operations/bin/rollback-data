@@ -16,24 +16,47 @@ acquire_state_lock "$root"
   die "both current and previous data pointers are required"
 current=$(mktemp "$root/data/.rollback-current.XXXXXX")
 previous=$(mktemp "$root/data/.rollback-previous.XXXXXX")
+cleanup_temporaries() {
+  local result=$? temporary
+  trap - EXIT ERR HUP INT TERM
+  for temporary in "$current" "$previous"; do
+    if [[ -f "$temporary" && ! -L "$temporary" &&
+      "${temporary%/*}" == "$root/data" ]]; then
+      rm -f -- "$temporary" || result=1
+    elif [[ -e "$temporary" || -L "$temporary" ]]; then
+      log "preserving invalid transaction temporary: $temporary"
+      result=1
+    fi
+  done
+  exit "$result"
+}
+trap cleanup_temporaries EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 cp --preserve=mode,ownership -- "$root/data/current.json" "$current"
 cp --preserve=mode,ownership -- "$root/data/previous.json" "$previous"
 current_version=$(pointer_data_version "$current")
 previous_version=$(pointer_data_version "$previous")
 
 restore_data() {
-  local failed=$?
-  trap - ERR
+  local failed=$1
+  (( failed != 0 )) || failed=1
+  trap - ERR HUP INT TERM
   atomic_copy "$current" "$root/data/current.json"
+  atomic_copy "$previous" "$root/data/previous.json"
   if ! restart_and_wait "$root" "$current_version"; then
     die "data rollback failed and original data did not recover"
   fi
   exit "$failed"
 }
-trap restore_data ERR
+trap 'restore_data "$?"' ERR
+trap 'restore_data 129' HUP
+trap 'restore_data 130' INT
+trap 'restore_data 143' TERM
 atomic_copy "$previous" "$root/data/current.json"
 restart_and_wait "$root" "$previous_version"
 atomic_copy "$current" "$root/data/previous.json"
-trap - ERR
-rm -f -- "$current" "$previous"
+trap - ERR HUP INT TERM
 log "data rollback completed; application env and frontend were unchanged"
