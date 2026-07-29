@@ -425,7 +425,7 @@ process.send = function probedSend(message, ...args) {
   }
   return outcome;
 };
-process.on('message', (message) => {
+process.once('message', (message) => {
   if (message?.type === 'ack' && message.sequence === 0) {
     fs.writeFileSync(checkpointAcknowledged, 'acknowledged\\n', {
       flag: 'wx',
