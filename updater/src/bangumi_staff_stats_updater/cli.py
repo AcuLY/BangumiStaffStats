@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import re
 import sys
 import time
@@ -292,6 +293,7 @@ def _produce_request(namespace: argparse.Namespace) -> ProduceRequest:
         common_commit=namespace.common_commit,
         archive_smoke=Path(namespace.archive_smoke),
         generated_at=namespace.generated_at,
+        https_proxy=os.environ.get("BGMSS_HTTPS_PROXY"),
     )
 
 

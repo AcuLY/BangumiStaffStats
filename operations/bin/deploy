@@ -10,12 +10,19 @@ usage() {
   printf '%s\n' \
     "usage: deploy --root ABS --bundle ABS --version SOURCE_REVISION" \
     "              --project NAME --api-port PORT --prometheus-port PORT" \
-    "              --prometheus-image PINNED_IMAGE [--profile production|validation]" >&2
+    "              --prometheus-image PINNED_IMAGE [--profile production|validation]" \
+    "              [--updater-transport preserve|direct|proxy]" \
+    "              [--updater-https-proxy http://HOST:PORT --updater-proxy-network NAME]" >&2
   exit 2
 }
 
 root= bundle= version= project= api_port= prometheus_port= prometheus_image=
 profile=production
+updater_transport_request=preserve
+updater_https_proxy= updater_proxy_network=
+updater_transport_seen=false
+updater_https_proxy_seen=false
+updater_proxy_network_seen=false
 while (($#)); do
   case "$1" in
     --root) [[ $# -ge 2 ]] || usage; root=$2; shift 2 ;;
@@ -26,11 +33,44 @@ while (($#)); do
     --prometheus-port) [[ $# -ge 2 ]] || usage; prometheus_port=$2; shift 2 ;;
     --prometheus-image) [[ $# -ge 2 ]] || usage; prometheus_image=$2; shift 2 ;;
     --profile) [[ $# -ge 2 ]] || usage; profile=$2; shift 2 ;;
+    --updater-transport)
+      [[ $# -ge 2 && "$updater_transport_seen" == false ]] || usage
+      updater_transport_request=$2
+      updater_transport_seen=true
+      shift 2
+      ;;
+    --updater-https-proxy)
+      [[ $# -ge 2 && "$updater_https_proxy_seen" == false ]] || usage
+      updater_https_proxy=$2
+      updater_https_proxy_seen=true
+      shift 2
+      ;;
+    --updater-proxy-network)
+      [[ $# -ge 2 && "$updater_proxy_network_seen" == false ]] || usage
+      updater_proxy_network=$2
+      updater_proxy_network_seen=true
+      shift 2
+      ;;
     *) usage ;;
   esac
 done
 [[ -n "$root" && -n "$bundle" && -n "$version" && -n "$project" &&
   -n "$api_port" && -n "$prometheus_port" && -n "$prometheus_image" ]] || usage
+
+case "$updater_transport_request" in
+  preserve | direct)
+    [[ "$updater_https_proxy_seen" == false && "$updater_proxy_network_seen" == false ]] ||
+      die "$updater_transport_request updater transport forbids proxy arguments"
+    ;;
+  proxy)
+    [[ "$updater_https_proxy_seen" == true && "$updater_proxy_network_seen" == true ]] ||
+      die "proxy updater transport requires both proxy arguments"
+    require_updater_transport_values proxy "$updater_https_proxy" "$updater_proxy_network"
+    ;;
+  *)
+    die "updater transport request must be preserve, direct, or proxy"
+    ;;
+esac
 
 for command in curl docker flock jq realpath sha256sum tar; do
   require_command "$command"
@@ -59,11 +99,32 @@ require_existing_topology_match() {
   fi
 }
 
+resolve_updater_transport() {
+  local current_env="$root/state/current.env" state
+  state=$(
+    resolve_updater_transport_request \
+      "$updater_transport_request" "$current_env" \
+      "$updater_https_proxy" "$updater_proxy_network"
+  )
+  IFS='|' read -r resolved_transport resolved_https_proxy resolved_proxy_network \
+    <<<"$state"
+}
+
 # Refuse project/root/Prometheus/port/profile drift before even opening the
 # state lock. Recheck under the lock to close the concurrent-deploy race.
 require_existing_topology_match
+resolve_updater_transport
+if [[ "$resolved_transport" == proxy ]]; then
+  docker network inspect "$resolved_proxy_network" >/dev/null ||
+    die "updater proxy external network is unavailable"
+fi
 acquire_state_lock "$root"
 require_existing_topology_match
+resolve_updater_transport
+if [[ "$resolved_transport" == proxy ]]; then
+  docker network inspect "$resolved_proxy_network" >/dev/null ||
+    die "updater proxy external network is unavailable"
+fi
 
 verify_bundle "$bundle"
 verify_build_metadata "$bundle/build.json"
@@ -152,7 +213,8 @@ cp -- "$bundle/build.json" "$release/build.json"
 chmod 0444 "$release/build.json"
 write_release_env \
   "$release/release.env" "$root" "$project" "$api_image" "$updater_image" \
-  "$prometheus_image" "$api_port" "$prometheus_port" "$profile"
+  "$prometheus_image" "$api_port" "$prometheus_port" "$profile" \
+  "$resolved_transport" "$resolved_https_proxy" "$resolved_proxy_network"
 
 if [[ -f "$root/state/current.env" && ! -L "$root/state/current.env" ]]; then
   old_env=$(mktemp "$root/state/.previous-env.XXXXXX")

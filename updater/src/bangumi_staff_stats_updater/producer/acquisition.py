@@ -40,6 +40,8 @@ _DIGEST: Final = re.compile(r"^sha256:[0-9a-f]{64}$")
 _COMMIT: Final = re.compile(r"^[0-9a-f]{40}$")
 _ASSET_NAME: Final = re.compile(r"^dump-[0-9]{4}-[0-9]{2}-[0-9]{2}\.[0-9]{6}Z\.zip$")
 _GITHUB_TIMESTAMP: Final = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
+_PROXY_HOST_LABEL: Final = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+_PROXY_PORT: Final = re.compile(r"^[1-9][0-9]{0,4}$")
 _LATEST_FIELDS: Final = {
     "browser_download_url",
     "content_type",
@@ -126,6 +128,33 @@ def _validate_url(url: str, allowed_hosts: frozenset[str]) -> None:
         raise ProducerError("HTTPS_ORIGIN_INVALID")
 
 
+def validate_https_proxy(value: str | None) -> str | None:
+    """Return one canonical dedicated proxy URL without consulting the environment."""
+    if value is None:
+        return None
+    try:
+        encoded = value.encode("ascii")
+    except UnicodeEncodeError as error:
+        raise ProducerError("HTTPS_PROXY_INVALID") from error
+    if not encoded or len(encoded) > 320 or not value.startswith("http://"):
+        raise ProducerError("HTTPS_PROXY_INVALID")
+    authority = value.removeprefix("http://")
+    if authority.count(":") != 1:
+        raise ProducerError("HTTPS_PROXY_INVALID")
+    host, port_text = authority.rsplit(":", 1)
+    if (
+        not host
+        or len(host) > 253
+        or any(_PROXY_HOST_LABEL.fullmatch(label) is None for label in host.split("."))
+        or _PROXY_PORT.fullmatch(port_text) is None
+    ):
+        raise ProducerError("HTTPS_PROXY_INVALID")
+    port = int(port_text)
+    if port > 65535 or str(port) != port_text:
+        raise ProducerError("HTTPS_PROXY_INVALID")
+    return value
+
+
 class _RedirectHandler(urllib.request.HTTPRedirectHandler):
     def __init__(self, allowed_hosts: frozenset[str]) -> None:
         super().__init__()
@@ -151,17 +180,40 @@ class _RedirectHandler(urllib.request.HTTPRedirectHandler):
         )
 
 
+class _ExplicitHTTPSProxyHandler(urllib.request.ProxyHandler):
+    """Apply one validated HTTPS proxy without urllib's ambient bypass lookup."""
+
+    def __init__(self, proxy_url: str) -> None:
+        # An explicit empty mapping suppresses build_opener's ambient ProxyHandler.
+        super().__init__({})
+        self._authority = proxy_url.removeprefix("http://")
+
+    def https_open(self, request: urllib.request.Request) -> None:
+        # This is the ProxyHandler HTTPS behavior after parsing, intentionally
+        # omitting proxy_bypass(). HTTPSHandler keeps destination TLS above CONNECT.
+        request.set_proxy(self._authority, "http")
+        return None
+
+
 class StrictHTTPSClient:
     """Standard-library HTTPS client with no environment proxy inheritance."""
 
-    @staticmethod
+    def __init__(self, https_proxy: str | None = None) -> None:
+        self._https_proxy = validate_https_proxy(https_proxy)
+
     def _open(
+        self,
         url: str,
         allowed_hosts: frozenset[str],
     ) -> urllib.response.addinfourl:
         _validate_url(url, allowed_hosts)
+        proxy_handler: urllib.request.ProxyHandler
+        if self._https_proxy is None:
+            proxy_handler = urllib.request.ProxyHandler({})
+        else:
+            proxy_handler = _ExplicitHTTPSProxyHandler(self._https_proxy)
         opener = urllib.request.build_opener(
-            urllib.request.ProxyHandler({}),
+            proxy_handler,
             _RedirectHandler(allowed_hosts),
         )
         request = urllib.request.Request(  # noqa: S310 - URL is restricted to HTTPS above.

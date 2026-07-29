@@ -19,6 +19,7 @@ The root layout is fixed:
 ```text
 <root>/
   compose/compose.yaml
+  compose/compose.updater-proxy.yaml
   config/prometheus/{prometheus.yml,rules.yml}
   operations/{bin,lib}
   releases/<source-revision>/{frontend,tools,release.env,build.json}
@@ -67,6 +68,7 @@ install -d -m 0750 /srv/bgmss-v2/{compose,config/prometheus,operations,operation
 install -d -o root -g 65532 -m 1770 /srv/bgmss-v2/data /srv/bgmss-v2/data/versions
 install -o root -g root -m 0600 /dev/null /srv/bgmss-v2/data/operations.lock
 install -m 0644 operations/compose.yaml /srv/bgmss-v2/compose/compose.yaml
+install -m 0644 operations/compose.updater-proxy.yaml /srv/bgmss-v2/compose/compose.updater-proxy.yaml
 install -m 0644 operations/prometheus/*.yml /srv/bgmss-v2/config/prometheus/
 install -m 0555 operations/bin/{deploy,update,rollback-app,rollback-data,check} /srv/bgmss-v2/operations/bin/
 install -m 0444 operations/lib/common.sh /srv/bgmss-v2/operations/lib/common.sh
@@ -94,6 +96,23 @@ candidate, so the same admitted bundle can be retried. `ERR`, `HUP`, `INT`, and
 `TERM` use the same transaction restoration path; successful signal recovery
 returns `129`, `130`, or `143` as appropriate.
 
+Release env records `BGMSS_UPDATER_TRANSPORT=direct|proxy`. Deploy defaults to
+`--updater-transport preserve`: it retains a valid current direct/proxy state
+and treats a pre-change env with no transport fields as direct. Explicit
+`direct` removes the proxy pair. Explicit `proxy` requires both a canonical
+credential-free `--updater-https-proxy http://HOST:PORT` and an existing
+`--updater-proxy-network NAME`; the network is inspected but never created or
+managed. Preserve/direct reject proxy arguments, partial or duplicate
+arguments fail before the state lock and image loading, and rollback keeps the
+previous env bytes so its exact transport state is restored.
+
+Only proxy mode selects `compose.updater-proxy.yaml`. The overlay maps the
+release URL to updater-only `BGMSS_HTTPS_PROXY` and attaches only updater to the
+named external network. API and Prometheus retain the base backend network and
+receive no proxy input. The common Compose wrapper validates transport only
+from root-managed `state/current.env` and clears conflicting calling-shell
+transport/URL/network values before Compose interpolation.
+
 ```sh
 /srv/bgmss-v2/operations/bin/deploy \
   --root /srv/bgmss-v2 \
@@ -103,6 +122,19 @@ returns `129`, `130`, or `143` as appropriate.
   --api-port 18080 \
   --prometheus-port 19090 \
   --prometheus-image prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80
+
+# Explicitly enable the updater-only proxy transport:
+/srv/bgmss-v2/operations/bin/deploy \
+  --root /srv/bgmss-v2 \
+  --bundle /path/to/admitted-bundle \
+  --version <40-hex-source-revision> \
+  --project bgmss-v2 \
+  --api-port 18080 \
+  --prometheus-port 19090 \
+  --prometheus-image prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80 \
+  --updater-transport proxy \
+  --updater-https-proxy http://proxy.internal:7897 \
+  --updater-proxy-network proxy-net
 
 /srv/bgmss-v2/operations/bin/check --root /srv/bgmss-v2
 /srv/bgmss-v2/operations/bin/update --root /srv/bgmss-v2
@@ -152,3 +184,9 @@ deferred. Before those checks it inspects the real API/Prometheus containers and
 a create-only updater container for the exact non-root user, read-only rootfs,
 capability/security settings, CPU/memory/PID bounds, journald driver, mount
 direction, and closed loopback-only port bindings.
+It also installs the tracked updater proxy overlay and statically renders it
+with synthetic safe values, proving that only updater gains the dedicated
+environment entry and external network. The separate
+`test/updater-proxy.sh` build gate covers release transitions, invalid timing,
+calling-shell conflicts, and direct/proxy Compose JSON projection without
+starting an updater or creating an external network.

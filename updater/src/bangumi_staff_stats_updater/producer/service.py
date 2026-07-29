@@ -27,7 +27,13 @@ from bangumi_staff_stats_updater.archive_contract import (
 from bangumi_staff_stats_updater.catalog.config import load_configuration
 from bangumi_staff_stats_updater.catalog.errors import CatalogError
 
-from .acquisition import AcquiredInputs, AcquisitionClient, acquire
+from .acquisition import (
+    AcquiredInputs,
+    AcquisitionClient,
+    StrictHTTPSClient,
+    acquire,
+    validate_https_proxy,
+)
 from .builder import build_database
 from .manifest import (
     data_version,
@@ -95,6 +101,7 @@ class ProduceRequest:
     common_commit: str
     archive_smoke: Path
     generated_at: str | None = None
+    https_proxy: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -341,6 +348,8 @@ def produce(
     monotonic: Callable[[], float] = time.monotonic,
 ) -> ProduceResult:
     """Run every fallible gate, then atomically publish one inactive version."""
+    proxy_url = validate_https_proxy(request.https_proxy)
+    active_client = StrictHTTPSClient(proxy_url) if client is None else client
     contracts_root = request.contracts_root
 
     def preflight() -> tuple[bytes, Path, ContractReport]:
@@ -366,7 +375,7 @@ def produce(
             lambda: acquire(
                 staging_root=staging.path,
                 common_commit=request.common_commit,
-                client=client,
+                client=active_client,
                 cancelled=cancelled,
             ),
             observer=observer,

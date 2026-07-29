@@ -28,6 +28,8 @@ require_exact_inventory() {
 repository_root="$(
   CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P
 )"
+# shellcheck source=../lib/common.sh
+source "$repository_root/operations/lib/common.sh"
 accepted_product_revision='34176077787b7942741ae412d3f012c732a51ee0'
 accepted_ci_policy_sha256='0260babc76f71b1fb0730bb84894ce0f3c41c9df93591910f05ac9352ee98176'
 data_version='dv1-0a1fa3e9acdb06be34e3535b3c68e322e7d3f4cd87ac30cd4b608b2276ba3ca1'
@@ -64,28 +66,27 @@ ci_policy_sha256="$(sha256sum -- "$ci_policy" | awk '{print $1}')"
   fail 'CI action-reference policy differs from the exact reviewed bytes'
 
 current_ci="$repository_root/.github/workflows/ci.yml"
-caller_record="$(grep -n -x '  operations-preview:' "$current_ci")"
-[[ "$caller_record" =~ ^([0-9]+): ]] ||
-  fail 'Development workflow does not contain one locatable operations caller'
-caller_line="${BASH_REMATCH[1]}"
-[[ "$caller_line" -gt 1 ]] ||
-  fail 'Development workflow caller has no protected prefix'
-[[ -z "$(sed -n "$((caller_line - 1))p" "$current_ci")" ]] ||
-  fail 'Development workflow caller is not separated by one blank line'
+accepted_ci="$(mktemp "$RUNNER_TEMP/bgmss-accepted-development-workflow.XXXXXX")"
+git -C "$repository_root" show \
+  "${accepted_product_revision}:.github/workflows/ci.yml" >"$accepted_ci"
+workflow_prefix_lines=$(
+  development_workflow_prefix_lines "$accepted_ci" "$current_ci"
+)
+IFS='|' read -r accepted_prefix_line current_prefix_line <<<"$workflow_prefix_lines"
 if ! cmp -s \
-  <(
-    git -C "$repository_root" show \
-      "${accepted_product_revision}:.github/workflows/ci.yml"
-  ) \
-  <(head -n "$((caller_line - 2))" "$current_ci"); then
-  fail 'Development workflow bytes before the exact caller differ from the accepted Product'
+  <(_development_workflow_product_prefix "$accepted_ci" "$accepted_prefix_line") \
+  <(_development_workflow_product_prefix "$current_ci" "$current_prefix_line"); then
+  fail 'Development workflow product prefix differs from the accepted Product'
 fi
+rm -f -- "$accepted_ci"
 
 application_version="$(sed -n '1p' "$repository_root/VERSION")"
 [[ "$application_version" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] ||
   fail 'VERSION is not one normalized application version'
 [[ "$(wc -l <"$repository_root/VERSION" | tr -d ' ')" == '1' ]] ||
   fail 'VERSION must contain exactly one line'
+
+bash "$repository_root/operations/test/updater-proxy.sh"
 
 backend_output="$repository_root/backend/build/.tmp/operations-bundle-output"
 backend_cache="$repository_root/backend/build/.tmp/operations-bundle-cache"

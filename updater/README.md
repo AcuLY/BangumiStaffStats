@@ -55,6 +55,21 @@ uv run --frozen bgmss-updater produce \
   --status-file /absolute/canonical/update-status.json
 ```
 
+`produce` alone reads the optional dedicated `BGMSS_HTTPS_PROXY` environment
+input. Absence keeps direct HTTPS. A present value must be at most 320 ASCII
+bytes and use the exact credential-free form `http://lowercase.dns.host:PORT`,
+with canonical decimal port `1..65535`; credentials, IPv6 literals, trailing
+slashes, paths, queries, fragments, uppercase/noncanonical spellings, and empty
+values fail before staging or upstream access. Generic upper/lower-case
+HTTP/HTTPS/ALL/NO proxy variables are always ignored.
+
+The explicit proxy is transport-only: approved destination and redirect hosts,
+normal destination certificate and hostname verification through CONNECT,
+response bounds, digests, cancellation, and publication gates are unchanged.
+Ambient bypass configuration, including `NO_PROXY=*`, cannot bypass the
+dedicated proxy, and the proxy value is never included in lifecycle events,
+status evidence, or errors.
+
 The contract checker reads the supplied `contracts/` tree without copying,
 caching, editing, or opening any golden SQLite file as a database.
 

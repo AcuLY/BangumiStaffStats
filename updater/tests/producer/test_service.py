@@ -276,6 +276,39 @@ def test_service_publishes_exactly_one_inactive_pair_then_returns_no_change(
     assert not tuple(tmp_path.glob(".bgmss-stage-*"))
 
 
+def test_proxy_validation_precedes_staging_and_acquisition(
+    contracts_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request, client = _arrange(contracts_root, tmp_path)
+
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("staging or acquisition began")
+
+    monkeypatch.setattr(service_module, "StagingRoot", forbidden)
+    monkeypatch.setattr(client, "fetch_bytes", forbidden)
+    with pytest.raises(ProducerError, match=r"^HTTPS_PROXY_INVALID$"):
+        produce(
+            replace(request, https_proxy="http://private-secret.example:07897"),
+            client=client,
+        )
+    assert not tuple(tmp_path.glob(".bgmss-stage-*"))
+
+
+def test_valid_proxy_preserves_injected_acquisition_and_publication(
+    contracts_root: Path,
+    tmp_path: Path,
+) -> None:
+    request, client = _arrange(contracts_root, tmp_path)
+    result = produce(
+        replace(request, https_proxy="http://proxy.internal:7897"),
+        client=client,
+    )
+    assert result.status == "published"
+    assert not tuple(tmp_path.glob(".bgmss-stage-*"))
+
+
 def test_request_has_no_rule_version_override_authority(
     contracts_root: Path,
     tmp_path: Path,

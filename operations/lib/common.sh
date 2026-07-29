@@ -6,6 +6,7 @@ IFS=$'\n\t'
 readonly BGMSS_COMMON_COMMIT="6a8442c17143a870357a5ff812362e8b5cfe9f9d"
 readonly BGMSS_MINIMAL_DATA_VERSION="dv1-0a1fa3e9acdb06be34e3535b3c68e322e7d3f4cd87ac30cd4b608b2276ba3ca1"
 readonly BGMSS_PROMETHEUS_IMAGE_PIN="prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80"
+readonly BGMSS_OPERATIONS_PREVIEW_CALLER=$'  operations-preview:\n    if: github.event_name == '\''workflow_dispatch'\''\n    needs: verify\n    permissions:\n      contents: read\n    uses: ./.github/workflows/operations-preview.yml'
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -62,6 +63,56 @@ require_image() {
     die "$label has an unsafe image reference"
   [[ "$value" != "latest" && "$value" != *":latest" ]] ||
     die "$label must not use latest"
+}
+
+require_updater_https_proxy() {
+  local value=$1 label=${2:-updater-https-proxy}
+  local authority host port label_part
+  local LC_ALL=C
+  local -a proxy_labels
+  [[ -n "$value" && ${#value} -le 320 &&
+    "$value" =~ ^http://([a-z0-9.-]+):([1-9][0-9]{0,4})$ ]] ||
+    die "$label must be one canonical credential-free http://HOST:PORT URL"
+  authority=${value#http://}
+  host=${authority%:*}
+  port=${authority##*:}
+  [[ ${#host} -le 253 && "$host" != .* && "$host" != *. ]] ||
+    die "$label host is invalid"
+  IFS=. read -r -a proxy_labels <<<"$host"
+  ((${#proxy_labels[@]} >= 1)) || die "$label host is invalid"
+  for label_part in "${proxy_labels[@]}"; do
+    [[ ${#label_part} -ge 1 && ${#label_part} -le 63 &&
+      "$label_part" =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]] ||
+      die "$label host contains an invalid DNS label"
+  done
+  ((10#$port >= 1 && 10#$port <= 65535)) || die "$label port must be in 1..65535"
+}
+
+require_updater_proxy_network() {
+  local value=$1 label=${2:-updater-proxy-network}
+  local LC_ALL=C
+  [[ ${#value} -ge 1 && ${#value} -le 128 &&
+    "$value" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] ||
+    die "$label must match [A-Za-z0-9][A-Za-z0-9_.-]* in 1..128 ASCII bytes"
+}
+
+require_updater_transport_values() {
+  local mode=$1 proxy_url=${2:-} proxy_network=${3:-}
+  case "$mode" in
+    direct)
+      [[ -z "$proxy_url" && -z "$proxy_network" ]] ||
+        die "direct updater transport forbids proxy URL/network"
+      ;;
+    proxy)
+      [[ -n "$proxy_url" && -n "$proxy_network" ]] ||
+        die "proxy updater transport requires URL and network"
+      require_updater_https_proxy "$proxy_url"
+      require_updater_proxy_network "$proxy_network"
+      ;;
+    *)
+      die "updater transport must be direct or proxy"
+      ;;
+  esac
 }
 
 require_root_layout() {
@@ -170,12 +221,27 @@ read_link_or_empty() {
 }
 
 compose() {
-  local root=$1
+  local root=$1 env_file state mode proxy_url proxy_network
+  local compose_files=()
   shift
-  docker compose \
+  env_file="$root/state/current.env"
+  state=$(release_transport_state "$env_file")
+  IFS='|' read -r mode proxy_url proxy_network <<<"$state"
+  compose_files=(--file "$root/compose/compose.yaml")
+  if [[ "$mode" == proxy ]]; then
+    [[ -f "$root/compose/compose.updater-proxy.yaml" &&
+      ! -L "$root/compose/compose.updater-proxy.yaml" ]] ||
+      die "updater proxy Compose overlay is missing or invalid"
+    compose_files+=(--file "$root/compose/compose.updater-proxy.yaml")
+  fi
+  env \
+    -u BGMSS_UPDATER_TRANSPORT \
+    -u BGMSS_UPDATER_HTTPS_PROXY \
+    -u BGMSS_UPDATER_PROXY_NETWORK \
+    docker compose \
     --project-name "$(env_value "$root/state/current.env" COMPOSE_PROJECT_NAME)" \
-    --env-file "$root/state/current.env" \
-    --file "$root/compose/compose.yaml" \
+    --env-file "$env_file" \
+    "${compose_files[@]}" \
     "$@"
 }
 
@@ -187,6 +253,130 @@ env_value() {
   [[ -n "$value" && "$(grep -c "^${key}=" "$file")" -eq 1 ]] ||
     die "env file must contain exactly one $key"
   printf '%s\n' "$value"
+}
+
+env_key_count() {
+  local file=$1 key=$2 count
+  [[ -f "$file" && ! -L "$file" ]] || die "env file is invalid: $file"
+  count=$(grep -c "^${key}=" "$file" || true)
+  printf '%s\n' "$count"
+}
+
+require_closed_updater_transport_env() {
+  local file=$1 line key
+  [[ -f "$file" && ! -L "$file" ]] || die "env file is invalid: $file"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    for key in \
+      BGMSS_UPDATER_TRANSPORT \
+      BGMSS_UPDATER_HTTPS_PROXY \
+      BGMSS_UPDATER_PROXY_NETWORK; do
+      if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?${key}([[:space:]]|=|:|$) &&
+        "$line" != "$key="* ]]; then
+        die "env file contains a noncanonical updater transport assignment"
+      fi
+    done
+  done <"$file"
+}
+
+release_transport_state() {
+  local file=$1 mode_count proxy_count network_count mode proxy_url= proxy_network=
+  require_closed_updater_transport_env "$file"
+  mode_count=$(env_key_count "$file" BGMSS_UPDATER_TRANSPORT)
+  proxy_count=$(env_key_count "$file" BGMSS_UPDATER_HTTPS_PROXY)
+  network_count=$(env_key_count "$file" BGMSS_UPDATER_PROXY_NETWORK)
+  if [[ "$mode_count" -eq 0 ]]; then
+    [[ "$proxy_count" -eq 0 && "$network_count" -eq 0 ]] ||
+      die "pre-change env must not contain updater proxy fields"
+    printf 'direct||\n'
+    return
+  fi
+  [[ "$mode_count" -eq 1 ]] ||
+    die "env file must contain at most one BGMSS_UPDATER_TRANSPORT"
+  mode=$(env_value "$file" BGMSS_UPDATER_TRANSPORT)
+  case "$mode" in
+    direct)
+      [[ "$proxy_count" -eq 0 && "$network_count" -eq 0 ]] ||
+        die "direct updater transport forbids proxy fields"
+      ;;
+    proxy)
+      [[ "$proxy_count" -eq 1 && "$network_count" -eq 1 ]] ||
+        die "proxy updater transport requires exactly one URL/network pair"
+      proxy_url=$(env_value "$file" BGMSS_UPDATER_HTTPS_PROXY)
+      proxy_network=$(env_value "$file" BGMSS_UPDATER_PROXY_NETWORK)
+      ;;
+    *)
+      die "env file contains an invalid updater transport"
+      ;;
+  esac
+  require_updater_transport_values "$mode" "$proxy_url" "$proxy_network"
+  printf '%s|%s|%s\n' "$mode" "$proxy_url" "$proxy_network"
+}
+
+_development_workflow_caller_line() {
+  local file=$1 required=$2 label=$3 record line
+  record=$(grep -n -x '  operations-preview:' "$file" || true)
+  if [[ -z "$record" && "$required" == false ]]; then
+    printf '0\n'
+    return
+  fi
+  line=${record%%:*}
+  [[ "$record" == "$line:  operations-preview:" &&
+    "$line" =~ ^[1-9][0-9]*$ && "$line" -gt 1 ]] ||
+    die "$label workflow must contain exactly one locatable operations caller"
+  [[ -z "$(sed -n "$((line - 1))p" "$file")" ]] ||
+    die "$label workflow caller is not separated by one blank line"
+  [[ "$(tail -n "+$line" "$file")" == "$BGMSS_OPERATIONS_PREVIEW_CALLER" ]] ||
+    die "$label workflow operations caller differs from the fixed policy"
+  printf '%s\n' "$line"
+}
+
+_development_workflow_product_prefix() {
+  local file=$1 caller_line=$2
+  if [[ "$caller_line" -eq 0 ]]; then
+    cat -- "$file"
+  else
+    head -n "$((caller_line - 2))" "$file"
+  fi
+}
+
+development_workflow_prefix_lines() {
+  local accepted_ci=$1 current_ci=$2 accepted_line current_line
+  [[ -f "$accepted_ci" && ! -L "$accepted_ci" &&
+    -f "$current_ci" && ! -L "$current_ci" ]] ||
+    die "Development workflow inputs must be regular files"
+  accepted_line=$(
+    _development_workflow_caller_line "$accepted_ci" false accepted
+  )
+  current_line=$(
+    _development_workflow_caller_line "$current_ci" true current
+  )
+  printf '%s|%s\n' "$accepted_line" "$current_line"
+}
+
+resolve_updater_transport_request() {
+  local request=$1 current_env=$2 proxy_url=${3:-} proxy_network=${4:-}
+  case "$request" in
+    preserve)
+      if [[ -f "$current_env" && ! -L "$current_env" ]]; then
+        release_transport_state "$current_env"
+      elif [[ -e "$current_env" || -L "$current_env" ]]; then
+        die "current env has an invalid type"
+      else
+        printf 'direct||\n'
+      fi
+      ;;
+    direct)
+      require_updater_transport_values direct "$proxy_url" "$proxy_network"
+      printf 'direct||\n'
+      ;;
+    proxy)
+      require_updater_transport_values proxy "$proxy_url" "$proxy_network"
+      printf 'proxy|%s|%s\n' "$proxy_url" "$proxy_network"
+      ;;
+    *)
+      die "updater transport request must be preserve, direct, or proxy"
+      ;;
+  esac
 }
 
 wait_ready() {
@@ -393,7 +583,9 @@ install_tools() {
 
 release_env_document() {
   local root=$1 project=$2 api_image=$3 updater_image=$4 prom_image=$5 api_port=$6 prom_port=$7
-  local profile=${8:-production}
+  local profile=${8:-production} transport=${9:-direct}
+  local proxy_url=${10:-} proxy_network=${11:-}
+  require_updater_transport_values "$transport" "$proxy_url" "$proxy_network"
   printf 'COMPOSE_PROJECT_NAME=%s\n' "$project"
   printf 'BGMSS_ROOT=%s\n' "$root"
   printf 'BGMSS_API_IMAGE=%s\n' "$api_image"
@@ -401,6 +593,11 @@ release_env_document() {
   printf 'BGMSS_PROMETHEUS_IMAGE=%s\n' "$prom_image"
   printf 'BGMSS_API_PORT=%s\n' "$api_port"
   printf 'BGMSS_PROMETHEUS_PORT=%s\n' "$prom_port"
+  printf 'BGMSS_UPDATER_TRANSPORT=%s\n' "$transport"
+  if [[ "$transport" == proxy ]]; then
+    printf 'BGMSS_UPDATER_HTTPS_PROXY=%s\n' "$proxy_url"
+    printf 'BGMSS_UPDATER_PROXY_NETWORK=%s\n' "$proxy_network"
+  fi
   if [[ "$profile" == validation ]]; then
     printf 'BGMSS_API_MEM_LIMIT=768m\n'
     printf 'BGMSS_API_GOMEMLIMIT=512MiB\n'
@@ -413,17 +610,23 @@ release_env_document() {
 
 require_release_topology_unchanged() {
   local file=$1 root=$2 project=$3 prom_image=$4 api_port=$5 prom_port=$6 profile=$7
-  local current_api current_updater actual expected
+  local current_api current_updater actual expected state transport proxy_url proxy_network
   current_api=$(env_value "$file" BGMSS_API_IMAGE)
   current_updater=$(env_value "$file" BGMSS_UPDATER_IMAGE)
+  state=$(release_transport_state "$file")
+  IFS='|' read -r transport proxy_url proxy_network <<<"$state"
   actual=$(<"$file")
   expected=$(
     release_env_document \
       "$root" "$project" "$current_api" "$current_updater" \
-      "$prom_image" "$api_port" "$prom_port" "$profile"
+      "$prom_image" "$api_port" "$prom_port" "$profile" \
+      "$transport" "$proxy_url" "$proxy_network"
   )
+  if [[ "$(env_key_count "$file" BGMSS_UPDATER_TRANSPORT)" -eq 0 ]]; then
+    expected=$(sed '/^BGMSS_UPDATER_TRANSPORT=/d' <<<"$expected")
+  fi
   [[ "$actual" == "$expected" ]] ||
-    die "existing deployment topology/profile differs; deploy may only change API/updater images"
+    die "existing deployment topology/profile differs; deploy may only change images and requested updater transport"
 }
 
 write_release_env() {

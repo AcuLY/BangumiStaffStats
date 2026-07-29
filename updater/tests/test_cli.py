@@ -21,7 +21,11 @@ from bangumi_staff_stats_updater.archive_contract import (
     ContractInputError,
 )
 from bangumi_staff_stats_updater.producer.model import ProducerError
-from bangumi_staff_stats_updater.producer.service import PhaseObserver, ProduceResult
+from bangumi_staff_stats_updater.producer.service import (
+    PhaseObserver,
+    ProduceRequest,
+    ProduceResult,
+)
 
 
 def _invoke(
@@ -106,6 +110,7 @@ def test_produce_success_is_bounded_and_exact(
     monkeypatch.setattr(cli, "produce", succeed)
     monkeypatch.setattr(cli, "_new_run_id", lambda: "11111111-1111-4111-8111-111111111111")
     monkeypatch.setattr(cli, "_utc_now", lambda: "2026-07-25T00:00:02Z")
+    monkeypatch.setenv("BGMSS_HTTPS_PROXY", "http://proxy.internal:7897")
     clock = iter([10.0, 12.0])
     monkeypatch.setattr(cli, "_monotonic", lambda: next(clock))
     status_file = tmp_path / "update-status.json"
@@ -153,6 +158,7 @@ def test_produce_success_is_bounded_and_exact(
         "time": "2026-07-25T00:00:02Z",
     }
     assert len(observed) == 1
+    assert cast(ProduceRequest, observed[0]).https_proxy == "http://proxy.internal:7897"
 
 
 @pytest.mark.parametrize(
@@ -272,6 +278,30 @@ def test_producer_failure_is_redacted_and_bounded(
     assert "/private" not in stderr
 
 
+def test_invalid_dedicated_proxy_is_sanitized_before_staging(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    credentialed_proxy = "http://user:password@private-proxy.internal:7897"
+    monkeypatch.setenv("BGMSS_HTTPS_PROXY", credentialed_proxy)
+    monkeypatch.setattr(cli, "_new_run_id", lambda: "22222222-2222-4222-8222-222222222223")
+    monkeypatch.setattr(cli, "_utc_now", lambda: "2026-07-25T00:00:01Z")
+    monkeypatch.setattr(cli, "_monotonic", iter([20.0, 21.0]).__next__)
+    status_file = tmp_path / "update-status.json"
+
+    status, stdout, stderr = _invoke(_produce_arguments(status_file), capsys)
+
+    assert status == 1
+    assert json.loads(stdout)["event"] == "updater_started"
+    assert json.loads(stderr)["error_code"] == "HTTPS_PROXY_INVALID"
+    assert credentialed_proxy not in stdout
+    assert credentialed_proxy not in stderr
+    document = json.loads(status_file.read_bytes())
+    assert document["last_attempt"]["error_code"] == "HTTPS_PROXY_INVALID"
+    assert not tuple(tmp_path.glob(".bgmss-stage-*"))
+
+
 def _produce_arguments(status_file: Path) -> list[str]:
     return [
         "produce",
@@ -288,6 +318,19 @@ def _produce_arguments(status_file: Path) -> list[str]:
         "--status-file",
         str(status_file),
     ]
+
+
+def test_produce_request_ignores_all_generic_proxy_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.delenv("BGMSS_HTTPS_PROXY", raising=False)
+    for scheme in ("http", "https", "all", "no"):
+        monkeypatch.setenv(f"{scheme}_proxy", "http://ambient.invalid:1")
+        monkeypatch.setenv(f"{scheme.upper()}_PROXY", "http://ambient.invalid:2")
+    namespace = cli._parser().parse_args(_produce_arguments(tmp_path / "update-status.json"))
+    request = cli._produce_request(namespace)
+    assert request.https_proxy is None
 
 
 def test_no_change_emits_the_exact_terminal_event(
