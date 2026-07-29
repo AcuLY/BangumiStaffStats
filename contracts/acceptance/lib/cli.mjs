@@ -18,7 +18,10 @@ import {
   attestOwnedRunRoot,
   cleanupRunRoot,
 } from './run-root.mjs';
-import { sanitizeSummary } from './runner.mjs';
+import {
+  sanitizeSummary,
+  sealCanonicalLinuxProcessBaseline,
+} from './runner.mjs';
 import {
   decodeUtf8Strict,
   parseJsonStrict,
@@ -204,6 +207,7 @@ export async function recoverFormalSupervisorFailure({
 }
 
 async function runFormally(filePath, configuration) {
+  sealCanonicalLinuxProcessBaseline();
   verifyPackagePolicy();
   const input = validateAcceptanceInput(readJsonStrict(filePath));
   const inputBefore = await attestSupervisorProtectedInputs(input);
@@ -430,6 +434,7 @@ async function runFormally(filePath, configuration) {
 }
 
 export async function runSupervisedWorker(argv) {
+  sealCanonicalLinuxProcessBaseline();
   if (
     process.env.BGMSS_ACCEPTANCE_SUPERVISED_WORKER !== '1' ||
     typeof process.send !== 'function'

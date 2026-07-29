@@ -1,7 +1,11 @@
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { Worker } from 'node:worker_threads';
+import {
+  isMainThread,
+  Worker,
+  workerData as currentWorkerData,
+} from 'node:worker_threads';
 
 import { registerOwnedChildProcess } from './action-boundary.mjs';
 import {
@@ -37,6 +41,23 @@ const PROCESS_CMDLINE_MAX_BYTES = 1024 * 1024;
 const PROCESS_LINK_MAX_BYTES = 16 * 1024;
 const LINUX_ANCESTOR_CHAIN_MAX_DEPTH = 4096;
 const LINUX_PROC_SUPER_MAGIC = 0x9fa0;
+const PREEXISTING_SAME_USER_PERMISSION_DENIED =
+  'preexisting-same-user-permission-denied';
+const PROCESS_BASELINE_ENTRY_KEYS = Object.freeze([
+  'comm',
+  'kind',
+  'pid',
+  'reason',
+  'startToken',
+  'userId',
+]);
+const TRANSFERRED_PROCESS_BASELINE_ENTRIES =
+  'preexistingSameUserProcessBaseline';
+const TRANSFERRED_PROCESS_BASELINE_DIGEST =
+  'preexistingSameUserProcessBaselineDigest';
+const SYNTHETIC_PROCESS_BASELINE = 'syntheticProcessBaseline';
+const SYNTHETIC_PERMISSION_DENIED_PATHS =
+  'syntheticPermissionDeniedPaths';
 const LINUX_SIGNED_STAT_FIELDS = new Set([
   4, 5, 6, 7, 8, 16, 17, 18, 19, 20, 21, 24, 38, 39, 44, 52,
 ]);
@@ -44,6 +65,9 @@ const SIGNED_64_MINIMUM = -(1n << 63n);
 const SIGNED_64_MAXIMUM = (1n << 63n) - 1n;
 const UNSIGNED_64_MAXIMUM = (1n << 64n) - 1n;
 const PROCESS_CLOSURE_MONITOR_STATES = new WeakMap();
+let canonicalLinuxProcessBaseline = null;
+let canonicalLinuxProcessBaselineCaptureInProgress = false;
+let canonicalLinuxProcessBaselineFailure = null;
 
 export class CommandError extends Error {
   constructor(message, result) {
@@ -54,6 +78,137 @@ export class CommandError extends Error {
 
 function fail(message) {
   throw new CommandError(message);
+}
+
+function processBaselineIdentityKey(entry) {
+  return [
+    entry.kind,
+    entry.reason,
+    entry.pid,
+    entry.userId,
+    entry.startToken,
+    entry.comm,
+  ].join('\0');
+}
+
+function validatedProcessBaselineEntry(value, label) {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Object.keys(value).sort().join('\0') !==
+      [...PROCESS_BASELINE_ENTRY_KEYS].sort().join('\0') ||
+    value.kind !== 'opaque' ||
+    value.reason !== PREEXISTING_SAME_USER_PERMISSION_DENIED ||
+    !Number.isSafeInteger(value.pid) ||
+    value.pid <= 0 ||
+    !Number.isSafeInteger(value.userId) ||
+    value.userId < 0 ||
+    typeof value.startToken !== 'string' ||
+    !/^(?:0|[1-9][0-9]*)$/u.test(value.startToken) ||
+    !Number.isSafeInteger(Number(value.startToken)) ||
+    typeof value.comm !== 'string' ||
+    value.comm.length === 0 ||
+    value.comm.length > 4096
+  ) {
+    fail(`${label} is invalid`);
+  }
+  return Object.freeze({
+    comm: value.comm,
+    kind: value.kind,
+    pid: value.pid,
+    reason: value.reason,
+    startToken: value.startToken,
+    userId: value.userId,
+  });
+}
+
+function sealedProcessBaseline(entries, expectedDigest = undefined, label) {
+  if (
+    !Array.isArray(entries) ||
+    entries.length > PROCESS_INVENTORY_MAX_ENTRIES
+  ) {
+    fail(`${label} list is invalid or unbounded`);
+  }
+  const validatedEntries = entries.map((entry, index) =>
+    validatedProcessBaselineEntry(entry, `${label} entry ${index}`),
+  );
+  const keys = validatedEntries.map(processBaselineIdentityKey);
+  if (
+    new Set(validatedEntries.map((entry) => entry.pid)).size !==
+      validatedEntries.length ||
+    keys.some((key, index) => index > 0 && key <= keys[index - 1])
+  ) {
+    fail(`${label} list is not sorted and duplicate-free`);
+  }
+  const digest = canonicalJsonDigest(validatedEntries);
+  if (
+    expectedDigest !== undefined &&
+    (
+      typeof expectedDigest !== 'string' ||
+      expectedDigest !== digest
+    )
+  ) {
+    fail(`${label} digest does not match its canonical list`);
+  }
+  return Object.freeze({
+    digest,
+    entries: Object.freeze(validatedEntries),
+  });
+}
+
+function validatedProcessBaseline(value, label) {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Object.keys(value).sort().join('\0') !== 'digest\0entries'
+  ) {
+    fail(`${label} is invalid`);
+  }
+  return sealedProcessBaseline(value.entries, value.digest, label);
+}
+
+function capturedProcessBaseline(entries, currentUserId) {
+  return sealedProcessBaseline(
+    entries
+      .filter(
+        (entry) =>
+          entry.kind === 'opaque' &&
+          entry.userId === currentUserId &&
+          (
+            entry.reason === 'permission-denied' ||
+            entry.reason === PREEXISTING_SAME_USER_PERMISSION_DENIED
+          ),
+      )
+      .map((entry) => ({
+        comm: entry.comm,
+        kind: entry.kind,
+        pid: entry.pid,
+        reason: PREEXISTING_SAME_USER_PERMISSION_DENIED,
+        startToken: entry.startToken,
+        userId: entry.userId,
+      }))
+      .sort((left, right) => {
+        const leftKey = processBaselineIdentityKey(left);
+        const rightKey = processBaselineIdentityKey(right);
+        return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+      }),
+    undefined,
+    'canonical Linux process baseline',
+  );
+}
+
+function sameProcessBaseline(left, right) {
+  return (
+    left.digest === right.digest &&
+    left.entries.length === right.entries.length &&
+    left.entries.every(
+      (entry, index) =>
+        processBaselineIdentityKey(entry) ===
+        processBaselineIdentityKey(right.entries[index]),
+    )
+  );
 }
 
 export function runWithCommandAbortSignal(signal, action) {
@@ -145,12 +300,20 @@ function processInventoryRuntime(options = {}) {
   if (!['darwin', 'linux', 'win32'].includes(platform)) {
     fail(`process inventory platform is unsupported: ${platform}`);
   }
+  let actualCurrentUserId = null;
   let currentUserId = null;
   let currentProcessId = null;
   if (platform === 'linux') {
+    actualCurrentUserId = process.getuid?.();
+    if (
+      !Number.isSafeInteger(actualCurrentUserId) ||
+      actualCurrentUserId < 0
+    ) {
+      fail('process inventory current real UID is unavailable');
+    }
     currentUserId =
       options.currentUserId === undefined
-        ? process.getuid?.()
+        ? actualCurrentUserId
         : options.currentUserId;
     if (
       !Number.isSafeInteger(currentUserId) ||
@@ -180,6 +343,114 @@ function processInventoryRuntime(options = {}) {
   }
   const normalizedProcRoot =
     path.posix.normalize(procRoot).replace(/\/+$/u, '') || '/';
+  let syntheticPermissionDeniedPaths = null;
+  if (options[SYNTHETIC_PERMISSION_DENIED_PATHS] !== undefined) {
+    const candidates = options[SYNTHETIC_PERMISSION_DENIED_PATHS];
+    if (
+      platform !== 'linux' ||
+      normalizedProcRoot === '/proc' ||
+      !Array.isArray(candidates) ||
+      candidates.length === 0 ||
+      candidates.length > PROCESS_INVENTORY_MAX_ENTRIES
+    ) {
+      fail(
+        'synthetic permission-denied paths require a bounded noncanonical Linux fixture',
+      );
+    }
+    const validated = [];
+    for (const [index, candidate] of candidates.entries()) {
+      if (
+        typeof candidate !== 'string' ||
+        candidate.length === 0 ||
+        candidate.length > 4096 ||
+        candidate.includes('\0') ||
+        !path.posix.isAbsolute(candidate) ||
+        path.posix.normalize(candidate) !== candidate
+      ) {
+        fail(`synthetic permission-denied path ${index} is invalid`);
+      }
+      const relative = path.posix.relative(
+        normalizedProcRoot,
+        candidate,
+      );
+      const fields = relative.split('/');
+      if (
+        fields.length !== 2 ||
+        !/^[1-9][0-9]*$/u.test(fields[0]) ||
+        !['cmdline', 'cwd', 'exe'].includes(fields[1]) ||
+        path.posix.join(normalizedProcRoot, ...fields) !== candidate
+      ) {
+        fail(
+          `synthetic permission-denied path ${index} is outside an exact PID live-only field`,
+        );
+      }
+      validated.push(candidate);
+    }
+    if (
+      validated.some(
+        (candidate, index) =>
+          index > 0 && candidate <= validated[index - 1],
+      )
+    ) {
+      fail(
+        'synthetic permission-denied paths are not sorted and duplicate-free',
+      );
+    }
+    syntheticPermissionDeniedPaths = Object.freeze(validated);
+  }
+  let syntheticProcessBaselineMode = 'legacy';
+  let syntheticProcessBaseline = null;
+  if (options[SYNTHETIC_PROCESS_BASELINE] !== undefined) {
+    if (platform !== 'linux' || normalizedProcRoot === '/proc') {
+      fail('synthetic process baseline requires a noncanonical Linux root');
+    }
+    if (options[SYNTHETIC_PROCESS_BASELINE] === 'capture') {
+      syntheticProcessBaselineMode = 'capture';
+    } else {
+      syntheticProcessBaseline = validatedProcessBaseline(
+        options[SYNTHETIC_PROCESS_BASELINE],
+        'synthetic process baseline',
+      );
+      syntheticProcessBaselineMode = 'enforce';
+    }
+  }
+  const transferredBaselineEntries =
+    options[TRANSFERRED_PROCESS_BASELINE_ENTRIES];
+  const transferredBaselineDigest =
+    options[TRANSFERRED_PROCESS_BASELINE_DIGEST];
+  let transferredProcessBaseline = null;
+  if (
+    transferredBaselineEntries !== undefined ||
+    transferredBaselineDigest !== undefined
+  ) {
+    if (
+      platform !== 'linux' ||
+      normalizedProcRoot !== '/proc' ||
+      isMainThread ||
+      transferredBaselineEntries === undefined ||
+      transferredBaselineDigest === undefined
+    ) {
+      fail('transferred process baseline is not allowed in this inventory');
+    }
+    const authorizedOptions =
+      currentWorkerData?.processInventoryOptions;
+    if (
+      authorizedOptions === null ||
+      typeof authorizedOptions !== 'object' ||
+      Array.isArray(authorizedOptions) ||
+      transferredBaselineEntries !==
+        authorizedOptions[TRANSFERRED_PROCESS_BASELINE_ENTRIES] ||
+      transferredBaselineDigest !==
+        authorizedOptions[TRANSFERRED_PROCESS_BASELINE_DIGEST]
+    ) {
+      fail('closure worker process baseline was forged or replaced');
+    }
+    transferredProcessBaseline = sealedProcessBaseline(
+      transferredBaselineEntries,
+      transferredBaselineDigest,
+      'closure worker process baseline',
+    );
+  }
   if (
     platform === 'linux' &&
     normalizedProcRoot === '/proc' &&
@@ -189,7 +460,28 @@ function processInventoryRuntime(options = {}) {
   }
   if (
     platform === 'linux' &&
-    currentProcessId !== process.pid
+    normalizedProcRoot === '/proc' &&
+    currentUserId !== actualCurrentUserId
+  ) {
+    fail(
+      'canonical Linux process inventory current UID must equal process.getuid()',
+    );
+  }
+  if (
+    platform === 'linux' &&
+    normalizedProcRoot === '/proc' &&
+    isMainThread &&
+    (
+      options.fileSystem !== undefined ||
+      options.io !== undefined ||
+      options.spawnSync !== undefined
+    )
+  ) {
+    fail('canonical Linux process inventory dependencies cannot be replaced');
+  }
+  if (
+    platform === 'linux' &&
+    normalizedProcRoot !== '/proc'
   ) {
     let fileSystemType;
     try {
@@ -201,7 +493,7 @@ function processInventoryRuntime(options = {}) {
     }
     if (fileSystemType === LINUX_PROC_SUPER_MAGIC) {
       fail(
-        'synthetic Linux process inventory current PID override cannot use procfs',
+        'noncanonical Linux process inventory root cannot use procfs',
       );
     }
   }
@@ -232,12 +524,40 @@ function processInventoryRuntime(options = {}) {
     fail('process inventory timeout is invalid');
   }
   const fileSystem = options.fileSystem ?? fs;
-  const io = options.io ?? defaultProcessInventoryIo(fileSystem);
+  const baseIo = options.io ?? defaultProcessInventoryIo(fileSystem);
   for (const method of ['lstat', 'readDirectory', 'readFile', 'readLink']) {
-    if (typeof io?.[method] !== 'function') {
+    if (typeof baseIo?.[method] !== 'function') {
       fail(`process inventory IO is missing ${method}`);
     }
   }
+  const deniedPaths =
+    syntheticPermissionDeniedPaths === null
+      ? null
+      : new Set(syntheticPermissionDeniedPaths);
+  const denySyntheticEvidence = (candidate) => {
+    if (!deniedPaths?.has(candidate)) return;
+    const error = new Error(
+      `synthetic process inventory permission denied: ${candidate}`,
+    );
+    error.code = 'EACCES';
+    throw error;
+  };
+  const io =
+    deniedPaths === null
+      ? baseIo
+      : Object.freeze({
+          lstat: (...arguments_) => baseIo.lstat(...arguments_),
+          readDirectory: (...arguments_) =>
+            baseIo.readDirectory(...arguments_),
+          readFile: (candidate, ...arguments_) => {
+            denySyntheticEvidence(candidate);
+            return baseIo.readFile(candidate, ...arguments_);
+          },
+          readLink: (candidate, ...arguments_) => {
+            denySyntheticEvidence(candidate);
+            return baseIo.readLink(candidate, ...arguments_);
+          },
+        });
   const spawnProcessSync = options.spawnSync ?? spawnSync;
   if (typeof spawnProcessSync !== 'function') {
     fail('process inventory spawnSync dependency is invalid');
@@ -251,7 +571,11 @@ function processInventoryRuntime(options = {}) {
     platform,
     procRoot: normalizedProcRoot,
     spawnProcessSync,
+    syntheticPermissionDeniedPaths,
+    syntheticProcessBaseline,
+    syntheticProcessBaselineMode,
     timeoutMs,
+    transferredProcessBaseline,
   });
 }
 
@@ -610,6 +934,13 @@ function isPermissionDeniedError(error) {
   return error?.code === 'EACCES' || error?.code === 'EPERM';
 }
 
+function usesPreexistingSameUserProcessBaseline(runtime) {
+  return (
+    runtime.procRoot === '/proc' ||
+    runtime.syntheticProcessBaselineMode !== 'legacy'
+  );
+}
+
 function opaqueLinuxProcessEntry(
   stat,
   status,
@@ -619,7 +950,8 @@ function opaqueLinuxProcessEntry(
   if (
     reason !== 'permission-denied' &&
     reason !== 'kernel-thread' &&
-    reason !== 'harness-ancestor-permission-denied'
+    reason !== 'harness-ancestor-permission-denied' &&
+    reason !== PREEXISTING_SAME_USER_PERMISSION_DENIED
   ) {
     fail(`process ${stat.pid} opaque reason is invalid`);
   }
@@ -628,7 +960,8 @@ function opaqueLinuxProcessEntry(
   }
   if (
     reason === 'permission-denied' ||
-    reason === 'harness-ancestor-permission-denied'
+    reason === 'harness-ancestor-permission-denied' ||
+    reason === PREEXISTING_SAME_USER_PERMISSION_DENIED
   ) {
     assertPositiveLinuxProcessGroup(
       stat,
@@ -1050,7 +1383,8 @@ function readLinuxProcessEntry(runtime, pid) {
     const firstAncestorChain =
       evidenceBeforeError !== null &&
       isPermissionDeniedError(evidenceBeforeError) &&
-      statusBefore.userId === runtime.currentUserId
+      statusBefore.userId === runtime.currentUserId &&
+      !usesPreexistingSameUserProcessBaseline(runtime)
         ? snapshotLinuxHarnessAncestorChain(runtime)
         : null;
     const middleContinuation = readLinuxLiveContinuation(
@@ -1068,6 +1402,22 @@ function readLinuxProcessEntry(runtime, pid) {
         throw evidenceBeforeError;
       }
       if (middleContinuation.status.userId === runtime.currentUserId) {
+        if (usesPreexistingSameUserProcessBaseline(runtime)) {
+          if (pid === runtime.currentProcessId) {
+            fail(
+              `process ${pid} self permission denial cannot enter the process baseline`,
+            );
+          }
+          assertStableLinuxOpaqueRelation(
+            pid,
+            [statBefore, statMiddle, middleContinuation.stat],
+          );
+          return opaqueLinuxProcessEntry(
+            middleContinuation.stat,
+            middleContinuation.status,
+            PREEXISTING_SAME_USER_PERMISSION_DENIED,
+          );
+        }
         const ancestorEvidence = harnessAncestorEvidence(
           runtime,
           middleContinuation.stat,
@@ -1111,7 +1461,8 @@ function readLinuxProcessEntry(runtime, pid) {
     const secondAncestorChain =
       evidenceAfterError !== null &&
       isPermissionDeniedError(evidenceAfterError) &&
-      middleContinuation.status.userId === runtime.currentUserId
+      middleContinuation.status.userId === runtime.currentUserId &&
+      !usesPreexistingSameUserProcessBaseline(runtime)
         ? snapshotLinuxHarnessAncestorChain(runtime)
         : null;
     const finalContinuation = readLinuxLiveContinuation(
@@ -1129,6 +1480,11 @@ function readLinuxProcessEntry(runtime, pid) {
         throw evidenceAfterError;
       }
       if (finalContinuation.status.userId === runtime.currentUserId) {
+        if (usesPreexistingSameUserProcessBaseline(runtime)) {
+          fail(
+            `process ${pid} live evidence changed to same-user permission denial`,
+          );
+        }
         const ancestorEvidence = harnessAncestorEvidence(
           runtime,
           finalContinuation.stat,
@@ -1237,6 +1593,17 @@ function readTargetedLinuxProcessAfterMapMiss(runtime, pid) {
   if (entry === null) {
     fail(`process ${pid} disappeared after targeted presence confirmation`);
   }
+  const processBaseline =
+    runtime.procRoot === '/proc'
+      ? resolveCanonicalLinuxProcessBaseline(runtime)
+      : runtime.syntheticProcessBaseline;
+  if (processBaseline !== null) {
+    assertCanonicalLinuxProcessBaseline(
+      [entry],
+      processBaseline,
+      runtime.currentUserId,
+    );
+  }
   return entry;
 }
 
@@ -1278,6 +1645,125 @@ function snapshotLinuxProcessInventory(runtime) {
     if (entry !== null) entries.push(entry);
   }
   return entries;
+}
+
+function assertCanonicalLinuxProcessBaseline(
+  entries,
+  baseline,
+  currentUserId,
+) {
+  const baselineByPid = new Map();
+  for (const sealedEntry of baseline.entries) {
+    if (sealedEntry.userId !== currentUserId) {
+      fail('canonical Linux process baseline UID does not match the Harness');
+    }
+    if (baselineByPid.has(sealedEntry.pid)) {
+      fail('canonical Linux process baseline contains a duplicate PID');
+    }
+    baselineByPid.set(sealedEntry.pid, sealedEntry);
+  }
+  for (const entry of entries) {
+    const sealedEntry = baselineByPid.get(entry.pid);
+    if (sealedEntry !== undefined) {
+      if (
+        entry.kind !== 'opaque' ||
+        entry.reason !== PREEXISTING_SAME_USER_PERMISSION_DENIED ||
+        processBaselineIdentityKey(entry) !==
+          processBaselineIdentityKey(sealedEntry)
+      ) {
+        fail(
+          `process ${entry.pid} differs from its sealed process baseline generation`,
+        );
+      }
+      continue;
+    }
+    if (
+      entry.kind === 'opaque' &&
+      entry.reason === PREEXISTING_SAME_USER_PERMISSION_DENIED
+    ) {
+      fail(
+        `process ${entry.pid} same-user permission denial is absent from the sealed process baseline`,
+      );
+    }
+  }
+}
+
+function resolveCanonicalLinuxProcessBaseline(runtime) {
+  if (runtime.platform !== 'linux' || runtime.procRoot !== '/proc') {
+    return null;
+  }
+  if (isMainThread) {
+    if (runtime.transferredProcessBaseline !== null) {
+      fail('main thread cannot receive a transferred process baseline');
+    }
+    return sealCanonicalLinuxProcessBaseline();
+  }
+  if (runtime.transferredProcessBaseline === null) {
+    fail('closure worker cannot capture a local process baseline');
+  }
+  if (canonicalLinuxProcessBaseline === null) {
+    canonicalLinuxProcessBaseline = runtime.transferredProcessBaseline;
+  } else if (
+    !sameProcessBaseline(
+      canonicalLinuxProcessBaseline,
+      runtime.transferredProcessBaseline,
+    )
+  ) {
+    fail('closure worker process baseline changed after adoption');
+  }
+  return canonicalLinuxProcessBaseline;
+}
+
+export function sealCanonicalLinuxProcessBaseline() {
+  if (process.platform !== 'linux') return null;
+  if (!isMainThread) {
+    const transferredOptions =
+      currentWorkerData?.processInventoryOptions;
+    if (
+      transferredOptions === null ||
+      typeof transferredOptions !== 'object' ||
+      Array.isArray(transferredOptions)
+    ) {
+      fail('closure worker process baseline transfer is absent');
+    }
+    return resolveCanonicalLinuxProcessBaseline(
+      processInventoryRuntime(transferredOptions),
+    );
+  }
+  if (canonicalLinuxProcessBaseline !== null) {
+    return canonicalLinuxProcessBaseline;
+  }
+  if (canonicalLinuxProcessBaselineFailure !== null) {
+    fail(
+      `canonical Linux process baseline previously failed: ${canonicalLinuxProcessBaselineFailure}`,
+    );
+  }
+  if (canonicalLinuxProcessBaselineCaptureInProgress) {
+    fail('canonical Linux process baseline capture is re-entrant');
+  }
+  canonicalLinuxProcessBaselineCaptureInProgress = true;
+  try {
+    const runtime = processInventoryRuntime({
+      platform: 'linux',
+      procRoot: '/proc',
+    });
+    const entries = snapshotLinuxProcessInventory(runtime);
+    canonicalLinuxProcessBaseline = capturedProcessBaseline(
+      entries,
+      runtime.currentUserId,
+    );
+    return canonicalLinuxProcessBaseline;
+  } catch (error) {
+    const failure =
+      error instanceof Error
+        ? error
+        : new CommandError(String(error));
+    canonicalLinuxProcessBaselineFailure =
+      failure.message || 'unknown process baseline failure';
+    throw failure;
+  } finally {
+    canonicalLinuxProcessBaselineCaptureInProgress = false;
+  }
 }
 
 function snapshotDarwinProcessInventory(runtime) {
@@ -1324,13 +1810,33 @@ export function snapshotHostProcessInventory(options = {}) {
   if (runtime.platform === 'win32') {
     fail('host process inventory is not implemented on Windows');
   }
+  let processBaseline =
+    runtime.platform === 'linux' && runtime.procRoot === '/proc'
+      ? resolveCanonicalLinuxProcessBaseline(runtime)
+      : runtime.syntheticProcessBaseline;
   const entries =
     runtime.platform === 'linux'
       ? snapshotLinuxProcessInventory(runtime)
       : snapshotDarwinProcessInventory(runtime);
+  if (runtime.syntheticProcessBaselineMode === 'capture') {
+    processBaseline = capturedProcessBaseline(
+      entries,
+      runtime.currentUserId,
+    );
+  }
+  if (processBaseline !== null) {
+    assertCanonicalLinuxProcessBaseline(
+      entries,
+      processBaseline,
+      runtime.currentUserId,
+    );
+  }
   return Object.freeze({
     entries: Object.freeze(entries.map((entry) => Object.freeze(entry))),
     digest: canonicalJsonDigest(entries),
+    ...(runtime.syntheticProcessBaselineMode === 'capture'
+      ? { processBaseline }
+      : {}),
   });
 }
 
@@ -2023,6 +2529,14 @@ export async function createProcessClosureMonitor(
   processInventoryOptions = {},
 ) {
   const runtime = processInventoryRuntime(processInventoryOptions);
+  sealCanonicalLinuxProcessBaseline();
+  if (runtime.syntheticProcessBaselineMode === 'capture') {
+    fail('closure worker cannot capture a synthetic process baseline');
+  }
+  const processBaseline =
+    runtime.platform === 'linux' && runtime.procRoot === '/proc'
+      ? resolveCanonicalLinuxProcessBaseline(runtime)
+      : null;
   let expectedHarnessAnchor = null;
   if (
     runtime.platform === 'linux' &&
@@ -2048,10 +2562,30 @@ export async function createProcessClosureMonitor(
                 ...(expectedHarnessAnchor === null
                   ? {}
                   : { expectedHarnessAnchor }),
+                ...(processBaseline === null
+                  ? {}
+                  : {
+                      [TRANSFERRED_PROCESS_BASELINE_ENTRIES]:
+                        processBaseline.entries,
+                      [TRANSFERRED_PROCESS_BASELINE_DIGEST]:
+                        processBaseline.digest,
+                    }),
               }
             : {}),
           platform: runtime.platform,
           procRoot: runtime.procRoot,
+          ...(runtime.syntheticProcessBaseline === null
+            ? {}
+            : {
+                [SYNTHETIC_PROCESS_BASELINE]:
+                  runtime.syntheticProcessBaseline,
+              }),
+          ...(runtime.syntheticPermissionDeniedPaths === null
+            ? {}
+            : {
+                [SYNTHETIC_PERMISSION_DENIED_PATHS]:
+                  runtime.syntheticPermissionDeniedPaths,
+              }),
           timeoutMs: Math.min(runtime.timeoutMs, 5_000),
         },
       },
@@ -2432,6 +2966,15 @@ export async function runCommand({
   }
   if (effectiveSignal?.aborted) {
     throw new CommandError(`command ${id} was aborted before start`);
+  }
+  const commandInventoryRuntime =
+    processInventoryRuntime(processInventoryOptions);
+  sealCanonicalLinuxProcessBaseline();
+  if (
+    commandInventoryRuntime.platform === 'linux' &&
+    commandInventoryRuntime.procRoot === '/proc'
+  ) {
+    resolveCanonicalLinuxProcessBaseline(commandInventoryRuntime);
   }
   const ownedCwdBefore = snapshotOwnedCwdProcesses(
     runRoot,

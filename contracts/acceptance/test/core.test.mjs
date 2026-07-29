@@ -2646,13 +2646,22 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
         assert.throws(
           () =>
             snapshotHostProcessInventory({
+              platform: 'linux',
+              procRoot: procfsAlias,
+            }),
+          /noncanonical Linux process inventory root cannot use procfs/u,
+          'a procfs alias cannot select the synthetic H7 path',
+        );
+        assert.throws(
+          () =>
+            snapshotHostProcessInventory({
               currentProcessId: process.pid + 1,
               currentUserId: harnessUserId,
               platform: 'linux',
               procRoot: procfsAlias,
               spawnSync: forbidExternalInventory,
             }),
-          /current PID override cannot use procfs/u,
+          /noncanonical Linux process inventory root cannot use procfs/u,
         );
       } finally {
         fs.rmSync(procfsAlias);
@@ -3761,12 +3770,12 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
       'cmdline',
     );
     let workerAncestorMonitor = null;
-    fs.chmodSync(workerDeniedPath, 0o000);
     try {
       workerAncestorMonitor = await createProcessClosureMonitor({
         ...options,
         currentProcessId: workerAncestorFixture.anchorPid,
         currentUserId: harnessUserId,
+        syntheticPermissionDeniedPaths: [workerDeniedPath],
       });
       await assert.rejects(
         startProcessClosureMonitor(
@@ -3786,7 +3795,6 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
           () => {},
         );
       }
-      fs.chmodSync(workerDeniedPath, 0o600);
     }
     const workerAnchorStat = path.join(
       workerAncestorFixture.anchorProcessRoot,
@@ -4249,6 +4257,653 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
         }),
         pattern: /terminal generation changed back to live state/u,
       });
+    }
+
+    {
+      const baselineProcRoot = path.join(
+        fixtureRoot,
+        'proc-preexisting-same-user-baseline',
+      );
+      const baselineCwd = path.join(fixtureRoot, 'baseline-cwd');
+      const baselinePid = 400_090;
+      const baselineStartToken = '900090';
+      fs.mkdirSync(baselineProcRoot, { mode: 0o700 });
+      fs.mkdirSync(baselineCwd, { mode: 0o700 });
+      let baselineProcessRoot = writeLinuxProcProcess(
+        baselineProcRoot,
+        {
+          comm: 'preexisting opaque',
+          cwd: baselineCwd,
+          parentPid: 61,
+          pid: baselinePid,
+          processGroupId: 890,
+          startToken: baselineStartToken,
+          userId: harnessUserId,
+        },
+      );
+      const deniedPaths = new Set([
+        path.join(baselineProcessRoot, 'cmdline'),
+      ]);
+      const baselineIo = () => {
+        const baseIo = linuxProcIo();
+        return linuxProcIo({
+          readFile(candidate, maximumBytes) {
+            if (deniedPaths.has(candidate)) {
+              throw fixtureSystemError(
+                'EACCES',
+                'same-user baseline cmdline denied',
+              );
+            }
+            return baseIo.readFile(candidate, maximumBytes);
+          },
+        });
+      };
+      const baselineOptions = {
+        currentUserId: harnessUserId,
+        io: baselineIo(),
+        platform: 'linux',
+        procRoot: baselineProcRoot,
+        spawnSync: forbidExternalInventory,
+      };
+      const capturedBaselineInventory = snapshotHostProcessInventory({
+        ...baselineOptions,
+        syntheticProcessBaseline: 'capture',
+      });
+      const sealedBaseline =
+        capturedBaselineInventory.processBaseline;
+      assert.equal(Object.isFrozen(sealedBaseline), true);
+      assert.equal(Object.isFrozen(sealedBaseline.entries), true);
+      assert.equal(Object.isFrozen(sealedBaseline.entries[0]), true);
+      assert.deepEqual(sealedBaseline.entries, [
+        {
+          comm: 'preexisting opaque',
+          kind: 'opaque',
+          pid: baselinePid,
+          reason: 'preexisting-same-user-permission-denied',
+          startToken: baselineStartToken,
+          userId: harnessUserId,
+        },
+      ]);
+      assert.equal(
+        sealedBaseline.digest,
+        canonicalJsonDigest(sealedBaseline.entries),
+      );
+      await assert.rejects(
+        createProcessClosureMonitor({
+          ...baselineOptions,
+          syntheticProcessBaseline: 'capture',
+        }),
+        /closure worker cannot capture a synthetic process baseline/u,
+        'a closure worker cannot recapture or refresh its own baseline',
+      );
+      const sealedBaselineOptions = {
+        ...baselineOptions,
+        syntheticProcessBaseline: sealedBaseline,
+      };
+      fs.writeFileSync(
+        path.join(baselineProcessRoot, 'stat'),
+        linuxProcessStat({
+          comm: 'preexisting opaque',
+          parentPid: 1,
+          pid: baselinePid,
+          processGroupId: 891,
+          startToken: baselineStartToken,
+          state: 'R',
+        }),
+      );
+      const rescheduledBaselineInventory =
+        snapshotHostProcessInventory(sealedBaselineOptions);
+      assert.equal(
+        rescheduledBaselineInventory.entries[0].reason,
+        'preexisting-same-user-permission-denied',
+      );
+      assert.equal(
+        rescheduledBaselineInventory.entries[0].parentPid,
+        1,
+      );
+      assert.equal(
+        rescheduledBaselineInventory.entries[0].processGroupId,
+        891,
+      );
+      assert.equal(rescheduledBaselineInventory.entries[0].state, 'R');
+      assert.notEqual(
+        rescheduledBaselineInventory.digest,
+        capturedBaselineInventory.digest,
+      );
+      assert.deepEqual(
+        snapshotOwnedCwdProcesses(
+          baselineCwd,
+          sealedBaselineOptions,
+        ),
+        [],
+      );
+      const baselineOpaque =
+        rescheduledBaselineInventory.entries[0];
+      const baselineExpectedLive = {
+        argv: [process.execPath, 'fixture'],
+        comm: 'preexisting opaque',
+        command: process.execPath,
+        cwd: baselineCwd,
+        kind: 'live',
+        parentPid: 1,
+        pid: baselinePid,
+        processGroupId: 891,
+        startToken: baselineStartToken,
+        userId: harnessUserId,
+      };
+      assert.throws(
+        () =>
+          reconcileProcessClosure(
+            new Map(),
+            baselineOpaque.processGroupId,
+            [baselineOpaque],
+          ),
+        /owned opaque evidence/u,
+        'baseline membership does not admit target-group ownership',
+      );
+      assert.throws(
+        () =>
+          reconcileProcessClosure(
+            new Map([[baselineOpaque.pid, baselineExpectedLive]]),
+            899,
+            [baselineOpaque],
+          ),
+        /identity changed in owned evidence/u,
+        'baseline membership does not replace retained evidence',
+      );
+      assert.throws(
+        () =>
+          reconcileProcessClosure(
+            new Map([[owned.pid, owned]]),
+            899,
+            [
+              owned,
+              {
+                ...baselineOpaque,
+                parentPid: owned.pid,
+              },
+            ],
+          ),
+        /owned opaque evidence/u,
+        'baseline membership does not admit an exact retained child',
+      );
+      const cleanupSignals = [];
+      await assert.rejects(
+        terminateOwnedProcesses([baselineExpectedLive], 50, {
+          inventoryOptions: sealedBaselineOptions,
+          killProcess(...args) {
+            cleanupSignals.push(args);
+          },
+        }),
+        /opaque evidence/u,
+      );
+      assert.deepEqual(cleanupSignals, []);
+      const hiddenBaselineIo = baselineIo();
+      const visibleReadDirectory = hiddenBaselineIo.readDirectory;
+      hiddenBaselineIo.readDirectory = (directory) =>
+        visibleReadDirectory(directory).filter(
+          (entry) => entry.name !== String(baselinePid),
+        );
+      await assert.rejects(
+        terminateOwnedProcesses([baselineExpectedLive], 50, {
+          inventoryOptions: {
+            ...sealedBaselineOptions,
+            io: hiddenBaselineIo,
+          },
+          killProcess(...args) {
+            cleanupSignals.push(args);
+          },
+        }),
+        /opaque evidence/u,
+      );
+      assert.deepEqual(
+        cleanupSignals,
+        [],
+        'baseline cleanup and Map-miss revalidation send zero signals',
+      );
+      const hiddenLiveBaselineIo = linuxProcIo();
+      const liveReadDirectory =
+        hiddenLiveBaselineIo.readDirectory;
+      hiddenLiveBaselineIo.readDirectory = (directory) =>
+        liveReadDirectory(directory).filter(
+          (entry) => entry.name !== String(baselinePid),
+        );
+      await assert.rejects(
+        terminateOwnedProcesses([baselineExpectedLive], 50, {
+          inventoryOptions: {
+            ...sealedBaselineOptions,
+            io: hiddenLiveBaselineIo,
+          },
+          killProcess(...args) {
+            cleanupSignals.push(args);
+          },
+        }),
+        /differs from its sealed process baseline generation/u,
+        'targeted Map-miss cannot reinterpret a baseline member as live',
+      );
+      assert.deepEqual(
+        cleanupSignals,
+        [],
+        'baseline live drift after a Map-miss sends zero signals',
+      );
+
+      const newOpaquePid = baselinePid + 1;
+      const newOpaqueRoot = writeLinuxProcProcess(
+        baselineProcRoot,
+        {
+          comm: 'escaped opaque',
+          cwd: baselineCwd,
+          parentPid: 1,
+          pid: newOpaquePid,
+          processGroupId: newOpaquePid,
+          startToken: String(newOpaquePid),
+          userId: harnessUserId,
+        },
+      );
+      deniedPaths.add(path.join(newOpaqueRoot, 'cmdline'));
+      assert.throws(
+        () => snapshotHostProcessInventory(sealedBaselineOptions),
+        /absent from the sealed process baseline/u,
+        'a post-seal same-user denial cannot escape after reparent and setsid',
+      );
+      deniedPaths.delete(path.join(newOpaqueRoot, 'cmdline'));
+      fs.rmSync(newOpaqueRoot, { recursive: true, force: false });
+
+      fs.rmSync(baselineProcessRoot, {
+        recursive: true,
+        force: false,
+      });
+      assert.deepEqual(
+        snapshotHostProcessInventory(sealedBaselineOptions).entries,
+        [],
+        'a sealed member may exit without refreshing the baseline',
+      );
+      baselineProcessRoot = writeLinuxProcProcess(
+        baselineProcRoot,
+        {
+          comm: 'preexisting opaque',
+          cwd: baselineCwd,
+          parentPid: 1,
+          pid: baselinePid,
+          processGroupId: 891,
+          startToken: String(Number(baselineStartToken) + 1),
+          userId: harnessUserId,
+        },
+      );
+      deniedPaths.clear();
+      deniedPaths.add(path.join(baselineProcessRoot, 'cmdline'));
+      assert.throws(
+        () => snapshotHostProcessInventory({
+          ...sealedBaselineOptions,
+          io: baselineIo(),
+        }),
+        /differs from its sealed process baseline generation/u,
+        'PID reuse does not refresh a process-lifetime baseline',
+      );
+
+      fs.writeFileSync(
+        path.join(baselineProcessRoot, 'stat'),
+        linuxProcessStat({
+          comm: 'replacement opaque',
+          parentPid: 1,
+          pid: baselinePid,
+          processGroupId: 891,
+          startToken: baselineStartToken,
+        }),
+      );
+      assert.throws(
+        () => snapshotHostProcessInventory({
+          ...sealedBaselineOptions,
+          io: baselineIo(),
+        }),
+        /differs from its sealed process baseline generation/u,
+        'comm drift fails the global baseline gate',
+      );
+      fs.writeFileSync(
+        path.join(baselineProcessRoot, 'stat'),
+        linuxProcessStat({
+          comm: 'preexisting opaque',
+          parentPid: 1,
+          pid: baselinePid,
+          processGroupId: 891,
+          startToken: baselineStartToken,
+        }),
+      );
+      fs.writeFileSync(
+        path.join(baselineProcessRoot, 'status'),
+        [
+          'Name:\tfixture',
+          `Uid:\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}\t${unrelatedUserId}`,
+          '',
+        ].join('\n'),
+      );
+      assert.throws(
+        () => snapshotHostProcessInventory({
+          ...sealedBaselineOptions,
+          io: baselineIo(),
+        }),
+        /differs from its sealed process baseline generation/u,
+        'UID and exact-reason drift fail the global baseline gate',
+      );
+      fs.writeFileSync(
+        path.join(baselineProcessRoot, 'status'),
+        [
+          'Name:\tfixture',
+          `Uid:\t${harnessUserId}\t${harnessUserId}\t${harnessUserId}\t${harnessUserId}`,
+          '',
+        ].join('\n'),
+      );
+      assert.throws(
+        () =>
+          snapshotHostProcessInventory({
+            ...sealedBaselineOptions,
+            io: linuxProcIo(),
+          }),
+        /differs from its sealed process baseline generation/u,
+        'opaque-to-live kind drift fails the global baseline gate',
+      );
+      assert.throws(
+        () =>
+          snapshotHostProcessInventory({
+            currentUserId: harnessUserId,
+            platform: 'linux',
+            preexistingSameUserProcessBaseline:
+              sealedBaseline.entries,
+            preexistingSameUserProcessBaselineDigest:
+              sealedBaseline.digest,
+            procRoot: '/proc',
+          }),
+        /transferred process baseline is not allowed/u,
+        'a main-thread caller cannot forge a production baseline',
+      );
+      const canonicalUserId = process.getuid?.();
+      if (Number.isSafeInteger(canonicalUserId)) {
+        const forgedUserId =
+          canonicalUserId === 0 ? 1 : canonicalUserId - 1;
+        assert.throws(
+          () =>
+            snapshotHostProcessInventory({
+              currentUserId: forgedUserId,
+              platform: 'linux',
+              procRoot: '/proc',
+            }),
+          /current UID must equal process\.getuid\(\)/u,
+          'canonical procfs rejects a forged Harness real UID',
+        );
+      }
+      assert.throws(
+        () =>
+          snapshotHostProcessInventory({
+            currentUserId: harnessUserId,
+            platform: 'linux',
+            procRoot: '/proc',
+            syntheticPermissionDeniedPaths: [
+              '/proc/1/cmdline',
+            ],
+          }),
+        /bounded noncanonical Linux fixture/u,
+        'canonical procfs rejects synthetic denial injection',
+      );
+      assert.throws(
+        () =>
+          snapshotHostProcessInventory({
+            ...baselineOptions,
+            syntheticPermissionDeniedPaths: [
+              path.join(baselineProcessRoot, 'cmdline'),
+              path.join(baselineProcessRoot, 'cmdline'),
+            ],
+          }),
+        /not sorted and duplicate-free/u,
+      );
+      assert.throws(
+        () =>
+          snapshotHostProcessInventory({
+            ...baselineOptions,
+            syntheticPermissionDeniedPaths: [
+              path.join(baselineProcRoot, 'outside'),
+            ],
+          }),
+        /outside an exact PID live-only field/u,
+      );
+      assert.throws(
+        () =>
+          snapshotHostProcessInventory({
+            ...baselineOptions,
+            syntheticProcessBaseline: {
+              digest: canonicalJsonDigest([]),
+              entries: sealedBaseline.entries,
+            },
+          }),
+        /digest does not match/u,
+        'a list/digest mismatch fails before inventory',
+      );
+      for (const changed of [
+        { kind: 'live' },
+        { reason: 'permission-denied' },
+        { pid: baselinePid + 1 },
+        { startToken: `${baselineStartToken}1` },
+        { userId: unrelatedUserId },
+        { comm: 'replacement opaque' },
+      ]) {
+        const changedEntries = [
+          { ...sealedBaseline.entries[0], ...changed },
+        ];
+        const changedBaseline = {
+          digest: canonicalJsonDigest(changedEntries),
+          entries: changedEntries,
+        };
+        if (changed.kind !== undefined || changed.reason !== undefined) {
+          assert.throws(
+            () =>
+              snapshotHostProcessInventory({
+                ...baselineOptions,
+                syntheticProcessBaseline: changedBaseline,
+              }),
+            /entry 0 is invalid/u,
+          );
+        } else {
+          assert.throws(
+            () =>
+              snapshotHostProcessInventory({
+                ...baselineOptions,
+                syntheticProcessBaseline: changedBaseline,
+              }),
+            /(?:baseline UID does not match|absent from the sealed process baseline|differs from its sealed process baseline generation)/u,
+            'a validly encoded replacement cannot substitute a sealed generation',
+          );
+        }
+      }
+
+      const workerBaselineDeniedPath = path.join(
+        baselineProcessRoot,
+        'cmdline',
+      );
+      const workerBaselineOptions = {
+        currentUserId: harnessUserId,
+        platform: 'linux',
+        procRoot: baselineProcRoot,
+        spawnSync: forbidExternalInventory,
+        syntheticProcessBaseline: sealedBaseline,
+        syntheticPermissionDeniedPaths: [
+          workerBaselineDeniedPath,
+        ],
+      };
+      let positiveBaselineMonitor =
+        await createProcessClosureMonitor(workerBaselineOptions);
+      try {
+        await startProcessClosureMonitor(
+          positiveBaselineMonitor,
+          899,
+        );
+        assert.deepEqual(
+          await stopProcessClosureMonitor(positiveBaselineMonitor),
+          [],
+        );
+        positiveBaselineMonitor = null;
+      } finally {
+        if (positiveBaselineMonitor !== null) {
+          await stopProcessClosureMonitor(
+            positiveBaselineMonitor,
+          ).catch(() => {});
+        }
+      }
+      const workerNewDeniedPath = path.join(
+        baselineProcRoot,
+        String(newOpaquePid),
+        'cmdline',
+      );
+      let rejectingBaselineMonitor =
+        await createProcessClosureMonitor({
+          ...workerBaselineOptions,
+          syntheticPermissionDeniedPaths: [
+            workerBaselineDeniedPath,
+            workerNewDeniedPath,
+          ].sort(),
+        });
+      const workerNewOpaqueRoot = writeLinuxProcProcess(
+        baselineProcRoot,
+        {
+          comm: 'worker escaped opaque',
+          cwd: baselineCwd,
+          parentPid: 1,
+          pid: newOpaquePid,
+          processGroupId: newOpaquePid,
+          startToken: String(newOpaquePid),
+          userId: harnessUserId,
+        },
+      );
+      try {
+        await assert.rejects(
+          startProcessClosureMonitor(
+            rejectingBaselineMonitor,
+            899,
+          ),
+          /absent from the sealed process baseline/u,
+        );
+        await assert.rejects(
+          stopProcessClosureMonitor(rejectingBaselineMonitor),
+          /absent from the sealed process baseline/u,
+        );
+        rejectingBaselineMonitor = null;
+      } finally {
+        if (rejectingBaselineMonitor !== null) {
+          await stopProcessClosureMonitor(
+            rejectingBaselineMonitor,
+          ).catch(() => {});
+        }
+        fs.rmSync(workerNewOpaqueRoot, {
+          recursive: true,
+          force: false,
+        });
+      }
+
+      if (process.platform === 'linux') {
+        const runnerModuleUrl = pathToFileURL(
+          path.join(
+            REPOSITORY_ROOT,
+            'contracts/acceptance/lib/runner.mjs',
+          ),
+        ).href;
+        const sealFailureProbe = spawnSync(
+          process.execPath,
+          [
+            '--input-type=module',
+            '--eval',
+            [
+              "import fs from 'node:fs';",
+              'const originalReaddirSync = fs.readdirSync;',
+              'let procReads = 0;',
+              'fs.readdirSync = (...args) => {',
+              "  if (args[0] === '/proc') {",
+              '    procReads += 1;',
+              "    throw Object.assign(new Error('injected seal failure'), { code: 'EIO' });",
+              '  }',
+              '  return originalReaddirSync(...args);',
+              '};',
+              `const { sealCanonicalLinuxProcessBaseline } = await import(${JSON.stringify(runnerModuleUrl)});`,
+              "let firstFailure = '';",
+              'try {',
+              '  sealCanonicalLinuxProcessBaseline();',
+              '} catch (error) {',
+              '  firstFailure = error.message;',
+              '}',
+              'fs.readdirSync = (...args) => {',
+              "  if (args[0] === '/proc') procReads += 1;",
+              '  return originalReaddirSync(...args);',
+              '};',
+              "let retryFailure = '';",
+              'try {',
+              '  sealCanonicalLinuxProcessBaseline();',
+              '} catch (error) {',
+              '  retryFailure = error.message;',
+              '}',
+              'fs.readdirSync = originalReaddirSync;',
+              'process.stdout.write(JSON.stringify({',
+              '  firstFailure,',
+              '  procReads,',
+              '  retryFailure,',
+              '}));',
+            ].join('\n'),
+          ],
+          {
+            encoding: 'utf8',
+            env: {
+              LANG: 'C',
+              LC_ALL: 'C',
+              PATH: '/usr/bin:/bin',
+            },
+            timeout: 5_000,
+          },
+        );
+        assert.equal(
+          sealFailureProbe.status,
+          0,
+          sealFailureProbe.stderr,
+        );
+        const sealFailureProof = JSON.parse(
+          sealFailureProbe.stdout,
+        );
+        assert.equal(sealFailureProof.procReads, 1);
+        assert.match(
+          sealFailureProof.firstFailure,
+          /Linux process inventory root failed: injected seal failure/u,
+        );
+        assert.match(
+          sealFailureProof.retryFailure,
+          /canonical Linux process baseline previously failed/u,
+        );
+      }
+
+      const cliSource = fs.readFileSync(
+        path.join(
+          REPOSITORY_ROOT,
+          'contracts/acceptance/lib/cli.mjs',
+        ),
+        'utf8',
+      );
+      assert.match(
+        cliSource,
+        /async function runFormally\(filePath, configuration\) \{\n  sealCanonicalLinuxProcessBaseline\(\);\n  verifyPackagePolicy\(\);/u,
+      );
+      assert.match(
+        cliSource,
+        /export async function runSupervisedWorker\(argv\) \{\n  sealCanonicalLinuxProcessBaseline\(\);\n  if \(/u,
+      );
+      const runnerSource = fs.readFileSync(
+        path.join(
+          REPOSITORY_ROOT,
+          'contracts/acceptance/lib/runner.mjs',
+        ),
+        'utf8',
+      );
+      assert.match(
+        runnerSource,
+        /export async function createProcessClosureMonitor\(\n  processInventoryOptions = \{\},\n\) \{\n  const runtime = processInventoryRuntime\(processInventoryOptions\);\n  sealCanonicalLinuxProcessBaseline\(\);/u,
+      );
+      assert.match(
+        runnerSource,
+        /const commandInventoryRuntime =\n    processInventoryRuntime\(processInventoryOptions\);\n  sealCanonicalLinuxProcessBaseline\(\);/u,
+      );
     }
 
     const ownedStatus = path.join(procRoot, String(ownedPid), 'status');
