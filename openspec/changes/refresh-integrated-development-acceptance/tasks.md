@@ -2,16 +2,16 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H6 `c59c78627253719acee3520711e42cecf063f8d5` is implemented/pushed, but exact-head Actions `30408640851` passed Backend, Updater, Frontend, and artifact tests 51/51 while supervisor passed 8/21 and failed 13/21 because one same-UID PID denied live-only `/proc` evidence before any supervised command. Its ancestry/executable is unproven. No remote write followed. H6 is superseded; H7 is pending. |
+| Status | H7 `71825163abae2bb399b80394459accb04b659a01` is implemented/pushed, but exact-head Actions `30412756946` passed Backend, Updater, Frontend, and artifact tests 51/51 while supervisor passed 8/21 and failed 13/21 because same-UID PID 1207 denied live-only `/proc` evidence and was not proven a strict Harness ancestor before any supervised command. Its executable, exact relation, and denied field are unproven. No remote write followed. H7 is superseded; H8 is pending. |
 | Owner | Main agent owns identities, specification, admission, audit, lifecycle, and Git. One delegated execution owner may perform the closed Git-evidence and remote/container command set. |
-| Writable paths | This change, its later synchronized root spec/archive, H7 changes only existing `contracts/acceptance/lib/runner.mjs` and `contracts/acceptance/test/core.test.mjs`, one exact absent remote run root, uniquely labelled run containers, and only conditionally owned fixed image references. Worker, workflow, supervisor, H3-H6 behavior outside the strict-ancestor allowance, and the closed package inventory remain unchanged. |
-| Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`, failed Harness source, H2 `1e3ecf120da02d642a5d63f75a6795ba2946e11d`, H3 `cd203aa777e14879a7baf1bafd01ee319af246c5`, failed H4 `930690068a02eeec3c7b140c29796aef3b4a719a`, failed H5 `3091e54603b91c56cbdda7d30be7f3a08c7957a9`, failed H6 `c59c78627253719acee3520711e42cecf063f8d5`, every implementation path outside the exact H7 allowance, oracle, other OpenSpec, Git history outside main-agent commits, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, legacy/production containers, networks, volumes, Nginx/systemd/TLS, listeners, processes, routes, and data. |
+| Writable paths | This change, its later synchronized root spec/archive, H8 changes only existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, and `contracts/acceptance/test/core.test.mjs`, one exact absent remote run root, uniquely labelled run containers, and only conditionally owned fixed image references. Worker, workflow, supervisor, H3-H7 behavior outside the sealed-baseline allowance, and the closed package inventory remain unchanged. |
+| Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`, failed Harness source, H2 `1e3ecf120da02d642a5d63f75a6795ba2946e11d`, H3 `cd203aa777e14879a7baf1bafd01ee319af246c5`, failed H4 `930690068a02eeec3c7b140c29796aef3b4a719a`, failed H5 `3091e54603b91c56cbdda7d30be7f3a08c7957a9`, failed H6 `c59c78627253719acee3520711e42cecf063f8d5`, failed H7 `71825163abae2bb399b80394459accb04b659a01`, every implementation path outside the exact H8 allowance, oracle, other OpenSpec, Git history outside main-agent commits, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, legacy/production containers, networks, volumes, Nginx/systemd/TLS, listeners, processes, routes, and data. |
 | Deletion complement | No tracked or pre-existing object. Cleanup is limited to exact manifest-bound run files/directories, run containers by immutable ID and label, and a fixed image reference only if this run alone pulled and still exclusively owns it. |
 | Mutable refs | Lifecycle commits/push, one run root, run containers, and conditionally run-owned image references. No tag, release, product ref, deployment ref, service, route, port, network, volume, or production/legacy object. |
-| Consumes | Exact-head Product and H3 Actions; failed runs `6e0140e1c4dda68bb263c1d8`, `351a80613c7a782c1d41ba61`, `9af7301665f286f015a2397f`, `8fb2588bd5699acc97454a93`, H4 Actions `30402531154`, H5 Actions `30406392084`, and H6 Actions `30408640851`; H2-H6 failure evidence; existing monitor-start API; no-exec `/tmp`; exact Product/H7 Git inventories; fixed Node/Python OCI graphs; read-only `myserver` capability/protected-state preflight. |
-| Produces | Final H7 strict-Harness-ancestor permission correction with preserved H3-H6 behavior, exact supervisor Actions gate, ordered Product/H7/archive identities, two source archive attestations, separately attributed targeted evidence, exact cleanup/non-interference evidence, and an archived refresh consumable by Operations. |
-| Dependencies | Product Actions green → superseded H2/H3/H4/H5/H6 evidence → H7 spec → H7 implementation/tests/review/clean commit → exact-head H7 Actions including supervisor 21/21 → P/H7 proof → read-only remote admission → isolated gates → cleanup/postflight → zero-P0/P1 → archive. |
-| Deliverables | Strict-valid H7 specification, separate focused H7 implementation/tests commit and identity, complete bounded evidence including all superseded attempts, synchronized root spec, H7 archive identity, clean/pushed branch, and zero remote residue. |
+| Consumes | Exact-head Product and H3 Actions; failed runs `6e0140e1c4dda68bb263c1d8`, `351a80613c7a782c1d41ba61`, `9af7301665f286f015a2397f`, `8fb2588bd5699acc97454a93`, H4 Actions `30402531154`, H5 Actions `30406392084`, H6 Actions `30408640851`, and H7 Actions `30412756946`; H2-H7 failure evidence; existing monitor-start API; no-exec `/tmp`; exact Product/H8 Git inventories; fixed Node/Python OCI graphs; read-only `myserver` capability/protected-state preflight. |
+| Produces | Final H8 pre-ownership sealed-baseline correction with preserved H3-H7 behavior, exact supervisor Actions gate, ordered Product/H8/archive identities, two source archive attestations, separately attributed targeted evidence, exact cleanup/non-interference evidence, and an archived refresh consumable by Operations. |
+| Dependencies | Product Actions green → superseded H2/H3/H4/H5/H6/H7 evidence → H8 spec → H8 implementation/tests/review/clean commit → exact-head H8 Actions including supervisor 21/21 → P/H8 proof → read-only remote admission → isolated gates → cleanup/postflight → zero-P0/P1 → archive. |
+| Deliverables | Strict-valid H8 specification, separate focused H8 implementation/tests commit and identity, complete bounded evidence including all superseded attempts, synchronized root spec, H8 archive identity, clean/pushed branch, and zero remote residue. |
 | Acceptance | Every checklist item below, with no broader command, exception, mutation, or claim. |
 | Non-goals | Local product test/build/Docker; full 56-cell formal acceptance; product/Operations implementation; release, deploy, activation, production readiness, or SLO claims. |
 | Operations deferred | Receipt/schema/verifier rebinding, candidate assembly, Operations Actions, and `/srv/bgmss-ops-validation` remain in the separate Operations change. |
@@ -436,7 +436,7 @@
   job `90439683423`, the exact gate counts above, and zero remote writes.
 - [x] 11.2 Revise, main-agent approve, strict-validate, commit, and push this
   four-artifact H7 specification before implementation.
-- [ ] 11.3 On canonical production `/proc`, require the Harness anchor to equal
+- [x] 11.3 On canonical production `/proc`, require the Harness anchor to equal
   `process.pid` and reject replacement; allow a different injected PID only
   with noncanonical synthetic proc-root/I/O fixtures. Propagate the validated
   anchor unchanged. Build a bounded, cycle-free, double-sampled `/proc` stat
@@ -444,7 +444,7 @@
   reason `harness-ancestor-permission-denied` only for a stable same-UID,
   positive-PGID strict ancestor whose live-only field denies with
   `EACCES`/`EPERM`.
-- [ ] 11.4 Keep the admitted entry unrelated. Extend its generation key only
+- [x] 11.4 Keep the admitted entry unrelated. Extend its generation key only
   with stable Harness-anchor PID/UID/start/`comm`; independently re-prove and
   bind the complete ordered chain identities/state/PPID/PGID relations in each
   main/worker inventory digest.
@@ -452,14 +452,58 @@
   chains, target group, retained/exact-parent ownership, cleanup/Map-miss,
   terminal/zero-PGID/kernel-thread, and all signal paths. Fold coverage into
   existing selected tests without changing supervisor 21 or selected 21.
-- [ ] 11.5 Obtain independent zero-P0/P1 review; run only local static
+- [x] 11.5 Obtain independent zero-P0/P1 review; run only local static
   `node --check`, `git diff --check`, and pinned OpenSpec strict validation;
   stage only the two H7 files and create/push one clean implementation commit.
-- [ ] 11.6 Require exact-head H7 Development Actions green with supervisor
+- [x] 11.6 Run exact-head H7 Development Actions `30412756946`. Record Backend,
+  Updater, Frontend, and artifact 51/51 green, supervisor 8/21, and 13/21
+  fail-closed results caused by same-UID PID 1207 not satisfying strict
+  ancestry before any supervised command. Do not infer executable, exact
+  relation, denied field, or benignness; perform no remote write.
+- [x] 11.7 Classify H7 implementation
+  `71825163abae2bb399b80394459accb04b659a01`, tree
+  `27991f44e448e896905b53a66558df2bc818fad5`, run `30412756946`, and job
+  `90452451817` as superseded fail-closed evidence without archive or
+  Operations handoff.
+
+## 12. Correct and verify H8 with one sealed process-lifetime baseline
+
+- [x] 12.1 Revise, main-agent approve, strict-validate, commit, and push this
+  four-artifact H8 specification before implementation. Keep implementation
+  limited to existing `contracts/acceptance/lib/runner.mjs`,
+  `contracts/acceptance/lib/cli.mjs`, and
+  `contracts/acceptance/test/core.test.mjs`.
+- [ ] 12.2 Before canonical production inventory can create any owned child,
+  capture and freeze the stable same-UID permission-denied generations as a
+  sorted closed baseline with one canonical digest. Bind kind, exact reason,
+  PID, UID, start token, and `comm`; never refresh or extend the baseline for
+  the Node process lifetime. Invoke the runner-owned seal at the beginning of
+  `runFormally`, before package/input/Git helpers or any direct `spawnSync`;
+  independently seal at the beginning of the forked `runSupervisedWorker`
+  process without inheriting the parent seal; preserve side-effect-free module
+  import.
+- [ ] 12.3 Pass the exact sealed list and digest to the closure worker before
+  its first inventory. Apply the baseline/new-opaque gate before cwd,
+  target-PGID, parent, ledger, or other ownership filtering. Fail on a
+  baseline miss, live-to-opaque transition, PID reuse, field drift, worker
+  recapture, or digest/list mismatch.
+- [ ] 12.4 Preserve zero-signal failure for baseline members that become
+  retained, target-group, exact-parent, cleanup, Map-miss, or signal related.
+  Fold main/worker positive baseline parity plus new-after-baseline,
+  per-command-refresh, generation/reason/kind/digest drift, and ownership
+  negatives into existing selected tests without changing supervisor 21 or
+  selected 21. Prove that caller/worker input cannot provide, replace,
+  extend, or recapture the production seal, and that the supervised-worker
+  process creates its own seal before orchestration.
+- [ ] 12.5 Obtain independent zero-P0/P1 review; run only local static
+  `node --check`, `git diff --check`, and pinned OpenSpec strict validation;
+  stage only the three H8 files and create/push one clean implementation commit.
+- [ ] 12.6 Require exact-head H8 Development Actions green with supervisor
   21/21 before remote mutation. Then prove
-  `P <= H2 <= H3 <= failed-H4 <= failed-H5 <= failed-H6 <= H7`, run the complete
-  isolated Product 22/22 plus Harness package/supervisor/selected 21/21
-  validation under one fresh run ID, and close cleanup/protected-state/audit.
-- [ ] 11.7 Record exact H7/archive identities and all superseded failures,
+  `P <= H2 <= H3 <= failed-H4 <= failed-H5 <= failed-H6 <= failed-H7 <= H8`,
+  run the complete isolated Product 22/22 plus Harness
+  package/supervisor/selected 21/21 validation under one fresh run ID, and
+  close cleanup/protected-state/audit.
+- [ ] 12.7 Record exact H8/archive identities and all superseded failures,
   strict validate, synchronize, archive, commit, push, and hand only the
-  accepted Product/H7/archive receipt to Operations.
+  accepted Product/H8/archive receipt to Operations.

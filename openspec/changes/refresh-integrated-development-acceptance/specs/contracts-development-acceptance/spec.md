@@ -2,16 +2,16 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H6 `c59c78627253719acee3520711e42cecf063f8d5` is pushed, but exact-head Actions `30408640851` passed Backend, Updater, Frontend, and artifact tests 51/51 while supervisor passed 8/21 and failed 13/21 because one same-UID PID denied live-only `/proc` evidence before any supervised command. Its executable/ancestry is unproven. No remote write followed. H6 is superseded; H7 specification/implementation/verification/archive are pending. |
+| Status | H7 `71825163abae2bb399b80394459accb04b659a01` is pushed, but exact-head Actions `30412756946` passed Backend, Updater, Frontend, and artifact tests 51/51 while supervisor passed 8/21 and failed 13/21 because same-UID PID 1207 denied live-only `/proc` evidence and was not proven a strict Harness ancestor before any supervised command. Its executable, exact relation, and denied field are unproven. No remote write followed. H7 is superseded; H8 specification/implementation/verification/archive are pending. |
 | Owner | Main-agent specification/audit/lifecycle owner and one bounded remote execution owner. |
-| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/test/core.test.mjs`, and the proposal-declared run-owned remote complement only. Worker, workflow, supervisor, H3-H6 behavior outside the strict-ancestor allowance, and the closed package inventory remain unchanged. |
-| Read-only protected inputs | Final Product, failed Harness/H2/H3/H4/H5/H6 sources, oracle, every implementation path outside the exact H7 allowance, other OpenSpec, Git objects outside lifecycle commits, and all non-admitted remote state. |
+| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, `contracts/acceptance/test/core.test.mjs`, and the proposal-declared run-owned remote complement only. Worker, workflow, supervisor, H3-H7 behavior outside the sealed-baseline allowance, and the closed package inventory remain unchanged. |
+| Read-only protected inputs | Final Product, failed Harness/H2/H3/H4/H5/H6/H7 sources, oracle, every implementation path outside the exact H8 allowance, other OpenSpec, Git objects outside lifecycle commits, and all non-admitted remote state. |
 | Deletion complement | No tracked/pre-existing object; only identity-proven run-created files/containers and conditionally run-pulled fixed image refs. |
 | Mutable refs | Exact change/root-spec/archive, main-agent commits/push, one run root, run containers, and conditionally owned image refs. |
 | Consumes | Product exact-head Actions, superseded fixed-image failure, Harness package, Linux `/proc` and preserved Darwin process-discovery behavior, fixed container digests, remote Docker capability, and prior non-green lifecycle semantics. |
-| Produces | Final H7 strict-Harness-ancestor permission correction over the H6 Linux process model, with preserved H3-H6 behavior, exact supervisor Actions gate, ordered Product/H7/archive identities, exact difference proof, separately attributed targeted evidence, cleanup/non-interference/audit closure. |
-| Dependencies | Product Actions → superseded H2/H3/H4/H5/H6 implementations and failed runs → reviewed H7 specification → H7 implementation/review/commit/Actions including supervisor 21/21 → identity proof → remote admission/gates → cleanup/audit → archive. |
-| Deliverables | Strict-valid specification, separate focused H7 implementation/tests commit, exact evidence fields including superseded attempts, synchronized root requirement, archive identity, zero residue. |
+| Produces | Final H8 pre-ownership sealed-baseline correction over the H7 Linux process model, with preserved H3-H7 behavior, exact supervisor Actions gate, ordered Product/H8/archive identities, exact difference proof, separately attributed targeted evidence, cleanup/non-interference/audit closure. |
+| Dependencies | Product Actions → superseded H2/H3/H4/H5/H6/H7 implementations and failed runs → reviewed H8 specification → H8 implementation/review/commit/Actions including supervisor 21/21 → identity proof → remote admission/gates → cleanup/audit → archive. |
+| Deliverables | Strict-valid specification, separate focused H8 implementation/tests commit, exact evidence fields including superseded attempts, synchronized root requirement, archive identity, zero residue. |
 | Acceptance | Proposal/design acceptance and every scenario below. |
 | Non-goals | Formal 56-cell result, product/Operations implementation, release/deploy/production/SLO claim, local product execution. |
 | Operations deferred | Receipt/code rebinding and all Operations candidate/host validation remain separate. |
@@ -169,8 +169,9 @@ independent snapshots SHALL therefore not invent a new generation; relation
 drift within one classification sample remains failure.
 Stable live-to-terminal transition and double-confirmed disappearance SHALL
 continue through the existing tombstone/absence contracts and SHALL NOT
-become opaque. Same-UID denial outside the exact strict-Harness-ancestor case
-below, unreadable/malformed UID, non-permission failure, malformed or oversized
+become opaque. Same-UID denial outside the exact strict-Harness-ancestor or
+H8 sealed pre-ownership cases below, unreadable/malformed UID,
+non-permission failure, malformed or oversized
 evidence, terminal-to-live reuse, unconfirmed disappearance or reappearance,
 or any sampled identity/relation drift SHALL fail closed and SHALL NOT become
 opaque.
@@ -203,7 +204,10 @@ prove the same complete strict ancestry; no stale chain-proof digest may be
 reused. Normal scheduling changes among nonterminal states do not invent a
 candidate generation.
 
-This opaque reason is unrelated environmental evidence only. It SHALL be
+This H7 opaque reason is unrelated environmental evidence only. On canonical
+production `/proc`, the H8 sealed-baseline requirement below supersedes it;
+the H7 path remains available only to explicit noncanonical synthetic
+fixtures. It SHALL be
 excluded from owned-cwd and closure ownership and SHALL fail closed with zero
 signal if the PID is retained, in the target process group, below an exactly
 retained parent, selected by targeted cleanup/Map-miss revalidation, or used by
@@ -257,7 +261,7 @@ while parent ancestry still exists.
 
 #### Scenario: Linux process evidence is raced or ambiguous
 
-- **WHEN** a PID is reused, one identity field changes, cwd escapes, cmdline is malformed, permission is denied outside the exact different-UID or strict-Harness-ancestor opaque cases, an entry disappears without confirmed absence, or any partial row cannot be validated
+- **WHEN** a PID is reused, one identity field changes, cwd escapes, cmdline is malformed, permission is denied outside the exact different-UID, synthetic strict-Harness-ancestor, or sealed pre-ownership opaque cases, an entry disappears without confirmed absence, or any partial row cannot be validated
 - **THEN** the Harness SHALL fail before signaling that process and SHALL NOT reinterpret the ambiguity as cleanup success
 
 #### Scenario: Unrelated terminal process exists
@@ -282,8 +286,83 @@ while parent ancestry still exists.
 
 #### Scenario: Same-UID ancestry is not proven
 
-- **WHEN** the denied PID is self, a sibling, descendant, non-ancestor, target-group/retained/retained-parent related, zero-PGID, terminal, or any ancestor-chain link is missing, reappears, cycles, drifts, or exceeds the bound
+- **WHEN** the denied PID is not matched to the H8 production baseline and is self, a sibling, descendant, non-ancestor, target-group/retained/retained-parent related, zero-PGID, terminal, or any ancestor-chain link is missing, reappears, cycles, drifts, or exceeds the bound
 - **THEN** the Harness SHALL fail closed, preserve the PID, and send zero signals
+
+### Requirement: H8 SHALL seal same-UID environmental opacity before ownership
+
+On canonical production `/proc`, the formal CLI SHALL invoke a runner-owned
+one-time seal at the beginning of `runFormally`, before package verification,
+protected-input or Git attestation, runtime preparation, or any helper
+`spawnSync`. Standalone command and monitor entry points SHALL invoke the same
+seal before their own first `spawn`, `fork`, or `Worker`. Importing runner,
+CLI, worker, and supervisor modules SHALL continue to take no inventory and
+create no process.
+
+The forked hidden `runSupervisedWorker` entry SHALL establish a new seal for
+that Node process before orchestration starts. It SHALL NOT inherit, reuse, or
+refresh the parent CLI process baseline. Closure worker threads created by the
+supervised-worker process SHALL receive exactly that process's sealed
+list/digest before their first inventory.
+
+Stable positive-PGID nonterminal entries with the
+Harness real UID whose live-only `exe`, `cwd`, or `cmdline` read denies with
+`EACCES`/`EPERM` MAY be captured as exact
+`preexisting-same-user-permission-denied` opaque generations. The capture
+SHALL reject self, malformed or unstable evidence, and every non-permission
+failure.
+
+The captured list SHALL be closed, sorted, duplicate-free, canonically
+digested, frozen for the complete Node process lifetime, and never refreshed
+per command. Each generation SHALL bind kind, exact reason, PID, real UID,
+kernel start token, and `comm`. State, parent PID, and process group SHALL be
+freshly sampled and included in each complete inventory digest but SHALL NOT
+change the cross-inventory generation key.
+
+Every later main and worker inventory SHALL validate the identical baseline
+list and digest before any cwd or ownership filter. A same-UID permission
+denial absent from the sealed baseline, a baseline live generation that later
+becomes opaque, PID reuse, kind/reason/UID/start/`comm` drift, baseline
+extension, digest mismatch, or worker-local recapture SHALL fail closed.
+Matched baseline membership proves only pre-existence, not executable,
+ancestry, ownership, or benignness. A baseline member MAY disappear; absence
+SHALL NOT remove or replace its sealed allowlist entry, and any later reuse of
+that PID as another generation SHALL remain a baseline miss.
+
+A matched baseline member SHALL remain excluded from ordinary owned-cwd and
+closure membership only while it is unrelated. If it is retained, selected
+by the target process group, below an exact retained parent, targeted by
+cleanup or Map-miss revalidation, or reaches any signal path, the Harness
+SHALL fail with zero signal. Existing different-UID, kernel-thread, terminal,
+complete-live, H7 synthetic strict-ancestor, Darwin, and exact signal identity
+contracts remain unchanged.
+
+This `/proc` snapshot contract governs generations observed by one of its
+bounded inventories. It does not claim to observe a process born and exited
+entirely between polls, and it does not claim to prevent a command from
+communicating with a same-UID opaque process that already existed before the
+seal. Closing either stronger boundary requires cgroup/PID-namespace or
+launch-broker provenance outside this targeted refresh.
+
+#### Scenario: Stable pre-existing same-UID opacity remains environmental
+
+- **WHEN** a stable same-UID permission-denied generation is captured before any owned child exists and every later main/worker observation matches its sealed generation
+- **THEN** the Harness MAY retain it as digest-visible environmental opaque evidence without treating it as live, owned-cwd, cleanup, or signal evidence
+
+#### Scenario: New opaque generation cannot escape by changing relations
+
+- **WHEN** a same-UID permission-denied generation first appears after baseline sealing, including after reparenting or leaving the owned process group
+- **THEN** the Harness SHALL fail globally before cwd, parent, process-group, or ledger filtering and SHALL send zero signals
+
+#### Scenario: Baseline cannot be refreshed or delegated
+
+- **WHEN** a later command, worker, caller, PID reuse, or changed kind/reason/UID/start/`comm` attempts to add or substitute one baseline generation or digest
+- **THEN** the Harness SHALL reject the inventory and preserve the original immutable baseline
+
+#### Scenario: Baseline membership does not override ownership
+
+- **WHEN** a baseline-matched opaque PID is retained, target-group selected, below an exact retained parent, or targeted for cleanup, Map-miss revalidation, or signaling
+- **THEN** the Harness SHALL fail closed before every signal
 
 #### Scenario: Authoritative unrelated kernel thread has process group zero
 
@@ -307,7 +386,7 @@ while parent ancestry still exists.
 
 #### Scenario: Opaque classification is unsafe
 
-- **WHEN** UID is the Harness UID without the exact strict-ancestor proof, is unreadable, the PID is retained or relationship-owned, a non-permission/malformed failure occurs, terminal evidence returns to live, disappearance/reappearance is unconfirmed, or generation/UID/relation changes
+- **WHEN** UID is the Harness UID without the exact synthetic strict-ancestor proof or H8 sealed-baseline match, is unreadable, the PID is retained or relationship-owned, a non-permission/malformed failure occurs, terminal evidence returns to live, disappearance/reappearance is unconfirmed, or generation/UID/relation changes
 - **THEN** the Harness SHALL fail closed, preserve the PID, and send zero signals
 
 Normal scheduling changes among nonterminal `R`/`S`/`D`/`I` samples are

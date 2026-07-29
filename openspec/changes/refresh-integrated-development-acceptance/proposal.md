@@ -178,16 +178,16 @@ None.
 
 | Field | Declaration |
 |---|---|
-| Status | H6 implementation `c59c78627253719acee3520711e42cecf063f8d5` is pushed, but exact-head Actions `30408640851` passed Backend, Updater, Frontend, and 51/51 artifact tests while supervisor passed 8/21 and failed 13/21 because one same-UID PID denied live-only `/proc` evidence before any supervised command. Its ancestry/executable is not proven. No remote write followed. H6 is superseded; H7 specification/implementation/verification/archive are pending. |
+| Status | H7 implementation `71825163abae2bb399b80394459accb04b659a01` (tree `27991f44e448e896905b53a66558df2bc818fad5`) is pushed. Exact-head Actions `30412756946` passed Backend, Updater, Frontend, and artifact tests 51/51, but supervisor passed 8/21 and failed 13/21 because same-UID PID 1207 denied live-only `/proc` evidence and was not proven a strict Harness ancestor before any supervised command. Its executable, exact relation, and denied field remain unproven. No remote write followed. H7 is superseded; H8 specification/implementation/verification/archive are pending. |
 | Owner | Main agent owns specification, identity decisions, audit, acceptance, Git, and lifecycle. One delegated execution owner may run the closed remote command set because the remote/container detail is context-heavy and independently bounded. |
-| Writable paths | Repository planning: `openspec/changes/refresh-integrated-development-acceptance/**`, followed by synchronization to `openspec/specs/contracts-development-acceptance/spec.md` and archive lifecycle. H7 implementation: only existing `contracts/acceptance/lib/runner.mjs` and `contracts/acceptance/test/core.test.mjs`; worker, workflow, supervisor, package/inventory files, product code, and H3-H6 behavior outside the exact strict-ancestor allowance remain unchanged. Remote only after H7 review, exact-head H7 Actions, and read-only admission: one previously absent regular root `/srv/bgmss-development-acceptance-refresh-<run-id>/**`; uniquely named run-labeled networkless containers; and only the two fixed Tencent-mirror RepoDigest/config image identities if that run proves both identities absent and pulls them. |
-| Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`; failed H6 `c59c78627253719acee3520711e42cecf063f8d5`; oracle; every product, UI, API, statistical, non-acceptance Contracts, Operations, workflow, package-lock, and Harness implementation path outside the exact writable list; every OpenSpec outside this change and its later root-spec sync; Git history outside main-agent commits; external registries except exact image reads; and all remote state outside the admitted run root/container/image complement. On `myserver`, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, pre-existing containers/images/networks/volumes, Nginx/systemd/TLS/configuration, listeners, processes, and legacy data remain read-only. |
+| Writable paths | Repository planning: `openspec/changes/refresh-integrated-development-acceptance/**`, followed by synchronization to `openspec/specs/contracts-development-acceptance/spec.md` and archive lifecycle. H8 implementation is limited to existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, and `contracts/acceptance/test/core.test.mjs`; worker, workflow, supervisor, package/inventory files, product code, and H3-H7 behavior outside the exact sealed-baseline allowance remain unchanged. Remote only after H8 review, exact-head H8 Actions, and read-only admission: one previously absent regular root `/srv/bgmss-development-acceptance-refresh-<run-id>/**`; uniquely named run-labeled networkless containers; and only the two fixed Tencent-mirror RepoDigest/config image identities if that run proves both identities absent and pulls them. |
+| Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`; failed H6 `c59c78627253719acee3520711e42cecf063f8d5`; failed H7 `71825163abae2bb399b80394459accb04b659a01`; oracle; every product, UI, API, statistical, non-acceptance Contracts, Operations, workflow, package-lock, and Harness implementation path outside the exact writable list; every OpenSpec outside this change and its later root-spec sync; Git history outside main-agent commits; external registries except exact image reads; and all remote state outside the admitted run root/container/image complement. On `myserver`, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, pre-existing containers/images/networks/volumes, Nginx/systemd/TLS/configuration, listeners, processes, and legacy data remain read-only. |
 | Deletion complement | No tracked file and no pre-existing remote object. Cleanup may remove only run-created files/directories from the exact owned manifest, run-labeled containers by immutable ID, and an exact image reference only if the run pulled it, its identity still matches, and no pre-existing or foreign reference/container uses it. No Docker prune, Git clean, glob cleanup, broad recursive target, network, volume, Compose, or service deletion. |
 | Mutable refs | This change, later synchronized root spec/archive, main-agent commits/push, exact run root files, run containers, and conditionally run-pulled fixed image references. No product/Harness source ref, tag, release, registry publication, production/legacy ref, route, service, volume, network, or public port is mutable. |
 | Consumes | Final Product revision/tree and exact-head Development Actions; the failed Harness run and its source identity; existing acceptance package/supervisor/targeted harness; Linux `/proc` ABI and existing Darwin `ps`/`lsof` contract; corrected fixed Node 24.18.0/npm 11.16.0 and Python 3.14.6 OCI root/child/config/layer identities; Tencent VPC mirror reachability; current `myserver` Docker capability; prior non-green lifecycle semantics and explicit 56-cell unexecuted inventory. |
-| Produces | Final H7 strict-Harness-ancestor permission correction over the H6 Linux process model, with preserved H3-H6 behavior and Darwin parity; an exact supervisor Actions gate; exact Product/H7 ancestry and difference proof; two immutable source identities; verified OCI acquisition graphs; Product-owned 22-test Updater evidence; Harness-owned package/supervisor/selected-targeted evidence; superseded-failure/unexecuted/cleanup/non-interference/audit evidence; one archived refresh identity consumable by Operations. |
-| Dependencies | Product exact-head Development run remains green; H7 must descend Product, H2, H3, failed H4, failed H5, and failed H6; Product/H7 non-allowed byte-or-mode difference count must be zero; H7 code/audit must preserve the H6 model while admitting only a stable proven strict Harness ancestor; exact-head H7 Actions including supervisor 21/21 and read-only remote collision/protected-state preflight must pass before writes. |
-| Deliverables | Strict-valid proposal/design/delta/tasks before implementation; reviewed H7 implementation and focused tests in only the two declared files; separate clean H7 implementation commit; canonical run input/result summaries and hashed logs kept only as bounded execution evidence; archived refresh plus synchronized root requirement; no remote or generated residue. |
+| Produces | Final H8 pre-ownership sealed-baseline correction over the H7 Linux process model, with preserved H3-H7 behavior and Darwin parity; an exact supervisor Actions gate; exact Product/H8 ancestry and difference proof; two immutable source identities; verified OCI acquisition graphs; Product-owned 22-test Updater evidence; Harness-owned package/supervisor/selected-targeted evidence; superseded-failure/unexecuted/cleanup/non-interference/audit evidence; one archived refresh identity consumable by Operations. |
+| Dependencies | Product exact-head Development run remains green; H8 must descend Product, H2, H3, failed H4, failed H5, failed H6, and failed H7; Product/H8 non-allowed byte-or-mode difference count must be zero; H8 code/audit must preserve the prior model while admitting only an exact same-UID permission-denied generation sealed before the current process lifetime can create an owned child; exact-head H8 Actions including supervisor 21/21 and read-only remote collision/protected-state preflight must pass before writes. |
+| Deliverables | Strict-valid proposal/design/delta/tasks before implementation; reviewed H8 implementation and focused tests in only the three declared files; separate clean H8 implementation commit; canonical run input/result summaries and hashed logs kept only as bounded execution evidence; archived refresh plus synchronized root requirement; no remote or generated residue. |
 | Acceptance | Pinned OpenSpec strict validation and diff hygiene; exact-head Product Actions; Git ancestry and full byte/mode inventory; Linux positive/negative process-inventory coverage without `ps`/`lsof` or another external binary and preserved Darwin behavior; fixed OCI root/child/config/layer and in-container version verification; Product `RuntimePruneTests` with actual count; Harness `verify-package`, 21/21 supervisor tests, and the frozen selected targeted set with every selected test passing; one byte-identical protected-seal program and robust same-input route parser before/after; networkless/read-only container execution; before/after legacy/container/network/volume/Nginx/route comparison; exact cleanup; zero P0/P1 review. |
 | Non-goals | No product/UI/API/statistical or non-acceptance contract implementation change; no host package injection, `apt`, derived runtime image, mutable image, or acceptance failure waiver; no local product test/build/Docker; no full formal 56-cell Archive/API/browser/oracle/performance execution; no canonical formal result; no `development-accepted-operations-pending`; no Operations candidate build; no release, deployment, production activation, or SLO claim. |
 | Operations deferred | Operations receipt/code rebinding, AMD64 candidate assembly, Operations Actions, `/srv/bgmss-ops-validation` runtime validation, and every release/deploy/production/host-integration action remain in the separate Operations change. |
@@ -195,8 +195,44 @@ None.
 
 This change touches no other repository. Its accumulated Harness mutation is
 closed to the six H4 workflow/acceptance paths, the H5 delta is closed to
-three declared inventory/test paths, and the H6 and H7 deltas are each closed
-to the same two declared runner/test paths; its only external mutation
+three declared inventory/test paths, H6-H7 are each closed to the same two
+runner/test paths, and H8 is closed to runner/CLI/test; its only external mutation
 is the explicitly bounded isolated validation above; production state remains
 unchanged. Apply is blocked until proposal, specification, design, and tasks
 are complete, strict-valid, and approved by the main agent.
+
+## H8 sealed pre-ownership baseline correction
+
+H7 Actions observed one pre-command same-UID denial for which the runner could
+not prove strict ancestry. H8 does not infer what PID 1207 executes, what its
+actual ancestry is, or whether it is benign. Before a production Harness
+process may create any owned child, its first canonical `/proc` inventory
+SHALL capture, canonicalize, and freeze every stable same-UID
+permission-denied opaque generation. That per-process baseline is immutable
+for the process lifetime, is identified by a canonical digest, and is passed
+unchanged to every process-closure worker.
+
+The formal CLI SHALL invoke the runner-owned seal as the first operation of
+`runFormally`, before package verification, protected-input attestation,
+Git helpers, runtime preparation, `spawnSync`, `spawn`, `fork`, or `Worker`.
+The forked `runSupervisedWorker` Node process SHALL independently seal its
+own process-lifetime baseline as its first operation; it SHALL NOT inherit,
+reuse, or refresh the parent process baseline.
+Standalone `runCommand`, canonical production inventory, and monitor entry
+points SHALL establish the same one-time seal before their own first owned
+child. Importing a module SHALL continue to take no inventory or create any
+process.
+
+After sealing, a same-UID permission-denied entry may remain environmental
+only when its kind, exact reason, PID, UID, start token, and `comm` exactly
+match a sealed generation. Any new generation, live-to-opaque transition,
+PID reuse, baseline extension, or worker-local recapture fails before cwd or
+ownership filtering. A matched entry still fails with zero signal whenever it
+is retained, in the target process group, below an exact retained parent, or
+targeted by cleanup, Map-miss revalidation, or a signal path. This is
+pre-existence evidence only; it proves neither executable identity, ancestry,
+nor benignness. A baseline member may exit without mutating the sealed
+allowlist; its PID may not return as another generation. Snapshot evidence
+does not claim to observe a process born and gone entirely between polls or
+to prevent a command from communicating with a same-UID opaque process that
+already existed before the seal.

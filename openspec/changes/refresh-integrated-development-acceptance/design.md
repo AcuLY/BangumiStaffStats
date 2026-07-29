@@ -79,16 +79,16 @@ identical byte digest. The real rerun program SHA-256 was
 
 | Field | Declaration |
 |---|---|
-| Status | H6 `c59c78627253719acee3520711e42cecf063f8d5` is implemented/pushed, but Actions `30408640851` passed Backend, Updater, Frontend, and artifact tests 51/51 while supervisor passed 8/21 and failed 13/21 because one same-UID PID denied live-only `/proc` evidence before any supervised command. The run does not prove its executable or ancestry. No remote write followed. H6 is superseded; H7 specification/implementation/verification/archive are pending. |
+| Status | H7 `71825163abae2bb399b80394459accb04b659a01` is implemented/pushed, but Actions `30412756946` passed Backend, Updater, Frontend, and artifact tests 51/51 while supervisor passed 8/21 and failed 13/21 because same-UID PID 1207 denied live-only `/proc` evidence and was not proven a strict Harness ancestor before any supervised command. The run does not prove its executable, exact relation, or denied field. No remote write followed. H7 is superseded; H8 specification/implementation/verification/archive are pending. |
 | Owner | Main agent: identities, specification, audit, lifecycle, commits/push. Delegated execution owner: exact remote/container command set and evidence handoff only. |
-| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H7 implementation is limited to existing `contracts/acceptance/lib/runner.mjs` and `contracts/acceptance/test/core.test.mjs`. Worker, workflow, supervisor, H3-H6 behavior outside the strict-ancestor allowance, package/inventory files, product, non-acceptance Harness, and Operations remain read-only. |
-| Read-only protected inputs | P, failed Harness/H2/H3/H4/H5/H6 sources, oracle, all implementation outside the exact H7 allowance, other OpenSpec, and all remote state outside the admitted run complement. |
+| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H8 implementation is limited to existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, and `contracts/acceptance/test/core.test.mjs`. Worker, workflow, supervisor, H3-H7 behavior outside the sealed-baseline allowance, package/inventory files, product, non-acceptance Harness, and Operations remain read-only. |
+| Read-only protected inputs | P, failed Harness/H2/H3/H4/H5/H6/H7 sources, oracle, all implementation outside the exact H8 allowance, other OpenSpec, and all remote state outside the admitted run complement. |
 | Deletion complement | No tracked or pre-existing object. Only manifest-bound run files, immutable-ID run containers, and safely proven run-pulled fixed image refs. |
 | Mutable refs | This change/root-spec/archive lifecycle, main-agent commits/push, one run root, run containers, and conditionally run-pulled images. |
 | Consumes | P exact-head Development result, failed H run/source, Harness acceptance package, Linux `/proc` and existing Darwin inventory behavior, fixed image digests, existing remote host/Docker and protected-state facts. |
-| Produces | Final H7 strict-Harness-ancestor permission correction over the H6 process model, preserved H3-H6 ordering and signaling, exact supervisor Actions gate, P/H7 ancestry/delta proof, separated P/H7 test evidence, immutable source identities, cleanup/non-interference audit, H7 implementation and archive identities. |
-| Dependencies | P Actions green → superseded H2/H3/H4/H5/H6 evidence → H7 implementation/review/clean commit and exact-head Actions including supervisor 21/21 → P/H7 proof → remote read-only admission → isolated tests → cleanup/non-interference → zero-P0/P1 → archive. |
-| Deliverables | Proposal/delta/design/tasks, closed H7 correction, clean H7 implementation commit, evidence values/digests recorded into the change, synchronized root spec, archive commit. |
+| Produces | Final H8 pre-ownership sealed-baseline correction over the H7 process model, preserved H3-H7 ordering and signaling, exact supervisor Actions gate, P/H8 ancestry/delta proof, separated P/H8 test evidence, immutable source identities, cleanup/non-interference audit, H8 implementation and archive identities. |
+| Dependencies | P Actions green → superseded H2/H3/H4/H5/H6/H7 evidence → H8 implementation/review/clean commit and exact-head Actions including supervisor 21/21 → P/H8 proof → remote read-only admission → isolated tests → cleanup/non-interference → zero-P0/P1 → archive. |
+| Deliverables | Proposal/delta/design/tasks, closed H8 correction, clean H8 implementation commit, evidence values/digests recorded into the change, synchronized root spec, archive commit. |
 | Acceptance | Proposal acceptance table plus the closed commands and invariants below. |
 | Non-goals | Formal matrix or product/Operations implementation; release/deploy/activation; host toolchain installation; production readiness. |
 | Operations deferred | Receipt/schema/code rebinding and every Operations candidate/host-validation step. |
@@ -523,6 +523,58 @@ forwarded unchanged through the runner's immutable worker inventory options;
 the worker module itself remains byte-identical. Focused positive and negative
 coverage stays folded into the selected 21-test manifest. H7 changes only
 `runner.mjs` and `core.test.mjs`.
+
+### 3f. Seal pre-ownership same-UID opaque generations in H8
+
+H7 exact-head Actions `30412756946` passed every product and artifact gate but
+again produced supervisor 8/21. The sole underlying inventory cause was
+`process 1207 is not a stable strict Harness ancestor`; the log does not prove
+its executable, ancestry, exact relation, or denied field. Directly treating
+every stable same-UID denial as unrelated would be unsafe: an owned child
+could reparent, leave the target process group, become opaque before its first
+ledger observation, and disappear from cwd filtering.
+
+H8 therefore adds one process-lifetime admission barrier. `runFormally`
+explicitly invokes the runner-owned seal before package verification,
+protected-input/Git attestation, runtime preparation, or any helper
+`spawnSync`; standalone command and monitor entry points seal before their
+own `spawn`, `fork`, or `Worker`. The operation is explicit rather than
+module-top-level so import remains side-effect free. Stable same-UID
+`EACCES`/`EPERM` entries from that inventory are frozen as exact
+`preexisting-same-user-permission-denied` generations. Their sorted closed
+identity list and canonical digest cannot be refreshed or extended for the
+life of that Node process. A closure worker receives exactly that list and
+digest from its parent before its first inventory and cannot take a local
+baseline.
+
+The forked supervised-worker Node process has a distinct process lifetime. Its
+hidden `runSupervisedWorker` entry seals a new local baseline before loading or
+running orchestration, never imports the parent seal, and passes only its own
+exact list/digest to closure worker threads created in that process.
+
+Every later full inventory applies the baseline gate before owned-cwd,
+process-group, parent, or ledger filtering. A same-UID denial absent from the
+baseline, a formerly live baseline PID becoming opaque, or any kind, reason,
+PID, UID, start-token, or `comm` drift fails globally. Current state, PPID, and
+PGID remain freshly sampled and digest-bound but are not generation-key
+fields. A matched baseline member remains nonsignalable and still fails when
+retained, target-group selected, below an exact retained parent, or used by
+cleanup/Map-miss/signal revalidation. The existing H7 strict-ancestor model
+remains available to explicit synthetic fixtures, but it is not used to
+weaken the production sealed-baseline gate.
+
+The seal is process-lifetime, not per-command: a command failure or residual
+cannot be grandfathered into the next command. This model deliberately fails
+on every post-baseline opaque generation, including a newly appearing
+environment process, because `/proc` evidence cannot distinguish that process
+from an escaped owned child after reparenting and process-group change.
+An allowlisted generation may disappear normally; absence does not delete or
+refresh the sealed entry, and a reused PID remains a baseline miss. Bounded
+polling does not claim to observe a process that is born and exits entirely
+between snapshots, nor to prevent a command from using an IPC relationship
+with a same-UID opaque process that predated the seal.
+Coverage remains folded into the selected Linux tests, and H8 changes only
+`runner.mjs`, the formal seal call in `cli.mjs`, and `core.test.mjs`.
 
 ### 4. Freeze one Product test owner and three Harness gates
 
