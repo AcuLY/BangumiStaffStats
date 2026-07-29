@@ -270,10 +270,13 @@ export BGMSS_UPDATER_PROXY_NETWORK=ambient-network
 cp -- "$test_root/direct.env" "$root/state/current.env"
 compose "$root" config --format json >"$test_root/direct.json"
 jq -e '
-  (.services.updater.environment // {} | has("BGMSS_HTTPS_PROXY") | not)
+  .services.updater.environment.SQLITE_TMPDIR == "/var/lib/bgmss/archive"
+  and (.services.updater.environment | has("BGMSS_HTTPS_PROXY") | not)
   and ((.services.updater.networks | keys | sort) == ["backend"])
   and ((.services.api.networks | keys | sort) == ["backend"])
   and ((.services.prometheus.networks | keys | sort) == ["backend"])
+  and ((.services.api.environment // {}) | has("SQLITE_TMPDIR") | not)
+  and ((.services.prometheus.environment // {}) | has("SQLITE_TMPDIR") | not)
   and (.networks | has("updater_proxy") | not)
 ' "$test_root/direct.json" >/dev/null ||
   fail "direct Compose projection is not closed"
@@ -283,12 +286,15 @@ compose "$root" config --format json >"$test_root/proxy.json"
 jq -e \
   --arg proxy "$proxy_url" \
   --arg network "$proxy_network" '
-    .services.updater.environment.BGMSS_HTTPS_PROXY == $proxy
+    .services.updater.environment.SQLITE_TMPDIR == "/var/lib/bgmss/archive"
+    and .services.updater.environment.BGMSS_HTTPS_PROXY == $proxy
     and ((.services.updater.networks | keys | sort) == ["backend","updater_proxy"])
     and ((.services.api.networks | keys | sort) == ["backend"])
     and ((.services.prometheus.networks | keys | sort) == ["backend"])
     and ((.services.api.environment // {}) | has("BGMSS_HTTPS_PROXY") | not)
     and ((.services.prometheus.environment // {}) | has("BGMSS_HTTPS_PROXY") | not)
+    and ((.services.api.environment // {}) | has("SQLITE_TMPDIR") | not)
+    and ((.services.prometheus.environment // {}) | has("SQLITE_TMPDIR") | not)
     and .networks.updater_proxy.external == true
     and .networks.updater_proxy.name == $network
   ' "$test_root/proxy.json" >/dev/null ||

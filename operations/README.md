@@ -149,6 +149,13 @@ transport/URL/network values before Compose interpolation.
 `archive-smoke`. It publishes an inactive version first; the host wrapper alone
 atomically writes `current.json` and restarts/verifies the API.
 
+The builder deliberately uses SQLite file-backed temporary tables and indices.
+Only updater receives the fixed
+`SQLITE_TMPDIR=/var/lib/bgmss/archive`, so those spill files use the existing
+disk-backed Archive mount instead of the 256 MiB `/tmp` tmpfs. API and
+Prometheus do not receive that input; ordinary process temporary files,
+resource limits, mounts, and publication transactions remain unchanged.
+
 The systemd timer is weekly and persistent, with a six-hour service timeout.
 The Nginx file is a loopback-only complete test configuration, not a public
 vhost. Validate templates before any separately approved install:

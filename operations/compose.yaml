@@ -75,6 +75,8 @@ services:
     cpus: ${BGMSS_UPDATER_CPUS:-1.00}
     mem_limit: ${BGMSS_UPDATER_MEM_LIMIT:-1024m}
     pids_limit: ${BGMSS_UPDATER_PIDS_LIMIT:-256}
+    environment:
+      SQLITE_TMPDIR: /var/lib/bgmss/archive
     logging:
       driver: journald
       options:
