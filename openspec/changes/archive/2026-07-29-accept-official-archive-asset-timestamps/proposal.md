@@ -38,14 +38,14 @@ None.
 
 | Field | Declaration |
 |---|---|
-| Status | Approved for focused apply after strict validation and recorded zero-P0/P1 planning review; production run `1f1ef640-6ece-4c53-8cf1-2df480746891` remains the safe failure baseline. |
+| Status | Implemented and accepted: exact final product `8282996f3f0cb0e2cde2a91ce71d425217ffa9d6` passed Development Actions in source `be48847bc26bcda28c9f08f6807f5dec40d479f4`; production run `1f1ef640-6ece-4c53-8cf1-2df480746891` remains the safe failure baseline. |
 | Owner | Main agent owns specification, direct implementation under the user's latest no-unnecessary-subagent rule, audit, Actions/artifact acceptance, Git, and later activation amendment. |
 | Writable paths | This change and its archive destination; `updater/src/bangumi_staff_stats_updater/producer/acquisition.py`; `updater/tests/producer/test_acquisition.py`; the accepted-product revision literal in `operations/bin/build-bundle.sh`; `openspec/specs/updater-archive-producer/spec.md`; and the four existing activation artifacts `openspec/changes/activate-single-host-production/{proposal.md,design.md,tasks.md,specs/operations-single-host-deployment/spec.md}`. |
 | Read-only protected inputs | Every other repository path; accepted origin/redirect/TLS/proxy/size/digest/ZIP/common/catalog/data/public behavior; current `myserver` state; upstream `bangumi/Archive`; all artifacts and external state. |
 | Deletion complement | No file, dependency, artifact, host object, or external state. Existing exact test-temporary cleanup only. |
-| Mutable refs | This change's task state, one implementation commit A, one artifact-pin commit B, and the branch push. Production refs and runtime state remain immutable here. |
+| Mutable refs | This change's task state, implementation/pin commits through exact accepted product `8282996f3f0cb0e2cde2a91ce71d425217ffa9d6` and artifact source `be48847bc26bcda28c9f08f6807f5dec40d479f4`, and the branch push. Production refs and runtime state remain immutable here. |
 | Consumes | Official `bangumi/Archive` README/current and recent `aux/latest.json` Git objects as read-only evidence; existing strict acquisition implementation/tests; failed production run evidence; green B2 private deployment. |
-| Produces | One narrowly corrected latest-asset identity rule, focused regression tests, and one admitted replacement `linux/amd64` artifact. |
+| Produces | One narrowly corrected latest-asset identity rule, focused regression tests, and admitted `linux/amd64` artifact `8723283346` from run `30449279352`. |
 | Dependencies | Complete artifacts/zero-P0/P1 review → direct implementation commit A → pin exact A in artifact commit B → green exact-head Development Actions and artifact → separate activation amendment authorizing deployment and one new updater invocation. |
 | Deliverables | Strict-valid OpenSpec, focused code/tests, green Actions, admitted replacement artifact, synchronized/archive lifecycle, and activation handoff. |
 | Acceptance | Exact current official metadata with a one-second filename/created-time difference parses; arbitrary canonical filename timestamps remain independent of valid GitHub timestamps; malformed filename/timestamps, `updated_at < created_at`, field drift, origin/API/ID/content-type/size/digest/label/node drift still fail; no dependency or behavior outside acquisition identity changes; full Actions and artifact inventory/checksums pass. |
@@ -57,4 +57,5 @@ External behavior classification: **PRESERVE_ORACLE** at
 `644b7748674e553f863d0ffd61d029f86fdc0717`; this fixes internal acquisition of
 official data without changing product behavior. The change reads but does not
 mutate another repository or external state. All artifacts are complete,
-strictly valid, reviewed, and approved for the declared focused apply.
+strictly valid, reviewed, implemented, and accepted for the declared focused
+apply.

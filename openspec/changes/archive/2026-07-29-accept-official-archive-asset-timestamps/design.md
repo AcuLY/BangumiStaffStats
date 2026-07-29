@@ -16,14 +16,14 @@ canonical independent timestamps—remain available.
 
 | Field | Declaration |
 |---|---|
-| Status | Design complete and approved for focused apply after strict validation and zero-P0/P1 review. |
+| Status | Implementation and artifact accepted after strict validation, zero-P0/P1 review, and green exact-head Actions. |
 | Owner | Main agent owns direct implementation, review, Actions/artifact acceptance, and Git under the user's latest delegation rule. |
 | Writable paths | Exact proposal paths, including main-spec sync and the four existing activation artifacts, plus this change's artifact/task state and archive destination. |
 | Read-only protected inputs | Upstream repository/metadata; every other repository path; all other acquisition/TLS/proxy/content/data behavior; `myserver` and external state. |
 | Deletion complement | No persistent object or dependency; existing exact test temporaries only. |
-| Mutable refs | Change task state, implementation commit A, artifact-pin commit B, and branch push only. |
+| Mutable refs | Completed implementation/pin sequence through product `8282996f3f0cb0e2cde2a91ce71d425217ffa9d6` and artifact source `be48847bc26bcda28c9f08f6807f5dec40d479f4`; branch lifecycle push only. |
 | Consumes | Existing `parse_latest`, focused tests, current official metadata/history, failed production evidence, artifact-pin workflow. |
-| Produces | One corrected cross-field rule and one replacement artifact. |
+| Produces | One corrected cross-field rule and artifact `8723283346` from green run `30449279352`, source/tree `be48847bc26bcda28c9f08f6807f5dec40d479f4`/`52dd582016d40569327c0b87f9fad1cadf5252bb`. |
 | Dependencies | Reviewed change → focused source/tests → A → pin-only B → exact-head Actions/artifact → activation amendment. |
 | Deliverables | Proposal deliverables only. |
 | Acceptance | Current official metadata succeeds; all independent identity gates and negative cases remain; full Actions/artifact pass. |
@@ -83,11 +83,21 @@ the 426 MiB upstream asset is never downloaded by tests.
 
 ### 3. Keep production retry authority outside this product correction
 
-Implementation and Actions do not touch `myserver`. Commit A contains only the
-parser/test change; commit B changes only the reviewed accepted-product pin.
-After a new artifact is admitted, `activate-single-host-production` must record
-the failed run, exact replacement identity, B2 private baseline, and exactly
-one newly authorized updater invocation before any host action.
+Implementation and Actions did not touch `myserver`. The initial product/pin
+pair exposed only a Ruff formatting failure after all 259 updater tests,
+mypy, and lint passed. The direct one-line formatting correction produced
+accepted product `8282996f3f0cb0e2cde2a91ce71d425217ffa9d6`; pin-only source
+`be48847bc26bcda28c9f08f6807f5dec40d479f4` then passed both jobs in run
+`30449279352`. Its sole artifact is ID `8723283346`, name
+`operations-preview-be48847bc26bcda28c9f08f6807f5dec40d479f4`, size
+`63282532`, GitHub digest
+`sha256:e7aec802a2f95ece998d369e834813bab1800f0cf9e59e2c63466e9932a32bb0`,
+tree `52dd582016d40569327c0b87f9fad1cadf5252bb`, and platform `linux/amd64`.
+The extracted nine-file closed inventory and all eight listed checksums pass.
+
+`activate-single-host-production` must record the failed run, exact
+replacement identity, B2 private baseline, and exactly one newly authorized
+updater invocation before any host write.
 
 ## Risks / Trade-offs
 
@@ -105,9 +115,9 @@ one newly authorized updater invocation before any host action.
 1. Strict-validate and approve this change with zero P0/P1 findings.
 2. Remove only the unsupported equality and add the exact official regression
    plus retained-gate negative tests.
-3. Audit the diff, create implementation commit A, pin only A in commit B,
-   push, and require exact-head green Development Actions plus one admitted
-   `linux/amd64` artifact.
+3. Audit the diff, create the implementation/pin sequence, correct the sole
+   CI-reported formatting issue directly, and require exact-head green
+   Development Actions plus one admitted `linux/amd64` artifact.
 4. Sync/archive this change and amend the production activation change.
 5. If any source/test/Actions/artifact gate fails, keep B2 private and old
    public traffic unchanged.

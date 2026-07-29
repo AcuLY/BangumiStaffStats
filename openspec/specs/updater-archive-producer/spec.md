@@ -14,6 +14,17 @@ canonical, non-symlink output root and filesystem as `versions/`. One
 development writer per output root SHALL be a caller precondition until the
 deferred operations lock exists.
 
+The latest document SHALL retain its exact field set. The asset name SHALL be
+one canonical `dump-YYYY-MM-DD.HHMMSSZ.zip` and SHALL bind the exact official
+download URL; the positive JSON-safe asset ID SHALL bind the exact official API
+URL; content type, bounded positive size, SHA-256 digest, label, and node ID
+SHALL remain strictly validated. `created_at` and `updated_at` SHALL each be a
+calendar-valid canonical GitHub UTC-seconds timestamp and `updated_at` SHALL
+not precede `created_at`. The canonical timestamp embedded in the dump name
+and GitHub's asset `created_at` SHALL be validated independently; they SHALL
+NOT be required to equal and no inferred skew window SHALL replace either
+field's independent validation.
+
 Acquisition SHALL continue to use direct HTTPS and ignore every generic
 upper/lower-case HTTP, HTTPS, ALL, and NO proxy environment variable when
 `BGMSS_HTTPS_PROXY` is absent. When that dedicated input is present, it SHALL
@@ -34,6 +45,14 @@ SHALL NOT appear in events or errors.
 #### Scenario: Source identity or container is unsafe
 - **WHEN** status/origin/redirect/size/digest/commit/member set differs, a ZIP entry escapes/links/duplicates/exceeds bounds, or cancellation occurs
 - **THEN** the command SHALL return one sanitized stable failure, remove only its staging, and leave no final version
+
+#### Scenario: Official dump and asset timestamps differ
+- **WHEN** every official field and cross-binding is valid while the canonical dump-name timestamp differs from canonical `created_at`
+- **THEN** the latest document SHALL be accepted without changing any later size, digest, origin, ZIP, common, or publication gate
+
+#### Scenario: Independent latest identity is invalid
+- **WHEN** the field set, dump-name grammar, official download/API binding, ID, content type, size, digest, label, node ID, timestamp format/calendar validity, or updated-after-created ordering differs
+- **THEN** acquisition SHALL fail before asset download and publication
 
 #### Scenario: Dedicated proxy is valid
 - **WHEN** `BGMSS_HTTPS_PROXY` is one valid credential-free HTTP proxy URL and the proxy completes CONNECT to an approved HTTPS destination

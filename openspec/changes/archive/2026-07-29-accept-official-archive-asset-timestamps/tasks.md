@@ -1,11 +1,11 @@
 | Field | Declaration |
 |---|---|
-| Status | Apply-ready: strict validation and zero-P0/P1 planning review complete. |
+| Status | Implementation and exact-head artifact accepted; lifecycle handoff in progress. |
 | Owner | Main agent directly owns all repository work under the user's latest no-unnecessary-subagent rule. |
 | Writable paths | This change/archive destination; `updater/src/bangumi_staff_stats_updater/producer/acquisition.py`; `updater/tests/producer/test_acquisition.py`; exact accepted-product literal in `operations/bin/build-bundle.sh`; `openspec/specs/updater-archive-producer/spec.md`; four existing activation proposal/design/spec/tasks artifacts. |
 | Read-only protected inputs | Every other repository path; all external repositories/hosts/artifacts/runtime state. |
 | Deletion complement | No persistent file/dependency; exact existing test-temporary cleanup only. |
-| Mutable refs | Change task state, implementation commit A, artifact-pin commit B, narrow branch push. |
+| Mutable refs | Completed implementation/pin sequence through accepted product `8282996f3f0cb0e2cde2a91ce71d425217ffa9d6` and source `be48847bc26bcda28c9f08f6807f5dec40d479f4`; narrow lifecycle push. |
 | Consumes | Reviewed artifacts, upstream evidence, current code/tests, failed production evidence. |
 | Produces | Accepted focused parser/test correction and replacement artifact. |
 | Dependencies | Approval → implementation → audit/A → pin-only B → Actions/artifact → sync/archive and activation handoff. |
@@ -28,10 +28,10 @@
 ## 3. Main-agent candidate and artifact acceptance
 
 - [x] 3.1 Audit the complete candidate against the delta, require zero P0/P1 findings, strict-valid OpenSpec/all-spec and clean diff/status, then create narrow implementation commit A without changing the accepted-product pin.
-- [ ] 3.2 Change only the accepted-product revision literal to exact A, re-audit the CI guard, create pin-only artifact commit B, push both commits, and require the remote branch to equal B.
-- [ ] 3.3 Require green exact-B Development Actions and admit exactly one replacement `linux/amd64` operations artifact with matching run/source/tree/platform/closed inventory/checksums.
+- [x] 3.2 Pin the implementation, correct the sole Actions-reported Ruff formatting issue directly, pin exact accepted product `8282996f3f0cb0e2cde2a91ce71d425217ffa9d6` in source `be48847bc26bcda28c9f08f6807f5dec40d479f4`, push, and require the remote branch to equal that source.
+- [x] 3.3 Require green exact-source Development Actions run `30449279352` and admit its sole replacement `linux/amd64` artifact `8723283346`, matching source/tree/platform/closed nine-file inventory/eight checksums.
 
 ## 4. Main-agent lifecycle and production handoff
 
-- [ ] 4.1 Sync the delta to the main updater spec, archive this completed change, strict-validate all specs, and amend `activate-single-host-production` with the exact failed UUID/evidence, B2 private baseline, exact replacement artifact/runtime-file inventory, and exactly one newly authorized updater invocation before any host action.
-- [ ] 4.2 Narrowly commit/push only the OpenSpec lifecycle/handoff, require the remote branch to match, and report that host execution remains blocked until the activation amendment is accepted.
+- [x] 4.1 Sync the delta to the main updater spec, archive this completed change, strict-validate all specs, and amend `activate-single-host-production` with the exact failed UUID/evidence, B2 private baseline, exact replacement artifact/runtime-file inventory, and exactly one newly authorized updater invocation before any host action.
+- [x] 4.2 Narrowly commit/push only the OpenSpec lifecycle/handoff, require the remote branch to match, and report that host execution remains blocked until the activation amendment is accepted.

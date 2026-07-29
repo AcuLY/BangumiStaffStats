@@ -1,15 +1,23 @@
 ## Context
 
-The initial product-bearing bundle
-`bd3197d639a32831f3fbcfab698cc387393d2928` is already deployed privately at
+Explicit-proxy source B2
+`016160f7a63d68639a50e226c052fe75d5888f5f` is already deployed privately at
 `/srv/bgmss-v2`; its API/Prometheus/catalog are healthy on loopback. The exact
 legacy loader is stopped while the legacy serving path remains public and
-healthy. Updater attempt `72f6dc91-2738-4388-9f0b-a9d7a3d388c7` failed safely
-with `HTTPS_REQUEST_FAILED`, published no version, and left the minimal fixture
-active. The explicit-proxy implementation is accepted at A2
-`7d2aa05853e55499a35d0afd9f6e4cb2dd3be17a`; replacement artifact source B2
-`016160f7a63d68639a50e226c052fe75d5888f5f` passed both jobs in run
-`30444069918`.
+healthy. Earlier direct updater attempt
+`72f6dc91-2738-4388-9f0b-a9d7a3d388c7` failed safely with
+`HTTPS_REQUEST_FAILED`. Proxy updater run
+`1f1ef640-6ece-4c53-8cf1-2df480746891` then fetched official metadata but
+failed with `ARCHIVE_IDENTITY_INVALID` because the product compared the dump
+filename timestamp with GitHub's independent asset creation timestamp. It
+published no version, left only the minimal fixture active, and left status
+SHA-256
+`156ec67a19d497df8fc62a9e39b5fae46a79356c81483cf9d246e9143703ed46`.
+
+The unsupported comparison is removed in accepted product
+`8282996f3f0cb0e2cde2a91ce71d425217ffa9d6`. Final artifact source
+`be48847bc26bcda28c9f08f6807f5dec40d479f4` passed both jobs in run
+`30449279352`.
 
 The legacy `bgmss` API/MySQL/Redis serving path must remain running; legacy
 loader container
@@ -20,13 +28,13 @@ are excluded from both writable scope and acceptance probes.
 
 | Field | Declaration |
 |---|---|
-| Status | Partial private activation complete; exact proxy-artifact recovery is specified and awaits amended-change validation, review, commit, and push. |
-| Owner | Main agent owns decisions/spec/audit/acceptance. One production-deployment subagent owns the exact remote steps. |
-| Writable paths | Exact repository, replacement local transfer root, and `myserver` paths/objects in the proposal and delta spec, including existing root transactions, new incoming root, three closed runtime definitions, and the Nginx temporary path. |
+| Status | B2 private activation and one safe proxy failure are complete; timestamp-fix artifact deployment, one new updater invocation, and public integration await this amendment's validation/commit/push. |
+| Owner | Main agent directly owns decisions, spec, repository lifecycle, exact remote steps, audit, and acceptance. |
+| Writable paths | Exact repository, replacement local transfer root `/tmp/bgmss-production-artifact-30449279352`, and `myserver` paths/objects in the proposal and delta spec, including existing root transactions, new incoming root, and the Nginx temporary path. Installed operations/proxy definitions remain read-only. |
 | Read-only protected inputs | Product/operations implementation outside the closed inventory; legacy project/root and every field including the exact stopped loader state; proxy/network lifecycle/config; TLS material; unrelated host state; and every undeclared object. |
-| Deletion complement | No protected object and no removal of the existing `bgmss-v2` project/root. Recovery failure restores the historical application/env/operations state; Nginx failure restores the exact backup. |
+| Deletion complement | No protected object and no removal of the existing `bgmss-v2` project/root. Deployment failure restores exact B2 application/env state without altering installed operations/proxy definitions; Nginx failure restores the exact backup. |
 | Mutable refs | OpenSpec/Git lifecycle, runtime refs/project containers only under the existing transaction, exact Nginx active file/backup, and new timer links. |
-| Consumes | Historical private baseline plus exact admitted replacement artifact `8721121158`, existing `proxy-net`/`myserver-proxy:7897`, expanded host, existing TLS vhost, product endpoints, and pinned Prometheus image. |
+| Consumes | Current private B2 baseline plus exact admitted artifact `8723283346`, existing `proxy-net`/`myserver-proxy:7897`, expanded host, existing TLS vhost, product endpoints, and pinned Prometheus image. |
 | Produces | Live new frontend/API, real Archive, metrics/logging/update timer, and exact legacy traffic rollback. |
 | Dependencies | Reboot/capacity gate → artifact gate → private deploy → real Archive → private checks → host templates → Nginx cutover → public/legacy checks. |
 | Deliverables | Proposal deliverables only. |
@@ -60,16 +68,22 @@ No live-host state writes back into repository or product owners.
 ### 1. Upgrade only from exact green Actions artifacts
 
 The initial private deployment used run `30426027299`/artifact `8713954047`.
-Recovery admits only run `30444069918`, artifact `8721121158`, name
-`operations-preview-016160f7a63d68639a50e226c052fe75d5888f5f`, source
-`016160f7a63d68639a50e226c052fe75d5888f5f`, tree
-`d9217a277e587fbc7ab32a477a7b4241bcd77c81`, and `linux/amd64`. It is downloaded
-to `/tmp/bgmss-production-artifact-30444069918`, then transferred only to
-`/srv/bgmss-v2/incoming/run-30444069918`; no local or host rebuild is allowed.
-If identity, closed inventory, or checksums differ, recovery stops.
+The remaining deployment admits only run `30449279352`, artifact
+`8723283346`, name
+`operations-preview-be48847bc26bcda28c9f08f6807f5dec40d479f4`, source
+`be48847bc26bcda28c9f08f6807f5dec40d479f4`, tree
+`52dd582016d40569327c0b87f9fad1cadf5252bb`, size `63282532`, GitHub digest
+`sha256:e7aec802a2f95ece998d369e834813bab1800f0cf9e59e2c63466e9932a32bb0`,
+and `linux/amd64`. It is downloaded to
+`/tmp/bgmss-production-artifact-30449279352`, then transferred only to
+`/srv/bgmss-v2/incoming/run-30449279352`; no local or host rebuild is allowed.
+The extracted bundle has exactly nine files, eight checksum entries, and no
+symlink or AppleDouble entry. If identity, closed inventory, or checksums
+differ, deployment stops.
 
-The bundle intentionally excludes operations definitions. Recovery therefore
-admits only this closed, separately transferred runtime inventory:
+The bundle intentionally excludes operations definitions. B2 already
+installed the following inventory, and the exact bytes are unchanged in the
+new source. This deployment re-verifies but does not replace them:
 
 | Repository path | Git mode / blob | SHA-256 | Host target / mode |
 |---|---|---|---|
@@ -77,17 +91,11 @@ admits only this closed, separately transferred runtime inventory:
 | `operations/lib/common.sh` | `100644` / `0a0a95ab3ecbd98f6c2015e647fdad424626df7d` | `6d0c7df4c98dba7ad0af3756cba9166ae330ae5282a08b5fb9d414ddae249f8a` | `/srv/bgmss-v2/operations/lib/common.sh` / `0444` |
 | `operations/compose.updater-proxy.yaml` | `100644` / `0570c3bc02a9883dd44b8ce7c52a1dd26f009200` | `6a1c65dbe7dee0701a3ad697d3a6b9dccdc89fe6a6e11ff3c62671f79fdc7dfa` | `/srv/bgmss-v2/compose/compose.updater-proxy.yaml` / `0644` |
 
-Existing `deploy` and `common.sh` bytes are copied to an identity-bound rollback
-directory before replacement. A failed candidate restores them and removes
-only the newly introduced overlay.
-
-The historical rollback identity is closed as follows:
-
-| Historical path/state | Git mode / blob at `bd3197d…` | SHA-256 | Host mode |
-|---|---|---|---|
-| `operations/bin/deploy` | `100755` / `b477edc7e6a10eb15f299b93134e4f5f99479176` | `43892f9fde8b06439f5e013c0749f96f40c40a111228f8ac3a155db5d3f5e825` | `0555` |
-| `operations/lib/common.sh` | `100644` / `5183f264cbf99023d955ecfc970602a40bdcede5` | `2d963d890aa0154c9592041f77dd9fb620c739f87d3093cd9ffd7281b9a37320` | `0444` |
-| `operations/compose.updater-proxy.yaml` | absent | absent | absent |
+The exact B2 current/previous env SHA-256 values are
+`f2f63a26d9178e3f9effd6acb8b1ca195056be2050b157bf871386d45c280646`
+and `a74981042693c818b72fe0065128be8ca12a63d630473a643b2f6b12109dc757`.
+Transactional deploy makes B2 the immediate application rollback and does not
+mutate the installed operations inventory.
 
 ### 2. Keep production isolated from the legacy stack
 
@@ -110,8 +118,8 @@ not repair its application error.
 ### 3. Separate private bootstrap from traffic eligibility
 
 The bundle fixture is sufficient to start and verify image/runtime integrity,
-but is not production data. After private deployment, `update` performs the
-first real publication. Cutover requires a non-minimal active version and
+but is not production data. After replacement deployment, `update` performs
+the first real publication. Cutover requires a non-minimal active version and
 agreement across readiness, catalog, API metrics, and Prometheus. Because the
 first `previous.json` can refer to the fixture, the old stack—not
 `rollback-data`—is the admitted production rollback until a later real update
@@ -124,8 +132,9 @@ release env selects mode `proxy`, URL `http://myserver-proxy:7897`, and existing
 external network `proxy-net`; only updater joins it. API and Prometheus remain
 closed. Preflight is limited to read-only proxy/network identity and listener
 inspection plus static Compose projection; it creates no probe container and
-makes no extra acquisition request. The single production updater retry is the
-only live CONNECT/destination-TLS/publication attempt.
+makes no extra acquisition request. After the recorded failed run, this
+amendment authorizes exactly one new production updater invocation as the only
+remaining live CONNECT/destination-TLS/publication attempt.
 
 ### 4. Patch one existing TLS vhost with an exact backup
 
@@ -184,14 +193,18 @@ tracing, alert-routing systems, and custom proof controllers remain absent.
 1. Historical completed steps: strict validation; post-reboot/admission
    preflight; run `30426027299` transfer; private baseline deployment; exact
    legacy-loader stop; and one safe failed updater attempt with no publication.
-2. Strict-validate/review this recovery amendment, synchronize/archive the
-   proxy change, commit/push, and require the remote branch to match.
-3. Re-preflight the exact historical current release, health, stopped loader,
-   free/collision paths, proxy identity/connectivity, and target-byte hashes.
-4. Admit/transfer replacement artifact `8721121158` and the closed three-file
-   operations inventory, preserving prior operations bytes for rollback.
-5. Transactionally deploy B2 with exact proxy URL/network, verify that only
-   updater receives them, then run exactly one updater retry and require one
+2. Completed B2 recovery: proxy OpenSpec lifecycle, artifact transfer,
+   operations installation, transactional B2 deploy, static projection, and
+   one safe failed updater invocation with no publication.
+3. Strict-validate/review the timestamp-fix and this production amendment,
+   archive the product change, commit/push, and require the remote branch to
+   match.
+4. Re-preflight exact B2 current/previous env, failed status, minimal-only
+   data, health, stopped loader, free/collision paths, proxy identity, and
+   installed operations hashes.
+5. Admit/transfer artifact `8723283346`, transactionally deploy source
+   `be48847bc26bcda28c9f08f6807f5dec40d479f4`, verify updater-only projection,
+   then run exactly one newly authorized updater invocation and require one
    non-minimal active Archive with observer agreement.
 6. Install/validate the systemd and logrotate configuration; leave global
    journald unchanged and enable—but do not start—the weekly timer.
