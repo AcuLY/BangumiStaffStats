@@ -35,6 +35,8 @@ const PROCESS_STAT_MAX_BYTES = 64 * 1024;
 const PROCESS_STATUS_MAX_BYTES = 1024 * 1024;
 const PROCESS_CMDLINE_MAX_BYTES = 1024 * 1024;
 const PROCESS_LINK_MAX_BYTES = 16 * 1024;
+const LINUX_ANCESTOR_CHAIN_MAX_DEPTH = 4096;
+const LINUX_PROC_SUPER_MAGIC = 0x9fa0;
 const LINUX_SIGNED_STAT_FIELDS = new Set([
   4, 5, 6, 7, 8, 16, 17, 18, 19, 20, 21, 24, 38, 39, 44, 52,
 ]);
@@ -102,6 +104,35 @@ function defaultProcessInventoryIo(fileSystem) {
   });
 }
 
+function validatedHarnessAnchorIdentity(value, label) {
+  const expectedKeys = ['comm', 'pid', 'startToken', 'userId'];
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Object.keys(value).sort().join('\0') !==
+      [...expectedKeys].sort().join('\0') ||
+    !Number.isSafeInteger(value.pid) ||
+    value.pid <= 0 ||
+    !Number.isSafeInteger(value.userId) ||
+    value.userId < 0 ||
+    typeof value.startToken !== 'string' ||
+    !/^(?:0|[1-9][0-9]*)$/u.test(value.startToken) ||
+    !Number.isSafeInteger(Number(value.startToken)) ||
+    typeof value.comm !== 'string' ||
+    value.comm.length === 0 ||
+    value.comm.length > 4096
+  ) {
+    fail(`${label} is invalid`);
+  }
+  return Object.freeze({
+    comm: value.comm,
+    pid: value.pid,
+    startToken: value.startToken,
+    userId: value.userId,
+  });
+}
+
 function processInventoryRuntime(options = {}) {
   if (
     options === null ||
@@ -115,6 +146,7 @@ function processInventoryRuntime(options = {}) {
     fail(`process inventory platform is unsupported: ${platform}`);
   }
   let currentUserId = null;
+  let currentProcessId = null;
   if (platform === 'linux') {
     currentUserId =
       options.currentUserId === undefined
@@ -126,6 +158,16 @@ function processInventoryRuntime(options = {}) {
     ) {
       fail('process inventory current real UID is invalid');
     }
+    currentProcessId =
+      options.currentProcessId === undefined
+        ? process.pid
+        : options.currentProcessId;
+    if (
+      !Number.isSafeInteger(currentProcessId) ||
+      currentProcessId <= 0
+    ) {
+      fail('process inventory current PID is invalid');
+    }
   }
   const procRoot = options.procRoot ?? '/proc';
   if (
@@ -135,6 +177,51 @@ function processInventoryRuntime(options = {}) {
     procRoot.includes('\0')
   ) {
     fail('process inventory proc root must be an absolute bounded path');
+  }
+  const normalizedProcRoot =
+    path.posix.normalize(procRoot).replace(/\/+$/u, '') || '/';
+  if (
+    platform === 'linux' &&
+    normalizedProcRoot === '/proc' &&
+    currentProcessId !== process.pid
+  ) {
+    fail('canonical Linux process inventory current PID must equal process.pid');
+  }
+  if (
+    platform === 'linux' &&
+    currentProcessId !== process.pid
+  ) {
+    let fileSystemType;
+    try {
+      fileSystemType = Number(fs.statfsSync(normalizedProcRoot).type);
+    } catch (error) {
+      fail(
+        `synthetic Linux process inventory root statfs failed: ${error.message}`,
+      );
+    }
+    if (fileSystemType === LINUX_PROC_SUPER_MAGIC) {
+      fail(
+        'synthetic Linux process inventory current PID override cannot use procfs',
+      );
+    }
+  }
+  let expectedHarnessAnchor = null;
+  if (
+    platform === 'linux' &&
+    options.expectedHarnessAnchor !== undefined
+  ) {
+    expectedHarnessAnchor = validatedHarnessAnchorIdentity(
+      options.expectedHarnessAnchor,
+      'process inventory expected Harness anchor',
+    );
+    if (
+      expectedHarnessAnchor.pid !== currentProcessId ||
+      expectedHarnessAnchor.userId !== currentUserId
+    ) {
+      fail('process inventory expected Harness anchor does not match PID/UID');
+    }
+  } else if (options.expectedHarnessAnchor !== undefined) {
+    fail('process inventory expected Harness anchor is Linux-only');
   }
   const timeoutMs = options.timeoutMs ?? PROCESS_INVENTORY_TIMEOUT_MS;
   if (
@@ -156,11 +243,13 @@ function processInventoryRuntime(options = {}) {
     fail('process inventory spawnSync dependency is invalid');
   }
   return Object.freeze({
+    currentProcessId,
     currentUserId,
+    expectedHarnessAnchor,
     fileSystem,
     io,
     platform,
-    procRoot: procRoot.replace(/\/+$/u, '') || '/',
+    procRoot: normalizedProcRoot,
     spawnProcessSync,
     timeoutMs,
   });
@@ -521,23 +610,49 @@ function isPermissionDeniedError(error) {
   return error?.code === 'EACCES' || error?.code === 'EPERM';
 }
 
-function opaqueLinuxProcessEntry(stat, status, reason) {
+function opaqueLinuxProcessEntry(
+  stat,
+  status,
+  reason,
+  ancestorEvidence = null,
+) {
   if (
     reason !== 'permission-denied' &&
-    reason !== 'kernel-thread'
+    reason !== 'kernel-thread' &&
+    reason !== 'harness-ancestor-permission-denied'
   ) {
     fail(`process ${stat.pid} opaque reason is invalid`);
   }
   if (terminalLinuxProcessState(stat.state)) {
     fail(`process ${stat.pid} terminal evidence cannot become opaque`);
   }
-  if (reason === 'permission-denied') {
+  if (
+    reason === 'permission-denied' ||
+    reason === 'harness-ancestor-permission-denied'
+  ) {
     assertPositiveLinuxProcessGroup(
       stat,
       'permission-denied opaque evidence',
     );
   }
+  const harnessAncestorFields =
+    reason === 'harness-ancestor-permission-denied'
+      ? ancestorEvidence
+      : {};
+  if (
+    reason === 'harness-ancestor-permission-denied' &&
+    (
+      harnessAncestorFields === null ||
+      typeof harnessAncestorFields !== 'object' ||
+      !Array.isArray(harnessAncestorFields.ancestorChain) ||
+      harnessAncestorFields.harnessAnchor === null ||
+      typeof harnessAncestorFields.harnessAnchor !== 'object'
+    )
+  ) {
+    fail(`process ${stat.pid} Harness ancestor evidence is invalid`);
+  }
   return Object.freeze({
+    ...harnessAncestorFields,
     comm: stat.comm,
     kind: 'opaque',
     parentPid: stat.parentPid,
@@ -547,6 +662,192 @@ function opaqueLinuxProcessEntry(stat, status, reason) {
     startToken: stat.startToken,
     state: stat.state,
     userId: status.userId,
+  });
+}
+
+function readStableLinuxAncestorLink(runtime, pid) {
+  const processRoot = path.posix.join(runtime.procRoot, String(pid));
+  try {
+    const statBefore = readLinuxProcessStat(runtime, processRoot, pid);
+    const userId = readLinuxProcessUserId(runtime, processRoot, pid);
+    const statAfter = readLinuxProcessStat(runtime, processRoot, pid);
+    assertSameLinuxProcessGeneration(pid, statBefore, statAfter);
+    if (
+      terminalLinuxProcessState(statBefore.state) ||
+      terminalLinuxProcessState(statAfter.state)
+    ) {
+      fail(`process ${pid} Harness ancestor chain contains terminal evidence`);
+    }
+    if (
+      statBefore.parentPid !== statAfter.parentPid ||
+      statBefore.processGroupId !== statAfter.processGroupId
+    ) {
+      fail(`process ${pid} Harness ancestor relation changed while inventory was read`);
+    }
+    assertPositiveLinuxProcessGroup(
+      statAfter,
+      'Harness ancestor evidence',
+    );
+    return Object.freeze({
+      comm: statAfter.comm,
+      parentPid: statAfter.parentPid,
+      pid,
+      processGroupId: statAfter.processGroupId,
+      startToken: statAfter.startToken,
+      state: statAfter.state,
+      userId,
+    });
+  } catch (error) {
+    if (error instanceof CommandError) throw error;
+    fail(`process ${pid} Harness ancestor chain failed: ${error.message}`);
+  }
+}
+
+function readStableLinuxHarnessAnchor(runtime) {
+  const link = readStableLinuxAncestorLink(
+    runtime,
+    runtime.currentProcessId,
+  );
+  if (link.userId !== runtime.currentUserId) {
+    fail('Harness anchor does not match the current real UID');
+  }
+  return validatedHarnessAnchorIdentity(
+    {
+      comm: link.comm,
+      pid: link.pid,
+      startToken: link.startToken,
+      userId: link.userId,
+    },
+    'Harness anchor identity',
+  );
+}
+
+function assertExpectedLinuxHarnessAnchor(runtime, observed) {
+  const expected = runtime.expectedHarnessAnchor;
+  if (
+    expected !== null &&
+    (
+      observed.pid !== expected.pid ||
+      observed.userId !== expected.userId ||
+      observed.startToken !== expected.startToken ||
+      observed.comm !== expected.comm
+    )
+  ) {
+    fail('Harness anchor identity changed after monitor creation');
+  }
+}
+
+function snapshotLinuxHarnessAncestorChain(runtime) {
+  const started = performance.now();
+  const chain = [];
+  const visited = new Set();
+  let pid = runtime.currentProcessId;
+  for (
+    let depth = 0;
+    depth < LINUX_ANCESTOR_CHAIN_MAX_DEPTH;
+    depth += 1
+  ) {
+    if (performance.now() - started > runtime.timeoutMs) {
+      fail('Harness ancestor chain timed out');
+    }
+    if (visited.has(pid)) {
+      fail(`process ${pid} Harness ancestor chain contains a cycle`);
+    }
+    visited.add(pid);
+    const link = readStableLinuxAncestorLink(runtime, pid);
+    if (performance.now() - started > runtime.timeoutMs) {
+      fail('Harness ancestor chain timed out');
+    }
+    chain.push(link);
+    if (link.parentPid === 0) {
+      return Object.freeze(chain);
+    }
+    pid = link.parentPid;
+  }
+  fail('Harness ancestor chain exceeds the bounded depth');
+}
+
+function sameLinuxAncestorRelation(left, right) {
+  return (
+    left.pid === right.pid &&
+    left.userId === right.userId &&
+    left.startToken === right.startToken &&
+    left.comm === right.comm &&
+    left.parentPid === right.parentPid &&
+    left.processGroupId === right.processGroupId
+  );
+}
+
+function harnessAncestorEvidence(
+  runtime,
+  candidateStat,
+  candidateStatus,
+  beforeChain,
+  afterChain,
+) {
+  if (
+    beforeChain.length !== afterChain.length ||
+    beforeChain.some(
+      (link, index) =>
+        !sameLinuxAncestorRelation(link, afterChain[index]),
+    )
+  ) {
+    fail(
+      `process ${candidateStat.pid} Harness ancestor chain changed while inventory was read`,
+    );
+  }
+  const anchor = afterChain[0];
+  if (
+    anchor?.pid !== runtime.currentProcessId ||
+    anchor.userId !== runtime.currentUserId
+  ) {
+    fail('Harness ancestor chain anchor does not match the current process');
+  }
+  assertExpectedLinuxHarnessAnchor(
+    runtime,
+    validatedHarnessAnchorIdentity(
+      {
+        comm: anchor.comm,
+        pid: anchor.pid,
+        startToken: anchor.startToken,
+        userId: anchor.userId,
+      },
+      'Harness ancestor chain anchor',
+    ),
+  );
+  const candidateMatches = (link) =>
+    link.pid === candidateStat.pid &&
+    link.userId === candidateStatus.userId &&
+    link.startToken === candidateStat.startToken &&
+    link.comm === candidateStat.comm &&
+    link.parentPid === candidateStat.parentPid &&
+    link.processGroupId === candidateStat.processGroupId;
+  const beforeCandidate = beforeChain
+    .slice(1)
+    .find((link) => link.pid === candidateStat.pid);
+  const afterCandidate = afterChain
+    .slice(1)
+    .find((link) => link.pid === candidateStat.pid);
+  if (
+    beforeCandidate === undefined ||
+    afterCandidate === undefined ||
+    !candidateMatches(beforeCandidate) ||
+    !candidateMatches(afterCandidate)
+  ) {
+    fail(
+      `process ${candidateStat.pid} is not a stable strict Harness ancestor`,
+    );
+  }
+  return Object.freeze({
+    ancestorChain: Object.freeze(
+      afterChain.map((link) => Object.freeze({ ...link })),
+    ),
+    harnessAnchor: Object.freeze({
+      comm: anchor.comm,
+      pid: anchor.pid,
+      startToken: anchor.startToken,
+      userId: anchor.userId,
+    }),
   });
 }
 
@@ -746,6 +1047,12 @@ function readLinuxProcessEntry(runtime, pid) {
     } catch (error) {
       evidenceBeforeError = error;
     }
+    const firstAncestorChain =
+      evidenceBeforeError !== null &&
+      isPermissionDeniedError(evidenceBeforeError) &&
+      statusBefore.userId === runtime.currentUserId
+        ? snapshotLinuxHarnessAncestorChain(runtime)
+        : null;
     const middleContinuation = readLinuxLiveContinuation(
       runtime,
       processRoot,
@@ -761,8 +1068,22 @@ function readLinuxProcessEntry(runtime, pid) {
         throw evidenceBeforeError;
       }
       if (middleContinuation.status.userId === runtime.currentUserId) {
-        fail(
-          `process ${pid} permission-denied live evidence belongs to the current real UID`,
+        const ancestorEvidence = harnessAncestorEvidence(
+          runtime,
+          middleContinuation.stat,
+          middleContinuation.status,
+          firstAncestorChain,
+          snapshotLinuxHarnessAncestorChain(runtime),
+        );
+        assertStableLinuxOpaqueRelation(
+          pid,
+          [statBefore, statMiddle, middleContinuation.stat],
+        );
+        return opaqueLinuxProcessEntry(
+          middleContinuation.stat,
+          middleContinuation.status,
+          'harness-ancestor-permission-denied',
+          ancestorEvidence,
         );
       }
       assertStableLinuxOpaqueRelation(
@@ -787,6 +1108,12 @@ function readLinuxProcessEntry(runtime, pid) {
     } catch (error) {
       evidenceAfterError = error;
     }
+    const secondAncestorChain =
+      evidenceAfterError !== null &&
+      isPermissionDeniedError(evidenceAfterError) &&
+      middleContinuation.status.userId === runtime.currentUserId
+        ? snapshotLinuxHarnessAncestorChain(runtime)
+        : null;
     const finalContinuation = readLinuxLiveContinuation(
       runtime,
       processRoot,
@@ -802,8 +1129,27 @@ function readLinuxProcessEntry(runtime, pid) {
         throw evidenceAfterError;
       }
       if (finalContinuation.status.userId === runtime.currentUserId) {
-        fail(
-          `process ${pid} permission-denied live evidence belongs to the current real UID`,
+        const ancestorEvidence = harnessAncestorEvidence(
+          runtime,
+          finalContinuation.stat,
+          finalContinuation.status,
+          secondAncestorChain,
+          snapshotLinuxHarnessAncestorChain(runtime),
+        );
+        assertStableLinuxOpaqueRelation(
+          pid,
+          [
+            statBefore,
+            statMiddle,
+            middleContinuation.stat,
+            finalContinuation.stat,
+          ],
+        );
+        return opaqueLinuxProcessEntry(
+          finalContinuation.stat,
+          finalContinuation.status,
+          'harness-ancestor-permission-denied',
+          ancestorEvidence,
         );
       }
       assertStableLinuxOpaqueRelation(
@@ -896,6 +1242,10 @@ function readTargetedLinuxProcessAfterMapMiss(runtime, pid) {
 
 function snapshotLinuxProcessInventory(runtime) {
   const started = performance.now();
+  if (runtime.expectedHarnessAnchor !== null) {
+    const observedAnchor = readStableLinuxHarnessAnchor(runtime);
+    assertExpectedLinuxHarnessAnchor(runtime, observedAnchor);
+  }
   let directoryEntries;
   try {
     directoryEntries = runtime.io.readDirectory(runtime.procRoot);
@@ -1015,6 +1365,107 @@ export function sameProcessGeneration(left, right) {
   );
 }
 
+function assertHarnessAncestorOpaqueIdentity(entry) {
+  const anchor = entry.harnessAnchor;
+  const anchorKeys = ['comm', 'pid', 'startToken', 'userId'];
+  if (
+    anchor === null ||
+    typeof anchor !== 'object' ||
+    Array.isArray(anchor) ||
+    Object.keys(anchor).sort().join('\0') !==
+      [...anchorKeys].sort().join('\0') ||
+    !Number.isSafeInteger(anchor.pid) ||
+    anchor.pid <= 0 ||
+    !Number.isSafeInteger(anchor.userId) ||
+    anchor.userId < 0 ||
+    typeof anchor.startToken !== 'string' ||
+    !/^(?:0|[1-9][0-9]*)$/u.test(anchor.startToken) ||
+    !Number.isSafeInteger(Number(anchor.startToken)) ||
+    typeof anchor.comm !== 'string' ||
+    anchor.comm.length === 0 ||
+    anchor.comm.length > 4096
+  ) {
+    fail(`process ${entry.pid} Harness ancestor anchor is invalid`);
+  }
+  const chain = entry.ancestorChain;
+  const chainKeys = [
+    'comm',
+    'parentPid',
+    'pid',
+    'processGroupId',
+    'startToken',
+    'state',
+    'userId',
+  ];
+  if (
+    !Array.isArray(chain) ||
+    chain.length < 2 ||
+    chain.length > LINUX_ANCESTOR_CHAIN_MAX_DEPTH
+  ) {
+    fail(`process ${entry.pid} Harness ancestor chain is invalid`);
+  }
+  const visited = new Set();
+  for (const [index, link] of chain.entries()) {
+    if (
+      link === null ||
+      typeof link !== 'object' ||
+      Array.isArray(link) ||
+      Object.keys(link).sort().join('\0') !==
+        [...chainKeys].sort().join('\0') ||
+      !Number.isSafeInteger(link.pid) ||
+      link.pid <= 0 ||
+      visited.has(link.pid) ||
+      !Number.isSafeInteger(link.userId) ||
+      link.userId < 0 ||
+      typeof link.startToken !== 'string' ||
+      !/^(?:0|[1-9][0-9]*)$/u.test(link.startToken) ||
+      !Number.isSafeInteger(Number(link.startToken)) ||
+      typeof link.comm !== 'string' ||
+      link.comm.length === 0 ||
+      link.comm.length > 4096 ||
+      !Number.isSafeInteger(link.parentPid) ||
+      link.parentPid < 0 ||
+      !Number.isSafeInteger(link.processGroupId) ||
+      link.processGroupId <= 0 ||
+      !/^[RSDTtWKPI]$/u.test(link.state)
+    ) {
+      fail(`process ${entry.pid} Harness ancestor chain is invalid`);
+    }
+    visited.add(link.pid);
+    const next = chain[index + 1];
+    if (
+      (next === undefined && link.parentPid !== 0) ||
+      (next !== undefined && link.parentPid !== next.pid)
+    ) {
+      fail(`process ${entry.pid} Harness ancestor chain relation is invalid`);
+    }
+  }
+  const first = chain[0];
+  if (
+    first.pid !== anchor.pid ||
+    first.userId !== anchor.userId ||
+    first.startToken !== anchor.startToken ||
+    first.comm !== anchor.comm
+  ) {
+    fail(`process ${entry.pid} Harness ancestor anchor is not chain-bound`);
+  }
+  const candidate = chain
+    .slice(1)
+    .find((link) => link.pid === entry.pid);
+  if (
+    candidate === undefined ||
+    candidate.userId !== entry.userId ||
+    candidate.userId !== anchor.userId ||
+    candidate.startToken !== entry.startToken ||
+    candidate.comm !== entry.comm ||
+    candidate.parentPid !== entry.parentPid ||
+    candidate.processGroupId !== entry.processGroupId ||
+    !/^[RSDTtWKPI]$/u.test(entry.state)
+  ) {
+    fail(`process ${entry.pid} Harness ancestor candidate is not chain-bound`);
+  }
+}
+
 function processIdentityKey(entry) {
   if (isTerminalProcessEntry(entry)) {
     return [
@@ -1029,14 +1480,24 @@ function processIdentityKey(entry) {
     ].join('\0');
   }
   if (isOpaqueProcessEntry(entry)) {
-    return [
+    const fields = [
       'opaque',
       entry.pid,
       entry.userId,
       entry.startToken,
       entry.comm,
       entry.reason,
-    ].join('\0');
+    ];
+    if (entry.reason === 'harness-ancestor-permission-denied') {
+      assertHarnessAncestorOpaqueIdentity(entry);
+      fields.push(
+        entry.harnessAnchor.pid,
+        entry.harnessAnchor.userId,
+        entry.harnessAnchor.startToken,
+        entry.harnessAnchor.comm,
+      );
+    }
+    return fields.join('\0');
   }
   if (!isLiveProcessEntry(entry)) {
     fail(`process ${entry?.pid ?? 'unknown'} inventory kind is invalid`);
@@ -1562,6 +2023,18 @@ export async function createProcessClosureMonitor(
   processInventoryOptions = {},
 ) {
   const runtime = processInventoryRuntime(processInventoryOptions);
+  let expectedHarnessAnchor = null;
+  if (
+    runtime.platform === 'linux' &&
+    (
+      runtime.procRoot === '/proc' ||
+      processInventoryOptions.currentProcessId !== undefined ||
+      runtime.expectedHarnessAnchor !== null
+    )
+  ) {
+    expectedHarnessAnchor = readStableLinuxHarnessAnchor(runtime);
+    assertExpectedLinuxHarnessAnchor(runtime, expectedHarnessAnchor);
+  }
   const worker = new Worker(
     new URL('./process-closure-worker.mjs', import.meta.url),
     {
@@ -1569,7 +2042,13 @@ export async function createProcessClosureMonitor(
       workerData: {
         processInventoryOptions: {
           ...(runtime.platform === 'linux'
-            ? { currentUserId: runtime.currentUserId }
+            ? {
+                currentProcessId: runtime.currentProcessId,
+                currentUserId: runtime.currentUserId,
+                ...(expectedHarnessAnchor === null
+                  ? {}
+                  : { expectedHarnessAnchor }),
+              }
             : {}),
           platform: runtime.platform,
           procRoot: runtime.procRoot,

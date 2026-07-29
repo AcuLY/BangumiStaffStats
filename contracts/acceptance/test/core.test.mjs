@@ -855,6 +855,379 @@ function linuxProcIo(overrides = {}) {
   };
 }
 
+function writeLinuxHarnessAncestorFixture(
+  procRoot,
+  {
+    anchorPid,
+    candidatePid,
+    cwd,
+    userId,
+  },
+) {
+  const rootPid = candidatePid - 1;
+  const rootProcessRoot = writeLinuxProcProcess(procRoot, {
+    comm: 'fixture chain root',
+    cwd,
+    parentPid: 0,
+    pid: rootPid,
+    processGroupId: 901,
+    startToken: String(rootPid),
+    userId,
+  });
+  const candidateProcessRoot = writeLinuxProcProcess(procRoot, {
+    comm: 'fixture harness ancestor',
+    cwd,
+    parentPid: rootPid,
+    pid: candidatePid,
+    processGroupId: 902,
+    startToken: String(candidatePid),
+    userId,
+  });
+  const anchorProcessRoot = writeLinuxProcProcess(procRoot, {
+    comm: 'fixture harness anchor',
+    cwd,
+    parentPid: candidatePid,
+    pid: anchorPid,
+    processGroupId: 903,
+    startToken: String(anchorPid),
+    userId,
+  });
+  return Object.freeze({
+    anchorPid,
+    anchorProcessRoot,
+    candidatePid,
+    candidateProcessRoot,
+    rootPid,
+    rootProcessRoot,
+  });
+}
+
+function assertHarnessAncestorNegativeCoverage(harnessUserId) {
+  let fixtureIndex = 0;
+  const ancestorFixture = (label) => {
+    const fixtureRoot = fs.mkdtempSync(
+      path.join(
+        os.tmpdir(),
+        `bgmss-linux-ancestor-${label}-${fixtureIndex}-`,
+      ),
+    );
+    fixtureIndex += 1;
+    const procRoot = path.join(fixtureRoot, 'proc');
+    const cwd = path.join(fixtureRoot, 'cwd');
+    const candidatePid = 420_100 + fixtureIndex * 10;
+    const anchorPid = candidatePid + 1;
+    fs.mkdirSync(procRoot, { mode: 0o700 });
+    fs.mkdirSync(cwd, { mode: 0o700 });
+    const chain = writeLinuxHarnessAncestorFixture(procRoot, {
+      anchorPid,
+      candidatePid,
+      cwd,
+      userId: harnessUserId,
+    });
+    return {
+      ...chain,
+      cwd,
+      fixtureRoot,
+      procRoot,
+    };
+  };
+  const rewriteStat = (
+    processRoot,
+    {
+      comm,
+      parentPid,
+      pid,
+      processGroupId,
+      startToken = String(pid),
+      state = 'S',
+    },
+  ) => {
+    fs.writeFileSync(
+      path.join(processRoot, 'stat'),
+      linuxProcessStat({
+        comm,
+        parentPid,
+        pid,
+        processGroupId,
+        startToken,
+        state,
+      }),
+    );
+  };
+  const deniedIo = (state, overrides = {}) => {
+    const base = linuxProcIo();
+    return linuxProcIo({
+      readFile(candidate, maximumBytes) {
+        const overridden = overrides.readFile?.(
+          candidate,
+          maximumBytes,
+          base,
+        );
+        if (overridden !== undefined) return overridden;
+        if (
+          candidate ===
+          path.join(state.candidateProcessRoot, 'cmdline')
+        ) {
+          throw fixtureSystemError(
+            'EACCES',
+            'same-UID Harness relation denied',
+          );
+        }
+        return base.readFile(candidate, maximumBytes);
+      },
+    });
+  };
+  const expectAncestorFailure = (
+    state,
+    pattern,
+    {
+      currentProcessId = state.anchorPid,
+      io = deniedIo(state),
+      timeoutMs = 30_000,
+    } = {},
+  ) => {
+    assert.throws(
+      () =>
+        snapshotHostProcessInventory({
+          currentProcessId,
+          currentUserId: harnessUserId,
+          io,
+          platform: 'linux',
+          procRoot: state.procRoot,
+          timeoutMs,
+          spawnSync() {
+            assert.fail(
+              'Linux ancestor proof invoked an external executable',
+            );
+          },
+        }),
+      pattern,
+    );
+  };
+
+  for (const [label, mutate] of [
+    [
+      'self',
+      (state) => {
+        rewriteStat(state.candidateProcessRoot, {
+          comm: 'fixture harness ancestor',
+          parentPid: 0,
+          pid: state.candidatePid,
+          processGroupId: 902,
+        });
+      },
+    ],
+    [
+      'sibling',
+      (state) => {
+        rewriteStat(state.anchorProcessRoot, {
+          comm: 'fixture harness anchor',
+          parentPid: state.rootPid,
+          pid: state.anchorPid,
+          processGroupId: 903,
+        });
+      },
+    ],
+    [
+      'descendant',
+      (state) => {
+        rewriteStat(state.anchorProcessRoot, {
+          comm: 'fixture harness anchor',
+          parentPid: state.rootPid,
+          pid: state.anchorPid,
+          processGroupId: 903,
+        });
+        rewriteStat(state.candidateProcessRoot, {
+          comm: 'fixture harness ancestor',
+          parentPid: state.anchorPid,
+          pid: state.candidatePid,
+          processGroupId: 902,
+        });
+      },
+    ],
+    [
+      'nonancestor',
+      (state) => {
+        rewriteStat(state.anchorProcessRoot, {
+          comm: 'fixture harness anchor',
+          parentPid: state.rootPid,
+          pid: state.anchorPid,
+          processGroupId: 903,
+        });
+        rewriteStat(state.candidateProcessRoot, {
+          comm: 'fixture harness ancestor',
+          parentPid: 0,
+          pid: state.candidatePid,
+          processGroupId: 902,
+        });
+      },
+    ],
+  ]) {
+    const state = ancestorFixture(label);
+    try {
+      mutate(state);
+      expectAncestorFailure(
+        state,
+        /not a stable strict Harness ancestor/u,
+        {
+          currentProcessId:
+            label === 'self'
+              ? state.candidatePid
+              : state.anchorPid,
+        },
+      );
+    } finally {
+      fs.rmSync(state.fixtureRoot, {
+        recursive: true,
+        force: false,
+      });
+    }
+  }
+
+  const zeroGroup = ancestorFixture('zero-group');
+  try {
+    rewriteStat(zeroGroup.candidateProcessRoot, {
+      comm: 'fixture harness ancestor',
+      parentPid: zeroGroup.rootPid,
+      pid: zeroGroup.candidatePid,
+      processGroupId: 0,
+    });
+    expectAncestorFailure(
+      zeroGroup,
+      /Harness ancestor evidence requires a positive process group/u,
+    );
+  } finally {
+    fs.rmSync(zeroGroup.fixtureRoot, {
+      recursive: true,
+      force: false,
+    });
+  }
+
+  const cycle = ancestorFixture('cycle');
+  try {
+    rewriteStat(cycle.candidateProcessRoot, {
+      comm: 'fixture harness ancestor',
+      parentPid: cycle.anchorPid,
+      pid: cycle.candidatePid,
+      processGroupId: 902,
+    });
+    expectAncestorFailure(cycle, /ancestor chain contains a cycle/u);
+  } finally {
+    fs.rmSync(cycle.fixtureRoot, {
+      recursive: true,
+      force: false,
+    });
+  }
+
+  const missing = ancestorFixture('missing');
+  try {
+    fs.rmSync(missing.rootProcessRoot, {
+      recursive: true,
+      force: false,
+    });
+    expectAncestorFailure(
+      missing,
+      /Harness ancestor chain failed/u,
+    );
+  } finally {
+    fs.rmSync(missing.fixtureRoot, {
+      recursive: true,
+      force: false,
+    });
+  }
+
+  const terminal = ancestorFixture('terminal');
+  try {
+    rewriteStat(terminal.anchorProcessRoot, {
+      comm: 'fixture harness anchor',
+      parentPid: terminal.candidatePid,
+      pid: terminal.anchorPid,
+      processGroupId: 903,
+      state: 'Z',
+    });
+    expectAncestorFailure(
+      terminal,
+      /ancestor chain contains terminal evidence/u,
+    );
+  } finally {
+    fs.rmSync(terminal.fixtureRoot, {
+      recursive: true,
+      force: false,
+    });
+  }
+
+  const drift = ancestorFixture('drift');
+  try {
+    let anchorStatReads = 0;
+    expectAncestorFailure(
+      drift,
+      /Harness ancestor chain changed while inventory was read/u,
+      {
+        io: deniedIo(drift, {
+          readFile(candidate) {
+            if (
+              candidate !==
+              path.join(drift.anchorProcessRoot, 'stat')
+            ) {
+              return undefined;
+            }
+            anchorStatReads += 1;
+            return Buffer.from(
+              linuxProcessStat({
+                comm: 'fixture harness anchor',
+                parentPid: drift.candidatePid,
+                pid: drift.anchorPid,
+                processGroupId: 903,
+                startToken:
+                  anchorStatReads <= 2
+                    ? String(drift.anchorPid)
+                    : String(drift.anchorPid + 1),
+              }),
+            );
+          },
+        }),
+      },
+    );
+    assert.equal(anchorStatReads, 4);
+  } finally {
+    fs.rmSync(drift.fixtureRoot, {
+      recursive: true,
+      force: false,
+    });
+  }
+
+  const timeout = ancestorFixture('timeout');
+  try {
+    let delayed = false;
+    expectAncestorFailure(timeout, /ancestor chain timed out/u, {
+      io: deniedIo(timeout, {
+        readFile(candidate) {
+          if (
+            delayed ||
+            candidate !==
+              path.join(timeout.anchorProcessRoot, 'stat')
+          ) {
+            return undefined;
+          }
+          delayed = true;
+          const started = performance.now();
+          while (performance.now() - started <= 110) {
+            // Deterministically cross the minimum inventory timeout.
+          }
+          return fs.readFileSync(candidate);
+        },
+      }),
+      timeoutMs: 100,
+    });
+    assert.equal(delayed, true);
+  } finally {
+    fs.rmSync(timeout.fixtureRoot, {
+      recursive: true,
+      force: false,
+    });
+  }
+}
+
 function fixtureSystemError(code, message = code) {
   const error = new Error(message);
   error.code = code;
@@ -1968,6 +2341,336 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
       ]);
     }
 
+    const harnessAncestorOpaqueEntries = [];
+    for (const {
+      candidatePid,
+      deniedCode,
+      deniedField,
+      deniedRead,
+      suffix,
+    } of [
+      {
+        candidatePid: 400_051,
+        deniedCode: 'EACCES',
+        deniedField: 'exe',
+        deniedRead: 1,
+        suffix: 'first',
+      },
+      {
+        candidatePid: 400_061,
+        deniedCode: 'EPERM',
+        deniedField: 'cwd',
+        deniedRead: 2,
+        suffix: 'second',
+      },
+      {
+        candidatePid: 400_071,
+        deniedCode: 'EACCES',
+        deniedField: 'cmdline',
+        deniedRead: 1,
+        suffix: 'cmdline',
+      },
+    ]) {
+      const ancestorProcRoot = path.join(
+        fixtureRoot,
+        `proc-harness-ancestor-${suffix}`,
+      );
+      const anchorPid = candidatePid + 1;
+      const ancestorFixture = writeLinuxHarnessAncestorFixture(
+        ancestorProcRoot,
+        {
+          anchorPid,
+          candidatePid,
+          cwd: siblingCwd,
+          userId: harnessUserId,
+        },
+      );
+      const baseIo = linuxProcIo();
+      let candidateStatReads = 0;
+      let deniedReads = 0;
+      const readDeniedField = (candidate, read) => {
+        if (
+          candidate !==
+          path.join(
+            ancestorFixture.candidateProcessRoot,
+            deniedField,
+          )
+        ) {
+          return read();
+        }
+        deniedReads += 1;
+        if (deniedReads === deniedRead) {
+          throw fixtureSystemError(
+            deniedCode,
+            `${suffix} Harness ancestor field denied`,
+          );
+        }
+        return read();
+      };
+      const ancestorOptions = {
+        currentProcessId: anchorPid,
+        currentUserId: harnessUserId,
+        io: linuxProcIo({
+          readFile(candidate, maximumBytes) {
+            if (
+              candidate ===
+              path.join(
+                ancestorFixture.candidateProcessRoot,
+                'stat',
+              )
+            ) {
+              const state = ['R', 'S', 'D', 'I'][
+                candidateStatReads % 4
+              ];
+              candidateStatReads += 1;
+              return Buffer.from(
+                linuxProcessStat({
+                  comm: 'fixture harness ancestor',
+                  parentPid: ancestorFixture.rootPid,
+                  pid: candidatePid,
+                  processGroupId: 902,
+                  startToken: String(candidatePid),
+                  state,
+                }),
+              );
+            }
+            if (deniedField === 'cmdline') {
+              return readDeniedField(
+                candidate,
+                () => baseIo.readFile(candidate, maximumBytes),
+              );
+            }
+            return baseIo.readFile(candidate, maximumBytes);
+          },
+          readLink(candidate) {
+            if (deniedField === 'exe' || deniedField === 'cwd') {
+              return readDeniedField(
+                candidate,
+                () => baseIo.readLink(candidate),
+              );
+            }
+            return baseIo.readLink(candidate);
+          },
+        }),
+        platform: 'linux',
+        procRoot: ancestorProcRoot,
+        spawnSync: forbidExternalInventory,
+      };
+      const ancestorInventory =
+        snapshotHostProcessInventory(ancestorOptions);
+      const ancestorEntry = ancestorInventory.entries.find(
+        (entry) => entry.pid === candidatePid,
+      );
+      assert.equal(deniedReads, deniedRead);
+      assert.equal(ancestorEntry.kind, 'opaque');
+      assert.equal(
+        ancestorEntry.reason,
+        'harness-ancestor-permission-denied',
+      );
+      assert.deepEqual(ancestorEntry.harnessAnchor, {
+        comm: 'fixture harness anchor',
+        pid: anchorPid,
+        startToken: String(anchorPid),
+        userId: harnessUserId,
+      });
+      assert.deepEqual(
+        ancestorEntry.ancestorChain.map((entry) => entry.pid),
+        [
+          anchorPid,
+          candidatePid,
+          ancestorFixture.rootPid,
+        ],
+      );
+      assert.equal(
+        ancestorEntry.ancestorChain.every(
+          (entry) => !['Z', 'X', 'x'].includes(entry.state),
+        ),
+        true,
+      );
+      assert.equal('argv' in ancestorEntry, false);
+      assert.equal('command' in ancestorEntry, false);
+      assert.equal('cwd' in ancestorEntry, false);
+      assert.equal(
+        ancestorInventory.digest,
+        canonicalJsonDigest(ancestorInventory.entries),
+      );
+      const rescheduledChainEntry = Object.freeze({
+        ...ancestorEntry,
+        ancestorChain: Object.freeze(
+          ancestorEntry.ancestorChain.map((entry, index) =>
+            Object.freeze({
+              ...entry,
+              state:
+                index === 0 && entry.state === 'R' ? 'S' : 'R',
+            }),
+          ),
+        ),
+      });
+      const rescheduledEntries = ancestorInventory.entries.map(
+        (entry) =>
+          entry.pid === candidatePid ? rescheduledChainEntry : entry,
+      );
+      const rescheduledInventory = Object.freeze({
+        digest: canonicalJsonDigest(rescheduledEntries),
+        entries: Object.freeze(rescheduledEntries),
+      });
+      assert.notEqual(
+        rescheduledInventory.digest,
+        ancestorInventory.digest,
+      );
+      assert.deepEqual(
+        newHostProcesses(ancestorInventory, rescheduledInventory),
+        [],
+      );
+      const changedAnchorEntry = Object.freeze({
+        ...ancestorEntry,
+        ancestorChain: Object.freeze(
+          ancestorEntry.ancestorChain.map((entry, index) =>
+            index === 0
+              ? Object.freeze({
+                  ...entry,
+                  comm: 'replacement harness anchor',
+                })
+              : entry,
+          ),
+        ),
+        harnessAnchor: Object.freeze({
+          ...ancestorEntry.harnessAnchor,
+          comm: 'replacement harness anchor',
+        }),
+      });
+      const changedAnchorEntries = ancestorInventory.entries.map(
+        (entry) =>
+          entry.pid === candidatePid ? changedAnchorEntry : entry,
+      );
+      assert.deepEqual(
+        newHostProcesses(
+          ancestorInventory,
+          {
+            digest: canonicalJsonDigest(changedAnchorEntries),
+            entries: changedAnchorEntries,
+          },
+        ),
+        [changedAnchorEntry],
+      );
+      for (const forgedEntry of [
+        {
+          ...ancestorEntry,
+          harnessAnchor: undefined,
+        },
+        {
+          ...ancestorEntry,
+          ancestorChain: [],
+        },
+        {
+          ...ancestorEntry,
+          harnessAnchor: {
+            ...ancestorEntry.harnessAnchor,
+            extra: true,
+          },
+        },
+      ]) {
+        assert.throws(
+          () =>
+            newHostProcesses(
+              ancestorInventory,
+              {
+                digest: 'forged',
+                entries: [forgedEntry],
+              },
+            ),
+          /Harness ancestor (?:anchor|chain) is invalid/u,
+        );
+      }
+      for (const forgedEntry of [
+        {
+          ...ancestorEntry,
+          ancestorChain: ancestorEntry.ancestorChain.map((entry) =>
+            entry.pid === ancestorEntry.pid
+              ? {
+                  ...entry,
+                  userId: entry.userId + 1,
+                }
+              : entry,
+          ),
+          userId: ancestorEntry.userId + 1,
+        },
+        {
+          ...ancestorEntry,
+          state: 'Z',
+        },
+      ]) {
+        assert.throws(
+          () =>
+            newHostProcesses(
+              ancestorInventory,
+              {
+                digest: 'forged',
+                entries: [forgedEntry],
+              },
+            ),
+          /Harness ancestor candidate is not chain-bound/u,
+        );
+      }
+      deniedReads = 0;
+      assert.deepEqual(
+        snapshotOwnedCwdProcesses(ownedRoot, ancestorOptions),
+        [],
+      );
+      harnessAncestorOpaqueEntries.push(ancestorEntry);
+    }
+
+    for (const canonicalProcRoot of [
+      '/proc',
+      '/proc/',
+      '/proc//',
+      '/proc/.',
+      '/proc/../proc',
+    ]) {
+      assert.throws(
+        () =>
+          snapshotHostProcessInventory({
+            currentProcessId: process.pid + 1,
+            currentUserId: harnessUserId,
+            platform: 'linux',
+            procRoot: canonicalProcRoot,
+            spawnSync: forbidExternalInventory,
+          }),
+        /current PID must equal process.pid/u,
+      );
+    }
+    if (process.platform === 'linux') {
+      const procfsAlias = path.join(fixtureRoot, 'procfs-alias');
+      fs.symlinkSync('/proc', procfsAlias);
+      try {
+        assert.throws(
+          () =>
+            snapshotHostProcessInventory({
+              currentProcessId: process.pid + 1,
+              currentUserId: harnessUserId,
+              platform: 'linux',
+              procRoot: procfsAlias,
+              spawnSync: forbidExternalInventory,
+            }),
+          /current PID override cannot use procfs/u,
+        );
+      } finally {
+        fs.rmSync(procfsAlias);
+      }
+    }
+    assert.throws(
+      () =>
+        snapshotHostProcessInventory({
+          currentProcessId: 0,
+          currentUserId: harnessUserId,
+          platform: 'linux',
+          procRoot: path.join(fixtureRoot, 'synthetic-invalid-anchor'),
+          spawnSync: forbidExternalInventory,
+      }),
+      /current PID is invalid/u,
+    );
+    assertHarnessAncestorNegativeCoverage(harnessUserId);
+
     assert.deepEqual(
       snapshotOwnedCwdProcesses(ownedRoot, opaqueCwdOptions),
       [],
@@ -2049,6 +2752,62 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
       exactParentOpaqueLedger.get(exactParentOpaque.pid)
         ?.ambiguousOwnedOpaque,
       true,
+    );
+    const harnessAncestorOpaque = harnessAncestorOpaqueEntries[0];
+    const unrelatedHarnessAncestorLedger = new Map();
+    reconcileProcessClosure(
+      unrelatedHarnessAncestorLedger,
+      owned.processGroupId,
+      [harnessAncestorOpaque],
+    );
+    assert.equal(unrelatedHarnessAncestorLedger.size, 0);
+    const retainedHarnessAncestorLedger = new Map([
+      [
+        harnessAncestorOpaque.pid,
+        Object.freeze({
+          ...owned,
+          comm: harnessAncestorOpaque.comm,
+          pid: harnessAncestorOpaque.pid,
+          processGroupId: harnessAncestorOpaque.processGroupId,
+          startToken: harnessAncestorOpaque.startToken,
+          userId: harnessAncestorOpaque.userId,
+        }),
+      ],
+    ]);
+    assert.throws(
+      () =>
+        reconcileProcessClosure(
+          retainedHarnessAncestorLedger,
+          owned.processGroupId,
+          [harnessAncestorOpaque],
+        ),
+      /became opaque in the owned closure/u,
+    );
+    const targetHarnessAncestorLedger = new Map();
+    assert.throws(
+      () =>
+        reconcileProcessClosure(
+          targetHarnessAncestorLedger,
+          harnessAncestorOpaque.processGroupId,
+          [harnessAncestorOpaque],
+        ),
+      /owned opaque evidence/u,
+    );
+    const childHarnessAncestorLedger = new Map([[owned.pid, owned]]);
+    assert.throws(
+      () =>
+        reconcileProcessClosure(
+          childHarnessAncestorLedger,
+          owned.processGroupId,
+          [
+            owned,
+            {
+              ...harnessAncestorOpaque,
+              parentPid: owned.pid,
+            },
+          ],
+        ),
+      /owned opaque evidence/u,
     );
 
     const kernelProcRoot = path.join(fixtureRoot, 'proc-opaque-kthread');
@@ -2643,10 +3402,18 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
         procRoot: failureProcRoot,
       });
     };
-    const expectOpaqueFailure = (state, io, pattern) => {
+    const expectOpaqueFailure = (
+      state,
+      io,
+      pattern,
+      currentProcessId = undefined,
+    ) => {
       assert.throws(
         () =>
           snapshotHostProcessInventory({
+            ...(currentProcessId === undefined
+              ? {}
+              : { currentProcessId }),
             currentUserId: harnessUserId,
             io,
             platform: 'linux',
@@ -2673,7 +3440,7 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
       {
         code: 'EACCES',
         label: 'same-uid',
-        pattern: /permission-denied live evidence belongs to the current real UID/u,
+        pattern: /not a stable strict Harness ancestor/u,
         userId: harnessUserId,
       },
       {
@@ -2691,6 +3458,17 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
         path.join(state.processRoot, 'status'),
         statusText(userId),
       );
+      if (label === 'same-uid') {
+        fs.writeFileSync(
+          path.join(state.processRoot, 'stat'),
+          linuxProcessStat({
+            parentPid: 0,
+            pid: state.pid,
+            processGroupId: 814,
+            startToken: String(state.pid),
+          }),
+        );
+      }
       const baseIo = linuxProcIo();
       expectOpaqueFailure(
         state,
@@ -2706,6 +3484,7 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
           },
         }),
         pattern,
+        label === 'same-uid' ? state.pid : undefined,
       );
     }
 
@@ -2968,6 +3747,99 @@ test('Linux process inventory uses only bounded procfs evidence and exact argv/c
     );
     for (const liveOnlyField of ['cmdline', 'exe', 'cwd']) {
       fs.rmSync(path.join(workerOpaqueRoot, liveOnlyField));
+    }
+
+    const workerAncestorFixture =
+      writeLinuxHarnessAncestorFixture(procRoot, {
+        anchorPid: 400_082,
+        candidatePid: 400_081,
+        cwd: siblingCwd,
+        userId: harnessUserId,
+      });
+    const workerDeniedPath = path.join(
+      workerAncestorFixture.candidateProcessRoot,
+      'cmdline',
+    );
+    let workerAncestorMonitor = null;
+    fs.chmodSync(workerDeniedPath, 0o000);
+    try {
+      workerAncestorMonitor = await createProcessClosureMonitor({
+        ...options,
+        currentProcessId: workerAncestorFixture.anchorPid,
+        currentUserId: harnessUserId,
+      });
+      await assert.rejects(
+        startProcessClosureMonitor(
+          workerAncestorMonitor,
+          902,
+        ),
+        /owned opaque evidence/u,
+      );
+      await assert.rejects(
+        stopProcessClosureMonitor(workerAncestorMonitor),
+        /owned opaque evidence/u,
+      );
+      workerAncestorMonitor = null;
+    } finally {
+      if (workerAncestorMonitor !== null) {
+        await stopProcessClosureMonitor(workerAncestorMonitor).catch(
+          () => {},
+        );
+      }
+      fs.chmodSync(workerDeniedPath, 0o600);
+    }
+    const workerAnchorStat = path.join(
+      workerAncestorFixture.anchorProcessRoot,
+      'stat',
+    );
+    const restoreWorkerAnchor = () => {
+      fs.writeFileSync(
+        workerAnchorStat,
+        linuxProcessStat({
+          comm: 'fixture harness anchor',
+          parentPid: workerAncestorFixture.candidatePid,
+          pid: workerAncestorFixture.anchorPid,
+          processGroupId: 903,
+          startToken: String(workerAncestorFixture.anchorPid),
+        }),
+      );
+    };
+    for (const changedAnchor of [
+      {
+        comm: 'fixture harness anchor',
+        startToken: String(workerAncestorFixture.anchorPid + 1),
+      },
+      {
+        comm: 'replacement harness anchor',
+        startToken: String(workerAncestorFixture.anchorPid),
+      },
+    ]) {
+      const driftMonitor = await createProcessClosureMonitor({
+        ...options,
+        currentProcessId: workerAncestorFixture.anchorPid,
+        currentUserId: harnessUserId,
+      });
+      fs.writeFileSync(
+        workerAnchorStat,
+        linuxProcessStat({
+          ...changedAnchor,
+          parentPid: workerAncestorFixture.candidatePid,
+          pid: workerAncestorFixture.anchorPid,
+          processGroupId: 903,
+        }),
+      );
+      try {
+        await assert.rejects(
+          startProcessClosureMonitor(driftMonitor, 990),
+          /Harness anchor identity changed after monitor creation/u,
+        );
+      } finally {
+        restoreWorkerAnchor();
+        await assert.rejects(
+          stopProcessClosureMonitor(driftMonitor),
+          /Harness anchor identity changed after monitor creation/u,
+        );
+      }
     }
 
     const parityMonitor = await createProcessClosureMonitor(options);
@@ -3460,11 +4332,15 @@ test('Linux process inventory fails closed on malformed, raced, or inaccessible 
     io,
     pattern,
     currentUserId = undefined,
+    currentProcessId = undefined,
   ) => {
     assert.throws(
       () =>
         snapshotHostProcessInventory({
           ...(currentUserId === undefined ? {} : { currentUserId }),
+          ...(currentProcessId === undefined
+            ? {}
+            : { currentProcessId }),
           io,
           platform: 'linux',
           procRoot: state.procRoot,
@@ -3611,7 +4487,7 @@ test('Linux process inventory fails closed on malformed, raced, or inaccessible 
       {
         code: 'EACCES',
         message: 'same UID denied',
-        pattern: /permission-denied live evidence belongs to the current real UID/u,
+        pattern: /not a stable strict Harness ancestor/u,
         userId: harnessUserId,
       },
       {
@@ -3620,6 +4496,12 @@ test('Linux process inventory fails closed on malformed, raced, or inaccessible 
         pattern: /inventory failed: unclassified command failure/u,
         userId: unrelatedUserId,
       },
+      {
+        code: 'EIO',
+        message: 'same UID non-permission failure',
+        pattern: /inventory failed: same UID non-permission failure/u,
+        userId: harnessUserId,
+      },
     ]) {
       const state = fixture();
       try {
@@ -3627,6 +4509,17 @@ test('Linux process inventory fails closed on malformed, raced, or inaccessible 
           path.join(state.processRoot, 'status'),
           `Name:\tfixture\nUid:\t${userId}\t${userId}\t${userId}\t${userId}\n`,
         );
+        if (userId === harnessUserId) {
+          fs.writeFileSync(
+            path.join(state.processRoot, 'stat'),
+            linuxProcessStat({
+              parentPid: 0,
+              pid: state.pid,
+              processGroupId: 710,
+              startToken: '7001',
+            }),
+          );
+        }
         const base = linuxProcIo();
         expectFailure(
           state,
@@ -3640,6 +4533,7 @@ test('Linux process inventory fails closed on malformed, raced, or inaccessible 
           }),
           pattern,
           harnessUserId,
+          userId === harnessUserId ? state.pid : undefined,
         );
       } finally {
         fs.rmSync(state.fixtureRoot, { recursive: true, force: false });
@@ -4780,6 +5674,124 @@ test('owned Linux cleanup rejects PID reuse or argv drift before signaling', asy
       /lacks a complete signal identity/u,
     );
     assert.equal(rejectedInputInventoryReads, 0);
+    assert.deepEqual(signals, []);
+
+    const cleanupAncestorFixture =
+      writeLinuxHarnessAncestorFixture(procRoot, {
+        anchorPid: 420_012,
+        candidatePid: 420_011,
+        cwd,
+        userId: cleanupHarnessUserId,
+      });
+    const cleanupAncestorExpected =
+      snapshotHostProcessInventory({
+        currentProcessId: cleanupAncestorFixture.anchorPid,
+        currentUserId: cleanupHarnessUserId,
+        platform: 'linux',
+        procRoot,
+      }).entries.find(
+        (entry) =>
+          entry.pid === cleanupAncestorFixture.candidatePid,
+      );
+    let cleanupAncestorDeniedReads = 0;
+    let cleanupAncestorTargetedChecks = 0;
+    const cleanupAncestorIo = (hideFromListing) =>
+      linuxProcIo({
+        lstat(candidate) {
+          if (
+            candidate ===
+            cleanupAncestorFixture.candidateProcessRoot
+          ) {
+            cleanupAncestorTargetedChecks += 1;
+          }
+          return cleanupBaseIo.lstat(candidate);
+        },
+        readDirectory(directory) {
+          const entries = cleanupBaseIo.readDirectory(directory);
+          return hideFromListing
+            ? entries.filter(
+                (entry) =>
+                  entry.name !==
+                  String(cleanupAncestorFixture.candidatePid),
+              )
+            : entries;
+        },
+        readFile(candidate, maximumBytes) {
+          if (
+            candidate ===
+            path.join(
+              cleanupAncestorFixture.candidateProcessRoot,
+              'cmdline',
+            )
+          ) {
+            cleanupAncestorDeniedReads += 1;
+            throw fixtureSystemError(
+              'EACCES',
+              'cleanup Harness ancestor became opaque',
+            );
+          }
+          return cleanupBaseIo.readFile(candidate, maximumBytes);
+        },
+      });
+    for (const hideFromListing of [false, true]) {
+      signals.length = 0;
+      await assert.rejects(
+        terminateOwnedProcesses([cleanupAncestorExpected], 50, {
+          inventoryOptions: {
+            currentProcessId: cleanupAncestorFixture.anchorPid,
+            currentUserId: cleanupHarnessUserId,
+            io: cleanupAncestorIo(hideFromListing),
+            platform: 'linux',
+            procRoot,
+          },
+          killProcess(...args) {
+            signals.push(args);
+          },
+        }),
+        /opaque evidence/u,
+      );
+      assert.deepEqual(signals, []);
+    }
+    assert.ok(cleanupAncestorTargetedChecks >= 1);
+    const cleanupAncestorOpaque =
+      snapshotHostProcessInventory({
+        currentProcessId: cleanupAncestorFixture.anchorPid,
+        currentUserId: cleanupHarnessUserId,
+        io: cleanupAncestorIo(false),
+        platform: 'linux',
+        procRoot,
+      }).entries.find(
+        (entry) =>
+          entry.pid === cleanupAncestorFixture.candidatePid,
+      );
+    assert.equal(
+      cleanupAncestorOpaque.reason,
+      'harness-ancestor-permission-denied',
+    );
+    let rejectedAncestorInputReads = 0;
+    signals.length = 0;
+    await assert.rejects(
+      terminateOwnedProcesses([cleanupAncestorOpaque], 50, {
+        inventoryOptions: {
+          currentProcessId: cleanupAncestorFixture.anchorPid,
+          currentUserId: cleanupHarnessUserId,
+          io: linuxProcIo({
+            readDirectory(directory) {
+              rejectedAncestorInputReads += 1;
+              return cleanupBaseIo.readDirectory(directory);
+            },
+          }),
+          platform: 'linux',
+          procRoot,
+        },
+        killProcess(...args) {
+          signals.push(args);
+        },
+      }),
+      /lacks a complete signal identity/u,
+    );
+    assert.equal(rejectedAncestorInputReads, 0);
+    assert.ok(cleanupAncestorDeniedReads >= 3);
     assert.deepEqual(signals, []);
 
     const zeroCleanupPid = 420_004;
