@@ -387,7 +387,6 @@ def parse_latest(data: bytes) -> LatestAsset:
         or created is None
         or updated is None
         or updated < created
-        or name != f"dump-{created.strftime('%Y-%m-%d.%H%M%SZ')}.zip"
     ):
         raise ProducerError("ARCHIVE_IDENTITY_INVALID")
     return LatestAsset(name.removesuffix(".zip"), url, name, size, digest)

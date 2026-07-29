@@ -75,6 +75,25 @@ def _latest(archive: bytes) -> bytes:
     ).encode()
 
 
+def _official_latest_document() -> dict[str, object]:
+    return {
+        "browser_download_url": (
+            "https://github.com/bangumi/Archive/releases/download/archive/"
+            "dump-2026-07-28.210449Z.zip"
+        ),
+        "content_type": "application/zip",
+        "created_at": "2026-07-28T21:04:50Z",
+        "digest": "sha256:d979b9874517895d6353c031ef2970da0f2adc57b764889c20798aafa5a767a3",
+        "id": 493197766,
+        "label": "",
+        "name": "dump-2026-07-28.210449Z.zip",
+        "node_id": "RA_kwDOGogJqs4dZZnG",
+        "size": 426535344,
+        "updated_at": "2026-07-28T21:05:06Z",
+        "url": "https://api.github.com/repos/bangumi/Archive/releases/assets/493197766",
+    }
+
+
 class _Client:
     def __init__(self, archive: bytes, common: bytes) -> None:
         self.archive = archive
@@ -315,6 +334,28 @@ def test_latest_document_resolves_exact_official_asset() -> None:
     assert value.digest == _digest(archive)
 
 
+def test_latest_document_accepts_independent_official_asset_timestamps() -> None:
+    document = _official_latest_document()
+    value = parse_latest(json.dumps(document).encode())
+    assert value.release == "dump-2026-07-28.210449Z"
+    assert value.name == "dump-2026-07-28.210449Z.zip"
+    assert value.size == 426535344
+    assert value.digest == (
+        "sha256:d979b9874517895d6353c031ef2970da0f2adc57b764889c20798aafa5a767a3"
+    )
+
+
+def test_latest_document_does_not_invent_a_timestamp_skew_window() -> None:
+    document = _official_latest_document()
+    document["name"] = "dump-2020-01-02.030405Z.zip"
+    document["browser_download_url"] = (
+        "https://github.com/bangumi/Archive/releases/download/archive/"
+        "dump-2020-01-02.030405Z.zip"
+    )
+    value = parse_latest(json.dumps(document).encode())
+    assert value.release == "dump-2020-01-02.030405Z"
+
+
 def test_latest_document_rejects_unknown_or_cross_origin_fields() -> None:
     archive = _zip_bytes(_members())
     document = json.loads(_latest(archive))
@@ -327,7 +368,38 @@ def test_latest_document_rejects_unknown_or_cross_origin_fields() -> None:
         parse_latest(json.dumps(document).encode())
 
 
-def test_latest_document_rejects_duplicate_or_inconsistent_identity() -> None:
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("name", "dump-2026-07-27.210449Z.zip"),
+        (
+            "browser_download_url",
+            "https://github.com/bangumi/Archive/releases/download/archive/"
+            "dump-2026-07-27.210449Z.zip",
+        ),
+        ("content_type", "application/octet-stream"),
+        ("digest", "sha256:not-a-digest"),
+        ("id", 0),
+        ("label", "x" * 256),
+        ("node_id", ""),
+        ("size", 0),
+        ("created_at", "2026-02-30T21:04:50Z"),
+        ("updated_at", "2026-07-28T21:04:49Z"),
+        ("updated_at", "2026-07-28T21:05:06.000Z"),
+        ("url", "https://api.github.com/repos/bangumi/Archive/releases/assets/493197767"),
+    ],
+)
+def test_latest_document_rejects_each_retained_identity_gate(
+    field: str,
+    value: object,
+) -> None:
+    document = _official_latest_document()
+    document[field] = value
+    with pytest.raises(ProducerError, match="ARCHIVE_IDENTITY_INVALID"):
+        parse_latest(json.dumps(document).encode())
+
+
+def test_latest_document_rejects_duplicate_identity() -> None:
     archive = _zip_bytes(_members())
     duplicate = _latest(archive).replace(
         b'"name":',
@@ -336,11 +408,6 @@ def test_latest_document_rejects_duplicate_or_inconsistent_identity() -> None:
     )
     with pytest.raises(ProducerError, match="ARCHIVE_LATEST_INVALID"):
         parse_latest(duplicate)
-
-    document = json.loads(_latest(archive))
-    document["created_at"] = "2026-07-21T21:04:42Z"
-    with pytest.raises(ProducerError, match="ARCHIVE_IDENTITY_INVALID"):
-        parse_latest(json.dumps(document).encode())
 
 
 def test_zip_inventory_extracts_only_exact_required_sources(tmp_path: Path) -> None:
