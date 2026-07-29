@@ -1,0 +1,19 @@
+[Unit]
+Description=Bangumi Staff Stats weekly Archive update
+Wants=network-online.target
+After=network-online.target docker.service
+ConditionPathIsDirectory=/srv/bgmss-v2
+
+[Service]
+Type=oneshot
+ExecStart=/srv/bgmss-v2/operations/bin/update --root /srv/bgmss-v2
+TimeoutStartSec=6h
+Nice=10
+IOSchedulingClass=idle
+CPUWeight=20
+MemoryMax=1280M
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/bgmss-v2

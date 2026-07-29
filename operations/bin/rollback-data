@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+IFS=$'\n\t'
+
+script_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=../lib/common.sh
+source "$script_root/../lib/common.sh"
+
+[[ $# -eq 2 && "$1" == --root ]] || die "usage: rollback-data --root ABS"
+root=$2
+for command in curl docker flock jq realpath; do require_command "$command"; done
+require_root_user
+require_root_layout "$root"
+acquire_state_lock "$root"
+[[ -f "$root/data/current.json" && -f "$root/data/previous.json" ]] ||
+  die "both current and previous data pointers are required"
+current=$(mktemp "$root/data/.rollback-current.XXXXXX")
+previous=$(mktemp "$root/data/.rollback-previous.XXXXXX")
+cp --preserve=mode,ownership -- "$root/data/current.json" "$current"
+cp --preserve=mode,ownership -- "$root/data/previous.json" "$previous"
+current_version=$(pointer_data_version "$current")
+previous_version=$(pointer_data_version "$previous")
+
+restore_data() {
+  local failed=$?
+  trap - ERR
+  atomic_copy "$current" "$root/data/current.json"
+  if ! restart_and_wait "$root" "$current_version"; then
+    die "data rollback failed and original data did not recover"
+  fi
+  exit "$failed"
+}
+trap restore_data ERR
+atomic_copy "$previous" "$root/data/current.json"
+restart_and_wait "$root" "$previous_version"
+atomic_copy "$current" "$root/data/previous.json"
+trap - ERR
+rm -f -- "$current" "$previous"
+log "data rollback completed; application env and frontend were unchanged"

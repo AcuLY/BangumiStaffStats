@@ -1,0 +1,125 @@
+name: ${COMPOSE_PROJECT_NAME}
+
+services:
+  api:
+    image: ${BGMSS_API_IMAGE}
+    command:
+      - -archive-root
+      - /var/lib/bgmss/archive
+      - -listen-address
+      - 0.0.0.0:8080
+      - -update-status
+      - /var/lib/bgmss/archive/update-status.json
+    user: "65532:65532"
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${BGMSS_API_PORT}:8080"
+    volumes:
+      - type: bind
+        source: ${BGMSS_ROOT}/data
+        target: /var/lib/bgmss/archive
+        read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    cpus: ${BGMSS_API_CPUS:-1.50}
+    mem_limit: ${BGMSS_API_MEM_LIMIT:-1536m}
+    pids_limit: ${BGMSS_API_PIDS_LIMIT:-256}
+    environment:
+      GOMEMLIMIT: ${BGMSS_API_GOMEMLIMIT:-1024MiB}
+    logging:
+      driver: journald
+      options:
+        tag: "bgmss/{{.Name}}"
+    networks: [backend]
+
+  updater:
+    image: ${BGMSS_UPDATER_IMAGE}
+    command:
+      - produce
+      - --output-root
+      - /var/lib/bgmss/archive
+      - --contracts-root
+      - /opt/bgmss/producer/contracts
+      - --catalog-config
+      - /opt/bgmss/producer/catalog/display-v1.yaml
+      - --common-commit
+      - 6a8442c17143a870357a5ff812362e8b5cfe9f9d
+      - --archive-smoke
+      - /opt/bgmss/bin/archive-smoke
+      - --status-file
+      - /var/lib/bgmss/archive/update-status.json
+    user: "65532:65532"
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+    volumes:
+      - type: bind
+        source: ${BGMSS_ROOT}/data
+        target: /var/lib/bgmss/archive
+      - type: bind
+        source: ${BGMSS_ROOT}/current-tools/archive-smoke
+        target: /opt/bgmss/bin/archive-smoke
+        read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=256m,mode=1777
+    cpus: ${BGMSS_UPDATER_CPUS:-1.00}
+    mem_limit: ${BGMSS_UPDATER_MEM_LIMIT:-1024m}
+    pids_limit: ${BGMSS_UPDATER_PIDS_LIMIT:-256}
+    logging:
+      driver: journald
+      options:
+        tag: "bgmss/{{.Name}}"
+    networks: [backend]
+
+  prometheus:
+    image: ${BGMSS_PROMETHEUS_IMAGE}
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --storage.tsdb.retention.size=512MB
+      - --web.listen-address=0.0.0.0:9090
+      - --web.enable-lifecycle=false
+    user: "65532:65532"
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${BGMSS_PROMETHEUS_PORT}:9090"
+    volumes:
+      - type: bind
+        source: ${BGMSS_ROOT}/config/prometheus/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+      - type: bind
+        source: ${BGMSS_ROOT}/config/prometheus/rules.yml
+        target: /etc/prometheus/rules.yml
+        read_only: true
+      - type: bind
+        source: ${BGMSS_ROOT}/prometheus
+        target: /prometheus
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    cpus: ${BGMSS_PROMETHEUS_CPUS:-0.50}
+    mem_limit: ${BGMSS_PROMETHEUS_MEM_LIMIT:-512m}
+    pids_limit: ${BGMSS_PROMETHEUS_PIDS_LIMIT:-128}
+    logging:
+      driver: journald
+      options:
+        tag: "bgmss/{{.Name}}"
+    networks: [backend]
+
+networks:
+  backend:
+    name: ${COMPOSE_PROJECT_NAME}_backend

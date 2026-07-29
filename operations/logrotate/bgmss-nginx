@@ -1,0 +1,14 @@
+/var/log/nginx/bgmss-access.log /var/log/nginx/bgmss-error.log {
+  daily
+  rotate 14
+  maxsize 32M
+  missingok
+  notifempty
+  compress
+  delaycompress
+  create 0640 nginx nginx
+  sharedscripts
+  postrotate
+    test ! -s /run/nginx.pid || kill -USR1 "$(cat /run/nginx.pid)"
+  endscript
+}

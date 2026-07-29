@@ -1,0 +1,33 @@
+groups:
+  - name: bgmss-minimal
+    rules:
+      - alert: BgmssApiDown
+        expr: up{job="bgmss-api"} != 1
+        for: 2m
+      - alert: BgmssApiNotReady
+        expr: bgmss_readiness != 1
+        for: 2m
+      - alert: BgmssHttp5xxSustained
+        expr: sum(rate(bgmss_http_requests_total{status_class="5xx"}[5m])) > 0.05
+        for: 10m
+      - alert: BgmssUpstreamFailuresSustained
+        expr: sum(rate(bgmss_upstream_request_experiences_total{outcome=~"timeout|network_error|rate_limited|upstream_error|decode_error|error"}[10m])) > 0.05
+        for: 15m
+      - alert: BgmssQueryQueueFull
+        expr: bgmss_query_executor_queued >= 8
+        for: 5m
+      - alert: BgmssCacheCostHigh
+        expr: sum(bgmss_query_cache_retained_bytes) > 241591910
+        for: 10m
+      - alert: BgmssCacheOversizeRejects
+        expr: sum(increase(bgmss_query_cache_oversize_values_total[15m])) > 0
+        for: 5m
+      - alert: BgmssUpdaterFailed
+        expr: bgmss_updater_last_attempt_info{status=~"failed|canceled"} == 1
+        for: 5m
+      - alert: BgmssUpdaterSuccessTooOld
+        expr: time() - bgmss_updater_last_success_time_seconds > 777600
+        for: 30m
+      - alert: BgmssUpdaterDurationHigh
+        expr: bgmss_updater_last_attempt_duration_seconds > 14400
+        for: 5m

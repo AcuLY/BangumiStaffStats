@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule Bangumi Staff Stats weekly Archive update
+
+[Timer]
+OnCalendar=Sun *-*-* 04:15:00
+Persistent=true
+RandomizedDelaySec=20m
+Unit=bgmss-archive-update.service
+
+[Install]
+WantedBy=timers.target

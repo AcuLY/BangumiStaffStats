@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+script_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=../lib/common.sh
+source "$script_root/../lib/common.sh"
+
+[[ $# -eq 2 && "$1" == --root ]] || die "usage: check --root ABS"
+root=$2
+for command in curl docker jq realpath; do require_command "$command"; done
+require_root_layout "$root"
+port=$(env_value "$root/state/current.env" BGMSS_API_PORT)
+prometheus_port=$(env_value "$root/state/current.env" BGMSS_PROMETHEUS_PORT)
+current_version=$(pointer_data_version "$root/data/current.json")
+
+curl --fail --silent --show-error --max-time 5 "http://127.0.0.1:${port}/livez" |
+  jq -e '.data.status == "live"' >/dev/null
+curl --fail --silent --show-error --max-time 5 "http://127.0.0.1:${port}/readyz" |
+  jq -e --arg version "$current_version" \
+    '.data.status == "ready" and .meta.dataVersion == $version' >/dev/null
+curl --fail --silent --show-error --max-time 5 \
+  "http://127.0.0.1:${port}/api/v1/catalog" |
+  jq -e --arg version "$current_version" \
+    '.meta.dataVersion == $version
+      and (.data.subjectTypes | type == "array" and length > 0)' >/dev/null
+curl --fail --silent --show-error --max-time 5 "http://127.0.0.1:${port}/metrics" |
+  grep -Fq "bgmss_current_snapshot_info{data_version=\"$current_version\"} 1"
+
+for service in api prometheus; do
+  container=$(compose "$root" ps --quiet "$service")
+  [[ -n "$container" ]] || die "$service container is absent"
+  [[ "$(docker inspect --format '{{.HostConfig.LogConfig.Type}}' "$container")" == journald ]] ||
+    die "$service is not using journald"
+done
+
+prometheus_up=false
+for ((attempt = 1; attempt <= ${BGMSS_CHECK_ATTEMPTS:-30}; attempt++)); do
+  if curl --fail --silent --show-error --max-time 2 \
+    "http://127.0.0.1:${prometheus_port}/-/ready" >/dev/null 2>&1 &&
+    curl --fail --silent --show-error --get --max-time 2 \
+      --data-urlencode 'query=up{job="bgmss-api"}' \
+      "http://127.0.0.1:${prometheus_port}/api/v1/query" 2>/dev/null |
+      jq -e '.status == "success" and any(.data.result[]; .value[1] == "1")' \
+        >/dev/null; then
+    prometheus_up=true
+    break
+  fi
+  sleep 2
+done
+[[ "$prometheus_up" == true ]] ||
+  die "Prometheus did not become ready with a successful API scrape"
+log "live, ready, catalog smoke, metrics, Prometheus scrape, and journald checks passed"
