@@ -112,11 +112,26 @@
   Development Actions run `30486870346` passed the complete Product job,
   including Backend, Updater, Frontend, contracts, double build, assembly,
   smoke, and residue gates.
-- [ ] 7.3 Commit/push the implementation, advance only the accepted Product
+- [x] 7.3 Commit/push the implementation, advance only the accepted Product
   revision after its green run, require a final exact-head green
   `linux/amd64` bundle, transactionally deploy it with the existing overlay,
   and prove repeated loopback/public image success without Archive, Nginx,
-  proxy, updater, monitoring, or legacy drift.
-- [ ] 7.4 Sync the amended Backend delta, rearchive this change, strict-validate
+  proxy, updater, monitoring, or legacy drift. Pin commit
+  `1150a94e77dcd7e269bf58a96f5df93ba451882a` was pushed; manual run
+  `30487900010` passed Product and bundle jobs and published artifact
+  `8738853938` for source tree `c19729511e70befb4ec3ebc25910fc6838261f4c`.
+  All bundle checksums passed locally and on `myserver`; the revision deployed
+  transactionally with `ae70b2ada2529741bfc8bcfd4a248835bb2f915d`
+  retained as previous. Three repetitions for each actual UI image class
+  succeeded both on loopback and public `/v2/`, while Archive, Nginx, overlay,
+  proxy identity, updater timer, Prometheus target, stopped legacy loader,
+  legacy root, and unrelated recoverable services remained unchanged.
+- [x] 7.4 Sync the amended Backend delta, rearchive this change, strict-validate
   all specs, commit/push lifecycle evidence, and require final remote equality,
-  clean worktree, and green Actions.
+  clean worktree, and green Actions. The fixed code-owned upstream identity and
+  its scenario were merged into the main Backend image-proxy specification,
+  and the completed change returned to
+  `openspec/changes/archive/2026-07-30-repair-production-image-proxy-egress`.
+  Final repository and Actions equality are verified after the lifecycle
+  commit so documentation-only completion does not trigger an extra commit
+  cycle.

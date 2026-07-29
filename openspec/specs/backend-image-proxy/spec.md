@@ -30,7 +30,11 @@ The adapter SHALL construct the initial HTTPS request from fixed
 `api.bgm.tv`, the validated resource/ID/type, and no caller-supplied URL,
 scheme, host, port, path, or header. It SHALL forward no Cookie,
 Authorization, token, proxy, or arbitrary request header. Automatic redirect
-following SHALL remain disabled.
+following SHALL remain disabled. Both approved GETs SHALL set exactly one
+code-owned
+`AcuLY/BangumiStaffStats (https://github.com/AcuLY/BangumiStaffStats)`
+User-Agent; they SHALL NOT omit it, use the Go transport default, or copy an
+incoming/environment-controlled identity.
 
 The adapter MAY manually follow exactly one `302` only when the initial fixed
 request returns one bounded absolute Location whose scheme is `https`, host is
@@ -48,6 +52,11 @@ concurrency SHALL remain separate.
 
 - **WHEN** the fixed `api.bgm.tv` request returns one valid `302` Location on HTTPS `lain.bgm.tv` and that target returns an accepted image response
 - **THEN** the Backend SHALL stream the final image without exposing a redirect or Location to the caller
+
+#### Scenario: Fixed upstream identity is used
+
+- **WHEN** the initial request and optional approved redirect request are constructed
+- **THEN** each request SHALL carry only the exact code-owned project User-Agent and no caller-controlled identity
 
 #### Scenario: Redirect target or count is unsafe
 
