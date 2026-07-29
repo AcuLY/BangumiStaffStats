@@ -172,6 +172,7 @@ restore_application() {
 trap restore_application ERR
 
 atomic_copy "$release/release.env" "$root/state/current.env"
+compose "$root" config --quiet
 atomic_symlink "releases/$version/tools" "$root/current-tools"
 compose "$root" up --detach api prometheus
 wait_ready "$root" "$(pointer_data_version "$root/data/current.json")"
