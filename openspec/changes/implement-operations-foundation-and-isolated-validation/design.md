@@ -154,7 +154,8 @@ The release control plane has four canonical closed documents:
   identity, both immutable source archives/inventories, the exact allowed
   Product/Harness Git byte-and-mode difference inventory, Product-owned
   Updater targeted evidence, Harness-owned package/supervisor/targeted
-  evidence, the narrow Linux fixture exception, unexecuted formal-cell
+  evidence with every accepted test passing, superseded failed-run
+  classifications, unexecuted formal-cell
   inventory, cleanup/audit facts, and thirteen Product-bound build definitions
   including `updater/build/runtime_prune.py` plus accepted contract digests. It
   records
@@ -171,7 +172,10 @@ The release control plane has four canonical closed documents:
   inventory excludes the candidate and itself; a separate complete-file
   inventory outside the addressed directory enumerates every candidate file
   and derives the directory content address without embedding itself or the
-  address.
+  address. Its embedded `accepted-development.json` is the exact canonical
+  `operations-accepted-development-v1` receipt at mode `0444`; candidate
+  verification opens that path once with `O_NOFOLLOW`, binds descriptor and
+  pathname identity, and uses the same bounded bytes for digest and parse.
 - The tag-release candidate is also unpublished but binds a later version tag's
   exact commit, its two fresh AMD64 builds, the accepted-development baseline,
   and the Operations controller at that tag. It never reuses the validation
@@ -189,6 +193,30 @@ All four document/schema families are operations-owned because they assemble dep
 they embed but do not redefine the Contracts compatibility authority.
 Production deploy accepts only the published form. Isolated validation accepts
 only the validation candidate plus a separate sealed validation input.
+
+The two receipt source archives are the actual transferred
+`git archive --format=tar --prefix=source/ --output=<run-owned-file>
+<revision>` files. Their archive mode describes the outer transfer file;
+their closed inventories describe the `source/`-prefixed members and
+Git-derived types/modes/bytes. An unprefixed Git tar may be useful as a
+controller diagnostic, but it is not the admitted transfer artifact. Archive
+recomputation uses an identity-checked run-owned file, so diagnostic output
+limits never become an archive-size limit.
+
+The final successful evidence and historical failed attempts are disjoint.
+Accepted Product/Harness test evidence has no exception and all selected
+tests pass. Superseded attempts are retained only in a separate closed
+non-acceptance inventory with their real historical source revision.
+Repository verification proves strict Product `<` source `<=` final Harness
+lineage without forbidding several failed runs from sharing one source;
+Product, archive, side-branch, and post-Harness sources are rejected. The
+bundle descriptor binds schema/path/bytes and disjoint accepted/superseded run
+identities. The acceptance audit binds its exact Product/Harness/archive
+scope, the Development Actions log digest, and reviewed-program identities.
+Protected-state
+proof binds the executed projection/seal program plus exact transmitted
+before/after raw bytes; a script template or mutable Docker runtime fields are
+not a substitute.
 
 Alternative considered: one nullable manifest for validation, tag preparation,
 and published state. Rejected because mixed source authorities and nullable
@@ -223,14 +251,26 @@ operations/
   .tmp/                   # ignored, run-owned, absent at handoff
 ```
 
-Release/test control code uses exact Node 24.18.0 and npm 11.16.0. Host
-entrypoints use Bash, Docker Compose, `jq`, `curl`, `flock`, `sha256sum`,
-`tar`, and coreutils only. Remote preflight binds Docker to the local Unix
-socket, admits negotiated Docker API 1.45 or newer only within the
-server-advertised interval, and verifies the exact command capabilities used
-later by mutation and cleanup. Host tool versions are evidence, not patch
-locks. No Node, Go, Python runtime, or application source is installed on the
-host.
+Release/test control code uses exact Node 24.18.0 and npm 11.16.0. The two
+remote-control CLIs additionally require an explicit canonical tool directory,
+prove that its `node` is the same canonical single-link ordinary executable as
+the running Node rather than a symlink/hardlink alias, bind invoking npm to the
+same toolchain prefix's locked package layout, and probe that npm CLI with the
+exact Node executable before creating a local run root or opening SSH. The
+standard npm bin symlink is allowed only to that package target. Their launcher
+places `--ignore-scripts` before the exact `run` subcommand, the controller
+guard rechecks that npm configuration, and both sides reject the four possible
+`pre`/`post` hooks for the two admitted lifecycle names. Their target scripts
+invoke Node by that absolute tool directory, so npm's injected
+`node_modules/.bin` entries cannot select the controller runtime and no npm
+lifecycle hook can execute before the preload guard. Host
+entrypoints use Bash, Docker Compose, `jq`, `curl`,
+`flock`, `sha256sum`, `tar`, and coreutils only. Remote preflight binds Docker
+to the local Unix socket, admits negotiated Docker API 1.45 or newer only
+within the server-advertised interval, and verifies the exact command
+capabilities used later by mutation and cleanup. Host tool versions are
+evidence, not patch locks. No Node, Go, Python runtime, or application source
+is installed on the host.
 
 ### 4. Add only two control-plane libraries
 
@@ -395,7 +435,8 @@ that an Environment, secret, forced command, release, or deployment exists.
 `operations.yml` handles pull requests, ordinary pushes, and manual
 verification with `contents: read`. After its two builds and offline
 verification agree, it may transfer exactly one sealed validation-candidate
-archive plus digest through the pinned
+archive, digest, complete inventory, and canonical Actions provenance through
+the pinned
 `actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`
 action with one-day retention. That authenticated Actions handoff is
 unpublished validation transport, not a release or deployment input: it
@@ -403,6 +444,25 @@ contains the complete external inventory, is reverified before remote use,
 and may never be promoted by `release.yml` or accepted by `deploy.yml`.
 The workflow never logs into a registry, selects an Environment, reads a
 secret, or contacts a host.
+
+The local isolated-validation runbook uses separate process environments and
+new run-owned `0700` homes/config roots for dependency installation,
+authenticated Actions handoff verification, offline JSON extraction, and SSH
+control. JSON receives no `HOME`; the GitHub home/config cannot read SSH
+configuration; the SSH home contains only the reviewed minimal config and
+known-host bytes and cannot read GitHub configuration. The GitHub-only phase
+binds the caller-reviewed run ID and attempt to repository
+`AcuLY/BangumiStaffStats`, active `operations-verification` workflow path, a
+trusted push/manual event, completed-success head/tree, executed workflow
+ref/SHA/blob/mode/digest, and one unique live exact-name artifact whose list,
+exact endpoint, run/repository/head links, ID/name/digest/size/times,
+downloaded archive, and closed four-file member inventory agree. Its canonical
+`actions-provenance.json` binds the exact three candidate payload descriptors.
+The phase emits a local `actions-authority.json` seal before any SSH process
+starts. Install and JSON phases receive no credential; GitHub verification
+receives no SSH agent; preflight/validation receives `SSH_AUTH_SOCK` but
+rejects `BGMSS_OPS_GH`, `GH_TOKEN`, `GH_CONFIG_DIR`, and caller home/config
+paths.
 
 `release.yml` runs only from a version tag equal to root `VERSION`. Only the
 publishing job receives `contents: write` and `packages: write`; all
@@ -415,6 +475,17 @@ Release. It does not deploy.
 Environment. It consumes an existing version plus manifest digest. Only the
 deploy job reads SSH configuration and invokes one fixed remote command with
 bounded arguments. It never builds or carries arbitrary shell.
+
+Its job shape is a closed four-step interface. Job environment membership is
+exactly `ACCEPTED_DEVELOPMENT_SHA256`, `FINAL_PRODUCT_REVISION`,
+`FINAL_PRODUCT_TREE`, `RELEASE_MANIFEST_DIGEST`, and `RELEASE_VERSION`.
+Input validation and manifest verification have no step environment; download
+has only `GH_TOKEN`; transaction has only
+`BGMSS_PRODUCTION_SSH_PRIVATE_KEY`, `BGMSS_PRODUCTION_SSH_HOST`, and
+`BGMSS_PRODUCTION_SSH_KNOWN_HOST`. Extra job/step environment members, extra
+steps, shell startup injection (`BASH_ENV`, `ENV`, or equivalents), GitHub
+command-file writes, indirect PATH/environment mutation, and step-level
+fixed-baseline overrides are rejected structurally.
 
 Repository policy tests parse all three workflows and continue protecting the
 existing development `ci.yml` as read-only test/build authority.
@@ -564,6 +635,15 @@ retroactively treated as green.
   remote harness evidence binds Harness, lifecycle descriptors bind the Harness
   archive, release control evidence binds Operations, and verifiers recompute
   ancestry plus the exact allowed Product/Harness byte-and-mode delta.
+- **[A final diff can hide an accepted-path deletion or revert]** → Tag
+  verification classifies every receipt-declared Product/Harness path before
+  evaluating the final diff. Acceptance Harness/lifecycle/main-spec paths and
+  every Harness/archive refresh path are checked against their required final
+  authority. Receipt-declared Operations planning may change while active, but
+  a release tag requires the active change absent, one complete seven-artifact
+  dated archive, and all three exact Operations main specs as ordinary blobs.
+  The earlier Harness refresh archive is independently proven to move all five
+  active artifacts with identical Git blob, mode, and SHA-256.
 - **[A protected host changes concurrently]** → Admission and final inventory
   fail conservatively. No compensating mutation of the legacy service is
   attempted.
@@ -595,7 +675,8 @@ retroactively treated as green.
 2. Merge P into the compatible Harness control line, complete and archive
    `refresh-integrated-development-acceptance`, and record H implementation,
    H archive, both source inventories, exact allowed P/H byte-and-mode delta,
-   separately attributed P/H test evidence, exception/unexecuted cells,
+   separately attributed P/H test evidence, superseded failed-run
+   classifications/unexecuted cells,
    cleanup, and zero-P0/P1 audit while preserving that no canonical formal
    result was emitted.
 3. Rebind the Operations receipt/schema/verifier/tag baseline to P → H →

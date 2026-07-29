@@ -10,7 +10,7 @@
 | Read-only protected inputs | Root authorities and oracle; all OpenSpec outside this change; `VERSION`; `.github/workflows/ci.yml`; `contracts/artifacts/**`; accepted immutable Backend/Updater/Frontend artifact roots; all `backend/**`, `updater/**`, `frontend/**`, and other `contracts/**`; runtime/recovery/validation owner paths; external refs, registries, releases, environments, secrets, hosts, and production state. |
 | Deletion complement | None. Generated release output may be removed only below a proven run-owned `operations/.tmp/**` root. |
 | Mutable refs | Only the listed repository worktree files. Running tag, registry, GitHub Release, production Environment, SSH, or deploy mutations is not authorized by this capability apply. |
-| Consumes | Final acceptance-free Product revision/tree with exact-head green Development Actions; descendant Harness implementation revision/tree; descendant archived `refresh-integrated-development-acceptance` revision/tree with exact status `development-acceptance-closed-by-authorized-ci-and-remote-evidence`; exact ancestry and Product/Harness byte-and-mode difference proof restricted to receipt-declared acceptance/lifecycle paths; immutable Product and Harness source archives/inventories; Product-owned Updater targeted evidence; Harness-owned package/supervisor/targeted evidence; exception/unexecuted-cell/cleanup/audit evidence; thirteen Product build definitions including `updater/build/runtime_prune.py`; statement/compatibility schemas and validators, toolchain/base identities; explicit prior-artifact status `not-materialized-for-authorized-closure`; `VERSION`; reviewed exact Actions/toolchain identities. This owner creates rather than consumes the new `linux/amd64` component artifacts. |
+| Consumes | Final acceptance-free Product revision/tree with exact-head green Development Actions; corrected descendant Harness implementation revision/tree; descendant archived `refresh-integrated-development-acceptance` revision/tree with exact status `development-acceptance-closed-by-authorized-ci-and-remote-evidence`; exact ancestry and Product/Harness byte-and-mode difference proof restricted to receipt-declared acceptance/lifecycle paths; immutable Product and Harness source archives/inventories; Product-owned Updater targeted evidence; Harness-owned package/supervisor/targeted evidence with no accepted exception; superseded failed-run/unexecuted-cell/cleanup/audit evidence; thirteen Product build definitions including `updater/build/runtime_prune.py`; statement/compatibility schemas and validators, toolchain/base identities; explicit prior-artifact status `not-materialized-for-authorized-closure`; `VERSION`; reviewed exact Actions/toolchain identities. This owner creates rather than consumes the new `linux/amd64` component artifacts. |
 | Produces | A canonical accepted-development receipt; isolated-validation AMD64 candidate and tag-release candidate/published-release schemas, validators, and assemblers; checksum inventory; immutable AMD64 provenance; operations verification workflow; protected-tag release workflow; approval-gated deploy workflow; and negative policy tests. |
 | Dependencies | `complete-integrated-development-acceptance`, `contracts-rewrite-baseline`, `contracts-application-release-identity`, `contracts-artifact-compatibility`, `backend-build-artifact`, `updater-build-artifact`, and `frontend-build-artifact`. Dependency direction is product artifacts and Contracts → Operations release assembly → runtime/validation consumers; Operations never writes upstream evidence. |
 | Deliverables | The exact writable files, reproducibility/provenance/policy tests, and ephemeral candidate output below `operations/.tmp/**`. |
@@ -32,13 +32,27 @@ acceptance-free Product revision/tree, descendant Harness implementation
 revision/tree, descendant Harness archive revision/tree, exact Product →
 Harness implementation → Harness archive ancestry, and exact-head green
 Development Actions whose head/tree equal Product. It SHALL bind two immutable
-source archives with size/mode/content-inventory digests; one complete sorted
+source archives produced with exact internal prefix `source/`, with
+size/mode/content-inventory digests; one complete sorted
 Git byte-and-mode difference inventory whose allowed paths are closed to the
 acceptance harness and its exact active/archived lifecycle/main-spec paths;
 Product-owned Updater targeted command/count/TAP/log evidence; Harness-owned
 package verification, supervisor and selected targeted command/count/TAP/log
-evidence; remote runtime/container identities; the one narrowly classified
-Linux fixture exception; the explicit unexecuted formal-cell set; cleanup and
+evidence, with every accepted test passing and no accepted exception. The
+selected-target manifest SHALL retain the corrected H3 task order and exactly
+21 names. It SHALL include these three names in positions eight through ten:
+
+- `Linux process inventory uses only bounded procfs evidence and exact argv/cwd identity`
+- `owned Linux cleanup rejects PID reuse or argv drift before signaling`
+- `Darwin process inventory preserves absolute ps and lsof behavior`
+
+It SHALL exclude the three superseded names
+`Backend query measurement rejects loopback or broader network access before execution`,
+`Backend materialization command remains primary while every safe authority check and boundary evidence completes`,
+and `Backend-check sandbox permits ephemeral loopback HTTP and denies public TCP`,
+plus every test declared to skip on Linux. The receipt SHALL also bind remote
+runtime/container identities; superseded failed-run classifications; the
+explicit unexecuted formal-cell set; cleanup and
 zero-P0/P1 audit facts; and root application version. It SHALL bind exactly
 thirteen Product-revision build definitions, with
 `updater/build/runtime_prune.py` ordered between `updater/build/check.py` and
@@ -54,12 +68,46 @@ Product/Harness Git difference inventory, and fail if the receipt or any
 recorded authority drifts. Harness evidence SHALL never be represented as
 having run from Product.
 
+Each source-archive identity SHALL mean the actual transferred bytes produced
+by exact argv
+`git archive --format=tar --prefix=source/ --output=<run-owned-file> <revision>`.
+Its archive mode is the outer run-owned transfer file mode; its closed member
+inventory binds the `source/` path prefix, each Git-derived member type/mode,
+size, and content digest. An unprefixed controller-only tar is a different
+artifact and SHALL NOT satisfy or be conflated with this field. Verification
+SHALL hash and count the complete run-owned file without buffering the full
+archive into a bounded diagnostic capture.
+
+Accepted `testEvidence` SHALL contain only the final successful Product and
+Harness executions: every selected test passes, no exception/waiver object is
+present, and Harness package, supervisor, and selected-target evidence binds
+the Harness implementation revision. Every earlier failed or interrupted
+attempt SHALL be represented only in a separate closed
+`supersededAttempts` inventory that binds its run/evidence identity,
+classification, unexecuted scope, cleanup result, and non-acceptance status.
+Each attempt SHALL retain its actual historical source revision. Parsing SHALL
+reject Product or the later archive as that source; repository verification
+SHALL prove strict Product `<` source `<=` final Harness ancestry. Multiple
+failed runs MAY share one source revision, but every superseded run ID SHALL
+remain unique and disjoint from both accepted run IDs.
+The evidence-bundle descriptor SHALL declare its schema/path/size/digest and
+the exact accepted and superseded run identities it contains.
+
+The acceptance audit SHALL bind its scope, Product/Harness/archive revisions,
+the exact Development Actions log digest, all other required reviewed
+evidence/program digests, and zero P0/P1 result. Protected-state
+evidence SHALL bind the exact projection algorithm and executed seal-program
+digest, the exact transmitted before/after raw-byte descriptors, and their
+equal semantic seal digest. A count alone, an unscoped audit, a mutable Docker
+projection, or a serialized script template that was not the executed bytes
+SHALL fail closed.
+
 #### Scenario: Operations reads the accepted receipt
 - **WHEN** the canonical receipt, Product → Harness implementation → Harness archive ancestry, exact allowed Product/Harness byte-and-mode delta, separately attributed evidence, Git objects, root version, and thirteen accepted contract/build authorities all agree
 - **THEN** its frozen product identity may authorize AMD64 validation assembly and later tag-baseline comparison
 
 #### Scenario: Acceptance evidence is missing or reinterpreted
-- **WHEN** a lifecycle/CI/remote/exception/unexecuted-cell/OID/contract fact is absent, changed, unresolved, Actions differs from Product, ancestry fails, a non-allowed Product/Harness path differs, Harness evidence is attributed to Product, a formal verdict or prior artifact identity is synthesized, or ephemeral CI output is marked deployable
+- **WHEN** a lifecycle/CI/remote/superseded-failure/unexecuted-cell/OID/contract fact is absent, changed, unresolved, an accepted test has any exception or failure, a failed attempt enters accepted test evidence, a source archive is unprefixed or only partially captured, an evidence/audit/protected-state identity is unscoped or ambiguous, Actions differs from Product, ancestry fails, a non-allowed Product/Harness path differs, Harness evidence is attributed to Product, a formal verdict or prior artifact identity is synthesized, or ephemeral CI output is marked deployable
 - **THEN** Operations verification and release stop before building
 
 ### Requirement: Operations validation assembly SHALL rebuild the frozen accepted product identity
@@ -99,6 +147,18 @@ size/digest/mode, the Frontend static tar, and one sorted payload-checksum
 inventory. It SHALL declare
 itself unpublished and SHALL contain neither a registry credential nor a
 deployable mutable tag.
+
+Each validation or tag candidate SHALL contain exactly one immutable
+`accepted-development.json` ordinary single-link file with mode `0444`, whose
+bytes are canonical schema version `operations-accepted-development-v1`,
+validate against
+`operations/schemas/release-accepted-development-v1.schema.json`, match the
+fixed accepted-development digest, and match the candidate receipt descriptor.
+Candidate verification SHALL open this exact path once with `O_NOFOLLOW`,
+bind descriptor and pathname device/inode/link/mode/size/time identity, perform
+one bounded read from that descriptor for hash and parse, `fstat` before and
+after, and reject replacement, mutation, truncation, growth, a second pathname
+read, or separate digest/parse bytes.
 
 The coordinator SHALL use the exact admitted Node 24.18.0/npm 11.16.0 rather
 than the host default, set the Docker default platform to `linux/amd64`, bind
@@ -145,6 +205,30 @@ implementation. Newly built component statements and compatibility evidence
 SHALL bind the tag commit revision/tree. One canonical tag-release candidate
 SHALL also bind the frozen accepted-product receipt and the tag's Operations
 controller identity.
+
+The verifier SHALL classify every receipt-declared Product/Harness difference
+independently of the final Product-to-tag diff. Acceptance-harness,
+acceptance-lifecycle, refresh-lifecycle, and development-acceptance main-spec
+paths SHALL match their required Harness or archive state including absence,
+type, bytes, and executable mode. Receipt-declared
+`operations-acceptance-planning` paths are not frozen to their Harness bytes:
+they may evolve while this change is active, but a release tag SHALL contain
+only the terminal archived lifecycle: the active change is absent; exactly one
+date-prefixed archive contains all seven declared change artifacts and no
+extra artifact; and all three exact Operations main specs exist as ordinary
+Git blobs. Missing artifacts, active/archive coexistence, multiple archive
+directories, or a non-ordinary final artifact SHALL fail. The verifier SHALL
+then reject every additional Product-to-tag path outside the exact Operations
+lifecycle set; broad `openspec/**` allowance remains forbidden. Deleting or
+reverting a frozen Harness/archive path back to its Product state SHALL
+therefore fail even when that path disappears from the final Product-to-tag
+difference.
+
+The Harness-to-archive acceptance-refresh move SHALL preserve every one of its
+five active change artifacts exactly: each archived counterpart must have the
+same Git blob, executable mode, and SHA-256 as the active file at Harness.
+Only the synchronized root development-acceptance main spec may take its
+archive-revision authority independently.
 
 #### Scenario: A reviewed Operations tag is prepared for release
 - **WHEN** the tag/version, exact tag checkout, accepted-baseline authority comparison, exact acceptance-control plus Operations/lifecycle delta, two clean `linux/amd64` builds, and new evidence all pass
@@ -193,8 +277,13 @@ install exact reviewed tools, use frozen locks, run release/runtime/validation
 policy tests, build and compare local `linux/amd64` artifacts, assemble and
 verify an unpublished candidate, and audit residue. Only after verification,
 it MAY upload exactly one named sealed validation handoff containing the
-candidate archive, its SHA-256 file, and complete external inventory through
-exact
+candidate archive, its SHA-256 file, complete external inventory, and one
+canonical `actions-provenance.json`. That provenance SHALL bind the exact
+repository/repository ID, trusted push/manual event, head revision/tree,
+run ID/attempt, workflow ID/name/path/ref/SHA, executed workflow
+blob/mode/SHA-256, and descriptors for the other three handoff files. The
+executed workflow bytes SHALL equal `.github/workflows/operations.yml` at the
+candidate head. The exact four-file handoff SHALL use
 `actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`
 (`v7.0.1`) with one-day retention and no overwrite. That handoff is ephemeral
 Actions transport only and SHALL be reverified before isolated remote use;
@@ -248,6 +337,19 @@ arguments. It SHALL not check out product source on the server, build, pass
 arbitrary shell text/path/host values, follow a mutable tag, or maintain a
 second deployment implementation. The remote command's final success/failure
 SHALL determine the Actions result.
+
+The deploy job SHALL have an exact closed four-step program: bounded-input
+validation and immutable-manifest verification SHALL have no step-level
+environment; release download SHALL have exactly
+`GH_TOKEN=${{ github.token }}`; and the transaction step SHALL have exactly
+`BGMSS_PRODUCTION_SSH_PRIVATE_KEY`,
+`BGMSS_PRODUCTION_SSH_HOST`, and
+`BGMSS_PRODUCTION_SSH_KNOWN_HOST`. The job-level environment SHALL have exactly
+`ACCEPTED_DEVELOPMENT_SHA256`, `FINAL_PRODUCT_REVISION`,
+`FINAL_PRODUCT_TREE`, `RELEASE_MANIFEST_DIGEST`, and `RELEASE_VERSION`; no step
+may override any of them. No extra step, shell startup variable such as
+`BASH_ENV`/`ENV`, GitHub command-file write, indirect environment/PATH
+mutation, or other job/step environment member is admissible.
 
 #### Scenario: An approved existing release is dispatched
 - **WHEN** Environment approval, concurrency, manifest/checksum verification, and bounded arguments pass

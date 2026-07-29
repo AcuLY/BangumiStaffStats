@@ -6,11 +6,11 @@
 |---|---|
 | Status | Investigated: complete; specified: complete only after strict validation and main-agent approval; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no. |
 | Owner | Operations isolated-host validation apply group. |
-| Writable paths | Repository: `operations/validation/**`, `operations/test/validation/**`, and generated ignored `operations/.tmp/**`. External after successful preflight: only newly created paths below `myserver:/srv/bgmss-ops-validation/**`; Compose project `bgmss_ops_validation` services `api`, `updater`, `prometheus`; project-labeled containers plus exact internal `runtime` and egress-capable `outbound` networks; no named volumes; the two artifact-declared Backend/Updater load tags; their two aliases `localhost/bgmss-ops-validation-{api,updater}:<accepted-product-revision>-amd64`; the exact pinned upstream Prometheus digest reference; and alias `localhost/bgmss-ops-validation-prometheus:<reviewed-version>-amd64`. All six image references are sealed and proven absent before load/pull. For each of the three images the input and run evidence bind all refs, OCI manifest digest, config digest, and Docker runtime ID. API publication is exactly `127.0.0.1:19090:8080`. The candidate Updater alone may use `outbound` once to create its inactive full Archive, status, and staging objects below the validation root. |
+| Writable paths | Repository: the two exact remote-control scripts in `operations/package.json`, `operations/validation/**`, `operations/test/validation/**`, and generated ignored `operations/.tmp/**`. External after successful preflight: only newly created paths below `myserver:/srv/bgmss-ops-validation/**`; Compose project `bgmss_ops_validation` services `api`, `updater`, `prometheus`; project-labeled containers plus exact internal `runtime` and egress-capable `outbound` networks; no named volumes; the two artifact-declared Backend/Updater load tags; their two aliases `localhost/bgmss-ops-validation-{api,updater}:<accepted-product-revision>-amd64`; the exact pinned upstream Prometheus digest reference; and alias `localhost/bgmss-ops-validation-prometheus:<reviewed-version>-amd64`. All six image references are sealed and proven absent before load/pull. For each of the three images the input and run evidence bind all refs, OCI manifest digest, config digest, and Docker runtime ID. API publication is exactly `127.0.0.1:19090:8080`. The candidate Updater alone may use `outbound` once to create its inactive full Archive, status, and staging objects below the validation root. |
 | Read-only protected inputs | All repository paths outside the listed owner paths; operations-built AMD64 release candidate/artifacts, the minimal validation Archive, candidate-embedded producer inputs, public read-only upstream inputs, and SSH configuration/credentials. On `myserver`: `/srv/bgmss/**`; `/srv/bgmss-v2/**`; every other `/srv/**` path; every pre-existing Compose project, container, network, image/tag, and volume; all Nginx/systemd/TLS/secret/user/firewall/cron state; public ports; legacy data/processes; and every port other than the exact validation bind. Only the six input-declared image references that preflight proves absent are excluded from the image/tag read-only set. |
 | Deletion complement | No repository or pre-existing remote state. Cleanup may remove only the exact run-created path inventory; captured validation container/network IDs whose names plus project/service/run labels still match; and each exact run-created image reference only when it still resolves to the captured OCI manifest/config/runtime identity and no foreign container uses it. |
 | Mutable refs | The listed repository files and ephemeral `operations/.tmp/**`; after admission, the validation root's run marker, release/data pointers, captured validation project resources, and the six exact image references/three image identities. No other image/tag, Git ref, registry/release, production/legacy ref, named volume, host service, or external configuration is mutable. |
-| Consumes | Committed operations implementation; accepted clean `linux/amd64` release candidate obtained from the exact one-day sealed Operations Actions handoff and reverified from its archive digest plus complete external inventory; exact component/compatibility evidence; the accepted minimal rollback Archive; the candidate Updater's sealed acquisition implementation/configuration and public read-only upstream inputs; expected app/minimal-data identities; read-only host/tool/resource snapshots. |
+| Consumes | Committed operations implementation; accepted clean `linux/amd64` release candidate obtained from the exact one-day sealed Operations Actions handoff and reverified before SSH against repository `AcuLY/BangumiStaffStats`, active workflow `operations-verification` at `.github/workflows/operations.yml`, the caller-reviewed completed-success run ID and attempt, trusted push/manual event, head/tree/executed-workflow revision/ref, and one unique live exact-name artifact ID/name/digest/size/creation/expiry identity plus canonical in-artifact Actions provenance, archive digest, and complete external inventory; exact component/compatibility evidence; the accepted minimal rollback Archive; the candidate Updater's sealed acquisition implementation/configuration and public read-only upstream inputs; expected app/minimal-data identities; read-only host/tool/resource snapshots. |
 | Produces | One verified full inactive Archive generated by the candidate Updater; strict validation-input/result/resource schemas; transfer/render/run/cleanup entrypoints; local negative tests; canonical before/result/after evidence; and one isolated success/failure report whose highest claim is operations definitions validated in a non-live namespace. |
 | Dependencies | `operations-release-assembly`, `operations-single-host-runtime`, the archived refreshed dual-identity Product/Harness CI/remote development-acceptance bundle, accepted Archive contracts/fixtures, and explicit user authorization for `myserver`. Direction is accepted candidate/runtime definitions → isolated validation; no validation observation becomes product semantics. |
 | Deliverables | Exact repository owner paths, CI-owned disposable failure tests, ephemeral sealed host evidence, and zero-residue/non-interference proof. |
@@ -35,6 +35,71 @@ Bash/GNU/curl, Nginx, and systemd capabilities; and sufficient disk/inodes.
 Observed kernel, Docker, Compose, plugin, and host-tool versions SHALL be
 sealed as evidence but SHALL NOT become distribution-brand or unrelated
 patch-version admission locks.
+Before either local controller creates a run root or opens SSH, it SHALL require
+its exact npm lifecycle entrypoint, a caller-declared canonical tool directory,
+Node 24.18.0 as that directory's canonical executable ordinary file with
+exactly one hard link and no symbolic-link alias, and npm 11.16.0 whose
+canonical CLI is the same toolchain prefix's standard npm target. The standard
+`bin/npm` symbolic link MAY resolve only to that locked package layout. The
+controller SHALL execute the exact npm CLI with the exact Node executable to
+verify the npm version and SHALL reject ordinary PATH or package-engine
+declarations as sufficient authority. The fixed launcher SHALL place
+`--ignore-scripts` before the npm `run` subcommand, verify that exact closed
+argv/configuration, and reverify `npm_config_ignore_scripts=true` inside the
+controller. Before spawning npm and again from the controller preload, the
+package-manifest guard SHALL reject any of `prepreflight:myserver`,
+`postpreflight:myserver`, `prevalidate:myserver`, or
+`postvalidate:myserver`; the target scripts themselves remain the only
+admitted lifecycle events.
+The reviewed runbook SHALL set a closed PATH, call manually approved canonical
+absolute `gh` and `jq` ordinary single-link executables, use the fail-closed
+shell options `set -euo pipefail`, and invoke npm with global `--silent` when
+capturing the preflight.
+That option SHALL suppress only npm lifecycle banners while preserving the
+controller's canonical stdout plus stderr/progress.
+Local admission SHALL be split into four separate `env -i` process
+authorities rather than one shared controller environment:
+
+- dependency installation receives only the reviewed Node/npm tool root, a
+  new phase-owned `0700` empty `HOME`/npm cache below `operations/.tmp`,
+  fixed locale/PATH/time settings, and fixed npm no-script/no-audit
+  configuration; it receives neither GitHub nor SSH authority or config;
+- authenticated Actions verification receives only the reviewed `gh`
+  executable, exact GitHub host/token plus a new phase-owned `0700`
+  `HOME`/`GH_CONFIG_DIR` below `operations/.tmp`, the reviewed tool root, and
+  fixed locale/PATH/time settings; it receives no `SSH_AUTH_SOCK` and cannot
+  read the caller's SSH home/config;
+- offline JSON extraction receives only the reviewed `jq` executable, the
+  reviewed tool root, and fixed locale/PATH/time settings; it receives neither
+  `HOME` nor GitHub/SSH authority; and
+- preflight/validation receives only the closed controller marker, reviewed
+  tool root and `jq`, a new phase-owned `0700` `HOME` containing only the
+  reviewed minimal SSH config/known-host files, `SSH_AUTH_SOCK`, and fixed
+  locale/PATH/time/npm settings; it SHALL reject `BGMSS_OPS_GH`, `GH_TOKEN`,
+  `GH_CONFIG_DIR`, and the caller's home/config paths.
+
+The GitHub-only phase SHALL authenticate the caller-reviewed run ID and
+positive run attempt before any SSH process starts. It SHALL require exact repository
+`AcuLY/BangumiStaffStats`; active workflow name
+`operations-verification` and path `.github/workflows/operations.yml`; a
+trusted same-repository `push` or `workflow_dispatch` event; completed status
+and successful conclusion; exact controller head revision/tree; executed
+workflow SHA equal to that head and exact workflow ref/path; the current run
+attempt equal to both the caller-reviewed attempt and the exact attempt
+endpoint; and exactly one
+non-expired, at-most-one-day artifact named
+`bgmss-operations-validation-<controller-revision>`. The artifact listing,
+exact artifact endpoint, run/repository/head links, ID, name, digest, size,
+creation, and expiry SHALL agree. Missing, duplicate, expired, superseded,
+rerun-ambiguous, fork-owned, or mismatched authority SHALL fail before SSH.
+The authenticated archive SHALL be downloaded by exact artifact ID, its
+GitHub digest and exact four-file member inventory verified, including one
+canonical `actions-provenance.json` that binds repository, workflow
+name/path/SHA/ref, event, head revision/tree, run ID/attempt, and the exact
+three candidate payload descriptors. A local canonical
+`actions-authority.json` SHALL bind that provenance to authenticated API and
+artifact metadata for the SSH-only controller. The controller SHALL consume
+that seal without inheriting or reopening GitHub authority.
 The host SHALL require no Node, Go, or Python runtime. It SHALL prove that
 `/srv/bgmss-ops-validation` is absent, Compose project
 `bgmss_ops_validation` has no resources, `127.0.0.1:19090` is free, both
@@ -61,6 +126,18 @@ command.
 #### Scenario: Inherited Docker or Compose authority is present
 - **WHEN** the SSH or service environment supplies any `DOCKER_*` or `COMPOSE_*` variable
 - **THEN** the fixed payload removes it before Docker discovery and admits only the declared local endpoint and empty configuration authority
+
+#### Scenario: The local control runtime drifts
+- **WHEN** the controller is not launched through its exact `npm --ignore-scripts run` argv/configuration, a target pre/post hook exists, Node is a symbolic link, hardlink alias, non-canonical or foreign executable, the canonical tool directory does not own invoking npm, or either version differs
+- **THEN** it exits before creating a run root, opening SSH, or writing validation state
+
+#### Scenario: Actions handoff authority is ambiguous
+- **WHEN** repository/workflow/event/status/conclusion/head/tree/run/attempt authority differs, the reviewed run is superseded or ambiguous, the exact artifact is absent/duplicate/expired, or listing/exact/downloaded identities disagree
+- **THEN** the GitHub-only phase rejects the handoff before any SSH process starts
+
+#### Scenario: A credential crosses a local phase
+- **WHEN** install or JSON extraction receives GitHub/SSH authority, the GitHub phase receives SSH authority, or preflight/validation receives GitHub CLI/token/config authority
+- **THEN** the local launcher fails before dependency execution, remote admission, or mutation, and canary tests prove the forbidden credential was unavailable to the child
 
 ### Requirement: Transfer and installation SHALL bind immutable accepted bytes
 

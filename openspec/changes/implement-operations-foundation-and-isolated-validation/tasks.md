@@ -35,8 +35,16 @@
   Product revision/tree, equal exact-head green Actions, descendant Harness
   implementation and archive identities, both source archives/inventories,
   exact allowed Product/Harness byte-and-mode delta, separately attributed
-  Product Updater and Harness package/supervisor/targeted evidence, narrow Linux
-  fixture exception, unexecuted formal cells, cleanup/audit facts, Operations
+  Product Updater and corrected Harness package/supervisor/targeted evidence
+  with every accepted test passing and the exact corrected H3 ordered 21-name
+  selected manifest, including Linux procfs, owned-cleanup
+  PID-reuse/argv-drift, and injected Darwin parity while excluding the three
+  superseded names and any test declared to skip on Linux; superseded
+  failed-run classifications
+  retaining their actual Product-less historical Harness source revisions,
+  strict Product `<` source `<=` final Harness repository lineage, disjoint
+  accepted/superseded run IDs, the exact Actions log digest in audit review,
+  unexecuted formal cells, cleanup/audit facts, Operations
   base identity, thirteen Product build definitions, accepted tool/contract
   identities, and exact
   `priorDevelopmentArtifacts.status=not-materialized-for-authorized-closure`.
@@ -54,8 +62,11 @@
   do not edit package control files.
 - [ ] 1.4 Implement shared canonical JSON, strict schema, SHA-256, subprocess
   environment, safe-path, immutable-output, run-root, and primary/secondary
-  failure helpers under `operations/lib/**`, with path containment and
-  identity tests under `operations/test/helpers/**`.
+  failure helpers under `operations/lib/**`, including an opt-in stdout
+  hash-and-byte-count sink that does not buffer or terminate on the diagnostic
+  capture limit while stderr remains bounded, with path containment,
+  identity, and over-64-MiB hash-sink tests under
+  `operations/test/helpers/**`.
 - [ ] 1.5 Add positive/negative schema fixtures and tests that reject duplicate
   JSON keys, unknown fields, non-canonical bytes, unsafe paths, malformed
   digests/OIDs/image refs, secret-shaped evidence, nondeterministic values,
@@ -87,9 +98,11 @@
   `operations/release/accepted-development.json` receipt plus receipt,
   `validation-candidate-v1`, tag-release-candidate-v1, and published
   `release-manifest-v1` schemas, canonical validators, and negative fixtures.
-  Bind the authorized lifecycle/CI/remote/exception/unexecuted-cell evidence,
+  Bind the authorized lifecycle/CI/remote/superseded-failure/unexecuted-cell
+  evidence and reject every accepted test exception or failure,
   final Product, equal Actions, descendant Harness implementation, descendant
-  Harness archive, both source inventories, exact allowed Product/Harness
+  Harness archive, both `source/`-prefixed source archives and inventories,
+  exact allowed Product/Harness
   byte-and-mode difference inventory, separately attributed Product/Harness
   test evidence, thirteen Product build definitions, and Operations/tag
   identities separately; bind exact target,
@@ -97,6 +110,17 @@
   compatibility/OpenAPI/Archive facts, Prometheus digest, standalone verified
   `archive-smoke`, non-self-referential payload checksums, and
   published-vs-unpublished state.
+  Define both source archives as exact `source/`-prefixed transfer tar bytes,
+  never the unprefixed controller diagnostic form. Keep final successful
+  Product/Harness test evidence separate from a closed `supersededAttempts`
+  inventory whose real historical source revisions verify strictly after
+  Product and at or before final Harness while same-source runs remain
+  admissible; bind evidence-bundle schema/path/bytes/disjoint run membership,
+  acceptance-audit scope/revisions/Actions-log/program digests, and executed protected
+  projection/seal-program plus transmitted before/after raw-byte identities.
+  Generate the selected-target argv only from the ordered 21-name constant as
+  one canonical anchored, escaped alternation; reject every byte-different
+  broad, partial, reordered, or extra-name pattern.
 - [ ] 2.3 Implement the AMD64 build coordinator so it creates two distinct
   run-owned clean local Git checkouts of the exact frozen accepted product
   commit, proves raw Git cleanliness/modes/no hidden flags, installs exact
@@ -150,12 +174,18 @@
 - [ ] 2.8 Create `.github/workflows/deploy.yml` with only
   `workflow_dispatch`, strict version/manifest-digest inputs, one production
   concurrency group and Environment approval, one secret-reading deploy job,
-  existing-release verification, and one bounded forced remote command; no
+  existing-release verification, and one bounded forced remote command. Its
+  exact four steps and reviewed run blocks are closed: validate/verify have no
+  step env, download has only `GH_TOKEN`, and transaction has only the three
+  SSH secret/host/known-host inputs. Reject extra steps, shell startup env,
+  GitHub command-file or indirect PATH/env mutation, fixed-baseline override,
   checkout/build/arbitrary shell/mutable tag/second deployment implementation.
 - [ ] 2.9 Parse all four workflows (including protected `ci.yml`) with
   duplicate-key rejection and test permissions, triggers, action pins,
   commands, environments, secret flow, uploads, registry, SSH, and host
-  boundaries. Add adversarial fixtures for each forbidden authority.
+  boundaries. Add adversarial fixtures for each forbidden authority,
+  including obfuscated `BASH_ENV`/`ENV` startup injection and GitHub
+  command-file writes.
 - [ ] 2.10 Have `operations.yml` run
   `npm --prefix operations run test:release`,
   `npm --prefix operations run check:workflows`,
@@ -175,6 +205,17 @@
   identity through release-manifest schema, `deploy.yml`, transaction policy,
   workflow checker, fixtures/tests, and add direct tag-baseline
   positive/negative coverage before candidate assembly.
+  Tag-baseline coverage must explicitly delete or revert every frozen category
+  of receipt-declared Harness/archive path and prove the verifier compares all
+  required final path states even when they disappear from the final
+  Product-to-tag diff, while receipt-declared Operations planning may evolve
+  only into one complete seven-artifact dated archive plus the three exact
+  Operations main specs, with the active change absent at a release tag.
+  Prove the Harness-to-archive refresh move also preserves the Git blob, mode,
+  and SHA-256 of each of its five active/archived artifact pairs.
+  Candidate receipt reads must use one opened
+  non-symlink regular-file descriptor with before/after `fstat`, one
+  read/hash/parse, and descriptor/path identity binding.
 
 ## 3. Single-host runtime and recovery definitions
 
@@ -283,6 +324,13 @@
   and seal the selected system Compose plugin identity/bytes with the Docker
   CLI. Record versions as evidence without a distribution or unrelated patch
   gate; require no host Node/Go/Python.
+  The fixed local launcher must place `--ignore-scripts` before npm's exact
+  `run` subcommand; its launch plan and in-controller guard must close the
+  corresponding argv/configuration, and both manifest reads must reject
+  `prepreflight:myserver`, `postpreflight:myserver`,
+  `prevalidate:myserver`, and `postvalidate:myserver`. Add an exact-argv
+  negative suite and a real marker-based npm child regression proving no
+  target pre/post hook executes.
   Inventory protected root identities/static configs, projects, resources,
   listeners, and processes without reading secret/live-data bytes.
 - [ ] 4.4 Implement the local sealed transfer and fixed remote payload:
@@ -408,9 +456,106 @@
   Operations controller and audited AMD64 candidate from the authenticated
   one-day Operations Actions handoff; reject a missing/mismatched archive
   digest, external inventory, candidate content address, or workflow
-  run/head identity. Then run only
-  `npm --prefix operations run preflight:myserver -- --candidate /absolute/path/to/candidate`.
-  It must perform read-only SSH checks and emit a canonical preflight; any
+  run/head identity. Require a new absent handoff directory. The main agent
+  must read-only resolve and approve canonical absolute ordinary single-link
+  executables for `gh` and `jq`; set the reviewed literal paths and remaining
+  exact values without command substitution:
+
+  ```bash
+  set -euo pipefail
+  export BGMSS_OPS_TOOL_DIR=/absolute/canonical/path/to/node-24.18.0-npm-11.16.0/bin
+  export BGMSS_OPS_GH='/REPLACE_WITH_REVIEWED_CANONICAL_ABSOLUTE_GH'
+  export BGMSS_OPS_JQ='/REPLACE_WITH_REVIEWED_CANONICAL_ABSOLUTE_JQ'
+  export BGMSS_OPS_OPERATIONS_REVISION='REPLACE_WITH_EXACT_40_HEX_GREEN_HEAD'
+  export BGMSS_OPS_WORKFLOW_RUN_ID='REPLACE_WITH_EXACT_POSITIVE_DECIMAL_GREEN_RUN_ID'
+  export BGMSS_OPS_WORKFLOW_RUN_ATTEMPT='REPLACE_WITH_EXACT_POSITIVE_DECIMAL_REVIEWED_ATTEMPT'
+  export BGMSS_OPS_HANDOFF=/absolute/new/path/under/operations/.tmp/actions-handoff
+  export BGMSS_OPS_PHASE_ROOT=/absolute/new/path/under/operations/.tmp/control-phases
+  export BGMSS_OPS_INSTALL_HOME="$BGMSS_OPS_PHASE_ROOT/install-home"
+  export BGMSS_OPS_GITHUB_HOME="$BGMSS_OPS_PHASE_ROOT/github-home"
+  export BGMSS_OPS_GH_CONFIG_DIR="$BGMSS_OPS_PHASE_ROOT/github-config"
+  export BGMSS_OPS_SSH_HOME="$BGMSS_OPS_PHASE_ROOT/ssh-home"
+  unset BASH_ENV ENV KSH_ENV NODE_LOADER NODE_OPTIONS NODE_PATH NODE_PRELOAD \
+    NPM_CONFIG_NODE_OPTIONS NPM_CONFIG_SCRIPT_SHELL NPM_CONFIG_SHELL \
+    npm_config_node_options npm_config_script_shell npm_config_shell \
+    LD_AUDIT LD_DEBUG LD_LIBRARY_PATH LD_PRELOAD LD_PROFILE \
+    DYLD_FALLBACK_FRAMEWORK_PATH DYLD_FALLBACK_LIBRARY_PATH \
+    DYLD_FRAMEWORK_PATH DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH
+  export PATH="$BGMSS_OPS_TOOL_DIR:/usr/bin:/bin"
+  [[ "$BGMSS_OPS_OPERATIONS_REVISION" =~ ^[0-9a-f]{40}$ ]] || { printf '%s\n' 'invalid exact green head' >&2; exit 1; }
+  [[ "$BGMSS_OPS_WORKFLOW_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]] || { printf '%s\n' 'invalid reviewed workflow run ID' >&2; exit 1; }
+  [[ "$BGMSS_OPS_WORKFLOW_RUN_ATTEMPT" =~ ^[1-9][0-9]{0,9}$ ]] || { printf '%s\n' 'invalid reviewed workflow run attempt' >&2; exit 1; }
+  mkdir -m 0700 -- \
+    "$BGMSS_OPS_PHASE_ROOT" \
+    "$BGMSS_OPS_INSTALL_HOME" \
+    "$BGMSS_OPS_GITHUB_HOME" \
+    "$BGMSS_OPS_GH_CONFIG_DIR" \
+    "$BGMSS_OPS_SSH_HOME"
+  # Before this block, the main agent writes only its reviewed minimal
+  # myserver config and known_hosts into "$BGMSS_OPS_SSH_HOME/.ssh/".
+  BGMSS_OPS_INSTALL_ENV=(
+    /usr/bin/env -i
+    "BGMSS_OPS_TOOL_DIR=$BGMSS_OPS_TOOL_DIR"
+    "HOME=$BGMSS_OPS_INSTALL_HOME"
+    'LANG=C.UTF-8'
+    'LC_ALL=C.UTF-8'
+    'NO_COLOR=1'
+    "PATH=$BGMSS_OPS_TOOL_DIR:/usr/bin:/bin"
+    'TZ=UTC'
+  )
+  BGMSS_OPS_GITHUB_ENV=(
+    /usr/bin/env -i
+    "BGMSS_OPS_GH=$BGMSS_OPS_GH"
+    "BGMSS_OPS_TOOL_DIR=$BGMSS_OPS_TOOL_DIR"
+    "GH_CONFIG_DIR=$BGMSS_OPS_GH_CONFIG_DIR"
+    'GH_HOST=github.com'
+    "GH_TOKEN=${GH_TOKEN-}"
+    "HOME=$BGMSS_OPS_GITHUB_HOME"
+    'LANG=C.UTF-8'
+    'LC_ALL=C.UTF-8'
+    'NO_COLOR=1'
+    "PATH=$BGMSS_OPS_TOOL_DIR:/usr/bin:/bin"
+    'TZ=UTC'
+  )
+  BGMSS_OPS_SSH_ENV=(
+    /usr/bin/env -i
+    'BGMSS_OPS_CONTROL_ENVIRONMENT=operations-control-environment-v1'
+    "BGMSS_OPS_JQ=$BGMSS_OPS_JQ"
+    "BGMSS_OPS_TOOL_DIR=$BGMSS_OPS_TOOL_DIR"
+    "HOME=$BGMSS_OPS_SSH_HOME"
+    "SSH_AUTH_SOCK=${SSH_AUTH_SOCK-}"
+    'LANG=C.UTF-8'
+    'LC_ALL=C.UTF-8'
+    'NO_COLOR=1'
+    "PATH=$BGMSS_OPS_TOOL_DIR:/usr/bin:/bin"
+    'TZ=UTC'
+  )
+  "${BGMSS_OPS_INSTALL_ENV[@]}" "$BGMSS_OPS_TOOL_DIR/npm" \
+    --userconfig=/dev/null --globalconfig=/dev/null \
+    --script-shell=/bin/bash --node-options= --prefix operations ci \
+    --ignore-scripts --no-audit --no-fund
+  "${BGMSS_OPS_GITHUB_ENV[@]}" "$BGMSS_OPS_TOOL_DIR/node" \
+    operations/validation/authenticate-handoff.mjs \
+    --workflow-run-id "$BGMSS_OPS_WORKFLOW_RUN_ID" \
+    --workflow-run-attempt "$BGMSS_OPS_WORKFLOW_RUN_ATTEMPT" \
+    --workflow-head "$BGMSS_OPS_OPERATIONS_REVISION" \
+    --output "$BGMSS_OPS_HANDOFF"
+  BGMSS_OPS_PREFLIGHT_JSON="$(
+    "${BGMSS_OPS_SSH_ENV[@]}" "$BGMSS_OPS_TOOL_DIR/node" \
+      operations/validation/control-launch.mjs preflight:myserver \
+      --handoff-authority "$BGMSS_OPS_HANDOFF/actions-authority.json"
+  )"
+  ```
+
+  Do not auto-select among green runs or reruns: the reviewed run ID and
+  attempt are mandatory and
+  the GitHub-only helper must bind exact repository/workflow/event/success/
+  head/tree/executed-workflow/current-attempt authority plus one unique
+  unexpired exact-name artifact ID/name/digest/size/time identity and canonical
+  in-artifact provenance before SSH. The SSH-only controller consumes the
+  resulting canonical seal and rejects `BGMSS_OPS_GH`, `GH_TOKEN`,
+  `GH_CONFIG_DIR`, and caller home/config paths; it must perform read-only
+  SSH checks and emit a canonical preflight. Any
   unsupported host capability or unexpected
   root/project/service/network/volume/port/image/path/
   listener/process/space fact stops with zero remote writes.
@@ -420,10 +565,68 @@
   volume, API `127.0.0.1:19090:8080`, all six image refs absent, and all
   `/srv/bgmss`, `/srv/bgmss-v2`, Nginx/systemd/TLS/public/legacy resources
   protected. Do not proceed on ambiguity.
-- [ ] 7.3 After admission, set
-  `BGMSS_OPS_VALIDATION_INPUT=/absolute/path/under/operations/.tmp/validation-input-v1.json`
-  and run only
-  `npm --prefix operations run validate:myserver -- --input "$BGMSS_OPS_VALIDATION_INPUT"`.
+- [ ] 7.3 After admission, extract the single sealed input path from the
+  canonical preflight object and run only:
+
+  ```bash
+  set -euo pipefail
+  : "${BGMSS_OPS_TOOL_DIR:?missing reviewed exact tool directory}"
+  : "${BGMSS_OPS_JQ:?missing reviewed canonical jq executable}"
+  : "${BGMSS_OPS_PREFLIGHT_JSON:?missing canonical preflight JSON}"
+  unset BASH_ENV ENV KSH_ENV NODE_LOADER NODE_OPTIONS NODE_PATH NODE_PRELOAD \
+    NPM_CONFIG_NODE_OPTIONS NPM_CONFIG_SCRIPT_SHELL NPM_CONFIG_SHELL \
+    npm_config_node_options npm_config_script_shell npm_config_shell \
+    LD_AUDIT LD_DEBUG LD_LIBRARY_PATH LD_PRELOAD LD_PROFILE \
+    DYLD_FALLBACK_FRAMEWORK_PATH DYLD_FALLBACK_LIBRARY_PATH \
+    DYLD_FRAMEWORK_PATH DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH
+  export PATH="$BGMSS_OPS_TOOL_DIR:/usr/bin:/bin"
+  BGMSS_OPS_JSON_ENV=(
+    /usr/bin/env -i
+    "BGMSS_OPS_JQ=$BGMSS_OPS_JQ"
+    "BGMSS_OPS_TOOL_DIR=$BGMSS_OPS_TOOL_DIR"
+    'LANG=C.UTF-8'
+    'LC_ALL=C.UTF-8'
+    'NO_COLOR=1'
+    "PATH=$BGMSS_OPS_TOOL_DIR:/usr/bin:/bin"
+    'TZ=UTC'
+  )
+  BGMSS_OPS_SSH_ENV=(
+    /usr/bin/env -i
+    'BGMSS_OPS_CONTROL_ENVIRONMENT=operations-control-environment-v1'
+    "BGMSS_OPS_JQ=$BGMSS_OPS_JQ"
+    "BGMSS_OPS_TOOL_DIR=$BGMSS_OPS_TOOL_DIR"
+    "HOME=$BGMSS_OPS_SSH_HOME"
+    "SSH_AUTH_SOCK=${SSH_AUTH_SOCK-}"
+    'LANG=C.UTF-8'
+    'LC_ALL=C.UTF-8'
+    'NO_COLOR=1'
+    "PATH=$BGMSS_OPS_TOOL_DIR:/usr/bin:/bin"
+    'TZ=UTC'
+  )
+  BGMSS_OPS_VALIDATION_INPUT="$(
+    printf '%s' "$BGMSS_OPS_PREFLIGHT_JSON" |
+      "${BGMSS_OPS_JSON_ENV[@]}" "$BGMSS_OPS_JQ" -er 'if type == "object" and (keys == ["input","inputDigest","packageRoot","runRoot","workflowHead","workflowRunAttempt","workflowRunId"]) and (.input | (type == "string" and startswith("/"))) then .input else error("invalid canonical preflight envelope") end'
+  )"
+  export BGMSS_OPS_VALIDATION_INPUT
+  "${BGMSS_OPS_SSH_ENV[@]}" "$BGMSS_OPS_TOOL_DIR/node" \
+    operations/validation/control-launch.mjs validate:myserver \
+    --input "$BGMSS_OPS_VALIDATION_INPUT"
+  ```
+
+  The fixed launcher invokes npm globally as exact
+  `--silent ... --ignore-scripts run <target> -- ...` through `/bin/bash`;
+  it suppresses only npm's lifecycle banner while the controller's
+  stdout/stderr and progress remain attached. Both launcher and controller
+  reject all four target `pre`/`post` hook keys. The explicit
+  phase-specific `/usr/bin/env -i` allowlists, preceding startup-variable
+  removal, empty npm `node-options`, disabled npm config files, and controller
+  guard are one closed launch contract. All phase homes/config directories are
+  new run-owned `0700` roots; the SSH home contains only reviewed minimal
+  config/known-host bytes. Canary tests must prove install/JSON see neither
+  credential or caller config, GitHub sees no SSH agent/config, and SSH control
+  sees no GitHub CLI/token/config. Do not invoke either lifecycle directly or use
+  `eval`, a glob, a directory search, a bare `gh`/`jq`, or inherited ordinary
+  `PATH` to discover the input.
   The fixed controller must transfer/execute/collect/cleanup exactly as
   specified; communicate progress at intervals under 60 seconds during long
   image/archive transfer and runtime checks.
