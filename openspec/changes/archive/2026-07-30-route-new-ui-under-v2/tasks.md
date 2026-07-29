@@ -1,6 +1,6 @@
 | Field | Declaration |
 |---|---|
-| Status | Production accepted and archived; lifecycle push pending. |
+| Status | Production accepted, archived, and lifecycle-pushed. |
 | Owner | Main agent directly owns all sequential groups. |
 | Writable paths | Proposal writable paths and mutable refs only. |
 | Read-only protected inputs | Proposal protected inputs only. |
@@ -76,4 +76,9 @@
   their main specs, this change was archived at
   `openspec/changes/archive/2026-07-30-route-new-ui-under-v2`, and strict
   validation passed with zero failures.
-- [ ] 5.2 Commit/push only the lifecycle/evidence block, require remote equality and a clean worktree, then report the final legacy/new URLs and rollback state.
+- [x] 5.2 Commit/push only the lifecycle/evidence block, require remote equality
+  and a clean worktree, then report the final legacy/new URLs and rollback
+  state. Lifecycle archive/spec commit
+  `2ebee00a7752ed5472e58d97016ecd380fd2f042` was pushed before this sole
+  completion-marker follow-up; final remote equality and a clean worktree are
+  required for handoff.
