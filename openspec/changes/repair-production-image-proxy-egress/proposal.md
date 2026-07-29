@@ -19,8 +19,9 @@ result.
 - Keep the initial request fixed to `https://api.bgm.tv`; manually accept only
   one absolute credential-free HTTPS `302` target on exact `lain.bgm.tv`, then
   reject every other or second redirect.
-- Send one fixed code-owned `BangumiStaffStats/1.0` User-Agent on both approved
-  GETs; never copy an incoming or ambient identity.
+- Send one fixed code-owned
+  `AcuLY/BangumiStaffStats (https://github.com/AcuLY/BangumiStaffStats)`
+  User-Agent on both approved GETs; never copy an incoming or ambient identity.
 - Preserve the existing timeout, concurrency, response-header, status, image
   MIME, declared/actual body-size, cache-header, cancellation, safe-error, and
   low-cardinality observation bounds across both hops.

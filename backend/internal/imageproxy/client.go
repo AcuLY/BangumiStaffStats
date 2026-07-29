@@ -29,6 +29,7 @@ const (
 	upstreamOrigin       = "https://api.bgm.tv"
 	upstreamHost         = "api.bgm.tv"
 	imageHost            = "lain.bgm.tv"
+	upstreamUserAgent    = "AcuLY/BangumiStaffStats (https://github.com/AcuLY/BangumiStaffStats)"
 	defaultHTTPSPort     = "443"
 	proxyConfigurationID = "image proxy: invalid HTTPS proxy configuration"
 )
@@ -575,6 +576,7 @@ func newUpstreamRequest(
 		"Accept",
 		"image/avif,image/webp,image/png,image/jpeg,image/gif",
 	)
+	upstreamRequest.Header.Set("User-Agent", upstreamUserAgent)
 	if request.IfNoneMatch != "" {
 		upstreamRequest.Header.Set("If-None-Match", request.IfNoneMatch)
 	}

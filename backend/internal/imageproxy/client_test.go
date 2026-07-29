@@ -140,6 +140,8 @@ func TestFetchFollowsOneReviewedImageRedirectAndPreservesBounds(t *testing.T) {
 	for _, call := range calls {
 		if call.Method != http.MethodGet ||
 			call.Header.Get("Accept") == "" ||
+			len(call.Header.Values("User-Agent")) != 1 ||
+			call.Header.Get("User-Agent") != upstreamUserAgent ||
 			call.Header.Get("If-None-Match") != `"image-v1"` ||
 			call.Header.Get("If-Modified-Since") != "Wed, 21 Oct 2015 07:28:00 GMT" ||
 			call.Header.Get("Cookie") != "" ||
@@ -296,6 +298,7 @@ func TestFetchClassifiesStatusContentTypeAndDeclaredSizeWithoutBodyLeak(t *testi
 		{name: "not found", status: http.StatusNotFound, contentType: "text/plain", want: ErrorNotFound},
 		{name: "rate limited", status: http.StatusTooManyRequests, contentType: "text/plain", want: ErrorUnavailable},
 		{name: "server error", status: http.StatusBadGateway, contentType: "text/plain", want: ErrorUnavailable},
+		{name: "forbidden", status: http.StatusForbidden, contentType: "application/json", want: ErrorProtocol},
 		{name: "redirect", status: http.StatusFound, contentType: "text/plain", want: ErrorProtocol},
 		{name: "unexpected status", status: http.StatusCreated, contentType: "image/jpeg", want: ErrorProtocol},
 		{name: "active image", status: http.StatusOK, contentType: "image/svg+xml", want: ErrorProtocol},

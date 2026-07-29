@@ -80,10 +80,11 @@ normal application rollback remains available after topology is restored.
 ### 5. Send one fixed project User-Agent
 
 Both explicit approved GETs set exact
-`User-Agent: BangumiStaffStats/1.0`. The value is a code constant, contains no
-request or environment data, and replaces the Go transport default that
-`api.bgm.tv` rejects. Incoming User-Agent and arbitrary headers remain outside
-the image request model and cannot affect either hop.
+`User-Agent: AcuLY/BangumiStaffStats (https://github.com/AcuLY/BangumiStaffStats)`.
+The value is a code constant, contains no request or environment data, and
+replaces the Go transport default that `api.bgm.tv` rejects. Incoming
+User-Agent and arbitrary headers remain outside the image request model and
+cannot affect either hop.
 
 Alternative rejected: omit the header or rely on Go's implicit
 `Go-http-client/1.1`, because production repetition proved both identities

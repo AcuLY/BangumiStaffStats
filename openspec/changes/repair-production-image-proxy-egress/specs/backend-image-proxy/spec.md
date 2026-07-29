@@ -40,8 +40,10 @@ The adapter SHALL construct the initial HTTPS request from fixed
 scheme, host, port, path, or header. It SHALL forward no Cookie,
 Authorization, token, proxy, or arbitrary request header. Automatic redirect
 following SHALL remain disabled. Both approved GETs SHALL set exactly one
-code-owned `BangumiStaffStats/1.0` User-Agent; they SHALL NOT omit it, use the
-Go transport default, or copy an incoming/environment-controlled identity.
+code-owned
+`AcuLY/BangumiStaffStats (https://github.com/AcuLY/BangumiStaffStats)`
+User-Agent; they SHALL NOT omit it, use the Go transport default, or copy an
+incoming/environment-controlled identity.
 
 The adapter MAY manually follow exactly one `302` only when the initial fixed
 request returns one bounded absolute Location whose scheme is `https`, host is

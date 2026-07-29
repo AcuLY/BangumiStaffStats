@@ -103,10 +103,11 @@
   image and proxy, prove that empty and Go-default User-Agent values receive
   `403` while a fixed project value receives the approved `302`, and revise
   the proposal/design/delta before implementation.
-- [ ] 7.2 Set exact `BangumiStaffStats/1.0` on both approved image GETs and add
-  focused assertions that both hops use it while caller-controlled headers
-  remain absent. Run no local build; require Development Actions for the full
-  Backend/Product gates.
+- [ ] 7.2 Set exact
+  `AcuLY/BangumiStaffStats (https://github.com/AcuLY/BangumiStaffStats)` on
+  both approved image GETs and add focused assertions that both hops use it
+  while caller-controlled headers remain absent. Run no local build; require
+  Development Actions for the full Backend/Product gates.
 - [ ] 7.3 Commit/push the implementation, advance only the accepted Product
   revision after its green run, require a final exact-head green
   `linux/amd64` bundle, transactionally deploy it with the existing overlay,
