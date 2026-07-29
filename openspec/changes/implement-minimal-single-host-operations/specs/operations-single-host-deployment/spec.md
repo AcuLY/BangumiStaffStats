@@ -104,12 +104,14 @@ node exporter, or tracing.
 ### Requirement: Isolated validation SHALL not affect the legacy project
 
 Remote validation SHALL begin with a read-only preflight and use one absent
-run-owned `/srv/bgmss-ops-validation-minimal-<run-id>` root, unique Compose
-project, run-tagged images, and free loopback ports `19090`/`19091`. It SHALL
+run-owned `/tmp/bgmss-ops-minimal-input-<run-id>` transfer root, one absent
+run-owned `/srv/bgmss-ops-validation-minimal-<run-id>` runtime root, unique
+Compose project, run-tagged images, and free loopback ports `19090`/`19091`.
+It SHALL
 exercise startup, health, metrics, Prometheus, journald, validation-local
 pointer switch/restore, application restart/rollback, template validation,
-and exact cleanup. Production and legacy paths, projects, routes, services,
-ports, data, and images SHALL remain unchanged.
+and exact cleanup of both roots. Production and legacy paths, projects, routes,
+services, ports, data, and images SHALL remain unchanged.
 
 #### Scenario: Isolated validation succeeds
 

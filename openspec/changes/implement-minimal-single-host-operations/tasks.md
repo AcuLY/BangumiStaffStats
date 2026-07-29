@@ -79,14 +79,15 @@
 
 - [ ] 5.1 Remote owner performs read-only preflight on `myserver`: require
   `linux/amd64`, Docker/Compose, Nginx/systemd validation tools, curl/flock,
-  disk; exact absence of
+  disk; exact absence of the transfer root and
   `/srv/bgmss-ops-validation-minimal-<run-id>` and unique Compose project;
   free `127.0.0.1:19090/19091`; capture legacy paths/projects/containers/
   listeners/Nginx/systemd identities before any write.
 - [ ] 5.2 Transfer only the admitted bundle and reviewed `operations/**` into
-  the absent run root; load under run-specific tags, verify `SHA256SUMS`, seed
-  the minimal Archive, render `docker compose config`, and start the unique
-  project without a public port or legacy mount.
+  the exact absent `/tmp/bgmss-ops-minimal-input-<run-id>` root; the validator
+  reads only that staging root, loads under run-specific tags, verifies
+  `SHA256SUMS`, seeds the minimal Archive, renders `docker compose config`, and
+  starts the unique project without a public port or legacy mount.
 - [ ] 5.3 Require API `/livez`, `/readyz`, `/metrics`, Prometheus readiness and
   API scrape, expected journald driver/resource/security projection, updater
   `doctor`/contract path, one validation-local pointer switch/restoration,
@@ -96,8 +97,8 @@
   service, or change TLS/routes/firewall.
 - [ ] 5.5 Stop/remove only the unique project/containers/network/run-tagged
   images and exact validation root; compare every captured legacy field and
-  both loopback ports after cleanup. Preserve/report any ambiguous residue and
-  do not broaden cleanup.
+  both loopback ports after cleanup, then remove the exact caller-owned transfer
+  root. Preserve/report any ambiguous residue and do not broaden cleanup.
 
 ## 6. Final audit and lifecycle
 

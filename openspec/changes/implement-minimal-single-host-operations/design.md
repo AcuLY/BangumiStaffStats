@@ -121,15 +121,18 @@ the image afterward only when the current run introduced it.
 
 Remote preflight records architecture, Docker/Compose availability, exact
 absence of the validation root/project, free loopback ports, disk, and a
-read-only legacy snapshot. It then creates only
-`/srv/bgmss-ops-validation-minimal-<run-id>`, starts a unique project, checks
-health/metrics/Prometheus/logging, performs validation-local pointer
-switch/restore and restart rollback, and validates Nginx/systemd templates.
+read-only legacy snapshot. After the bundle is admitted, transfer uses one
+exact absent `/tmp/bgmss-ops-minimal-input-<run-id>` staging root; the
+validator reads the bundle and reviewed `operations/` files from there and
+creates only `/srv/bgmss-ops-validation-minimal-<run-id>` for runtime state.
+It starts a unique project, checks health/metrics/Prometheus/logging, performs
+validation-local pointer switch/restore and restart rollback, and validates
+Nginx/systemd templates.
 
 Nginx is checked with a temporary prefix/config and systemd units with
 `systemd-analyze verify`; neither is installed, enabled, reloaded, or routed.
-Postflight compares the legacy snapshot and removes only the run-owned project
-and root.
+Postflight compares the legacy snapshot and removes only the run-owned project,
+runtime root, and caller-owned transfer root.
 
 ## Risks / Trade-offs
 
