@@ -7,6 +7,7 @@ import { gzipSync } from 'node:zlib';
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const distRoot = path.join(frontendRoot, 'dist');
+const productionBasePath = '/v2/';
 const maximumInitialJavaScriptGzipBytes = 300 * 1024;
 const expectedBrandHash =
   'd3d1ca5d14d560f3415dfbcc84b58ece72741a51cf860362d09284ed21aa394a';
@@ -49,7 +50,12 @@ function localArtifactPath(reference, label, files) {
   } catch {
     fail(`${label} contains invalid URL encoding: ${reference}`);
   }
-  const relativePath = path.posix.normalize(decoded.replace(/^\/+/u, ''));
+  if (!decoded.startsWith(productionBasePath)) {
+    fail(`${label} must stay below ${productionBasePath}: ${reference}`);
+  }
+  const relativePath = path.posix.normalize(
+    decoded.slice(productionBasePath.length),
+  );
   if (
     !relativePath ||
     relativePath === '.' ||

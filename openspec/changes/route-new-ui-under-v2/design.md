@@ -63,7 +63,9 @@ The source-free artifact smoke server recognizes the declared `/v2/` prefix
 when resolving entry-document references, but continues to read immutable
 archive members from their unchanged `assets/**` paths. Its tests prove both
 successful nested-base resolution and rejection of a different/escaping
-prefix.
+prefix. The production artifact checker applies the same exact prefix rule
+before mapping a browser URL to an archive member; it does not accept an
+arbitrary leading directory.
 
 This is preferred over Nginx response substitution because compiled dynamic
 imports, History API writes, share URLs, and image requests all need the same

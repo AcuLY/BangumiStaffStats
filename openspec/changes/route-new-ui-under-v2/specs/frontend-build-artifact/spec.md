@@ -4,7 +4,7 @@
 |---|---|
 | Status | Specified; implementation and verification pending. |
 | Owner | Main agent, direct sequential implementation. |
-| Writable paths | `frontend/vite.config.ts`, `frontend/src/shared/navigation/basePath.ts`, exact API/image mapping hunks in `frontend/src/api/client.ts` and `frontend/src/shared/media/bangumiImage.ts`, nested-base URL resolution only in `frontend/build/smoke.mjs`, its exact tests in `frontend/build/test.mjs`, exact related frontend tests, and their persistent inventory entries in `frontend/scripts/check-architecture.mjs`. |
+| Writable paths | `frontend/vite.config.ts`, `frontend/src/shared/navigation/basePath.ts`, exact API/image mapping hunks in `frontend/src/api/client.ts` and `frontend/src/shared/media/bangumiImage.ts`, exact `/v2/` URL resolution in `frontend/scripts/check-production-artifact.mjs`, nested-base URL resolution only in `frontend/build/smoke.mjs`, its exact tests in `frontend/build/test.mjs`, exact related frontend tests, and their persistent inventory entries in `frontend/scripts/check-architecture.mjs`. |
 | Read-only protected inputs | Dependencies/lock, UI/CSS/assets/copy, API schemas/adapters, backend/updater/contracts, artifact integrity mechanics outside required nested-base support. |
 | Deletion complement | New utility/test only; existing files are hunk-restored. |
 | Mutable refs | This change and branch lifecycle only. |

@@ -25,6 +25,7 @@
 - [x] 2.1 Re-preflight the exact pushed specification commit and dirty-state absence; implement the normalized base-path utility, production `/v2/` Vite base, base-aware routes/share/header/API/image URLs, nested-base artifact smoke resolution, and focused root plus `/v2/` tests only in declared frontend paths.
 - [x] 2.2 Update only the repository Nginx template/documentation for the legacy-root/new-`/v2/**` split, including prefix containment and rollback semantics.
 - [x] 2.3 Review the exact diff for visual/interaction/state/contract/dependency drift; run non-build static checks locally only, then commit/push the implementation. Do not run Node, frontend, backend, container, or artifact builds on the local machine.
+- [x] 2.4 Amend the exact artifact-checker scope after run `30469305349` proves all 376 frontend tests, typecheck, and Vite build green but the legacy root-only favicon resolver rejects `/v2/assets/**`; require the correction to accept only the exact `/v2/` prefix, strict-validate, commit, and push without a local build.
 
 ## 3. Actions artifact and transactional application deploy
 
