@@ -29,7 +29,7 @@ are excluded from both writable scope and acceptance probes.
 
 | Field | Declaration |
 |---|---|
-| Status | Timestamp-fix source is healthy and private; one safe SQLite build failure is recorded. Exact operations source `1505c5d7c36f457ed8d9e3be542e2422fe2811fc`, one Compose-file transaction, one new updater invocation, and public integration await this amendment's validation/commit/push. |
+| Status | Completed: exact operations source `1505c5d7c36f457ed8d9e3be542e2422fe2811fc` passed run `30452886753`; the one-file Compose correction, single updater run, real Archive publication, host integration, Nginx cutover, and rollback/forward drill all passed. |
 | Owner | Main agent directly owns decisions, spec, repository lifecycle, exact remote steps, audit, and acceptance. |
 | Writable paths | Exact repository and `myserver` paths/objects in the proposal and delta spec, including `/srv/bgmss-v2/incoming/run-30452886753`, the single installed Compose target/temporary, updater data transaction, systemd/logrotate targets, and Nginx candidate/backup/temporary. Application release/env/images and other installed operations/proxy definitions remain read-only. |
 | Read-only protected inputs | Product/operations implementation outside the closed inventory; legacy project/root and every field including the exact stopped loader state; proxy/network lifecycle/config; TLS material; unrelated host state; and every undeclared object. |
@@ -238,5 +238,16 @@ tracing, alert-routing systems, and custom proof controllers remain absent.
 
 ## Open Questions
 
-None. The user has authorized production activation; legacy retirement remains
-explicitly deferred.
+None. Production activation is complete. Updater run
+`6eb4dd5e-c921-4251-b189-0ae522343219` published
+`dv1-9d794033f12b8bcd60d8c890115a76ca52060ae13b357b3c32e036f94bb67888`
+in 1092.718 seconds. Final status SHA-256 is
+`a1062bdfee005bfc05be2023853062012383c7c96f2a91b4b6d9e4fd7d19ba37`;
+installed Compose SHA-256 is
+`13d0608d29b38cedc62821bb02f5646bf702e9419b8ee946c60c8580485cb272`;
+active/candidate Nginx SHA-256 is
+`6fe8171ebd4a45eaa94cdba27f561d9207d433cd8bf1ef4e727c2e57a31fb7df`;
+and exact rollback Nginx SHA-256 is
+`6775e97ba227f4309106f89d5e1358b33c22ef5520ddba5b36a9da1a8615693c`.
+Legacy retirement, a second real Archive before in-stack data rollback, and
+extended load/soak remain explicitly deferred.
