@@ -1,4 +1,5 @@
 import { ApiDecodeError, ApiTransportError } from './errors';
+import { toPublicApiReference } from '../shared/navigation/basePath';
 
 export type FetchImplementation = (
   input: RequestInfo | URL,
@@ -108,7 +109,7 @@ export function createApiClient(
       let response: Response;
 
       try {
-        response = await fetchImplementation(reference, {
+        response = await fetchImplementation(toPublicApiReference(reference), {
           body: options.body,
           headers: options.headers,
           method: options.method ?? 'GET',

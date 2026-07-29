@@ -12,6 +12,7 @@ import {
   isCanonicalAppliedQuery,
   type AppliedQuery,
 } from './model';
+import { toPublicAppPath } from '../../shared/navigation/basePath';
 
 export type ShareWorkspace =
   | Readonly<CoStarShareWorkspaceV1>
@@ -217,7 +218,7 @@ export function createShareUrl(
   workspace: ShareWorkspace,
 ): string {
   const url = new URL(current);
-  url.pathname = path;
+  url.pathname = toPublicAppPath(path);
   url.hash = createShareFragment(path, query, workspace);
   return url.toString();
 }

@@ -1,9 +1,10 @@
 # Minimal single-host operations
 
-This directory defines the repository-side deployment path only. It is not a
-production activation record. Public Nginx integration, `/etc` installation,
-service enablement, secrets, TLS, firewall changes, and legacy retirement are
-deliberately deferred.
+This directory defines the repository-side deployment and recovery path.
+Production activation evidence remains in its archived OpenSpec. The reviewed
+Nginx model keeps the legacy application at the domain root and reserves
+`/v2/**` for the new frontend/API; `/etc` installation, secrets, TLS, firewall
+changes, and legacy retirement remain explicit host-owned actions.
 
 ## Runtime
 
@@ -157,8 +158,12 @@ Prometheus do not receive that input; ordinary process temporary files,
 resource limits, mounts, and publication transactions remain unchanged.
 
 The systemd timer is weekly and persistent, with a six-hour service timeout.
-The Nginx file is a loopback-only complete test configuration, not a public
-vhost. Validate templates before any separately approved install:
+The Nginx file is a loopback-only complete test configuration for the reviewed
+path split, not the host's complete public TLS configuration. It uses
+`@@BGMSS_LEGACY_FRONTEND_ROOT@@` for the root application,
+`@@BGMSS_FRONTEND_ROOT@@` for `/v2/**`, and maps `/v2/api/v1/**` to the
+backend's unchanged `/api/v1/**` handlers. Validate templates before any
+separately approved install:
 
 ```sh
 nginx -t -p /tmp/bgmss-nginx-prefix/ -c /tmp/bgmss-nginx-prefix/nginx.conf

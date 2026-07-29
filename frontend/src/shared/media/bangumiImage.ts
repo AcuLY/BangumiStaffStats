@@ -1,3 +1,5 @@
+import { toPublicApiReference } from '../navigation/basePath';
+
 export type BangumiImageResource = 'characters' | 'persons' | 'subjects';
 export type BangumiImageType =
   | 'common'
@@ -18,7 +20,9 @@ function proxyReference(
   entityId: number,
   type: BangumiImageType,
 ): string {
-  return `/api/v1/images/bangumi/${resource}/${entityId}?type=${type}`;
+  return toPublicApiReference(
+    `/api/v1/images/bangumi/${resource}/${entityId}?type=${type}`,
+  );
 }
 
 function imageCandidates(

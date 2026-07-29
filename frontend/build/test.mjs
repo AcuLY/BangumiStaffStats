@@ -25,6 +25,7 @@ import {
   verifyComponentDirectory,
 } from '../../contracts/artifacts/lib/validation.mjs';
 import { attestFrontendCandidate } from './check.mjs';
+import { smokeFrontend } from './smoke.mjs';
 import { captureTrackedRegularFilesAtRevision } from '../../contracts/artifacts/lib/git-checkout.mjs';
 
 const TEST_ROOT = path.join(TMP_ROOT, 'unit-tests');
@@ -40,7 +41,7 @@ function fixtureDist(name, reverse = false) {
   const root = path.join(TEST_ROOT, name);
   ensureUnderTmpDirectory(path.join(root, 'assets'), 'fixture assets directory');
   const entries = [
-    ['index.html', '<!doctype html><div id="app"></div><script type="module" src="/assets/app-a1.js"></script>\n'],
+    ['index.html', '<!doctype html><div id="app"></div><script type="module" src="/v2/assets/app-a1.js"></script>\n'],
     ['assets/app-a1.js', 'document.querySelector(\"#app\").textContent=\"fixture\";\n'],
     ['assets/style-a1.css', ':root{color:#111}\n'],
   ];
@@ -202,6 +203,20 @@ test('artifact verifier rejects post-package byte drift', () => {
   fs.appendFileSync(artifactPath, 'tamper');
   requireUnderTmp(artifactPath, 'tampered artifact');
   assert.throws(() => verifyComponentDirectory(output, 'frontend'), /size drift|digest drift/);
+});
+
+test('artifact smoke resolves the declared nested production base', async () => {
+  reset();
+  const output = packageStaticArtifact({
+    distRoot: fixtureDist('nested-base-dist'),
+    outputRoot: path.join(TEST_ROOT, 'nested-base-output'),
+    sourceRevision: REVISION,
+    sourceTree: TREE,
+  });
+  const result = await smokeFrontend(output);
+  assert.ok(result.requests.includes('index.html'));
+  assert.ok(result.requests.includes('assets/app-a1.js'));
+  assert.ok(result.requests.every((request) => !request.startsWith('v2/')));
 });
 
 test('candidate capture returns only raw-verified tracked regular blobs', () => {

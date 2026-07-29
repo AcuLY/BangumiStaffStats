@@ -52,10 +52,18 @@ compiled browser behavior.
 ### Use `/v2/` as one compile-time application base
 
 `frontend/vite.config.ts` supplies `/v2/` for production builds. One small
-`basePath.ts` module normalizes `import.meta.env.BASE_URL` and maps logical SPA
-paths/API references to public paths. Vitest continues to use `/`, so existing
-logical-route tests remain meaningful; focused tests explicitly cover the
-normalizer and `/v2/` mapping.
+shared `navigation/basePath.ts` module normalizes `import.meta.env.BASE_URL`
+and maps logical SPA paths/API references to public paths. App, API, and media
+code depend inward on this shared leaf; shared/API layers never depend on the
+app composition layer. Vitest continues to use `/`, so existing logical-route
+tests remain meaningful; focused tests explicitly cover the normalizer and
+`/v2/` mapping.
+
+The source-free artifact smoke server recognizes the declared `/v2/` prefix
+when resolving entry-document references, but continues to read immutable
+archive members from their unchanged `assets/**` paths. Its tests prove both
+successful nested-base resolution and rejection of a different/escaping
+prefix.
 
 This is preferred over Nginx response substitution because compiled dynamic
 imports, History API writes, share URLs, and image requests all need the same

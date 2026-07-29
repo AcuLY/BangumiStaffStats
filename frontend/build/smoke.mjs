@@ -15,6 +15,7 @@ import {
 } from './artifact.mjs';
 
 const SMOKE_ROOT = path.join(TMP_ROOT, 'smoke');
+const STATIC_BASE_PATH = '/v2/';
 
 function fail(message) {
   throw new Error(message);
@@ -91,7 +92,15 @@ function createStaticServer(staticRoot, requestedPaths) {
       response.writeHead(400).end();
       return;
     }
-    const relative = decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '');
+    if (!decoded.startsWith(STATIC_BASE_PATH)) {
+      response.writeHead(404).end();
+      return;
+    }
+    const publicRelative = decoded.slice(STATIC_BASE_PATH.length);
+    const relative =
+      publicRelative === '' || publicRelative === 'index.html'
+        ? 'index.html'
+        : publicRelative;
     requestedPaths.push(relative);
     if (
       !relative ||
@@ -140,7 +149,10 @@ function htmlReferences(html) {
     if (/^(?:[a-z]+:)?\/\//iu.test(reference)) {
       fail(`entry document contains a non-local reference: ${reference}`);
     }
-    result.add(reference.replace(/^\/+/, ''));
+    if (!reference.startsWith(STATIC_BASE_PATH)) {
+      fail(`entry document reference escapes ${STATIC_BASE_PATH}: ${reference}`);
+    }
+    result.add(reference);
   }
   return [...result].sort();
 }
@@ -181,26 +193,26 @@ export async function smokeFrontend(componentRoot) {
   try {
     port = await listen(server);
     const base = `http://127.0.0.1:${port}`;
-    const entryResponse = await fetch(`${base}/`);
+    const entryResponse = await fetch(`${base}${STATIC_BASE_PATH}`);
     if (!entryResponse.ok) fail(`entry request failed with ${entryResponse.status}`);
     const entryText = await entryResponse.text();
     for (const reference of htmlReferences(entryText)) {
-      const response = await fetch(`${base}/${reference}`);
+      const response = await fetch(`${base}${reference}`);
       if (!response.ok) fail(`referenced asset failed: ${reference} (${response.status})`);
       if (
-        reference.startsWith('assets/') &&
+        reference.startsWith(`${STATIC_BASE_PATH}assets/`) &&
         response.headers.get('cache-control') !== 'public, max-age=31536000, immutable'
       ) {
         fail(`hashed asset lacks immutable cache evidence: ${reference}`);
       }
     }
     for (const entry of prepared.entries) {
-      const response = await fetch(`${base}/${entry.path}`);
+      const response = await fetch(`${base}${STATIC_BASE_PATH}${entry.path}`);
       if (!response.ok) fail(`static file failed: ${entry.path}`);
       const bytes = Buffer.from(await response.arrayBuffer());
       if (!bytes.equals(entry.bytes)) fail(`served bytes drifted: ${entry.path}`);
     }
-    const escape = await fetch(`${base}/%2e%2e/package.json`);
+    const escape = await fetch(`${base}${STATIC_BASE_PATH}%2e%2e/package.json`);
     if (escape.status !== 404) fail('escaping/source fallback request must return 404');
   } finally {
     if (server.listening) await close(server);
@@ -218,7 +230,9 @@ async function serveFrontend(componentRoot) {
   const requests = [];
   const server = createStaticServer(prepared.staticRoot, requests);
   const port = await listen(server);
-  process.stdout.write(`${JSON.stringify({ url: `http://127.0.0.1:${port}/` })}\n`);
+  process.stdout.write(
+    `${JSON.stringify({ url: `http://127.0.0.1:${port}${STATIC_BASE_PATH}` })}\n`,
+  );
   const shutdown = async () => {
     if (server.listening) await close(server);
     const after = snapshot(prepared.resolved);

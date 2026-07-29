@@ -4,7 +4,7 @@
 |---|---|
 | Status | Specified; implementation and production apply pending. |
 | Owner | Main agent, exact sequential production owner. |
-| Writable paths | `operations/nginx/bgmss.conf`, `operations/README.md`; on `myserver`, exact admitted new release/application refs via existing deploy transaction, `/srv/bgmss-v2/config/nginx/nginx.conf`, `/etc/nginx/nginx.conf`, its same-directory temporary, and one exact new pre-change backup. |
+| Writable paths | `operations/nginx/bgmss.conf`, the exact new legacy-root placeholder substitution in `operations/bin/validate-isolated`, and `operations/README.md`; on `myserver`, exact admitted new release/application refs via existing deploy transaction, `/srv/bgmss-v2/config/nginx/nginx.conf`, `/etc/nginx/nginx.conf`, its same-directory temporary, and one exact new pre-change backup. |
 | Read-only protected inputs | Archive data/pointers, updater/timer/logrotate/proxy/TLS/DNS/firewall, legacy `/srv/bgmss` data/config/containers, stopped loader, unrelated vhosts/routes/services, and historical `.pre-bgmss-v2` backup. |
 | Deletion complement | No deletion; failed deploy/cutover restores transactional application refs and exact new Nginx preimage. |
 | Mutable refs | Branch lifecycle, `bgmss-v2` current/previous application refs through deploy, exact active/candidate/new backup Nginx files. |

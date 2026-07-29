@@ -541,6 +541,7 @@ nginx_prefix="$root/nginx-validation"
 install -d -m 0750 "$nginx_prefix/logs"
 sed \
   -e "s|@@BGMSS_FRONTEND_ROOT@@|$root/current-frontend|g" \
+  -e "s|@@BGMSS_LEGACY_FRONTEND_ROOT@@|$root/current-frontend|g" \
   -e "s|@@BGMSS_API_PORT@@|$api_port|g" \
   -e "s|@@BGMSS_NGINX_LOG_ROOT@@|$nginx_prefix/logs|g" \
   "$operations/nginx/bgmss.conf" >"$nginx_prefix/nginx.conf"

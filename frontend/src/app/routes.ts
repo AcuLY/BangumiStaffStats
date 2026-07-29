@@ -2,15 +2,20 @@ import { ref, readonly, type Ref } from 'vue';
 
 import type { AppliedQuery, QueryMode } from '../features/query/model';
 import { readShare, type SharePayload } from '../features/query/share';
+import {
+  toLogicalAppPath,
+  toPublicAppPath,
+  type AppPath,
+} from '../shared/navigation/basePath';
 
-export type AppPath = '/co-star' | '/ranking';
+export type { AppPath } from '../shared/navigation/basePath';
 
 function localHistoryHref(url: URL): string {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
 function modeFor(path: string): QueryMode {
-  return path === '/co-star' ? 'co-star' : 'ranking';
+  return toLogicalAppPath(path) === '/co-star' ? 'co-star' : 'ranking';
 }
 
 function pathFor(mode: QueryMode): AppPath {
@@ -30,8 +35,12 @@ export interface RouteOwner {
 
 export function createRouteOwner(target: Window = window): RouteOwner {
   const initial = new URL(target.location.href);
-  if (initial.pathname === '/' || initial.pathname === '/index.html') {
-    initial.pathname = '/ranking';
+  const initialLogicalPath = toLogicalAppPath(initial.pathname);
+  if (
+    initialLogicalPath === '/' ||
+    initialLogicalPath === '/index.html'
+  ) {
+    initial.pathname = toPublicAppPath('/ranking');
     target.history.replaceState({}, '', localHistoryHref(initial));
   }
   const mode = ref<QueryMode>(modeFor(initial.pathname));
@@ -47,7 +56,7 @@ export function createRouteOwner(target: Window = window): RouteOwner {
       return;
     }
     const url = new URL(target.location.href);
-    url.pathname = pathFor(nextMode);
+    url.pathname = toPublicAppPath(pathFor(nextMode));
     target.history.pushState({}, '', localHistoryHref(url));
     mode.value = nextMode;
   }
@@ -58,7 +67,7 @@ export function createRouteOwner(target: Window = window): RouteOwner {
 
   function updateSuccessfulQuery(query: AppliedQuery): void {
     const url = new URL(target.location.href);
-    url.pathname = pathFor(mode.value);
+    url.pathname = toPublicAppPath(pathFor(mode.value));
     if (query.scope === 'personal') {
       url.searchParams.set('user', query.uid);
     } else {

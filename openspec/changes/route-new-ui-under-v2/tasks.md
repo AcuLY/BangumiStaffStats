@@ -18,13 +18,13 @@
 ## 1. Main-agent specification approval
 
 - [x] 1.1 Verify branch `codex/minimal-single-host-ops`, HEAD `406fb5ae29acd34d1789efb5350b88c4703c1834`, allowed dirty state limited to this change, completed prior production activation, and no active conflicting owner; strict-validate the change/all specs and record zero P0/P1 findings.
-- [ ] 1.2 Commit/push only the reviewed OpenSpec planning block so implementation begins from an exact remote-visible specification.
+- [x] 1.2 Commit/push only the reviewed OpenSpec planning block so implementation begins from an exact remote-visible specification.
 
 ## 2. Main-agent frontend and operations implementation
 
-- [ ] 2.1 Re-preflight the exact pushed specification commit and dirty-state absence; implement the normalized base-path utility, production `/v2/` Vite base, base-aware routes/share/header/API/image URLs, and focused root plus `/v2/` tests only in declared frontend paths.
-- [ ] 2.2 Update only the repository Nginx template/documentation for the legacy-root/new-`/v2/**` split, including prefix containment and rollback semantics.
-- [ ] 2.3 Review the exact diff for visual/interaction/state/contract/dependency drift; run non-build static checks locally only, then commit/push the implementation. Do not run Node, frontend, backend, container, or artifact builds on the local machine.
+- [x] 2.1 Re-preflight the exact pushed specification commit and dirty-state absence; implement the normalized base-path utility, production `/v2/` Vite base, base-aware routes/share/header/API/image URLs, nested-base artifact smoke resolution, and focused root plus `/v2/` tests only in declared frontend paths.
+- [x] 2.2 Update only the repository Nginx template/documentation for the legacy-root/new-`/v2/**` split, including prefix containment and rollback semantics.
+- [x] 2.3 Review the exact diff for visual/interaction/state/contract/dependency drift; run non-build static checks locally only, then commit/push the implementation. Do not run Node, frontend, backend, container, or artifact builds on the local machine.
 
 ## 3. Actions artifact and transactional application deploy
 

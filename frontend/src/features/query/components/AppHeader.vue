@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, ref } from 'vue';
 
 import brandMark from '../../../assets/brand/bgmss.png';
 import type { AppTheme } from '../../../app/theme';
+import { toPublicAppPath } from '../../../shared/navigation/basePath';
 import type { QueryCoordinator } from '../coordinator';
 import { useCompactLayout } from '../composables/useCompactLayout';
 import { querySignature, type QueryMode } from '../model';
@@ -47,6 +48,7 @@ const modes: readonly { label: string; value: QueryMode }[] = [
   { label: '人物排行', value: 'ranking' },
   { label: '共演分析', value: 'co-star' },
 ];
+const rankingHref = toPublicAppPath('/ranking');
 
 const fallbackShareWorkspace = computed<ShareWorkspace | null>(() => {
   const applied = props.queryStore.applied;
@@ -177,7 +179,7 @@ onBeforeUnmount(() => {
       <div class="app-header__bar">
     <a
       class="app-brand"
-      href="/ranking"
+      :href="rankingHref"
       aria-label="Bangumi Staff Statistics 人物工作台首页"
       translate="no"
     >
