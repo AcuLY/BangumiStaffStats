@@ -427,6 +427,22 @@ func TestFetchPropagatesCancellationAndOwnTimeout(t *testing.T) {
 	}
 }
 
+func TestFetchClassifiesGenericTransportErrorBeforeReleasingContext(t *testing.T) {
+	client := testClient(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("private connection failure")
+	}), time.Second, 64, 1)
+	_, err := client.Fetch(context.Background(), validTestRequest())
+	if kind(t, err) != ErrorUnavailable {
+		t.Fatalf("generic transport error = %v", err)
+	}
+	if strings.Contains(err.Error(), "private connection failure") {
+		t.Fatal("generic transport error reflected private detail")
+	}
+	if len(client.permits) != 0 {
+		t.Fatal("generic transport error retained its permit")
+	}
+}
+
 func TestProductionClientHasNoCallerControlledOriginRedirectOrEnvironmentProxy(t *testing.T) {
 	client := NewClient()
 	if client.origin.String() != upstreamOrigin {

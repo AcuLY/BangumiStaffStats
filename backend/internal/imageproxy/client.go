@@ -439,10 +439,14 @@ func (c *Client) Fetch(ctx context.Context, request Request) (*Response, error) 
 		return nil, proxyError(ErrorInvalid)
 	}
 
-	upstreamResponse, err := c.httpClient.Do(upstreamRequest)
+	upstreamResponse, err := c.roundTrip(upstreamRequest)
 	if err != nil {
+		classified := classifyRequestError(ctx, requestContext, err)
+		if upstreamResponse != nil && upstreamResponse.Body != nil {
+			_ = upstreamResponse.Body.Close()
+		}
 		release()
-		return nil, classifyRequestError(ctx, requestContext, err)
+		return nil, classified
 	}
 	if upstreamResponse == nil || upstreamResponse.Body == nil {
 		release()
@@ -461,10 +465,14 @@ func (c *Client) Fetch(ctx context.Context, request Request) (*Response, error) 
 			release()
 			return nil, proxyError(ErrorProtocol)
 		}
-		upstreamResponse, err = c.httpClient.Do(upstreamRequest)
+		upstreamResponse, err = c.roundTrip(upstreamRequest)
 		if err != nil {
+			classified := classifyRequestError(ctx, requestContext, err)
+			if upstreamResponse != nil && upstreamResponse.Body != nil {
+				_ = upstreamResponse.Body.Close()
+			}
 			release()
-			return nil, classifyRequestError(ctx, requestContext, err)
+			return nil, classified
 		}
 		if upstreamResponse == nil || upstreamResponse.Body == nil {
 			release()
@@ -540,6 +548,13 @@ func (c *Client) Fetch(ctx context.Context, request Request) (*Response, error) 
 			release:   release,
 		},
 	}, nil
+}
+
+func (c *Client) roundTrip(request *http.Request) (*http.Response, error) {
+	if c == nil || c.httpClient == nil || c.httpClient.Transport == nil {
+		return nil, errors.New("image proxy: unavailable transport")
+	}
+	return c.httpClient.Transport.RoundTrip(request)
 }
 
 func newUpstreamRequest(
