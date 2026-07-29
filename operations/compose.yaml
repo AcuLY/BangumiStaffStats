@@ -87,7 +87,6 @@ services:
       - --storage.tsdb.retention.time=7d
       - --storage.tsdb.retention.size=512MB
       - --web.listen-address=0.0.0.0:9090
-      - --web.enable-lifecycle=false
     user: "65532:65532"
     init: true
     read_only: true
