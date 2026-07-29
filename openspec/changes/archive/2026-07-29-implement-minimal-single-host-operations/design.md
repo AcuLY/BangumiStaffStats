@@ -12,7 +12,7 @@ deliverable of this change.
 
 | Field | Declaration |
 |---|---|
-| Status | Design ready for main-agent review; implementation and remote validation have not started. |
+| Status | Implemented at `bd3197d639a32831f3fbcfab698cc387393d2928`; exact-head Actions and isolated `myserver` validation passed with complete cleanup. Production activation remains deferred. |
 | Owner | Main agent owns decisions/audit/acceptance. One Actions-bundle owner and one runtime/template owner implement disjoint paths. |
 | Writable paths | Exact repository and isolated-host paths declared by the proposal. |
 | Read-only protected inputs | Product source/contracts/CI and all existing host state declared by the proposal. |

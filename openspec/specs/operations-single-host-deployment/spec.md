@@ -1,24 +1,12 @@
-## Capability Boundary
+# operations-single-host-deployment Specification
 
-| Field | Declaration |
-|---|---|
-| Status | New capability specified; not yet implemented, remotely validated, installed, or activated. |
-| Owner | Operations owner; Product owners remain read-only. |
-| Writable paths | Exact repository and isolated-host paths from the proposal. |
-| Read-only protected inputs | Product inputs and all pre-existing host/legacy state from the proposal. |
-| Deletion complement | Exact run-owned validation project/root/images only. |
-| Mutable refs | Branch, manual build artifact, validation project/root/ports/images. |
-| Consumes | Accepted Product build inputs, health endpoints, minimal Archive fixture, and the operations guide. |
-| Produces | Minimal deployment bundle, Compose/runtime/config, and isolated evidence. |
-| Dependencies | Green Development Actions precede bundle admission; bundle precedes host writes. |
-| Deliverables | Repository files, green workflows, isolated validation, archived capability, and report. |
-| Acceptance | All requirements and scenarios below. |
-| Non-goals | Proof frameworks, public release/activation, product changes, and legacy retirement. |
-| Operations deferred | Production installation/enablement, public routing, secrets, extended load/soak, and retirement. |
-| Stop/rollback conditions | Any identity, capability, collision, health, rollback, cleanup, or legacy drift mismatch stops without broadening writes. |
+## Purpose
+Define the bounded GitHub Actions bundle, single-host Compose runtime,
+transactional update and rollback commands, simple host observability
+templates, and legacy-safe isolated validation required for a normal
+`linux/amd64` deployment without claiming production activation.
 
-## ADDED Requirements
-
+## Requirements
 ### Requirement: Actions SHALL produce one bounded AMD64 deployment bundle
 
 The already registered Development manual-dispatch entry SHALL call one

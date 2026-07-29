@@ -48,7 +48,7 @@ None.
 
 | Field | Declaration |
 |---|---|
-| Status | Specifying a minimal deployment path. No implementation, release, public activation, or legacy retirement is yet claimed. |
+| Status | Repository implementation complete at `bd3197d639a32831f3fbcfab698cc387393d2928`; Actions run `30426027299` and isolated `myserver` validation passed and cleaned. No release, public activation, or legacy retirement is claimed. |
 | Owner | Main agent owns scope/specification/audit/Git/acceptance. Separate implementation owners may implement the Actions bundle and the host runtime/templates in parallel after approval. |
 | Writable paths | This change; new `.github/workflows/operations-preview.yml`; one exact caller job in existing `.github/workflows/ci.yml`; only the action-reference policy declaration/assertion in `contracts/artifacts/test/ci-policy.test.mjs`; new `operations/README.md`, `operations/.gitignore`, `operations/compose.yaml`, `operations/bin/**`, `operations/lib/**`, `operations/nginx/**`, `operations/prometheus/**`, and `operations/systemd/**`; one absent `/tmp/bgmss-ops-minimal-input-<run-id>/**` transfer root and one absent `/srv/bgmss-ops-validation-minimal-<run-id>/**` runtime root on `myserver` during isolated validation. |
 | Read-only protected inputs | All `backend/**`, `updater/**`, `frontend/**`; all `contracts/**` bytes outside the exact action-reference policy declaration/assertion; every existing `.github/workflows/ci.yml` byte outside the exact conditional reusable-workflow caller job; root product/design/planning documents outside this change; and all other repository paths. On `myserver`, all pre-existing paths, the running legacy project, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, existing Docker objects, Nginx/systemd/TLS configuration, public routes/listeners, secrets, users, firewall, DNS, and data remain read-only. |
@@ -63,6 +63,5 @@ None.
 | Operations deferred | Public Nginx activation/reload, enabling the production timer, production secret/user installation, `/srv/bgmss-v2` activation, release publication, live traffic switch, extended load/soak observation, and legacy shutdown require explicit later activation approval. |
 | Stop/rollback conditions | Stop before writes if branch/head, Actions, host architecture, Docker/Compose, both run-owned path absences, project-name uniqueness, free loopback ports, disk, or legacy baseline checks fail. After owned writes, stop the exact project, restore any validation-local current/previous pointer or release env, remove only run-owned objects and both exact run roots, and report any ambiguous residue without touching legacy state. |
 
-This change touches no other repository. Apply remains blocked until proposal,
-specification, design, and tasks are complete, strictly valid, and approved by
-the main agent.
+This change touched no other repository. Implementation and isolated
+acceptance are complete; production activation remains explicitly deferred.
