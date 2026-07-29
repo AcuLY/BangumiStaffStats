@@ -26,6 +26,7 @@
 - [x] 2.2 Update only the repository Nginx template/documentation for the legacy-root/new-`/v2/**` split, including prefix containment and rollback semantics.
 - [x] 2.3 Review the exact diff for visual/interaction/state/contract/dependency drift; run non-build static checks locally only, then commit/push the implementation. Do not run Node, frontend, backend, container, or artifact builds on the local machine.
 - [x] 2.4 Amend the exact artifact-checker scope after run `30469305349` proves all 376 frontend tests, typecheck, and Vite build green but the legacy root-only favicon resolver rejects `/v2/assets/**`; require the correction to accept only the exact `/v2/` prefix, strict-validate, commit, and push without a local build.
+- [x] 2.5 Record that run `30469940208` passed the complete Product job but the bundle assembler rejected the legitimate Product delta against its prior reviewed revision; advance only `operations/bin/build-bundle.sh`'s accepted Product revision to exact green implementation commit `6dd47e3b34a0fdb035f3c2a13fd84e7cc8eb2af8`, preserving every other admission/policy check, then strict-validate, review, commit, and push.
 
 ## 3. Actions artifact and transactional application deploy
 

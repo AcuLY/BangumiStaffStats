@@ -110,6 +110,14 @@ with `nginx -t`, atomically renamed, reloaded, and content-probed. A new exact
 pre-change backup is used for this change; the historical
 `.pre-bgmss-v2` file remains untouched as evidence.
 
+The bundle assembler's accepted Product revision is advanced to
+`6dd47e3b34a0fdb035f3c2a13fd84e7cc8eb2af8`, the exact implementation
+revision whose complete Product job passed in Actions run `30469940208`.
+Only this revision pin changes: the CI-policy digest, closed inventory, build
+steps, source identity, and admission checks remain unchanged. This makes the
+assembler review the implemented `/v2/` Product bytes instead of correctly
+rejecting them as drift from the prior Product revision.
+
 ## Risks / Trade-offs
 
 - [An overlooked absolute browser URL escapes to the legacy app] → Search the
@@ -128,7 +136,9 @@ pre-change backup is used for this change; the historical
 
 1. Implement and test the path mapping, production build base, and operations
    template; strict-validate and review.
-2. Commit/push and require exact-head Development Actions green.
+2. Commit/push, advance the bundle assembler to the exact reviewed Product
+   revision, and require exact-head Development Actions plus bundle assembly
+   green.
 3. Admit the exact `linux/amd64` bundle and transactionally deploy it to the
    existing `/srv/bgmss-v2` project without changing Archive data.
 4. Re-preflight Nginx and protected legacy/new identities, create the exact new
