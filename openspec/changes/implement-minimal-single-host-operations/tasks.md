@@ -30,18 +30,22 @@
 - [ ] 2.1 Bundle owner preflights the reviewed change, clean implementation
   base, and exact writable files `.github/workflows/operations-preview.yml`,
   the one conditional caller job in `.github/workflows/ci.yml`, and
-  `operations/bin/build-bundle.sh`; stop on any other dirty path.
+  `operations/bin/build-bundle.sh`, plus only the action-reference
+  declaration/assertion in `contracts/artifacts/test/ci-policy.test.mjs`; stop
+  on any other dirty path.
 - [ ] 2.2 Implement a reusable read-only workflow with pinned existing setup
   Actions and pinned one-day `actions/upload-artifact`, called only by the
   existing Development workflow's manual dispatch path. Build Backend and
   Updater once for `linux/amd64`, build Frontend once, assemble only the
   declared bundle files, write `build.json` and `SHA256SUMS`, and publish
   nothing else. Ordinary push/PR runs SHALL NOT invoke the bundle job.
-- [ ] 2.3 Add static workflow/shell checks for immutable Action references,
-  read-only permission, no secret/registry/release/deploy authority, one build
-  per component, closed bundle inventory, and shell syntax. Run only
-  `bash -n`, YAML/text inspection, pinned OpenSpec validation, and
-  `git diff --check` locally.
+- [ ] 2.3 Add static workflow/shell checks for exactly five reviewed
+  SHA-pinned external Actions, exactly one same-revision local reusable
+  workflow reference, read-only permission, no other
+  local/URL/Docker/mutable Action reference, no
+  secret/registry/release/deploy authority, one build per component, closed
+  bundle inventory, and shell syntax. Run only `bash -n`, YAML/text
+  inspection, pinned OpenSpec validation, and `git diff --check` locally.
 
 ## 3. Minimal single-host runtime and templates
 

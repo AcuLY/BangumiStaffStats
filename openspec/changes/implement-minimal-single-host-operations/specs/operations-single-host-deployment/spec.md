@@ -30,6 +30,13 @@ runs SHALL NOT call the bundle workflow. It SHALL NOT publish a registry image,
 release, tag, deployment, credential, receipt, attestation graph, or second
 reproducibility build.
 
+The Development workflow policy SHALL continue to require exactly five
+reviewed SHA-pinned external Actions and SHALL admit exactly one local
+same-revision reusable workflow reference:
+`./.github/workflows/operations-preview.yml`. It SHALL reject every other
+local path, URL, Docker action, mutable external reference, YAML anchor, or
+alias.
+
 #### Scenario: Bundle build succeeds
 
 - **WHEN** the exact branch head passes Development Actions and all component single-build commands and checksum generation succeed
@@ -39,6 +46,11 @@ reproducibility build.
 
 - **WHEN** the source is dirty/mismatched, a component build fails, an expected file is absent, or checksum generation fails
 - **THEN** no bundle SHALL be admitted for remote validation
+
+#### Scenario: Workflow authority differs from the reviewed caller
+
+- **WHEN** the Development workflow contains an external Action outside the five reviewed immutable releases or a local reference other than the one same-revision operations workflow
+- **THEN** the CI policy gate SHALL fail before product or bundle admission
 
 ### Requirement: Compose SHALL run the minimal single-host topology
 

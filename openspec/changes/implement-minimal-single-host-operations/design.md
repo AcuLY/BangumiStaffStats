@@ -77,6 +77,14 @@ branch. Ordinary Development push/PR behavior is unchanged. Alternative
 rejected: building source on the target host, because it adds host language
 toolchains; a future public release may add a registry.
 
+The existing CI policy continues to require exactly five reviewed
+SHA-pinned external Actions. Its action-reference assertion additionally
+admits exactly one repository-local reference,
+`./.github/workflows/operations-preview.yml`, because a relative reusable
+workflow executes from the same checked-out revision. Other local paths,
+remote URLs, Docker actions, mutable external references, anchors, and aliases
+remain rejected.
+
 ### 2. Keep Compose conventional and environment-driven
 
 One static `operations/compose.yaml` defines `api`, `updater`, and
