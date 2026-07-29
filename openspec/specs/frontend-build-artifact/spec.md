@@ -7,7 +7,7 @@ Define deterministic, content-addressed Frontend static artifacts that preserve 
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: complete after strict validation; implemented and verified: complete; committed: `c1e0623ddd14ba678a32b082d7e16d2e66017606`; pushed: `origin/codex/formal-rewrite`; released: no; deployed: no |
+| Status | Base artifact and `/v2/` extension investigated, specified, implemented, and verified; deployed source `ae70b2ada2529741bfc8bcfd4a248835bb2f915d` is publicly accepted below `/v2/`. |
 | Owner | Frontend owner within the combined Frontend/Contracts apply group. |
 | Writable paths | `frontend/build/**`, `frontend/package.json`, `frontend/vite.config.ts`, and only persistent-inventory handling in `frontend/scripts/check-architecture.mjs`; generated output only below ignored `frontend/build/.tmp/**`. |
 | Read-only protected inputs | Root authorities/OpenSpec outside this change; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; `contracts/**`; `frontend/index.html`, `frontend/src/**`, `frontend/public/**`, `frontend/tests/**`, every `frontend/scripts/**` hunk outside the exact inventory amendment, `frontend/ARCHITECTURE.md`, `frontend/README.md`, all tsconfig/OpenAPI config, all Backend/Updater paths, external repositories/state. |
@@ -66,20 +66,38 @@ from that exact candidate.
 
 ### Requirement: Packaging SHALL preserve the accepted frontend behavior
 
-This capability SHALL make no change to Vue, CSS, assets, `index.html`, API
-clients, route/state logic, tests, or product dependencies. Package/Vite edits
-SHALL be limited to deterministic packaging commands/settings and SHALL
-preserve the accepted external appearance, interactions, copy, states, and
-responsive behavior of oracle
+This capability SHALL configure the production artifact for the approved
+`/v2/` deployment base and make only the minimum browser-boundary route, share,
+API, and image URL changes needed for that base. It SHALL make no change to
+CSS, visual assets, copy, product dependencies, statistical/API semantics, or
+application state behavior. Package/Vite and source edits SHALL preserve the
+accepted external appearance, interactions, copy, states, and responsive
+behavior of oracle
 `644b7748674e553f863d0ffd61d029f86fdc0717` plus separately approved
-PRODUCT/DESIGN additions. There is no intentional product delta.
+PRODUCT/DESIGN additions. The only intentional product delta is the
+user-authorized public path.
+
+Every production-owned static asset, dynamic import, History API destination,
+share URL, native API request, and same-origin image request SHALL stay below
+`/v2/**`. API adapters SHALL retain logical `/api/v1/**` references, and the
+browser boundary SHALL map those to `/v2/api/v1/**` without changing request
+method, body, query, response, or error behavior. Dev/test with root base SHALL
+retain the existing logical paths.
 
 #### Scenario: Frontend packaging candidate is reviewed
 
-- **WHEN** exact-path diff, existing architecture/wire/type/unit/build/artifact
-  gates, and accepted oracle/design evidence are checked
-- **THEN** only build mechanics differ and no user-visible or runtime API
-  behavior has changed
+- **WHEN** exact-path diff, existing architecture/wire/type/unit/build/artifact gates, accepted oracle/design evidence, and nested-base tests are checked
+- **THEN** only the approved path boundary differs and no visual, interaction, state, statistical, or runtime API semantic behavior has changed
+
+#### Scenario: Production artifact is inspected
+
+- **WHEN** the exact production index, assets, deferred imports, route/share URLs, API calls, and image requests are inspected
+- **THEN** every new-stack browser-owned same-origin URL SHALL remain below `/v2/**` and no request SHALL escape to a legacy root path
+
+#### Scenario: Root-base test environment runs
+
+- **WHEN** unit and integration tests run with the root development base
+- **THEN** logical `/ranking`, `/co-star`, and `/api/v1/**` behavior SHALL remain unchanged while focused mapper tests prove the `/v2/` production projection
 
 ### Requirement: Frontend evidence SHALL describe the exact static artifact
 

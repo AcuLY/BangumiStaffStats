@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | investigated: complete; specified: complete; implemented: no; verified: no; committed: no; pushed: no; released: no; deployed: no |
+| Status | Superseded by explicit scope correction on 2026-07-30; intentionally archived incomplete without spec sync or further apply. |
 | Owner | One Contracts acceptance apply agent owns all implementation below `contracts/acceptance/**`; the main agent owns spec review/amendment, task markers, final acceptance, commits/push, and archive lifecycle. |
 | Writable paths | Apply only `contracts/acceptance/**`. OpenSpec lifecycle only this change's `.openspec.yaml`, proposal, design, tasks, and `specs/**`, never edited by apply. Generated evidence only ignored `contracts/acceptance/.tmp/**`, absent at handoff. |
 | Read-only protected inputs | Every other repository path, including Backend/Updater/Frontend source/tests/build definitions, existing Contracts artifacts/schemas/goldens/OpenAPI, `.github/**`, root docs/config, `.impeccable/**`, root specs and sibling changes; oracle `644b7748674e553f863d0ffd61d029f86fdc0717`; accepted artifacts/full Archive; external repositories, refs/remotes, registries, hosts, services, secrets, production state, and public Internet. |
@@ -22,6 +22,9 @@ Forbidden throughout: `git reset --hard`, checkout-based rollback,
 targets, writes outside exact owned paths, ref mutation, and external-state
 mutation. The apply owner reports exact files and commands but does not stage,
 commit, push, sync, archive, or update task markers.
+
+No unchecked task below remains authorized. The checkboxes are preserved as
+historical evidence of work that was deliberately not completed.
 
 ## 1. Apply admission and owned skeleton
 

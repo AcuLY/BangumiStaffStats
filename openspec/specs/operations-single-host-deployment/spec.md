@@ -4,7 +4,7 @@
 Define the bounded GitHub Actions bundle, single-host Compose runtime,
 transactional update and rollback commands, simple host observability
 templates, and legacy-safe isolated validation required for a normal
-`linux/amd64` deployment without claiming production activation.
+`linux/amd64` deployment and its accepted same-host production activation.
 ## Requirements
 ### Requirement: Actions SHALL produce one bounded AMD64 deployment bundle
 
@@ -48,17 +48,19 @@ non-root settings, and stdout/stderr SHALL use journald. No Docker socket,
 legacy path, public metrics endpoint, mutable `latest`, or shared writable
 volume is allowed.
 
-The base topology SHALL retain direct updater transport. Release env SHALL
-encode exact mode `direct` or `proxy`; proxy mode SHALL require both a strictly
-validated `BGMSS_UPDATER_HTTPS_PROXY` and `BGMSS_UPDATER_PROXY_NETWORK`, while
-direct mode SHALL forbid both. The URL rules SHALL match the updater capability
-and the network name SHALL be 1–128 ASCII bytes matching
-`[A-Za-z0-9][A-Za-z0-9_.-]*`. An optional tracked overlay SHALL be selected
-only for valid proxy mode, map the URL only to updater's
-`BGMSS_HTTPS_PROXY`, attach only updater to that named pre-existing external
-network, publish no port, and leave API/Prometheus projection unchanged.
-Operations SHALL inspect but SHALL NOT create, alter, or remove the external
-network or proxy service.
+The base topology SHALL retain direct updater and image transport. Release env
+SHALL encode exact mode `direct` or `proxy`; proxy mode SHALL require both a
+strictly validated `BGMSS_UPDATER_HTTPS_PROXY` and
+`BGMSS_UPDATER_PROXY_NETWORK`, while direct mode SHALL forbid both. The URL
+rules SHALL match the updater capability and the network name SHALL be 1–128
+ASCII bytes matching `[A-Za-z0-9][A-Za-z0-9_.-]*`.
+
+The tracked proxy overlay SHALL be selected only for valid proxy mode. It
+SHALL map the release URL to updater-only `BGMSS_HTTPS_PROXY` and API-only
+`BGMSS_IMAGE_HTTPS_PROXY`, attach only API and updater to the named
+pre-existing external network, publish no additional port, and leave
+Prometheus projection unchanged. Operations SHALL inspect but SHALL NOT
+create, alter, or remove the external network or proxy service.
 
 The common Compose wrapper SHALL derive mode, URL, and network exclusively
 from the root-managed `current.env` after exact validation. It SHALL remove
@@ -66,27 +68,61 @@ ambient `BGMSS_UPDATER_TRANSPORT`, `BGMSS_UPDATER_HTTPS_PROXY`, and
 `BGMSS_UPDATER_PROXY_NETWORK` from the Compose child process, or provide an
 equivalent isolation that prevents shell-over-`--env-file` precedence. A
 conflicting calling-shell value SHALL neither select the overlay nor replace
-the updater URL/network.
+the URL/network. API and updater SHALL receive no generic HTTP/HTTPS/ALL/NO
+proxy input from this projection.
 
 #### Scenario: Runtime starts from an admitted env
 
 - **WHEN** the env names present local image identities, a valid Archive root, unique project, and free loopback ports
 - **THEN** API `/livez` and `/readyz`, API `/metrics`, Prometheus readiness, and the API scrape SHALL succeed
 
-#### Scenario: Optional updater proxy is projected
+#### Scenario: Direct runtime remains closed
 
-- **WHEN** an admitted release contains the valid proxy URL/network pair and the named external network exists
-- **THEN** only updater SHALL receive the dedicated proxy input and external-network attachment in addition to its unchanged hardening, resources, mounts, logging, and one-shot lifecycle
+- **WHEN** a valid direct release is rendered
+- **THEN** API, updater, and Prometheus SHALL remain on the backend network and no service SHALL receive a dedicated proxy input
+
+#### Scenario: Proxy runtime is projected
+
+- **WHEN** a valid proxy release is rendered and its named external network exists
+- **THEN** API SHALL receive only the image proxy input, updater SHALL retain only its updater proxy input, both SHALL join the external network, and Prometheus SHALL receive neither input nor attachment
 
 #### Scenario: Calling shell conflicts with release authority
 
-- **WHEN** `current.env` contains one admitted direct/proxy mode while the calling shell exports conflicting transport, URL, or network values
+- **WHEN** `current.env` contains one admitted direct/proxy mode while the calling shell exports conflicting transport, URL, network, or generic proxy values
 - **THEN** Compose projection SHALL equal the validated `current.env`, with no ambient selection, replacement, or bypass
 
 #### Scenario: Runtime authority is widened
 
-- **WHEN** a service uses host networking/PID, a public bind, Docker socket, legacy mount, unbounded resource, root user, undeclared writable path, an invalid mode/pair/network, or proxy projection reaches API/Prometheus
-- **THEN** static/Compose validation SHALL fail before startup
+- **WHEN** a service uses host networking/PID, a public bind, Docker socket, legacy mount, unbounded resource, root user, undeclared writable path, invalid mode/pair/network, swapped or generic proxy input, Prometheus external-network attachment, or release-authorized mode/URL/network bypass
+- **THEN** static or Compose validation SHALL fail before startup
+
+### Requirement: Production image egress repair SHALL be reversible
+
+On `myserver`, the accepted replacement application SHALL first deploy through
+the existing `/srv/bgmss-v2` transaction while the old overlay remains active.
+After application health succeeds, operations SHALL take the existing
+non-waiting lock, verify and back up the installed overlay, atomically replace
+only `/srv/bgmss-v2/compose/compose.updater-proxy.yaml` among installed
+operations definitions, and force-recreate API so the new environment and
+network projection take effect.
+
+The transaction SHALL preserve the current Archive and proxy release fields.
+It SHALL NOT invoke updater or change base Compose, operations commands,
+Prometheus, Nginx, systemd, logrotate, proxy/network lifecycle, public routing,
+or legacy state. After successful acceptance, the admitted replacement
+application, overlay, and proxy projection become the current baseline; the
+earlier one-time activation preimages remain historical evidence and SHALL NOT
+be reused as current-state admission values.
+
+#### Scenario: Production repair succeeds
+
+- **WHEN** the admitted application deploys, the overlay preimage matches, API is recreated with the exact proxy projection, and health/image/Prometheus checks pass
+- **THEN** the bounded image route SHALL return an accepted final image while all protected runtime state remains unchanged
+
+#### Scenario: Overlay activation fails
+
+- **WHEN** overlay installation, API recreation, projection, health, image, or isolation verification fails
+- **THEN** operations SHALL restore the exact prior overlay, force-recreate API under the restored projection, verify API is detached from the external network, and use normal application rollback if the replacement release must also be reverted
 
 ### Requirement: Host commands SHALL install, update, check, and roll back
 
@@ -279,16 +315,17 @@ rollback dependency.
 
 Replacement deployment SHALL preserve exact transport `proxy`, URL
 `http://myserver-proxy:7897`, and network `proxy-net`. Compose projection SHALL
-attach only updater to that external network and pass only updater both
-`BGMSS_HTTPS_PROXY=http://myserver-proxy:7897` and
-`SQLITE_TMPDIR=/var/lib/bgmss/archive`; API and Prometheus SHALL receive
-neither input and SHALL remain absent from `proxy-net`. Updater `/tmp`, mounts,
-resources, security controls, and every other service/network value SHALL
-remain unchanged. After candidate health, read-only proxy/network/listener
-inspection, and static projection checks pass, the operator MAY invoke the
-updater exactly once under this new authorization. No other updater invocation
-or acquisition request is authorized. A successful invocation SHALL publish
-and activate a contract-valid data version different from
+attach API and updater to that external network, pass only updater
+`BGMSS_HTTPS_PROXY=http://myserver-proxy:7897` plus
+`SQLITE_TMPDIR=/var/lib/bgmss/archive`, and pass only API
+`BGMSS_IMAGE_HTTPS_PROXY=http://myserver-proxy:7897`; Prometheus SHALL receive
+none of those inputs and SHALL remain absent from `proxy-net`. Updater `/tmp`,
+mounts, resources, security controls, and every other service/network value
+SHALL remain unchanged. After candidate health, read-only
+proxy/network/listener inspection, and static projection checks pass, the
+operator MAY invoke the updater exactly once under this new authorization. No
+other updater invocation or acquisition request is authorized. A successful
+invocation SHALL publish and activate a contract-valid data version different from
 `dv1-0a1fa3e9acdb06be34e3535b3c68e322e7d3f4cd87ac30cd4b608b2276ba3ca1`;
 the API readiness, catalog, metrics, and Prometheus scrape SHALL all report the
 same real version. Until a second real Archive is available, production data
@@ -304,11 +341,11 @@ minimal fixture.
 - **THEN** the exact legacy loader SHALL remain stopped, public routing SHALL remain on the legacy stack, and the new project MAY remain private for diagnosis
 
 #### Scenario: Proxy transport is projected exactly
-- **WHEN** candidate Compose blob `0daee531f811ff826bba1836897eb9cc54d6d529` installs over the exact admitted old bytes and private checks pass
-- **THEN** only updater SHALL join `proxy-net` with exact proxy and SQLite inputs, API and Prometheus SHALL receive neither, and exactly one newly authorized production updater invocation MAY run
+- **WHEN** the admitted base Compose and proxy overlay install over their exact preimages and private checks pass
+- **THEN** updater SHALL join `proxy-net` with exact updater-proxy and SQLite inputs, API SHALL join it with only the exact image-proxy input, Prometheus SHALL receive neither input nor attachment, and exactly one newly authorized production updater invocation MAY run
 
 #### Scenario: Proxy deployment widens authority
-- **WHEN** API or Prometheus joins `proxy-net` or receives either updater input, another proxy/SQLite value or network is projected, another Compose field changes, the endpoint/network is mutated, or another updater invocation is requested after the newly authorized attempt
+- **WHEN** Prometheus joins `proxy-net`, API receives an updater or generic proxy input, updater receives the image or a generic proxy input, another proxy/SQLite value or network is projected, another Compose field changes, the endpoint/network is mutated, or another updater invocation is requested after the newly authorized attempt
 - **THEN** deployment SHALL stop, retain or restore legacy public routing, and SHALL NOT force progress
 
 #### Scenario: Legacy background updater is retired
@@ -321,36 +358,42 @@ minimal fixture.
 
 ### Requirement: Nginx cutover SHALL be atomic and reversible
 
-Activation SHALL create the exact absent backup
-`/etc/nginx/nginx.conf.pre-bgmss-v2`, modify only the existing
-`search.bgmss.fun` TLS server so its frontend root resolves to
-`/srv/bgmss-v2/current-frontend`, add `/api/v1/` proxying to
-`127.0.0.1:18080`, and add the planned per-site logs while retaining the
-existing `/statistics`, `/timeline`, and `/proxy` locations. The admitted
-candidate SHALL be retained at `/srv/bgmss-v2/config/nginx/nginx.conf`. It
-SHALL record and recheck the active preflight SHA-256 before each first write,
-require the backup hash to equal it, and use a structure-aware transformation
-whose diff changes only that TLS block's frontend root, per-site log
-directives using the existing log format, and new `/api/v1/` location while
-the retained legacy locations and every other byte/server block remain
-unchanged. Activation SHALL copy through the exact same-directory temporary
-and atomic rename, run `nginx -t` before each reload, and verify the active
-hash equals the intended candidate or backup. It SHALL restore the backup,
-revalidate, and reload if the reload or required content-aware public probes
-fail, and SHALL perform one successful rollback-to-legacy and
-forward-cutover drill before completion.
+Path migration SHALL create one exact absent, change-specific backup without
+overwriting the historical
+`/etc/nginx/nginx.conf.pre-bgmss-v2`. It SHALL modify only the existing
+`search.bgmss.fun` TLS server so `/` and every path outside `/v2/**` again use
+the retained legacy frontend at `/srv/bgmss/frontend/dist`, exact `/v2`
+redirects to `/v2/`, `/v2/` serves
+`/srv/bgmss-v2/current-frontend` with base-aware SPA fallback, and
+`/v2/api/v1/` proxies to the unchanged `127.0.0.1:18080/api/v1/` backend
+path. Existing `/statistics`, `/timeline`, `/proxy`, per-site logs, TLS, and
+every unrelated location/server byte SHALL remain present and equivalent.
 
-#### Scenario: Public cutover succeeds
-- **WHEN** the candidate configuration validates and reloads, the public frontend response with identity encoding hashes exactly to the deployed new `index.html`, and `/api/v1/catalog` parses as JSON with the accepted real `dataVersion` and a non-empty catalog
-- **THEN** the new stack SHALL receive production traffic while the legacy API/MySQL/Redis serving containers remain running and the exact loader remains intentionally stopped
+The admitted candidate SHALL be retained at
+`/srv/bgmss-v2/config/nginx/nginx.conf`. Migration SHALL record and recheck the
+active preflight SHA-256 before the first write, require the new backup hash to
+equal it, and use a structure-aware transformation whose diff is bounded to
+the named TLS block and reviewed path locations. It SHALL copy through the
+exact same-directory temporary and atomic rename, run `nginx -t` before each
+reload, and verify the active hash equals the intended candidate or backup.
+It SHALL restore the new backup, revalidate, and reload if reload or any
+required content-aware public probe fails.
+
+#### Scenario: Public path split succeeds
+- **WHEN** the candidate validates/reloads, `/` hashes exactly to the retained legacy `index.html`, `/v2/` hashes exactly to the deployed new `index.html`, new static/deferred assets resolve, both new SPA modes remain below `/v2/`, and `/v2/api/v1/catalog` reports the accepted real data version
+- **THEN** legacy SHALL own the root while the new stack receives only `/v2/**` traffic, with both serving stacks still running and the loader still intentionally stopped
 
 #### Scenario: Candidate configuration or public probe fails
-- **WHEN** syntax, reload, frontend, or API acceptance fails
-- **THEN** the exact backup SHALL be restored and reloaded, and legacy probes SHALL be required to recover before returning failure
+- **WHEN** syntax, reload, legacy-root content, new frontend/assets/routes, or new API acceptance fails
+- **THEN** the exact new backup SHALL be restored/reloaded and the previously active public state SHALL be required to recover before returning failure
 
-#### Scenario: Basic traffic rollback is drilled
-- **WHEN** the first new-stack cutover succeeds
-- **THEN** activation SHALL atomically restore/reload the hash-equal legacy backup, require the public frontend to match the captured old `index.html` and declared healthy legacy routes, and then atomically reapply/reload the retained candidate and repeat the content-aware new frontend/API probes without stopping either stack
+#### Scenario: Reserved prefix cannot fall through
+- **WHEN** a missing or malformed `/v2/**` static, SPA, or API request is made
+- **THEN** Nginx SHALL resolve it within the new-stack locations or return a new-stack error and SHALL NOT serve legacy HTML as a successful fallback
+
+#### Scenario: Existing legacy auxiliary routes are probed
+- **WHEN** `/statistics`, `/timeline`, and `/proxy` are requested after the path split
+- **THEN** their existing upstream ownership and declared healthy or known-excluded status SHALL remain unchanged
 
 ### Requirement: Production host integration SHALL remain minimal
 

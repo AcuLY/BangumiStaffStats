@@ -2,7 +2,7 @@
 
 | Field | Declaration |
 |---|---|
-| Status | Specified; implementation and verification pending. |
+| Status | Implemented, Actions-verified, deployed, and public-path accepted. |
 | Owner | Main agent, direct sequential implementation. |
 | Writable paths | `frontend/src/shared/navigation/basePath.ts`, exact path-aware hunks in `frontend/src/app/routes.ts`, `frontend/src/features/query/share.ts`, `frontend/src/features/query/components/AppHeader.vue`, exact related tests, and their persistent inventory entries in `frontend/scripts/check-architecture.mjs`. |
 | Read-only protected inputs | UI/CSS/assets/copy/state semantics, query/share wire schemas, dependencies, backend/updater/contracts code, and all unrelated frontend paths. |

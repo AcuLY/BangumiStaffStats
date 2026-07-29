@@ -57,6 +57,28 @@ proxy input from this projection.
 - **WHEN** a service uses host networking/PID, a public bind, Docker socket, legacy mount, unbounded resource, root user, undeclared writable path, invalid mode/pair/network, swapped or generic proxy input, Prometheus external-network attachment, or release-authorized mode/URL/network bypass
 - **THEN** static or Compose validation SHALL fail before startup
 
+### Requirement: Live traffic SHALL require a real Archive
+
+Replacement deployment SHALL preserve exact transport `proxy`, URL
+`http://myserver-proxy:7897`, and network `proxy-net`. Compose projection SHALL
+attach API and updater to that external network, pass only updater
+`BGMSS_HTTPS_PROXY=http://myserver-proxy:7897` plus
+`SQLITE_TMPDIR=/var/lib/bgmss/archive`, and pass only API
+`BGMSS_IMAGE_HTTPS_PROXY=http://myserver-proxy:7897`; Prometheus SHALL receive
+none of those inputs and SHALL remain absent from `proxy-net`. Updater `/tmp`,
+mounts, resources, security controls, and every other service/network value
+SHALL remain unchanged.
+
+#### Scenario: Proxy transport is projected exactly
+
+- **WHEN** the admitted base Compose and proxy overlay install over their exact preimages and private checks pass
+- **THEN** updater SHALL join `proxy-net` with exact updater-proxy and SQLite inputs, API SHALL join it with only the exact image-proxy input, Prometheus SHALL receive neither input nor attachment, and exactly one newly authorized production updater invocation MAY run
+
+#### Scenario: Proxy deployment widens authority
+
+- **WHEN** Prometheus joins `proxy-net`, API receives an updater or generic proxy input, updater receives the image or a generic proxy input, another proxy/SQLite value or network is projected, another Compose field changes, the endpoint/network is mutated, or another updater invocation is requested after the newly authorized attempt
+- **THEN** deployment SHALL stop, retain or restore legacy public routing, and SHALL NOT force progress
+
 ## ADDED Requirements
 
 ### Requirement: Production image egress repair SHALL be reversible
@@ -72,7 +94,10 @@ network projection take effect.
 The transaction SHALL preserve the current Archive and proxy release fields.
 It SHALL NOT invoke updater or change base Compose, operations commands,
 Prometheus, Nginx, systemd, logrotate, proxy/network lifecycle, public routing,
-or legacy state.
+or legacy state. After successful acceptance, the admitted replacement
+application, overlay, and proxy projection become the current baseline; the
+earlier one-time activation preimages remain historical evidence and SHALL NOT
+be reused as current-state admission values.
 
 #### Scenario: Production repair succeeds
 

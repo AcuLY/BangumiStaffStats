@@ -13,7 +13,7 @@ compiled browser behavior.
 
 | Field | Declaration |
 |---|---|
-| Status | Design complete; apply pending strict validation and main-agent zero-P0/P1 review. |
+| Status | Design, apply, Actions/artifact verification, production cutover, and public acceptance complete; archive pending. |
 | Owner | Main agent directly owns the sequential frontend, lifecycle, and exact production work. |
 | Writable paths | Proposal writable paths and mutable refs only. |
 | Read-only protected inputs | Proposal protected inputs, especially visual/CSS/assets, backend/updater/contracts semantics, Archive state, legacy services/data, TLS/DNS/firewall, and unrelated Nginx blocks. |

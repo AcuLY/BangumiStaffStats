@@ -6,6 +6,19 @@ read-only decision that proves those exact parts work together. This final
 development change adds that decision without repairing product code or
 starting release, deployment, activation, or production operations.
 
+## Disposition
+
+Superseded on 2026-07-30 by the user's explicit scope correction to complete
+the normal Product Actions gate, one `linux/amd64` container bundle, isolated
+single-host Compose validation, and the already planned simple
+health/metrics/log observability only. The proposed sealed cache/runtime
+authorities, oracle matrix, extra provenance controls, and related acceptance
+runtime are not part of the completed product or operations path.
+
+This change is intentionally archived incomplete and without syncing its
+`contracts-development-acceptance` delta to the main specs. Existing historical
+artifacts are retained for audit; no remaining task is authorized for apply.
+
 ## What Changes
 
 - Add one Contracts-owned local harness that fails closed while orchestrating
