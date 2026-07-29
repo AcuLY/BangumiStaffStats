@@ -54,8 +54,12 @@ owners.
 
 ### 1. Use one short-lived Actions bundle instead of a registry release
 
-The manual workflow reuses the accepted pinned tool setup and invokes each
-component's existing single-build entrypoint for `linux/amd64`. It packages:
+The repository's already registered `development-artifacts` workflow remains
+the manual dispatch entry on a pre-merge branch. One exact caller job, disabled
+for push and pull-request events, invokes the same-revision reusable
+`operations-preview` workflow. The called workflow reuses the accepted pinned
+tool setup and invokes each component's existing single-build entrypoint for
+`linux/amd64`. It packages:
 
 - `api.oci.tar`;
 - `updater.oci.tar`;
@@ -67,8 +71,11 @@ component's existing single-build entrypoint for `linux/amd64`. It packages:
 
 It uploads one artifact with one-day retention. This is enough to transfer
 tested bytes to `myserver` and avoids GHCR credentials and a release control
-plane. Alternative rejected: building source on the target host, because it
-adds host language toolchains; a future public release may add a registry.
+plane. The registered caller is necessary because GitHub does not expose a new
+branch-only `workflow_dispatch` file before that workflow exists on the default
+branch. Ordinary Development push/PR behavior is unchanged. Alternative
+rejected: building source on the target host, because it adds host language
+toolchains; a future public release may add a registry.
 
 ### 2. Keep Compose conventional and environment-driven
 

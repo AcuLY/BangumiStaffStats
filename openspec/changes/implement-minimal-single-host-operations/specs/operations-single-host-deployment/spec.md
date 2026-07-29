@@ -21,12 +21,14 @@
 
 ### Requirement: Actions SHALL produce one bounded AMD64 deployment bundle
 
-A manual read-only GitHub Actions workflow SHALL build the accepted Product
-once for `linux/amd64` and upload one short-lived bundle containing API and
-updater OCI archives, the Backend tool bundle, frontend static archive, minimal
-Archive fixture, source/version metadata, and SHA-256 inventory. It SHALL NOT
-publish a registry image, release, tag, deployment, credential, receipt,
-attestation graph, or second reproducibility build.
+The already registered Development manual-dispatch entry SHALL call one
+same-revision reusable read-only workflow that builds the accepted Product once
+for `linux/amd64` and uploads one short-lived bundle containing API and updater
+OCI archives, the Backend tool bundle, frontend static archive, minimal Archive
+fixture, source/version metadata, and SHA-256 inventory. Push and pull-request
+runs SHALL NOT call the bundle workflow. It SHALL NOT publish a registry image,
+release, tag, deployment, credential, receipt, attestation graph, or second
+reproducibility build.
 
 #### Scenario: Bundle build succeeds
 

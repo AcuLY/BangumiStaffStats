@@ -8,10 +8,11 @@ the observability already required by the operations guide, and an isolated
 
 ## What Changes
 
-- Add one manual GitHub Actions workflow that performs one `linux/amd64`
-  build from the accepted product revision and uploads a short-lived deployment
-  bundle containing the two OCI images, frontend static files, checksums, and
-  source/version metadata.
+- Add one reusable GitHub Actions bundle workflow and route the already
+  registered Development `workflow_dispatch` entry to it on this branch. The
+  manual run performs one `linux/amd64` bundle build from the accepted product
+  revision and uploads a short-lived deployment artifact containing the two OCI
+  images, frontend static files, checksums, and source/version metadata.
 - Add one Docker Compose topology for the API, one-shot updater, and
   Prometheus, with loopback-only host ports, bounded resources, journald
   logging, and no shared writable state with the legacy project.
@@ -49,8 +50,8 @@ None.
 |---|---|
 | Status | Specifying a minimal deployment path. No implementation, release, public activation, or legacy retirement is yet claimed. |
 | Owner | Main agent owns scope/specification/audit/Git/acceptance. Separate implementation owners may implement the Actions bundle and the host runtime/templates in parallel after approval. |
-| Writable paths | This change; new `.github/workflows/operations-preview.yml`; new `operations/README.md`, `operations/.gitignore`, `operations/compose.yaml`, `operations/bin/**`, `operations/lib/**`, `operations/nginx/**`, `operations/prometheus/**`, and `operations/systemd/**`; one absent `/tmp/bgmss-ops-minimal-input-<run-id>/**` transfer root and one absent `/srv/bgmss-ops-validation-minimal-<run-id>/**` runtime root on `myserver` during isolated validation. |
-| Read-only protected inputs | All `backend/**`, `updater/**`, `frontend/**`, `contracts/**`, existing `.github/workflows/ci.yml`, root product/design/planning documents outside this change, and all other repository paths. On `myserver`, all pre-existing paths, the running legacy project, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, existing Docker objects, Nginx/systemd/TLS configuration, public routes/listeners, secrets, users, firewall, DNS, and data remain read-only. |
+| Writable paths | This change; new `.github/workflows/operations-preview.yml`; one exact caller job in existing `.github/workflows/ci.yml`; new `operations/README.md`, `operations/.gitignore`, `operations/compose.yaml`, `operations/bin/**`, `operations/lib/**`, `operations/nginx/**`, `operations/prometheus/**`, and `operations/systemd/**`; one absent `/tmp/bgmss-ops-minimal-input-<run-id>/**` transfer root and one absent `/srv/bgmss-ops-validation-minimal-<run-id>/**` runtime root on `myserver` during isolated validation. |
+| Read-only protected inputs | All `backend/**`, `updater/**`, `frontend/**`, `contracts/**`, every existing `.github/workflows/ci.yml` byte outside the exact conditional reusable-workflow caller job, root product/design/planning documents outside this change, and all other repository paths. On `myserver`, all pre-existing paths, the running legacy project, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, existing Docker objects, Nginx/systemd/TLS configuration, public routes/listeners, secrets, users, firewall, DNS, and data remain read-only. |
 | Deletion complement | No tracked or pre-existing object. Validation cleanup may remove only the exact run-owned Compose project, containers, network, images loaded under run-specific tags, the exact absent-created validation root, and the exact absent-created transfer root after identity/name checks. No prune, volume deletion, broad glob, legacy cleanup, or production-root deletion. |
 | Mutable refs | This branch and its commits/push; one manual Actions run/artifact; one unique validation Compose project; loopback ports `19090` and `19091` only after confirming they are free; run-tagged images and the exact validation root. |
 | Consumes | Accepted product revision `34176077787b7942741ae412d3f012c732a51ee0`; existing component Dockerfiles/build helpers; `/livez`, `/readyz`, `/metrics`; valid minimal Archive fixture for bounded startup/rollback rehearsal; the operations guide; Docker/Compose, Nginx, systemd, curl, and flock capability on `myserver`. |
