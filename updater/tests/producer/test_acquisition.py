@@ -349,8 +349,7 @@ def test_latest_document_does_not_invent_a_timestamp_skew_window() -> None:
     document = _official_latest_document()
     document["name"] = "dump-2020-01-02.030405Z.zip"
     document["browser_download_url"] = (
-        "https://github.com/bangumi/Archive/releases/download/archive/"
-        "dump-2020-01-02.030405Z.zip"
+        "https://github.com/bangumi/Archive/releases/download/archive/dump-2020-01-02.030405Z.zip"
     )
     value = parse_latest(json.dumps(document).encode())
     assert value.release == "dump-2020-01-02.030405Z"
