@@ -2,9 +2,9 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H7 `71825163abae2bb399b80394459accb04b659a01` is implemented/pushed, but exact-head Actions `30412756946` passed Backend, Updater, Frontend, and artifact tests 51/51 while supervisor passed 8/21 and failed 13/21 because same-UID PID 1207 denied live-only `/proc` evidence and was not proven a strict Harness ancestor before any supervised command. Its executable, exact relation, and denied field are unproven. No remote write followed. H7 is superseded; H8 is pending. |
+| Status | H8 `49f28990e28fb8e817a167a244861f4d7ddb71b8` is implemented/pushed. Exact-head Actions `30416513861` attempt 1 passed Backend, Updater, Frontend, artifact 51/51, and supervisor 20/21; the sole orderly-exit failure is the permanent test-probe acknowledgement listener retaining fork IPC. Attempt 2 was cancelled after deterministic diagnosis. No remote write followed; the one-shot listener correction, green Actions, remote evidence, and archive are pending. |
 | Owner | Main agent owns identities, specification, admission, audit, lifecycle, and Git. One delegated execution owner may perform the closed Git-evidence and remote/container command set. |
-| Writable paths | This change, its later synchronized root spec/archive, H8 changes only existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, and `contracts/acceptance/test/core.test.mjs`, one exact absent remote run root, uniquely labelled run containers, and only conditionally owned fixed image references. Worker, workflow, supervisor, H3-H7 behavior outside the sealed-baseline allowance, and the closed package inventory remain unchanged. |
+| Writable paths | This change, its later synchronized root spec/archive, H8 changes only existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, `contracts/acceptance/test/core.test.mjs`, the exact permanent-to-one-shot IPC probe-listener correction in `contracts/acceptance/test/supervisor.test.mjs`, one exact absent remote run root, uniquely labelled run containers, and only conditionally owned fixed image references. Worker fixture, workflow, supervisor implementation, H3-H7 behavior outside the sealed-baseline allowance, and the closed package inventory remain unchanged. |
 | Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`, failed Harness source, H2 `1e3ecf120da02d642a5d63f75a6795ba2946e11d`, H3 `cd203aa777e14879a7baf1bafd01ee319af246c5`, failed H4 `930690068a02eeec3c7b140c29796aef3b4a719a`, failed H5 `3091e54603b91c56cbdda7d30be7f3a08c7957a9`, failed H6 `c59c78627253719acee3520711e42cecf063f8d5`, failed H7 `71825163abae2bb399b80394459accb04b659a01`, every implementation path outside the exact H8 allowance, oracle, other OpenSpec, Git history outside main-agent commits, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, legacy/production containers, networks, volumes, Nginx/systemd/TLS, listeners, processes, routes, and data. |
 | Deletion complement | No tracked or pre-existing object. Cleanup is limited to exact manifest-bound run files/directories, run containers by immutable ID and label, and a fixed image reference only if this run alone pulled and still exclusively owns it. |
 | Mutable refs | Lifecycle commits/push, one run root, run containers, and conditionally run-owned image references. No tag, release, product ref, deployment ref, service, route, port, network, volume, or production/legacy object. |
@@ -472,7 +472,8 @@
   four-artifact H8 specification before implementation. Keep implementation
   limited to existing `contracts/acceptance/lib/runner.mjs`,
   `contracts/acceptance/lib/cli.mjs`, and
-  `contracts/acceptance/test/core.test.mjs`.
+  `contracts/acceptance/test/core.test.mjs`, plus only the one-shot
+  acknowledgement listener in `contracts/acceptance/test/supervisor.test.mjs`.
 - [ ] 12.2 Before canonical production inventory can create any owned child,
   capture and freeze the stable same-UID permission-denied generations as a
   sorted closed baseline with one canonical digest. Bind kind, exact reason,
@@ -497,7 +498,8 @@
   process creates its own seal before orchestration.
 - [ ] 12.5 Obtain independent zero-P0/P1 review; run only local static
   `node --check`, `git diff --check`, and pinned OpenSpec strict validation;
-  stage only the three H8 files and create/push one clean implementation commit.
+  stage only the four H8 files across the existing implementation commit and
+  one minimal follow-up, then push both.
 - [ ] 12.6 Require exact-head H8 Development Actions green with supervisor
   21/21 before remote mutation. Then prove
   `P <= H2 <= H3 <= failed-H4 <= failed-H5 <= failed-H6 <= failed-H7 <= H8`,

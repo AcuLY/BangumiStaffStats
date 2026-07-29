@@ -2,9 +2,9 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H7 `71825163abae2bb399b80394459accb04b659a01` is pushed, but exact-head Actions `30412756946` passed Backend, Updater, Frontend, and artifact tests 51/51 while supervisor passed 8/21 and failed 13/21 because same-UID PID 1207 denied live-only `/proc` evidence and was not proven a strict Harness ancestor before any supervised command. Its executable, exact relation, and denied field are unproven. No remote write followed. H7 is superseded; H8 specification/implementation/verification/archive are pending. |
+| Status | H8 `49f28990e28fb8e817a167a244861f4d7ddb71b8` is pushed. Exact-head Actions `30416513861` attempt 1 passed Backend, Updater, Frontend, artifact 51/51, and supervisor 20/21; the sole orderly-exit failure is the permanent test-probe acknowledgement listener retaining fork IPC. Attempt 2 was cancelled after deterministic diagnosis. No remote write followed; the one-shot listener correction, green Actions, remote evidence, and archive are pending. |
 | Owner | Main-agent specification/audit/lifecycle owner and one bounded remote execution owner. |
-| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, `contracts/acceptance/test/core.test.mjs`, and the proposal-declared run-owned remote complement only. Worker, workflow, supervisor, H3-H7 behavior outside the sealed-baseline allowance, and the closed package inventory remain unchanged. |
+| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, `contracts/acceptance/test/core.test.mjs`, the permanent-to-one-shot acknowledgement-listener correction in `contracts/acceptance/test/supervisor.test.mjs`, and the proposal-declared run-owned remote complement only. Worker fixture, workflow, supervisor implementation, H3-H7 behavior outside the sealed-baseline allowance, and the closed package inventory remain unchanged. |
 | Read-only protected inputs | Final Product, failed Harness/H2/H3/H4/H5/H6/H7 sources, oracle, every implementation path outside the exact H8 allowance, other OpenSpec, Git objects outside lifecycle commits, and all non-admitted remote state. |
 | Deletion complement | No tracked/pre-existing object; only identity-proven run-created files/containers and conditionally run-pulled fixed image refs. |
 | Mutable refs | Exact change/root-spec/archive, main-agent commits/push, one run root, run containers, and conditionally owned image refs. |
@@ -344,6 +344,13 @@ communicating with a same-UID opaque process that already existed before the
 seal. Closing either stronger boundary requires cgroup/PID-namespace or
 launch-broker provenance outside this targeted refresh.
 
+The existing orderly-exit supervisor probe SHALL retain only the first
+acknowledgement listener required to record sequence zero. That listener SHALL
+be one-shot so the fork IPC channel can unreference after acknowledgement and
+the unchanged orderly worker can exit with code zero. This exact test-fixture
+liveness correction SHALL NOT change the supervisor implementation, worker
+fixture, timeout, process-baseline semantics, or the frozen 21-test set.
+
 #### Scenario: Stable pre-existing same-UID opacity remains environmental
 
 - **WHEN** a stable same-UID permission-denied generation is captured before any owned child exists and every later main/worker observation matches its sealed generation
@@ -363,6 +370,11 @@ launch-broker provenance outside this targeted refresh.
 
 - **WHEN** a baseline-matched opaque PID is retained, target-group selected, below an exact retained parent, or targeted for cleanup, Map-miss revalidation, or signaling
 - **THEN** the Harness SHALL fail closed before every signal
+
+#### Scenario: Orderly acknowledgement probe releases its IPC channel
+
+- **WHEN** the probe records acknowledgement sequence zero and the orderly worker has no remaining work
+- **THEN** its one-shot listener is removed, the unchanged worker exits zero, and the parent performs strict green validation exactly once
 
 #### Scenario: Authoritative unrelated kernel thread has process group zero
 

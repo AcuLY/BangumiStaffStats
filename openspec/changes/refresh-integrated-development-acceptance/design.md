@@ -79,9 +79,9 @@ identical byte digest. The real rerun program SHA-256 was
 
 | Field | Declaration |
 |---|---|
-| Status | H7 `71825163abae2bb399b80394459accb04b659a01` is implemented/pushed, but Actions `30412756946` passed Backend, Updater, Frontend, and artifact tests 51/51 while supervisor passed 8/21 and failed 13/21 because same-UID PID 1207 denied live-only `/proc` evidence and was not proven a strict Harness ancestor before any supervised command. The run does not prove its executable, exact relation, or denied field. No remote write followed. H7 is superseded; H8 specification/implementation/verification/archive are pending. |
+| Status | H8 `49f28990e28fb8e817a167a244861f4d7ddb71b8` is implemented/pushed. Actions `30416513861` attempt 1 passed Backend, Updater, Frontend, artifact 51/51, and supervisor 20/21; the sole orderly-exit failure is a permanent test-probe acknowledgement listener retaining fork IPC, not baseline logic. Attempt 2 was cancelled after deterministic diagnosis. No remote write followed; the one-shot listener correction, green Actions, remote evidence, and archive are pending. |
 | Owner | Main agent: identities, specification, audit, lifecycle, commits/push. Delegated execution owner: exact remote/container command set and evidence handoff only. |
-| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H8 implementation is limited to existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, and `contracts/acceptance/test/core.test.mjs`. Worker, workflow, supervisor, H3-H7 behavior outside the sealed-baseline allowance, package/inventory files, product, non-acceptance Harness, and Operations remain read-only. |
+| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H8 implementation is limited to existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, `contracts/acceptance/test/core.test.mjs`, and the exact permanent-to-one-shot IPC probe-listener correction in `contracts/acceptance/test/supervisor.test.mjs`. Worker fixture, workflow, supervisor implementation, H3-H7 behavior outside the sealed-baseline allowance, package/inventory files, product, non-acceptance Harness, and Operations remain read-only. |
 | Read-only protected inputs | P, failed Harness/H2/H3/H4/H5/H6/H7 sources, oracle, all implementation outside the exact H8 allowance, other OpenSpec, and all remote state outside the admitted run complement. |
 | Deletion complement | No tracked or pre-existing object. Only manifest-bound run files, immutable-ID run containers, and safely proven run-pulled fixed image refs. |
 | Mutable refs | This change/root-spec/archive lifecycle, main-agent commits/push, one run root, run containers, and conditionally run-pulled images. |
@@ -574,7 +574,12 @@ polling does not claim to observe a process that is born and exits entirely
 between snapshots, nor to prevent a command from using an IPC relationship
 with a same-UID opaque process that predated the seal.
 Coverage remains folded into the selected Linux tests, and H8 changes only
-`runner.mjs`, the formal seal call in `cli.mjs`, and `core.test.mjs`.
+`runner.mjs`, the formal seal call in `cli.mjs`, `core.test.mjs`, and one
+test-fixture liveness correction in `supervisor.test.mjs`. The orderly-exit
+probe needs only acknowledgement sequence zero; its listener SHALL be
+one-shot so the fork IPC channel can unreference after that acknowledgement.
+This test-only correction does not alter the supervisor implementation,
+worker fixture, process baseline, timeout, or accepted test count.
 
 ### 4. Freeze one Product test owner and three Harness gates
 
