@@ -5,6 +5,11 @@ Production image requests cannot succeed on `myserver`. Direct
 proxies; through the existing host proxy, Bangumi returns its documented
 `302` image redirect to `lain.bgm.tv`, which the Backend also rejects.
 
+Post-cutover repetition additionally proved that `api.bgm.tv` rejects the Go
+transport's default User-Agent with `403` while accepting a fixed project
+identity. The first production success was therefore not a stable acceptance
+result.
+
 ## What Changes
 
 - Add one optional `BGMSS_IMAGE_HTTPS_PROXY` input for Backend image traffic.
@@ -14,6 +19,8 @@ proxies; through the existing host proxy, Bangumi returns its documented
 - Keep the initial request fixed to `https://api.bgm.tv`; manually accept only
   one absolute credential-free HTTPS `302` target on exact `lain.bgm.tv`, then
   reject every other or second redirect.
+- Send one fixed code-owned `BangumiStaffStats/1.0` User-Agent on both approved
+  GETs; never copy an incoming or ambient identity.
 - Preserve the existing timeout, concurrency, response-header, status, image
   MIME, declared/actual body-size, cache-header, cancellation, safe-error, and
   low-cardinality observation bounds across both hops.
@@ -50,7 +57,8 @@ semantic changes are required. Production uses the existing `/srv/bgmss-v2`
 project, `proxy-net`, `http://myserver-proxy:7897`, release env, deploy/rollback
 commands, and loopback ports. Among installed operations files, only
 `/srv/bgmss-v2/compose/compose.updater-proxy.yaml` changes. Implementation
-remains paused until this change is strict-valid and reviewed.
+of the post-archive compatibility amendment remains paused until its revised
+delta and tasks are strict-valid and reviewed.
 
 ## Non-goals
 

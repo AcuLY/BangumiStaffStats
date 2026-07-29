@@ -76,3 +76,16 @@ backs up and atomically swaps only the installed overlay under the existing
 operations lock, force-recreates API, and verifies projection plus the image
 route. On failure it restores the old overlay and force-recreates API again;
 normal application rollback remains available after topology is restored.
+
+### 5. Send one fixed project User-Agent
+
+Both explicit approved GETs set exact
+`User-Agent: BangumiStaffStats/1.0`. The value is a code constant, contains no
+request or environment data, and replaces the Go transport default that
+`api.bgm.tv` rejects. Incoming User-Agent and arbitrary headers remain outside
+the image request model and cannot affect either hop.
+
+Alternative rejected: omit the header or rely on Go's implicit
+`Go-http-client/1.1`, because production repetition proved both identities
+receive `403`. Forwarding the browser identity is also rejected because it
+would widen the reviewed request boundary without adding product value.

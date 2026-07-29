@@ -95,3 +95,23 @@
   deltas were merged into the main specs, this change was archived at
   `openspec/changes/archive/2026-07-30-repair-production-image-proxy-egress`,
   and strict validation passed with zero failures.
+
+## 7. Post-archive production compatibility amendment
+
+- [x] 7.1 Reopen this change after repeated public and loopback probes disprove
+  stable image acceptance. Reproduce the first hop with the exact release
+  image and proxy, prove that empty and Go-default User-Agent values receive
+  `403` while a fixed project value receives the approved `302`, and revise
+  the proposal/design/delta before implementation.
+- [ ] 7.2 Set exact `BangumiStaffStats/1.0` on both approved image GETs and add
+  focused assertions that both hops use it while caller-controlled headers
+  remain absent. Run no local build; require Development Actions for the full
+  Backend/Product gates.
+- [ ] 7.3 Commit/push the implementation, advance only the accepted Product
+  revision after its green run, require a final exact-head green
+  `linux/amd64` bundle, transactionally deploy it with the existing overlay,
+  and prove repeated loopback/public image success without Archive, Nginx,
+  proxy, updater, monitoring, or legacy drift.
+- [ ] 7.4 Sync the amended Backend delta, rearchive this change, strict-validate
+  all specs, commit/push lifecycle evidence, and require final remote equality,
+  clean worktree, and green Actions.
