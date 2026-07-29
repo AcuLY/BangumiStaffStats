@@ -79,16 +79,16 @@ identical byte digest. The real rerun program SHA-256 was
 
 | Field | Declaration |
 |---|---|
-| Status | H5 `3091e54603b91c56cbdda7d30be7f3a08c7957a9` is implemented/pushed, but Actions `30406392084` passed Backend, Updater, Frontend, and artifact tests 51/51 while supervisor passed 8/21 and failed 13/21 because PID 2's canonical process group zero was rejected before status/`Kthread` classification. No remote write followed. H5 is superseded; H6 specification/implementation/verification/archive are pending. |
+| Status | H6 `c59c78627253719acee3520711e42cecf063f8d5` is implemented/pushed, but Actions `30408640851` passed Backend, Updater, Frontend, and artifact tests 51/51 while supervisor passed 8/21 and failed 13/21 because one same-UID PID denied live-only `/proc` evidence before any supervised command. The run does not prove its executable or ancestry. No remote write followed. H6 is superseded; H7 specification/implementation/verification/archive are pending. |
 | Owner | Main agent: identities, specification, audit, lifecycle, commits/push. Delegated execution owner: exact remote/container command set and evidence handoff only. |
-| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H6 implementation is limited to existing `contracts/acceptance/lib/runner.mjs` and `contracts/acceptance/test/core.test.mjs`. Worker, workflow, supervisor, H3/H4/H5 behavior, package/inventory files, product, non-acceptance Harness, and Operations remain read-only. |
-| Read-only protected inputs | P, failed Harness/H2/H3/H4/H5 sources, oracle, all implementation outside the exact H6 allowance, other OpenSpec, and all remote state outside the admitted run complement. |
+| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H7 implementation is limited to existing `contracts/acceptance/lib/runner.mjs` and `contracts/acceptance/test/core.test.mjs`. Worker, workflow, supervisor, H3-H6 behavior outside the strict-ancestor allowance, package/inventory files, product, non-acceptance Harness, and Operations remain read-only. |
+| Read-only protected inputs | P, failed Harness/H2/H3/H4/H5/H6 sources, oracle, all implementation outside the exact H7 allowance, other OpenSpec, and all remote state outside the admitted run complement. |
 | Deletion complement | No tracked or pre-existing object. Only manifest-bound run files, immutable-ID run containers, and safely proven run-pulled fixed image refs. |
 | Mutable refs | This change/root-spec/archive lifecycle, main-agent commits/push, one run root, run containers, and conditionally run-pulled images. |
 | Consumes | P exact-head Development result, failed H run/source, Harness acceptance package, Linux `/proc` and existing Darwin inventory behavior, fixed image digests, existing remote host/Docker and protected-state facts. |
-| Produces | Final H6 kernel-thread-zero-PGID correction over the H5 ownership-aware terminal/opaque model, preserved H3/H4/H5 ordering and signaling, exact supervisor Actions gate, P/H6 ancestry/delta proof, separated P/H6 test evidence, immutable source identities, cleanup/non-interference audit, H6 implementation and archive identities. |
-| Dependencies | P Actions green → superseded H2/H3/H4/H5 evidence → H6 implementation/review/clean commit and exact-head Actions including supervisor 21/21 → P/H6 proof → remote read-only admission → isolated tests → cleanup/non-interference → zero-P0/P1 → archive. |
-| Deliverables | Proposal/delta/design/tasks, closed H6 correction, clean H6 implementation commit, evidence values/digests recorded into the change, synchronized root spec, archive commit. |
+| Produces | Final H7 strict-Harness-ancestor permission correction over the H6 process model, preserved H3-H6 ordering and signaling, exact supervisor Actions gate, P/H7 ancestry/delta proof, separated P/H7 test evidence, immutable source identities, cleanup/non-interference audit, H7 implementation and archive identities. |
+| Dependencies | P Actions green → superseded H2/H3/H4/H5/H6 evidence → H7 implementation/review/clean commit and exact-head Actions including supervisor 21/21 → P/H7 proof → remote read-only admission → isolated tests → cleanup/non-interference → zero-P0/P1 → archive. |
+| Deliverables | Proposal/delta/design/tasks, closed H7 correction, clean H7 implementation commit, evidence values/digests recorded into the change, synchronized root spec, archive commit. |
 | Acceptance | Proposal acceptance table plus the closed commands and invariants below. |
 | Non-goals | Formal matrix or product/Operations implementation; release/deploy/activation; host toolchain installation; production readiness. |
 | Operations deferred | Receipt/schema/code rebinding and every Operations candidate/host-validation step. |
@@ -98,12 +98,12 @@ identical byte digest. The real rerun program SHA-256 was
 
 **Goals:**
 
-- Make P, H6 implementation, and H6 archive distinct, ordered identities.
-- Prove every non-declared P/H6 product path has identical Git mode and blob.
-- Execute the corrected Product Updater tests from P, not H6.
+- Make P, H7 implementation, and H7 archive distinct, ordered identities.
+- Prove every non-declared P/H7 product path has identical Git mode and blob.
+- Execute the corrected Product Updater tests from P, not H7.
 - Replace only Linux process/owned-cwd discovery with fail-closed Node built-in
   `/proc` reads while preserving current Darwin `ps`/`lsof` behavior.
-- Execute Harness package/supervisor/selected control tests from corrected H6,
+- Execute Harness package/supervisor/selected control tests from corrected H7,
   not P or the failed Harness source.
 - Leave `myserver`, both worktrees, and all protected resources unchanged.
 
@@ -120,14 +120,15 @@ identical byte digest. The real rerun program SHA-256 was
 
 ## Decisions
 
-### 1. Treat P and corrected H6 as separate immutable sources
+### 1. Treat P and corrected H7 as separate immutable sources
 
-H6 SHALL descend P, the Harness revision used by the superseded run, H2, H3
+H7 SHALL descend P, the Harness revision used by the superseded run, H2, H3
 `cd203aa777e14879a7baf1bafd01ee319af246c5`, failed H4
 `930690068a02eeec3c7b140c29796aef3b4a719a`, and failed H5
-`3091e54603b91c56cbdda7d30be7f3a08c7957a9`.
+`3091e54603b91c56cbdda7d30be7f3a08c7957a9`, and failed H6
+`c59c78627253719acee3520711e42cecf063f8d5`.
 Before transfer, Git SHALL produce complete sorted mode/blob inventories for
-P and H6 and one changed-path inventory. The allowed difference set remains
+P and H7 and one changed-path inventory. The allowed difference set remains
 closed to:
 
 - `contracts/acceptance/**`;
@@ -148,8 +149,8 @@ allowed changed path records status, mode, and blob/byte digest; non-allowed
 difference count must be zero. The accumulated Harness implementation remains
 restricted to the exact workflow and acceptance files declared by the
 proposal; H5 narrowed its delta to `runner.mjs`,
-`process-closure-worker.mjs`, and `core.test.mjs`; H6 narrows its new delta
-further to `runner.mjs` and `core.test.mjs`.
+`process-closure-worker.mjs`, and `core.test.mjs`; H6 and H7 each narrow their
+new delta to `runner.mjs` and `core.test.mjs`.
 
 Each revision is transferred as its own Git archive. The controller records
 commit/tree, archive SHA-256/size/mode, and a complete extracted
@@ -484,6 +485,45 @@ and the existing folded `core.test.mjs` coverage; worker, supervisor,
 workflow, Darwin, package, product, and all other behavior remain
 byte-identical.
 
+### 3e. Admit same-UID permission denial only for a proven Harness ancestor in H7
+
+H6 exact-head Actions run `30408640851` failed before supervised commands
+because one stable PID had the Harness real UID and denied a live-only
+`/proc` read. This is evidence of same-UID permission denial only; executable
+identity and ancestry are hypotheses until separately proven.
+
+On canonical production `/proc`, H7 uses exactly `process.pid` as the Harness
+anchor and rejects any caller-supplied replacement. A different injected PID is
+permitted only with the explicit noncanonical synthetic proc root/I/O used by
+fixtures and can never classify real `/proc`. H7 constructs a strict ancestor
+set using only bounded `/proc/<pid>/{stat,status}` reads. Each link is sampled before
+and after inventory classification and binds PID, start time, `comm`, parent
+PID, process group, nonterminal state, and real UID. The walk rejects self,
+cycles, missing/reappearing links, zero process group, terminal state,
+unbounded depth, or any generation/UID/relation drift. A same-UID process that
+then denies only `exe`, `cwd`, or `cmdline` with `EACCES`/`EPERM` may become
+opaque reason `harness-ancestor-permission-denied` only when its exact
+generation is in that stable strict-ancestor set.
+
+The opaque generation key keeps the candidate's existing stable identity and
+exact reason and additionally binds only the `process.pid` anchor's PID, real
+UID, start time, and `comm`; it does not bind the intermediary chain, state,
+parent PID, or process group. The full inventory digest separately binds the
+independently sampled ordered chain identities, parent relations, process
+groups, and final nonterminal states. Thus ordinary scheduling or ancestor
+turnover cannot masquerade as a new candidate generation, while every main or
+worker inventory must freshly prove the complete strict-parent relation. The
+opaque record remains environmental only: it is excluded
+from owned-cwd and closure discovery and must fail with zero signal if it is
+retained, target-group selected, below an exact retained parent, targeted for
+cleanup/Map-miss revalidation, or otherwise ownership-related. Same-UID self,
+sibling, descendant, unproven ancestor, kernel thread, non-permission failure,
+or drifting chain remains fail closed. The validated Harness identity is
+forwarded unchanged through the runner's immutable worker inventory options;
+the worker module itself remains byte-identical. Focused positive and negative
+coverage stays folded into the selected 21-test manifest. H7 changes only
+`runner.mjs` and `core.test.mjs`.
+
 ### 4. Freeze one Product test owner and three Harness gates
 
 P owns:
@@ -494,7 +534,7 @@ from P's `updater/` copy. The expected discovered class currently has 22 test
 methods, but evidence records the actual executed count and names rather than
 accepting a declaration.
 
-Corrected H6 owns:
+Corrected H7 owns:
 
 1. `node contracts/acceptance/bin/acceptance.mjs verify-package` before install;
 2. the offline install, then
@@ -511,7 +551,7 @@ to skip on Linux is excluded from this fixed Linux run.
 TAP parsing records actual pass/fail/skip and selected names. All 21 supervisor
 tests and every frozen selected core test must pass. The former
 `escaped fixture process identity differs before cleanup` classification is
-not an exception for H6: observing it again proves the Linux inventory
+not an exception for H7: observing it again proves the Linux inventory
 correction did not close and fails the run. Any failure, missing selected
 name, widened pattern, or count drift fails.
 
@@ -570,7 +610,7 @@ substitution fails closed with the raw bounded evidence digest rather than
 throwing an unclassified parser exception or emitting a partial seal.
 
 After admission, the run creates the root with an ownership marker and a
-closed file manifest, transfers P/H6 archives, and uses uniquely named
+closed file manifest, transfers P/H7 archives, and uses uniquely named
 run-labeled containers only. It creates no Compose project, Docker network,
 volume, port, listener, daemon, or production path.
 
@@ -595,7 +635,7 @@ emitted.
 
 ## Risks / Trade-offs
 
-- **[H6 contains planning-only lifecycle paths absent from P]** → Bind the exact
+- **[H7 contains planning-only lifecycle paths absent from P]** → Bind the exact
   path/mode/blob inventory; never allow a broad prefix or any implementation
   path.
 - **[A selected test pattern silently widens or skips]** → Freeze exact names,
@@ -608,8 +648,8 @@ emitted.
   only by config image ID. Never resolve a tag or trust a mirror header alone.
 - **[A remote object collides or changes concurrently]** → Stop before writes
   or preserve ambiguous residue; never compensate with broader deletion.
-- **[The former Linux fixture mismatch returns]** → H6 keeps the exception
-  entirely, so the former exact mismatch or any other failure blocks closure.
+- **[The former Linux fixture mismatch returns]** → H7 keeps it entirely
+  unaccepted, so the former exact mismatch or any other failure blocks closure.
 - **[Displayed command text differs from executed seal bytes]** → Hash the
   actual transport byte array before each SSH invocation, require the remote
   program to report the same digest/version, and reject reconstructed or
@@ -617,20 +657,21 @@ emitted.
 
 ## Migration Plan
 
-1. Retain P's exact-head Development Actions and all H2/H3/H4/H5 failures as
+1. Retain P's exact-head Development Actions and all H2/H3/H4/H5/H6 failures as
    superseded evidence only.
-2. Strict-validate and main-review this H6 OpenSpec revision before code.
-3. Implement/review only the declared H6 inventory/test paths, then
-   commit and push H6 and require exact-head Development Actions including
+2. Strict-validate and main-review this H7 OpenSpec revision before code.
+3. Implement/review only the declared H7 inventory/test paths, then
+   commit and push H7 and require exact-head Development Actions including
    supervisor 21/21.
-4. Prove P/H6 plus failed-H/H6, H2/H6, H3/H6, failed-H4/H6, and failed-H5/H6
+4. Prove P/H7 plus failed-H/H7, H2/H7, H3/H7, failed-H4/H7, failed-H5/H7,
+   and failed-H6/H7
    ancestry/differences; perform
    read-only preflight, attest the fixed mirror OCI graphs, then run the closed
    remote container gates under a new opaque run ID.
 5. Pull/hash bounded evidence, clean the run complement, repeat protected
    inventories, and obtain independent zero-P0/P1 review.
 6. Record exact identities/results, sync the delta, archive the change, commit,
-   push, and hand P/H6/archive identities to Operations.
+   push, and hand P/H7/archive identities to Operations.
 
 Failure before remote mutation changes no external state. Failure afterward
 invokes only the exact identity cleanup above; it never modifies Product,
@@ -638,5 +679,5 @@ legacy, production, or host integration.
 
 ## Open Questions
 
-None. Actual fresh run ID, H6 OIDs, test counts, source/archive digests, container
+None. Actual fresh run ID, H7 OIDs, test counts, source/archive digests, container
 IDs, and log/TAP digests are evidence outputs and must not be guessed.

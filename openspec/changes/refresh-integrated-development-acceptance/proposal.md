@@ -60,13 +60,25 @@ tombstone, permission-denied opaque process, owned relation, and signal target
 still requires a positive process group. The raw start-time tick is a stable
 generation token rather than a signal target and may canonically be zero.
 
+H6 `c59c78627253719acee3520711e42cecf063f8d5` closed that ABI case, but
+exact-head Actions run `30408640851` exposed the next host boundary before any
+supervised command started: PID 1252 had the Harness real UID while one
+live-only `/proc` field denied access with `EACCES`/`EPERM`. Backend, Updater,
+Frontend, all 51 artifact tests, and 8/21 supervisor tests were green; the
+remaining 13 supervisor tests failed closed and no remote write followed. The
+log does not prove what PID 1252 executes or whether it is a Harness ancestor.
+H6 is therefore superseded evidence. H7 may admit this shape only when a
+bounded, stable `/proc/<pid>/stat` parent-chain proof establishes that the
+denied generation is a strict ancestor of the current Harness process.
+
 ## What Changes
 
 - Freeze final Product revision
   `34176077787b7942741ae412d3f012c732a51ee0` and require the complete
   Development workflow to succeed at that exact head before remote mutation.
-- Bind one final corrected descendant Harness implementation revision H6 that
-  descends H5 `3091e54603b91c56cbdda7d30be7f3a08c7957a9` and failed H4
+- Bind one final corrected descendant Harness implementation revision H7 that
+  descends failed H6 `c59c78627253719acee3520711e42cecf063f8d5`, H5
+  `3091e54603b91c56cbdda7d30be7f3a08c7957a9`, and failed H4
   `930690068a02eeec3c7b140c29796aef3b4a719a`,
   descends H3 `cd203aa777e14879a7baf1bafd01ee319af246c5` and the superseded H2
   implementation `1e3ecf120da02d642a5d63f75a6795ba2946e11d`,
@@ -114,6 +126,15 @@ generation token rather than a signal target and may canonically be zero.
   complete live entries, terminal tombstones, permission-denied opaque
   entries, retained or relationship-owned evidence, cleanup revalidation, and
   all signal targets.
+- Represent a same-UID permission-denied process as a separate
+  `harness-ancestor-permission-denied` opaque reason only after a bounded,
+  cycle-free, double-sampled `stat` chain proves that exact PID/start/`comm`/
+  parent/process-group generation is a strict ancestor of the validated
+  Harness PID. Bind the Harness anchor and chain proof into evidence; keep the
+  entry unrelated, excluded from owned-cwd/closure discovery, and ineligible
+  for retention, target-group/parent ownership, cleanup, or signaling. Every
+  same-UID sibling, descendant, self, unproven or drifting chain remains a
+  fail-closed error.
 - On `myserver`, run the Product Updater pruning tests from Product and the
   package, supervisor, and selected targeted acceptance tests from Harness in
   fixed digest-addressed, networkless, read-only containers below one absent
@@ -157,16 +178,16 @@ None.
 
 | Field | Declaration |
 |---|---|
-| Status | H5 implementation `3091e54603b91c56cbdda7d30be7f3a08c7957a9` is pushed, but exact-head Actions `30406392084` passed Backend, Updater, Frontend, and 51/51 artifact tests while supervisor passed 8/21 and failed 13/21 because PID 2's canonical process group zero was rejected before status/`Kthread` classification. No remote write followed. H5 is superseded; H6 specification/implementation/verification/archive/release/deploy/activation are pending. |
+| Status | H6 implementation `c59c78627253719acee3520711e42cecf063f8d5` is pushed, but exact-head Actions `30408640851` passed Backend, Updater, Frontend, and 51/51 artifact tests while supervisor passed 8/21 and failed 13/21 because one same-UID PID denied live-only `/proc` evidence before any supervised command. Its ancestry/executable is not proven. No remote write followed. H6 is superseded; H7 specification/implementation/verification/archive are pending. |
 | Owner | Main agent owns specification, identity decisions, audit, acceptance, Git, and lifecycle. One delegated execution owner may run the closed remote command set because the remote/container detail is context-heavy and independently bounded. |
-| Writable paths | Repository planning: `openspec/changes/refresh-integrated-development-acceptance/**`, followed by synchronization to `openspec/specs/contracts-development-acceptance/spec.md` and archive lifecycle. H6 implementation: only existing `contracts/acceptance/lib/runner.mjs` and `contracts/acceptance/test/core.test.mjs`; worker, workflow, supervisor, package/inventory files, product code, H3/H4 behavior, and the H5 opaque model remain unchanged. Remote only after H6 review, exact-head H6 Actions, and read-only admission: one previously absent regular root `/srv/bgmss-development-acceptance-refresh-<run-id>/**`; uniquely named run-labeled networkless containers; and only the two fixed Tencent-mirror RepoDigest/config image identities if that run proves both identities absent and pulls them. |
-| Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`; oracle; every product, UI, API, statistical, non-acceptance Contracts, Operations, workflow, package-lock, and Harness implementation path outside the exact writable list; every OpenSpec outside this change and its later root-spec sync; Git history outside main-agent commits; external registries except exact image reads; and all remote state outside the admitted run root/container/image complement. On `myserver`, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, pre-existing containers/images/networks/volumes, Nginx/systemd/TLS/configuration, listeners, processes, and legacy data remain read-only. |
+| Writable paths | Repository planning: `openspec/changes/refresh-integrated-development-acceptance/**`, followed by synchronization to `openspec/specs/contracts-development-acceptance/spec.md` and archive lifecycle. H7 implementation: only existing `contracts/acceptance/lib/runner.mjs` and `contracts/acceptance/test/core.test.mjs`; worker, workflow, supervisor, package/inventory files, product code, and H3-H6 behavior outside the exact strict-ancestor allowance remain unchanged. Remote only after H7 review, exact-head H7 Actions, and read-only admission: one previously absent regular root `/srv/bgmss-development-acceptance-refresh-<run-id>/**`; uniquely named run-labeled networkless containers; and only the two fixed Tencent-mirror RepoDigest/config image identities if that run proves both identities absent and pulls them. |
+| Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`; failed H6 `c59c78627253719acee3520711e42cecf063f8d5`; oracle; every product, UI, API, statistical, non-acceptance Contracts, Operations, workflow, package-lock, and Harness implementation path outside the exact writable list; every OpenSpec outside this change and its later root-spec sync; Git history outside main-agent commits; external registries except exact image reads; and all remote state outside the admitted run root/container/image complement. On `myserver`, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, pre-existing containers/images/networks/volumes, Nginx/systemd/TLS/configuration, listeners, processes, and legacy data remain read-only. |
 | Deletion complement | No tracked file and no pre-existing remote object. Cleanup may remove only run-created files/directories from the exact owned manifest, run-labeled containers by immutable ID, and an exact image reference only if the run pulled it, its identity still matches, and no pre-existing or foreign reference/container uses it. No Docker prune, Git clean, glob cleanup, broad recursive target, network, volume, Compose, or service deletion. |
 | Mutable refs | This change, later synchronized root spec/archive, main-agent commits/push, exact run root files, run containers, and conditionally run-pulled fixed image references. No product/Harness source ref, tag, release, registry publication, production/legacy ref, route, service, volume, network, or public port is mutable. |
 | Consumes | Final Product revision/tree and exact-head Development Actions; the failed Harness run and its source identity; existing acceptance package/supervisor/targeted harness; Linux `/proc` ABI and existing Darwin `ps`/`lsof` contract; corrected fixed Node 24.18.0/npm 11.16.0 and Python 3.14.6 OCI root/child/config/layer identities; Tencent VPC mirror reachability; current `myserver` Docker capability; prior non-green lifecycle semantics and explicit 56-cell unexecuted inventory. |
-| Produces | Final H6 kernel-thread-zero-PGID correction over the H5 ownership-aware terminal/opaque-process model, with preserved H3/H4/H5 behavior and Darwin parity; an exact supervisor Actions gate; exact Product/H6 ancestry and difference proof; two immutable source identities; verified OCI acquisition graphs; Product-owned 22-test Updater evidence; Harness-owned package/supervisor/selected-targeted evidence; superseded-failure/unexecuted/cleanup/non-interference/audit evidence; one archived refresh identity consumable by Operations. |
-| Dependencies | Product exact-head Development run remains green; H6 must descend Product, H2, H3, failed H4, and failed H5; Product/H6 non-allowed byte-or-mode difference count must be zero; H6 code/audit must preserve the H5 opaque model while admitting zero process group only for authoritative unrelated kernel-thread evidence; exact-head H6 Actions including supervisor 21/21 and read-only remote collision/protected-state preflight must pass before writes. |
-| Deliverables | Strict-valid proposal/design/delta/tasks before implementation; reviewed H6 implementation and focused tests in only the two declared files; separate clean H6 implementation commit; canonical run input/result summaries and hashed logs kept only as bounded execution evidence; archived refresh plus synchronized root requirement; no remote or generated residue. |
+| Produces | Final H7 strict-Harness-ancestor permission correction over the H6 Linux process model, with preserved H3-H6 behavior and Darwin parity; an exact supervisor Actions gate; exact Product/H7 ancestry and difference proof; two immutable source identities; verified OCI acquisition graphs; Product-owned 22-test Updater evidence; Harness-owned package/supervisor/selected-targeted evidence; superseded-failure/unexecuted/cleanup/non-interference/audit evidence; one archived refresh identity consumable by Operations. |
+| Dependencies | Product exact-head Development run remains green; H7 must descend Product, H2, H3, failed H4, failed H5, and failed H6; Product/H7 non-allowed byte-or-mode difference count must be zero; H7 code/audit must preserve the H6 model while admitting only a stable proven strict Harness ancestor; exact-head H7 Actions including supervisor 21/21 and read-only remote collision/protected-state preflight must pass before writes. |
+| Deliverables | Strict-valid proposal/design/delta/tasks before implementation; reviewed H7 implementation and focused tests in only the two declared files; separate clean H7 implementation commit; canonical run input/result summaries and hashed logs kept only as bounded execution evidence; archived refresh plus synchronized root requirement; no remote or generated residue. |
 | Acceptance | Pinned OpenSpec strict validation and diff hygiene; exact-head Product Actions; Git ancestry and full byte/mode inventory; Linux positive/negative process-inventory coverage without `ps`/`lsof` or another external binary and preserved Darwin behavior; fixed OCI root/child/config/layer and in-container version verification; Product `RuntimePruneTests` with actual count; Harness `verify-package`, 21/21 supervisor tests, and the frozen selected targeted set with every selected test passing; one byte-identical protected-seal program and robust same-input route parser before/after; networkless/read-only container execution; before/after legacy/container/network/volume/Nginx/route comparison; exact cleanup; zero P0/P1 review. |
 | Non-goals | No product/UI/API/statistical or non-acceptance contract implementation change; no host package injection, `apt`, derived runtime image, mutable image, or acceptance failure waiver; no local product test/build/Docker; no full formal 56-cell Archive/API/browser/oracle/performance execution; no canonical formal result; no `development-accepted-operations-pending`; no Operations candidate build; no release, deployment, production activation, or SLO claim. |
 | Operations deferred | Operations receipt/code rebinding, AMD64 candidate assembly, Operations Actions, `/srv/bgmss-ops-validation` runtime validation, and every release/deploy/production/host-integration action remain in the separate Operations change. |
@@ -174,8 +195,8 @@ None.
 
 This change touches no other repository. Its accumulated Harness mutation is
 closed to the six H4 workflow/acceptance paths, the H5 delta is closed to
-three declared inventory/test paths, and the H6 delta is closed to the two
-declared runner/test paths; its only external mutation
+three declared inventory/test paths, and the H6 and H7 deltas are each closed
+to the same two declared runner/test paths; its only external mutation
 is the explicitly bounded isolated validation above; production state remains
 unchanged. Apply is blocked until proposal, specification, design, and tasks
 are complete, strict-valid, and approved by the main agent.
