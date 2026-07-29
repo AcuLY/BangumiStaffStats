@@ -10,29 +10,32 @@
 
 - [x] 2.1 In `backend/internal/imageproxy/{client.go,client_test.go}`, implement canonical dedicated-proxy validation, closed direct/explicit-proxy transports, manual one-hop `api.bgm.tv` to `lain.bgm.tv` handling, and all existing transfer/error/cache bounds.
 - [x] 2.2 In `backend/cmd/api`, `backend/internal/app`, and `backend/internal/httpapi`, pass the optional environment value into image-client construction before serving without adding an `app -> imageproxy` dependency; update focused tests and `backend/README.md`.
-- [ ] 2.3 Execute the focused Backend tests for exact `302 -> 200` and
+- [x] 2.3 Execute the focused Backend tests for exact `302 -> 200` and
   default-image success; invalid/credentialed/ambient/bypassed proxy inputs;
   invalid and second redirects; direct/proxy dial targets; conditional `304`;
   timeout/cancellation/permit release; status/MIME/header/declared-and-actual-size
-  bounds; metadata sanitization; and safe error mapping. The cases are
-  implemented and statically reviewed, but no Go test was run locally.
+  bounds; metadata sanitization; and safe error mapping. Development Actions
+  run `30477869459` passed the complete Backend gate; no Go test was run
+  locally.
 
 ## 3. Operations projection
 
 - [x] 3.1 Update only `operations/compose.updater-proxy.yaml` so API receives `BGMSS_IMAGE_HTTPS_PROXY` and joins `updater_proxy`; keep updater unchanged and Prometheus isolated.
 - [x] 3.2 Update `operations/test/updater-proxy.sh`, the static render in `operations/bin/validate-isolated`, and proxy wording in `operations/README.md`; prove direct mode remains closed and proxy mode gives each service only its intended environment/network projection.
-- [ ] 3.3 Run build, Go tests, Compose projection tests, and isolated validation
+- [x] 3.3 Run build, Go tests, Compose projection tests, and isolated validation
   through Development Actions or the approved remote container environment
-  without starting updater or changing the external network. Permitted local
-  checks completed: `gofmt`, Bash syntax, YAML parse, `git diff --check`, and
-  strict OpenSpec validation; no Go, Compose, Docker, or container gate was run
+  without starting updater or changing the external network. Development
+  Actions run `30477869459` passed the complete Product gate. Permitted local
+  checks were `gofmt`, Bash syntax, YAML parse, `git diff --check`, and strict
+  OpenSpec validation; no Go, Compose, Docker, or container gate was run
   locally.
 
 ## 4. Repository and artifact acceptance
 
-- [ ] 4.1 Review the implementation diff and run static checks plus strict
+- [x] 4.1 Review the implementation diff and run static checks plus strict
   OpenSpec validation locally; require Development Actions to run the complete
-  Backend and operations test/build gates.
+  Backend and operations test/build gates. Independent review found zero
+  P0/P1, and run `30477869459` passed the complete Product job.
 - [ ] 4.2 Commit and push the implementation. After its Product job is green,
   update only the accepted Product revision in
   `operations/bin/build-bundle.sh`, then require a final exact-head green run
