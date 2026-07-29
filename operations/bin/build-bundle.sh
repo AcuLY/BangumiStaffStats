@@ -29,6 +29,7 @@ repository_root="$(
   CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P
 )"
 accepted_product_revision='34176077787b7942741ae412d3f012c732a51ee0'
+accepted_ci_policy_sha256='0260babc76f71b1fb0730bb84894ce0f3c41c9df93591910f05ac9352ee98176'
 data_version='dv1-0a1fa3e9acdb06be34e3535b3c68e322e7d3f4cd87ac30cd4b608b2276ba3ca1'
 
 [[ -n "${GITHUB_SHA:-}" ]] || fail 'GITHUB_SHA is required'
@@ -53,8 +54,32 @@ git -C "$repository_root" merge-base --is-ancestor \
   fail 'accepted Product revision is not an ancestor of HEAD'
 git -C "$repository_root" diff --quiet \
   "$accepted_product_revision" "$source_revision" -- \
-  VERSION backend contracts frontend updater .github/workflows/ci.yml ||
+  VERSION backend contracts frontend updater \
+  ':(top,exclude)contracts/artifacts/test/ci-policy.test.mjs' ||
   fail 'accepted Product inputs differ from the reviewed revision'
+
+ci_policy="$repository_root/contracts/artifacts/test/ci-policy.test.mjs"
+ci_policy_sha256="$(sha256sum -- "$ci_policy" | awk '{print $1}')"
+[[ "$ci_policy_sha256" == "$accepted_ci_policy_sha256" ]] ||
+  fail 'CI action-reference policy differs from the exact reviewed bytes'
+
+current_ci="$repository_root/.github/workflows/ci.yml"
+caller_record="$(grep -n -x '  operations-preview:' "$current_ci")"
+[[ "$caller_record" =~ ^([0-9]+): ]] ||
+  fail 'Development workflow does not contain one locatable operations caller'
+caller_line="${BASH_REMATCH[1]}"
+[[ "$caller_line" -gt 1 ]] ||
+  fail 'Development workflow caller has no protected prefix'
+[[ -z "$(sed -n "$((caller_line - 1))p" "$current_ci")" ]] ||
+  fail 'Development workflow caller is not separated by one blank line'
+if ! cmp -s \
+  <(
+    git -C "$repository_root" show \
+      "${accepted_product_revision}:.github/workflows/ci.yml"
+  ) \
+  <(head -n "$((caller_line - 2))" "$current_ci"); then
+  fail 'Development workflow bytes before the exact caller differ from the accepted Product'
+fi
 
 application_version="$(sed -n '1p' "$repository_root/VERSION")"
 [[ "$application_version" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] ||

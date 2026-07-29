@@ -172,3 +172,10 @@ jobs:
           set -euo pipefail
           node contracts/artifacts/bin/residue.mjs
           git diff --check
+
+  operations-preview:
+    if: github.event_name == 'workflow_dispatch'
+    needs: verify
+    permissions:
+      contents: read
+    uses: ./.github/workflows/operations-preview.yml

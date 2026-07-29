@@ -1,7 +1,7 @@
 name: operations-preview
 
 on:
-  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -23,14 +23,34 @@ jobs:
         run: |
           set -euo pipefail
           workflow=.github/workflows/operations-preview.yml
+          caller=.github/workflows/ci.yml
           script=operations/bin/build-bundle.sh
 
           bash -n "$script"
-          test "$(grep -Ec '^  workflow_dispatch:$' "$workflow")" -eq 1
-          ! head -n 8 "$workflow" | grep -Eq 'pull_request|push:|schedule:'
+          test "$(grep -Ec '^  workflow_call:$' "$workflow")" -eq 1
+          ! head -n 8 "$workflow" |
+            grep -Eq 'workflow_dispatch|pull_request|push:|schedule:'
           test "$(grep -Ec '^permissions:$' "$workflow")" -eq 1
           test "$(grep -Ec '^  contents: read$' "$workflow")" -eq 1
           test "$(grep -Ec '^  [a-z-]+: (read|write)$' "$workflow")" -eq 1
+
+          expected_caller="$(
+            printf '%s\n' \
+              '  operations-preview:' \
+              "    if: github.event_name == 'workflow_dispatch'" \
+              '    needs: verify' \
+              '    permissions:' \
+              '      contents: read' \
+              '    uses: ./.github/workflows/operations-preview.yml'
+          )"
+          actual_caller="$(sed -n '/^  operations-preview:/,$p' "$caller")"
+          test "$actual_caller" = "$expected_caller"
+          test "$(
+            grep -Ec '^[[:space:]]+uses: \./\.github/workflows/' "$caller"
+          )" -eq 1
+          test "$(
+            grep -Fxc '    uses: ./.github/workflows/operations-preview.yml' "$caller"
+          )" -eq 1
 
           action_refs=(
             'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -53,11 +73,15 @@ jobs:
           test "$(grep -Fc 'expected_bundle_inventory=' "$script")" -eq 1
           test "$(grep -Fc 'actual_bundle_inventory=' "$script")" -eq 1
           test "$(grep -Fc 'assembled bundle inventory is not closed' "$script")" -eq 1
+          test "$(
+            grep -Fc '"${accepted_product_revision}:.github/workflows/ci.yml"' "$script"
+          )" -eq 1
+          test "$(grep -Fc 'if ! cmp -s' "$script")" -eq 1
 
           forbidden_authority='docker[[:space:]]+login|docker[[:space:]]+push'
           forbidden_authority+='|gh[[:space:]]+rele''ase|kube''ctl|helm[[:space:]]'
           forbidden_authority+='|secr''ets[.]|id-token:[[:space:]]+write'
-          ! grep -Eiq "$forbidden_authority" "$workflow" "$script"
+          ! grep -Eiq "$forbidden_authority" "$workflow" "$caller" "$script"
 
       - name: Install reviewed Go bootstrap
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e

@@ -55,13 +55,15 @@ const TOOLCHAIN_VALIDATOR_STEP = `\
           GOTOOLCHAIN: go1.26.5+auto
         run: ${TOOLCHAIN_VALIDATOR}
 `;
-const EXPECTED_ACTION_REFERENCES = [
+const EXPECTED_EXTERNAL_ACTION_REFERENCES = [
   'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
   'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e',
   'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
   'astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9',
   'docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c',
 ];
+const EXPECTED_LOCAL_WORKFLOW_REFERENCE =
+  './.github/workflows/operations-preview.yml';
 
 function generatedOptions(label) {
   return {
@@ -201,17 +203,26 @@ test('CI has exactly read-only repository permission', () => {
   assert.doesNotMatch(source, /:\s*write\s*$/m);
 });
 
-test('CI uses exactly the five reviewed immutable action releases', () => {
+test('CI uses five immutable Actions and one same-revision workflow', () => {
   const source = workflow();
   const uses = [...source.matchAll(/^\s*uses:\s*([^\s]+)\s*$/gm)].map((match) => match[1]);
-  assert.deepEqual(uses, EXPECTED_ACTION_REFERENCES);
-  for (const reference of uses) {
-    assert.match(reference, /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@[0-9a-f]{40}$/);
-  }
+  const immutableActionPattern =
+    /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@[0-9a-f]{40}$/;
+  const externalActions = uses.filter((reference) =>
+    immutableActionPattern.test(reference),
+  );
+  const localWorkflows = uses.filter((reference) => reference.startsWith('./'));
+  assert.deepEqual(externalActions, EXPECTED_EXTERNAL_ACTION_REFERENCES);
+  assert.deepEqual(localWorkflows, [EXPECTED_LOCAL_WORKFLOW_REFERENCE]);
+  assert.equal(
+    uses.length,
+    externalActions.length + localWorkflows.length,
+    'every other local, URL, Docker, or mutable action reference is rejected',
+  );
   assert.doesNotMatch(
     source,
-    /^\s*uses:\s*(?:\.{1,2}\/|docker:\/\/|https?:\/\/)/m,
-    'local and URL actions are not accepted as immutable action references',
+    /^\s*uses:\s*(?:\.\.\/|docker:\/\/|https?:\/\/)/m,
+    'parent-local, URL, and Docker action references are rejected',
   );
   assert.doesNotMatch(
     source,
