@@ -98,10 +98,10 @@ backend_root="$(
 [[ "$backend_root" == "$backend_output"/sha256-* ]] ||
   fail 'Backend build did not return one content-addressed root'
 require_exact_inventory \
-  "$backend_root/artifacts" \
-  $'backend-api-linux-amd64.oci.tar\nbackend-api-linux-amd64.tar.gz'
-require_regular_file "$backend_root/artifacts/backend-api-linux-amd64.oci.tar"
-require_regular_file "$backend_root/artifacts/backend-api-linux-amd64.tar.gz"
+  "$backend_root" \
+  $'backend-api-linux-amd64.oci.tar\nbackend-api-linux-amd64.tar.gz\nbackend.spdx.json\nchecksums.sha256\ncomponent-statement.json'
+require_regular_file "$backend_root/backend-api-linux-amd64.oci.tar"
+require_regular_file "$backend_root/backend-api-linux-amd64.tar.gz"
 
 (
   cd "$repository_root/updater"
@@ -176,13 +176,13 @@ version_root="$bundle_root/minimal-archive/versions/$data_version"
 mkdir -p -- "$version_root"
 
 install -m 0444 -- \
-  "$backend_root/artifacts/backend-api-linux-amd64.oci.tar" \
+  "$backend_root/backend-api-linux-amd64.oci.tar" \
   "$bundle_root/api.oci.tar"
 install -m 0444 -- \
   "$updater_root/artifacts/updater-image-linux-amd64.oci.tar" \
   "$bundle_root/updater.oci.tar"
 install -m 0444 -- \
-  "$backend_root/artifacts/backend-api-linux-amd64.tar.gz" \
+  "$backend_root/backend-api-linux-amd64.tar.gz" \
   "$bundle_root/backend-tools.tar.gz"
 install -m 0444 -- \
   "$frontend_root/artifacts/frontend-static-linux-amd64.tar" \
