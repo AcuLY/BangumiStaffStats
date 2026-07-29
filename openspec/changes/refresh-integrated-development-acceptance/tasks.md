@@ -2,9 +2,9 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H8 `49f28990e28fb8e817a167a244861f4d7ddb71b8` is implemented/pushed. Exact-head Actions `30416513861` attempt 1 passed Backend, Updater, Frontend, artifact 51/51, and supervisor 20/21; the sole orderly-exit failure is the permanent test-probe acknowledgement listener retaining fork IPC. Attempt 2 was cancelled after deterministic diagnosis. No remote write followed; the one-shot listener correction, green Actions, remote evidence, and archive are pending. |
+| Status | H8 `49f28990e28fb8e817a167a244861f4d7ddb71b8` and one-shot correction `5a0c4d2c9557c0bc95a746be9df48fdadb09b97e` are implemented/pushed. Exact-head Actions `30417324128` passed Backend, Updater, Frontend, artifact 51/51, and the corrected orderly probe, but supervisor passed 19/21 because the shared hosted-runner PID namespace admitted ambient post-seal same-UID processes. No remote write followed; the fixed-image private-PID Actions gate, green Actions, remote evidence, and archive are pending. |
 | Owner | Main agent owns identities, specification, admission, audit, lifecycle, and Git. One delegated execution owner may perform the closed Git-evidence and remote/container command set. |
-| Writable paths | This change, its later synchronized root spec/archive, H8 changes only existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, `contracts/acceptance/test/core.test.mjs`, the exact permanent-to-one-shot IPC probe-listener correction in `contracts/acceptance/test/supervisor.test.mjs`, one exact absent remote run root, uniquely labelled run containers, and only conditionally owned fixed image references. Worker fixture, workflow, supervisor implementation, H3-H7 behavior outside the sealed-baseline allowance, and the closed package inventory remain unchanged. |
+| Writable paths | This change, its later synchronized root spec/archive, H8 changes only existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, `contracts/acceptance/test/core.test.mjs`, the exact permanent-to-one-shot IPC probe-listener correction in `contracts/acceptance/test/supervisor.test.mjs`, the exact PID-container gate/policy in `.github/workflows/ci.yml` and `contracts/artifacts/test/ci-policy.test.mjs`, one exact absent remote run root, uniquely labelled run containers, and only conditionally owned fixed image references. Worker fixture, supervisor implementation, H3-H7 behavior outside the sealed-baseline allowance, and the closed package inventory remain unchanged. |
 | Read-only protected inputs | Product `34176077787b7942741ae412d3f012c732a51ee0`, failed Harness source, H2 `1e3ecf120da02d642a5d63f75a6795ba2946e11d`, H3 `cd203aa777e14879a7baf1bafd01ee319af246c5`, failed H4 `930690068a02eeec3c7b140c29796aef3b4a719a`, failed H5 `3091e54603b91c56cbdda7d30be7f3a08c7957a9`, failed H6 `c59c78627253719acee3520711e42cecf063f8d5`, failed H7 `71825163abae2bb399b80394459accb04b659a01`, every implementation path outside the exact H8 allowance, oracle, other OpenSpec, Git history outside main-agent commits, `/srv/bgmss/**`, `/srv/bgmss-v2/**`, `/srv/bgmss-ops-validation/**`, legacy/production containers, networks, volumes, Nginx/systemd/TLS, listeners, processes, routes, and data. |
 | Deletion complement | No tracked or pre-existing object. Cleanup is limited to exact manifest-bound run files/directories, run containers by immutable ID and label, and a fixed image reference only if this run alone pulled and still exclusively owns it. |
 | Mutable refs | Lifecycle commits/push, one run root, run containers, and conditionally run-owned image references. No tag, release, product ref, deployment ref, service, route, port, network, volume, or production/legacy object. |
@@ -474,7 +474,7 @@
   `contracts/acceptance/lib/cli.mjs`, and
   `contracts/acceptance/test/core.test.mjs`, plus only the one-shot
   acknowledgement listener in `contracts/acceptance/test/supervisor.test.mjs`.
-- [ ] 12.2 Before canonical production inventory can create any owned child,
+- [x] 12.2 Before canonical production inventory can create any owned child,
   capture and freeze the stable same-UID permission-denied generations as a
   sorted closed baseline with one canonical digest. Bind kind, exact reason,
   PID, UID, start token, and `comm`; never refresh or extend the baseline for
@@ -483,12 +483,12 @@
   independently seal at the beginning of the forked `runSupervisedWorker`
   process without inheriting the parent seal; preserve side-effect-free module
   import.
-- [ ] 12.3 Pass the exact sealed list and digest to the closure worker before
+- [x] 12.3 Pass the exact sealed list and digest to the closure worker before
   its first inventory. Apply the baseline/new-opaque gate before cwd,
   target-PGID, parent, ledger, or other ownership filtering. Fail on a
   baseline miss, live-to-opaque transition, PID reuse, field drift, worker
   recapture, or digest/list mismatch.
-- [ ] 12.4 Preserve zero-signal failure for baseline members that become
+- [x] 12.4 Preserve zero-signal failure for baseline members that become
   retained, target-group, exact-parent, cleanup, Map-miss, or signal related.
   Fold main/worker positive baseline parity plus new-after-baseline,
   per-command-refresh, generation/reason/kind/digest drift, and ownership
@@ -498,14 +498,24 @@
   process creates its own seal before orchestration.
 - [ ] 12.5 Obtain independent zero-P0/P1 review; run only local static
   `node --check`, `git diff --check`, and pinned OpenSpec strict validation;
-  stage only the four H8 files across the existing implementation commit and
-  one minimal follow-up, then push both.
-- [ ] 12.6 Require exact-head H8 Development Actions green with supervisor
+  stage only the six H8 files across the existing implementation commits and
+  one minimal CI isolation follow-up, then push them.
+- [ ] 12.6 Replace only the direct hosted-runner supervisor command with one
+  fixed-image private-PID container invocation and pin it in
+  `contracts/artifacts/test/ci-policy.test.mjs`. Use the reviewed Node root,
+  linux/amd64 child, and config identities; copy only
+  `contracts/acceptance/**` into one absent mode-0700 run/attempt root; require
+  `--init`, `--network none`, read-only rootfs, all capabilities dropped,
+  `no-new-privileges`, non-root UID/GID, finite PID/memory/CPU limits, and a
+  bounded no-exec `/tmp` tmpfs. Mount only that run-owned copy read-write,
+  pass no credential/socket/host PID namespace, reject the direct host
+  command, and clean only the exact container/root.
+- [ ] 12.7 Require exact-head H8 Development Actions green with supervisor
   21/21 before remote mutation. Then prove
   `P <= H2 <= H3 <= failed-H4 <= failed-H5 <= failed-H6 <= failed-H7 <= H8`,
   run the complete isolated Product 22/22 plus Harness
   package/supervisor/selected 21/21 validation under one fresh run ID, and
   close cleanup/protected-state/audit.
-- [ ] 12.7 Record exact H8/archive identities and all superseded failures,
+- [ ] 12.8 Record exact H8/archive identities and all superseded failures,
   strict validate, synchronize, archive, commit, push, and hand only the
   accepted Product/H8/archive receipt to Operations.

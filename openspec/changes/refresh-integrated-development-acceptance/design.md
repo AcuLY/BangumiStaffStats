@@ -79,9 +79,9 @@ identical byte digest. The real rerun program SHA-256 was
 
 | Field | Declaration |
 |---|---|
-| Status | H8 `49f28990e28fb8e817a167a244861f4d7ddb71b8` is implemented/pushed. Actions `30416513861` attempt 1 passed Backend, Updater, Frontend, artifact 51/51, and supervisor 20/21; the sole orderly-exit failure is a permanent test-probe acknowledgement listener retaining fork IPC, not baseline logic. Attempt 2 was cancelled after deterministic diagnosis. No remote write followed; the one-shot listener correction, green Actions, remote evidence, and archive are pending. |
+| Status | H8 `49f28990e28fb8e817a167a244861f4d7ddb71b8` and one-shot correction `5a0c4d2c9557c0bc95a746be9df48fdadb09b97e` are implemented/pushed. Actions `30417324128` passed all product/artifact gates and the corrected orderly probe, but supervisor passed 19/21 because ambient same-UID processes entered the shared hosted-runner PID namespace after sealing. No remote write followed; the fixed-image private-PID Actions gate, green Actions, remote evidence, and archive are pending. |
 | Owner | Main agent: identities, specification, audit, lifecycle, commits/push. Delegated execution owner: exact remote/container command set and evidence handoff only. |
-| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H8 implementation is limited to existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, `contracts/acceptance/test/core.test.mjs`, and the exact permanent-to-one-shot IPC probe-listener correction in `contracts/acceptance/test/supervisor.test.mjs`. Worker fixture, workflow, supervisor implementation, H3-H7 behavior outside the sealed-baseline allowance, package/inventory files, product, non-acceptance Harness, and Operations remain read-only. |
+| Writable paths | Same exact repository/lifecycle and remote run-owned paths declared by the proposal. H8 implementation is limited to existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, `contracts/acceptance/test/core.test.mjs`, the exact permanent-to-one-shot IPC probe-listener correction in `contracts/acceptance/test/supervisor.test.mjs`, and the exact PID-container gate/policy in `.github/workflows/ci.yml` plus `contracts/artifacts/test/ci-policy.test.mjs`. Worker fixture, supervisor implementation, H3-H7 behavior outside the sealed-baseline allowance, package/inventory files, product, non-acceptance Harness outside that policy test, and Operations remain read-only. |
 | Read-only protected inputs | P, failed Harness/H2/H3/H4/H5/H6/H7 sources, oracle, all implementation outside the exact H8 allowance, other OpenSpec, and all remote state outside the admitted run complement. |
 | Deletion complement | No tracked or pre-existing object. Only manifest-bound run files, immutable-ID run containers, and safely proven run-pulled fixed image refs. |
 | Mutable refs | This change/root-spec/archive lifecycle, main-agent commits/push, one run root, run containers, and conditionally run-pulled images. |
@@ -580,6 +580,35 @@ probe needs only acknowledgement sequence zero; its listener SHALL be
 one-shot so the fork IPC channel can unreference after that acknowledgement.
 This test-only correction does not alter the supervisor implementation,
 worker fixture, process baseline, timeout, or accepted test count.
+
+Actions `30417324128` proves that this safety model cannot be evaluated
+deterministically in a shared host PID namespace: a hosted-runner process born
+after the seal is observationally identical to a post-seal escaped Harness
+child when both are same-UID and partially opaque. Weakening the baseline or
+assertions would erase the escape boundary. The workflow therefore copies
+only `contracts/acceptance/**` to one absent, mode-0700
+`$RUNNER_TEMP/bgmss-supervisor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT` root and
+runs the unchanged 21-test suite in a Docker-default private PID namespace.
+
+The exact image is
+`mirror.ccs.tencentyun.com/library/node@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d`
+with reviewed linux/amd64 child
+`sha256:d45d78e7929b46875bbd4e29bea672d5bc48186c6c3588306521c815e78352d6`
+and config/runtime ID
+`sha256:2f35c3d18013b7d65e31c40f0602e4c0a65a18efc65c16e2b98497f13f4da921`.
+The command uses `--platform linux/amd64`, `--init`, `--network none`,
+`--read-only`, `--cap-drop ALL`, `--security-opt no-new-privileges`,
+the hosted runner UID/GID, finite PID/memory/CPU limits, and a bounded
+`/tmp:rw,noexec,nosuid,nodev` tmpfs. Only the run-owned source copy is mounted
+read-write at `/workspace`; no checkout, credential, Docker socket, host PID
+namespace, port, network, or volume enters the container.
+
+A trap may remove only the exact validated container name and exact absent
+temporary root for this run/attempt. CI policy pins the immutable image and
+every isolation flag, requires exactly one containerized supervisor
+invocation, and rejects the old direct hosted-runner invocation. The workflow
+does not remove a pre-existing image, use Docker prune, publish an artifact,
+or gain deployment authority.
 
 ### 4. Freeze one Product test owner and three Harness gates
 

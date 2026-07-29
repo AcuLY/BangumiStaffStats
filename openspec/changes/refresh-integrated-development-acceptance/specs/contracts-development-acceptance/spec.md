@@ -2,9 +2,9 @@
 
 | Field | Declaration |
 |---|---|
-| Status | H8 `49f28990e28fb8e817a167a244861f4d7ddb71b8` is pushed. Exact-head Actions `30416513861` attempt 1 passed Backend, Updater, Frontend, artifact 51/51, and supervisor 20/21; the sole orderly-exit failure is the permanent test-probe acknowledgement listener retaining fork IPC. Attempt 2 was cancelled after deterministic diagnosis. No remote write followed; the one-shot listener correction, green Actions, remote evidence, and archive are pending. |
+| Status | H8 `49f28990e28fb8e817a167a244861f4d7ddb71b8` and one-shot correction `5a0c4d2c9557c0bc95a746be9df48fdadb09b97e` are pushed. Exact-head Actions `30417324128` passed all product/artifact gates and the corrected orderly probe, but supervisor passed 19/21 because ambient post-seal same-UID processes entered the shared hosted-runner PID namespace. No remote write followed; the fixed-image private-PID Actions gate, green Actions, remote evidence, and archive are pending. |
 | Owner | Main-agent specification/audit/lifecycle owner and one bounded remote execution owner. |
-| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, `contracts/acceptance/test/core.test.mjs`, the permanent-to-one-shot acknowledgement-listener correction in `contracts/acceptance/test/supervisor.test.mjs`, and the proposal-declared run-owned remote complement only. Worker fixture, workflow, supervisor implementation, H3-H7 behavior outside the sealed-baseline allowance, and the closed package inventory remain unchanged. |
+| Writable paths | This change, later synchronized `openspec/specs/contracts-development-acceptance/spec.md`, archive lifecycle, exactly existing `contracts/acceptance/lib/runner.mjs`, `contracts/acceptance/lib/cli.mjs`, `contracts/acceptance/test/core.test.mjs`, the permanent-to-one-shot acknowledgement-listener correction in `contracts/acceptance/test/supervisor.test.mjs`, the exact PID-container gate/policy in `.github/workflows/ci.yml` and `contracts/artifacts/test/ci-policy.test.mjs`, and the proposal-declared run-owned remote complement only. Worker fixture, supervisor implementation, H3-H7 behavior outside the sealed-baseline allowance, and the closed package inventory remain unchanged. |
 | Read-only protected inputs | Final Product, failed Harness/H2/H3/H4/H5/H6/H7 sources, oracle, every implementation path outside the exact H8 allowance, other OpenSpec, Git objects outside lifecycle commits, and all non-admitted remote state. |
 | Deletion complement | No tracked/pre-existing object; only identity-proven run-created files/containers and conditionally run-pulled fixed image refs. |
 | Mutable refs | Exact change/root-spec/archive, main-agent commits/push, one run root, run containers, and conditionally owned image refs. |
@@ -32,9 +32,10 @@ used by superseded run `6e0140e1c4dda68bb263c1d8` and superseded H2
 workflow SHALL succeed at the exact Product head before remote mutation. Git
 ancestry and a complete sorted path/status/mode/blob-or-byte inventory SHALL
 prove that Product and H7 differ only in the unchanged exact receipt-declared
-acceptance and lifecycle path families plus exact `.github/workflows/ci.yml`;
-the non-allowed difference count SHALL be zero. No new OpenSpec change
-directory MAY widen those families.
+acceptance and lifecycle path families plus exact `.github/workflows/ci.yml`
+and `contracts/artifacts/test/ci-policy.test.mjs`; the non-allowed difference
+count SHALL be zero. No new OpenSpec change directory MAY widen those
+families.
 
 The refresh SHALL transfer and attest separate immutable Product and H7
 source archives and complete extracted inventories. Product SHALL own the
@@ -350,6 +351,35 @@ be one-shot so the fork IPC channel can unreference after acknowledgement and
 the unchanged orderly worker can exit with code zero. This exact test-fixture
 liveness correction SHALL NOT change the supervisor implementation, worker
 fixture, timeout, process-baseline semantics, or the frozen 21-test set.
+
+The exact supervisor Actions gate SHALL execute the unchanged 21-test suite
+inside the reviewed fixed Node image's Docker-default private PID namespace,
+not directly in the shared hosted-runner PID namespace. It SHALL use the
+immutable root
+`mirror.ccs.tencentyun.com/library/node@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d`,
+linux/amd64 child
+`sha256:d45d78e7929b46875bbd4e29bea672d5bc48186c6c3588306521c815e78352d6`,
+and config/runtime ID
+`sha256:2f35c3d18013b7d65e31c40f0602e4c0a65a18efc65c16e2b98497f13f4da921`.
+Only a newly created mode-0700 run/attempt copy of
+`contracts/acceptance/**` MAY be mounted read-write. The container SHALL use
+`--platform linux/amd64`, `--init`, `--network none`, a read-only root,
+all capabilities dropped, `no-new-privileges`, the non-root runner UID/GID,
+finite PID/memory/CPU limits, and a bounded `rw,noexec,nosuid,nodev` `/tmp`
+tmpfs. No checkout write mount, credential, Docker socket, host PID namespace,
+port, network, volume, Compose object, publication, deployment, or activation
+authority MAY be provided. Cleanup SHALL address only the exact run-owned
+container and temporary copy; a pre-existing image SHALL NOT be removed.
+
+#### Scenario: Shared-host ambient processes cannot enter the supervisor gate
+
+- **WHEN** the hosted runner has unrelated same-UID processes before or during the supervisor suite
+- **THEN** the suite SHALL observe only the init process, Harness process closure, and container-local test processes in its private PID namespace and SHALL still require 21/21 success
+
+#### Scenario: Supervisor container authority is widened
+
+- **WHEN** CI invokes the supervisor directly on the hosted runner, shares the host PID namespace, omits any declared isolation flag, uses a mutable or different image, mounts the checkout or Docker socket, passes credentials, or performs broad cleanup
+- **THEN** the CI policy gate SHALL fail before the supervisor result can authorize remote mutation
 
 #### Scenario: Stable pre-existing same-UID opacity remains environmental
 
