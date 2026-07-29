@@ -304,7 +304,7 @@ def test_direct_client_installs_an_explicit_empty_proxy_handler(
         handler for handler in observed[0] if isinstance(handler, urllib.request.ProxyHandler)
     ]
     assert len(proxy_handlers) == 1
-    assert proxy_handlers[0].proxies == {}
+    assert vars(proxy_handlers[0]).get("proxies") == {}
 
 
 def test_latest_document_resolves_exact_official_asset() -> None:
