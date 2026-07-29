@@ -88,6 +88,9 @@ This avoids changing query/share/API contracts or backend handlers.
 Within only the `search.bgmss.fun` TLS vhost:
 
 - exact `/v2` redirects to `/v2/`;
+- exact `/v2/` serves the new `index.html` directly so directory-index
+  processing cannot internally redirect the entry route into the legacy
+  catch-all;
 - `/v2/api/v1/` proxies to the unchanged loopback `/api/v1/`;
 - `/v2/` serves the new static root with SPA fallback to `/v2/index.html`;
 - the existing legacy `/statistics`, `/timeline`, and `/proxy` locations stay
@@ -124,8 +127,8 @@ rejecting them as drift from the prior Product revision.
   complete frontend source, centralize mapping, exercise navigation/share/API/
   image/deferred-chunk paths, and inspect the built index from Actions.
 - [Nginx `alias` and SPA fallback resolve incorrectly] → Validate the rendered
-  candidate against the real release and probe direct assets plus both client
-  routes before acceptance.
+  candidate against the real release and hash-probe exact `/v2/`, direct
+  assets, and both client routes before acceptance.
 - [Root fallback hides a broken `/v2` request by returning legacy HTML] →
   Reserve `/v2` with `^~`/exact locations and require content hashes and JSON
   decoding, not status alone.

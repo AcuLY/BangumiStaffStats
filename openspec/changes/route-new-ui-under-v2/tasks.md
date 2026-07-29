@@ -27,6 +27,7 @@
 - [x] 2.3 Review the exact diff for visual/interaction/state/contract/dependency drift; run non-build static checks locally only, then commit/push the implementation. Do not run Node, frontend, backend, container, or artifact builds on the local machine.
 - [x] 2.4 Amend the exact artifact-checker scope after run `30469305349` proves all 376 frontend tests, typecheck, and Vite build green but the legacy root-only favicon resolver rejects `/v2/assets/**`; require the correction to accept only the exact `/v2/` prefix, strict-validate, commit, and push without a local build.
 - [x] 2.5 Record that run `30469940208` passed the complete Product job but the bundle assembler rejected the legitimate Product delta against its prior reviewed revision; advance only `operations/bin/build-bundle.sh`'s accepted Product revision to exact green implementation commit `6dd47e3b34a0fdb035f3c2a13fd84e7cc8eb2af8`, preserving every other admission/policy check, then strict-validate, review, commit, and push.
+- [x] 2.6 Record the remote isolated Nginx regression proving `/v2/ranking` reaches the new index while exact `/v2/` internally falls into the legacy index; add one exact `/v2/` new-index location to the declared Nginx template/candidate, preserve every other route byte, and require remote syntax plus content-hash validation before commit/push.
 
 ## 3. Actions artifact and transactional application deploy
 
