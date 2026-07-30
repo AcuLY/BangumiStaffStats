@@ -1,6 +1,6 @@
 | Boundary | Declaration |
 |---|---|
-| Status | Implemented and statically audited; automated and built-browser acceptance remain pending. |
+| Status | Implemented and accepted by Development Actions; deployed browser acceptance remains pending. |
 | Owner | Main agent under the approved small-change exception for source/style/test, review, acceptance, and lifecycle markers. |
 | Writable paths | `frontend/src/app/App.vue`; footer-only declarations in `frontend/src/shared/styles/base.css`; one focused test below `frontend/tests/app/`; this file's task markers. |
 | Read-only protected inputs | Product/design authorities, immutable oracle, every non-footer source/test, manifests, lockfiles, generated files, `.impeccable/design.json`, and unrelated worktree content. |
@@ -35,9 +35,10 @@
 
 ## 2. Frontend acceptance and handoff
 
-- [ ] 2.1 Run the focused footer test with a frontend-relative path, then run
-  `cd frontend && npm run check`; record exact results and any existing
-  non-blocking warning separately.
+- [x] 2.1 Run the focused footer assertions and full frontend/product gates in
+  green Development Actions for exact commit
+  `bdb728a5d4f546fd60517cdaad4e80b955a540d7`; record the authoritative run
+  separately from the pending deployed-browser check.
 - [ ] 2.2 Serve the built `frontend/dist` and verify the footer in Light and
   Dark at representative desktop and 360px mobile widths: exact links/order,
   wrapping, focus, hover where observable, no horizontal overflow, no console
