@@ -1697,7 +1697,23 @@ onBeforeUnmount(() => {
 
         <footer class="app-footer">
           <div class="app-content-line">
-            Bangumi Staff Statistics · 数据口径以当前查询与 Archive 版本为准
+            <nav aria-label="站点信息">
+              <a
+                href="https://bgm.tv/group/topic/407903"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                问题反馈
+              </a>
+              <span aria-hidden="true">·</span>
+              <a
+                href="https://beian.miit.gov.cn/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                粤ICP备2024321317号
+              </a>
+            </nav>
           </div>
         </footer>
       </div>

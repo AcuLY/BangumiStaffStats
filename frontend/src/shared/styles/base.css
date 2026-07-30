@@ -1727,11 +1727,40 @@ select:focus-visible {
 
 .app-footer {
   min-height: 54px;
-  padding-block: var(--space-4);
+  padding: var(--space-1) 0
+    max(var(--space-1), env(safe-area-inset-bottom));
   border-top: 1px solid var(--divider);
   color: var(--text-tertiary);
   font-size: 12px;
   line-height: 1.5;
+  text-align: center;
+}
+
+.app-footer nav {
+  display: flex;
+  min-height: var(--touch-target);
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.app-footer a {
+  display: inline-flex;
+  min-height: var(--touch-target);
+  align-items: center;
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
+.app-footer a:hover,
+.app-footer a:focus-visible {
+  color: var(--brand);
+}
+
+.app-footer a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .sr-only {
@@ -1744,6 +1773,12 @@ select:focus-visible {
   clip: rect(0, 0, 0, 0);
   border: 0;
   white-space: nowrap;
+}
+
+@media (forced-colors: active) {
+  .app-footer a:focus-visible {
+    outline-color: Highlight;
+  }
 }
 
 @media (width >= 780px) {
