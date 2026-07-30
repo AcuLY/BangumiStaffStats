@@ -59,10 +59,11 @@ require_port "$prometheus_port" prometheus-port
 require_existing_directory "$bundle" bundle
 require_existing_directory "$operations" operations
 [[ "$operations" != "$root"/* ]] || die "operations source must be outside validation root"
-for compose_source in compose.yaml compose.updater-proxy.yaml; do
-  [[ -f "$operations/$compose_source" && ! -L "$operations/$compose_source" ]] ||
-    die "operations Compose inventory is incomplete: $compose_source"
-done
+[[ -f "$operations/compose.yaml" && ! -L "$operations/compose.yaml" ]] ||
+  die "operations base Compose file is missing or invalid"
+[[ ! -e "$operations/compose.updater-proxy.yaml" &&
+  ! -L "$operations/compose.updater-proxy.yaml" ]] ||
+  die "operations source still contains the retired proxy overlay"
 require_image "$prometheus_image" prometheus-image
 [[ "$prometheus_image" == "$BGMSS_PROMETHEUS_IMAGE_PIN" ]] ||
   die "Prometheus image must equal the reviewed operations pin"
@@ -279,8 +280,6 @@ install -d -m 0750 \
 install -d -o 0 -g 65532 -m 1770 "$root/data" "$root/data/versions"
 install -o 0 -g 0 -m 0600 /dev/null "$root/data/operations.lock"
 install -m 0644 "$operations/compose.yaml" "$root/compose/compose.yaml"
-install -m 0644 "$operations/compose.updater-proxy.yaml" \
-  "$root/compose/compose.updater-proxy.yaml"
 install -m 0644 "$operations/prometheus/prometheus.yml" \
   "$root/config/prometheus/prometheus.yml"
 install -m 0644 "$operations/prometheus/rules.yml" \
@@ -302,41 +301,56 @@ install -o 0 -g 65532 -m 0440 \
 freeze_archive_version "$root" "$BGMSS_MINIMAL_DATA_VERSION"
 chown -R 65532:65532 "$root/prometheus"
 
-proxy_render_env="$root/state/.proxy-render.env"
+base_render_env="$root/state/.base-render.env"
 release_env_document \
   "$root" "$project" "$api_image" "$updater_image" "$prometheus_image" \
-  "$api_port" "$prometheus_port" validation \
-  proxy http://proxy.internal:7897 bgmss_proxy_validation >"$proxy_render_env"
-env \
-  -u BGMSS_UPDATER_TRANSPORT \
-  -u BGMSS_UPDATER_HTTPS_PROXY \
-  -u BGMSS_UPDATER_PROXY_NETWORK \
-  docker compose \
-  --project-name "$project" \
-  --env-file "$proxy_render_env" \
-  --file "$root/compose/compose.yaml" \
-  --file "$root/compose/compose.updater-proxy.yaml" \
-  config --format json |
+  "$api_port" "$prometheus_port" validation >"$base_render_env"
+unset_proxy_environment=()
+while IFS= read -r key; do
+  unset_proxy_environment+=(-u "$key")
+done < <(proxy_environment_keys)
+(
+  export BGMSS_UPDATER_TRANSPORT=proxy
+  export BGMSS_UPDATER_HTTPS_PROXY=http://ambient.invalid:1
+  export BGMSS_UPDATER_PROXY_NETWORK=ambient-network
+  export BGMSS_HTTPS_PROXY=http://ambient-updater.invalid:1
+  export BGMSS_IMAGE_HTTPS_PROXY=http://ambient-image.invalid:1
+  export HTTP_PROXY=http://ambient.invalid:1
+  export HTTPS_PROXY=http://ambient.invalid:1
+  export ALL_PROXY=http://ambient.invalid:1
+  export NO_PROXY='*'
+  export http_proxy=http://ambient.invalid:1
+  export https_proxy=http://ambient.invalid:1
+  export all_proxy=http://ambient.invalid:1
+  export no_proxy='*'
+  env "${unset_proxy_environment[@]}" \
+    docker compose \
+    --project-name "$project" \
+    --env-file "$base_render_env" \
+    --file "$root/compose/compose.yaml" \
+    config --format json
+) |
   jq -e '
-    .services.updater.environment.BGMSS_HTTPS_PROXY == "http://proxy.internal:7897"
-    and ((.services.updater.networks | keys | sort) == ["backend","updater_proxy"])
+    .services.updater.environment.SQLITE_TMPDIR == "/var/lib/bgmss/archive"
+    and ((.services.updater.networks | keys | sort) == ["backend"])
     and (((.services.updater.environment // {})
       | with_entries(select(.key | test("proxy"; "i")))
-      | keys) == ["BGMSS_HTTPS_PROXY"])
-    and .services.api.environment.BGMSS_IMAGE_HTTPS_PROXY == "http://proxy.internal:7897"
-    and ((.services.api.networks | keys | sort) == ["backend","updater_proxy"])
+      | keys) == [])
+    and ((.services.api.networks | keys | sort) == ["backend"])
     and (((.services.api.environment // {})
       | with_entries(select(.key | test("proxy"; "i")))
-      | keys) == ["BGMSS_IMAGE_HTTPS_PROXY"])
+      | keys) == [])
     and ((.services.prometheus.networks | keys | sort) == ["backend"])
     and (((.services.prometheus.environment // {})
       | with_entries(select(.key | test("proxy"; "i")))
       | keys) == [])
-    and .networks.updater_proxy.external == true
-    and .networks.updater_proxy.name == "bgmss_proxy_validation"
+    and ((.services.api.environment // {}) | has("SQLITE_TMPDIR") | not)
+    and ((.services.prometheus.environment // {}) | has("SQLITE_TMPDIR") | not)
+    and ((.networks | keys) == ["backend"])
+    and ((.networks.backend.external // false) == false)
   ' >/dev/null ||
-  die "proxy overlay static projection is not closed"
-rm -f -- "$proxy_render_env"
+  die "base Compose static projection is not closed"
+rm -f -- "$base_render_env"
 
 "$root/operations/bin/deploy" \
   --root "$root" \

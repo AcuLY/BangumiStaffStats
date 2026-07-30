@@ -1,6 +1,6 @@
 | Boundary | Declaration |
 |---|---|
-| Status | Implemented and independently source-verified; commit, Actions, bundle, deployment, and real-query acceptance remain separately tracked. |
+| Status | Implemented, committed, pushed, and accepted by Development Actions; bundle, deployment, and real-query acceptance remain separately tracked. |
 | Owner | Main agent: spec/audit/Git/bundle/deployment coordination/acceptance. Backend apply subagent: exact five-path implementation and these task markers. |
 | Writable paths | Apply: `backend/go.mod`, `backend/go.sum`, `backend/scripts/check.sh`, `backend/internal/architecture/dependencies_test.go`, `backend/internal/publiccollection/transport_test.go`, checkbox markers here. Lifecycle: this change/archive and synchronized `openspec/specs/backend-public-collection-source/spec.md`. |
 | Read-only protected inputs | All other repository paths, sibling active changes, authorities/oracle, external library after release, live response bodies, host config/data/secrets. |

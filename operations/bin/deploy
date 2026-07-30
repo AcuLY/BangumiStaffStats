@@ -10,19 +10,12 @@ usage() {
   printf '%s\n' \
     "usage: deploy --root ABS --bundle ABS --version SOURCE_REVISION" \
     "              --project NAME --api-port PORT --prometheus-port PORT" \
-    "              --prometheus-image PINNED_IMAGE [--profile production|validation]" \
-    "              [--updater-transport preserve|direct|proxy]" \
-    "              [--updater-https-proxy http://HOST:PORT --updater-proxy-network NAME]" >&2
+    "              --prometheus-image PINNED_IMAGE [--profile production|validation]" >&2
   exit 2
 }
 
 root= bundle= version= project= api_port= prometheus_port= prometheus_image=
 profile=production
-updater_transport_request=preserve
-updater_https_proxy= updater_proxy_network=
-updater_transport_seen=false
-updater_https_proxy_seen=false
-updater_proxy_network_seen=false
 while (($#)); do
   case "$1" in
     --root) [[ $# -ge 2 ]] || usage; root=$2; shift 2 ;;
@@ -33,44 +26,11 @@ while (($#)); do
     --prometheus-port) [[ $# -ge 2 ]] || usage; prometheus_port=$2; shift 2 ;;
     --prometheus-image) [[ $# -ge 2 ]] || usage; prometheus_image=$2; shift 2 ;;
     --profile) [[ $# -ge 2 ]] || usage; profile=$2; shift 2 ;;
-    --updater-transport)
-      [[ $# -ge 2 && "$updater_transport_seen" == false ]] || usage
-      updater_transport_request=$2
-      updater_transport_seen=true
-      shift 2
-      ;;
-    --updater-https-proxy)
-      [[ $# -ge 2 && "$updater_https_proxy_seen" == false ]] || usage
-      updater_https_proxy=$2
-      updater_https_proxy_seen=true
-      shift 2
-      ;;
-    --updater-proxy-network)
-      [[ $# -ge 2 && "$updater_proxy_network_seen" == false ]] || usage
-      updater_proxy_network=$2
-      updater_proxy_network_seen=true
-      shift 2
-      ;;
     *) usage ;;
   esac
 done
 [[ -n "$root" && -n "$bundle" && -n "$version" && -n "$project" &&
   -n "$api_port" && -n "$prometheus_port" && -n "$prometheus_image" ]] || usage
-
-case "$updater_transport_request" in
-  preserve | direct)
-    [[ "$updater_https_proxy_seen" == false && "$updater_proxy_network_seen" == false ]] ||
-      die "$updater_transport_request updater transport forbids proxy arguments"
-    ;;
-  proxy)
-    [[ "$updater_https_proxy_seen" == true && "$updater_proxy_network_seen" == true ]] ||
-      die "proxy updater transport requires both proxy arguments"
-    require_updater_transport_values proxy "$updater_https_proxy" "$updater_proxy_network"
-    ;;
-  *)
-    die "updater transport request must be preserve, direct, or proxy"
-    ;;
-esac
 
 for command in curl docker flock jq realpath sha256sum tar; do
   require_command "$command"
@@ -91,40 +51,221 @@ require_image "$prometheus_image" prometheus-image
 require_existing_topology_match() {
   local current_env="$root/state/current.env"
   if [[ -f "$current_env" && ! -L "$current_env" ]]; then
-    require_release_topology_unchanged \
+    release_topology_state \
       "$current_env" "$root" "$project" "$prometheus_image" \
       "$api_port" "$prometheus_port" "$profile"
   elif [[ -e "$current_env" || -L "$current_env" ]]; then
     die "current env has an invalid type"
+  else
+    printf 'absent\n'
   fi
-}
-
-resolve_updater_transport() {
-  local current_env="$root/state/current.env" state
-  state=$(
-    resolve_updater_transport_request \
-      "$updater_transport_request" "$current_env" \
-      "$updater_https_proxy" "$updater_proxy_network"
-  )
-  IFS='|' read -r resolved_transport resolved_https_proxy resolved_proxy_network \
-    <<<"$state"
 }
 
 # Refuse project/root/Prometheus/port/profile drift before even opening the
 # state lock. Recheck under the lock to close the concurrent-deploy race.
-require_existing_topology_match
-resolve_updater_transport
-if [[ "$resolved_transport" == proxy ]]; then
-  docker network inspect "$resolved_proxy_network" >/dev/null ||
-    die "updater proxy external network is unavailable"
-fi
+current_state=$(require_existing_topology_match)
 acquire_state_lock "$root"
-require_existing_topology_match
-resolve_updater_transport
-if [[ "$resolved_transport" == proxy ]]; then
-  docker network inspect "$resolved_proxy_network" >/dev/null ||
-    die "updater proxy external network is unavailable"
-fi
+current_state=$(require_existing_topology_match)
+
+BGMSS_LEGACY_TRANSACTION_DIR=
+BGMSS_LEGACY_RAW_ENV=
+BGMSS_LEGACY_NORMALIZED_ENV=
+BGMSS_LEGACY_PREVIOUS_SNAPSHOT=
+BGMSS_LEGACY_OVERLAY_SNAPSHOT=
+BGMSS_LEGACY_CURRENT_ENV=
+BGMSS_LEGACY_PREVIOUS_ENV=
+BGMSS_LEGACY_OVERLAY=
+BGMSS_LEGACY_PREVIOUS_TOOLS=
+BGMSS_LEGACY_PREVIOUS_FRONTEND=
+BGMSS_LEGACY_EXPECTED_DATA=
+BGMSS_LEGACY_MUTATION_STARTED=false
+
+normalize_legacy_release() {
+  local state=$1 proxy_url proxy_network
+  local current_env="$root/state/current.env"
+  local previous_env="$root/state/previous.env"
+  local overlay="$root/compose/compose.updater-proxy.yaml"
+  local transaction_dir= raw_env= normalized_env= previous_snapshot=
+  local overlay_snapshot= previous_exists=false
+  local current_frontend current_tools previous_frontend previous_tools
+  local old_api old_updater expected_data target
+
+  IFS='|' read -r _ proxy_url proxy_network <<<"$state"
+  [[ -n "$proxy_url" && -n "$proxy_network" ]] ||
+    die "legacy release state is incomplete"
+  require_legacy_proxy_overlay "$root"
+  [[ -f "$root/compose/compose.yaml" &&
+    ! -L "$root/compose/compose.yaml" ]] ||
+    die "base Compose file is missing or invalid"
+
+  if [[ -f "$previous_env" && ! -L "$previous_env" ]]; then
+    previous_exists=true
+  elif [[ -e "$previous_env" || -L "$previous_env" ]]; then
+    die "previous env has an invalid type"
+  fi
+  current_frontend=$(read_link_or_empty "$root/current-frontend")
+  current_tools=$(read_link_or_empty "$root/current-tools")
+  previous_frontend=$(read_link_or_empty "$root/previous-frontend")
+  previous_tools=$(read_link_or_empty "$root/previous-tools")
+  [[ -n "$current_frontend" && -n "$current_tools" ]] ||
+    die "legacy application links are incomplete"
+  for target in \
+    "$current_frontend" "$current_tools" "$previous_frontend" "$previous_tools"; do
+    [[ -z "$target" ||
+      ("$target" != /* && "$target" != *".."* && "$target" != *$'\n'*) ]] ||
+      die "legacy application link target is unsafe"
+  done
+  old_api=$(env_value "$current_env" BGMSS_API_IMAGE)
+  old_updater=$(env_value "$current_env" BGMSS_UPDATER_IMAGE)
+  expected_data=$(pointer_data_version "$root/data/current.json")
+  [[ ! -e "$root/.bgmss-link.$$" && ! -L "$root/.bgmss-link.$$" ]] ||
+    die "legacy normalization symlink temporary already exists"
+  docker network inspect "$proxy_network" >/dev/null ||
+    die "legacy proxy network is unavailable for normalization rollback"
+  for image in "$old_api" "$old_updater" "$prometheus_image"; do
+    docker image inspect "$image" >/dev/null ||
+      die "legacy release image is unavailable for normalization rollback: $image"
+  done
+
+  cleanup_legacy_transaction() {
+    local item cleanup_failed=false
+    for item in \
+      "$BGMSS_LEGACY_RAW_ENV" \
+      "$BGMSS_LEGACY_NORMALIZED_ENV" \
+      "$BGMSS_LEGACY_PREVIOUS_SNAPSHOT" \
+      "$BGMSS_LEGACY_OVERLAY_SNAPSHOT"; do
+      [[ -n "$item" ]] || continue
+      if [[ -f "$item" && ! -L "$item" &&
+        "${item%/*}" == "$BGMSS_LEGACY_TRANSACTION_DIR" ]]; then
+        rm -f -- "$item" || cleanup_failed=true
+      elif [[ -e "$item" || -L "$item" ]]; then
+        cleanup_failed=true
+      fi
+    done
+    if [[ -d "$BGMSS_LEGACY_TRANSACTION_DIR" &&
+      ! -L "$BGMSS_LEGACY_TRANSACTION_DIR" ]]; then
+      rmdir -- "$BGMSS_LEGACY_TRANSACTION_DIR" || cleanup_failed=true
+    elif [[ -e "$BGMSS_LEGACY_TRANSACTION_DIR" ||
+      -L "$BGMSS_LEGACY_TRANSACTION_DIR" ]]; then
+      cleanup_failed=true
+    fi
+    [[ "$cleanup_failed" == false ]]
+  }
+
+  restore_legacy_normalization() {
+    local failed=$1 recovery_failed=false
+    local was_mutated=$BGMSS_LEGACY_MUTATION_STARTED
+    (( failed != 0 )) || failed=1
+    trap - EXIT ERR HUP INT TERM
+    set +e
+    if [[ "$was_mutated" == true ]]; then
+      atomic_copy "$BGMSS_LEGACY_RAW_ENV" "$BGMSS_LEGACY_CURRENT_ENV" ||
+        recovery_failed=true
+      restore_optional_file \
+        "$BGMSS_LEGACY_PREVIOUS_SNAPSHOT" "$BGMSS_LEGACY_PREVIOUS_ENV" ||
+        recovery_failed=true
+      restore_optional_symlink \
+        "$BGMSS_LEGACY_PREVIOUS_TOOLS" "$root/previous-tools" ||
+        recovery_failed=true
+      restore_optional_symlink \
+        "$BGMSS_LEGACY_PREVIOUS_FRONTEND" "$root/previous-frontend" ||
+        recovery_failed=true
+      if atomic_copy \
+        "$BGMSS_LEGACY_OVERLAY_SNAPSHOT" "$BGMSS_LEGACY_OVERLAY"; then
+        chmod 0644 "$BGMSS_LEGACY_OVERLAY" || recovery_failed=true
+      else
+        recovery_failed=true
+      fi
+      legacy_compose "$root" "$BGMSS_LEGACY_CURRENT_ENV" \
+        up --detach --force-recreate api prometheus ||
+        recovery_failed=true
+      wait_ready "$root" "$BGMSS_LEGACY_EXPECTED_DATA" ||
+        recovery_failed=true
+    fi
+    cleanup_legacy_transaction || recovery_failed=true
+    set -e
+    if [[ "$was_mutated" == true ]]; then
+      [[ "$recovery_failed" == false ]] ||
+        die "legacy normalization failed and the exact proxy application did not recover"
+      log "legacy proxy release normalization failed; original application restored"
+    else
+      [[ "$recovery_failed" == false ]] ||
+        die "legacy normalization preparation failed and transaction cleanup did not complete"
+    fi
+    exit "$failed"
+  }
+
+  transaction_dir=$(mktemp -d "$root/state/.legacy-normalization.XXXXXX")
+  BGMSS_LEGACY_TRANSACTION_DIR=$transaction_dir
+  trap 'restore_legacy_normalization "$?"' EXIT
+  raw_env="$transaction_dir/current.env"
+  normalized_env="$transaction_dir/normalized.env"
+  overlay_snapshot="$transaction_dir/compose.updater-proxy.yaml"
+  if [[ "$previous_exists" == true ]]; then
+    previous_snapshot="$transaction_dir/previous.env"
+  fi
+  BGMSS_LEGACY_RAW_ENV=$raw_env
+  BGMSS_LEGACY_NORMALIZED_ENV=$normalized_env
+  BGMSS_LEGACY_PREVIOUS_SNAPSHOT=$previous_snapshot
+  BGMSS_LEGACY_OVERLAY_SNAPSHOT=$overlay_snapshot
+  BGMSS_LEGACY_CURRENT_ENV=$current_env
+  BGMSS_LEGACY_PREVIOUS_ENV=$previous_env
+  BGMSS_LEGACY_OVERLAY=$overlay
+  BGMSS_LEGACY_PREVIOUS_TOOLS=$previous_tools
+  BGMSS_LEGACY_PREVIOUS_FRONTEND=$previous_frontend
+  BGMSS_LEGACY_EXPECTED_DATA=$expected_data
+  trap 'restore_legacy_normalization 129' HUP
+  trap 'restore_legacy_normalization 130' INT
+  trap 'restore_legacy_normalization 143' TERM
+  cp -- "$current_env" "$raw_env"
+  cp -- "$overlay" "$overlay_snapshot"
+  if [[ "$previous_exists" == true ]]; then
+    cp -- "$previous_env" "$previous_snapshot"
+  fi
+  release_env_document \
+    "$root" "$project" "$old_api" "$old_updater" "$prometheus_image" \
+    "$api_port" "$prometheus_port" "$profile" >"$normalized_env"
+  chmod 0640 "$normalized_env"
+  cmp -s "$current_env" "$raw_env" ||
+    die "legacy current env changed while preparing normalization"
+  cmp -s "$overlay" "$overlay_snapshot" ||
+    die "legacy proxy overlay changed while preparing normalization"
+  if [[ "$previous_exists" == true ]]; then
+    cmp -s "$previous_env" "$previous_snapshot" ||
+      die "previous env changed while preparing normalization"
+  fi
+  [[ "$(
+    release_topology_state \
+      "$normalized_env" "$root" "$project" "$prometheus_image" \
+      "$api_port" "$prometheus_port" "$profile"
+  )" == clean ]] ||
+    die "normalized legacy release is not an exact base-only topology"
+  base_compose "$root" "$normalized_env" config --quiet
+  legacy_compose "$root" "$current_env" config --quiet
+
+  BGMSS_LEGACY_MUTATION_STARTED=true
+  atomic_copy "$normalized_env" "$current_env"
+  compose "$root" up --detach --force-recreate api prometheus
+  wait_ready "$root" "$expected_data"
+  atomic_copy "$normalized_env" "$previous_env"
+  atomic_symlink "$current_tools" "$root/previous-tools"
+  atomic_symlink "$current_frontend" "$root/previous-frontend"
+  rm -f -- "$overlay"
+  BGMSS_LEGACY_MUTATION_STARTED=false
+  cleanup_legacy_transaction
+  trap - EXIT ERR HUP INT TERM
+  log "normalized legacy proxy release to verified base-only application state"
+}
+
+case "$current_state" in
+  absent | clean)
+    [[ ! -e "$root/compose/compose.updater-proxy.yaml" &&
+      ! -L "$root/compose/compose.updater-proxy.yaml" ]] ||
+      die "retired proxy overlay must be absent from a base-only deployment"
+    ;;
+  legacy\|*) normalize_legacy_release "$current_state" ;;
+  *) die "current application state is invalid" ;;
+esac
 
 verify_bundle "$bundle"
 verify_build_metadata "$bundle/build.json"
@@ -213,8 +354,7 @@ cp -- "$bundle/build.json" "$release/build.json"
 chmod 0444 "$release/build.json"
 write_release_env \
   "$release/release.env" "$root" "$project" "$api_image" "$updater_image" \
-  "$prometheus_image" "$api_port" "$prometheus_port" "$profile" \
-  "$resolved_transport" "$resolved_https_proxy" "$resolved_proxy_network"
+  "$prometheus_image" "$api_port" "$prometheus_port" "$profile"
 
 if [[ -f "$root/state/current.env" && ! -L "$root/state/current.env" ]]; then
   old_env=$(mktemp "$root/state/.previous-env.XXXXXX")

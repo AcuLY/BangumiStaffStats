@@ -30,7 +30,7 @@ repository_root="$(
 )"
 # shellcheck source=../lib/common.sh
 source "$repository_root/operations/lib/common.sh"
-accepted_product_revision='6465e54e676329bea9ed3173b180aa767a144368'
+accepted_product_revision='20dbccba899accdce0248c599416161204497f39e'
 accepted_ci_policy_sha256='0260babc76f71b1fb0730bb84894ce0f3c41c9df93591910f05ac9352ee98176'
 data_version='dv1-0a1fa3e9acdb06be34e3535b3c68e322e7d3f4cd87ac30cd4b608b2276ba3ca1'
 
@@ -86,7 +86,7 @@ application_version="$(sed -n '1p' "$repository_root/VERSION")"
 [[ "$(wc -l <"$repository_root/VERSION" | tr -d ' ')" == '1' ]] ||
   fail 'VERSION must contain exactly one line'
 
-bash "$repository_root/operations/test/updater-proxy.sh"
+bash "$repository_root/operations/test/runtime.sh"
 
 backend_output="$repository_root/backend/build/.tmp/operations-bundle-output"
 backend_cache="$repository_root/backend/build/.tmp/operations-bundle-cache"

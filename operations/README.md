@@ -15,12 +15,17 @@ capability-free, protected by `no-new-privileges`, resource/PID bounded, and
 logged through journald. The Docker socket, host/PID networking, legacy paths,
 mutable `latest`, and undeclared writable volumes are absent.
 
+The project has one base Compose topology and no application proxy settings or
+external proxy network. Production egress is a host-owned prerequisite:
+Mihomo transparently captures host and Docker bridge traffic in `rule` mode and
+chooses DIRECT or Proxy by destination. Its configuration, credentials, and
+listeners are global host state and are not stored or managed here.
+
 The root layout is fixed:
 
 ```text
 <root>/
   compose/compose.yaml
-  compose/compose.updater-proxy.yaml
   config/prometheus/{prometheus.yml,rules.yml}
   operations/{bin,lib}
   releases/<source-revision>/{frontend,tools,release.env,build.json}
@@ -59,6 +64,10 @@ The host needs Bash, Docker with Compose v2, `curl`, `flock`, `jq`, GNU
 `realpath`, GNU `sha256sum`, GNU `stat`, and `tar`. Nginx and
 `systemd-analyze` are needed only for template validation. Prometheus must be a
 reviewed pinned tag or digest already available to Docker; `latest` is rejected.
+Before production activation, the host-transparent rule gateway must already
+be validated from the host and every production Docker bridge with all proxy
+environment variables removed. The gateway must keep its controller, DNS, and
+optional mixed listeners on loopback.
 
 Create the exact root and permissions once. This is an explicit production
 preparation action, not something the deployment command infers:
@@ -69,7 +78,6 @@ install -d -m 0750 /srv/bgmss-v2/{compose,config/prometheus,operations,operation
 install -d -o root -g 65532 -m 1770 /srv/bgmss-v2/data /srv/bgmss-v2/data/versions
 install -o root -g root -m 0600 /dev/null /srv/bgmss-v2/data/operations.lock
 install -m 0644 operations/compose.yaml /srv/bgmss-v2/compose/compose.yaml
-install -m 0644 operations/compose.updater-proxy.yaml /srv/bgmss-v2/compose/compose.updater-proxy.yaml
 install -m 0644 operations/prometheus/*.yml /srv/bgmss-v2/config/prometheus/
 install -m 0555 operations/bin/{deploy,update,rollback-app,rollback-data,check} /srv/bgmss-v2/operations/bin/
 install -m 0444 operations/lib/common.sh /srv/bgmss-v2/operations/lib/common.sh
@@ -97,25 +105,26 @@ candidate, so the same admitted bundle can be retried. `ERR`, `HUP`, `INT`, and
 `TERM` use the same transaction restoration path; successful signal recovery
 returns `129`, `130`, or `143` as appropriate.
 
-Release env records `BGMSS_UPDATER_TRANSPORT=direct|proxy`. Deploy defaults to
-`--updater-transport preserve`: it retains a valid current direct/proxy state
-and treats a pre-change env with no transport fields as direct. Explicit
-`direct` removes the proxy pair and leaves both updater and API image transport
-direct. Explicit `proxy` requires both a canonical credential-free
-`--updater-https-proxy http://HOST:PORT` and an existing
-`--updater-proxy-network NAME`; the network is inspected but never created or
-managed. Preserve/direct reject proxy arguments, partial or duplicate arguments
-fail before the state lock and image loading, and rollback keeps the previous
-env bytes so its exact transport state is restored.
+Release env contains only the fixed project/root/image/port/profile topology.
+Proxy mode, URL, network, dedicated proxy inputs, and generic proxy inputs are
+forbidden release state. The common Compose wrapper always renders only
+`compose.yaml`, rejects proxy state in `current.env`, and removes conflicting
+calling-shell proxy variables before invoking Compose. Obsolete proxy
+arguments and all unknown deploy arguments fail before the state lock, Docker,
+release creation, or state mutation. Application rollback still swaps the
+exact admitted current/previous env and links.
 
-Only proxy mode selects `compose.updater-proxy.yaml`. The overlay maps the
-root-managed release URL to updater-only `BGMSS_HTTPS_PROXY` and API-only
-`BGMSS_IMAGE_HTTPS_PROXY`, then attaches both services to the named external
-network in addition to `backend`. Prometheus remains on `backend` and receives
-neither input. No generic HTTP/HTTPS/ALL/NO proxy variable is projected. The
-common Compose wrapper validates transport only from root-managed
-`state/current.env` and clears conflicting calling-shell transport/URL/network
-values before Compose interpolation.
+There is one locked upgrade exception for a deployment created by the retired
+proxy release schema. `deploy` admits only its exact canonical
+`BGMSS_UPDATER_TRANSPORT=proxy` plus URL/network trio and the exact installed
+legacy overlay. Under `operations.lock`, it first rewrites the same old images
+to a proxy-free env, force-recreates API and Prometheus from base Compose, and
+waits for the old API to become ready. If that normalization fails, it restores
+the original env and recreates through the validated legacy overlay. Once the
+base-only old application is ready, both rollback slots use that clean old
+state, the overlay is removed, and candidate failure or `rollback-app` cannot
+reintroduce proxy release state. Partial, modified, generic-proxy, direct-mode,
+or otherwise noncanonical legacy env is rejected before the lock.
 
 ```sh
 /srv/bgmss-v2/operations/bin/deploy \
@@ -126,19 +135,6 @@ values before Compose interpolation.
   --api-port 18080 \
   --prometheus-port 19090 \
   --prometheus-image prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80
-
-# Explicitly enable updater and API image proxy transport:
-/srv/bgmss-v2/operations/bin/deploy \
-  --root /srv/bgmss-v2 \
-  --bundle /path/to/admitted-bundle \
-  --version <40-hex-source-revision> \
-  --project bgmss-v2 \
-  --api-port 18080 \
-  --prometheus-port 19090 \
-  --prometheus-image prom/prometheus:v3.13.1-distroless@sha256:214f8427c8fba80c327bb94a75feb802ae12f2d6ca30812aa6e7d22f09bbea80 \
-  --updater-transport proxy \
-  --updater-https-proxy http://proxy.internal:7897 \
-  --updater-proxy-network proxy-net
 
 /srv/bgmss-v2/operations/bin/check --root /srv/bgmss-v2
 /srv/bgmss-v2/operations/bin/update --root /srv/bgmss-v2
@@ -199,9 +195,10 @@ deferred. Before those checks it inspects the real API/Prometheus containers and
 a create-only updater container for the exact non-root user, read-only rootfs,
 capability/security settings, CPU/memory/PID bounds, journald driver, mount
 direction, and closed loopback-only port bindings.
-It also installs the tracked proxy overlay and statically renders it with
-synthetic safe values, proving that updater and API receive only their dedicated
-environment entries and external network while Prometheus remains isolated.
-The separate `test/updater-proxy.sh` build gate covers release transitions,
-invalid timing, calling-shell conflicts, and direct/proxy Compose JSON
-projection without starting an updater or creating an external network.
+It statically renders the base Compose file under conflicting calling-shell
+proxy variables and proves that every service remains only on the backend
+network with no proxy input or external network. The separate
+`test/runtime.sh` build gate covers workflow-prefix integrity, release-env and
+calling-shell closure, obsolete argument rejection before mutation, deploy
+transactions, exact previous/current rollback, and base Compose projection
+without starting an updater or creating an external network.
