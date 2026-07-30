@@ -200,7 +200,8 @@ EOF
 }
 
 require_legacy_proxy_overlay() {
-  local root=$1 overlay="$root/compose/compose.updater-proxy.yaml"
+  local root=$1 overlay
+  overlay="$root/compose/compose.updater-proxy.yaml"
   [[ -f "$overlay" && ! -L "$overlay" ]] ||
     die "legacy proxy overlay is missing or invalid"
   cmp -s <(legacy_proxy_overlay_document) "$overlay" ||
