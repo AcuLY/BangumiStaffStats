@@ -1,0 +1,177 @@
+{
+  "kind": "unknown-field",
+  "version": 1,
+  "cases": [
+    {
+      "id": "unknown-query-root",
+      "target": "query",
+      "baseCase": "personal-normalization",
+      "pointer": ""
+    },
+    {
+      "id": "unknown-query-filter",
+      "target": "query",
+      "baseCase": "personal-normalization",
+      "pointer": "/filters"
+    },
+    {
+      "id": "unknown-query-range",
+      "target": "query",
+      "baseCase": "personal-normalization",
+      "pointer": "/filters/subjectDate"
+    },
+    {
+      "id": "unknown-query-tags",
+      "target": "query",
+      "baseCase": "personal-normalization",
+      "pointer": "/filters/tags"
+    },
+    {
+      "id": "unknown-query-tag-group",
+      "target": "query",
+      "baseCase": "personal-normalization",
+      "pointer": "/filters/tags/include/0"
+    },
+    {
+      "id": "unknown-catalog-root",
+      "target": "catalog",
+      "baseCase": "personal-normalization",
+      "pointer": ""
+    },
+    {
+      "id": "unknown-catalog-position",
+      "target": "catalog",
+      "baseCase": "personal-normalization",
+      "pointer": "/positions/0"
+    },
+    {
+      "id": "unknown-error-root",
+      "target": "error",
+      "baseCase": "valid-field-error",
+      "pointer": ""
+    },
+    {
+      "id": "unknown-error-body",
+      "target": "error",
+      "baseCase": "valid-field-error",
+      "pointer": "/error"
+    },
+    {
+      "id": "unknown-error-meta",
+      "target": "error",
+      "baseCase": "valid-field-error",
+      "pointer": "/meta"
+    },
+    {
+      "id": "unknown-ranking-share-root",
+      "target": "share",
+      "baseCase": "ranking-share",
+      "pointer": ""
+    },
+    {
+      "id": "unknown-ranking-workspace",
+      "target": "share",
+      "baseCase": "ranking-share",
+      "pointer": "/workspace"
+    },
+    {
+      "id": "unknown-ranking-view",
+      "target": "share",
+      "baseCase": "ranking-share",
+      "pointer": "/workspace/rankingsView"
+    },
+    {
+      "id": "unknown-ranking-detail",
+      "target": "share",
+      "baseCase": "ranking-share",
+      "pointer": "/workspace/detail"
+    },
+    {
+      "id": "unknown-detail-input",
+      "target": "share",
+      "baseCase": "ranking-share",
+      "pointer": "/workspace/detail/input"
+    },
+    {
+      "id": "unknown-detail-view",
+      "target": "share",
+      "baseCase": "ranking-share",
+      "pointer": "/workspace/detail/view"
+    },
+    {
+      "id": "unknown-co-star-workspace",
+      "target": "share",
+      "baseCase": "co-star-partners-share",
+      "pointer": "/workspace"
+    },
+    {
+      "id": "unknown-candidates-wrapper",
+      "target": "share",
+      "baseCase": "co-star-partners-share",
+      "pointer": "/workspace/candidates"
+    },
+    {
+      "id": "unknown-candidates-input",
+      "target": "share",
+      "baseCase": "co-star-partners-share",
+      "pointer": "/workspace/candidates/input"
+    },
+    {
+      "id": "unknown-candidates-view",
+      "target": "share",
+      "baseCase": "co-star-partners-share",
+      "pointer": "/workspace/candidates/view"
+    },
+    {
+      "id": "unknown-partners-wrapper",
+      "target": "share",
+      "baseCase": "co-star-partners-share",
+      "pointer": "/workspace/partners"
+    },
+    {
+      "id": "unknown-partners-input",
+      "target": "share",
+      "baseCase": "co-star-partners-share",
+      "pointer": "/workspace/partners/input"
+    },
+    {
+      "id": "unknown-person-identity",
+      "target": "share",
+      "baseCase": "co-star-partners-share",
+      "pointer": "/workspace/partners/input/source"
+    },
+    {
+      "id": "unknown-partners-view",
+      "target": "share",
+      "baseCase": "co-star-partners-share",
+      "pointer": "/workspace/partners/view"
+    },
+    {
+      "id": "unknown-costar-wrapper",
+      "target": "share",
+      "baseCase": "co-star-analysis-share",
+      "pointer": "/workspace/coStar"
+    },
+    {
+      "id": "unknown-costar-input",
+      "target": "share",
+      "baseCase": "co-star-analysis-share",
+      "pointer": "/workspace/coStar/input"
+    },
+    {
+      "id": "unknown-costar-participant",
+      "target": "share",
+      "baseCase": "co-star-analysis-share",
+      "pointer": "/workspace/coStar/input/participants/0"
+    },
+    {
+      "id": "unknown-costar-view",
+      "target": "share",
+      "baseCase": "co-star-analysis-share",
+      "pointer": "/workspace/coStar/view"
+    }
+  ],
+  "injectedProperty": "__unknown_contract_field__",
+  "injectedValue": true,
+  "expectedCode": "FIELD_INVALID"
+}

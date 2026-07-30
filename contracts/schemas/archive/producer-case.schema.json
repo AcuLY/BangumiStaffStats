@@ -1,0 +1,1236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/archive/producer-case-v1.json",
+  "title": "Archive producer golden case v1",
+  "description": "Strict compact synthetic seven-source producer input, semantic identity, logical projection, accounting, and first stable outcome.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caseSchemaVersion",
+    "caseId",
+    "caseKind",
+    "description",
+    "inputs",
+    "dataVersion",
+    "expected",
+    "equivalence"
+  ],
+  "properties": {
+    "caseSchemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1,
+      "const": 1
+    },
+    "caseId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "caseKind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 48,
+      "enum": [
+        "valid-seven-source",
+        "identical-regeneration",
+        "identical-duplicate",
+        "permitted-unresolved-position",
+        "malformed-record",
+        "unknown-field-record",
+        "conflicting-duplicate",
+        "missing-reference",
+        "missing-source",
+        "extra-source",
+        "digest-mismatch",
+        "size-mismatch",
+        "invalid-subject-type",
+        "invalid-cast-role",
+        "invalid-relation-code"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "inputs": {
+      "$ref": "#/$defs/inputs"
+    },
+    "dataVersion": {
+      "$ref": "#/$defs/dataVersion"
+    },
+    "expected": {
+      "$ref": "#/$defs/expected"
+    },
+    "equivalence": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "caseId",
+            "sameDataVersion",
+            "sameLogicalProjection"
+          ],
+          "properties": {
+            "caseId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            },
+            "sameDataVersion": {
+              "type": "boolean"
+            },
+            "sameLogicalProjection": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "minLength": 71,
+      "maxLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "bytesUtf8",
+        "size",
+        "digest",
+        "declaredSize",
+        "declaredDigest"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-z][a-z0-9-]*\\.jsonlines$"
+        },
+        "bytesUtf8": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 8192
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "digest": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "declaredSize": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "declaredDigest": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "blob": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bytesUtf8",
+        "size",
+        "digest"
+      ],
+      "properties": {
+        "bytesUtf8": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "digest": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "dataVersionInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archiveRelease",
+        "archiveDigest",
+        "commonCommit",
+        "commonDigest",
+        "manifestSchemaVersion",
+        "sqliteSchemaVersion",
+        "schemaSqlDigest",
+        "domainRulesVersion",
+        "castRulesVersion",
+        "catalogConfigDigest"
+      ],
+      "properties": {
+        "archiveRelease": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        },
+        "archiveDigest": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "commonCommit": {
+          "type": "string",
+          "minLength": 40,
+          "maxLength": 40,
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "commonDigest": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "manifestSchemaVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "sqliteSchemaVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "schemaSqlDigest": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "domainRulesVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        },
+        "castRulesVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        },
+        "catalogConfigDigest": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceSetAlgorithm",
+        "sources",
+        "commonSubjectStaffs",
+        "catalogConfig",
+        "identity"
+      ],
+      "properties": {
+        "sourceSetAlgorithm": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "const": "bgmss-producer-source-set-v1"
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/source"
+          }
+        },
+        "commonSubjectStaffs": {
+          "$ref": "#/$defs/blob"
+        },
+        "catalogConfig": {
+          "$ref": "#/$defs/blob"
+        },
+        "identity": {
+          "$ref": "#/$defs/dataVersionInput"
+        }
+      }
+    },
+    "dataVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "canonicalPreimage",
+        "canonicalPreimageByteLength",
+        "result"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "const": "bgmss-archive-data-version-v1"
+        },
+        "canonicalPreimage": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "canonicalPreimageByteLength": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "result": {
+          "type": "string",
+          "minLength": 68,
+          "maxLength": 68,
+          "pattern": "^dv1-[0-9a-f]{64}$"
+        }
+      }
+    },
+    "accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "recordsTotal",
+        "imported",
+        "duplicate",
+        "invalid",
+        "unresolved"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-z][a-z0-9-]*\\.jsonlines$"
+        },
+        "recordsTotal": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "imported": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "duplicate": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "invalid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "unresolved": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "logicalProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "person",
+        "character",
+        "subjectRelation",
+        "staffPosition",
+        "staffCredit",
+        "castCredit",
+        "catalogPosition"
+      ],
+      "properties": {
+        "subject": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "subjectType",
+              "subjectId",
+              "name",
+              "nameCn",
+              "nsfw",
+              "airDate",
+              "airDatePrecision"
+            ],
+            "properties": {
+              "subjectType": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 8,
+                "enum": [
+                  "book",
+                  "anime",
+                  "music",
+                  "game",
+                  "real"
+                ]
+              },
+              "subjectId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "nameCn": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                ]
+              },
+              "nsfw": {
+                "type": "boolean"
+              },
+              "airDate": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 10,
+                    "pattern": "^[0-9]{4}(?:-[0-9]{2}(?:-[0-9]{2})?)?$"
+                  }
+                ]
+              },
+              "airDatePrecision": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "person": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "personId",
+              "name",
+              "nameCn",
+              "careers"
+            ],
+            "properties": {
+              "personId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "nameCn": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                ]
+              },
+              "careers": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "uniqueItems": true
+              }
+            }
+          }
+        },
+        "character": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "characterId",
+              "name",
+              "nameCn"
+            ],
+            "properties": {
+              "characterId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "nameCn": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "subjectRelation": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "subjectType",
+              "subjectId",
+              "relatedSubjectType",
+              "relatedSubjectId",
+              "relationType"
+            ],
+            "properties": {
+              "subjectType": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 8,
+                "enum": [
+                  "book",
+                  "anime",
+                  "music",
+                  "game",
+                  "real"
+                ]
+              },
+              "subjectId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "relatedSubjectType": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 8,
+                "enum": [
+                  "book",
+                  "anime",
+                  "music",
+                  "game",
+                  "real"
+                ]
+              },
+              "relatedSubjectId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "relationType": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            }
+          }
+        },
+        "staffPosition": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "subjectType",
+              "positionId",
+              "nameCn",
+              "nameEn",
+              "nameJp",
+              "categories",
+              "sortOrder",
+              "status"
+            ],
+            "properties": {
+              "subjectType": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 8,
+                "enum": [
+                  "book",
+                  "anime",
+                  "music",
+                  "game",
+                  "real"
+                ]
+              },
+              "positionId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "nameCn": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "nameEn": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                ]
+              },
+              "nameJp": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                ]
+              },
+              "categories": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "uniqueItems": true
+              },
+              "sortOrder": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "status": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "enum": [
+                  "selectable",
+                  "hidden"
+                ]
+              }
+            }
+          }
+        },
+        "staffCredit": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "subjectType",
+              "subjectId",
+              "personId",
+              "positionId",
+              "resolved",
+              "selectable"
+            ],
+            "properties": {
+              "subjectType": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 8,
+                "enum": [
+                  "book",
+                  "anime",
+                  "music",
+                  "game",
+                  "real"
+                ]
+              },
+              "subjectId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "personId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "positionId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "resolved": {
+                "type": "boolean"
+              },
+              "selectable": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "castCredit": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "subjectType",
+              "subjectId",
+              "personId",
+              "characterId",
+              "roleType",
+              "eligible",
+              "provenance"
+            ],
+            "properties": {
+              "subjectType": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 8,
+                "enum": [
+                  "anime",
+                  "game"
+                ]
+              },
+              "subjectId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "personId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "characterId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "roleType": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 6
+              },
+              "eligible": {
+                "type": "boolean"
+              },
+              "provenance": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "enum": [
+                  "exact"
+                ]
+              }
+            }
+          }
+        },
+        "catalogPosition": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "positionKey",
+              "subjectType",
+              "positionKind",
+              "label",
+              "displayOrder",
+              "selectable",
+              "capabilities",
+              "selectionRule"
+            ],
+            "properties": {
+              "positionKey": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 96,
+                "pattern": "^[a-z]+:[a-z]+:[a-z0-9-]+$"
+              },
+              "subjectType": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 8,
+                "enum": [
+                  "book",
+                  "anime",
+                  "music",
+                  "game",
+                  "real"
+                ]
+              },
+              "positionKind": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 8,
+                "enum": [
+                  "staff",
+                  "cast"
+                ]
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "displayOrder": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "selectable": {
+                "type": "boolean"
+              },
+              "capabilities": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[A-Za-z][A-Za-z0-9-]*$"
+                },
+                "uniqueItems": true
+              },
+              "selectionRule": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          }
+        }
+      }
+    },
+    "logicalDigests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "subject",
+        "person",
+        "character",
+        "subjectRelation",
+        "staffPosition",
+        "staffCredit",
+        "castCredit",
+        "catalogPosition"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "const": "bgmss-producer-logical-rows-v1"
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "person": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "character": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "subjectRelation": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "staffPosition": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "staffCredit": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "castCredit": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "catalogPosition": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "tableCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_meta",
+        "subject",
+        "subject_rating_bucket",
+        "subject_tag",
+        "person",
+        "person_career",
+        "character",
+        "subject_relation",
+        "staff_position",
+        "staff_position_category",
+        "staff_credit",
+        "cast_credit",
+        "staff_set",
+        "staff_set_member",
+        "catalog_position",
+        "catalog_position_member",
+        "catalog_group",
+        "catalog_group_member",
+        "catalog_capability",
+        "catalog_selection_rule"
+      ],
+      "properties": {
+        "archive_meta": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "subject": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "subject_rating_bucket": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "subject_tag": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "person": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "person_career": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "character": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "subject_relation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "staff_position": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "staff_position_category": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "staff_credit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cast_credit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "staff_set": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "staff_set_member": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "catalog_position": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "catalog_position_member": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "catalog_group": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "catalog_group_member": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "catalog_capability": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "catalog_selection_rule": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "qualitySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "NO_CHARACTERS",
+        "NO_CAST_RELATIONS",
+        "FILTERED_BY_VALID_CV",
+        "UNKNOWN_STAFF_POSITION"
+      ],
+      "properties": {
+        "NO_CHARACTERS": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "NO_CAST_RELATIONS": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "FILTERED_BY_VALID_CV": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "UNKNOWN_STAFF_POSITION": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "source",
+        "line"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "enum": [
+            "SOURCE_SET_MISSING",
+            "SOURCE_SET_EXTRA",
+            "SOURCE_SIZE_MISMATCH",
+            "SOURCE_DIGEST_MISMATCH",
+            "SOURCE_RECORD_MALFORMED",
+            "SOURCE_RECORD_UNKNOWN_FIELD",
+            "SOURCE_DUPLICATE_CONFLICT"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-z][a-z0-9-]*\\.jsonlines$"
+        },
+        "line": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          ]
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accounting",
+        "logicalProjection",
+        "logicalDigests",
+        "tableCounts",
+        "qualitySummary",
+        "outcome",
+        "firstFailure",
+        "candidateAllowed"
+      ],
+      "properties": {
+        "accounting": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/accounting"
+          }
+        },
+        "logicalProjection": {
+          "$ref": "#/$defs/logicalProjection"
+        },
+        "logicalDigests": {
+          "$ref": "#/$defs/logicalDigests"
+        },
+        "tableCounts": {
+          "$ref": "#/$defs/tableCounts"
+        },
+        "qualitySummary": {
+          "$ref": "#/$defs/qualitySummary"
+        },
+        "outcome": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "enum": [
+            "VALID",
+            "SOURCE_SET_MISSING",
+            "SOURCE_SET_EXTRA",
+            "SOURCE_SIZE_MISMATCH",
+            "SOURCE_DIGEST_MISMATCH",
+            "SOURCE_RECORD_MALFORMED",
+            "SOURCE_RECORD_UNKNOWN_FIELD",
+            "SOURCE_DUPLICATE_CONFLICT"
+          ]
+        },
+        "firstFailure": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/failure"
+            }
+          ]
+        },
+        "candidateAllowed": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

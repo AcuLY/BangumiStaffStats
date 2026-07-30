@@ -1,0 +1,51 @@
+{
+  "kind": "rfc8785",
+  "version": 1,
+  "source": "RFC 8785 Appendix B and project adversarial coverage",
+  "cases": [
+    {
+      "id": "rfc8785-number-sample",
+      "input": [
+        333333333.33333329,
+        1e+30,
+        4.5,
+        0.002,
+        1e-27
+      ],
+      "expected": "[333333333.3333333,1e+30,4.5,0.002,1e-27]"
+    },
+    {
+      "id": "rfc8785-negative-zero",
+      "input": -0,
+      "expected": "0"
+    },
+    {
+      "id": "rfc8785-escaped-string",
+      "input": {
+        "string": "€$\u000f\nA'B\"\\\\\"/"
+      },
+      "expected": "{\"string\":\"€$\\u000f\\nA'B\\\"\\\\\\\\\\\"/\"}"
+    },
+    {
+      "id": "rfc8785-unicode-key-order",
+      "input": {
+        "€": "Euro",
+        "\r": "CR",
+        "דּ": "Hebrew",
+        "1": "One",
+        "😀": "Emoji",
+        "": "Control",
+        "ö": "Latin"
+      },
+      "expected": "{\"\\r\":\"CR\",\"1\":\"One\",\"\":\"Control\",\"ö\":\"Latin\",\"€\":\"Euro\",\"😀\":\"Emoji\",\"דּ\":\"Hebrew\"}"
+    },
+    {
+      "id": "rfc8785-safe-integer-edge",
+      "input": {
+        "max": 9007199254740991,
+        "min": -9007199254740991
+      },
+      "expected": "{\"max\":9007199254740991,\"min\":-9007199254740991}"
+    }
+  ]
+}

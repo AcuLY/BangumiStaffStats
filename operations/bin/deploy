@@ -1,0 +1,282 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+IFS=$'\n\t'
+
+script_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=../lib/common.sh
+source "$script_root/../lib/common.sh"
+
+usage() {
+  printf '%s\n' \
+    "usage: deploy --root ABS --bundle ABS --version SOURCE_REVISION" \
+    "              --project NAME --api-port PORT --prometheus-port PORT" \
+    "              --prometheus-image PINNED_IMAGE [--profile production|validation]" \
+    "              [--updater-transport preserve|direct|proxy]" \
+    "              [--updater-https-proxy http://HOST:PORT --updater-proxy-network NAME]" >&2
+  exit 2
+}
+
+root= bundle= version= project= api_port= prometheus_port= prometheus_image=
+profile=production
+updater_transport_request=preserve
+updater_https_proxy= updater_proxy_network=
+updater_transport_seen=false
+updater_https_proxy_seen=false
+updater_proxy_network_seen=false
+while (($#)); do
+  case "$1" in
+    --root) [[ $# -ge 2 ]] || usage; root=$2; shift 2 ;;
+    --bundle) [[ $# -ge 2 ]] || usage; bundle=$2; shift 2 ;;
+    --version) [[ $# -ge 2 ]] || usage; version=$2; shift 2 ;;
+    --project) [[ $# -ge 2 ]] || usage; project=$2; shift 2 ;;
+    --api-port) [[ $# -ge 2 ]] || usage; api_port=$2; shift 2 ;;
+    --prometheus-port) [[ $# -ge 2 ]] || usage; prometheus_port=$2; shift 2 ;;
+    --prometheus-image) [[ $# -ge 2 ]] || usage; prometheus_image=$2; shift 2 ;;
+    --profile) [[ $# -ge 2 ]] || usage; profile=$2; shift 2 ;;
+    --updater-transport)
+      [[ $# -ge 2 && "$updater_transport_seen" == false ]] || usage
+      updater_transport_request=$2
+      updater_transport_seen=true
+      shift 2
+      ;;
+    --updater-https-proxy)
+      [[ $# -ge 2 && "$updater_https_proxy_seen" == false ]] || usage
+      updater_https_proxy=$2
+      updater_https_proxy_seen=true
+      shift 2
+      ;;
+    --updater-proxy-network)
+      [[ $# -ge 2 && "$updater_proxy_network_seen" == false ]] || usage
+      updater_proxy_network=$2
+      updater_proxy_network_seen=true
+      shift 2
+      ;;
+    *) usage ;;
+  esac
+done
+[[ -n "$root" && -n "$bundle" && -n "$version" && -n "$project" &&
+  -n "$api_port" && -n "$prometheus_port" && -n "$prometheus_image" ]] || usage
+
+case "$updater_transport_request" in
+  preserve | direct)
+    [[ "$updater_https_proxy_seen" == false && "$updater_proxy_network_seen" == false ]] ||
+      die "$updater_transport_request updater transport forbids proxy arguments"
+    ;;
+  proxy)
+    [[ "$updater_https_proxy_seen" == true && "$updater_proxy_network_seen" == true ]] ||
+      die "proxy updater transport requires both proxy arguments"
+    require_updater_transport_values proxy "$updater_https_proxy" "$updater_proxy_network"
+    ;;
+  *)
+    die "updater transport request must be preserve, direct, or proxy"
+    ;;
+esac
+
+for command in curl docker flock jq realpath sha256sum tar; do
+  require_command "$command"
+done
+require_root_user
+require_root_layout "$root"
+require_existing_directory "$bundle" bundle
+require_version "$version"
+require_safe_name "$project" project
+require_port "$api_port" api-port
+require_port "$prometheus_port" prometheus-port
+[[ "$api_port" != "$prometheus_port" ]] || die "API and Prometheus ports must differ"
+require_image "$prometheus_image" prometheus-image
+[[ "$prometheus_image" == "$BGMSS_PROMETHEUS_IMAGE_PIN" ]] ||
+  die "Prometheus image must equal the reviewed operations pin"
+[[ "$profile" == production || "$profile" == validation ]] || die "invalid profile"
+
+require_existing_topology_match() {
+  local current_env="$root/state/current.env"
+  if [[ -f "$current_env" && ! -L "$current_env" ]]; then
+    require_release_topology_unchanged \
+      "$current_env" "$root" "$project" "$prometheus_image" \
+      "$api_port" "$prometheus_port" "$profile"
+  elif [[ -e "$current_env" || -L "$current_env" ]]; then
+    die "current env has an invalid type"
+  fi
+}
+
+resolve_updater_transport() {
+  local current_env="$root/state/current.env" state
+  state=$(
+    resolve_updater_transport_request \
+      "$updater_transport_request" "$current_env" \
+      "$updater_https_proxy" "$updater_proxy_network"
+  )
+  IFS='|' read -r resolved_transport resolved_https_proxy resolved_proxy_network \
+    <<<"$state"
+}
+
+# Refuse project/root/Prometheus/port/profile drift before even opening the
+# state lock. Recheck under the lock to close the concurrent-deploy race.
+require_existing_topology_match
+resolve_updater_transport
+if [[ "$resolved_transport" == proxy ]]; then
+  docker network inspect "$resolved_proxy_network" >/dev/null ||
+    die "updater proxy external network is unavailable"
+fi
+acquire_state_lock "$root"
+require_existing_topology_match
+resolve_updater_transport
+if [[ "$resolved_transport" == proxy ]]; then
+  docker network inspect "$resolved_proxy_network" >/dev/null ||
+    die "updater proxy external network is unavailable"
+fi
+
+verify_bundle "$bundle"
+verify_build_metadata "$bundle/build.json"
+revision=$(build_field "$bundle/build.json" sourceRevision)
+[[ "$version" == "$revision" ]] || die "version must equal bundle sourceRevision"
+api_image=$(build_field "$bundle/build.json" apiImage)
+updater_image=$(build_field "$bundle/build.json" updaterImage)
+
+docker load --input "$bundle/api.oci.tar" >/dev/null
+docker load --input "$bundle/updater.oci.tar" >/dev/null
+for image in "$api_image" "$updater_image" "$prometheus_image"; do
+  docker image inspect "$image" >/dev/null
+done
+[[ "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_image")" == "$revision" ]] ||
+  die "loaded API image revision label disagrees with build.json"
+[[ "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$updater_image")" == "$revision" ]] ||
+  die "loaded updater image revision label disagrees with build.json"
+
+release="$root/releases/$version"
+[[ ! -e "$release" && ! -L "$release" ]] || die "release already exists: $release"
+candidate_activated=false
+release_owned=false
+old_env=
+old_previous_env=
+old_frontend=
+old_tools=
+old_previous_frontend=
+old_previous_tools=
+
+cleanup_candidate_release() {
+  local result=$? link target temporary linked=false
+  trap - EXIT ERR HUP INT TERM
+  if [[ "$release_owned" == true && "$candidate_activated" == false &&
+    (-e "$release" || -L "$release") ]]; then
+    for link in \
+      "$root/current-frontend" "$root/previous-frontend" \
+      "$root/current-tools" "$root/previous-tools"; do
+      if [[ -L "$link" ]]; then
+        target=$(readlink "$link")
+        if [[ "$target" == "releases/$version/frontend" ||
+          "$target" == "releases/$version/tools" ]]; then
+          linked=true
+        fi
+      elif [[ -e "$link" ]]; then
+        linked=true
+      fi
+    done
+    if [[ "$linked" == false && -d "$release" && ! -L "$release" &&
+      "$(realpath "$release")" == "$release" &&
+      "$(realpath "$root/releases")" == "${release%/*}" ]]; then
+      if ! rm -rf -- "$release"; then
+        log "failed to remove exact inactive candidate release: $release"
+        result=1
+      fi
+    else
+      log "preserving candidate release because its identity or active links are ambiguous: $release"
+      result=1
+    fi
+  fi
+  for temporary in "$old_env" "$old_previous_env"; do
+    [[ -n "$temporary" ]] || continue
+    if [[ -f "$temporary" && ! -L "$temporary" &&
+      "${temporary%/*}" == "$root/state" ]]; then
+      rm -f -- "$temporary" || result=1
+    elif [[ -e "$temporary" || -L "$temporary" ]]; then
+      log "preserving invalid transaction temporary: $temporary"
+      result=1
+    fi
+  done
+  exit "$result"
+}
+trap cleanup_candidate_release EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+mkdir -m 0755 "$release"
+release_owned=true
+mkdir -m 0755 "$release/frontend" "$release/tools"
+safe_extract_tar "$bundle/frontend.tar" "$release/frontend"
+[[ -f "$release/frontend/index.html" && ! -L "$release/frontend/index.html" ]] ||
+  die "frontend.tar must contain index.html at its root"
+chmod -R u=rwX,go=rX "$release/frontend"
+install_tools "$bundle/backend-tools.tar.gz" "$release/tools"
+cp -- "$bundle/build.json" "$release/build.json"
+chmod 0444 "$release/build.json"
+write_release_env \
+  "$release/release.env" "$root" "$project" "$api_image" "$updater_image" \
+  "$prometheus_image" "$api_port" "$prometheus_port" "$profile" \
+  "$resolved_transport" "$resolved_https_proxy" "$resolved_proxy_network"
+
+if [[ -f "$root/state/current.env" && ! -L "$root/state/current.env" ]]; then
+  old_env=$(mktemp "$root/state/.previous-env.XXXXXX")
+  cp -- "$root/state/current.env" "$old_env"
+elif [[ -e "$root/state/current.env" || -L "$root/state/current.env" ]]; then
+  die "current env has an invalid type"
+fi
+if [[ -f "$root/state/previous.env" && ! -L "$root/state/previous.env" ]]; then
+  old_previous_env=$(mktemp "$root/state/.previous-rollback-env.XXXXXX")
+  cp -- "$root/state/previous.env" "$old_previous_env"
+elif [[ -e "$root/state/previous.env" || -L "$root/state/previous.env" ]]; then
+  die "previous env has an invalid type"
+fi
+old_frontend=$(read_link_or_empty "$root/current-frontend")
+old_tools=$(read_link_or_empty "$root/current-tools")
+old_previous_frontend=$(read_link_or_empty "$root/previous-frontend")
+old_previous_tools=$(read_link_or_empty "$root/previous-tools")
+
+restore_application() {
+  local failed=$1
+  (( failed != 0 )) || failed=1
+  trap - ERR HUP INT TERM
+  log "candidate application did not become ready; restoring previous application state"
+  if [[ -n "$old_env" ]]; then
+    atomic_copy "$old_env" "$root/state/current.env"
+    restore_optional_symlink "$old_tools" "$root/current-tools"
+    restore_optional_symlink "$old_frontend" "$root/current-frontend"
+    if ! restart_and_wait "$root" "$(pointer_data_version "$root/data/current.json")"; then
+      die "candidate failed and previous application did not recover"
+    fi
+  else
+    if ! compose "$root" down --remove-orphans >/dev/null 2>&1; then
+      die "candidate failed and its Compose project did not stop cleanly"
+    fi
+    restore_optional_file "" "$root/state/current.env"
+    restore_optional_symlink "$old_tools" "$root/current-tools"
+    restore_optional_symlink "$old_frontend" "$root/current-frontend"
+  fi
+  restore_optional_file "$old_previous_env" "$root/state/previous.env"
+  restore_optional_symlink "$old_previous_tools" "$root/previous-tools"
+  restore_optional_symlink "$old_previous_frontend" "$root/previous-frontend"
+  candidate_activated=false
+  exit "$failed"
+}
+trap 'restore_application "$?"' ERR
+trap 'restore_application 129' HUP
+trap 'restore_application 130' INT
+trap 'restore_application 143' TERM
+
+atomic_copy "$release/release.env" "$root/state/current.env"
+compose "$root" config --quiet
+atomic_symlink "releases/$version/tools" "$root/current-tools"
+compose "$root" up --detach api prometheus
+wait_ready "$root" "$(pointer_data_version "$root/data/current.json")"
+
+if [[ -n "$old_env" ]]; then
+  atomic_copy "$old_env" "$root/state/previous.env"
+  [[ -n "$old_tools" ]] && atomic_symlink "$old_tools" "$root/previous-tools"
+  [[ -n "$old_frontend" ]] && atomic_symlink "$old_frontend" "$root/previous-frontend"
+fi
+# Frontend is deliberately the last active-state switch.
+atomic_symlink "releases/$version/frontend" "$root/current-frontend"
+candidate_activated=true
+trap - ERR HUP INT TERM
+log "deployed $version; API ready and frontend switched last"

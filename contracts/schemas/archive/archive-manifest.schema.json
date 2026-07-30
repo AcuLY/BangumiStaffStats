@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/archive/archive-manifest-v1.json",
+  "title": "Archive manifest v1",
+  "description": "Strict, immutable snapshot provenance. The manifest intentionally has no manifestDigest field.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifestSchemaVersion",
+    "sqliteSchemaVersion",
+    "dataVersionAlgorithm",
+    "dataVersion",
+    "generatorVersion",
+    "generatedAt",
+    "archiveRelease",
+    "archiveAssetUrl",
+    "archiveAssetName",
+    "archiveSize",
+    "archiveDigest",
+    "commonCommit",
+    "commonSubjectStaffsUrl",
+    "commonSize",
+    "commonDigest",
+    "schemaSqlDigest",
+    "catalogConfigDigest",
+    "domainRulesVersion",
+    "castRulesVersion",
+    "sourceFiles",
+    "tableCounts",
+    "qualitySummary",
+    "sqliteFile",
+    "sqliteSize",
+    "sqliteDigest"
+  ],
+  "properties": {
+    "manifestSchemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "sqliteSchemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "dataVersionAlgorithm": {
+      "$ref": "#/$defs/token"
+    },
+    "dataVersion": {
+      "$ref": "#/$defs/dataVersion"
+    },
+    "generatorVersion": {
+      "$ref": "#/$defs/token"
+    },
+    "generatedAt": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 32,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$",
+      "format": "bgmss-utc-generated-at-v1"
+    },
+    "archiveRelease": {
+      "$ref": "#/$defs/token"
+    },
+    "archiveAssetUrl": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 2048,
+      "pattern": "^https://[^\\u0000\\r\\n]+$",
+      "format": "bgmss-unicode-scalar-url-v1"
+    },
+    "archiveAssetName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "archiveSize": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "archiveDigest": {
+      "$ref": "#/$defs/digest"
+    },
+    "commonCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "commonSubjectStaffsUrl": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 2048,
+      "pattern": "^https://[^\\u0000\\r\\n]+/subject_staffs\\.yml$",
+      "format": "bgmss-unicode-scalar-url-v1"
+    },
+    "commonSize": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "commonDigest": {
+      "$ref": "#/$defs/digest"
+    },
+    "schemaSqlDigest": {
+      "$ref": "#/$defs/digest"
+    },
+    "catalogConfigDigest": {
+      "$ref": "#/$defs/digest"
+    },
+    "domainRulesVersion": {
+      "$ref": "#/$defs/token"
+    },
+    "castRulesVersion": {
+      "$ref": "#/$defs/token"
+    },
+    "sourceFiles": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/sourceFile"
+      }
+    },
+    "tableCounts": {
+      "$ref": "#/$defs/tableCounts"
+    },
+    "qualitySummary": {
+      "$ref": "#/$defs/qualitySummary"
+    },
+    "sqliteFile": {
+      "type": "string",
+      "const": "bangumi.sqlite"
+    },
+    "sqliteSize": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "sqliteDigest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "dataVersion": {
+      "type": "string",
+      "pattern": "^dv1-[0-9a-f]{64}$"
+    },
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "sourceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "size",
+        "digest",
+        "recordsTotal",
+        "imported",
+        "duplicate",
+        "invalid",
+        "unresolved"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "subject.jsonlines",
+            "person.jsonlines",
+            "character.jsonlines",
+            "subject-persons.jsonlines",
+            "subject-characters.jsonlines",
+            "person-characters.jsonlines",
+            "subject-relations.jsonlines"
+          ]
+        },
+        "size": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "recordsTotal": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "imported": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "duplicate": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "invalid": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "unresolved": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "tableCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_meta",
+        "subject",
+        "subject_rating_bucket",
+        "subject_tag",
+        "person",
+        "person_career",
+        "character",
+        "subject_relation",
+        "staff_position",
+        "staff_position_category",
+        "staff_credit",
+        "cast_credit",
+        "staff_set",
+        "staff_set_member",
+        "catalog_position",
+        "catalog_position_member",
+        "catalog_group",
+        "catalog_group_member",
+        "catalog_capability",
+        "catalog_selection_rule"
+      ],
+      "properties": {
+        "archive_meta": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "subject": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "subject_rating_bucket": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "subject_tag": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "person": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "person_career": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "character": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "subject_relation": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "staff_position": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "staff_position_category": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "staff_credit": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "cast_credit": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "staff_set": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "staff_set_member": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "catalog_position": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "catalog_position_member": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "catalog_group": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "catalog_group_member": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "catalog_capability": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "catalog_selection_rule": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "qualitySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "NO_CHARACTERS",
+        "NO_CAST_RELATIONS",
+        "FILTERED_BY_VALID_CV",
+        "UNKNOWN_STAFF_POSITION"
+      ],
+      "properties": {
+        "NO_CHARACTERS": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "NO_CAST_RELATIONS": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "FILTERED_BY_VALID_CV": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "UNKNOWN_STAFF_POSITION": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    }
+  }
+}

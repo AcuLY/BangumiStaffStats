@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/archive/fixture-index-v1.json",
+  "title": "Archive golden fixture index v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "indexSchemaVersion",
+    "files"
+  ],
+  "properties": {
+    "indexSchemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/file"
+      }
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "digest",
+        "caseId",
+        "validationStage",
+        "expected"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?/)(?!.*\\\\)(?!.*%2[eEfF]|%5[cC]|%2[fF])[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "caseId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "validationStage": {
+          "type": "string",
+          "enum": [
+            "valid",
+            "json-schema",
+            "source-accounting",
+            "compatibility",
+            "data-version",
+            "identity-path",
+            "file-integrity",
+            "sqlite-digest",
+            "sqlite-format",
+            "sqlite-identity",
+            "sqlite-required-objects",
+            "sqlite-table-count"
+          ]
+        },
+        "expected": {
+          "type": "string",
+          "enum": [
+            "VALID",
+            "MANIFEST_SCHEMA_INVALID",
+            "MANIFEST_ACCOUNTING_INVALID",
+            "POINTER_SCHEMA_INVALID",
+            "ARCHIVE_VERSION_UNSUPPORTED",
+            "DATA_VERSION_MISMATCH",
+            "SQLITE_DIGEST_MISMATCH",
+            "SQLITE_FORMAT_INVALID",
+            "SQLITE_DATA_VERSION_MISMATCH",
+            "SQLITE_REQUIRED_OBJECT_MISSING",
+            "SQLITE_TABLE_COUNT_MISMATCH"
+          ]
+        }
+      }
+    }
+  }
+}

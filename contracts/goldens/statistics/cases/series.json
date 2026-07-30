@@ -1,0 +1,248 @@
+{
+  "schemaVersion": 1,
+  "caseKind": "series",
+  "sourceNumberNormalization": "finite-json-number-to-shortest-decimal-before-exact-arithmetic",
+  "cases": [
+    {
+      "id": "series-relation-boundary-matrix",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-series-002"],
+      "coverage": ["all-merge-relation-ids", "all-non-merge-relation-ids", "same-type-only", "invalid-missing-cross-type-fallback"],
+      "input": {
+        "variants": [
+          {"variantId": "relation-2", "relationId": 2, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "relation-3", "relationId": 3, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "relation-4", "relationId": 4, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "relation-5", "relationId": 5, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "relation-6", "relationId": 6, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "relation-9", "relationId": 9, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "relation-10", "relationId": 10, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "relation-11", "relationId": 11, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "relation-12", "relationId": 12, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "relation-1", "relationId": 1, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "relation-7", "relationId": 7, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "relation-8", "relationId": 8, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "relation-14", "relationId": 14, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "relation-99", "relationId": 99, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "book-book-relation-2", "relationId": 2, "sourceType": "book", "targetType": "book", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "cross-type", "relationId": 2, "sourceType": "anime", "targetType": "book", "sourceId": 101, "targetId": 102, "targetExists": true},
+          {"variantId": "missing-target", "relationId": 2, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": 999, "targetExists": false},
+          {"variantId": "invalid-source", "relationId": 2, "sourceType": "anime", "targetType": "anime", "sourceId": 0, "targetId": 102, "targetExists": true},
+          {"variantId": "invalid-target", "relationId": 2, "sourceType": "anime", "targetType": "anime", "sourceId": 101, "targetId": -2, "targetExists": false},
+          {"variantId": "unknown-source", "relationId": 2, "sourceType": "anime", "targetType": "anime", "sourceId": 998, "targetId": 102, "sourceExists": false, "targetExists": true}
+        ]
+      },
+      "expected": {
+        "mergedVariantIds": ["relation-10", "relation-11", "relation-12", "relation-2", "relation-3", "relation-4", "relation-5", "relation-6", "relation-9"],
+        "singletonVariantIds": ["book-book-relation-2", "cross-type", "invalid-source", "invalid-target", "missing-target", "relation-1", "relation-14", "relation-7", "relation-8", "relation-99", "unknown-source"]
+      }
+    },
+    {
+      "id": "series-transitive-minimum-id",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-series-002"],
+      "coverage": ["transitive-membership", "minimum-positive-series-id", "shuffled-relations", "disconnected-singleton"],
+      "input": {
+        "subjects": [
+          {"subjectId": 30, "subjectType": "anime"},
+          {"subjectId": 10, "subjectType": "anime"},
+          {"subjectId": 40, "subjectType": "anime"},
+          {"subjectId": 20, "subjectType": "anime"}
+        ],
+        "relations": [
+          {"sourceId": 30, "targetId": 20, "relationId": 2},
+          {"sourceId": 20, "targetId": 10, "relationId": 3}
+        ],
+        "shuffledRelationOrders": [[1, 0], [0, 1]]
+      },
+      "expected": {
+        "components": [
+          {"seriesId": 10, "memberIds": [10, 20, 30]},
+          {"seriesId": 40, "memberIds": [40]}
+        ]
+      }
+    },
+    {
+      "id": "series-sequel-weight-matrix",
+      "behaviorClass": "PRESERVE_ORACLE",
+      "authorityRefs": ["oracle-644b7748"],
+      "coverage": ["all-sequel-weight-relation-ids", "versioned-sequel-rule"],
+      "input": {
+        "ruleVersion": "sequel-order-v1",
+        "relationIds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 99],
+        "sameType": "anime",
+        "crossTypeProbes": [
+          {"probeId": "positive-negative-cross-type", "relationId": 3, "sourceType": "anime", "targetType": "book"},
+          {"probeId": "neutral-cross-type", "relationId": 9, "sourceType": "anime", "targetType": "book"}
+        ]
+      },
+      "expected": {
+        "weights": [
+          {"relationId": 1, "source": 5, "target": -5},
+          {"relationId": 2, "source": -5, "target": 5},
+          {"relationId": 3, "source": 5, "target": -5},
+          {"relationId": 4, "source": 5, "target": -5},
+          {"relationId": 5, "source": -5, "target": 5},
+          {"relationId": 6, "source": 5, "target": -5},
+          {"relationId": 7, "source": 1, "target": 1},
+          {"relationId": 8, "source": 1, "target": 1},
+          {"relationId": 9, "source": 1, "target": 1},
+          {"relationId": 10, "source": 1, "target": 1},
+          {"relationId": 11, "source": 5, "target": -5},
+          {"relationId": 12, "source": -5, "target": 5},
+          {"relationId": 14, "source": 1, "target": 1},
+          {"relationId": 99, "source": 1, "target": 1}
+        ],
+        "crossTypeWeights": [
+          {"probeId": "positive-negative-cross-type", "source": 0, "target": 0},
+          {"probeId": "neutral-cross-type", "source": 1, "target": 1}
+        ]
+      }
+    },
+    {
+      "id": "series-sequel-order-representative",
+      "behaviorClass": "PRESERVE_ORACLE",
+      "authorityRefs": ["oracle-644b7748"],
+      "coverage": ["sequel-score-order", "representative", "sequel-order-index", "first-two-swap", "partial-date-order", "missing-date-last"],
+      "input": {
+        "components": [
+          {
+            "seriesId": 10,
+            "subjects": [
+              {"subjectId": 10, "date": "2021-01"},
+              {"subjectId": 20, "date": "2020-01"},
+              {"subjectId": 30, "date": null}
+            ],
+            "relations": [
+              {"sourceId": 10, "targetId": 20, "relationId": 2},
+              {"sourceId": 20, "targetId": 30, "relationId": 3}
+            ]
+          },
+          {
+            "seriesId": 40,
+            "subjects": [
+              {"subjectId": 40, "date": "2021-01"},
+              {"subjectId": 50, "date": "2020-01"}
+            ],
+            "relations": [
+              {"sourceId": 40, "targetId": 50, "relationId": 3},
+              {"sourceId": 40, "targetId": 50, "relationId": 9}
+            ]
+          },
+          {
+            "seriesId": 60,
+            "subjects": [
+              {"subjectId": 60, "date": "2020"},
+              {"subjectId": 70, "date": "2020-01"}
+            ],
+            "relations": [{"sourceId": 60, "targetId": 70, "relationId": 9}]
+          }
+        ]
+      },
+      "expected": {
+        "components": [
+          {
+            "seriesId": 10,
+            "memberScores": [{"subjectId": 10, "score": -5}, {"subjectId": 20, "score": 10}, {"subjectId": 30, "score": -5}],
+            "memberIds": [20, 10, 30],
+            "representativeId": 20,
+            "sequelOrder": [{"subjectId": 20, "order": 0}, {"subjectId": 10, "order": 1}, {"subjectId": 30, "order": 2}]
+          },
+          {
+            "seriesId": 40,
+            "memberScores": [{"subjectId": 40, "score": 6}, {"subjectId": 50, "score": -4}],
+            "memberIds": [50, 40],
+            "representativeId": 50,
+            "sequelOrder": [{"subjectId": 50, "order": 0}, {"subjectId": 40, "order": 1}]
+          },
+          {
+            "seriesId": 60,
+            "memberScores": [{"subjectId": 60, "score": 1}, {"subjectId": 70, "score": 1}],
+            "memberIds": [60, 70],
+            "representativeId": 60,
+            "sequelOrder": [{"subjectId": 60, "order": 0}, {"subjectId": 70, "order": 1}]
+          }
+        ]
+      }
+    },
+    {
+      "id": "series-merge-disabled-subject-units",
+      "behaviorClass": "PRESERVE_ORACLE",
+      "authorityRefs": ["oracle-644b7748"],
+      "coverage": ["merge-series-false", "one-subject-per-unit"],
+      "input": {"mergeSeries": false, "rawSubjectIds": [10, 20], "knownComponent": [10, 20]},
+      "expected": {"unitKind": "subject", "unitIds": [10, 20], "unitCount": 2}
+    },
+    {
+      "id": "series-raw-intersection-before-merge",
+      "behaviorClass": "PRESERVE_ORACLE",
+      "authorityRefs": ["oracle-644b7748"],
+      "coverage": ["raw-subject-intersection-before-series", "no-inferred-cooperation"],
+      "input": {
+        "mergeSeries": true,
+        "personSubjectIds": [{"personId": 1, "subjectIds": [10]}, {"personId": 2, "subjectIds": [20]}],
+        "components": [{"seriesId": 10, "memberIds": [10, 20]}]
+      },
+      "expected": {"rawCommonSubjectIds": [], "commonSeriesIds": [], "unitCount": 0}
+    },
+    {
+      "id": "series-equal-weight-actual-participation",
+      "behaviorClass": "PRESERVE_ORACLE",
+      "authorityRefs": ["oracle-644b7748"],
+      "coverage": ["series-equal-weight", "complete-versus-matched-members", "actual-participation-only", "series-contribution-counts", "series-distribution", "series-timeline-empty"],
+      "input": {
+        "mergeSeries": true,
+        "units": [
+          {
+            "seriesId": 10,
+            "completeMemberIds": [10, 11, 12],
+            "matchedMembers": [
+              {
+                "subjectId": 10,
+                "rating": 10,
+                "contributions": [
+                  {"positionKey": "staff:anime:2", "kind": "staff", "subjectId": 10, "personId": 1, "positionId": 2},
+                  {"positionKey": "cast:anime:main", "kind": "cast", "subjectId": 10, "personId": 1, "characterId": 100, "roleType": 1, "sortOrder": 0}
+                ]
+              },
+              {
+                "subjectId": 11,
+                "rating": 8,
+                "contributions": [
+                  {"positionKey": "staff:anime:7", "kind": "staff", "subjectId": 11, "personId": 1, "positionId": 7}
+                ]
+              }
+            ]
+          },
+          {
+            "seriesId": 20,
+            "completeMemberIds": [20, 21, 22, 23],
+            "matchedMembers": [
+              {
+                "subjectId": 20,
+                "rating": 3,
+                "contributions": [
+                  {"positionKey": "staff:anime:3", "kind": "staff", "subjectId": 20, "personId": 1, "positionId": 3}
+                ]
+              },
+              {"subjectId": 21, "rating": null, "contributions": []}
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "unitKind": "series",
+        "unitCount": 2,
+        "ratedUnitCount": 2,
+        "units": [
+          {"seriesId": 10, "completeMemberIds": [10, 11, 12], "matchedMemberIds": [10, 11], "normalizedRatingHundredths": 900, "contributionCount": 3},
+          {"seriesId": 20, "completeMemberIds": [20, 21, 22, 23], "matchedMemberIds": [20, 21], "normalizedRatingHundredths": 300, "contributionCount": 1}
+        ],
+        "averageHundredths": 600,
+        "overallHundredths": 529,
+        "distribution": [0, 0, 1, 0, 0, 0, 0, 0, 1, 0],
+        "timeline": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "kind": "catalog-golden-index",
+  "files": [
+    {
+      "path": "cases/errors.json",
+      "sha256": "ff072e7ffad9fdfe874b6638830ddcbe499522850440caf9efed13347b8c2601",
+      "caseId": "catalog-error-matrix",
+      "kind": "error-cases",
+      "outcome": "closed-error-envelopes"
+    },
+    {
+      "path": "cases/invalid.json",
+      "sha256": "3e5f4853ef99b289b2e4df241a897b45e072b92269d73d85191990d8596068d6",
+      "caseId": "catalog-invalid-matrix",
+      "kind": "invalid-cases",
+      "outcome": "strict-rejection"
+    },
+    {
+      "path": "cases/success-empty.json",
+      "sha256": "86528455c8ec1ea69bc50fee336581740be6f2a96db795921c66726bee9e1051",
+      "caseId": "five-type-empty-staff-sets",
+      "kind": "success-case",
+      "outcome": "200-valid-dormant"
+    },
+    {
+      "path": "cases/success-synthetic.json",
+      "sha256": "17832d3fa5f41ebc9dd35d092b0189b4915ac0f0b44b9c25c0e9ca2b36fe1479",
+      "caseId": "synthetic-anime-staff-set",
+      "kind": "derived-success-case",
+      "outcome": "200-valid-synthetic"
+    },
+    {
+      "path": "generation.json",
+      "sha256": "9c0e6a91c61e1abce5711c2fb37b60953e563f29fd3d182f941571b6fe9752e6",
+      "caseId": "catalog-generation-evidence",
+      "kind": "generation-authority",
+      "outcome": "deterministic-compile"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "d40177fbab412e2f89a555cefb176c551b27fabf338ee9da5cbc4a6a4374d1e3",
+      "caseId": "catalog-tool-lock",
+      "kind": "tool-authority",
+      "outcome": "exact-install"
+    },
+    {
+      "path": "package.json",
+      "sha256": "9b82b3a332097a3932d54d6e0e5b70703d351eb2de231bc4f064c387f78550c8",
+      "caseId": "catalog-tool-manifest",
+      "kind": "tool-authority",
+      "outcome": "exact-commands"
+    },
+    {
+      "path": "verify.mjs",
+      "sha256": "a3844e3d0505ba341addbc255444d17ad6d474f7d315e3acb90e38b2f2a0c67f",
+      "caseId": "catalog-strict-verifier",
+      "kind": "verification-authority",
+      "outcome": "fail-closed"
+    }
+  ]
+}

@@ -1,0 +1,1511 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.local/schemas/person-detail/success-envelope-v1.schema.json",
+  "title": "PersonDetailSuccessEnvelopeV1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/GlobalWorksEnvelopeV1"
+    },
+    {
+      "$ref": "#/$defs/GlobalCharactersEnvelopeV1"
+    },
+    {
+      "$ref": "#/$defs/PersonalWorksEnvelopeV1"
+    },
+    {
+      "$ref": "#/$defs/PersonalCharactersEnvelopeV1"
+    }
+  ],
+  "$defs": {
+    "JsonSafeNonNegativeIntegerV1": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "JsonSafePositiveIntegerV1": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "OpaqueIdentifierV1": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "PersonDetailPositionKeyV1": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "DataVersionV1": {
+      "type": "string",
+      "minLength": 68,
+      "maxLength": 68,
+      "pattern": "^dv1-[0-9a-f]{64}$"
+    },
+    "HundredthsV1": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "NullableHundredthsV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HundredthsV1"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "CanonicalIntegerStringV1": {
+      "type": "string",
+      "pattern": "^(?:0|-?[1-9][0-9]*)$",
+      "maxLength": 4096
+    },
+    "CanonicalPositiveIntegerStringV1": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$",
+      "maxLength": 4096
+    },
+    "CanonicalNonNegativeIntegerStringV1": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)$",
+      "maxLength": 4096
+    },
+    "RationalV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "properties": {
+        "numerator": {
+          "$ref": "#/$defs/CanonicalIntegerStringV1"
+        },
+        "denominator": {
+          "$ref": "#/$defs/CanonicalPositiveIntegerStringV1"
+        }
+      }
+    },
+    "NullableRationalV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RationalV1"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "NonNegativeRationalV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "properties": {
+        "numerator": {
+          "$ref": "#/$defs/CanonicalNonNegativeIntegerStringV1"
+        },
+        "denominator": {
+          "$ref": "#/$defs/CanonicalPositiveIntegerStringV1"
+        }
+      }
+    },
+    "PersonV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "nameCN",
+        "careers"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "nameCN": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "careers": {
+          "type": "array",
+          "maxItems": 7,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "producer",
+              "mangaka",
+              "artist",
+              "seiyu",
+              "writer",
+              "illustrator",
+              "actor"
+            ]
+          }
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        }
+      }
+    },
+    "SubjectReferenceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "nameCN",
+        "date"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "nameCN": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "date": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12][0-9]|3[01]))?)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "CharacterReferenceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "name",
+        "nameCN"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/OpaqueIdentifierV1"
+        },
+        "id": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "nameCN": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "SummaryV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workUnit",
+        "workCount"
+      ],
+      "properties": {
+        "workUnit": {
+          "type": "string",
+          "enum": [
+            "subject",
+            "series"
+          ]
+        },
+        "workCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "characterCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        }
+      }
+    },
+    "GlobalMetricsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ratedWorkCount",
+        "average",
+        "overall"
+      ],
+      "properties": {
+        "ratedWorkCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "average": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "overall": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        }
+      }
+    },
+    "PersonalMetricsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ratedWorkCount",
+        "average",
+        "overall",
+        "globalAverage",
+        "highest",
+        "lowest"
+      ],
+      "properties": {
+        "ratedWorkCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "average": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "overall": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "globalAverage": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "highest": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "lowest": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        }
+      }
+    },
+    "TagCountV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "count"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "count": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        }
+      }
+    },
+    "GlobalTagsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "meta",
+        "community"
+      ],
+      "properties": {
+        "meta": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/$defs/TagCountV1"
+          }
+        },
+        "community": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/TagCountV1"
+          }
+        }
+      }
+    },
+    "PersonalTagsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "meta",
+        "community",
+        "personal"
+      ],
+      "properties": {
+        "meta": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/$defs/TagCountV1"
+          }
+        },
+        "community": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/TagCountV1"
+          }
+        },
+        "personal": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/$defs/TagCountV1"
+          }
+        }
+      }
+    },
+    "UnitReferenceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key",
+        "id",
+        "name",
+        "nameCN"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "subject",
+            "series"
+          ]
+        },
+        "key": {
+          "$ref": "#/$defs/OpaqueIdentifierV1"
+        },
+        "id": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "nameCN": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "RatingBucketV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "score",
+        "count",
+        "examples",
+        "hiddenCount"
+      ],
+      "properties": {
+        "score": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "count": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "examples": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/UnitReferenceV1"
+          }
+        },
+        "hiddenCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        }
+      }
+    },
+    "RatingTimelinePointV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "year",
+        "quarter",
+        "average",
+        "count"
+      ],
+      "properties": {
+        "year": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9999
+        },
+        "quarter": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "average": {
+          "$ref": "#/$defs/HundredthsV1"
+        },
+        "count": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        }
+      }
+    },
+    "RatingDistributionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "validCount",
+        "average",
+        "buckets",
+        "timeline"
+      ],
+      "properties": {
+        "validCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "average": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "buckets": {
+          "type": "array",
+          "minItems": 10,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/RatingBucketV1"
+          }
+        },
+        "timeline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RatingTimelinePointV1"
+          }
+        }
+      }
+    },
+    "GlobalRatingsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "global"
+      ],
+      "properties": {
+        "global": {
+          "$ref": "#/$defs/RatingDistributionV1"
+        }
+      }
+    },
+    "PersonalRatingsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "global",
+        "personal"
+      ],
+      "properties": {
+        "global": {
+          "$ref": "#/$defs/RatingDistributionV1"
+        },
+        "personal": {
+          "$ref": "#/$defs/RatingDistributionV1"
+        }
+      }
+    },
+    "PreferenceItemV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "personalScore",
+        "globalScore",
+        "differenceHundredths"
+      ],
+      "properties": {
+        "unit": {
+          "$ref": "#/$defs/UnitReferenceV1"
+        },
+        "personalScore": {
+          "$ref": "#/$defs/HundredthsV1"
+        },
+        "globalScore": {
+          "$ref": "#/$defs/HundredthsV1"
+        },
+        "differenceHundredths": {
+          "type": "integer",
+          "minimum": -1000,
+          "maximum": 1000
+        }
+      }
+    },
+    "PreferenceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "comparableCount",
+        "comparableSeriesCount",
+        "effectiveEvidence",
+        "mean",
+        "evidenceWeight",
+        "score",
+        "preferred",
+        "conservative"
+      ],
+      "properties": {
+        "comparableCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "comparableSeriesCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "effectiveEvidence": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "mean": {
+          "$ref": "#/$defs/NullableRationalV1"
+        },
+        "evidenceWeight": {
+          "$ref": "#/$defs/NonNegativeRationalV1"
+        },
+        "score": {
+          "$ref": "#/$defs/NullableRationalV1"
+        },
+        "preferred": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/PreferenceItemV1"
+          }
+        },
+        "conservative": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/PreferenceItemV1"
+          }
+        }
+      }
+    },
+    "StaffContributionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "positionKey",
+        "exactPositionKey",
+        "provenance"
+      ],
+      "properties": {
+        "kind": {
+          "const": "staff"
+        },
+        "positionKey": {
+          "$ref": "#/$defs/PersonDetailPositionKeyV1"
+        },
+        "exactPositionKey": {
+          "$ref": "#/$defs/PersonDetailPositionKeyV1"
+        },
+        "provenance": {
+          "const": "exact"
+        }
+      }
+    },
+    "CastContributionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "positionKey",
+        "character",
+        "roleType",
+        "roleLabel",
+        "provenance"
+      ],
+      "properties": {
+        "kind": {
+          "const": "cast"
+        },
+        "positionKey": {
+          "$ref": "#/$defs/PersonDetailPositionKeyV1"
+        },
+        "character": {
+          "$ref": "#/$defs/CharacterReferenceV1"
+        },
+        "roleType": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "roleLabel": {
+          "type": "string",
+          "enum": [
+            "主役",
+            "配角",
+            "客串",
+            "其他"
+          ]
+        },
+        "provenance": {
+          "const": "exact"
+        }
+      }
+    },
+    "ContributionV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/StaffContributionV1"
+        },
+        {
+          "$ref": "#/$defs/CastContributionV1"
+        }
+      ]
+    },
+    "SeriesStaffContributionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "positionKey",
+        "exactPositionKey",
+        "provenance",
+        "workCount"
+      ],
+      "properties": {
+        "kind": {
+          "const": "staff"
+        },
+        "positionKey": {
+          "$ref": "#/$defs/PersonDetailPositionKeyV1"
+        },
+        "exactPositionKey": {
+          "$ref": "#/$defs/PersonDetailPositionKeyV1"
+        },
+        "provenance": {
+          "const": "exact"
+        },
+        "workCount": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        }
+      }
+    },
+    "SeriesCastContributionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "positionKey",
+        "character",
+        "roleType",
+        "roleLabel",
+        "provenance",
+        "workCount"
+      ],
+      "properties": {
+        "kind": {
+          "const": "cast"
+        },
+        "positionKey": {
+          "$ref": "#/$defs/PersonDetailPositionKeyV1"
+        },
+        "character": {
+          "$ref": "#/$defs/CharacterReferenceV1"
+        },
+        "roleType": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "roleLabel": {
+          "type": "string",
+          "enum": [
+            "主役",
+            "配角",
+            "客串",
+            "其他"
+          ]
+        },
+        "provenance": {
+          "const": "exact"
+        },
+        "workCount": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        }
+      }
+    },
+    "SeriesContributionV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/SeriesStaffContributionV1"
+        },
+        {
+          "$ref": "#/$defs/SeriesCastContributionV1"
+        }
+      ]
+    },
+    "CollectionEvidenceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "score",
+        "updatedAt"
+      ],
+      "properties": {
+        "score": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "updatedAt": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "SeriesMemberV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "nameCN",
+        "date",
+        "matched"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "nameCN": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "date": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12][0-9]|3[01]))?)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "matched": {
+          "type": "boolean"
+        }
+      }
+    },
+    "GlobalSubjectWorkV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key",
+        "subject",
+        "metaTags",
+        "globalScore",
+        "contributions"
+      ],
+      "properties": {
+        "kind": {
+          "const": "subject"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^subject:[1-9][0-9]*$"
+        },
+        "subject": {
+          "$ref": "#/$defs/SubjectReferenceV1"
+        },
+        "metaTags": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "globalScore": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "contributions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ContributionV1"
+          }
+        }
+      }
+    },
+    "PersonalSubjectWorkV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key",
+        "subject",
+        "metaTags",
+        "globalScore",
+        "personal",
+        "contributions"
+      ],
+      "properties": {
+        "kind": {
+          "const": "subject"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^subject:[1-9][0-9]*$"
+        },
+        "subject": {
+          "$ref": "#/$defs/SubjectReferenceV1"
+        },
+        "metaTags": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "globalScore": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "personal": {
+          "$ref": "#/$defs/CollectionEvidenceV1"
+        },
+        "contributions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ContributionV1"
+          }
+        }
+      }
+    },
+    "GlobalSeriesWorkV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key",
+        "seriesId",
+        "representative",
+        "matchedWorkCount",
+        "memberCount",
+        "members",
+        "globalScore",
+        "contributions"
+      ],
+      "properties": {
+        "kind": {
+          "const": "series"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^series:[1-9][0-9]*$"
+        },
+        "seriesId": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "representative": {
+          "$ref": "#/$defs/SubjectReferenceV1"
+        },
+        "matchedWorkCount": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "memberCount": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/SeriesMemberV1"
+          }
+        },
+        "globalScore": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "contributions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/SeriesContributionV1"
+          }
+        }
+      }
+    },
+    "PersonalSeriesWorkV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key",
+        "seriesId",
+        "representative",
+        "matchedWorkCount",
+        "memberCount",
+        "members",
+        "globalScore",
+        "personalScore",
+        "latestCollectionUpdatedAt",
+        "contributions"
+      ],
+      "properties": {
+        "kind": {
+          "const": "series"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^series:[1-9][0-9]*$"
+        },
+        "seriesId": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "representative": {
+          "$ref": "#/$defs/SubjectReferenceV1"
+        },
+        "matchedWorkCount": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "memberCount": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/SeriesMemberV1"
+          }
+        },
+        "globalScore": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "personalScore": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "latestCollectionUpdatedAt": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "contributions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/SeriesContributionV1"
+          }
+        }
+      }
+    },
+    "GlobalWorkItemV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/GlobalSubjectWorkV1"
+        },
+        {
+          "$ref": "#/$defs/GlobalSeriesWorkV1"
+        }
+      ]
+    },
+    "PersonalWorkItemV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/PersonalSubjectWorkV1"
+        },
+        {
+          "$ref": "#/$defs/PersonalSeriesWorkV1"
+        }
+      ]
+    },
+    "CharacterAppearanceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "roleType",
+        "roleLabel",
+        "positionKeys"
+      ],
+      "properties": {
+        "subject": {
+          "$ref": "#/$defs/SubjectReferenceV1"
+        },
+        "roleType": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "roleLabel": {
+          "type": "string",
+          "enum": [
+            "主役",
+            "配角",
+            "客串",
+            "其他"
+          ]
+        },
+        "positionKeys": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/PersonDetailPositionKeyV1"
+          }
+        }
+      }
+    },
+    "CharacterItemV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "character",
+        "primaryRole",
+        "roleLabel",
+        "workCount",
+        "appearances"
+      ],
+      "properties": {
+        "character": {
+          "$ref": "#/$defs/CharacterReferenceV1"
+        },
+        "primaryRole": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "roleLabel": {
+          "type": "string",
+          "enum": [
+            "主役",
+            "配角",
+            "客串",
+            "其他"
+          ]
+        },
+        "workCount": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "appearances": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/CharacterAppearanceV1"
+          }
+        }
+      }
+    },
+    "GlobalWorksDataV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "person",
+        "summary",
+        "metrics",
+        "tags",
+        "ratings",
+        "section",
+        "items"
+      ],
+      "properties": {
+        "person": {
+          "$ref": "#/$defs/PersonV1"
+        },
+        "summary": {
+          "$ref": "#/$defs/SummaryV1"
+        },
+        "metrics": {
+          "$ref": "#/$defs/GlobalMetricsV1"
+        },
+        "tags": {
+          "$ref": "#/$defs/GlobalTagsV1"
+        },
+        "ratings": {
+          "$ref": "#/$defs/GlobalRatingsV1"
+        },
+        "section": {
+          "const": "works"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/GlobalWorkItemV1"
+          }
+        }
+      }
+    },
+    "GlobalCharactersDataV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "person",
+        "summary",
+        "metrics",
+        "tags",
+        "ratings",
+        "section",
+        "items"
+      ],
+      "properties": {
+        "person": {
+          "$ref": "#/$defs/PersonV1"
+        },
+        "summary": {
+          "$ref": "#/$defs/SummaryV1"
+        },
+        "metrics": {
+          "$ref": "#/$defs/GlobalMetricsV1"
+        },
+        "tags": {
+          "$ref": "#/$defs/GlobalTagsV1"
+        },
+        "ratings": {
+          "$ref": "#/$defs/GlobalRatingsV1"
+        },
+        "section": {
+          "const": "characters"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/CharacterItemV1"
+          }
+        }
+      }
+    },
+    "PersonalWorksDataV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "person",
+        "summary",
+        "metrics",
+        "tags",
+        "ratings",
+        "preference",
+        "section",
+        "items"
+      ],
+      "properties": {
+        "person": {
+          "$ref": "#/$defs/PersonV1"
+        },
+        "summary": {
+          "$ref": "#/$defs/SummaryV1"
+        },
+        "metrics": {
+          "$ref": "#/$defs/PersonalMetricsV1"
+        },
+        "tags": {
+          "$ref": "#/$defs/PersonalTagsV1"
+        },
+        "ratings": {
+          "$ref": "#/$defs/PersonalRatingsV1"
+        },
+        "preference": {
+          "$ref": "#/$defs/PreferenceV1"
+        },
+        "section": {
+          "const": "works"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/PersonalWorkItemV1"
+          }
+        }
+      }
+    },
+    "PersonalCharactersDataV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "person",
+        "summary",
+        "metrics",
+        "tags",
+        "ratings",
+        "preference",
+        "section",
+        "items"
+      ],
+      "properties": {
+        "person": {
+          "$ref": "#/$defs/PersonV1"
+        },
+        "summary": {
+          "$ref": "#/$defs/SummaryV1"
+        },
+        "metrics": {
+          "$ref": "#/$defs/PersonalMetricsV1"
+        },
+        "tags": {
+          "$ref": "#/$defs/PersonalTagsV1"
+        },
+        "ratings": {
+          "$ref": "#/$defs/PersonalRatingsV1"
+        },
+        "preference": {
+          "$ref": "#/$defs/PreferenceV1"
+        },
+        "section": {
+          "const": "characters"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/CharacterItemV1"
+          }
+        }
+      }
+    },
+    "PaginationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "properties": {
+        "page": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "pageSize": {
+          "type": "integer",
+          "enum": [
+            5,
+            10,
+            20
+          ]
+        },
+        "total": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        }
+      }
+    },
+    "CollectionFreshnessV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fetchedAt",
+        "stale",
+        "warningCodes"
+      ],
+      "properties": {
+        "fetchedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stale": {
+          "type": "boolean"
+        },
+        "warningCodes": {
+          "type": "array",
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "const": "COLLECTION_STALE"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "stale": {
+                "const": true
+              }
+            },
+            "required": [
+              "stale"
+            ]
+          },
+          "then": {
+            "properties": {
+              "warningCodes": {
+                "const": [
+                  "COLLECTION_STALE"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "warningCodes": {
+                "const": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    "GlobalMetaV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "dataVersion",
+        "pagination"
+      ],
+      "properties": {
+        "requestId": {
+          "$ref": "#/$defs/OpaqueIdentifierV1"
+        },
+        "dataVersion": {
+          "$ref": "#/$defs/DataVersionV1"
+        },
+        "pagination": {
+          "$ref": "#/$defs/PaginationV1"
+        }
+      }
+    },
+    "PersonalMetaV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "dataVersion",
+        "pagination",
+        "collection"
+      ],
+      "properties": {
+        "requestId": {
+          "$ref": "#/$defs/OpaqueIdentifierV1"
+        },
+        "dataVersion": {
+          "$ref": "#/$defs/DataVersionV1"
+        },
+        "pagination": {
+          "$ref": "#/$defs/PaginationV1"
+        },
+        "collection": {
+          "$ref": "#/$defs/CollectionFreshnessV1"
+        }
+      }
+    },
+    "GlobalWorksEnvelopeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data",
+        "meta"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/GlobalWorksDataV1"
+        },
+        "meta": {
+          "$ref": "#/$defs/GlobalMetaV1"
+        }
+      }
+    },
+    "GlobalCharactersEnvelopeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data",
+        "meta"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/GlobalCharactersDataV1"
+        },
+        "meta": {
+          "$ref": "#/$defs/GlobalMetaV1"
+        }
+      }
+    },
+    "PersonalWorksEnvelopeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data",
+        "meta"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/PersonalWorksDataV1"
+        },
+        "meta": {
+          "$ref": "#/$defs/PersonalMetaV1"
+        }
+      }
+    },
+    "PersonalCharactersEnvelopeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data",
+        "meta"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/PersonalCharactersDataV1"
+        },
+        "meta": {
+          "$ref": "#/$defs/PersonalMetaV1"
+        }
+      }
+    }
+  }
+}

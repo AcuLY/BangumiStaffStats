@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.local/schemas/query/operation-components-v1.schema.json",
+  "title": "OperationComponentsV1",
+  "allOf": [
+    {
+      "$ref": "#/$defs/RankingsViewV1"
+    }
+  ],
+  "$defs": {
+    "SearchTextV1": {
+      "type": "string",
+      "maxLength": 256,
+      "default": ""
+    },
+    "SortOrderV1": {
+      "type": "string",
+      "enum": [
+        "asc",
+        "desc"
+      ],
+      "default": "desc"
+    },
+    "PageV1": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991,
+      "default": 1
+    },
+    "PageSizeV1": {
+      "type": "integer",
+      "enum": [
+        5,
+        10,
+        20
+      ],
+      "default": 10
+    },
+    "RankingsViewV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "search": {
+          "$ref": "#/$defs/SearchTextV1"
+        },
+        "sort": {
+          "type": "string",
+          "enum": [
+            "count",
+            "average",
+            "overall",
+            "preference"
+          ],
+          "default": "count"
+        },
+        "order": {
+          "$ref": "#/$defs/SortOrderV1"
+        },
+        "page": {
+          "$ref": "#/$defs/PageV1"
+        },
+        "pageSize": {
+          "$ref": "#/$defs/PageSizeV1"
+        }
+      }
+    },
+    "CandidatesInputV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "positionKey"
+      ],
+      "properties": {
+        "positionKey": {
+          "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
+        }
+      }
+    },
+    "CandidatesViewV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "search": {
+          "$ref": "#/$defs/SearchTextV1"
+        },
+        "sort": {
+          "type": "string",
+          "enum": [
+            "count",
+            "average",
+            "globalAverage"
+          ],
+          "default": "count"
+        },
+        "order": {
+          "$ref": "#/$defs/SortOrderV1"
+        },
+        "page": {
+          "$ref": "#/$defs/PageV1"
+        },
+        "pageSize": {
+          "$ref": "#/$defs/PageSizeV1"
+        }
+      }
+    },
+    "PersonDetailInputV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "personId"
+      ],
+      "properties": {
+        "personId": {
+          "$ref": "shared-query-v1.schema.json#/$defs/JsonSafePositiveIntegerV1"
+        }
+      }
+    },
+    "PersonDetailViewV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "section": {
+          "type": "string",
+          "enum": [
+            "works",
+            "characters"
+          ],
+          "default": "works"
+        },
+        "search": {
+          "$ref": "#/$defs/SearchTextV1"
+        },
+        "sort": {
+          "type": "string",
+          "enum": [
+            "globalScore",
+            "personalScore",
+            "collectionUpdatedAt",
+            "seriesSize",
+            "role",
+            "workCount",
+            "name"
+          ]
+        },
+        "order": {
+          "$ref": "#/$defs/SortOrderV1"
+        },
+        "page": {
+          "$ref": "#/$defs/PageV1"
+        },
+        "pageSize": {
+          "$ref": "#/$defs/PageSizeV1"
+        }
+      }
+    },
+    "PersonIdentityV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "personId",
+        "positionKeys"
+      ],
+      "properties": {
+        "personId": {
+          "$ref": "shared-query-v1.schema.json#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "positionKeys": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
+          }
+        }
+      }
+    },
+    "PartnersInputV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/PersonIdentityV1"
+        },
+        "candidatePositionKey": {
+          "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
+        }
+      }
+    },
+    "PartnersViewV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "search": {
+          "$ref": "#/$defs/SearchTextV1"
+        },
+        "sort": {
+          "type": "string",
+          "enum": [
+            "count",
+            "average",
+            "overall",
+            "preference"
+          ],
+          "default": "count"
+        },
+        "order": {
+          "$ref": "#/$defs/SortOrderV1"
+        },
+        "page": {
+          "$ref": "#/$defs/PageV1"
+        },
+        "pageSize": {
+          "$ref": "#/$defs/PageSizeV1"
+        }
+      }
+    },
+    "CoStarInputV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participants"
+      ],
+      "properties": {
+        "participants": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/PersonIdentityV1"
+          }
+        }
+      }
+    },
+    "CoStarViewV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "search": {
+          "$ref": "#/$defs/SearchTextV1"
+        },
+        "sort": {
+          "type": "string",
+          "enum": [
+            "globalScore",
+            "personalScore",
+            "collectionUpdatedAt",
+            "seriesSize"
+          ]
+        },
+        "order": {
+          "$ref": "#/$defs/SortOrderV1"
+        },
+        "page": {
+          "$ref": "#/$defs/PageV1"
+        },
+        "pageSize": {
+          "$ref": "#/$defs/PageSizeV1"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "kind": "error-envelope",
+  "version": 1,
+  "cases": [
+    {
+      "id": "valid-upstream-timeout",
+      "envelope": {
+        "error": {
+          "code": "UPSTREAM_TIMEOUT",
+          "message": "上游请求超时",
+          "retryable": true,
+          "fieldErrors": {}
+        },
+        "meta": {
+          "requestId": "req_01",
+          "dataVersion": "snapshot-2026-07-24"
+        }
+      },
+      "logicKey": {
+        "code": "UPSTREAM_TIMEOUT",
+        "retryable": true,
+        "fieldErrors": {}
+      }
+    },
+    {
+      "id": "valid-field-error",
+      "envelope": {
+        "error": {
+          "code": "FIELD_INVALID",
+          "message": "请求字段不合法",
+          "retryable": false,
+          "fieldErrors": {
+            "/filters/globalScore/min": [
+              "OUT_OF_RANGE"
+            ],
+            "/positionKeys/0": [
+              "POSITION_NOT_SELECTABLE"
+            ]
+          }
+        },
+        "meta": {
+          "requestId": "req_02"
+        }
+      },
+      "logicKey": {
+        "code": "FIELD_INVALID",
+        "retryable": false,
+        "fieldErrors": {
+          "/filters/globalScore/min": [
+            "OUT_OF_RANGE"
+          ],
+          "/positionKeys/0": [
+            "POSITION_NOT_SELECTABLE"
+          ]
+        }
+      }
+    },
+    {
+      "id": "localized-message-invariant",
+      "sameLogicAs": "valid-upstream-timeout",
+      "envelope": {
+        "error": {
+          "code": "UPSTREAM_TIMEOUT",
+          "message": "The upstream request timed out.",
+          "retryable": true,
+          "fieldErrors": {}
+        },
+        "meta": {
+          "requestId": "req_03"
+        }
+      },
+      "logicKey": {
+        "code": "UPSTREAM_TIMEOUT",
+        "retryable": true,
+        "fieldErrors": {}
+      }
+    }
+  ],
+  "negativeCases": [
+    {
+      "id": "error-unknown-code",
+      "envelope": {
+        "error": {
+          "code": "SOMETHING_NEW",
+          "message": "x",
+          "retryable": false,
+          "fieldErrors": {}
+        },
+        "meta": {
+          "requestId": "req"
+        }
+      }
+    },
+    {
+      "id": "error-empty-field-code-list",
+      "envelope": {
+        "error": {
+          "code": "FIELD_INVALID",
+          "message": "x",
+          "retryable": false,
+          "fieldErrors": {
+            "/uid": []
+          }
+        },
+        "meta": {
+          "requestId": "req"
+        }
+      }
+    },
+    {
+      "id": "error-unsafe-field-path",
+      "envelope": {
+        "error": {
+          "code": "FIELD_INVALID",
+          "message": "x",
+          "retryable": false,
+          "fieldErrors": {
+            "../uid": [
+              "INVALID_FORMAT"
+            ]
+          }
+        },
+        "meta": {
+          "requestId": "req"
+        }
+      }
+    },
+    {
+      "id": "error-unknown-field-path",
+      "envelope": {
+        "error": {
+          "code": "FIELD_INVALID",
+          "message": "x",
+          "retryable": false,
+          "fieldErrors": {
+            "/somethingElse": [
+              "INVALID_FORMAT"
+            ]
+          }
+        },
+        "meta": {
+          "requestId": "req"
+        }
+      }
+    },
+    {
+      "id": "error-missing-request-id",
+      "envelope": {
+        "error": {
+          "code": "INTERNAL_ERROR",
+          "message": "x",
+          "retryable": false,
+          "fieldErrors": {}
+        },
+        "meta": {}
+      }
+    },
+    {
+      "id": "error-success-lookalike",
+      "envelope": {
+        "error": {
+          "code": "INTERNAL_ERROR",
+          "message": "x",
+          "retryable": false,
+          "fieldErrors": {}
+        },
+        "meta": {
+          "requestId": "req"
+        },
+        "success": false
+      }
+    }
+  ]
+}

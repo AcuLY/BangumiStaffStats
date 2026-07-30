@@ -1,0 +1,55 @@
+schemaVersion: 1
+capabilityRules:
+  - subjectType: book
+    positionKind: staff
+    capabilities: [rankings, candidates, personDetail, partners, coStar]
+  - subjectType: anime
+    positionKind: staff
+    capabilities: [rankings, candidates, personDetail, partners, coStar]
+  - subjectType: music
+    positionKind: staff
+    capabilities: [rankings, candidates, personDetail, partners, coStar]
+  - subjectType: game
+    positionKind: staff
+    capabilities: [rankings, candidates, personDetail, partners, coStar]
+  - subjectType: real
+    positionKind: staff
+    capabilities: [rankings, candidates, personDetail, partners, coStar]
+  - subjectType: anime
+    positionKind: cast
+    capabilities: [rankings, candidates, personDetail, partners, coStar]
+  - subjectType: game
+    positionKind: cast
+    capabilities: [rankings, candidates, personDetail, partners, coStar]
+featuredGroups:
+  - subjectType: anime
+    label: 常用职位
+    positionKeys:
+      - staff:anime:2
+      - staff:anime:67
+      - cast:anime:main
+      - cast:anime:all
+      - staff:anime:3
+      - staff:anime:10
+      - staff:anime:74
+      - staff:anime:1
+      - staff:anime:5
+      - staff:anime:4
+  - subjectType: game
+    label: 常用职位
+    positionKeys:
+      - staff:game:1004
+      - staff:game:1001
+      - cast:game:all
+      - cast:game:main
+      - staff:game:1013
+castGroups:
+  - subjectType: anime
+    label: 配音类
+    anchorCategoryKey: music
+    positionKeys: [cast:anime:main, cast:anime:all]
+  - subjectType: game
+    label: 配音类
+    anchorCategoryKey: music
+    positionKeys: [cast:game:main, cast:game:all]
+additionalDisplayGroups: []

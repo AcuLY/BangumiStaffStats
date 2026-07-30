@@ -1,0 +1,702 @@
+package httpapi
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/imageproxy"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/observability"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo"
+)
+
+const readinessProbeTimeout = time.Second
+
+const (
+	routeLivez   = "/livez"
+	routeReadyz  = "/readyz"
+	routeMetrics = "/metrics"
+	routeImages  = "/api/v1/images/bangumi/"
+)
+
+// ReadinessProbe performs the sole fixed published-Archive identity query.
+type ReadinessProbe func(context.Context) (string, error)
+
+type imageFetcher interface {
+	Fetch(context.Context, imageproxy.Request) (*imageproxy.Response, error)
+}
+
+type routeHandler struct {
+	readiness    ReadinessProbe
+	metrics      *observability.Registry
+	images       imageFetcher
+	events       *observability.EventSink
+	catalogs     CatalogStoreProvider
+	project      catalogProjector
+	rankings     rankingsExecutor
+	candidates   candidatesExecutor
+	personDetail personDetailExecutor
+	partners     partnersExecutor
+	coStar       coStarExecutor
+}
+
+// RuntimeObservability owns the HTTP registry, typed event sink, and configured
+// image client while keeping the application package dependent only on httpapi.
+type RuntimeObservability struct {
+	metrics *observability.Registry
+	events  *observability.EventSink
+	images  imageFetcher
+}
+
+// NewRuntimeObservability constructs process-scoped runtime instrumentation.
+func NewRuntimeObservability(eventWriter io.Writer) (*RuntimeObservability, error) {
+	return NewRuntimeObservabilityWithImageHTTPSProxy(eventWriter, nil)
+}
+
+// NewRuntimeObservabilityWithImageHTTPSProxy constructs process-scoped runtime
+// instrumentation and the image client before the process begins serving.
+// A nil proxy selects direct mode; a present empty or invalid value fails
+// without reflecting the value.
+func NewRuntimeObservabilityWithImageHTTPSProxy(
+	eventWriter io.Writer,
+	imageHTTPSProxy *string,
+) (*RuntimeObservability, error) {
+	if eventWriter == nil {
+		return nil, errors.New("httpapi: nil event writer")
+	}
+	images, err := imageproxy.NewClientWithHTTPSProxy(imageHTTPSProxy)
+	if err != nil {
+		return nil, errors.New("httpapi: invalid image proxy configuration")
+	}
+	info, err := releaseinfo.Current()
+	if err != nil {
+		return nil, err
+	}
+	metrics, err := observability.NewRegistry(observability.BuildInfo{
+		Version: info.Version,
+		Commit:  info.Revision,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &RuntimeObservability{
+		metrics: metrics,
+		events:  observability.NewEventSink(eventWriter),
+		images:  images,
+	}, nil
+}
+
+// Handler returns the runtime handler with Catalog registered but not ready.
+func (r *RuntimeObservability) Handler(readiness ReadinessProbe) http.Handler {
+	return r.HandlerWithCatalog(readiness, nil)
+}
+
+// HandlerWithCatalog returns the runtime with the exact read-only catalog
+// Store provider. A nil provider keeps the route registered but not ready.
+func (r *RuntimeObservability) HandlerWithCatalog(
+	readiness ReadinessProbe,
+	catalogs CatalogStoreProvider,
+) http.Handler {
+	return r.HandlerWithDependencies(readiness, catalogs, nil)
+}
+
+// HandlerWithDependencies returns the runtime with explicit read-only Catalog
+// and rankings services. Nil dependencies leave their routes registered and
+// return stable NOT_READY responses.
+func (r *RuntimeObservability) HandlerWithDependencies(
+	readiness ReadinessProbe,
+	catalogs CatalogStoreProvider,
+	rankings rankingsExecutor,
+) http.Handler {
+	return r.HandlerWithQueryDependencies(readiness, catalogs, rankings, nil)
+}
+
+// HandlerWithQueryDependencies returns the runtime with explicit read-only
+// Catalog, rankings, and candidates services. Nil dependencies leave their
+// routes registered and return stable NOT_READY responses.
+func (r *RuntimeObservability) HandlerWithQueryDependencies(
+	readiness ReadinessProbe,
+	catalogs CatalogStoreProvider,
+	rankings rankingsExecutor,
+	candidates candidatesExecutor,
+) http.Handler {
+	return r.HandlerWithResultDependencies(
+		readiness,
+		catalogs,
+		rankings,
+		candidates,
+		nil,
+	)
+}
+
+// HandlerWithResultDependencies registers every implemented read-only result
+// route. Nil dependencies keep their routes visible with stable NOT_READY.
+func (r *RuntimeObservability) HandlerWithResultDependencies(
+	readiness ReadinessProbe,
+	catalogs CatalogStoreProvider,
+	rankings rankingsExecutor,
+	candidates candidatesExecutor,
+	personDetail personDetailExecutor,
+) http.Handler {
+	return r.HandlerWithPartnerDependencies(
+		readiness,
+		catalogs,
+		rankings,
+		candidates,
+		personDetail,
+		nil,
+	)
+}
+
+// HandlerWithPartnerDependencies registers every implemented read-only result
+// route, including partners. Nil dependencies keep routes visible with stable
+// NOT_READY responses.
+func (r *RuntimeObservability) HandlerWithPartnerDependencies(
+	readiness ReadinessProbe,
+	catalogs CatalogStoreProvider,
+	rankings rankingsExecutor,
+	candidates candidatesExecutor,
+	personDetail personDetailExecutor,
+	partners partnersExecutor,
+) http.Handler {
+	return r.HandlerWithCoStarDependencies(
+		readiness,
+		catalogs,
+		rankings,
+		candidates,
+		personDetail,
+		partners,
+		nil,
+	)
+}
+
+// HandlerWithCoStarDependencies registers every implemented read-only result
+// route, including partners and co-star. Nil dependencies keep routes visible
+// with stable NOT_READY responses.
+func (r *RuntimeObservability) HandlerWithCoStarDependencies(
+	readiness ReadinessProbe,
+	catalogs CatalogStoreProvider,
+	rankings rankingsExecutor,
+	candidates candidatesExecutor,
+	personDetail personDetailExecutor,
+	partners partnersExecutor,
+	coStar coStarExecutor,
+) http.Handler {
+	if r == nil {
+		return newHandler(readiness, nil, middlewareOptions{
+			requestTimeout: DefaultRequestTimeout,
+			images:         imageproxy.NewClient(),
+			catalogs:       catalogs,
+			rankings:       rankings,
+			candidates:     candidates,
+			personDetail:   personDetail,
+			partners:       partners,
+			coStar:         coStar,
+		})
+	}
+	return newHandler(readiness, r.metrics, middlewareOptions{
+		requestTimeout: DefaultRequestTimeout,
+		metrics:        r.metrics,
+		images:         r.images,
+		events:         r.events,
+		catalogs:       catalogs,
+		rankings:       rankings,
+		candidates:     candidates,
+		personDetail:   personDetail,
+		partners:       partners,
+		coStar:         coStar,
+	})
+}
+
+// SetLive updates the process liveness metric.
+func (r *RuntimeObservability) SetLive(live bool) {
+	if r != nil {
+		r.metrics.SetLive(live)
+	}
+}
+
+// SetReadiness replaces the readiness and current-snapshot metrics.
+func (r *RuntimeObservability) SetReadiness(ready bool, dataVersion string) error {
+	if r == nil {
+		return errors.New("httpapi: nil runtime observability")
+	}
+	return r.metrics.SetReadiness(ready, dataVersion)
+}
+
+// SetRuntimeStatsProvider configures the sole process resource sampler.
+func (r *RuntimeObservability) SetRuntimeStatsProvider(
+	provider observability.RuntimeStatsProvider,
+) error {
+	if r == nil {
+		return errors.New("httpapi: nil runtime observability")
+	}
+	return r.metrics.SetRuntimeStatsProvider(provider)
+}
+
+// SetUpdateStatusPath configures one explicit read-only updater status source.
+func (r *RuntimeObservability) SetUpdateStatusPath(path string) error {
+	if r == nil {
+		return errors.New("httpapi: nil runtime observability")
+	}
+	reader, err := observability.NewUpdateStatusReader(path)
+	if err != nil {
+		return err
+	}
+	return r.metrics.SetUpdateStatusReader(reader)
+}
+
+// EmitArchiveLoadFailed emits at most one bounded startup event. Unknown
+// values collapse to INTERNAL_ERROR rather than entering the event.
+func (r *RuntimeObservability) EmitArchiveLoadFailed(stableCode string) error {
+	if r == nil {
+		return errors.New("httpapi: nil runtime observability")
+	}
+	code, valid := observability.ParseArchiveErrorCode(stableCode)
+	if !valid {
+		code = observability.ArchiveErrorInternal
+	}
+	return r.events.EmitArchiveLoadFailed(code)
+}
+
+// RenderPrometheus returns an atomic metric snapshot for lifecycle tests and
+// the metrics route.
+func (r *RuntimeObservability) RenderPrometheus() ([]byte, error) {
+	if r == nil {
+		return nil, errors.New("httpapi: nil runtime observability")
+	}
+	return r.metrics.RenderPrometheus()
+}
+
+// NewHandler returns the complete handler with Catalog registered but not
+// ready and the infrastructure/image routes unchanged.
+func NewHandler(readiness ReadinessProbe, metrics *observability.Registry) http.Handler {
+	return newHandler(readiness, metrics, middlewareOptions{
+		requestTimeout: DefaultRequestTimeout,
+		metrics:        metrics,
+		images:         imageproxy.NewClient(),
+	})
+}
+
+func newHandler(readiness ReadinessProbe, metrics *observability.Registry, options middlewareOptions) http.Handler {
+	options.metrics = metrics
+	if options.images == nil {
+		options.images = imageproxy.NewClient()
+	}
+	return runtimeMiddleware(&routeHandler{
+		readiness:    readiness,
+		metrics:      metrics,
+		images:       options.images,
+		events:       options.events,
+		catalogs:     options.catalogs,
+		project:      options.catalogProjector,
+		rankings:     options.rankings,
+		candidates:   options.candidates,
+		personDetail: options.personDetail,
+		partners:     options.partners,
+		coStar:       options.coStar,
+	}, options)
+}
+
+func (h *routeHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	requestID, _ := RequestIDFromContext(request.Context())
+	switch request.URL.Path {
+	case routeLivez:
+		if request.Method != http.MethodGet {
+			writeWrongMethod(writer, requestID)
+			return
+		}
+		h.writeLive(writer, requestID)
+	case routeReadyz:
+		if request.Method != http.MethodGet {
+			writeWrongMethod(writer, requestID)
+			return
+		}
+		h.writeReady(writer, request, requestID)
+	case routeMetrics:
+		if request.Method != http.MethodGet {
+			writeWrongMethod(writer, requestID)
+			return
+		}
+		h.writeMetrics(writer, requestID)
+	case routeCatalog:
+		h.writeCatalog(writer, request, requestID)
+	case routeRankings:
+		h.writeRankings(writer, request, requestID)
+	case routeCandidates:
+		h.writeCandidates(writer, request, requestID)
+	case routePersonDetail:
+		h.writePersonDetail(writer, request, requestID)
+	case routePartners:
+		h.writePartnersWithExecutor(writer, request, requestID, h.partners)
+	case routeCoStar:
+		h.writeCoStarWithExecutor(writer, request, requestID, h.coStar)
+	default:
+		if strings.HasPrefix(request.URL.Path, routeCatalog+string('/')) {
+			writeError(writer, requestID, catalogNotFoundResponse)
+			return
+		}
+		if strings.HasPrefix(request.URL.Path, routeRankings+string('/')) {
+			writeError(writer, requestID, notFoundResponse)
+			return
+		}
+		if strings.HasPrefix(request.URL.Path, routeCandidates+string('/')) {
+			writeError(writer, requestID, notFoundResponse)
+			return
+		}
+		if strings.HasPrefix(request.URL.Path, routePersonDetail+string('/')) {
+			writeError(writer, requestID, notFoundResponse)
+			return
+		}
+		if strings.HasPrefix(request.URL.Path, routePartners+string('/')) {
+			writeError(writer, requestID, notFoundResponse)
+			return
+		}
+		if strings.HasPrefix(request.URL.Path, routeCoStar+string('/')) {
+			writeError(writer, requestID, notFoundResponse)
+			return
+		}
+		if imageRouteCandidate(request) {
+			if request.Method != http.MethodGet {
+				writeWrongMethod(writer, requestID)
+				return
+			}
+			h.writeImage(writer, request, requestID)
+			return
+		}
+		writeError(writer, requestID, notFoundResponse)
+	}
+}
+
+func imageRouteCandidate(request *http.Request) bool {
+	if request == nil || request.URL == nil {
+		return false
+	}
+	return strings.HasPrefix(request.URL.Path, routeImages) ||
+		strings.HasPrefix(request.URL.EscapedPath(), routeImages)
+}
+
+func (h *routeHandler) writeImage(writer http.ResponseWriter, request *http.Request, requestID string) {
+	startedAt := time.Now()
+	var upstreamStarted time.Time
+	upstreamAttempted := false
+	observation := observability.ImageObservation{
+		RequestID: requestID,
+		Outcome:   observability.ImageOutcomeProtocol,
+		Status:    http.StatusBadGateway,
+	}
+	defer func() {
+		observation.Duration = time.Since(startedAt)
+		if upstreamAttempted && h.metrics != nil {
+			_ = h.metrics.ObserveUpstream(
+				observability.UpstreamObservation{
+					Upstream: observability.UpstreamImage,
+					Outcome: imageDependencyOutcome(
+						observation.Outcome,
+					),
+					Duration: time.Since(upstreamStarted),
+				},
+			)
+		}
+		if h.events != nil {
+			_ = h.events.EmitImage(observation)
+		}
+	}()
+
+	imageRequest, ok := parseImageRequest(request)
+	if !ok {
+		observation.Outcome = observability.ImageOutcomeRejected
+		observation.Status = http.StatusBadRequest
+		writeError(writer, requestID, responseError{
+			status:  http.StatusBadRequest,
+			code:    codeInvalidRequest,
+			message: "invalid request",
+		})
+		return
+	}
+	upstreamStarted = time.Now()
+	upstreamAttempted = true
+	response, err := h.images.Fetch(request.Context(), imageRequest)
+	if err != nil {
+		observation.Outcome, observation.Status = h.writeImageError(writer, request, requestID, err)
+		return
+	}
+	if response == nil || response.Body == nil {
+		writeError(writer, requestID, upstreamProtocolResponse)
+		return
+	}
+	defer response.Body.Close()
+
+	if response.Status == http.StatusNotModified {
+		observation.Outcome = observability.ImageOutcomeSuccess
+		observation.Status = http.StatusNotModified
+		writeImageCacheHeaders(writer.Header(), response)
+		writer.WriteHeader(http.StatusNotModified)
+		return
+	}
+	if response.Status != http.StatusOK || response.ContentType == "" ||
+		response.ContentLength == 0 || response.ContentLength > imageproxy.MaxBodyBytes {
+		writeError(writer, requestID, upstreamProtocolResponse)
+		return
+	}
+
+	header := writer.Header()
+	writeImageCacheHeaders(header, response)
+	header.Set("Content-Type", response.ContentType)
+	if response.ContentLength > 0 {
+		header.Set("Content-Length", strconv.FormatInt(response.ContentLength, 10))
+	}
+	writer.WriteHeader(http.StatusOK)
+	written, copyErr := io.Copy(writer, response.Body)
+	observation.ResponseBytes = written
+	if copyErr != nil || response.ContentLength >= 0 && written != response.ContentLength {
+		observation.Outcome = observability.ImageOutcomeStreamError
+		observation.Status = http.StatusOK
+		panic(http.ErrAbortHandler)
+	}
+	observation.Outcome = observability.ImageOutcomeSuccess
+	observation.Status = http.StatusOK
+}
+
+func imageDependencyOutcome(
+	outcome observability.ImageOutcome,
+) observability.DependencyOutcome {
+	switch outcome {
+	case observability.ImageOutcomeSuccess:
+		return observability.DependencyOutcomeSuccess
+	case observability.ImageOutcomeTimeout:
+		return observability.DependencyOutcomeTimeout
+	case observability.ImageOutcomeCanceled:
+		return observability.DependencyOutcomeCanceled
+	case observability.ImageOutcomeNotFound:
+		return observability.DependencyOutcomeNotFound
+	case observability.ImageOutcomeUnavailable:
+		return observability.DependencyOutcomeNetworkError
+	case observability.ImageOutcomeBusy:
+		return observability.DependencyOutcomeRateLimited
+	case observability.ImageOutcomeProtocol:
+		return observability.DependencyOutcomeDecodeError
+	case observability.ImageOutcomeStreamError:
+		return observability.DependencyOutcomeUpstreamError
+	default:
+		return observability.DependencyOutcomeError
+	}
+}
+
+func writeImageCacheHeaders(header http.Header, response *imageproxy.Response) {
+	if response.ETag != "" {
+		header.Set("ETag", response.ETag)
+	}
+	if response.LastModified != "" {
+		header.Set("Last-Modified", response.LastModified)
+	}
+	if response.CacheControl != "" {
+		header.Set("Cache-Control", response.CacheControl)
+	} else {
+		header.Set("Cache-Control", "no-store")
+	}
+}
+
+func (h *routeHandler) writeImageError(
+	writer http.ResponseWriter,
+	request *http.Request,
+	requestID string,
+	err error,
+) (observability.ImageOutcome, int) {
+	kind, ok := imageproxy.ErrorKindOf(err)
+	if !ok {
+		writeError(writer, requestID, upstreamProtocolResponse)
+		return observability.ImageOutcomeProtocol, http.StatusBadGateway
+	}
+	switch kind {
+	case imageproxy.ErrorInvalid:
+		writeError(writer, requestID, responseError{
+			status:  http.StatusBadRequest,
+			code:    codeInvalidRequest,
+			message: "invalid request",
+		})
+		return observability.ImageOutcomeRejected, http.StatusBadRequest
+	case imageproxy.ErrorBusy:
+		writer.Header().Set("Retry-After", "1")
+		writeError(writer, requestID, serverBusyResponse)
+		return observability.ImageOutcomeBusy, http.StatusServiceUnavailable
+	case imageproxy.ErrorNotFound:
+		writeError(writer, requestID, notFoundResponse)
+		return observability.ImageOutcomeNotFound, http.StatusNotFound
+	case imageproxy.ErrorTimeout:
+		writeError(writer, requestID, timeoutResponse)
+		return observability.ImageOutcomeTimeout, http.StatusGatewayTimeout
+	case imageproxy.ErrorCanceled:
+		if request.Context().Err() == nil {
+			writeError(writer, requestID, upstreamUnavailableResponse)
+			return observability.ImageOutcomeUnavailable, http.StatusServiceUnavailable
+		}
+		return observability.ImageOutcomeCanceled, 0
+	case imageproxy.ErrorUnavailable:
+		writeError(writer, requestID, upstreamUnavailableResponse)
+		return observability.ImageOutcomeUnavailable, http.StatusServiceUnavailable
+	case imageproxy.ErrorProtocol:
+		writeError(writer, requestID, upstreamProtocolResponse)
+		return observability.ImageOutcomeProtocol, http.StatusBadGateway
+	default:
+		writeError(writer, requestID, upstreamProtocolResponse)
+		return observability.ImageOutcomeProtocol, http.StatusBadGateway
+	}
+}
+
+func parseImageRequest(request *http.Request) (imageproxy.Request, bool) {
+	if request == nil || request.URL == nil || request.URL.RawPath != "" ||
+		request.URL.EscapedPath() != request.URL.Path {
+		return imageproxy.Request{}, false
+	}
+	path := strings.TrimPrefix(request.URL.Path, routeImages)
+	segments := strings.Split(path, string('/'))
+	if len(segments) != 2 || segments[0] == "" || segments[1] == "" {
+		return imageproxy.Request{}, false
+	}
+	resource := imageproxy.Resource(segments[0])
+	switch resource {
+	case imageproxy.ResourceSubjects, imageproxy.ResourcePersons, imageproxy.ResourceCharacters:
+	default:
+		return imageproxy.Request{}, false
+	}
+	if segments[1][0] == '0' || len(segments[1]) > 19 {
+		return imageproxy.Request{}, false
+	}
+	id, err := strconv.ParseUint(segments[1], 10, 63)
+	if err != nil || id == 0 || strconv.FormatUint(id, 10) != segments[1] {
+		return imageproxy.Request{}, false
+	}
+	const typePrefix = "type="
+	if !strings.HasPrefix(request.URL.RawQuery, typePrefix) ||
+		strings.Count(request.URL.RawQuery, "=") != 1 ||
+		strings.Contains(request.URL.RawQuery, "&") {
+		return imageproxy.Request{}, false
+	}
+	imageType := imageproxy.Type(strings.TrimPrefix(request.URL.RawQuery, typePrefix))
+	switch imageType {
+	case imageproxy.TypeSmall, imageproxy.TypeGrid, imageproxy.TypeLarge, imageproxy.TypeMedium, imageproxy.TypeCommon:
+	default:
+		return imageproxy.Request{}, false
+	}
+
+	ifNoneMatch, ok := oneHeader(request.Header, "If-None-Match")
+	if !ok {
+		return imageproxy.Request{}, false
+	}
+	ifModifiedSince, ok := oneHeader(request.Header, "If-Modified-Since")
+	if !ok {
+		return imageproxy.Request{}, false
+	}
+	return imageproxy.Request{
+		Resource:        resource,
+		ID:              id,
+		Type:            imageType,
+		IfNoneMatch:     ifNoneMatch,
+		IfModifiedSince: ifModifiedSince,
+	}, true
+}
+
+func oneHeader(header http.Header, name string) (string, bool) {
+	values := header.Values(name)
+	if len(values) > 1 {
+		return "", false
+	}
+	if len(values) == 0 {
+		return "", true
+	}
+	return values[0], true
+}
+
+func writeWrongMethod(writer http.ResponseWriter, requestID string) {
+	writer.Header().Set("Allow", http.MethodGet)
+	writeError(writer, requestID, methodResponse)
+}
+
+func (h *routeHandler) writeLive(writer http.ResponseWriter, requestID string) {
+	response := struct {
+		Data struct {
+			Status string `json:"status"`
+		} `json:"data"`
+		Meta struct {
+			RequestID string `json:"requestId"`
+		} `json:"meta"`
+	}{}
+	response.Data.Status = "live"
+	response.Meta.RequestID = requestID
+	writeJSONSuccess(writer, response)
+}
+
+func (h *routeHandler) writeReady(writer http.ResponseWriter, request *http.Request, requestID string) {
+	if h.readiness == nil {
+		h.recordNotReady()
+		writeError(writer, requestID, notReadyResponse)
+		return
+	}
+	probeContext, cancel := context.WithTimeout(request.Context(), readinessProbeTimeout)
+	dataVersion, err := h.readiness(probeContext)
+	cancel()
+	if err != nil || dataVersion == "" {
+		h.recordNotReady()
+		writeError(writer, requestID, notReadyResponse)
+		return
+	}
+	if h.metrics != nil {
+		if err := h.metrics.SetReadiness(true, dataVersion); err != nil {
+			h.recordNotReady()
+			writeError(writer, requestID, notReadyResponse)
+			return
+		}
+	}
+
+	response := struct {
+		Data struct {
+			Status string `json:"status"`
+		} `json:"data"`
+		Meta struct {
+			RequestID   string `json:"requestId"`
+			DataVersion string `json:"dataVersion"`
+		} `json:"meta"`
+	}{}
+	response.Data.Status = "ready"
+	response.Meta.RequestID = requestID
+	response.Meta.DataVersion = dataVersion
+	writeJSONSuccess(writer, response)
+}
+
+func (h *routeHandler) recordNotReady() {
+	if h.metrics != nil {
+		_ = h.metrics.SetReadiness(false, "")
+	}
+}
+
+func (h *routeHandler) writeMetrics(writer http.ResponseWriter, requestID string) {
+	if h.metrics == nil {
+		writeError(writer, requestID, internalResponse)
+		return
+	}
+	data, err := h.metrics.RenderPrometheus()
+	if err != nil {
+		writeError(writer, requestID, internalResponse)
+		return
+	}
+	writer.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	writer.Header().Set("Cache-Control", "no-store")
+	writer.WriteHeader(http.StatusOK)
+	_, _ = writer.Write(data)
+}
+
+func writeJSONSuccess(writer http.ResponseWriter, response any) {
+	data, err := json.Marshal(response)
+	if err != nil {
+		panic(errors.New("fixed health response cannot be encoded"))
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.Header().Set("Cache-Control", "no-store")
+	writer.WriteHeader(http.StatusOK)
+	_, _ = writer.Write(data)
+}

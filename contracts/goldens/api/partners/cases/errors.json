@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "kind": "error-cases",
+  "cases": [
+    {
+      "id": "empty-source-positions",
+      "requestSchemaValid": false,
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "source": {
+            "personId": 1,
+            "positionKeys": []
+          }
+        }
+      },
+      "expected": {
+        "status": 400,
+        "body": {
+          "error": {
+            "code": "FIELD_INVALID",
+            "message": "Source positions must not be empty.",
+            "retryable": false,
+            "fieldErrors": {
+              "/input/source/positionKeys": [
+                "OUT_OF_RANGE"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-partners-empty-source"
+          }
+        }
+      }
+    },
+    {
+      "id": "source-entity-not-found",
+      "requestSchemaValid": true,
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "source": {
+            "personId": 999999,
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "status": 404,
+        "body": {
+          "error": {
+            "code": "ENTITY_NOT_FOUND",
+            "message": "Source person was not found.",
+            "retryable": false,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-partners-source-not-found",
+            "dataVersion": "dv1-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      }
+    },
+    {
+      "id": "refresh-collection-is-not-supported",
+      "requestSchemaValid": false,
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "source": {
+            "personId": 1,
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          }
+        },
+        "refreshCollection": true
+      },
+      "expected": {
+        "status": 400,
+        "body": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "The request contains an unknown field.",
+            "retryable": false,
+            "fieldErrors": {
+              "/refreshCollection": [
+                "UNKNOWN_FIELD"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-partners-refresh-rejected"
+          }
+        }
+      }
+    }
+  ]
+}

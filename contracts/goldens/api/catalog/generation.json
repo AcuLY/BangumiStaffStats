@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "kind": "catalog-generation-evidence",
+  "tools": {
+    "redocly": {
+      "package": "@redocly/cli",
+      "version": "2.40.0",
+      "validationCommand": [
+        "redocly",
+        "lint",
+        "contracts/openapi/openapi.yaml"
+      ],
+      "command": [
+        "redocly",
+        "bundle",
+        "source/openapi/openapi.yaml",
+        "--config",
+        "redocly.yaml",
+        "--output",
+        "catalog.bundle.json"
+      ]
+    },
+    "oapiCodegen": {
+      "module": "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen",
+      "version": "2.8.0",
+      "generate": "models,skip-prune",
+      "package": "catalogwire"
+    },
+    "oapiRuntime": {
+      "module": "github.com/oapi-codegen/runtime",
+      "version": "1.1.2"
+    }
+  },
+  "openapi": {
+    "path": "contracts/openapi/openapi.yaml",
+    "operationId": "getCatalogV1",
+    "responses": [
+      "200",
+      "400",
+      "405",
+      "500",
+      "503",
+      "504"
+    ]
+  },
+  "projection": {
+    "path": "/catalog",
+    "sha256": "c9cc22ccdd45fd9e02537035a01803ceecc459e712bfcc2bc69936df4757ad7a",
+    "components": [
+      "CatalogCastPositionV1",
+      "CatalogDataV1",
+      "CatalogFilterCapabilityV1",
+      "CatalogGroupV1",
+      "CatalogLocalizedNamesV1",
+      "CatalogMetaV1",
+      "CatalogOperationApplicabilityV1",
+      "CatalogPositionCapabilityNameV1",
+      "CatalogPositionV1",
+      "CatalogRootSortCapabilityV1",
+      "CatalogScopeV1",
+      "CatalogSectionSortCapabilityV1",
+      "CatalogSectionV1",
+      "CatalogSelectionRuleV1",
+      "CatalogSortCapabilityV1",
+      "CatalogStaffPositionV1",
+      "CatalogStaffSetPositionV1",
+      "CatalogSubjectTypeKeyV1",
+      "CatalogSubjectTypeV1",
+      "CatalogSuccessEnvelopeV1",
+      "ErrorEnvelopeV1"
+    ]
+  },
+  "semanticDigests": {
+    "filterCapabilities": "a8119720238324cb64b06b4fc8e8996fedafad6c899a96dcbffdee0a473d3ee9",
+    "sortCapabilities": "9f83043cf15869b9f8796778a01d4f7f652bae8bfda693220c3d9f6e337aa7b0",
+    "dormant": {
+      "positions": "3e9f9fb499247d2e0d0cc142b06d51da5ed7b8c23d88879ce8ed2711f01fefba",
+      "groups": "d7ebeb9bc37d4a6caa5ac5b5f27e3a2c5cef0ef01a55f7444a2a7ee3247f3805",
+      "selectionRules": "f1477638988d91e14b843a9c4071456dbe97e60fa0a07b0c995ecb8805be7c63"
+    },
+    "synthetic": {
+      "positions": "72938b368b26bb0c5ce3ebd85b1fe47fd12db86c664e4ff6baea4f2b134de137",
+      "groups": "34760c7acd6eb13b4d6bd6b46d8e018035bf94cf5bcd276bbc101a6ce54687e5",
+      "selectionRules": "40686fae73f6956471d102196f480c5c7016825bcec36b58051a06053102e8d7"
+    }
+  },
+  "go": {
+    "command": [
+      "go",
+      "run",
+      "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0",
+      "-generate",
+      "models,skip-prune",
+      "-package",
+      "catalogwire",
+      "-o",
+      "catalog.gen.go",
+      "catalog.bundle.json"
+    ],
+    "replays": 2,
+    "module": {
+      "path": "example.invalid/catalogwire",
+      "goVersion": "1.25.0",
+      "requirements": [
+        {
+          "module": "github.com/oapi-codegen/runtime",
+          "version": "v1.1.2",
+          "indirect": false
+        },
+        {
+          "module": "github.com/google/uuid",
+          "version": "v1.6.0",
+          "indirect": true
+        }
+      ]
+    },
+    "compile": [
+      "go",
+      "test",
+      "-mod=mod",
+      "./..."
+    ],
+    "output": {
+      "bytes": 38378,
+      "sha256": "52ae1f736170ade845d7e62894ca04ef9e4f60ed31ed6bb7ec8cf116b2e8342e",
+      "declarations": [
+        "CatalogCastPositionV1",
+        "CatalogCastPositionV1RoleScope",
+        "CatalogCastPositionV1Status",
+        "CatalogDataV1",
+        "CatalogFilterCapabilityV1",
+        "CatalogFilterCapabilityV1Field",
+        "CatalogGroupV1",
+        "CatalogGroupV1Kind",
+        "CatalogLocalizedNamesV1",
+        "CatalogMetaV1",
+        "CatalogOperationApplicabilityV1",
+        "CatalogOperationApplicabilityV10",
+        "CatalogOperationApplicabilityV10Operation",
+        "CatalogOperationApplicabilityV11",
+        "CatalogPositionCapabilityNameV1",
+        "CatalogPositionV1",
+        "CatalogRootSortCapabilityV1",
+        "CatalogRootSortCapabilityV1Field",
+        "CatalogRootSortCapabilityV1Operation",
+        "CatalogScopeV1",
+        "CatalogSectionSortCapabilityV1",
+        "CatalogSectionSortCapabilityV1Field",
+        "CatalogSectionV1",
+        "CatalogSelectionRuleV1",
+        "CatalogSelectionRuleV1Kind",
+        "CatalogSortCapabilityV1",
+        "CatalogStaffPositionV1",
+        "CatalogStaffPositionV1Status",
+        "CatalogStaffSetPositionV1",
+        "CatalogStaffSetPositionV1Status",
+        "CatalogSubjectTypeKeyV1",
+        "CatalogSubjectTypeV1",
+        "CatalogSuccessEnvelopeV1",
+        "ErrorCodeV1",
+        "ErrorEnvelopeV1",
+        "ErrorMetaV1",
+        "ErrorV1",
+        "FieldErrorCodeV1",
+        "FieldErrorsV1",
+        "OpaqueIdentifierV1",
+        "ErrorEnvelopeV1Schema"
+      ]
+    }
+  }
+}

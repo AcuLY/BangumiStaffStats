@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "kind": "personal-success-cases",
+  "cases": [
+    {
+      "id": "personal-average-defaults",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": "staff:anime:2"
+        },
+        "view": {
+          "sort": "average",
+          "pageSize": 5
+        }
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-personal-average"
+        },
+        "body": {
+          "data": {
+            "summary": {
+              "positionCounts": [
+                {
+                  "positionKey": "staff:anime:2",
+                  "count": 2
+                }
+              ]
+            },
+            "positionKey": "staff:anime:2",
+            "workUnit": "subject",
+            "items": [
+              {
+                "rank": 1,
+                "person": {
+                  "id": 1,
+                  "name": "Personal High",
+                  "nameCN": null
+                },
+                "workCount": 2
+              },
+              {
+                "rank": 2,
+                "person": {
+                  "id": 2,
+                  "name": "Personal Low",
+                  "nameCN": null
+                },
+                "workCount": 1
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-candidates-personal-average",
+            "dataVersion": "dv1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "pagination": {
+              "page": 1,
+              "pageSize": 5,
+              "total": 2
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T08:00:00Z",
+              "stale": false,
+              "warningCodes": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "personal-global-average-sort",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed",
+            "in_progress"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": "staff:anime:2"
+        },
+        "view": {
+          "sort": "globalAverage",
+          "order": "asc",
+          "page": 1,
+          "pageSize": 10
+        }
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-global-average"
+        },
+        "body": {
+          "data": {
+            "summary": {
+              "positionCounts": [
+                {
+                  "positionKey": "staff:anime:2",
+                  "count": 2
+                }
+              ]
+            },
+            "positionKey": "staff:anime:2",
+            "workUnit": "subject",
+            "items": [
+              {
+                "rank": 1,
+                "person": {
+                  "id": 2,
+                  "name": "Global Low",
+                  "nameCN": null
+                },
+                "workCount": 1
+              },
+              {
+                "rank": 2,
+                "person": {
+                  "id": 1,
+                  "name": "Global High",
+                  "nameCN": null
+                },
+                "workCount": 2
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-candidates-global-average",
+            "dataVersion": "dv1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 2
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T08:01:00Z",
+              "stale": false,
+              "warningCodes": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "personal-series-stale-refresh",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "cast:anime:all"
+          ],
+          "mergeSeries": true
+        },
+        "input": {
+          "positionKey": "cast:anime:all"
+        },
+        "view": {
+          "sort": "count",
+          "order": "desc",
+          "page": 1,
+          "pageSize": 10
+        },
+        "refreshCollection": true
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-stale"
+        },
+        "body": {
+          "data": {
+            "summary": {
+              "positionCounts": [
+                {
+                  "positionKey": "cast:anime:all",
+                  "count": 1
+                }
+              ]
+            },
+            "positionKey": "cast:anime:all",
+            "workUnit": "series",
+            "items": [
+              {
+                "rank": 1,
+                "person": {
+                  "id": 5,
+                  "name": "Voice Actor",
+                  "nameCN": "声优"
+                },
+                "workCount": 1
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-candidates-stale",
+            "dataVersion": "dv1-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 1
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T08:05:00Z",
+              "stale": true,
+              "warningCodes": [
+                "COLLECTION_STALE"
+              ]
+            }
+          }
+        }
+      },
+      "assertions": {
+        "seriesWorkCount": 1,
+        "refreshCollection": true
+      }
+    }
+  ]
+}

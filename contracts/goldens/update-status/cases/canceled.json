@@ -1,0 +1,18 @@
+{
+  "last_attempt": {
+    "time": "2026-07-25T02:03:04.56Z",
+    "status": "canceled",
+    "phase": "build",
+    "duration_seconds": 2.5,
+    "dataVersion": "dv1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "error_code": "CANCELED"
+  },
+  "last_success": {
+    "time": "2026-07-24T23:59:59Z",
+    "status": "published",
+    "phase": "complete",
+    "duration_seconds": 12,
+    "dataVersion": "dv1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "error_code": null
+  }
+}

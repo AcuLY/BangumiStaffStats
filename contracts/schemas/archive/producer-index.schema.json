@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/archive/producer-index-v1.json",
+  "title": "Archive producer golden index v1",
+  "description": "Closed inventory for producer-only evidence below contracts/goldens/archive/producer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "indexSchemaVersion",
+    "files"
+  ],
+  "properties": {
+    "indexSchemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1,
+      "const": 1
+    },
+    "files": {
+      "type": "array",
+      "minItems": 15,
+      "maxItems": 15,
+      "items": {
+        "$ref": "#/$defs/file"
+      },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "digest",
+        "caseId"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^cases/[a-z0-9]+(?:-[a-z0-9]+)*\\.json$"
+        },
+        "digest": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "caseId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        }
+      }
+    }
+  }
+}

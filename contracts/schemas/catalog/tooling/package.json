@@ -1,0 +1,16 @@
+{
+  "name": "@bangumi-staff-stats/catalog-contract-verifier",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "verify": "node verify.mjs"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0"
+  }
+}

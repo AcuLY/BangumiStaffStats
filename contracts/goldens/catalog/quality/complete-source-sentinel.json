@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "counts": {
+    "NO_CHARACTERS": 1,
+    "NO_CAST_RELATIONS": 3,
+    "FILTERED_BY_VALID_CV": 1
+  },
+  "samples": {
+    "NO_CHARACTERS": [
+      {
+        "subjectType": "anime",
+        "subjectId": 200
+      }
+    ],
+    "NO_CAST_RELATIONS": [
+      {
+        "subjectType": "anime",
+        "subjectId": 200
+      },
+      {
+        "subjectType": "anime",
+        "subjectId": 201
+      },
+      {
+        "subjectType": "anime",
+        "subjectId": 300
+      }
+    ],
+    "FILTERED_BY_VALID_CV": [
+      {
+        "subjectType": "anime",
+        "subjectId": 202,
+        "characterId": 9202,
+        "personId": 99,
+        "roleType": 2
+      }
+    ]
+  },
+  "roleInventory": [
+    {
+      "roleType": 1,
+      "count": 2
+    },
+    {
+      "roleType": 2,
+      "count": 2
+    },
+    {
+      "roleType": 3,
+      "count": 2
+    },
+    {
+      "roleType": 4,
+      "count": 1
+    },
+    {
+      "roleType": 5,
+      "count": 1
+    },
+    {
+      "roleType": 6,
+      "count": 1
+    }
+  ],
+  "unknownStaffPositionIds": [
+    {
+      "subjectType": "book",
+      "positionId": 9999,
+      "count": 1
+    }
+  ],
+  "blockingErrors": []
+}

@@ -1,0 +1,236 @@
+{
+  "matrixSchemaVersion": 1,
+  "supported": [
+    {
+      "pointerSchemaVersion": 1,
+      "manifestSchemaVersion": 1,
+      "sqliteSchemaVersion": 1,
+      "sqliteApplicationId": 1111969107,
+      "dataVersionAlgorithm": "bgmss-archive-data-version-v1",
+      "domainRulesVersion": "domain-raw-v1",
+      "castRulesVersion": "cast-exact-v1"
+    }
+  ],
+  "canonicalSchema": {
+    "schemaSqlDigest": "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0",
+    "algorithm": "bgmss-sqlite-schema-objects-v1",
+    "digest": "sha256:e0e7ad754cfd65ad7774479e495694b99b2fcae8a38f4c44686438bf8cddf9e0",
+    "objectCount": 35
+  },
+  "requiredTables": [
+    "archive_meta",
+    "subject",
+    "subject_rating_bucket",
+    "subject_tag",
+    "person",
+    "person_career",
+    "character",
+    "subject_relation",
+    "staff_position",
+    "staff_position_category",
+    "staff_credit",
+    "cast_credit",
+    "staff_set",
+    "staff_set_member",
+    "catalog_position",
+    "catalog_position_member",
+    "catalog_group",
+    "catalog_group_member",
+    "catalog_capability",
+    "catalog_selection_rule"
+  ],
+  "requiredIndexes": [
+    "idx_subject_filter_date_id",
+    "idx_subject_relation_source",
+    "idx_subject_tag_lookup",
+    "idx_person_career_lookup",
+    "idx_staff_position_category_lookup",
+    "idx_staff_credit_lookup",
+    "idx_cast_credit_role_lookup",
+    "idx_cast_credit_character_lookup",
+    "idx_staff_set_member_lookup",
+    "idx_catalog_position_order",
+    "idx_catalog_position_member_lookup",
+    "idx_catalog_group_order",
+    "idx_catalog_group_member_lookup",
+    "idx_catalog_capability_lookup",
+    "idx_catalog_selection_rule_lookup"
+  ],
+  "validationPrecedence": [
+    {
+      "order": 1,
+      "stage": "json-schema",
+      "errors": [
+        "MANIFEST_SCHEMA_INVALID",
+        "POINTER_SCHEMA_INVALID"
+      ]
+    },
+    {
+      "order": 2,
+      "stage": "source-accounting",
+      "errors": [
+        "MANIFEST_ACCOUNTING_INVALID"
+      ]
+    },
+    {
+      "order": 3,
+      "stage": "compatibility",
+      "errors": [
+        "ARCHIVE_VERSION_UNSUPPORTED"
+      ]
+    },
+    {
+      "order": 4,
+      "stage": "data-version",
+      "errors": [
+        "DATA_VERSION_MISMATCH"
+      ]
+    },
+    {
+      "order": 5,
+      "stage": "identity-path",
+      "errors": [
+        "SQLITE_DATA_VERSION_MISMATCH"
+      ]
+    },
+    {
+      "order": 6,
+      "stage": "file-integrity",
+      "errors": [
+        "SQLITE_FORMAT_INVALID"
+      ]
+    },
+    {
+      "order": 7,
+      "stage": "sqlite-digest",
+      "errors": [
+        "SQLITE_DIGEST_MISMATCH"
+      ]
+    },
+    {
+      "order": 8,
+      "stage": "sqlite-format",
+      "errors": [
+        "SQLITE_FORMAT_INVALID"
+      ]
+    },
+    {
+      "order": 9,
+      "stage": "sqlite-identity",
+      "errors": [
+        "SQLITE_DATA_VERSION_MISMATCH"
+      ]
+    },
+    {
+      "order": 10,
+      "stage": "sqlite-required-objects",
+      "errors": [
+        "SQLITE_REQUIRED_OBJECT_MISSING"
+      ]
+    },
+    {
+      "order": 11,
+      "stage": "sqlite-table-count",
+      "errors": [
+        "SQLITE_TABLE_COUNT_MISMATCH"
+      ]
+    }
+  ],
+  "sentinels": [
+    {
+      "id": "unknown-position-preserved-without-catalog-placeholder",
+      "sql": "SELECT COUNT(*) FROM staff_credit AS c LEFT JOIN staff_position AS p ON p.subject_type = c.subject_type AND p.position_id = c.position_id WHERE p.position_id IS NULL",
+      "expectedInteger": 1
+    },
+    {
+      "id": "eligible-exact-cast",
+      "sql": "SELECT COUNT(*) FROM cast_credit WHERE eligible = 1 AND provenance = 'exact'",
+      "expectedInteger": 6
+    },
+    {
+      "id": "main-cast-is-raw-role-1",
+      "sql": "SELECT COUNT(*) FROM cast_credit WHERE eligible = 1 AND role_type = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "all-cast-includes-raw-roles-1-through-6",
+      "sql": "SELECT COUNT(*) FROM cast_credit WHERE eligible = 1 AND provenance = 'exact' AND typeof(role_type) = 'integer' AND role_type BETWEEN 1 AND 6",
+      "expectedInteger": 6
+    },
+    {
+      "id": "locked-raw-relation-domain",
+      "sql": "SELECT COUNT(DISTINCT relation_type) FROM subject_relation WHERE typeof(relation_type) = 'integer'",
+      "expectedInteger": 52
+    },
+    {
+      "id": "relation-code-2-source-direction",
+      "sql": "SELECT COUNT(*) FROM subject_relation WHERE subject_type = 'anime' AND subject_id = 1 AND related_subject_type = 'anime' AND related_subject_id = 2 AND relation_type = 2",
+      "expectedInteger": 1
+    },
+    {
+      "id": "relation-code-3-source-direction",
+      "sql": "SELECT COUNT(*) FROM subject_relation WHERE subject_type = 'anime' AND subject_id = 2 AND related_subject_type = 'anime' AND related_subject_id = 1 AND relation_type = 3",
+      "expectedInteger": 1
+    },
+    {
+      "id": "raw-domain-text-values-absent",
+      "sql": "SELECT (SELECT COUNT(*) FROM cast_credit WHERE typeof(role_type) <> 'integer') + (SELECT COUNT(*) FROM subject_relation WHERE typeof(relation_type) <> 'integer')",
+      "expectedInteger": 0
+    },
+    {
+      "id": "selectable-unknown-position-absent",
+      "sql": "SELECT COUNT(*) FROM catalog_position WHERE position_key = 'staff:anime:999999'",
+      "expectedInteger": 0
+    },
+    {
+      "id": "normalized-subject-type-anime",
+      "sql": "SELECT COUNT(*) FROM subject WHERE subject_type = 'anime' AND subject_id = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "normalized-subject-type-book",
+      "sql": "SELECT COUNT(*) FROM subject WHERE subject_type = 'book' AND subject_id = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "normalized-subject-type-music",
+      "sql": "SELECT COUNT(*) FROM subject WHERE subject_type = 'music' AND subject_id = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "normalized-subject-type-game",
+      "sql": "SELECT COUNT(*) FROM subject WHERE subject_type = 'game' AND subject_id = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "normalized-subject-type-real",
+      "sql": "SELECT COUNT(*) FROM subject WHERE subject_type = 'real' AND subject_id = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "safe-subject-count",
+      "sql": "SELECT COUNT(*) FROM subject WHERE nsfw = 0",
+      "expectedInteger": 7
+    },
+    {
+      "id": "nsfw-subject-count",
+      "sql": "SELECT COUNT(*) FROM subject WHERE nsfw = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "month-filter-eligible-subject-count",
+      "sql": "SELECT COUNT(*) FROM subject WHERE air_date_precision IN (2, 3) AND substr(air_date, 1, 7) BETWEEN '2024-01' AND '2025-12'",
+      "expectedInteger": 2
+    },
+    {
+      "id": "year-only-date-preserved",
+      "sql": "SELECT COUNT(*) FROM subject WHERE subject_type = 'anime' AND subject_id = 3 AND air_date = '2023' AND air_date_precision = 1",
+      "expectedInteger": 1
+    },
+    {
+      "id": "null-date-precision-consistent",
+      "sql": "SELECT COUNT(*) FROM subject WHERE (air_date IS NULL) <> (air_date_precision IS NULL)",
+      "expectedInteger": 0
+    }
+  ]
+}

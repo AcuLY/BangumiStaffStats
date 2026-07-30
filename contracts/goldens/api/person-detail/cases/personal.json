@@ -1,0 +1,476 @@
+{
+  "schemaVersion": 1,
+  "kind": "person-detail-personal-success-cases",
+  "cases": [
+    {
+      "id": "personal-subject-complete-evidence",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "personId": 100
+        },
+        "view": {
+          "sort": "personalScore",
+          "pageSize": 5
+        }
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store"
+        },
+        "body": {
+          "data": {
+            "person": {
+              "id": 100,
+              "name": "Golden Director",
+              "nameCN": "金标导演",
+              "careers": [
+                "producer"
+              ]
+            },
+            "summary": {
+              "workUnit": "subject",
+              "workCount": 1
+            },
+            "metrics": {
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 567,
+              "globalAverage": 820,
+              "highest": 900,
+              "lowest": 900
+            },
+            "tags": {
+              "meta": [
+                {
+                  "name": "动画",
+                  "count": 1
+                }
+              ],
+              "community": [
+                {
+                  "name": "原创",
+                  "count": 1
+                }
+              ],
+              "personal": [
+                {
+                  "name": "年度最佳",
+                  "count": 1
+                }
+              ]
+            },
+            "ratings": {
+              "global": {
+                "validCount": 1,
+                "average": 820,
+                "buckets": [
+                  {"score": 1, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 2, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 3, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 4, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 5, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 6, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 7, "count": 0, "examples": [], "hiddenCount": 0},
+                  {
+                    "score": 8,
+                    "count": 1,
+                    "examples": [
+                      {
+                        "kind": "subject",
+                        "key": "subject:1",
+                        "id": 1,
+                        "name": "Golden Animation",
+                        "nameCN": "金标动画"
+                      }
+                    ],
+                    "hiddenCount": 0
+                  },
+                  {"score": 9, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 10, "count": 0, "examples": [], "hiddenCount": 0}
+                ],
+                "timeline": [
+                  {
+                    "year": 2024,
+                    "quarter": 1,
+                    "average": 820,
+                    "count": 1
+                  }
+                ]
+              },
+              "personal": {
+                "validCount": 1,
+                "average": 900,
+                "buckets": [
+                  {"score": 1, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 2, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 3, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 4, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 5, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 6, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 7, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 8, "count": 0, "examples": [], "hiddenCount": 0},
+                  {
+                    "score": 9,
+                    "count": 1,
+                    "examples": [
+                      {
+                        "kind": "subject",
+                        "key": "subject:1",
+                        "id": 1,
+                        "name": "Golden Animation",
+                        "nameCN": "金标动画"
+                      }
+                    ],
+                    "hiddenCount": 0
+                  },
+                  {"score": 10, "count": 0, "examples": [], "hiddenCount": 0}
+                ],
+                "timeline": [
+                  {
+                    "year": 2024,
+                    "quarter": 1,
+                    "average": 900,
+                    "count": 1
+                  }
+                ]
+              }
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "4",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "2",
+                "denominator": "15"
+              },
+              "preferred": [
+                {
+                  "unit": {
+                    "kind": "subject",
+                    "key": "subject:1",
+                    "id": 1,
+                    "name": "Golden Animation",
+                    "nameCN": "金标动画"
+                  },
+                  "personalScore": 900,
+                  "globalScore": 820,
+                  "differenceHundredths": 80
+                }
+              ],
+              "conservative": []
+            },
+            "section": "works",
+            "items": [
+              {
+                "kind": "subject",
+                "key": "subject:1",
+                "subject": {
+                  "id": 1,
+                  "name": "Golden Animation",
+                  "nameCN": "金标动画",
+                  "date": "2024-01-10"
+                },
+                "metaTags": [
+                  "动画"
+                ],
+                "globalScore": 820,
+                "personal": {
+                  "score": 900,
+                  "updatedAt": "2026-07-25T08:00:00Z"
+                },
+                "contributions": [
+                  {
+                    "kind": "staff",
+                    "positionKey": "staff:anime:2",
+                    "exactPositionKey": "staff:anime:2",
+                    "provenance": "exact"
+                  }
+                ]
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-detail-personal",
+            "dataVersion": "dv1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "pagination": {
+              "page": 1,
+              "pageSize": 5,
+              "total": 1
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T08:00:00Z",
+              "stale": false,
+              "warningCodes": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "personal-series-complete-members-stale",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staffset:anime:directors",
+            "cast:anime:all"
+          ],
+          "mergeSeries": true
+        },
+        "input": {
+          "personId": 10
+        },
+        "view": {
+          "sort": "seriesSize",
+          "order": "desc"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store"
+        },
+        "body": {
+          "data": {
+            "person": {
+              "id": 10,
+              "name": "Series Person",
+              "nameCN": "系列人物",
+              "careers": [
+                "seiyu"
+              ]
+            },
+            "summary": {
+              "workUnit": "series",
+              "workCount": 1,
+              "characterCount": 1
+            },
+            "metrics": {
+              "ratedWorkCount": 1,
+              "average": 850,
+              "overall": 558,
+              "globalAverage": 800,
+              "highest": 850,
+              "lowest": 850
+            },
+            "tags": {
+              "meta": [
+                {
+                  "name": "动画",
+                  "count": 1
+                }
+              ],
+              "community": [
+                {
+                  "name": "续作",
+                  "count": 1
+                }
+              ],
+              "personal": []
+            },
+            "ratings": {
+              "global": {
+                "validCount": 1,
+                "average": 800,
+                "buckets": [
+                  {"score": 1, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 2, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 3, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 4, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 5, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 6, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 7, "count": 0, "examples": [], "hiddenCount": 0},
+                  {
+                    "score": 8,
+                    "count": 1,
+                    "examples": [
+                      {
+                        "kind": "series",
+                        "key": "series:1",
+                        "id": 1,
+                        "name": "Series Representative",
+                        "nameCN": "系列代表"
+                      }
+                    ],
+                    "hiddenCount": 0
+                  },
+                  {"score": 9, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 10, "count": 0, "examples": [], "hiddenCount": 0}
+                ],
+                "timeline": []
+              },
+              "personal": {
+                "validCount": 1,
+                "average": 850,
+                "buckets": [
+                  {"score": 1, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 2, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 3, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 4, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 5, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 6, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 7, "count": 0, "examples": [], "hiddenCount": 0},
+                  {"score": 8, "count": 0, "examples": [], "hiddenCount": 0},
+                  {
+                    "score": 9,
+                    "count": 1,
+                    "examples": [
+                      {
+                        "kind": "series",
+                        "key": "series:1",
+                        "id": 1,
+                        "name": "Series Representative",
+                        "nameCN": "系列代表"
+                      }
+                    ],
+                    "hiddenCount": 0
+                  },
+                  {"score": 10, "count": 0, "examples": [], "hiddenCount": 0}
+                ],
+                "timeline": []
+              }
+            },
+            "preference": {
+              "comparableCount": 2,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "1",
+                "denominator": "2"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "12"
+              },
+              "preferred": [
+                {
+                  "unit": {
+                    "kind": "series",
+                    "key": "series:1",
+                    "id": 1,
+                    "name": "Series Representative",
+                    "nameCN": "系列代表"
+                  },
+                  "personalScore": 850,
+                  "globalScore": 800,
+                  "differenceHundredths": 50
+                }
+              ],
+              "conservative": []
+            },
+            "section": "works",
+            "items": [
+              {
+                "kind": "series",
+                "key": "series:1",
+                "seriesId": 1,
+                "representative": {
+                  "id": 1,
+                  "name": "Series Representative",
+                  "nameCN": "系列代表",
+                  "date": "2024-04-01"
+                },
+                "matchedWorkCount": 2,
+                "memberCount": 3,
+                "members": [
+                  {
+                    "id": 1,
+                    "name": "Series Representative",
+                    "nameCN": "系列代表",
+                    "date": "2024-04-01",
+                    "matched": true
+                  },
+                  {
+                    "id": 2,
+                    "name": "Series Sequel",
+                    "nameCN": "系列续作",
+                    "date": "2024-07-01",
+                    "matched": true
+                  },
+                  {
+                    "id": 3,
+                    "name": "Series Future",
+                    "nameCN": "系列后续",
+                    "date": "2025-01-01",
+                    "matched": false
+                  }
+                ],
+                "globalScore": 800,
+                "personalScore": 850,
+                "latestCollectionUpdatedAt": "2026-07-24T08:00:00Z",
+                "contributions": [
+                  {
+                    "kind": "cast",
+                    "positionKey": "cast:anime:all",
+                    "character": {
+                      "key": "character:501",
+                      "id": 501,
+                      "name": "Series Character",
+                      "nameCN": "系列角色"
+                    },
+                    "roleType": 1,
+                    "roleLabel": "主役",
+                    "provenance": "exact",
+                    "workCount": 1
+                  },
+                  {
+                    "kind": "staff",
+                    "positionKey": "staffset:anime:directors",
+                    "exactPositionKey": "staff:anime:2",
+                    "provenance": "exact",
+                    "workCount": 2
+                  }
+                ]
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-detail-series",
+            "dataVersion": "dv1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 1
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T07:00:00Z",
+              "stale": true,
+              "warningCodes": [
+                "COLLECTION_STALE"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+IFS=$'\n\t'
+
+script_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=../lib/common.sh
+source "$script_root/../lib/common.sh"
+
+[[ $# -eq 2 && "$1" == --root ]] || die "usage: rollback-app --root ABS"
+root=$2
+for command in curl docker flock jq realpath; do require_command "$command"; done
+require_root_user
+require_root_layout "$root"
+acquire_state_lock "$root"
+[[ -f "$root/state/current.env" && -f "$root/state/previous.env" ]] ||
+  die "both current and previous application env are required"
+current_env=$(mktemp "$root/state/.rollback-current.XXXXXX")
+previous_env=$(mktemp "$root/state/.rollback-previous.XXXXXX")
+cleanup_temporaries() {
+  local result=$? temporary
+  trap - EXIT ERR HUP INT TERM
+  for temporary in "$current_env" "$previous_env"; do
+    if [[ -f "$temporary" && ! -L "$temporary" &&
+      "${temporary%/*}" == "$root/state" ]]; then
+      rm -f -- "$temporary" || result=1
+    elif [[ -e "$temporary" || -L "$temporary" ]]; then
+      log "preserving invalid transaction temporary: $temporary"
+      result=1
+    fi
+  done
+  exit "$result"
+}
+trap cleanup_temporaries EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+cp -- "$root/state/current.env" "$current_env"
+cp -- "$root/state/previous.env" "$previous_env"
+current_frontend=$(read_link_or_empty "$root/current-frontend")
+previous_frontend=$(read_link_or_empty "$root/previous-frontend")
+current_tools=$(read_link_or_empty "$root/current-tools")
+previous_tools=$(read_link_or_empty "$root/previous-tools")
+[[ -n "$current_frontend" && -n "$previous_frontend" &&
+  -n "$current_tools" && -n "$previous_tools" ]] || die "application links are incomplete"
+
+restore_app() {
+  local failed=$1
+  (( failed != 0 )) || failed=1
+  trap - ERR HUP INT TERM
+  atomic_copy "$current_env" "$root/state/current.env"
+  atomic_symlink "$current_tools" "$root/current-tools"
+  if ! restart_and_wait "$root" "$(pointer_data_version "$root/data/current.json")"; then
+    die "application rollback failed and original application did not recover"
+  fi
+  atomic_symlink "$current_frontend" "$root/current-frontend"
+  atomic_copy "$previous_env" "$root/state/previous.env"
+  atomic_symlink "$previous_tools" "$root/previous-tools"
+  atomic_symlink "$previous_frontend" "$root/previous-frontend"
+  exit "$failed"
+}
+trap 'restore_app "$?"' ERR
+trap 'restore_app 129' HUP
+trap 'restore_app 130' INT
+trap 'restore_app 143' TERM
+atomic_copy "$previous_env" "$root/state/current.env"
+atomic_symlink "$previous_tools" "$root/current-tools"
+restart_and_wait "$root" "$(pointer_data_version "$root/data/current.json")"
+atomic_copy "$current_env" "$root/state/previous.env"
+atomic_symlink "$current_tools" "$root/previous-tools"
+atomic_symlink "$current_frontend" "$root/previous-frontend"
+# Frontend follows successful API readiness.
+atomic_symlink "$previous_frontend" "$root/current-frontend"
+trap - ERR HUP INT TERM
+log "application rollback completed; data pointer was unchanged"

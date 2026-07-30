@@ -1,0 +1,193 @@
+{
+  "caseId": "invalid",
+  "mutations": [
+    {
+      "id": "unknown-root-field",
+      "expected": "INVALID",
+      "document": {
+        "last_attempt": {
+          "time": "2026-07-25T04:05:06Z",
+          "status": "failed",
+          "phase": "smoke",
+          "duration_seconds": 1,
+          "dataVersion": null,
+          "error_code": "SMOKE_FAILED"
+        },
+        "last_success": null,
+        "history": []
+      }
+    },
+    {
+      "id": "unknown-record-field",
+      "expected": "INVALID",
+      "document": {
+        "last_attempt": {
+          "time": "2026-07-25T04:05:06Z",
+          "status": "failed",
+          "phase": "smoke",
+          "duration_seconds": 1,
+          "dataVersion": null,
+          "error_code": "SMOKE_FAILED",
+          "message": "not admitted"
+        },
+        "last_success": null
+      }
+    },
+    {
+      "id": "invalid-status",
+      "expected": "INVALID",
+      "document": {
+        "last_attempt": {
+          "time": "2026-07-25T04:05:06Z",
+          "status": "running",
+          "phase": "build",
+          "duration_seconds": 1,
+          "dataVersion": null,
+          "error_code": null
+        },
+        "last_success": null
+      }
+    },
+    {
+      "id": "calendar-invalid-time",
+      "expected": "INVALID",
+      "document": {
+        "last_attempt": {
+          "time": "2026-02-29T04:05:06Z",
+          "status": "failed",
+          "phase": "preflight",
+          "duration_seconds": 1,
+          "dataVersion": null,
+          "error_code": "PREFLIGHT_FAILED"
+        },
+        "last_success": null
+      }
+    },
+    {
+      "id": "negative-duration",
+      "expected": "INVALID",
+      "document": {
+        "last_attempt": {
+          "time": "2026-07-25T04:05:06Z",
+          "status": "failed",
+          "phase": "identity",
+          "duration_seconds": -0.01,
+          "dataVersion": null,
+          "error_code": "IDENTITY_FAILED"
+        },
+        "last_success": null
+      }
+    },
+    {
+      "id": "invalid-data-version",
+      "expected": "INVALID",
+      "document": {
+        "last_attempt": {
+          "time": "2026-07-25T04:05:06Z",
+          "status": "failed",
+          "phase": "manifest",
+          "duration_seconds": 1,
+          "dataVersion": "dv1-ABCDEF",
+          "error_code": "MANIFEST_FAILED"
+        },
+        "last_success": null
+      }
+    },
+    {
+      "id": "failed-without-error",
+      "expected": "INVALID",
+      "document": {
+        "last_attempt": {
+          "time": "2026-07-25T04:05:06Z",
+          "status": "failed",
+          "phase": "publication",
+          "duration_seconds": 1,
+          "dataVersion": null,
+          "error_code": null
+        },
+        "last_success": null
+      }
+    },
+    {
+      "id": "failed-with-canceled-code",
+      "expected": "INVALID",
+      "document": {
+        "last_attempt": {
+          "time": "2026-07-25T04:05:06Z",
+          "status": "failed",
+          "phase": "build",
+          "duration_seconds": 1,
+          "dataVersion": null,
+          "error_code": "CANCELED"
+        },
+        "last_success": null
+      }
+    },
+    {
+      "id": "canceled-with-wrong-code",
+      "expected": "INVALID",
+      "document": {
+        "last_attempt": {
+          "time": "2026-07-25T04:05:06Z",
+          "status": "canceled",
+          "phase": "build",
+          "duration_seconds": 1,
+          "dataVersion": null,
+          "error_code": "BUILD_FAILED"
+        },
+        "last_success": null
+      }
+    },
+    {
+      "id": "success-with-error",
+      "expected": "INVALID",
+      "document": {
+        "last_attempt": {
+          "time": "2026-07-25T04:05:06Z",
+          "status": "published",
+          "phase": "complete",
+          "duration_seconds": 1,
+          "dataVersion": "dv1-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "error_code": "UNEXPECTED_ERROR"
+        },
+        "last_success": null
+      }
+    },
+    {
+      "id": "failed-last-success",
+      "expected": "INVALID",
+      "document": {
+        "last_attempt": {
+          "time": "2026-07-25T04:05:06Z",
+          "status": "failed",
+          "phase": "smoke",
+          "duration_seconds": 1,
+          "dataVersion": null,
+          "error_code": "SMOKE_FAILED"
+        },
+        "last_success": {
+          "time": "2026-07-24T04:05:06Z",
+          "status": "failed",
+          "phase": "smoke",
+          "duration_seconds": 1,
+          "dataVersion": null,
+          "error_code": "SMOKE_FAILED"
+        }
+      }
+    },
+    {
+      "id": "missing-error-field",
+      "expected": "INVALID",
+      "document": {
+        "last_attempt": {
+          "time": "2026-07-25T04:05:06Z",
+          "status": "failed",
+          "phase": "smoke",
+          "duration_seconds": 1,
+          "dataVersion": null
+        },
+        "last_success": null
+      }
+    }
+  ]
+}

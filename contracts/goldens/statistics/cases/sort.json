@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "caseKind": "sort",
+  "cases": [
+    {
+      "id": "sort-person-count-both-directions",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-sort-001", "dr-candidate-001"],
+      "coverage": ["sort-person-count", "sort-both-directions", "sort-complete-ties", "sort-shuffled-input", "sort-page-boundary", "sort-entity-set-preservation"],
+      "input": {
+        "profile": "person-count",
+        "entries": [
+          {"personId": 1, "count": 5, "averageHundredths": 800, "validRatingCount": 3},
+          {"personId": 2, "count": 2, "averageHundredths": null, "validRatingCount": 0},
+          {"personId": 3, "count": 5, "averageHundredths": 800, "validRatingCount": 3},
+          {"personId": 4, "count": 5, "averageHundredths": 900, "validRatingCount": 1},
+          {"personId": 5, "count": 2, "averageHundredths": 700, "validRatingCount": 2}
+        ],
+        "shuffledInputIds": [[5, 3, 1, 4, 2], [2, 4, 1, 5, 3]],
+        "pageSize": 2
+      },
+      "expected": {
+        "descendingIds": [4, 1, 3, 5, 2],
+        "ascendingIds": [5, 2, 4, 1, 3],
+        "descendingPages": [[4, 1], [3, 5], [2]]
+      }
+    },
+    {
+      "id": "sort-person-average-both-directions",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-sort-001", "dr-candidate-001"],
+      "coverage": ["sort-person-average", "sort-both-directions", "sort-missing-last", "sort-fixed-secondary-directions", "sort-stable-scalar-id", "sort-entity-set-preservation"],
+      "input": {
+        "profile": "person-average",
+        "entries": [
+          {"personId": 1, "averageHundredths": 800, "validRatingCount": 3, "count": 5},
+          {"personId": 2, "averageHundredths": null, "validRatingCount": 0, "count": 9},
+          {"personId": 3, "averageHundredths": 800, "validRatingCount": 3, "count": 5},
+          {"personId": 4, "averageHundredths": 800, "validRatingCount": 4, "count": 2},
+          {"personId": 5, "averageHundredths": 700, "validRatingCount": 2, "count": 10},
+          {"personId": 6, "averageHundredths": 900, "validRatingCount": 1, "count": 1}
+        ],
+        "shuffledInputIds": [[2, 6, 4, 3, 5, 1], [3, 1, 5, 2, 6, 4]],
+        "pageSize": 2
+      },
+      "expected": {
+        "descendingIds": [6, 4, 1, 3, 5, 2],
+        "ascendingIds": [5, 4, 1, 3, 6, 2],
+        "descendingPages": [[6, 4], [1, 3], [5, 2]]
+      }
+    },
+    {
+      "id": "sort-person-overall-both-directions",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-sort-001"],
+      "coverage": ["sort-person-overall", "sort-both-directions", "sort-missing-last", "sort-fixed-secondary-directions", "sort-stable-scalar-id", "sort-entity-set-preservation"],
+      "input": {
+        "profile": "person-overall",
+        "entries": [
+          {"personId": 1, "overallHundredths": 550, "validRatingCount": 3, "count": 5, "averageHundredths": 600},
+          {"personId": 2, "overallHundredths": null, "validRatingCount": 0, "count": 9, "averageHundredths": null},
+          {"personId": 3, "overallHundredths": 550, "validRatingCount": 3, "count": 5, "averageHundredths": 600},
+          {"personId": 4, "overallHundredths": 550, "validRatingCount": 4, "count": 2, "averageHundredths": 500},
+          {"personId": 5, "overallHundredths": 600, "validRatingCount": 1, "count": 1, "averageHundredths": 900},
+          {"personId": 6, "overallHundredths": 500, "validRatingCount": 10, "count": 10, "averageHundredths": 700}
+        ],
+        "shuffledInputIds": [[4, 3, 6, 1, 5, 2], [2, 5, 1, 6, 3, 4]],
+        "pageSize": 2
+      },
+      "expected": {
+        "descendingIds": [5, 4, 1, 3, 6, 2],
+        "ascendingIds": [6, 4, 1, 3, 5, 2],
+        "descendingPages": [[5, 4], [1, 3], [6, 2]]
+      }
+    },
+    {
+      "id": "sort-person-preference-both-directions",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-sort-001", "dr-preference-001"],
+      "coverage": ["sort-person-preference", "sort-both-directions", "sort-missing-last", "sort-exact-rational-primary", "sort-fixed-secondary-directions", "sort-stable-scalar-id", "sort-entity-set-preservation"],
+      "input": {
+        "profile": "person-preference",
+        "entries": [
+          {"personId": 1, "preference": {"numerator": 1, "denominator": 2}, "effectiveEvidence": 1, "count": 5, "averageHundredths": 800},
+          {"personId": 2, "preference": null, "effectiveEvidence": 0, "count": 9, "averageHundredths": 900},
+          {"personId": 3, "preference": {"numerator": 1, "denominator": 2}, "effectiveEvidence": 5, "count": 2, "averageHundredths": 700},
+          {"personId": 4, "preference": {"numerator": -1, "denominator": 2}, "effectiveEvidence": 10, "count": 9, "averageHundredths": 900},
+          {"personId": 5, "preference": {"numerator": 1, "denominator": 2}, "effectiveEvidence": 5, "count": 2, "averageHundredths": 700},
+          {"personId": 6, "preference": {"numerator": 1, "denominator": 1}, "effectiveEvidence": 1, "count": 1, "averageHundredths": 500}
+        ],
+        "shuffledInputIds": [[3, 2, 6, 5, 1, 4], [4, 1, 5, 6, 2, 3]],
+        "pageSize": 2
+      },
+      "expected": {
+        "descendingIds": [6, 3, 5, 1, 4, 2],
+        "ascendingIds": [4, 3, 5, 1, 6, 2],
+        "descendingPages": [[6, 3], [5, 1], [4, 2]]
+      }
+    },
+    {
+      "id": "sort-work-selected-metric-both-directions",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-sort-001"],
+      "coverage": ["sort-work-selected-metric", "sort-both-directions", "sort-missing-last", "sort-global-score-secondary", "sort-stable-scalar-id", "sort-entity-set-preservation"],
+      "input": {
+        "profile": "work-or-series-selected-metric",
+        "unitKind": "subject",
+        "entries": [
+          {"unitId": 1, "selectedMetricHundredths": 800, "globalScoreHundredths": 900},
+          {"unitId": 2, "selectedMetricHundredths": null, "globalScoreHundredths": 1000},
+          {"unitId": 3, "selectedMetricHundredths": 800, "globalScoreHundredths": 950},
+          {"unitId": 4, "selectedMetricHundredths": 700, "globalScoreHundredths": null},
+          {"unitId": 5, "selectedMetricHundredths": 900, "globalScoreHundredths": 500},
+          {"unitId": 6, "selectedMetricHundredths": 800, "globalScoreHundredths": 950}
+        ],
+        "shuffledInputIds": [[6, 3, 2, 1, 5, 4], [4, 5, 1, 2, 3, 6]],
+        "pageSize": 2
+      },
+      "expected": {
+        "descendingIds": [5, 3, 6, 1, 4, 2],
+        "ascendingIds": [4, 3, 6, 1, 5, 2],
+        "descendingPages": [[5, 3], [6, 1], [4, 2]]
+      }
+    },
+    {
+      "id": "sort-series-selected-metric-both-directions",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-sort-001", "dr-series-001"],
+      "coverage": ["sort-series-selected-metric", "sort-both-directions", "sort-missing-last", "sort-stable-scalar-id", "sort-entity-set-preservation"],
+      "input": {
+        "profile": "work-or-series-selected-metric",
+        "unitKind": "series",
+        "entries": [
+          {"unitId": 10, "selectedMetricHundredths": 600, "globalScoreHundredths": 800},
+          {"unitId": 20, "selectedMetricHundredths": null, "globalScoreHundredths": 900},
+          {"unitId": 30, "selectedMetricHundredths": 600, "globalScoreHundredths": 900},
+          {"unitId": 40, "selectedMetricHundredths": 500, "globalScoreHundredths": 1000},
+          {"unitId": 50, "selectedMetricHundredths": 700, "globalScoreHundredths": 700}
+        ],
+        "shuffledInputIds": [[30, 20, 50, 10, 40], [40, 10, 20, 30, 50]],
+        "pageSize": 2
+      },
+      "expected": {
+        "descendingIds": [50, 30, 10, 40, 20],
+        "ascendingIds": [40, 30, 10, 50, 20],
+        "descendingPages": [[50, 30], [10, 40], [20]]
+      }
+    },
+    {
+      "id": "sort-person-combination-both-directions",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-sort-001"],
+      "coverage": ["sort-person-combination", "sort-both-directions", "sort-missing-last", "sort-fixed-secondary-directions", "sort-stable-tuple-id", "sort-page-boundary", "sort-entity-set-preservation"],
+      "input": {
+        "profile": "person-combination",
+        "entries": [
+          {"personIds": [1, 2], "commonCount": 3, "averageHundredths": 800},
+          {"personIds": [1, 3], "commonCount": 3, "averageHundredths": 800},
+          {"personIds": [2, 3], "commonCount": 3, "averageHundredths": 900},
+          {"personIds": [1, 4], "commonCount": 1, "averageHundredths": null},
+          {"personIds": [2, 4], "commonCount": 1, "averageHundredths": 700},
+          {"personIds": [3, 4], "commonCount": 5, "averageHundredths": 600}
+        ],
+        "shuffledInputIds": [[[2, 4], [1, 3], [3, 4], [1, 2], [1, 4], [2, 3]]],
+        "pageSize": 2
+      },
+      "expected": {
+        "descendingIds": [[3, 4], [2, 3], [1, 2], [1, 3], [2, 4], [1, 4]],
+        "ascendingIds": [[2, 4], [1, 4], [2, 3], [1, 2], [1, 3], [3, 4]],
+        "descendingPages": [[[3, 4], [2, 3]], [[1, 2], [1, 3]], [[2, 4], [1, 4]]]
+      }
+    }
+  ]
+}

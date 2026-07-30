@@ -1,0 +1,41 @@
+{
+  "indexSchemaVersion": 1,
+  "algorithm": "bgmss-update-status-golden-index-v1",
+  "entries": [
+    {
+      "path": "cases/first-failure.json",
+      "sha256": "5c315f6387ea9bb358d07c48a87d6dc58832e41f9ea1a94732274998e84f4919",
+      "caseId": "first-failure",
+      "caseKind": "status-document",
+      "outcome": "VALID"
+    },
+    {
+      "path": "cases/canceled.json",
+      "sha256": "33bd4244ba26a7898e3cf80b5b975c33531ede8c3df4e55ce22e178981f04ee6",
+      "caseId": "canceled",
+      "caseKind": "status-document",
+      "outcome": "VALID"
+    },
+    {
+      "path": "cases/no-change.json",
+      "sha256": "0e1ca64fc8954826c06f5559d94f4aadc08fee3588589ad12da2af1b400204a6",
+      "caseId": "no-change",
+      "caseKind": "status-document",
+      "outcome": "VALID"
+    },
+    {
+      "path": "cases/published.json",
+      "sha256": "d406dac231ac11ba843cb6c7b1c9f5a003cdaf2ad8485367fe154d300b597e28",
+      "caseId": "published",
+      "caseKind": "status-document",
+      "outcome": "VALID"
+    },
+    {
+      "path": "cases/invalid.json",
+      "sha256": "30d8afd9a144dc7b9cb63eae5c22021846adf2ecd9d5090484eb4d71f36cb046",
+      "caseId": "invalid",
+      "caseKind": "invalid-mutations",
+      "outcome": "INVALID"
+    }
+  ]
+}

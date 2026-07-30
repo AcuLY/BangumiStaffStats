@@ -1,0 +1,483 @@
+{
+  "caseFileVersion": 1,
+  "kind": "identity-set-algebra",
+  "fixture": "fixtures/anime-domain-v1.json",
+  "cases": [
+    {
+      "caseId": "multi-position-person-and-work-union",
+      "outcome": "success",
+      "coverage": [
+        "exact-staff",
+        "cast-all",
+        "staff-set-evidence",
+        "duplicate-subject-contribution-dedup",
+        "multi-position-person-and",
+        "identity-work-union",
+        "participant-person-intersection",
+        "stable-order"
+      ],
+      "domain": "identity",
+      "querySource": {
+        "kind": "inline",
+        "submitted": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all",
+            "staffset:anime:director-family"
+          ]
+        }
+      },
+      "participantRequests": [
+        {
+          "requestId": "p301-staff-cast-union",
+          "people": [
+            {
+              "personId": 301,
+              "positionKeys": [
+                "staff:anime:2",
+                "cast:anime:all"
+              ]
+            }
+          ]
+        },
+        {
+          "requestId": "p301-p302-intersection",
+          "people": [
+            {
+              "personId": 301,
+              "positionKeys": [
+                "staff:anime:2",
+                "cast:anime:all"
+              ]
+            },
+            {
+              "personId": 302,
+              "positionKeys": [
+                "staffset:anime:director-family"
+              ]
+            }
+          ]
+        },
+        {
+          "requestId": "official-staff-vs-exact-cast",
+          "people": [
+            {
+              "personId": 305,
+              "positionKeys": [
+                "staff:anime:101"
+              ]
+            },
+            {
+              "personId": 306,
+              "positionKeys": [
+                "cast:anime:main"
+              ]
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "effectiveQuery": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all",
+            "staffset:anime:director-family"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "queryDigest": "q1:01cb84dff0ec0ab605caeda7e748e0e67eb11d9995278ce9cc4031c9f711742a",
+        "collectionAccessCount": 0,
+        "eligibleSubjectIds": [
+          201,
+          202,
+          203,
+          204,
+          205,
+          206
+        ],
+        "positionResults": [
+          {
+            "positionKey": "staff:anime:2",
+            "candidatePersonIds": [
+              301,
+              303
+            ],
+            "candidateSubjectIds": [
+              201,
+              202,
+              203,
+              204
+            ],
+            "contributions": [
+              {
+                "positionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 201,
+                "personId": 301,
+                "positionId": 2
+              },
+              {
+                "positionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 201,
+                "personId": 303,
+                "positionId": 2
+              },
+              {
+                "positionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 202,
+                "personId": 301,
+                "positionId": 2
+              },
+              {
+                "positionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 203,
+                "personId": 301,
+                "positionId": 2
+              },
+              {
+                "positionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 204,
+                "personId": 301,
+                "positionId": 2
+              }
+            ]
+          },
+          {
+            "positionKey": "cast:anime:all",
+            "candidatePersonIds": [
+              301,
+              304,
+              306
+            ],
+            "candidateSubjectIds": [
+              201,
+              202,
+              203,
+              204,
+              206
+            ],
+            "contributions": [
+              {
+                "positionKey": "cast:anime:all",
+                "kind": "cast",
+                "subjectId": 201,
+                "personId": 301,
+                "characterId": 1001,
+                "roleType": 1,
+                "sortOrder": 0
+              },
+              {
+                "positionKey": "cast:anime:all",
+                "kind": "cast",
+                "subjectId": 202,
+                "personId": 301,
+                "characterId": 1002,
+                "roleType": 2,
+                "sortOrder": 1
+              },
+              {
+                "positionKey": "cast:anime:all",
+                "kind": "cast",
+                "subjectId": 202,
+                "personId": 301,
+                "characterId": 1003,
+                "roleType": 3,
+                "sortOrder": 2
+              },
+              {
+                "positionKey": "cast:anime:all",
+                "kind": "cast",
+                "subjectId": 203,
+                "personId": 301,
+                "characterId": 1004,
+                "roleType": 1,
+                "sortOrder": 0
+              },
+              {
+                "positionKey": "cast:anime:all",
+                "kind": "cast",
+                "subjectId": 204,
+                "personId": 304,
+                "characterId": 1005,
+                "roleType": 2,
+                "sortOrder": 0
+              },
+              {
+                "positionKey": "cast:anime:all",
+                "kind": "cast",
+                "subjectId": 206,
+                "personId": 306,
+                "characterId": 1006,
+                "roleType": 1,
+                "sortOrder": 0
+              }
+            ]
+          },
+          {
+            "positionKey": "staffset:anime:director-family",
+            "candidatePersonIds": [
+              301,
+              302,
+              303
+            ],
+            "candidateSubjectIds": [
+              201,
+              202,
+              203,
+              204
+            ],
+            "contributions": [
+              {
+                "positionKey": "staffset:anime:director-family",
+                "memberPositionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 201,
+                "personId": 301,
+                "positionId": 2
+              },
+              {
+                "positionKey": "staffset:anime:director-family",
+                "memberPositionKey": "staff:anime:74",
+                "kind": "staff",
+                "subjectId": 201,
+                "personId": 302,
+                "positionId": 74
+              },
+              {
+                "positionKey": "staffset:anime:director-family",
+                "memberPositionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 201,
+                "personId": 303,
+                "positionId": 2
+              },
+              {
+                "positionKey": "staffset:anime:director-family",
+                "memberPositionKey": "staff:anime:74",
+                "kind": "staff",
+                "subjectId": 201,
+                "personId": 303,
+                "positionId": 74
+              },
+              {
+                "positionKey": "staffset:anime:director-family",
+                "memberPositionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 202,
+                "personId": 301,
+                "positionId": 2
+              },
+              {
+                "positionKey": "staffset:anime:director-family",
+                "memberPositionKey": "staff:anime:74",
+                "kind": "staff",
+                "subjectId": 202,
+                "personId": 301,
+                "positionId": 74
+              },
+              {
+                "positionKey": "staffset:anime:director-family",
+                "memberPositionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 203,
+                "personId": 301,
+                "positionId": 2
+              },
+              {
+                "positionKey": "staffset:anime:director-family",
+                "memberPositionKey": "staff:anime:74",
+                "kind": "staff",
+                "subjectId": 203,
+                "personId": 302,
+                "positionId": 74
+              },
+              {
+                "positionKey": "staffset:anime:director-family",
+                "memberPositionKey": "staff:anime:2",
+                "kind": "staff",
+                "subjectId": 204,
+                "personId": 301,
+                "positionId": 2
+              },
+              {
+                "positionKey": "staffset:anime:director-family",
+                "memberPositionKey": "staff:anime:74",
+                "kind": "staff",
+                "subjectId": 204,
+                "personId": 301,
+                "positionId": 74
+              }
+            ]
+          }
+        ],
+        "rankingPeople": [
+          {
+            "personId": 301,
+            "subjectIds": [
+              201,
+              202,
+              203,
+              204
+            ]
+          }
+        ],
+        "participatingSubjectIds": [
+          201,
+          202,
+          203,
+          204
+        ],
+        "participantSets": [
+          {
+            "requestId": "p301-staff-cast-union",
+            "subjectIds": [
+              201,
+              202,
+              203,
+              204
+            ]
+          },
+          {
+            "requestId": "p301-p302-intersection",
+            "subjectIds": [
+              201,
+              203
+            ]
+          },
+          {
+            "requestId": "official-staff-vs-exact-cast",
+            "subjectIds": [
+              206
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "cast-main-official-staff-and-no-credit",
+      "outcome": "success",
+      "coverage": [
+        "cast-main",
+        "cast-main-subset-of-all",
+        "official-staff-101-not-cast",
+        "defined-position-no-credit",
+        "empty-ranking-set"
+      ],
+      "domain": "identity",
+      "querySource": {
+        "kind": "inline",
+        "submitted": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:101",
+            "cast:anime:main",
+            "staff:anime:67"
+          ]
+        }
+      },
+      "expected": {
+        "effectiveQuery": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:101",
+            "cast:anime:main",
+            "staff:anime:67"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "queryDigest": "q1:aeff0501bf50f2b8feabdbd9716f3a4c3e23e8871c08d4a97d7d776eb3d6b955",
+        "collectionAccessCount": 0,
+        "eligibleSubjectIds": [
+          201,
+          202,
+          203,
+          204,
+          205,
+          206
+        ],
+        "positionResults": [
+          {
+            "positionKey": "staff:anime:101",
+            "candidatePersonIds": [
+              305
+            ],
+            "candidateSubjectIds": [
+              206
+            ],
+            "contributions": [
+              {
+                "positionKey": "staff:anime:101",
+                "kind": "staff",
+                "subjectId": 206,
+                "personId": 305,
+                "positionId": 101
+              }
+            ]
+          },
+          {
+            "positionKey": "cast:anime:main",
+            "candidatePersonIds": [
+              301,
+              306
+            ],
+            "candidateSubjectIds": [
+              201,
+              203,
+              206
+            ],
+            "contributions": [
+              {
+                "positionKey": "cast:anime:main",
+                "kind": "cast",
+                "subjectId": 201,
+                "personId": 301,
+                "characterId": 1001,
+                "roleType": 1,
+                "sortOrder": 0
+              },
+              {
+                "positionKey": "cast:anime:main",
+                "kind": "cast",
+                "subjectId": 203,
+                "personId": 301,
+                "characterId": 1004,
+                "roleType": 1,
+                "sortOrder": 0
+              },
+              {
+                "positionKey": "cast:anime:main",
+                "kind": "cast",
+                "subjectId": 206,
+                "personId": 306,
+                "characterId": 1006,
+                "roleType": 1,
+                "sortOrder": 0
+              }
+            ]
+          },
+          {
+            "positionKey": "staff:anime:67",
+            "candidatePersonIds": [],
+            "candidateSubjectIds": [],
+            "contributions": []
+          }
+        ],
+        "rankingPeople": [],
+        "participatingSubjectIds": [],
+        "participantSets": []
+      }
+    }
+  ]
+}

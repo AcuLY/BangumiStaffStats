@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/archive/data-version-input-v1.json",
+  "title": "Archive dataVersion input v1",
+  "description": "Semantic inputs serialized as the fixed ordered LF-delimited preimage documented by the Archive contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "archiveRelease",
+    "archiveDigest",
+    "commonCommit",
+    "commonDigest",
+    "manifestSchemaVersion",
+    "sqliteSchemaVersion",
+    "schemaSqlDigest",
+    "domainRulesVersion",
+    "castRulesVersion",
+    "catalogConfigDigest"
+  ],
+  "properties": {
+    "archiveRelease": {
+      "$ref": "#/$defs/asciiToken"
+    },
+    "archiveDigest": {
+      "$ref": "#/$defs/digest"
+    },
+    "commonCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "commonDigest": {
+      "$ref": "#/$defs/digest"
+    },
+    "manifestSchemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "sqliteSchemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "schemaSqlDigest": {
+      "$ref": "#/$defs/digest"
+    },
+    "domainRulesVersion": {
+      "$ref": "#/$defs/asciiToken"
+    },
+    "castRulesVersion": {
+      "$ref": "#/$defs/asciiToken"
+    },
+    "catalogConfigDigest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "asciiToken": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    }
+  }
+}

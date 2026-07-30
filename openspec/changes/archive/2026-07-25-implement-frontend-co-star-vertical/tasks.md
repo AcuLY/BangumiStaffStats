@@ -1,0 +1,66 @@
+## Task Boundary
+
+| Boundary | Declaration |
+|---|---|
+| Status | Investigated, specified, implemented, verified, and committed: complete. Group 1 is accepted at `9eae3216`, Group 2A at `f7233647`, and `expose-co-star` at `8b9d623a` with archive `a15073fb`. Task 2.7 is committed at `77b335ae`; the shared integration, refresh/deferred recovery, oracle correction, full Node 24 gate, and production-browser acceptance are committed at `96389753`. Nothing is pushed, released, or deployed. |
+| Owner | One Frontend implementation agent for all three groups; main agent owns spec edits, shared-owner sequencing, acceptance, commits, and archive. |
+| Writable paths | `frontend/src/api/{candidates,partners,coStar}.ts`, `frontend/src/api/adapters/{candidates,partners,coStar}.ts`, `frontend/src/features/co-star/**`, `frontend/src/features/query/{coordinator,share}.ts`, `frontend/src/features/query/components/{AppHeader,QueryWorkspace}.vue`, `frontend/src/features/person-detail/ratingTimelineGeometry.ts`, `frontend/src/app/App.vue`, `frontend/src/app/routes.ts`, `frontend/src/shared/charts/**`, `frontend/src/shared/components/{AppIcon,SafeImage,DeferredSurfaceState}.vue`, `frontend/src/shared/media/bangumiImage.ts`, `frontend/src/shared/styles/base.css`, `frontend/scripts/{check-architecture,check-production-artifact}.mjs`, `frontend/tests/api/{candidates,partners,co-star}.test.ts`, `frontend/tests/features/co-star/**`, `frontend/tests/features/query/{components,coordinator,share-routes}.test.ts`, `frontend/tests/app/{app.mount,co-star.integration}.test.ts`, `frontend/tests/shared/SafeImage.test.ts`, and this file's task markers. |
+| Read-only protected inputs | `PRODUCT.md`, `DESIGN.md`, oracle `644b7748674e553f863d0ffd61d029f86fdc0717`, `tmp-formal-development/**`, `contracts/**`, `backend/**`, `updater/**`, contract-owned generated DTOs/generators/checkers, package/lock files, non-listed frontend paths, other OpenSpec changes/specs, external repositories, refs/remotes, and production state. |
+| Deletion complement | Delete only new files created under declared API/co-star/test paths; hunk-revert existing files. Never use recursive broad deletion. |
+| Mutable refs | None during apply. Main-agent lifecycle actions occur only after acceptance. |
+| Consumes | Accepted shell/shared primitives and exact changes `bootstrap-frontend-foundation`, `implement-frontend-query-shell`, `implement-frontend-ranking-results`, `implement-frontend-person-inspector`, `expose-candidates`, `expose-partners`, and `expose-co-star`. |
+| Produces | Complete fixture-free `/co-star` candidate, tray, partners, pair/group analysis and share workflow. |
+| Dependencies | Contract-generated DTOs/endpoints → strict adapters/coordinator → feature surfaces → App integration. Shared files wait for explicit owner handoff. |
+| Deliverables | Three drivers/adapters, coordinated state, complete UI topology, focused/full tests, and browser evidence. |
+| Acceptance | Generated drift, adapter/state/component/integration/type/build/artifact gates; strict OpenSpec; dual-theme viewport/focus/overflow/console/network verification. |
+| Non-goals | Frontend statistics, backend/contracts, new packages/state/request layers, person detail, fixtures, operations, deployment, or broad cleanup. |
+| Operations deferred | Hosting/process/monitoring configuration, production secrets, release, deployment, cutover, and activation. |
+| Stop/rollback conditions | Stop on branch/HEAD/dirty-state mismatch, missing review/dependency, overlapping shared owner, DTO drift, authority conflict, need for undeclared mutation/statistics/dependency, or failed gate; preserve unrelated work and revert only owned new files/hunks. |
+
+Forbidden throughout: `git reset --hard`, checkout-based rollback, `git clean`,
+`git add -A`, broad recursive deletion, writes outside declared paths, nested
+OpenSpec roots, external-repository mutation, and remote/operations actions.
+Use Node through
+`PATH=/Users/luca/.nvm/versions/node/v24.18.0/bin:$PATH`.
+
+## 1. Candidate, identity, and resource foundation
+
+- [x] 1.1 Preflight: record `git branch --show-current`, `git rev-parse HEAD`, and `git status --short`; confirm branch `codex/formal-rewrite`, reviewed strict-valid artifacts, accepted `expose-candidates`, available deterministic candidates DTOs, and no active owner on the exact Group 1 paths; stop without cleanup on any mismatch.
+- [x] 1.2 Implement and test the strict candidates adapter/driver plus coordinator resource sequence, cancellation, revision, stale-response, metadata, scope omission, and view-only request behavior using only contract-owned generated DTOs.
+- [x] 1.3 Implement `features/co-star` models/state and the oracle-preserving desktop rail/mobile Drawer, selected-identity tray, 10-person/20-identity limits, candidate position/count/search/sort/rank/pagination states, and the 0-person analysis state without frontend statistics.
+- [x] 1.4 Verify Group 1 with `npm run check:candidates-wire`, focused candidates/co-star/coordinator Vitest files, `npm run typecheck`, `git diff --check`, and `openspec validate implement-frontend-co-star-vertical --type change --strict --no-interactive`; record investigated/implemented/verified separately and hand off only declared unstaged paths.
+
+## 2. Partners, pair/group, share, and App integration
+
+- [x] 2.1 Partners preflight: re-record branch, HEAD, and dirty state; confirm accepted `expose-partners`, its deterministic DTOs/endpoint/drift check, released coordinator/co-star feature paths, and accepted Group 1. Group 2A owns only `frontend/src/api/{partners.ts,adapters/partners.ts}`, the read-only error-response metadata extension in `frontend/src/api/client.ts`, partners-specific files/hunks under `frontend/src/features/co-star/**`, partners resource hunks in `frontend/src/features/query/coordinator.ts`, focused client/partners/co-star/coordinator tests, and these task markers; it SHALL NOT touch App/share/base/shared primitives, architecture/artifact scripts, generated DTOs, or co-star operation code.
+- [x] 2.2 Implement and test the strict partners adapter/driver plus independent latest-only coordinator resource, including canonical one-person identities, local recovery, surface-specific pending, scope omission, canonical 1–60 second Retry-After with at most one abortable bounded-jitter retry for retryable 429/`SERVER_BUSY`, stable errors, and the prohibition on `refreshCollection`.
+- [x] 2.3 Implement the oracle-preserving 1-person source/summary/fixed-leaders/filter/server-ranked list/pagination surface; partner activation SHALL add returned contributing identities and prepare the authoritative two-person transition without locally computing cooperation.
+- [x] 2.4 Verify Group 2A with `npm run check:partners-wire`, focused partners/co-star/coordinator Vitest files, `npm run typecheck`, `npm run build`, `git diff --check`, and strict change validation; retain the accepted Group 1 surface on failure.
+- [x] 2.5 Co-star feature preflight: confirm accepted `expose-co-star`, its deterministic DTOs/endpoint/drift check, accepted Group 2A, and explicit handoff of only `api/coStar`, its adapter/tests, co-star feature paths, and co-star coordinator hunks for tasks 2.6–2.7. App/share/shared/check paths remain protected until task 2.8 receives a separate explicit handoff. Stop on any mismatch.
+- [x] 2.6 Implement and test the strict co-star adapter/driver and independent latest-only resource, including canonical ordered identities, local recovery, surface-specific pending, scope omission, Retry-After/errors, and the prohibition on `refreshCollection`.
+- [x] 2.7 Implement 2-person pair and 3–10-person group participants, complete summary/tags/ratings/personal preference, display-only matrix projection, exact-contribution subject/series browser, server view pagination, ready empty state, and local pending/error/retry boundaries.
+- [x] 2.8 After the task-2.7 oracle corrections are accepted and the main agent explicitly hands off every App/share/shared/check path, construct all three production drivers and one selection owner; integrate selection-preserving query revision behavior, one-shot versioned share restore, App route with persistent `mode-panel-ranking` / `mode-panel-co-star` tabpanel ownership matching the Header tabs, Header-owned compact picker entry, responsive rail/Drawer/focus restoration, dual-theme feature CSS, shared chart/media primitives, architecture/artifact inventories, and oracle copy/hierarchy without adding a dependency or state/request layer.
+- [x] 2.9 Ensure the four deferred production surfaces expose local
+  oracle-compatible pending/failure states and that activating retry after an
+  intercepted built-module 503 causes a fresh 200 recovery attempt while
+  preserving route/restorable intent; do not accept a unit-only loader swap
+  that reuses the browser's rejected module map entry.
+- [x] 2.10 Preserve the latest candidate search/sort/order/page/page-size intent
+  entered during a same-query collection refresh, issue no old-snapshot view
+  request or false readiness error while primary is pending, and after success
+  replay exactly one latest differing view on the refreshed snapshot; cover
+  superseded intermediate edits and stale/error cleanup.
+- [x] 2.11 For still-visible partners/co-star/person-detail controls during
+  same-query primary refresh, queue only the latest complete compound view,
+  send no old-snapshot request or false prerequisite error, then on primary
+  success rerun exactly once and restore accepted ownership even for unchanged
+  fields; on primary failure restore the prior accepted child and discard the
+  queue. Do not change the approved rankings core-loading presentation.
+- [x] 2.12 Verify Group 2B with `npm run check:co-star-wire`, focused API/co-star/query-share/App Vitest files, `npm run typecheck`, `npm run build`, `git diff --check`, and strict change validation; stop and retain the last accepted surfaces on any failure.
+
+## 3. Integrated development acceptance
+
+- [x] 3.1 Preflight: record branch, HEAD, and dirty state; confirm only declared paths remain in the candidate, every operation projection is drift-clean, all task behavior is implemented, and no disposable generated/build state or overlapping owner remains.
+- [x] 3.2 Run the Node 24 full frontend `npm run check`, repeat focused latest-only/cancel/limit/share tests, and verify architecture, artifact denylist, one production SPA, fixture/upstream/statistics bans, `git diff --check`, and `openspec validate --all --strict --no-interactive`.
+- [x] 3.3 Build and serve the production artifact locally, then browser-check Light/Dark at 360, 390, 768, 779, 780, 781, 917, 1024, 1185, and 1440px for 0/1/2/group, personal/global, subject/series, pending/error/empty, search/sort/page, limit, share replay, keyboard/focus/Escape/Drawer, reduced motion, 44px targets, image four-state sizing, matrix/table scroll ownership, page overflow, duplicate IDs, fresh console, failed resources, and direct-upstream requests against the oracle and intentional-delta record.
+- [x] 3.4 Recheck exact-path ownership and absence of external/ref/operations mutation; report investigated, implemented, verified, committed, pushed, released, and deployed states separately, leave commits/archive to the main agent, and stop with an unstaged accepted candidate.

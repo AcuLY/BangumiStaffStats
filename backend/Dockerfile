@@ -1,35 +1,63 @@
-# ---------- 构建 ----------
-FROM golang:1.24-alpine AS builder
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.26.5-bookworm@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651 AS build
 
-ENV GOPROXY=https://goproxy.cn
+ARG TARGETOS
+ARG TARGETARCH
+ARG SOURCE_DATE_EPOCH=0
+ARG SOURCE_REVISION
+ARG APPLICATION_VERSION
 
-RUN echo "https://mirrors.aliyun.com/alpine/v3.18/main" > /etc/apk/repositories && \
-    echo "https://mirrors.aliyun.com/alpine/v3.18/community" >> /etc/apk/repositories && \
-    apk update && \
-    apk add --no-cache tzdata
+ENV CGO_ENABLED=0 \
+    GOENV=off \
+    GOFLAGS=-mod=readonly \
+    GOTOOLCHAIN=local \
+    GOWORK=off
 
-WORKDIR /app
+WORKDIR /src
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN go mod download && go mod verify
 
-COPY . .
-RUN go build -o app ./cmd
+COPY cmd ./cmd
+COPY internal ./internal
 
-# ---------- 运行 ----------
-FROM alpine:3.21
+RUN GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
+    go build \
+      -buildvcs=false \
+      -trimpath \
+      -ldflags="-buildid= -s -w -X github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Version=${APPLICATION_VERSION} -X github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Commit=${SOURCE_REVISION}" \
+      -o /out/bgmss-api \
+      ./cmd/api
+RUN GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
+    go build \
+      -buildvcs=false \
+      -trimpath \
+      -ldflags="-buildid= -s -w -X github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Version=${APPLICATION_VERSION} -X github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Commit=${SOURCE_REVISION}" \
+      -o /out/archive-smoke \
+      ./cmd/archive-smoke
 
-RUN echo "https://mirrors.aliyun.com/alpine/v3.21/main" > /etc/apk/repositories && \
-    echo "https://mirrors.aliyun.com/alpine/v3.21/community" >> /etc/apk/repositories && \
-    apk update && \
-    apk add --no-cache tzdata
+FROM scratch AS binary
 
-ENV TZ=Asia/Shanghai
+COPY --from=build /out/bgmss-api /bgmss-api
+COPY --from=build /out/archive-smoke /archive-smoke
 
-WORKDIR /app
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:f7f8f729987ad0fdf6b05eeeae94b26e6a0f613bdf46feea7fc40f7bd72953e6 AS runtime
 
-COPY --from=builder /app/app .
+ARG SOURCE_REVISION
+ARG SOURCE_TREE
+ARG APPLICATION_VERSION
+ARG OPENAPI_SHA256
+ARG ARCHIVE_MANIFEST_SCHEMA_SHA256
+ARG ARCHIVE_SCHEMA_SQL_SHA256
 
-EXPOSE 5000
+LABEL org.opencontainers.image.version="${APPLICATION_VERSION}" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}" \
+      io.bgmss.source-tree="${SOURCE_TREE}" \
+      io.bgmss.openapi.sha256="${OPENAPI_SHA256}" \
+      io.bgmss.archive-manifest-schema.sha256="${ARCHIVE_MANIFEST_SCHEMA_SHA256}" \
+      io.bgmss.archive-schema-sql.sha256="${ARCHIVE_SCHEMA_SQL_SHA256}"
 
-CMD ["./app"]
+COPY --from=build --chown=65532:65532 /out/bgmss-api /usr/local/bin/bgmss-api
+
+USER 65532:65532
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/bgmss-api"]

@@ -1,0 +1,361 @@
+{
+  "schemaVersion": 1,
+  "kind": "global-success-cases",
+  "cases": [
+    {
+      "id": "global-independent-position-counts",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all"
+          ]
+        },
+        "input": {
+          "positionKey": "cast:anime:all"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-independent"
+        },
+        "body": {
+          "data": {
+            "summary": {
+              "positionCounts": [
+                {
+                  "positionKey": "staff:anime:2",
+                  "count": 2
+                },
+                {
+                  "positionKey": "cast:anime:all",
+                  "count": 3
+                }
+              ]
+            },
+            "positionKey": "cast:anime:all",
+            "workUnit": "subject",
+            "items": [
+              {
+                "rank": 1,
+                "person": {
+                  "id": 30,
+                  "name": "Only Cast",
+                  "nameCN": null
+                },
+                "workCount": 4
+              },
+              {
+                "rank": 2,
+                "person": {
+                  "id": 20,
+                  "name": "Both",
+                  "nameCN": "共同"
+                },
+                "workCount": 2
+              },
+              {
+                "rank": 3,
+                "person": {
+                  "id": 40,
+                  "name": "Supporting",
+                  "nameCN": null
+                },
+                "workCount": 1
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-candidates-independent",
+            "dataVersion": "dv1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 3
+            }
+          }
+        }
+      },
+      "assertions": {
+        "personOnlyInSecondPosition": 30,
+        "orderedPositionKeys": [
+          "staff:anime:2",
+          "cast:anime:all"
+        ]
+      }
+    },
+    {
+      "id": "global-rank-gap-search",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": "staff:anime:2"
+        },
+        "view": {
+          "search": "match",
+          "sort": "count",
+          "order": "desc",
+          "page": 1,
+          "pageSize": 10
+        }
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-rank-gap"
+        },
+        "body": {
+          "data": {
+            "summary": {
+              "positionCounts": [
+                {
+                  "positionKey": "staff:anime:2",
+                  "count": 8
+                }
+              ]
+            },
+            "positionKey": "staff:anime:2",
+            "workUnit": "subject",
+            "items": [
+              {
+                "rank": 2,
+                "person": {
+                  "id": 2,
+                  "name": "First Match",
+                  "nameCN": null
+                },
+                "workCount": 7
+              },
+              {
+                "rank": 8,
+                "person": {
+                  "id": 8,
+                  "name": "Last Match",
+                  "nameCN": null
+                },
+                "workCount": 1
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-candidates-rank-gap",
+            "dataVersion": "dv1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 2
+            }
+          }
+        }
+      },
+      "assertions": {
+        "completeRanks": [
+          2,
+          8
+        ],
+        "completePositionCount": 8
+      }
+    },
+    {
+      "id": "global-average-missing-last",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": "staff:anime:2"
+        },
+        "view": {
+          "sort": "average",
+          "order": "asc",
+          "page": 1,
+          "pageSize": 5
+        }
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-missing-last"
+        },
+        "body": {
+          "data": {
+            "summary": {
+              "positionCounts": [
+                {
+                  "positionKey": "staff:anime:2",
+                  "count": 3
+                }
+              ]
+            },
+            "positionKey": "staff:anime:2",
+            "workUnit": "subject",
+            "items": [
+              {
+                "rank": 1,
+                "person": {
+                  "id": 11,
+                  "name": "Low",
+                  "nameCN": null
+                },
+                "workCount": 1
+              },
+              {
+                "rank": 2,
+                "person": {
+                  "id": 12,
+                  "name": "High",
+                  "nameCN": null
+                },
+                "workCount": 1
+              },
+              {
+                "rank": 3,
+                "person": {
+                  "id": 13,
+                  "name": "Missing",
+                  "nameCN": null
+                },
+                "workCount": 2
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-candidates-missing-last",
+            "dataVersion": "dv1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pagination": {
+              "page": 1,
+              "pageSize": 5,
+              "total": 3
+            }
+          }
+        }
+      },
+      "assertions": {
+        "missingMetricPersonId": 13,
+        "missingMetricRank": 3
+      }
+    },
+    {
+      "id": "global-empty-current-position",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "staff:anime:74"
+          ]
+        },
+        "input": {
+          "positionKey": "staff:anime:74"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-empty"
+        },
+        "body": {
+          "data": {
+            "summary": {
+              "positionCounts": [
+                {
+                  "positionKey": "staff:anime:2",
+                  "count": 2
+                },
+                {
+                  "positionKey": "staff:anime:74",
+                  "count": 0
+                }
+              ]
+            },
+            "positionKey": "staff:anime:74",
+            "workUnit": "subject",
+            "items": []
+          },
+          "meta": {
+            "requestId": "req-candidates-empty",
+            "dataVersion": "dv1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "global-out-of-range-empty-page",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": "staff:anime:2"
+        },
+        "view": {
+          "page": 9007199254740991,
+          "pageSize": 5
+        }
+      },
+      "expected": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-out-of-range"
+        },
+        "body": {
+          "data": {
+            "summary": {
+              "positionCounts": [
+                {
+                  "positionKey": "staff:anime:2",
+                  "count": 3
+                }
+              ]
+            },
+            "positionKey": "staff:anime:2",
+            "workUnit": "subject",
+            "items": []
+          },
+          "meta": {
+            "requestId": "req-candidates-out-of-range",
+            "dataVersion": "dv1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pagination": {
+              "page": 9007199254740991,
+              "pageSize": 5,
+              "total": 3
+            }
+          }
+        }
+      }
+    }
+  ]
+}

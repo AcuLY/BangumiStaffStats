@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.local/schemas/query/share-payload-v1.schema.json",
+  "title": "SharePayloadV1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/RankingSharePayloadV1"
+    },
+    {
+      "$ref": "#/$defs/CoStarSharePayloadV1"
+    }
+  ],
+  "$defs": {
+    "RankingDetailV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "view"
+      ],
+      "properties": {
+        "input": {
+          "$ref": "operation-components-v1.schema.json#/$defs/PersonDetailInputV1"
+        },
+        "view": {
+          "$ref": "operation-components-v1.schema.json#/$defs/PersonDetailViewV1"
+        }
+      }
+    },
+    "RankingWorkspaceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "rankingsView"
+      ],
+      "properties": {
+        "kind": {
+          "const": "ranking"
+        },
+        "rankingsView": {
+          "$ref": "operation-components-v1.schema.json#/$defs/RankingsViewV1"
+        },
+        "detail": {
+          "$ref": "#/$defs/RankingDetailV1"
+        }
+      }
+    },
+    "CandidatesStateV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "view"
+      ],
+      "properties": {
+        "input": {
+          "$ref": "operation-components-v1.schema.json#/$defs/CandidatesInputV1"
+        },
+        "view": {
+          "$ref": "operation-components-v1.schema.json#/$defs/CandidatesViewV1"
+        }
+      }
+    },
+    "PartnersStateV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "view"
+      ],
+      "properties": {
+        "input": {
+          "$ref": "operation-components-v1.schema.json#/$defs/PartnersInputV1"
+        },
+        "view": {
+          "$ref": "operation-components-v1.schema.json#/$defs/PartnersViewV1"
+        }
+      }
+    },
+    "CoStarAnalysisV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "view"
+      ],
+      "properties": {
+        "input": {
+          "$ref": "operation-components-v1.schema.json#/$defs/CoStarInputV1"
+        },
+        "view": {
+          "$ref": "operation-components-v1.schema.json#/$defs/CoStarViewV1"
+        }
+      }
+    },
+    "CoStarEmptyWorkspaceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "state",
+        "candidates"
+      ],
+      "properties": {
+        "kind": {
+          "const": "co-star"
+        },
+        "state": {
+          "const": "empty"
+        },
+        "candidates": {
+          "$ref": "#/$defs/CandidatesStateV1"
+        }
+      }
+    },
+    "CoStarPartnersWorkspaceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "state",
+        "candidates",
+        "partners"
+      ],
+      "properties": {
+        "kind": {
+          "const": "co-star"
+        },
+        "state": {
+          "const": "partners"
+        },
+        "candidates": {
+          "$ref": "#/$defs/CandidatesStateV1"
+        },
+        "partners": {
+          "$ref": "#/$defs/PartnersStateV1"
+        }
+      }
+    },
+    "CoStarAnalysisWorkspaceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "state",
+        "candidates",
+        "coStar"
+      ],
+      "properties": {
+        "kind": {
+          "const": "co-star"
+        },
+        "state": {
+          "const": "analysis"
+        },
+        "candidates": {
+          "$ref": "#/$defs/CandidatesStateV1"
+        },
+        "coStar": {
+          "$ref": "#/$defs/CoStarAnalysisV1"
+        }
+      }
+    },
+    "CoStarWorkspaceV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/CoStarEmptyWorkspaceV1"
+        },
+        {
+          "$ref": "#/$defs/CoStarPartnersWorkspaceV1"
+        },
+        {
+          "$ref": "#/$defs/CoStarAnalysisWorkspaceV1"
+        }
+      ]
+    },
+    "RankingSharePayloadV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "query",
+        "workspace"
+      ],
+      "properties": {
+        "query": {
+          "$ref": "effective-query-v1.schema.json"
+        },
+        "workspace": {
+          "$ref": "#/$defs/RankingWorkspaceV1"
+        }
+      }
+    },
+    "CoStarSharePayloadV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "query",
+        "workspace"
+      ],
+      "properties": {
+        "query": {
+          "$ref": "effective-query-v1.schema.json"
+        },
+        "workspace": {
+          "$ref": "#/$defs/CoStarWorkspaceV1"
+        }
+      }
+    }
+  }
+}

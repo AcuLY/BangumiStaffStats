@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "kind": "dynamic-identity-success-cases",
+  "cases": [
+    {
+      "id": "more-than-sixteen-source-identities",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:1",
+            "staff:anime:2",
+            "staff:anime:3",
+            "staff:anime:4",
+            "staff:anime:5",
+            "staff:anime:6",
+            "staff:anime:7",
+            "staff:anime:8",
+            "staff:anime:9",
+            "staff:anime:10",
+            "staff:anime:11",
+            "staff:anime:12",
+            "staff:anime:13",
+            "staff:anime:14",
+            "staff:anime:15",
+            "staff:anime:16",
+            "staff:anime:17"
+          ]
+        },
+        "input": {
+          "source": {
+            "personId": 1,
+            "positionKeys": [
+              "staff:anime:17",
+              "staff:anime:16",
+              "staff:anime:15",
+              "staff:anime:14",
+              "staff:anime:13",
+              "staff:anime:12",
+              "staff:anime:11",
+              "staff:anime:10",
+              "staff:anime:9",
+              "staff:anime:8",
+              "staff:anime:7",
+              "staff:anime:6",
+              "staff:anime:5",
+              "staff:anime:4",
+              "staff:anime:3",
+              "staff:anime:2",
+              "staff:anime:1"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "status": 200,
+        "body": {
+          "data": {
+            "workUnit": "subject",
+            "source": {
+              "person": {
+                "id": 1,
+                "name": "Many Identities",
+                "nameCN": null
+              },
+              "positionKeys": [
+                "staff:anime:17",
+                "staff:anime:16",
+                "staff:anime:15",
+                "staff:anime:14",
+                "staff:anime:13",
+                "staff:anime:12",
+                "staff:anime:11",
+                "staff:anime:10",
+                "staff:anime:9",
+                "staff:anime:8",
+                "staff:anime:7",
+                "staff:anime:6",
+                "staff:anime:5",
+                "staff:anime:4",
+                "staff:anime:3",
+                "staff:anime:2",
+                "staff:anime:1"
+              ],
+              "metrics": {
+                "workCount": 17,
+                "ratedWorkCount": 0,
+                "average": null
+              }
+            },
+            "summary": {
+              "partnerCount": 0,
+              "leaders": [
+                {
+                  "metric": "count",
+                  "item": null
+                },
+                {
+                  "metric": "average",
+                  "item": null
+                },
+                {
+                  "metric": "overall",
+                  "item": null
+                }
+              ]
+            },
+            "items": []
+          },
+          "meta": {
+            "requestId": "req-partners-many-identities",
+            "dataVersion": "dv1-ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 0
+            }
+          }
+        }
+      },
+      "assertions": {
+        "sourceIdentityCount": 17,
+        "sourceRequestOrderPreserved": true,
+        "noStaticCatalogCardinalityLimit": true
+      }
+    }
+  ]
+}

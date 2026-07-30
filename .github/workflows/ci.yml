@@ -1,0 +1,181 @@
+name: development-artifacts
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: development-artifacts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: test, build, assemble, and smoke locally
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out the candidate without stored credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Install reviewed Go bootstrap
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: 1.26.4
+          check-latest: false
+          cache: false
+
+      - name: Install exact Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          check-latest: false
+
+      - name: Install exact npm
+        shell: bash
+        run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Install exact uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: 0.11.32
+          enable-cache: false
+
+      - name: Create a local-only BuildKit builder
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+        with:
+          version: v0.34.1
+          driver-opts: image=docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368
+
+      - name: Prepare exact Go toolchain in isolated cache
+        shell: bash
+        env:
+          GOMODCACHE: ${{ runner.temp }}/bgmss-ci-go-mod
+          GOTOOLCHAIN: go1.26.5+auto
+        run: go version >/dev/null
+
+      - name: Verify exact toolchains
+        shell: bash
+        env:
+          GOMODCACHE: ${{ runner.temp }}/bgmss-ci-go-mod
+          GOTOOLCHAIN: go1.26.5+auto
+        run: node contracts/artifacts/bin/ci-toolchain-identity.mjs
+
+      - name: Run Backend source gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd backend
+          ./scripts/check.sh
+
+      - name: Prepare and verify the exact Updater environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd updater
+          export UV_CACHE_DIR="$PWD/.cache/uv"
+          export UV_PYTHON_INSTALL_DIR="$PWD/.tmp/python"
+          export PYTHONDONTWRITEBYTECODE=1
+          export PYTHONPYCACHEPREFIX="$PWD/build/.tmp/pycache"
+          uv python install 3.14.6
+          uv sync --frozen --python 3.14.6
+          uv run --frozen pytest
+          uv run --frozen mypy src tests
+          uv run --frozen ruff check .
+          uv run --frozen ruff format --check .
+          uv export --frozen --offline --only-dev --no-emit-project \
+            --no-annotate --no-header --output-file .tmp/build-constraints.txt
+          uv lock --check --offline
+          uv build --offline --wheel --python 3.14.6 --out-dir .tmp/dist \
+            --build-constraints .tmp/build-constraints.txt --require-hashes \
+            --no-create-gitignore
+
+      - name: Run Frontend source and production-artifact gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd frontend
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run check
+
+      - name: Run Contracts and CI policy gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test contracts/artifacts/test/*.test.mjs
+          node contracts/artifacts/bin/artifacts.mjs verify-component \
+            contracts/artifacts/fixtures/positive/backend backend
+          node contracts/artifacts/bin/artifacts.mjs verify-component \
+            contracts/artifacts/fixtures/positive/updater updater
+          node contracts/artifacts/bin/artifacts.mjs verify-component \
+            contracts/artifacts/fixtures/positive/frontend frontend
+
+      - name: Build twice, assemble, and smoke only local artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p \
+            backend/build/.tmp \
+            updater/build/.tmp \
+            frontend/build/.tmp
+
+          backend/build/check.sh --target-arch amd64 \
+            | tee backend/build/.tmp/ci-check.log
+          backend_root="$(
+            sed -n 's/^BACKEND_ARTIFACT_ROOT=//p' \
+              backend/build/.tmp/ci-check.log | tail -n 1
+          )"
+          test -n "$backend_root"
+
+          (
+            cd updater
+            export PYTHONDONTWRITEBYTECODE=1
+            export PYTHONPYCACHEPREFIX="$PWD/build/.tmp/pycache"
+            .venv/bin/python build/check.py \
+              --python "$PWD/.venv/bin/python" \
+              --uv "$(command -v uv)" \
+              --docker "$(command -v docker)" \
+              --contracts-root "$PWD/../contracts" \
+              --target linux/amd64
+          ) | tee updater/build/.tmp/ci-check.log
+          updater_root="$(
+            sed -n 's/^updater artifact accepted at //p' \
+              updater/build/.tmp/ci-check.log | tail -n 1
+          )"
+          test -n "$updater_root"
+
+          (
+            cd frontend
+            npm run artifact:check -- --target-arch amd64
+          ) | tee frontend/build/.tmp/ci-check.log
+          frontend_root="$(
+            sed -n 's/^FRONTEND_ARTIFACT_ROOT=//p' \
+              frontend/build/.tmp/ci-check.log | tail -n 1
+          )"
+          test -n "$frontend_root"
+
+          node contracts/artifacts/bin/coordinator.mjs smoke \
+            --backend "$backend_root" \
+            --updater "$updater_root" \
+            --frontend "$frontend_root" \
+            --docker "$(command -v docker)" \
+            --python "$PWD/updater/.venv/bin/python"
+
+      - name: Audit generated residue and diff hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          node contracts/artifacts/bin/residue.mjs
+          git diff --check
+
+  operations-preview:
+    if: github.event_name == 'workflow_dispatch'
+    needs: verify
+    permissions:
+      contents: read
+    uses: ./.github/workflows/operations-preview.yml

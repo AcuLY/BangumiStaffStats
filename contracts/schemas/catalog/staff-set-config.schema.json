@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/catalog/staff-set-config-v1.json",
+  "title": "Dormant staff-set configuration v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sets"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1,
+      "type": "integer"
+    },
+    "sets": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/staffSet"
+      }
+    }
+  },
+  "$defs": {
+    "subjectType": {
+      "type": "string",
+      "enum": [
+        "book",
+        "anime",
+        "music",
+        "game",
+        "real"
+      ]
+    },
+    "staffPositionKey": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 96,
+      "pattern": "^staff:(?:book|anime|music|game|real):[1-9][0-9]{0,15}$"
+    },
+    "staffSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "subjectType",
+        "label",
+        "displayOrder",
+        "members"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 15,
+          "maxLength": 96,
+          "pattern": "^staffset:(?:book|anime|music|game|real):(?=[a-z0-9-]{1,64}$)[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "subjectType": {
+          "$ref": "#/$defs/subjectType"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "displayOrder": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "members": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/staffPositionKey"
+          }
+        }
+      }
+    }
+  }
+}

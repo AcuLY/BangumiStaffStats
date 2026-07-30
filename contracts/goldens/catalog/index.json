@@ -1,0 +1,41 @@
+{
+  "indexSchemaVersion": 1,
+  "algorithm": "bgmss-catalog-golden-index-v1",
+  "entries": [
+    {
+      "path": "cases/complete-derivation.json",
+      "sha256": "bd9ba99c3643ef70d58dc9168e2e12f6c88c460390c42777ea0ea6b76e76f23f",
+      "caseId": "complete-derivation",
+      "caseKind": "derivation",
+      "outcome": "VALID"
+    },
+    {
+      "path": "config/display-v1.json",
+      "sha256": "c44625872bf0f12c7b5125d6c0c39378d1d92d71cff62586eae64a71330e60bd",
+      "caseId": "display-v1",
+      "caseKind": "display-config",
+      "outcome": "VALID"
+    },
+    {
+      "path": "config/staff-sets-empty-v1.json",
+      "sha256": "deceb073a04075e4d5291cf789dd19d4c88a335b7ba258ca0d0e52d5856a1ba7",
+      "caseId": "staff-sets-empty-v1",
+      "caseKind": "staff-set-config",
+      "outcome": "VALID"
+    },
+    {
+      "path": "config/staff-sets-synthetic-v1.json",
+      "sha256": "38377e0572238a1aba089b441ed7aa67e2599e0ada7e4e3422cb002f8d5c60a1",
+      "caseId": "staff-sets-synthetic-v1",
+      "caseKind": "staff-set-config",
+      "outcome": "VALID"
+    },
+    {
+      "path": "quality/complete-source-sentinel.json",
+      "sha256": "498905f138b5174db1c03f86bc12c9a80fee04f41bfa2f2a1e7f26d685f15cf7",
+      "caseId": "complete-source-sentinel",
+      "caseKind": "quality-report",
+      "outcome": "VALID"
+    }
+  ]
+}

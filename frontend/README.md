@@ -1,5 +1,24 @@
-# Vue 3 + TypeScript + Vite
+# Formal frontend
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+This directory is the clean-room production frontend for Bangumi Staff
+Statistics. One Vue SPA provides the query editor, rankings, person detail,
+candidate selection, single-person partner analysis, and multi-person co-star
+analysis through strict generated same-origin API contracts. It contains no
+runtime fixture, prototype boot path, second request/state layer, or
+frontend-owned statistics.
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## Local commands
+
+Run commands from this directory with Node `24.18.0` and npm `11.16.0`.
+
+- `npm run generate:query-wire` regenerates the committed TypeScript wire types.
+- `npm run check:query-wire` regenerates below `.tmp/` and checks byte drift.
+- `npm run check:architecture` enforces ownership and dependency boundaries.
+- `npm run test` runs mount, transport, and shared-contract tests.
+- `npm run build` runs Vue TypeScript project checks and the production build.
+- `npm run check:artifact` checks the built artifact and gzip budget.
+- `npm run cleanup` removes only the declared disposable frontend roots.
+
+`/` and `/index.html` canonically replace to `/ranking`; `/ranking` and
+`/co-star` are the two production modes of the same SPA. History, share,
+theme, Draft/Applied Query, and latest-response behavior each have one owner.

@@ -1,0 +1,337 @@
+{
+  "schemaVersion": 1,
+  "kind": "error-cases",
+  "cases": [
+    {
+      "id": "missing-current-position",
+      "requestSchemaValid": false,
+      "request": {
+        "method": "POST",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {}
+        }
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-missing-position"
+        },
+        "body": {
+          "error": {
+            "code": "FIELD_INVALID",
+            "message": "The candidate position is required.",
+            "retryable": false,
+            "fieldErrors": {
+              "/input/positionKey": [
+                "REQUIRED"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-candidates-missing-position"
+          }
+        }
+      }
+    },
+    {
+      "id": "unknown-current-position",
+      "requestSchemaValid": true,
+      "request": {
+        "method": "POST",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "positionKey": "staff:anime:74"
+          }
+        }
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-unknown-position"
+        },
+        "body": {
+          "error": {
+            "code": "FIELD_INVALID",
+            "message": "The candidate position is not selected by the query.",
+            "retryable": false,
+            "fieldErrors": {
+              "/input/positionKey": [
+                "POSITION_NOT_FOUND"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-candidates-unknown-position"
+          }
+        }
+      }
+    },
+    {
+      "id": "global-global-average-rejected",
+      "requestSchemaValid": true,
+      "request": {
+        "method": "POST",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "positionKey": "staff:anime:2"
+          },
+          "view": {
+            "sort": "globalAverage"
+          }
+        }
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-global-sort"
+        },
+        "body": {
+          "error": {
+            "code": "FIELD_INVALID",
+            "message": "The sort is unavailable in global scope.",
+            "retryable": false,
+            "fieldErrors": {
+              "/view/sort": [
+                "UNSUPPORTED_VALUE"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-candidates-global-sort"
+          }
+        }
+      }
+    },
+    {
+      "id": "global-refresh-rejected",
+      "requestSchemaValid": true,
+      "request": {
+        "method": "POST",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "positionKey": "staff:anime:2"
+          },
+          "refreshCollection": true
+        }
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-global-refresh"
+        },
+        "body": {
+          "error": {
+            "code": "FIELD_INVALID",
+            "message": "Collection refresh requires personal scope.",
+            "retryable": false,
+            "fieldErrors": {
+              "/refreshCollection": [
+                "VALUE_CONFLICT"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-candidates-global-refresh"
+          }
+        }
+      }
+    },
+    {
+      "id": "selected-state-rejected",
+      "requestSchemaValid": false,
+      "request": {
+        "method": "POST",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "positionKey": "staff:anime:2",
+            "selectedPersonIds": [
+              1
+            ]
+          }
+        }
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-selected-state"
+        },
+        "body": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "The request contains an unknown field.",
+            "retryable": false,
+            "fieldErrors": {
+              "/input/selectedPersonIds": [
+                "UNKNOWN_FIELD"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-candidates-selected-state"
+          }
+        }
+      }
+    },
+    {
+      "id": "wrong-method-rejected",
+      "requestSchemaValid": true,
+      "request": {
+        "method": "GET",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "positionKey": "staff:anime:2"
+          }
+        }
+      },
+      "expected": {
+        "status": 405,
+        "headers": {
+          "Allow": "POST",
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-method"
+        },
+        "body": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "Only POST is supported.",
+            "retryable": false,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-candidates-method"
+          }
+        }
+      }
+    },
+    {
+      "id": "store-not-ready",
+      "requestSchemaValid": true,
+      "request": {
+        "method": "POST",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "positionKey": "staff:anime:2"
+          }
+        }
+      },
+      "expected": {
+        "status": 503,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "Retry-After": "1",
+          "X-Request-ID": "req-candidates-not-ready"
+        },
+        "body": {
+          "error": {
+            "code": "NOT_READY",
+            "message": "The immutable archive is not ready.",
+            "retryable": true,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-candidates-not-ready"
+          }
+        }
+      }
+    },
+    {
+      "id": "deadline-before-commit",
+      "requestSchemaValid": true,
+      "request": {
+        "method": "POST",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "positionKey": "staff:anime:2"
+          }
+        }
+      },
+      "expected": {
+        "status": 504,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-candidates-timeout"
+        },
+        "body": {
+          "error": {
+            "code": "UPSTREAM_TIMEOUT",
+            "message": "The candidate request timed out.",
+            "retryable": true,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-candidates-timeout"
+          }
+        }
+      }
+    }
+  ]
+}

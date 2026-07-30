@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "contract": "contracts-query-domain/v1",
+  "algorithm": "bgmss-query-domain-golden-index-v1",
+  "authorities": [
+    {
+      "id": "archive-schema-v1",
+      "path": "contracts/schemas/archive/schema.sql",
+      "sha256": "3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0"
+    },
+    {
+      "id": "catalog-complete-derivation",
+      "path": "contracts/goldens/catalog/cases/complete-derivation.json",
+      "sha256": "bd9ba99c3643ef70d58dc9168e2e12f6c88c460390c42777ea0ea6b76e76f23f"
+    },
+    {
+      "id": "catalog-index-v1",
+      "path": "contracts/goldens/catalog/index.json",
+      "sha256": "306ec088acc3f0e0fce61fbbfcb0a5f21be64c9672efe5c60e356f06fa5422a2"
+    },
+    {
+      "id": "catalog-selection-rule-verifier",
+      "path": "contracts/schemas/catalog/tooling/verify.mjs",
+      "sha256": "3540a1e886c0498a6df2020ff2637404a0d3cb3554ffab4f983d038a3fd881dc"
+    },
+    {
+      "id": "catalog-synthetic-staff-set-v1",
+      "path": "contracts/goldens/catalog/config/staff-sets-synthetic-v1.json",
+      "sha256": "38377e0572238a1aba089b441ed7aa67e2599e0ada7e4e3422cb002f8d5c60a1"
+    },
+    {
+      "id": "effective-query-schema-v1",
+      "path": "contracts/schemas/query/effective-query-v1.schema.json",
+      "sha256": "6c2e8e35992daa69426ce69e599041c51ff311497d2b3294379895f4f9e3c045"
+    },
+    {
+      "id": "shared-query-cases-v1",
+      "path": "contracts/goldens/query/cases/queries.json",
+      "sha256": "f65ba796d072ae9a0b47d98f8572dfa92787066e3a9dadbe09ff9adbf5741d50"
+    },
+    {
+      "id": "shared-query-manifest-v1",
+      "path": "contracts/goldens/query/manifest.json",
+      "sha256": "1b08971cfb4a9ebc1fbc075bd4b798c3631544d78aac60289e08f2b9733543dd"
+    },
+    {
+      "id": "shared-query-schema-v1",
+      "path": "contracts/schemas/query/shared-query-v1.schema.json",
+      "sha256": "df7c96cd7df800703ae9478dedcf6b372fb25f26739e5f542ce592bfd23c0362"
+    }
+  ],
+  "files": [
+    {
+      "path": "cases/control.json",
+      "kind": "control-and-determinism",
+      "sha256": "3a115f3daef57aa985d7eb53894097dd1e847645593191e257219deabc6ee2a0"
+    },
+    {
+      "path": "cases/identity-algebra.json",
+      "kind": "identity-set-algebra",
+      "sha256": "48d75a6b3afd9cc9c471e1c44f06012088dfb61899d6927799f801557621eb6f"
+    },
+    {
+      "path": "cases/oracle-provenance.json",
+      "kind": "bounded-oracle-provenance",
+      "sha256": "5d44cda70616a09e8bcaba2b07fe5d3babc01332f9668a53c478fa3c6a8a2694"
+    },
+    {
+      "path": "cases/scope-filters.json",
+      "kind": "scope-filter-matrix",
+      "sha256": "996fdd0a0e621a6d8a52f5c0f7a0e354e86254a08e2aadfda2ccbe9ebc3a4408"
+    },
+    {
+      "path": "fixtures/anime-domain-v1.json",
+      "kind": "synthetic-archive-catalog-collection",
+      "sha256": "9bb2938a94b55656d6dfe31282f95d303b1ed783ac028aa2f1c37966731c9760"
+    }
+  ],
+  "verifier": {
+    "path": "verify.mjs",
+    "runtime": "node",
+    "dependencies": [],
+    "sha256": "089df242add9aa697e6829d5751c5ec6454b0831e2ecc58517ba4a4099fc81a7"
+  },
+  "caseIds": [
+    "actual-participation-442-not-candidate-449",
+    "cancellation-publishes-no-partial-result",
+    "cast-main-official-staff-and-no-credit",
+    "global-filter-matrix-no-collection-access",
+    "multi-position-person-and-work-union",
+    "personal-filter-inclusive-boundaries",
+    "personal-normalized-complete-filter-matrix",
+    "shuffled-and-repeated-input-is-deterministic"
+  ],
+  "requiredCoverage": [
+    "bounded-442-not-449",
+    "cast-all",
+    "cast-main",
+    "collection-isolation",
+    "collection-status",
+    "context-cancellation",
+    "defined-position-no-credit",
+    "deterministic-order",
+    "exact-staff",
+    "global-no-collection-access",
+    "global-score-min-max",
+    "identity-work-union",
+    "missing-global-score",
+    "missing-personal-score",
+    "multi-position-person-and",
+    "nsfw-false",
+    "nsfw-true",
+    "official-staff-101-not-cast",
+    "participant-person-intersection",
+    "personal-score-min-max",
+    "public-meta-personal-tags",
+    "rating-count-min-max",
+    "repeated-run",
+    "scope-global",
+    "scope-personal",
+    "score-difference-min-max",
+    "shuffled-facts",
+    "staff-set-evidence",
+    "subject-date-min-max",
+    "tag-exclude-or-and",
+    "tag-include-and-or"
+  ],
+  "oracleProvenance": {
+    "commit": "644b7748674e553f863d0ffd61d029f86fdc0717",
+    "candidateCount": 449,
+    "actualParticipatingCount": 442,
+    "bulkFixtureCopied": false
+  }
+}

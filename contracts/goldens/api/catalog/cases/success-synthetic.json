@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "kind": "catalog-success-derived",
+  "caseId": "synthetic-anime-staff-set",
+  "description": "A future valid same-type staff set is admitted without changing the wire.",
+  "base": "cases/success-empty.json",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/caseId",
+      "value": "synthetic-anime-staff-set"
+    },
+    {
+      "op": "replace",
+      "path": "/description",
+      "value": "Synthetic anime staff set with sorted members, a custom group, conservative capabilities, and a union rule."
+    },
+    {
+      "op": "replace",
+      "path": "/source/staffSetConfig",
+      "value": "synthetic-anime-direction-v1"
+    },
+    {
+      "op": "replace",
+      "path": "/source/dataVersion",
+      "value": "dv1-2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "op": "replace",
+      "path": "/expected/headers/X-Request-ID",
+      "value": "req-catalog-synthetic"
+    },
+    {
+      "op": "replace",
+      "path": "/expected/body/meta/requestId",
+      "value": "req-catalog-synthetic"
+    },
+    {
+      "op": "replace",
+      "path": "/expected/body/meta/dataVersion",
+      "value": "dv1-2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "op": "add",
+      "path": "/expected/body/data/positions/11",
+      "value": {
+        "key": "staffset:anime:direction",
+        "kind": "staffSet",
+        "subjectType": "anime",
+        "label": "导演组合",
+        "names": {
+          "cn": "导演组合",
+          "en": null,
+          "jp": null
+        },
+        "categories": [],
+        "displayOrder": 110,
+        "capabilities": [
+          "rankings",
+          "candidates",
+          "personDetail",
+          "partners",
+          "coStar"
+        ],
+        "status": "selectable",
+        "memberKeys": [
+          "staff:anime:101",
+          "staff:anime:2"
+        ]
+      }
+    },
+    {
+      "op": "add",
+      "path": "/expected/body/data/groups/6",
+      "value": {
+        "key": "custom:anime:direction",
+        "kind": "custom",
+        "subjectType": "anime",
+        "label": "导演组合",
+        "displayOrder": 60,
+        "positionKeys": [
+          "staffset:anime:direction"
+        ]
+      }
+    },
+    {
+      "op": "add",
+      "path": "/expected/body/data/selectionRules/11",
+      "value": {
+        "key": "rule:staffset:anime:direction",
+        "kind": "staffSetUnion",
+        "positionKey": "staffset:anime:direction",
+        "value": "staff:anime:101|staff:anime:2"
+      }
+    }
+  ]
+}

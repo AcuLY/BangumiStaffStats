@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "kind": "catalog-success",
+  "caseId": "five-type-empty-staff-sets",
+  "description": "Five-type catalog with fixed shortcuts, multi-parent categories, no-credit selectable staff, exact anime 101-106 positions, and no active staff sets.",
+  "source": {
+    "publicationState": "ready",
+    "dataVersion": "dv1-1111111111111111111111111111111111111111111111111111111111111111",
+    "staffSetConfig": "empty-v1",
+    "archiveCreditPositionKeys": [
+      "staff:book:1",
+      "staff:anime:2",
+      "staff:anime:101",
+      "staff:anime:102",
+      "staff:anime:103",
+      "staff:anime:104",
+      "staff:anime:105",
+      "staff:anime:106",
+      "staff:music:3",
+      "staff:game:1001",
+      "staff:real:6"
+    ]
+  },
+  "expected": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": "no-cache",
+      "Content-Type": "application/json",
+      "X-Request-ID": "req-catalog-empty"
+    },
+    "body": {
+      "meta": {
+        "requestId": "req-catalog-empty",
+        "dataVersion": "dv1-1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "data": {
+        "subjectTypes": [
+          {"key": "book", "label": "书籍"},
+          {"key": "anime", "label": "动画"},
+          {"key": "music", "label": "音乐"},
+          {"key": "game", "label": "游戏"},
+          {"key": "real", "label": "三次元"}
+        ],
+        "positions": [
+          {"key": "staff:book:1", "kind": "staff", "subjectType": "book", "label": "作者", "names": {"cn": "作者", "en": "Author", "jp": null}, "categories": ["creation"], "displayOrder": 10, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "positionId": 1},
+          {"key": "staff:anime:2", "kind": "staff", "subjectType": "anime", "label": "导演", "names": {"cn": "导演", "en": "Director", "jp": "監督"}, "categories": ["production", "direction"], "displayOrder": 10, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "positionId": 2},
+          {"key": "staff:anime:101", "kind": "staff", "subjectType": "anime", "label": "职位 101", "names": {"cn": "职位 101", "en": null, "jp": null}, "categories": ["animation"], "displayOrder": 20, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "positionId": 101},
+          {"key": "staff:anime:102", "kind": "staff", "subjectType": "anime", "label": "职位 102", "names": {"cn": "职位 102", "en": null, "jp": null}, "categories": ["animation"], "displayOrder": 30, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "positionId": 102},
+          {"key": "staff:anime:103", "kind": "staff", "subjectType": "anime", "label": "职位 103", "names": {"cn": "职位 103", "en": null, "jp": null}, "categories": ["animation"], "displayOrder": 40, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "positionId": 103},
+          {"key": "staff:anime:104", "kind": "staff", "subjectType": "anime", "label": "职位 104", "names": {"cn": "职位 104", "en": null, "jp": null}, "categories": ["animation"], "displayOrder": 50, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "positionId": 104},
+          {"key": "staff:anime:105", "kind": "staff", "subjectType": "anime", "label": "职位 105", "names": {"cn": "职位 105", "en": null, "jp": null}, "categories": ["animation"], "displayOrder": 60, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "positionId": 105},
+          {"key": "staff:anime:106", "kind": "staff", "subjectType": "anime", "label": "职位 106", "names": {"cn": "职位 106", "en": null, "jp": null}, "categories": ["animation"], "displayOrder": 70, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "positionId": 106},
+          {"key": "staff:anime:201", "kind": "staff", "subjectType": "anime", "label": "无署名职位", "names": {"cn": "无署名职位", "en": null, "jp": null}, "categories": ["other"], "displayOrder": 80, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "positionId": 201},
+          {"key": "cast:anime:main", "kind": "cast", "subjectType": "anime", "label": "声优（仅主役）", "names": {"cn": "声优（仅主役）", "en": null, "jp": null}, "categories": ["cast"], "displayOrder": 90, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "exclusiveGroup": "cast:anime", "roleScope": "main"},
+          {"key": "cast:anime:all", "kind": "cast", "subjectType": "anime", "label": "声优", "names": {"cn": "声优", "en": null, "jp": null}, "categories": ["cast"], "displayOrder": 100, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "exclusiveGroup": "cast:anime", "roleScope": "all"},
+          {"key": "staff:music:3", "kind": "staff", "subjectType": "music", "label": "艺术家", "names": {"cn": "艺术家", "en": "Artist", "jp": null}, "categories": ["music"], "displayOrder": 10, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "positionId": 3},
+          {"key": "staff:game:1001", "kind": "staff", "subjectType": "game", "label": "开发", "names": {"cn": "开发", "en": "Developer", "jp": null}, "categories": ["development"], "displayOrder": 10, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "positionId": 1001},
+          {"key": "cast:game:main", "kind": "cast", "subjectType": "game", "label": "声优（仅主役）", "names": {"cn": "声优（仅主役）", "en": null, "jp": null}, "categories": ["cast"], "displayOrder": 20, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "exclusiveGroup": "cast:game", "roleScope": "main"},
+          {"key": "cast:game:all", "kind": "cast", "subjectType": "game", "label": "声优", "names": {"cn": "声优", "en": null, "jp": null}, "categories": ["cast"], "displayOrder": 30, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "exclusiveGroup": "cast:game", "roleScope": "all"},
+          {"key": "staff:real:6", "kind": "staff", "subjectType": "real", "label": "出演", "names": {"cn": "出演", "en": "Cast", "jp": null}, "categories": ["performance"], "displayOrder": 10, "capabilities": ["rankings", "candidates", "personDetail", "partners", "coStar"], "status": "selectable", "positionId": 6}
+        ],
+        "groups": [
+          {"key": "fallback:book", "kind": "fallback", "subjectType": "book", "label": "全部职位", "displayOrder": 10, "positionKeys": ["staff:book:1"]},
+          {"key": "bangumi:anime:production", "kind": "bangumi", "subjectType": "anime", "label": "制作", "displayOrder": 10, "positionKeys": ["staff:anime:2", "staff:anime:101"]},
+          {"key": "bangumi:anime:animation", "kind": "bangumi", "subjectType": "anime", "label": "动画", "displayOrder": 20, "positionKeys": ["staff:anime:2", "staff:anime:101", "staff:anime:102", "staff:anime:103", "staff:anime:104", "staff:anime:105", "staff:anime:106"]},
+          {"key": "shortcut:anime:featured", "kind": "shortcut", "subjectType": "anime", "label": "常用职位", "displayOrder": 30, "positionKeys": ["staff:anime:2", "cast:anime:main", "cast:anime:all", "staff:anime:101"]},
+          {"key": "shortcut:anime:cast", "kind": "shortcut", "subjectType": "anime", "label": "配音类", "displayOrder": 40, "positionKeys": ["cast:anime:main", "cast:anime:all"]},
+          {"key": "fallback:anime", "kind": "fallback", "subjectType": "anime", "label": "其他职位", "displayOrder": 50, "positionKeys": ["staff:anime:201"]},
+          {"key": "fallback:music", "kind": "fallback", "subjectType": "music", "label": "全部职位", "displayOrder": 10, "positionKeys": ["staff:music:3"]},
+          {"key": "shortcut:game:featured", "kind": "shortcut", "subjectType": "game", "label": "常用职位", "displayOrder": 10, "positionKeys": ["staff:game:1001", "cast:game:all", "cast:game:main"]},
+          {"key": "shortcut:game:cast", "kind": "shortcut", "subjectType": "game", "label": "配音类", "displayOrder": 20, "positionKeys": ["cast:game:main", "cast:game:all"]},
+          {"key": "fallback:real", "kind": "fallback", "subjectType": "real", "label": "全部职位", "displayOrder": 10, "positionKeys": ["staff:real:6"]}
+        ],
+        "selectionRules": [
+          {"key": "rule:staff:book:1", "kind": "exactStaff", "positionKey": "staff:book:1", "value": "1"},
+          {"key": "rule:staff:anime:2", "kind": "exactStaff", "positionKey": "staff:anime:2", "value": "2"},
+          {"key": "rule:staff:anime:101", "kind": "exactStaff", "positionKey": "staff:anime:101", "value": "101"},
+          {"key": "rule:staff:anime:102", "kind": "exactStaff", "positionKey": "staff:anime:102", "value": "102"},
+          {"key": "rule:staff:anime:103", "kind": "exactStaff", "positionKey": "staff:anime:103", "value": "103"},
+          {"key": "rule:staff:anime:104", "kind": "exactStaff", "positionKey": "staff:anime:104", "value": "104"},
+          {"key": "rule:staff:anime:105", "kind": "exactStaff", "positionKey": "staff:anime:105", "value": "105"},
+          {"key": "rule:staff:anime:106", "kind": "exactStaff", "positionKey": "staff:anime:106", "value": "106"},
+          {"key": "rule:staff:anime:201", "kind": "exactStaff", "positionKey": "staff:anime:201", "value": "201"},
+          {"key": "rule:cast:anime:main", "kind": "exactCast", "positionKey": "cast:anime:main", "value": "1"},
+          {"key": "rule:cast:anime:all", "kind": "exactCast", "positionKey": "cast:anime:all", "value": "1..6"},
+          {"key": "rule:staff:music:3", "kind": "exactStaff", "positionKey": "staff:music:3", "value": "3"},
+          {"key": "rule:staff:game:1001", "kind": "exactStaff", "positionKey": "staff:game:1001", "value": "1001"},
+          {"key": "rule:cast:game:main", "kind": "exactCast", "positionKey": "cast:game:main", "value": "1"},
+          {"key": "rule:cast:game:all", "kind": "exactCast", "positionKey": "cast:game:all", "value": "1..6"},
+          {"key": "rule:staff:real:6", "kind": "exactStaff", "positionKey": "staff:real:6", "value": "6"}
+        ],
+        "filterCapabilities": [
+          {"field": "includeNSFW", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "applications": [{"operation": "rankings"}, {"operation": "candidates"}, {"operation": "personDetail", "sections": ["works", "characters"]}, {"operation": "partners"}, {"operation": "coStar"}]},
+          {"field": "mergeSeries", "scopes": ["personal", "global"], "subjectTypes": ["anime"], "applications": [{"operation": "rankings"}, {"operation": "candidates"}, {"operation": "personDetail", "sections": ["works", "characters"]}, {"operation": "partners"}, {"operation": "coStar"}]},
+          {"field": "subjectDate", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "applications": [{"operation": "rankings"}, {"operation": "candidates"}, {"operation": "personDetail", "sections": ["works", "characters"]}, {"operation": "partners"}, {"operation": "coStar"}]},
+          {"field": "collectionUpdatedAt", "scopes": ["personal"], "subjectTypes": ["book", "anime", "music", "game", "real"], "applications": [{"operation": "rankings"}, {"operation": "candidates"}, {"operation": "personDetail", "sections": ["works", "characters"]}, {"operation": "partners"}, {"operation": "coStar"}]},
+          {"field": "personalScore", "scopes": ["personal"], "subjectTypes": ["book", "anime", "music", "game", "real"], "applications": [{"operation": "rankings"}, {"operation": "candidates"}, {"operation": "personDetail", "sections": ["works", "characters"]}, {"operation": "partners"}, {"operation": "coStar"}]},
+          {"field": "globalScore", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "applications": [{"operation": "rankings"}, {"operation": "candidates"}, {"operation": "personDetail", "sections": ["works", "characters"]}, {"operation": "partners"}, {"operation": "coStar"}]},
+          {"field": "scoreDifference", "scopes": ["personal"], "subjectTypes": ["book", "anime", "music", "game", "real"], "applications": [{"operation": "rankings"}, {"operation": "candidates"}, {"operation": "personDetail", "sections": ["works", "characters"]}, {"operation": "partners"}, {"operation": "coStar"}]},
+          {"field": "ratingCount", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "applications": [{"operation": "rankings"}, {"operation": "candidates"}, {"operation": "personDetail", "sections": ["works", "characters"]}, {"operation": "partners"}, {"operation": "coStar"}]},
+          {"field": "tags", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "applications": [{"operation": "rankings"}, {"operation": "candidates"}, {"operation": "personDetail", "sections": ["works", "characters"]}, {"operation": "partners"}, {"operation": "coStar"}]}
+        ],
+        "sortCapabilities": [
+          {"operation": "rankings", "field": "count", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "rankings", "field": "average", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "rankings", "field": "overall", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "rankings", "field": "preference", "scopes": ["personal"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "candidates", "field": "count", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "candidates", "field": "average", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "candidates", "field": "globalAverage", "scopes": ["personal"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "personDetail", "section": "works", "field": "globalScore", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "personDetail", "section": "works", "field": "personalScore", "scopes": ["personal"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "personDetail", "section": "works", "field": "collectionUpdatedAt", "scopes": ["personal"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "personDetail", "section": "works", "field": "seriesSize", "scopes": ["personal", "global"], "subjectTypes": ["anime"], "requiresMergeSeries": true},
+          {"operation": "personDetail", "section": "characters", "field": "role", "scopes": ["personal", "global"], "subjectTypes": ["anime", "game"], "requiresMergeSeries": false},
+          {"operation": "personDetail", "section": "characters", "field": "workCount", "scopes": ["personal", "global"], "subjectTypes": ["anime", "game"], "requiresMergeSeries": false},
+          {"operation": "personDetail", "section": "characters", "field": "name", "scopes": ["personal", "global"], "subjectTypes": ["anime", "game"], "requiresMergeSeries": false},
+          {"operation": "partners", "field": "count", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "partners", "field": "average", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "partners", "field": "overall", "scopes": ["personal", "global"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "partners", "field": "preference", "scopes": ["personal"], "subjectTypes": ["book", "anime", "music", "game", "real"], "requiresMergeSeries": false},
+          {"operation": "coStar", "field": "globalScore", "scopes": ["personal", "global"], "subjectTypes": ["anime", "game"], "requiresMergeSeries": false},
+          {"operation": "coStar", "field": "personalScore", "scopes": ["personal"], "subjectTypes": ["anime", "game"], "requiresMergeSeries": false},
+          {"operation": "coStar", "field": "collectionUpdatedAt", "scopes": ["personal"], "subjectTypes": ["anime", "game"], "requiresMergeSeries": false},
+          {"operation": "coStar", "field": "seriesSize", "scopes": ["personal", "global"], "subjectTypes": ["anime"], "requiresMergeSeries": true}
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,485 @@
+{
+  "kind": "operation-view",
+  "version": 1,
+  "cases": [
+    {
+      "id": "rankings-personal-defaults",
+      "operation": "rankings",
+      "queryCase": "personal-normalization",
+      "submittedView": {},
+      "expectedView": {
+        "search": "",
+        "sort": "count",
+        "order": "desc",
+        "page": 1,
+        "pageSize": 10
+      }
+    },
+    {
+      "id": "rankings-global-safe-page",
+      "operation": "rankings",
+      "queryCase": "global-safe-position-id",
+      "submittedView": {
+        "search": "creator",
+        "sort": "average",
+        "order": "asc",
+        "page": 9007199254740991,
+        "pageSize": 5
+      },
+      "expectedView": {
+        "search": "creator",
+        "sort": "average",
+        "order": "asc",
+        "page": 9007199254740991,
+        "pageSize": 5
+      }
+    },
+    {
+      "id": "candidates-personal-defaults",
+      "operation": "candidates",
+      "queryCase": "personal-normalization",
+      "submittedInput": {
+        "positionKey": "staff:anime:2"
+      },
+      "submittedView": {},
+      "expectedInput": {
+        "positionKey": "staff:anime:2"
+      },
+      "expectedView": {
+        "search": "",
+        "sort": "count",
+        "order": "desc",
+        "page": 1,
+        "pageSize": 10
+      }
+    },
+    {
+      "id": "candidates-global-average",
+      "operation": "candidates",
+      "queryCase": "global-series-staffset",
+      "submittedInput": {
+        "positionKey": "staffset:anime:core-creators"
+      },
+      "submittedView": {
+        "sort": "average",
+        "pageSize": 20
+      },
+      "expectedInput": {
+        "positionKey": "staffset:anime:core-creators"
+      },
+      "expectedView": {
+        "search": "",
+        "sort": "average",
+        "order": "desc",
+        "page": 1,
+        "pageSize": 20
+      }
+    },
+    {
+      "id": "detail-personal-works-defaults",
+      "operation": "personDetail",
+      "queryCase": "personal-normalization",
+      "submittedInput": {
+        "personId": 9007199254740991
+      },
+      "submittedView": {},
+      "expectedInput": {
+        "personId": 9007199254740991
+      },
+      "expectedView": {
+        "section": "works",
+        "search": "",
+        "sort": "globalScore",
+        "order": "desc",
+        "page": 1,
+        "pageSize": 10
+      }
+    },
+    {
+      "id": "detail-global-characters-default-sort",
+      "operation": "personDetail",
+      "queryCase": "global-series-staffset",
+      "submittedInput": {
+        "personId": 1
+      },
+      "submittedView": {
+        "section": "characters"
+      },
+      "expectedInput": {
+        "personId": 1
+      },
+      "expectedView": {
+        "section": "characters",
+        "search": "",
+        "sort": "role",
+        "order": "desc",
+        "page": 1,
+        "pageSize": 10
+      }
+    },
+    {
+      "id": "partners-personal-defaults",
+      "operation": "partners",
+      "queryCase": "personal-normalization",
+      "submittedInput": {
+        "source": {
+          "personId": 1,
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all"
+          ]
+        },
+        "candidatePositionKey": "cast:anime:all"
+      },
+      "submittedView": {},
+      "expectedInput": {
+        "source": {
+          "personId": 1,
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all"
+          ]
+        },
+        "candidatePositionKey": "cast:anime:all"
+      },
+      "expectedView": {
+        "search": "",
+        "sort": "count",
+        "order": "desc",
+        "page": 1,
+        "pageSize": 10
+      }
+    },
+    {
+      "id": "partners-omitted-candidate-means-all-query-positions",
+      "operation": "partners",
+      "queryCase": "global-three-position-families",
+      "submittedInput": {
+        "source": {
+          "personId": 2,
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        }
+      },
+      "submittedView": {},
+      "expectedInput": {
+        "source": {
+          "personId": 2,
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        }
+      },
+      "expectedView": {
+        "search": "",
+        "sort": "count",
+        "order": "desc",
+        "page": 1,
+        "pageSize": 10
+      }
+    },
+    {
+      "id": "co-star-personal-defaults",
+      "operation": "coStar",
+      "queryCase": "personal-normalization",
+      "submittedInput": {
+        "participants": [
+          {
+            "personId": 1,
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          {
+            "personId": 2,
+            "positionKeys": [
+              "cast:anime:all"
+            ]
+          }
+        ]
+      },
+      "submittedView": {},
+      "expectedInput": {
+        "participants": [
+          {
+            "personId": 1,
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          {
+            "personId": 2,
+            "positionKeys": [
+              "cast:anime:all"
+            ]
+          }
+        ]
+      },
+      "expectedView": {
+        "search": "",
+        "sort": "personalScore",
+        "order": "desc",
+        "page": 1,
+        "pageSize": 10
+      }
+    },
+    {
+      "id": "co-star-global-series-sort",
+      "operation": "coStar",
+      "queryCase": "global-series-staffset",
+      "submittedInput": {
+        "participants": [
+          {
+            "personId": 1,
+            "positionKeys": [
+              "staffset:anime:core-creators"
+            ]
+          },
+          {
+            "personId": 2,
+            "positionKeys": [
+              "staffset:anime:core-creators"
+            ]
+          }
+        ]
+      },
+      "submittedView": {
+        "sort": "seriesSize"
+      },
+      "expectedInput": {
+        "participants": [
+          {
+            "personId": 1,
+            "positionKeys": [
+              "staffset:anime:core-creators"
+            ]
+          },
+          {
+            "personId": 2,
+            "positionKeys": [
+              "staffset:anime:core-creators"
+            ]
+          }
+        ]
+      },
+      "expectedView": {
+        "search": "",
+        "sort": "seriesSize",
+        "order": "desc",
+        "page": 1,
+        "pageSize": 10
+      }
+    }
+  ],
+  "negativeCases": [
+    {
+      "id": "rankings-global-preference",
+      "operation": "rankings",
+      "queryCase": "global-series-staffset",
+      "submittedView": {
+        "sort": "preference"
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/view/sort"
+    },
+    {
+      "id": "candidates-global-global-average",
+      "operation": "candidates",
+      "queryCase": "global-series-staffset",
+      "submittedInput": {
+        "positionKey": "staffset:anime:core-creators"
+      },
+      "submittedView": {
+        "sort": "globalAverage"
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/view/sort"
+    },
+    {
+      "id": "candidate-position-not-in-query",
+      "operation": "candidates",
+      "queryCase": "personal-normalization",
+      "submittedInput": {
+        "positionKey": "cast:anime:main"
+      },
+      "submittedView": {},
+      "expectedCode": "PERSON_NOT_IN_QUERY_RESULT",
+      "expectedPath": "/input/positionKey"
+    },
+    {
+      "id": "detail-character-work-sort",
+      "operation": "personDetail",
+      "queryCase": "global-series-staffset",
+      "submittedInput": {
+        "personId": 1
+      },
+      "submittedView": {
+        "section": "characters",
+        "sort": "globalScore"
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/view/sort"
+    },
+    {
+      "id": "detail-global-personal-sort",
+      "operation": "personDetail",
+      "queryCase": "global-series-staffset",
+      "submittedInput": {
+        "personId": 1
+      },
+      "submittedView": {
+        "sort": "personalScore"
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/view/sort"
+    },
+    {
+      "id": "view-page-zero",
+      "operation": "rankings",
+      "queryCase": "personal-normalization",
+      "submittedView": {
+        "page": 0
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/view/page"
+    },
+    {
+      "id": "view-page-fractional",
+      "operation": "rankings",
+      "queryCase": "personal-normalization",
+      "submittedView": {
+        "page": 1.5
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/view/page"
+    },
+    {
+      "id": "view-page-unsafe",
+      "operation": "rankings",
+      "queryCase": "personal-normalization",
+      "submittedView": {
+        "page": 9007199254740992
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/view/page"
+    },
+    {
+      "id": "view-page-size-invalid",
+      "operation": "rankings",
+      "queryCase": "personal-normalization",
+      "submittedView": {
+        "pageSize": 25
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/view/pageSize"
+    },
+    {
+      "id": "view-search-byte-limit",
+      "operation": "rankings",
+      "queryCase": "personal-normalization",
+      "generatedSearch": {
+        "value": "界",
+        "repeat": 86
+      },
+      "submittedView": {
+        "search": "$GENERATED"
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/view/search"
+    },
+    {
+      "id": "detail-person-id-zero",
+      "operation": "personDetail",
+      "queryCase": "personal-normalization",
+      "submittedInput": {
+        "personId": 0
+      },
+      "submittedView": {},
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/input/personId"
+    },
+    {
+      "id": "detail-person-id-unsafe",
+      "operation": "personDetail",
+      "queryCase": "personal-normalization",
+      "submittedInput": {
+        "personId": 9007199254740992
+      },
+      "submittedView": {},
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/input/personId"
+    },
+    {
+      "id": "partners-duplicate-position-key",
+      "operation": "partners",
+      "queryCase": "personal-normalization",
+      "submittedInput": {
+        "source": {
+          "personId": 1,
+          "positionKeys": [
+            "staff:anime:2",
+            "staff:anime:2"
+          ]
+        }
+      },
+      "submittedView": {},
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/input/source/positionKeys"
+    },
+    {
+      "id": "co-star-duplicate-person",
+      "operation": "coStar",
+      "queryCase": "personal-normalization",
+      "submittedInput": {
+        "participants": [
+          {
+            "personId": 1,
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          {
+            "personId": 1,
+            "positionKeys": [
+              "cast:anime:all"
+            ]
+          }
+        ]
+      },
+      "submittedView": {},
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/input/participants"
+    },
+    {
+      "id": "co-star-identity-limit",
+      "operation": "coStar",
+      "queryCase": "global-three-position-families",
+      "generatedParticipants": {
+        "count": 10,
+        "positionKeysPerPerson": [
+          "staff:anime:2",
+          "cast:anime:all",
+          "staffset:anime:core-creators"
+        ]
+      },
+      "submittedView": {},
+      "expectedCode": "IDENTITY_LIMIT_EXCEEDED",
+      "expectedPath": "/input/participants"
+    },
+    {
+      "id": "co-star-participant-limit",
+      "operation": "coStar",
+      "queryCase": "global-three-position-families",
+      "generatedParticipants": {
+        "count": 11,
+        "positionKeysPerPerson": [
+          "staff:anime:2"
+        ]
+      },
+      "submittedView": {},
+      "expectedCode": "PARTICIPANT_LIMIT_EXCEEDED",
+      "expectedPath": "/input/participants"
+    }
+  ]
+}

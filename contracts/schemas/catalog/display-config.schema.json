@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/catalog/display-config-v1.json",
+  "title": "Catalog display configuration v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "capabilityRules",
+    "featuredGroups",
+    "castGroups",
+    "additionalDisplayGroups"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1,
+      "type": "integer"
+    },
+    "capabilityRules": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "$ref": "#/$defs/capabilityRule"
+      }
+    },
+    "featuredGroups": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "$ref": "#/$defs/featuredGroup"
+      }
+    },
+    "castGroups": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "$ref": "#/$defs/castGroup"
+      }
+    },
+    "additionalDisplayGroups": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/additionalGroup"
+      }
+    }
+  },
+  "$defs": {
+    "subjectType": {
+      "type": "string",
+      "enum": [
+        "book",
+        "anime",
+        "music",
+        "game",
+        "real"
+      ]
+    },
+    "capability": {
+      "type": "string",
+      "enum": [
+        "rankings",
+        "candidates",
+        "personDetail",
+        "partners",
+        "coStar"
+      ]
+    },
+    "positionKey": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 96,
+      "pattern": "^(?:staff:(?:book|anime|music|game|real):[1-9][0-9]{0,15}|cast:(?:anime|game):(?:main|all))$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "capabilityRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectType",
+        "positionKind",
+        "capabilities"
+      ],
+      "properties": {
+        "subjectType": {
+          "$ref": "#/$defs/subjectType"
+        },
+        "positionKind": {
+          "type": "string",
+          "enum": [
+            "staff",
+            "cast"
+          ]
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/capability"
+          }
+        }
+      }
+    },
+    "featuredGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectType",
+        "label",
+        "positionKeys"
+      ],
+      "properties": {
+        "subjectType": {
+          "type": "string",
+          "enum": [
+            "anime",
+            "game"
+          ]
+        },
+        "label": {
+          "$ref": "#/$defs/label"
+        },
+        "positionKeys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/positionKey"
+          }
+        }
+      }
+    },
+    "castGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectType",
+        "label",
+        "anchorCategoryKey",
+        "positionKeys"
+      ],
+      "properties": {
+        "subjectType": {
+          "type": "string",
+          "enum": [
+            "anime",
+            "game"
+          ]
+        },
+        "label": {
+          "$ref": "#/$defs/label"
+        },
+        "anchorCategoryKey": {
+          "type": "string",
+          "const": "music",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "positionKeys": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/positionKey"
+          }
+        }
+      }
+    },
+    "additionalGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "groupKey",
+        "subjectType",
+        "label",
+        "displayOrder",
+        "positionKeys"
+      ],
+      "properties": {
+        "groupKey": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 96,
+          "pattern": "^custom:(?:book|anime|music|game|real):[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "subjectType": {
+          "$ref": "#/$defs/subjectType"
+        },
+        "label": {
+          "$ref": "#/$defs/label"
+        },
+        "displayOrder": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "positionKeys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/positionKey"
+          }
+        }
+      }
+    }
+  }
+}

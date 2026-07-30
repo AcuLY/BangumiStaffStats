@@ -1,0 +1,2230 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "Bangumi Staff Statistics Shared Contracts",
+    "version": "1.0.0",
+    "description": "Shared query contracts, dynamic catalog, and read-only rankings endpoint.",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Version 1 API family"
+    }
+  ],
+  "paths": {
+    "/catalog": {
+      "get": {
+        "operationId": "getCatalogV1",
+        "summary": "Read the current dynamic position catalog",
+        "description": "Returns one deterministic projection of the currently published Archive Store. The operation accepts no parameters and no request body.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The current catalog.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Catalog responses must be revalidated.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-cache"
+                }
+              },
+              "X-Request-ID": {
+                "description": "Opaque request correlation identifier.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSuccessEnvelopeV1"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A query parameter or non-empty body was supplied.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Errors must not be cached.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "Opaque request correlation identifier.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "The catalog route supports GET only.",
+            "headers": {
+              "Allow": {
+                "description": "The only supported method.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "GET"
+                }
+              },
+              "Cache-Control": {
+                "description": "Errors must not be cached.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "Opaque request correlation identifier.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The published catalog is corrupt or projection failed.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Errors must not be cached.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "Opaque request correlation identifier.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No Archive Store has been published.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Errors must not be cached.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "Opaque request correlation identifier.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The request deadline elapsed before a response was committed.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Errors must not be cached.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "Opaque request correlation identifier.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rankings": {
+      "post": {
+        "operationId": "postRankingsV1",
+        "summary": "Project one immutable query result into a rankings page",
+        "description": "Evaluates one personal or global shared query and projects a deterministic ranked page. Search, sort, order, and pagination are view-only.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RankingsRequestV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The complete-core summary and requested rankings page.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RankingsSuccessEnvelopeV1"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ResultBadRequestErrorV1"
+          },
+          "403": {
+            "$ref": "#/components/responses/ResultForbiddenErrorV1"
+          },
+          "404": {
+            "$ref": "#/components/responses/ResultNotFoundErrorV1"
+          },
+          "405": {
+            "$ref": "#/components/responses/ResultMethodNotAllowedErrorV1"
+          },
+          "413": {
+            "$ref": "#/components/responses/ResultPayloadTooLargeErrorV1"
+          },
+          "415": {
+            "$ref": "#/components/responses/ResultUnsupportedMediaTypeErrorV1"
+          },
+          "429": {
+            "$ref": "#/components/responses/ResultRateLimitedErrorV1"
+          },
+          "500": {
+            "$ref": "#/components/responses/ResultInternalErrorV1"
+          },
+          "502": {
+            "$ref": "#/components/responses/ResultBadGatewayErrorV1"
+          },
+          "503": {
+            "$ref": "#/components/responses/ResultServiceUnavailableErrorV1"
+          },
+          "504": {
+            "$ref": "#/components/responses/ResultGatewayTimeoutErrorV1"
+          }
+        }
+      }
+    },
+    "/candidates": {
+      "post": {
+        "operationId": "postCandidatesV1",
+        "summary": "Project candidate lists for one ordered query position",
+        "description": "Evaluates every ordered query position independently, returns complete position counts, and projects one deterministic ranked candidate page. Search, sort, order, and pagination are view-only.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidatesRequestV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Complete ordered position counts and the requested current-position candidate page.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidatesSuccessEnvelopeV1"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ResultBadRequestErrorV1"
+          },
+          "403": {
+            "$ref": "#/components/responses/ResultForbiddenErrorV1"
+          },
+          "404": {
+            "$ref": "#/components/responses/ResultNotFoundErrorV1"
+          },
+          "405": {
+            "$ref": "#/components/responses/ResultMethodNotAllowedErrorV1"
+          },
+          "413": {
+            "$ref": "#/components/responses/ResultPayloadTooLargeErrorV1"
+          },
+          "415": {
+            "$ref": "#/components/responses/ResultUnsupportedMediaTypeErrorV1"
+          },
+          "429": {
+            "$ref": "#/components/responses/ResultRateLimitedErrorV1"
+          },
+          "500": {
+            "$ref": "#/components/responses/ResultInternalErrorV1"
+          },
+          "502": {
+            "$ref": "#/components/responses/ResultBadGatewayErrorV1"
+          },
+          "503": {
+            "$ref": "#/components/responses/ResultServiceUnavailableErrorV1"
+          },
+          "504": {
+            "$ref": "#/components/responses/ResultGatewayTimeoutErrorV1"
+          }
+        }
+      }
+    },
+    "/person-detail": {
+      "post": {
+        "operationId": "postPersonDetailV1",
+        "summary": "Project one ranking-eligible person's complete detail evidence",
+        "description": "Builds one immutable person-detail core and projects a deterministic works or characters page. Search, sort, order, and pagination are view-only; refreshCollection is never accepted.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonDetailRequestV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Complete bounded person evidence and the requested section page.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailSuccessEnvelopeV1"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, request shape, query, view, person eligibility, or field value.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The requested collection is not public.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested user or person does not exist.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "The person-detail route supports POST only.",
+            "headers": {
+              "Allow": {
+                "description": "The only supported method.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "POST"
+                }
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request exceeds the transport limit.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request media type is unsupported.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The caller has exceeded the collection request rate.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              },
+              "Retry-After": {
+                "description": "Bounded delay before another request.",
+                "required": true,
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected internal failure occurred.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream returned an invalid protocol response.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The service is busy, not ready, or an upstream is unavailable.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              },
+              "Retry-After": {
+                "description": "Delay before retrying when a bounded wait is known.",
+                "required": false,
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The request or upstream operation timed out.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailErrorEnvelopeV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/partners": {
+      "post": {
+        "operationId": "postPartnersV1",
+        "summary": "Project real shared-work partners for one source person",
+        "description": "Finds partners who share real raw Archive Subjects with the selected source identities, then projects deterministic fixed leaders and a view-only page.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnersRequestV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Complete partner counts, fixed leaders, and the requested partner page.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnersSuccessEnvelopeV1"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "403": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "404": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "405": {
+            "$ref": "#/components/responses/PartnersMethodNotAllowedErrorV1"
+          },
+          "413": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "415": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "429": {
+            "$ref": "#/components/responses/PartnersRateLimitedErrorV1"
+          },
+          "500": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "502": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          },
+          "503": {
+            "$ref": "#/components/responses/PartnersServiceUnavailableErrorV1"
+          },
+          "504": {
+            "$ref": "#/components/responses/PartnersResultErrorV1"
+          }
+        }
+      }
+    },
+    "/co-star": {
+      "post": {
+        "operationId": "postCoStarV1",
+        "summary": "Project one real pair or group co-star analysis",
+        "description": "Intersects each participant's selected identities at raw Archive Subject level, then returns server-authoritative evidence, an optional group matrix, and one view-only common-work page.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoStarRequestV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Complete pair/group evidence and the requested common-work page.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStoreV1"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIDV1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoStarSuccessEnvelopeV1"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "403": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "404": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "405": {
+            "$ref": "#/components/responses/CoStarMethodNotAllowedErrorV1"
+          },
+          "413": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "415": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "429": {
+            "$ref": "#/components/responses/CoStarRateLimitedErrorV1"
+          },
+          "500": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "502": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoStarServiceUnavailableErrorV1"
+          },
+          "504": {
+            "$ref": "#/components/responses/CoStarResultErrorV1"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SharedQueryV1": {
+        "$ref": "../schemas/query/shared-query-v1.schema.json"
+      },
+      "EffectiveQueryV1": {
+        "$ref": "../schemas/query/effective-query-v1.schema.json"
+      },
+      "QueryDigestProjectionV1": {
+        "$ref": "../schemas/query/query-digest-projection-v1.schema.json"
+      },
+      "CatalogContextV1": {
+        "$ref": "../schemas/query/catalog-context-v1.schema.json"
+      },
+      "RankingsViewV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/RankingsViewV1"
+      },
+      "CandidatesInputV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/CandidatesInputV1"
+      },
+      "CandidatesViewV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/CandidatesViewV1"
+      },
+      "PersonDetailInputV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/PersonDetailInputV1"
+      },
+      "PersonDetailViewV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/PersonDetailViewV1"
+      },
+      "PartnersInputV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/PartnersInputV1"
+      },
+      "PartnersViewV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/PartnersViewV1"
+      },
+      "CoStarInputV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/CoStarInputV1"
+      },
+      "CoStarViewV1": {
+        "$ref": "../schemas/query/operation-components-v1.schema.json#/$defs/CoStarViewV1"
+      },
+      "ErrorEnvelopeV1": {
+        "$ref": "../schemas/query/error-envelope-v1.schema.json"
+      },
+      "RankingsRequestV1": {
+        "$ref": "../schemas/rankings/request-v1.schema.json"
+      },
+      "RankingsSuccessEnvelopeV1": {
+        "$ref": "../schemas/rankings/success-envelope-v1.schema.json"
+      },
+      "CandidatesRequestV1": {
+        "$ref": "../schemas/candidates/request-v1.schema.json"
+      },
+      "CandidatesSuccessEnvelopeV1": {
+        "$ref": "../schemas/candidates/success-envelope-v1.schema.json"
+      },
+      "PersonDetailRequestV1": {
+        "$ref": "../schemas/person-detail/request-v1.schema.json"
+      },
+      "PersonDetailSuccessEnvelopeV1": {
+        "$ref": "../schemas/person-detail/success-envelope-v1.schema.json"
+      },
+      "PersonDetailErrorEnvelopeV1": {
+        "$ref": "../schemas/person-detail/result-error-envelope-v1.schema.json"
+      },
+      "PartnersRequestV1": {
+        "$ref": "../schemas/partners/request-v1.schema.json"
+      },
+      "PartnersSuccessEnvelopeV1": {
+        "$ref": "../schemas/partners/success-envelope-v1.schema.json"
+      },
+      "PartnersResultErrorEnvelopeV1": {
+        "$ref": "../schemas/partners/result-error-envelope-v1.schema.json"
+      },
+      "CoStarRequestV1": {
+        "$ref": "../schemas/co-star/request-v1.schema.json"
+      },
+      "CoStarSuccessEnvelopeV1": {
+        "$ref": "../schemas/co-star/success-envelope-v1.schema.json"
+      },
+      "CoStarResultErrorEnvelopeV1": {
+        "$ref": "../schemas/co-star/result-error-envelope-v1.schema.json"
+      },
+      "ResultErrorEnvelopeV1": {
+        "$ref": "../schemas/rankings/result-error-envelope-v1.schema.json"
+      },
+      "SharePayloadV1": {
+        "$ref": "../schemas/query/share-payload-v1.schema.json"
+      },
+      "RankingShareWorkspaceV1": {
+        "$ref": "../schemas/query/share-payload-v1.schema.json#/$defs/RankingWorkspaceV1"
+      },
+      "CoStarShareWorkspaceV1": {
+        "$ref": "../schemas/query/share-payload-v1.schema.json#/$defs/CoStarWorkspaceV1"
+      },
+      "CatalogSubjectTypeKeyV1": {
+        "type": "string",
+        "enum": [
+          "book",
+          "anime",
+          "music",
+          "game",
+          "real"
+        ]
+      },
+      "CatalogOperationV1": {
+        "type": "string",
+        "enum": [
+          "rankings",
+          "candidates",
+          "personDetail",
+          "partners",
+          "coStar"
+        ]
+      },
+      "CatalogScopeV1": {
+        "type": "string",
+        "enum": [
+          "personal",
+          "global"
+        ]
+      },
+      "CatalogSectionV1": {
+        "type": "string",
+        "enum": [
+          "works",
+          "characters"
+        ]
+      },
+      "CatalogOperationApplicabilityV1": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation"
+            ],
+            "properties": {
+              "operation": {
+                "type": "string",
+                "enum": [
+                  "rankings",
+                  "candidates",
+                  "partners",
+                  "coStar"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation",
+              "sections"
+            ],
+            "properties": {
+              "operation": {
+                "const": "personDetail"
+              },
+              "sections": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 2,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/components/schemas/CatalogSectionV1"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CatalogPositionCapabilityNameV1": {
+        "type": "string",
+        "enum": [
+          "rankings",
+          "candidates",
+          "personDetail",
+          "partners",
+          "coStar"
+        ]
+      },
+      "CatalogLocalizedNamesV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cn",
+          "en",
+          "jp"
+        ],
+        "properties": {
+          "cn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "en": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "jp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 255
+          }
+        }
+      },
+      "CatalogSubjectTypeV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "label"
+        ],
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        }
+      },
+      "CatalogStaffPositionV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "kind",
+          "subjectType",
+          "label",
+          "names",
+          "categories",
+          "displayOrder",
+          "capabilities",
+          "status",
+          "positionId"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^staff:(book|anime|music|game|real):[1-9][0-9]*$"
+          },
+          "kind": {
+            "const": "staff"
+          },
+          "subjectType": {
+            "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "names": {
+            "$ref": "#/components/schemas/CatalogLocalizedNamesV1"
+          },
+          "categories": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+            }
+          },
+          "displayOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "capabilities": {
+            "type": "array",
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogPositionCapabilityNameV1"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "selectable",
+              "hidden"
+            ]
+          },
+          "positionId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "CatalogCastPositionV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "kind",
+          "subjectType",
+          "label",
+          "names",
+          "categories",
+          "displayOrder",
+          "capabilities",
+          "status",
+          "exclusiveGroup",
+          "roleScope"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^cast:(anime|game):(main|all)$"
+          },
+          "kind": {
+            "const": "cast"
+          },
+          "subjectType": {
+            "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "names": {
+            "$ref": "#/components/schemas/CatalogLocalizedNamesV1"
+          },
+          "categories": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+            }
+          },
+          "displayOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "capabilities": {
+            "type": "array",
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogPositionCapabilityNameV1"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "selectable",
+              "hidden"
+            ]
+          },
+          "exclusiveGroup": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96
+          },
+          "roleScope": {
+            "type": "string",
+            "enum": [
+              "main",
+              "all"
+            ]
+          }
+        }
+      },
+      "CatalogStaffSetPositionV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "kind",
+          "subjectType",
+          "label",
+          "names",
+          "categories",
+          "displayOrder",
+          "capabilities",
+          "status",
+          "memberKeys"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^staffset:(book|anime|music|game|real):[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "kind": {
+            "const": "staffSet"
+          },
+          "subjectType": {
+            "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "names": {
+            "$ref": "#/components/schemas/CatalogLocalizedNamesV1"
+          },
+          "categories": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+            }
+          },
+          "displayOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "capabilities": {
+            "type": "array",
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogPositionCapabilityNameV1"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "selectable",
+              "hidden"
+            ]
+          },
+          "memberKeys": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 256,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96,
+              "pattern": "^staff:(book|anime|music|game|real):[1-9][0-9]*$"
+            }
+          }
+        }
+      },
+      "CatalogPositionV1": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CatalogStaffPositionV1"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogCastPositionV1"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogStaffSetPositionV1"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "staff": "#/components/schemas/CatalogStaffPositionV1",
+            "cast": "#/components/schemas/CatalogCastPositionV1",
+            "staffSet": "#/components/schemas/CatalogStaffSetPositionV1"
+          }
+        }
+      },
+    "CatalogGroupV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "kind",
+          "subjectType",
+          "label",
+          "displayOrder",
+          "positionKeys"
+        ],
+        "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "bangumi",
+              "shortcut",
+              "custom",
+              "fallback"
+            ]
+          },
+          "subjectType": {
+            "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "displayOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "positionKeys": {
+            "type": "array",
+            "maxItems": 10000,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96
+            }
+          }
+        }
+      },
+    "CatalogSelectionRuleV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "kind",
+          "positionKey",
+          "value"
+        ],
+        "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 101
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "exactStaff",
+              "exactCast",
+              "staffSetUnion"
+            ]
+          },
+          "positionKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 7423
+          }
+        }
+      },
+      "CatalogFilterCapabilityV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "scopes",
+          "subjectTypes",
+          "applications"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": [
+              "includeNSFW",
+              "mergeSeries",
+              "subjectDate",
+              "globalScore",
+              "ratingCount",
+              "tags",
+              "collectionUpdatedAt",
+              "personalScore",
+              "scoreDifference"
+            ]
+          },
+          "scopes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogScopeV1"
+            }
+          },
+          "subjectTypes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+            }
+          },
+          "applications": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogOperationApplicabilityV1"
+            }
+          }
+        }
+      },
+      "CatalogRootSortCapabilityV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "field",
+          "scopes",
+          "subjectTypes",
+          "requiresMergeSeries"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "rankings",
+              "candidates",
+              "partners",
+              "coStar"
+            ]
+          },
+          "field": {
+            "type": "string",
+            "enum": [
+              "count",
+              "average",
+              "overall",
+              "preference",
+              "globalAverage",
+              "globalScore",
+              "personalScore",
+              "collectionUpdatedAt",
+              "seriesSize",
+              "role",
+              "workCount",
+              "name"
+            ]
+          },
+          "scopes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogScopeV1"
+            }
+          },
+          "subjectTypes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+            }
+          },
+          "requiresMergeSeries": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogSectionSortCapabilityV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "section",
+          "field",
+          "scopes",
+          "subjectTypes",
+          "requiresMergeSeries"
+        ],
+        "properties": {
+          "operation": {
+            "const": "personDetail"
+          },
+          "section": {
+            "$ref": "#/components/schemas/CatalogSectionV1"
+          },
+          "field": {
+            "type": "string",
+            "enum": [
+              "globalScore",
+              "personalScore",
+              "collectionUpdatedAt",
+              "seriesSize",
+              "role",
+              "workCount",
+              "name"
+            ]
+          },
+          "scopes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogScopeV1"
+            }
+          },
+          "subjectTypes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogSubjectTypeKeyV1"
+            }
+          },
+          "requiresMergeSeries": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogSortCapabilityV1": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CatalogRootSortCapabilityV1"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogSectionSortCapabilityV1"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "operation",
+          "mapping": {
+            "rankings": "#/components/schemas/CatalogRootSortCapabilityV1",
+            "candidates": "#/components/schemas/CatalogRootSortCapabilityV1",
+            "personDetail": "#/components/schemas/CatalogSectionSortCapabilityV1",
+            "partners": "#/components/schemas/CatalogRootSortCapabilityV1",
+            "coStar": "#/components/schemas/CatalogRootSortCapabilityV1"
+          }
+        }
+      },
+      "CatalogDataV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subjectTypes",
+          "positions",
+          "groups",
+          "selectionRules",
+          "filterCapabilities",
+          "sortCapabilities"
+        ],
+        "properties": {
+          "subjectTypes": {
+            "type": "array",
+            "minItems": 5,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogSubjectTypeV1"
+            }
+          },
+          "positions": {
+            "type": "array",
+            "maxItems": 50260,
+            "items": {
+              "$ref": "#/components/schemas/CatalogPositionV1"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "maxItems": 50260,
+            "items": {
+              "$ref": "#/components/schemas/CatalogGroupV1"
+            }
+          },
+          "selectionRules": {
+            "type": "array",
+            "maxItems": 50260,
+            "items": {
+              "$ref": "#/components/schemas/CatalogSelectionRuleV1"
+            }
+          },
+          "filterCapabilities": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/CatalogFilterCapabilityV1"
+            }
+          },
+          "sortCapabilities": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "$ref": "#/components/schemas/CatalogSortCapabilityV1"
+            }
+          }
+        }
+      },
+      "CatalogMetaV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requestId",
+          "dataVersion"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "dataVersion": {
+            "type": "string",
+            "minLength": 68,
+            "maxLength": 68,
+            "pattern": "^dv1-[0-9a-f]{64}$"
+          }
+        }
+      },
+      "CatalogSuccessEnvelopeV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "meta",
+          "data"
+        ],
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/CatalogMetaV1"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogDataV1"
+          }
+        }
+      }
+    },
+    "headers": {
+      "PrivateNoStoreV1": {
+        "description": "Read-only result responses are private and must not be stored.",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "const": "private, no-store"
+        }
+      },
+      "RequestIDV1": {
+        "description": "Opaque request correlation identifier.",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "responses": {
+      "PartnersResultErrorV1": {
+        "description": "The partners request failed before a successful result could be returned.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PartnersResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "PartnersMethodNotAllowedErrorV1": {
+        "description": "The partners route supports POST only.",
+        "headers": {
+          "Allow": {
+            "description": "The only supported method.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "POST"
+            }
+          },
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PartnersResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "PartnersRateLimitedErrorV1": {
+        "description": "The caller has exceeded the collection request rate.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          },
+          "Retry-After": {
+            "description": "Bounded delay before another request.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PartnersResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "PartnersServiceUnavailableErrorV1": {
+        "description": "The partners service is busy, not ready, or an upstream is unavailable.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          },
+          "Retry-After": {
+            "description": "Bounded delay before retrying when known.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PartnersResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "CoStarResultErrorV1": {
+        "description": "The co-star request failed before a successful result could be returned.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CoStarResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "CoStarMethodNotAllowedErrorV1": {
+        "description": "The co-star route supports POST only.",
+        "headers": {
+          "Allow": {
+            "description": "The only supported method.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "POST"
+            }
+          },
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CoStarResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "CoStarRateLimitedErrorV1": {
+        "description": "The caller has exceeded the collection request rate.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          },
+          "Retry-After": {
+            "description": "Bounded delay before another request.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CoStarResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "CoStarServiceUnavailableErrorV1": {
+        "description": "The co-star service is busy, not ready, or an upstream is unavailable.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          },
+          "Retry-After": {
+            "description": "Bounded delay before retrying when known.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CoStarResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "BadRequestErrorV1": {
+        "description": "Invalid JSON, request shape, field value, position selection, capability, query-result identity, participant count, or identity count.",
+        "x-error-codes": [
+          "INVALID_JSON",
+          "INVALID_REQUEST",
+          "FIELD_INVALID",
+          "POSITION_SELECTION_CONFLICT",
+          "POSITION_NOT_FOUND",
+          "POSITION_NOT_SELECTABLE",
+          "POSITION_SUBJECT_TYPE_MISMATCH",
+          "CAPABILITY_NOT_AVAILABLE",
+          "PERSON_NOT_IN_QUERY_RESULT",
+          "PARTICIPANT_LIMIT_EXCEEDED",
+          "IDENTITY_LIMIT_EXCEEDED"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ForbiddenErrorV1": {
+        "description": "The requested collection is not public.",
+        "x-error-codes": [
+          "COLLECTION_NOT_PUBLIC"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "NotFoundErrorV1": {
+        "description": "The requested user or entity does not exist.",
+        "x-error-codes": [
+          "USER_NOT_FOUND",
+          "ENTITY_NOT_FOUND"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "PayloadTooLargeErrorV1": {
+        "description": "The request exceeds the transport limit.",
+        "x-error-codes": [
+          "REQUEST_TOO_LARGE"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "UnsupportedMediaTypeErrorV1": {
+        "description": "The request media type is unsupported.",
+        "x-error-codes": [
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "RateLimitedErrorV1": {
+        "description": "The caller has exceeded the request rate.",
+        "x-error-codes": [
+          "RATE_LIMITED"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ServiceUnavailableErrorV1": {
+        "description": "The service is busy, not ready, or an upstream is unavailable or invalid.",
+        "x-error-codes": [
+          "SERVER_BUSY",
+          "NOT_READY",
+          "UPSTREAM_UNAVAILABLE",
+          "UPSTREAM_PROTOCOL_ERROR"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "GatewayTimeoutErrorV1": {
+        "description": "The upstream request timed out.",
+        "x-error-codes": [
+          "UPSTREAM_TIMEOUT"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "InternalErrorV1": {
+        "description": "An unexpected internal failure occurred.",
+        "x-error-codes": [
+          "INTERNAL_ERROR"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultBadRequestErrorV1": {
+        "description": "Invalid JSON, request shape, query, view, or field value.",
+        "x-error-codes": [
+          "INVALID_JSON",
+          "INVALID_REQUEST",
+          "FIELD_INVALID",
+          "POSITION_SELECTION_CONFLICT",
+          "POSITION_NOT_FOUND",
+          "POSITION_NOT_SELECTABLE",
+          "POSITION_SUBJECT_TYPE_MISMATCH",
+          "CAPABILITY_NOT_AVAILABLE"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultForbiddenErrorV1": {
+        "description": "The requested collection is not public.",
+        "x-error-codes": [
+          "COLLECTION_NOT_PUBLIC"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultNotFoundErrorV1": {
+        "description": "The requested user or entity does not exist.",
+        "x-error-codes": [
+          "USER_NOT_FOUND",
+          "ENTITY_NOT_FOUND"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultMethodNotAllowedErrorV1": {
+        "description": "The result route supports POST only.",
+        "x-error-codes": [
+          "INVALID_REQUEST"
+        ],
+        "headers": {
+          "Allow": {
+            "description": "The only supported method.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "POST"
+            }
+          },
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultPayloadTooLargeErrorV1": {
+        "description": "The request exceeds the transport limit.",
+        "x-error-codes": [
+          "REQUEST_TOO_LARGE"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultUnsupportedMediaTypeErrorV1": {
+        "description": "The request media type is unsupported.",
+        "x-error-codes": [
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultRateLimitedErrorV1": {
+        "description": "The caller has exceeded the request rate.",
+        "x-error-codes": [
+          "RATE_LIMITED"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          },
+          "Retry-After": {
+            "description": "Bounded delay before another request.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultInternalErrorV1": {
+        "description": "An unexpected internal failure occurred.",
+        "x-error-codes": [
+          "INTERNAL_ERROR"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultBadGatewayErrorV1": {
+        "description": "The upstream returned an invalid protocol response or undecodable payload.",
+        "x-error-codes": [
+          "UPSTREAM_PROTOCOL_ERROR"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultServiceUnavailableErrorV1": {
+        "description": "The service is busy, not ready, or an upstream is temporarily unavailable.",
+        "x-error-codes": [
+          "SERVER_BUSY",
+          "NOT_READY",
+          "UPSTREAM_UNAVAILABLE"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          },
+          "Retry-After": {
+            "description": "Delay before retrying when the failure has a known bounded wait.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      },
+      "ResultGatewayTimeoutErrorV1": {
+        "description": "The request or upstream operation timed out.",
+        "x-error-codes": [
+          "UPSTREAM_TIMEOUT"
+        ],
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStoreV1"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIDV1"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResultErrorEnvelopeV1"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+IFS=$'\n\t'
+
+script_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=../lib/common.sh
+source "$script_root/../lib/common.sh"
+
+[[ $# -eq 2 && "$1" == --root ]] ||
+  die "usage: update --root ABS"
+root=$2
+for command in curl docker flock jq realpath sha256sum; do require_command "$command"; done
+require_root_user
+require_root_layout "$root"
+acquire_state_lock "$root"
+
+old_pointer=$(mktemp "$root/data/.previous-pointer.XXXXXX")
+old_previous_pointer=
+candidate=
+cleanup_temporaries() {
+  local result=$? temporary
+  trap - EXIT ERR HUP INT TERM
+  for temporary in "$candidate" "$old_pointer" "$old_previous_pointer"; do
+    [[ -n "$temporary" ]] || continue
+    if [[ -f "$temporary" && ! -L "$temporary" &&
+      "${temporary%/*}" == "$root/data" ]]; then
+      rm -f -- "$temporary" || result=1
+    elif [[ -e "$temporary" || -L "$temporary" ]]; then
+      log "preserving invalid transaction temporary: $temporary"
+      result=1
+    fi
+  done
+  exit "$result"
+}
+trap cleanup_temporaries EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+cp --preserve=mode,ownership -- "$root/data/current.json" "$old_pointer"
+old_version=$(pointer_data_version "$old_pointer")
+if [[ -f "$root/data/previous.json" && ! -L "$root/data/previous.json" ]]; then
+  old_previous_pointer=$(mktemp "$root/data/.previous-rollback-pointer.XXXXXX")
+  cp --preserve=mode,ownership -- \
+    "$root/data/previous.json" "$old_previous_pointer"
+elif [[ -e "$root/data/previous.json" || -L "$root/data/previous.json" ]]; then
+  die "previous data pointer has an invalid type"
+fi
+
+compose "$root" run --rm updater
+status="$root/data/update-status.json"
+new_version=$(jq -er '
+  .last_attempt
+  | select(.status == "published" or .status == "no-change")
+  | .dataVersion
+  | select(type == "string" and test("^dv1-[0-9a-f]{64}$"))
+' "$status")
+if [[ "$new_version" == "$old_version" ]]; then
+  freeze_archive_version "$root" "$old_version"
+  log "updater reported no change: $old_version"
+  exit 0
+fi
+
+version_root="$root/data/versions/$new_version"
+[[ -d "$version_root" && ! -L "$version_root" ]] || die "published version is absent"
+[[ -f "$version_root/manifest.json" && -f "$version_root/bangumi.sqlite" ]] ||
+  die "published version is incomplete"
+freeze_archive_version "$root" "$new_version"
+manifest_digest="sha256:$(sha256sum "$version_root/manifest.json" | awk '{print $1}')"
+candidate=$(mktemp "$root/data/.candidate-pointer.XXXXXX")
+printf '{"pointerSchemaVersion":1,"dataVersion":"%s","manifestDigest":"%s"}\n' \
+  "$new_version" "$manifest_digest" >"$candidate"
+chmod 0640 "$candidate"
+chown 0:65532 "$candidate"
+
+restore_data() {
+  local failed=$1
+  (( failed != 0 )) || failed=1
+  trap - ERR HUP INT TERM
+  log "new Archive did not become ready; restoring previous pointer"
+  atomic_copy "$old_pointer" "$root/data/current.json"
+  restore_optional_file "$old_previous_pointer" "$root/data/previous.json"
+  if ! restart_and_wait "$root" "$old_version"; then
+    die "new Archive failed and previous Archive did not recover"
+  fi
+  exit "$failed"
+}
+trap 'restore_data "$?"' ERR
+trap 'restore_data 129' HUP
+trap 'restore_data 130' INT
+trap 'restore_data 143' TERM
+mv -fT -- "$candidate" "$root/data/current.json"
+restart_and_wait "$root" "$new_version"
+atomic_copy "$old_pointer" "$root/data/previous.json"
+trap - ERR HUP INT TERM
+log "activated Archive $new_version"

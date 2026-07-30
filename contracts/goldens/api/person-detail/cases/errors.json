@@ -1,0 +1,342 @@
+{
+  "schemaVersion": 1,
+  "kind": "person-detail-error-cases",
+  "cases": [
+    {
+      "id": "refresh-field-rejected",
+      "requestSchemaValid": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/person-detail",
+        "body": {
+          "query": {
+            "scope": "personal",
+            "uid": "Alice",
+            "collectionStatuses": [
+              "completed"
+            ],
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "personId": 100
+          },
+          "refreshCollection": true
+        }
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-detail-refresh"
+        },
+        "body": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "The request contains an unknown field.",
+            "retryable": false,
+            "fieldErrors": {
+              "/refreshCollection": [
+                "UNKNOWN_FIELD"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-detail-refresh"
+          }
+        }
+      }
+    },
+    {
+      "id": "unknown-input-field-rejected",
+      "requestSchemaValid": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/person-detail",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "personId": 100,
+            "selectedWorkIds": [
+              1
+            ]
+          }
+        }
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-detail-unknown-input"
+        },
+        "body": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "The request contains an unknown field.",
+            "retryable": false,
+            "fieldErrors": {
+              "/input/selectedWorkIds": [
+                "UNKNOWN_FIELD"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-detail-unknown-input"
+          }
+        }
+      }
+    },
+    {
+      "id": "person-id-fraction-rejected",
+      "requestSchemaValid": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/person-detail",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "personId": 1.5
+          }
+        }
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-detail-fraction"
+        },
+        "body": {
+          "error": {
+            "code": "FIELD_INVALID",
+            "message": "personId must be an integer.",
+            "retryable": false,
+            "fieldErrors": {
+              "/input/personId": [
+                "INVALID_TYPE"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-detail-fraction"
+          }
+        }
+      }
+    },
+    {
+      "id": "characters-without-cast-rejected",
+      "requestSchemaValid": true,
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/person-detail",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "personId": 100
+          },
+          "view": {
+            "section": "characters"
+          }
+        }
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-detail-no-cast"
+        },
+        "body": {
+          "error": {
+            "code": "CAPABILITY_NOT_AVAILABLE",
+            "message": "Character evidence is not available for this query.",
+            "retryable": false,
+            "fieldErrors": {
+              "/view/section": [
+                "CAPABILITY_NOT_AVAILABLE"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-detail-no-cast",
+            "dataVersion": "dv1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        }
+      }
+    },
+    {
+      "id": "person-not-in-query-result",
+      "requestSchemaValid": true,
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/person-detail",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "personId": 101
+          }
+        }
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-detail-ineligible"
+        },
+        "body": {
+          "error": {
+            "code": "PERSON_NOT_IN_QUERY_RESULT",
+            "message": "The person is not in the complete query result.",
+            "retryable": false,
+            "fieldErrors": {
+              "/input/personId": [
+                "PERSON_NOT_IN_QUERY_RESULT"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-detail-ineligible",
+            "dataVersion": "dv1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        }
+      }
+    },
+    {
+      "id": "person-entity-not-found",
+      "requestSchemaValid": true,
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/person-detail",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "personId": 999999
+          }
+        }
+      },
+      "expected": {
+        "status": 404,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-detail-not-found"
+        },
+        "body": {
+          "error": {
+            "code": "ENTITY_NOT_FOUND",
+            "message": "The person does not exist.",
+            "retryable": false,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-detail-not-found",
+            "dataVersion": "dv1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        }
+      }
+    },
+    {
+      "id": "wrong-method-rejected",
+      "requestSchemaValid": true,
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/person-detail"
+      },
+      "expected": {
+        "status": 405,
+        "headers": {
+          "Allow": "POST",
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-detail-method"
+        },
+        "body": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "method not allowed",
+            "retryable": false,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-detail-method"
+          }
+        }
+      }
+    },
+    {
+      "id": "store-not-ready",
+      "requestSchemaValid": true,
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/person-detail",
+        "body": {
+          "query": {
+            "scope": "global",
+            "subjectType": "anime",
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "input": {
+            "personId": 100
+          }
+        }
+      },
+      "fault": "no-published-store",
+      "expected": {
+        "status": 503,
+        "headers": {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-detail-not-ready"
+        },
+        "body": {
+          "error": {
+            "code": "NOT_READY",
+            "message": "person detail is not ready",
+            "retryable": true,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-detail-not-ready"
+          }
+        }
+      }
+    }
+  ]
+}

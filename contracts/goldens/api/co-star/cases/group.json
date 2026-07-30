@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "kind": "global-group-pairwise-only-success",
+  "cases": [
+    {
+      "id": "group-matrix-retains-pair-only-overlaps",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:1",
+            "staff:anime:2",
+            "staff:anime:3"
+          ]
+        },
+        "input": {
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:1"
+              ]
+            },
+            {
+              "personId": 2,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 3,
+              "positionKeys": [
+                "staff:anime:3"
+              ]
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": 200,
+        "body": {
+          "data": {
+            "kind": "group",
+            "workUnit": "subject",
+            "participants": [
+              {
+                "person": {
+                  "id": 1,
+                  "name": "One",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "staff:anime:1"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 2,
+                  "average": 750
+                }
+              },
+              {
+                "person": {
+                  "id": 2,
+                  "name": "Two",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "staff:anime:2"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 2,
+                  "average": 700
+                }
+              },
+              {
+                "person": {
+                  "id": 3,
+                  "name": "Three",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "staff:anime:3"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 2,
+                  "average": 650
+                }
+              }
+            ],
+            "summary": {
+              "unionWorkCount": 3,
+              "commonWorkCount": 0,
+              "ratedWorkCount": 0,
+              "average": null
+            },
+            "tags": {
+              "meta": [],
+              "community": []
+            },
+            "ratings": {
+              "datasets": []
+            },
+            "matrix": {
+              "pairs": [
+                {
+                  "leftPersonId": 1,
+                  "rightPersonId": 2,
+                  "metrics": {
+                    "workCount": 1,
+                    "ratedWorkCount": 1,
+                    "average": 800
+                  }
+                },
+                {
+                  "leftPersonId": 1,
+                  "rightPersonId": 3,
+                  "metrics": {
+                    "workCount": 1,
+                    "ratedWorkCount": 1,
+                    "average": 700
+                  }
+                },
+                {
+                  "leftPersonId": 2,
+                  "rightPersonId": 3,
+                  "metrics": {
+                    "workCount": 1,
+                    "ratedWorkCount": 1,
+                    "average": 600
+                  }
+                }
+              ]
+            },
+            "items": []
+          },
+          "meta": {
+            "requestId": "req-co-star-group",
+            "dataVersion": "dv1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 0
+            }
+          }
+        }
+      }
+    }
+  ]
+}

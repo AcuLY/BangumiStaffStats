@@ -1,0 +1,26 @@
+{
+  "kind": "textual-json",
+  "version": 1,
+  "cases": [
+    {
+      "id": "textual-nan",
+      "text": "{\"scope\":\"global\",\"subjectType\":\"anime\",\"positionKeys\":[\"staff:anime:2\"],\"filters\":{\"globalScore\":{\"min\":NaN}}}",
+      "expectedCode": "INVALID_JSON"
+    },
+    {
+      "id": "textual-infinity",
+      "text": "{\"scope\":\"global\",\"subjectType\":\"anime\",\"positionKeys\":[\"staff:anime:2\"],\"filters\":{\"globalScore\":{\"min\":Infinity}}}",
+      "expectedCode": "INVALID_JSON"
+    },
+    {
+      "id": "textual-trailing-data",
+      "text": "{\"scope\":\"global\"} garbage",
+      "expectedCode": "INVALID_JSON"
+    },
+    {
+      "id": "unsafe-json-integer",
+      "text": "{\"scope\":\"global\",\"subjectType\":\"anime\",\"positionKeys\":[\"staff:anime:2\"],\"page\":9007199254740992}",
+      "expectedCode": "FIELD_INVALID"
+    }
+  ]
+}

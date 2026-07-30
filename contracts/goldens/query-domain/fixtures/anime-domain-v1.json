@@ -1,0 +1,1094 @@
+{
+  "fixtureVersion": 1,
+  "fixtureId": "anime-domain-v1",
+  "subjectType": "anime",
+  "catalogPlans": [
+    {
+      "positionKey": "staff:anime:2",
+      "ruleKind": "exactStaff",
+      "positionId": 2
+    },
+    {
+      "positionKey": "staff:anime:67",
+      "ruleKind": "exactStaff",
+      "positionId": 67
+    },
+    {
+      "positionKey": "staff:anime:74",
+      "ruleKind": "exactStaff",
+      "positionId": 74
+    },
+    {
+      "positionKey": "staff:anime:101",
+      "ruleKind": "exactStaff",
+      "positionId": 101
+    },
+    {
+      "positionKey": "cast:anime:main",
+      "ruleKind": "exactCast",
+      "roleTypes": [
+        1
+      ]
+    },
+    {
+      "positionKey": "cast:anime:all",
+      "ruleKind": "exactCast",
+      "roleTypes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "positionKey": "staffset:anime:director-family",
+      "ruleKind": "staffSetUnion",
+      "memberPositionKeys": [
+        "staff:anime:2",
+        "staff:anime:74"
+      ]
+    }
+  ],
+  "domains": {
+    "filters": {
+      "people": [
+        {
+          "personId": 201
+        }
+      ],
+      "subjects": [
+        {
+          "subjectId": 101,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2001-01-15",
+          "airDatePrecision": 3,
+          "globalScore": 8,
+          "ratingBuckets": [
+            {
+              "rating": 8,
+              "count": 3
+            }
+          ],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "ＳＦ"
+            },
+            {
+              "scope": "meta",
+              "name": "日常"
+            }
+          ]
+        },
+        {
+          "subjectId": 102,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2025-12",
+          "airDatePrecision": 2,
+          "globalScore": 7,
+          "ratingBuckets": [
+            {
+              "rating": 7,
+              "count": 2
+            }
+          ],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "sf"
+            }
+          ]
+        },
+        {
+          "subjectId": 103,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020",
+          "airDatePrecision": 1,
+          "globalScore": 8,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "sf"
+            },
+            {
+              "scope": "public",
+              "name": "日常"
+            }
+          ]
+        },
+        {
+          "subjectId": 104,
+          "subjectType": "anime",
+          "nsfw": true,
+          "airDate": "2020-05-01",
+          "airDatePrecision": 3,
+          "globalScore": 8,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "sf"
+            },
+            {
+              "scope": "public",
+              "name": "日常"
+            }
+          ]
+        },
+        {
+          "subjectId": 105,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": null,
+          "airDatePrecision": null,
+          "globalScore": 8,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "sf"
+            },
+            {
+              "scope": "public",
+              "name": "日常"
+            }
+          ]
+        },
+        {
+          "subjectId": 106,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "1999-12-31",
+          "airDatePrecision": 3,
+          "globalScore": 8,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "sf"
+            },
+            {
+              "scope": "public",
+              "name": "日常"
+            }
+          ]
+        },
+        {
+          "subjectId": 107,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2026-01-01",
+          "airDatePrecision": 3,
+          "globalScore": 8,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "sf"
+            },
+            {
+              "scope": "public",
+              "name": "日常"
+            }
+          ]
+        },
+        {
+          "subjectId": 108,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-06-01",
+          "airDatePrecision": 3,
+          "globalScore": null,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "sf"
+            },
+            {
+              "scope": "public",
+              "name": "日常"
+            }
+          ]
+        },
+        {
+          "subjectId": 109,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-06-01",
+          "airDatePrecision": 3,
+          "globalScore": 6,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "sf"
+            },
+            {
+              "scope": "public",
+              "name": "日常"
+            }
+          ]
+        },
+        {
+          "subjectId": 110,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-06-01",
+          "airDatePrecision": 3,
+          "globalScore": 8,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "sf"
+            }
+          ]
+        },
+        {
+          "subjectId": 111,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-06-01",
+          "airDatePrecision": 3,
+          "globalScore": 8,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "sf"
+            },
+            {
+              "scope": "public",
+              "name": "日常"
+            },
+            {
+              "scope": "meta",
+              "name": "ドラマ"
+            }
+          ]
+        },
+        {
+          "subjectId": 112,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-06-01",
+          "airDatePrecision": 3,
+          "globalScore": 8,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "sf"
+            },
+            {
+              "scope": "public",
+              "name": "日常"
+            }
+          ]
+        },
+        {
+          "subjectId": 113,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-06-01",
+          "airDatePrecision": 3,
+          "globalScore": 8,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "sf"
+            },
+            {
+              "scope": "public",
+              "name": "日常"
+            }
+          ]
+        },
+        {
+          "subjectId": 114,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-06-01",
+          "airDatePrecision": 3,
+          "globalScore": 8,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "sf"
+            },
+            {
+              "scope": "public",
+              "name": "日常"
+            }
+          ]
+        },
+        {
+          "subjectId": 120,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-01-01",
+          "airDatePrecision": 3,
+          "globalScore": 1,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "global-action"
+            }
+          ]
+        },
+        {
+          "subjectId": 121,
+          "subjectType": "anime",
+          "nsfw": true,
+          "airDate": "2026-07",
+          "airDatePrecision": 2,
+          "globalScore": 10,
+          "ratingBuckets": [
+            {
+              "rating": 10,
+              "count": 1
+            }
+          ],
+          "tags": [
+            {
+              "scope": "meta",
+              "name": "ＧＬＯＢＡＬ－ＡＣＴＩＯＮ"
+            }
+          ]
+        },
+        {
+          "subjectId": 122,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020",
+          "airDatePrecision": 1,
+          "globalScore": 8,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "global-action"
+            }
+          ]
+        },
+        {
+          "subjectId": 123,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-01",
+          "airDatePrecision": 2,
+          "globalScore": null,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "global-action"
+            }
+          ]
+        },
+        {
+          "subjectId": 124,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-01",
+          "airDatePrecision": 2,
+          "globalScore": 8,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "global-action"
+            },
+            {
+              "scope": "public",
+              "name": "ova"
+            },
+            {
+              "scope": "meta",
+              "name": "special"
+            }
+          ]
+        },
+        {
+          "subjectId": 125,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-01",
+          "airDatePrecision": 2,
+          "globalScore": 0,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "global-action"
+            },
+            {
+              "scope": "public",
+              "name": "ova"
+            }
+          ]
+        },
+        {
+          "subjectId": 130,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2000-01",
+          "airDatePrecision": 2,
+          "globalScore": 6,
+          "ratingBuckets": [
+            {
+              "rating": 7,
+              "count": 2
+            }
+          ],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "action"
+            }
+          ]
+        },
+        {
+          "subjectId": 131,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-01",
+          "airDatePrecision": 2,
+          "globalScore": 7,
+          "ratingBuckets": [
+            {
+              "rating": 7,
+              "count": 2
+            }
+          ],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "action"
+            }
+          ]
+        },
+        {
+          "subjectId": 132,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-01",
+          "airDatePrecision": 2,
+          "globalScore": 5,
+          "ratingBuckets": [
+            {
+              "rating": 5,
+              "count": 2
+            }
+          ],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "action"
+            }
+          ]
+        },
+        {
+          "subjectId": 133,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-01",
+          "airDatePrecision": 2,
+          "globalScore": 8,
+          "ratingBuckets": [
+            {
+              "rating": 8,
+              "count": 2
+            }
+          ],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "action"
+            }
+          ]
+        },
+        {
+          "subjectId": 134,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-01",
+          "airDatePrecision": 2,
+          "globalScore": 7,
+          "ratingBuckets": [
+            {
+              "rating": 7,
+              "count": 1
+            }
+          ],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "action"
+            }
+          ]
+        },
+        {
+          "subjectId": 135,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2020-01",
+          "airDatePrecision": 2,
+          "globalScore": 7,
+          "ratingBuckets": [
+            {
+              "rating": 7,
+              "count": 2
+            }
+          ],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "action"
+            }
+          ]
+        },
+        {
+          "subjectId": 136,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": "2025-12-31",
+          "airDatePrecision": 3,
+          "globalScore": 7,
+          "ratingBuckets": [
+            {
+              "rating": 7,
+              "count": 4
+            }
+          ],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "action"
+            }
+          ]
+        },
+        {
+          "subjectId": 901,
+          "subjectType": "game",
+          "nsfw": false,
+          "airDate": "2020-01",
+          "airDatePrecision": 2,
+          "globalScore": 8,
+          "ratingBuckets": [],
+          "tags": [
+            {
+              "scope": "public",
+              "name": "action"
+            }
+          ]
+        }
+      ],
+      "staffCredits": [
+        {
+          "subjectId": 101,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 102,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 103,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 104,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 105,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 106,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 107,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 108,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 109,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 110,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 111,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 112,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 113,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 114,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 120,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 121,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 122,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 123,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 124,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 125,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 130,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 131,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 132,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 133,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 134,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 135,
+          "personId": 201,
+          "positionId": 2
+        },
+        {
+          "subjectId": 136,
+          "personId": 201,
+          "positionId": 2
+        }
+      ],
+      "castCredits": []
+    },
+    "identity": {
+      "people": [
+        {
+          "personId": 301
+        },
+        {
+          "personId": 302
+        },
+        {
+          "personId": 303
+        },
+        {
+          "personId": 304
+        },
+        {
+          "personId": 305
+        },
+        {
+          "personId": 306
+        }
+      ],
+      "subjects": [
+        {
+          "subjectId": 201,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": null,
+          "airDatePrecision": null,
+          "globalScore": null,
+          "ratingBuckets": [],
+          "tags": []
+        },
+        {
+          "subjectId": 202,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": null,
+          "airDatePrecision": null,
+          "globalScore": null,
+          "ratingBuckets": [],
+          "tags": []
+        },
+        {
+          "subjectId": 203,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": null,
+          "airDatePrecision": null,
+          "globalScore": null,
+          "ratingBuckets": [],
+          "tags": []
+        },
+        {
+          "subjectId": 204,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": null,
+          "airDatePrecision": null,
+          "globalScore": null,
+          "ratingBuckets": [],
+          "tags": []
+        },
+        {
+          "subjectId": 205,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": null,
+          "airDatePrecision": null,
+          "globalScore": null,
+          "ratingBuckets": [],
+          "tags": []
+        },
+        {
+          "subjectId": 206,
+          "subjectType": "anime",
+          "nsfw": false,
+          "airDate": null,
+          "airDatePrecision": null,
+          "globalScore": null,
+          "ratingBuckets": [],
+          "tags": []
+        }
+      ],
+      "staffCredits": [
+        {
+          "subjectId": 201,
+          "personId": 301,
+          "positionId": 2
+        },
+        {
+          "subjectId": 201,
+          "personId": 302,
+          "positionId": 74
+        },
+        {
+          "subjectId": 201,
+          "personId": 303,
+          "positionId": 2
+        },
+        {
+          "subjectId": 201,
+          "personId": 303,
+          "positionId": 74
+        },
+        {
+          "subjectId": 202,
+          "personId": 301,
+          "positionId": 2
+        },
+        {
+          "subjectId": 202,
+          "personId": 301,
+          "positionId": 74
+        },
+        {
+          "subjectId": 203,
+          "personId": 301,
+          "positionId": 2
+        },
+        {
+          "subjectId": 203,
+          "personId": 302,
+          "positionId": 74
+        },
+        {
+          "subjectId": 204,
+          "personId": 301,
+          "positionId": 2
+        },
+        {
+          "subjectId": 204,
+          "personId": 301,
+          "positionId": 74
+        },
+        {
+          "subjectId": 206,
+          "personId": 305,
+          "positionId": 101
+        }
+      ],
+      "castCredits": [
+        {
+          "subjectId": 201,
+          "personId": 301,
+          "characterId": 1001,
+          "roleType": 1,
+          "sortOrder": 0
+        },
+        {
+          "subjectId": 202,
+          "personId": 301,
+          "characterId": 1002,
+          "roleType": 2,
+          "sortOrder": 1
+        },
+        {
+          "subjectId": 202,
+          "personId": 301,
+          "characterId": 1003,
+          "roleType": 3,
+          "sortOrder": 2
+        },
+        {
+          "subjectId": 203,
+          "personId": 301,
+          "characterId": 1004,
+          "roleType": 1,
+          "sortOrder": 0
+        },
+        {
+          "subjectId": 204,
+          "personId": 304,
+          "characterId": 1005,
+          "roleType": 2,
+          "sortOrder": 0
+        },
+        {
+          "subjectId": 206,
+          "personId": 306,
+          "characterId": 1006,
+          "roleType": 1,
+          "sortOrder": 0
+        }
+      ]
+    }
+  },
+  "collections": [
+    {
+      "uid": "Alice",
+      "entries": [
+        {
+          "subjectId": 101,
+          "status": "completed",
+          "personalScore": 9,
+          "updatedAt": "2021-03",
+          "tags": [
+            "favorite"
+          ]
+        },
+        {
+          "subjectId": 102,
+          "status": "in_progress",
+          "personalScore": 8,
+          "updatedAt": "2020-02",
+          "tags": [
+            "日常"
+          ]
+        },
+        {
+          "subjectId": 103,
+          "status": "completed",
+          "personalScore": 9,
+          "updatedAt": "2021-03",
+          "tags": []
+        },
+        {
+          "subjectId": 104,
+          "status": "completed",
+          "personalScore": 9,
+          "updatedAt": "2021-03",
+          "tags": []
+        },
+        {
+          "subjectId": 105,
+          "status": "completed",
+          "personalScore": 9,
+          "updatedAt": "2021-03",
+          "tags": []
+        },
+        {
+          "subjectId": 106,
+          "status": "completed",
+          "personalScore": 9,
+          "updatedAt": "2021-03",
+          "tags": []
+        },
+        {
+          "subjectId": 107,
+          "status": "completed",
+          "personalScore": 9,
+          "updatedAt": "2021-03",
+          "tags": []
+        },
+        {
+          "subjectId": 108,
+          "status": "completed",
+          "personalScore": 9,
+          "updatedAt": "2021-03",
+          "tags": []
+        },
+        {
+          "subjectId": 109,
+          "status": "completed",
+          "personalScore": 9,
+          "updatedAt": "2021-03",
+          "tags": []
+        },
+        {
+          "subjectId": 110,
+          "status": "completed",
+          "personalScore": 9,
+          "updatedAt": "2021-03",
+          "tags": []
+        },
+        {
+          "subjectId": 111,
+          "status": "completed",
+          "personalScore": 9,
+          "updatedAt": "2021-03",
+          "tags": []
+        },
+        {
+          "subjectId": 112,
+          "status": "on_hold",
+          "personalScore": 9,
+          "updatedAt": "2021-03",
+          "tags": []
+        },
+        {
+          "subjectId": 113,
+          "status": "completed",
+          "personalScore": 9,
+          "updatedAt": "2020-01",
+          "tags": []
+        },
+        {
+          "subjectId": 114,
+          "status": "completed",
+          "personalScore": null,
+          "updatedAt": "2021-03",
+          "tags": []
+        },
+        {
+          "subjectId": 130,
+          "status": "completed",
+          "personalScore": 7,
+          "updatedAt": "2020-02",
+          "tags": []
+        },
+        {
+          "subjectId": 131,
+          "status": "completed",
+          "personalScore": 6,
+          "updatedAt": "2020-02",
+          "tags": []
+        },
+        {
+          "subjectId": 132,
+          "status": "completed",
+          "personalScore": 8,
+          "updatedAt": "2020-02",
+          "tags": []
+        },
+        {
+          "subjectId": 133,
+          "status": "completed",
+          "personalScore": 8,
+          "updatedAt": "2020-02",
+          "tags": []
+        },
+        {
+          "subjectId": 134,
+          "status": "completed",
+          "personalScore": 8,
+          "updatedAt": "2020-02",
+          "tags": []
+        },
+        {
+          "subjectId": 135,
+          "status": "completed",
+          "personalScore": 8,
+          "updatedAt": "2026-01",
+          "tags": []
+        },
+        {
+          "subjectId": 136,
+          "status": "completed",
+          "personalScore": 9,
+          "updatedAt": "2025-12",
+          "tags": []
+        }
+      ]
+    },
+    {
+      "uid": "Bob",
+      "entries": [
+        {
+          "subjectId": 101,
+          "status": "on_hold",
+          "personalScore": 1,
+          "updatedAt": "1999-01",
+          "tags": [
+            "ドラマ"
+          ]
+        }
+      ]
+    }
+  ]
+}

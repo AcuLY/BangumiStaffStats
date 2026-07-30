@@ -1,0 +1,852 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/catalog/derivation-case-v1.json",
+  "title": "Catalog and exact-cast derivation case v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caseSchemaVersion",
+    "caseId",
+    "description",
+    "input",
+    "expected"
+  ],
+  "properties": {
+    "caseSchemaVersion": {
+      "const": 1,
+      "type": "integer"
+    },
+    "caseId": {
+      "$ref": "#/$defs/caseId"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "input": {
+      "$ref": "#/$defs/input"
+    },
+    "expected": {
+      "$ref": "#/$defs/expected"
+    }
+  },
+  "$defs": {
+    "caseId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "safePositiveInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "safeNonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "subjectType": {
+      "type": "string",
+      "enum": [
+        "book",
+        "anime",
+        "music",
+        "game",
+        "real"
+      ]
+    },
+    "castSubjectType": {
+      "type": "string",
+      "enum": [
+        "anime",
+        "game"
+      ]
+    },
+    "capability": {
+      "type": "string",
+      "enum": [
+        "rankings",
+        "candidates",
+        "personDetail",
+        "partners",
+        "coStar"
+      ]
+    },
+    "names": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cn",
+        "en",
+        "jp"
+      ],
+      "properties": {
+        "cn": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 0,
+          "maxLength": 128
+        },
+        "en": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 0,
+          "maxLength": 128
+        },
+        "jp": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 0,
+          "maxLength": 128
+        }
+      }
+    },
+    "category": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "names",
+        "order",
+        "sourceIndex"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "names": {
+          "$ref": "#/$defs/names"
+        },
+        "order": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "sourceIndex": {
+          "$ref": "#/$defs/safeNonNegativeInteger"
+        }
+      }
+    },
+    "commonPosition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "names",
+        "order",
+        "sourceIndex",
+        "categoryKeys"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "names": {
+          "$ref": "#/$defs/names"
+        },
+        "order": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "sourceIndex": {
+          "$ref": "#/$defs/safeNonNegativeInteger"
+        },
+        "categoryKeys": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        }
+      }
+    },
+    "commonType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectType",
+        "categories",
+        "positions"
+      ],
+      "properties": {
+        "subjectType": {
+          "$ref": "#/$defs/subjectType"
+        },
+        "categories": {
+          "type": "array",
+          "maxItems": 1024,
+          "items": {
+            "$ref": "#/$defs/category"
+          }
+        },
+        "positions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/commonPosition"
+          }
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectId",
+        "subjectType"
+      ],
+      "properties": {
+        "subjectId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "subjectType": {
+          "$ref": "#/$defs/subjectType"
+        }
+      }
+    },
+    "person": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "personId"
+      ],
+      "properties": {
+        "personId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        }
+      }
+    },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "characterId"
+      ],
+      "properties": {
+        "characterId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        }
+      }
+    },
+    "staffCredit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectId",
+        "personId",
+        "positionId",
+        "sourceOrder"
+      ],
+      "properties": {
+        "subjectId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "personId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "positionId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "sourceOrder": {
+          "$ref": "#/$defs/safeNonNegativeInteger"
+        }
+      }
+    },
+    "subjectCharacter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectId",
+        "characterId",
+        "type",
+        "order"
+      ],
+      "properties": {
+        "subjectId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "characterId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "type": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "order": {
+          "$ref": "#/$defs/safeNonNegativeInteger"
+        }
+      }
+    },
+    "personCharacter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectId",
+        "characterId",
+        "personId"
+      ],
+      "properties": {
+        "subjectId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "characterId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "personId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        }
+      }
+    },
+    "subjectRelation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectId",
+        "relatedSubjectId",
+        "relationType"
+      ],
+      "properties": {
+        "subjectId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "relatedSubjectId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "relationType": {
+          "$ref": "#/$defs/safePositiveInteger"
+        }
+      }
+    },
+    "archive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjects",
+        "persons",
+        "characters",
+        "staffCredits",
+        "subjectCharacters",
+        "personCharacters",
+        "subjectRelations"
+      ],
+      "properties": {
+        "subjects": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/subject"
+          }
+        },
+        "persons": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "$ref": "#/$defs/person"
+          }
+        },
+        "characters": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "$ref": "#/$defs/character"
+          }
+        },
+        "staffCredits": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "$ref": "#/$defs/staffCredit"
+          }
+        },
+        "subjectCharacters": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "$ref": "#/$defs/subjectCharacter"
+          }
+        },
+        "personCharacters": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "$ref": "#/$defs/personCharacter"
+          }
+        },
+        "subjectRelations": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "$ref": "#/$defs/subjectRelation"
+          }
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "displayConfig",
+        "staffSetConfig",
+        "commonCatalog",
+        "archive"
+      ],
+      "properties": {
+        "displayConfig": {
+          "$ref": "https://bangumi-staff-stats.invalid/schemas/catalog/display-config-v1.json"
+        },
+        "staffSetConfig": {
+          "$ref": "https://bangumi-staff-stats.invalid/schemas/catalog/staff-set-config-v1.json"
+        },
+        "commonCatalog": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/commonType"
+          }
+        },
+        "archive": {
+          "$ref": "#/$defs/archive"
+        }
+      }
+    },
+    "positionKey": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 96,
+      "pattern": "^(?:staff:(?:book|anime|music|game|real):[1-9][0-9]{0,15}|staffset:(?:book|anime|music|game|real):(?=[a-z0-9-]{1,64}$)[a-z0-9]+(?:-[a-z0-9]+)*|cast:(?:anime|game):(?:main|all))$"
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "positionKey",
+        "subjectType",
+        "positionKind",
+        "names",
+        "displayOrder",
+        "selectable",
+        "capabilities",
+        "selectionRule",
+        "exclusiveRule"
+      ],
+      "properties": {
+        "positionKey": {
+          "$ref": "#/$defs/positionKey"
+        },
+        "subjectType": {
+          "$ref": "#/$defs/subjectType"
+        },
+        "positionKind": {
+          "type": "string",
+          "enum": [
+            "staff",
+            "cast",
+            "staffSet"
+          ]
+        },
+        "names": {
+          "$ref": "#/$defs/names"
+        },
+        "displayOrder": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "selectable": {
+          "const": true,
+          "type": "boolean"
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/capability"
+          }
+        },
+        "selectionRule": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "exclusiveRule": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 96
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "groupKey",
+        "subjectType",
+        "label",
+        "displayOrder",
+        "positionKeys"
+      ],
+      "properties": {
+        "groupKey": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 96,
+          "pattern": "^(?:bangumi:(?:book|anime|music|game|real):[a-z0-9]+(?:-[a-z0-9]+)*|fallback:(?:book|anime|music|game|real):(?:other|all)|shortcut:(?:anime|game):(?:featured|cast)|custom:(?:book|anime|music|game|real):[a-z0-9]+(?:-[a-z0-9]+)*)$"
+        },
+        "subjectType": {
+          "$ref": "#/$defs/subjectType"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "displayOrder": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "positionKeys": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/positionKey"
+          }
+        }
+      }
+    },
+    "staffSetProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "members",
+        "capabilities"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/positionKey"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/positionKey"
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/capability"
+          }
+        }
+      }
+    },
+    "castCredit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectType",
+        "subjectId",
+        "characterId",
+        "personId",
+        "roleType",
+        "sourceOrder",
+        "eligible",
+        "provenance"
+      ],
+      "properties": {
+        "subjectType": {
+          "$ref": "#/$defs/castSubjectType"
+        },
+        "subjectId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "characterId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "personId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "roleType": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "sourceOrder": {
+          "$ref": "#/$defs/safeNonNegativeInteger"
+        },
+        "eligible": {
+          "const": true,
+          "type": "boolean"
+        },
+        "provenance": {
+          "const": "exact",
+          "type": "string"
+        }
+      }
+    },
+    "staffCreditProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectType",
+        "subjectId",
+        "personId",
+        "positionId",
+        "positionKey"
+      ],
+      "properties": {
+        "subjectType": {
+          "$ref": "#/$defs/subjectType"
+        },
+        "subjectId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "personId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "positionId": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "positionKey": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 12,
+              "maxLength": 96,
+              "pattern": "^staff:(?:book|anime|music|game|real):[1-9][0-9]{0,15}$"
+            }
+          ]
+        }
+      }
+    },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "positions",
+        "groups",
+        "staffSets",
+        "staffCredits",
+        "castCredits",
+        "qualityReport"
+      ],
+      "properties": {
+        "positions": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/position"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/group"
+          }
+        },
+        "staffSets": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/staffSetProjection"
+          }
+        },
+        "staffCredits": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "$ref": "#/$defs/staffCreditProjection"
+          }
+        },
+        "castCredits": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "$ref": "#/$defs/castCredit"
+          }
+        },
+        "qualityReport": {
+          "$ref": "https://bangumi-staff-stats.invalid/schemas/catalog/quality-report-v1.json"
+        }
+      }
+    },
+    "canonicalConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bytesUtf8",
+        "digest"
+      ],
+      "properties": {
+        "bytesUtf8": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "digest": {
+          "type": "string",
+          "minLength": 71,
+          "maxLength": 71,
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "errorCodes",
+        "canonicalConfig",
+        "projectionDigest",
+        "variants"
+      ],
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "VALID",
+            "INVALID"
+          ]
+        },
+        "errorCodes": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          }
+        },
+        "canonicalConfig": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/canonicalConfig"
+            }
+          ]
+        },
+        "projectionDigest": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 71,
+              "maxLength": 71,
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          ]
+        },
+        "variants": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mutationId",
+              "outcome",
+              "errorCodes",
+              "sameCatalogConfigDigest"
+            ],
+            "properties": {
+              "mutationId": {
+                "type": "string",
+                "enum": [
+                  "synthetic-staff-set",
+                  "synthetic-staff-set-members-reordered",
+                  "staff-set-label-changed",
+                  "missing-featured-position",
+                  "duplicate-featured-position",
+                  "cross-type-staff-set-member",
+                  "cast-staff-set-member",
+                  "unknown-staff-set-member",
+                  "missing-cast-anchor",
+                  "missing-chinese-label",
+                  "unknown-cast-role",
+                  "official-position-credit-only",
+                  "missing-category-chinese-label",
+                  "phantom-person-cast-edge",
+                  "phantom-character-cast-edge",
+                  "conflicting-subject-character",
+                  "duplicate-subject-character",
+                  "duplicate-person-character",
+                  "duplicate-staff-credit",
+                  "additional-staff-set-group-collision",
+                  "cast-anchor-label-drift"
+                ]
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "VALID",
+                  "INVALID"
+                ]
+              },
+              "errorCodes": {
+                "type": "array",
+                "maxItems": 16,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 96,
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                }
+              },
+              "sameCatalogConfigDigest": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

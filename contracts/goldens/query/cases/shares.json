@@ -1,0 +1,397 @@
+{
+  "kind": "share-fragment",
+  "version": 1,
+  "cases": [
+    {
+      "id": "ranking-share",
+      "path": "/ranking",
+      "queryCase": "global-safe-position-id",
+      "payload": {
+        "query": {
+          "scope": "global",
+          "subjectType": "book",
+          "positionKeys": [
+            "staff:book:9007199254740991"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "workspace": {
+          "kind": "ranking",
+          "rankingsView": {
+            "search": "",
+            "sort": "count",
+            "order": "desc",
+            "page": 1,
+            "pageSize": 10
+          },
+          "detail": {
+            "input": {
+              "personId": 9007199254740991
+            },
+            "view": {
+              "section": "works",
+              "search": "",
+              "sort": "globalScore",
+              "order": "desc",
+              "page": 1,
+              "pageSize": 10
+            }
+          }
+        }
+      },
+      "expectedCanonical": "{\"query\":{\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[\"staff:book:9007199254740991\"],\"scope\":\"global\",\"subjectType\":\"book\"},\"workspace\":{\"detail\":{\"input\":{\"personId\":9007199254740991},\"view\":{\"order\":\"desc\",\"page\":1,\"pageSize\":10,\"search\":\"\",\"section\":\"works\",\"sort\":\"globalScore\"}},\"kind\":\"ranking\",\"rankingsView\":{\"order\":\"desc\",\"page\":1,\"pageSize\":10,\"search\":\"\",\"sort\":\"count\"}}}",
+      "expectedFragment": "/ranking#q=v1.eyJxdWVyeSI6eyJpbmNsdWRlTlNGVyI6ZmFsc2UsIm1lcmdlU2VyaWVzIjpmYWxzZSwicG9zaXRpb25LZXlzIjpbInN0YWZmOmJvb2s6OTAwNzE5OTI1NDc0MDk5MSJdLCJzY29wZSI6Imdsb2JhbCIsInN1YmplY3RUeXBlIjoiYm9vayJ9LCJ3b3Jrc3BhY2UiOnsiZGV0YWlsIjp7ImlucHV0Ijp7InBlcnNvbklkIjo5MDA3MTk5MjU0NzQwOTkxfSwidmlldyI6eyJvcmRlciI6ImRlc2MiLCJwYWdlIjoxLCJwYWdlU2l6ZSI6MTAsInNlYXJjaCI6IiIsInNlY3Rpb24iOiJ3b3JrcyIsInNvcnQiOiJnbG9iYWxTY29yZSJ9fSwia2luZCI6InJhbmtpbmciLCJyYW5raW5nc1ZpZXciOnsib3JkZXIiOiJkZXNjIiwicGFnZSI6MSwicGFnZVNpemUiOjEwLCJzZWFyY2giOiIiLCJzb3J0IjoiY291bnQifX19"
+    },
+    {
+      "id": "co-star-empty-share",
+      "path": "/co-star",
+      "queryCase": "global-series-staffset",
+      "payload": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staffset:anime:core-creators"
+          ],
+          "includeNSFW": true,
+          "mergeSeries": true,
+          "filters": {
+            "subjectDate": {
+              "max": "2026-07"
+            },
+            "globalScore": {
+              "min": 0,
+              "max": 10
+            },
+            "ratingCount": {
+              "min": 0
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "action"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "ova",
+                    "special"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "workspace": {
+          "kind": "co-star",
+          "state": "empty",
+          "candidates": {
+            "input": {
+              "positionKey": "staffset:anime:core-creators"
+            },
+            "view": {
+              "search": "",
+              "sort": "count",
+              "order": "desc",
+              "page": 1,
+              "pageSize": 10
+            }
+          }
+        }
+      },
+      "expectedCanonical": "{\"query\":{\"filters\":{\"globalScore\":{\"max\":10,\"min\":0},\"ratingCount\":{\"min\":0},\"subjectDate\":{\"max\":\"2026-07\"},\"tags\":{\"exclude\":[{\"allOf\":[\"ova\",\"special\"]}],\"include\":[{\"anyOf\":[\"action\"]}]}},\"includeNSFW\":true,\"mergeSeries\":true,\"positionKeys\":[\"staffset:anime:core-creators\"],\"scope\":\"global\",\"subjectType\":\"anime\"},\"workspace\":{\"candidates\":{\"input\":{\"positionKey\":\"staffset:anime:core-creators\"},\"view\":{\"order\":\"desc\",\"page\":1,\"pageSize\":10,\"search\":\"\",\"sort\":\"count\"}},\"kind\":\"co-star\",\"state\":\"empty\"}}",
+      "expectedFragment": "/co-star#q=v1.eyJxdWVyeSI6eyJmaWx0ZXJzIjp7Imdsb2JhbFNjb3JlIjp7Im1heCI6MTAsIm1pbiI6MH0sInJhdGluZ0NvdW50Ijp7Im1pbiI6MH0sInN1YmplY3REYXRlIjp7Im1heCI6IjIwMjYtMDcifSwidGFncyI6eyJleGNsdWRlIjpbeyJhbGxPZiI6WyJvdmEiLCJzcGVjaWFsIl19XSwiaW5jbHVkZSI6W3siYW55T2YiOlsiYWN0aW9uIl19XX19LCJpbmNsdWRlTlNGVyI6dHJ1ZSwibWVyZ2VTZXJpZXMiOnRydWUsInBvc2l0aW9uS2V5cyI6WyJzdGFmZnNldDphbmltZTpjb3JlLWNyZWF0b3JzIl0sInNjb3BlIjoiZ2xvYmFsIiwic3ViamVjdFR5cGUiOiJhbmltZSJ9LCJ3b3Jrc3BhY2UiOnsiY2FuZGlkYXRlcyI6eyJpbnB1dCI6eyJwb3NpdGlvbktleSI6InN0YWZmc2V0OmFuaW1lOmNvcmUtY3JlYXRvcnMifSwidmlldyI6eyJvcmRlciI6ImRlc2MiLCJwYWdlIjoxLCJwYWdlU2l6ZSI6MTAsInNlYXJjaCI6IiIsInNvcnQiOiJjb3VudCJ9fSwia2luZCI6ImNvLXN0YXIiLCJzdGF0ZSI6ImVtcHR5In19"
+    },
+    {
+      "id": "co-star-partners-share",
+      "path": "/co-star",
+      "queryCase": "personal-normalization",
+      "payload": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed",
+            "in_progress",
+            "dropped"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all"
+          ],
+          "includeNSFW": false,
+          "mergeSeries": false,
+          "filters": {
+            "subjectDate": {
+              "min": "2000-01",
+              "max": "2025-12"
+            },
+            "collectionUpdatedAt": {
+              "min": "2020-02"
+            },
+            "personalScore": {
+              "min": 0,
+              "max": 10
+            },
+            "globalScore": {
+              "min": 6.5
+            },
+            "scoreDifference": {
+              "min": -10,
+              "max": 10
+            },
+            "ratingCount": {
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "sf",
+                    "strasse"
+                  ]
+                },
+                {
+                  "anyOf": [
+                    "日常"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "ドラマ"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "workspace": {
+          "kind": "co-star",
+          "state": "partners",
+          "candidates": {
+            "input": {
+              "positionKey": "staff:anime:2"
+            },
+            "view": {
+              "search": "",
+              "sort": "count",
+              "order": "desc",
+              "page": 1,
+              "pageSize": 10
+            }
+          },
+          "partners": {
+            "input": {
+              "source": {
+                "personId": 1,
+                "positionKeys": [
+                  "staff:anime:2",
+                  "cast:anime:all"
+                ]
+              },
+              "candidatePositionKey": "cast:anime:all"
+            },
+            "view": {
+              "search": "",
+              "sort": "preference",
+              "order": "desc",
+              "page": 1,
+              "pageSize": 10
+            }
+          }
+        }
+      },
+      "expectedCanonical": "{\"query\":{\"collectionStatuses\":[\"completed\",\"in_progress\",\"dropped\"],\"filters\":{\"collectionUpdatedAt\":{\"min\":\"2020-02\"},\"globalScore\":{\"min\":6.5},\"personalScore\":{\"max\":10,\"min\":0},\"ratingCount\":{\"max\":9007199254740991,\"min\":0},\"scoreDifference\":{\"max\":10,\"min\":-10},\"subjectDate\":{\"max\":\"2025-12\",\"min\":\"2000-01\"},\"tags\":{\"exclude\":[{\"allOf\":[\"ドラマ\"]}],\"include\":[{\"anyOf\":[\"sf\",\"strasse\"]},{\"anyOf\":[\"日常\"]}]}},\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[\"staff:anime:2\",\"cast:anime:all\"],\"scope\":\"personal\",\"subjectType\":\"anime\",\"uid\":\"Alice\"},\"workspace\":{\"candidates\":{\"input\":{\"positionKey\":\"staff:anime:2\"},\"view\":{\"order\":\"desc\",\"page\":1,\"pageSize\":10,\"search\":\"\",\"sort\":\"count\"}},\"kind\":\"co-star\",\"partners\":{\"input\":{\"candidatePositionKey\":\"cast:anime:all\",\"source\":{\"personId\":1,\"positionKeys\":[\"staff:anime:2\",\"cast:anime:all\"]}},\"view\":{\"order\":\"desc\",\"page\":1,\"pageSize\":10,\"search\":\"\",\"sort\":\"preference\"}},\"state\":\"partners\"}}",
+      "expectedFragment": "/co-star#q=v1.eyJxdWVyeSI6eyJjb2xsZWN0aW9uU3RhdHVzZXMiOlsiY29tcGxldGVkIiwiaW5fcHJvZ3Jlc3MiLCJkcm9wcGVkIl0sImZpbHRlcnMiOnsiY29sbGVjdGlvblVwZGF0ZWRBdCI6eyJtaW4iOiIyMDIwLTAyIn0sImdsb2JhbFNjb3JlIjp7Im1pbiI6Ni41fSwicGVyc29uYWxTY29yZSI6eyJtYXgiOjEwLCJtaW4iOjB9LCJyYXRpbmdDb3VudCI6eyJtYXgiOjkwMDcxOTkyNTQ3NDA5OTEsIm1pbiI6MH0sInNjb3JlRGlmZmVyZW5jZSI6eyJtYXgiOjEwLCJtaW4iOi0xMH0sInN1YmplY3REYXRlIjp7Im1heCI6IjIwMjUtMTIiLCJtaW4iOiIyMDAwLTAxIn0sInRhZ3MiOnsiZXhjbHVkZSI6W3siYWxsT2YiOlsi44OJ44Op44OeIl19XSwiaW5jbHVkZSI6W3siYW55T2YiOlsic2YiLCJzdHJhc3NlIl19LHsiYW55T2YiOlsi5pel5bi4Il19XX19LCJpbmNsdWRlTlNGVyI6ZmFsc2UsIm1lcmdlU2VyaWVzIjpmYWxzZSwicG9zaXRpb25LZXlzIjpbInN0YWZmOmFuaW1lOjIiLCJjYXN0OmFuaW1lOmFsbCJdLCJzY29wZSI6InBlcnNvbmFsIiwic3ViamVjdFR5cGUiOiJhbmltZSIsInVpZCI6IkFsaWNlIn0sIndvcmtzcGFjZSI6eyJjYW5kaWRhdGVzIjp7ImlucHV0Ijp7InBvc2l0aW9uS2V5Ijoic3RhZmY6YW5pbWU6MiJ9LCJ2aWV3Ijp7Im9yZGVyIjoiZGVzYyIsInBhZ2UiOjEsInBhZ2VTaXplIjoxMCwic2VhcmNoIjoiIiwic29ydCI6ImNvdW50In19LCJraW5kIjoiY28tc3RhciIsInBhcnRuZXJzIjp7ImlucHV0Ijp7ImNhbmRpZGF0ZVBvc2l0aW9uS2V5IjoiY2FzdDphbmltZTphbGwiLCJzb3VyY2UiOnsicGVyc29uSWQiOjEsInBvc2l0aW9uS2V5cyI6WyJzdGFmZjphbmltZToyIiwiY2FzdDphbmltZTphbGwiXX19LCJ2aWV3Ijp7Im9yZGVyIjoiZGVzYyIsInBhZ2UiOjEsInBhZ2VTaXplIjoxMCwic2VhcmNoIjoiIiwic29ydCI6InByZWZlcmVuY2UifX0sInN0YXRlIjoicGFydG5lcnMifX0"
+    },
+    {
+      "id": "co-star-analysis-share",
+      "path": "/co-star",
+      "queryCase": "global-series-staffset",
+      "payload": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staffset:anime:core-creators"
+          ],
+          "includeNSFW": true,
+          "mergeSeries": true,
+          "filters": {
+            "subjectDate": {
+              "max": "2026-07"
+            },
+            "globalScore": {
+              "min": 0,
+              "max": 10
+            },
+            "ratingCount": {
+              "min": 0
+            },
+            "tags": {
+              "include": [
+                {
+                  "anyOf": [
+                    "action"
+                  ]
+                }
+              ],
+              "exclude": [
+                {
+                  "allOf": [
+                    "ova",
+                    "special"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "workspace": {
+          "kind": "co-star",
+          "state": "analysis",
+          "candidates": {
+            "input": {
+              "positionKey": "staffset:anime:core-creators"
+            },
+            "view": {
+              "search": "",
+              "sort": "average",
+              "order": "desc",
+              "page": 1,
+              "pageSize": 10
+            }
+          },
+          "coStar": {
+            "input": {
+              "participants": [
+                {
+                  "personId": 1,
+                  "positionKeys": [
+                    "staffset:anime:core-creators"
+                  ]
+                },
+                {
+                  "personId": 2,
+                  "positionKeys": [
+                    "staffset:anime:core-creators"
+                  ]
+                }
+              ]
+            },
+            "view": {
+              "search": "",
+              "sort": "seriesSize",
+              "order": "desc",
+              "page": 1,
+              "pageSize": 10
+            }
+          }
+        }
+      },
+      "expectedCanonical": "{\"query\":{\"filters\":{\"globalScore\":{\"max\":10,\"min\":0},\"ratingCount\":{\"min\":0},\"subjectDate\":{\"max\":\"2026-07\"},\"tags\":{\"exclude\":[{\"allOf\":[\"ova\",\"special\"]}],\"include\":[{\"anyOf\":[\"action\"]}]}},\"includeNSFW\":true,\"mergeSeries\":true,\"positionKeys\":[\"staffset:anime:core-creators\"],\"scope\":\"global\",\"subjectType\":\"anime\"},\"workspace\":{\"candidates\":{\"input\":{\"positionKey\":\"staffset:anime:core-creators\"},\"view\":{\"order\":\"desc\",\"page\":1,\"pageSize\":10,\"search\":\"\",\"sort\":\"average\"}},\"coStar\":{\"input\":{\"participants\":[{\"personId\":1,\"positionKeys\":[\"staffset:anime:core-creators\"]},{\"personId\":2,\"positionKeys\":[\"staffset:anime:core-creators\"]}]},\"view\":{\"order\":\"desc\",\"page\":1,\"pageSize\":10,\"search\":\"\",\"sort\":\"seriesSize\"}},\"kind\":\"co-star\",\"state\":\"analysis\"}}",
+      "expectedFragment": "/co-star#q=v1.eyJxdWVyeSI6eyJmaWx0ZXJzIjp7Imdsb2JhbFNjb3JlIjp7Im1heCI6MTAsIm1pbiI6MH0sInJhdGluZ0NvdW50Ijp7Im1pbiI6MH0sInN1YmplY3REYXRlIjp7Im1heCI6IjIwMjYtMDcifSwidGFncyI6eyJleGNsdWRlIjpbeyJhbGxPZiI6WyJvdmEiLCJzcGVjaWFsIl19XSwiaW5jbHVkZSI6W3siYW55T2YiOlsiYWN0aW9uIl19XX19LCJpbmNsdWRlTlNGVyI6dHJ1ZSwibWVyZ2VTZXJpZXMiOnRydWUsInBvc2l0aW9uS2V5cyI6WyJzdGFmZnNldDphbmltZTpjb3JlLWNyZWF0b3JzIl0sInNjb3BlIjoiZ2xvYmFsIiwic3ViamVjdFR5cGUiOiJhbmltZSJ9LCJ3b3Jrc3BhY2UiOnsiY2FuZGlkYXRlcyI6eyJpbnB1dCI6eyJwb3NpdGlvbktleSI6InN0YWZmc2V0OmFuaW1lOmNvcmUtY3JlYXRvcnMifSwidmlldyI6eyJvcmRlciI6ImRlc2MiLCJwYWdlIjoxLCJwYWdlU2l6ZSI6MTAsInNlYXJjaCI6IiIsInNvcnQiOiJhdmVyYWdlIn19LCJjb1N0YXIiOnsiaW5wdXQiOnsicGFydGljaXBhbnRzIjpbeyJwZXJzb25JZCI6MSwicG9zaXRpb25LZXlzIjpbInN0YWZmc2V0OmFuaW1lOmNvcmUtY3JlYXRvcnMiXX0seyJwZXJzb25JZCI6MiwicG9zaXRpb25LZXlzIjpbInN0YWZmc2V0OmFuaW1lOmNvcmUtY3JlYXRvcnMiXX1dfSwidmlldyI6eyJvcmRlciI6ImRlc2MiLCJwYWdlIjoxLCJwYWdlU2l6ZSI6MTAsInNlYXJjaCI6IiIsInNvcnQiOiJzZXJpZXNTaXplIn19LCJraW5kIjoiY28tc3RhciIsInN0YXRlIjoiYW5hbHlzaXMifX0"
+    }
+  ],
+  "negativeCases": [
+    {
+      "id": "share-unsupported-version",
+      "baseCase": "ranking-share",
+      "mutation": "unsupported-version",
+      "expectedCode": "SHARE_VERSION_UNSUPPORTED"
+    },
+    {
+      "id": "share-padding",
+      "baseCase": "ranking-share",
+      "mutation": "add-padding",
+      "expectedCode": "SHARE_ENCODING_INVALID"
+    },
+    {
+      "id": "share-non-base64url",
+      "baseCase": "ranking-share",
+      "mutation": "invalid-alphabet",
+      "expectedCode": "SHARE_ENCODING_INVALID"
+    },
+    {
+      "id": "share-path-mismatch",
+      "baseCase": "ranking-share",
+      "mutation": "path-mismatch",
+      "expectedCode": "SHARE_PATH_MISMATCH"
+    },
+    {
+      "id": "share-topology-mismatch",
+      "baseCase": "co-star-empty-share",
+      "mutation": "extra-partners",
+      "expectedCode": "SHARE_PAYLOAD_INVALID"
+    },
+    {
+      "id": "share-excluded-state",
+      "baseCase": "ranking-share",
+      "mutation": "excluded-theme",
+      "expectedCode": "SHARE_PAYLOAD_INVALID"
+    },
+    {
+      "id": "share-duplicate-person",
+      "baseCase": "co-star-analysis-share",
+      "mutation": "duplicate-person",
+      "expectedCode": "SHARE_IDENTITY_INVALID"
+    },
+    {
+      "id": "share-identity-outside-query",
+      "baseCase": "co-star-analysis-share",
+      "mutation": "identity-outside-query",
+      "expectedCode": "SHARE_PAYLOAD_INVALID"
+    },
+    {
+      "id": "share-duplicate-position-key",
+      "baseCase": "co-star-analysis-share",
+      "mutation": "duplicate-position-key",
+      "expectedCode": "SHARE_PAYLOAD_INVALID"
+    },
+    {
+      "id": "share-participant-limit",
+      "baseCase": "co-star-analysis-share",
+      "mutation": "participant-over-limit",
+      "expectedCode": "SHARE_PAYLOAD_INVALID"
+    },
+    {
+      "id": "share-noncanonical-json",
+      "baseCase": "ranking-share",
+      "mutation": "noncanonical-json",
+      "expectedCode": "SHARE_PAYLOAD_INVALID"
+    },
+    {
+      "id": "share-missing-prefix",
+      "fragment": "/ranking?q=v1.e30",
+      "expectedCode": "SHARE_ENCODING_INVALID"
+    },
+    {
+      "id": "share-malformed-json",
+      "fragment": "/ranking#q=v1.bm90LWpzb24",
+      "expectedCode": "SHARE_JSON_INVALID"
+    },
+    {
+      "id": "share-invalid-utf8",
+      "fragment": "/ranking#q=v1._w",
+      "expectedCode": "SHARE_UTF8_INVALID"
+    },
+    {
+      "id": "share-encoded-limit",
+      "mutation": "encoded-over-limit",
+      "expectedCode": "SHARE_SIZE_EXCEEDED"
+    },
+    {
+      "id": "share-decoded-limit",
+      "mutation": "decoded-over-limit",
+      "expectedCode": "SHARE_SIZE_EXCEEDED"
+    }
+  ]
+}

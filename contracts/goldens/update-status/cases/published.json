@@ -1,0 +1,18 @@
+{
+  "last_attempt": {
+    "time": "2024-02-29T23:59:59.123456Z",
+    "status": "published",
+    "phase": "complete",
+    "duration_seconds": 4.75,
+    "dataVersion": "dv1-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "error_code": null
+  },
+  "last_success": {
+    "time": "2024-02-29T23:59:59.123456Z",
+    "status": "published",
+    "phase": "complete",
+    "duration_seconds": 4.75,
+    "dataVersion": "dv1-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "error_code": null
+  }
+}

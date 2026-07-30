@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bangumi-staff-stats.invalid/schemas/catalog/golden-index-v1.json",
+  "title": "Closed catalog golden index v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "indexSchemaVersion",
+    "algorithm",
+    "entries"
+  ],
+  "properties": {
+    "indexSchemaVersion": {
+      "const": 1,
+      "type": "integer"
+    },
+    "algorithm": {
+      "const": "bgmss-catalog-golden-index-v1",
+      "type": "string"
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256",
+          "caseId",
+          "caseKind",
+          "outcome"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 160,
+            "pattern": "^(?:cases|config|quality)/[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?\\.json$"
+          },
+          "sha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "caseId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "caseKind": {
+            "type": "string",
+            "enum": [
+              "display-config",
+              "staff-set-config",
+              "quality-report",
+              "derivation"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "VALID",
+              "INVALID"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

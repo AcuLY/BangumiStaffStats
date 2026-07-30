@@ -1,0 +1,19 @@
+services:
+  api:
+    environment:
+      BGMSS_IMAGE_HTTPS_PROXY: ${BGMSS_UPDATER_HTTPS_PROXY}
+    networks:
+      - backend
+      - updater_proxy
+
+  updater:
+    environment:
+      BGMSS_HTTPS_PROXY: ${BGMSS_UPDATER_HTTPS_PROXY}
+    networks:
+      - backend
+      - updater_proxy
+
+networks:
+  updater_proxy:
+    name: ${BGMSS_UPDATER_PROXY_NETWORK}
+    external: true

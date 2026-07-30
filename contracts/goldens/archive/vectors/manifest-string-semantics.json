@@ -1,0 +1,216 @@
+{
+  "vectorSchemaVersion": 1,
+  "formats": {
+    "generatedAt": "bgmss-utc-generated-at-v1",
+    "url": "bgmss-unicode-scalar-url-v1"
+  },
+  "stringCases": [
+    {
+      "caseId": "generated-at-valid-no-fraction",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"2024-02-29T23:59:59Z\"",
+      "expectedScalarLength": 20,
+      "expectedUtf8ByteLength": 20,
+      "expected": "VALID"
+    },
+    {
+      "caseId": "generated-at-invalid-fraction-0",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"2024-02-29T23:59:59.Z\"",
+      "expectedScalarLength": 21,
+      "expectedUtf8ByteLength": 21,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "generated-at-valid-fraction-1",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"2024-02-29T23:59:59.1Z\"",
+      "expectedScalarLength": 22,
+      "expectedUtf8ByteLength": 22,
+      "expected": "VALID"
+    },
+    {
+      "caseId": "generated-at-valid-fraction-6",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"2024-02-29T23:59:59.123456Z\"",
+      "expectedScalarLength": 27,
+      "expectedUtf8ByteLength": 27,
+      "expected": "VALID"
+    },
+    {
+      "caseId": "generated-at-invalid-fraction-7",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"2024-02-29T23:59:59.1234567Z\"",
+      "expectedScalarLength": 28,
+      "expectedUtf8ByteLength": 28,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "generated-at-valid-min-year",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"0001-01-01T00:00:00Z\"",
+      "expectedScalarLength": 20,
+      "expectedUtf8ByteLength": 20,
+      "expected": "VALID"
+    },
+    {
+      "caseId": "generated-at-valid-max-year",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"9999-12-31T23:59:59.999999Z\"",
+      "expectedScalarLength": 27,
+      "expectedUtf8ByteLength": 27,
+      "expected": "VALID"
+    },
+    {
+      "caseId": "generated-at-invalid-year-zero",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"0000-01-01T00:00:00Z\"",
+      "expectedScalarLength": 20,
+      "expectedUtf8ByteLength": 20,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "generated-at-invalid-1900-leap-day",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"1900-02-29T00:00:00Z\"",
+      "expectedScalarLength": 20,
+      "expectedUtf8ByteLength": 20,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "generated-at-valid-2000-leap-day",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"2000-02-29T00:00:00Z\"",
+      "expectedScalarLength": 20,
+      "expectedUtf8ByteLength": 20,
+      "expected": "VALID"
+    },
+    {
+      "caseId": "generated-at-invalid-impossible-fields",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"2024-13-99T25:61:61Z\"",
+      "expectedScalarLength": 20,
+      "expectedUtf8ByteLength": 20,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "generated-at-invalid-hour-24",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"2024-01-01T24:00:00Z\"",
+      "expectedScalarLength": 20,
+      "expectedUtf8ByteLength": 20,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "generated-at-invalid-minute-60",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"2024-01-01T23:60:00Z\"",
+      "expectedScalarLength": 20,
+      "expectedUtf8ByteLength": 20,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "generated-at-invalid-second-60",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"2024-01-01T23:59:60Z\"",
+      "expectedScalarLength": 20,
+      "expectedUtf8ByteLength": 20,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "generated-at-invalid-offset",
+      "field": "generatedAt",
+      "jsonStringLiteral": "\"2024-01-01T00:00:00+00:00\"",
+      "expectedScalarLength": 25,
+      "expectedUtf8ByteLength": 25,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "archive-url-invalid-ascii-min-minus-one",
+      "field": "archiveAssetUrl",
+      "jsonStringLiteral": "\"https://abc\"",
+      "expectedScalarLength": 11,
+      "expectedUtf8ByteLength": 11,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "archive-url-valid-ascii-min",
+      "field": "archiveAssetUrl",
+      "jsonStringLiteral": "\"https://a.bc\"",
+      "expectedScalarLength": 12,
+      "expectedUtf8ByteLength": 12,
+      "expected": "VALID"
+    },
+    {
+      "caseId": "archive-url-invalid-multibyte-short",
+      "field": "archiveAssetUrl",
+      "jsonStringLiteral": "\"https://\\uD83D\\uDE00\"",
+      "expectedScalarLength": 9,
+      "expectedUtf8ByteLength": 12,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "archive-url-valid-multibyte-max",
+      "field": "archiveAssetUrl",
+      "jsonStringLiteral": "\"https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\uD83D\\uDE00\"",
+      "expectedScalarLength": 2048,
+      "expectedUtf8ByteLength": 2051,
+      "expected": "VALID"
+    },
+    {
+      "caseId": "archive-url-invalid-multibyte-max-plus-one",
+      "field": "archiveAssetUrl",
+      "jsonStringLiteral": "\"https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\uD83D\\uDE00\"",
+      "expectedScalarLength": 2049,
+      "expectedUtf8ByteLength": 2052,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "common-url-valid-multibyte-max",
+      "field": "commonSubjectStaffsUrl",
+      "jsonStringLiteral": "\"https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\uD83D\\uDE00/subject_staffs.yml\"",
+      "expectedScalarLength": 2048,
+      "expectedUtf8ByteLength": 2051,
+      "expected": "VALID"
+    },
+    {
+      "caseId": "common-url-invalid-multibyte-max-plus-one",
+      "field": "commonSubjectStaffsUrl",
+      "jsonStringLiteral": "\"https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\uD83D\\uDE00/subject_staffs.yml\"",
+      "expectedScalarLength": 2049,
+      "expectedUtf8ByteLength": 2052,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "archive-url-valid-surrogate-pair",
+      "field": "archiveAssetUrl",
+      "jsonStringLiteral": "\"https://abc\\uD83D\\uDE00\"",
+      "expectedScalarLength": 12,
+      "expectedUtf8ByteLength": 15,
+      "expected": "VALID"
+    },
+    {
+      "caseId": "archive-url-invalid-isolated-high-surrogate",
+      "field": "archiveAssetUrl",
+      "jsonStringLiteral": "\"https://abc\\uD800\"",
+      "expectedScalarLength": null,
+      "expectedUtf8ByteLength": null,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    },
+    {
+      "caseId": "archive-url-invalid-isolated-low-surrogate",
+      "field": "archiveAssetUrl",
+      "jsonStringLiteral": "\"https://abc\\uDC00\"",
+      "expectedScalarLength": null,
+      "expectedUtf8ByteLength": null,
+      "expected": "MANIFEST_SCHEMA_INVALID"
+    }
+  ],
+  "rawByteRecipe": {
+    "caseId": "manifest-invalid-raw-utf8",
+    "field": "archiveAssetUrl",
+    "payloadHex": "C3 28",
+    "retainJsonStringDelimiters": true,
+    "expected": "MANIFEST_SCHEMA_INVALID"
+  }
+}

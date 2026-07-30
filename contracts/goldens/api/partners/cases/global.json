@@ -1,0 +1,239 @@
+{
+  "schemaVersion": 1,
+  "kind": "global-success-cases",
+  "cases": [
+    {
+      "id": "staffset-source-and-cast-candidate",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staffset:anime:creative",
+            "staff:anime:2",
+            "cast:anime:main"
+          ],
+          "mergeSeries": true
+        },
+        "input": {
+          "source": {
+            "personId": 1,
+            "positionKeys": [
+              "staffset:anime:creative"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "status": 200,
+        "body": {
+          "data": {
+            "workUnit": "series",
+            "source": {
+              "person": {
+                "id": 1,
+                "name": "Source",
+                "nameCN": "来源"
+              },
+              "positionKeys": [
+                "staffset:anime:creative"
+              ],
+              "metrics": {
+                "workCount": 3,
+                "ratedWorkCount": 2,
+                "average": 800
+              }
+            },
+            "summary": {
+              "partnerCount": 2,
+              "leaders": [
+                {
+                  "metric": "count",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Shared",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "staff:anime:2",
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 2,
+                      "average": 850,
+                      "overall": 720
+                    }
+                  }
+                },
+                {
+                  "metric": "average",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Shared",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "staff:anime:2",
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 2,
+                      "average": 850,
+                      "overall": 720
+                    }
+                  }
+                },
+                {
+                  "metric": "overall",
+                  "item": {
+                    "person": {
+                      "id": 3,
+                      "name": "Overall Leader",
+                      "nameCN": "综合领先"
+                    },
+                    "positionKeys": [
+                      "staff:anime:2"
+                    ],
+                    "metrics": {
+                      "workCount": 1,
+                      "ratedWorkCount": 1,
+                      "average": 700,
+                      "overall": 760
+                    }
+                  }
+                }
+              ]
+            },
+            "items": [
+              {
+                "rank": 1,
+                "person": {
+                  "id": 2,
+                  "name": "Shared",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "staff:anime:2",
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 2,
+                  "average": 850,
+                  "overall": 720
+                }
+              },
+              {
+                "rank": 2,
+                "person": {
+                  "id": 3,
+                  "name": "Overall Leader",
+                  "nameCN": "综合领先"
+                },
+                "positionKeys": [
+                  "staff:anime:2"
+                ],
+                "metrics": {
+                  "workCount": 1,
+                  "ratedWorkCount": 1,
+                  "average": 700,
+                  "overall": 760
+                }
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-partners-global",
+            "dataVersion": "dv1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 2
+            }
+          }
+        }
+      },
+      "assertions": {
+        "sourceIdentityPreserved": "staffset:anime:creative",
+        "differentSeriesMembersDoNotCooperate": true,
+        "noCommonWorkItems": true
+      }
+    },
+    {
+      "id": "candidate-position-filter-empty",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:main"
+          ]
+        },
+        "input": {
+          "source": {
+            "personId": 1,
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          },
+          "candidatePositionKey": "cast:anime:main"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "body": {
+          "data": {
+            "workUnit": "subject",
+            "source": {
+              "person": {
+                "id": 1,
+                "name": "Source",
+                "nameCN": null
+              },
+              "positionKeys": [
+                "staff:anime:2"
+              ],
+              "metrics": {
+                "workCount": 1,
+                "ratedWorkCount": 0,
+                "average": null
+              }
+            },
+            "summary": {
+              "partnerCount": 0,
+              "leaders": [
+                {
+                  "metric": "count",
+                  "item": null
+                },
+                {
+                  "metric": "average",
+                  "item": null
+                },
+                {
+                  "metric": "overall",
+                  "item": null
+                }
+              ]
+            },
+            "items": []
+          },
+          "meta": {
+            "requestId": "req-partners-empty",
+            "dataVersion": "dv1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 0
+            }
+          }
+        }
+      }
+    }
+  ]
+}

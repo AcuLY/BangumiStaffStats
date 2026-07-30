@@ -1,0 +1,398 @@
+{
+  "schemaVersion": 1,
+  "kind": "personal-success-cases",
+  "cases": [
+    {
+      "id": "personal-preference",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:main"
+          ]
+        },
+        "input": {
+          "source": {
+            "personId": 1,
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          }
+        },
+        "view": {
+          "sort": "preference",
+          "pageSize": 5
+        }
+      },
+      "expected": {
+        "status": 200,
+        "body": {
+          "data": {
+            "workUnit": "subject",
+            "source": {
+              "person": {
+                "id": 1,
+                "name": "Source",
+                "nameCN": null
+              },
+              "positionKeys": [
+                "staff:anime:2"
+              ],
+              "metrics": {
+                "workCount": 2,
+                "ratedWorkCount": 1,
+                "average": 900
+              }
+            },
+            "summary": {
+              "partnerCount": 1,
+              "leaders": [
+                {
+                  "metric": "count",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Partner",
+                      "nameCN": "合作方"
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "1",
+                        "denominator": "1"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "average",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Partner",
+                      "nameCN": "合作方"
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "1",
+                        "denominator": "1"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "overall",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Partner",
+                      "nameCN": "合作方"
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "1",
+                        "denominator": "1"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "preference",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Partner",
+                      "nameCN": "合作方"
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "1",
+                        "denominator": "1"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "items": [
+              {
+                "rank": 1,
+                "person": {
+                  "id": 2,
+                  "name": "Partner",
+                  "nameCN": "合作方"
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "1",
+                    "denominator": "1"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  }
+                }
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-partners-personal",
+            "dataVersion": "dv1-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "pagination": {
+              "page": 1,
+              "pageSize": 5,
+              "total": 1
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T08:00:00Z",
+              "stale": false,
+              "warningCodes": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "personal-zero-preference-evidence",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "source": {
+            "personId": 1,
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          }
+        },
+        "view": {
+          "sort": "preference"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "body": {
+          "data": {
+            "workUnit": "subject",
+            "source": {
+              "person": {
+                "id": 1,
+                "name": "Source",
+                "nameCN": null
+              },
+              "positionKeys": [
+                "staff:anime:2"
+              ],
+              "metrics": {
+                "workCount": 1,
+                "ratedWorkCount": 0,
+                "average": null
+              }
+            },
+            "summary": {
+              "partnerCount": 1,
+              "leaders": [
+                {
+                  "metric": "count",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Unrated",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "staff:anime:2"
+                    ],
+                    "metrics": {
+                      "workCount": 1,
+                      "ratedWorkCount": 0,
+                      "average": null,
+                      "overall": null
+                    },
+                    "preference": {
+                      "comparableCount": 0,
+                      "comparableSeriesCount": 0,
+                      "effectiveEvidence": 0,
+                      "mean": null,
+                      "evidenceWeight": {
+                        "numerator": "0",
+                        "denominator": "1"
+                      },
+                      "score": null
+                    }
+                  }
+                },
+                {
+                  "metric": "average",
+                  "item": null
+                },
+                {
+                  "metric": "overall",
+                  "item": null
+                },
+                {
+                  "metric": "preference",
+                  "item": null
+                }
+              ]
+            },
+            "items": [
+              {
+                "rank": 1,
+                "person": {
+                  "id": 2,
+                  "name": "Unrated",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "staff:anime:2"
+                ],
+                "metrics": {
+                  "workCount": 1,
+                  "ratedWorkCount": 0,
+                  "average": null,
+                  "overall": null
+                },
+                "preference": {
+                  "comparableCount": 0,
+                  "comparableSeriesCount": 0,
+                  "effectiveEvidence": 0,
+                  "mean": null,
+                  "evidenceWeight": {
+                    "numerator": "0",
+                    "denominator": "1"
+                  },
+                  "score": null
+                }
+              }
+            ]
+          },
+          "meta": {
+            "requestId": "req-partners-zero-evidence",
+            "dataVersion": "dv1-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 1
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T08:00:00Z",
+              "stale": false,
+              "warningCodes": []
+            }
+          }
+        }
+      }
+    }
+  ]
+}

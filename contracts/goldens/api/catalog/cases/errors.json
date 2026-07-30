@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "kind": "catalog-error-matrix",
+  "cases": [
+    {
+      "id": "query-input-rejected",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/catalog?dataVersion=client"
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-catalog-query"
+        },
+        "body": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "catalog does not accept query parameters",
+            "retryable": false,
+            "fieldErrors": {
+              "/catalog": [
+                "UNKNOWN_FIELD"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-catalog-query"
+          }
+        }
+      }
+    },
+    {
+      "id": "non-empty-body-rejected",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/catalog",
+        "bodyUtf8": "{}"
+      },
+      "expected": {
+        "status": 400,
+        "headers": {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-catalog-body"
+        },
+        "body": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "catalog does not accept a request body",
+            "retryable": false,
+            "fieldErrors": {
+              "/catalog": [
+                "VALUE_CONFLICT"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-catalog-body"
+          }
+        }
+      }
+    },
+    {
+      "id": "wrong-method-rejected",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/catalog"
+      },
+      "expected": {
+        "status": 405,
+        "headers": {
+          "Allow": "GET",
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-catalog-method"
+        },
+        "body": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "method not allowed",
+            "retryable": false,
+            "fieldErrors": {
+              "/catalog": [
+                "UNSUPPORTED_VALUE"
+              ]
+            }
+          },
+          "meta": {
+            "requestId": "req-catalog-method"
+          }
+        }
+      }
+    },
+    {
+      "id": "malformed-path-retains-not-found",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/catalog/"
+      },
+      "expected": {
+        "status": 404,
+        "headers": {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-catalog-not-found"
+        },
+        "body": {
+          "error": {
+            "code": "ENTITY_NOT_FOUND",
+            "message": "route not found",
+            "retryable": false,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-catalog-not-found"
+          }
+        }
+      }
+    },
+    {
+      "id": "corrupt-store-fails-closed",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/catalog"
+      },
+      "fault": "unknown-or-contradictory-catalog-row",
+      "expected": {
+        "status": 500,
+        "headers": {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-catalog-corrupt"
+        },
+        "body": {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "catalog is unavailable",
+            "retryable": false,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-catalog-corrupt"
+          }
+        }
+      }
+    },
+    {
+      "id": "store-not-ready",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/catalog"
+      },
+      "fault": "no-published-store",
+      "expected": {
+        "status": 503,
+        "headers": {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-catalog-not-ready"
+        },
+        "body": {
+          "error": {
+            "code": "NOT_READY",
+            "message": "catalog is not ready",
+            "retryable": true,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-catalog-not-ready"
+          }
+        }
+      }
+    },
+    {
+      "id": "deadline-before-commit",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/catalog"
+      },
+      "fault": "deadline-before-response-commit",
+      "expected": {
+        "status": 504,
+        "headers": {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json",
+          "X-Request-ID": "req-catalog-timeout"
+        },
+        "body": {
+          "error": {
+            "code": "UPSTREAM_TIMEOUT",
+            "message": "catalog request timed out",
+            "retryable": true,
+            "fieldErrors": {}
+          },
+          "meta": {
+            "requestId": "req-catalog-timeout"
+          }
+        }
+      }
+    }
+  ]
+}

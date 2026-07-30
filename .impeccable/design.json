@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-25T15:06:06Z",
+  "title": "Design System: Bangumi Staff Statistics",
+  "extensions": {
+    "colorMeta": {
+      "primary-light": {
+        "role": "primary",
+        "displayName": "Brand Pink Light",
+        "tonalRamp": [
+          "oklch(0.18 0.06 360)",
+          "oklch(0.28 0.10 360)",
+          "oklch(0.38 0.15 360)",
+          "oklch(0.48 0.19 360)",
+          "oklch(0.559 0.199 360)",
+          "oklch(0.70 0.14 360)",
+          "oklch(0.84 0.08 360)",
+          "oklch(0.95 0.03 360)"
+        ]
+      },
+      "primary-dark": {
+        "role": "primary",
+        "displayName": "Brand Pink Dark",
+        "tonalRamp": [
+          "oklch(0.18 0.05 359)",
+          "oklch(0.28 0.08 359)",
+          "oklch(0.40 0.12 359)",
+          "oklch(0.54 0.16 359)",
+          "oklch(0.702 0.173 359)",
+          "oklch(0.80 0.13 359)",
+          "oklch(0.89 0.08 359)",
+          "oklch(0.96 0.03 359)"
+        ]
+      },
+      "canvas-light": {
+        "role": "neutral",
+        "displayName": "Cool Canvas Light",
+        "tonalRamp": [
+          "oklch(0.18 0.006 285)",
+          "oklch(0.30 0.006 285)",
+          "oklch(0.43 0.006 285)",
+          "oklch(0.56 0.006 285)",
+          "oklch(0.69 0.006 285)",
+          "oklch(0.80 0.006 285)",
+          "oklch(0.90 0.006 285)",
+          "oklch(0.962 0.006 285)"
+        ]
+      },
+      "surface-light": {
+        "role": "neutral",
+        "displayName": "Analysis Surface Light",
+        "tonalRamp": [
+          "oklch(0.18 0.006 285)",
+          "oklch(0.31 0.006 285)",
+          "oklch(0.44 0.006 285)",
+          "oklch(0.57 0.006 285)",
+          "oklch(0.70 0.006 285)",
+          "oklch(0.82 0.006 285)",
+          "oklch(0.92 0.006 285)",
+          "oklch(0.983 0.006 285)"
+        ]
+      },
+      "canvas-dark": {
+        "role": "neutral",
+        "displayName": "Cool Canvas Dark",
+        "tonalRamp": [
+          "oklch(0.15 0.006 280)",
+          "oklch(0.25 0.006 280)",
+          "oklch(0.36 0.006 280)",
+          "oklch(0.48 0.006 280)",
+          "oklch(0.61 0.006 280)",
+          "oklch(0.74 0.006 280)",
+          "oklch(0.86 0.006 280)",
+          "oklch(0.95 0.006 280)"
+        ]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Analysis Surface Dark",
+        "tonalRamp": [
+          "oklch(0.18 0.006 280)",
+          "oklch(0.28 0.006 280)",
+          "oklch(0.39 0.006 280)",
+          "oklch(0.51 0.006 280)",
+          "oklch(0.63 0.006 280)",
+          "oklch(0.75 0.006 280)",
+          "oklch(0.87 0.006 280)",
+          "oklch(0.95 0.006 280)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "page": {
+        "displayName": "Page",
+        "purpose": "页面级空状态和少量最高层标题"
+      },
+      "panel": {
+        "displayName": "Panel",
+        "purpose": "人物详情或分析面板的重点标题"
+      },
+      "section": {
+        "displayName": "Section",
+        "purpose": "主要内容分区和重点统计"
+      },
+      "subheading": {
+        "displayName": "Subheading",
+        "purpose": "查询编辑器标题、阶段标题和局部标题"
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "连续正文、列表主信息和桌面数据"
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "项目自有控件与桌面字段标签"
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "辅助文字、移动紧凑排行和图表标签"
+      },
+      "micro": {
+        "displayName": "Micro",
+        "purpose": "空间受限且已有完整可访问名称的图表信息"
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel-light",
+        "value": "0 1px 2px oklch(0.2 0.01 285 / 0.06)",
+        "purpose": "Light 桌面 surface panel 的低幅结构阴影"
+      },
+      {
+        "name": "chrome-edge",
+        "value": "0 6px 16px -9px rgba(0, 0, 0, 0.08), 0 9px 28px rgba(0, 0, 0, 0.05), 0 12px 48px 16px rgba(0, 0, 0, 0.03)",
+        "purpose": "Query Editor overlay 的边缘层级，不用于普通内容卡片"
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "150ms ease-out",
+        "purpose": "颜色、背景和短状态反馈"
+      },
+      {
+        "name": "state-standard",
+        "value": "160ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "排序方向与紧凑交互"
+      },
+      {
+        "name": "panel-enter",
+        "value": "260ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Query Editor 展开"
+      },
+      {
+        "name": "panel-leave",
+        "value": "200ms cubic-bezier(0.55, 0, 1, 0.45)",
+        "purpose": "Query Editor 收起"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "selected-card-columns",
+        "value": "544px"
+      },
+      {
+        "name": "mobile-to-desktop",
+        "value": "780px"
+      },
+      {
+        "name": "analysis-wide",
+        "value": "918px"
+      },
+      {
+        "name": "full-analysis",
+        "value": "1180px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "primary-button-light",
+      "description": "查询提交、空状态恢复等唯一主操作",
+      "html": "<button class=\"ds-primary-button\">应用查询</button>",
+      "css": ".ds-primary-button { min-height: 34px; padding: 0 16px; border: 0; border-radius: var(--radius-control, 6px); background: var(--brand, #c82a70); color: var(--on-brand, #fff); font: 600 14px/1.4 \"Source Han Sans SC VF\", \"Source Han Sans SC\", \"Noto Sans CJK SC\", \"PingFang SC\", sans-serif; cursor: pointer; transition: background-color 150ms ease-out; } .ds-primary-button:hover { background: var(--brand-hover, #d23978); } .ds-primary-button:active { background: var(--brand-pressed, #ad215f); } .ds-primary-button:focus-visible { outline: 2px solid var(--focus, #c82a70); outline-offset: 2px; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input-medium",
+      "description": "人物、作品和角色的紧凑本地搜索",
+      "html": "<label class=\"ds-search-field\"><span>搜索人物</span><input type=\"search\" placeholder=\"搜索人物\" /></label>",
+      "css": ".ds-search-field { display: grid; gap: 4px; color: var(--text-secondary, #4a474d); font: 600 12px/1.4 \"Source Han Sans SC VF\", \"Source Han Sans SC\", \"Noto Sans CJK SC\", \"PingFang SC\", sans-serif; } .ds-search-field input { min-height: 34px; padding: 0 12px; border: 1px solid var(--control-border, #928d94); border-radius: var(--radius-control, 6px); background: var(--surface-raised, #fff); color: var(--text-primary, #302d33); font: 400 14px/1.4 \"Source Han Sans SC VF\", \"Source Han Sans SC\", \"Noto Sans CJK SC\", \"PingFang SC\", sans-serif; } .ds-search-field input:focus-visible { outline: 2px solid var(--focus, #c82a70); outline-offset: 2px; }"
+    },
+    {
+      "name": "Interactive Tag",
+      "kind": "chip",
+      "refersTo": "interactive-tag-light",
+      "description": "可关闭、可移除或可直接切换的值",
+      "html": "<button class=\"ds-interactive-tag\">原画 <span aria-hidden=\"true\">×</span></button>",
+      "css": ".ds-interactive-tag { min-height: 28px; padding: 0 8px; border: 1px solid var(--query-tag-border, #d8a5bb); border-radius: var(--radius-control, 6px); background: var(--query-tag-background, #f9edf2); color: var(--brand, #c82a70); font: 600 12px/1.4 \"Source Han Sans SC VF\", \"Source Han Sans SC\", \"Noto Sans CJK SC\", \"PingFang SC\", sans-serif; cursor: pointer; } .ds-interactive-tag:hover { background: color-mix(in oklab, var(--brand, #c82a70) 14%, var(--surface, #fafafa)); } .ds-interactive-tag:focus-visible { outline: 2px solid var(--focus, #c82a70); outline-offset: 2px; }"
+    },
+    {
+      "name": "Display Tag",
+      "kind": "chip",
+      "description": "作品属性、标签统计和只读身份",
+      "html": "<span class=\"ds-display-tag\">主役</span>",
+      "css": ".ds-display-tag { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; border: 1px solid var(--border, #dddddf); border-radius: 999px; background: var(--surface, #fafafa); color: var(--text-secondary, #4a474d); font: 600 12px/1.4 \"Source Han Sans SC VF\", \"Source Han Sans SC\", \"Noto Sans CJK SC\", \"PingFang SC\", sans-serif; }"
+    },
+    {
+      "name": "Surface Panel",
+      "kind": "card",
+      "refersTo": "surface-panel-light",
+      "description": "桌面主体的完整信息表面，移动端移除外层 chrome",
+      "html": "<section class=\"ds-surface-panel\"><h2>人物排行</h2><p>高密度内容通过层级和对齐组织。</p></section>",
+      "css": ".ds-surface-panel { padding: 16px; border: 1px solid var(--border, #dddddf); border-radius: var(--radius-card, 8px); background: var(--surface, #fafafa); color: var(--text-primary, #302d33); box-shadow: var(--panel-shadow, 0 1px 2px rgb(0 0 0 / 6%)); font-family: \"Source Han Sans SC VF\", \"Source Han Sans SC\", \"Noto Sans CJK SC\", \"PingFang SC\", sans-serif; } .ds-surface-panel h2 { margin: 0 0 8px; font-size: 20px; line-height: 1.25; } .ds-surface-panel p { margin: 0; color: var(--text-secondary, #4a474d); font-size: 14px; line-height: 1.5; }"
+    },
+    {
+      "name": "Mode Navigation",
+      "kind": "nav",
+      "description": "Header 中的人物排行 / 共演分析 segmented navigation",
+      "html": "<nav class=\"ds-mode-nav\" aria-label=\"分析模式\"><button aria-current=\"page\">人物排行</button><button>共演分析</button></nav>",
+      "css": ".ds-mode-nav { display: inline-flex; gap: 4px; padding: 4px; border-radius: var(--radius-control, 6px); background: var(--surface-sunken, #ececee); } .ds-mode-nav button { min-height: 34px; padding: 0 12px; border: 0; border-radius: var(--radius-control, 6px); background: transparent; color: var(--text-secondary, #4a474d); font: 600 14px/1.4 \"Source Han Sans SC VF\", \"Source Han Sans SC\", \"Noto Sans CJK SC\", \"PingFang SC\", sans-serif; cursor: pointer; } .ds-mode-nav button[aria-current=page] { background: var(--brand, #c82a70); color: var(--on-brand, #fff); } .ds-mode-nav button:focus-visible { outline: 2px solid var(--focus, #c82a70); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ranking Row",
+      "kind": "custom",
+      "description": "共享人物排行 primitive 的紧凑数据行",
+      "html": "<button class=\"ds-ranking-row\"><strong>#1</strong><span><b>人物名称</b><small>原文名</small></span><span><b>8.42</b><small>均分</small></span></button>",
+      "css": ".ds-ranking-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 72px; padding: 8px 12px; border: 0; border-bottom: 1px solid var(--divider, #e8e8ea); background: var(--surface, #fafafa); color: var(--text-primary, #302d33); text-align: left; font-family: \"Source Han Sans SC VF\", \"Source Han Sans SC\", \"Noto Sans CJK SC\", \"PingFang SC\", sans-serif; cursor: pointer; } .ds-ranking-row:hover { background: color-mix(in oklab, var(--text-primary, #302d33) 4%, var(--surface, #fafafa)); } .ds-ranking-row span { display: grid; min-width: 0; } .ds-ranking-row b { font-size: 14px; } .ds-ranking-row small { color: var(--text-tertiary, #77727b); font-size: 12px; } .ds-ranking-row:focus-visible { outline: 2px solid var(--focus, #c82a70); outline-offset: -2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "可信的社区数据分析界面",
+    "overview": "Bangumi Staff Statistics 把 Bangumi 的社区识别、粉色品牌线索和高信息密度，收敛成一套清晰、可信、数据优先的产品界面。设计服务于查询、比较和继续浏览；它不是营销页，也不是通用 SaaS 仪表盘。视觉层级依靠对齐、字号、间距、表面和明确的数据口径建立，而不是依靠装饰。\n\n界面允许密集，但不能微小或拥挤。桌面端用完整分析界面承载高密度信息，移动端通过结构重排保留含义，不通过缩小字号或隐藏关键数据解决宽度。状态、统计口径和交互反馈必须可预测，让熟悉数据工具的用户可以直接进入任务。",
+    "keyCharacteristics": [
+      "高密度、可扫描、数据优先",
+      "单一粉色品牌语义，Light / Dark 分主题取值",
+      "冷灰表面层级，桌面完整分析界面、移动直接页面流",
+      "熟悉、标准的产品交互词汇，实现技术可以替换",
+      "所有视觉状态都有文字、结构或形状上的冗余表达"
+    ],
+    "rules": [
+      {
+        "name": "The 780 Rule",
+        "body": "低于 780px 的常规表单与操作控件使用紧凑档，780px 及以上使用标准档；480px 不得建立第二套控件尺寸体系。",
+        "section": "overview"
+      },
+      {
+        "name": "The Single Pink Rule",
+        "body": "同一主题只有一种静态粉色语义；品牌、主操作、焦点和普通选中态不得各自发明粉色。",
+        "section": "colors"
+      },
+      {
+        "name": "The Density-with-meaning Rule",
+        "body": "密度来自对齐和层级，不来自小于规范的字号、压缩命中区或删除必要语义。",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-by-default Rule",
+        "body": "静止内容保持平面；只有真实的覆盖、浮层或交互状态可以获得抬升。",
+        "section": "elevation"
+      },
+      {
+        "name": "The One Owner Rule",
+        "body": "一个选择集合只由一个控件完整表达，一个实体关系只在一个管理表面修改；不得再增加重复 selector、加号入口或第二套已选列表。其他表面只读呈现，并随唯一真源更新。",
+        "section": "components"
+      },
+      {
+        "name": "The Context-First Copy Rule",
+        "body": "先由当前任务和上下文消除冗余，再补充真正需要的限定词；标签负责命名，说明负责解释，控件负责动作。",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** 用对齐、字号、间距、表面和明确口径管理高信息密度。",
+      "**Do** 在 Light / Dark 下分别消费对应 primary、surface 与 series token。",
+      "**Do** 保留 Bangumi 的社区归属和粉色识别，同时使用一致、现代的交互规范。",
+      "**Do** 让桌面 Header、Query、排行、共演分析和 Footer 共用 1280px 内容线。",
+      "**Do** 在移动端重排结构并保留含义，而不是隐藏关键内容。",
+      "**Do** 为所有状态提供文字、形状、位置或数值上的冗余编码。",
+      "**Do** 让隐藏 panel 同步使用 hidden、inert 与 aria-hidden，不留下可 Tab 的控件。",
+      "**Do** 让 tooltip 在视口边缘翻转、换行并在超高时内部滚动。"
+    ],
+    "donts": [
+      "**Don't** 做成通用 AI 或 SaaS 仪表盘，不使用营销型大标题和无意义指标卡。",
+      "**Don't** 使用紫色渐变、渐变文字、玻璃拟态、装饰性发光或与任务无关的动效。",
+      "**Don't** 嵌套卡片，或同时给同一元素叠加 1px 边框与 16px 以上的宽模糊装饰阴影。",
+      "**Don't** 在卡片、分区或输入上使用 32px 以上圆角；卡片保持 8px，控件保持 6px。",
+      "**Don't** 用大面积留白牺牲数据浏览效率，也不要用小于规范的字号把桌面内容硬塞进移动端。",
+      "**Don't** 只依赖颜色表达状态、数据系列、相对偏好或选择关系。",
+      "**Don't** 在内容卡、列表项、提示或警告上使用大于 1px 的彩色侧边条。",
+      "**Don't** 为普通页面添加装饰网格、条纹背景、手绘 SVG 或无意义编号脚手架。",
+      "**Don't** 选择组件库私有节点或内部变量，不重新发明标准表单、滚动条和 modal affordance。",
+      "**Don't** 把原型 fixture、加载保护或预选人物当成生产状态机。"
+    ]
+  }
+}

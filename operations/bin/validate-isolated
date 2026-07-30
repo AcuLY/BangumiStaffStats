@@ -1,0 +1,569 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+script_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=../lib/common.sh
+source "$script_root/../lib/common.sh"
+
+usage() {
+  printf '%s\n' \
+    "usage: validate-isolated --root /srv/bgmss-ops-validation-minimal-RUN" \
+    "  --project bgmss-ops-validation-minimal-RUN --api-port 19090" \
+    "  --prometheus-port 19091 --bundle ABS --operations ABS" \
+    "  --prometheus-image PINNED_IMAGE" \
+    "  --legacy-health 'HOST|http://127.0.0.1/PATH' (repeat for both routes)" >&2
+  exit 2
+}
+
+root= project= api_port= prometheus_port= bundle= operations= prometheus_image=
+legacy_hosts=()
+legacy_urls=()
+while (($#)); do
+  case "$1" in
+    --root) [[ $# -ge 2 ]] || usage; root=$2; shift 2 ;;
+    --project) [[ $# -ge 2 ]] || usage; project=$2; shift 2 ;;
+    --api-port) [[ $# -ge 2 ]] || usage; api_port=$2; shift 2 ;;
+    --prometheus-port) [[ $# -ge 2 ]] || usage; prometheus_port=$2; shift 2 ;;
+    --bundle) [[ $# -ge 2 ]] || usage; bundle=$2; shift 2 ;;
+    --operations) [[ $# -ge 2 ]] || usage; operations=$2; shift 2 ;;
+    --prometheus-image) [[ $# -ge 2 ]] || usage; prometheus_image=$2; shift 2 ;;
+    --legacy-health)
+      [[ $# -ge 2 ]] || usage
+      [[ "$2" == *"|"* && "${2#*|}" != *"|"* ]] || usage
+      legacy_hosts+=("${2%%|*}")
+      legacy_urls+=("${2#*|}")
+      shift 2
+      ;;
+    *) usage ;;
+  esac
+done
+[[ -n "$root" && -n "$project" && -n "$api_port" && -n "$prometheus_port" &&
+  -n "$bundle" && -n "$operations" && -n "$prometheus_image" &&
+  ${#legacy_urls[@]} -ge 2 ]] || usage
+
+[[ $(id -u) -eq 0 ]] || die "isolated validation must run as root"
+for command in curl docker flock jq nginx realpath sha256sum ss systemctl systemd-analyze tar; do
+  require_command "$command"
+done
+require_absolute_path "$root" root
+[[ "$root" =~ ^/srv/bgmss-ops-validation-minimal-[a-z0-9][a-z0-9-]{2,48}$ ]] ||
+  die "validation root has an invalid identity"
+require_safe_name "$project" project
+[[ "$project" == "${root##*/}" ]] ||
+  die "project must exactly equal the validation root basename"
+require_port "$api_port" api-port
+require_port "$prometheus_port" prometheus-port
+[[ "$api_port" == 19090 && "$prometheus_port" == 19091 ]] ||
+  die "isolated validation requires exact ports 19090 and 19091"
+require_existing_directory "$bundle" bundle
+require_existing_directory "$operations" operations
+[[ "$operations" != "$root"/* ]] || die "operations source must be outside validation root"
+for compose_source in compose.yaml compose.updater-proxy.yaml; do
+  [[ -f "$operations/$compose_source" && ! -L "$operations/$compose_source" ]] ||
+    die "operations Compose inventory is incomplete: $compose_source"
+done
+require_image "$prometheus_image" prometheus-image
+[[ "$prometheus_image" == "$BGMSS_PROMETHEUS_IMAGE_PIN" ]] ||
+  die "Prometheus image must equal the reviewed operations pin"
+for index in "${!legacy_urls[@]}"; do
+  host=${legacy_hosts[$index]}
+  url=${legacy_urls[$index]}
+  [[ "$host" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$ &&
+    "$host" == *.* && "$host" != *".."* ]] ||
+    die "legacy health Host has an unsafe form"
+  [[ "$url" =~ ^http://127\.0\.0\.1:[0-9]{1,5}/[-A-Za-z0-9_./]*$ ]] ||
+    [[ "$url" =~ ^http://127\.0\.0\.1/[-A-Za-z0-9_./]*$ ]] ||
+    die "legacy health URL must be explicit loopback HTTP"
+done
+
+# Read-only collision and capacity gates precede creation of the validation root.
+[[ ! -e "$root" && ! -L "$root" ]] || die "validation root already exists"
+[[ -z "$(docker ps --all --quiet --filter "label=com.docker.compose.project=$project")" ]] ||
+  die "validation Compose project already exists"
+if docker network inspect "${project}_backend" >/dev/null 2>&1; then
+  die "validation Compose network already exists"
+fi
+for port in "$api_port" "$prometheus_port"; do
+  if ss -H -ltn | awk '{print $4}' | grep -Eq "(^|:)${port}$"; then
+    die "loopback validation port is occupied: $port"
+  fi
+done
+[[ "$(uname -m)" == x86_64 ]] || die "validation host must be linux/amd64"
+[[ "$(docker version --format '{{.Server.Os}}/{{.Server.Arch}}')" == linux/amd64 ]] ||
+  die "Docker server must be linux/amd64"
+docker compose version >/dev/null
+available_kib=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
+[[ "$available_kib" =~ ^[0-9]+$ && "$available_kib" -ge 524288 ]] ||
+  die "preflight requires at least 512 MiB MemAvailable"
+for index in "${!legacy_urls[@]}"; do
+  curl --fail --silent --show-error --max-time 5 \
+    --header "Host: ${legacy_hosts[$index]}" "${legacy_urls[$index]}" >/dev/null ||
+    die "legacy health preflight failed: ${legacy_hosts[$index]}|${legacy_urls[$index]}"
+done
+
+verify_bundle "$bundle"
+verify_build_metadata "$bundle/build.json"
+revision=$(build_field "$bundle/build.json" sourceRevision)
+api_image=$(build_field "$bundle/build.json" apiImage)
+updater_image=$(build_field "$bundle/build.json" updaterImage)
+if docker image inspect "$api_image" >/dev/null 2>&1 ||
+  docker image inspect "$updater_image" >/dev/null 2>&1; then
+  die "bundle image tag already exists; exact run ownership is ambiguous"
+fi
+
+evidence=$(mktemp -d /tmp/bgmss-ops-validation.XXXXXX)
+cleanup_complete=false
+api_image_id=
+updater_image_id=
+prometheus_pull_owned=false
+prometheus_image_id=
+
+capture_baseline() {
+  local destination=$1 unit
+  local legacy_ids=()
+  mkdir -m 0750 "$destination"
+  mapfile -t legacy_ids < <(
+    docker ps --all --quiet --filter label=com.docker.compose.project=bgmss |
+      LC_ALL=C sort
+  )
+  if ((${#legacy_ids[@]})); then
+    docker inspect "${legacy_ids[@]}" |
+      jq -S 'map({
+        Id,
+        Name,
+        image: .Config.Image,
+        state: .State.Status,
+        ports: .HostConfig.PortBindings,
+        composeProject: .Config.Labels["com.docker.compose.project"],
+        composeService: .Config.Labels["com.docker.compose.service"]
+      }) | sort_by(.Id)' >"$destination/legacy-bgmss-containers"
+  else
+    printf '[]\n' >"$destination/legacy-bgmss-containers"
+  fi
+  : >"$destination/relevant-units"
+  for unit in \
+    bangumi-api-proxy-temp.service \
+    jobs-bgmss-sync.service \
+    jobs-bgmss-sync.timer; do
+    printf '[%s]\n' "$unit" >>"$destination/relevant-units"
+    systemctl show "$unit" \
+      --property=LoadState,ActiveState,SubState,Result,UnitFileState \
+      >>"$destination/relevant-units"
+  done
+  nginx -T 2>&1 | sha256sum >"$destination/nginx.sha256"
+}
+
+capture_baseline "$evidence/before"
+
+cleanup() {
+  local result=$? cleanup_failed=false container current_id image expected_id
+  local cleanup_env=
+  local image_revision image_and_id expected_digest port
+  trap - EXIT HUP INT TERM
+  if [[ -d "$root" && ! -L "$root" && "$(realpath "$root")" == "$root" &&
+    "${root##*/}" == "$project" ]]; then
+    while IFS= read -r container; do
+      [[ -z "$container" ]] && continue
+      [[ "$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$container")" == "$project" ]] ||
+        cleanup_failed=true
+    done < <(docker ps --all --quiet --filter "label=com.docker.compose.project=$project")
+    if [[ -f "$root/state/current.env" && ! -L "$root/state/current.env" ]]; then
+      cleanup_env="$root/state/current.env"
+    elif [[ -n "$revision" &&
+      -f "$root/releases/$revision/release.env" &&
+      ! -L "$root/releases/$revision/release.env" ]]; then
+      cleanup_env="$root/releases/$revision/release.env"
+    fi
+    if [[ -n "$(docker ps --all --quiet --filter "label=com.docker.compose.project=$project")" ]] ||
+      docker network inspect "${project}_backend" >/dev/null 2>&1; then
+      if [[ "$cleanup_failed" == false && -n "$cleanup_env" &&
+        -f "$root/compose/compose.yaml" && ! -L "$root/compose/compose.yaml" ]]; then
+        docker compose --project-name "$project" \
+          --env-file "$cleanup_env" \
+          --file "$root/compose/compose.yaml" \
+          down --remove-orphans || cleanup_failed=true
+      else
+        cleanup_failed=true
+      fi
+    fi
+    [[ -z "$(docker ps --all --quiet --filter "label=com.docker.compose.project=$project")" ]] ||
+      cleanup_failed=true
+    if docker network inspect "${project}_backend" >/dev/null 2>&1; then
+      cleanup_failed=true
+    fi
+    if [[ "$cleanup_failed" == false ]]; then
+      rm -rf -- "$root"
+    fi
+  elif [[ -e "$root" || -L "$root" ]]; then
+    cleanup_failed=true
+  fi
+  for image_and_id in "$api_image|$api_image_id" "$updater_image|$updater_image_id"; do
+    image=${image_and_id%%|*}
+    expected_id=${image_and_id#*|}
+    [[ -n "$image" ]] || continue
+    if current_id=$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null); then
+      image_revision=$(docker image inspect \
+        --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
+        "$image")
+      if [[ -n "$expected_id" && "$current_id" == "$expected_id" &&
+        "$image_revision" == "$revision" ]]; then
+        docker image rm "$image" >/dev/null || cleanup_failed=true
+      elif [[ -z "$expected_id" && -n "$revision" &&
+        "$image_revision" == "$revision" ]]; then
+        docker image rm "$image" >/dev/null || cleanup_failed=true
+      else
+        cleanup_failed=true
+      fi
+    fi
+  done
+  if [[ "$prometheus_pull_owned" == true ]] &&
+    current_id=$(docker image inspect --format '{{.Id}}' "$prometheus_image" 2>/dev/null); then
+    expected_digest="prom/prometheus@${prometheus_image##*@}"
+    if [[ -n "$prometheus_image_id" && "$current_id" == "$prometheus_image_id" ]] ||
+      docker image inspect --format '{{json .RepoDigests}}' "$prometheus_image" |
+        jq -e --arg digest "$expected_digest" 'index($digest) != null' >/dev/null; then
+      docker image rm "$prometheus_image" >/dev/null || cleanup_failed=true
+    else
+      cleanup_failed=true
+    fi
+  fi
+  if [[ "$cleanup_failed" == false ]]; then
+    capture_baseline "$evidence/after"
+    for field in legacy-bgmss-containers relevant-units nginx.sha256; do
+      cmp --silent "$evidence/before/$field" "$evidence/after/$field" ||
+        cleanup_failed=true
+    done
+    [[ ! -e "$root" && ! -L "$root" ]] || cleanup_failed=true
+    [[ -z "$(docker ps --all --quiet --filter "label=com.docker.compose.project=$project")" ]] ||
+      cleanup_failed=true
+    if docker network inspect "${project}_backend" >/dev/null 2>&1; then
+      cleanup_failed=true
+    fi
+    for port in "$api_port" "$prometheus_port"; do
+      if ss -H -ltn | awk '{print $4}' | grep -Eq "(^|:)${port}$"; then
+        cleanup_failed=true
+      fi
+    done
+    for index in "${!legacy_urls[@]}"; do
+      curl --fail --silent --show-error --max-time 5 \
+        --header "Host: ${legacy_hosts[$index]}" "${legacy_urls[$index]}" >/dev/null ||
+        cleanup_failed=true
+    done
+  fi
+  if [[ "$cleanup_failed" == true ]]; then
+    log "validation cleanup or protected before/after comparison failed; ambiguous residue was preserved"
+    log "evidence remains at $evidence"
+    exit 1
+  fi
+  rm -rf -- "$evidence"
+  cleanup_complete=true
+  exit "$result"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+if ! docker image inspect "$prometheus_image" >/dev/null 2>&1; then
+  prometheus_pull_owned=true
+  docker pull "$prometheus_image" >/dev/null
+  prometheus_image_id=$(docker image inspect --format '{{.Id}}' "$prometheus_image")
+fi
+
+install -d -m 0755 "$root" "$root/releases"
+install -d -m 0750 \
+  "$root/compose" "$root/config" "$root/config/prometheus" \
+  "$root/operations" "$root/operations/bin" "$root/operations/lib" \
+  "$root/state" "$root/prometheus"
+install -d -o 0 -g 65532 -m 1770 "$root/data" "$root/data/versions"
+install -o 0 -g 0 -m 0600 /dev/null "$root/data/operations.lock"
+install -m 0644 "$operations/compose.yaml" "$root/compose/compose.yaml"
+install -m 0644 "$operations/compose.updater-proxy.yaml" \
+  "$root/compose/compose.updater-proxy.yaml"
+install -m 0644 "$operations/prometheus/prometheus.yml" \
+  "$root/config/prometheus/prometheus.yml"
+install -m 0644 "$operations/prometheus/rules.yml" \
+  "$root/config/prometheus/rules.yml"
+install -m 0444 "$operations/lib/common.sh" "$root/operations/lib/common.sh"
+for command in deploy update rollback-app rollback-data check; do
+  install -m 0555 "$operations/bin/$command" "$root/operations/bin/$command"
+done
+version_root="$root/data/versions/$BGMSS_MINIMAL_DATA_VERSION"
+install -d -o 0 -g 65532 -m 0750 "$version_root"
+install -o 0 -g 65532 -m 0640 \
+  "$bundle/minimal-archive/current.json" "$root/data/current.json"
+install -o 0 -g 65532 -m 0440 \
+  "$bundle/minimal-archive/versions/$BGMSS_MINIMAL_DATA_VERSION/manifest.json" \
+  "$version_root/manifest.json"
+install -o 0 -g 65532 -m 0440 \
+  "$bundle/minimal-archive/versions/$BGMSS_MINIMAL_DATA_VERSION/bangumi.sqlite" \
+  "$version_root/bangumi.sqlite"
+freeze_archive_version "$root" "$BGMSS_MINIMAL_DATA_VERSION"
+chown -R 65532:65532 "$root/prometheus"
+
+proxy_render_env="$root/state/.proxy-render.env"
+release_env_document \
+  "$root" "$project" "$api_image" "$updater_image" "$prometheus_image" \
+  "$api_port" "$prometheus_port" validation \
+  proxy http://proxy.internal:7897 bgmss_proxy_validation >"$proxy_render_env"
+env \
+  -u BGMSS_UPDATER_TRANSPORT \
+  -u BGMSS_UPDATER_HTTPS_PROXY \
+  -u BGMSS_UPDATER_PROXY_NETWORK \
+  docker compose \
+  --project-name "$project" \
+  --env-file "$proxy_render_env" \
+  --file "$root/compose/compose.yaml" \
+  --file "$root/compose/compose.updater-proxy.yaml" \
+  config --format json |
+  jq -e '
+    .services.updater.environment.BGMSS_HTTPS_PROXY == "http://proxy.internal:7897"
+    and ((.services.updater.networks | keys | sort) == ["backend","updater_proxy"])
+    and (((.services.updater.environment // {})
+      | with_entries(select(.key | test("proxy"; "i")))
+      | keys) == ["BGMSS_HTTPS_PROXY"])
+    and .services.api.environment.BGMSS_IMAGE_HTTPS_PROXY == "http://proxy.internal:7897"
+    and ((.services.api.networks | keys | sort) == ["backend","updater_proxy"])
+    and (((.services.api.environment // {})
+      | with_entries(select(.key | test("proxy"; "i")))
+      | keys) == ["BGMSS_IMAGE_HTTPS_PROXY"])
+    and ((.services.prometheus.networks | keys | sort) == ["backend"])
+    and (((.services.prometheus.environment // {})
+      | with_entries(select(.key | test("proxy"; "i")))
+      | keys) == [])
+    and .networks.updater_proxy.external == true
+    and .networks.updater_proxy.name == "bgmss_proxy_validation"
+  ' >/dev/null ||
+  die "proxy overlay static projection is not closed"
+rm -f -- "$proxy_render_env"
+
+"$root/operations/bin/deploy" \
+  --root "$root" \
+  --bundle "$bundle" \
+  --version "$revision" \
+  --project "$project" \
+  --api-port "$api_port" \
+  --prometheus-port "$prometheus_port" \
+  --prometheus-image "$prometheus_image" \
+  --profile validation
+api_image_id=$(docker image inspect --format '{{.Id}}' "$api_image")
+updater_image_id=$(docker image inspect --format '{{.Id}}' "$updater_image")
+
+assert_container_projection() {
+  local service=$1 container=$2 nano_cpus=$3 memory=$4 pids=$5
+  local expected_network=$6 container_port=${7:-} host_port=${8:-}
+  [[ "$container" =~ ^[0-9a-f]{12,64}$ ]] ||
+    die "$service did not resolve to one container ID"
+  if ! docker inspect "$container" |
+    jq -e \
+      --arg container_port "$container_port" \
+      --arg host_port "$host_port" \
+      --arg expected_network "$expected_network" \
+      --argjson nano_cpus "$nano_cpus" \
+      --argjson memory "$memory" \
+      --argjson pids "$pids" '
+        length == 1
+        and (
+          .[0] as $container
+          | ($container.HostConfig.PortBindings // {}) as $bindings
+          | ($container.HostConfig.CapAdd // []) as $cap_add
+          | ($container.HostConfig.CapDrop // []) as $cap_drop
+          | ($container.HostConfig.SecurityOpt // []) as $security
+          | ($container.HostConfig.Devices // []) as $devices
+          | ($container.HostConfig.DeviceRequests // []) as $device_requests
+          | ($container.HostConfig.DeviceCgroupRules // []) as $device_rules
+          | $container.Config.User == "65532:65532"
+            and $container.HostConfig.ReadonlyRootfs == true
+            and $container.HostConfig.Init == true
+            and $container.HostConfig.Privileged == false
+            and $container.HostConfig.PidMode == ""
+            and $container.HostConfig.NetworkMode == $expected_network
+            and ($cap_add | length) == 0
+            and (($cap_drop | sort) == ["ALL"])
+            and (($security | sort) == ["no-new-privileges:true"])
+            and ($devices | length) == 0
+            and ($device_requests | length) == 0
+            and ($device_rules | length) == 0
+            and $container.HostConfig.NanoCpus == $nano_cpus
+            and $container.HostConfig.Memory == $memory
+            and $container.HostConfig.PidsLimit == $pids
+            and $container.HostConfig.LogConfig.Type == "journald"
+            and (
+              if $container_port == "" then
+                ($bindings | length) == 0
+              else
+                ($bindings | keys) == [$container_port]
+                and ($bindings[$container_port] | length) == 1
+                and $bindings[$container_port][0].HostIp == "127.0.0.1"
+                and $bindings[$container_port][0].HostPort == $host_port
+              end
+            )
+        )
+      ' >/dev/null; then
+    die "$service container security/resource/port projection differs"
+  fi
+}
+
+assert_mount_projection() {
+  local service=$1 container=$2 expected_mounts=$3
+  if ! docker inspect "$container" |
+    jq -e \
+      --argjson expected_mounts "$expected_mounts" '
+        length == 1
+        and (
+          (
+            [.[0].Mounts[] | {Source, Destination, Type, RW}]
+            | sort_by(.Destination)
+          ) == ($expected_mounts | sort_by(.Destination))
+        )
+      ' >/dev/null; then
+    die "$service bind mount projection is not the exact closed set"
+  fi
+}
+
+api_mounts=$(jq -cn --arg data "$root/data" '
+  [{
+    Source: $data,
+    Destination: "/var/lib/bgmss/archive",
+    Type: "bind",
+    RW: false
+  }]
+')
+prometheus_mounts=$(jq -cn \
+  --arg config "$root/config/prometheus/prometheus.yml" \
+  --arg rules "$root/config/prometheus/rules.yml" \
+  --arg data "$root/prometheus" '
+    [
+      {
+        Source: $config,
+        Destination: "/etc/prometheus/prometheus.yml",
+        Type: "bind",
+        RW: false
+      },
+      {
+        Source: $rules,
+        Destination: "/etc/prometheus/rules.yml",
+        Type: "bind",
+        RW: false
+      },
+      {
+        Source: $data,
+        Destination: "/prometheus",
+        Type: "bind",
+        RW: true
+      }
+    ]
+  ')
+updater_mounts=$(jq -cn \
+  --arg data "$root/data" \
+  --arg tool "$root/current-tools/archive-smoke" '
+    [
+      {
+        Source: $data,
+        Destination: "/var/lib/bgmss/archive",
+        Type: "bind",
+        RW: true
+      },
+      {
+        Source: $tool,
+        Destination: "/opt/bgmss/bin/archive-smoke",
+        Type: "bind",
+        RW: false
+      }
+    ]
+  ')
+
+api_container=$(compose "$root" ps --quiet api)
+prometheus_container=$(compose "$root" ps --quiet prometheus)
+assert_container_projection \
+  api "$api_container" 1500000000 805306368 256 \
+  "${project}_backend" "8080/tcp" "$api_port"
+assert_container_projection \
+  prometheus "$prometheus_container" 500000000 201326592 128 \
+  "${project}_backend" "9090/tcp" "$prometheus_port"
+assert_mount_projection api "$api_container" "$api_mounts"
+assert_mount_projection \
+  prometheus "$prometheus_container" "$prometheus_mounts"
+
+[[ -z "$(compose "$root" ps --all --quiet updater)" ]] ||
+  die "updater container unexpectedly exists before projection validation"
+compose "$root" create updater >/dev/null
+updater_container=$(compose "$root" ps --all --quiet updater)
+assert_container_projection \
+  updater "$updater_container" 1000000000 536870912 256 "${project}_backend"
+assert_mount_projection updater "$updater_container" "$updater_mounts"
+compose "$root" rm --force --stop updater >/dev/null
+[[ -z "$(compose "$root" ps --all --quiet updater)" ]] ||
+  die "updater projection container was not removed"
+
+runtime_sample() {
+  local sample_available
+  sample_available=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
+  [[ "$sample_available" =~ ^[0-9]+$ && "$sample_available" -ge 131072 ]] ||
+    die "runtime MemAvailable fell below 128 MiB"
+  for index in "${!legacy_urls[@]}"; do
+    curl --fail --silent --show-error --max-time 5 \
+      --header "Host: ${legacy_hosts[$index]}" "${legacy_urls[$index]}" >/dev/null ||
+      die "legacy health changed during validation: ${legacy_hosts[$index]}|${legacy_urls[$index]}"
+  done
+}
+
+"$root/operations/bin/check" --root "$root"
+runtime_sample
+
+# Updater validation is intentionally bounded: no full Archive production run.
+compose "$root" run --rm --no-deps updater doctor |
+  jq -e '.code == "FOUNDATION_READY" and .status == "ok"' >/dev/null
+compose "$root" run --rm --no-deps updater contract-check \
+  --contracts-root /opt/bgmss/producer/contracts |
+  jq -e '.code == "VALID" and .status == "ok"' >/dev/null
+runtime_sample
+
+# Exercise an atomic pointer switch that must fail readiness, then restore it.
+saved_pointer=$(mktemp "$root/data/.validation-pointer.XXXXXX")
+cp --preserve=mode,ownership -- "$root/data/current.json" "$saved_pointer"
+invalid_version="dv1-ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+printf '{"pointerSchemaVersion":1,"dataVersion":"%s","manifestDigest":"sha256:%064d"}\n' \
+  "$invalid_version" 0 | atomic_write "$root/data/current.json" 0640
+chown 0:65532 "$root/data/current.json"
+if BGMSS_READY_ATTEMPTS=3 restart_and_wait "$root" "$invalid_version"; then
+  die "API unexpectedly became ready with an absent validation pointer"
+fi
+atomic_copy "$saved_pointer" "$root/data/current.json"
+restart_and_wait "$root" "$BGMSS_MINIMAL_DATA_VERSION"
+rm -f -- "$saved_pointer"
+
+# Create a same-byte previous release solely to exercise app restart/rollback.
+previous_release="$root/releases/validation-previous"
+cp -a -- "$root/releases/$revision" "$previous_release"
+atomic_copy "$root/state/current.env" "$root/state/previous.env"
+atomic_symlink "releases/validation-previous/frontend" "$root/previous-frontend"
+atomic_symlink "releases/validation-previous/tools" "$root/previous-tools"
+"$root/operations/bin/rollback-app" --root "$root"
+"$root/operations/bin/rollback-app" --root "$root"
+"$root/operations/bin/check" --root "$root"
+runtime_sample
+
+nginx_prefix="$root/nginx-validation"
+install -d -m 0750 "$nginx_prefix/logs"
+sed \
+  -e "s|@@BGMSS_FRONTEND_ROOT@@|$root/current-frontend|g" \
+  -e "s|@@BGMSS_LEGACY_FRONTEND_ROOT@@|$root/current-frontend|g" \
+  -e "s|@@BGMSS_API_PORT@@|$api_port|g" \
+  -e "s|@@BGMSS_NGINX_LOG_ROOT@@|$nginx_prefix/logs|g" \
+  "$operations/nginx/bgmss.conf" >"$nginx_prefix/nginx.conf"
+nginx -t -p "$nginx_prefix/" -c "$nginx_prefix/nginx.conf"
+
+unit_root="$root/systemd-validation"
+install -d -m 0750 "$unit_root"
+sed "s|/srv/bgmss-v2|$root|g" \
+  "$operations/systemd/bgmss-archive-update.service" \
+  >"$unit_root/bgmss-archive-update.service"
+cp -- "$operations/systemd/bgmss-archive-update.timer" \
+  "$unit_root/bgmss-archive-update.timer"
+systemd-analyze verify \
+  "$unit_root/bgmss-archive-update.service" \
+  "$unit_root/bgmss-archive-update.timer"
+runtime_sample
+log "isolated validation passed; exact cleanup and protected-state comparison follow"

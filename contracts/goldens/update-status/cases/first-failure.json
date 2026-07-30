@@ -1,0 +1,11 @@
+{
+  "last_attempt": {
+    "time": "2026-07-25T01:02:03.4Z",
+    "status": "failed",
+    "phase": "acquisition",
+    "duration_seconds": 1.25,
+    "dataVersion": null,
+    "error_code": "SOURCE_DIGEST_MISMATCH"
+  },
+  "last_success": null
+}

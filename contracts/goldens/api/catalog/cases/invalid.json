@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "kind": "catalog-invalid-matrix",
+  "base": "cases/success-empty.json",
+  "cases": [
+    {
+      "id": "unknown-position-kind",
+      "outcome": "schema-invalid",
+      "patch": [{"op": "replace", "path": "/expected/body/data/positions/0/kind", "value": "crew"}]
+    },
+    {
+      "id": "unknown-group-kind",
+      "outcome": "schema-invalid",
+      "patch": [{"op": "replace", "path": "/expected/body/data/groups/0/kind", "value": "legacy"}]
+    },
+    {
+      "id": "unknown-rule-kind",
+      "outcome": "schema-invalid",
+      "patch": [{"op": "replace", "path": "/expected/body/data/selectionRules/0/kind", "value": "prefix"}]
+    },
+    {
+      "id": "unknown-position-capability",
+      "outcome": "schema-invalid",
+      "patch": [{"op": "add", "path": "/expected/body/data/positions/0/capabilities/-", "value": "catalogAdmin"}]
+    },
+    {
+      "id": "staff-has-cast-field",
+      "outcome": "schema-invalid",
+      "patch": [{"op": "add", "path": "/expected/body/data/positions/0/roleScope", "value": "main"}]
+    },
+    {
+      "id": "staff-misses-position-id",
+      "outcome": "schema-invalid",
+      "patch": [{"op": "remove", "path": "/expected/body/data/positions/0/positionId"}]
+    },
+    {
+      "id": "cast-has-staff-field",
+      "outcome": "schema-invalid",
+      "patch": [{"op": "add", "path": "/expected/body/data/positions/9/positionId", "value": 1}]
+    },
+    {
+      "id": "position-order-drift",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "move", "from": "/expected/body/data/positions/2", "path": "/expected/body/data/positions/1"}]
+    },
+    {
+      "id": "group-order-drift",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "move", "from": "/expected/body/data/groups/2", "path": "/expected/body/data/groups/1"}]
+    },
+    {
+      "id": "member-order-drift",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "move", "from": "/expected/body/data/groups/4/positionKeys/1", "path": "/expected/body/data/groups/4/positionKeys/0"}]
+    },
+    {
+      "id": "rule-order-drift",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "move", "from": "/expected/body/data/selectionRules/2", "path": "/expected/body/data/selectionRules/1"}]
+    },
+    {
+      "id": "category-order-drift",
+      "outcome": "semantic-invalid",
+      "patch": [
+        {"op": "replace", "path": "/expected/body/data/positions/1/categories", "value": ["direction", "production"]}
+      ]
+    },
+    {
+      "id": "capability-order-drift",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "move", "from": "/expected/body/data/positions/0/capabilities/1", "path": "/expected/body/data/positions/0/capabilities/0"}]
+    },
+    {
+      "id": "duplicate-position",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "copy", "from": "/expected/body/data/positions/0", "path": "/expected/body/data/positions/1"}]
+    },
+    {
+      "id": "duplicate-group",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "copy", "from": "/expected/body/data/groups/0", "path": "/expected/body/data/groups/1"}]
+    },
+    {
+      "id": "duplicate-rule",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "copy", "from": "/expected/body/data/selectionRules/0", "path": "/expected/body/data/selectionRules/1"}]
+    },
+    {
+      "id": "duplicate-group-member",
+      "outcome": "schema-invalid",
+      "patch": [{"op": "copy", "from": "/expected/body/data/groups/1/positionKeys/0", "path": "/expected/body/data/groups/1/positionKeys/1"}]
+    },
+    {
+      "id": "dangling-group-member",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "replace", "path": "/expected/body/data/groups/0/positionKeys/0", "value": "staff:book:999"}]
+    },
+    {
+      "id": "cross-type-group-member",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "replace", "path": "/expected/body/data/groups/0/positionKeys/0", "value": "staff:anime:2"}]
+    },
+    {
+      "id": "dangling-rule-position",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "replace", "path": "/expected/body/data/selectionRules/0/positionKey", "value": "staff:book:999"}]
+    },
+    {
+      "id": "hidden-position-in-group",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "replace", "path": "/expected/body/data/positions/0/status", "value": "hidden"}]
+    },
+    {
+      "id": "malformed-localized-name",
+      "outcome": "schema-invalid",
+      "patch": [{"op": "replace", "path": "/expected/body/data/positions/0/names/cn", "value": ""}]
+    },
+    {
+      "id": "hidden-position-keeps-capabilities",
+      "outcome": "semantic-invalid",
+      "patch": [
+        {"op": "replace", "path": "/expected/body/data/positions/8/status", "value": "hidden"},
+        {"op": "replace", "path": "/expected/body/data/groups/5/positionKeys", "value": []}
+      ]
+    },
+    {
+      "id": "unexpected-cast-key",
+      "outcome": "schema-invalid",
+      "patch": [{"op": "replace", "path": "/expected/body/data/positions/9/key", "value": "cast:anime:supporting"}]
+    },
+    {
+      "id": "cast-on-book",
+      "outcome": "schema-invalid",
+      "patch": [
+        {"op": "replace", "path": "/expected/body/data/positions/9/key", "value": "cast:book:main"},
+        {"op": "replace", "path": "/expected/body/data/positions/9/subjectType", "value": "book"}
+      ]
+    },
+    {
+      "id": "unresolved-raw-credit",
+      "outcome": "semantic-invalid",
+      "patch": [
+        {"op": "replace", "path": "/expected/body/data/positions/8/key", "value": "staff:anime:999999"},
+        {"op": "replace", "path": "/expected/body/data/positions/8/positionId", "value": 999999},
+        {"op": "replace", "path": "/expected/body/data/groups/5/positionKeys/0", "value": "staff:anime:999999"},
+        {"op": "replace", "path": "/expected/body/data/selectionRules/8/positionKey", "value": "staff:anime:999999"}
+      ]
+    },
+    {
+      "id": "unknown-response-property",
+      "outcome": "schema-invalid",
+      "patch": [{"op": "add", "path": "/expected/body/data/debug", "value": true}]
+    },
+    {
+      "id": "malformed-data-version",
+      "outcome": "schema-invalid",
+      "patch": [{"op": "replace", "path": "/expected/body/meta/dataVersion", "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}]
+    },
+    {
+      "id": "label-over-boundary",
+      "outcome": "schema-invalid",
+      "generatedPatch": {
+        "op": "replace",
+        "path": "/expected/body/data/positions/0/label",
+        "value": "x",
+        "repeat": 256
+      }
+    },
+    {
+      "id": "position-key-over-boundary",
+      "outcome": "schema-invalid",
+      "generatedPatch": {
+        "op": "replace",
+        "path": "/expected/body/data/positions/0/key",
+        "value": "staff:book:",
+        "repeat": 10
+      }
+    },
+    {
+      "id": "selection-rule-key-max-boundary",
+      "outcome": "schema-valid-boundary",
+      "generatedPatch": {
+        "op": "replace",
+        "path": "/expected/body/data/selectionRules/0/key",
+        "value": "r",
+        "repeat": 101
+      }
+    },
+    {
+      "id": "selection-rule-key-over-boundary",
+      "outcome": "schema-invalid",
+      "generatedPatch": {
+        "op": "replace",
+        "path": "/expected/body/data/selectionRules/0/key",
+        "value": "r",
+        "repeat": 102
+      }
+    },
+    {
+      "id": "selection-rule-value-max-boundary",
+      "outcome": "schema-valid-boundary",
+      "generatedPatch": {
+        "op": "replace",
+        "path": "/expected/body/data/selectionRules/0/value",
+        "value": "v",
+        "repeat": 7423
+      }
+    },
+    {
+      "id": "selection-rule-value-over-boundary",
+      "outcome": "schema-invalid",
+      "generatedPatch": {
+        "op": "replace",
+        "path": "/expected/body/data/selectionRules/0/value",
+        "value": "v",
+        "repeat": 7424
+      }
+    },
+    {
+      "id": "filter-matrix-drift",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "replace", "path": "/expected/body/data/filterCapabilities/5/scopes", "value": ["global"]}]
+    },
+    {
+      "id": "sort-matrix-drift",
+      "outcome": "semantic-invalid",
+      "patch": [{"op": "replace", "path": "/expected/body/data/sortCapabilities/18/scopes", "value": ["global"]}]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "sets": [
+    {
+      "key": "staffset:anime:director-family",
+      "subjectType": "anime",
+      "label": "导演（含总导演）",
+      "displayOrder": 10,
+      "members": [
+        "staff:anime:74",
+        "staff:anime:2"
+      ]
+    }
+  ]
+}

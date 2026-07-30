@@ -1,0 +1,72 @@
+{
+  "caseFileVersion": 1,
+  "kind": "control-and-determinism",
+  "fixture": "fixtures/anime-domain-v1.json",
+  "cases": [
+    {
+      "caseId": "shuffled-and-repeated-input-is-deterministic",
+      "outcome": "successReference",
+      "coverage": [
+        "deterministic-order",
+        "repeated-run",
+        "shuffled-facts",
+        "subject-id-dedup"
+      ],
+      "domain": "identity",
+      "querySource": {
+        "kind": "inline",
+        "submitted": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:all",
+            "staffset:anime:director-family"
+          ]
+        }
+      },
+      "factOrders": [
+        "fixture",
+        "reverse",
+        "rotate-one"
+      ],
+      "repeatCount": 3,
+      "expectedSameAs": {
+        "path": "cases/identity-algebra.json",
+        "caseId": "multi-position-person-and-work-union"
+      }
+    },
+    {
+      "caseId": "cancellation-publishes-no-partial-result",
+      "outcome": "failure",
+      "coverage": [
+        "context-cancellation",
+        "no-partial-result",
+        "store-remains-read-only"
+      ],
+      "domain": "identity",
+      "querySource": {
+        "kind": "inline",
+        "submitted": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        }
+      },
+      "evaluationControl": {
+        "cancelAfter": {
+          "phase": "archive-subject-scan",
+          "records": 2
+        }
+      },
+      "expectedFailure": {
+        "kind": "context",
+        "cause": "canceled",
+        "partialResult": false,
+        "writesObserved": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+## Why
+
+The updater foundation can validate contract evidence but cannot yet turn the
+authoritative upstream sources into a complete immutable Archive. This change
+adds that one-shot producer only after the accepted Go consumer can serve as
+the independent final gate.
+
+## What Changes
+
+- Acquire one exact `bangumi/Archive` release asset and one exact
+  `bangumi/common` commit into an isolated staging root, verifying identity,
+  size, and SHA-256 before parsing.
+- Stream the seven Archive JSONLines sources into a newly created SQLite v1
+  database, with strict source accounting, quality/integrity gates, canonical
+  dataVersion, and a final manifest/digest graph.
+- Apply the exited `harden-archive-manifest-string-semantics` contract at the
+  real Python finalizer: exact calendar-valid UTC generation, Unicode-scalar URL
+  bounds, isolated-surrogate rejection, and every indexed shared string case.
+- Produce an inactive `versions/<dataVersion>` candidate and prove it with the
+  accepted Go consumer; any failure leaves no consumable version.
+- Add Contracts-owner synthetic producer goldens before the Updater owner
+  consumes them. Keep the accepted 32-file consumer fixture index byte-stable,
+  place producer cases behind their own closed sub-index and schemas, and adapt
+  only the shared Archive verifier/builder boundary needed to validate both
+  disjoint corpora. Never write `current.json`, activate, schedule, lock,
+  restart, or deploy.
+
+Behavior classification: `NEW_CAPABILITY`. The immutable prototype oracle
+`644b7748674e553f863d0ffd61d029f86fdc0717` contains no Archive producer or
+user-visible behavior affected by this change.
+
+## Capabilities
+
+### New Capabilities
+
+- `updater-archive-producer`: One-shot acquisition, streaming construction,
+  validation, inactive publication, and Go-consumer smoke.
+- `contracts-archive-goldens`: Contracts-owned synthetic producer inputs and
+  expected cross-language Archive cases.
+
+### Modified Capabilities
+
+- `contracts-archive-manifest`: preserve the accepted 32-file canonical
+  consumer corpus while admitting one separately indexed and independently
+  validated `producer/**` evidence subtree.
+
+## Impact
+
+| Boundary | Declaration |
+|---|---|
+| Status | investigated: complete; specified: approved after resolving the closed-index/tooling conflict with a disjoint producer sub-index; implemented: Contracts and Updater complete; verified: 133-test offline suite plus explicit complete-source Python-to-real-Go smoke, strict Python/build/dependency/Contracts/OpenSpec gates, canonical 32-file seal, final inventory, and residue checks passed; committed: `9d890174`; pushed/released/deployed: no |
+| Owner | Contracts owner writes producer goldens first; one Updater owner then implements and consumes them; main agent reviews and accepts both blocks. |
+| Writable paths | Planning: `openspec/changes/produce-immutable-archive/**`. Contracts apply block: new `contracts/schemas/archive/producer-case.schema.json`, new `contracts/schemas/archive/producer-index.schema.json`, existing `contracts/schemas/archive/README.md`, existing `contracts/schemas/archive/tooling/build_sqlite_fixtures.py`, existing `contracts/schemas/archive/tooling/verify.mjs`, new `contracts/goldens/archive/producer/**`, and its task markers only. Updater apply block: `updater/pyproject.toml`, `updater/uv.lock`, `updater/README.md`, `updater/src/bangumi_staff_stats_updater/archive_contract.py`, `updater/src/bangumi_staff_stats_updater/cli.py`, `updater/src/bangumi_staff_stats_updater/producer/**`, `updater/tests/test_archive_contract.py`, `updater/tests/test_cli.py`, `updater/tests/producer/**`, and its task markers only. |
+| Read-only protected inputs | `contracts/goldens/archive/index.json`, the accepted 32 indexed golden paths, every other `contracts/schemas/archive/**` and `contracts/**` path outside the exact Contracts writable set, accepted root specs, backend consumer code/tests, guides, PRODUCT/DESIGN, all other code/changes, Git refs/remotes, external repositories except declared read-only HTTPS acquisition, hosts, and production. |
+| Deletion complement | None; existing authority, goldens, runtime behavior, and files may not be deleted. |
+| Mutable refs | None; apply may not stage, commit, archive, switch/amend refs, or push. |
+| Consumes | The accepted `correct-archive-subject-semantics`, `harden-archive-manifest-string-semantics`, `correct-archive-raw-domain-semantics`, and `correct-archive-staffset-key-bound` revisions of `contracts-archive-manifest`; `updater-runtime-foundation`; Contracts-owner producer goldens; one caller-supplied acquisition/build request; and accepted `backend/cmd/archive-smoke`. |
+| Produces | Contracts: indexed synthetic producer cases. Updater: one fully closed inactive version directory containing only `manifest.json` and `bangumi.sqlite`, plus bounded command/status evidence outside that version. |
+| Dependencies | `define-archive-manifest-contract` and `bootstrap-updater-runtime` are accepted; `correct-archive-subject-semantics`, `harden-archive-manifest-string-semantics`, `correct-archive-raw-domain-semantics`, and `correct-archive-staffset-key-bound` have exited; and `implement-backend-archive-consumer` is accepted. CPython/uv remain foundation-pinned; the only proposed new runtime dependency is PyYAML `6.0.3`. |
+| Deliverables | Strict producer CLI/API, acquisition and staging, streaming SQLite builder, canonical schema SQL/35-object seal plus accounting/quality/integrity gates, exact generated-time/Unicode-scalar/surrogate validation and shared string-vector execution in the real Python finalizer, deterministic identity/manifest finalization, separately indexed synthetic producer goldens and schemas, canonical-corpus-preserving shared tooling adaptation, Go-consumer full smoke, tests, lock and documentation. |
+| Acceptance | The corrected root index and all 32 accepted paths remain closed while the producer subtree is independently schema-valid, hash-closed, and semantically verified before updater consumption; the missing-reference case proves deterministic per-line `invalid` accounting without a dangling SQLite row or fatal batch failure; every indexed manifest-string case passes through the real Python finalizer; identical semantic inputs reproduce dataVersion/logical rows; source, weakened-schema, and failure matrices pass; final bytes pass the accepted Go consumer; full upstream smoke stays disposable; strict Contracts/Python/OpenSpec/dependency/inventory/residue gates pass. |
+| Non-goals | `current.json`, activation/switch/rollback, scheduler/daemon/`flock`, API restart, hot reload, HTTP/query/catalog feature work, production paths, operations, release, or deploy. |
+| Operations deferred | Periodic acquisition, production credentials/roots, activation transaction, retention, restart/readiness orchestration, systemd/Compose/nginx, monitoring deployment, and rollback remain later operations changes. |
+| Stop/rollback conditions | Stop before mutation on dependency/authority/path drift. On any acquisition, parse, accounting, quality, SQLite, manifest, or consumer failure, close resources and remove only the owned staging/candidate path; preserve prior versions and protected inputs and publish no consumable candidate. |
+
+Dependency/version research is read-only. PyPI identifies PyYAML `6.0.3` as
+the latest release, MIT licensed, Python `>=3.8`, with CPython 3.14 wheels; the
+canonical repository documents `safe_load` for untrusted input. The standard
+library covers HTTPS, hashing, archive extraction, JSONLines, SQLite, and atomic
+rename but has no YAML parser, so no HTTP/ORM/dataframe/scheduler framework is
+admitted. This change mutates no other repository or external state; push, PR,
+tag, release, deployment, host mutation, and production activation require
+later explicit authorization.
+
+Apply is blocked until all four artifacts pass strict validation and main-agent
+review, and until `implement-backend-archive-consumer` reaches accepted status.

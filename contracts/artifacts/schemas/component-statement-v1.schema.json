@@ -1,0 +1,477 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AcuLY/BangumiStaffStats/contracts/artifacts/component-statement-v1.schema.json",
+  "title": "Bangumi Staff Statistics component statement v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "applicationVersion",
+    "component",
+    "source",
+    "target",
+    "toolchain",
+    "baseImages",
+    "inputs",
+    "compatibility",
+    "artifacts",
+    "artifactSetDigest",
+    "checksumInventory",
+    "sbom"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "applicationVersion": {
+      "$ref": "#/$defs/applicationVersion"
+    },
+    "component": {
+      "enum": ["backend", "updater", "frontend"]
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "target": {
+      "$ref": "#/$defs/target"
+    },
+    "toolchain": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/tool"
+      }
+    },
+    "baseImages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/baseImage"
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/input"
+      }
+    },
+    "compatibility": {
+      "$ref": "#/$defs/compatibility"
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "artifactSetDigest": {
+      "$ref": "#/$defs/digest"
+    },
+    "checksumInventory": {
+      "$ref": "#/$defs/evidence"
+    },
+    "sbom": {
+      "$ref": "#/$defs/sbomEvidence"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "component": {
+            "const": "frontend"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "toolchain": {
+            "type": "array",
+            "not": {
+              "type": "array",
+              "contains": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": {
+                    "enum": ["buildkit", "docker-buildx"]
+                  }
+                }
+              }
+            }
+          },
+          "baseImages": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "inputs": {
+            "type": "array",
+            "not": {
+              "type": "array",
+              "contains": {
+                "type": "object",
+                "required": ["path"],
+                "properties": {
+                  "path": {
+                    "const": "toolchain/buildkit-image"
+                  }
+                }
+              }
+            }
+          },
+          "compatibility": {
+            "type": "object",
+            "properties": {
+              "openapiDigest": {
+                "$ref": "#/$defs/digest"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "toolchain": {
+            "type": "array",
+            "allOf": [
+              {
+                "type": "array",
+                "contains": {
+                  "type": "object",
+                  "required": ["name", "version"],
+                  "properties": {
+                    "name": {
+                      "const": "buildkit"
+                    },
+                    "version": {
+                      "const": "0.27.1"
+                    }
+                  }
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "type": "array",
+                "contains": {
+                  "type": "object",
+                  "required": ["name", "version"],
+                  "properties": {
+                    "name": {
+                      "const": "docker-buildx"
+                    },
+                    "version": {
+                      "const": "0.34.1"
+                    }
+                  }
+                },
+                "minContains": 1,
+                "maxContains": 1
+              }
+            ]
+          },
+          "baseImages": {
+            "type": "array",
+            "minItems": 1
+          },
+          "inputs": {
+            "type": "array",
+            "contains": {
+              "type": "object",
+              "required": ["path", "sha256"],
+              "properties": {
+                "path": {
+                  "const": "toolchain/buildkit-image"
+                },
+                "sha256": {
+                  "const": "sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368"
+                }
+              }
+            },
+            "minContains": 1,
+            "maxContains": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "component": {
+            "const": "backend"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "compatibility": {
+            "type": "object",
+            "properties": {
+              "openapiDigest": {
+                "$ref": "#/$defs/digest"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "component": {
+            "const": "updater"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "inputs": {
+            "type": "array",
+            "contains": {
+              "type": "object",
+              "required": ["path", "sha256"],
+              "properties": {
+                "path": {
+                  "const": "contracts/producer-runtime-inputs-v1"
+                },
+                "sha256": {
+                  "const": "sha256:56adbccc4c83432ae02d9bf985ea1b9281d2836e96e389e84dae97bd8cacac52"
+                }
+              }
+            },
+            "minContains": 1,
+            "maxContains": 1
+          },
+          "compatibility": {
+            "type": "object",
+            "properties": {
+              "openapiDigest": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "applicationVersion": {
+      "const": "v0.1.0"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "tree"],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "tree": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "architecture"],
+      "properties": {
+        "os": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "architecture": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "baseImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference"],
+      "properties": {
+        "reference": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._/:+-]+@sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "versionRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "maximum"],
+      "properties": {
+        "minimum": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maximum": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "archiveCompatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifestSchemaVersion",
+        "sqliteSchemaVersion",
+        "manifestSchemaDigest",
+        "schemaSqlDigest",
+        "domainRulesVersion",
+        "castRulesVersion",
+        "compatibilityMatrixDigest"
+      ],
+      "properties": {
+        "manifestSchemaVersion": {
+          "$ref": "#/$defs/versionRange"
+        },
+        "sqliteSchemaVersion": {
+          "$ref": "#/$defs/versionRange"
+        },
+        "manifestSchemaDigest": {
+          "$ref": "#/$defs/digest"
+        },
+        "schemaSqlDigest": {
+          "$ref": "#/$defs/digest"
+        },
+        "domainRulesVersion": {
+          "const": "domain-raw-v1"
+        },
+        "castRulesVersion": {
+          "const": "cast-exact-v1"
+        },
+        "compatibilityMatrixDigest": {
+          "const": "sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac"
+        }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archive", "openapiDigest"],
+      "properties": {
+        "archive": {
+          "$ref": "#/$defs/archiveCompatibility"
+        },
+        "openapiDigest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "size", "sha256"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "size", "sha256"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "sbomEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "size",
+        "sha256",
+        "documentNamespace",
+        "packageCount"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "documentNamespace": {
+          "type": "string",
+          "pattern": "^https://spdx\\.bangumi-staff-stats\\.invalid/(backend|updater|frontend)/sha256-[0-9a-f]{64}$"
+        },
+        "packageCount": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,254 @@
+{
+  "schemaVersion": 1,
+  "caseKind": "preference-summary",
+  "sourceNumberNormalization": "finite-json-number-to-shortest-decimal-before-exact-arithmetic",
+  "cases": [
+    {
+      "id": "preference-zero-evidence-one-side-missing",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-preference-001"],
+      "coverage": ["preference-one-side-missing", "preference-zero-evidence", "six-preference-fields"],
+      "input": {
+        "scope": "personal",
+        "mode": "subject",
+        "subjects": [
+          {"subjectId": 10, "personalRating": null, "globalRating": 7},
+          {"subjectId": 20, "personalRating": 8, "globalRating": null},
+          {"subjectId": 30, "personalRating": 0, "globalRating": 8}
+        ]
+      },
+      "expected": {
+        "preference": {
+          "comparableCount": 0,
+          "comparableSeriesCount": 0,
+          "effectiveEvidence": 0,
+          "mean": null,
+          "evidenceWeight": {"numerator": 0, "denominator": 1},
+          "score": null,
+          "sourceSubjectIds": [],
+          "unitIds": []
+        }
+      }
+    },
+    {
+      "id": "preference-exact-neutral-subject",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-preference-001"],
+      "coverage": ["preference-exact-neutral-zero", "subject-preference-evidence", "six-preference-fields"],
+      "input": {
+        "scope": "personal",
+        "mode": "subject",
+        "subjects": [{"subjectId": 11, "personalRating": 7, "globalRating": 7}]
+      },
+      "expected": {
+        "preference": {
+          "comparableCount": 1,
+          "comparableSeriesCount": 1,
+          "effectiveEvidence": 1,
+          "mean": {"numerator": 0, "denominator": 1},
+          "evidenceWeight": {"numerator": 1, "denominator": 6},
+          "score": {"numerator": 0, "denominator": 1},
+          "sourceSubjectIds": [11],
+          "unitIds": [11]
+        }
+      }
+    },
+    {
+      "id": "preference-sparse-dense-equal-score",
+      "behaviorClass": "NEW_CAPABILITY",
+      "authorityRefs": ["statistics-golden-spec"],
+      "coverage": ["preference-sparse-dense-equal-score", "preference-evidence-distinguishes-equal-score", "reduced-rational-preference"],
+      "input": {
+        "variants": [
+          {
+            "variantId": "sparse-strong",
+            "mode": "subject",
+            "subjects": [{"subjectId": 21, "personalRating": 9, "globalRating": 6}]
+          },
+          {
+            "variantId": "dense-mild",
+            "mode": "subject",
+            "subjects": [
+              {"subjectId": 31, "personalRating": 7, "globalRating": 6},
+              {"subjectId": 32, "personalRating": 8, "globalRating": 7},
+              {"subjectId": 33, "personalRating": 6, "globalRating": 5},
+              {"subjectId": 34, "personalRating": 9, "globalRating": 8},
+              {"subjectId": 35, "personalRating": 5, "globalRating": 4}
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "variants": [
+          {
+            "variantId": "sparse-strong",
+            "comparableCount": 1,
+            "comparableSeriesCount": 1,
+            "effectiveEvidence": 1,
+            "mean": {"numerator": 3, "denominator": 1},
+            "evidenceWeight": {"numerator": 1, "denominator": 6},
+            "score": {"numerator": 1, "denominator": 2},
+            "sourceSubjectIds": [21],
+            "unitIds": [21]
+          },
+          {
+            "variantId": "dense-mild",
+            "comparableCount": 5,
+            "comparableSeriesCount": 5,
+            "effectiveEvidence": 5,
+            "mean": {"numerator": 1, "denominator": 1},
+            "evidenceWeight": {"numerator": 1, "denominator": 2},
+            "score": {"numerator": 1, "denominator": 2},
+            "sourceSubjectIds": [31, 32, 33, 34, 35],
+            "unitIds": [31, 32, 33, 34, 35]
+          }
+        ]
+      }
+    },
+    {
+      "id": "preference-subject-natural-series-count",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-preference-001", "dr-series-001"],
+      "coverage": ["subject-comparable-series-count", "subject-effective-evidence-count", "six-preference-fields"],
+      "input": {
+        "scope": "personal",
+        "mode": "subject",
+        "subjects": [
+          {"subjectId": 51, "seriesId": 50, "personalRating": 8, "globalRating": 7},
+          {"subjectId": 52, "seriesId": 50, "personalRating": 7, "globalRating": 6}
+        ]
+      },
+      "expected": {
+        "preference": {
+          "comparableCount": 2,
+          "comparableSeriesCount": 1,
+          "effectiveEvidence": 2,
+          "mean": {"numerator": 1, "denominator": 1},
+          "evidenceWeight": {"numerator": 2, "denominator": 7},
+          "score": {"numerator": 2, "denominator": 7},
+          "sourceSubjectIds": [51, 52],
+          "unitIds": [51, 52]
+        }
+      }
+    },
+    {
+      "id": "preference-series-inner-average-outer-equal",
+      "behaviorClass": "INTENTIONAL_DELTA",
+      "authorityRefs": ["product-statistics", "dr-preference-001", "dr-series-001"],
+      "coverage": ["series-preference-evidence", "series-inner-average", "series-outer-equal-weight", "six-preference-fields"],
+      "input": {
+        "scope": "personal",
+        "mode": "series",
+        "series": [
+          {
+            "seriesId": 10,
+            "subjects": [
+              {"subjectId": 10, "personalRating": 8, "globalRating": 6},
+              {"subjectId": 11, "personalRating": 9, "globalRating": 5}
+            ]
+          },
+          {
+            "seriesId": 20,
+            "subjects": [{"subjectId": 20, "personalRating": 7, "globalRating": 7}]
+          }
+        ]
+      },
+      "expected": {
+        "preference": {
+          "comparableCount": 3,
+          "comparableSeriesCount": 2,
+          "effectiveEvidence": 2,
+          "mean": {"numerator": 3, "denominator": 2},
+          "evidenceWeight": {"numerator": 2, "denominator": 7},
+          "score": {"numerator": 3, "denominator": 7},
+          "sourceSubjectIds": [10, 11, 20],
+          "unitIds": [10, 20],
+          "unitMeans": [
+            {"seriesId": 10, "mean": {"numerator": 3, "denominator": 1}},
+            {"seriesId": 20, "mean": {"numerator": 0, "denominator": 1}}
+          ]
+        }
+      }
+    },
+    {
+      "id": "preference-global-no-personal-access",
+      "behaviorClass": "NEW_CAPABILITY",
+      "authorityRefs": ["statistics-golden-spec"],
+      "coverage": ["global-no-personal-input", "global-no-personal-output", "global-no-personal-access"],
+      "input": {
+        "scope": "global",
+        "mode": "subject",
+        "subjects": [{"subjectId": 41, "globalRating": 8}]
+      },
+      "expected": {"preference": null, "personalAccessorCalls": 0}
+    },
+    {
+      "id": "summary-overlap-dedup-subject",
+      "behaviorClass": "NEW_CAPABILITY",
+      "authorityRefs": ["statistics-golden-spec"],
+      "coverage": ["summary-person-dedup", "summary-work-dedup", "summary-character-dedup", "identity-contribution-dedup", "stable-attribution-order"],
+      "input": {
+        "unitKind": "subject",
+        "people": [
+          {
+            "personId": 1,
+            "unitIds": [10, 20],
+            "contributions": [
+              {"positionKey": "staff:anime:2", "kind": "staff", "subjectId": 10, "personId": 1, "positionId": 2},
+              {"positionKey": "staff:anime:2", "kind": "staff", "subjectId": 10, "personId": 1, "positionId": 2},
+              {"positionKey": "cast:anime:main", "kind": "cast", "subjectId": 20, "personId": 1, "characterId": 500, "roleType": 1, "sortOrder": 0}
+            ]
+          },
+          {
+            "personId": 2,
+            "unitIds": [10, 30],
+            "contributions": [
+              {"positionKey": "staff:anime:2", "kind": "staff", "subjectId": 10, "personId": 2, "positionId": 2},
+              {"positionKey": "cast:anime:main", "kind": "cast", "subjectId": 10, "personId": 2, "characterId": 500, "roleType": 1, "sortOrder": 1},
+              {"positionKey": "cast:anime:main", "kind": "cast", "subjectId": 30, "personId": 2, "characterId": 501, "roleType": 1, "sortOrder": 0}
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "personCount": 2,
+        "unitKind": "subject",
+        "workCount": 3,
+        "seriesCount": null,
+        "characterCount": 2,
+        "unitIds": [10, 20, 30],
+        "characterIds": [500, 501],
+        "attributions": [
+          {"positionKey": "staff:anime:2", "kind": "staff", "subjectId": 10, "personId": 1, "positionId": 2},
+          {"positionKey": "cast:anime:main", "kind": "cast", "subjectId": 20, "personId": 1, "characterId": 500, "roleType": 1, "sortOrder": 0},
+          {"positionKey": "cast:anime:main", "kind": "cast", "subjectId": 10, "personId": 2, "characterId": 500, "roleType": 1, "sortOrder": 1},
+          {"positionKey": "staff:anime:2", "kind": "staff", "subjectId": 10, "personId": 2, "positionId": 2},
+          {"positionKey": "cast:anime:main", "kind": "cast", "subjectId": 30, "personId": 2, "characterId": 501, "roleType": 1, "sortOrder": 0}
+        ]
+      }
+    },
+    {
+      "id": "summary-overlap-dedup-series",
+      "behaviorClass": "NEW_CAPABILITY",
+      "authorityRefs": ["statistics-golden-spec"],
+      "coverage": ["summary-series-dedup", "matched-versus-complete-summary-evidence", "stable-attribution-order"],
+      "input": {
+        "unitKind": "series",
+        "people": [
+          {"personId": 1, "series": [{"seriesId": 10, "matchedMemberIds": [10], "completeMemberIds": [10, 11]}]},
+          {"personId": 2, "series": [{"seriesId": 10, "matchedMemberIds": [11], "completeMemberIds": [10, 11]}, {"seriesId": 20, "matchedMemberIds": [20], "completeMemberIds": [20, 21]}]}
+        ]
+      },
+      "expected": {
+        "personCount": 2,
+        "unitKind": "series",
+        "workCount": 3,
+        "seriesCount": 2,
+        "characterCount": null,
+        "unitIds": [10, 20],
+        "matchedSubjectIds": [10, 11, 20],
+        "completeSubjectIds": [10, 11, 20, 21]
+      }
+    }
+  ]
+}
