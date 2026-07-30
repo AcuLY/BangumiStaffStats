@@ -81,6 +81,55 @@ grep -Fqx \
 [[ "$(grep -Fc 'if ! cmp -s' "$repository_root/operations/bin/build-bundle.sh")" -eq 1 ]] ||
   fail "operations bundle must contain exactly one product-prefix comparison"
 
+nginx_location_block() {
+  local marker=$1
+  awk -v marker="$marker" '
+    {
+      line = $0
+      sub(/^[[:space:]]+/, "", line)
+    }
+    line == marker {
+      inside = 1
+      next
+    }
+    inside && line == "}" {
+      exit
+    }
+    inside {
+      print
+    }
+  ' "$repository_root/operations/nginx/bgmss.conf"
+}
+
+for marker in \
+  'location = /v2/ {' \
+  'location = /v2/index.html {' \
+  'location @bgmss_v2_spa {'; do
+  block=$(nginx_location_block "$marker")
+  [[ -n "$block" ]] ||
+    fail "Nginx template is missing the SPA entry location: $marker"
+  for directive in \
+    'etag off;' \
+    'if_modified_since off;' \
+    'add_header Cache-Control "no-store" always;' \
+    'add_header Referrer-Policy "strict-origin-when-cross-origin" always;' \
+    'add_header X-Content-Type-Options "nosniff" always;' \
+    'try_files /index.html =404;'; do
+    [[ "$(grep -Fxc "      $directive" <<<"$block")" -eq 1 ]] ||
+      fail "SPA entry location lacks one exact release-freshness directive: $marker"
+  done
+done
+
+static_prefix=$(nginx_location_block 'location ^~ /v2/ {')
+[[ -n "$static_prefix" &&
+  "$(grep -Fxc '      try_files $uri $uri/ @bgmss_v2_spa;' <<<"$static_prefix")" -eq 1 ]] ||
+  fail "Nginx static prefix no longer preserves direct asset lookup"
+if grep -Eq \
+  'etag off|if_modified_since off|add_header Cache-Control "no-store"' \
+  <<<"$static_prefix"; then
+  fail "SPA entry cache policy leaked onto the hashed static prefix"
+fi
+
 root="$test_root/root"
 mkdir -p "$root/compose" "$root/state"
 cp -- "$repository_root/operations/compose.yaml" "$root/compose/compose.yaml"

@@ -39,7 +39,7 @@
   green Development Actions for exact commit
   `bdb728a5d4f546fd60517cdaad4e80b955a540d7`; record the authoritative run
   separately from the pending deployed-browser check.
-- [ ] 2.2 Serve the built `frontend/dist` and verify the footer in Light and
+- [x] 2.2 Serve the deployed frontend and verify the footer in Light and
   Dark at representative desktop and 360px mobile widths: exact links/order,
   wrapping, focus, hover where observable, no horizontal overflow, no console
   errors, and no failed resources.

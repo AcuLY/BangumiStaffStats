@@ -161,8 +161,13 @@ The Nginx file is a loopback-only complete test configuration for the reviewed
 path split, not the host's complete public TLS configuration. It uses
 `@@BGMSS_LEGACY_FRONTEND_ROOT@@` for the root application,
 `@@BGMSS_FRONTEND_ROOT@@` for `/v2/**`, and maps `/v2/api/v1/**` to the
-backend's unchanged `/api/v1/**` handlers. Validate templates before any
-separately approved install:
+backend's unchanged `/api/v1/**` handlers. Exact `/v2/`,
+`/v2/index.html`, and SPA-fallback responses disable mtime/size validators and
+use `Cache-Control: no-store`; this is required because reproducible frontend
+artifacts can have equal epoch mtimes and byte lengths across different
+releases. The general `/v2/` prefix keeps direct lookup for content-hashed
+assets and does not inherit that entry-document policy. Validate templates
+before any separately approved install:
 
 ```sh
 nginx -t -p /tmp/bgmss-nginx-prefix/ -c /tmp/bgmss-nginx-prefix/nginx.conf
