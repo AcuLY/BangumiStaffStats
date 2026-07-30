@@ -181,7 +181,7 @@ fi
 
 collection_version="$("$go_command" list -m -f '{{.Version}}' github.com/AcuLY/bangumi-collection-go)"
 time_version="$("$go_command" list -m -f '{{.Version}}' golang.org/x/time)"
-if [[ "$collection_version" != "v0.1.0" || "$time_version" != "v0.15.0" ]]; then
+if [[ "$collection_version" != "v0.1.1" || "$time_version" != "v0.15.0" ]]; then
   echo "unexpected public collection dependency versions: collection=$collection_version time=$time_version" >&2
   exit 1
 fi

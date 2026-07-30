@@ -7,7 +7,7 @@ toolchain go1.26.5
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
 require (
-	github.com/AcuLY/bangumi-collection-go v0.1.0
+	github.com/AcuLY/bangumi-collection-go v0.1.1
 	github.com/gowebpki/jcs v1.0.1
 	github.com/oapi-codegen/runtime v1.1.2
 	golang.org/x/sync v0.22.0

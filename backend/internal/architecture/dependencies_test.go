@@ -179,7 +179,7 @@ func TestPinnedModuleDeclaration(t *testing.T) {
 		}
 	}
 	wantDirect := map[string]string{
-		"github.com/AcuLY/bangumi-collection-go": "v0.1.0",
+		"github.com/AcuLY/bangumi-collection-go": "v0.1.1",
 		"github.com/oapi-codegen/runtime":        "v1.1.2",
 		"github.com/gowebpki/jcs":                "v1.0.1",
 		"golang.org/x/sync":                      "v0.22.0",

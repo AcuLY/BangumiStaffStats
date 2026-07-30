@@ -1,5 +1,5 @@
-github.com/AcuLY/bangumi-collection-go v0.1.0 h1:lceZZNDcemg2fI4Nti/V5dX57s8SnXjoKiDGJvMLM0E=
-github.com/AcuLY/bangumi-collection-go v0.1.0/go.mod h1:lpt3I6lu6rs/sMBfPNn00ZGTxr1hOZxJaLzCqKGxNl4=
+github.com/AcuLY/bangumi-collection-go v0.1.1 h1:uQMengHHax8fqxzk7vtEq5944prxoMPalgApD+6dv0w=
+github.com/AcuLY/bangumi-collection-go v0.1.1/go.mod h1:lpt3I6lu6rs/sMBfPNn00ZGTxr1hOZxJaLzCqKGxNl4=
 github.com/RaveNoX/go-jsoncommentstrip v1.0.0/go.mod h1:78ihd09MekBnJnxpICcwzCMzGrKSKYe4AqU6PDYYpjk=
 github.com/apapsch/go-jsonmerge/v2 v2.0.0 h1:axGnT1gRIfimI7gJifB699GoE/oq+F2MU7Dml6nw9rQ=
 github.com/apapsch/go-jsonmerge/v2 v2.0.0/go.mod h1:lvDnEdqiQrp0O42VQGgmlKpxL1AP2+08jFMw88y4klk=

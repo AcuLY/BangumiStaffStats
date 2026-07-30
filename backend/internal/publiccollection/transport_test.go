@@ -176,3 +176,105 @@ func TestAnonymousSourceUsesLoopbackWithoutCredentials(t *testing.T) {
 		t.Fatal("loopback server did not observe a request")
 	}
 }
+
+func TestAnonymousSourceNormalizesNullCommentIntoCompleteSnapshot(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(writer, `{
+			"data": [{
+				"subject_id": 84,
+				"subject_type": 2,
+				"type": 2,
+				"rate": 8,
+				"comment": null,
+				"tags": ["synthetic"],
+				"updated_at": "2026-07-30T04:05:06Z",
+				"vol_status": 3,
+				"ep_status": 12,
+				"private": false,
+				"subject": {
+					"id": 84,
+					"type": 2,
+					"name": "Synthetic fixture",
+					"name_cn": "合成测试条目"
+				}
+			}],
+			"total": 1,
+			"limit": 50,
+			"offset": 0
+		}`)
+	}))
+	defer server.Close()
+
+	source := newAnonymousSource(
+		collection.WithEndpoint(server.URL),
+		collection.WithHTTPClient(server.Client()),
+		collection.WithMaxRetries(0),
+		collection.WithRateLimit(1_000, 100),
+	)
+	snapshot, err := source.Fetch(
+		context.Background(),
+		"__synthetic_null_comment_fixture__",
+		"anime",
+		[]string{"completed"},
+	)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+	if len(snapshot.Items) != 1 {
+		t.Fatalf("snapshot item count = %d, want 1", len(snapshot.Items))
+	}
+
+	item := snapshot.Items[0]
+	actualSnapshot := struct {
+		subjectID       int64
+		subjectType     string
+		status          string
+		rate            int
+		comment         string
+		tags            []string
+		volumeProgress  int
+		episodeProgress int
+		private         bool
+		updatedAt       time.Time
+	}{
+		subjectID:       item.SubjectID,
+		subjectType:     item.SubjectType,
+		status:          item.Status,
+		rate:            item.Rate,
+		comment:         item.Comment,
+		tags:            item.Tags,
+		volumeProgress:  item.VolumeProgress,
+		episodeProgress: item.EpisodeProgress,
+		private:         item.Private,
+		updatedAt:       item.UpdatedAt,
+	}
+	wantSnapshot := struct {
+		subjectID       int64
+		subjectType     string
+		status          string
+		rate            int
+		comment         string
+		tags            []string
+		volumeProgress  int
+		episodeProgress int
+		private         bool
+		updatedAt       time.Time
+	}{
+		subjectID:       84,
+		subjectType:     "anime",
+		status:          "completed",
+		rate:            8,
+		comment:         "",
+		tags:            []string{"synthetic"},
+		volumeProgress:  3,
+		episodeProgress: 12,
+		private:         false,
+		updatedAt:       time.Date(2026, time.July, 30, 4, 5, 6, 0, time.UTC),
+	}
+	if !reflect.DeepEqual(actualSnapshot, wantSnapshot) {
+		t.Fatalf("snapshot = %#v, want %#v", actualSnapshot, wantSnapshot)
+	}
+}
