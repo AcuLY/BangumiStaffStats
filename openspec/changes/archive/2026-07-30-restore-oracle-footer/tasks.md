@@ -1,6 +1,6 @@
 | Boundary | Declaration |
 |---|---|
-| Status | Implemented and accepted by Development Actions; deployed browser acceptance remains pending. |
+| Status | Implemented, committed, pushed, released, deployed, and accepted by Development Actions plus desktop/mobile Light/Dark browser QA. |
 | Owner | Main agent under the approved small-change exception for source/style/test, review, acceptance, and lifecycle markers. |
 | Writable paths | `frontend/src/app/App.vue`; footer-only declarations in `frontend/src/shared/styles/base.css`; one focused test below `frontend/tests/app/`; this file's task markers. |
 | Read-only protected inputs | Product/design authorities, immutable oracle, every non-footer source/test, manifests, lockfiles, generated files, `.impeccable/design.json`, and unrelated worktree content. |

@@ -48,6 +48,27 @@ or become service environment entries.
 - **THEN** API `/livez` and `/readyz`, API `/metrics`, Prometheus readiness,
   and the API scrape SHALL succeed
 
+#### Scenario: Direct runtime remains closed
+
+- **WHEN** an admitted release is rendered
+- **THEN** API, updater, and Prometheus SHALL remain only on the backend
+  network and no service SHALL receive a dedicated or generic proxy input
+
+#### Scenario: Proxy runtime is projected
+
+- **WHEN** host-transparent rule egress is active for an admitted release
+- **THEN** destinations MAY be routed by the host's DIRECT/Proxy policy
+- **AND** Compose SHALL project no service proxy input, proxy network, or
+  proxy overlay
+
+#### Scenario: Calling shell conflicts with release authority
+
+- **WHEN** the calling shell exports proxy transport, URL, network, or generic
+  proxy values
+- **THEN** the rendered project SHALL equal the validated release topology
+- **AND** no calling-shell proxy value SHALL select or alter project topology
+  or become a service environment entry
+
 #### Scenario: Project proxy projection is absent
 
 - **WHEN** the admitted release is rendered under any calling-shell proxy
@@ -102,6 +123,20 @@ proxy, or otherwise noncanonical legacy state SHALL fail before the lock.
   and the candidate API becomes ready
 - **THEN** the candidate env and frontend link SHALL become current while the
   previous values remain available for rollback
+
+#### Scenario: Proxy mode changes explicitly
+
+- **WHEN** deploy is asked to select either a direct or proxy transport mode
+- **THEN** it SHALL reject the obsolete argument before the state lock,
+  Docker call, release creation, or state mutation
+
+#### Scenario: Existing transport mode is preserved
+
+- **WHEN** deploy inspects a proxy-free release or the exact closed retired
+  proxy release admitted for one-time migration
+- **THEN** it SHALL preserve all non-proxy release authority
+- **AND** no transport mode, URL, or network SHALL be persisted into the
+  candidate or retained after successful normalization
 
 #### Scenario: Obsolete proxy arguments are supplied
 
@@ -158,6 +193,22 @@ publication transaction SHALL remain unchanged.
 - **AND** all three services SHALL retain only their existing project network
   and resource/security settings
 
+#### Scenario: Direct updater projection uses disk-backed SQLite temporary storage
+
+- **WHEN** Compose renders an admitted updater release without host proxy
+  routing
+- **THEN** updater SHALL receive the exact fixed `SQLITE_TMPDIR`, API and
+  Prometheus SHALL not receive it, and all three services SHALL retain only
+  their project network and resource/security settings
+
+#### Scenario: Proxy updater projection uses the same disk-backed SQLite temporary storage
+
+- **WHEN** Compose renders an admitted updater release while host-transparent
+  rule egress is active
+- **THEN** updater SHALL receive the exact fixed `SQLITE_TMPDIR`
+- **AND** API, updater, and Prometheus SHALL receive no application proxy
+  input or proxy-network attachment
+
 #### Scenario: SQLite temporary storage authority widens
 
 - **WHEN** the value differs, resolves outside the Archive mount, appears on
@@ -165,6 +216,104 @@ publication transaction SHALL remain unchanged.
   network boundary, or becomes operator-controlled release state
 - **THEN** operations verification and deployment SHALL fail before another
   production updater invocation
+
+### Requirement: Live traffic SHALL require a real Archive
+
+The public V2 runtime SHALL use a contract-valid, non-fixture Archive. API
+readiness, catalog, metrics, and the Prometheus scrape SHALL agree on its
+current data version. Update failure SHALL retain or restore the last accepted
+pointer rather than activate partial or fixture data.
+
+Updater and API acquisition traffic SHALL use the host-transparent egress
+authority. The project SHALL retain only its base Compose topology and SHALL
+receive no dedicated or generic proxy variable, proxy overlay, or proxy
+network. The intentionally stopped legacy loader SHALL remain stopped and
+SHALL NOT be treated as a rollback dependency.
+
+#### Scenario: Real Archive is active
+
+- **WHEN** public V2 traffic is enabled
+- **THEN** the current Archive SHALL be contract-valid and non-fixture
+- **AND** readiness, catalog, metrics, and Prometheus SHALL report the same
+  data version
+
+#### Scenario: Update fails or remains invalid
+
+- **WHEN** updater execution fails, publishes no valid terminal result, or
+  runtime observers disagree
+- **THEN** the last accepted Archive pointer SHALL remain or be restored
+- **AND** public routing and the stopped legacy loader SHALL remain unchanged
+
+#### Scenario: Host egress remains external to the project
+
+- **WHEN** updater or API acquisition needs DIRECT or Proxy egress
+- **THEN** the host gateway SHALL classify the destination transparently
+- **AND** no application proxy input, overlay, or proxy-network attachment
+  SHALL appear in the project
+
+#### Scenario: Legacy background updater remains retired
+
+- **WHEN** the new updater schedule and current Archive are healthy
+- **THEN** the old loader SHALL remain present but stopped unless a separately
+  approved retirement change removes it
+
+#### Scenario: Loader stop changes protected state
+
+- **WHEN** the loader identity/config/policy differs or its stopped state harms
+  the old serving path
+- **THEN** operations SHALL stop before another update, integration, or
+  routing mutation and SHALL NOT replace or repair the loader
+
+### Requirement: Production host integration SHALL remain minimal
+
+Activation SHALL begin only after the intentionally stopped legacy loader and
+healthy old serving path have been verified. It SHALL install and enable the
+reviewed weekly updater service/timer, keep the timer active and waiting
+between one-shot service runs, install the Nginx logrotate file, retain
+loopback-only Prometheus with the reviewed seven-day/512 MiB policy, leave the
+existing global journal configuration unchanged, and verify API, metrics,
+scrape, Compose journald driver/tag/logs, systemd, logrotate, Nginx, capacity,
+and legacy coexistence after cutover. Beyond the already-authorized exact
+loader stop, it SHALL NOT further stop, disable, retire, or mutate any legacy
+object, delete unrelated logs, or repair unrelated pre-existing host failures.
+
+#### Scenario: Minimal production integration is healthy
+
+- **WHEN** the timer is enabled and active with a future trigger, templates
+  validate, runtime checks pass, and legacy identities and declared probes
+  remain healthy
+- **THEN** production activation MAY be reported complete with the legacy
+  API/MySQL/Redis serving path as rollback and the loader explicitly excluded
+  from rollback
+
+#### Scenario: Integration harms the legacy stack
+
+- **WHEN** a protected legacy identity, container, route, listener, or
+  declared probe changes or fails during activation
+- **THEN** traffic SHALL roll back and no legacy repair or retirement action
+  SHALL be attempted by this change
+
+## REMOVED Requirements
+
+### Requirement: Production image egress repair SHALL be reversible
+
+**Reason**: The per-service proxy overlay and its repair transaction were
+superseded by host-transparent destination routing.
+
+**Migration**: The accepted host migration removed the overlay and established
+a proxy-free base Compose release before candidate deployment.
+
+### Requirement: Production activation SHALL pass exact admission gates
+
+**Reason**: This one-time activation snapshot named obsolete boot, artifact,
+fixture, proxy-network, and pre-cutover identities that are no longer valid
+steady-state requirements.
+
+**Migration**: Durable admission, rollback, Archive, Nginx, observability, and
+host-egress requirements remain in this capability; historical activation
+evidence remains in its original archived change.
+
+## ADDED Requirements
 
 ### Requirement: Host egress SHALL be transparently rule-routed
 

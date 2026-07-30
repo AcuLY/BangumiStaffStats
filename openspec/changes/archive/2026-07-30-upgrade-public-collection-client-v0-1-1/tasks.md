@@ -1,6 +1,6 @@
 | Boundary | Declaration |
 |---|---|
-| Status | Implemented, committed, pushed, and accepted by Development Actions; bundle, deployment, and real-query acceptance remain separately tracked. |
+| Status | Implemented, committed, pushed, admitted in the exact deployment bundle, deployed, and accepted by Development Actions plus the bounded real-user query and image checks. |
 | Owner | Main agent: spec/audit/Git/bundle/deployment coordination/acceptance. Backend apply subagent: exact five-path implementation and these task markers. |
 | Writable paths | Apply: `backend/go.mod`, `backend/go.sum`, `backend/scripts/check.sh`, `backend/internal/architecture/dependencies_test.go`, `backend/internal/publiccollection/transport_test.go`, checkbox markers here. Lifecycle: this change/archive and synchronized `openspec/specs/backend-public-collection-source/spec.md`. |
 | Read-only protected inputs | All other repository paths, sibling active changes, authorities/oracle, external library after release, live response bodies, host config/data/secrets. |
@@ -44,21 +44,21 @@
 - [x] 3.1 Review the exact Backend diff and dependency graph for zero P0/P1,
   repeat proportionate source tests, strict change/all validation, and ensure
   the only other dirty paths are owned by accepted sibling changes.
-- [ ] 3.2 Commit/push the accepted product and operations phases in reviewable
+- [x] 3.2 Commit/push the accepted product and operations phases in reviewable
   order, obtain green Development Actions, dispatch the operations preview,
   and verify its `linux/amd64` source revision equals the green commit.
 
 ## 4. Production acceptance through operations
 
-- [ ] 4.1 After `adopt-host-rule-egress` migration prerequisites pass, deploy
+- [x] 4.1 After `adopt-host-rule-egress` migration prerequisites pass, deploy
   the exact admitted bundle through `/srv/bgmss-v2` and verify image revision,
   public root `/`, `/v2/`, API live/ready/metrics, Prometheus, Archive identity,
   and bounded logs.
-- [ ] 4.2 Rerun the same `lucay126` completed+in-progress anime personal
+- [x] 4.2 Rerun the same `lucay126` completed+in-progress anime personal
   ranking with explicit refresh; require HTTP 200, non-empty summary/items,
   current data version, and one proxied person image success while discarding
   the personal response body after the bounded summary.
-- [ ] 4.3 Complete rollback/restart/non-interference checks, sync/archive this
+- [x] 4.3 Complete rollback/restart/non-interference checks, sync/archive this
   change with siblings, push final green state, merge to `master`, and report
   investigated/specified/implemented/verified/committed/pushed/released/
   deployed/live-query states separately.

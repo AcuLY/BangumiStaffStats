@@ -27,7 +27,8 @@
 
 ## 4. Lifecycle
 
-- [ ] 4.1 Obtain green Actions for the implementation commit.
-- [ ] 4.2 Sync the delta, archive the completed change, merge the final
+- [x] 4.1 Obtain green Actions for implementation commit `b562b9c0` in run
+  `30519491185`.
+- [x] 4.2 Sync the delta, archive the completed change, merge the final
   lifecycle state to `master`, and align the deployed release if product bytes
   changed.

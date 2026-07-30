@@ -1,6 +1,6 @@
 | Boundary | Declaration |
 |---|---|
-| Status | Implemented and independently source-audited; commit, Actions bundle, consumer migration, deployment, and live acceptance remain pending. |
+| Status | Implemented, source-audited, committed, pushed, accepted by green Actions and an exact `linux/amd64` bundle, migrated, deployed, rollback-tested, and live-accepted. |
 | Owner | Operations apply agent for the repository block; main agent for spec, audit, Git lifecycle, host migration, deployment, and acceptance. |
 | Repository writable paths | `operations/README.md`; `operations/env.example`; `operations/bin/build-bundle.sh`; `operations/bin/deploy`; `operations/bin/validate-isolated`; `operations/lib/common.sh`; rename/rewrite of `operations/test/updater-proxy.sh`; deletion of `operations/compose.updater-proxy.yaml`; this file's task markers. |
 | Live writable paths | New `/root/myserver-proxy-global/`; one named rollback unit; exact backed-up proxy consumer definitions; `/srv/bgmss-v2` only through admitted operations. |
@@ -43,10 +43,10 @@
 - [x] 2.1 Audit the actual operations diff for zero P0/P1 findings, especially
   release-env backward compatibility, rollback bytes, ambient environment,
   base-only Compose, test preservation, and deletion complement.
-- [ ] 2.2 Commit the footer change as one phase and the operations correction
+- [x] 2.2 Commit the footer change as one phase and the operations correction
   as a second phase; push the topic branch and obtain green applicable
   Development Actions without running a local build.
-- [ ] 2.3 Verify the accepted `linux/amd64` bundle identifies the exact green
+- [x] 2.3 Verify the accepted `linux/amd64` bundle identifies the exact green
   commit before any Bangumi production release write.
 
 ## 3. Host-global proxy migration
@@ -67,27 +67,27 @@
   outcomes from the host and temporary clients on `bgmss-v2_backend`,
   `bgmss_default`, and `bgmtl_default`; confirm outcomes in Mihomo and confirm
   no public proxy/controller/DNS listener.
-- [ ] 3.5 Remove explicit proxy inputs one service at a time, recreate only
+- [x] 3.5 Remove explicit proxy inputs one service at a time, recreate only
   its service, deploy the accepted Bangumi bundle through the simplified
   transaction, and keep the old loader stopped. Stop the old bridge proxy only
   after inspection proves it has no consumers.
-- [ ] 3.6 Verify root legacy and `/v2/`, API live/ready/metrics, Prometheus,
+- [x] 3.6 Verify root legacy and `/v2/`, API live/ready/metrics, Prometheus,
   journald, Archive identity, updater upstream reachability, one real public
   user ranking request including collection and images, and all unrelated
   service health.
-- [ ] 3.7 Restart the new proxy container and verify transparent routing and
+- [x] 3.7 Restart the new proxy container and verify transparent routing and
   service recovery. Test fail-open stop/cleanup and start recovery without
   restarting Docker or the host. Remove only the unused old network and
   temporary migration exception after proof, then cancel the rollback unit.
 
 ## 4. Final acceptance and lifecycle
 
-- [ ] 4.1 Run strict validation for both active changes and the repository,
+- [x] 4.1 Run strict validation for both active changes and the repository,
   inspect final Git/live state, and confirm zero P0/P1 findings or unowned
   residue.
-- [ ] 4.2 Sync and archive completed changes, make the lifecycle commit, push,
+- [x] 4.2 Sync and archive completed changes, make the lifecycle commit, push,
   obtain final green Actions, merge to `master`, and verify deployed revision
   versus merged revision explicitly.
-- [ ] 4.3 Report investigated, specified, implemented, verified, committed,
+- [x] 4.3 Report investigated, specified, implemented, verified, committed,
   pushed, merged, released, deployed, rollback-ready, and live-query states
   separately; include any intentionally retained dormant fallback or backup.

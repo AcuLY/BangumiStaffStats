@@ -6,8 +6,9 @@ Define regression-tested outward fidelity of the formal header, query editor, ra
 ### Requirement: Existing formal surfaces SHALL match the approved oracle
 
 The formal SPA SHALL reproduce the outward appearance and interaction of the
-approved oracle commit for the header, query editor, ranking results, and
-person inspector at every supported breakpoint and in Light and Dark themes.
+approved oracle commit for the header, query editor, ranking results, person
+inspector, and site footer at every supported breakpoint and in Light and Dark
+themes.
 
 #### Scenario: Architectural rewrite is visually compatible
 
@@ -30,6 +31,18 @@ person inspector at every supported breakpoint and in Light and Dark themes.
 - **THEN** the visible control SHALL retain oracle geometry
 - **AND** an invisible hit area SHALL provide the required target size without
   overlap or changed layout
+
+#### Scenario: Site footer preserves the oracle contract
+
+- **WHEN** the SPA renders any supported route
+- **THEN** its site-information navigation SHALL expose “问题反馈” followed by
+  the oracle separator and “粤ICP备2024321317号”
+- **AND** the links SHALL use the oracle destinations and safe external-tab
+  behavior
+- **AND** the navigation SHALL remain centered, wrapping, keyboard-visible,
+  and touch-target-safe in Light and Dark themes at desktop and mobile widths
+- **AND** implementation terminology about query scope or Archive version
+  SHALL NOT replace or accompany that oracle footer content
 
 ### Requirement: Responsive overlays SHALL preserve oracle behavior
 
