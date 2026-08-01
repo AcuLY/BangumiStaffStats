@@ -64,7 +64,17 @@ if [[ "$("$go_command" env GOVERSION)" != "go1.26.5" ]]; then
 fi
 selected_go_root="$("$go_command" env GOROOT)"
 pinned_gofmt="$selected_go_root/bin/gofmt"
-if [[ ! -x "$pinned_gofmt" || "$selected_go_root" != "$cache_root/go-mod/"*go1.26.5* ]]; then
+selected_go_root_comparable="${selected_go_root//\\//}"
+cache_root_comparable="${cache_root//\\//}"
+if command -v cygpath >/dev/null 2>&1; then
+  selected_go_root_comparable="$(cygpath -m "$selected_go_root")"
+  cache_root_comparable="$(cygpath -m "$cache_root")"
+  pinned_gofmt="$(cygpath -u "$selected_go_root")/bin/gofmt"
+fi
+if [[
+  ! -x "$pinned_gofmt" ||
+  "$selected_go_root_comparable" != "$cache_root_comparable/go-mod/"*go1.26.5*
+]]; then
   echo "Go 1.26.5 GOROOT is not contained in the backend module cache: $selected_go_root" >&2
   exit 1
 fi
@@ -166,7 +176,9 @@ if [[ ! -f "$target_file" ]]; then
   echo "generated query model is missing: ${target_file#"$backend_root/"}" >&2
   exit 1
 fi
-if ! cmp -s "$generated_file" "$target_file"; then
+if ! cmp -s \
+  <(tr -d '\r' < "$generated_file") \
+  <(tr -d '\r' < "$target_file"); then
   echo "generated query model is stale: ${target_file#"$backend_root/"}" >&2
   exit 1
 fi
