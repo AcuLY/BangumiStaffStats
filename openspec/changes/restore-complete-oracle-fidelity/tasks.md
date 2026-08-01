@@ -41,15 +41,15 @@
 - [x] 3.3 GREEN: added the private JSON-tagged `candidatePositionCount` projection type and explicit domain→wire mapping; no frontend, generated file, schema, or domain transport-tag change.
 - [x] 3.4 Focused handler, full candidates, and full httpapi packages pass; assertions cover global/personal envelopes, exact canonical keys, no PascalCase leak, and existing collection behavior.
 - [x] 3.5 Candidate wire contract tests and affected packages pass; gofmt and `git diff --check` are clean. The repository script was executed but remains blocked by the recorded Windows GOROOT lexical comparison; broad wire execution also exposes a pre-existing catalog generated-wire digest mismatch, both retained for Task 11/final gate rather than hidden.
-- [ ] 3.6 Stage only the candidate repair/test/task paths, inspect staged diff/check, and create a local phase commit. Do not push.
+- [x] 3.6 Staged only candidate projection/test/task paths, inspected staged stat/check, and committed `97587b8` (`fix(backend): serialize candidate position counts canonically`). Not pushed.
 
 ## 4. Person-Detail Raw-Wire Repair — owner: primary agent; writable: `backend/internal/persondetail/{types.go,service.go,projection.go,*_test.go}`, `backend/internal/httpapi/person_detail_handler_test.go`, task markers
 
-- [ ] 4.1 Preflight: record branch/HEAD/allowed dirty paths, confirm no overlap in person-detail owners, and re-run strict change status; stop on mismatch.
-- [ ] 4.2 RED: add a focused service/projection/handler regression proving a fresh personal response currently serializes `meta.collection.warningCodes` as `null`; run the exact test and record the expected failure.
-- [ ] 4.3 GREEN: allocate/copy the empty warning slice at the owning service/projection boundary so fresh responses emit `[]`, while preserving stale warning values and global omission.
-- [ ] 4.4 Verify global/personal envelope separation, fresh/stale warning values, deterministic marshaling, and existing person-detail service/handler suites with affected-package `go test`.
-- [ ] 4.5 Run the repository backend gate and person-detail contract artifact/wire checks; run `git diff --check` and inspect the exact owned diff.
+- [x] 4.1 Preflight recorded branch/HEAD `97587b8`, a clean tree, no person-detail overlap, and strict-valid change status.
+- [x] 4.2 RED: extended the personal service regression to require an allocated empty warning slice and `"warningCodes":[]`; the focused test failed because the fresh result retained nil.
+- [x] 4.3 GREEN: changed the owning service projection copy from a nil base to `append([]string{}, ...)`, preserving stale values and global omission while guaranteeing `[]` for fresh personal responses.
+- [x] 4.4 Focused RED/GREEN, full persondetail, full httpapi, gofmt, and diff checks pass; the test directly checks service ownership and marshaled wire output.
+- [x] 4.5 Person-detail affected packages pass. The already recorded Windows full-script and unrelated generated catalog digest blockers remain deferred to Task 11/final gate; no contract/generated source was changed.
 - [ ] 4.6 Stage only the person-detail repair/test/task paths, inspect staged diff/check, and create a local phase commit. Do not push.
 
 ## 5. Raw Flow and Contract Gate — owner: primary agent; writable: ignored audit root and task markers

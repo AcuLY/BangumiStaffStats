@@ -276,7 +276,7 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 		projected.Collection = &CollectionFreshness{
 			FetchedAt:    access.FetchedAt,
 			Stale:        access.Stale,
-			WarningCodes: append([]string(nil), access.WarningCodes...),
+			WarningCodes: append([]string{}, access.WarningCodes...),
 		}
 	}
 	return projected, nil
