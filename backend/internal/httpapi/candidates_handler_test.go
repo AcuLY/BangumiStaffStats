@@ -302,6 +302,32 @@ func TestCandidatesSuccessCommitsScopeSpecificPrivateEnvelope(t *testing.T) {
 					response.Body,
 				)
 			}
+			var wireShape struct {
+				Data struct {
+					Summary struct {
+						PositionCounts []map[string]json.RawMessage `json:"positionCounts"`
+					} `json:"summary"`
+				} `json:"data"`
+			}
+			if err := json.Unmarshal(response.Body.Bytes(), &wireShape); err != nil {
+				t.Fatal(err)
+			}
+			if len(wireShape.Data.Summary.PositionCounts) != 1 {
+				t.Fatalf("position counts = %#v", wireShape.Data.Summary.PositionCounts)
+			}
+			positionCount := wireShape.Data.Summary.PositionCounts[0]
+			if _, ok := positionCount["positionKey"]; !ok {
+				t.Fatalf("position count misses positionKey: %s", response.Body)
+			}
+			if _, ok := positionCount["count"]; !ok {
+				t.Fatalf("position count misses count: %s", response.Body)
+			}
+			if _, ok := positionCount["PositionKey"]; ok {
+				t.Fatalf("position count leaks PositionKey: %s", response.Body)
+			}
+			if _, ok := positionCount["Count"]; ok {
+				t.Fatalf("position count leaks Count: %s", response.Body)
+			}
 			hasCollection := strings.Contains(response.Body.String(), `"collection":`)
 			if hasCollection != testCase.wantCollection {
 				t.Fatalf(

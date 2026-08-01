@@ -8,7 +8,12 @@ import (
 )
 
 type candidatesSummary struct {
-	PositionCounts []PositionCount `json:"positionCounts"`
+	PositionCounts []candidatePositionCount `json:"positionCounts"`
+}
+
+type candidatePositionCount struct {
+	PositionKey string `json:"positionKey"`
+	Count       int    `json:"count"`
 }
 
 type candidatesData struct {
@@ -108,11 +113,24 @@ func NewProjection(
 func (projection Projection) MarshalEnvelope(requestID string) ([]byte, error) {
 	data := candidatesData{
 		Summary: candidatesSummary{
-			PositionCounts: append([]PositionCount{}, projection.page.PositionCounts...),
+			PositionCounts: make(
+				[]candidatePositionCount,
+				0,
+				len(projection.page.PositionCounts),
+			),
 		},
 		PositionKey: projection.page.PositionKey,
 		WorkUnit:    string(projection.page.WorkUnit),
 		Items:       make([]candidateItem, 0, len(projection.page.Items)),
+	}
+	for _, positionCount := range projection.page.PositionCounts {
+		data.Summary.PositionCounts = append(
+			data.Summary.PositionCounts,
+			candidatePositionCount{
+				PositionKey: positionCount.PositionKey,
+				Count:       positionCount.Count,
+			},
+		)
 	}
 	for _, item := range projection.page.Items {
 		data.Items = append(data.Items, candidateItem{

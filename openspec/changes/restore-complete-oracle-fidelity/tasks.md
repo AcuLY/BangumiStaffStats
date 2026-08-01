@@ -22,25 +22,25 @@
 - [x] 1.1 Preflight: ran `git status --short --branch`, `git rev-parse HEAD`, `git worktree list --porcelain`, and `npx --yes @fission-ai/openspec@1.6.0 status --change restore-complete-oracle-fidelity --json`; confirmed linked worktree branch `codex/post-production-frontend-fixes` at planning parent `4bfbc19` and removed only tool-created untracked prior-change metadata before proceeding.
 - [x] 1.2 Reviewed proposal, delta spec, design, and tasks against `AGENTS.md`, PRODUCT/DESIGN authority order, immutable oracle hash, accepted capability names, exact writable paths, deletion complement, and user-approved “external parity / internal rewrite” boundary; zero unresolved P0/P1 findings remain.
 - [x] 1.3 Ran `npx --yes @fission-ai/openspec@1.6.0 validate restore-complete-oracle-fidelity --strict`, `npx --yes @fission-ai/openspec@1.6.0 validate --specs --strict`, and `git diff --check`; change validation and all 53 accepted specs passed.
-- [ ] 1.4 Stage exact planning paths only, inspect `git diff --cached --stat` and `git diff --cached --check`, and commit the approved planning baseline. Do not push.
+- [x] 1.4 Staged only the five planning artifact paths, inspected staged stat/check, and committed planning baseline `daa70e9` (`docs(openspec): plan complete oracle fidelity restoration`). Not pushed.
 
 ## 2. Deterministic Baseline and Difference Ledger — owner: primary agent; writable: ignored audit root and task markers
 
-- [ ] 2.1 Preflight: record branch/HEAD/allowed dirty paths and verify Tasks 1.1–1.4 plus strict artifact status; stop on mismatch.
-- [ ] 2.2 Run the current backend gate and pinned frontend baseline with Node `24.18.0`/npm `11.16.0`; record every pre-existing failure without changing source: backend repository check, focused/full Vitest with deterministic worker settings, `npm run typecheck`, `npm run check`, and `npm run build`.
-- [ ] 2.3 Verify the oracle runtime and current local candidate URLs, extract the exact oracle commit into the ignored evidence root if absent, and start only tracked loopback processes; record session IDs/PIDs and readiness probes.
-- [ ] 2.4 Replace the old transformed audit path with a new ignored `frontend/.tmp/oracle-parity-restoration-2026-08-01/` evidence root; preserve old evidence read-only.
-- [ ] 2.5 Generate `difference-ledger.json` and `difference-ledger.md` containing mode/theme/viewport/state/data identity, oracle/current selectors, classification, governing authority, allowed delta bounds, test owner, evidence path, and initial status for every observed difference.
-- [ ] 2.6 Run a baseline production-browser capture at 390×844, 779×900, 780×900, 781×900, and 1024×768 in Light/Dark for initial, query-open, ranking-ready, person-ready, and applicable co-star states; confirm the ledger reproduces every known P0/P1 defect.
-- [ ] 2.7 Syntax-check all ignored harness scripts, parse every generated JSON, and verify every referenced screenshot is decodable. Mark baseline investigated; do not commit ignored evidence.
+- [x] 2.1 Preflight recorded linked branch `codex/post-production-frontend-fixes`, HEAD `daa70e9`, only the allowed task-marker dirt, and complete/strict-valid planning artifacts.
+- [x] 2.2 Recorded fresh baseline gates in ignored `BASELINE.md`: pinned typecheck/build and deterministic 32-file/378-test Vitest pass; full frontend check fails at `App.vue` architecture; main JS is 305.60 KiB gzip; backend full script is blocked by Windows/MSYS GOROOT lexical-path handling before tests.
+- [x] 2.3 Verified current `15173` and oracle `4174` return HTTP 200, confirmed the extracted exact oracle runtime exists, and reused only the already tracked local loopback candidates.
+- [x] 2.4 Created the new ignored `frontend/.tmp/oracle-parity-restoration-2026-08-01/` root while leaving the old transformed audit read-only.
+- [x] 2.5 Generated `difference-ledger.json` (28 authority-classified entries) and `difference-ledger.md` with state, authority, delta bounds, owner, test, and status.
+- [x] 2.6 Executed the raw-only Light/Dark baseline across empty/ranking/co-star at 390/779/780/781/1024 plus reachable query/Drawer probes; `evidence.json` contains 53 records and 0 fatal, with raw wire blockers captured as error/pending rather than transformed ready states.
+- [x] 2.7 Syntax-checked both `.mjs` scripts, parsed all three JSON artifacts, proved the harness contains no `page.route`/`route.fulfill`, and decoded all 53 screenshots successfully.
 
 ## 3. Candidates Raw-Wire Repair — owner: primary agent; writable: `backend/internal/candidates/{types.go,projection.go,*_test.go}`, `backend/internal/httpapi/candidates_handler_test.go`, task markers
 
-- [ ] 3.1 Preflight: record branch/HEAD/allowed dirty paths, confirm no overlap in candidate owners, and re-run strict change status; stop on mismatch.
-- [ ] 3.2 RED: add a focused projection or handler regression proving `summary.positionCounts` currently emits `PositionKey`/`Count` rather than accepted `positionKey`/`count`; run the exact package test and record the expected failure.
-- [ ] 3.3 GREEN: implement the smallest wire-safe projection correction at the JSON projection boundary without frontend normalization, generated-file edits, schema changes, or transport leakage into unrelated domain owners.
-- [ ] 3.4 Verify exact member spelling, global/personal envelopes, empty/non-empty position counts, deterministic marshaling, and existing candidates service/handler suites with `go test` on affected packages.
-- [ ] 3.5 Run the repository backend gate and candidates contract artifact/wire checks; run `git diff --check` and inspect the exact owned diff.
+- [x] 3.1 Preflight recorded branch/HEAD `daa70e9`, only allowed task-marker dirt, no candidate-owner overlap, and strict-valid change status.
+- [x] 3.2 RED: extended `TestCandidatesSuccessCommitsScopeSpecificPrivateEnvelope`; the focused test failed for both scopes because `positionKey` was absent and raw JSON contained `PositionKey`/`Count`.
+- [x] 3.3 GREEN: added the private JSON-tagged `candidatePositionCount` projection type and explicit domain→wire mapping; no frontend, generated file, schema, or domain transport-tag change.
+- [x] 3.4 Focused handler, full candidates, and full httpapi packages pass; assertions cover global/personal envelopes, exact canonical keys, no PascalCase leak, and existing collection behavior.
+- [x] 3.5 Candidate wire contract tests and affected packages pass; gofmt and `git diff --check` are clean. The repository script was executed but remains blocked by the recorded Windows GOROOT lexical comparison; broad wire execution also exposes a pre-existing catalog generated-wire digest mismatch, both retained for Task 11/final gate rather than hidden.
 - [ ] 3.6 Stage only the candidate repair/test/task paths, inspect staged diff/check, and create a local phase commit. Do not push.
 
 ## 4. Person-Detail Raw-Wire Repair — owner: primary agent; writable: `backend/internal/persondetail/{types.go,service.go,projection.go,*_test.go}`, `backend/internal/httpapi/person_detail_handler_test.go`, task markers
