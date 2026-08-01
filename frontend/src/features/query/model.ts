@@ -99,7 +99,7 @@ export function createDefaultDraft(uid = ''): QueryDraft {
       values: [],
     },
     personalScore: emptyRange(),
-    positionKeys: [],
+    positionKeys: ['cast:anime:all'],
     positiveTags: {
       enabled: false,
       values: [],
@@ -824,14 +824,23 @@ export function summarizeQuery(
     subjectLabel,
   ];
   if (query.scope === 'personal') {
+    const [completed, inProgress] = (
+      {
+        anime: ['看过', '在看'],
+        book: ['读过', '在读'],
+        game: ['玩过', '在玩'],
+        music: ['听过', '在听'],
+        real: ['看过', '在看'],
+      } as const
+    )[query.subjectType];
     parts.push(
       query.collectionStatuses
         .map(
           (status) =>
             ({
-              completed: '已完成',
+              completed,
               dropped: '抛弃',
-              in_progress: '进行中',
+              in_progress: inProgress,
               on_hold: '搁置',
             })[status],
         )

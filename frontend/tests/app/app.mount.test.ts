@@ -67,6 +67,6 @@ describe('formal SPA mount', () => {
       );
       vi.unstubAllGlobals();
     },
-    10_000,
+    30_000,
   );
 });

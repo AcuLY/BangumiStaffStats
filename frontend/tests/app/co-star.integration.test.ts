@@ -59,6 +59,14 @@ type PartnersRequest = Parameters<
 const primaryDataVersion = `dv1-${'a'.repeat(64)}`;
 const primaryFetchedAt = '2026-07-25T00:00:00Z';
 
+function submitQueryEditor(): void {
+  const editor = document.body.querySelector<HTMLFormElement>('#query-editor');
+  if (editor === null) {
+    throw new Error('Query Editor was not mounted');
+  }
+  editor.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+}
+
 function readGoldenBody(relativePath: string): unknown {
   const golden = JSON.parse(
     fs.readFileSync(path.join(repositoryRoot, relativePath), 'utf8'),
@@ -367,7 +375,7 @@ describe('App co-star production slice', () => {
     });
     await flushPromises();
 
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
     expect(candidates).toHaveBeenCalledOnce();
     expect(wrapper.findAll('[role="tabpanel"]')).toHaveLength(2);
@@ -445,7 +453,7 @@ describe('App co-star production slice', () => {
     await wrapper.get('.query-summary').trigger('click');
     await nextTick();
     store.draft.includeNSFW = true;
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
     expect(candidates).toHaveBeenCalledTimes(2);
     expect(wrapper.find('.co-star-empty').exists()).toBe(true);
@@ -480,7 +488,7 @@ describe('App co-star production slice', () => {
       },
     });
     await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
 
     await vi.waitFor(() => {
@@ -568,7 +576,7 @@ describe('App co-star production slice', () => {
       },
     });
     await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
     await vi.waitFor(() => {
       expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
@@ -643,7 +651,7 @@ describe('App co-star production slice', () => {
       },
     });
     await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
     await vi.waitFor(() => {
       expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
@@ -787,7 +795,7 @@ describe('App co-star production slice', () => {
       },
     });
     await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
     await vi.waitFor(() => {
       expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
@@ -903,7 +911,7 @@ describe('App co-star production slice', () => {
       },
     });
     await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
     await vi.waitFor(() => {
       expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
@@ -1036,7 +1044,7 @@ describe('App co-star production slice', () => {
         },
       });
       await flushPromises();
-      await wrapper.get('#query-editor').trigger('submit');
+      submitQueryEditor();
       await flushPromises();
       await vi.waitFor(() => {
         expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
@@ -1239,7 +1247,7 @@ describe('App co-star production slice', () => {
       },
     });
     await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
 
     await vi.waitFor(() => {
@@ -1257,8 +1265,12 @@ describe('App co-star production slice', () => {
     expect(
       wrapper.find('.app-header__mobile-context').exists(),
     ).toBe(false);
-    await wrapper.get('#query-editor').trigger('keydown', { key: 'Escape' });
-    await nextTick();
+    document.body
+      .querySelector<HTMLFormElement>('#query-editor')
+      ?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+    await flushPromises();
 
     opener = wrapper.get(
       '.app-header__mobile-context .co-star-mobile-entry',
@@ -1266,6 +1278,11 @@ describe('App co-star production slice', () => {
     opener.element.focus();
     await opener.trigger('click');
     await flushPromises();
+    await vi.waitFor(() => {
+      expect(
+        document.body.querySelector('#co-star-mobile-picker'),
+      ).not.toBeNull();
+    });
     const appRoot = wrapper.get('[data-app-root]');
     expect(appRoot.attributes()).toMatchObject({
       'aria-hidden': 'true',
@@ -1330,7 +1347,7 @@ describe('App co-star production slice', () => {
       },
     });
     await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
 
     expect(workspaceLoader).toHaveBeenCalledOnce();

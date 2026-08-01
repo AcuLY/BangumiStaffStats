@@ -1397,6 +1397,10 @@ onBeforeUnmount(() => {
   <app-providers :theme="themeOwner.theme.value">
     <div
       class="app-shell"
+      :class="{
+        'has-compact-context': compactCandidateEntryVisible,
+        'is-query-editing': queryEditing,
+      }"
       data-app-root
       :data-app-ready="runtime.isReady ? 'true' : 'false'"
       :data-runtime-phase="runtime.phase"

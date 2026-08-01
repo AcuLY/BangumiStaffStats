@@ -158,6 +158,10 @@ function draftForGolden(testCase: QueryGoldenCase) {
 }
 
 describe('query model', () => {
+  it('uses the oracle default anime voice-actor position', () => {
+    expect(createDefaultDraft().positionKeys).toEqual(['cast:anime:all']);
+  });
+
   it('normalizes personal input, ordered positions, and structured tag groups', () => {
     const catalog = catalogFixture();
     const draft = createDefaultDraft('  luca  ');
@@ -247,6 +251,9 @@ describe('query model', () => {
     draft.positiveTags = { enabled: true, values: ['科幻/原创'] };
     const query = validateDraft(draft, 'ranking', catalog).query;
 
+    expect(summarizeQuery(query!, catalog).join(' · ')).toContain(
+      '看过 + 在看',
+    );
     expect(summarizeQuery(query!, catalog).join(' · ')).toContain(
       '播出时间 2020-01–2024-12',
     );

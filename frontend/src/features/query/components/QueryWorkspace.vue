@@ -55,7 +55,8 @@ function lockViewportScroll(): void {
   }
   const document = props.targetWindow.document;
   const viewportScrollOwner =
-    (document.scrollingElement ?? document.documentElement) as HTMLElement;
+    document.querySelector<HTMLElement>('.app-page-scroll') ??
+    ((document.scrollingElement ?? document.documentElement) as HTMLElement);
   viewportScrollLock = {
     element: viewportScrollOwner,
     overflow: viewportScrollOwner.style.overflow,
@@ -205,9 +206,10 @@ watch(
   { immediate: true },
 );
 watch(
-  [editing, compact],
-  ([isEditing, isCompact]) => {
-    if (isEditing && isCompact) {
+  editing,
+  async (isEditing) => {
+    await nextTick();
+    if (isEditing) {
       lockViewportScroll();
       return;
     }
@@ -324,7 +326,7 @@ defineExpose({
       </template>
     </button>
 
-    <teleport to="body" :disabled="compact">
+    <teleport to="body">
       <transition name="query-panel">
         <div
           v-if="editing"

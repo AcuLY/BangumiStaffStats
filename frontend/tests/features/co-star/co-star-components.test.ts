@@ -254,11 +254,18 @@ describe('pair and group co-star surface', () => {
         .findAll('.co-star-summary-grid dd')
         .map((node) => node.text()),
     ).toEqual([
-      String(accepted.data.summary.unionWorkCount),
       String(accepted.data.summary.commonWorkCount),
       String(accepted.data.summary.ratedWorkCount),
       '8.00',
     ]);
+    expect(wrapper.get('.co-star-approved-extras').text()).toContain(
+      String(accepted.data.summary.unionWorkCount),
+    );
+    expect(
+      wrapper.get('.co-star-approved-extras').element.compareDocumentPosition(
+        wrapper.get('.co-star-work-browser').element,
+      ) & Node.DOCUMENT_POSITION_PRECEDING,
+    ).not.toBe(0);
     expect(wrapper.text()).toContain('代表条目标签');
     expect(wrapper.text()).toContain('TV · 1');
     expect(wrapper.find('.horizontal-distribution').exists()).toBe(true);
@@ -315,6 +322,7 @@ describe('pair and group co-star surface', () => {
     );
     expect(accepted.data).toHaveProperty('preference.score', null);
     expect(wrapper.findAll('.co-star-participant-card')).toHaveLength(2);
+    expect(wrapper.get('.co-star-participant-card').text()).toContain('收藏作品');
     expect(wrapper.text()).toContain('没有共同作品');
     expect(wrapper.findAll('.co-star-common-empty')).toHaveLength(1);
     expect(wrapper.find('.co-star-tag-domain').exists()).toBe(false);

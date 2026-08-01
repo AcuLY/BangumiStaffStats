@@ -176,8 +176,6 @@ async function focusPreference(
           <div
             class="person-profile-metrics profile-metrics--extended metric-grid"
             :class="{
-              'has-character-count':
-                payload.summary.characterCount !== undefined,
               'profile-metrics--global': payload.scope === 'global',
             }"
             aria-label="人物统计"
@@ -188,15 +186,6 @@ async function focusPreference(
               </small>
               <strong class="metric-unit__value">
                 {{ payload.summary.workCount }}
-              </strong>
-            </span>
-            <span
-              v-if="payload.summary.characterCount !== undefined"
-              class="metric-unit"
-            >
-              <small class="metric-unit__label">角色数</small>
-              <strong class="metric-unit__value">
-                {{ payload.summary.characterCount }}
               </strong>
             </span>
             <span v-if="payload.scope === 'personal'" class="metric-unit">
@@ -495,6 +484,19 @@ async function focusPreference(
         :view="resource.view"
         @view="executeView"
       />
+
+      <section
+        v-if="payload.summary.characterCount !== undefined"
+        class="person-inspector__section person-approved-extras"
+        aria-label="补充人物统计"
+      >
+        <span class="metric-unit">
+          <small class="metric-unit__label">角色数</small>
+          <strong class="metric-unit__value">
+            {{ payload.summary.characterCount }}
+          </strong>
+        </span>
+      </section>
     </template>
   </article>
 </template>

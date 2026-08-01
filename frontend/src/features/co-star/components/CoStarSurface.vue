@@ -166,8 +166,20 @@ const tagGroups = computed(() => {
   }>[];
 });
 const tagCount = computed(() =>
-  tagGroups.value.reduce((count, group) => count + group.tags.length, 0),
+  tagGroups.value.reduce((total, group) => total + group.tags.length, 0),
 );
+
+function extremaLabel(
+  value: number | null,
+  workUnit: 'series' | 'subject',
+): string {
+  if (value === null) {
+    return '—';
+  }
+  return workUnit === 'series'
+    ? formatHundredths(value)
+    : String(Math.round(value / 100));
+}
 
 function primaryName(entity: {
   readonly name: string;
@@ -279,27 +291,16 @@ onMounted(ensureAnalysis);
         <co-star-participants
           :device-pixel-ratio="devicePixelRatio"
           :participants="data.participants"
+          :personal="Boolean(personalData)"
           :position-label="positionLabel"
           :work-unit="data.workUnit"
         />
 
         <dl
           class="analysis-profile-summary shared-rating-summary shared-rating-summary--below metric-grid co-star-summary-grid"
-          :data-metric-count="personalData ? 8 : 4"
+          :data-metric-count="personalData ? 6 : 3"
           aria-label="多人组合概览"
         >
-          <div class="metric-unit">
-            <dd class="metric-unit__value">
-              {{ data.summary.unionWorkCount }}
-            </dd>
-            <dt class="metric-unit__label">
-              {{
-                data.workUnit === 'series'
-                  ? '参与系列并集'
-                  : '参与作品并集'
-              }}
-            </dt>
-          </div>
           <div class="metric-unit">
             <dd class="metric-unit__value">
               {{ data.summary.commonWorkCount }}
@@ -316,36 +317,28 @@ onMounted(ensureAnalysis);
               {{ data.workUnit === 'series' ? '已评系列' : '已评作品' }}
             </dt>
           </div>
-          <div
-            class="metric-unit"
-            :class="{
-              'analysis-profile-summary__metric--primary':
-                Boolean(personalData),
-            }"
-          >
+          <div v-if="!personalData" class="metric-unit">
             <dd class="metric-unit__value">
               {{ formatHundredths(data.summary.average) }}
             </dd>
-            <dt class="metric-unit__label">
-              {{ personalData ? '我的均分' : '均分' }}
-            </dt>
+            <dt class="metric-unit__label">均分</dt>
           </div>
           <template v-if="personalData">
-            <div class="metric-unit">
-              <dd class="metric-unit__value">
-                {{ personalData.summary.globalRatedWorkCount }}
-              </dd>
-              <dt class="metric-unit__label">全站已评分</dt>
-            </div>
             <div class="metric-unit">
               <dd class="metric-unit__value">
                 {{ formatHundredths(personalData.summary.globalAverage) }}
               </dd>
               <dt class="metric-unit__label">全站均分</dt>
             </div>
+            <div class="metric-unit analysis-profile-summary__metric--primary">
+              <dd class="metric-unit__value">
+                {{ formatHundredths(data.summary.average) }}
+              </dd>
+              <dt class="metric-unit__label">我的均分</dt>
+            </div>
             <div class="metric-unit">
               <dd class="metric-unit__value">
-                {{ formatHundredths(personalData.summary.highest) }}
+                {{ extremaLabel(personalData.summary.highest, data.workUnit) }}
               </dd>
               <dt class="metric-unit__label">
                 {{
@@ -357,7 +350,7 @@ onMounted(ensureAnalysis);
             </div>
             <div class="metric-unit">
               <dd class="metric-unit__value">
-                {{ formatHundredths(personalData.summary.lowest) }}
+                {{ extremaLabel(personalData.summary.lowest, data.workUnit) }}
               </dd>
               <dt class="metric-unit__label">
                 {{
@@ -701,6 +694,28 @@ onMounted(ensureAnalysis);
           :view="view"
           :work-unit="data.workUnit"
         />
+      </section>
+
+      <section
+        class="analysis-section co-star-approved-extras"
+        aria-label="补充多人组合统计"
+      >
+        <dl class="metric-grid">
+          <div class="metric-unit">
+            <dd class="metric-unit__value">
+              {{ data.summary.unionWorkCount }}
+            </dd>
+            <dt class="metric-unit__label">
+              {{ data.workUnit === 'series' ? '参与系列并集' : '参与作品并集' }}
+            </dt>
+          </div>
+          <div v-if="personalData" class="metric-unit">
+            <dd class="metric-unit__value">
+              {{ personalData.summary.globalRatedWorkCount }}
+            </dd>
+            <dt class="metric-unit__label">全站已评分</dt>
+          </div>
+        </dl>
       </section>
     </template>
 

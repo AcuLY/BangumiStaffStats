@@ -86,7 +86,15 @@ describe('person inspector production presentation', () => {
       props: {
         executeView: vi.fn(async () => true),
         positionLabel,
-        resource: resource(),
+        resource: resource(
+          Object.freeze({
+            ...payload('global.json'),
+            summary: Object.freeze({
+              ...payload('global.json').summary,
+              characterCount: 7,
+            }),
+          }),
+        ),
         retry: vi.fn(async () => true),
       },
     });
@@ -96,6 +104,15 @@ describe('person inspector production presentation', () => {
     expect(
       wrapper.find('.person-profile .profile-metrics--extended').exists(),
     ).toBe(true);
+    expect(wrapper.get('.person-profile .profile-metrics--extended').text()).not.toContain(
+      '角色数',
+    );
+    expect(wrapper.get('.person-approved-extras').text()).toContain('角色数');
+    expect(
+      wrapper.get('.person-approved-extras').element.compareDocumentPosition(
+        wrapper.get('.person-item-browser').element,
+      ) & Node.DOCUMENT_POSITION_PRECEDING,
+    ).not.toBe(0);
     expect(wrapper.text()).toContain('作品标签');
     expect(wrapper.text()).toContain('评分分布');
     expect(wrapper.text()).toContain('导演');

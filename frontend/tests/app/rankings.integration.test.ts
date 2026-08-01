@@ -23,6 +23,14 @@ import { catalogFixture } from '../features/query/fixtures';
 
 const rankingDataVersion = `dv1-${'d'.repeat(64)}`;
 
+function submitQueryEditor(): void {
+  const editor = document.body.querySelector<HTMLFormElement>('#query-editor');
+  if (editor === null) {
+    throw new Error('Query Editor was not mounted');
+  }
+  editor.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+}
+
 function rankingPayload(
   requestId: string,
   metric: 'average' | 'count',
@@ -441,7 +449,7 @@ describe('App ranking production slice', () => {
       },
     });
     await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
 
     const placeholder = wrapper.get('.person-detail-placeholder');
@@ -516,7 +524,7 @@ describe('App ranking production slice', () => {
       },
     });
     await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
     await wrapper.get('.ranked-person-row').trigger('click');
     await nextTick();
@@ -681,7 +689,7 @@ describe('App ranking production slice', () => {
     });
     await flushPromises();
 
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
 
     expect(wrapper.find('.ranking-surface').exists()).toBe(true);
@@ -804,7 +812,7 @@ describe('App ranking production slice', () => {
       },
     });
     await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
     const row = wrapper.get('.ranked-person-row');
     await row.trigger('click');
@@ -973,7 +981,7 @@ describe('App ranking production slice', () => {
       },
     });
     await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
     await wrapper.get('.ranked-person-row').trigger('click');
     await flushPromises();
@@ -1168,7 +1176,7 @@ describe('App ranking production slice', () => {
       },
     });
     await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
     const row = wrapper.get<HTMLButtonElement>('.ranked-person-row');
     row.element.focus();
@@ -1302,7 +1310,7 @@ describe('App ranking production slice', () => {
       },
     });
     await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
+    submitQueryEditor();
     await flushPromises();
 
     await wrapper.get('.ranked-person-row').trigger('click');

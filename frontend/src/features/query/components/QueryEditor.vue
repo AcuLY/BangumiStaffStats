@@ -14,7 +14,7 @@ import {
   NSwitch,
   NTooltip,
 } from 'naive-ui';
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue';
 
 import type {
   CatalogGroup,
@@ -23,6 +23,7 @@ import type {
   SubjectType,
 } from '../../../api/adapters/catalog';
 import type { CatalogPhase } from '../../catalog/store';
+import AppIcon from '../../../shared/components/AppIcon.vue';
 import type {
   DraftRange,
   QueryDraft,
@@ -37,9 +38,12 @@ import {
   type QueryControlSize,
 } from './controlTheme';
 import PositionSelector from './PositionSelector.vue';
-import QueryDateRange from './QueryDateRange.vue';
 import QueryIcon from './QueryIcon.vue';
 import QueryNumericRange from './QueryNumericRange.vue';
+
+const QueryDateRange = defineAsyncComponent(
+  () => import('./QueryDateRange.vue'),
+);
 
 const props = defineProps<{
   catalogPhase: CatalogPhase;
@@ -1144,9 +1148,31 @@ defineExpose({ focusFirstInvalidField });
       </p>
 
       <footer class="query-editor__footer">
-        <span class="query-editor__status" role="status" aria-live="polite">
-          {{ disabled ? '查询中' : '' }}
+        <span
+          v-if="disabled"
+          class="query-editor__status"
+          role="status"
+          aria-live="polite"
+        >
+          查询中
         </span>
+        <n-button
+          v-if="draft.scope === 'personal'"
+          class="query-refresh-action"
+          :size="controlSize"
+          attr-type="button"
+          quaternary
+          circle
+          :disabled="disabled"
+          aria-label="刷新收藏并查询"
+          title="刷新收藏并查询"
+          @click="emit('refresh')"
+        >
+          <template #icon>
+            <app-icon name="refresh" :size="16" />
+          </template>
+          <span class="sr-only">刷新收藏并查询</span>
+        </n-button>
         <n-space class="query-editor__actions" :size="8" justify="end" wrap>
           <n-button
             :size="controlSize"
@@ -1163,16 +1189,6 @@ defineExpose({ focusFirstInvalidField });
             @click="emit('cancel')"
           >
             取消查询
-          </n-button>
-            <n-button
-              v-if="draft.scope === 'personal'"
-              :size="controlSize"
-              attr-type="button"
-            secondary
-            :disabled="disabled"
-            @click="emit('refresh')"
-          >
-            刷新收藏并查询
           </n-button>
           <n-button
             :size="controlSize"

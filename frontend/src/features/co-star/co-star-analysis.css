@@ -1053,6 +1053,12 @@
   }
 }
 
+@media (width >= 780px) {
+  .co-star-surface > .selected-people-panel {
+    padding: 0;
+  }
+}
+
 @media (width < 780px) {
   .co-star-surface {
     border-right: 0;
@@ -1131,7 +1137,7 @@
 
 @media (width < 480px) {
   .co-star-section-heading {
-    display: grid;
+    display: flex;
   }
 
   .co-star-preference-score {

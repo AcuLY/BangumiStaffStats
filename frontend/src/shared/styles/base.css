@@ -175,20 +175,17 @@
   box-sizing: border-box;
 }
 
-html {
+html,
+body {
   min-width: 320px;
-  min-height: 100%;
-  overflow-y: scroll;
-  scrollbar-gutter: auto;
+  height: 100%;
+  overflow: hidden;
   background: var(--canvas);
 }
 
 body {
-  min-width: 320px;
-  min-height: 100vh;
   margin: 0;
   color: var(--text-primary);
-  background: var(--canvas);
 }
 
 button,
@@ -209,12 +206,18 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
-#app,
-.app-shell {
-  min-height: 100vh;
+#app {
+  height: 100%;
 }
 
 .app-shell {
+  display: grid;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-areas: "workbench-stack";
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   background: var(--canvas);
 }
 
@@ -225,9 +228,10 @@ select:focus-visible {
 }
 
 .app-header {
-  position: sticky;
+  position: relative;
   z-index: 20;
-  top: 0;
+  grid-area: workbench-stack;
+  align-self: start;
   border-top: 3px solid var(--brand);
   border-bottom: 1px solid var(--chrome-divider);
   background: var(--chrome-background);
@@ -235,22 +239,21 @@ select:focus-visible {
 }
 
 .app-header__contents > .app-content-line {
-  width: min(100%, calc(var(--workspace-max) + 32px));
-  padding-left: max(16px, env(safe-area-inset-left));
-  padding-right: max(16px, env(safe-area-inset-right));
+  width: 100%;
 }
 
 .app-header__bar {
+  position: relative;
   display: grid;
   grid-template-columns:
     minmax(0, 1fr)
-    var(--touch-target)
     268px
-    var(--touch-target)
     minmax(0, 1fr);
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-left: max(16px, env(safe-area-inset-left));
   align-items: center;
   min-height: 56px;
-  gap: var(--space-2);
+  gap: var(--space-4);
 }
 
 .app-brand {
@@ -283,7 +286,7 @@ select:focus-visible {
 }
 
 .mode-tabs {
-  grid-column: 3;
+  grid-column: 2;
   width: 268px;
   min-width: 0;
   justify-self: center;
@@ -315,11 +318,13 @@ select:focus-visible {
 }
 
 .share-action {
-  grid-column: 4;
+  position: absolute;
+  top: 6px;
+  left: calc(50% + 142px);
 }
 
 .theme-action {
-  grid-column: 5;
+  grid-column: 3;
   justify-self: end;
 }
 
@@ -589,6 +594,7 @@ select:focus-visible {
   color: var(--text-secondary);
   font-size: 14px;
   font-weight: 600;
+  line-height: 1.5;
 }
 
 .query-editor .field > legend {
@@ -650,7 +656,7 @@ select:focus-visible {
 }
 
 @supports not selector(::-webkit-scrollbar) {
-  :where(html, .query-editor__scroll) {
+  :where(.app-page-scroll, .query-editor__scroll) {
     scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
     scrollbar-width: auto;
   }
@@ -672,7 +678,7 @@ select:focus-visible {
   }
 }
 
-:where(html, .query-editor__scroll)::-webkit-scrollbar {
+:where(.app-page-scroll, .query-editor__scroll)::-webkit-scrollbar {
   width: var(--scrollbar-shell-size);
   height: var(--scrollbar-shell-size);
 }
@@ -694,7 +700,7 @@ select:focus-visible {
 }
 
 :where(
-  html,
+  .app-page-scroll,
   .query-editor__scroll,
   .workbench-tooltip-content,
   .person-stat-evidence__content,
@@ -711,7 +717,7 @@ select:focus-visible {
 }
 
 :where(
-  html,
+  .app-page-scroll,
   .query-editor__scroll,
   .workbench-tooltip-content,
   .person-stat-evidence__content,
@@ -729,7 +735,7 @@ select:focus-visible {
 }
 
 :where(
-  html,
+  .app-page-scroll,
   .query-editor__scroll,
   .workbench-tooltip-content,
   .person-stat-evidence__content,
@@ -746,7 +752,7 @@ select:focus-visible {
 }
 
 :where(
-  html,
+  .app-page-scroll,
   .query-editor__scroll,
   .workbench-tooltip-content,
   .person-stat-evidence__content,
@@ -763,7 +769,7 @@ select:focus-visible {
 }
 
 :where(
-  html,
+  .app-page-scroll,
   .query-editor__scroll,
   .workbench-tooltip-content,
   .person-stat-evidence__content,
@@ -781,7 +787,7 @@ select:focus-visible {
 
 @media (forced-colors: active) {
   :where(
-    html,
+    .app-page-scroll,
     .query-editor__scroll,
     .workbench-tooltip-content,
     .person-stat-evidence__content,
@@ -863,6 +869,7 @@ select:focus-visible {
   background: transparent;
   font: inherit;
   font-weight: 600;
+  line-height: 1.5;
   text-align: left;
   cursor: pointer;
 }
@@ -1099,14 +1106,21 @@ select:focus-visible {
 }
 
 .query-editor__footer {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--space-3);
   margin-top: var(--space-4);
   margin-inline: var(--query-editor-inline);
   padding-top: var(--space-3);
   border-top: 1px solid var(--divider);
+}
+
+.query-refresh-action {
+  position: absolute;
+  right: 0;
+  bottom: 0;
 }
 
 .query-editor__status {
@@ -1116,16 +1130,22 @@ select:focus-visible {
 }
 
 .app-page-scroll {
-  min-height: calc(100vh - var(--header-height));
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-top: var(--header-height);
+  grid-area: workbench-stack;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
 }
 
 .app-main {
   display: grid;
   width: min(calc(100% - 32px), var(--workspace-max));
   min-width: 0;
-  min-height: calc(100vh - var(--header-height) - 54px);
+  min-height: 100%;
   margin-inline: auto;
-  padding-block: 32px;
+  padding-block: 16px 24px;
   align-content: start;
 }
 
@@ -1782,7 +1802,7 @@ select:focus-visible {
 }
 
 @media (width >= 780px) {
-  html {
+  .app-page-scroll {
     scrollbar-gutter: stable both-edges;
   }
 }
@@ -1809,7 +1829,15 @@ select:focus-visible {
 @media (width < 780px) {
   :root {
     --header-bar-height: 55px;
-    --header-height: auto;
+    --header-height: 101px;
+  }
+
+  .app-shell.is-query-editing {
+    --header-height: 187px;
+  }
+
+  .app-shell.has-compact-context {
+    --header-height: 145px;
   }
 
   .app-content-line,
@@ -1821,17 +1849,16 @@ select:focus-visible {
     grid-template-columns:
       var(--touch-target)
       minmax(140px, 170px)
-      var(--touch-target)
       var(--touch-target);
+    padding: 4px max(12px, env(safe-area-inset-right)) 4px
+      max(12px, env(safe-area-inset-left));
     min-height: 52px;
-    gap: 4px;
+    gap: var(--space-2);
     justify-content: space-between;
   }
 
   .app-header__contents > .app-content-line {
-    width: min(100%, calc(var(--workspace-max) + 24px));
-    padding-left: max(12px, env(safe-area-inset-left));
-    padding-right: max(12px, env(safe-area-inset-right));
+    width: 100%;
   }
 
   .app-brand {
@@ -1856,11 +1883,13 @@ select:focus-visible {
   }
 
   .share-action {
-    grid-column: 3;
+    top: 4px;
+    right: 60px;
+    left: auto;
   }
 
   .theme-action {
-    grid-column: 4;
+    grid-column: 3;
     justify-self: center;
   }
 
@@ -1933,13 +1962,10 @@ select:focus-visible {
   }
 
   .query-editor-overlay {
-    position: static;
+    position: fixed;
     max-height: calc(100dvh - var(--header-bar-height) - 44px);
     border-top: 1px solid var(--divider);
-    background: transparent;
-    box-shadow: none;
-    overscroll-behavior-y: contain;
-    backdrop-filter: none;
+    overscroll-behavior-y: none;
   }
 
   .query-editor {
@@ -1961,6 +1987,16 @@ select:focus-visible {
   .query-editor__stages {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-4);
+  }
+
+  .query-refresh-action {
+    right: auto;
+    left: 0;
+  }
+
+  .query-editor__actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .query-stage--scope {
@@ -1985,20 +2021,9 @@ select:focus-visible {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .query-editor__footer {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .query-editor__actions {
-    width: 100%;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-
   .app-main {
-    min-height: 420px;
-    padding-block: 24px;
+    min-height: 100%;
+    padding-block: 12px 24px;
   }
 
   .query-result-state {
@@ -2036,21 +2061,13 @@ select:focus-visible {
   }
 
   .ranking-toolbar {
-    grid-template-columns: minmax(0, 1fr) 112px var(--touch-target);
+    grid-template-columns: minmax(0, 1fr) 96px auto;
     gap: var(--space-1);
   }
 
   .ranking-order-button {
-    width: var(--touch-target);
-    padding: 0;
-  }
-
-  .ranking-order-button span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    width: auto;
+    padding: 6px 10px;
   }
 
   .ranking-surface__body {
@@ -2240,6 +2257,7 @@ select:focus-visible {
 .ranking-result-stats__line {
   width: 100%;
   min-width: 0;
+  line-height: 1.5;
   white-space: nowrap;
 }
 
@@ -2254,10 +2272,19 @@ select:focus-visible {
   gap: var(--space-2);
 }
 
-.ranking-search-control,
-.ranking-sort-control,
-.ranking-order-button {
+.ranking-workspace .ranking-search-control,
+.ranking-workspace .ranking-sort-control,
+.ranking-workspace .ranking-order-button {
   min-width: 0;
+}
+
+.ranking-workspace .ranking-search-control,
+.ranking-workspace .ranking-sort-control {
+  min-height: 0;
+}
+
+.ranking-workspace .ranking-search-control input {
+  min-height: 0;
 }
 
 .ranking-order-button {
@@ -2299,8 +2326,20 @@ select:focus-visible {
   min-width: 0;
   padding: var(--space-2) var(--space-3);
   grid-template-columns: var(--ranking-columns);
+  grid-template-areas: initial;
   align-items: center;
   column-gap: var(--space-2);
+}
+
+.ranking-workspace .ranked-person-row__rank,
+.ranking-workspace .ranked-person-row__avatar,
+.ranking-workspace .ranked-person-row__identity,
+.ranking-workspace .ranked-person-row__metrics {
+  grid-area: auto;
+}
+
+.ranking-workspace .ranked-person-row__identity {
+  align-self: center;
 }
 
 .ranking-workspace .ranking-columns {
@@ -2309,6 +2348,7 @@ select:focus-visible {
   color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 400;
+  line-height: 1.5;
   letter-spacing: 0;
 }
 
@@ -2370,6 +2410,15 @@ select:focus-visible {
 .ranking-workspace .ranked-person-row[aria-current="true"] {
   box-shadow: inset 0 0 0 1px var(--brand);
   background: var(--surface);
+}
+
+@media (width < 780px) {
+  .ranking-workspace
+    .ranked-person-list:not(:has(.ranked-person-row[aria-current="true"]))
+    > .ranked-person-row:first-child {
+    box-shadow: inset 0 0 0 1px var(--brand);
+    background: var(--surface);
+  }
 }
 
 .ranking-workspace .ranked-person-row__progress {

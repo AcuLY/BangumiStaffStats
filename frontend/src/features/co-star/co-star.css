@@ -369,7 +369,7 @@
 
 .candidate-position-browser {
   display: grid;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-2);
@@ -399,8 +399,14 @@
 
 .candidate-toolbar .ranking-order-button {
   position: relative;
-  width: var(--touch-target);
-  padding: 0;
+  width: auto;
+  padding: 6px 10px;
+}
+
+.candidate-toolbar .candidate-search-control,
+.candidate-toolbar .candidate-sort-select,
+.candidate-toolbar .ranking-order-button {
+  min-height: 44px;
 }
 
 .candidate-toolbar .ranking-order-button::before {
@@ -410,17 +416,6 @@
   );
   inset-inline: 0;
   content: "";
-}
-
-.candidate-toolbar
-  .ranking-order-button
-  .ranking-order-button__content
-  > span {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
 }
 
 .candidate-list {

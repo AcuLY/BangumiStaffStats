@@ -8,11 +8,13 @@ withDefaults(
   defineProps<{
     devicePixelRatio?: number;
     participants: readonly CoStarParticipant[];
+    personal?: boolean;
     positionLabel: (positionKey: string) => string;
     workUnit: 'series' | 'subject';
   }>(),
   {
     devicePixelRatio: 1,
+    personal: false,
   },
 );
 
@@ -91,7 +93,15 @@ function primaryName(
                 {{ participant.metrics.workCount }}
               </dd>
               <dt class="metric-unit__label">
-                {{ workUnit === 'series' ? '参与系列' : '参与作品' }}
+                {{
+                  personal
+                    ? workUnit === 'series'
+                      ? '收藏系列'
+                      : '收藏作品'
+                    : workUnit === 'series'
+                      ? '参与系列'
+                      : '参与作品'
+                }}
               </dt>
             </div>
             <div class="metric-unit">

@@ -188,11 +188,10 @@ afterEach(() => {
 });
 
 describe('query shell components', () => {
-  it('locks and restores the compact viewport scroll owner', async () => {
+  it('locks and restores the oracle page scroller across breakpoints', async () => {
     const media = installMutableCompactMatchMedia(true);
     const rootScroller = (document.scrollingElement ??
       document.documentElement) as HTMLElement;
-    expect(rootScroller).toBe(document.documentElement);
     rootScroller.style.overflow = 'clip';
     document.body.style.overflow = 'auto';
     const pinia = createPinia();
@@ -210,31 +209,31 @@ describe('query shell components', () => {
     await flushPromises();
     await nextTick();
 
-    expect(rootScroller.style.overflow).toBe('hidden');
-    expect(document.body.style.overflow).toBe('auto');
+    const pageScroller = wrapper.get('.app-page-scroll').element as HTMLElement;
+    await wrapper.get('.query-summary').trigger('click');
+    await flushPromises();
+    expect(pageScroller.style.overflow).toBe('');
 
-    const summary = wrapper.get('.query-summary');
-    await summary.trigger('click');
-    await nextTick();
+    await wrapper.get('.query-summary').trigger('click');
+    await flushPromises();
+    expect(pageScroller.style.overflow).toBe('hidden');
     expect(rootScroller.style.overflow).toBe('clip');
-    expect(document.body.style.overflow).toBe('auto');
-
-    await summary.trigger('click');
-    await nextTick();
-    expect(rootScroller.style.overflow).toBe('hidden');
     expect(document.body.style.overflow).toBe('auto');
 
     media.setCompact(false);
     await nextTick();
-    expect(rootScroller.style.overflow).toBe('clip');
-    expect(document.body.style.overflow).toBe('auto');
+    expect(pageScroller.style.overflow).toBe('hidden');
 
-    media.setCompact(true);
-    await nextTick();
-    expect(rootScroller.style.overflow).toBe('hidden');
-    expect(document.body.style.overflow).toBe('auto');
+    await wrapper.get('.query-summary').trigger('click');
+    await flushPromises();
+    expect(pageScroller.style.overflow).toBe('');
+
+    await wrapper.get('.query-summary').trigger('click');
+    await flushPromises();
+    expect(pageScroller.style.overflow).toBe('hidden');
 
     wrapper.unmount();
+    expect(pageScroller.style.overflow).toBe('');
     expect(rootScroller.style.overflow).toBe('clip');
     expect(document.body.style.overflow).toBe('auto');
   });

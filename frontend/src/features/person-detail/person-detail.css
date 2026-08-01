@@ -1098,7 +1098,7 @@
 .ranking-workspace {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(330px, 410px) minmax(0, 1fr);
+  grid-template-columns: clamp(360px, 32%, 410px) minmax(0, 1fr);
   align-items: start;
   gap: var(--space-4);
 }
@@ -2783,15 +2783,14 @@
   .person-profile__content {
     padding: 14px;
     grid-template-areas:
-      "name"
-      "secondary"
-      "career";
-    grid-template-columns: minmax(0, 1fr);
+      "name career"
+      "secondary career";
+    grid-template-columns: minmax(0, 1fr) minmax(0, 45%);
   }
 
   .person-profile__career {
-    justify-self: start;
-    text-align: left;
+    justify-self: end;
+    text-align: right;
   }
 
   .person-profile__summary.person-profile__bio {
