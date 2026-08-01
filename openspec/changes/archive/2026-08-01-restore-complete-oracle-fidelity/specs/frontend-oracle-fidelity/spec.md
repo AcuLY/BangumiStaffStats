@@ -37,7 +37,7 @@ An implementation-originated difference without a controlling authority SHALL be
 - **THEN** every preserved element SHALL match the oracle in visible hierarchy, geometry, typography, colors, copy, controls, responsive transitions, focus behavior, scroll ownership, and interaction
 - **AND** internal feature, store, request, adapter, and component boundaries MAY differ without an outward redesign
 
-#### Scenario: Production addition coexists with compatibility
+#### Scenario: Production additions coexist with compatibility
 
 - **WHEN** production data, dynamic catalogs, sharing, collection refresh, SafeImage states, or real loading/error recovery add behavior absent from the prototype
 - **THEN** the addition SHALL identify its exact governing authority and authorized visible slot
@@ -79,7 +79,7 @@ Each browser record SHALL capture or assert screenshot/computed geometry, page a
 - **THEN** every success envelope SHALL validate against its accepted schema
 - **AND** co-star and person-detail ready states SHALL become reachable without network interception, response normalization, fixture injection, or adapter weakening
 
-#### Scenario: Complete deterministic matrix is executed
+#### Scenario: Fidelity repair is accepted
 
 - **WHEN** the repair candidate is ready
 - **THEN** both modes and themes SHALL be recorded at every required viewport and applicable named state
