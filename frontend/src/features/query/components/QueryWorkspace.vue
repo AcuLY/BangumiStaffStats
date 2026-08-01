@@ -36,6 +36,32 @@ const summaryButton = ref<HTMLButtonElement | null>(null);
 const overlayTop = ref(0);
 let restoreSummaryFocus = true;
 let summaryPointerActivated = false;
+let viewportScrollLock: {
+  element: HTMLElement;
+  overflow: string;
+} | null = null;
+
+function restoreViewportScroll(): void {
+  if (viewportScrollLock === null) {
+    return;
+  }
+  viewportScrollLock.element.style.overflow = viewportScrollLock.overflow;
+  viewportScrollLock = null;
+}
+
+function lockViewportScroll(): void {
+  if (viewportScrollLock !== null) {
+    return;
+  }
+  const document = props.targetWindow.document;
+  const viewportScrollOwner =
+    (document.scrollingElement ?? document.documentElement) as HTMLElement;
+  viewportScrollLock = {
+    element: viewportScrollOwner,
+    overflow: viewportScrollOwner.style.overflow,
+  };
+  viewportScrollOwner.style.overflow = 'hidden';
+}
 
 const resource = computed(() =>
   props.coordinator.pendingOperation.value === 'rankings'
@@ -179,6 +205,17 @@ watch(
   { immediate: true },
 );
 watch(
+  [editing, compact],
+  ([isEditing, isCompact]) => {
+    if (isEditing && isCompact) {
+      lockViewportScroll();
+      return;
+    }
+    restoreViewportScroll();
+  },
+  { immediate: true },
+);
+watch(
   () => props.queryStore.applied,
   (applied) => {
     if (!applied) {
@@ -206,6 +243,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  restoreViewportScroll();
   props.targetWindow.removeEventListener('resize', syncOverlayTop);
 });
 

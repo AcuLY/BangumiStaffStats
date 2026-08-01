@@ -1934,9 +1934,11 @@ select:focus-visible {
 
   .query-editor-overlay {
     position: static;
-    max-height: none;
+    max-height: calc(100dvh - var(--header-bar-height) - 44px);
     border-top: 1px solid var(--divider);
+    background: transparent;
     box-shadow: none;
+    overscroll-behavior-y: contain;
     backdrop-filter: none;
   }
 
@@ -1950,8 +1952,9 @@ select:focus-visible {
   }
 
   .query-editor__scroll {
-    max-height: none;
-    overflow: visible;
+    max-height: inherit;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
     padding-bottom: max(var(--space-5), env(safe-area-inset-bottom));
   }
 

@@ -62,6 +62,21 @@ describe('oracle scrollbar system', () => {
     );
   });
 
+  it('keeps one mobile chrome layer around the bounded Query Editor scroller', () => {
+    expect(baseCss).toMatch(
+      /\.app-header\s*\{[^}]*background:\s*var\(--chrome-background\);[^}]*backdrop-filter:\s*blur\(16px\) saturate\(135%\);/s,
+    );
+    expect(baseCss).toMatch(
+      /\.query-editor-overlay\s*\{[^}]*position:\s*fixed;[^}]*background:\s*var\(--chrome-background\);[^}]*backdrop-filter:\s*blur\(16px\) saturate\(135%\);/s,
+    );
+    expect(baseCss).toMatch(
+      /@media \(width < 780px\)[\s\S]*?\.query-editor-overlay\s*\{[^}]*position:\s*static;[^}]*max-height:\s*calc\(100dvh - var\(--header-bar-height\) - 44px\);[^}]*background:\s*transparent;[^}]*overscroll-behavior-y:\s*contain;[^}]*backdrop-filter:\s*none;/,
+    );
+    expect(baseCss).toMatch(
+      /@media \(width < 780px\)[\s\S]*?\.query-editor__scroll\s*\{[^}]*max-height:\s*inherit;[^}]*overflow-y:\s*auto;[^}]*overscroll-behavior-y:\s*contain;/,
+    );
+  });
+
   it('keeps lists, matrices, tooltips, and popovers on the 6px tier', () => {
     expect(baseCss).toContain('--scrollbar-component-size: 6px;');
     for (const selector of [

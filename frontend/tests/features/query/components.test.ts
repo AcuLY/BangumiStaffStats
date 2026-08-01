@@ -25,6 +25,8 @@ interface CandidatePayload {
 }
 
 const originalMatchMedia = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+const originalBodyOverflow = document.body.style.overflow;
+const originalRootOverflow = document.documentElement.style.overflow;
 
 function installMatchMedia(
   matches: (query: string) => boolean,
@@ -43,6 +45,45 @@ function installMatchMedia(
         }) as unknown as MediaQueryList,
     ),
   });
+}
+
+function installMutableCompactMatchMedia(initialCompact: boolean): {
+  setCompact: (compact: boolean) => void;
+} {
+  const listeners = new Set<() => void>();
+  const compactMedia = {
+    addEventListener: (_type: string, listener: () => void) => {
+      listeners.add(listener);
+    },
+    dispatchEvent: vi.fn(() => true),
+    matches: initialCompact,
+    media: '(width < 780px)',
+    onchange: null,
+    removeEventListener: (_type: string, listener: () => void) => {
+      listeners.delete(listener);
+    },
+  } as unknown as MediaQueryList;
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn((media: string) =>
+      media === '(width < 780px)'
+        ? compactMedia
+        : ({
+            addEventListener: vi.fn(),
+            dispatchEvent: vi.fn(() => true),
+            matches: false,
+            media,
+            onchange: null,
+            removeEventListener: vi.fn(),
+          } as unknown as MediaQueryList),
+    ),
+  });
+  return {
+    setCompact(compact: boolean) {
+      (compactMedia as unknown as { matches: boolean }).matches = compact;
+      listeners.forEach((listener) => listener());
+    },
+  };
 }
 
 function rankingPayload(requestId: string): RankingPayload {
@@ -137,6 +178,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  document.body.style.overflow = originalBodyOverflow;
+  document.documentElement.style.overflow = originalRootOverflow;
   if (originalMatchMedia) {
     Object.defineProperty(window, 'matchMedia', originalMatchMedia);
   } else {
@@ -145,6 +188,57 @@ afterEach(() => {
 });
 
 describe('query shell components', () => {
+  it('locks and restores the compact viewport scroll owner', async () => {
+    const media = installMutableCompactMatchMedia(true);
+    const rootScroller = (document.scrollingElement ??
+      document.documentElement) as HTMLElement;
+    expect(rootScroller).toBe(document.documentElement);
+    rootScroller.style.overflow = 'clip';
+    document.body.style.overflow = 'auto';
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+    await nextTick();
+
+    expect(rootScroller.style.overflow).toBe('hidden');
+    expect(document.body.style.overflow).toBe('auto');
+
+    const summary = wrapper.get('.query-summary');
+    await summary.trigger('click');
+    await nextTick();
+    expect(rootScroller.style.overflow).toBe('clip');
+    expect(document.body.style.overflow).toBe('auto');
+
+    await summary.trigger('click');
+    await nextTick();
+    expect(rootScroller.style.overflow).toBe('hidden');
+    expect(document.body.style.overflow).toBe('auto');
+
+    media.setCompact(false);
+    await nextTick();
+    expect(rootScroller.style.overflow).toBe('clip');
+    expect(document.body.style.overflow).toBe('auto');
+
+    media.setCompact(true);
+    await nextTick();
+    expect(rootScroller.style.overflow).toBe('hidden');
+    expect(document.body.style.overflow).toBe('auto');
+
+    wrapper.unmount();
+    expect(rootScroller.style.overflow).toBe('clip');
+    expect(document.body.style.overflow).toBe('auto');
+  });
+
   it('keeps the last successful share enabled while a refresh is pending', async () => {
     const store = validStore();
     let resolveRefresh!: (response: OperationResponse<RankingPayload>) => void;
