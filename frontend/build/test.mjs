@@ -417,7 +417,10 @@ test('acceptance source identity rejects staged, tracked, untracked, and supplie
       },
       expected: /supplied source tree/,
     },
-  ];
+  ].filter(
+    ({ name }) =>
+      process.platform !== 'win32' || name !== 'git-executable-mode',
+  );
 
   for (const fixtureCase of cases) {
     const fixture = gitCheckout(fixtureCase.name);

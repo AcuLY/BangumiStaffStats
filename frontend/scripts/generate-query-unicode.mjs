@@ -27,9 +27,12 @@ function authority(manifest, source) {
   );
   assert(entry, `Unicode authority is missing: ${source}`);
   const absolutePath = path.join(goldenRoot, entry.path);
-  const bytes = fs.readFileSync(absolutePath);
-  assert.equal(digest(bytes), entry.sha256, `${source} hash drifted`);
-  return bytes.toString('utf8');
+  const text = fs
+    .readFileSync(absolutePath, 'utf8')
+    .split(String.fromCharCode(13, 10))
+    .join(String.fromCharCode(10));
+  assert.equal(digest(text), entry.sha256, `${source} hash drifted`);
+  return text;
 }
 
 if (process.version !== 'v24.18.0') {

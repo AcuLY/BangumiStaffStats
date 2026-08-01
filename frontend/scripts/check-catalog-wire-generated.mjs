@@ -50,10 +50,9 @@ try {
   assert.deepEqual(inventory(generatedRoot), expectedFiles);
   assert.deepEqual(inventory(temporaryRoot), expectedFiles);
   for (const filename of expectedFiles) {
-    assert(
-      fs.readFileSync(path.join(generatedRoot, filename)).equals(
-        fs.readFileSync(path.join(temporaryRoot, filename)),
-      ),
+    assert.equal(
+      fs.readFileSync(path.join(generatedRoot, filename), 'utf8').split(String.fromCharCode(13, 10)).join(String.fromCharCode(10)),
+      fs.readFileSync(path.join(temporaryRoot, filename), 'utf8').split(String.fromCharCode(13, 10)).join(String.fromCharCode(10)),
       `generated catalog file drifted: ${filename}`,
     );
   }

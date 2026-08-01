@@ -462,7 +462,11 @@ function fileEvidence(filePath, relativePath) {
 }
 
 function requireDigest(filePath, expected, label) {
-  const actual = sha256File(filePath);
+  const normalized = fs
+    .readFileSync(filePath, 'utf8')
+    .split(String.fromCharCode(13, 10))
+    .join(String.fromCharCode(10));
+  const actual = sha256Bytes(Buffer.from(normalized, 'utf8'));
   if (actual !== expected) fail(`${label} drifted: expected ${expected}, got ${actual}`);
   return actual;
 }

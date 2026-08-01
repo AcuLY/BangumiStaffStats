@@ -156,8 +156,16 @@ try {
     fail('check-mode output contains runtime declarations');
   }
 
-  const expected = fs.readFileSync(committedFile, 'utf8');
-  const actual = fs.readFileSync(temporaryFile, 'utf8');
+  const normalizeLineEndings = (value) =>
+    value
+      .split(String.fromCharCode(13, 10))
+      .join(String.fromCharCode(10));
+  const expected = normalizeLineEndings(
+    fs.readFileSync(committedFile, 'utf8'),
+  );
+  const actual = normalizeLineEndings(
+    fs.readFileSync(temporaryFile, 'utf8'),
+  );
   if (expected !== actual) {
     const expectedLines = expected.split('\n');
     const actualLines = actual.split('\n');

@@ -340,7 +340,10 @@ const requestCallers = [];
 const providerOwners = [];
 const brandImporters = [];
 for (const [file, source] of sourceByFile) {
-  const relative = path.relative(frontendRoot, file);
+  const relative = path
+    .relative(frontendRoot, file)
+    .split(path.sep)
+    .join('/');
   if (/generated\/query-wire/.test(source)) {
     queryWireImporters.push(relative);
   }

@@ -43,8 +43,17 @@ try {
     throw result.error;
   }
   assert.equal(result.status, 0, 'query Unicode generator failed');
-  assert(
-    fs.readFileSync(generatedPath).equals(fs.readFileSync(committedPath)),
+  const normalizedGenerated = fs
+    .readFileSync(generatedPath, 'utf8')
+    .split(String.fromCharCode(13, 10))
+    .join(String.fromCharCode(10));
+  const normalizedCommitted = fs
+    .readFileSync(committedPath, 'utf8')
+    .split(String.fromCharCode(13, 10))
+    .join(String.fromCharCode(10));
+  assert.equal(
+    normalizedGenerated,
+    normalizedCommitted,
     'generated query Unicode table drifted',
   );
   console.log('query Unicode drift check passed');

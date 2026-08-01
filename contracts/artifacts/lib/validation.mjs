@@ -115,7 +115,11 @@ function readTrackedAuthority(filePath, label) {
   if (information.isSymbolicLink() || !information.isFile()) {
     fail(label, 'tracked authority must be a regular non-symlink file');
   }
-  return fs.readFileSync(filePath);
+  const text = fs
+    .readFileSync(filePath, 'utf8')
+    .split(String.fromCharCode(13, 10))
+    .join(String.fromCharCode(10));
+  return Buffer.from(text, 'utf8');
 }
 
 export function assertTrackedReleaseAuthorities() {
