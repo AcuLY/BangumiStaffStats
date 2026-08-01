@@ -13,6 +13,15 @@ bgmss_select_check_toolchain_mode "$backend_root"
 cleanup() {
   bgmss_cleanup_check_state
 }
+
+normalize_inventory_paths() {
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -u -f -
+    return
+  fi
+  cat
+}
+
 bgmss_install_check_traps
 
 if [[ "$BGMSS_CHECK_TOOLCHAIN_MODE" == 'ordinary' ]]; then
@@ -66,7 +75,17 @@ else
   fi
   selected_go_root="$("$go_command" env GOROOT)"
   pinned_gofmt="$selected_go_root/bin/gofmt"
-  if [[ ! -x "$pinned_gofmt" || "$selected_go_root" != "$cache_root/go-mod/"*go1.26.5* ]]; then
+  selected_go_root_comparable="${selected_go_root//\\//}"
+  cache_root_comparable="${cache_root//\\//}"
+  if command -v cygpath >/dev/null 2>&1; then
+    selected_go_root_comparable="$(cygpath -m "$selected_go_root")"
+    cache_root_comparable="$(cygpath -m "$cache_root")"
+    pinned_gofmt="$(cygpath -u "$selected_go_root")/bin/gofmt"
+  fi
+  if [[
+    ! -x "$pinned_gofmt" ||
+    "$selected_go_root_comparable" != "$cache_root_comparable/go-mod/"*go1.26.5*
+  ]]; then
     echo "Go 1.26.5 GOROOT is not contained in the backend module cache: $selected_go_root" >&2
     exit 1
   fi
@@ -438,6 +457,7 @@ if [[ "$BGMSS_CHECK_TOOLCHAIN_MODE" == 'acceptance' ]]; then
       \( -path './.cache' -o -path './.tmp' -o -path './build/.tmp' \) -prune \
       -o -type f -print |
       sed 's#^\./##' |
+      normalize_inventory_paths |
       LC_ALL=C sort
   )"
 else
@@ -448,6 +468,7 @@ else
       -not -path './build/.tmp/*' \
       -print |
       sed 's#^\./##' |
+      normalize_inventory_paths |
       LC_ALL=C sort
   )"
 fi
