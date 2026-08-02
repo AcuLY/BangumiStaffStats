@@ -48,3 +48,24 @@ busy, collection, upstream, and internal failures to stable status/code pairs.
 #### Scenario: Characters are requested without cast capability
 - **WHEN** view.section is characters for a query without applicable cast evidence
 - **THEN** the endpoint SHALL return 400 `CAPABILITY_NOT_AVAILABLE` without a partial detail
+
+### Requirement: Personal detail collection warnings SHALL have a total array wire shape
+
+For every successful personal-scope `POST /api/v1/person-detail` response, the Backend producer SHALL serialize `meta.collection.warningCodes` as the array required by the existing person-detail success schema. A fresh collection SHALL use the empty array and a stale collection SHALL use the existing singleton warning array. The frontend and every generated consumer SHALL continue validating the unchanged contract; they SHALL NOT accept `null` as a compatibility fallback.
+
+#### Scenario: Fresh personal collection has no warnings
+- **WHEN** a personal-scope person-detail request succeeds using a fresh admitted collection with no warning codes
+- **THEN** the response SHALL contain `meta.collection.stale: false` and `meta.collection.warningCodes: []`
+- **AND** the response SHALL validate against the existing person-detail success schema
+
+#### Scenario: Stale personal collection retains its warning
+- **WHEN** a personal-scope person-detail request succeeds using an admitted stale collection
+- **THEN** the response SHALL contain `meta.collection.stale: true` and `meta.collection.warningCodes: ["COLLECTION_STALE"]`
+
+#### Scenario: Null warning collection is produced
+- **WHEN** a successful personal detail envelope would serialize `meta.collection.warningCodes` as `null`
+- **THEN** Backend regression and contract validation SHALL fail before artifact or production admission
+
+#### Scenario: Global detail remains collection-free
+- **WHEN** a global-scope person-detail request succeeds
+- **THEN** the existing global envelope SHALL remain unchanged and SHALL NOT gain personal collection metadata
