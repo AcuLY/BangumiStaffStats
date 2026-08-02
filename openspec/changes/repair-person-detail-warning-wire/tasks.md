@@ -28,12 +28,12 @@
 
 ## 3. Product candidate admission
 
-- [ ] 3.1 Push only `refs/heads/codex/deploy-person-detail-warning-fix`, verify remote equality, and require the exact Product candidate’s `development-artifacts` push run to complete successfully; do not dispatch or admit a bundle yet.
-- [ ] 3.2 Inspect the Product run’s Backend, Frontend, Updater, Contracts, artifact-smoke, and residue jobs; record exact run/commit evidence and stop on any non-green required gate.
+- [x] 3.1 Push only `refs/heads/codex/deploy-person-detail-warning-fix`, verify remote equality, and require the exact Product candidate’s `development-artifacts` push run to complete successfully; do not dispatch or admit a bundle yet. Local and remote both resolved to `2172a1067d26b819994a3dfa1e08cbad48f0aba3`; push run `30731913842` completed successfully.
+- [x] 3.2 Inspect the Product run’s Backend, Frontend, Updater, Contracts, artifact-smoke, and residue jobs; record exact run/commit evidence and stop on any non-green required gate. Job `91453668473` reported every source, component, cross-artifact smoke, and residue step successful; the operations-preview caller was skipped as required for a push event.
 
 ## 4. Operations bundle pin
 
-- [ ] 4.1 Re-preflight the exact green Product commit and clean worktree, then change only `operations/bin/build-bundle.sh`’s accepted Product revision to that exact 40-hex commit while preserving every other admission/policy byte.
+- [x] 4.1 Re-preflight the exact green Product commit and clean worktree, then change only `operations/bin/build-bundle.sh`’s accepted Product revision to that exact 40-hex commit while preserving every other admission/policy byte. Preflight bound clean HEAD `2172a1067d26b819994a3dfa1e08cbad48f0aba3` and run `30731913842`; the admission pin target is that exact Product commit.
 - [ ] 4.2 Run `bash operations/test/runtime.sh`, strict OpenSpec validation, shell syntax, exact one-line pin diff, `git diff --check`, and zero-P0/P1 review; commit/push the admission change and verify remote equality.
 
 ## 5. Exact AMD64 artifact

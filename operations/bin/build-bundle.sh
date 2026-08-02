@@ -30,7 +30,7 @@ repository_root="$(
 )"
 # shellcheck source=../lib/common.sh
 source "$repository_root/operations/lib/common.sh"
-accepted_product_revision='20dbccba899accdce0248c599416161204497f39e'
+accepted_product_revision='2172a1067d26b819994a3dfa1e08cbad48f0aba3'
 accepted_ci_policy_sha256='0260babc76f71b1fb0730bb84894ce0f3c41c9df93591910f05ac9352ee98176'
 data_version='dv1-0a1fa3e9acdb06be34e3535b3c68e322e7d3f4cd87ac30cd4b608b2276ba3ca1'
 
