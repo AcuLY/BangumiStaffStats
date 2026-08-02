@@ -243,6 +243,17 @@ func TestServicePersonalUsesOneAdmittedCollectionAndEmitsCompleteEvidence(t *tes
 			second,
 		)
 	}
+	if first.Collection.WarningCodes == nil {
+		t.Fatal("fresh collection warning codes must be an allocated empty slice")
+	}
+	data, err := first.MarshalEnvelope("req-person-detail-fresh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), `"warningCodes":null`) ||
+		!strings.Contains(string(data), `"warningCodes":[]`) {
+		t.Fatalf("fresh warning codes wire shape = %s", data)
+	}
 }
 
 func TestServiceDistinguishesMissingAndIneligiblePersonFromArchive(t *testing.T) {
