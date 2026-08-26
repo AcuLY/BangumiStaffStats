@@ -57,7 +57,6 @@ _PHASES = frozenset(
         "identity",
         "build",
         "manifest",
-        "smoke",
         "publication",
         "complete",
     }
@@ -127,7 +126,6 @@ def _parser() -> _Parser:
     producer.add_argument("--contracts-root", required=True)
     producer.add_argument("--catalog-config", required=True)
     producer.add_argument("--common-commit", required=True)
-    producer.add_argument("--archive-smoke", required=True)
     producer.add_argument("--status-file", required=True)
     producer.add_argument("--generated-at")
     return parser
@@ -291,7 +289,6 @@ def _produce_request(namespace: argparse.Namespace) -> ProduceRequest:
         contracts_root=Path(namespace.contracts_root),
         catalog_config=Path(namespace.catalog_config),
         common_commit=namespace.common_commit,
-        archive_smoke=Path(namespace.archive_smoke),
         generated_at=namespace.generated_at,
         https_proxy=os.environ.get("BGMSS_HTTPS_PROXY"),
     )

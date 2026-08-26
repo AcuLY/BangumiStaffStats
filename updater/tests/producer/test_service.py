@@ -8,18 +8,19 @@ import json
 import os
 import shutil
 import sqlite3
-import sys
-import time
 import zipfile
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
 from bangumi_staff_stats_updater.producer import service as service_module
 from bangumi_staff_stats_updater.producer.acquisition import LATEST_URL
+from bangumi_staff_stats_updater.producer.manifest import (
+    finalize_manifest as real_finalize_manifest,
+)
 from bangumi_staff_stats_updater.producer.model import (
     ARCHIVE_MEMBER_NAMES,
     ProducerError,
@@ -208,31 +209,9 @@ def _full_source_catalog(case: dict[str, object]) -> bytes:
     )
 
 
-def _smoke(path: Path, *, fail: bool = False) -> Path:
-    body = (
-        f"#!{sys.executable}\n"
-        "import hashlib,json,pathlib,sys\n"
-        + ("raise SystemExit(1)\n" if fail else "")
-        + "args=dict(zip(sys.argv[1::2],sys.argv[2::2],strict=True))\n"
-        + "root=pathlib.Path(args['-archive-root'])\n"
-        + "version=args['-data-version']\n"
-        + "manifest_path=root/'versions'/version/'manifest.json'\n"
-        + "data=manifest_path.read_bytes()\n"
-        + "manifest=json.loads(data)\n"
-        + "print(json.dumps({'ok':True,'dataVersion':version,"
-        + "'manifestDigest':'sha256:'+hashlib.sha256(data).hexdigest(),"
-        + "'sqliteDigest':manifest['sqliteDigest']},separators=(',',':')))\n"
-    )
-    path.write_text(body)
-    path.chmod(0o755)
-    return path
-
-
 def _arrange(
     contracts_root: Path,
     tmp_path: Path,
-    *,
-    failing_smoke: bool = False,
 ) -> tuple[ProduceRequest, _Client]:
     case = _case(contracts_root)
     inputs = cast(dict[str, object], case["inputs"])
@@ -242,14 +221,12 @@ def _arrange(
     archive = _archive(case)
     catalog_path = tmp_path / "catalog.json"
     catalog_path.write_bytes(cast(str, catalog["bytesUtf8"]).encode())
-    smoke_path = _smoke(tmp_path / "archive-smoke", fail=failing_smoke)
     return (
         ProduceRequest(
             output_root=tmp_path,
             contracts_root=contracts_root,
             catalog_config=catalog_path,
             common_commit=cast(str, identity["commonCommit"]),
-            archive_smoke=smoke_path,
             generated_at="2026-07-25T00:00:00Z",
         ),
         _Client(archive, cast(str, common["bytesUtf8"]).encode()),
@@ -322,7 +299,6 @@ def test_request_has_no_rule_version_override_authority(
             contracts_root=request.contracts_root,
             catalog_config=request.catalog_config,
             common_commit=request.common_commit,
-            archive_smoke=request.archive_smoke,
             domain_rules_version="domain-v1",  # type: ignore[call-arg]
         )
 
@@ -363,7 +339,6 @@ def test_phase_observer_reports_only_completed_existing_gates(
         "identity",
         "build",
         "manifest",
-        "smoke",
         "publication",
     ]
     assert result.status == "published"
@@ -380,20 +355,25 @@ def test_phase_observer_reports_only_completed_existing_gates(
 def test_interrupted_phase_is_started_but_never_completed(
     contracts_root: Path,
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    request, client = _arrange(contracts_root, tmp_path, failing_smoke=True)
+    request, client = _arrange(contracts_root, tmp_path)
     observer = _Observer()
 
-    with pytest.raises(ProducerError, match="GO_SMOKE_FAILED"):
+    def reject_manifest(*_args: object, **_kwargs: object) -> tuple[dict[str, object], str]:
+        raise ProducerError("MANIFEST_SCHEMA_INVALID")
+
+    monkeypatch.setattr(service_module, "finalize_manifest", reject_manifest)
+
+    with pytest.raises(ProducerError, match="MANIFEST_SCHEMA_INVALID"):
         produce(request, client=client, observer=observer)
 
-    assert observer.started[-1] == "smoke"
+    assert observer.started[-1] == "manifest"
     assert [phase for phase, _duration, _details in observer.completed] == [
         "preflight",
         "acquisition",
         "identity",
         "build",
-        "manifest",
     ]
 
 
@@ -447,7 +427,7 @@ def test_postpublication_clock_failure_cannot_change_published_result(
     def clock() -> float:
         nonlocal calls
         calls += 1
-        if calls == 14:
+        if calls == 12:
             raise RuntimeError("clock failed after publication")
         return float(calls)
 
@@ -458,18 +438,6 @@ def test_postpublication_clock_failure_cannot_change_published_result(
     assert observer.completed[-1][0] == "publication"
     assert observer.completed[-1][1] is None
     assert not (tmp_path / "current.json").exists()
-
-
-def test_go_smoke_failure_leaves_no_candidate(
-    contracts_root: Path,
-    tmp_path: Path,
-) -> None:
-    request, client = _arrange(contracts_root, tmp_path, failing_smoke=True)
-    with pytest.raises(ProducerError, match="GO_SMOKE_FAILED"):
-        produce(request, client=client)
-    versions = tmp_path / "versions"
-    assert not versions.exists() or not tuple(versions.iterdir())
-    assert not tuple(tmp_path.glob(".bgmss-stage-*"))
 
 
 def test_cancellation_removes_staging_and_preserves_prior_bytes(
@@ -486,104 +454,25 @@ def test_cancellation_removes_staging_and_preserves_prior_bytes(
     assert not (tmp_path / "current.json").exists()
 
 
-def test_cancellation_after_go_smoke_is_the_last_prepublication_gate(
+def test_cancellation_after_manifest_is_the_last_prepublication_gate(
     contracts_root: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     request, client = _arrange(contracts_root, tmp_path)
-    original_smoke = service_module._smoke
-    state = {"smoked": False}
+    state = {"manifested": False}
 
-    def smoke(
-        executable: Path,
-        archive_root: Path,
-        version: str,
-        cancelled: Callable[[], bool],
-    ) -> tuple[str, str]:
-        result = original_smoke(executable, archive_root, version, cancelled)
-        state["smoked"] = True
+    def finalize_manifest(*args: Any, **kwargs: Any) -> tuple[dict[str, object], str]:
+        result = real_finalize_manifest(*args, **kwargs)
+        state["manifested"] = True
         return result
 
-    monkeypatch.setattr(service_module, "_smoke", smoke)
+    monkeypatch.setattr(service_module, "finalize_manifest", finalize_manifest)
     with pytest.raises(ProducerError, match="CANCELED"):
-        produce(request, client=client, cancelled=lambda: state["smoked"])
-    assert state["smoked"]
+        produce(request, client=client, cancelled=lambda: state["manifested"])
+    assert state["manifested"]
     assert not tuple((tmp_path / "versions").iterdir())
     assert not tuple(tmp_path.glob(".bgmss-stage-*"))
-
-
-def test_go_smoke_output_is_rejected_at_the_streaming_bound(
-    tmp_path: Path,
-) -> None:
-    executable = tmp_path / "overflow-smoke"
-    executable.write_text(
-        f"#!{sys.executable}\nimport sys\nsys.stdout.write('x' * 4097)\nsys.stdout.flush()\n"
-    )
-    executable.chmod(0o755)
-    with pytest.raises(ProducerError, match="GO_SMOKE_FAILED"):
-        service_module._smoke(
-            executable,
-            tmp_path,
-            "dv1-" + ("a" * 64),
-            lambda: False,
-        )
-
-
-def test_cancellation_terminates_and_reaps_running_go_smoke(
-    tmp_path: Path,
-) -> None:
-    pid_path = tmp_path / "smoke.pid"
-    executable = tmp_path / "sleeping-smoke"
-    executable.write_text(
-        f"#!{sys.executable}\n"
-        "import os,pathlib,time\n"
-        f"pathlib.Path({os.fspath(pid_path)!r}).write_text(str(os.getpid()))\n"
-        "time.sleep(30)\n"
-    )
-    executable.chmod(0o755)
-    started = time.monotonic()
-    with pytest.raises(ProducerError, match="CANCELED"):
-        service_module._smoke(
-            executable,
-            tmp_path,
-            "dv1-" + ("a" * 64),
-            pid_path.exists,
-        )
-    assert time.monotonic() - started < 2
-    process_id = int(pid_path.read_text())
-    with pytest.raises(ProcessLookupError):
-        os.kill(process_id, 0)
-
-
-def test_keyboard_interrupt_terminates_and_reaps_running_go_smoke(
-    tmp_path: Path,
-) -> None:
-    pid_path = tmp_path / "interrupted-smoke.pid"
-    executable = tmp_path / "interrupted-smoke"
-    executable.write_text(
-        f"#!{sys.executable}\n"
-        "import os,pathlib,time\n"
-        f"pathlib.Path({os.fspath(pid_path)!r}).write_text(str(os.getpid()))\n"
-        "time.sleep(30)\n"
-    )
-    executable.chmod(0o755)
-
-    def interrupted() -> bool:
-        if pid_path.exists():
-            raise KeyboardInterrupt
-        return False
-
-    with pytest.raises(KeyboardInterrupt):
-        service_module._smoke(
-            executable,
-            tmp_path,
-            "dv1-" + ("a" * 64),
-            interrupted,
-        )
-    process_id = int(pid_path.read_text())
-    with pytest.raises(ProcessLookupError):
-        os.kill(process_id, 0)
 
 
 def test_invalid_existing_same_version_is_preserved_and_rejected(
@@ -594,37 +483,59 @@ def test_invalid_existing_same_version_is_preserved_and_rejected(
     first = produce(request, client=client)
     manifest = tmp_path / "versions" / first.data_version / "manifest.json"
     manifest.write_bytes(b"invalid-existing")
-    with pytest.raises(ProducerError, match="GO_SMOKE_FAILED"):
+    with pytest.raises(ProducerError, match="PUBLICATION_COLLISION"):
         produce(request, client=client)
     assert manifest.read_bytes() == b"invalid-existing"
     assert not tuple(tmp_path.glob(".bgmss-stage-*"))
 
 
-def test_real_go_consumer_accepts_python_candidate_when_explicitly_supplied(
+def test_existing_same_version_identity_drift_is_preserved_and_rejected(
     contracts_root: Path,
     tmp_path: Path,
 ) -> None:
-    executable = os.environ.get("BGMSS_ARCHIVE_SMOKE")
-    if executable is None:
-        pytest.skip("set BGMSS_ARCHIVE_SMOKE for the explicit Python-to-Go gate")
     request, client = _arrange(contracts_root, tmp_path)
-    result = produce(
-        replace(request, archive_smoke=Path(executable).resolve(strict=True)),
-        client=client,
-    )
-    assert result.status == "published"
-    assert (tmp_path / "versions" / result.data_version / "manifest.json").is_file()
-    assert (tmp_path / "versions" / result.data_version / "bangumi.sqlite").is_file()
+    first = produce(request, client=client)
+    manifest_path = tmp_path / "versions" / first.data_version / "manifest.json"
+    manifest = cast(dict[str, object], json.loads(manifest_path.read_bytes()))
+    manifest["archiveRelease"] = "drifted-release"
+    drifted = json.dumps(manifest, ensure_ascii=False, separators=(",", ":")).encode() + b"\n"
+    manifest_path.write_bytes(drifted)
+
+    with pytest.raises(ProducerError, match="PUBLICATION_COLLISION"):
+        produce(request, client=client)
+
+    assert manifest_path.read_bytes() == drifted
+    assert not tuple(tmp_path.glob(".bgmss-stage-*"))
 
 
-def test_complete_public_source_reaches_real_go_consumer_when_explicitly_supplied(
+def test_existing_same_version_symlink_is_preserved_and_rejected(
     contracts_root: Path,
     tmp_path: Path,
 ) -> None:
-    executable = os.environ.get("BGMSS_ARCHIVE_SMOKE")
+    request, client = _arrange(contracts_root, tmp_path)
+    first = produce(request, client=client)
+    versions = tmp_path / "versions"
+    version_root = versions / first.data_version
+    preserved = tmp_path / "preserved-version"
+    version_root.rename(preserved)
+    version_root.symlink_to(preserved, target_is_directory=True)
+
+    with pytest.raises(ProducerError, match="PUBLICATION_COLLISION"):
+        produce(request, client=client)
+
+    assert version_root.is_symlink()
+    assert (preserved / "manifest.json").is_file()
+    assert (preserved / "bangumi.sqlite").is_file()
+    assert not tuple(tmp_path.glob(".bgmss-stage-*"))
+
+
+def test_complete_public_source_is_deterministic_when_explicitly_supplied(
+    contracts_root: Path,
+    tmp_path: Path,
+) -> None:
     archive = os.environ.get("BGMSS_ARCHIVE_ZIP")
     common = os.environ.get("BGMSS_COMMON_YAML")
-    if executable is None or archive is None or common is None:
+    if archive is None or common is None:
         pytest.skip("set all BGMSS complete-source gate paths")
 
     catalog_path = (
@@ -637,7 +548,6 @@ def test_complete_public_source_reaches_real_go_consumer_when_explicitly_supplie
             contracts_root=contracts_root,
             catalog_config=catalog_path,
             common_commit="6a8442c17143a870357a5ff812362e8b5cfe9f9d",
-            archive_smoke=Path(executable).resolve(strict=True),
             generated_at="2026-07-25T00:00:00Z",
         )
 

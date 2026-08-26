@@ -208,38 +208,14 @@ docker buildx build \
   --output "type=local,dest=$binary_root" \
   "$snapshot_backend_root" >&2
 api_binary_path="$binary_root/bgmss-api"
-archive_smoke_binary_path="$binary_root/archive-smoke"
 binary_inventory="$(
   find "$binary_root" -mindepth 1 -maxdepth 1 -print |
     LC_ALL=C sort
 )"
-expected_binary_inventory="$archive_smoke_binary_path
-$api_binary_path"
+expected_binary_inventory="$api_binary_path"
 if [[ "$binary_inventory" != "$expected_binary_inventory" ]] ||
-  [[ ! -f "$api_binary_path" || -L "$api_binary_path" ]] ||
-  [[ ! -f "$archive_smoke_binary_path" || -L "$archive_smoke_binary_path" ]]; then
-  echo 'BuildKit binary export did not produce exactly bgmss-api and archive-smoke' >&2
-  exit 1
-fi
-archive_smoke_build_info="$(
-  docker run --rm \
-    --pull never \
-    --platform "linux/$target_architecture" \
-    --network none \
-    --read-only \
-    --cap-drop ALL \
-    --security-opt no-new-privileges \
-    --mount "type=bind,src=$binary_root,dst=/probe,readonly" \
-    --entrypoint /probe/archive-smoke \
-    "$go_image" \
-    --build-info
-)"
-expected_build_info="$(
-  printf '{"revision":"%s","version":"%s"}' \
-    "$source_revision" "$application_version"
-)"
-if [[ "$archive_smoke_build_info" != "$expected_build_info" ]]; then
-  echo 'Archive smoke binary does not report the declared release identity' >&2
+  [[ ! -f "$api_binary_path" || -L "$api_binary_path" ]]; then
+  echo 'BuildKit binary export did not produce exactly bgmss-api' >&2
   exit 1
 fi
 
@@ -277,7 +253,6 @@ input_arguments+=(
 component_root="$work_root/component"
 "$helper" package \
   --api-binary "$api_binary_path" \
-  --archive-smoke-binary "$archive_smoke_binary_path" \
   --image-archive "$raw_image_archive" \
   --output "$component_root" \
   --source-revision "$source_revision" \

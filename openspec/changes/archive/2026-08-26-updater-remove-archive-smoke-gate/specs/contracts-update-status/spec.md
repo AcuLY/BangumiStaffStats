@@ -1,8 +1,24 @@
-# contracts-update-status Specification
+## Capability Boundary
 
-## Purpose
-Define the sole closed cross-language update-status terminal snapshot, its valid status, phase, data, and error combinations, and indexed deterministic goldens proving producer-consumer agreement.
-## Requirements
+| Field | Boundary |
+|---|---|
+| Status | Modified closed phase enum |
+| Owner | Contracts |
+| Writable paths | Update-status schema/tooling/goldens, Python/Go consumers in declared paths, this delta and lifecycle root spec |
+| Read-only protected inputs | Other contracts, status field/status/error semantics and external state |
+| Deletion complement | Remove only the `smoke` phase value and replace smoke-based negative fixture baselines |
+| Mutable refs | Local topic branch only |
+| Consumes | Existing update-status v1 document shape |
+| Produces | Smoke-free v1 phase enum and deterministic indexed goldens |
+| Dependencies | Contracts -> Updater writer and Backend observability reader |
+| Deliverables | Schema, goldens/index, verifier and both language consumers agree |
+| Acceptance | Contracts verifier plus focused Python/Go status tests |
+| Non-goals | Change schema version, fields, terminal statuses or error relationships |
+| Operations deferred | Rollout of new status producer/consumer |
+| Stop/rollback conditions | Stop on producer/consumer/schema/golden disagreement |
+
+## MODIFIED Requirements
+
 ### Requirement: The status document SHALL contain one closed terminal snapshot
 
 `contracts/schemas/update-status/update-status-v1.schema.json` SHALL be the
@@ -22,35 +38,13 @@ exact `dv1-` plus 64 lowercase hexadecimal identity. `phase` SHALL be one of
 
 #### Scenario: First valid attempt fails
 - **WHEN** no prior status exists and a run fails during an admitted phase
-- **THEN** `last_attempt` SHALL carry status `failed`, a non-null stable
-  `error_code`, and the known-or-null `dataVersion`
+- **THEN** `last_attempt` SHALL carry status `failed`, a non-null stable `error_code`, and the known-or-null `dataVersion`
 - **AND** `last_success` SHALL be null
 
 #### Scenario: A successful terminal record is represented
 - **WHEN** an attempt terminates as `no-change` or `published`
 - **THEN** its `error_code` SHALL be null
-- **AND** the same complete record SHALL be valid as both `last_attempt` and
-  `last_success`
-
-### Requirement: Terminal state combinations SHALL be closed and consistent
-
-`status` SHALL be exactly `failed`, `canceled`, `no-change`, or `published`.
-`failed` SHALL require a stable uppercase error code other than `CANCELED`;
-`canceled` SHALL require exact `CANCELED`; `no-change` and `published` SHALL
-require null `error_code`. A non-null `last_success` SHALL allow only
-`no-change` or `published`.
-
-#### Scenario: Failure preserves an earlier success
-- **WHEN** `last_attempt` is failed or canceled and a prior success exists
-- **THEN** `last_success` SHALL remain a complete successful record
-- **AND** the two records MAY have different time, phase, duration, and
-  `dataVersion`
-
-#### Scenario: A contradictory or expanded document is checked
-- **WHEN** a document has an unknown field, invalid enum, malformed time,
-  negative duration, invalid `dataVersion`, missing error, success error, or
-  failed `last_success`
-- **THEN** schema validation SHALL reject it
+- **AND** the same complete record SHALL be valid as both `last_attempt` and `last_success`
 
 ### Requirement: Indexed goldens SHALL prove producer and consumer agreement
 
@@ -65,12 +59,9 @@ zero-network results.
 #### Scenario: The closed golden bundle is verified
 - **WHEN** the verifier runs from a clean checkout
 - **THEN** every positive and negative expectation SHALL match
-- **AND** no schema, golden, cache, temporary file, or lockfile byte SHALL be
-  modified
-- **AND** `.cache/`, `.tmp/`, and `tooling/node_modules/` SHALL be absent at
-  handoff
+- **AND** no schema, golden, cache, temporary file, or lockfile byte SHALL be modified
+- **AND** `.cache/`, `.tmp/`, and `tooling/node_modules/` SHALL be absent at handoff
 
 #### Scenario: The bundle drifts
-- **WHEN** an indexed file is missing, extra, linked, malformed, or produces a
-  result different from its declaration
+- **WHEN** an indexed file is missing, extra, linked, malformed, or produces a result different from its declaration
 - **THEN** verification SHALL fail closed

@@ -32,7 +32,7 @@
     },
     {
       "path": "cases/invalid.json",
-      "sha256": "30d8afd9a144dc7b9cb63eae5c22021846adf2ecd9d5090484eb4d71f36cb046",
+      "sha256": "2d56251a6dac61c6b210bdaae8f86df5a9676e1b264de49257db795160022e23",
       "caseId": "invalid",
       "caseKind": "invalid-mutations",
       "outcome": "INVALID"

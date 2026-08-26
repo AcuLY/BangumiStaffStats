@@ -27,8 +27,8 @@ Define deterministic, content-addressed Backend development artifacts, their min
 For one clean candidate source identity, target OS/architecture, Go 1.26.5
 toolchain, locked modules, and declared normalized build inputs, Backend SHALL
 produce a byte-identical API binary bundle and local OCI image archive across
-two isolated builds. The binary bundle SHALL contain normalized same-target
-`bgmss-api` and `archive-smoke` executables plus canonical build metadata.
+two isolated builds. The binary bundle SHALL contain one normalized same-target
+`bgmss-api` executable plus canonical build metadata.
 Build paths, timestamps, UID/GID, modes, archive order, compression headers,
 and Go link metadata SHALL be normalized. Final local output SHALL be
 content-addressed and SHALL never be overwritten with different bytes. The
@@ -46,7 +46,7 @@ content-hiding state.
 
 #### Scenario: Backend is rebuilt from identical inputs
 - **WHEN** two builds run with fresh caches/output roots and the same source, target platform, pinned toolchain/base images, and normalized inputs
-- **THEN** the two-executable bundle, OCI bytes, checksum inventory, SPDX SBOM, component statement, and inner executable evidence are byte-identical
+- **THEN** the one-executable bundle, OCI bytes, checksum inventory, SPDX SBOM, component statement, and inner executable evidence are byte-identical
 
 #### Scenario: An existing content address has different bytes
 - **WHEN** publication would replace an existing local content-addressed directory with non-identical content
@@ -56,23 +56,21 @@ content-hiding state.
 - **WHEN** candidate identity, tracked bytes/modes, or declared inputs disagree
 - **THEN** the build fails before copying source or creating an artifact
 
-### Requirement: Backend binary bundle SHALL expose exact producer gates
+### Requirement: Backend binary bundle SHALL contain only the API executable
 
-The normalized Backend bundle SHALL contain exactly `bin/bgmss-api`,
-`bin/archive-smoke`, and `metadata/build.json` below their required
-directories. Both binaries SHALL be regular non-symlink files built for the
-statement target with `CGO_ENABLED=0`, deterministic Go flags, and executable
-mode `0555`. `metadata/build.json` SHALL use schema version 2 and bind a closed
-role/path/size/SHA-256 record for each; historical schema version 1 SHALL not
-be accepted for a new bundle. Verification SHALL reject an unsafe, missing,
-extra, duplicate, non-executable, wrong-target, or digest-mismatched member.
-Outer checksum, SBOM, and component evidence SHALL bind the complete bundle
-bytes.
+The normalized Backend bundle SHALL contain exactly `bin/bgmss-api` and
+`metadata/build.json` below their required directories. The API SHALL be a
+regular non-symlink file built for the statement target with `CGO_ENABLED=0`,
+deterministic Go flags, and executable mode `0555`. `metadata/build.json`
+SHALL retain schema version 2 and bind one closed role/path/size/SHA-256 record.
+Verification SHALL reject an unsafe, missing, extra, duplicate,
+non-executable, wrong-target, or digest-mismatched member. Outer checksum,
+SBOM, and component evidence SHALL bind the complete bundle bytes.
 
-#### Scenario: Operations consumes Archive validation
-- **WHEN** the accepted bundle is verified and `bin/archive-smoke` is extracted through the declared member
-- **THEN** its size and digest match canonical bundle metadata
-- **AND** no Backend source or build tool is required
+#### Scenario: The API bundle is consumed
+- **WHEN** the accepted bundle is verified and `bin/bgmss-api` is extracted through the declared member
+- **THEN** its size and digest SHALL match canonical bundle metadata
+- **AND** no second Backend command, source, or build tool SHALL be present
 
 #### Scenario: Inner bundle content drifts
 - **WHEN** an executable/member/mode/role/path/size/digest differs or an extra member appears
@@ -81,15 +79,15 @@ bytes.
 ### Requirement: The Backend runtime image SHALL be minimal and immutable
 
 The runtime image SHALL contain `bgmss-api` and only required runtime
-trust/data files. It SHALL not contain `archive-smoke`, source, module cache,
-compiler, or build tool. It SHALL remain non-root, immutable, and accept
+trust/data files. It SHALL not contain any second Backend executable, source,
+module cache, compiler, or build tool. It SHALL remain non-root, immutable, and accept
 Archive/status inputs only through explicit read-only mounts/arguments.
 Numeric user parsing SHALL reject UID zero in canonical or leading-zero form,
 with or without a group field.
 
 #### Scenario: The local runtime image is inspected
 - **WHEN** image metadata and filesystem are checked after a local `push=false` build
-- **THEN** the API is the only Backend executable and `archive-smoke` exists only in the binary bundle
+- **THEN** the API SHALL be the only Backend executable in both the runtime image and distributable binary bundle
 
 #### Scenario: A root UID uses a non-canonical spelling
 - **WHEN** the runtime config user is `00`, `000:123`, or another numeric encoding of UID zero

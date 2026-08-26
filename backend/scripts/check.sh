@@ -122,14 +122,13 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
   -benchtime=1x -benchmem
 "$go_command" test ./internal/httpapi/wire
 "$go_command" test ./internal/archive/contracttest
-"$go_command" test ./internal/archive ./cmd/archive-smoke
+"$go_command" test ./internal/archive
 "$go_command" test ./...
 "$go_command" test -race ./...
 "$go_command" vet ./...
 "$go_command" build ./...
 CGO_ENABLED=0 "$go_command" test ./...
 CGO_ENABLED=0 "$go_command" build -o "$temporary_root/bin/api" ./cmd/api
-CGO_ENABLED=0 "$go_command" build -o "$temporary_root/bin/archive-smoke" ./cmd/archive-smoke
 CGO_ENABLED=0 "$go_command" test -c -o "$temporary_root/bin/query.test" ./internal/query
 "$go_command" mod verify
 
@@ -217,8 +216,6 @@ build/test.sh
 build/toolchain-policy.sh
 cmd/api/main.go
 cmd/api/main_test.go
-cmd/archive-smoke/main.go
-cmd/archive-smoke/main_test.go
 go.mod
 go.sum
 internal/app/catalog_archive_integration_test.go

@@ -208,11 +208,11 @@ if ! grep -Fxq 'USER 65532:65532' "$dockerfile" ||
   echo 'Backend Dockerfile does not enforce the reviewed non-root API entrypoint' >&2
   exit 1
 fi
-if [[ "$(grep -c 'internal/releaseinfo.Version=${APPLICATION_VERSION}' "$dockerfile")" != '2' ]] ||
-  [[ "$(grep -c 'internal/releaseinfo.Commit=${SOURCE_REVISION}' "$dockerfile")" != '2' ]] ||
+if [[ "$(grep -c 'internal/releaseinfo.Version=${APPLICATION_VERSION}' "$dockerfile")" != '1' ]] ||
+  [[ "$(grep -c 'internal/releaseinfo.Commit=${SOURCE_REVISION}' "$dockerfile")" != '1' ]] ||
   ! grep -Fq 'org.opencontainers.image.version="${APPLICATION_VERSION}"' "$dockerfile" ||
   ! grep -Fq 'org.opencontainers.image.revision="${SOURCE_REVISION}"' "$dockerfile"; then
-  echo 'Backend Dockerfile does not bind both binaries and OCI metadata to release identity' >&2
+  echo 'Backend Dockerfile does not bind the API binary and OCI metadata to release identity' >&2
   exit 1
 fi
 for required_release_input in \
@@ -227,16 +227,15 @@ for required_release_input in \
     exit 1
   fi
 done
-if ! grep -Fq -- '--build-info' "$build_root/build.sh" ||
-  ! grep -Fq 'BGMSS_APPLICATION_VERSION=$application_version' "$build_root/smoke.sh" ||
+if ! grep -Fq 'BGMSS_APPLICATION_VERSION=$application_version' "$build_root/smoke.sh" ||
   ! grep -Fq 'BGMSS_SOURCE_REVISION=$source_revision' "$build_root/smoke.sh"; then
-  echo 'Backend artifact pipeline does not inspect both binary release identities' >&2
+  echo 'Backend artifact pipeline does not inspect the API release identity' >&2
   exit 1
 fi
-if ! grep -Fq -- '-o /out/archive-smoke' "$dockerfile" ||
-  ! grep -Fxq 'COPY --from=build /out/archive-smoke /archive-smoke' "$dockerfile" ||
-  grep -Eq '^COPY .*archive-smoke .*/usr/local/' "$dockerfile"; then
-  echo 'Backend Dockerfile does not export Archive smoke exclusively through the binary stage' >&2
+if [[ "$(grep -Fc -- '-o /out/bgmss-api' "$dockerfile")" != '1' ]] ||
+  [[ "$(grep -Fc -- 'COPY --from=build /out/bgmss-api /bgmss-api' "$dockerfile")" != '1' ]] ||
+  [[ "$(grep -c -- '-o /out/' "$dockerfile")" != '1' ]]; then
+  echo 'Backend Dockerfile does not export exactly one API binary' >&2
   exit 1
 fi
 if ! grep -Fq 'docker image inspect "$go_image"' "$build_root/smoke.sh" ||
@@ -248,7 +247,7 @@ if ! grep -Fq 'docker network create' "$build_root/smoke.sh" ||
   ! grep -Fq -- '--internal' "$build_root/smoke.sh" ||
   ! grep -Fq -- '-listen-address 0.0.0.0:8080' "$build_root/smoke.sh" ||
   ! grep -Fq 'BGMSS_API_HOST=$api_container' "$build_root/smoke.sh" ||
-  ! grep -Fq 'archive-smoke$' "$build_root/smoke.sh" ||
+  ! grep -Fq 'unexpected Backend executable' "$build_root/smoke.sh" ||
   grep -Fq -- '--network "container:' "$build_root/smoke.sh" ||
   grep -Eq -- '^[[:space:]]+(-p|-P)([=[:space:]]|$)|--publish([=[:space:]]|$)' \
     "$build_root/smoke.sh"; then

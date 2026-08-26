@@ -248,8 +248,9 @@ if ! grep -Fxq 'usr/local/bin/bgmss-api' "$rootfs_inventory"; then
   echo 'runtime image omits the API executable' >&2
   exit 1
 fi
-if grep -E '(^|/)archive-smoke$' "$rootfs_inventory" >/dev/null; then
-  echo 'runtime image contains the bundle-only Archive smoke executable' >&2
+if grep -E '^usr/local/bin/.+' "$rootfs_inventory" |
+  grep -Fvx 'usr/local/bin/bgmss-api' >/dev/null; then
+  echo 'runtime image contains an unexpected Backend executable' >&2
   exit 1
 fi
 if grep -Ev '/$' "$rootfs_inventory" |

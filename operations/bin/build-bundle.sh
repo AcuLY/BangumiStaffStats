@@ -183,9 +183,6 @@ install -m 0444 -- \
   "$updater_root/artifacts/updater-image-linux-amd64.oci.tar" \
   "$bundle_root/updater.oci.tar"
 install -m 0444 -- \
-  "$backend_root/backend-api-linux-amd64.tar.gz" \
-  "$bundle_root/backend-tools.tar.gz"
-install -m 0444 -- \
   "$frontend_root/artifacts/frontend-static-linux-amd64.tar" \
   "$bundle_root/frontend.tar"
 install -m 0444 -- \
@@ -223,7 +220,6 @@ NODE
 
 payload_paths=(
   'api.oci.tar'
-  'backend-tools.tar.gz'
   'build.json'
   'frontend.tar'
   'minimal-archive/current.json'

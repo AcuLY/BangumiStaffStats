@@ -47,11 +47,8 @@ const (
 	requiredBuildkitImageInputPath = "toolchain/buildkit-image"
 	requiredGoVersion              = "go1.26.5"
 	apiModulePath                  = "github.com/AcuLY/BangumiStaffStats/backend/cmd/api"
-	archiveSmokeModulePath         = "github.com/AcuLY/BangumiStaffStats/backend/cmd/archive-smoke"
 	apiBundlePath                  = "bin/bgmss-api"
-	archiveSmokeBundlePath         = "bin/archive-smoke"
 	apiExecutableRole              = "api-runtime"
-	archiveSmokeExecutableRole     = "archive-validation"
 	releaseinfoVersionSymbol       = "github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Version"
 	releaseinfoCommitSymbol        = "github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Commit"
 	checksumFileName               = "checksums.sha256"
@@ -310,7 +307,6 @@ func exitError(err error) {
 
 type packageOptions struct {
 	APIBinaryPath               string
-	ArchiveSmokeBinaryPath      string
 	ImageArchivePath            string
 	OutputPath                  string
 	SourceRevision              string
@@ -384,34 +380,7 @@ func packageCommand(arguments []string) error {
 	if err := validateELFFile(options.APIBinaryPath, "API"); err != nil {
 		return err
 	}
-	archiveSmokeBuild, err := buildinfo.ReadFile(options.ArchiveSmokeBinaryPath)
-	if err != nil {
-		return fmt.Errorf("read Archive smoke build info: %w", err)
-	}
-	if err := validateBuildInfo(
-		archiveSmokeBuild,
-		"Archive smoke",
-		archiveSmokeModulePath,
-		options.TargetOS,
-		options.TargetArchitecture,
-	); err != nil {
-		return err
-	}
-	if err := validateLinkedReleaseIdentity(
-		options.ArchiveSmokeBinaryPath,
-		"Archive smoke",
-		options.ApplicationVersion,
-		options.SourceRevision,
-	); err != nil {
-		return err
-	}
-	if err := validateELFFile(options.ArchiveSmokeBinaryPath, "Archive smoke"); err != nil {
-		return err
-	}
-	executables, err := executableFacts(
-		options.APIBinaryPath,
-		options.ArchiveSmokeBinaryPath,
-	)
+	executables, err := executableFacts(options.APIBinaryPath)
 	if err != nil {
 		return err
 	}
@@ -487,7 +456,6 @@ func packageCommand(arguments []string) error {
 	bundlePath := filepath.Join(options.OutputPath, bundleName)
 	if err := writeBundle(
 		options.APIBinaryPath,
-		options.ArchiveSmokeBinaryPath,
 		bundlePath,
 		metadata,
 	); err != nil {
@@ -511,7 +479,7 @@ func packageCommand(arguments []string) error {
 		sbomPath,
 		inventoryDigest,
 		records,
-		[]*buildinfo.BuildInfo{apiBuild, archiveSmokeBuild},
+		[]*buildinfo.BuildInfo{apiBuild},
 		options.ApplicationVersion,
 	)
 	if err != nil {
@@ -594,12 +562,6 @@ func parsePackageOptions(arguments []string) (packageOptions, error) {
 	flags.SetOutput(io.Discard)
 	flags.StringVar(&options.APIBinaryPath, "api-binary", "", "built API executable")
 	flags.StringVar(
-		&options.ArchiveSmokeBinaryPath,
-		"archive-smoke-binary",
-		"",
-		"built Archive smoke executable",
-	)
-	flags.StringVar(
 		&options.ImageArchivePath,
 		"image-archive",
 		"",
@@ -671,16 +633,15 @@ func parsePackageOptions(arguments []string) (packageOptions, error) {
 
 func validatePackageOptions(options packageOptions) error {
 	for name, value := range map[string]string{
-		"api-binary":           options.APIBinaryPath,
-		"archive-smoke-binary": options.ArchiveSmokeBinaryPath,
-		"image-archive":        options.ImageArchivePath,
-		"output":               options.OutputPath,
-		"go-image":             options.GoImageReference,
-		"runtime-image":        options.RuntimeImageReference,
-		"target-arch":          options.TargetArchitecture,
-		"source-revision":      options.SourceRevision,
-		"source-tree":          options.SourceTree,
-		"application-version":  options.ApplicationVersion,
+		"api-binary":          options.APIBinaryPath,
+		"image-archive":       options.ImageArchivePath,
+		"output":              options.OutputPath,
+		"go-image":            options.GoImageReference,
+		"runtime-image":       options.RuntimeImageReference,
+		"target-arch":         options.TargetArchitecture,
+		"source-revision":     options.SourceRevision,
+		"source-tree":         options.SourceTree,
+		"application-version": options.ApplicationVersion,
 	} {
 		if value == "" {
 			return fmt.Errorf("%s is required", name)
@@ -903,20 +864,12 @@ func validateELFPolicy(reader io.ReaderAt, label string) error {
 	return nil
 }
 
-func executableFacts(
-	apiBinaryPath string,
-	archiveSmokeBinaryPath string,
-) ([]executableFact, error) {
+func executableFacts(apiBinaryPath string) ([]executableFact, error) {
 	specifications := []struct {
 		Role       string
 		BundlePath string
 		SourcePath string
 	}{
-		{
-			Role:       archiveSmokeExecutableRole,
-			BundlePath: archiveSmokeBundlePath,
-			SourcePath: archiveSmokeBinaryPath,
-		},
 		{
 			Role:       apiExecutableRole,
 			BundlePath: apiBundlePath,
@@ -1708,7 +1661,6 @@ func normalizedTarHeader(name string, mode int64, size int64) *tar.Header {
 
 func writeBundle(
 	apiBinaryPath string,
-	archiveSmokeBinaryPath string,
 	outputPath string,
 	metadata bundleMetadata,
 ) error {
@@ -1732,11 +1684,6 @@ func writeBundle(
 			Path string
 		}{
 			{Name: "bin/", Mode: 0o555},
-			{
-				Name: archiveSmokeBundlePath,
-				Mode: 0o555,
-				Path: archiveSmokeBinaryPath,
-			},
 			{Name: apiBundlePath, Mode: 0o555, Path: apiBinaryPath},
 			{Name: "metadata/", Mode: 0o555},
 			{Name: "metadata/build.json", Mode: 0o444, Data: metadataBytes},
@@ -2289,9 +2236,8 @@ func verifyStatement(
 }
 
 type verifiedBundleContents struct {
-	Metadata     bundleMetadata
-	API          []byte
-	ArchiveSmoke []byte
+	Metadata bundleMetadata
+	API      []byte
 }
 
 type bundleMemberSpecification struct {
@@ -2347,12 +2293,6 @@ func verifyBundle(
 
 	expectedExecutables := []executableFact{
 		{
-			Role:   archiveSmokeExecutableRole,
-			Path:   archiveSmokeBundlePath,
-			Size:   int64(len(contents.ArchiveSmoke)),
-			SHA256: "sha256:" + hashBytes(contents.ArchiveSmoke),
-		},
-		{
 			Role:   apiExecutableRole,
 			Path:   apiBundlePath,
 			Size:   int64(len(contents.API)),
@@ -2387,31 +2327,7 @@ func verifyBundle(
 	if err := validateELFPolicy(bytes.NewReader(contents.API), "bundled API"); err != nil {
 		return err
 	}
-	archiveSmokeBuild, err := buildinfo.Read(bytes.NewReader(contents.ArchiveSmoke))
-	if err != nil {
-		return fmt.Errorf("read bundled Archive smoke build info: %w", err)
-	}
-	if err := validateBuildInfo(
-		archiveSmokeBuild,
-		"bundled Archive smoke",
-		archiveSmokeModulePath,
-		statement.Target.OS,
-		statement.Target.Architecture,
-	); err != nil {
-		return err
-	}
-	if err := validateLinkedReleaseIdentityBytes(
-		contents.ArchiveSmoke,
-		"bundled Archive smoke",
-		statement.ApplicationVersion,
-		statement.Source.Revision,
-	); err != nil {
-		return err
-	}
-	return validateELFPolicy(
-		bytes.NewReader(contents.ArchiveSmoke),
-		"bundled Archive smoke",
-	)
+	return nil
 }
 
 func findArtifactRecord(records []fileRecord, path string) (fileRecord, bool) {
@@ -2561,12 +2477,6 @@ func readVerifiedBundle(path string) (verifiedBundleContents, error) {
 	specifications := []bundleMemberSpecification{
 		{Name: "bin/", Type: tar.TypeDir, Mode: 0o555},
 		{
-			Name:    archiveSmokeBundlePath,
-			Type:    tar.TypeReg,
-			Mode:    0o555,
-			MaxSize: maxExecutableSize,
-		},
-		{
 			Name:    apiBundlePath,
 			Type:    tar.TypeReg,
 			Mode:    0o555,
@@ -2655,9 +2565,8 @@ func readVerifiedBundle(path string) (verifiedBundleContents, error) {
 		return verifiedBundleContents{}, errors.New("bundle metadata is not canonical JSON")
 	}
 	return verifiedBundleContents{
-		Metadata:     metadata,
-		API:          members[apiBundlePath],
-		ArchiveSmoke: members[archiveSmokeBundlePath],
+		Metadata: metadata,
+		API:      members[apiBundlePath],
 	}, nil
 }
 

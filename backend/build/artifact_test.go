@@ -508,7 +508,7 @@ func TestInspectOCIRejectsOrphansAndCompatibilityMismatch(t *testing.T) {
 
 func TestEvidenceRoundTripAndTamperRejection(t *testing.T) {
 	options := fixtureOptions(t)
-	options.APIBinaryPath, options.ArchiveSmokeBinaryPath = buildFixtureBinaries(t, options)
+	options.APIBinaryPath = buildFixtureAPI(t, options)
 	options.ImageArchivePath, _ = writeFixtureImageArchive(t, options)
 	options.OutputPath = filepath.Join(t.TempDir(), "component")
 
@@ -527,12 +527,6 @@ func TestEvidenceRoundTripAndTamperRejection(t *testing.T) {
 	}
 	if contents.Metadata.SchemaVersion != 2 ||
 		!slices.Equal(contents.Metadata.Executables, []executableFact{
-			{
-				Role:   archiveSmokeExecutableRole,
-				Path:   archiveSmokeBundlePath,
-				Size:   int64(len(contents.ArchiveSmoke)),
-				SHA256: "sha256:" + hashBytes(contents.ArchiveSmoke),
-			},
 			{
 				Role:   apiExecutableRole,
 				Path:   apiBundlePath,
@@ -559,7 +553,7 @@ func TestEvidenceRoundTripAndTamperRejection(t *testing.T) {
 
 func TestBundleVerifierRejectsInnerDrift(t *testing.T) {
 	options := fixtureOptions(t)
-	options.APIBinaryPath, options.ArchiveSmokeBinaryPath = buildFixtureBinaries(t, options)
+	options.APIBinaryPath = buildFixtureAPI(t, options)
 	image := fixtureImageMetadata()
 	metadata := fixtureBundleMetadata(t, options, image)
 	statement := fixtureStatement(options, image)
@@ -582,11 +576,6 @@ func TestBundleVerifierRejectsInnerDrift(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	archiveSmoke, err := os.ReadFile(options.ArchiveSmokeBinaryPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	type mutation func(*bundleMetadata, *[]bundleFixtureEntry)
 	tests := []struct {
 		name   string
@@ -616,7 +605,7 @@ func TestBundleVerifierRejectsInnerDrift(t *testing.T) {
 		{
 			name: "unsafe member",
 			mutate: func(_ *bundleMetadata, entries *[]bundleFixtureEntry) {
-				(*entries)[1].Name = "../archive-smoke"
+				(*entries)[1].Name = "../bgmss-api"
 			},
 		},
 		{
@@ -675,14 +664,6 @@ func TestBundleVerifierRejectsInnerDrift(t *testing.T) {
 				})
 			},
 		},
-		{
-			name: "wrong module",
-			mutate: func(metadata *bundleMetadata, entries *[]bundleFixtureEntry) {
-				(*entries)[1].Data = api
-				metadata.Executables[0].Size = int64(len(api))
-				metadata.Executables[0].SHA256 = "sha256:" + hashBytes(api)
-			},
-		},
 	}
 
 	for _, test := range tests {
@@ -690,7 +671,7 @@ func TestBundleVerifierRejectsInnerDrift(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			mutatedMetadata := metadata
 			mutatedMetadata.Executables = slices.Clone(metadata.Executables)
-			entries := fixtureBundleEntries(mutatedMetadata, api, archiveSmoke)
+			entries := fixtureBundleEntries(mutatedMetadata, api)
 			test.mutate(&mutatedMetadata, &entries)
 			refreshFixtureMetadata(t, &entries, mutatedMetadata)
 
@@ -705,7 +686,7 @@ func TestBundleVerifierRejectsInnerDrift(t *testing.T) {
 	t.Run("trailing compressed data", func(t *testing.T) {
 		root := t.TempDir()
 		path := filepath.Join(root, "backend-api-linux-arm64.tar.gz")
-		writeBundleFixture(t, path, fixtureBundleEntries(metadata, api, archiveSmoke))
+		writeBundleFixture(t, path, fixtureBundleEntries(metadata, api))
 		if err := os.Chmod(path, 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -883,7 +864,6 @@ func fixtureCompatibility(options packageOptions) compatibilityFacts {
 func packageArguments(options packageOptions) []string {
 	arguments := []string{
 		"--api-binary", options.APIBinaryPath,
-		"--archive-smoke-binary", options.ArchiveSmokeBinaryPath,
 		"--image-archive", options.ImageArchivePath,
 		"--output", options.OutputPath,
 		"--source-revision", options.SourceRevision,
@@ -906,9 +886,9 @@ func packageArguments(options packageOptions) []string {
 	return arguments
 }
 
-func buildFixtureBinaries(t *testing.T, options packageOptions) (string, string) {
+func buildFixtureAPI(t *testing.T, options packageOptions) string {
 	t.Helper()
-	api := buildFixtureBinary(
+	return buildFixtureBinary(
 		t,
 		"./cmd/api",
 		"bgmss-api",
@@ -917,16 +897,6 @@ func buildFixtureBinaries(t *testing.T, options packageOptions) (string, string)
 		options.ApplicationVersion,
 		options.SourceRevision,
 	)
-	archiveSmoke := buildFixtureBinary(
-		t,
-		"./cmd/archive-smoke",
-		"archive-smoke",
-		options.TargetOS,
-		options.TargetArchitecture,
-		options.ApplicationVersion,
-		options.SourceRevision,
-	)
-	return api, archiveSmoke
 }
 
 func buildFixtureBinary(
@@ -1317,10 +1287,7 @@ func fixtureBundleMetadata(
 	image imageMetadata,
 ) bundleMetadata {
 	t.Helper()
-	executables, err := executableFacts(
-		options.APIBinaryPath,
-		options.ArchiveSmokeBinaryPath,
-	)
+	executables, err := executableFacts(options.APIBinaryPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1390,7 +1357,6 @@ type bundleFixtureEntry struct {
 func fixtureBundleEntries(
 	metadata bundleMetadata,
 	api []byte,
-	archiveSmoke []byte,
 ) []bundleFixtureEntry {
 	metadataBytes, err := canonicalJSONBytes(metadata)
 	if err != nil {
@@ -1398,12 +1364,6 @@ func fixtureBundleEntries(
 	}
 	return []bundleFixtureEntry{
 		{Name: "bin/", Type: tar.TypeDir, Mode: 0o555},
-		{
-			Name: archiveSmokeBundlePath,
-			Type: tar.TypeReg,
-			Mode: 0o555,
-			Data: archiveSmoke,
-		},
 		{Name: apiBundlePath, Type: tar.TypeReg, Mode: 0o555, Data: api},
 		{Name: "metadata/", Type: tar.TypeDir, Mode: 0o555},
 		{

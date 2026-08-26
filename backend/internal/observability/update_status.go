@@ -51,7 +51,6 @@ const (
 	UpdatePhaseIdentity    UpdatePhase = "identity"
 	UpdatePhaseBuild       UpdatePhase = "build"
 	UpdatePhaseManifest    UpdatePhase = "manifest"
-	UpdatePhaseSmoke       UpdatePhase = "smoke"
 	UpdatePhasePublication UpdatePhase = "publication"
 	UpdatePhaseComplete    UpdatePhase = "complete"
 )
@@ -392,7 +391,6 @@ func validUpdatePhase(phase UpdatePhase) bool {
 		UpdatePhaseIdentity,
 		UpdatePhaseBuild,
 		UpdatePhaseManifest,
-		UpdatePhaseSmoke,
 		UpdatePhasePublication,
 		UpdatePhaseComplete:
 		return true

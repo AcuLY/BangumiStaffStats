@@ -504,7 +504,7 @@ verify_bundle() {
     cd "$bundle"
     sha256sum --check --strict SHA256SUMS >/dev/null
   )
-  for required in api.oci.tar updater.oci.tar backend-tools.tar.gz frontend.tar \
+  for required in api.oci.tar updater.oci.tar frontend.tar \
     build.json minimal-archive/current.json \
     "minimal-archive/versions/$BGMSS_MINIMAL_DATA_VERSION/manifest.json" \
     "minimal-archive/versions/$BGMSS_MINIMAL_DATA_VERSION/bangumi.sqlite"; do
@@ -596,19 +596,6 @@ safe_extract_tar() {
   fi
   if find "$destination" -type l -print -quit | grep -q .; then
     die "archive contains a symlink"
-  fi
-}
-
-install_tools() {
-  local archive=$1 destination=$2 found count
-  safe_extract_tar "$archive" "$destination" gzip
-  count=$(find "$destination" -type f -name archive-smoke | wc -l | tr -d ' ')
-  [[ "$count" == 1 ]] || die "backend tools must contain exactly one archive-smoke"
-  found=$(find "$destination" -type f -name archive-smoke -print)
-  if [[ "$found" == "$destination/archive-smoke" ]]; then
-    chmod 0555 "$found"
-  else
-    install -m 0555 "$found" "$destination/archive-smoke"
   fi
 }
 
