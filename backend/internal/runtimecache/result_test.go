@@ -1143,10 +1143,10 @@ func TestQueryRuntimeSharesCollectionPositiveNegativeAndDetachedLoad(t *testing.
 		calls.Add(1)
 		return CollectionSnapshot{Items: []CollectionItem{}}, nil
 	}
-	if _, err := cache.Get(context.Background(), key, false, fetch); err != nil {
+	if _, err := cache.Get(context.Background(), key, fetch); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := alias.Get(context.Background(), key, false, fetch); err != nil {
+	if _, err := alias.Get(context.Background(), key, fetch); err != nil {
 		t.Fatal(err)
 	}
 	notFoundKey, err := NewCollectionKey(
@@ -1166,7 +1166,6 @@ func TestQueryRuntimeSharesCollectionPositiveNegativeAndDetachedLoad(t *testing.
 		_, callErr := []*CollectionCache{cache, alias}[index].Get(
 			context.Background(),
 			notFoundKey,
-			false,
 			func(context.Context) (CollectionSnapshot, error) {
 				notFoundCalls.Add(1)
 				return CollectionSnapshot{}, notFound

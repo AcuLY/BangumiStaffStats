@@ -290,12 +290,10 @@ func NewCollectionCache(config CollectionConfig) (*CollectionCache, error) {
 	}, nil
 }
 
-// Get returns a fresh value, synchronously refreshes an expired value, or
-// performs an explicit refresh. Refresh bypasses only a fresh positive hit.
+// Get returns a fresh value or synchronously loads a missing or expired value.
 func (cache *CollectionCache) Get(
 	ctx context.Context,
 	key CollectionKey,
-	refresh bool,
 	fetch CollectionFetcher,
 ) (CollectionAccess, error) {
 	if cache == nil || ctx == nil || fetch == nil || key.subjectType == "" {
@@ -349,7 +347,7 @@ func (cache *CollectionCache) Get(
 	var staleCandidate *collectionValue
 	if value, found := cache.positive.Get(key); found {
 		staleCandidate = &value
-		if !refresh && now.Before(value.FreshUntil) {
+		if now.Before(value.FreshUntil) {
 			observe(
 				querytiming.CacheHit,
 				querytiming.DependencyNotApplicable,

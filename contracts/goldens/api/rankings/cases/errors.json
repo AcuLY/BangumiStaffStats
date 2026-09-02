@@ -45,46 +45,6 @@
       }
     },
     {
-      "id": "global-refresh-rejected",
-      "request": {
-        "method": "POST",
-        "path": "/api/v1/rankings",
-        "body": {
-          "query": {
-            "scope": "global",
-            "subjectType": "anime",
-            "positionKeys": [
-              "staff:anime:2"
-            ]
-          },
-          "refreshCollection": true
-        }
-      },
-      "expected": {
-        "status": 400,
-        "headers": {
-          "Cache-Control": "private, no-store",
-          "Content-Type": "application/json",
-          "X-Request-ID": "req-rankings-global-refresh"
-        },
-        "body": {
-          "error": {
-            "code": "FIELD_INVALID",
-            "message": "refreshCollection requires personal scope",
-            "retryable": false,
-            "fieldErrors": {
-              "/refreshCollection": [
-                "VALUE_CONFLICT"
-              ]
-            }
-          },
-          "meta": {
-            "requestId": "req-rankings-global-refresh"
-          }
-        }
-      }
-    },
-    {
       "id": "unknown-top-level-field-rejected",
       "request": {
         "method": "POST",

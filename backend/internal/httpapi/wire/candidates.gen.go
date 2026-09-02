@@ -1848,9 +1848,8 @@ type PostCandidatesV1JSONBody struct {
 	Input struct {
 		PositionKey string `json:"positionKey"`
 	} `json:"input"`
-	Query             PostCandidatesV1JSONBody_Query `json:"query"`
-	RefreshCollection *bool                          `json:"refreshCollection,omitempty"`
-	View              *struct {
+	Query PostCandidatesV1JSONBody_Query `json:"query"`
+	View  *struct {
 		Order    *PostCandidatesV1JSONBodyViewOrder    `json:"order,omitempty"`
 		Page     *int                                  `json:"page,omitempty"`
 		PageSize *PostCandidatesV1JSONBodyViewPageSize `json:"pageSize,omitempty"`

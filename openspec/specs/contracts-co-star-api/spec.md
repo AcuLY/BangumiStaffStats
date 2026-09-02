@@ -9,8 +9,7 @@ Define the isolated closed `POST /co-star` wire for bounded ordered pair and gro
 with positive JSON-safe person IDs and ordered-unique non-empty opaque query
 PositionKeys, and optional view. Total identities SHALL not exceed 20.
 The endpoint SHALL reject zero/one participant, duplicates, excessive people,
-excessive identities, unknown members, and `refreshCollection` with stable
-field/error codes.
+excessive identities, and unknown members with stable field/error codes.
 
 Success SHALL be a closed scope-specific pair/group union with workUnit,
 ordered participants, summary, tags, rating datasets, optional personal

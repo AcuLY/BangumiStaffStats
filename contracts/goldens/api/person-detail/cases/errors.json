@@ -3,7 +3,7 @@
   "kind": "person-detail-error-cases",
   "cases": [
     {
-      "id": "refresh-field-rejected",
+      "id": "operation-field-rejected",
       "requestSchemaValid": false,
       "request": {
         "method": "POST",
@@ -23,7 +23,7 @@
           "input": {
             "personId": 100
           },
-          "refreshCollection": true
+          "operation": "rankings"
         }
       },
       "expected": {
@@ -31,7 +31,7 @@
         "headers": {
           "Cache-Control": "private, no-store",
           "Content-Type": "application/json",
-          "X-Request-ID": "req-detail-refresh"
+          "X-Request-ID": "req-detail-operation"
         },
         "body": {
           "error": {
@@ -39,13 +39,13 @@
             "message": "The request contains an unknown field.",
             "retryable": false,
             "fieldErrors": {
-              "/refreshCollection": [
+              "/operation": [
                 "UNKNOWN_FIELD"
               ]
             }
           },
           "meta": {
-            "requestId": "req-detail-refresh"
+            "requestId": "req-detail-operation"
           }
         }
       }

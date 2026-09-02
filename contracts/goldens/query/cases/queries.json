@@ -1405,7 +1405,6 @@
         "operation",
         "input",
         "view",
-        "refreshCollection",
         "sharePath",
         "shareWorkspace",
         "search",
@@ -1431,7 +1430,6 @@
         "view": {
           "sort": "count"
         },
-        "refreshCollection": false,
         "sharePath": "/ranking",
         "shareWorkspace": "ranking",
         "search": "",
@@ -1457,7 +1455,6 @@
         "view": {
           "sort": "average"
         },
-        "refreshCollection": true,
         "sharePath": "/co-star",
         "shareWorkspace": "co-star",
         "search": "creator",

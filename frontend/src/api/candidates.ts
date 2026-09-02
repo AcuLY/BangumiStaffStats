@@ -136,7 +136,6 @@ type DeepReadonly<T> = T extends (...args: never[]) => unknown
 export interface CandidatesDriverRequest {
   readonly input: DeepReadonly<CandidatesInputV1>;
   readonly query: DeepReadonly<SharedQueryV1Schema>;
-  readonly refreshCollection: boolean;
   readonly signal: AbortSignal;
   readonly transactionId: string;
   readonly view: DeepReadonly<CandidatesViewV1>;
@@ -172,14 +171,10 @@ function projectionMismatch(): never {
 export function createCandidatesDriver(client: ApiClient): CandidatesDriver {
   return {
     async execute(request): Promise<CandidatesDriverResponse> {
-      const refreshCollection =
-        request.refreshCollection === true &&
-        request.query.scope === 'personal';
       const body: CandidatesRequestV1 = {
         input: structuredClone(request.input),
         query: structuredClone(request.query) as SharedQueryV1Schema,
         view: structuredClone(request.view),
-        ...(refreshCollection ? { refreshCollection: true } : {}),
       };
       const payload = await client.request({
         body: JSON.stringify(body),

@@ -433,7 +433,6 @@ Go 后端负责：
 - input digest 覆盖 operation-specific input；rankings 使用固定空 input digest。operation、queryDigest 和 inputDigest 共同确定昂贵 core。
 - search、sort、order、page、pageSize 和详情 section 不进入昂贵 core key。
 - personal 请求必须先取得当前允许使用的 collection digest，再查 result cache。
-- `refreshCollection` 只绕过 fresh collection 命中，不清空 LRU、不强制重算，digest 未变时可复用 result core。
 - dataVersion 永远进入 result key。
 
 ### 5.4 stale
@@ -526,8 +525,7 @@ GET  /metrics                # 仅内部
 {
   "query": {},
   "input": {},
-  "view": {},
-  "refreshCollection": false
+  "view": {}
 }
 ```
 
@@ -537,7 +535,6 @@ GET  /metrics                # 仅内部
 - endpoint 已表达 operation，body 不重复 operation；
 - request 不携带 queryId、requestId、dataVersion、主题、Drawer、Skeleton 或未应用 Draft；
 - rankings 没有 input 时省略；
-- refreshCollection 只允许 personal rankings/candidates 的显式应用或刷新。
 
 ### 7.4 envelope
 
@@ -594,7 +591,7 @@ pagination 只在分页响应出现，collection 只在 personal 出现。`warni
 | 504 | 本地或上游 timeout |
 | 500 | 未分类内部错误 |
 
-客户端只依赖 status 和 stable code，不解析中文 message。Retry-After 用于 429、队列满和已知等待；前端最多自动做一次 bounded jitter retry，且不自动重试 400/403/404 或显式收藏刷新。
+客户端只依赖 status 和 stable code，不解析中文 message。Retry-After 用于 429、队列满和已知等待；前端最多自动做一次 bounded jitter retry，且不自动重试 400/403/404。
 
 ## 8. shared query
 
@@ -678,7 +675,6 @@ OpenAPI 实现前必须使用真实 Bangumi UID/标签样本冻结足够宽松�
 - positionKeys 至少一项、去重且顺序保留；除 64 KiB body、catalog 合法性和通用资源保护外，不增加旧 168 项或其他缩小动态目录的产品上限。
 - candidates 当前职位、detail 人物、partners source/candidatePositionKey、co-star participants 属于 input。
 - search/sort/order/page/pageSize/section 属于 view。
-- refreshCollection 不进入 query digest。
 - main/all 同时出现返回 `POSITION_SELECTION_CONFLICT`。
 
 ## 9. operation 契约
@@ -767,7 +763,6 @@ page / pageSize
 - works sort：globalScore；personal 另有 personalScore/collectionUpdatedAt；series 另有 seriesSize。
 - characters sort：role/workCount/name。
 - 默认 `section=works`、`search=""`、`page=1`、`pageSize=10`；works 默认 `globalScore/desc`，characters 默认 `role/desc`。
-- 禁止 refreshCollection。
 
 完整 core 返回：
 
@@ -812,7 +807,7 @@ input：
 - source 多身份先在原始 Subject 层取并集。
 - input.candidatePositionKey 可过滤一个 query position；省略表示全部，不发送 `"all"` sentinel。
 - 候选职位按 OR；响应只保留实际贡献共同作品的 positionKeys。
-- sort：count/average/overall，personal 加 preference；禁止 refreshCollection。
+- sort：count/average/overall，personal 加 preference。
 - 默认 `search=""`、`sort=count`、`order=desc`、`page=1`、`pageSize=10`。
 
 返回：
@@ -866,7 +861,6 @@ input：
 - identity 总数最多 20；
 - 重复、人物超限和 identity 超限分别返回 field error、`PARTICIPANT_LIMIT_EXCEEDED`、`IDENTITY_LIMIT_EXCEEDED`；
 - 0 人是前端空态，1 人调用 partners；endpoint 不接受；
-- 禁止 refreshCollection。
 
 works sort：personalScore/globalScore/collectionUpdatedAt；global 只有 globalScore；series 加 seriesSize。
 
@@ -1032,7 +1026,7 @@ payload 只包含：
 - 当前 operation input/view；
 - 恢复当前分析所需的有限 person identity/focus/section。
 
-排除 Draft、响应、requestId、queryRevision、dataVersion、digest、refreshCollection、主题、Drawer、滚动、Skeleton 和 cache outcome。
+排除 Draft、响应、requestId、queryRevision、dataVersion、digest、主题、Drawer、滚动、Skeleton 和 cache outcome。
 
 - fragment URL-safe、自包含、版本化；可使用确定压缩但保留 `v1` 外层。
 - 编码后上限 16 KiB，解码 JSON 上限 64 KiB，并继续服从 operation 业务上限。
@@ -1179,7 +1173,7 @@ updater 原子写入供 Go exporter 读取的 `update-status.json`，只保存�
 - co-star 2/3/10 人、20 identity、matrix、无共同作品；
 - exact cast 角色与作品集合一致；
 - strict total order、missing-last 和 stable ID；
-- collection refresh、stale、negative、singleflight 和 cache bypass；
+- collection fresh/expiry/stale、negative、singleflight 和 result-core reuse；
 - A→B 乱序、取消、组件卸载和 operation 并发；
 - share round-trip、超限/损坏/旧版、一次性消费和 cache hit；
 - 错误 envelope、request ID 和 query_completed exactly once。

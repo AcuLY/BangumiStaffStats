@@ -27,7 +27,6 @@ distinct from missing values.
 - **WHEN** partners or co-star returns retryable 429 or `SERVER_BUSY` with a canonical integer `Retry-After` from 1 through 60 seconds
 - **THEN** the driver MAY perform at most one abortable bounded-jitter retry through the same ApiClient and transaction
 - **AND** missing, malformed, duplicated, or out-of-range delay metadata SHALL NOT be guessed or cause an unbounded retry
-- **AND** no explicit collection refresh SHALL enter automatic retry
 
 #### Scenario: A deferred production module fails once
 - **WHEN** the first production-artifact request for a ranking, candidate,
@@ -72,37 +71,6 @@ partners/co-star view changes SHALL not advance queryRevision.
 - **WHEN** the latest semantically different `/co-star` candidates application succeeds
 - **THEN** the candidate result, Applied Query, and new revision SHALL commit atomically
 - **AND** prior selected identities and analysis SHALL clear exactly once
-
-#### Scenario: Candidate view changes during a same-query refresh
-- **WHEN** collection refresh is pending for the current applied co-star query
-  and the user changes candidate search, sort, order, page, or page size
-- **THEN** the still-usable controls SHALL retain only the latest candidate-view
-  intent without sending a request against the old snapshot or showing a false
-  query-readiness error
-- **AND** after primary success the refreshed candidate response SHALL commit
-  first, then exactly one request for the latest differing view SHALL run
-- **AND** its completion SHALL make the visible controls, candidate rows, and
-  local error state agree on the refreshed snapshot
-
-#### Scenario: A dependent view changes during its primary refresh
-- **WHEN** a same-query candidates or rankings refresh is pending and the user
-  changes still-visible partners, co-star, or person-detail search, sort,
-  order, section, page, or page size controls
-- **THEN** no dependent request SHALL run against the old snapshot and no false
-  prerequisite/readiness error SHALL be published
-- **AND** compound edits SHALL merge from the latest locally presented complete
-  view so a later sort/order/page edit does not erase an earlier search/section
-- **AND** primary success SHALL invalidate the prior child acceptance and run
-  exactly the latest complete intent once on the accepted snapshot, including
-  when its fields equal the prior accepted view
-- **AND** the completion SHALL restore accepted input/query/view/revision
-  ownership and make controls, result, share state, and local error agree
-
-#### Scenario: A primary refresh with queued child intent fails
-- **WHEN** the same-query primary refresh fails or is canceled before commit
-- **THEN** the queued dependent intent SHALL send no request
-- **AND** the prior accepted child payload, full view, share state, and error
-  boundary SHALL be restored without a stale completion
 
 ### Requirement: Candidate picker and tray SHALL provide one complete identity owner
 
@@ -160,8 +128,7 @@ with “没有共同作品” or “没有共同系列” and no action.
 Partners candidate-position filtering SHALL replace its complete
 summary/leaders/list pending boundary. Ordinary partners search/sort/page SHALL
 retain accepted source/summary/leaders; co-star work search/sort/page SHALL
-retain accepted participants/summary/tags/ratings/preference/matrix. Partners,
-co-star, and view-only requests SHALL never send `refreshCollection`.
+retain accepted participants/summary/tags/ratings/preference/matrix.
 
 #### Scenario: No person is selected
 - **WHEN** `/co-star` has an Applied Query and an empty tray

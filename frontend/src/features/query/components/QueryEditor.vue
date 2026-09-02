@@ -60,7 +60,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   cancel: [];
   close: [];
-  refresh: [];
   retryCatalog: [];
   restore: [];
   submit: [];
@@ -1163,16 +1162,6 @@ defineExpose({ focusFirstInvalidField });
             @click="emit('cancel')"
           >
             取消查询
-          </n-button>
-            <n-button
-              v-if="draft.scope === 'personal'"
-              :size="controlSize"
-              attr-type="button"
-            secondary
-            :disabled="disabled"
-            @click="emit('refresh')"
-          >
-            刷新收藏并查询
           </n-button>
           <n-button
             :size="controlSize"

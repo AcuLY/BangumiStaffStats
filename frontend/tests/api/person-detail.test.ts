@@ -170,7 +170,6 @@ describe('person-detail native-fetch driver', () => {
       query: fixture.request.query,
       view: fixture.request.view,
     });
-    expect(body).not.toHaveProperty('refreshCollection');
   });
 
   it('accepts only declared status/code pairs and trusted local copy', () => {

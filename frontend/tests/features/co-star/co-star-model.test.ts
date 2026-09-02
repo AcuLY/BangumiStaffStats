@@ -97,7 +97,6 @@ describe('co-star input and view model', () => {
         },
       ],
     });
-    expect(input).not.toHaveProperty('refreshCollection');
     expect(Object.isFrozen(input.participants)).toBe(true);
     expect(
       coStarInputMatchesSelection(input, selection.people.value),

@@ -420,9 +420,6 @@ describe('co-star local request boundaries', () => {
       failed.input,
       failed.view,
     );
-    expect(failed.execute.mock.calls[0]![0]).not.toHaveProperty(
-      'refreshCollection',
-    );
   });
 
   it('debounces work search as a view-only request and resets server page', async () => {
@@ -453,9 +450,6 @@ describe('co-star local request boundaries', () => {
       }),
     );
     expect(execute).not.toHaveBeenCalled();
-    expect(executeView.mock.calls[0]![0]).not.toHaveProperty(
-      'refreshCollection',
-    );
   });
 
   it('keeps a failed view request local to the work browser and rolls search back to the accepted view', async () => {

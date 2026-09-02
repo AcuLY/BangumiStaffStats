@@ -160,8 +160,7 @@ func TestCandidatesTransportPreservesExactOperationDocuments(t *testing.T) {
 			if string(request.Query) !=
 				`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}` ||
 				string(request.Input) != `{"positionKey":"staff:anime:2"}` ||
-				string(request.View) != `{"page":1e0,"pageSize":2e1}` ||
-				!request.RefreshCollection {
+				string(request.View) != `{"page":1e0,"pageSize":2e1}` {
 				t.Fatalf("candidate request changed: %+v", request)
 			}
 			return candidates.Projection{}, privateFailure
@@ -174,7 +173,7 @@ func TestCandidatesTransportPreservesExactOperationDocuments(t *testing.T) {
 	})
 	response := performCandidatesRequest(
 		handler,
-		`{"query":{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"positionKey":"staff:anime:2"},"view":{"page":1e0,"pageSize":2e1},"refreshCollection":true}`,
+		`{"query":{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]},"input":{"positionKey":"staff:anime:2"},"view":{"page":1e0,"pageSize":2e1}}`,
 	)
 	assertCandidatesError(
 		t,

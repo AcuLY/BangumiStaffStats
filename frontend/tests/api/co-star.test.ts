@@ -101,7 +101,6 @@ function driverRequest(
   return {
     input: request.input,
     query: request.query,
-    refreshCollection: false as const,
     signal: new AbortController().signal,
     transactionId: 'co-star-transaction',
     view: request.view ?? {
@@ -289,7 +288,6 @@ describe('co-star API driver', () => {
       query: golden('global').cases[0]!.request.query,
       view: golden('global').cases[0]!.request.view,
     });
-    expect(body).not.toHaveProperty('refreshCollection');
     expect(result).toMatchObject({
       requestId: 'req-co-star-global-pair',
       staleCollection: false,

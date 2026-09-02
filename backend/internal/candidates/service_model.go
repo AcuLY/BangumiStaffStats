@@ -43,10 +43,9 @@ func (function CollectionProviderFunc) Fetch(
 // Request retains exact endpoint documents until the candidate authority
 // validates them against the current Archive and normalized query.
 type Request struct {
-	Query             json.RawMessage
-	Input             json.RawMessage
-	View              json.RawMessage
-	RefreshCollection bool
+	Query json.RawMessage
+	Input json.RawMessage
+	View  json.RawMessage
 }
 
 // Config contains only bounded cache and admission policy.

@@ -84,8 +84,8 @@ func TestPersonDetailStrictTransportRejectsBeforeExecution(t *testing.T) {
 			message: "person detail requires application/json",
 		},
 		{
-			name: "refresh forbidden", method: http.MethodPost, target: routePersonDetail,
-			body:        strings.TrimSuffix(valid, "}") + `,"refreshCollection":true}`,
+			name: "operation forbidden", method: http.MethodPost, target: routePersonDetail,
+			body:        strings.TrimSuffix(valid, "}") + `,"operation":"person-detail"}`,
 			contentType: "application/json", status: http.StatusBadRequest,
 			code: codeInvalidRequest, message: "person detail request is invalid",
 		},

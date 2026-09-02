@@ -141,11 +141,10 @@ function toggleEditor(event: MouseEvent): void {
   }
 }
 
-async function execute(refreshCollection = false): Promise<void> {
+async function execute(): Promise<void> {
   const accepted = await props.coordinator.execute({
     catalog: props.catalogStore.snapshot,
     mode: props.mode,
-    refreshCollection,
   });
   restoreSummaryFocus = true;
   editing.value = !accepted;
@@ -311,10 +310,9 @@ defineExpose({
             :subject-types="catalogStore.subjectTypes"
             @cancel="coordinator.cancelPending()"
             @close="closeEditor()"
-            @refresh="execute(true)"
             @restore="queryStore.restoreDraft"
             @retry-catalog="retryCatalog"
-            @submit="execute(false)"
+            @submit="execute"
           />
         </div>
       </transition>

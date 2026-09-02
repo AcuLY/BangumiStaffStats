@@ -17,7 +17,6 @@ export type RequestV1Schema = {
     query: SharedQueryV1Schema;
     input: CandidatesInputV1;
     view?: CandidatesViewV1;
-    refreshCollection?: boolean;
 };
 
 /**

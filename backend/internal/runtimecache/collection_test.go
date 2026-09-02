@@ -153,7 +153,7 @@ func TestCollectionDigestIsStableAndCoversEveryField(t *testing.T) {
 	}
 }
 
-func TestCollectionFreshRefreshAndImmutablePublication(t *testing.T) {
+func TestCollectionFreshExpiryAndImmutablePublication(t *testing.T) {
 	clock := &testClock{now: time.Date(2026, 7, 25, 8, 0, 0, 0, time.UTC)}
 	cache := newTestCollectionCache(t, clock)
 	key := mustCollectionKey(t, "anime", []string{"completed", "dropped"})
@@ -164,13 +164,13 @@ func TestCollectionFreshRefreshAndImmutablePublication(t *testing.T) {
 		return cloneCollectionSnapshot(snapshot), nil
 	}
 
-	first, err := cache.Get(context.Background(), key, false, fetch)
+	first, err := cache.Get(context.Background(), key, fetch)
 	if err != nil {
 		t.Fatalf("first Get: %v", err)
 	}
 	first.Snapshot.Items[0].Tags[0] = "mutated"
 	clock.Advance(10 * time.Minute)
-	second, err := cache.Get(context.Background(), key, false, fetch)
+	second, err := cache.Get(context.Background(), key, fetch)
 	if err != nil {
 		t.Fatalf("fresh Get: %v", err)
 	}
@@ -183,19 +183,19 @@ func TestCollectionFreshRefreshAndImmutablePublication(t *testing.T) {
 
 	oldDigest := second.Digest
 	oldFetchedAt := second.FetchedAt
-	clock.Advance(time.Minute)
-	refreshed, err := cache.Get(context.Background(), key, true, fetch)
+	clock.Advance(51 * time.Minute)
+	expired, err := cache.Get(context.Background(), key, fetch)
 	if err != nil {
-		t.Fatalf("refresh Get: %v", err)
+		t.Fatalf("expired Get: %v", err)
 	}
 	if calls.Load() != 2 {
-		t.Fatalf("refresh fetch calls = %d", calls.Load())
+		t.Fatalf("expired fetch calls = %d", calls.Load())
 	}
-	if refreshed.Digest != oldDigest {
-		t.Fatalf("unchanged refresh digest = %s, want %s", refreshed.Digest, oldDigest)
+	if expired.Digest != oldDigest {
+		t.Fatalf("unchanged expired digest = %s, want %s", expired.Digest, oldDigest)
 	}
-	if !refreshed.FetchedAt.After(oldFetchedAt) {
-		t.Fatalf("refresh metadata did not advance: %v <= %v", refreshed.FetchedAt, oldFetchedAt)
+	if !expired.FetchedAt.After(oldFetchedAt) {
+		t.Fatalf("expired metadata did not advance: %v <= %v", expired.FetchedAt, oldFetchedAt)
 	}
 }
 
@@ -203,7 +203,7 @@ func TestCollectionTemporaryFailureUsesEligibleStale(t *testing.T) {
 	clock := &testClock{now: time.Date(2026, 7, 25, 8, 0, 0, 0, time.UTC)}
 	cache := newTestCollectionCache(t, clock)
 	key := mustCollectionKey(t, "anime", []string{"completed", "dropped"})
-	if _, err := cache.Get(context.Background(), key, false, func(context.Context) (CollectionSnapshot, error) {
+	if _, err := cache.Get(context.Background(), key, func(context.Context) (CollectionSnapshot, error) {
 		return testCollectionSnapshot(), nil
 	}); err != nil {
 		t.Fatalf("seed Get: %v", err)
@@ -212,7 +212,7 @@ func TestCollectionTemporaryFailureUsesEligibleStale(t *testing.T) {
 	temporary := mustCollectionFailure(t, FailureRateLimited)
 	trace := querytiming.New()
 	staleContext := querytiming.WithContext(context.Background(), trace)
-	stale, err := cache.Get(staleContext, key, false, func(context.Context) (CollectionSnapshot, error) {
+	stale, err := cache.Get(staleContext, key, func(context.Context) (CollectionSnapshot, error) {
 		return CollectionSnapshot{}, temporary
 	})
 	if err != nil {
@@ -231,7 +231,7 @@ func TestCollectionTemporaryFailureUsesEligibleStale(t *testing.T) {
 	}
 
 	clock.Advance(29 * time.Minute)
-	_, err = cache.Get(context.Background(), key, false, func(context.Context) (CollectionSnapshot, error) {
+	_, err = cache.Get(context.Background(), key, func(context.Context) (CollectionSnapshot, error) {
 		return CollectionSnapshot{}, temporary
 	})
 	if !errors.Is(err, temporary) {
@@ -249,7 +249,7 @@ func TestCollectionPublicEmptyIsFreshPositive(t *testing.T) {
 		return CollectionSnapshot{Items: []CollectionItem{}}, nil
 	}
 	for index := 0; index < 2; index++ {
-		access, err := cache.Get(context.Background(), key, false, fetch)
+		access, err := cache.Get(context.Background(), key, fetch)
 		if err != nil || len(access.Snapshot.Items) != 0 || access.Digest == "" {
 			t.Fatalf("empty access = %+v, %v", access, err)
 		}
@@ -263,7 +263,7 @@ func TestCollectionUnknownFailureDoesNotLeakFetcherText(t *testing.T) {
 	clock := &testClock{now: time.Date(2026, 7, 25, 8, 0, 0, 0, time.UTC)}
 	cache := newTestCollectionCache(t, clock)
 	key := mustCollectionKey(t, "anime", []string{"completed"})
-	_, err := cache.Get(context.Background(), key, false, func(context.Context) (CollectionSnapshot, error) {
+	_, err := cache.Get(context.Background(), key, func(context.Context) (CollectionSnapshot, error) {
 		return CollectionSnapshot{}, errors.New("example-user private upstream detail")
 	})
 	if err == nil {
@@ -288,14 +288,14 @@ func TestCollectionDefinitiveFailureCannotResurrectOldPositive(t *testing.T) {
 				t.Fatalf("NewCollectionCache: %v", err)
 			}
 			key := mustCollectionKey(t, "anime", []string{"completed", "dropped"})
-			if _, err := cache.Get(context.Background(), key, false, func(context.Context) (CollectionSnapshot, error) {
+			if _, err := cache.Get(context.Background(), key, func(context.Context) (CollectionSnapshot, error) {
 				return testCollectionSnapshot(), nil
 			}); err != nil {
 				t.Fatalf("seed Get: %v", err)
 			}
 			clock.Advance(61 * time.Minute)
 			definitive := mustCollectionFailure(t, kind)
-			if _, err := cache.Get(context.Background(), key, false, func(context.Context) (CollectionSnapshot, error) {
+			if _, err := cache.Get(context.Background(), key, func(context.Context) (CollectionSnapshot, error) {
 				return CollectionSnapshot{}, definitive
 			}); !errors.Is(err, definitive) {
 				t.Fatalf("definitive error = %v", err)
@@ -305,7 +305,7 @@ func TestCollectionDefinitiveFailureCannotResurrectOldPositive(t *testing.T) {
 			}
 
 			var cachedFetches atomic.Int64
-			if _, err := cache.Get(context.Background(), key, false, func(context.Context) (CollectionSnapshot, error) {
+			if _, err := cache.Get(context.Background(), key, func(context.Context) (CollectionSnapshot, error) {
 				cachedFetches.Add(1)
 				return testCollectionSnapshot(), nil
 			}); err == nil {
@@ -317,7 +317,7 @@ func TestCollectionDefinitiveFailureCannotResurrectOldPositive(t *testing.T) {
 
 			clock.Advance(10 * time.Second)
 			temporary := mustCollectionFailure(t, FailureNetwork)
-			access, err := cache.Get(context.Background(), key, false, func(context.Context) (CollectionSnapshot, error) {
+			access, err := cache.Get(context.Background(), key, func(context.Context) (CollectionSnapshot, error) {
 				return CollectionSnapshot{}, temporary
 			})
 			if !errors.Is(err, temporary) {
@@ -350,7 +350,7 @@ func TestCollectionNegativeTTLAndNonNegativeFailures(t *testing.T) {
 				return CollectionSnapshot{}, failure
 			}
 			for index := 0; index < 2; index++ {
-				if _, err := cache.Get(context.Background(), key, false, fetch); err == nil {
+				if _, err := cache.Get(context.Background(), key, fetch); err == nil {
 					t.Fatal("negative request succeeded")
 				}
 			}
@@ -358,7 +358,7 @@ func TestCollectionNegativeTTLAndNonNegativeFailures(t *testing.T) {
 				t.Fatalf("negative fetch calls = %d", calls.Load())
 			}
 			clock.Advance(testCase.ttl)
-			if _, err := cache.Get(context.Background(), key, false, fetch); err == nil {
+			if _, err := cache.Get(context.Background(), key, fetch); err == nil {
 				t.Fatal("expired negative request succeeded")
 			}
 			if calls.Load() != 2 {
@@ -373,7 +373,7 @@ func TestCollectionNegativeTTLAndNonNegativeFailures(t *testing.T) {
 	decodeFailure := mustCollectionFailure(t, FailureDecode)
 	var decodeCalls atomic.Int64
 	for index := 0; index < 2; index++ {
-		if _, err := cache.Get(context.Background(), key, false, func(context.Context) (CollectionSnapshot, error) {
+		if _, err := cache.Get(context.Background(), key, func(context.Context) (CollectionSnapshot, error) {
 			decodeCalls.Add(1)
 			return CollectionSnapshot{}, decodeFailure
 		}); !errors.Is(err, decodeFailure) {
@@ -397,7 +397,7 @@ func TestCollectionPublicEmptyAndOversizeAreSuccessful(t *testing.T) {
 	key := mustCollectionKey(t, "anime", []string{"completed"})
 	var calls atomic.Int64
 	for index := 0; index < 2; index++ {
-		access, err := cache.Get(context.Background(), key, false, func(context.Context) (CollectionSnapshot, error) {
+		access, err := cache.Get(context.Background(), key, func(context.Context) (CollectionSnapshot, error) {
 			calls.Add(1)
 			return CollectionSnapshot{Items: []CollectionItem{}}, nil
 		})
@@ -444,12 +444,12 @@ func TestCollectionSameKeyLoadIsDetachedAndPublishedOnce(t *testing.T) {
 	first := make(chan error, 1)
 	second := make(chan error, 1)
 	go func() {
-		_, err := cache.Get(cancelContext, key, false, fetch)
+		_, err := cache.Get(cancelContext, key, fetch)
 		first <- err
 	}()
 	<-started
 	go func() {
-		_, err := cache.Get(secondContext, key, false, fetch)
+		_, err := cache.Get(secondContext, key, fetch)
 		second <- err
 	}()
 	time.Sleep(10 * time.Millisecond)
@@ -461,7 +461,7 @@ func TestCollectionSameKeyLoadIsDetachedAndPublishedOnce(t *testing.T) {
 	if err := <-second; err != nil {
 		t.Fatalf("remaining waiter = %v", err)
 	}
-	if _, err := cache.Get(context.Background(), key, false, fetch); err != nil {
+	if _, err := cache.Get(context.Background(), key, fetch); err != nil {
 		t.Fatalf("cached read = %v", err)
 	}
 	if calls.Load() != 1 {

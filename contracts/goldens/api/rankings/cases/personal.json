@@ -139,8 +139,7 @@
           "sort": "count",
           "page": 1,
           "pageSize": 5
-        },
-        "refreshCollection": true
+        }
       },
       "expected": {
         "status": 200,

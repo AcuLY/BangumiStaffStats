@@ -145,10 +145,10 @@ afterEach(() => {
 });
 
 describe('query shell components', () => {
-  it('keeps the last successful share enabled while a refresh is pending', async () => {
+  it('keeps the last successful share enabled while a new query is pending', async () => {
     const store = validStore();
-    let resolveRefresh!: (response: OperationResponse<RankingPayload>) => void;
-    let refreshTransactionId = '';
+    let resolveQuery!: (response: OperationResponse<RankingPayload>) => void;
+    let queryTransactionId = '';
     const execute = vi
       .fn()
       .mockImplementationOnce(async (request) => ({
@@ -159,17 +159,17 @@ describe('query shell components', () => {
       .mockImplementationOnce(
         (request) =>
           new Promise<OperationResponse<RankingPayload>>((resolve) => {
-            refreshTransactionId = request.transactionId;
-            resolveRefresh = resolve;
+            queryTransactionId = request.transactionId;
+            resolveQuery = resolve;
           }),
       );
     const coordinator = createQueryCoordinator(store, drivers(execute));
     const catalog = catalogFixture();
     await coordinator.execute({ catalog, mode: 'ranking' });
-    const refresh = coordinator.execute({
+    store.draft.includeNSFW = true;
+    const query = coordinator.execute({
       catalog,
       mode: 'ranking',
-      refreshCollection: true,
     });
 
     const wrapper = mount(AppHeader, {
@@ -215,12 +215,12 @@ describe('query shell components', () => {
     ).toBe('38px');
 
     coordinator.cancelPending();
-    resolveRefresh({
+    resolveQuery({
       payload: rankingPayload('server-late'),
       requestId: 'server-late',
-      transactionId: refreshTransactionId,
+      transactionId: queryTransactionId,
     });
-    await refresh;
+    await query;
     wrapper.unmount();
   });
 

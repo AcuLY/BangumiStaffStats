@@ -52,9 +52,8 @@ func (function CollectionProviderFunc) Fetch(
 // Request contains exact preserved operation documents. Query is normalized by
 // the accepted query authority; View is decoded by the rankings projection.
 type Request struct {
-	Query             json.RawMessage
-	View              json.RawMessage
-	RefreshCollection bool
+	Query json.RawMessage
+	View  json.RawMessage
 }
 
 // View is the closed normalized projection input.

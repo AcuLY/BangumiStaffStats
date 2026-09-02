@@ -20,8 +20,8 @@ themes.
 
 #### Scenario: Production additions coexist with compatibility
 
-- **WHEN** production data, dynamic catalogs, sharing, collection refresh, or
-  real resource states add behavior absent from the prototype
+- **WHEN** production data, dynamic catalogs, sharing, or real resource states
+  add behavior absent from the prototype
 - **THEN** only that explicitly approved addition MAY differ
 - **AND** surrounding oracle behavior and presentation SHALL remain unchanged
 

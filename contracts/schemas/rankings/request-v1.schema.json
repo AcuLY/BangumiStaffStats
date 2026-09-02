@@ -13,10 +13,6 @@
     },
     "view": {
       "$ref": "../query/operation-components-v1.schema.json#/$defs/RankingsViewV1"
-    },
-    "refreshCollection": {
-      "type": "boolean",
-      "default": false
     }
   }
 }

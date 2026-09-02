@@ -17,10 +17,6 @@
     },
     "view": {
       "$ref": "../query/operation-components-v1.schema.json#/$defs/CandidatesViewV1"
-    },
-    "refreshCollection": {
-      "type": "boolean",
-      "default": false
     }
   }
 }
