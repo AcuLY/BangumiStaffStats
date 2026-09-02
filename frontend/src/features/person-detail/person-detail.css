@@ -1586,6 +1586,29 @@
   font-weight: 600;
 }
 
+.score-distribution-tooltip {
+  display: grid;
+  min-width: min(240px, calc(100dvw - 96px));
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  gap: var(--space-1);
+  list-style: none;
+}
+
+.score-distribution-tooltip li {
+  min-width: 0;
+  overflow: hidden;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score-distribution-tooltip__more {
+  font-weight: 600;
+  opacity: 0.72;
+}
+
 .person-rating-timeline__meaning {
   margin: 0 0 var(--space-2);
   color: var(--text-tertiary);
@@ -1757,8 +1780,8 @@
   white-space: nowrap;
 }
 
-.person-preference-work__copy strong {
-  color: var(--text-secondary);
+.person-preference__lists .person-preference-work__copy strong {
+  color: var(--text-primary);
   font-size: 12px;
   font-weight: 600;
 }

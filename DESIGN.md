@@ -233,7 +233,7 @@ Light 使用低饱和冷灰：canvas 承载页面，surface 承载桌面主工�
 
 Dark 使用收紧的近黑层级：canvas、surface、surface-raised 与 surface-sunken 之间保持可辨但克制的级差。深色 Header chrome 比主体更深，但不能形成纯黑断层。
 
-Header Bar、Query Summary 和展开后的 Query Editor 使用相同基色、92% 透明度与 blur(16px) saturate(135%)，每个像素只绘制一层半透明背景。移动 Drawer 使用独立的 96% 偏灰表面，不与 Header chrome 混用。
+Header Bar 在 Light 和 Dark 均使用 84% 基色透明度；Query Summary 和展开后的 Query Editor 保持 92% 基色透明度。三者均使用 blur(16px) saturate(135%)，每个像素只绘制一层半透明背景。移动 Drawer 使用独立的 96% 偏灰表面，不与 Header chrome 混用。
 
 ### Data series
 

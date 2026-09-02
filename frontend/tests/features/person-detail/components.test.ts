@@ -12,7 +12,11 @@ import AdaptiveAppearanceList from '../../../src/features/person-detail/componen
 import PersonDetailSurface from '../../../src/features/person-detail/components/PersonDetailSurface.vue';
 import PersonInspector from '../../../src/features/person-detail/components/PersonInspector.vue';
 import RatingEvidence from '../../../src/features/person-detail/components/RatingEvidence.vue';
-import type { PersonDetailView } from '../../../src/features/person-detail/model';
+import type {
+  PersonDetailPayload,
+  PersonDetailRatingSet,
+  PersonDetailView,
+} from '../../../src/features/person-detail/model';
 import {
   closestTimelinePointIndex,
   timelineHitSizeInViewBox,
@@ -184,6 +188,102 @@ describe('person inspector production presentation', () => {
     expect(document.body.textContent).toContain('+0.80');
     expect(document.body.textContent).toContain('样本权重');
     expect(document.body.textContent).toContain('0.17');
+  });
+
+  it('shows only bounded work names in score tooltips and keeps complete bar semantics', async () => {
+    const detail = payload('personal.json');
+    const personalRatings = detail.ratings.personal;
+    if (!personalRatings) {
+      throw new Error('personal golden must contain personal ratings');
+    }
+    const populatedBucket = personalRatings.buckets.find(
+      (bucket) => bucket.count > 0,
+    );
+    if (!populatedBucket?.examples[0]) {
+      throw new Error('personal golden must contain a populated rating bucket');
+    }
+    const firstExample = populatedBucket.examples[0];
+    const buckets = personalRatings.buckets.map((bucket) =>
+      bucket.score === populatedBucket.score
+        ? Object.freeze({
+            ...bucket,
+            count: 6,
+            examples: Object.freeze([
+              firstExample,
+              Object.freeze({
+                ...firstExample,
+                id: 2,
+                key: 'subject:2',
+                name: 'Second Golden Animation With A Long Original Name',
+                nameCN: '第二部标题很长的金标动画作品',
+              }),
+            ]),
+            hiddenCount: 4,
+          })
+        : bucket,
+    ) as unknown as PersonDetailRatingSet['buckets'];
+    const patchedDetail = Object.freeze({
+      ...detail,
+      ratings: Object.freeze({
+        ...detail.ratings,
+        personal: Object.freeze({
+          ...personalRatings,
+          buckets: Object.freeze(buckets),
+        }),
+      }),
+    }) as PersonDetailPayload;
+    const wrapper = mount(RatingEvidence, {
+      attachTo: document.body,
+      props: { payload: patchedDetail },
+    });
+    wrappers.push(wrapper);
+
+    const bar = wrapper
+      .findAll('.person-score-bar')
+      .find((candidate) =>
+        candidate.attributes('aria-label')?.startsWith(
+          `${populatedBucket.score} 分`,
+        ),
+      );
+    expect(bar).toBeDefined();
+    expect(bar!.attributes('aria-label')).toContain('6 个');
+    expect(bar!.attributes('aria-label')).toContain('金标动画');
+    expect(bar!.attributes('aria-label')).toContain('另有 4 个未列出');
+
+    await bar!.trigger('focus');
+    await vi.waitFor(() => {
+      expect(
+        document.body.querySelector('.score-distribution-tooltip'),
+      ).not.toBeNull();
+    });
+    const tooltip = document.body.querySelector(
+      '.score-distribution-tooltip',
+    )!;
+    expect(
+      Array.from(tooltip.querySelectorAll('li'), (item) =>
+        item.textContent?.trim(),
+      ),
+    ).toEqual([
+      '金标动画',
+      '第二部标题很长的金标动画作品',
+      '… +4',
+    ]);
+    expect(tooltip.textContent).not.toContain(`${populatedBucket.score} 分`);
+    expect(tooltip.textContent).not.toContain('示例：');
+
+    const styles = fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        'frontend/src/features/person-detail/person-detail.css',
+      ),
+      'utf8',
+    );
+    expect(styles).toMatch(
+      /\.person-preference-work__copy strong\s*{[^}]*color: var\(--text-primary\);/s,
+    );
+    expect(styles).toMatch(
+      /\.score-distribution-tooltip li\s*{[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/s,
+    );
   });
 
   it('offers name sorting only for the server-side character section', () => {
