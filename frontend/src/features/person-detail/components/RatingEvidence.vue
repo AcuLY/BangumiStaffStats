@@ -135,7 +135,7 @@ const activeTimelinePoint = computed(() => {
   return index === null ? null : (timelinePoints.value[index] ?? null);
 });
 
-function bucketLabel(
+function bucketAccessibleLabel(
   bucket: PersonDetailRatingSet['buckets'][number],
 ): string {
   const examples = bucket.examples
@@ -317,7 +317,7 @@ onBeforeUnmount(() => {
           'score-bar--peak':
             bucket.count === maxCount && bucket.count > 0,
         }"
-        :aria-label="bucketLabel(bucket)"
+        :aria-label="bucketAccessibleLabel(bucket)"
         :tabindex="bucket.count ? 0 : undefined"
         @mouseenter="hoveredBucket = bucket.count ? bucket.score : null"
         @mouseleave="hoveredBucket = null"
@@ -335,13 +335,28 @@ onBeforeUnmount(() => {
             placement="top"
             :animated="false"
             style="max-width: min(336px, calc(100dvw - 72px));"
+            content-class="workbench-tooltip-content"
           >
             <template #trigger>
               <span class="person-score-bar__count score-bar__value">
                 {{ bucket.count }}
               </span>
             </template>
-            <span>{{ bucketLabel(bucket) }}</span>
+            <ul class="score-distribution-tooltip">
+              <li
+                v-for="example in bucket.examples"
+                :key="example.key"
+                :title="primaryEntityName(example)"
+              >
+                {{ primaryEntityName(example) }}
+              </li>
+              <li
+                v-if="bucket.hiddenCount"
+                class="score-distribution-tooltip__more"
+              >
+                … +{{ bucket.hiddenCount }}
+              </li>
+            </ul>
           </n-tooltip>
           <i
             :style="{
