@@ -54,9 +54,7 @@ describe('oracle scrollbar system', () => {
     expect(baseCss).toMatch(
       /:where\(html, \.query-editor__scroll\)::\-webkit-scrollbar\s*\{[^}]*width:\s*var\(--scrollbar-shell-size\);[^}]*height:\s*var\(--scrollbar-shell-size\);/s,
     );
-    expect(baseCss).toMatch(
-      /@media \(width >= 780px\)\s*\{\s*html\s*\{[^}]*scrollbar-gutter:\s*stable both-edges;/s,
-    );
+    expect(baseCss).not.toContain('scrollbar-gutter: stable both-edges;');
     expect(baseCss).toMatch(
       /\.query-editor__scroll\s*\{[^}]*overflow-y:\s*auto;[^}]*scrollbar-gutter:\s*auto;/s,
     );

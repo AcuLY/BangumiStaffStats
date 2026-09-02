@@ -1783,12 +1783,6 @@ select:focus-visible {
   }
 }
 
-@media (width >= 780px) {
-  html {
-    scrollbar-gutter: stable both-edges;
-  }
-}
-
 @media (max-width: 1100px) {
   .query-summary {
     gap: var(--space-3);
