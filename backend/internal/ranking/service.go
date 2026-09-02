@@ -173,17 +173,6 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 	if err != nil {
 		return Projection{}, err
 	}
-	if request.RefreshCollection && normalized.Effective.Scope != "personal" {
-		return Projection{}, fail(
-			CodeFieldInvalid,
-			"refreshCollection requires personal scope",
-			"/refreshCollection",
-			"VALUE_CONFLICT",
-			false,
-			nil,
-		)
-	}
-
 	var access *runtimecache.CollectionAccess
 	var entries []query.CollectionEntry
 	var resultKey runtimecache.ResultKey
@@ -217,7 +206,6 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 		loaded, loadErr := service.collection.Get(
 			ctx,
 			key,
-			request.RefreshCollection,
 			func(loadContext context.Context) (runtimecache.CollectionSnapshot, error) {
 				return service.collections.Fetch(
 					loadContext,

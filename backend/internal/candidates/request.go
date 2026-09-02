@@ -30,13 +30,6 @@ func normalizeOperationRequest(
 			string(CodePositionNotFound),
 		)
 	}
-	if effective.Scope == "global" && request.RefreshCollection {
-		return Operation{}, requestFailure(
-			"collection refresh requires personal scope",
-			"/refreshCollection",
-			"VALUE_CONFLICT",
-		)
-	}
 	view, err := NormalizeView(effective.Scope, viewInput)
 	if err != nil {
 		var candidateError *Error
@@ -54,9 +47,8 @@ func normalizeOperationRequest(
 		return Operation{}, err
 	}
 	return Operation{
-		PositionKey:       positionKey,
-		View:              view,
-		RefreshCollection: request.RefreshCollection,
+		PositionKey: positionKey,
+		View:        view,
 	}, nil
 }
 

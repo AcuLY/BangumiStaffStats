@@ -89,7 +89,7 @@
       }
     },
     {
-      "id": "refresh-collection-is-not-supported",
+      "id": "operation-field-is-not-supported",
       "requestSchemaValid": false,
       "request": {
         "query": {
@@ -120,7 +120,7 @@
             }
           ]
         },
-        "refreshCollection": true
+        "operation": "co-star"
       },
       "expected": {
         "status": 400,
@@ -130,13 +130,13 @@
             "message": "The request contains an unknown field.",
             "retryable": false,
             "fieldErrors": {
-              "/refreshCollection": [
+              "/operation": [
                 "UNKNOWN_FIELD"
               ]
             }
           },
           "meta": {
-            "requestId": "req-co-star-refresh"
+            "requestId": "req-co-star-operation"
           }
         }
       }

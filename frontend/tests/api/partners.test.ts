@@ -161,7 +161,7 @@ describe('partners response adapter', () => {
 });
 
 describe('partners native-fetch driver', () => {
-  it('uses the same-origin client, never sends refreshCollection, and correlates the projection', async () => {
+  it('uses the same-origin client and correlates the projection', async () => {
     const fixture = golden('personal.json').cases[0]!;
     const fetchImplementation = vi.fn<FetchImplementation>(async () =>
       jsonResponse(fixture.expected.body),
@@ -174,7 +174,6 @@ describe('partners native-fetch driver', () => {
     const response = await driver.execute({
       input: fixture.request.input,
       query: fixture.request.query as never,
-      refreshCollection: false,
       signal: controller.signal,
       transactionId: 'partners-local-1',
       view: fixture.request.view ?? {},
@@ -200,7 +199,6 @@ describe('partners native-fetch driver', () => {
       query: fixture.request.query,
       view: fixture.request.view,
     });
-    expect(body).not.toHaveProperty('refreshCollection');
   });
 
   it('maps only operation-declared status/code pairs to local recovery copy', () => {
@@ -265,7 +263,6 @@ describe('partners native-fetch driver', () => {
     const response = await driver.execute({
       input: fixture.request.input,
       query: fixture.request.query as never,
-      refreshCollection: false,
       signal: controller.signal,
       transactionId: 'partners-retry-transaction',
       view: fixture.request.view ?? {},
@@ -282,7 +279,6 @@ describe('partners native-fetch driver', () => {
     const body = JSON.parse(
       String(fetchImplementation.mock.calls[1]![1]!.body),
     ) as Record<string, unknown>;
-    expect(body).not.toHaveProperty('refreshCollection');
   });
 
   it.each([
@@ -317,7 +313,6 @@ describe('partners native-fetch driver', () => {
         driver.execute({
           input: fixture.request.input,
           query: fixture.request.query as never,
-          refreshCollection: false,
           signal: new AbortController().signal,
           transactionId: 'partners-ineligible-retry',
           view: fixture.request.view ?? {},
@@ -359,7 +354,6 @@ describe('partners native-fetch driver', () => {
         driver.execute({
           input: fixture.request.input,
           query: fixture.request.query as never,
-          refreshCollection: false,
           signal: new AbortController().signal,
           transactionId: 'partners-invalid-retry',
           view: fixture.request.view ?? {},
@@ -391,7 +385,6 @@ describe('partners native-fetch driver', () => {
       immediateDriver.execute({
         input: fixture.request.input,
         query: fixture.request.query as never,
-        refreshCollection: false,
         signal: new AbortController().signal,
         transactionId: 'partners-two-attempt-limit',
         view: fixture.request.view ?? {},
@@ -411,7 +404,6 @@ describe('partners native-fetch driver', () => {
     const pending = abortDriver.execute({
       input: fixture.request.input,
       query: fixture.request.query as never,
-      refreshCollection: false,
       signal: abortController.signal,
       transactionId: 'partners-abort-wait',
       view: fixture.request.view ?? {},
@@ -443,7 +435,6 @@ describe('partners native-fetch driver', () => {
           },
         },
         query: fixture.request.query as never,
-        refreshCollection: false,
         signal: new AbortController().signal,
         transactionId: 'partners-projection-mismatch',
         view: {},

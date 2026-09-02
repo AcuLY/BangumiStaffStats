@@ -6,15 +6,14 @@ Define the isolated Candidates API contract that separates query input, server v
 ### Requirement: Candidates contract SHALL separate input, view, and frontend state
 
 The candidates request SHALL be a closed object containing required `query`,
-required `input.positionKey`, optional `view`, and optional
-`refreshCollection`. `input.positionKey` SHALL be one of the ordered submitted
-query positions. Search, sort, order, page, and pageSize SHALL be view fields.
-Selected state, alternate identities, query revision, request ID, data version,
-theme, image URL, and work lists SHALL NOT be request or response fields.
+required `input.positionKey`, and optional `view`. `input.positionKey` SHALL be
+one of the ordered submitted query positions. Search, sort, order, page, and
+pageSize SHALL be view fields. Selected state, alternate identities, query
+revision, request ID, data version, theme, image URL, and work lists SHALL NOT
+be request or response fields.
 
 Personal scope SHALL allow `count`, `average`, and `globalAverage`; global scope
-SHALL allow only `count` and `average`. Collection refresh SHALL be accepted
-only for personal scope.
+SHALL allow only `count` and `average`.
 
 #### Scenario: Current position is omitted or unknown
 - **WHEN** input positionKey is absent or is not a member of query.positionKeys

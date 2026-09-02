@@ -38,8 +38,7 @@ func (function CollectionProviderFunc) Fetch(
 	return function(ctx, uid, subjectType, statuses)
 }
 
-// Request contains preserved operation documents. Person detail never accepts
-// refreshCollection.
+// Request contains preserved operation documents.
 type Request struct {
 	Query json.RawMessage
 	Input json.RawMessage

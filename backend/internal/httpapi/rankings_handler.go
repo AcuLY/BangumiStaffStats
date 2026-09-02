@@ -303,7 +303,7 @@ func decodeRankingsRequest(request *http.Request) (ranking.Request, *responseErr
 	}
 	for name := range fields {
 		switch name {
-		case "query", "view", "refreshCollection":
+		case "query", "view":
 		default:
 			response := rankingsInvalidResponse
 			return ranking.Request{}, &response
@@ -317,13 +317,6 @@ func decodeRankingsRequest(request *http.Request) (ranking.Request, *responseErr
 	result := ranking.Request{Query: bytes.Clone(queryDocument)}
 	if view, found := fields["view"]; found {
 		result.View = bytes.Clone(view)
-	}
-	if refresh, found := fields["refreshCollection"]; found {
-		if err := json.Unmarshal(refresh, &result.RefreshCollection); err != nil ||
-			bytes.Equal(bytes.TrimSpace(refresh), []byte("null")) {
-			response := rankingsInvalidResponse
-			return ranking.Request{}, &response
-		}
 	}
 	return result, nil
 }

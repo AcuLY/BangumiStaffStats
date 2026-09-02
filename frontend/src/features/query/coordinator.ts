@@ -48,7 +48,6 @@ export interface OperationFeedback {
 export interface SuccessfulQueryContext {
   readonly changed: boolean;
   readonly operation: PrimaryQueryOperation;
-  readonly refreshed: boolean;
 }
 
 export interface OperationResponse<Payload> {
@@ -62,7 +61,6 @@ export interface OperationResponse<Payload> {
 export interface OperationRequest<Input, View> {
   readonly input: Input;
   readonly query: AppliedQuery;
-  readonly refreshCollection: boolean;
   readonly transactionId: string;
   readonly sequence: number;
   readonly signal: AbortSignal;
@@ -145,27 +143,6 @@ interface OperationTransaction {
   readonly controller: AbortController;
   readonly sequence: number;
   readonly snapshot: ResourceSnapshot;
-}
-
-interface CandidateViewIntent {
-  readonly input: Readonly<CandidatesInputV1>;
-  readonly view: Readonly<CandidatesViewState>;
-}
-
-interface PendingCandidateRefresh {
-  readonly controller: AbortController;
-  readonly coStarSnapshot: ResourceSnapshot;
-  readonly partnersSnapshot: ResourceSnapshot;
-  readonly query: AppliedQuery;
-  readonly sequence: number;
-  latestIntent: CandidateViewIntent | null;
-}
-
-interface PendingRankingRefresh {
-  readonly controller: AbortController;
-  readonly personDetailSnapshot: ResourceSnapshot;
-  readonly query: AppliedQuery;
-  readonly sequence: number;
 }
 
 export class QueryCapabilityUnavailableError extends Error {
@@ -592,7 +569,6 @@ export interface QueryCoordinator<
     candidateView?: Readonly<CandidatesViewState>;
     catalog: CatalogSnapshot | null;
     mode: QueryMode;
-    refreshCollection?: boolean;
   }): Promise<boolean>;
   executeCandidateView(
     input: Readonly<CandidatesInputV1>,
@@ -688,9 +664,6 @@ export function createQueryCoordinator<
   const controllers: Partial<Record<QueryOperation, AbortController>> = {};
   const transactions: Partial<Record<QueryOperation, OperationTransaction>> =
     {};
-  let pendingCandidateRefresh: PendingCandidateRefresh | null = null;
-  let pendingRankingRefresh: PendingRankingRefresh | null = null;
-
   const rankings = shallowReactive<
     OperationResource<
       RankingPayload,
@@ -861,68 +834,6 @@ export function createQueryCoordinator<
     resource.viewPending = snapshot.viewPending;
   }
 
-  function activeCandidateRefresh(): PendingCandidateRefresh | null {
-    const refresh = pendingCandidateRefresh;
-    return (
-      refresh &&
-      transactions.candidates?.controller === refresh.controller &&
-      transactions.candidates.sequence === refresh.sequence &&
-      controllers.candidates === refresh.controller &&
-      !refresh.controller.signal.aborted &&
-      candidates.phase === 'pending' &&
-      store.applied !== null &&
-      querySignature(store.applied) === querySignature(refresh.query)
-        ? refresh
-        : null
-    );
-  }
-
-  function activeRankingRefresh(): PendingRankingRefresh | null {
-    const refresh = pendingRankingRefresh;
-    return (
-      refresh &&
-      transactions.rankings?.controller === refresh.controller &&
-      transactions.rankings.sequence === refresh.sequence &&
-      controllers.rankings === refresh.controller &&
-      !refresh.controller.signal.aborted &&
-      rankings.phase === 'pending' &&
-      store.applied !== null &&
-      querySignature(store.applied) === querySignature(refresh.query)
-        ? refresh
-        : null
-    );
-  }
-
-  function restoreRefreshDependents(
-    operation: PrimaryQueryOperation,
-    controller: AbortController,
-  ): void {
-    if (
-      operation === 'candidates' &&
-      pendingCandidateRefresh?.controller === controller
-    ) {
-      restoreResource(
-        coStar,
-        pendingCandidateRefresh.coStarSnapshot,
-      );
-      restoreResource(
-        partners,
-        pendingCandidateRefresh.partnersSnapshot,
-      );
-      pendingCandidateRefresh = null;
-    }
-    if (
-      operation === 'rankings' &&
-      pendingRankingRefresh?.controller === controller
-    ) {
-      restoreResource(
-        personDetail,
-        pendingRankingRefresh.personDetailSnapshot,
-      );
-      pendingRankingRefresh = null;
-    }
-  }
-
   function syncPendingState(): void {
     pendingOperation.value = transactions.rankings
       ? 'rankings'
@@ -968,9 +879,6 @@ export function createQueryCoordinator<
             ? partners
             : personDetail;
     restoreResource(resource, transaction.snapshot);
-    if (operation === 'candidates' || operation === 'rankings') {
-      restoreRefreshDependents(operation, transaction.controller);
-    }
     resource.feedback = feedback || null;
     if (feedback) {
       publishFeedback(operation, feedback, 'status');
@@ -1133,7 +1041,6 @@ export function createQueryCoordinator<
     candidateView?: Readonly<CandidatesViewState>;
     catalog: CatalogSnapshot | null;
     mode: QueryMode;
-    refreshCollection?: boolean;
   }): Promise<boolean> {
     const validation = validateDraft(
       store.draft,
@@ -1176,8 +1083,6 @@ export function createQueryCoordinator<
     const sameQuery =
       store.applied !== null &&
       querySignature(store.applied) === querySignature(query);
-    const refreshCollection =
-      options.refreshCollection === true && query.scope === 'personal';
     let nextCandidateView: Readonly<CandidatesViewState> | null = null;
     if (operation === 'candidates') {
       const priorScope = candidates.acceptedQuery?.scope;
@@ -1224,8 +1129,7 @@ export function createQueryCoordinator<
       resource.revision === store.revision &&
       resource.phase === 'ready' &&
       (operation !== 'candidates' ||
-        candidates.input.positionKey === nextCandidateInput?.positionKey) &&
-      !refreshCollection
+        candidates.input.positionKey === nextCandidateInput?.positionKey)
     ) {
       resource.feedback = '查询条件没有变化';
       publishFeedback(operation, resource.feedback, 'status');
@@ -1233,12 +1137,6 @@ export function createQueryCoordinator<
     }
 
     const existingTransaction = transactions[operation];
-    if (existingTransaction) {
-      restoreRefreshDependents(
-        operation,
-        existingTransaction.controller,
-      );
-    }
     controllers[operation]?.abort();
     const controller = new AbortController();
     controllers[operation] = controller;
@@ -1259,32 +1157,6 @@ export function createQueryCoordinator<
     if (nextCandidateView) {
       candidates.view = nextCandidateView;
     }
-    if (
-      operation === 'candidates' &&
-      sameQuery &&
-      refreshCollection
-    ) {
-      pendingCandidateRefresh = {
-        controller,
-        coStarSnapshot: captureResource(coStar),
-        latestIntent: null,
-        partnersSnapshot: captureResource(partners),
-        query,
-        sequence,
-      };
-    }
-    if (
-      operation === 'rankings' &&
-      sameQuery &&
-      refreshCollection
-    ) {
-      pendingRankingRefresh = {
-        controller,
-        personDetailSnapshot: captureResource(personDetail),
-        query,
-        sequence,
-      };
-    }
     lastOperationFeedback.value = null;
     syncPendingState();
 
@@ -1303,7 +1175,6 @@ export function createQueryCoordinator<
         const response = await drivers.rankings.execute({
           input: rankings.input,
           query,
-          refreshCollection,
           sequence,
           signal: controller.signal,
           transactionId: transaction,
@@ -1343,7 +1214,7 @@ export function createQueryCoordinator<
         rankings.staleCollection =
           responseUsesStaleCollection(response);
         rankings.feedback = rankings.staleCollection
-          ? '收藏刷新未完成，当前显示最近一次可用数据'
+          ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
           : null;
         rankings.phase = 'ready';
         rankings.viewPending = false;
@@ -1353,7 +1224,6 @@ export function createQueryCoordinator<
         const response = await drivers.candidates.execute({
           input,
           query,
-          refreshCollection,
           sequence,
           signal: controller.signal,
           transactionId: transaction,
@@ -1397,7 +1267,7 @@ export function createQueryCoordinator<
         candidates.staleCollection =
           responseUsesStaleCollection(response);
         candidates.feedback = candidates.staleCollection
-          ? '收藏刷新未完成，当前显示最近一次可用数据'
+          ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
           : null;
         candidates.phase = 'ready';
       }
@@ -1426,7 +1296,6 @@ export function createQueryCoordinator<
           Object.freeze({
             changed: !sameQuery,
             operation,
-            refreshed: refreshCollection,
           }),
         );
       } catch {
@@ -1440,29 +1309,6 @@ export function createQueryCoordinator<
           resource.staleCollection ? 'warning' : 'status',
         );
       }
-      if (operation === 'candidates') {
-        const refreshState = pendingCandidateRefresh;
-        if (refreshState?.controller === controller) {
-          const latestIntent = refreshState.latestIntent;
-          pendingCandidateRefresh = null;
-          if (
-            latestIntent &&
-            (String(latestIntent.input.positionKey) !==
-              String(nextCandidateInput!.positionKey) ||
-              !candidateViewEquals(latestIntent.view, nextCandidateView!))
-          ) {
-            controllers.candidates = undefined;
-            transactions.candidates = undefined;
-            syncPendingState();
-            await executeCandidateView(
-              latestIntent.input,
-              latestIntent.view,
-            );
-          }
-        }
-      } else if (pendingRankingRefresh?.controller === controller) {
-        pendingRankingRefresh = null;
-      }
       return true;
     } catch (error) {
       if (
@@ -1472,7 +1318,6 @@ export function createQueryCoordinator<
         return false;
       }
       restoreResource(resource, snapshot);
-      restoreRefreshDependents(operation, controller);
       resource.error = controller.signal.aborted
         ? '查询已取消'
         : resourceError(error);
@@ -1506,8 +1351,7 @@ export function createQueryCoordinator<
     input: Readonly<CandidatesInputV1>,
     view: Readonly<CandidatesViewState>,
   ): Promise<boolean> {
-    const activeRefresh = activeCandidateRefresh();
-    const query = activeRefresh?.query ?? readyCandidateQuery();
+    const query = readyCandidateQuery();
     if (!query) {
       candidates.error = '请先完成一次共演分析查询';
       publishFeedback('candidates', candidates.error, 'error');
@@ -1524,29 +1368,6 @@ export function createQueryCoordinator<
       candidates.error = '候选人物视图参数无效';
       publishFeedback('candidates', candidates.error, 'error');
       return false;
-    }
-    if (activeRefresh) {
-      const nextInput = Object.freeze(
-        structuredClone(input),
-      ) as Readonly<CandidatesInputV1>;
-      const nextView = Object.freeze(
-        structuredClone(view),
-      ) as Readonly<CandidatesViewState>;
-      activeRefresh.latestIntent = Object.freeze({
-        input: nextInput,
-        view: nextView,
-      });
-      candidates.error = null;
-      candidates.feedback = null;
-      candidates.input = nextInput;
-      candidates.view = nextView;
-      if (
-        lastOperationFeedback.value?.operation === 'candidates' &&
-        lastOperationFeedback.value.kind === 'error'
-      ) {
-        lastOperationFeedback.value = null;
-      }
-      return true;
     }
     if (
       !candidates.viewPending &&
@@ -1591,7 +1412,6 @@ export function createQueryCoordinator<
       const response = await drivers.candidates.execute({
         input: nextInput,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -1620,7 +1440,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       candidates.feedback = candidates.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       candidates.error = null;
       candidates.phase = 'ready';
@@ -1756,7 +1576,6 @@ export function createQueryCoordinator<
       const response = await drivers.coStar.execute({
         input,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -1789,7 +1608,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       coStar.feedback = coStar.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       coStar.error = null;
       coStar.phase = 'ready';
@@ -1834,8 +1653,7 @@ export function createQueryCoordinator<
   async function executeCoStarView(
     requestedView: Readonly<CoStarViewState>,
   ): Promise<boolean> {
-    const activeRefresh = activeCandidateRefresh();
-    const query = activeRefresh?.query ?? readyCoStarQuery();
+    const query = readyCoStarQuery();
     if (!query) {
       coStar.error = '请先选择至少两位人物进行共演分析';
       publishFeedback('co-star', coStar.error, 'error');
@@ -1846,19 +1664,6 @@ export function createQueryCoordinator<
       coStar.error = '共同作品视图参数无效';
       publishFeedback('co-star', coStar.error, 'error');
       return false;
-    }
-    if (activeRefresh) {
-      coStar.error = null;
-      coStar.feedback = null;
-      coStar.view = view;
-      coStar.viewPending = false;
-      if (
-        lastOperationFeedback.value?.operation === 'co-star' &&
-        lastOperationFeedback.value.kind === 'error'
-      ) {
-        lastOperationFeedback.value = null;
-      }
-      return true;
     }
     if (!coStar.viewPending && coStarViewEquals(coStar.view, view)) {
       return true;
@@ -1892,7 +1697,6 @@ export function createQueryCoordinator<
       const response = await drivers.coStar.execute({
         input: capturedInput,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -1922,7 +1726,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       coStar.feedback = coStar.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       coStar.error = null;
       coStar.phase = 'ready';
@@ -2076,7 +1880,6 @@ export function createQueryCoordinator<
       const response = await drivers.partners.execute({
         input,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -2109,7 +1912,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       partners.feedback = partners.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       partners.error = null;
       partners.phase = 'ready';
@@ -2154,8 +1957,7 @@ export function createQueryCoordinator<
   async function executePartnersView(
     requestedView: Readonly<PartnersViewState>,
   ): Promise<boolean> {
-    const activeRefresh = activeCandidateRefresh();
-    const query = activeRefresh?.query ?? readyPartnersQuery();
+    const query = readyPartnersQuery();
     if (!query) {
       partners.error = '请先选择一位人物查看合作人物';
       publishFeedback('partners', partners.error, 'error');
@@ -2166,19 +1968,6 @@ export function createQueryCoordinator<
       partners.error = '合作人物视图参数无效';
       publishFeedback('partners', partners.error, 'error');
       return false;
-    }
-    if (activeRefresh) {
-      partners.error = null;
-      partners.feedback = null;
-      partners.view = view;
-      partners.viewPending = false;
-      if (
-        lastOperationFeedback.value?.operation === 'partners' &&
-        lastOperationFeedback.value.kind === 'error'
-      ) {
-        lastOperationFeedback.value = null;
-      }
-      return true;
     }
     if (!partners.viewPending && partnersViewEquals(partners.view, view)) {
       return true;
@@ -2212,7 +2001,6 @@ export function createQueryCoordinator<
       const response = await drivers.partners.execute({
         input: capturedInput,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -2242,7 +2030,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       partners.feedback = partners.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       partners.error = null;
       partners.phase = 'ready';
@@ -2338,7 +2126,6 @@ export function createQueryCoordinator<
       const response = await drivers.rankings.execute({
         input: rankings.input,
         query: rankings.acceptedQuery,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -2364,7 +2151,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       rankings.feedback = rankings.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       rankings.error = null;
       rankings.phase = 'ready';
@@ -2486,7 +2273,6 @@ export function createQueryCoordinator<
       const response = await drivers.personDetail.execute({
         input: personDetail.input,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -2516,7 +2302,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       personDetail.feedback = personDetail.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       personDetail.phase = 'ready';
       if (personDetail.feedback) {
@@ -2551,17 +2337,14 @@ export function createQueryCoordinator<
   async function executePersonDetailView(
     view: Readonly<PersonDetailViewState>,
   ): Promise<boolean> {
-    const activeRefresh = activeRankingRefresh();
-    const query = activeRefresh?.query ?? readyRankingQuery();
+    const query = readyRankingQuery();
     const detailReady =
       query !== null &&
-      (activeRefresh !== null ||
-        (personDetail.acceptedQuery !== null &&
-          personDetail.payload !== null &&
-          personDetail.phase === 'ready' &&
-          personDetail.revision === store.revision &&
-          querySignature(personDetail.acceptedQuery) ===
-            querySignature(query)));
+      personDetail.acceptedQuery !== null &&
+      personDetail.payload !== null &&
+      personDetail.phase === 'ready' &&
+      personDetail.revision === store.revision &&
+      querySignature(personDetail.acceptedQuery) === querySignature(query);
     if (!query || !detailReady) {
       personDetail.error = '请先选择排行中的人物';
       publishFeedback('person-detail', personDetail.error, 'error');
@@ -2573,19 +2356,6 @@ export function createQueryCoordinator<
       return false;
     }
     const nextView = Object.freeze(structuredClone(view));
-    if (activeRefresh) {
-      personDetail.error = null;
-      personDetail.feedback = null;
-      personDetail.view = nextView;
-      personDetail.viewPending = false;
-      if (
-        lastOperationFeedback.value?.operation === 'person-detail' &&
-        lastOperationFeedback.value.kind === 'error'
-      ) {
-        lastOperationFeedback.value = null;
-      }
-      return true;
-    }
     if (
       !personDetail.viewPending &&
       personDetailViewEquals(personDetail.view, nextView)
@@ -2619,7 +2389,6 @@ export function createQueryCoordinator<
       const response = await drivers.personDetail.execute({
         input: personDetail.input,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -2649,7 +2418,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       personDetail.feedback = personDetail.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       personDetail.error = null;
       personDetail.phase = 'ready';

@@ -293,22 +293,8 @@ const drivers: QueryDrivers<
       >
     | undefined) ?? {
     candidates: createCandidatesDriver(apiClient),
-    coStar: {
-      execute(request) {
-        return coStarDriver.execute({
-          ...request,
-          refreshCollection: false,
-        });
-      },
-    },
-    partners: {
-      execute(request) {
-        return partnersDriver.execute({
-          ...request,
-          refreshCollection: false,
-        });
-      },
-    },
+    coStar: coStarDriver,
+    partners: partnersDriver,
     personDetail: createPersonDetailDriver(apiClient),
     rankings: createRankingsDriver(apiClient),
   };

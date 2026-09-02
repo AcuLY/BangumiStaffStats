@@ -269,7 +269,7 @@ func TestServiceRejectsClosedInputAndUnavailableCharacterSectionEarly(t *testing
 		Query: json.RawMessage(
 			`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`,
 		),
-		Input: json.RawMessage(`{"personId":100,"refreshCollection":true}`),
+		Input: json.RawMessage(`{"personId":100,"operation":"person-detail"}`),
 	}
 	_, err := service.Execute(context.Background(), request)
 	assertFailure(t, err, CodeInvalidRequest, "")

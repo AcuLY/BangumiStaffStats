@@ -117,7 +117,6 @@ export type TagTokenInputV1 = string;
 export type RequestV1Schema = {
     query: SharedQueryV1Schema;
     view?: RankingsViewV1;
-    refreshCollection?: boolean;
 };
 
 /**

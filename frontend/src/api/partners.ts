@@ -174,7 +174,6 @@ type DeepReadonly<T> = T extends (...args: never[]) => unknown
 export interface PartnersDriverRequest {
   readonly input: DeepReadonly<PartnersInputV1>;
   readonly query: DeepReadonly<SharedQueryV1Schema>;
-  readonly refreshCollection: false;
   readonly signal: AbortSignal;
   readonly transactionId: string;
   readonly view: DeepReadonly<PartnersViewV1>;

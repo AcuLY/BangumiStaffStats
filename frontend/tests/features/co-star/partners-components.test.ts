@@ -243,9 +243,6 @@ describe('one-person partners surface', () => {
     expect(execute.mock.calls.at(-1)?.[0]).not.toHaveProperty(
       'candidatePositionKey',
     );
-    expect(execute.mock.calls.at(-1)?.[0]).not.toHaveProperty(
-      'refreshCollection',
-    );
   });
 
   it('keeps source, summary, and toolbar for view pending but replaces the full summary for a position-filter request', () => {

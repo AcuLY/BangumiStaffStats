@@ -162,7 +162,6 @@ func (service *Service) Execute(
 		loaded, loadErr := service.collection.Get(
 			ctx,
 			collectionKey,
-			false,
 			func(loadContext context.Context) (runtimecache.CollectionSnapshot, error) {
 				return service.collections.Fetch(
 					loadContext,

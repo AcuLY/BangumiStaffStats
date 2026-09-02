@@ -7,14 +7,13 @@ isolated code-generation contract shared by backend and frontend.
 ### Requirement: Rankings SHALL have one closed versioned wire contract
 
 The contract SHALL define `POST /api/v1/rankings` with a JSON body containing
-required `query`, optional `view`, and optional `refreshCollection`, and SHALL
-reject every unknown member. Rankings SHALL not accept `input`, mode, requestId,
-queryRevision, dataVersion, theme, or UI state.
+required `query` and optional `view`, and SHALL reject every unknown member.
+Rankings SHALL not accept `input`, mode, requestId, queryRevision, dataVersion,
+theme, or UI state.
 
 View defaults SHALL be search `""`, sort `count`, order `desc`, page `1`, and
 pageSize `10`. Sort SHALL be `count|average|overall|preference`; preference SHALL
 be rejected for global scope. Page size SHALL be exactly `5|10|20`.
-`refreshCollection=true` SHALL be allowed only for personal rankings.
 The OpenAPI operation SHALL declare 405 with `Allow: POST`, 502 for upstream
 protocol/decode failure, and the accepted 400/403/404/413/415/429/500/503/504
 families; every response SHALL use the stable envelope and no-store headers.

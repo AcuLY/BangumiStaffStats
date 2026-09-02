@@ -719,10 +719,6 @@ export const request_v1_schemaSchema = {
         },
         view: {
             $ref: '#/components/schemas/RankingsViewV1'
-        },
-        refreshCollection: {
-            type: 'boolean',
-            default: false
         }
     }
 } as const;
@@ -800,7 +796,7 @@ export const result_error_envelope_v1_schemaSchema = {
         FieldErrorsV1: {
             type: 'object',
             propertyNames: {
-                pattern: '^/(?:query|scope|uid|collectionStatuses|subjectType|positionKeys|includeNSFW|mergeSeries|filters|catalog|operation|input|view|refreshCollection|workspace|error|meta)(?:/(?:[A-Za-z0-9_.-]|~0|~1)+)*$'
+                pattern: '^/(?:query|scope|uid|collectionStatuses|subjectType|positionKeys|includeNSFW|mergeSeries|filters|catalog|operation|input|view|workspace|error|meta)(?:/(?:[A-Za-z0-9_.-]|~0|~1)+)*$'
             },
             additionalProperties: {
                 type: 'array',
@@ -960,7 +956,7 @@ export const FieldErrorCodeV1Schema = {
 export const FieldErrorsV1Schema = {
     type: 'object',
     propertyNames: {
-        pattern: '^/(?:query|scope|uid|collectionStatuses|subjectType|positionKeys|includeNSFW|mergeSeries|filters|catalog|operation|input|view|refreshCollection|workspace|error|meta)(?:/(?:[A-Za-z0-9_.-]|~0|~1)+)*$'
+        pattern: '^/(?:query|scope|uid|collectionStatuses|subjectType|positionKeys|includeNSFW|mergeSeries|filters|catalog|operation|input|view|workspace|error|meta)(?:/(?:[A-Za-z0-9_.-]|~0|~1)+)*$'
     },
     additionalProperties: {
         type: 'array',

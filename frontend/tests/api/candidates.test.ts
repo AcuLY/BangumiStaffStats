@@ -43,7 +43,6 @@ function golden(filename: 'global.json' | 'personal.json') {
       request: {
         input: { positionKey: string };
         query: Record<string, unknown>;
-        refreshCollection?: boolean;
         view?: Record<string, unknown>;
       };
     }>;
@@ -140,7 +139,7 @@ describe('candidates response adapter', () => {
 });
 
 describe('candidates native-fetch driver', () => {
-  it('uses same-origin fetch, omits a false/global refresh, and correlates projection metadata', async () => {
+  it('uses same-origin fetch and correlates projection metadata', async () => {
     const fixture = golden('global.json').cases[1]!;
     const fetchImplementation = vi.fn<FetchImplementation>(async () =>
       jsonResponse(fixture.expected.body),
@@ -153,7 +152,6 @@ describe('candidates native-fetch driver', () => {
     const response = await driver.execute({
       input: fixture.request.input,
       query: fixture.request.query as never,
-      refreshCollection: true,
       signal: controller.signal,
       transactionId: 'candidates-local-4',
       view: fixture.request.view ?? {},
@@ -177,31 +175,6 @@ describe('candidates native-fetch driver', () => {
       query: fixture.request.query,
       view: fixture.request.view,
     });
-    expect(body).not.toHaveProperty('refreshCollection');
-  });
-
-  it('sends refresh only for personal primary requests', async () => {
-    const fixture = golden('personal.json').cases[2]!;
-    const fetchImplementation = vi.fn<FetchImplementation>(async () =>
-      jsonResponse(fixture.expected.body),
-    );
-    const driver = createCandidatesDriver(
-      createApiClient(fetchImplementation),
-    );
-
-    await driver.execute({
-      input: fixture.request.input,
-      query: fixture.request.query as never,
-      refreshCollection: true,
-      signal: new AbortController().signal,
-      transactionId: 'candidates-personal-refresh',
-      view: fixture.request.view ?? {},
-    });
-
-    const body = JSON.parse(
-      String(fetchImplementation.mock.calls[0]![1]!.body),
-    ) as Record<string, unknown>;
-    expect(body.refreshCollection).toBe(true);
   });
 
   it('accepts only status/code pairs declared by candidates', () => {
@@ -243,7 +216,6 @@ describe('candidates native-fetch driver', () => {
       driver.execute({
         input: { positionKey: 'staff:anime:2' },
         query: fixture.request.query as never,
-        refreshCollection: false,
         signal: new AbortController().signal,
         transactionId: 'candidates-projection-mismatch',
         view: {},

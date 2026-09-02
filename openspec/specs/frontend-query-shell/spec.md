@@ -141,30 +141,16 @@ operation adapter, the port SHALL fail closed as unavailable.
   retained with separate current-request feedback
 - **AND** the editor SHALL remain expanded with its Draft
 
-### Requirement: Personal collection refresh SHALL have explicit recovery states
+### Requirement: Personal queries SHALL surface collection freshness
 
-Only an explicit personal rankings/candidates apply-or-refresh action SHALL
-set `refreshCollection=true`. Before starting, the coordinator SHALL save the
-recoverable Applied Query/resource, move the active personal resource out of
-visible `ready` into `pending`, and SHALL not automatically retry.
+An ordinary personal operation that succeeds with stale collection metadata
+and `COLLECTION_STALE` SHALL commit the usable result and announce the stable
+warning without parsing server text or starting an automatic retry.
 
-Fresh success SHALL commit normally. Stale success SHALL commit usable data
-and map stable `COLLECTION_STALE` warning metadata to a visible warning without
-parsing server text. Hard failure or cancellation SHALL restore the saved
-resource and Applied Query plus separate feedback. Global, view-only, detail,
-partners, and co-star requests SHALL never carry the flag.
-
-#### Scenario: Explicit refresh returns stale data
-- **WHEN** a personal main operation succeeds with stale collection metadata
-  and `COLLECTION_STALE`
+#### Scenario: Ordinary personal query returns stale data
+- **WHEN** a personal operation succeeds with stale collection metadata and `COLLECTION_STALE`
 - **THEN** the usable result SHALL commit and the stable stale warning SHALL be announced
-- **AND** no background or automatic refresh retry SHALL start
-
-#### Scenario: Explicit refresh fails
-- **WHEN** a personal refresh hard-fails or is canceled
-- **THEN** the prior usable Applied Query/resource SHALL be restored and the
-  failed attempt SHALL remain visible as feedback
-- **AND** stale prior data SHALL not be presented as a successful refresh
+- **AND** no background or automatic retry SHALL start
 
 ### Requirement: Query Workspace SHALL preserve the approved outward behavior
 

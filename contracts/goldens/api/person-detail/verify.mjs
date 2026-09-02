@@ -85,7 +85,7 @@ for (const required of [
   "personal-subject-complete-evidence",
   "personal-series-complete-members-stale",
   "global-character-exact-cast",
-  "refresh-field-rejected",
+  "operation-field-rejected",
   "unknown-input-field-rejected",
   "person-id-fraction-rejected",
   "characters-without-cast-rejected",

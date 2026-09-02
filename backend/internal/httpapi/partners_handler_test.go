@@ -92,8 +92,8 @@ func TestPartnersStrictTransportRejectsBeforeExecution(t *testing.T) {
 			message: "partners requires application/json",
 		},
 		{
-			name: "refresh forbidden", method: http.MethodPost, target: routePartners,
-			body:        strings.TrimSuffix(valid, "}") + `,"refreshCollection":true}`,
+			name: "operation forbidden", method: http.MethodPost, target: routePartners,
+			body:        strings.TrimSuffix(valid, "}") + `,"operation":"partners"}`,
 			contentType: "application/json", status: http.StatusBadRequest,
 			code: codeInvalidRequest, message: "partners request is invalid",
 		},

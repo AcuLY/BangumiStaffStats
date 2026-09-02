@@ -86,7 +86,7 @@ Ranking、Candidates、Detail、Partners 和 CoStar 各自保存结果与 view s
 
 网络请求不由 QueryStore 单独完成。`executeQuery(operation)` application service 负责最终校验、取消旧等待、调用对应 feature API、检查 sequence/request ID，并原子提交结果与共享 Applied Query。其他 operation 随后按相同 revision 懒加载自己的结果，不能维护第二份 Applied Query。operation/path 只选择要加载的能力，不进入共享 Query。
 
-显式刷新收藏只允许从 personal rankings/candidates 的“应用/刷新收藏”动作触发。前端发送 `refreshCollection=true` 前保存可恢复的上一份 Applied Query/result，但立即让当前个人主结果退出可见 ready 态并使对应 surface 进入 pending，不能把旧结果伪装成已经刷新。成功返回 fresh 或允许的 stale 结果后提交同一共享 Query；`meta.collection.stale=true` 时必须按 `warningCodes` 中的 `COLLECTION_STALE` 显示稳定提示，不能解析上游文案。硬失败或取消时恢复上一份可用结果并显示本次反馈。显式刷新不得自动重试，也不得由搜索、排序、分页、详情、partners 或 co-star 请求携带。
+personal operation 返回允许的 stale 结果时，前端必须提交可用数据，并按 `meta.collection.stale=true` 与 `warningCodes` 中的 `COLLECTION_STALE` 显示稳定提示，不能解析上游文案，也不能启动后台自动重试。硬失败或取消仍恢复上一份可用结果并显示本次反馈。
 
 ### 3.4 URL 与持久化
 
@@ -358,7 +358,7 @@ app/shell -> feature container -> feature store/model
 - 新查询请求成功且 sequence 仍有效时，原子提交 feature result、共享 Applied Query 和 queryRevision；
 - 模式切换只按当前 revision 加载缺失 operation，不重新提交 Applied Query；
 - 只有语义不同的新 query 成功提交后才清空 CoStar 选择和分析；Draft 改动、失败、取消和 no-op 均不清空；
-- personal rankings/candidates 的显式收藏刷新按第 3.3 节进入 pending、携带 `refreshCollection=true`、处理 stale warning，并在硬失败/取消时恢复上一可用结果；其他 operation 禁止携带该标志；
+- personal operation 按第 3.3 节处理 stale warning，硬失败或取消时恢复上一份可用结果；
 - 失败或取消时保留之前的 Applied Query 和可用结果，并单独更新请求反馈。
 
 它是业务用例协调层，不渲染 UI、不实现统计公式，也不成为第四个巨型 store。
@@ -507,7 +507,7 @@ rank、partnerCount、leaders、排序结果和分页全部消费服务端响应
 - Vue 组件挂载与交互测试，覆盖 Query Editor、排行、选择器、drawer 和分析状态；
 - 前后端契约测试及小型匿名 fixture；
 - E2E：personal/global、空结果、错误、取消、多职位、series、character、移动 drawer、键盘焦点；
-- 显式收藏刷新测试：仅允许 personal rankings/candidates，pending 时旧结果不冒充新结果，fresh/stale warning/硬失败恢复/取消均覆盖，且不发生自动 retry；
+- personal 收藏 fresh/stale warning、硬失败恢复和取消测试，且 stale 成功不发生自动 retry；
 - 可访问性自动检查；
 - Light/Dark 下 390、779、780、1280、1440/2560 的视觉回归；
 - 图片策略单测：按资源类型、展示宽度、断点和 DPR 覆盖“选择最小足够规格、超出范围回退最大规格”，并锁定调用方不得隐式默认 `large`；
@@ -564,7 +564,7 @@ repo:     git diff --check + production artifact denylist
 
 - 迁移 Query Workspace；
 - 完成唯一 shared draft/applied/positionKeys、operation-specific resource/view、结构化校验、取消和旧响应保护；
-- 完成 personal 显式收藏刷新及 fresh/stale/失败恢复状态路径；
+- 完成 personal 收藏 fresh/stale/失败恢复状态路径；
 - 从 catalog API 获取职位/能力。
 
 退出条件：查询状态机行为测试和 personal/global E2E 通过。

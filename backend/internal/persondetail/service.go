@@ -205,7 +205,6 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 		loaded, loadErr := service.collection.Get(
 			ctx,
 			collectionKey,
-			false,
 			func(loadContext context.Context) (runtimecache.CollectionSnapshot, error) {
 				return service.collections.Fetch(
 					loadContext,

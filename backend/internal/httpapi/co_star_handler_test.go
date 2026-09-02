@@ -88,8 +88,8 @@ func TestCoStarStrictTransportRejectsBeforeExecution(t *testing.T) {
 			message: "co-star requires application/json",
 		},
 		{
-			name: "refresh forbidden", method: http.MethodPost, target: routeCoStar,
-			body:        strings.TrimSuffix(valid, "}") + `,"refreshCollection":true}`,
+			name: "operation forbidden", method: http.MethodPost, target: routeCoStar,
+			body:        strings.TrimSuffix(valid, "}") + `,"operation":"co-star"}`,
 			contentType: "application/json", status: http.StatusBadRequest,
 			code: codeInvalidRequest, message: "co-star request is invalid",
 		},

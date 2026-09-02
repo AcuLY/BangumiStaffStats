@@ -132,7 +132,6 @@ describe('rankings native-fetch driver', () => {
 
     const response = await driver.execute({
       query: fixture.request.query as never,
-      refreshCollection: false,
       signal: controller.signal,
       transactionId: 'rankings-local-7',
       view: fixture.request.view,
@@ -153,7 +152,6 @@ describe('rankings native-fetch driver', () => {
     ) as Record<string, unknown>;
     expect(body).toEqual({
       query: fixture.request.query,
-      refreshCollection: false,
       view: fixture.request.view,
     });
   });
@@ -197,7 +195,6 @@ describe('rankings native-fetch driver', () => {
           subjectType: 'anime',
           positionKeys: ['staff:anime:2'],
         },
-        refreshCollection: false,
         signal: new AbortController().signal,
         transactionId: 'rankings-local-error',
         view: {
@@ -228,7 +225,6 @@ describe('rankings native-fetch driver', () => {
     await expect(
       driver.execute({
         query: fixture.request.query as never,
-        refreshCollection: false,
         signal: new AbortController().signal,
         transactionId: 'rankings-projection-mismatch',
         view: {

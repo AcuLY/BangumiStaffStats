@@ -126,7 +126,6 @@ export function rankingErrorMessage(code: ErrorCodeV1): string {
 
 export interface RankingsDriverRequest {
   readonly query: DeepReadonly<SharedQueryV1Schema>;
-  readonly refreshCollection: boolean;
   readonly signal: AbortSignal;
   readonly transactionId: string;
   readonly view: Readonly<RankingsViewV1>;
@@ -157,7 +156,6 @@ export function createRankingsDriver(client: ApiClient): RankingsDriver {
     async execute(request): Promise<RankingsDriverResponse> {
       const body: RankingsRequestV1 = {
         query: structuredClone(request.query) as SharedQueryV1Schema,
-        refreshCollection: request.refreshCollection,
         view: structuredClone(request.view),
       };
       const payload = await client.request({

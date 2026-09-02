@@ -355,7 +355,7 @@
       "post": {
         "operationId": "postPersonDetailV1",
         "summary": "Project one ranking-eligible person's complete detail evidence",
-        "description": "Builds one immutable person-detail core and projects a deterministic works or characters page. Search, sort, order, and pagination are view-only; refreshCollection is never accepted.",
+        "description": "Builds one immutable person-detail core and projects a deterministic works or characters page. Search, sort, order, and pagination are view-only.",
         "security": [],
         "requestBody": {
           "required": true,

@@ -147,7 +147,6 @@ for (const required of [
   "global-average-missing-last",
   "global-out-of-range-empty-page",
   "global-preference-rejected",
-  "global-refresh-rejected",
   "unknown-top-level-field-rejected",
   "wrong-method-rejected",
   "second-document-rejected",

@@ -164,7 +164,7 @@
       }
     },
     {
-      "id": "personal-series-stale-refresh",
+      "id": "personal-series-stale",
       "request": {
         "query": {
           "scope": "personal",
@@ -186,8 +186,7 @@
           "order": "desc",
           "page": 1,
           "pageSize": 10
-        },
-        "refreshCollection": true
+        }
       },
       "expected": {
         "status": 200,
@@ -239,8 +238,7 @@
         }
       },
       "assertions": {
-        "seriesWorkCount": 1,
-        "refreshCollection": true
+        "seriesWorkCount": 1
       }
     }
   ]

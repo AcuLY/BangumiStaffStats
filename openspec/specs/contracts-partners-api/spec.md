@@ -8,9 +8,9 @@ Define the isolated closed `POST /partners` wire for scope-safe source and candi
 `POST /api/v1/partners` SHALL accept a closed document containing `query`,
 `input.source.personId`, a non-empty ordered-unique
 `input.source.positionKeys`, optional `input.candidatePositionKey`, and optional
-view. It SHALL reject `refreshCollection`. Source and candidate position keys
-SHALL belong to the effective query and SHALL be treated as opaque catalog
-identities.
+view. Source and candidate position keys SHALL belong to the effective query
+and SHALL be treated as opaque catalog identities. Every undeclared member
+SHALL be rejected.
 
 Success SHALL return workUnit, source identity/metrics, complete summary with
 fixed leaders, current items, pagination, request metadata, and personal-only

@@ -219,7 +219,13 @@ queryDigest = "q1:" || lowercase_hex(SHA-256(preimage))
 
 `QueryDigestProjectionV1` SHALL contain exactly effective `scope`, `subjectType`, ordered unique `positionKeys`, personal `collectionStatuses`, explicit `includeNSFW`/`mergeSeries`, and normalized active filters; it SHALL omit personal `uid`. The fixed prefix SHALL be 15 bytes total: the 14 ASCII bytes for `bgmss.query.v1` followed by exactly one NUL octet `0x00`, never the printable characters backslash and zero. Every successful digest golden SHALL record the projection, separator, and complete preimage as lowercase hexadecimal and unpadded base64url so Go, TypeScript, and the contract verifier compare exact bytes without source-language escape ambiguity.
 
-`uid`, `dataVersion`, operation, operation input, view, `refreshCollection`, share path/workspace, search, sort, order, page, pageSize, section, query revision, input digest, collection digest, result, rank, and statistic SHALL NOT enter the digest projection, canonical bytes, or queryDigest preimage. The path/operation determines mode. The digest is a shared contract output but SHALL NOT by itself implement a runtime cache key or lookup; a later backend cache capability composes it with separately owned dimensions.
+`uid`, `dataVersion`, operation, operation input, view, share path/workspace,
+search, sort, order, page, pageSize, section, query revision, input digest,
+collection digest, result, rank, and statistic SHALL NOT enter the digest
+projection, canonical bytes, or queryDigest preimage. The path/operation
+determines mode. The digest is a shared contract output but SHALL NOT by itself
+implement a runtime cache key or lookup; a later backend cache capability
+composes it with separately owned dimensions.
 
 #### Scenario: Two semantically equivalent submissions normalize
 - **WHEN** two valid inputs differ only in default omission, repeated PositionKeys after the same first occurrence, collection-status order/duplicates, or tag token/group order/duplicates
@@ -232,7 +238,7 @@ queryDigest = "q1:" || lowercase_hex(SHA-256(preimage))
 - **AND** the exact preimage and queryDigest remain unchanged
 
 #### Scenario: Digest exclusion field changes
-- **WHEN** only personal UID, dataVersion, operation, input, view, refreshCollection, share state, search, sort, order, page, pageSize, section, query revision, input digest, or collection digest changes outside the digest projection
+- **WHEN** only personal UID, dataVersion, operation, input, view, share state, search, sort, order, page, pageSize, section, query revision, input digest, or collection digest changes outside the digest projection
 - **THEN** the queryDigest remains unchanged
 - **AND** a later cache key may still differ when its owning capability composes those dimensions
 
@@ -242,7 +248,7 @@ queryDigest = "q1:" || lowercase_hex(SHA-256(preimage))
 - **AND** any non-finite or non-JSON numeric input fails before canonicalization
 
 #### Scenario: Mode or digest field is submitted
-- **WHEN** `mode`, `operation`, `queryDigest`, `inputDigest`, `dataVersion`, `queryRevision`, or `refreshCollection` appears inside the shared query
+- **WHEN** `mode`, `operation`, `queryDigest`, `inputDigest`, `dataVersion`, or `queryRevision` appears inside the shared query
 - **THEN** strict validation rejects it as the wrong layer or an unknown field
 
 ### Requirement: Search, sort, order, and pagination are strict view values
@@ -340,7 +346,7 @@ The strict payload SHALL contain only a normalized successful Effective Query an
   - `partners` contains that candidates object plus normalized `partners {input: PartnersInputV1, view: PartnersViewV1}` and represents exactly one selected person through `partners.input.source`;
   - `analysis` contains that candidates object plus normalized `coStar {input: CoStarInputV1, view: CoStarViewV1}` and represents exactly 2–10 selected people through `coStar.input.participants`.
 
-The share schema SHALL reuse those exact named components by `$ref`, not open JSON or copied alternatives. It SHALL contain no parallel loose people/identity array: the applicable operation input is the selected-state authority, and its ordered people/PositionKeys SHALL agree exactly with the visible selected state. Every identity PositionKey SHALL belong to the Effective Query; people SHALL be unique and co-star identities SHALL not exceed twenty. Payload/workspace/path, co-star state, selected-person count, and applicable operation input SHALL agree, while inapplicable operation objects SHALL be forbidden. The payload SHALL exclude Draft, responses, requestId, queryRevision, dataVersion, query/input digests, refreshCollection, theme, Drawer, scroll, Skeleton, cache outcome, and server session identifiers.
+The share schema SHALL reuse those exact named components by `$ref`, not open JSON or copied alternatives. It SHALL contain no parallel loose people/identity array: the applicable operation input is the selected-state authority, and its ordered people/PositionKeys SHALL agree exactly with the visible selected state. Every identity PositionKey SHALL belong to the Effective Query; people SHALL be unique and co-star identities SHALL not exceed twenty. Payload/workspace/path, co-star state, selected-person count, and applicable operation input SHALL agree, while inapplicable operation objects SHALL be forbidden. The payload SHALL exclude Draft, responses, requestId, queryRevision, dataVersion, query/input digests, theme, Drawer, scroll, Skeleton, cache outcome, and server session identifiers.
 
 The encoded base64url part SHALL not exceed 16,384 ASCII bytes. The decoder SHALL enforce a 65,536-byte decoded cap before JSON parsing. Padding, non-base64url characters, malformed UTF-8/JSON, unknown properties, unsupported outer version, duplicate identities, person/identity overflow, and path/workspace mismatch SHALL fail before any business request.
 

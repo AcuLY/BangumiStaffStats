@@ -1884,9 +1884,8 @@ func (e PostRankingsV1504JSONResponseBodyErrorFieldErrors) Valid() bool {
 
 // PostRankingsV1JSONBody defines parameters for PostRankingsV1.
 type PostRankingsV1JSONBody struct {
-	Query             PostRankingsV1JSONBody_Query `json:"query"`
-	RefreshCollection *bool                        `json:"refreshCollection,omitempty"`
-	View              *struct {
+	Query PostRankingsV1JSONBody_Query `json:"query"`
+	View  *struct {
 		Order    *PostRankingsV1JSONBodyViewOrder    `json:"order,omitempty"`
 		Page     *int                                `json:"page,omitempty"`
 		PageSize *PostRankingsV1JSONBodyViewPageSize `json:"pageSize,omitempty"`

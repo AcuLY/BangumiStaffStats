@@ -130,49 +130,6 @@
       }
     },
     {
-      "id": "global-refresh-rejected",
-      "requestSchemaValid": true,
-      "request": {
-        "method": "POST",
-        "body": {
-          "query": {
-            "scope": "global",
-            "subjectType": "anime",
-            "positionKeys": [
-              "staff:anime:2"
-            ]
-          },
-          "input": {
-            "positionKey": "staff:anime:2"
-          },
-          "refreshCollection": true
-        }
-      },
-      "expected": {
-        "status": 400,
-        "headers": {
-          "Cache-Control": "private, no-store",
-          "Content-Type": "application/json",
-          "X-Request-ID": "req-candidates-global-refresh"
-        },
-        "body": {
-          "error": {
-            "code": "FIELD_INVALID",
-            "message": "Collection refresh requires personal scope.",
-            "retryable": false,
-            "fieldErrors": {
-              "/refreshCollection": [
-                "VALUE_CONFLICT"
-              ]
-            }
-          },
-          "meta": {
-            "requestId": "req-candidates-global-refresh"
-          }
-        }
-      }
-    },
-    {
       "id": "selected-state-rejected",
       "requestSchemaValid": false,
       "request": {

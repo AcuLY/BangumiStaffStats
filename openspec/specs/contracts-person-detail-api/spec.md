@@ -7,12 +7,11 @@ Define the isolated closed person-detail wire that separates complete scope-spec
 
 The request SHALL contain required shared `query`, required
 `input.personId`, and optional shared `PersonDetailViewV1`. It SHALL reject
-`refreshCollection`, mode, image URLs, frontend revision, Drawer state, and
-unknown fields. Scope/section-specific sort values SHALL fail with a stable
-field error.
+mode, image URLs, frontend revision, Drawer state, and unknown fields.
+Scope/section-specific sort values SHALL fail with a stable field error.
 
-#### Scenario: Refresh is supplied
-- **WHEN** a person-detail request contains `refreshCollection`
+#### Scenario: An unknown field is supplied
+- **WHEN** a person-detail request contains an undeclared top-level member
 - **THEN** the closed request SHALL reject it before collection or Archive evaluation
 
 ### Requirement: Complete evidence SHALL remain separate from section view

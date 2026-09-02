@@ -201,7 +201,6 @@ function verifySuccess(testCase) {
     `${testCase.id}: participant/identity order`,
   );
   assert.equal(data.kind, requested.length === 2 ? "pair" : "group");
-  assert.equal(Object.hasOwn(request, "refreshCollection"), false);
   if (data.kind === "pair") {
     assert.equal(Object.hasOwn(data, "matrix"), false);
   } else {

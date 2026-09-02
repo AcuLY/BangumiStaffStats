@@ -168,11 +168,10 @@ for (const required of [
   "global-out-of-range-empty-page",
   "personal-average-defaults",
   "personal-global-average-sort",
-  "personal-series-stale-refresh",
+  "personal-series-stale",
   "missing-current-position",
   "unknown-current-position",
   "global-global-average-rejected",
-  "global-refresh-rejected",
   "selected-state-rejected",
   "wrong-method-rejected",
   "store-not-ready",
@@ -213,8 +212,7 @@ const missingRow = missing.expected.body.data.items.at(-1);
 assert.equal(missingRow.person.id, missing.assertions.missingMetricPersonId);
 assert.equal(missingRow.rank, missing.assertions.missingMetricRank);
 
-const stale = cases.get("personal-series-stale-refresh");
-assert.equal(stale.request.refreshCollection, true);
+const stale = cases.get("personal-series-stale");
 assert.equal(stale.expected.body.data.workUnit, "series");
 assert.equal(stale.expected.body.data.items[0].workCount, 1);
 assert.equal(stale.expected.body.meta.collection.stale, true);
