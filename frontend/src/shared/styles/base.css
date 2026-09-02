@@ -51,6 +51,7 @@
   --success: oklch(0.43 0.12 160);
   --focus: var(--brand);
   --panel-shadow: 0 1px 2px oklch(0.2 0.01 285 / 0.06);
+  --header-background: color-mix(in oklab, var(--chrome) 84%, transparent);
   --chrome-background: color-mix(in oklab, var(--chrome) 92%, transparent);
   --chrome-hover: color-mix(
     in oklab,
@@ -143,6 +144,7 @@
   --success: oklch(0.68 0.13 160);
   --focus: var(--brand-hover);
   --panel-shadow: none;
+  --header-background: color-mix(in oklab, var(--chrome) 84%, transparent);
   --chrome-background: color-mix(in oklab, var(--chrome) 92%, transparent);
   --chrome-hover: color-mix(
     in oklab,
@@ -230,7 +232,7 @@ select:focus-visible {
   top: 0;
   border-top: 3px solid var(--brand);
   border-bottom: 1px solid var(--chrome-divider);
-  background: var(--chrome-background);
+  background: var(--header-background);
   backdrop-filter: blur(16px) saturate(135%);
 }
 

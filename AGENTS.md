@@ -46,47 +46,55 @@ Before making changes:
   relevant remote state.
 - Preserve all unrelated or pre-existing work. Never assume a dirty file is
   disposable.
-- Prefer a fresh `codex/<short-topic>` branch from the current `master` for a
-  new body of work.
+- Work in the current branch and worktree by default. Create or switch to a
+  branch or worktree only when the user explicitly requests it. If a severe
+  overlap or isolation need makes one necessary, stop and ask the user before
+  creating it.
 - Inspect the controlling code, tests, contracts, and documentation. Do not
   design from filenames or plans alone.
-- Run `openspec list --json` and check whether an active change already owns
-  the request.
+- For work substantial enough to require OpenSpec, run `openspec list --json`
+  and check whether an active change already owns the request.
 - State the intended scope and identify any external or live-system mutation
   before performing it.
 
-If an existing dirty worktree overlaps the required files, use another
-worktree or ask for direction. Do not hide, reset, or overwrite the overlap.
+If an existing dirty worktree overlaps the required files, preserve it and ask
+for direction before creating another branch/worktree or changing the
+overlapping file. Do not hide, reset, or overwrite the overlap.
 
-## OpenSpec is required before implementation
+## OpenSpec is required for substantial product changes
 
-Every substantive development block is OpenSpec-first. This includes:
+Use OpenSpec before implementation for complete new requirements and changes
+large enough to need explicit product, architecture, contract, ownership, or
+cross-component planning. This includes:
 
 - a new feature or capability;
-- a change to user-visible behavior, interaction, copy, or appearance;
+- a significant change to a user flow, interaction model, or public behavior;
 - an API, schema, persisted-data, generated-artifact, or cross-component
   contract change;
 - an architectural boundary or ownership change;
 - adding, removing, or materially upgrading a dependency or toolchain;
 - a deployment, routing, observability, security, or other operations change;
-- a refactor whose scope or risk is not mechanically obvious.
+- a broad refactor whose scope or risk is not mechanically obvious.
 
-A small correction may be implemented directly by the primary agent instead
-of being delegated, but that does not remove the OpenSpec gate. It must be
-covered by an exact, strict-valid OpenSpec and a completed block-level planning
-review, have no conflicting owner, and pass the same acceptance gates.
-Examples include a bounded mechanical bug fix, fixture repair, or
-documentation correction within an already accepted capability. It must not
-create a new capability or public behavior, dependency, contract or schema,
-architecture, external state, or broad cleanup.
+Do not create an OpenSpec change for a bounded local correction that does not
+introduce a capability, change a public contract, alter architecture, or span
+component ownership. Examples include a small styling or visual-value
+adjustment (such as opacity, spacing, color, border, shadow, or font weight), a
+local copy correction that does not change product semantics, a mechanical bug
+fix, a fixture repair, or a documentation correction. Implement these directly
+and update `DESIGN.md`, `PRODUCT.md`, tests, or component documentation only
+when the accepted long-lived behavior actually changes or reachable regression
+risk requires it. Keep validation proportional to the change.
 
 Pure repository-lifecycle work such as synchronizing process documentation
 with already accepted rules, exact staging, OpenSpec synchronization and
 archival, commits, and local ref updates may be done directly when it does not
 alter product behavior or create conflicting ownership.
 
-When uncertain, treat the work as substantive. Do not split one coherent
-feature into nominally “small” corrections to bypass specification.
+When uncertain, assess whether the work needs durable product decisions,
+cross-component coordination, or contract review. Do not split one coherent
+feature into nominally small corrections to bypass OpenSpec, and do not inflate
+a local adjustment into a formal change merely to satisfy process.
 
 OpenSpec is a readiness gate, not a reason to delay production code. Once the
 proposal, design, delta specs, and tasks are coherent and strictly valid,
@@ -174,11 +182,13 @@ proportional verification plan.
 
 ## Frontend fidelity and Impeccable
 
-Unless an approved OpenSpec explicitly defines an intentional delta, frontend
-work must preserve the legacy prototype's final external appearance and
-interaction behavior exactly. This includes content hierarchy, wording,
-controls, states, navigation, loading and error behavior, responsive behavior,
-and the visual character of the interface.
+Unless an explicit user request, governing design authority, or approved
+OpenSpec defines an intentional delta, frontend work must preserve the legacy
+prototype's final external appearance and interaction behavior exactly. This
+includes content hierarchy, wording, controls, states, navigation, loading and
+error behavior, responsive behavior, and the visual character of the
+interface. A bounded visual adjustment does not require OpenSpec; synchronize
+`DESIGN.md` only when it changes a durable design rule or token.
 
 New planned functionality should look and behave like a native extension of
 that product. Refactor the prototype's internal structure freely where needed,
@@ -192,8 +202,8 @@ For frontend design or UI work:
    session, optionally with `--target <path>`.
 3. Load the relevant Impeccable playbook and craft-floor guidance.
 4. Treat `PRODUCT.md`, `DESIGN.md`, `.impeccable/design.json`, the relevant
-   surface brief, the oracle commit, and the accepted OpenSpec as the visual
-   and behavioral authorities.
+   surface brief, the oracle commit, and any accepted OpenSpec required for the
+   change as the visual and behavioral authorities.
 5. Verify representative desktop and mobile viewports, keyboard behavior,
    accessibility, browser console state, and the built artifact.
 
@@ -202,8 +212,9 @@ snapshots.
 
 ## Validation
 
-Run focused tests while developing, then the complete affected-component gate
-before handoff:
+Use validation proportional to the reachable risk. For substantial product or
+component changes, run focused tests while developing and then the complete
+affected-component gate before handoff:
 
 ```sh
 # Backend
@@ -229,9 +240,12 @@ uv lock --check --offline
 node --test contracts/artifacts/test/*.test.mjs
 ```
 
-Also run strict OpenSpec validation for substantive changes and
-`git diff --check` for every change. Add contract, integration, browser, build,
-or container checks when the affected surface requires them.
+For bounded local adjustments, run only the smallest checks needed to verify
+the edited behavior and diff hygiene; do not add formal lifecycle work or broad
+test passes without a concrete risk. Run strict OpenSpec validation only when
+the change requires OpenSpec. Run `git diff --check` for every change. Add
+contract, integration, browser, build, or container checks only when the
+affected surface requires them.
 
 Use the versions pinned by the repository and CI. Upgrade them only through an
 approved, independently verifiable change.
@@ -290,7 +304,7 @@ A change is complete only when:
 
 - the requested production behavior is implemented;
 - code, tests, contracts, documentation, and accepted specs agree;
-- targeted and complete affected gates are green;
+- validation proportional to the affected behavior is green;
 - frontend work has no unintended visual or interaction drift;
 - generated artifacts are current and reproducible by their documented
   generators;
