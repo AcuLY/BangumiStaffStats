@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { mount } from '@vue/test-utils';
 import { NNumberAnimation, NPagination } from 'naive-ui';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +10,8 @@ import AdaptivePagination from '../../../src/features/ranking/components/Adaptiv
 import RankedPersonList from '../../../src/features/ranking/components/RankedPersonList.vue';
 import RankingResults from '../../../src/features/ranking/components/RankingResults.vue';
 import type { RankingView } from '../../../src/features/ranking/model';
+
+const repositoryRoot = path.resolve(import.meta.dirname, '../../../..');
 
 const personalPayload: RankingPayload = Object.freeze({
   collection: Object.freeze({
@@ -243,5 +248,21 @@ describe('adaptive pagination', () => {
     paginations[1]!.vm.$emit('update:page-size', 20);
     await wrapper.vm.$nextTick();
     expect(wrapper.emitted('pageSize')).toEqual([[20]]);
+  });
+});
+
+describe('ranking sort-direction presentation', () => {
+  it('keeps icon color and theme timing unified with the button label', () => {
+    const baseCss = fs.readFileSync(
+      path.join(repositoryRoot, 'frontend/src/shared/styles/base.css'),
+      'utf8',
+    );
+
+    expect(baseCss).toMatch(
+      /\.ranking-order-button \.app-icon \{[\s\S]*?color:\s*inherit;[\s\S]*?transition:\s*color 300ms cubic-bezier\(0\.4, 0, 0\.2, 1\),\s*transform 160ms cubic-bezier\(0\.22, 1, 0\.36, 1\);[\s\S]*?\}/,
+    );
+    expect(baseCss).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.ranking-order-button \.app-icon,[\s\S]*?transition-duration:\s*0s;/,
+    );
   });
 });
