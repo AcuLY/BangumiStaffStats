@@ -16,7 +16,11 @@ import {
   type QueryDrivers,
 } from '../../../src/features/query/coordinator';
 import type { AppliedQuery } from '../../../src/features/query/model';
-import { createShareUrl } from '../../../src/features/query/share';
+import { createQuerySessionOwner } from '../../../src/features/query/session';
+import {
+  createShareUrl,
+  type ShareWorkspace,
+} from '../../../src/features/query/share';
 import { useQueryStore } from '../../../src/features/query/store';
 import { catalogFixture } from './fixtures';
 
@@ -133,6 +137,7 @@ function drivers(
 
 beforeEach(() => {
   window.history.replaceState({}, '', '/ranking');
+  window.sessionStorage.clear();
   setActivePinia(createPinia());
 });
 
@@ -262,7 +267,335 @@ describe('query shell components', () => {
     wrapper.unmount();
   });
 
-  it('replays the candidate identity installed by a valid co-star share', async () => {
+  it('persists the applied ranking instead of dirty Draft and replays it after remount', async () => {
+    window.history.replaceState({}, '', '/ranking?user=luca');
+    const firstPinia = createPinia();
+    setActivePinia(firstPinia);
+    const firstStore = validStore();
+    const execute = vi.fn(async (request) => ({
+      payload: rankingPayload(`server-${request.transactionId}`),
+      requestId: `server-${request.transactionId}`,
+      transactionId: request.transactionId,
+    }));
+    const resultDrivers = drivers(execute);
+    const first = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [firstPinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          drivers: resultDrivers,
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+
+    await first.get('#query-editor').trigger('submit');
+    await flushPromises();
+    await vi.waitFor(() => {
+      expect(createQuerySessionOwner(window).read('/ranking')).not.toBeNull();
+    });
+
+    firstStore.draft.uid = 'unsubmitted-user';
+    await nextTick();
+    expect(createQuerySessionOwner(window).read('/ranking')?.query).toMatchObject({
+      scope: 'personal',
+      uid: 'luca',
+    });
+    first.unmount();
+
+    window.history.replaceState({}, '', '/ranking?user=other');
+    const secondPinia = createPinia();
+    setActivePinia(secondPinia);
+    const secondStore = useQueryStore();
+    const second = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [secondPinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          drivers: resultDrivers,
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+    await nextTick();
+
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute.mock.calls[1]![0]).toMatchObject({
+      query: { scope: 'personal', uid: 'luca' },
+      refreshCollection: false,
+    });
+    expect(secondStore.applied).toMatchObject({
+      scope: 'personal',
+      uid: 'luca',
+    });
+    expect(secondStore.draft.uid).toBe('luca');
+    expect(second.find('.query-editor-overlay').exists()).toBe(false);
+    expect(window.location.search).toBe('?user=luca');
+    second.unmount();
+  });
+
+  it('retains a valid saved ranking when its refresh replay fails', async () => {
+    const savedQuery: AppliedQuery = {
+      scope: 'personal',
+      uid: 'luca',
+      collectionStatuses: ['completed'],
+      subjectType: 'anime',
+      positionKeys: ['staff:anime:2'],
+      includeNSFW: false,
+      mergeSeries: false,
+    };
+    const session = createQuerySessionOwner(window);
+    expect(
+      session.write('/ranking', savedQuery, {
+        kind: 'ranking',
+        rankingsView: {
+          order: 'desc',
+          page: 1,
+          pageSize: 10,
+          search: '',
+          sort: 'count',
+        },
+      }),
+    ).toBe(true);
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = useQueryStore();
+    const execute = vi.fn(async () => {
+      throw new Error('offline');
+    });
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          drivers: drivers(execute),
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+
+    expect(execute).toHaveBeenCalledOnce();
+    expect(store.applied).toBeNull();
+    expect(store.draft.uid).toBe('luca');
+    expect(wrapper.get('.app-local-error').text()).toContain(
+      '结果暂时无法重新加载',
+    );
+    expect(session.read('/ranking')?.query).toEqual(savedQuery);
+    wrapper.unmount();
+  });
+
+  it('retains a complete saved ranking when dependent detail replay fails', async () => {
+    const savedQuery: AppliedQuery = {
+      scope: 'personal',
+      uid: 'luca',
+      collectionStatuses: ['completed'],
+      subjectType: 'anime',
+      positionKeys: ['staff:anime:2'],
+      includeNSFW: false,
+      mergeSeries: false,
+    };
+    const savedWorkspace = {
+      detail: {
+        input: { personId: 12 },
+        view: {
+          order: 'asc',
+          page: 2,
+          pageSize: 5,
+          search: '导演',
+          section: 'works',
+          sort: 'globalScore',
+        },
+      },
+      kind: 'ranking',
+      rankingsView: {
+        order: 'desc',
+        page: 1,
+        pageSize: 10,
+        search: '',
+        sort: 'count',
+      },
+    } satisfies ShareWorkspace;
+    const session = createQuerySessionOwner(window);
+    expect(session.write('/ranking', savedQuery, savedWorkspace)).toBe(true);
+    const savedPayload = session.read('/ranking');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = useQueryStore();
+    const rankingExecute = vi.fn(async (request) => ({
+      payload: rankingPayload(`server-${request.transactionId}`),
+      requestId: `server-${request.transactionId}`,
+      transactionId: request.transactionId,
+    }));
+    const detailExecute = vi.fn(async () => {
+      throw new Error('detail offline');
+    });
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          drivers: {
+            ...drivers(rankingExecute),
+            personDetail: { execute: detailExecute },
+          },
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+
+    expect(rankingExecute).toHaveBeenCalledOnce();
+    expect(detailExecute).toHaveBeenCalledOnce();
+    expect(wrapper.get('.app-local-error').text()).toContain(
+      '结果暂时无法重新加载',
+    );
+    expect(session.read('/ranking')).toEqual(savedPayload);
+
+    store.draft.uid = 'next-user';
+    await wrapper.get('#query-editor').trigger('submit');
+    await flushPromises();
+    await vi.waitFor(() => {
+      expect(session.read('/ranking')?.query).toMatchObject({
+        scope: 'personal',
+        uid: 'next-user',
+      });
+    });
+    const updatedPayload = session.read('/ranking');
+    expect(updatedPayload?.workspace).toMatchObject({
+      kind: 'ranking',
+      rankingsView: savedWorkspace.rankingsView,
+    });
+    expect(
+      updatedPayload?.workspace.kind === 'ranking'
+        ? updatedPayload.workspace.detail
+        : undefined,
+    ).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it('skips a captured session when the route changes during catalog loading', async () => {
+    const savedQuery: AppliedQuery = {
+      scope: 'personal',
+      uid: 'luca',
+      collectionStatuses: ['completed'],
+      subjectType: 'anime',
+      positionKeys: ['staff:anime:2'],
+      includeNSFW: false,
+      mergeSeries: false,
+    };
+    const savedWorkspace = {
+      kind: 'ranking',
+      rankingsView: {
+        order: 'desc',
+        page: 1,
+        pageSize: 10,
+        search: '',
+        sort: 'count',
+      },
+    } satisfies ShareWorkspace;
+    const session = createQuerySessionOwner(window);
+    expect(session.write('/ranking', savedQuery, savedWorkspace)).toBe(true);
+    const savedPayload = session.read('/ranking');
+    let resolveCatalog!: (
+      value: Awaited<ReturnType<CatalogApi['load']>>,
+    ) => void;
+    const load = vi.fn(
+      () =>
+        new Promise<Awaited<ReturnType<CatalogApi['load']>>>((resolve) => {
+          resolveCatalog = resolve;
+        }),
+    );
+    const rankingExecute = vi.fn();
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = useQueryStore();
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: { load },
+          drivers: drivers(rankingExecute),
+          targetWindow: window,
+        },
+      },
+    });
+    await vi.waitFor(() => {
+      expect(load).toHaveBeenCalledOnce();
+    });
+
+    window.history.pushState({}, '', '/co-star');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    await nextTick();
+    resolveCatalog(catalogFixture());
+    await flushPromises();
+
+    expect(window.location.pathname).toBe('/co-star');
+    expect(rankingExecute).not.toHaveBeenCalled();
+    expect(store.applied).toBeNull();
+    expect(session.read('/ranking')).toEqual(savedPayload);
+    wrapper.unmount();
+  });
+
+  it('does not fall back to a saved session when an explicit share is invalid', async () => {
+    const savedQuery: AppliedQuery = {
+      scope: 'personal',
+      uid: 'luca',
+      collectionStatuses: ['completed'],
+      subjectType: 'anime',
+      positionKeys: ['staff:anime:2'],
+      includeNSFW: false,
+      mergeSeries: false,
+    };
+    const session = createQuerySessionOwner(window);
+    expect(
+      session.write('/ranking', savedQuery, {
+        kind: 'ranking',
+        rankingsView: {
+          order: 'desc',
+          page: 1,
+          pageSize: 10,
+          search: '',
+          sort: 'count',
+        },
+      }),
+    ).toBe(true);
+    window.history.replaceState({}, '', '/ranking?user=other#q=v9.invalid');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const execute = vi.fn();
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          drivers: drivers(execute),
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(wrapper.get('.app-local-error').text()).toContain(
+      '分享查询无效',
+    );
+    expect(window.location.hash).toBe('');
+    expect(session.read('/ranking')?.query).toEqual(savedQuery);
+    wrapper.unmount();
+  });
+
+  it.each(['share', 'session'] as const)(
+    'replays the candidate identity installed by a valid co-star %s',
+    async (source) => {
     installMatchMedia((query) => query === '(width < 780px)');
     const sharedQuery: AppliedQuery = {
       scope: 'personal',
@@ -273,26 +606,38 @@ describe('query shell components', () => {
       includeNSFW: false,
       mergeSeries: false,
     };
+    const sharedWorkspace = {
+      kind: 'co-star' as const,
+      state: 'empty' as const,
+      candidates: {
+        input: { positionKey: 'staff:anime:101' },
+        view: {
+          order: 'desc' as const,
+          page: 1,
+          pageSize: 10 as const,
+          search: '',
+          sort: 'count' as const,
+        },
+      },
+    };
     const sharedUrl = createShareUrl(
       new URL(`${window.location.origin}/co-star`),
       '/co-star',
       sharedQuery,
-      {
-        kind: 'co-star',
-        state: 'empty',
-        candidates: {
-          input: { positionKey: 'staff:anime:101' },
-          view: {
-            order: 'desc',
-            page: 1,
-            pageSize: 10,
-            search: '',
-            sort: 'count',
-          },
-        },
-      },
+      sharedWorkspace,
     );
-    window.history.replaceState({}, '', sharedUrl);
+    if (source === 'share') {
+      window.history.replaceState({}, '', sharedUrl);
+    } else {
+      window.history.replaceState({}, '', '/co-star');
+      expect(
+        createQuerySessionOwner(window).write(
+          '/co-star',
+          sharedQuery,
+          sharedWorkspace,
+        ),
+      ).toBe(true);
+    }
     const pinia = createPinia();
     setActivePinia(pinia);
     const store = useQueryStore();
@@ -349,7 +694,8 @@ describe('query shell components', () => {
     ).toBe(true);
     expect(window.location.hash).toBe('');
     wrapper.unmount();
-  });
+    },
+  );
 
   it('focuses the first invalid field and exposes a keyboard disclosure', async () => {
     const pinia = createPinia();

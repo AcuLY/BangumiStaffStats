@@ -83,6 +83,7 @@ import type {
   ShareWorkspace,
 } from '../features/query/share';
 import { createShareUrl } from '../features/query/share';
+import { createQuerySessionOwner } from '../features/query/session';
 import { useQueryStore } from '../features/query/store';
 import AppIcon from '../shared/components/AppIcon.vue';
 import DeferredSurfaceState from '../shared/components/DeferredSurfaceState.vue';
@@ -235,8 +236,12 @@ const runtime = useRuntimeStore();
 const catalogStore = useCatalogStore();
 const queryStore = useQueryStore();
 const route = createRouteOwner(targetWindow);
+const querySession = createQuerySessionOwner(targetWindow);
 const themeOwner = createThemeOwner(targetWindow.document);
 const routeError = ref<string | null>(null);
+const querySessionReady = ref(false);
+let initializationFinished = false;
+let querySessionWriteBlocked = false;
 const queryWorkspace = ref<InstanceType<typeof QueryWorkspace> | null>(null);
 const queryEditing = ref(queryStore.applied === null);
 const coStarWorkspaceHandle = ref<CoStarWorkspaceHandle | null>(null);
@@ -327,6 +332,10 @@ const coordinator = createQueryCoordinator(
     }
     route.updateSuccessfulQuery(query);
     routeError.value = null;
+    if (initializationFinished && querySessionWriteBlocked) {
+      querySessionWriteBlocked = false;
+      querySessionReady.value = true;
+    }
   },
 );
 
@@ -822,6 +831,28 @@ const shareWorkspace = computed<ShareWorkspace | null>(() => {
   return null;
 });
 
+const currentSharePath = computed<'/co-star' | '/ranking'>(() =>
+  route.mode.value === 'ranking' ? '/ranking' : '/co-star',
+);
+
+watch(
+  [querySessionReady, currentSharePath, shareWorkspace],
+  ([ready, path, workspace]) => {
+    if (!ready || !workspace || !queryStore.applied) {
+      return;
+    }
+    if (
+      path === '/ranking' &&
+      selectedPersonId.value !== null &&
+      coordinator.personDetail.phase === 'pending'
+    ) {
+      return;
+    }
+    querySession.write(path, queryStore.applied, workspace);
+  },
+  { flush: 'post' },
+);
+
 function primaryRecoveryWorkspace(): ShareWorkspace | null {
   if (!queryStore.applied) {
     return null;
@@ -1303,16 +1334,41 @@ function resetPersonDetailSelection(): void {
 
 async function initialize(): Promise<void> {
   runtime.markReady();
+  const sessionPath = currentSharePath.value;
   const hadFragment = targetWindow.location.hash.length > 0;
-  if (!hadFragment) {
+  const savedSession = hadFragment
+    ? null
+    : querySession.read(sessionPath);
+  if (!hadFragment && !savedSession) {
     queryStore.draft.uid = route.prefilledUser();
   }
-  await loadCatalog();
-  const shareResult = await route.consumeInitialShare(replayShare);
-  if (shareResult === 'invalid') {
-    routeError.value = '分享查询无效或已不受支持';
-  } else if (shareResult === 'deferred') {
-    routeError.value = '分享查询已读取，但暂时无法应用；可重试后再次查询';
+  try {
+    await loadCatalog();
+    const shareResult = await route.consumeInitialShare(replayShare);
+    if (shareResult === 'invalid') {
+      routeError.value = '分享查询无效或已不受支持';
+    } else if (shareResult === 'deferred') {
+      routeError.value = '分享查询已读取，但暂时无法应用；可重试后再次查询';
+    } else if (
+      shareResult === 'absent' &&
+      savedSession &&
+      currentSharePath.value === sessionPath
+    ) {
+      let restored = false;
+      try {
+        restored = await replayShare(savedSession);
+      } catch {
+        restored = false;
+      }
+      if (!restored) {
+        querySessionWriteBlocked = true;
+        routeError.value =
+          '已恢复查询设置，但结果暂时无法重新加载；可重试后再次查询';
+      }
+    }
+  } finally {
+    initializationFinished = true;
+    querySessionReady.value = !querySessionWriteBlocked;
   }
 }
 
