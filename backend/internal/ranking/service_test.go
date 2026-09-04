@@ -2,10 +2,8 @@ package ranking
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -358,24 +356,16 @@ func loadRankingArchive(t *testing.T) *archive.Store {
 	if err := os.MkdirAll(versionRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for source, destination := range map[string]string{
-		"archive-manifest.json": "manifest.json",
-		"bangumi.sqlite":        "bangumi.sqlite",
-	} {
-		data, err := os.ReadFile(filepath.Join(bundle, source))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(versionRoot, destination), data, 0o644); err != nil {
-			t.Fatal(err)
-		}
+	sqliteData, err := os.ReadFile(filepath.Join(bundle, "bangumi.sqlite"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	rewriteRankingFixture(
-		t,
-		filepath.Join(versionRoot, "bangumi.sqlite"),
-		filepath.Join(versionRoot, "manifest.json"),
-	)
-	store, err := archive.LoadCandidate(context.Background(), root, pointer.DataVersion)
+	sqlitePath := filepath.Join(versionRoot, "bangumi.sqlite")
+	if err := os.WriteFile(sqlitePath, sqliteData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rewriteRankingFixture(t, sqlitePath)
+	store, err := archive.OpenVersion(context.Background(), root, pointer.DataVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -387,7 +377,7 @@ func loadRankingArchive(t *testing.T) *archive.Store {
 	return store
 }
 
-func rewriteRankingFixture(t *testing.T, sqlitePath, manifestPath string) {
+func rewriteRankingFixture(t *testing.T, sqlitePath string) {
 	t.Helper()
 	database, err := sql.Open("sqlite", sqlitePath)
 	if err != nil {
@@ -412,38 +402,6 @@ func rewriteRankingFixture(t *testing.T, sqlitePath, manifestPath string) {
 		t.Fatalf("removed rankings capabilities = %d, want 1", affected)
 	}
 	if err := database.Close(); err != nil {
-		t.Fatal(err)
-	}
-	sqliteBytes, err := os.ReadFile(sqlitePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifestBytes, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var manifest map[string]any
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		t.Fatal(err)
-	}
-	tableCounts, ok := manifest["tableCounts"].(map[string]any)
-	if !ok {
-		t.Fatal("manifest tableCounts is missing")
-	}
-	capabilityCount, ok := tableCounts["catalog_capability"].(float64)
-	if !ok || capabilityCount < 1 {
-		t.Fatal("manifest catalog_capability count is invalid")
-	}
-	tableCounts["catalog_capability"] = capabilityCount - 1
-	digest := sha256.Sum256(sqliteBytes)
-	manifest["sqliteSize"] = len(sqliteBytes)
-	manifest["sqliteDigest"] = fmt.Sprintf("sha256:%x", digest)
-	updated, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	updated = append(updated, '\n')
-	if err := os.WriteFile(manifestPath, updated, 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

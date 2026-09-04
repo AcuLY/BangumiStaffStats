@@ -43,16 +43,6 @@ func TestArchiveLoadFailureEventIsExactBoundedAndOnce(t *testing.T) {
 
 func TestArchiveLoadFailureCodeSetIsClosed(t *testing.T) {
 	validCodes := []ArchiveErrorCode{
-		ArchiveErrorManifestSchemaInvalid,
-		ArchiveErrorPointerSchemaInvalid,
-		ArchiveErrorManifestAccountingInvalid,
-		ArchiveErrorVersionUnsupported,
-		ArchiveErrorDataVersionMismatch,
-		ArchiveErrorSQLiteDataVersionMismatch,
-		ArchiveErrorSQLiteFormatInvalid,
-		ArchiveErrorSQLiteDigestMismatch,
-		ArchiveErrorSQLiteRequiredObjectMissing,
-		ArchiveErrorSQLiteTableCountMismatch,
 		ArchiveErrorRootInvalid,
 		ArchiveErrorFileInvalid,
 		ArchiveErrorImmutableLayoutInvalid,
@@ -72,6 +62,16 @@ func TestArchiveLoadFailureCodeSetIsClosed(t *testing.T) {
 	}
 	if _, ok := ParseArchiveErrorCode("private error /tmp/archive"); ok {
 		t.Fatal("accepted raw error as Archive code")
+	}
+	for _, removed := range []string{
+		"MANIFEST_SCHEMA_INVALID",
+		"SQLITE_DIGEST_MISMATCH",
+		"SQLITE_REQUIRED_OBJECT_MISSING",
+		"SQLITE_TABLE_COUNT_MISMATCH",
+	} {
+		if _, ok := ParseArchiveErrorCode(removed); ok {
+			t.Fatalf("accepted removed admission code %q", removed)
+		}
 	}
 	if _, err := archiveLoadFailedEvent(ArchiveErrorCode("UNKNOWN")); err == nil {
 		t.Fatal("constructed event with unknown code")

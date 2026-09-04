@@ -2,7 +2,6 @@ package partners
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -390,25 +389,20 @@ func loadPartnerArchiveWithExtraPeople(
 	if err := os.MkdirAll(versionRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for source, destination := range map[string]string{
-		"archive-manifest.json": "manifest.json",
-		"bangumi.sqlite":        "bangumi.sqlite",
-	} {
-		data, readErr := os.ReadFile(filepath.Join(bundle, source))
-		if readErr != nil {
-			t.Fatal(readErr)
-		}
-		if writeErr := os.WriteFile(filepath.Join(versionRoot, destination), data, 0o644); writeErr != nil {
-			t.Fatal(writeErr)
-		}
+	sqliteData, err := os.ReadFile(filepath.Join(bundle, "bangumi.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlitePath := filepath.Join(versionRoot, "bangumi.sqlite")
+	if err := os.WriteFile(sqlitePath, sqliteData, 0o644); err != nil {
+		t.Fatal(err)
 	}
 	rewritePartnerFixture(
 		t,
-		filepath.Join(versionRoot, "bangumi.sqlite"),
-		filepath.Join(versionRoot, "manifest.json"),
+		sqlitePath,
 		extraPeople,
 	)
-	store, err := archive.LoadCandidate(context.Background(), root, pointer.DataVersion)
+	store, err := archive.OpenVersion(context.Background(), root, pointer.DataVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -423,7 +417,6 @@ func loadPartnerArchiveWithExtraPeople(
 func rewritePartnerFixture(
 	t *testing.T,
 	sqlitePath string,
-	manifestPath string,
 	extraPeople int,
 ) {
 	t.Helper()
@@ -490,47 +483,6 @@ func rewritePartnerFixture(
 		}
 	}
 	if err := database.Close(); err != nil {
-		t.Fatal(err)
-	}
-	sqliteBytes, err := os.ReadFile(sqlitePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifestBytes, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var manifest map[string]any
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		t.Fatal(err)
-	}
-	tableCounts, ok := manifest["tableCounts"].(map[string]any)
-	if !ok {
-		t.Fatal("manifest tableCounts missing")
-	}
-	capabilityCount, ok := tableCounts["catalog_capability"].(float64)
-	if !ok {
-		t.Fatal("manifest catalog_capability count missing")
-	}
-	if capabilityCount < 1 {
-		t.Fatal("manifest catalog_capability count is invalid")
-	}
-	tableCounts["catalog_capability"] = capabilityCount - 1
-	if extraPeople > 0 {
-		personCount, ok := tableCounts["person"].(float64)
-		if !ok {
-			t.Fatal("manifest person count missing")
-		}
-		tableCounts["person"] = personCount + float64(extraPeople)
-	}
-	digest := sha256.Sum256(sqliteBytes)
-	manifest["sqliteSize"] = len(sqliteBytes)
-	manifest["sqliteDigest"] = fmt.Sprintf("sha256:%x", digest)
-	updated, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(manifestPath, append(updated, '\n'), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

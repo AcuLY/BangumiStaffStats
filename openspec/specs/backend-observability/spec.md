@@ -9,11 +9,13 @@ low-cardinality Prometheus metrics for the development HTTP runtime.
 Events SHALL be one-line JSON with fixed event/channel names and typed
 constructors. App lifecycle/readiness events MAY contain request ID, fixed
 phase, stable error code, duration/count, build, and snapshot facts. Every
-Archive startup-load error SHALL emit exactly one `archive_load_failed` event
-on channel `app` with phase `startup` and only the stable consumer error code,
-or `INTERNAL_ERROR` for an untyped failure. That event SHALL contain no
-Archive root/path/content, manifest/SQLite value, dataVersion, raw error,
-request, or user field.
+Archive startup direct-open error SHALL emit exactly one `archive_load_failed`
+event on channel `app` with phase `startup` and only a stable
+root/file/open/layout/context code, or `INTERNAL_ERROR` for an untyped failure.
+Contract/manifest/digest/compatibility/integrity/foreign-key/schema/table-count
+admission codes SHALL not exist in the runtime allowlist. The event SHALL
+contain no Archive root/path/content/identity, raw error, request, or user
+field.
 
 `query_completed` and `query_rejected` SHALL be mutually exclusive per typed
 business request; health/metrics scrapes SHALL emit neither. A completed query
@@ -45,11 +47,14 @@ output SHALL never be claimed as an emitted event.
 - **WHEN** event tests provide credentials, UID, raw errors, upstream content, image identity, unknown field paths, control characters, and query values
 - **THEN** constructors reject or omit them, output remains valid single-line JSON, and only stable allowlisted fields remain
 
-#### Scenario: Archive loading fails before serving
+#### Scenario: Archive direct open fails before serving
 
-- **WHEN** the one startup Archive load returns a typed consumer failure, an untyped failure, or context cancellation
-- **THEN** exactly one bounded `archive_load_failed` app/startup event SHALL be emitted with the stable code or `INTERNAL_ERROR`
-- **AND** the event SHALL reveal no Archive identity, path, content, raw error, request, or user input
+- **WHEN** the one startup direct open returns a typed root/file/open/layout/
+  context failure, an untyped failure, or cancellation
+- **THEN** exactly one bounded `archive_load_failed` app/startup event SHALL be
+  emitted with the stable code or `INTERNAL_ERROR`
+- **AND** no admission code, Archive identity/path/content, raw error, request,
+  or user input SHALL appear
 
 #### Scenario: Archive failure event cannot be written
 
@@ -103,22 +108,24 @@ counters.
 Exact `GET /metrics` SHALL return Prometheus text exposition with the correct
 content type, HELP/TYPE declarations, finite numeric samples, final newline,
 `no-store`, and generated request-ID header. Rendering SHALL use bounded
-snapshots and SHALL NOT query Archive. Runtime-stat collection SHALL happen
-once per scrape; an optional updater-status read SHALL be capped at 64 KiB and
-confined to the metrics request. Any observability, stats-provider, or
-updater-status failure SHALL leave ordinary API routes available.
+snapshots and SHALL NOT query Archive or perform Archive admission.
+Runtime-stat collection SHALL happen once per scrape; optional updater status
+reads SHALL be capped at 64 KiB and confined to the metrics request. Any
+observability, stats-provider, or updater-status failure SHALL leave ordinary
+API routes available.
 
 #### Scenario: Metrics are scraped while dependencies are unavailable
 
-- **WHEN** Archive readiness is false, the runtime stats provider fails, or the
-  optional updater status is missing/malformed/unreadable
+- **WHEN** direct-open readiness is false, the runtime stats provider fails, or
+  updater status is missing/malformed/unreadable
 - **THEN** `/metrics` remains parseable, reports bounded validity/readiness
   state without sensitive detail, emits no query event, and ordinary routes do
   not depend on that observability failure
 
 #### Scenario: Metrics are scraped while readiness is false
-- **WHEN** no Archive store is published or its readiness probe fails
-- **THEN** `/metrics` remains 200, reports readiness 0 without snapshot identity, and emits no query log or Archive validation
+- **WHEN** no direct-open Store is published or its readiness probe fails
+- **THEN** `/metrics` SHALL remain 200, report readiness 0 without snapshot
+  identity, and emit no query log, Archive validation, or admission
 
 ### Requirement: Observability SHALL remain development instrumentation
 

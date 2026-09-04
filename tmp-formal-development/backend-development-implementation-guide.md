@@ -189,24 +189,22 @@ dataVersion 必须覆盖 Archive、common、schema、domain/cast 规则和 canon
 - Archive 以流式方式处理，不把全部大型文件同时物化进内存。
 - 每次构建全新 SQLite；不能按旧库行数决定跳过表，也不能只 upsert 而保留上游删除。
 - source accounting 明确区分 imported、duplicate、invalid、unresolved。
-- 建完索引后执行 SQLite integrity、领域质量门、只读重开和 Go consumer smoke test。
+- 建完索引后由 producer 执行 SQLite integrity、外键、schema/object、领域质量、表计数和只读重开；Backend 不作为二次校验器。
 - 任一失败返回非零状态，不能发布部分 catalog 或部分数据库。
 - updater 输出稳定 JSON 事件和 `update-status.json` 所需状态；具体生产目录和激活由运维稿定义。
 - 实现优先使用 Python 标准库与轻量 HTTP/YAML 依赖，不引入 pandas、SQLAlchemy 或常驻任务框架。
 
-### 3.5 Go consumer 启动门
+### 3.5 Go consumer 直接打开
 
-API 每次启动只选择一个不可变 snapshot，并在全部检查成功前保持 `ready=false`：
+API 每次启动只选择一个不可变 snapshot，并在打开和固定 readiness probe 成功前保持 `ready=false`：
 
-1. 只读解析一次 `current.json`，拒绝未知字段、非法路径和不存在的 version；
-2. 校验 manifest schema、必填输入版本和 `dataVersion`；
-3. 对 SQLite 文件计算 digest，并与 manifest 的 `sqliteDigest` 完整比对；
-4. 以 read-only/no-create 方式打开 SQLite，校验受支持的 schema version、必需表/索引和库内 dataVersion；
-5. 要求 current、manifest、目录名和库内 dataVersion 全部一致；
-6. 执行轻量 integrity/sentinel 查询和最小 catalog/domain smoke query；
-7. 所有检查完成后原子发布只读 store，并把 readiness 切为成功。
+1. 有界只读解析一次 `current.json`，取得一个安全 `dataVersion`；
+2. 在调用方批准的 `os.Root` 内定位 `versions/<dataVersion>/bangumi.sqlite`，拒绝逃逸、符号链接、错误对象类型和 SQLite sidecar；
+3. 通过 root-bound VFS 以 `immutable=1`、`mode=ro`、`query_only=1`、no-create 和有界连接池直接打开 SQLite；
+4. 从 `archive_meta` 读取唯一非空 dataVersion 作为 store identity；
+5. 原子发布只读 store，并由一秒固定 query probe 决定 readiness。
 
-任一失败必须关闭新句柄、输出稳定 app error code 并保持 not ready；API 不修改 snapshot、不自动改写 current，也不静默退回另一个版本。生产回滚由运维激活事务负责。
+Backend 不读取或校验 `manifest.json`，不计算 SQLite digest，不执行 compatibility、integrity、foreign-key、schema/object、table-count、sentinel 或 catalog/domain admission，也不提供开关、后台任务或替代命令恢复这些路径。上述验证仅由 producer 在 inactive version 原子发布前完成。直接打开任一必要步骤失败时关闭新句柄、输出稳定 app error code 并保持 not ready；API 不修改 snapshot、不自动改写 current，也不静默退回另一个版本。生产回滚由运维激活事务负责。
 
 ## 4. 职位 catalog
 
@@ -1200,7 +1198,7 @@ updater 原子写入供 Go exporter 读取的 `update-status.json`，只保存�
 
 - [ ] 建立重写分支、Go 1.26 module、Python producer 和最小前端/API adapter。
 - [ ] 修复测试 ignore，建立 OpenAPI、schema、manifest 和 shared golden。
-- [ ] 建立 strict decoder、envelope、request ID、consumer 启动全校验、health 和最小 catalog。
+- [ ] 建立 strict decoder、envelope、request ID、consumer 只读直接打开、health 和最小 catalog。
 - [ ] 建立 raw exact schema 与空 `manual-position-sets.yml`。
 
 退出条件：Python 构建最小 SQLite；Go 只读启动；TS 生成类型；非法 schema 均稳定拒绝。

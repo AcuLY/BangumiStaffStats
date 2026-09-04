@@ -1,10 +1,27 @@
-# backend-archive-consumer Specification
+## Capability Boundary
 
-## Purpose
-Define contained direct opening, read-only query access, atomic publication,
-and shutdown semantics for the Go Backend without Archive admission.
+- **Status:** intentional breaking delta, local-only until verified.
+- **Owner:** Backend; primary agent owns review and acceptance.
+- **Writable paths:** `backend/internal/archive/**`, named dependent Backend
+  tests, Backend README, this change, and the synchronized root capability.
+- **Read-only protected inputs:** contracts, updater, frontend, Archive bytes,
+  original dirty worktree, remote refs, hosts, and production.
+- **Deletion complement:** only admission code/tests/assertions; Store query
+  safety, direct-open safety, publication, readiness, and shutdown remain.
+- **Mutable refs:** local `codex/remove-archive-admission` only.
+- **Consumes:** `current.json`, `versions/<dataVersion>/bangumi.sqlite`,
+  `archive_meta`, and producer publication guarantees.
+- **Produces:** one directly opened read-only Store and atomic readiness state.
+- **Dependencies:** updater publication, SQLite driver/VFS, query services.
+- **Deliverables:** direct-open implementation/tests/docs and verification.
+- **Acceptance:** repository search finds no Backend Archive admission gates or
+  candidate-admission API; complete Archive startup and queries pass.
+- **Non-goals:** producer/schema/API/statistics/UI/dependency changes.
+- **Operations deferred:** all push/release/deploy/live mutations.
+- **Stop/rollback conditions:** stop on producer drift, behavior drift,
+  overlapping edits, or failed gates; return locally to `411f54b`.
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Backend SHALL perform no Archive admission
 
@@ -29,6 +46,8 @@ Archive validation authority.
 - **WHEN** a caller searches for or attempts a candidate admission API,
   startup option, smoke tool, background validator, or deferred gate
 - **THEN** no such Backend system surface SHALL exist
+
+## MODIFIED Requirements
 
 ### Requirement: Snapshot selection SHALL be strict and contained
 
@@ -147,3 +166,34 @@ strict change/all validation, repository search for removed admission surfaces,
 - **THEN** only contained read-only open, Store publication/query lifecycle,
   and preserved API behavior SHALL be claimed
 - **AND** Backend Archive admission SHALL remain absent
+
+## REMOVED Requirements
+
+### Requirement: The complete shared contract SHALL gate publication
+
+**Reason:** This requirement defines the duplicate Backend Archive admission
+the user explicitly removed.
+
+**Migration:** Updater remains the sole validation authority before atomic
+inactive publication; Backend directly opens the selected SQLite snapshot.
+
+### Requirement: Consumer SHALL bind only the corrected raw-domain Archive v1
+
+**Reason:** Runtime schema/domain binding was enforced by Backend admission.
+
+**Migration:** Producer construction remains bound to the corrected v1 rules;
+Backend query integration verifies only the data it actually reads.
+
+### Requirement: Candidate load validates every compatibility gate before publication
+
+**Reason:** Candidate validation and its shared loader are deleted.
+
+**Migration:** Tests use direct version open; producer tests own compatibility
+and publication validation.
+
+### Requirement: Backend SHALL admit only the matrix rule pair
+
+**Reason:** Backend no longer admits Archive manifests or rule tuples.
+
+**Migration:** Updater continues to construct and validate the single supported
+rule pair before publishing an inactive version.

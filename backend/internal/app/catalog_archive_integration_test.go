@@ -32,11 +32,11 @@ func TestCanonicalArchiveServesReadyAndCatalogWithoutFixtureRewrite(t *testing.T
 		ManifestDigest       string `json:"manifestDigest"`
 	}
 	decodeStrictJSON(t, pointerData, &pointer)
-	if pointer.PointerSchemaVersion != 1 || pointer.ManifestDigest == "" {
+	if pointer.PointerSchemaVersion != 1 || pointer.DataVersion == "" {
 		t.Fatalf("pointer = %#v", pointer)
 	}
 
-	store, err := archive.LoadCandidate(
+	store, err := archive.OpenVersion(
 		context.Background(),
 		archiveRoot,
 		pointer.DataVersion,

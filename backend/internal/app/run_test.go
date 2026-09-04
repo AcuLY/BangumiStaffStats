@@ -984,7 +984,6 @@ func arrangeArchive(t *testing.T) string {
 	if err := os.MkdirAll(versionRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	copyArchiveTestFile(t, filepath.Join(bundleRoot, "archive-manifest.json"), filepath.Join(versionRoot, "manifest.json"))
 	copyArchiveTestFile(t, filepath.Join(bundleRoot, "bangumi.sqlite"), filepath.Join(versionRoot, "bangumi.sqlite"))
 	if err := os.WriteFile(filepath.Join(root, "current.json"), pointerData, 0o644); err != nil {
 		t.Fatal(err)

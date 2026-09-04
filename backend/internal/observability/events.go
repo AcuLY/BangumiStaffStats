@@ -11,27 +11,17 @@ import (
 	"time"
 )
 
-// ArchiveErrorCode is the closed stable code set admitted to the startup
+// ArchiveErrorCode is the closed stable code set allowed in the startup
 // failure event. It deliberately contains no raw error text.
 type ArchiveErrorCode string
 
 const (
-	ArchiveErrorManifestSchemaInvalid       ArchiveErrorCode = "MANIFEST_SCHEMA_INVALID"
-	ArchiveErrorPointerSchemaInvalid        ArchiveErrorCode = "POINTER_SCHEMA_INVALID"
-	ArchiveErrorManifestAccountingInvalid   ArchiveErrorCode = "MANIFEST_ACCOUNTING_INVALID"
-	ArchiveErrorVersionUnsupported          ArchiveErrorCode = "ARCHIVE_VERSION_UNSUPPORTED"
-	ArchiveErrorDataVersionMismatch         ArchiveErrorCode = "DATA_VERSION_MISMATCH"
-	ArchiveErrorSQLiteDataVersionMismatch   ArchiveErrorCode = "SQLITE_DATA_VERSION_MISMATCH"
-	ArchiveErrorSQLiteFormatInvalid         ArchiveErrorCode = "SQLITE_FORMAT_INVALID"
-	ArchiveErrorSQLiteDigestMismatch        ArchiveErrorCode = "SQLITE_DIGEST_MISMATCH"
-	ArchiveErrorSQLiteRequiredObjectMissing ArchiveErrorCode = "SQLITE_REQUIRED_OBJECT_MISSING"
-	ArchiveErrorSQLiteTableCountMismatch    ArchiveErrorCode = "SQLITE_TABLE_COUNT_MISMATCH"
-	ArchiveErrorRootInvalid                 ArchiveErrorCode = "ARCHIVE_ROOT_INVALID"
-	ArchiveErrorFileInvalid                 ArchiveErrorCode = "ARCHIVE_FILE_INVALID"
-	ArchiveErrorImmutableLayoutInvalid      ArchiveErrorCode = "ARCHIVE_IMMUTABLE_LAYOUT_INVALID"
-	ArchiveErrorContextCanceled             ArchiveErrorCode = "ARCHIVE_CONTEXT_CANCELED"
-	ArchiveErrorAlreadyPublished            ArchiveErrorCode = "ARCHIVE_ALREADY_PUBLISHED"
-	ArchiveErrorInternal                    ArchiveErrorCode = "INTERNAL_ERROR"
+	ArchiveErrorRootInvalid            ArchiveErrorCode = "ARCHIVE_ROOT_INVALID"
+	ArchiveErrorFileInvalid            ArchiveErrorCode = "ARCHIVE_FILE_INVALID"
+	ArchiveErrorImmutableLayoutInvalid ArchiveErrorCode = "ARCHIVE_IMMUTABLE_LAYOUT_INVALID"
+	ArchiveErrorContextCanceled        ArchiveErrorCode = "ARCHIVE_CONTEXT_CANCELED"
+	ArchiveErrorAlreadyPublished       ArchiveErrorCode = "ARCHIVE_ALREADY_PUBLISHED"
+	ArchiveErrorInternal               ArchiveErrorCode = "INTERNAL_ERROR"
 )
 
 // ParseArchiveErrorCode converts a consumer-owned stable code into the closed
@@ -39,17 +29,7 @@ const (
 func ParseArchiveErrorCode(value string) (ArchiveErrorCode, bool) {
 	code := ArchiveErrorCode(value)
 	switch code {
-	case ArchiveErrorManifestSchemaInvalid,
-		ArchiveErrorPointerSchemaInvalid,
-		ArchiveErrorManifestAccountingInvalid,
-		ArchiveErrorVersionUnsupported,
-		ArchiveErrorDataVersionMismatch,
-		ArchiveErrorSQLiteDataVersionMismatch,
-		ArchiveErrorSQLiteFormatInvalid,
-		ArchiveErrorSQLiteDigestMismatch,
-		ArchiveErrorSQLiteRequiredObjectMissing,
-		ArchiveErrorSQLiteTableCountMismatch,
-		ArchiveErrorRootInvalid,
+	case ArchiveErrorRootInvalid,
 		ArchiveErrorFileInvalid,
 		ArchiveErrorImmutableLayoutInvalid,
 		ArchiveErrorContextCanceled,

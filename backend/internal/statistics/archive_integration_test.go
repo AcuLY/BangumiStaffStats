@@ -10,7 +10,7 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
 )
 
-func TestLoadSeriesIndexFromValidatedArchive(t *testing.T) {
+func TestLoadSeriesIndexFromDirectArchive(t *testing.T) {
 	bundle := filepath.Join(
 		statisticsGoldenRoot(t),
 		"..",
@@ -33,19 +33,14 @@ func TestLoadSeriesIndexFromValidatedArchive(t *testing.T) {
 	if err := os.MkdirAll(versionRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for source, destination := range map[string]string{
-		"archive-manifest.json": "manifest.json",
-		"bangumi.sqlite":        "bangumi.sqlite",
-	} {
-		data, err := os.ReadFile(filepath.Join(bundle, source))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(versionRoot, destination), data, 0o644); err != nil {
-			t.Fatal(err)
-		}
+	sqliteData, err := os.ReadFile(filepath.Join(bundle, "bangumi.sqlite"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	store, err := archive.LoadCandidate(context.Background(), root, pointer.DataVersion)
+	if err := os.WriteFile(filepath.Join(versionRoot, "bangumi.sqlite"), sqliteData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store, err := archive.OpenVersion(context.Background(), root, pointer.DataVersion)
 	if err != nil {
 		t.Fatal(err)
 	}

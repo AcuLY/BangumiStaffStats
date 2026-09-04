@@ -301,10 +301,14 @@ publication transaction SHALL remain unchanged.
 
 ### Requirement: Live traffic SHALL require a real Archive
 
-The public V2 runtime SHALL use a contract-valid, non-fixture Archive. API
-readiness, catalog, metrics, and the Prometheus scrape SHALL agree on its
-current data version. Update failure SHALL retain or restore the last accepted
-pointer rather than activate partial or fixture data.
+The public V2 runtime SHALL use a non-fixture Archive published by the
+producer after all producer-owned validation. API readiness, catalog, metrics,
+and the Prometheus scrape SHALL agree on the opened SQLite
+`archive_meta.data_version`. API startup/readiness SHALL prove contained
+read-only open and the fixed business probe only; it SHALL NOT repeat or claim
+Archive manifest/digest/integrity/foreign-key/schema/table-count admission.
+Update or direct-open failure SHALL retain or restore the prior pointer rather
+than activate partial, fixture, or unusable data.
 
 Updater and API acquisition traffic SHALL use the host-transparent egress
 authority. The project SHALL retain only its base Compose topology and SHALL
@@ -312,18 +316,19 @@ receive no dedicated or generic proxy variable, proxy overlay, or proxy
 network. The intentionally stopped legacy loader SHALL remain stopped and
 SHALL NOT be treated as a rollback dependency.
 
-#### Scenario: Real Archive is active
+#### Scenario: Real producer-published Archive is active
 
 - **WHEN** public V2 traffic is enabled
-- **THEN** the current Archive SHALL be contract-valid and non-fixture
+- **THEN** the current Archive SHALL be non-fixture and traceable to a
+  successful producer publication
 - **AND** readiness, catalog, metrics, and Prometheus SHALL report the same
-  data version
+  opened dataVersion without a Backend Archive admission pass
 
-#### Scenario: Update fails or remains invalid
+#### Scenario: Update, open, or business readiness fails
 
-- **WHEN** updater execution fails, publishes no valid terminal result, or
-  runtime observers disagree
-- **THEN** the last accepted Archive pointer SHALL remain or be restored
+- **WHEN** updater execution publishes no valid terminal result, direct open or
+  fixed readiness probe fails, or runtime observers disagree
+- **THEN** the prior Archive pointer SHALL remain or be restored
 - **AND** public routing and the stopped legacy loader SHALL remain unchanged
 
 #### Scenario: Host egress remains external to the project
