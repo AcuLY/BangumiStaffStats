@@ -96,8 +96,10 @@ export function rankingErrorMessage(code: ErrorCodeV1): string {
   if (code === 'NOT_READY' || code === 'SERVER_BUSY') {
     return '排行服务正在准备，请稍后重试';
   }
+  if (code === 'UPSTREAM_TIMEOUT') {
+    return '人物排行查询超时，请重试';
+  }
   if (
-    code === 'UPSTREAM_TIMEOUT' ||
     code === 'UPSTREAM_UNAVAILABLE' ||
     code === 'UPSTREAM_PROTOCOL_ERROR'
   ) {

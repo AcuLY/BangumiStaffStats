@@ -3,6 +3,7 @@ import { NSkeleton } from 'naive-ui';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import AppIcon from '../../../shared/components/AppIcon.vue';
+import { useResultReveal } from '../../../shared/composables/useResultReveal';
 import type {
   RankingPayload,
   RankingSort,
@@ -34,12 +35,14 @@ const props = withDefaults(
     resource: RankingResource;
     retry: () => Promise<boolean>;
     selectedPersonId?: number | null;
+    suppressErrorMessage?: boolean;
   }>(),
   {
     devicePixelRatio: 1,
     expandedPersonId: null,
     pendingPersonal: false,
     selectedPersonId: null,
+    suppressErrorMessage: false,
   },
 );
 const emit = defineEmits<{
@@ -47,10 +50,18 @@ const emit = defineEmits<{
 }>();
 
 const search = ref(props.resource.view.search);
+const {
+  attention: resultAttention,
+  reveal: revealResults,
+  target: resultTarget,
+} = useResultReveal();
 let searchTimer: number | undefined;
 const payload = computed(() => props.resource.payload);
 const corePending = computed(
   () => props.resource.phase === 'pending' && !props.resource.viewPending,
+);
+const completeZero = computed(
+  () => payload.value?.summary.personCount === 0,
 );
 const emptyTitle = computed(() =>
   props.resource.view.search.trim()
@@ -72,10 +83,17 @@ function clearSearchTimer(): void {
   }
 }
 
-async function requestView(patch: Partial<RankingView>): Promise<void> {
+async function requestView(patch: Partial<RankingView>): Promise<boolean> {
   const view = updateRankingView(props.resource.view, patch);
-  if (!rankingViewEquals(view, props.resource.view)) {
-    await props.executeView(view);
+  if (rankingViewEquals(view, props.resource.view)) {
+    return false;
+  }
+  return props.executeView(view);
+}
+
+async function requestPage(patch: Partial<RankingView>): Promise<void> {
+  if (await requestView(patch)) {
+    await revealResults();
   }
 }
 
@@ -228,16 +246,31 @@ onBeforeUnmount(clearSearchTimer);
   >
     <span class="state-icon"><app-icon name="refresh" :size="26" /></span>
     <h1>人物排行加载失败</h1>
-    <p>{{ resource.error }}</p>
+    <p v-if="!suppressErrorMessage">{{ resource.error }}</p>
     <button class="app-primary-action" type="button" @click="retry">
       重试查询
     </button>
   </section>
 
   <section
+    v-else-if="payload && completeZero"
+    class="query-result-state ranking-page-empty-state"
+    aria-labelledby="ranking-complete-empty-title"
+  >
+    <span class="state-icon">
+      <app-icon name="search" :size="28" />
+    </span>
+    <h1 id="ranking-complete-empty-title">没有符合查询条件的人物</h1>
+  </section>
+
+  <section
     v-else-if="payload"
-    class="ranking-surface ranking-pane surface-panel"
+    ref="resultTarget"
+    class="ranking-surface ranking-pane surface-panel result-reveal-target"
+    :class="{ 'is-reveal-attention': resultAttention }"
+    aria-label="人物排行结果"
     :aria-busy="resource.viewPending ? 'true' : undefined"
+    tabindex="-1"
   >
     <header class="ranking-surface__header ranking-controls">
       <ranking-summary :summary="payload.summary" />
@@ -254,7 +287,7 @@ onBeforeUnmount(clearSearchTimer);
     </header>
 
     <p
-      v-if="resource.error"
+      v-if="resource.error && !suppressErrorMessage"
       class="ranking-inline-error"
       role="alert"
     >
@@ -304,8 +337,8 @@ onBeforeUnmount(clearSearchTimer);
         :page-size="payload.pagination.pageSize"
         :pending="resource.viewPending"
         :total="payload.pagination.total"
-        @page="requestView({ page: $event })"
-        @page-size="requestView({ pageSize: $event })"
+        @page="requestPage({ page: $event })"
+        @page-size="requestPage({ pageSize: $event })"
       />
       <n-skeleton
         v-else

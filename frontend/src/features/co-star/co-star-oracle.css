@@ -801,18 +801,6 @@
   font-weight: 600;
 }
 
-.co-star-surface .subject-work-row__series-info {
-  display: grid;
-  width: var(--touch-target);
-  height: var(--touch-target);
-  margin: -12px;
-  place-items: center;
-  border: 0;
-  color: inherit;
-  background: transparent;
-  cursor: help;
-}
-
 .co-star-surface .subject-work-row__meta {
   grid-area: meta;
   align-self: end;

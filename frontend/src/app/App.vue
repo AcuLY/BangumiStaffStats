@@ -1,9 +1,9 @@
 <!--
 THESIS: 查询是正式应用的唯一入口，拒绝用假数据或结果卡片掩盖尚未接入的垂直能力。
-OWN-WORLD: Bangumi 粉色、冷灰单层表面、固定 Header 与高密度两阶段查询编辑器。
+OWN-WORLD: Bangumi 粉色、冷灰单层表面、固定 Header 与正文内高密度两阶段查询编辑器。
 STORY: 用户选择数据范围与动态职位，清楚地应用、取消、恢复或分享最后一次成功查询。
-FIRST VIEWPORT: 品牌与双模式操作在第一行，完整查询 disclosure 紧随其下，主体保留可信空态。
-FORM: 已建立的 Operate 世界；桌面使用 Header 下覆盖层，低于 780px 回到文档流。
+FIRST VIEWPORT: 品牌与双模式操作在 Header，完整查询 disclosure 位于正文首位，结果区保留可信空态。
+FORM: 已建立的 Operate 世界；所有视口均使用正文内可折叠查询面板。
 -->
 <script setup lang="ts">
 import { NSkeleton } from 'naive-ui';
@@ -56,6 +56,7 @@ import {
 } from '../features/co-star/partners';
 import {
   createCoStarSelection,
+  MAX_SELECTED_IDENTITIES,
   type CoStarSelection,
 } from '../features/co-star/selection';
 import MobileCandidateEntry from '../features/co-star/components/MobileCandidateEntry.vue';
@@ -64,6 +65,7 @@ import {
   type PersonDetailView,
   type PersonPositionDisplay,
 } from '../features/person-detail/model';
+import PersonDetailSkeleton from '../features/person-detail/components/PersonDetailSkeleton.vue';
 import RankingResults from '../features/ranking/components/RankingResults.vue';
 import AppHeader from '../features/query/components/AppHeader.vue';
 import QueryIcon from '../features/query/components/QueryIcon.vue';
@@ -173,6 +175,7 @@ function createDeferredSurface(
 interface CoStarWorkspaceHandle {
   closePicker(): void;
   openPicker(trigger: HTMLElement): Promise<void>;
+  revealAnalysis(): Promise<void>;
 }
 
 interface AppServices {
@@ -240,7 +243,7 @@ const routeError = ref<string | null>(null);
 const queryWorkspace = ref<InstanceType<typeof QueryWorkspace> | null>(null);
 const queryEditing = ref(queryStore.applied === null);
 const coStarWorkspaceHandle = ref<CoStarWorkspaceHandle | null>(null);
-const coStarPickerOpen = ref(false);
+const coStarPickerExpanded = ref(false);
 const selection: CoStarSelection = createCoStarSelection();
 const selectedPersonId = ref<number | null>(null);
 const partnersIntent = shallowRef<Readonly<{
@@ -255,6 +258,8 @@ const personDetailIntent = shallowRef<Readonly<{
   personId: number;
   view?: Readonly<PersonDetailView>;
 }> | null>(null);
+let replayingRankingWorkspace = false;
+let replayingCoStarWorkspace = false;
 const drawerOpen = ref(false);
 const compact = useCompactLayout(targetWindow);
 const expandedPersonId = computed(() =>
@@ -263,6 +268,10 @@ const expandedPersonId = computed(() =>
     ? selectedPersonId.value
     : null,
 );
+
+function revealQueryEditor(): void {
+  void queryWorkspace.value?.openEditor({ reveal: true });
+}
 
 const fetchImplementation =
   targetWindow.fetch?.bind(targetWindow) ??
@@ -311,14 +320,77 @@ const coordinator = createQueryCoordinator(
     } else {
       rerunCurrentChild(context.operation);
     }
+    if (
+      context.operation === 'rankings' &&
+      !replayingRankingWorkspace &&
+      selectedPersonId.value === null
+    ) {
+      activateFirstRankingPerson();
+    }
+    if (
+      context.operation === 'candidates' &&
+      !replayingCoStarWorkspace &&
+      selection.personCount.value === 0
+    ) {
+      activateDefaultCandidates();
+    }
     route.updateSuccessfulQuery(query);
     routeError.value = null;
   },
 );
 
-const operationFeedback = computed(
-  () => coordinator.lastOperationFeedback.value,
+const desktopRankingCompanionPending = computed(
+  () =>
+    !compact.value &&
+    ((coordinator.rankings.phase === 'pending' &&
+      (selectedPersonId.value === null || queryStore.dirty)) ||
+      (selectedPersonId.value !== null &&
+        coordinator.personDetail.phase === 'pending')),
 );
+
+const editorOwnedPrimaryFeedback = computed<Readonly<{
+  message: string;
+  operation: 'candidates' | 'rankings';
+}> | null>(() => {
+  if (!queryEditing.value) {
+    return null;
+  }
+  const pendingPrimaryOperation = coordinator.pendingOperation.value;
+  const localOperation =
+    pendingPrimaryOperation === 'rankings' ||
+    pendingPrimaryOperation === 'candidates'
+      ? pendingPrimaryOperation
+      : route.mode.value === 'ranking'
+        ? 'rankings'
+        : 'candidates';
+  const localResource =
+    localOperation === 'rankings'
+      ? coordinator.rankings
+      : coordinator.candidates;
+  const localMessage = localResource.error ?? localResource.feedback;
+  return localMessage
+    ? Object.freeze({ message: localMessage, operation: localOperation })
+    : null;
+});
+const editorOwnsRankingError = computed(
+  () =>
+    editorOwnedPrimaryFeedback.value?.operation === 'rankings' &&
+    editorOwnedPrimaryFeedback.value.message === coordinator.rankings.error,
+);
+const editorOwnsCandidateError = computed(
+  () =>
+    editorOwnedPrimaryFeedback.value?.operation === 'candidates' &&
+    editorOwnedPrimaryFeedback.value.message === coordinator.candidates.error,
+);
+const operationFeedback = computed(() => {
+  const feedback = coordinator.lastOperationFeedback.value;
+  const editorOwner = editorOwnedPrimaryFeedback.value;
+  return feedback &&
+    editorOwner?.operation === feedback.operation &&
+    editorOwner.message === feedback.message
+    ? null
+    : feedback;
+});
 const coStarWorkspaceReady = computed(
   () =>
     queryStore.applied !== null &&
@@ -333,8 +405,7 @@ const coStarWorkspaceReady = computed(
 const compactCandidateEntryVisible = computed(
   () =>
     route.mode.value === 'co-star' &&
-    coStarWorkspaceReady.value &&
-    !queryEditing.value,
+    coStarWorkspaceReady.value,
 );
 const personDetailDrawerMounted = computed(
   () =>
@@ -359,7 +430,7 @@ const candidateResource = computed<CandidateResource>(() => ({
   error: coordinator.candidates.error,
   feedback: coordinator.candidates.feedback,
   input: Object.freeze({
-    positionKey: String(coordinator.candidates.input.positionKey),
+    positionKey: coordinator.candidates.input.positionKey,
   }),
   payload: coordinator.candidates.payload,
   phase: coordinator.candidates.phase,
@@ -669,6 +740,21 @@ function resourceMatchesApplied(
   );
 }
 
+function loadAppliedMode(mode: 'ranking' | 'co-star'): void {
+  if (!queryStore.applied) {
+    return;
+  }
+  const resource =
+    mode === 'ranking' ? coordinator.rankings : coordinator.candidates;
+  if (resourceMatchesApplied(resource) || resource.phase === 'pending') {
+    return;
+  }
+  void coordinator.executeApplied({
+    catalog: catalogStore.snapshot,
+    mode,
+  });
+}
+
 const shareWorkspace = computed<ShareWorkspace | null>(() => {
   if (!queryStore.applied) {
     return null;
@@ -712,8 +798,8 @@ const shareWorkspace = computed<ShareWorkspace | null>(() => {
     return null;
   }
   const candidates = {
-    input: {
-      positionKey: String(acceptedCandidateInput.positionKey),
+      input: {
+        positionKey: acceptedCandidateInput.positionKey,
     },
     view: structuredClone(acceptedCandidateView),
   };
@@ -836,7 +922,7 @@ function primaryRecoveryWorkspace(): ShareWorkspace | null {
   return {
     candidates: {
       input: {
-        positionKey: String(coordinator.candidates.input.positionKey),
+        positionKey: coordinator.candidates.input.positionKey,
       },
       view: structuredClone(coordinator.candidates.view),
     },
@@ -1054,6 +1140,50 @@ function selectedIdentities(
   );
 }
 
+function collectBoundedCandidateIdentities(
+  items: CandidatePayload['items'],
+): SelectedIdentity[] {
+  const identities: SelectedIdentity[] = [];
+  let selectedPeople = 0;
+
+  for (const item of items) {
+    if (selectedPeople >= 2) {
+      break;
+    }
+    const itemIdentities = selectedIdentities(item.person, item.positionKeys);
+    if (
+      itemIdentities.length === 0 ||
+      identities.length + itemIdentities.length > MAX_SELECTED_IDENTITIES
+    ) {
+      continue;
+    }
+    identities.push(...itemIdentities);
+    selectedPeople += 1;
+  }
+
+  return identities;
+}
+
+function activateDefaultCandidates(): void {
+  const payload = coordinator.candidates.payload;
+  if (!payload || selection.personCount.value !== 0) {
+    return;
+  }
+  const identities = collectBoundedCandidateIdentities(payload.items);
+  if (identities.length > 0) {
+    selection.replace(identities);
+  }
+}
+
+function shareCandidateInput(
+  input: Readonly<{ positionKey: unknown }>,
+): Readonly<CandidateInput> {
+  return Object.freeze({
+    positionKey:
+      input.positionKey === null ? null : String(input.positionKey),
+  });
+}
+
 function installShareWorkspace(payload: SharePayload): void {
   if (payload.workspace.kind === 'ranking') {
     coordinator.rankings.view = Object.freeze({
@@ -1065,8 +1195,8 @@ function installShareWorkspace(payload: SharePayload): void {
     });
     return;
   }
-  coordinator.candidates.input = Object.freeze(
-    structuredClone(payload.workspace.candidates.input),
+  coordinator.candidates.input = shareCandidateInput(
+    payload.workspace.candidates.input,
   );
   coordinator.candidates.view = Object.freeze(
     structuredClone(payload.workspace.candidates.view),
@@ -1076,21 +1206,41 @@ function installShareWorkspace(payload: SharePayload): void {
 async function replayShare(payload: SharePayload): Promise<boolean> {
   queryStore.replaceDraft(draftFromEffective(payload.query));
   installShareWorkspace(payload);
-  const primaryAccepted = await coordinator.execute({
-    candidateInput:
-      payload.workspace.kind === 'co-star'
-        ? payload.workspace.candidates.input
-        : undefined,
-    candidateView:
-      payload.workspace.kind === 'co-star'
-        ? {
-            ...defaultCandidateView,
-            ...structuredClone(payload.workspace.candidates.view),
-          }
-        : undefined,
-    catalog: catalogStore.snapshot,
-    mode: payload.workspace.kind === 'ranking' ? 'ranking' : 'co-star',
-  });
+  const suppressAutomaticRankingDetail =
+    payload.workspace.kind === 'ranking';
+  const suppressAutomaticCoStarSelection =
+    payload.workspace.kind === 'co-star';
+  if (suppressAutomaticRankingDetail) {
+    replayingRankingWorkspace = true;
+  }
+  if (suppressAutomaticCoStarSelection) {
+    replayingCoStarWorkspace = true;
+  }
+  let primaryAccepted: boolean;
+  try {
+    primaryAccepted = await coordinator.execute({
+      candidateInput:
+        payload.workspace.kind === 'co-star'
+          ? shareCandidateInput(payload.workspace.candidates.input)
+          : undefined,
+      candidateView:
+        payload.workspace.kind === 'co-star'
+          ? {
+              ...defaultCandidateView,
+              ...structuredClone(payload.workspace.candidates.view),
+            }
+          : undefined,
+      catalog: catalogStore.snapshot,
+      mode: payload.workspace.kind === 'ranking' ? 'ranking' : 'co-star',
+    });
+  } finally {
+    if (suppressAutomaticRankingDetail) {
+      replayingRankingWorkspace = false;
+    }
+    if (suppressAutomaticCoStarSelection) {
+      replayingCoStarWorkspace = false;
+    }
+  }
   if (!primaryAccepted) {
     return false;
   }
@@ -1244,6 +1394,14 @@ async function openHeaderCandidatePicker(
   await coStarWorkspaceHandle.value?.openPicker(trigger);
 }
 
+async function revealCoStarAnalysis(): Promise<void> {
+  if (selection.personCount.value < 2) {
+    return;
+  }
+  await nextTick();
+  await coStarWorkspaceHandle.value?.revealAnalysis();
+}
+
 function positionDisplay(
   positionKey: string,
   exactPositionKey?: string,
@@ -1276,6 +1434,17 @@ function activatePerson(
     drawerOpen.value = true;
   }
   void executePersonDetail(personId);
+}
+
+function activateFirstRankingPerson(): void {
+  const firstPersonId = coordinator.rankings.payload?.items[0]?.person.id;
+  if (typeof firstPersonId !== 'number') {
+    return;
+  }
+  selectedPersonId.value = firstPersonId;
+  void loadPersonDetailSurface();
+  drawerOpen.value = false;
+  void executePersonDetail(firstPersonId);
 }
 
 function closePersonDrawer(): void {
@@ -1364,6 +1533,7 @@ watch(
     if (mode !== 'ranking' && drawerOpen.value) {
       drawerOpen.value = false;
     }
+    loadAppliedMode(mode);
   },
 );
 
@@ -1387,19 +1557,14 @@ onBeforeUnmount(() => {
       :data-app-ready="runtime.isReady ? 'true' : 'false'"
       :data-runtime-phase="runtime.phase"
       :aria-hidden="
-        coStarPickerOpen || personDetailDrawerMounted
-          ? 'true'
-          : undefined
+        personDetailDrawerMounted ? 'true' : undefined
       "
       :inert="
-        coStarPickerOpen || personDetailDrawerMounted
-          ? true
-          : undefined
+        personDetailDrawerMounted ? true : undefined
       "
     >
       <header class="app-header">
         <app-header
-          :compact-context-visible="compactCandidateEntryVisible"
           :coordinator="coordinator"
           :mode="route.mode.value"
           :navigate="route.navigate"
@@ -1408,31 +1573,22 @@ onBeforeUnmount(() => {
           :target-window="targetWindow"
           :theme="themeOwner.theme.value"
           :toggle-theme="themeOwner.toggle"
-        >
-          <template #query>
-            <query-workspace
-              ref="queryWorkspace"
-              :catalog-store="catalogStore"
-              :coordinator="coordinator"
-              :mode="route.mode.value"
-              :query-store="queryStore"
-              :retry-catalog="loadCatalog"
-              :target-window="targetWindow"
-              @editing-change="queryEditing = $event"
-            />
-          </template>
-          <template #compact-context>
-            <mobile-candidate-entry
-              :drawer-open="coStarPickerOpen"
-              :selection="selection"
-              @open="openHeaderCandidatePicker"
-            />
-          </template>
-        </app-header>
+        />
       </header>
 
       <div class="app-page-scroll">
         <main id="main-content" class="app-main">
+          <query-workspace
+            ref="queryWorkspace"
+            :catalog-store="catalogStore"
+            :coordinator="coordinator"
+            :mode="route.mode.value"
+            :query-store="queryStore"
+            :retry-catalog="loadCatalog"
+            :target-window="targetWindow"
+            @editing-change="queryEditing = $event"
+          />
+
           <p
             v-if="operationFeedback"
             class="app-query-feedback"
@@ -1464,6 +1620,11 @@ onBeforeUnmount(() => {
                 coordinator.rankings.error !== null
               "
               class="ranking-workspace"
+              :class="{
+                'ranking-workspace--single':
+                  coordinator.rankings.phase !== 'pending' &&
+                  selectedPersonId === null,
+              }"
             >
               <ranking-results
                 :device-pixel-ratio="targetWindow.devicePixelRatio"
@@ -1473,11 +1634,25 @@ onBeforeUnmount(() => {
                 :resource="coordinator.rankings"
                 :retry="retryRanking"
                 :selected-person-id="selectedPersonId"
+                :suppress-error-message="editorOwnsRankingError"
                 @activate="activatePerson"
               />
+              <aside
+                v-if="desktopRankingCompanionPending"
+                id="person-detail-panel"
+                class="person-detail-surface surface-panel"
+                aria-label="人物详情"
+                :aria-hidden="
+                  coordinator.rankings.phase === 'pending' ? 'true' : undefined
+                "
+              >
+                <person-detail-skeleton />
+              </aside>
               <component
                 :is="PersonDetailSurfaceComponent"
-                v-if="PersonDetailSurfaceComponent"
+                v-else-if="
+                  PersonDetailSurfaceComponent && selectedPersonId !== null
+                "
                 :compact="compact"
                 :device-pixel-ratio="targetWindow.devicePixelRatio"
                 :execute-view="executePersonDetailView"
@@ -1488,22 +1663,6 @@ onBeforeUnmount(() => {
                 :target-window="targetWindow"
                 @close="closePersonDrawer"
               />
-              <aside
-                v-else-if="selectedPersonId === null && !compact"
-                id="person-detail-panel"
-                class="person-detail-surface surface-panel"
-                aria-label="人物详情"
-              >
-                <div class="person-detail-placeholder">
-                  <span class="state-icon">
-                    <app-icon name="person" :size="26" />
-                  </span>
-                  <h2>选择人物查看详情</h2>
-                  <p>
-                    从左侧排行中选择一位人物，查看评分、证据和参与作品。
-                  </p>
-                </div>
-              </aside>
               <deferred-surface-state
                 v-else-if="
                   selectedPersonId !== null &&
@@ -1518,33 +1677,15 @@ onBeforeUnmount(() => {
 
             <section
               v-else-if="!queryStore.applied"
-              class="query-result-state surface-panel"
+              class="query-result-state ranking-page-empty-state"
               aria-labelledby="ranking-query-empty-title"
             >
               <span class="state-icon">
                 <query-icon name="search" :size="28" />
               </span>
               <h1 id="ranking-query-empty-title">尚未开始查询</h1>
-              <button
-                class="app-primary-action"
-                type="button"
-                @click="queryWorkspace?.openEditor()"
-              >
-                设置查询条件
-              </button>
             </section>
 
-            <section
-              v-else
-              class="query-result-state surface-panel"
-              aria-labelledby="ranking-query-ready-title"
-            >
-              <span class="state-icon">
-                <query-icon name="check" :size="28" />
-              </span>
-              <h1 id="ranking-query-ready-title">查询条件已应用</h1>
-              <p>在人物排行中应用当前条件以加载结果</p>
-            </section>
           </section>
 
           <section
@@ -1555,6 +1696,13 @@ onBeforeUnmount(() => {
             :hidden="route.mode.value !== 'co-star'"
             :inert="route.mode.value !== 'co-star' ? true : undefined"
           >
+            <mobile-candidate-entry
+              v-if="compactCandidateEntryVisible"
+              class="co-star-content-entry"
+              :expanded="coStarPickerExpanded"
+              :selection="selection"
+              @toggle="openHeaderCandidatePicker"
+            />
             <component
               :is="CoStarWorkspaceComponent"
               v-if="
@@ -1565,13 +1713,14 @@ onBeforeUnmount(() => {
               :cancel="() => coordinator.cancel('co-star')"
               :device-pixel-ratio="targetWindow.devicePixelRatio"
               :execute-view="executeCandidateView"
-              header-owns-mobile-entry
+              external-owns-mobile-entry
               :position-label="positionLabel"
               :resource="candidateResource"
               :retry="retryCandidates"
               :selection="selection"
+              :suppress-error-message="editorOwnsCandidateError"
               :target-window="targetWindow"
-              @picker-open-change="coStarPickerOpen = $event"
+              @picker-open-change="coStarPickerExpanded = $event"
             >
               <template #analysis>
                 <template v-if="selection.personCount.value === 1">
@@ -1588,9 +1737,10 @@ onBeforeUnmount(() => {
                     :scope="coStarScope"
                     :selection="selection"
                     :source="selection.people.value[0]!"
-                    :target-window="targetWindow"
-                    :work-unit="coStarWorkUnit"
-                  />
+                     :target-window="targetWindow"
+                     :work-unit="coStarWorkUnit"
+                     @partner-activated="revealCoStarAnalysis"
+                   />
                   <deferred-surface-state
                     v-else
                     :error="partnersSurfaceLoadFailed"
@@ -1662,23 +1812,12 @@ onBeforeUnmount(() => {
               <button
                 class="app-primary-action"
                 type="button"
-                @click="queryWorkspace?.openEditor()"
+                @click="revealQueryEditor"
               >
                 设置查询条件
               </button>
             </section>
 
-            <section
-              v-else
-              class="query-result-state surface-panel"
-              aria-labelledby="co-star-query-ready-title"
-            >
-              <span class="state-icon">
-                <query-icon name="check" :size="28" />
-              </span>
-              <h1 id="co-star-query-ready-title">查询条件已应用</h1>
-              <p>在共演分析中应用当前条件以加载候选人物</p>
-            </section>
           </section>
         </main>
 

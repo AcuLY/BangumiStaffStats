@@ -133,7 +133,7 @@ export type FieldErrorsV1 = {
 export type OpaqueIdentifierV1 = string;
 
 export type OperationComponentsV1SchemaCandidatesInputV1 = {
-    positionKey: PositionKeyV1;
+    positionKey: PositionKeyV1 | null;
 };
 
 export type OperationComponentsV1SchemaCandidatesViewV1 = {

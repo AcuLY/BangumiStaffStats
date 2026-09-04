@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { NSkeleton } from 'naive-ui';
-import { computed, nextTick } from 'vue';
+import { computed, ref } from 'vue';
 
 import AppIcon from '../../../shared/components/AppIcon.vue';
 import SafeImage from '../../../shared/components/SafeImage.vue';
@@ -47,6 +47,7 @@ const props = withDefaults(
 );
 
 const payload = computed(() => props.resource.payload);
+const itemBrowser = ref<InstanceType<typeof PersonItemBrowser> | null>(null);
 const acceptedPositionKeys = computed(() =>
   (props.resource.acceptedQuery?.positionKeys ?? []).map(String),
 );
@@ -103,7 +104,7 @@ async function focusPreference(
     PersonDetailPayload['preference']
   >['preferred'][number]['unit'],
 ): Promise<void> {
-  await props.executeView(
+  const accepted = await props.executeView(
     updatePersonDetailView(props.resource.view, {
       search: primaryEntityName(unit),
       section: 'works',
@@ -113,12 +114,9 @@ async function focusPreference(
           : props.resource.view.sort,
     }),
   );
-  await nextTick();
-  document
-    .querySelector<HTMLInputElement>(
-      'input[aria-label="搜索参与作品"], input[aria-label="搜索参与系列或系列内作品"]',
-    )
-    ?.focus();
+  if (accepted) {
+    await itemBrowser.value?.revealSearch();
+  }
 }
 </script>
 
@@ -502,12 +500,13 @@ async function focusPreference(
       </section>
 
       <person-item-browser
+        ref="itemBrowser"
         :device-pixel-ratio="devicePixelRatio"
+        :execute-view="executeView"
         :payload="payload"
         :pending="resource.viewPending"
         :position-label="positionLabel"
         :view="resource.view"
-        @view="executeView"
       />
     </template>
   </article>

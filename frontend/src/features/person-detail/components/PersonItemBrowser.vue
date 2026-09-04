@@ -6,8 +6,10 @@ import {
   NSelect,
   NSkeleton,
 } from 'naive-ui';
+import type { InputInst } from 'naive-ui';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
+import { useResultReveal } from '../../../shared/composables/useResultReveal';
 import AdaptivePagination from '../../ranking/components/AdaptivePagination.vue';
 import SortDirectionButton from '../../ranking/components/SortDirectionButton.vue';
 import SafeImage from '../../../shared/components/SafeImage.vue';
@@ -37,6 +39,7 @@ import AdaptiveAppearanceList from './AdaptiveAppearanceList.vue';
 const props = withDefaults(
   defineProps<{
     devicePixelRatio?: number;
+    executeView: (view: Readonly<PersonDetailView>) => Promise<boolean>;
     payload: PersonDetailPayload;
     pending: boolean;
     positionLabel: PersonPositionLabelResolver;
@@ -46,11 +49,13 @@ const props = withDefaults(
     devicePixelRatio: 1,
   },
 );
-const emit = defineEmits<{
-  view: [view: Readonly<PersonDetailView>];
-}>();
-
 const search = ref(props.view.search);
+const searchInput = ref<InputInst | null>(null);
+const {
+  attention: resultAttention,
+  reveal: revealResults,
+  target: resultTarget,
+} = useResultReveal();
 const density = ref<'compact' | 'detailed'>('detailed');
 const compactLayout = useCompactLayout();
 const controlSize = computed(() =>
@@ -156,8 +161,18 @@ function clearSearchTimer(): void {
   }
 }
 
-function request(patch: Partial<PersonDetailView>): void {
-  emit('view', updatePersonDetailView(props.view, patch));
+function request(patch: Partial<PersonDetailView>): Promise<boolean> {
+  return props.executeView(updatePersonDetailView(props.view, patch));
+}
+
+async function requestPage(patch: Partial<PersonDetailView>): Promise<void> {
+  if (await request(patch)) {
+    await revealResults();
+  }
+}
+
+async function revealSearch(): Promise<void> {
+  await revealResults({ focus: searchInput.value?.inputElRef ?? null });
 }
 
 function scheduleSearch(value: string): void {
@@ -165,17 +180,17 @@ function scheduleSearch(value: string): void {
   clearSearchTimer();
   searchTimer = window.setTimeout(() => {
     searchTimer = undefined;
-    request({ search: value });
+    void request({ search: value });
   }, 240);
 }
 
 function submitSearch(): void {
   clearSearchTimer();
-  request({ search: search.value });
+  void request({ search: search.value });
 }
 
 function changeSection(section: 'characters' | 'works'): void {
-  request({
+  void request({
     section,
     sort: section === 'characters' ? 'role' : 'globalScore',
   });
@@ -269,12 +284,16 @@ function contributionSummary(
 }
 
 onBeforeUnmount(clearSearchTimer);
+defineExpose({ revealSearch });
 </script>
 
 <template>
   <section
-    class="person-inspector__section person-item-browser"
+    ref="resultTarget"
+    class="person-inspector__section person-item-browser result-reveal-target"
+    :class="{ 'is-reveal-attention': resultAttention }"
     aria-labelledby="person-items-title"
+    tabindex="-1"
   >
     <header class="person-section-heading person-item-browser__heading">
       <div class="person-item-browser__heading-copy">
@@ -341,6 +360,7 @@ onBeforeUnmount(clearSearchTimer);
       @submit.prevent="submitSearch"
     >
       <n-input
+        ref="searchInput"
         class="person-item-toolbar__search"
         :size="controlSize"
         :value="search"
@@ -371,6 +391,7 @@ onBeforeUnmount(clearSearchTimer);
         @update:value="request({ sort: $event as PersonDetailSort })"
       />
       <sort-direction-button
+        :size="controlSize"
         :order="view.order"
         :context-label="orderAriaLabel"
         @change="request({ order: $event })"
@@ -852,8 +873,8 @@ onBeforeUnmount(clearSearchTimer);
       "
       :pending="pending"
       :total="payload.pagination.total"
-      @page="request({ page: $event })"
-      @page-size="request({ pageSize: $event })"
+      @page="requestPage({ page: $event })"
+      @page-size="requestPage({ pageSize: $event })"
     />
   </section>
 </template>

@@ -327,6 +327,10 @@ onBeforeUnmount(() => {
         <span
           class="person-score-bar__track score-bar__track"
           aria-hidden="true"
+          :style="{
+            '--person-score-height': `${(bucket.count / axisMax) * 100}%`,
+            '--score-bar-height': `${(bucket.count / axisMax) * 100}%`,
+          }"
         >
           <n-tooltip
             v-if="bucket.count"
@@ -334,7 +338,7 @@ onBeforeUnmount(() => {
             trigger="manual"
             placement="top"
             :animated="false"
-            style="max-width: min(336px, calc(100dvw - 72px));"
+            style="max-width: min(336px, calc(100dvw - 72px)); pointer-events: none;"
             content-class="workbench-tooltip-content"
           >
             <template #trigger>
@@ -358,12 +362,7 @@ onBeforeUnmount(() => {
               </li>
             </ul>
           </n-tooltip>
-          <i
-            :style="{
-              '--person-score-height': `${(bucket.count / axisMax) * 100}%`,
-              '--score-bar-height': `${(bucket.count / axisMax) * 100}%`,
-            }"
-          />
+          <i />
         </span>
         <small>{{ bucket.score }}</small>
       </div>

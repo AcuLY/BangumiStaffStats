@@ -47,6 +47,16 @@ func TestResultKeyContainsPositionAndExcludesView(t *testing.T) {
 	if first != same || first == other {
 		t.Fatalf("position key identity: first=%s same=%s other=%s", first.String(), same.String(), other.String())
 	}
+	all, err := ResultKey("global", testDataVersion, queryDigest, "", "")
+	if err != nil {
+		t.Fatalf("all key: %v", err)
+	}
+	if all == first || !strings.Contains(
+		all.String(),
+		runtimecache.DigestInput([]byte(`{"positionKey":null}`)),
+	) {
+		t.Fatalf("all position key identity = %s", all.String())
+	}
 	expectedInputDigest := runtimecache.DigestInput(
 		[]byte(`{"positionKey":"staff:anime:2"}`),
 	)

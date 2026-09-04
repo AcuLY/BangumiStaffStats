@@ -267,6 +267,14 @@ describe('co-star response adapter', () => {
     expect(() =>
       decodeCoStarApiError(errorEnvelope('RATE_LIMITED'), 503),
     ).toThrow(ApiDecodeError);
+    expect(
+      decodeCoStarApiError(errorEnvelope('UPSTREAM_TIMEOUT', true), 504)
+        .message,
+    ).toBe('共演分析查询超时，请重试');
+    expect(
+      decodeCoStarApiError(errorEnvelope('UPSTREAM_UNAVAILABLE', true), 503)
+        .message,
+    ).toBe('收藏数据暂时不可用，请稍后重试');
   });
 });
 

@@ -1846,7 +1846,7 @@ func (e PostCandidatesV1504JSONResponseBodyErrorFieldErrors) Valid() bool {
 // PostCandidatesV1JSONBody defines parameters for PostCandidatesV1.
 type PostCandidatesV1JSONBody struct {
 	Input struct {
-		PositionKey string `json:"positionKey"`
+		PositionKey *string `json:"positionKey"`
 	} `json:"input"`
 	Query PostCandidatesV1JSONBody_Query `json:"query"`
 	View  *struct {
@@ -1966,10 +1966,11 @@ type PostCandidatesV1200JSONResponseBody0 struct {
 				Name   string  `json:"name"`
 				NameCN *string `json:"nameCN"`
 			} `json:"person"`
-			Rank      int `json:"rank"`
-			WorkCount int `json:"workCount"`
+			PositionKeys []string `json:"positionKeys"`
+			Rank         int      `json:"rank"`
+			WorkCount    int      `json:"workCount"`
 		} `json:"items"`
-		PositionKey string `json:"positionKey"`
+		PositionKey *string `json:"positionKey"`
 		Summary     struct {
 			PositionCounts []struct {
 				Count       int    `json:"count"`
@@ -2009,10 +2010,11 @@ type PostCandidatesV1200JSONResponseBody1 struct {
 				Name   string  `json:"name"`
 				NameCN *string `json:"nameCN"`
 			} `json:"person"`
-			Rank      int `json:"rank"`
-			WorkCount int `json:"workCount"`
+			PositionKeys []string `json:"positionKeys"`
+			Rank         int      `json:"rank"`
+			WorkCount    int      `json:"workCount"`
 		} `json:"items"`
-		PositionKey string `json:"positionKey"`
+		PositionKey *string `json:"positionKey"`
 		Summary     struct {
 			PositionCounts []struct {
 				Count       int    `json:"count"`

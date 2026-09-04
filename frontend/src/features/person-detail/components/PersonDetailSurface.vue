@@ -51,27 +51,28 @@ const emit = defineEmits<{
 
 const dialog = ref<HTMLElement | null>(null);
 const closeButton = ref<HTMLButtonElement | null>(null);
-let previousBodyOverflow: string | null = null;
+let previousDocumentOverflow: string | null = null;
 let inertRoot: HTMLElement | null = null;
 let previousRootAriaHidden: string | null = null;
 let previousRootInert = false;
 let previousFocus: HTMLElement | null = null;
 
-function restoreBodyScroll(): void {
-  if (previousBodyOverflow === null) {
+function restoreDocumentScroll(): void {
+  if (previousDocumentOverflow === null) {
     return;
   }
-  props.targetWindow.document.body.style.overflow = previousBodyOverflow;
-  previousBodyOverflow = null;
+  props.targetWindow.document.documentElement.style.overflow =
+    previousDocumentOverflow;
+  previousDocumentOverflow = null;
 }
 
-function lockBodyScroll(): void {
-  if (previousBodyOverflow !== null) {
+function lockDocumentScroll(): void {
+  if (previousDocumentOverflow !== null) {
     return;
   }
-  previousBodyOverflow =
-    props.targetWindow.document.body.style.overflow;
-  props.targetWindow.document.body.style.overflow = 'hidden';
+  previousDocumentOverflow =
+    props.targetWindow.document.documentElement.style.overflow;
+  props.targetWindow.document.documentElement.style.overflow = 'hidden';
 }
 
 function restoreBackgroundInteraction(): void {
@@ -127,13 +128,13 @@ watch(
   async ([compact, open]) => {
     if (compact && open) {
       captureBackgroundFocus();
-      lockBodyScroll();
+      lockDocumentScroll();
       isolateBackgroundInteraction();
       await nextTick();
-      closeButton.value?.focus();
+      dialog.value?.focus({ preventScroll: true });
       return;
     }
-    restoreBodyScroll();
+    restoreDocumentScroll();
     restoreBackgroundInteraction();
     await nextTick();
     restoreBackgroundFocus();
@@ -142,13 +143,18 @@ watch(
 );
 
 function focusableElements(): HTMLElement[] {
-  return dialog.value
-    ? Array.from(
-        dialog.value.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), details > summary, [tabindex]:not([tabindex="-1"])',
-        ),
-      ).filter((element) => !element.hasAttribute('hidden'))
-    : [];
+  if (!dialog.value) {
+    return [];
+  }
+  const elements = Array.from(
+    dialog.value.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), details > summary, [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((element) => !element.hasAttribute('hidden'));
+  const close = closeButton.value;
+  return close && elements.includes(close)
+    ? [close, ...elements.filter((element) => element !== close)]
+    : elements;
 }
 
 function onDialogKeydown(event: KeyboardEvent): void {
@@ -169,7 +175,10 @@ function onDialogKeydown(event: KeyboardEvent): void {
   const active = props.targetWindow.document.activeElement;
   const first = focusable[0]!;
   const last = focusable.at(-1)!;
-  if (event.shiftKey && active === first) {
+  if (active === dialog.value) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+  } else if (event.shiftKey && active === first) {
     event.preventDefault();
     last.focus();
   } else if (!event.shiftKey && active === last) {
@@ -207,7 +216,7 @@ function containDrawerWheel(event: WheelEvent): void {
 }
 
 onBeforeUnmount(() => {
-  restoreBodyScroll();
+  restoreDocumentScroll();
   restoreBackgroundInteraction();
   restoreBackgroundFocus();
 });
@@ -256,7 +265,6 @@ onBeforeUnmount(() => {
         @keydown="onDialogKeydown"
       >
         <header class="person-detail-drawer__bar">
-          <strong>人物详情</strong>
           <span
             class="person-detail-drawer__close-hit"
             @click="emit('close')"

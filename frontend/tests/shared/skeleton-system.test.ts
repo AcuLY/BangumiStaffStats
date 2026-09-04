@@ -60,6 +60,10 @@ describe('Naive UI Skeleton ownership', () => {
         /class="person-profile-skeleton"[\s\S]*?<n-skeleton/,
       ],
       [
+        'src/features/person-detail/components/PersonDetailSkeleton.vue',
+        /class="person-profile-skeleton"[\s\S]*?<n-skeleton/,
+      ],
+      [
         'src/features/person-detail/components/PersonItemBrowser.vue',
         /class="person-item-skeletons"[\s\S]*?<n-skeleton/,
       ],

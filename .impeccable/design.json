@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-25T15:06:06Z",
+  "generatedAt": "2026-09-02T14:33:58Z",
   "title": "Design System: Bangumi Staff Statistics",
   "extensions": {
     "colorMeta": {
@@ -128,11 +128,6 @@
         "name": "panel-light",
         "value": "0 1px 2px oklch(0.2 0.01 285 / 0.06)",
         "purpose": "Light 桌面 surface panel 的低幅结构阴影"
-      },
-      {
-        "name": "chrome-edge",
-        "value": "0 6px 16px -9px rgba(0, 0, 0, 0.08), 0 9px 28px rgba(0, 0, 0, 0.05), 0 12px 48px 16px rgba(0, 0, 0, 0.03)",
-        "purpose": "Query Editor overlay 的边缘层级，不用于普通内容卡片"
       }
     ],
     "motion": [
@@ -148,13 +143,13 @@
       },
       {
         "name": "panel-enter",
-        "value": "260ms cubic-bezier(0.22, 1, 0.36, 1)",
-        "purpose": "Query Editor 展开"
+        "value": "160ms ease-out",
+        "purpose": "正文 Query Editor 展开淡入"
       },
       {
         "name": "panel-leave",
-        "value": "200ms cubic-bezier(0.55, 0, 1, 0.45)",
-        "purpose": "Query Editor 收起"
+        "value": "120ms ease-in",
+        "purpose": "正文 Query Editor 收起淡出"
       }
     ],
     "breakpoints": [
@@ -212,7 +207,7 @@
       "name": "Surface Panel",
       "kind": "card",
       "refersTo": "surface-panel-light",
-      "description": "桌面主体的完整信息表面，移动端移除外层 chrome",
+      "description": "桌面主体的完整信息表面；移动端通常移除外层 chrome，Query Workspace 保留单层 disclosure 边界",
       "html": "<section class=\"ds-surface-panel\"><h2>人物排行</h2><p>高密度内容通过层级和对齐组织。</p></section>",
       "css": ".ds-surface-panel { padding: 16px; border: 1px solid var(--border, #dddddf); border-radius: var(--radius-card, 8px); background: var(--surface, #fafafa); color: var(--text-primary, #302d33); box-shadow: var(--panel-shadow, 0 1px 2px rgb(0 0 0 / 6%)); font-family: \"Source Han Sans SC VF\", \"Source Han Sans SC\", \"Noto Sans CJK SC\", \"PingFang SC\", sans-serif; } .ds-surface-panel h2 { margin: 0 0 8px; font-size: 20px; line-height: 1.25; } .ds-surface-panel p { margin: 0; color: var(--text-secondary, #4a474d); font-size: 14px; line-height: 1.5; }"
     },
@@ -264,12 +259,22 @@
       },
       {
         "name": "The One Owner Rule",
-        "body": "一个选择集合只由一个控件完整表达，一个实体关系只在一个管理表面修改；不得再增加重复 selector、加号入口或第二套已选列表。其他表面只读呈现，并随唯一真源更新。",
+        "body": "一个选择集合只由一个列表 owner 完整表达；DynamicInput 可以用多行 selector 映射同一有序数组，但每行只拥有一个值、重复值不可选且至少保留一行。不得再建立第二套列表或并行 owner。其他表面只读呈现，并随唯一真源更新。",
+        "section": "components"
+      },
+      {
+        "name": "The System-First Theme Rule",
+        "body": "`auto` 以系统主题为唯一真源并实时跟随；同一个主题按钮切到与系统不同的外观时长期保存 Light / Dark，切回与系统相同的外观时自动恢复 `auto`。不得用隐藏 TTL、弹层、设置页、第二个重置动作或常驻三态控件增加主题操作负担。",
         "section": "components"
       },
       {
         "name": "The Context-First Copy Rule",
         "body": "先由当前任务和上下文消除冗余，再补充真正需要的限定词；标签负责命名，说明负责解释，控件负责动作。",
+        "section": "components"
+      },
+      {
+        "name": "The Ranking State Continuity Rule",
+        "body": "人物排行首次空态与完整零结果共用 360px 无卡片居中层级；首次不重复显示查询动作，完整零结果不显示零值摘要、工具栏、表格或分页。搜索空结果仍保留恢复控件。主等待态复用最终区域和响应式轨道，并只用组件库 Skeleton 作为可见占位叶。",
         "section": "components"
       }
     ],
@@ -277,11 +282,23 @@
       "**Do** 用对齐、字号、间距、表面和明确口径管理高信息密度。",
       "**Do** 在 Light / Dark 下分别消费对应 primary、surface 与 series token。",
       "**Do** 保留 Bangumi 的社区归属和粉色识别，同时使用一致、现代的交互规范。",
-      "**Do** 让桌面 Header、Query、排行、共演分析和 Footer 共用 1280px 内容线。",
+      "**Do** 让 Header 与正文内的 Query、排行、共演分析和 Footer 共用 1280px 内容线。",
       "**Do** 在移动端重排结构并保留含义，而不是隐藏关键内容。",
       "**Do** 为所有状态提供文字、形状、位置或数值上的冗余编码。",
       "**Do** 让隐藏 panel 同步使用 hidden、inert 与 aria-hidden，不留下可 Tab 的控件。",
-      "**Do** 让 tooltip 在视口边缘翻转、换行并在超高时内部滚动。"
+      "**Do** 让 tooltip 在视口边缘翻转、换行并在超高时内部滚动。",
+      "**Do** 通过组件库公开 size API 统一同一工具组的 Input、Select 与 Button；页面主工具栏与人物 Inspector 的搜索 / 排序 / 方向工具组共享桌面 medium、紧凑 small 的断点规则，方向 Button 与相邻 Select 共享 input control 背景并使用直线箭身图标。",
+      "**Do** 让层级 selector 复用组件库的锚定 body portal：移动端保持 28px 可见高度、44px 命中区，trigger 直接承担搜索；bottom-start 为首选并在空间不足时公开 flip / shift，只有 trigger 显示 Naive focus 状态，菜单不追加 focus border。",
+      "**Do** 让层级 selector 的职位 item 复用 Naive option 的 28/34px 行高、0 12px padding、21px 文本行高、左右内缩 4px 的 6px 圆角状态层与 300ms 标准渐变；分类 item 使用主文字色并在相同横向几何上增加 4px 上下 padding。",
+      "**Do** 让跨区动作在结果接受后揭示、聚焦并短暂强调整个目标；强调结束不主动清空焦点。",
+      "**Do** 让分页页码与前后操作使用原生可聚焦按钮，并把 28/34px 可见尺寸扩展为至少 44px 命中区。",
+      "**Do** 在响应式分支卸载当前焦点时，把焦点交给新分支的等价持久控件，不落到 body。",
+      "**Do** 让移动人物选择摘要作为正文 disclosure 原位展开 CandidatePicker；不 teleport、不锁 body、不 inert App，收起内容不进入 Tab 顺序。",
+      "**Do** 让 Header 主题按钮保持一键 Light / Dark 切换；结果与系统不同时保存明确偏好，与系统相同时自动保存 `auto`，全程不打开第二个界面。",
+      "**Do** 让自研 selector trigger 通过项目 token 对齐同尺寸 Naive Select 的文本、placeholder、背景、状态边界和 suffix icon；独立命中节点不形成独立视觉单元。",
+      "**Do** 让职位多选通过一个 Naive DynamicInput owner 增删互斥 selector 行；至少保留一行，空行不进入 Query，非空行按可见顺序映射。",
+      "**Do** 让职位行复用作品范围的 `<780px` 双列与 `max-width:520px` 单列规则，单行只占左列；桌面双阶段布局内保持内部单列。",
+      "**Do** 让职位目录保持最多 480px 的紧凑内容宽度、纯纵向滚动和唯一圆角阴影 owner；职位行用普通 flex 起始流让 selector 拉伸、正方形动作组贴右，不使用 `space-between`；selector 到动作组及两个按钮之间各留 8px，并保留 44px 点击高度。"
     ],
     "donts": [
       "**Don't** 做成通用 AI 或 SaaS 仪表盘，不使用营销型大标题和无意义指标卡。",
@@ -293,7 +310,11 @@
       "**Don't** 在内容卡、列表项、提示或警告上使用大于 1px 的彩色侧边条。",
       "**Don't** 为普通页面添加装饰网格、条纹背景、手绘 SVG 或无意义编号脚手架。",
       "**Don't** 选择组件库私有节点或内部变量，不重新发明标准表单、滚动条和 modal affordance。",
-      "**Don't** 把原型 fixture、加载保护或预选人物当成生产状态机。"
+      "**Don't** 把原型 fixture 或加载保护当成生产状态机；默认人物只能来自已接受的后端候选顺序。",
+      "**Don't** 让主题偏好通过隐藏 TTL 自动失效，也不要增加主题弹层、设置页、第二个重置动作或常驻三态控件。",
+      "**Don't** 让自研表单控件使用通用 surface、border 或三级文字冒充 Naive control token，也不要选择组件库私有 DOM / 变量来追平外观。",
+      "**Don't** 在单个职位 selector 内堆叠可关闭 Tag 代替互斥切换，也不要允许不同 selector 行选择重复或互斥的职位。",
+      "**Don't** 把职位目录放大成宽面板、暴露横向 scrollbar 或叠加 raw Popover 方形阴影，也不要把增删动作做成 circle、quaternary 或 secondary。"
     ]
   }
 }

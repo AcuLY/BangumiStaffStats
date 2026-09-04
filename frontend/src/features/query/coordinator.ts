@@ -1,7 +1,7 @@
 import { readonly, ref, shallowReactive, type Ref } from 'vue';
 
 import type {
-  CandidatesInputV1,
+  CandidatesInputV1 as GeneratedCandidatesInputV1,
   CandidatesViewV1,
   CoStarInputV1,
   CoStarViewV1,
@@ -32,6 +32,10 @@ export type QueryOperation =
   | 'person-detail'
   | 'rankings';
 export type PrimaryQueryOperation = 'candidates' | 'rankings';
+export type CandidatesInputV1 = Omit<
+  GeneratedCandidatesInputV1,
+  'positionKey'
+> & { readonly positionKey: string | null };
 export type ResourcePhase = 'error' | 'idle' | 'pending' | 'ready';
 export type RankingsViewState = Required<RankingsViewV1>;
 export type CandidatesViewState = Required<CandidatesViewV1>;
@@ -570,6 +574,10 @@ export interface QueryCoordinator<
     catalog: CatalogSnapshot | null;
     mode: QueryMode;
   }): Promise<boolean>;
+  executeApplied(options: {
+    catalog: CatalogSnapshot | null;
+    mode: QueryMode;
+  }): Promise<boolean>;
   executeCandidateView(
     input: Readonly<CandidatesInputV1>,
     view: Readonly<CandidatesViewState>,
@@ -695,7 +703,7 @@ export function createQueryCoordinator<
     acceptedQuery: null,
     error: null,
     feedback: null,
-    input: Object.freeze({ positionKey: '' as never }),
+    input: Object.freeze({ positionKey: null }),
     payload: null,
     phase: 'idle',
     requestId: null,
@@ -1052,7 +1060,29 @@ export function createQueryCoordinator<
       return false;
     }
 
-    const query = validation.query;
+    return executeQuery(validation.query, options);
+  }
+
+  async function executeApplied(options: {
+    catalog: CatalogSnapshot | null;
+    mode: QueryMode;
+  }): Promise<boolean> {
+    if (!store.applied) {
+      return false;
+    }
+    return executeQuery(store.applied, options);
+  }
+
+  async function executeQuery(
+    query: AppliedQuery,
+    options: {
+      candidateInput?: Readonly<CandidatesInputV1>;
+      candidateView?: Readonly<CandidatesViewState>;
+      catalog: CatalogSnapshot | null;
+      mode: QueryMode;
+      refreshCollection?: boolean;
+    },
+  ): Promise<boolean> {
     const operation = operationFor(options.mode);
     const otherOperation: PrimaryQueryOperation =
       operation === 'rankings' ? 'candidates' : 'rankings';
@@ -1060,17 +1090,18 @@ export function createQueryCoordinator<
     const resource = operation === 'rankings' ? rankings : candidates;
     let nextCandidateInput: Readonly<CandidatesInputV1> | null = null;
     if (operation === 'candidates') {
-      const requestedPosition =
-        options.candidateInput?.positionKey ?? query.positionKeys[0];
-      const candidatePosition = options.catalog?.positionsByKey.get(
-        String(requestedPosition),
-      );
+      const requestedPosition = options.candidateInput?.positionKey ?? null;
+      const candidatePosition =
+        requestedPosition === null
+          ? null
+          : options.catalog?.positionsByKey.get(requestedPosition);
       if (
-        !query.positionKeys.includes(requestedPosition) ||
-        !candidatePosition ||
-        !candidatePosition.selectable ||
-        candidatePosition.subjectType !== query.subjectType ||
-        !candidatePosition.capabilities.includes('candidates')
+        requestedPosition !== null &&
+        (!query.positionKeys.includes(requestedPosition) ||
+          !candidatePosition ||
+          !candidatePosition.selectable ||
+          candidatePosition.subjectType !== query.subjectType ||
+          !candidatePosition.capabilities.includes('candidates'))
       ) {
         candidates.error = '查询暂时无法完成，请稍后重试';
         publishFeedback('candidates', candidates.error, 'error');
@@ -1131,8 +1162,10 @@ export function createQueryCoordinator<
       (operation !== 'candidates' ||
         candidates.input.positionKey === nextCandidateInput?.positionKey)
     ) {
-      resource.feedback = '查询条件没有变化';
-      publishFeedback(operation, resource.feedback, 'status');
+      resource.feedback = null;
+      if (lastOperationFeedback.value?.operation === operation) {
+        lastOperationFeedback.value = null;
+      }
       return true;
     }
 
@@ -1358,7 +1391,8 @@ export function createQueryCoordinator<
       return false;
     }
     if (
-      !query.positionKeys.map(String).includes(String(input.positionKey))
+      input.positionKey !== null &&
+      !query.positionKeys.includes(input.positionKey)
     ) {
       candidates.error = '候选职位不在已应用查询中';
       publishFeedback('candidates', candidates.error, 'error');
@@ -2462,6 +2496,7 @@ export function createQueryCoordinator<
     clearPersonDetail,
     clearPartners,
     execute,
+    executeApplied,
     executeCandidateView,
     executeCoStar,
     executeCoStarView,

@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import { NPagination } from 'naive-ui';
+import {
+  NPagination,
+  type PaginationInfo,
+  type PaginationProps,
+  type PaginationRenderLabel,
+} from 'naive-ui';
 import {
   computed,
+  h,
   nextTick,
   onBeforeUnmount,
   onMounted,
@@ -9,6 +15,7 @@ import {
   watch,
 } from 'vue';
 
+import AppIcon from '../../../shared/components/AppIcon.vue';
 import { useCompactLayout } from '../../query/composables/useCompactLayout';
 import type { RankingPageSize } from '../model';
 
@@ -37,6 +44,18 @@ const emit = defineEmits<{
 
 const compact = useCompactLayout();
 const controlSize = computed(() => (compact.value ? 'small' : 'medium'));
+const pageThemeOverrides: NonNullable<
+  PaginationProps['themeOverrides']
+> = {
+  itemMarginMedium: '0 0 0 10px',
+  itemMarginMediumRtl: '0 10px 0 0',
+  itemMarginSmall: '0 0 0 16px',
+  itemMarginSmallRtl: '0 16px 0 0',
+  itemPaddingMedium: '0',
+  itemPaddingSmall: '0',
+  itemSizeMedium: '34px',
+  itemSizeSmall: '28px',
+};
 const pagesContainer = ref<HTMLElement | null>(null);
 const pageSlot = ref(9);
 let resizeObserver: ResizeObserver | null = null;
@@ -57,6 +76,85 @@ const rangeSummary = computed(() => {
   const start = (props.page - 1) * props.pageSize + 1;
   return `${start}—${Math.min(start + props.itemCount - 1, props.total)} / ${props.total}`;
 });
+
+function renderPrevious(info: PaginationInfo) {
+  const atFirstPage = info.page <= 1;
+  const disabled = props.pending || atFirstPage;
+  return h(
+    'button',
+    {
+      'aria-label': atFirstPage
+        ? '上一页，已到第一页'
+        : `上一页，前往第 ${info.page - 1} 页`,
+      class:
+        'adaptive-pagination__button adaptive-pagination__button--previous',
+      disabled,
+      type: 'button',
+    },
+    [h(AppIcon, { name: 'chevron-left', size: 16 })],
+  );
+}
+
+function renderNext(info: PaginationInfo) {
+  const atLastPage = info.page >= info.pageCount;
+  const disabled = props.pending || atLastPage;
+  return h(
+    'button',
+    {
+      'aria-label': atLastPage
+        ? '下一页，已到最后一页'
+        : `下一页，前往第 ${info.page + 1} 页`,
+      class: 'adaptive-pagination__button adaptive-pagination__button--next',
+      disabled,
+      type: 'button',
+    },
+    [h(AppIcon, { name: 'chevron-right', size: 16 })],
+  );
+}
+
+const renderLabel: PaginationRenderLabel = (info) => {
+  if (info.type === 'page') {
+    const pageNumber = info.node;
+    return h(
+      'button',
+      {
+        'aria-current': info.active ? 'page' : undefined,
+        'aria-label': info.active
+          ? `第 ${pageNumber} 页，当前页`
+          : `前往第 ${pageNumber} 页`,
+        class: 'adaptive-pagination__button adaptive-pagination__button--page',
+        disabled: props.pending || info.active,
+        type: 'button',
+      },
+      String(pageNumber),
+    );
+  }
+
+  const backward = info.type === 'fast-backward';
+  return h(
+    'button',
+    {
+      'aria-label': backward ? '向前跳转多页' : '向后跳转多页',
+      class: [
+        'adaptive-pagination__button',
+        'adaptive-pagination__button--fast-jump',
+        info.active && 'is-active',
+      ],
+      disabled: props.pending,
+      type: 'button',
+    },
+    [
+      h(
+        'span',
+        {
+          'aria-hidden': 'true',
+          class: 'adaptive-pagination__fast-jump-icon',
+        },
+        [info.node],
+      ),
+    ],
+  );
+};
 
 async function syncPageSlot(): Promise<void> {
   const syncId = ++slotSyncId;
@@ -127,6 +225,11 @@ onBeforeUnmount(() => {
         :item-count="total"
         :page-slot="pageSlot"
         :display-order="['pages']"
+        :disabled="pending"
+        :theme-overrides="pageThemeOverrides"
+        :prev="renderPrevious"
+        :next="renderNext"
+        :label="renderLabel"
         @update:page="emit('page', $event)"
       />
     </div>

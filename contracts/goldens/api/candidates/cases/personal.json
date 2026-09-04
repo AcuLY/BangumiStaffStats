@@ -51,7 +51,10 @@
                   "name": "Personal High",
                   "nameCN": null
                 },
-                "workCount": 2
+                "workCount": 2,
+                "positionKeys": [
+                  "staff:anime:2"
+                ]
               },
               {
                 "rank": 2,
@@ -60,7 +63,10 @@
                   "name": "Personal Low",
                   "nameCN": null
                 },
-                "workCount": 1
+                "workCount": 1,
+                "positionKeys": [
+                  "staff:anime:2"
+                ]
               }
             ]
           },
@@ -133,7 +139,10 @@
                   "name": "Global Low",
                   "nameCN": null
                 },
-                "workCount": 1
+                "workCount": 1,
+                "positionKeys": [
+                  "staff:anime:2"
+                ]
               },
               {
                 "rank": 2,
@@ -142,7 +151,10 @@
                   "name": "Global High",
                   "nameCN": null
                 },
-                "workCount": 2
+                "workCount": 2,
+                "positionKeys": [
+                  "staff:anime:2"
+                ]
               }
             ]
           },
@@ -215,7 +227,10 @@
                   "name": "Voice Actor",
                   "nameCN": "声优"
                 },
-                "workCount": 1
+                "workCount": 1,
+                "positionKeys": [
+                  "cast:anime:all"
+                ]
               }
             ]
           },

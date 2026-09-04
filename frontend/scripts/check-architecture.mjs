@@ -96,6 +96,7 @@ const expectedInventory = [
   'src/features/co-star/selection.ts',
   'src/features/person-detail/adaptiveAppearanceLayout.ts',
   'src/features/person-detail/components/AdaptiveAppearanceList.vue',
+  'src/features/person-detail/components/PersonDetailSkeleton.vue',
   'src/features/person-detail/components/PersonDetailSurface.vue',
   'src/features/person-detail/components/PersonInspector.vue',
   'src/features/person-detail/components/PersonItemBrowser.vue',
@@ -106,6 +107,7 @@ const expectedInventory = [
   'src/features/person-detail/person-detail.css',
   'src/features/person-detail/ratingTimelineGeometry.ts',
   'src/features/query/components/AppHeader.vue',
+  'src/features/query/components/PositionCatalogBrowser.vue',
   'src/features/query/components/PositionSelector.vue',
   'src/features/query/components/QueryDateRange.vue',
   'src/features/query/components/QueryEditor.vue',
@@ -129,10 +131,13 @@ const expectedInventory = [
   'src/features/ranking/model.ts',
   'src/shared/components/AppIcon.vue',
   'src/shared/components/DeferredSurfaceState.vue',
+  'src/shared/components/InfoIcon.vue',
   'src/shared/components/SafeImage.vue',
+  'src/shared/composables/useResultReveal.ts',
   'src/shared/charts/categoricalPalette.ts',
   'src/shared/charts/timelineGeometry.ts',
   'src/shared/media/bangumiImage.ts',
+  'src/shared/names/bilingualName.ts',
   'src/shared/navigation/basePath.ts',
   'src/shared/styles/base.css',
   'src/vite-env.d.ts',
@@ -147,6 +152,7 @@ const expectedInventory = [
   'tests/app/app.mount.test.ts',
   'tests/app/co-star.integration.test.ts',
   'tests/app/rankings.integration.test.ts',
+  'tests/app/reveal-selection-bounds.test.ts',
   'tests/app/theme-overrides.test.ts',
   'tests/app/theme.test.ts',
   'tests/features/person-detail/components.test.ts',
@@ -163,14 +169,19 @@ const expectedInventory = [
   'tests/features/query/components.test.ts',
   'tests/features/query/fixtures.ts',
   'tests/features/query/model.test.ts',
+  'tests/features/query/position-selector-reveal.test.ts',
   'tests/features/query/share-routes.test.ts',
   'tests/features/ranking/components.test.ts',
   'tests/features/ranking/model.test.ts',
   'tests/setup.ts',
   'tests/shared/SafeImage.test.ts',
   'tests/shared/base-path.test.ts',
+  'tests/shared/bilingual-name.test.ts',
+  'tests/shared/info-trigger.test.ts',
   'tests/shared/ranking-layout.test.ts',
+  'tests/shared/result-reveal.test.ts',
   'tests/shared/scrollbar-system.test.ts',
+  'tests/shared/shell-layout.test.ts',
   'tests/shared/skeleton-system.test.ts',
   'tsconfig.app.json',
   'tsconfig.json',
@@ -342,7 +353,10 @@ const requestCallers = [];
 const providerOwners = [];
 const brandImporters = [];
 for (const [file, source] of sourceByFile) {
-  const relative = path.relative(frontendRoot, file);
+  const relative = path
+    .relative(frontendRoot, file)
+    .split(path.sep)
+    .join(path.posix.sep);
   if (/generated\/query-wire/.test(source)) {
     queryWireImporters.push(relative);
   }

@@ -124,6 +124,51 @@ describe('query coordinator', () => {
     ).toBe(true);
     expect(execute).toHaveBeenCalledTimes(1);
     expect(store.revision).toBe(1);
+    expect(coordinator.lastOperationFeedback.value).toBeNull();
+    expect(coordinator.rankings.feedback).toBeNull();
+  });
+
+  it('loads a missing mode from Applied Query without submitting a dirty Draft', async () => {
+    const store = readyStore();
+    const sharedVersion = `dv1-${'a'.repeat(64)}`;
+    const sharedFetchedAt = '2026-07-25T00:00:00Z';
+    const rankingExecute = vi.fn(async (request: RankingRequest) => ({
+      payload: snapshotPayload('ranking', sharedVersion, sharedFetchedAt),
+      requestId: 'server-ranking',
+      transactionId: request.transactionId,
+    }));
+    const candidateExecute = vi.fn(async (request: CandidateRequest) => ({
+      payload: snapshotPayload('candidates', sharedVersion, sharedFetchedAt),
+      requestId: 'server-candidates',
+      transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      candidates: { execute: candidateExecute },
+      rankings: { execute: rankingExecute },
+    });
+    const catalog = catalogFixture();
+
+    await expect(
+      coordinator.execute({ catalog, mode: 'ranking' }),
+    ).resolves.toBe(true);
+    store.draft.includeNSFW = true;
+    expect(store.dirty).toBe(true);
+
+    await expect(
+      coordinator.executeApplied({ catalog, mode: 'co-star' }),
+    ).resolves.toBe(true);
+
+    expect(candidateExecute).toHaveBeenCalledOnce();
+    expect(candidateExecute.mock.calls[0]![0].query.includeNSFW).toBe(false);
+    expect(store.draft.includeNSFW).toBe(true);
+    expect(store.dirty).toBe(true);
+    expect(store.revision).toBe(1);
+    expect(coordinator.candidates).toMatchObject({
+      acceptedQuery: { includeNSFW: false },
+      payload: { id: 'candidates' },
+      phase: 'ready',
+      revision: 1,
+    });
   });
 
   it('accepts only the latest of two explicitly deferred responses', async () => {
@@ -1109,7 +1154,7 @@ describe('query coordinator', () => {
     ).resolves.toBe(false);
     expect(coordinator.candidates).toMatchObject({
       error: '候选人物服务正在准备，请稍后重试',
-      input: { positionKey: 'staff:anime:2' },
+      input: { positionKey: null },
       payload: { id: 'global' },
       requestId: 'server-candidate-not-ready',
       view: { page: 1 },

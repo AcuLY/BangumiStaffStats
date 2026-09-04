@@ -2,23 +2,12 @@ package archive
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 )
-
-type goldenIndex struct {
-	Files []goldenIndexFile `json:"files"`
-}
-
-type goldenIndexFile struct {
-	Path     string `json:"path"`
-	CaseID   string `json:"caseId"`
-	Expected Code   `json:"expected"`
-}
 
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
@@ -34,18 +23,6 @@ func archiveGoldenRoot(t *testing.T) string {
 	return filepath.Join(repositoryRoot(t), "contracts", "goldens", "archive")
 }
 
-func archiveSchemaRoot(t *testing.T) string {
-	t.Helper()
-	return filepath.Join(repositoryRoot(t), "contracts", "schemas", "archive")
-}
-
-func readGoldenIndex(t *testing.T) goldenIndex {
-	t.Helper()
-	var index goldenIndex
-	mustDecodeJSON(t, mustReadFile(t, filepath.Join(archiveGoldenRoot(t), "index.json")), &index)
-	return index
-}
-
 func arrangeValidCandidate(t *testing.T, includeCurrent bool) (string, string) {
 	t.Helper()
 	return arrangeBundle(t, filepath.Join(archiveGoldenRoot(t), "valid", "minimal"), includeCurrent)
@@ -54,15 +31,16 @@ func arrangeValidCandidate(t *testing.T, includeCurrent bool) (string, string) {
 func arrangeBundle(t *testing.T, bundleRoot string, includeCurrent bool) (string, string) {
 	t.Helper()
 	pointerData := mustReadFile(t, filepath.Join(bundleRoot, "current-pointer.json"))
-	var pointerValue pointer
-	mustDecodeJSON(t, pointerData, &pointerValue)
+	pointerValue, err := decodePointer(pointerData)
+	if err != nil {
+		t.Fatalf("decode pointer: %v", err)
+	}
 
 	root := t.TempDir()
 	versionRoot := filepath.Join(root, versionsDirectory, pointerValue.DataVersion)
 	if err := os.MkdirAll(versionRoot, 0o755); err != nil {
 		t.Fatalf("create version root: %v", err)
 	}
-	copyTestFile(t, filepath.Join(bundleRoot, "archive-manifest.json"), filepath.Join(versionRoot, manifestFilename))
 	copyTestFile(t, filepath.Join(bundleRoot, sqliteFilename), filepath.Join(versionRoot, sqliteFilename))
 	if includeCurrent {
 		if err := os.WriteFile(filepath.Join(root, currentPointerFilename), pointerData, 0o644); err != nil {
@@ -70,10 +48,6 @@ func arrangeBundle(t *testing.T, bundleRoot string, includeCurrent bool) (string
 		}
 	}
 	return root, pointerValue.DataVersion
-}
-
-func runtimeManifestPath(root, dataVersion string) string {
-	return filepath.Join(root, versionsDirectory, dataVersion, manifestFilename)
 }
 
 func runtimeSQLitePath(root, dataVersion string) string {
@@ -97,21 +71,8 @@ func mustReadFile(t *testing.T, path string) []byte {
 	return data
 }
 
-func mustDecodeJSON(t *testing.T, data []byte, target any) {
-	t.Helper()
-	if err := json.Unmarshal(data, target); err != nil {
-		t.Fatalf("decode test JSON: %v", err)
-	}
-}
-
 func requireCode(t *testing.T, err error, expected Code) {
 	t.Helper()
-	if expected == CodeValid {
-		if err != nil {
-			t.Fatalf("error = %v, want success", err)
-		}
-		return
-	}
 	code, ok := ErrorCode(err)
 	if !ok || code != expected {
 		t.Fatalf("error = %v, code = %q, want %q", err, code, expected)

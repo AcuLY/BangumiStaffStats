@@ -27,6 +27,7 @@ import {
 import CoStarRatings from '../../../src/features/co-star/components/CoStarRatings.vue';
 import CoStarWorkBrowser from '../../../src/features/co-star/components/CoStarWorkBrowser.vue';
 import { createCoStarSelection } from '../../../src/features/co-star/selection';
+import AdaptivePagination from '../../../src/features/ranking/components/AdaptivePagination.vue';
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -65,6 +66,7 @@ function setup(
   scope: 'global' | 'personal',
   patch: Partial<CoStarResource> = {},
   acceptedOverride?: CoStarPayload,
+  attachTo?: HTMLElement,
 ) {
   const accepted = acceptedOverride ?? payload(name, scope);
   const selection = createCoStarSelection(
@@ -104,6 +106,7 @@ function setup(
     async (_view: Readonly<CoStarView>) => true,
   );
   const wrapper = mount(CoStarSurface, {
+    ...(attachTo ? { attachTo } : {}),
     props: {
       cancel: vi.fn(),
       execute,
@@ -383,6 +386,46 @@ describe('co-star local request boundaries', () => {
     expect(
       wrapper.get('.co-star-work-pagination').attributes('aria-busy'),
     ).toBe('true');
+  });
+
+  it('reveals common-work results only after accepted pagination', async () => {
+    const accepted = payload('global', 'global');
+    const pagedPayload = Object.freeze({
+      ...accepted,
+      pagination: Object.freeze({
+        ...accepted.pagination,
+        total: 12,
+      }),
+    }) as CoStarPayload;
+    const { executeView, wrapper } = setup(
+      'global',
+      'global',
+      {},
+      pagedPayload,
+      document.body,
+    );
+    executeView
+      .mockReset()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const browser = wrapper.get('.co-star-work-browser');
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(browser.element, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    const pagination = wrapper.findComponent(AdaptivePagination);
+
+    pagination.vm.$emit('page', 2);
+    await flushPromises();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    pagination.vm.$emit('page-size', 20);
+    await flushPromises();
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+    expect(document.activeElement).toBe(browser.element);
+    expect(browser.classes()).toContain('is-reveal-attention');
+    wrapper.unmount();
   });
 
   it('shows bounded full skeleton and stable initial error states', async () => {
@@ -811,6 +854,31 @@ describe('co-star oracle layout contracts', () => {
     expect(pickerCss).toMatch(
       /\.candidate-picker:not\(\.is-drawer\) \.candidate-list,[\s\S]*?overflow-y:\s*visible;/,
     );
+    expect(pickerCss).toMatch(
+      /\.co-star-candidate-rail::after\s*\{[^}]*inset:\s*-3px;[^}]*border:\s*2px solid transparent;[^}]*pointer-events:\s*none;/s,
+    );
+    expect(pickerCss).toMatch(
+      /\.co-star-candidate-rail\.is-attention::after\s*\{[^}]*border-color:\s*var\(--focus\);/s,
+    );
+    expect(pickerCss).toMatch(
+      /\.candidate-toolbar\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) minmax\(112px, 0\.72fr\) 80px;[^}]*align-items:\s*center;/s,
+    );
+    expect(pickerCss).toMatch(
+      /\.candidate-toolbar \.ranking-order-button\s*\{[^}]*width:\s*100%;[^}]*min-height:\s*0;/s,
+    );
+    expect(pickerCss).not.toMatch(
+      /\.candidate-toolbar[\s\S]*?\.ranking-order-button__content\s*> span\s*\{/,
+    );
+    expect(pickerCss).toMatch(
+      /@media \(width < 520px\)[\s\S]*?\.candidate-toolbar\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) 80px;/,
+    );
+    expect(baseCss).toMatch(
+      /@media \(width < 780px\)[\s\S]*?\.ranking-workspace \.ranking-order-button__content > span\s*\{[^}]*position:\s*absolute;[^}]*clip:\s*rect\(0, 0, 0, 0\);/s,
+    );
+    expect(baseCss).not.toContain('.ranking-order-button span');
+    expect(pickerCss).toMatch(
+      /\.candidate-row\s*\{[^}]*border:\s*1px solid var\(--divider\);/s,
+    );
     expect(analysisCss).toMatch(
       /\.co-star-matrix-scroll\s*\{[^}]*overflow-x:\s*clip;/,
     );
@@ -820,11 +888,39 @@ describe('co-star oracle layout contracts', () => {
     expect(analysisCss).toMatch(
       /\.matrix-details--scrollable \.co-star-matrix-table\s*\{[^}]*min-width:\s*calc\(112px \+ var\(--matrix-size, 5\) \* 104px\);/,
     );
+    expect(baseCss).not.toMatch(/\.app-header__query\s*\{/);
+    expect(baseCss).not.toMatch(/\.query-editor-overlay\s*\{/);
     expect(baseCss).toMatch(
-      /@media \(width < 780px\)[\s\S]*?\.app-header__query\s*\{[^}]*min-height:\s*44px;/,
+      /\.query-workspace\s*\{[^}]*background:\s*var\(--surface\);/,
     );
     expect(baseCss).toMatch(
-      /\.app-header__mobile-context \.co-star-mobile-entry__selection b,[\s\S]*?white-space:\s*normal;[\s\S]*?overflow-wrap:\s*anywhere;/,
+      /@media \(width < 780px\)[\s\S]*?\.query-workspace\s*\{[^}]*margin-bottom:\s*var\(--space-4\);/,
+    );
+    expect(baseCss).not.toContain('.app-header__mobile-context');
+    expect(pickerCss).not.toContain('.co-star-picker-drawer');
+    expect(pickerCss).toMatch(
+      /@media \(width < 780px\)[\s\S]*?\.co-star-mobile-entry\.co-star-content-entry\s*\{[^}]*min-height:\s*var\(--touch-target\);[^}]*margin-bottom:\s*0;[^}]*padding:\s*var\(--space-2\) var\(--space-3\);[^}]*border:\s*1px solid var\(--border\);[^}]*background:\s*var\(--surface\);/,
+    );
+    expect(pickerCss).toMatch(
+      /\.co-star-content-entry \.co-star-mobile-entry__selection b,[\s\S]*?white-space:\s*normal;[\s\S]*?overflow-wrap:\s*anywhere;/,
+    );
+    expect(pickerCss).toMatch(
+      /\.co-star-content-entry \.co-star-mobile-entry__selection b\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*600;/s,
+    );
+    expect(pickerCss).toMatch(
+      /\.co-star-content-entry \.co-star-mobile-entry__selection span\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*400;/s,
+    );
+    expect(pickerCss).toMatch(
+      /\.co-star-content-entry \.co-star-mobile-entry__action\s*\{[^}]*width:\s*var\(--touch-target\);[^}]*height:\s*28px;/s,
+    );
+    expect(pickerCss).toMatch(
+      /\.co-star-picker-accordion\s*\{[^}]*overflow:\s*hidden;[^}]*grid-template-rows:\s*1fr;[^}]*border-top:\s*0;/s,
+    );
+    expect(pickerCss).toMatch(
+      /\.co-star-picker-panel-enter-active\s*\{[^}]*grid-template-rows 160ms ease-out,[^}]*opacity 160ms ease-out;/s,
+    );
+    expect(analysisCss).toMatch(
+      /\.co-star-surface > \.analysis-section\.selected-people-panel\s*\{[^}]*padding:\s*0;/s,
     );
     expect(baseCss).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.safe-image img,[\s\S]*?transition-duration:\s*0s;[\s\S]*?\.state-icon--loading,[\s\S]*?\.app-skeleton\.app-skeleton[\s\S]*?animation:\s*none;/,
@@ -868,7 +964,15 @@ describe('personal preference navigation', () => {
       'personal',
       'personal',
       { payload: patchedPayload },
+      undefined,
+      document.body,
     );
+    const browser = wrapper.get('.co-star-work-browser');
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(browser.element, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
 
     expect(wrapper.get('.preference-work--positive').text()).toContain(
       '+1.25',
@@ -888,6 +992,12 @@ describe('personal preference navigation', () => {
           .element as HTMLInputElement
       ).value,
     ).toBe('偏好作品');
+    expect(document.activeElement).toBe(
+      wrapper.get('input[name="sharedWorkSearch"]').element,
+    );
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+    expect(browser.classes()).toContain('is-reveal-attention');
+    wrapper.unmount();
   });
 });
 

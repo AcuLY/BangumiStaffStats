@@ -72,7 +72,14 @@
       ],
       "properties": {
         "positionKey": {
-          "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
+          "oneOf": [
+            {
+              "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     },

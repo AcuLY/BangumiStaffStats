@@ -1,12 +1,16 @@
 # Backend
 
 This directory is the production backend module. Startup requires an explicit
-immutable Archive root and attempts the accepted one-shot load before serving.
-A successful load publishes the validated read-only SQLite store. A load
-failure emits one bounded `archive_load_failed` JSON event. A non-cancellation
-failure serves only the runtime surface permanently not-ready; cancellation
-during loading returns without serving. Neither path retries, falls back,
-reloads, or exposes a business route.
+immutable Archive root, reads `current.json` once, and directly opens the
+selected SQLite snapshot before serving. It does not read `manifest.json`, hash
+or recount SQLite, run integrity/foreign-key/schema checks, or perform Archive
+admission; those checks belong exclusively to the updater before inactive
+publication. A successful direct open publishes the contained root-bound,
+read-only/query-only Store. A load failure emits one bounded
+`archive_load_failed` JSON event. A non-cancellation failure serves only the
+runtime surface permanently not-ready; cancellation during opening returns
+without serving. Neither path retries, falls back, reloads, or exposes a
+business route.
 If the mandatory event writer fails or short-writes, startup closes the owned
 Archive state and returns without serving.
 

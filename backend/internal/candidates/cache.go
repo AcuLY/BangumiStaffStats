@@ -59,12 +59,13 @@ func ResultKey(
 	positionKey string,
 	collectionDigest string,
 ) (runtimecache.ResultKey, error) {
-	if positionKey == "" {
-		return runtimecache.ResultKey{}, fieldError("/input/positionKey")
+	var nullablePositionKey *string
+	if positionKey != "" {
+		nullablePositionKey = &positionKey
 	}
 	canonical, err := json.Marshal(struct {
-		PositionKey string `json:"positionKey"`
-	}{PositionKey: positionKey})
+		PositionKey *string `json:"positionKey"`
+	}{PositionKey: nullablePositionKey})
 	if err != nil {
 		return runtimecache.ResultKey{}, fieldError("/input/positionKey")
 	}
@@ -126,6 +127,9 @@ func coreCost(value Core) int64 {
 	}
 	for _, row := range value.Rows {
 		cost += int64(len(row.Person.Name) + 80)
+		for _, positionKey := range row.PositionKeys {
+			cost += int64(len(positionKey) + 8)
+		}
 		if row.Person.NameCN != nil {
 			cost += int64(len(*row.Person.NameCN))
 		}

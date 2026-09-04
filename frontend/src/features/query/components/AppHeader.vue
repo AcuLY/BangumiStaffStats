@@ -18,7 +18,6 @@ import QueryIcon from './QueryIcon.vue';
 
 const props = withDefaults(
   defineProps<{
-    compactContextVisible?: boolean;
     coordinator: QueryCoordinator<unknown, unknown>;
     mode: QueryMode;
     navigate: (mode: QueryMode) => void;
@@ -29,7 +28,6 @@ const props = withDefaults(
     toggleTheme: () => void;
   }>(),
   {
-    compactContextVisible: false,
     shareWorkspace: undefined,
   },
 );
@@ -271,17 +269,6 @@ onBeforeUnmount(() => {
           {{ copied ? '查询链接已复制' : '' }}
         </span>
       </div>
-    </div>
-
-    <div class="app-header__query">
-      <slot name="query" />
-    </div>
-
-    <div
-      v-if="compact && compactContextVisible"
-      class="app-header__mobile-context"
-    >
-      <slot name="compact-context" />
     </div>
   </div>
 </template>

@@ -21,6 +21,7 @@ export interface CandidatePerson {
 
 export interface CandidateItem {
   readonly person: CandidatePerson;
+  readonly positionKeys: readonly string[];
   readonly rank: number;
   readonly workCount: number;
 }
@@ -42,7 +43,7 @@ export interface CandidatePayload {
     count: number;
     positionKey: string;
   }>[];
-  readonly positionKey: string;
+  readonly positionKey: string | null;
   readonly requestId: string;
   readonly scope: 'global' | 'personal';
   readonly workUnit: 'series' | 'subject';
@@ -123,13 +124,14 @@ export function adaptCandidatesSuccess(
     dataVersion: envelope.meta.dataVersion,
     items: Object.freeze(
       envelope.data.items.map((item) =>
-        Object.freeze({
-          person: Object.freeze({
+      Object.freeze({
+        person: Object.freeze({
             id: item.person.id,
             name: item.person.name,
             nameCN: item.person.nameCN,
-          }),
-          rank: item.rank,
+        }),
+        positionKeys: Object.freeze(item.positionKeys.map(String)),
+        rank: item.rank,
           workCount: item.workCount,
         }),
       ),
@@ -147,7 +149,10 @@ export function adaptCandidatesSuccess(
         }),
       ),
     ),
-    positionKey: String(envelope.data.positionKey),
+    positionKey:
+      envelope.data.positionKey === null
+        ? null
+        : String(envelope.data.positionKey),
     requestId: envelope.meta.requestId,
     scope: collection ? 'personal' : 'global',
     workUnit: envelope.data.workUnit,

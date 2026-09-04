@@ -21,6 +21,7 @@ import type {
 } from '../../../api/adapters/partners';
 import AppIcon from '../../../shared/components/AppIcon.vue';
 import SafeImage from '../../../shared/components/SafeImage.vue';
+import { useResultReveal } from '../../../shared/composables/useResultReveal';
 import { personImageCandidates } from '../../../shared/media/bangumiImage';
 import { useCompactLayout } from '../../query/composables/useCompactLayout';
 import {
@@ -69,7 +70,7 @@ const props = withDefaults(
   },
 );
 const emit = defineEmits<{
-  partnerActivated: [item: PartnerCore | PartnerItem];
+  partnerActivated: [item: PartnerCore | PartnerItem, trigger: HTMLElement];
 }>();
 
 const candidatePositionKey = ref(
@@ -83,6 +84,7 @@ const compactLayout = useCompactLayout();
 const controlSize = computed(() =>
   compactLayout.value ? 'small' : 'medium',
 );
+const partnerResults = useResultReveal(props.targetWindow);
 let searchTimer: number | undefined;
 let lastAttempt:
   | Readonly<{
@@ -251,6 +253,15 @@ function requestView(patch: Partial<PartnersView>): void {
   void props.executeView(nextView);
 }
 
+async function requestPage(patch: Partial<PartnersView>): Promise<void> {
+  const nextView = selectedView(patch);
+  lastAttempt = Object.freeze({ kind: 'view', view: nextView });
+  const accepted = await props.executeView(nextView);
+  if (accepted) {
+    await partnerResults.reveal();
+  }
+}
+
 function clearSearchTimer(): void {
   if (searchTimer !== undefined) {
     props.targetWindow.clearTimeout(searchTimer);
@@ -311,14 +322,17 @@ function changeCandidatePosition(value: string): void {
   void props.execute(input, nextView);
 }
 
-function activate(item: PartnerCore | PartnerItem): void {
+function activate(
+  item: PartnerCore | PartnerItem,
+  event: MouseEvent,
+): void {
   const result = activatePartner(
     props.selection,
     item,
     props.positionLabel,
   );
   if (result.ok) {
-    emit('partnerActivated', item);
+    emit('partnerActivated', item, event.currentTarget as HTMLElement);
   }
 }
 
@@ -563,7 +577,7 @@ onBeforeUnmount(clearSearchTimer);
                     )}，${metricValue(leader.item, leader.metric)}`
                   : `${leaderLabel(leader.metric)}：暂无数据`
               "
-              @click="leader.item && activate(leader.item)"
+              @click="leader.item && activate(leader.item, $event)"
             >
               <b>{{
                 leader.item
@@ -627,7 +641,7 @@ onBeforeUnmount(clearSearchTimer);
                 <template #trigger>
                   <button
                     ref="metricTooltipTrigger"
-                    class="partners-metric-info"
+                    class="partners-metric-info info-trigger"
                     type="button"
                     :aria-expanded="metricTooltipVisible"
                     :aria-label="`合作人物指标说明：${metricHelp}`"
@@ -720,7 +734,15 @@ onBeforeUnmount(clearSearchTimer);
         </div>
 
         <div
+          :ref="partnerResults.target"
           class="partners-results-boundary"
+          :class="{
+            'is-reveal-attention': partnerResults.attention.value,
+            'result-reveal-target': true,
+          }"
+          role="region"
+          aria-label="合作人物结果"
+          tabindex="-1"
           :aria-busy="listPending ? 'true' : undefined"
         >
         <div
@@ -797,7 +819,7 @@ onBeforeUnmount(clearSearchTimer);
             )}，${item.positionKeys
               .map(positionLabel)
               .join(' / ')}，${itemSummary(item)}；选择为合作人物`"
-            @click="activate(item)"
+            @click="activate(item, $event)"
           >
             <span class="ranked-person-row__rank">{{ item.rank }}</span>
             <safe-image
@@ -881,8 +903,8 @@ onBeforeUnmount(clearSearchTimer);
             page-size-unit="人"
             :pending="resource.viewPending"
             :total="currentPayload.pagination.total"
-            @page="requestView({ page: $event })"
-            @page-size="requestView({ pageSize: $event })"
+            @page="requestPage({ page: $event })"
+            @page-size="requestPage({ pageSize: $event })"
           />
         </div>
         </div>

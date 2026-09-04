@@ -41,7 +41,7 @@ function golden(filename: 'global.json' | 'personal.json') {
     cases: Array<{
       expected: { body: unknown };
       request: {
-        input: { positionKey: string };
+        input: { positionKey: string | null };
         query: Record<string, unknown>;
         view?: Record<string, unknown>;
       };
@@ -96,6 +96,16 @@ describe('candidates response adapter', () => {
     expect(global).not.toHaveProperty('collection');
     expect(Object.isFrozen(global.items)).toBe(true);
     expect(Object.isFrozen(global.items[0]!.person)).toBe(true);
+    expect(Object.isFrozen(global.items[0]!.positionKeys)).toBe(true);
+
+    const all = decodeCandidatePayload(
+      golden('global.json').cases[0]!.expected.body,
+    );
+    expect(all.positionKey).toBeNull();
+    expect(all.items[1]!.positionKeys).toEqual([
+      'staff:anime:2',
+      'cast:anime:all',
+    ]);
   });
 
   it('rejects extra members, global collection metadata, and malformed errors', () => {
@@ -190,6 +200,13 @@ describe('candidates native-fetch driver', () => {
     });
     expect(accepted.message).not.toContain('backend display text');
     expect(Object.isFrozen(accepted.fieldErrors)).toBe(true);
+    expect(
+      decodeCandidatesApiError(errorEnvelope('UPSTREAM_TIMEOUT'), 504).message,
+    ).toBe('候选人物查询超时，请重试');
+    expect(
+      decodeCandidatesApiError(errorEnvelope('UPSTREAM_UNAVAILABLE'), 503)
+        .message,
+    ).toBe('收藏数据暂时不可用，请稍后重试');
 
     expect(() =>
       decodeCandidatesApiError(errorEnvelope('INTERNAL_ERROR'), 400),

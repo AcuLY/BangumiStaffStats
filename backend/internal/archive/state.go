@@ -16,10 +16,10 @@ type State struct {
 	closeErr error
 }
 
-// LoadCurrent reads current.json once, validates the selected candidate, and
-// publishes it only after every gate succeeds.
+// LoadCurrent reads current.json once, directly opens the selected snapshot,
+// and atomically publishes the resulting read-only Store.
 func (s *State) LoadCurrent(ctx context.Context, rootPath string) error {
-	candidate, err := loadCurrentCandidate(ctx, rootPath, loadHooks{})
+	candidate, err := openCurrentStore(ctx, rootPath, loadHooks{})
 	if err != nil {
 		return err
 	}

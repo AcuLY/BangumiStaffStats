@@ -11,13 +11,15 @@ function requirePathText(candidate, label) {
   if (
     typeof candidate !== 'string' ||
     candidate.length === 0 ||
-    candidate.includes('\0') ||
-    candidate.includes('\\')
+    candidate.includes('\0')
   ) {
-    fail(`${label} must be a non-empty native path without NUL or backslash`);
+    fail(`${label} must be a non-empty native path without NUL`);
   }
-  if (candidate.split('/').includes('..')) {
+  if (candidate.split(/[\\/]/u).includes('..')) {
     fail(`${label} must not contain a parent traversal segment`);
+  }
+  if (path.sep !== '\\' && candidate.includes('\\')) {
+    fail(`${label} must not contain a foreign backslash separator`);
   }
 }
 
