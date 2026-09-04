@@ -32,9 +32,7 @@ done
 [[ -n "$root" && -n "$bundle" && -n "$version" && -n "$project" &&
   -n "$api_port" && -n "$prometheus_port" && -n "$prometheus_image" ]] || usage
 
-for command in curl docker flock jq realpath sha256sum tar; do
-  require_command "$command"
-done
+for command in curl docker flock jq realpath sha256sum tar; do require_command "$command"; done
 require_root_user
 require_root_layout "$root"
 require_existing_directory "$bundle" bundle
@@ -48,233 +46,31 @@ require_image "$prometheus_image" prometheus-image
   die "Prometheus image must equal the reviewed operations pin"
 [[ "$profile" == production || "$profile" == validation ]] || die "invalid profile"
 
-require_existing_topology_match() {
+check_existing_topology() {
   local current_env="$root/state/current.env"
   if [[ -f "$current_env" && ! -L "$current_env" ]]; then
-    release_topology_state \
+    require_release_topology_unchanged \
       "$current_env" "$root" "$project" "$prometheus_image" \
       "$api_port" "$prometheus_port" "$profile"
   elif [[ -e "$current_env" || -L "$current_env" ]]; then
     die "current env has an invalid type"
-  else
-    printf 'absent\n'
   fi
 }
 
-# Refuse project/root/Prometheus/port/profile drift before even opening the
-# state lock. Recheck under the lock to close the concurrent-deploy race.
-current_state=$(require_existing_topology_match)
+check_existing_topology
 acquire_state_lock "$root"
-current_state=$(require_existing_topology_match)
-
-BGMSS_LEGACY_TRANSACTION_DIR=
-BGMSS_LEGACY_RAW_ENV=
-BGMSS_LEGACY_NORMALIZED_ENV=
-BGMSS_LEGACY_PREVIOUS_SNAPSHOT=
-BGMSS_LEGACY_OVERLAY_SNAPSHOT=
-BGMSS_LEGACY_CURRENT_ENV=
-BGMSS_LEGACY_PREVIOUS_ENV=
-BGMSS_LEGACY_OVERLAY=
-BGMSS_LEGACY_PREVIOUS_FRONTEND=
-BGMSS_LEGACY_EXPECTED_DATA=
-BGMSS_LEGACY_MUTATION_STARTED=false
-
-normalize_legacy_release() {
-  local state=$1 proxy_url proxy_network
-  local current_env="$root/state/current.env"
-  local previous_env="$root/state/previous.env"
-  local overlay="$root/compose/compose.updater-proxy.yaml"
-  local transaction_dir= raw_env= normalized_env= previous_snapshot=
-  local overlay_snapshot= previous_exists=false
-  local current_frontend previous_frontend
-  local old_api old_updater expected_data target
-
-  IFS='|' read -r _ proxy_url proxy_network <<<"$state"
-  [[ -n "$proxy_url" && -n "$proxy_network" ]] ||
-    die "legacy release state is incomplete"
-  require_legacy_proxy_overlay "$root"
-  [[ -f "$root/compose/compose.yaml" &&
-    ! -L "$root/compose/compose.yaml" ]] ||
-    die "base Compose file is missing or invalid"
-
-  if [[ -f "$previous_env" && ! -L "$previous_env" ]]; then
-    previous_exists=true
-  elif [[ -e "$previous_env" || -L "$previous_env" ]]; then
-    die "previous env has an invalid type"
-  fi
-  current_frontend=$(read_link_or_empty "$root/current-frontend")
-  previous_frontend=$(read_link_or_empty "$root/previous-frontend")
-  [[ -n "$current_frontend" ]] ||
-    die "legacy application links are incomplete"
-  for target in \
-    "$current_frontend" "$previous_frontend"; do
-    [[ -z "$target" ||
-      ("$target" != /* && "$target" != *".."* && "$target" != *$'\n'*) ]] ||
-      die "legacy application link target is unsafe"
-  done
-  old_api=$(env_value "$current_env" BGMSS_API_IMAGE)
-  old_updater=$(env_value "$current_env" BGMSS_UPDATER_IMAGE)
-  expected_data=$(pointer_data_version "$root/data/current.json")
-  [[ ! -e "$root/.bgmss-link.$$" && ! -L "$root/.bgmss-link.$$" ]] ||
-    die "legacy normalization symlink temporary already exists"
-  docker network inspect "$proxy_network" >/dev/null ||
-    die "legacy proxy network is unavailable for normalization rollback"
-  for image in "$old_api" "$old_updater" "$prometheus_image"; do
-    docker image inspect "$image" >/dev/null ||
-      die "legacy release image is unavailable for normalization rollback: $image"
-  done
-
-  cleanup_legacy_transaction() {
-    local item cleanup_failed=false
-    for item in \
-      "$BGMSS_LEGACY_RAW_ENV" \
-      "$BGMSS_LEGACY_NORMALIZED_ENV" \
-      "$BGMSS_LEGACY_PREVIOUS_SNAPSHOT" \
-      "$BGMSS_LEGACY_OVERLAY_SNAPSHOT"; do
-      [[ -n "$item" ]] || continue
-      if [[ -f "$item" && ! -L "$item" &&
-        "${item%/*}" == "$BGMSS_LEGACY_TRANSACTION_DIR" ]]; then
-        rm -f -- "$item" || cleanup_failed=true
-      elif [[ -e "$item" || -L "$item" ]]; then
-        cleanup_failed=true
-      fi
-    done
-    if [[ -d "$BGMSS_LEGACY_TRANSACTION_DIR" &&
-      ! -L "$BGMSS_LEGACY_TRANSACTION_DIR" ]]; then
-      rmdir -- "$BGMSS_LEGACY_TRANSACTION_DIR" || cleanup_failed=true
-    elif [[ -e "$BGMSS_LEGACY_TRANSACTION_DIR" ||
-      -L "$BGMSS_LEGACY_TRANSACTION_DIR" ]]; then
-      cleanup_failed=true
-    fi
-    [[ "$cleanup_failed" == false ]]
-  }
-
-  restore_legacy_normalization() {
-    local failed=$1 recovery_failed=false
-    local was_mutated=$BGMSS_LEGACY_MUTATION_STARTED
-    (( failed != 0 )) || failed=1
-    trap - EXIT ERR HUP INT TERM
-    set +e
-    if [[ "$was_mutated" == true ]]; then
-      atomic_copy "$BGMSS_LEGACY_RAW_ENV" "$BGMSS_LEGACY_CURRENT_ENV" ||
-        recovery_failed=true
-      restore_optional_file \
-        "$BGMSS_LEGACY_PREVIOUS_SNAPSHOT" "$BGMSS_LEGACY_PREVIOUS_ENV" ||
-        recovery_failed=true
-      restore_optional_symlink \
-        "$BGMSS_LEGACY_PREVIOUS_FRONTEND" "$root/previous-frontend" ||
-        recovery_failed=true
-      if atomic_copy \
-        "$BGMSS_LEGACY_OVERLAY_SNAPSHOT" "$BGMSS_LEGACY_OVERLAY"; then
-        chmod 0644 "$BGMSS_LEGACY_OVERLAY" || recovery_failed=true
-      else
-        recovery_failed=true
-      fi
-      legacy_compose "$root" "$BGMSS_LEGACY_CURRENT_ENV" \
-        up --detach --force-recreate api prometheus ||
-        recovery_failed=true
-      wait_ready "$root" "$BGMSS_LEGACY_EXPECTED_DATA" ||
-        recovery_failed=true
-    fi
-    cleanup_legacy_transaction || recovery_failed=true
-    set -e
-    if [[ "$was_mutated" == true ]]; then
-      [[ "$recovery_failed" == false ]] ||
-        die "legacy normalization failed and the exact proxy application did not recover"
-      log "legacy proxy release normalization failed; original application restored"
-    else
-      [[ "$recovery_failed" == false ]] ||
-        die "legacy normalization preparation failed and transaction cleanup did not complete"
-    fi
-    exit "$failed"
-  }
-
-  transaction_dir=$(mktemp -d "$root/state/.legacy-normalization.XXXXXX")
-  BGMSS_LEGACY_TRANSACTION_DIR=$transaction_dir
-  trap 'restore_legacy_normalization "$?"' EXIT
-  raw_env="$transaction_dir/current.env"
-  normalized_env="$transaction_dir/normalized.env"
-  overlay_snapshot="$transaction_dir/compose.updater-proxy.yaml"
-  if [[ "$previous_exists" == true ]]; then
-    previous_snapshot="$transaction_dir/previous.env"
-  fi
-  BGMSS_LEGACY_RAW_ENV=$raw_env
-  BGMSS_LEGACY_NORMALIZED_ENV=$normalized_env
-  BGMSS_LEGACY_PREVIOUS_SNAPSHOT=$previous_snapshot
-  BGMSS_LEGACY_OVERLAY_SNAPSHOT=$overlay_snapshot
-  BGMSS_LEGACY_CURRENT_ENV=$current_env
-  BGMSS_LEGACY_PREVIOUS_ENV=$previous_env
-  BGMSS_LEGACY_OVERLAY=$overlay
-  BGMSS_LEGACY_PREVIOUS_FRONTEND=$previous_frontend
-  BGMSS_LEGACY_EXPECTED_DATA=$expected_data
-  trap 'restore_legacy_normalization 129' HUP
-  trap 'restore_legacy_normalization 130' INT
-  trap 'restore_legacy_normalization 143' TERM
-  cp -- "$current_env" "$raw_env"
-  cp -- "$overlay" "$overlay_snapshot"
-  if [[ "$previous_exists" == true ]]; then
-    cp -- "$previous_env" "$previous_snapshot"
-  fi
-  release_env_document \
-    "$root" "$project" "$old_api" "$old_updater" "$prometheus_image" \
-    "$api_port" "$prometheus_port" "$profile" >"$normalized_env"
-  chmod 0640 "$normalized_env"
-  cmp -s "$current_env" "$raw_env" ||
-    die "legacy current env changed while preparing normalization"
-  cmp -s "$overlay" "$overlay_snapshot" ||
-    die "legacy proxy overlay changed while preparing normalization"
-  if [[ "$previous_exists" == true ]]; then
-    cmp -s "$previous_env" "$previous_snapshot" ||
-      die "previous env changed while preparing normalization"
-  fi
-  [[ "$(
-    release_topology_state \
-      "$normalized_env" "$root" "$project" "$prometheus_image" \
-      "$api_port" "$prometheus_port" "$profile"
-  )" == clean ]] ||
-    die "normalized legacy release is not an exact base-only topology"
-  base_compose "$root" "$normalized_env" config --quiet
-  legacy_compose "$root" "$current_env" config --quiet
-
-  BGMSS_LEGACY_MUTATION_STARTED=true
-  atomic_copy "$normalized_env" "$current_env"
-  compose "$root" up --detach --force-recreate api prometheus
-  wait_ready "$root" "$expected_data"
-  atomic_copy "$normalized_env" "$previous_env"
-  atomic_symlink "$current_frontend" "$root/previous-frontend"
-  rm -f -- "$overlay"
-  BGMSS_LEGACY_MUTATION_STARTED=false
-  cleanup_legacy_transaction
-  trap - EXIT ERR HUP INT TERM
-  log "normalized legacy proxy release to verified base-only application state"
-}
-
-case "$current_state" in
-  absent | clean)
-    [[ ! -e "$root/compose/compose.updater-proxy.yaml" &&
-      ! -L "$root/compose/compose.updater-proxy.yaml" ]] ||
-      die "retired proxy overlay must be absent from a base-only deployment"
-    ;;
-  legacy\|*) normalize_legacy_release "$current_state" ;;
-  *) die "current application state is invalid" ;;
-esac
+check_existing_topology
 
 verify_bundle "$bundle"
 verify_build_metadata "$bundle/build.json"
 revision=$(build_field "$bundle/build.json" sourceRevision)
 [[ "$version" == "$revision" ]] || die "version must equal bundle sourceRevision"
 api_image=$(build_field "$bundle/build.json" apiImage)
-updater_image=$(build_field "$bundle/build.json" updaterImage)
 
 docker load --input "$bundle/api.oci.tar" >/dev/null
-docker load --input "$bundle/updater.oci.tar" >/dev/null
-for image in "$api_image" "$updater_image" "$prometheus_image"; do
-  docker image inspect "$image" >/dev/null
-done
+for image in "$api_image" "$prometheus_image"; do docker image inspect "$image" >/dev/null; done
 [[ "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_image")" == "$revision" ]] ||
   die "loaded API image revision label disagrees with build.json"
-[[ "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$updater_image")" == "$revision" ]] ||
-  die "loaded updater image revision label disagrees with build.json"
 
 release="$root/releases/$version"
 [[ ! -e "$release" && ! -L "$release" ]] || die "release already exists: $release"
@@ -286,41 +82,24 @@ old_frontend=
 old_previous_frontend=
 
 cleanup_candidate_release() {
-  local result=$? link target temporary linked=false
+  local result=$? target linked=false temporary
   trap - EXIT ERR HUP INT TERM
   if [[ "$release_owned" == true && "$candidate_activated" == false &&
     (-e "$release" || -L "$release") ]]; then
-    for link in "$root/current-frontend" "$root/previous-frontend"; do
-      if [[ -L "$link" ]]; then
-        target=$(readlink "$link")
-        if [[ "$target" == "releases/$version/frontend" ]]; then
-          linked=true
-        fi
-      elif [[ -e "$link" ]]; then
-        linked=true
-      fi
+    for target in "$root/current-frontend" "$root/previous-frontend"; do
+      [[ ! -L "$target" || "$(readlink "$target")" != "releases/$version/frontend" ]] || linked=true
     done
     if [[ "$linked" == false && -d "$release" && ! -L "$release" &&
       "$(realpath "$release")" == "$release" &&
       "$(realpath "$root/releases")" == "${release%/*}" ]]; then
-      if ! rm -rf -- "$release"; then
-        log "failed to remove exact inactive candidate release: $release"
-        result=1
-      fi
+      rm -rf -- "$release" || result=1
     else
-      log "preserving candidate release because its identity or active links are ambiguous: $release"
+      log "preserving candidate release because its identity or links are ambiguous: $release"
       result=1
     fi
   fi
   for temporary in "$old_env" "$old_previous_env"; do
-    [[ -n "$temporary" ]] || continue
-    if [[ -f "$temporary" && ! -L "$temporary" &&
-      "${temporary%/*}" == "$root/state" ]]; then
-      rm -f -- "$temporary" || result=1
-    elif [[ -e "$temporary" || -L "$temporary" ]]; then
-      log "preserving invalid transaction temporary: $temporary"
-      result=1
-    fi
+    [[ -z "$temporary" || ! -f "$temporary" || -L "$temporary" ]] || rm -f -- "$temporary" || result=1
   done
   exit "$result"
 }
@@ -336,23 +115,19 @@ safe_extract_tar "$bundle/frontend.tar" "$release/frontend"
 [[ -f "$release/frontend/index.html" && ! -L "$release/frontend/index.html" ]] ||
   die "frontend.tar must contain index.html at its root"
 chmod -R u=rwX,go=rX "$release/frontend"
-cp -- "$bundle/build.json" "$release/build.json"
-chmod 0444 "$release/build.json"
+install -m 0444 "$bundle/build.json" "$release/build.json"
+install -m 0444 "$bundle/compatibility-manifest.json" "$release/compatibility-manifest.json"
 write_release_env \
-  "$release/release.env" "$root" "$project" "$api_image" "$updater_image" \
+  "$release/release.env" "$root" "$project" "$api_image" \
   "$prometheus_image" "$api_port" "$prometheus_port" "$profile"
 
 if [[ -f "$root/state/current.env" && ! -L "$root/state/current.env" ]]; then
   old_env=$(mktemp "$root/state/.previous-env.XXXXXX")
   cp -- "$root/state/current.env" "$old_env"
-elif [[ -e "$root/state/current.env" || -L "$root/state/current.env" ]]; then
-  die "current env has an invalid type"
 fi
 if [[ -f "$root/state/previous.env" && ! -L "$root/state/previous.env" ]]; then
   old_previous_env=$(mktemp "$root/state/.previous-rollback-env.XXXXXX")
   cp -- "$root/state/previous.env" "$old_previous_env"
-elif [[ -e "$root/state/previous.env" || -L "$root/state/previous.env" ]]; then
-  die "previous env has an invalid type"
 fi
 old_frontend=$(read_link_or_empty "$root/current-frontend")
 old_previous_frontend=$(read_link_or_empty "$root/previous-frontend")
@@ -361,17 +136,14 @@ restore_application() {
   local failed=$1
   (( failed != 0 )) || failed=1
   trap - ERR HUP INT TERM
-  log "candidate application did not become ready; restoring previous application state"
   if [[ -n "$old_env" ]]; then
     atomic_copy "$old_env" "$root/state/current.env"
     restore_optional_symlink "$old_frontend" "$root/current-frontend"
-    if ! restart_and_wait "$root" "$(pointer_data_version "$root/data/current.json")"; then
+    restart_and_wait "$root" "$(pointer_data_version "$root/data/current.json")" ||
       die "candidate failed and previous application did not recover"
-    fi
   else
-    if ! compose "$root" down --remove-orphans >/dev/null 2>&1; then
+    compose "$root" down --remove-orphans >/dev/null 2>&1 ||
       die "candidate failed and its Compose project did not stop cleanly"
-    fi
     restore_optional_file "" "$root/state/current.env"
     restore_optional_symlink "$old_frontend" "$root/current-frontend"
   fi
@@ -392,9 +164,8 @@ wait_ready "$root" "$(pointer_data_version "$root/data/current.json")"
 
 if [[ -n "$old_env" ]]; then
   atomic_copy "$old_env" "$root/state/previous.env"
-  [[ -n "$old_frontend" ]] && atomic_symlink "$old_frontend" "$root/previous-frontend"
+  [[ -z "$old_frontend" ]] || atomic_symlink "$old_frontend" "$root/previous-frontend"
 fi
-# Frontend is deliberately the last active-state switch.
 atomic_symlink "releases/$version/frontend" "$root/current-frontend"
 candidate_activated=true
 trap - ERR HUP INT TERM

@@ -33,6 +33,7 @@ const REPOSITORY_ROOT = path.resolve(ARTIFACTS_ROOT, '..', '..');
 const POSITIVE = path.join(ARTIFACTS_ROOT, 'fixtures', 'positive');
 const NEGATIVE = path.join(ARTIFACTS_ROOT, 'fixtures', 'negative');
 const TMP = path.join(ARTIFACTS_ROOT, '.tmp', 'contracts-tests');
+const PRODUCT_COMPONENTS = Object.freeze(['backend', 'frontend']);
 
 function generatedOptions(label) {
   return {
@@ -54,7 +55,7 @@ function resetTmp() {
 function copyFixtures() {
   resetTmp();
   const roots = {};
-  for (const component of ['backend', 'frontend', 'updater']) {
+  for (const component of PRODUCT_COMPONENTS) {
     roots[component] = path.join(TMP, component);
     requireTestPath(roots[component], `${component} fixture copy`);
     fs.cpSync(path.join(POSITIVE, component), roots[component], { recursive: true });
@@ -117,8 +118,8 @@ test('all JSON schemas are strict parseable documents with closed top-level obje
   }
 });
 
-test('three complete positive component directories validate offline', () => {
-  for (const component of ['backend', 'frontend', 'updater']) {
+test('two complete positive component directories validate offline', () => {
+  for (const component of PRODUCT_COMPONENTS) {
     const result = verifyComponentDirectory(path.join(POSITIVE, component), component);
     assert.equal(result.statement.component, component);
     assert.equal(result.statement.schemaVersion, 1);
@@ -126,15 +127,11 @@ test('three complete positive component directories validate offline', () => {
 });
 
 test('canonical assembly is independent of component input order', () => {
-  const roots = ['backend', 'frontend', 'updater'].map((component) =>
+  const roots = PRODUCT_COMPONENTS.map((component) =>
     path.join(POSITIVE, component),
   );
   const canonical = assembleCompatibilityManifest(roots).canonical;
-  const permutations = [
-    [roots[2], roots[0], roots[1]],
-    [roots[1], roots[2], roots[0]],
-    [...roots].reverse(),
-  ];
+  const permutations = [[...roots].reverse(), [...roots]];
   for (const permutation of permutations) {
     assert.equal(assembleCompatibilityManifest(permutation).canonical, canonical);
   }
@@ -174,7 +171,7 @@ test('unsafe paths and component substitution fail closed', () => {
 
   const second = copyFixtures();
   expectFailure(
-    () => verifyComponentDirectory(second.backend, 'updater'),
+    () => verifyComponentDirectory(second.backend, 'frontend'),
     /substituted component/,
   );
 });
@@ -215,7 +212,7 @@ test('checksum inventory rejects unsafe, duplicate, and unsorted entries', () =>
 
 test('mixed source, platform, Archive range, and OpenAPI facts fail assembly', () => {
   let roots = copyFixtures();
-  mutateStatement(roots.updater, (statement) => {
+  mutateStatement(roots.backend, (statement) => {
     statement.source.tree = 'd'.repeat(40);
   });
   expectFailure(
@@ -305,7 +302,7 @@ test('application version and tracked Archive rule authority fail closed', () =>
   }
 
   const accepted = assembleCompatibilityManifest(
-    ['backend', 'frontend', 'updater'].map((component) =>
+    PRODUCT_COMPONENTS.map((component) =>
       path.join(POSITIVE, component),
     ),
   ).manifest;
@@ -347,16 +344,6 @@ test('container components require exact BuildKit and Buildx evidence', () => {
   );
 
   roots = copyFixtures();
-  mutateStatement(roots.updater, (statement) => {
-    statement.toolchain.find((tool) => tool.name === 'docker-buildx').version =
-      '0.34.0';
-  });
-  expectFailure(
-    () => verifyComponentDirectory(roots.updater),
-    /docker-buildx must equal 0\.34\.1/,
-  );
-
-  roots = copyFixtures();
   mutateStatement(roots.backend, (statement) => {
     statement.inputs.find(
       (input) => input.path === 'toolchain/buildkit-image',
@@ -380,7 +367,7 @@ test('container components require exact BuildKit and Buildx evidence', () => {
   );
 });
 
-test('Updater statements require one exact sorted producer-runtime manifest input', () => {
+test('Backend statements require exact sorted producer-runtime inputs', () => {
   const producerPath = 'contracts/producer-runtime-inputs-v1';
   const cases = [
     {
@@ -390,7 +377,7 @@ test('Updater statements require one exact sorted producer-runtime manifest inpu
           (input) => input.path !== producerPath,
         );
       },
-      expected: /exactly one producer-runtime manifest input/u,
+      expected: /exactly one contracts\/producer-runtime-inputs-v1 input/u,
     },
     {
       name: 'duplicate',
@@ -415,7 +402,7 @@ test('Updater statements require one exact sorted producer-runtime manifest inpu
           left.path.localeCompare(right.path, 'en'),
         );
       },
-      expected: /exactly one producer-runtime manifest input/u,
+      expected: /exactly one contracts\/producer-runtime-inputs-v1 input/u,
     },
     {
       name: 'malformed',
@@ -448,9 +435,9 @@ test('Updater statements require one exact sorted producer-runtime manifest inpu
   ];
   for (const negative of cases) {
     const roots = copyFixtures();
-    mutateStatement(roots.updater, negative.mutate);
+    mutateStatement(roots.backend, negative.mutate);
     expectFailure(
-      () => verifyComponentDirectory(roots.updater, 'updater'),
+      () => verifyComponentDirectory(roots.backend, 'backend'),
       negative.expected,
     );
   }
@@ -458,8 +445,8 @@ test('Updater statements require one exact sorted producer-runtime manifest inpu
 
 test('incomplete SPDX runtime closure fails closed', () => {
   const roots = copyFixtures();
-  const statement = readStatement(roots.updater);
-  const sbomPath = path.join(roots.updater, statement.sbom.path);
+  const statement = readStatement(roots.backend);
+  const sbomPath = path.join(roots.backend, statement.sbom.path);
   const sbom = readJsonStrict(sbomPath);
   sbom.packages = sbom.packages.filter(
     (entry) => entry.SPDXID === 'SPDXRef-Package-artifact',
@@ -468,16 +455,16 @@ test('incomplete SPDX runtime closure fails closed', () => {
     (entry) => entry.relationshipType === 'DESCRIBES',
   );
   fs.writeFileSync(sbomPath, canonicalJson(sbom));
-  refreshSbomEvidence(roots.updater, statement);
-  writeStatement(roots.updater, statement);
-  expectFailure(() => verifyComponentDirectory(roots.updater), /runtime dependency/);
+  refreshSbomEvidence(roots.backend, statement);
+  writeStatement(roots.backend, statement);
+  expectFailure(() => verifyComponentDirectory(roots.backend), /runtime dependency/);
 });
 
 test('multi-artifact SPDX must describe every wheel and OCI artifact digest', () => {
   const baseStatement = readJsonStrict(
-    path.join(POSITIVE, 'updater', 'component-statement.json'),
+    path.join(POSITIVE, 'backend', 'component-statement.json'),
   );
-  const baseSbom = readJsonStrict(path.join(POSITIVE, 'updater', baseStatement.sbom.path));
+  const baseSbom = readJsonStrict(path.join(POSITIVE, 'backend', baseStatement.sbom.path));
   const wheelDigest = 'a'.repeat(64);
   const ociDigest = 'b'.repeat(64);
 
@@ -488,12 +475,12 @@ test('multi-artifact SPDX must describe every wheel and OCI artifact digest', ()
     const statement = structuredClone(baseStatement);
     statement.artifacts = [
       {
-        path: 'artifacts/updater-image-linux-arm64.oci.tar',
+        path: 'artifacts/backend-image-linux-arm64.oci.tar',
         size: 2,
         sha256: `sha256:${ociDigest}`,
       },
       {
-        path: 'artifacts/updater-runtime.whl',
+        path: 'artifacts/backend-runtime.tar.gz',
         size: 1,
         sha256: `sha256:${wheelDigest}`,
       },
@@ -515,9 +502,9 @@ test('multi-artifact SPDX must describe every wheel and OCI artifact digest', ()
 
 test('SPDX rejects non-statement described checksums and digest ambiguity', () => {
   const statement = readJsonStrict(
-    path.join(POSITIVE, 'updater', 'component-statement.json'),
+    path.join(POSITIVE, 'backend', 'component-statement.json'),
   );
-  const sbom = readJsonStrict(path.join(POSITIVE, 'updater', statement.sbom.path));
+  const sbom = readJsonStrict(path.join(POSITIVE, 'backend', statement.sbom.path));
   const artifactPackage = sbom.packages.find(
     (entry) => entry.SPDXID === 'SPDXRef-Package-artifact',
   );
@@ -530,7 +517,7 @@ test('SPDX rejects non-statement described checksums and digest ambiguity', () =
   const duplicateStatement = structuredClone(statement);
   duplicateStatement.artifacts.push({
     ...duplicateStatement.artifacts[0],
-    path: 'artifacts/updater-copy.oci.tar',
+    path: 'artifacts/backend-copy.oci.tar',
   });
   duplicateStatement.artifacts.sort((left, right) =>
     left.path.localeCompare(right.path, 'en'),
@@ -541,17 +528,17 @@ test('SPDX rejects non-statement described checksums and digest ambiguity', () =
   expectFailure(
     () =>
       validateSpdxDocument(
-        readJsonStrict(path.join(POSITIVE, 'updater', statement.sbom.path)),
+        readJsonStrict(path.join(POSITIVE, 'backend', statement.sbom.path)),
         duplicateStatement,
       ),
     /share digest .* artifact identity is ambiguous/,
   );
 
   const ownerAmbiguitySbom = readJsonStrict(
-    path.join(POSITIVE, 'updater', statement.sbom.path),
+    path.join(POSITIVE, 'backend', statement.sbom.path),
   );
   const runtimePackage = ownerAmbiguitySbom.packages.find(
-    (entry) => entry.SPDXID === 'SPDXRef-Package-python-runtime',
+    (entry) => entry.SPDXID === 'SPDXRef-Package-go-runtime',
   );
   runtimePackage.checksums = structuredClone(
     ownerAmbiguitySbom.packages.find(

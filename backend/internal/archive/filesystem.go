@@ -18,6 +18,7 @@ const (
 type selectedFiles struct {
 	root        *os.Root
 	versionPath string
+	dataVersion string
 	sqliteInfo  os.FileInfo
 }
 
@@ -138,7 +139,12 @@ func selectVersionFiles(ctx context.Context, root *os.Root, dataVersion string) 
 	if err := rejectSidecars(root, sqlitePath); err != nil {
 		return selectedFiles{}, err
 	}
-	return selectedFiles{root: root, versionPath: versionPath, sqliteInfo: sqliteInfo}, nil
+	return selectedFiles{
+		root:        root,
+		versionPath: versionPath,
+		dataVersion: dataVersion,
+		sqliteInfo:  sqliteInfo,
+	}, nil
 }
 
 func requireDirectory(root *os.Root, name string) error {

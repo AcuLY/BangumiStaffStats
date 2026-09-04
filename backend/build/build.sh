@@ -23,6 +23,9 @@ accepted_application_version_digest='sha256:d0b4f9120ba026c00fa23cb84b4e1620a2e6
 accepted_domain_rules_version='domain-raw-v1'
 accepted_cast_rules_version='cast-exact-v1'
 accepted_compatibility_matrix='sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac'
+accepted_producer_runtime_inputs='sha256:56adbccc4c83432ae02d9bf985ea1b9281d2836e96e389e84dae97bd8cacac52'
+accepted_display_catalog='sha256:4297791381d106c85f2e78c07aeabe7f05146bc766f3c67cdb5308b958e40fe8'
+accepted_staff_sets='sha256:df2ad5c80add8898ebf61a0eced86f608374e528b34b881c3fe741b177be8dae'
 
 target_architecture=''
 output_root="$generated_root/artifacts"
@@ -150,13 +153,29 @@ application_version_digest="$(sha256_file "$snapshot_root/VERSION")"
 compatibility_matrix_digest="$(
   sha256_file "$snapshot_contracts_root/schemas/archive/compatibility-matrix.json"
 )"
+producer_runtime_inputs_digest="$(
+  sha256_file "$snapshot_contracts_root/artifacts/producer-runtime-inputs-v1.json"
+)"
+embedded_schema_sql_digest="$(
+  sha256_file "$snapshot_backend_root/internal/archivebuild/assets/schema.sql"
+)"
+display_catalog_digest="$(
+  sha256_file "$snapshot_backend_root/internal/archivebuild/assets/display-v1.yaml"
+)"
+staff_sets_digest="$(
+  sha256_file "$snapshot_backend_root/internal/archivebuild/assets/staff-sets-v1.yaml"
+)"
 application_version="$accepted_application_version"
 if [[ "$openapi_digest" != "$accepted_openapi" ]] ||
   [[ "$manifest_schema_digest" != "$accepted_manifest_schema" ]] ||
   [[ "$schema_sql_digest" != "$accepted_schema_sql" ]] ||
   [[ "$application_version_digest" != "$accepted_application_version_digest" ]] ||
-  [[ "$compatibility_matrix_digest" != "$accepted_compatibility_matrix" ]]; then
-  echo 'accepted OpenAPI/Archive contract inputs have drifted' >&2
+  [[ "$compatibility_matrix_digest" != "$accepted_compatibility_matrix" ]] ||
+  [[ "$producer_runtime_inputs_digest" != "$accepted_producer_runtime_inputs" ]] ||
+  [[ "$embedded_schema_sql_digest" != "$schema_sql_digest" ]] ||
+  [[ "$display_catalog_digest" != "$accepted_display_catalog" ]] ||
+  [[ "$staff_sets_digest" != "$accepted_staff_sets" ]]; then
+  echo 'accepted OpenAPI/Archive/producer inputs have drifted' >&2
   exit 1
 fi
 
@@ -236,6 +255,9 @@ declared_inputs=(
   'backend/build/toolchain-policy.sh'
   'backend/go.mod'
   'backend/go.sum'
+  'backend/internal/archivebuild/assets/display-v1.yaml'
+  'backend/internal/archivebuild/assets/schema.sql'
+  'backend/internal/archivebuild/assets/staff-sets-v1.yaml'
   'VERSION'
   'contracts/openapi/openapi.yaml'
   'contracts/schemas/archive/archive-manifest.schema.json'
@@ -247,6 +269,7 @@ for relative_path in "${declared_inputs[@]}"; do
   input_arguments+=(--input "$relative_path=$(sha256_file "$snapshot_root/$relative_path")")
 done
 input_arguments+=(
+  --input "contracts/producer-runtime-inputs-v1=$producer_runtime_inputs_digest"
   --input "toolchain/buildkit-image=$artifact_buildkit_image_digest"
 )
 

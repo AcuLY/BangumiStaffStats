@@ -29,8 +29,8 @@ var errReadinessProbe = errors.New("app: Archive readiness probe failed")
 
 // RunOptions contains explicit optional process inputs.
 type RunOptions struct {
-	UpdateStatusPath string
-	ImageHTTPSProxy  *string
+	ImageHTTPSProxy *string
+	ArchiveUpdater  ArchiveUpdateRunner
 }
 
 // Run listens on address and serves until ctx is cancelled or serving fails.
@@ -85,18 +85,12 @@ func RunListenerWithOptions(
 	if err != nil {
 		return fmt.Errorf("create runtime observability: %w", err)
 	}
-	if options.UpdateStatusPath != "" {
-		if err := runtimeObservability.SetUpdateStatusPath(
-			options.UpdateStatusPath,
-		); err != nil {
-			return fmt.Errorf("configure update status: %w", err)
-		}
-	}
 	collectionSource := publiccollection.New()
 	return runListener(ctx, listener, archiveRoot, runDependencies{
 		archive:     new(archive.State),
 		collections: collectionSource,
 		runtime:     runtimeObservability,
+		updater:     options.ArchiveUpdater,
 		server: func(handler http.Handler) servingRuntime {
 			return httpapi.NewServer(handler)
 		},
@@ -104,7 +98,7 @@ func RunListenerWithOptions(
 }
 
 type archiveRuntime interface {
-	LoadCurrent(context.Context, string) error
+	OpenCurrent(context.Context, string) error
 	Current() (*archive.Store, bool)
 	Close() error
 }
@@ -126,6 +120,7 @@ type runDependencies struct {
 	archive     archiveRuntime
 	collections collectionProvider
 	runtime     *httpapi.RuntimeObservability
+	updater     ArchiveUpdateRunner
 	server      func(http.Handler) servingRuntime
 }
 
@@ -145,7 +140,7 @@ func runListener(
 		return fmt.Errorf("run listener: incomplete dependencies")
 	}
 
-	loadErr := dependencies.archive.LoadCurrent(ctx, archiveRoot)
+	loadErr := dependencies.archive.OpenCurrent(ctx, archiveRoot)
 	if loadErr != nil {
 		eventErr := dependencies.runtime.EmitArchiveLoadFailed(archiveEventCode(loadErr))
 		if eventErr != nil {
@@ -163,7 +158,12 @@ func runListener(
 			)
 		}
 		_ = dependencies.runtime.SetReadiness(false, "")
-		return serveRuntime(ctx, listener, dependencies, nil)
+		return serveRuntime(
+			ctx,
+			listener,
+			dependencies,
+			readinessProbe(dependencies.archive),
+		)
 	}
 
 	store, ready := dependencies.archive.Current()
@@ -177,7 +177,12 @@ func runListener(
 			)
 		}
 		_ = dependencies.runtime.SetReadiness(false, "")
-		return serveRuntime(ctx, listener, dependencies, nil)
+		return serveRuntime(
+			ctx,
+			listener,
+			dependencies,
+			readinessProbe(dependencies.archive),
+		)
 	}
 
 	probe := readinessProbe(dependencies.archive)
@@ -202,7 +207,7 @@ func runListener(
 			)
 		}
 		_ = dependencies.runtime.SetReadiness(false, "")
-		return serveRuntime(ctx, listener, dependencies, nil)
+		return serveRuntime(ctx, listener, dependencies, probe)
 	}
 	go func() {
 		_, _ = statistics.LoadSeriesIndex(ctx, store)
@@ -246,6 +251,8 @@ func serveRuntime(
 		services.partners,
 		services.coStar,
 	)
+	gate := new(maintenanceGate)
+	handler = gate.Wrap(handler)
 	server := dependencies.server(handler)
 	if server == nil {
 		dependencies.runtime.SetLive(false)
@@ -257,7 +264,54 @@ func serveRuntime(
 		)
 	}
 	dependencies.runtime.SetLive(true)
+	schedulerContext, stopScheduler := context.WithCancel(ctx)
+	schedulerDone := make(chan struct{})
+	if dependencies.updater != nil {
+		state, ok := dependencies.archive.(replaceableArchive)
+		if !ok {
+			stopScheduler()
+			close(schedulerDone)
+			dependencies.runtime.SetLive(false)
+			_ = dependencies.runtime.SetReadiness(false, "")
+			closeErr := dependencies.archive.Close()
+			return errors.Join(
+				errors.New("serve api: archive runtime cannot replace Store"),
+				wrapError("close archive", closeErr),
+			)
+		}
+		scheduler := &archiveScheduler{
+			runner:  dependencies.updater,
+			runtime: dependencies.runtime,
+		}
+		idle := func() bool {
+			stats := services.runtime.Stats().Executor
+			return stats.Running == 0 && stats.Queued == 0
+		}
+		go func() {
+			defer close(schedulerDone)
+			scheduler.Run(
+				schedulerContext,
+				func(
+					activationContext context.Context,
+					request ArchiveActivation,
+				) error {
+					return activateCandidate(
+						activationContext,
+						gate,
+						state,
+						idle,
+						dependencies.runtime,
+						request,
+					)
+				},
+			)
+		}()
+	} else {
+		close(schedulerDone)
+	}
 	serveErr := server.Serve(ctx, listener)
+	stopScheduler()
+	<-schedulerDone
 	dependencies.runtime.SetLive(false)
 	_ = dependencies.runtime.SetReadiness(false, "")
 	closeErr := dependencies.archive.Close()
@@ -467,33 +521,40 @@ func readinessProbe(state archiveRuntime) httpapi.ReadinessProbe {
 		if !ready || store == nil {
 			return "", errReadinessProbe
 		}
-		identity := store.Identity()
-		rows, err := store.QueryContext(ctx, readinessQuery)
-		if err != nil {
-			return "", errReadinessProbe
-		}
-		defer rows.Close()
-		if !rows.Next() {
-			return "", errReadinessProbe
-		}
-		var dataVersion string
-		if err := rows.Scan(&dataVersion); err != nil {
-			return "", errReadinessProbe
-		}
-		if rows.Next() {
-			return "", errReadinessProbe
-		}
-		if err := rows.Err(); err != nil {
-			return "", errReadinessProbe
-		}
-		if dataVersion != identity.DataVersion {
-			return "", errReadinessProbe
-		}
-		if err := rows.Close(); err != nil {
-			return "", errReadinessProbe
-		}
-		return dataVersion, nil
+		return probeArchiveStore(ctx, store)
 	}
+}
+
+func probeArchiveStore(ctx context.Context, store *archive.Store) (string, error) {
+	if store == nil {
+		return "", errReadinessProbe
+	}
+	identity := store.Identity()
+	rows, err := store.QueryContext(ctx, readinessQuery)
+	if err != nil {
+		return "", errReadinessProbe
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return "", errReadinessProbe
+	}
+	var dataVersion string
+	if err := rows.Scan(&dataVersion); err != nil {
+		return "", errReadinessProbe
+	}
+	if rows.Next() {
+		return "", errReadinessProbe
+	}
+	if err := rows.Err(); err != nil {
+		return "", errReadinessProbe
+	}
+	if dataVersion != identity.DataVersion {
+		return "", errReadinessProbe
+	}
+	if err := rows.Close(); err != nil {
+		return "", errReadinessProbe
+	}
+	return dataVersion, nil
 }
 
 func archiveEventCode(err error) string {

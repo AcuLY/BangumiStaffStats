@@ -93,7 +93,8 @@ httpapi.Server
 
 ### 3.1 producer / consumer 边界
 
-Python updater 是 one-shot producer，Go API 是只读 consumer。跨语言只共享以下版本化制品：
+Go API 进程内的后台 builder 是 producer，同一进程的 Store 是只读
+consumer；构建不进入 HTTP 请求处理。组件只共享以下版本化制品：
 
 - `schema.sql`；
 - manifest schema；
@@ -102,7 +103,9 @@ Python updater 是 one-shot producer，Go API 是只读 consumer。跨语言只�
 - 最小 Archive fixture；
 - 共享 JSON 金标。
 
-Python 不调用 systemd、Docker API 或服务重启；Go 不修改快照。调度和激活属于运维侧。
+Go 使用一个后台 `time.Timer` 调度构建；候选在 staging 完成后通过短维护
+窗口原子替换 Store，不调用 systemd、Docker API 或进程重启。查询路径不
+修改当前快照。
 
 条目与关系事实只从 GitHub `bangumi/Archive` 的正式 dump release asset 构建。producer 解析一个确定 release、记录 asset URL/release/digest，并在内容无变化时返回稳定 no-change；不得把实时 Bangumi API、旧 MySQL 或前端 fixture 混入全站数据制品。
 
@@ -189,10 +192,10 @@ dataVersion 必须覆盖 Archive、common、schema、domain/cast 规则和 canon
 - Archive 以流式方式处理，不把全部大型文件同时物化进内存。
 - 每次构建全新 SQLite；不能按旧库行数决定跳过表，也不能只 upsert 而保留上游删除。
 - source accounting 明确区分 imported、duplicate、invalid、unresolved。
-- 建完索引后由 producer 执行 SQLite integrity、外键、schema/object、领域质量、表计数和只读重开；Backend 不作为二次校验器。
+- 建完索引后由 Go producer 一次性执行 SQLite integrity、外键、schema/object、领域质量、表计数和最小只读打开；不再运行独立 consumer smoke 或重复整库 admission。
 - 任一失败返回非零状态，不能发布部分 catalog 或部分数据库。
-- updater 输出稳定 JSON 事件和 `update-status.json` 所需状态；具体生产目录和激活由运维稿定义。
-- 实现优先使用 Python 标准库与轻量 HTTP/YAML 依赖，不引入 pandas、SQLAlchemy 或常驻任务框架。
+- Go builder 通过进程内有界状态、事件和 metrics 记录 freshness/build/activation/cleanup；不写跨进程 status 文件。
+- 实现优先使用 Go 标准库、现有 SQLite 驱动和已锁定 YAML parser，不引入 ORM 或任务框架。
 
 ### 3.5 Go consumer 直接打开
 
@@ -204,7 +207,7 @@ API 每次启动只选择一个不可变 snapshot，并在打开和固定 readin
 4. 从 `archive_meta` 读取唯一非空 dataVersion 作为 store identity；
 5. 原子发布只读 store，并由一秒固定 query probe 决定 readiness。
 
-Backend 不读取或校验 `manifest.json`，不计算 SQLite digest，不执行 compatibility、integrity、foreign-key、schema/object、table-count、sentinel 或 catalog/domain admission，也不提供开关、后台任务或替代命令恢复这些路径。上述验证仅由 producer 在 inactive version 原子发布前完成。直接打开任一必要步骤失败时关闭新句柄、输出稳定 app error code 并保持 not ready；API 不修改 snapshot、不自动改写 current，也不静默退回另一个版本。生产回滚由运维激活事务负责。
+Backend 不读取或校验 `manifest.json`，不计算 SQLite digest，不执行 compatibility、integrity、foreign-key、schema/object、table-count、sentinel 或 catalog/domain admission，也不提供开关、后台任务或替代命令恢复这些路径。上述验证仅由 Go producer 在 inactive version 原子发布前完成。初始直接打开任一必要步骤失败时关闭新句柄、输出稳定 app error code 并保持 not ready，且不静默回退到另一个版本；后台 builder 只在新候选已完成且可读时，通过短维护窗口替换 Store 和 `current.json`。
 
 ## 4. 职位 catalog
 
@@ -1129,21 +1132,18 @@ label 只用固定枚举；UID、requestId、raw path、实体 ID、标签、dig
 
 Prometheus 不可用不得影响 API。生产抓取、保留和告警属于运维稿。
 
-### 13.3 one-shot updater 事件
+### 13.3 内置 Archive 更新事件
 
-Python updater 只输出以下稳定 JSON 事件：
+Go 后端只输出以下稳定 JSON 事件：
 
 ```text
-updater_started
-phase_completed
+archive_update_started
 update_no_change
-update_published
+update_activated
 update_failed
 ```
 
-事件白名单字段为 run_id、source release/digest、phase、duration_seconds、输入/输出行数、质量摘要、dataVersion 和稳定 error_code；不记录原始异常、上游 body 或本地 secret。失败和质量门不通过必须非零退出。
-
-updater 原子写入供 Go exporter 读取的 `update-status.json`，只保存最后一次尝试和最后一次成功的时间、状态、阶段、duration_seconds、dataVersion 和 error_code，不保存历史。snapshot 发布完成不等于生产激活；`update_activated` 只由运维 wrapper 在 current 切换和 readiness 成功后记录，不能由 producer 提前声称。
+事件只使用低基数状态/阶段；不记录 raw path、URL、digest、dataVersion、上游 body 或本地 secret。进程内 tracker 只保存 running、当前 phase、最后尝试和最后成功，不保存历史或 status 文件。
 
 ## 14. 开发质量门
 
@@ -1237,6 +1237,6 @@ updater 原子写入供 Go exporter 读取的 `update-status.json`，只保存�
 
 - [ ] 完成完整 Archive 基准和相同 release 新旧差分。
 - [ ] 完成 OpenAPI/生成物/跨语言/容器 CI 门。
-- [ ] 向运维侧交付 immutable API/updater/front artifacts 和 compatibility manifest。
+- [ ] 向运维侧交付包含 Go builder 的 immutable API、front artifacts 和两组件 compatibility manifest。
 
 退出条件：运维实施稿所需制品、health、metrics、status、回滚兼容信息齐全；实现没有旧协议兼容分支。

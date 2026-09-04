@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -28,8 +29,7 @@ func TestOpenVersionDirectlyWithoutManifest(t *testing.T) {
 	if storedVersion != dataVersion {
 		t.Fatalf("stored dataVersion = %q, want %q", storedVersion, dataVersion)
 	}
-	if _, err := store.QueryContext(context.Background(), "DELETE FROM archive_meta");
-		!errors.Is(err, ErrUnsafeQuery) {
+	if _, err := store.QueryContext(context.Background(), "DELETE FROM archive_meta"); !errors.Is(err, ErrUnsafeQuery) {
 		t.Fatalf("write error = %v, want ErrUnsafeQuery", err)
 	}
 }
@@ -67,6 +67,22 @@ func TestDirectOpenRejectsUnsafeSelectionAndSidecar(t *testing.T) {
 	}
 	_, err := OpenVersion(context.Background(), root, dataVersion)
 	requireCode(t, err, CodeArchiveImmutableLayoutInvalid)
+}
+
+func TestOpenVersionRejectsEmbeddedIdentityMismatch(t *testing.T) {
+	root, dataVersion := arrangeValidCandidate(t, false)
+	otherVersion := dataVersion[:len(dataVersion)-1] + "0"
+	if otherVersion == dataVersion {
+		otherVersion = dataVersion[:len(dataVersion)-1] + "1"
+	}
+	if err := os.Rename(
+		filepath.Join(root, versionsDirectory, dataVersion),
+		filepath.Join(root, versionsDirectory, otherVersion),
+	); err != nil {
+		t.Fatal(err)
+	}
+	_, err := OpenVersion(context.Background(), root, otherVersion)
+	requireCode(t, err, CodeArchiveFileInvalid)
 }
 
 func TestDirectOpenRejectsMalformedPointer(t *testing.T) {
@@ -114,6 +130,41 @@ func TestPublicationIsSingleAssignment(t *testing.T) {
 	}
 	if success != 1 || rejected != 1 {
 		t.Fatalf("success=%d rejected=%d", success, rejected)
+	}
+	if err := state.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestStateReplaceAndRestoreOwnership(t *testing.T) {
+	root, dataVersion := arrangeValidCandidate(t, false)
+	first, err := OpenVersion(context.Background(), root, dataVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := OpenVersion(context.Background(), root, dataVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := new(State)
+	if err := state.publish(first); err != nil {
+		t.Fatal(err)
+	}
+	previous, err := state.Replace(context.Background(), second)
+	if err != nil || previous != first {
+		t.Fatalf("Replace previous = %p, err = %v", previous, err)
+	}
+	if err := first.db.Ping(); err != nil {
+		t.Fatalf("Replace closed old Store: %v", err)
+	}
+	if err := state.Restore(context.Background(), second, first); err != nil {
+		t.Fatal(err)
+	}
+	if current, ready := state.Current(); !ready || current != first {
+		t.Fatalf("restored current = %p, ready = %v", current, ready)
+	}
+	if err := second.Close(); err != nil {
+		t.Fatal(err)
 	}
 	if err := state.Close(); err != nil {
 		t.Fatal(err)

@@ -7,19 +7,21 @@ import (
 )
 
 func TestRunOptionsPreservesDedicatedProxyPresence(t *testing.T) {
-	absent := runOptions("/status.json", "", false)
-	if absent.UpdateStatusPath != "/status.json" ||
-		absent.ImageHTTPSProxy != nil {
+	absent := runOptions("/archive", "", false)
+	if absent.ImageHTTPSProxy != nil {
 		t.Fatalf("absent run options = %#v", absent)
 	}
+	if absent.ArchiveUpdater == nil {
+		t.Fatal("embedded Archive updater is nil")
+	}
 
-	presentEmpty := runOptions("", "", true)
+	presentEmpty := runOptions("/archive", "", true)
 	if presentEmpty.ImageHTTPSProxy == nil ||
 		*presentEmpty.ImageHTTPSProxy != "" {
 		t.Fatalf("present-empty run options = %#v", presentEmpty)
 	}
 
-	present := runOptions("", "http://proxy.internal:7897", true)
+	present := runOptions("/archive", "http://proxy.internal:7897", true)
 	if present.ImageHTTPSProxy == nil ||
 		*present.ImageHTTPSProxy != "http://proxy.internal:7897" {
 		t.Fatalf("present run options = %#v", present)
@@ -33,7 +35,6 @@ func TestParseCommandOptionsAcceptsBoundedListeners(t *testing.T) {
 		name       string
 		arguments  []string
 		wantListen string
-		wantStatus string
 	}{
 		{
 			name:       "default loopback",
@@ -69,10 +70,8 @@ func TestParseCommandOptionsAcceptsBoundedListeners(t *testing.T) {
 			arguments: []string{
 				"-archive-root", "/archive",
 				"-listen-address", "[::]:65535",
-				"-update-status", "/status/update-status.json",
 			},
 			wantListen: "[::]:65535",
-			wantStatus: "/status/update-status.json",
 		},
 	}
 
@@ -90,13 +89,6 @@ func TestParseCommandOptionsAcceptsBoundedListeners(t *testing.T) {
 			}
 			if options.listenAddress != test.wantListen {
 				t.Fatalf("listenAddress = %q, want %q", options.listenAddress, test.wantListen)
-			}
-			if options.updateStatusPath != test.wantStatus {
-				t.Fatalf(
-					"updateStatusPath = %q, want %q",
-					options.updateStatusPath,
-					test.wantStatus,
-				)
 			}
 		})
 	}
@@ -214,11 +206,10 @@ func TestParseCommandOptionsRejectsUnsafeOrAmbiguousArguments(t *testing.T) {
 			},
 		},
 		{
-			name: "duplicate update status",
+			name: "retired update status flag",
 			arguments: []string{
 				"-archive-root", "/archive",
-				"-update-status", "/status/one.json",
-				"--update-status=/status/two.json",
+				"-update-status", "/status/update-status.json",
 			},
 		},
 		{

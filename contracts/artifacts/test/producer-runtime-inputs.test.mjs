@@ -22,10 +22,6 @@ import {
   verifyProducerRuntimeInputs,
 } from '../lib/runtime-inputs.mjs';
 import {
-  APPLICATION_VERSION,
-  ARCHIVE_CAST_RULES_VERSION,
-  ARCHIVE_COMPATIBILITY_MATRIX_DIGEST,
-  ARCHIVE_DOMAIN_RULES_VERSION,
   PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
   sha256Bytes,
 } from '../lib/validation.mjs';
@@ -277,15 +273,20 @@ test('tracked authority manifest is canonical and bound to the accepted digest',
       'utf8',
     ),
   );
-  const updaterRule = statementSchema.allOf.find(
-    (entry) => entry.if?.properties?.component?.const === 'updater',
+  const backendRule = statementSchema.allOf.find(
+    (entry) => entry.if?.properties?.component?.const === 'backend',
+  );
+  const producerBinding = backendRule.then.properties.inputs.allOf.find(
+    (entry) =>
+      entry.contains?.properties?.path?.const ===
+      'contracts/producer-runtime-inputs-v1',
   );
   assert.equal(
-    updaterRule.then.properties.inputs.contains.properties.path.const,
+    producerBinding.contains.properties.path.const,
     'contracts/producer-runtime-inputs-v1',
   );
   assert.equal(
-    updaterRule.then.properties.inputs.contains.properties.sha256.const,
+    producerBinding.contains.properties.sha256.const,
     PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
   );
 });
@@ -551,130 +552,4 @@ test('missing, untracked, symlink, hard-link, special-file, and mode drift fail 
     () => validateProducerRuntimeInputs(fixture.root, fixture.manifest),
     /Git mode must be 100644/u,
   );
-});
-
-test('Updater statement emitter binds the exact logical manifest input', () => {
-  const helper = path.join(ARTIFACTS_ROOT, 'statement.py');
-  const updaterPython = path.join(
-    REPOSITORY_ROOT,
-    'updater',
-    '.venv',
-    'bin',
-    'python',
-  );
-  const python =
-    process.env.BGMSS_TEST_PYTHON ??
-    (fs.existsSync(updaterPython) ? updaterPython : '/usr/bin/python3');
-  const program = String.raw`
-import importlib.util
-import json
-import pathlib
-import sys
-
-helper = pathlib.Path(sys.argv[1])
-contracts_root = pathlib.Path(sys.argv[2])
-specification = importlib.util.spec_from_file_location("statement_under_test", helper)
-module = importlib.util.module_from_spec(specification)
-specification.loader.exec_module(module)
-metadata = json.loads(sys.stdin.read())
-statement = module.emit_component_statement(
-    artifacts=[{"path": "artifacts/updater.bin", "size": 1, "sha256": "a" * 64}],
-    checksum_path="SHA256SUMS",
-    checksum_sha256="b" * 64,
-    checksum_size=1,
-    contracts_root=contracts_root,
-    metadata=metadata,
-    sbom_path="sbom.spdx.json",
-    sbom_sha256="c" * 64,
-    sbom_size=1,
-    source_revision="d" * 40,
-    source_tree="e" * 40,
-    target_architecture="arm64",
-    target_os="linux",
-)
-sys.stdout.write(json.dumps(statement, separators=(",", ":"), sort_keys=True) + "\n")
-`;
-  const metadata = {
-    artifacts: {
-      bundle: {
-        sha256: `sha256:${'a'.repeat(64)}`,
-      },
-    },
-    buildDefinitionSha256: 'b'.repeat(64),
-    component: 'updater',
-    inputs: {
-      producerRuntimeInputsManifestSha256:
-        PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
-      sourceSnapshotSha256: 'c'.repeat(64),
-      uvLockSha256: 'd'.repeat(64),
-    },
-    runtimePackages: [
-      { name: 'bangumi-staff-stats-updater', version: '0.1.0' },
-      { name: 'jsonschema', version: '4.26.0' },
-    ],
-    sbomPackageCount: 2,
-    toolchain: {
-      buildkit: '0.27.1',
-      buildkitImage:
-        'docker.io/moby/buildkit:v0.27.1@sha256:' + '1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368',
-      dockerBuildx: '0.34.1',
-      python: '3.14.6',
-      pythonBaseImage: `python:3.14.6@sha256:${'e'.repeat(64)}`,
-      uv: '0.11.32',
-      uvBaseImage: `ghcr.io/astral-sh/uv:0.11.32@sha256:${'f'.repeat(64)}`,
-    },
-  };
-  const run = (value) =>
-    spawnSync(
-      python,
-      [
-        '-I',
-        '-B',
-        '-S',
-        '-c',
-        program,
-        helper,
-        path.join(REPOSITORY_ROOT, 'contracts'),
-      ],
-      {
-        encoding: 'utf8',
-        input: JSON.stringify(value),
-      },
-    );
-
-  const accepted = run(metadata);
-  assert.equal(accepted.status, 0, accepted.stderr);
-  const statement = JSON.parse(accepted.stdout);
-  assert.deepEqual(statement.inputs[0], {
-    path: 'contracts/producer-runtime-inputs-v1',
-    sha256: PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
-  });
-  assert.equal(statement.applicationVersion, APPLICATION_VERSION);
-  assert.equal(
-    statement.compatibility.archive.domainRulesVersion,
-    ARCHIVE_DOMAIN_RULES_VERSION,
-  );
-  assert.equal(
-    statement.compatibility.archive.castRulesVersion,
-    ARCHIVE_CAST_RULES_VERSION,
-  );
-  assert.equal(
-    statement.compatibility.archive.compatibilityMatrixDigest,
-    ARCHIVE_COMPATIBILITY_MATRIX_DIGEST,
-  );
-
-  const missing = structuredClone(metadata);
-  delete missing.inputs.producerRuntimeInputsManifestSha256;
-  const missingResult = run(missing);
-  assert.notEqual(missingResult.status, 0);
-  assert.match(
-    missingResult.stderr,
-    /producerRuntimeInputsManifestSha256 must be a lowercase SHA-256 digest/u,
-  );
-
-  const drifted = structuredClone(metadata);
-  drifted.inputs.producerRuntimeInputsManifestSha256 = '0'.repeat(64);
-  const driftedResult = run(drifted);
-  assert.notEqual(driftedResult.status, 0);
-  assert.match(driftedResult.stderr, /Contracts input drift/u);
 });

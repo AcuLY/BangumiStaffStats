@@ -197,7 +197,8 @@ cp "$fixture_source/current-pointer.json" "$archive_root/current.json"
 cp "$fixture_source/archive-manifest.json" "$version_root/manifest.json"
 cp "$fixture_source/bangumi.sqlite" "$version_root/bangumi.sqlite"
 chmod 0444 "$archive_root/current.json" "$version_root/manifest.json" "$version_root/bangumi.sqlite"
-chmod 0555 "$archive_root" "$archive_root/versions" "$version_root"
+chmod 0777 "$archive_root" "$archive_root/versions"
+chmod 0555 "$version_root"
 archive_before="$work_root/archive.before"
 snapshot_directory "$archive_root" >"$archive_before"
 
@@ -294,7 +295,7 @@ if ! api_container_id="$(
     --tmpfs /tmp:rw,noexec,nosuid,nodev,size=16m \
     --cap-drop ALL \
     --security-opt no-new-privileges \
-    --mount "type=bind,src=$archive_root,dst=/archive,readonly" \
+    --mount "type=bind,src=$archive_root,dst=/archive" \
     "$image_id" \
     -listen-address 0.0.0.0:8080 \
     -archive-root /archive

@@ -92,7 +92,10 @@ func openStore(ctx context.Context, files selectedFiles, hooks loadHooks) (*Stor
 	}
 
 	dataVersion, err := readSnapshotDataVersion(ctx, connections[0])
-	if err != nil {
+	if err != nil || dataVersion != files.dataVersion {
+		if err == nil {
+			err = outcome(CodeArchiveFileInvalid)
+		}
 		return nil, err
 	}
 	store.identity = Identity{DataVersion: dataVersion}
