@@ -164,7 +164,7 @@ defineExpose({ focus: () => select.value?.focus() });
       aria-busy="true"
       aria-live="polite"
     >
-      <n-skeleton text :repeat="2" />
+      <n-skeleton class="app-skeleton" text :repeat="2" />
       <span class="sr-only">正在加载职位目录</span>
     </div>
     <div

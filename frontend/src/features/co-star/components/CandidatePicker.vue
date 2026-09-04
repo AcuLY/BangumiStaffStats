@@ -408,6 +408,7 @@ onBeforeUnmount(clearSearchTimer);
           <n-skeleton
             v-for="index in view.pageSize"
             :key="index"
+            class="app-skeleton"
             height="60px"
             :sharp="false"
             aria-hidden="true"
@@ -517,7 +518,12 @@ onBeforeUnmount(clearSearchTimer);
         </div>
 
         <footer class="candidate-footer">
-          <div v-if="rowsPending" class="candidate-pagination-skeleton" />
+          <n-skeleton
+            v-if="rowsPending"
+            class="app-skeleton candidate-pagination-skeleton"
+            :sharp="false"
+            aria-hidden="true"
+          />
           <adaptive-pagination
             v-else-if="payload"
             :page="payload.pagination.page"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NSkeleton } from 'naive-ui';
 import { computed, nextTick } from 'vue';
 
 import AppIcon from '../../../shared/components/AppIcon.vue';
@@ -131,18 +132,31 @@ async function focusPreference(
     >
       <span class="sr-only">正在加载人物详情</span>
       <div class="person-profile-skeleton" aria-hidden="true">
-        <i />
-        <span>
-          <b />
-          <b />
-          <b />
-        </span>
+        <n-skeleton
+          class="app-skeleton person-profile-skeleton__portrait"
+          :sharp="false"
+        />
+        <div class="person-profile-skeleton__copy">
+          <n-skeleton class="app-skeleton" :sharp="false" />
+          <n-skeleton class="app-skeleton" :sharp="false" />
+          <n-skeleton class="app-skeleton" :sharp="false" />
+        </div>
       </div>
       <div class="person-metrics-skeleton" aria-hidden="true">
-        <i v-for="index in 4" :key="index" />
+        <n-skeleton
+          v-for="index in 4"
+          :key="index"
+          class="app-skeleton"
+          :sharp="false"
+        />
       </div>
       <div class="person-section-skeleton" aria-hidden="true">
-        <i v-for="index in 5" :key="index" />
+        <n-skeleton
+          v-for="index in 5"
+          :key="index"
+          class="app-skeleton"
+          :sharp="false"
+        />
       </div>
     </div>
 

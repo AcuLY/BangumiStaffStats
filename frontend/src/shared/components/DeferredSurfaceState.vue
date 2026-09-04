@@ -45,7 +45,7 @@ const emit = defineEmits<{
       {{ retryLabel }}
     </button>
     <div v-else class="query-result-skeleton" aria-hidden="true">
-      <n-skeleton text :repeat="4" />
+      <n-skeleton class="app-skeleton" text :repeat="4" />
     </div>
   </section>
 </template>

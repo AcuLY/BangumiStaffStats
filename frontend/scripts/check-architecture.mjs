@@ -170,6 +170,7 @@ const expectedInventory = [
   'tests/shared/SafeImage.test.ts',
   'tests/shared/base-path.test.ts',
   'tests/shared/scrollbar-system.test.ts',
+  'tests/shared/skeleton-system.test.ts',
   'tsconfig.app.json',
   'tsconfig.json',
   'tsconfig.node.json',

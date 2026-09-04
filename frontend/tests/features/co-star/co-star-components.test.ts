@@ -392,7 +392,7 @@ describe('co-star local request boundaries', () => {
       requestId: null,
     });
     expect(
-      pending.wrapper.findAll('.co-star-participant-skeletons > span'),
+      pending.wrapper.findAll('.co-star-participant-skeletons > .n-skeleton'),
     ).toHaveLength(2);
     expect(pending.wrapper.get('article').attributes('aria-busy')).toBe(
       'true',
@@ -820,7 +820,7 @@ describe('co-star oracle layout contracts', () => {
       /\.app-header__mobile-context \.co-star-mobile-entry__selection b,[\s\S]*?white-space:\s*normal;[\s\S]*?overflow-wrap:\s*anywhere;/,
     );
     expect(baseCss).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.safe-image img,[\s\S]*?transition-duration:\s*0s;[\s\S]*?\.state-icon--loading,[\s\S]*?\.safe-image__fallback--loading,[\s\S]*?animation:\s*none;/,
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.safe-image img,[\s\S]*?transition-duration:\s*0s;[\s\S]*?\.state-icon--loading,[\s\S]*?\.app-skeleton\.app-skeleton[\s\S]*?animation:\s*none;/,
     );
   });
 });
@@ -885,7 +885,7 @@ describe('personal preference navigation', () => {
 });
 
 describe('co-star motion policy', () => {
-  it('keeps feature decoration animations behind no-preference without blanket overrides', () => {
+  it('uses centralized Skeleton motion without blanket overrides', () => {
     const analysisCss = fs.readFileSync(
       path.join(
         repositoryRoot,
@@ -900,14 +900,19 @@ describe('co-star motion policy', () => {
       ),
       'utf8',
     );
+    const baseCss = fs.readFileSync(
+      path.join(repositoryRoot, 'frontend/src/shared/styles/base.css'),
+      'utf8',
+    );
 
     for (const css of [analysisCss, partnersCss]) {
-      expect(css).toContain(
-        '@media (prefers-reduced-motion: no-preference)',
-      );
+      expect(css).not.toContain('ranking-shimmer');
       expect(css).not.toContain('animation-duration: 0.01ms !important');
       expect(css).not.toMatch(/\.(?:co-star|partners)-surface \*,/);
     }
+    expect(baseCss).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.app-skeleton\.app-skeleton\s*\{\s*animation:\s*none;/,
+    );
     expect(partnersCss).toContain(
       '.partners-surface .single-cooperation__leader',
     );

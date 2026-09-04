@@ -280,21 +280,7 @@
   white-space: nowrap;
 }
 
-.partners-summary-skeleton > span,
-.partners-row-skeletons > span,
-.partners-inline-skeleton {
-  background:
-    linear-gradient(
-      105deg,
-      transparent 35%,
-      color-mix(in oklab, var(--surface-raised) 72%, transparent) 50%,
-      transparent 65%
-    )
-    var(--surface-sunken);
-  background-size: 220% 100%;
-}
-
-.partners-summary-skeleton > span {
+.partners-summary-skeleton > .app-skeleton {
   min-width: 0;
 }
 
@@ -302,7 +288,6 @@
   display: inline-block;
   width: 42px;
   height: 16px;
-  border-radius: 4px;
 }
 
 .partners-surface .single-cooperation__workspace {
@@ -436,10 +421,9 @@
   min-width: 0;
 }
 
-.partners-row-skeletons > span {
+.partners-row-skeletons > .app-skeleton {
   display: block;
   height: 64px;
-  border-radius: var(--radius-control);
 }
 
 .partners-state {
@@ -608,7 +592,7 @@
     padding-top: 0;
   }
 
-  .partners-row-skeletons > span {
+  .partners-row-skeletons > .app-skeleton {
     height: 76px;
   }
 
@@ -625,14 +609,6 @@
 
   .partners-surface .single-cooperation__leader-person {
     gap: var(--space-1);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .partners-summary-skeleton > span,
-  .partners-row-skeletons > span,
-  .partners-inline-skeleton {
-    animation: ranking-shimmer 1.4s linear infinite;
   }
 }
 
