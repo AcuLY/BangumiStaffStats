@@ -323,6 +323,68 @@ def _partial_date(value: object) -> tuple[str | None, int | None]:
     return value, 3
 
 
+def _infobox_field_values(infobox: str, target: str) -> tuple[str, ...]:
+    values: list[str] = []
+    active_key: str | None = None
+    active_lines: list[str] = []
+    block_depth = 0
+
+    def finish_field() -> None:
+        if active_key == target:
+            values.append("\n".join(active_lines))
+
+    for raw_line in infobox.splitlines():
+        line = raw_line.strip()
+        if block_depth == 0 and line == "}}":
+            finish_field()
+            active_key = None
+            active_lines = []
+            break
+        if block_depth == 0 and line.startswith("|"):
+            finish_field()
+            assignment = line[1:]
+            if "=" not in assignment:
+                active_key = None
+                active_lines = []
+                continue
+            key, initial = assignment.split("=", 1)
+            active_key = key.strip()
+            active_lines = [initial.strip()]
+            block_depth = max(0, initial.count("{") - initial.count("}"))
+            continue
+        if active_key is not None:
+            active_lines.append(line)
+            block_depth = max(0, block_depth + line.count("{") - line.count("}"))
+    else:
+        finish_field()
+
+    return tuple(values)
+
+
+def _parse_infobox_name(value: str) -> str | None:
+    text = value.strip()
+    if not text:
+        return None
+    if not text.startswith("{"):
+        return text if "\n" not in text and not text.startswith("|") else None
+    if not text.endswith("}"):
+        return None
+
+    candidates: list[str] = []
+    for raw_entry in text[1:-1].splitlines():
+        entry = raw_entry.strip()
+        if not entry:
+            continue
+        if not (entry.startswith("[") and entry.endswith("]")):
+            return None
+        content = entry[1:-1].strip()
+        candidate = content.split("|", 1)[-1].strip()
+        if candidate:
+            candidates.append(candidate)
+    unique = tuple(dict.fromkeys(candidates))
+    return unique[0] if len(unique) == 1 else None
+
+
 def _extract_name_cn(record: Mapping[str, object]) -> str | None:
     supplied = record.get("name_cn")
     if supplied is not None:
@@ -330,16 +392,12 @@ def _extract_name_cn(record: Mapping[str, object]) -> str | None:
     infobox = record.get("infobox")
     if not isinstance(infobox, str):
         return None
-    match = re.search(
-        r"(?:^|[\r\n|])\s*简体中文名\s*=\s*([^\r\n|}]*)",
-        infobox,
-    )
-    if match is None:
+    parsed = tuple(_parse_infobox_name(raw) for raw in _infobox_field_values(infobox, "简体中文名"))
+    if not parsed or any(value is None for value in parsed):
         return None
-    value = match.group(1).strip()
-    if not value:
-        return None
-    return _bounded_text(value, 4096)
+    values = tuple(cast(str, value) for value in parsed)
+    unique = tuple(dict.fromkeys(values))
+    return _bounded_text(unique[0], 4096) if len(unique) == 1 else None
 
 
 def _strict_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:

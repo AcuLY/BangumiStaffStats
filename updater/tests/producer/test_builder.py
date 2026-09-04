@@ -209,6 +209,56 @@ def test_upstream_empty_nullable_subject_fields_normalize_to_null() -> None:
     assert _extract_name_cn({"name_cn": ""}) is None
 
 
+@pytest.mark.parametrize(
+    ("record", "expected"),
+    [
+        (
+            {"infobox": "{{Infobox Crt\r\n|简体中文名= 石原立也\r\n|别名={\r\n}\r\n}}"},
+            "石原立也",
+        ),
+        (
+            {"infobox": "{{Infobox Crt\n|简体中文名=\n|别名={\n[日文名|原文]\n}\n}}"},
+            None,
+        ),
+        (
+            {"infobox": "{{Infobox Crt\n|简体中文名={\n[唯一名称]\n}\n}}"},
+            "唯一名称",
+        ),
+        (
+            {"infobox": "{{Infobox Crt\n|简体中文名={\n[第二中文名|唯一名称]\n}\n}}"},
+            "唯一名称",
+        ),
+        (
+            {"infobox": "{{Infobox Crt\n|简体中文名={\n[角色名1]\n[角色名2]\n}\n}}"},
+            None,
+        ),
+        (
+            {"infobox": "{{Infobox Crt\n|简体中文名= 同名\n|简体中文名= 同名\n}}"},
+            "同名",
+        ),
+        (
+            {"infobox": "{{Infobox Crt\n|简体中文名= 名称一\n|简体中文名= 名称二\n}}"},
+            None,
+        ),
+        (
+            {"infobox": "{{Infobox Crt\n|简体中文名= 名称\n|简体中文名=\n}}"},
+            None,
+        ),
+        (
+            {
+                "name_cn": "显式名称",
+                "infobox": "{{Infobox Crt\n|简体中文名= infobox 名称\n}}",
+            },
+            "显式名称",
+        ),
+    ],
+)
+def test_name_cn_parser_handles_scalar_block_and_duplicate_fields(
+    record: dict[str, object], expected: str | None
+) -> None:
+    assert _extract_name_cn(record) == expected
+
+
 def test_json_numbers_and_aggregate_votes_remain_json_safe() -> None:
     with pytest.raises(ProducerError, match="SOURCE_RECORD_MALFORMED"):
         _parse_json_line(b'{"id":1,"ignored":1e999}')
