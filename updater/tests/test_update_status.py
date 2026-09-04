@@ -82,10 +82,10 @@ def test_success_and_failure_transitions_preserve_prior_success() -> None:
     failure = terminal_record(
         time="2026-07-25T04:00:00Z",
         status="failed",
-        phase="smoke",
+        phase="manifest",
         duration_seconds=4,
         data_version=_VERSION,
-        error_code="GO_SMOKE_FAILED",
+        error_code="MANIFEST_SCHEMA_INVALID",
     )
     updated = next_status_document(previous, failure)
     assert updated["last_attempt"] == failure

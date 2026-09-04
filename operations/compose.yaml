@@ -49,8 +49,6 @@ services:
       - /opt/bgmss/producer/catalog/display-v1.yaml
       - --common-commit
       - 6a8442c17143a870357a5ff812362e8b5cfe9f9d
-      - --archive-smoke
-      - /opt/bgmss/bin/archive-smoke
       - --status-file
       - /var/lib/bgmss/archive/update-status.json
     user: "65532:65532"
@@ -66,10 +64,6 @@ services:
       - type: bind
         source: ${BGMSS_ROOT}/data
         target: /var/lib/bgmss/archive
-      - type: bind
-        source: ${BGMSS_ROOT}/current-tools/archive-smoke
-        target: /opt/bgmss/bin/archive-smoke
-        read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=256m,mode=1777
     cpus: ${BGMSS_UPDATER_CPUS:-1.00}

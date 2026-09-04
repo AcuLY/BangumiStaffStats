@@ -131,7 +131,8 @@ enter dataVersion.
 Schema validation SHALL require both the corrected canonical `schema.sql`
 digest and the actual 35-object `bgmss-sqlite-schema-objects-v1` seal from the
 fresh database. A matching name set or copied digest claim SHALL NOT permit a
-weakened or extra explicit object to reach manifest creation or Go smoke.
+weakened or extra explicit object to reach manifest creation or inactive
+publication.
 
 The real Python manifest finalizer SHALL execute the exited string contract
 before writing `manifest.json`: `generatedAt` SHALL be the exact
@@ -152,30 +153,28 @@ isolated Python probe alone SHALL NOT satisfy producer acceptance.
 - **THEN** valid cases SHALL produce canonical manifest bytes
 - **AND** every invalid case SHALL fail before inactive publication with no final candidate
 
-### Requirement: Go validation SHALL precede inactive atomic publication
+### Requirement: Producer validation SHALL precede inactive atomic publication
 
-After every Python gate, the producer SHALL invoke accepted
-`backend/cmd/archive-smoke` on the staging root containing fixed
-`versions/<dataVersion>/{manifest.json,bangumi.sqlite}`. It SHALL load without
-a pointer, apply full-data runtime invariants, return bounded JSON identity,
-and close the store; minimal-golden exact sentinel counts MUST NOT become
-universal dataset gates. Only success permits atomic rename of that version
-directory to the previously absent inactive output path. An existing
-independently valid same version SHALL return stable no-change; any collision
-SHALL fail without overwrite. Producer and smoke SHALL never read or write
-`current.json`.
+After every producer-owned contract, configuration, acquisition, build,
+schema/object/index, integrity, accounting, quality, digest, deterministic,
+manifest, read-only-reopen, and cancellation gate passes, the producer SHALL
+atomically rename the fixed `versions/<dataVersion>/{manifest.json,bangumi.sqlite}`
+directory to the previously absent inactive output path. It SHALL not accept,
+inspect, or invoke a Go executable. An existing independently valid same
+version SHALL return stable no-change; any collision SHALL fail without
+overwrite. The producer SHALL never read or write `current.json`.
 
-Rename SHALL be the sole commit point after every fallible validation and
-cancellation gate. No fallible gate SHALL run after it; cross-device copy,
+Rename SHALL be the sole commit point after every fallible producer validation
+and cancellation gate. No fallible gate SHALL run after it; cross-device copy,
 replace, merge, or file-by-file fallback is forbidden. A pre-existing or raced
 non-identical/invalid target SHALL be byte-preserved and rejected.
 
-#### Scenario: Go accepts the staged candidate
-- **WHEN** all Python and Go gates pass, cancellation is clear, the final path is absent, and same-filesystem rename succeeds
+#### Scenario: Producer accepts the staged candidate
+- **WHEN** every producer gate passes, cancellation is clear, the final path is absent, and same-filesystem rename succeeds
 - **THEN** exactly the closed manifest/SQLite pair SHALL appear atomically as an inactive version with no pointer or activation claim
 
-#### Scenario: Go rejects or publication collides
-- **WHEN** Go returns any gate failure, the final path is non-identical/invalid, rename fails, or cancellation arrives before completion
+#### Scenario: Producer rejects or publication collides
+- **WHEN** any producer gate fails, the final path is non-identical/invalid, rename fails, or cancellation arrives before completion
 - **THEN** no new final candidate SHALL remain and every prior version SHALL be byte-preserved
 
 ### Requirement: Dependency and acceptance scope SHALL remain minimal
@@ -184,11 +183,11 @@ PyYAML `6.0.3` SHALL be the sole added runtime dependency and only safe-load
 strictly bounded common YAML; all other producer work SHALL use the Python
 standard library and existing `jsonschema`. Frozen install, exact dependency
 and MIT-license inventory, wheel/import, unit/property/fault tests, full
-updater quality gates, disposable complete-source smoke, strict OpenSpec/Git
-checks, and absence of `.cache/.tmp/.venv` SHALL gate acceptance.
+updater quality gates, disposable complete-source producer validation, strict
+OpenSpec/Git checks, and absence of `.cache/.tmp/.venv` SHALL gate acceptance.
 
 #### Scenario: The development candidate is accepted
-- **WHEN** all synthetic/offline gates and the explicitly invoked disposable complete-source Python-to-Go smoke pass
+- **WHEN** all synthetic/offline gates and explicitly invoked disposable complete-source producer validation pass
 - **THEN** only inactive producer capability SHALL be claimed
 - **AND** scheduler, lock, `current.json`, activation, restart, push, release, deploy, and production readiness SHALL remain absent
 

@@ -75,7 +75,6 @@ BGMSS_LEGACY_OVERLAY_SNAPSHOT=
 BGMSS_LEGACY_CURRENT_ENV=
 BGMSS_LEGACY_PREVIOUS_ENV=
 BGMSS_LEGACY_OVERLAY=
-BGMSS_LEGACY_PREVIOUS_TOOLS=
 BGMSS_LEGACY_PREVIOUS_FRONTEND=
 BGMSS_LEGACY_EXPECTED_DATA=
 BGMSS_LEGACY_MUTATION_STARTED=false
@@ -87,7 +86,7 @@ normalize_legacy_release() {
   local overlay="$root/compose/compose.updater-proxy.yaml"
   local transaction_dir= raw_env= normalized_env= previous_snapshot=
   local overlay_snapshot= previous_exists=false
-  local current_frontend current_tools previous_frontend previous_tools
+  local current_frontend previous_frontend
   local old_api old_updater expected_data target
 
   IFS='|' read -r _ proxy_url proxy_network <<<"$state"
@@ -104,13 +103,11 @@ normalize_legacy_release() {
     die "previous env has an invalid type"
   fi
   current_frontend=$(read_link_or_empty "$root/current-frontend")
-  current_tools=$(read_link_or_empty "$root/current-tools")
   previous_frontend=$(read_link_or_empty "$root/previous-frontend")
-  previous_tools=$(read_link_or_empty "$root/previous-tools")
-  [[ -n "$current_frontend" && -n "$current_tools" ]] ||
+  [[ -n "$current_frontend" ]] ||
     die "legacy application links are incomplete"
   for target in \
-    "$current_frontend" "$current_tools" "$previous_frontend" "$previous_tools"; do
+    "$current_frontend" "$previous_frontend"; do
     [[ -z "$target" ||
       ("$target" != /* && "$target" != *".."* && "$target" != *$'\n'*) ]] ||
       die "legacy application link target is unsafe"
@@ -165,9 +162,6 @@ normalize_legacy_release() {
         "$BGMSS_LEGACY_PREVIOUS_SNAPSHOT" "$BGMSS_LEGACY_PREVIOUS_ENV" ||
         recovery_failed=true
       restore_optional_symlink \
-        "$BGMSS_LEGACY_PREVIOUS_TOOLS" "$root/previous-tools" ||
-        recovery_failed=true
-      restore_optional_symlink \
         "$BGMSS_LEGACY_PREVIOUS_FRONTEND" "$root/previous-frontend" ||
         recovery_failed=true
       if atomic_copy \
@@ -211,7 +205,6 @@ normalize_legacy_release() {
   BGMSS_LEGACY_CURRENT_ENV=$current_env
   BGMSS_LEGACY_PREVIOUS_ENV=$previous_env
   BGMSS_LEGACY_OVERLAY=$overlay
-  BGMSS_LEGACY_PREVIOUS_TOOLS=$previous_tools
   BGMSS_LEGACY_PREVIOUS_FRONTEND=$previous_frontend
   BGMSS_LEGACY_EXPECTED_DATA=$expected_data
   trap 'restore_legacy_normalization 129' HUP
@@ -248,7 +241,6 @@ normalize_legacy_release() {
   compose "$root" up --detach --force-recreate api prometheus
   wait_ready "$root" "$expected_data"
   atomic_copy "$normalized_env" "$previous_env"
-  atomic_symlink "$current_tools" "$root/previous-tools"
   atomic_symlink "$current_frontend" "$root/previous-frontend"
   rm -f -- "$overlay"
   BGMSS_LEGACY_MUTATION_STARTED=false
@@ -291,22 +283,17 @@ release_owned=false
 old_env=
 old_previous_env=
 old_frontend=
-old_tools=
 old_previous_frontend=
-old_previous_tools=
 
 cleanup_candidate_release() {
   local result=$? link target temporary linked=false
   trap - EXIT ERR HUP INT TERM
   if [[ "$release_owned" == true && "$candidate_activated" == false &&
     (-e "$release" || -L "$release") ]]; then
-    for link in \
-      "$root/current-frontend" "$root/previous-frontend" \
-      "$root/current-tools" "$root/previous-tools"; do
+    for link in "$root/current-frontend" "$root/previous-frontend"; do
       if [[ -L "$link" ]]; then
         target=$(readlink "$link")
-        if [[ "$target" == "releases/$version/frontend" ||
-          "$target" == "releases/$version/tools" ]]; then
+        if [[ "$target" == "releases/$version/frontend" ]]; then
           linked=true
         fi
       elif [[ -e "$link" ]]; then
@@ -344,12 +331,11 @@ trap 'exit 143' TERM
 
 mkdir -m 0755 "$release"
 release_owned=true
-mkdir -m 0755 "$release/frontend" "$release/tools"
+mkdir -m 0755 "$release/frontend"
 safe_extract_tar "$bundle/frontend.tar" "$release/frontend"
 [[ -f "$release/frontend/index.html" && ! -L "$release/frontend/index.html" ]] ||
   die "frontend.tar must contain index.html at its root"
 chmod -R u=rwX,go=rX "$release/frontend"
-install_tools "$bundle/backend-tools.tar.gz" "$release/tools"
 cp -- "$bundle/build.json" "$release/build.json"
 chmod 0444 "$release/build.json"
 write_release_env \
@@ -369,9 +355,7 @@ elif [[ -e "$root/state/previous.env" || -L "$root/state/previous.env" ]]; then
   die "previous env has an invalid type"
 fi
 old_frontend=$(read_link_or_empty "$root/current-frontend")
-old_tools=$(read_link_or_empty "$root/current-tools")
 old_previous_frontend=$(read_link_or_empty "$root/previous-frontend")
-old_previous_tools=$(read_link_or_empty "$root/previous-tools")
 
 restore_application() {
   local failed=$1
@@ -380,7 +364,6 @@ restore_application() {
   log "candidate application did not become ready; restoring previous application state"
   if [[ -n "$old_env" ]]; then
     atomic_copy "$old_env" "$root/state/current.env"
-    restore_optional_symlink "$old_tools" "$root/current-tools"
     restore_optional_symlink "$old_frontend" "$root/current-frontend"
     if ! restart_and_wait "$root" "$(pointer_data_version "$root/data/current.json")"; then
       die "candidate failed and previous application did not recover"
@@ -390,11 +373,9 @@ restore_application() {
       die "candidate failed and its Compose project did not stop cleanly"
     fi
     restore_optional_file "" "$root/state/current.env"
-    restore_optional_symlink "$old_tools" "$root/current-tools"
     restore_optional_symlink "$old_frontend" "$root/current-frontend"
   fi
   restore_optional_file "$old_previous_env" "$root/state/previous.env"
-  restore_optional_symlink "$old_previous_tools" "$root/previous-tools"
   restore_optional_symlink "$old_previous_frontend" "$root/previous-frontend"
   candidate_activated=false
   exit "$failed"
@@ -406,13 +387,11 @@ trap 'restore_application 143' TERM
 
 atomic_copy "$release/release.env" "$root/state/current.env"
 compose "$root" config --quiet
-atomic_symlink "releases/$version/tools" "$root/current-tools"
 compose "$root" up --detach api prometheus
 wait_ready "$root" "$(pointer_data_version "$root/data/current.json")"
 
 if [[ -n "$old_env" ]]; then
   atomic_copy "$old_env" "$root/state/previous.env"
-  [[ -n "$old_tools" ]] && atomic_symlink "$old_tools" "$root/previous-tools"
   [[ -n "$old_frontend" ]] && atomic_symlink "$old_frontend" "$root/previous-frontend"
 fi
 # Frontend is deliberately the last active-state switch.

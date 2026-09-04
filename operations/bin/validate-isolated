@@ -470,20 +470,13 @@ prometheus_mounts=$(jq -cn \
     ]
   ')
 updater_mounts=$(jq -cn \
-  --arg data "$root/data" \
-  --arg tool "$root/current-tools/archive-smoke" '
+  --arg data "$root/data" '
     [
       {
         Source: $data,
         Destination: "/var/lib/bgmss/archive",
         Type: "bind",
         RW: true
-      },
-      {
-        Source: $tool,
-        Destination: "/opt/bgmss/bin/archive-smoke",
-        Type: "bind",
-        RW: false
       }
     ]
   ')
@@ -553,7 +546,6 @@ previous_release="$root/releases/validation-previous"
 cp -a -- "$root/releases/$revision" "$previous_release"
 atomic_copy "$root/state/current.env" "$root/state/previous.env"
 atomic_symlink "releases/validation-previous/frontend" "$root/previous-frontend"
-atomic_symlink "releases/validation-previous/tools" "$root/previous-tools"
 "$root/operations/bin/rollback-app" --root "$root"
 "$root/operations/bin/rollback-app" --root "$root"
 "$root/operations/bin/check" --root "$root"

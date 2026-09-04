@@ -28,12 +28,10 @@ The root layout is fixed:
   compose/compose.yaml
   config/prometheus/{prometheus.yml,rules.yml}
   operations/{bin,lib}
-  releases/<source-revision>/{frontend,tools,release.env,build.json}
+  releases/<source-revision>/{frontend,release.env,build.json}
   state/{current.env,previous.env}
   current-frontend -> releases/<revision>/frontend
   previous-frontend -> releases/<revision>/frontend
-  current-tools -> releases/<revision>/tools
-  previous-tools -> releases/<revision>/tools
   data/                         # root:65532, mode 1770 (sticky)
     current.json               # root:65532, mode 0640
     previous.json              # root:65532, mode 0640, once available
@@ -53,7 +51,7 @@ uses the same numeric group and proves that read path through readiness/catalog
 checks.
 
 Only current and previous application/Archive references are active.
-Application rollback swaps env/tools/frontend but never data. Data rollback
+Application rollback swaps env/frontend but never data. Data rollback
 swaps `current.json` but never application state. These minimal commands do not
 automatically delete older on-disk releases or snapshots; any later retention
 cleanup is a separate reviewed operation with exact targets.
@@ -94,8 +92,8 @@ file mode `0440`. Never mutate the active SQLite file in place.
 Every state-changing command takes the same non-waiting
 `<root>/data/operations.lock`. Deployment verifies the complete bundle
 `SHA256SUMS`, validates the closed `build.json`, loads and checks the exact
-image tags/revision labels, safely installs the versioned frontend and unique
-`archive-smoke`, switches the API env/tools, waits at most 60 seconds, and
+image tags/revision labels, safely installs the versioned frontend, switches
+the API env, waits at most 60 seconds, and
 switches the frontend last. On readiness failure it restores and verifies the
 previous state. A later deploy may change only the API/updater image revision;
 project, root, Prometheus image, ports, and the production/validation resource
@@ -144,9 +142,9 @@ or otherwise noncanonical legacy env is rejected before the lock.
 
 `update` uses only the updater image's
 `/opt/bgmss/producer/contracts`,
-`/opt/bgmss/producer/catalog/display-v1.yaml`, fixed common commit
-`6a8442c17143a870357a5ff812362e8b5cfe9f9d`, and the bind-mounted Backend
-`archive-smoke`. It publishes an inactive version first; the host wrapper alone
+`/opt/bgmss/producer/catalog/display-v1.yaml`, and fixed common commit
+`6a8442c17143a870357a5ff812362e8b5cfe9f9d`. It publishes an inactive version
+first; the host wrapper alone
 atomically writes `current.json` and restarts/verifies the API.
 
 The builder deliberately uses SQLite file-backed temporary tables and indices.

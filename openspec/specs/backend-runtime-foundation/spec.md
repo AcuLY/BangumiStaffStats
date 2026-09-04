@@ -29,7 +29,6 @@ module/workspace/vendor tree.
 ### Requirement: Package dependencies SHALL follow the approved direction
 
 The foundation SHALL enforce `cmd/api -> app -> {archive,httpapi}`,
-`cmd/archive-smoke -> archive`,
 `httpapi -> {imageproxy,observability,wire}`,
 `imageproxy -> standard library`, `observability -> standard library`, and
 `query -> {archive,cache,collection}` for later admitted query work.

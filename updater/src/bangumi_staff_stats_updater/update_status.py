@@ -27,7 +27,6 @@ _PHASES = frozenset(
         "identity",
         "build",
         "manifest",
-        "smoke",
         "publication",
         "complete",
     }

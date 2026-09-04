@@ -6,7 +6,6 @@ import copy
 import io
 import json
 import sqlite3
-import sys
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -271,28 +270,9 @@ class _CatalogClient:
         return url
 
 
-def _smoke(path: Path) -> Path:
-    path.write_text(
-        f"#!{sys.executable}\n"
-        "import hashlib,json,pathlib,sys\n"
-        "args=dict(zip(sys.argv[1::2],sys.argv[2::2],strict=True))\n"
-        "root=pathlib.Path(args['-archive-root'])\n"
-        "version=args['-data-version']\n"
-        "manifest_path=root/'versions'/version/'manifest.json'\n"
-        "data=manifest_path.read_bytes()\n"
-        "manifest=json.loads(data)\n"
-        "print(json.dumps({'ok':True,'dataVersion':version,"
-        "'manifestDigest':'sha256:'+hashlib.sha256(data).hexdigest(),"
-        "'sqliteDigest':manifest['sqliteDigest']},separators=(',',':')))\n"
-    )
-    path.chmod(0o755)
-    return path
-
-
 def _produce_request(
     contracts_root: Path,
     output_root: Path,
-    smoke: Path,
 ) -> ProduceRequest:
     return ProduceRequest(
         output_root=output_root,
@@ -301,7 +281,6 @@ def _produce_request(
             Path(__file__).resolve().parents[2] / "config" / "catalog" / "display-v1.yaml"
         ).resolve(strict=True),
         common_commit="6a8442c17143a870357a5ff812362e8b5cfe9f9d",
-        archive_smoke=smoke.resolve(strict=True),
         generated_at="2026-07-25T00:00:00Z",
     )
 
@@ -492,17 +471,16 @@ def test_fresh_produce_reports_deterministic_quality_and_no_change_reports_none(
     records = _source_records(inputs["archive"])
     common = _common_yaml(inputs["commonCatalog"])
     client = _CatalogClient(_archive_bytes(records), common)
-    smoke = _smoke(tmp_path / "archive-smoke")
     first_root = tmp_path / "root-one"
     second_root = tmp_path / "root-two"
     first_root.mkdir()
     second_root.mkdir()
     first = produce(
-        _produce_request(contracts_root, first_root, smoke),
+        _produce_request(contracts_root, first_root),
         client=client,
     )
     second = produce(
-        _produce_request(contracts_root, second_root, smoke),
+        _produce_request(contracts_root, second_root),
         client=client,
     )
     expected_path = (
@@ -522,7 +500,7 @@ def test_fresh_produce_reports_deterministic_quality_and_no_change_reports_none(
     }
 
     no_change = produce(
-        _produce_request(contracts_root, first_root, smoke),
+        _produce_request(contracts_root, first_root),
         client=client,
     )
     assert no_change.status == "no-change"
@@ -572,8 +550,6 @@ def test_cli_success_events_do_not_expose_python_quality_report(
             str(tmp_path / "display-v1.yaml"),
             "--common-commit",
             "a" * 40,
-            "--archive-smoke",
-            str(tmp_path / "archive-smoke"),
             "--status-file",
             str(status_file),
         ]
@@ -609,13 +585,12 @@ def test_quality_overflow_is_bounded_evidence_and_publishes_nothing(
     client = _CatalogClient(_archive_bytes(records), common)
     output_root = tmp_path / "overflow-root"
     output_root.mkdir()
-    smoke = _smoke(tmp_path / "overflow-smoke")
     with pytest.raises(
         ProducerError,
         match="QUALITY_UNKNOWN_POSITION_BOUND_EXCEEDED",
     ) as raised:
         produce(
-            _produce_request(contracts_root, output_root, smoke),
+            _produce_request(contracts_root, output_root),
             client=client,
         )
     assert raised.value.evidence == {
@@ -640,7 +615,6 @@ def test_derivation_closure_failure_publishes_nothing(
     client = _CatalogClient(_archive_bytes(records), common)
     output_root = tmp_path / "closure-root"
     output_root.mkdir()
-    smoke = _smoke(tmp_path / "closure-smoke")
 
     def reject_closure(_connection: sqlite3.Connection) -> None:
         raise CatalogError("DERIVATION_CLOSURE_INVALID")
@@ -651,7 +625,7 @@ def test_derivation_closure_failure_publishes_nothing(
     )
     with pytest.raises(ProducerError) as raised:
         produce(
-            _produce_request(contracts_root, output_root, smoke),
+            _produce_request(contracts_root, output_root),
             client=client,
         )
     assert raised.value.code == "DERIVATION_CLOSURE_INVALID"

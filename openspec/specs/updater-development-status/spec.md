@@ -44,7 +44,7 @@ secret, UID, collection/entity data, or unbounded message.
 
 The producer service SHALL expose one optional synchronous observer used by the
 CLI to report completion of the existing phases `preflight`, `acquisition`,
-`identity`, `build`, `manifest`, `smoke`, and `publication`. A
+`identity`, `build`, `manifest`, and `publication`. A
 `phase_completed` event SHALL appear only after that phase's existing gates
 have passed. The observer SHALL not add a second state machine, reorder work,
 change dataVersion, introduce a fallible gate after publication, or claim
@@ -116,9 +116,9 @@ The durable status update SHALL precede its terminal event.
 
 The status writer SHALL use the Python standard library and existing
 `jsonschema` only. Tests SHALL use injected UUID, wall-clock, monotonic clock,
-observer, and filesystem fault seams so exact events and documents are
-deterministic. Apply SHALL add no timer, lock, daemon, fixed production path,
-activation, exporter, deployment, remote action, or new dependency.
+observer, and filesystem fault seams so exact smoke-free events and documents
+are deterministic. Apply SHALL add no timer, lock, daemon, fixed production
+path, activation, exporter, deployment, remote action, or new dependency.
 
 #### Scenario: Development acceptance runs
 - **WHEN** focused cases and the full updater quality matrix execute locally

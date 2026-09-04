@@ -51,7 +51,6 @@ uv run --frozen bgmss-updater produce \
   --contracts-root "$PWD/../contracts" \
   --catalog-config /absolute/canonical/display-v1.yaml \
   --common-commit 6a8442c17143a870357a5ff812362e8b5cfe9f9d \
-  --archive-smoke /absolute/canonical/archive-smoke \
   --status-file /absolute/canonical/update-status.json
 ```
 

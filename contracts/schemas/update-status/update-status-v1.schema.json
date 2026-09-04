@@ -190,7 +190,6 @@
         "identity",
         "build",
         "manifest",
-        "smoke",
         "publication",
         "complete"
       ]

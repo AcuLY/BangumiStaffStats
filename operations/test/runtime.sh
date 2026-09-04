@@ -283,14 +283,12 @@ grep -Fq -- "--file $root/compose/compose.yaml config --format json" \
     "$transaction_fake_bin" \
     "$command_root/data/versions/$BGMSS_MINIMAL_DATA_VERSION" \
     "$command_root/releases/old/frontend" \
-    "$command_root/releases/old/tools" \
     "$command_root/state" \
     "$command_root/compose" \
     "$command_root/config/prometheus" \
     "$command_root/prometheus" \
     "$boundary_bundle" \
-    "$payload_root/frontend" \
-    "$payload_root/tools"
+    "$payload_root/frontend"
   PATH="$transaction_fake_bin:$system_path"
   export PATH
   real_id=$(command -v id)
@@ -340,8 +338,6 @@ YAML
     "$test_root/expected-legacy-overlay.yaml"
   printf '<!doctype html><title>runtime test</title>\n' \
     >"$payload_root/frontend/index.html"
-  printf '#!/usr/bin/env sh\nexit 0\n' >"$payload_root/tools/archive-smoke"
-  chmod 0755 "$payload_root/tools/archive-smoke"
 
   cat >"$transaction_fake_bin/id" <<'SH'
 #!/usr/bin/env bash
@@ -542,7 +538,6 @@ EOF
     "$test_root/expected-legacy.env" >"$test_root/expected-clean-old.env"
   cp -- "$test_root/expected-legacy.env" "$command_root/state/current.env"
   ln -s releases/old/frontend "$command_root/current-frontend"
-  ln -s releases/old/tools "$command_root/current-tools"
 
   marker="$test_root/invalid-deploy-docker-called"
   lock_marker="$test_root/invalid-deploy-lock-opened"
@@ -676,8 +671,6 @@ EOF
     mkdir -p \
       "$destination/minimal-archive/versions/$BGMSS_MINIMAL_DATA_VERSION"
     tar -cf "$destination/frontend.tar" -C "$payload_root/frontend" .
-    tar -czf "$destination/backend-tools.tar.gz" \
-      -C "$payload_root/tools" archive-smoke
     : >"$destination/api.oci.tar"
     : >"$destination/updater.oci.tar"
     : >"$destination/minimal-archive/versions/$BGMSS_MINIMAL_DATA_VERSION/bangumi.sqlite"
@@ -732,9 +725,7 @@ JSON
       "$command_root/state/current.env" \
       "$command_root/state/previous.env" \
       "$command_root/current-frontend" \
-      "$command_root/current-tools" \
-      "$command_root/previous-frontend" \
-      "$command_root/previous-tools"
+      "$command_root/previous-frontend"
     rm -rf -- \
       "$command_root/releases/$revision_1" \
       "$command_root/releases/$revision_2"
@@ -742,7 +733,6 @@ JSON
     cp -- "$test_root/expected-legacy-overlay.yaml" \
       "$command_root/compose/compose.updater-proxy.yaml"
     ln -s releases/old/frontend "$command_root/current-frontend"
-    ln -s releases/old/tools "$command_root/current-tools"
     : >"$BGMSS_DOCKER_CALLS"
     : >"$BGMSS_READY_CALLS"
     unset BGMSS_TEST_FAIL_CLEAN_OLD BGMSS_TEST_FAIL_IMAGE
@@ -770,7 +760,6 @@ JSON
     "$test_root/expected-legacy-overlay.yaml" ||
     fail "normalization failure changed the exact legacy overlay"
   [[ ! -e "$command_root/state/previous.env" &&
-    ! -e "$command_root/previous-tools" &&
     ! -e "$command_root/previous-frontend" ]] ||
     fail "normalization failure created rollback state"
   [[ "$(cat "$BGMSS_READY_CALLS")" == \
@@ -791,9 +780,7 @@ JSON
     fail "candidate failure left a proxy-capable previous.env"
   [[ ! -e "$command_root/compose/compose.updater-proxy.yaml" ]] ||
     fail "candidate failure restored the retired overlay after normalization"
-  [[ "$(readlink "$command_root/current-tools")" == "releases/old/tools" &&
-    "$(readlink "$command_root/previous-tools")" == "releases/old/tools" &&
-    "$(readlink "$command_root/current-frontend")" == "releases/old/frontend" &&
+  [[ "$(readlink "$command_root/current-frontend")" == "releases/old/frontend" &&
     "$(readlink "$command_root/previous-frontend")" == "releases/old/frontend" ]] ||
     fail "candidate failure did not retain the clean old rollback baseline"
   [[ ! -e "$command_root/releases/$revision_1" ]] ||
@@ -808,9 +795,7 @@ JSON
   cp -- "$command_root/state/current.env" "$test_root/revision-2.env"
   [[ ! -e "$command_root/compose/compose.updater-proxy.yaml" ]] ||
     fail "successful migration retained the retired overlay"
-  [[ "$(readlink "$command_root/current-tools")" == "releases/$revision_2/tools" &&
-    "$(readlink "$command_root/previous-tools")" == "releases/old/tools" &&
-    "$(readlink "$command_root/current-frontend")" == "releases/$revision_2/frontend" &&
+  [[ "$(readlink "$command_root/current-frontend")" == "releases/$revision_2/frontend" &&
     "$(readlink "$command_root/previous-frontend")" == "releases/old/frontend" ]] ||
     fail "successful migration did not retain exact clean old links"
 
@@ -821,9 +806,7 @@ JSON
     fail "application rollback did not retain the clean candidate as previous"
   require_release_proxy_absent "$command_root/state/current.env"
   require_release_proxy_absent "$command_root/state/previous.env"
-  [[ "$(readlink "$command_root/current-tools")" == "releases/old/tools" &&
-    "$(readlink "$command_root/previous-tools")" == "releases/$revision_2/tools" &&
-    "$(readlink "$command_root/current-frontend")" == "releases/old/frontend" &&
+  [[ "$(readlink "$command_root/current-frontend")" == "releases/old/frontend" &&
     "$(readlink "$command_root/previous-frontend")" == "releases/$revision_2/frontend" ]] ||
     fail "application rollback did not restore exact clean application links"
   [[ "$(grep -Fxc 'network inspect proxy-net' "$BGMSS_DOCKER_CALLS")" -eq 1 ]] ||

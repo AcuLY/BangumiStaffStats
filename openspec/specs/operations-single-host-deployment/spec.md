@@ -11,11 +11,11 @@ templates, and legacy-safe isolated validation required for a normal
 The already registered Development manual-dispatch entry SHALL call one
 same-revision reusable read-only workflow that builds the accepted Product once
 for `linux/amd64` and uploads one short-lived bundle containing API and updater
-OCI archives, the Backend tool bundle, frontend static archive, minimal Archive
-fixture, source/version metadata, and SHA-256 inventory. Push and pull-request
+OCI archives, frontend static archive, minimal Archive fixture, source/version
+metadata, and SHA-256 inventory. Push and pull-request
 runs SHALL NOT call the bundle workflow. It SHALL NOT publish a registry image,
 release, tag, deployment, credential, receipt, attestation graph, or second
-reproducibility build.
+reproducibility build, or Backend command/tool payload.
 
 The Development workflow policy SHALL continue to require exactly five
 reviewed SHA-pinned external Actions and SHALL admit exactly one local
@@ -114,14 +114,16 @@ installation SHALL verify checksums, install versioned bytes, start and verify
 API, and switch frontend last. Archive update SHALL keep the updater one-shot,
 atomically switch `current.json`, restart/verify API, and restore the previous
 pointer on failure. Application and data rollback SHALL remain separate and
-health checks SHALL be read-only.
+health checks SHALL be read-only. Application deployment and rollback SHALL
+operate on release env/frontend state without any Backend command/tool payload,
+tool link, executable argument, or tool mount.
 
 Deploy SHALL accept only the root, bundle, version, project, loopback ports,
 pinned Prometheus image, and reviewed profile inputs. It SHALL NOT accept,
 preserve, or write application proxy mode/URL/network inputs. Root/project/
 ports/Prometheus/profile topology SHALL remain immutable, and application
-rollback SHALL restore the exact previous release env and links without
-introducing proxy state.
+rollback SHALL restore the exact previous accepted env/frontend state without
+introducing proxy or tool state.
 
 As a one-time upgrade input only, an existing current env MAY contain the exact
 closed retired `proxy` transport trio with a canonical URL/network pair. Deploy
@@ -194,6 +196,24 @@ proxy, or otherwise noncanonical legacy state SHALL fail before the lock.
 - **WHEN** another deployment, update, or rollback owns the lock
 - **THEN** the new command SHALL exit without changing application, frontend,
   or data state
+
+### Requirement: Operations topology SHALL not carry Archive smoke tools
+
+New deployment bundles, release directories, Compose definitions, updater
+arguments/mounts, application links, rollback transactions, isolated
+validation, and host checks SHALL contain no dedicated Archive smoke command or
+Backend tool payload. Existing live legacy tool links/releases are not writable
+under this development change and SHALL NOT be treated as proof that a new
+smoke-free revision can safely cross the breaking updater interface.
+
+#### Scenario: A clean smoke-free bundle is assembled
+- **WHEN** Operations assembles and validates a new deployment bundle
+- **THEN** its closed inventory SHALL contain no Backend tool archive, release `tools` directory, tool symlink, executable mount, or smoke argument
+
+#### Scenario: A live pre-removal topology is encountered
+- **WHEN** a future activation sees a current or rollback updater revision that requires the removed command
+- **THEN** activation SHALL stop until a separately authorized migration binds exact rollback and retirement behavior
+- **AND** this development change SHALL not delete or rewrite those live legacy bytes
 
 ### Requirement: Host templates SHALL provide only the planned observability
 

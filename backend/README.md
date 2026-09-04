@@ -162,18 +162,6 @@ go run ./cmd/api \
   -update-status /absolute/path/to/update-status.json
 ```
 
-Validate one inactive producer candidate without reading, creating, or
-publishing `current.json`:
-
-```sh
-go run ./cmd/archive-smoke \
-  -archive-root /absolute/path/to/staging \
-  -data-version dv1-<64-lowercase-hex>
-```
-
-The smoke emits one bounded JSON result and closes the candidate. It does not
-activate a version or perform any production/operations work.
-
 To intentionally refresh the generated query transport models after the shared
 contract changes:
 

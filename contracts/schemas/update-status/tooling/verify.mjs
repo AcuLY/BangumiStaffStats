@@ -61,6 +61,7 @@ const EXPECTED_INVALID_MUTATIONS = [
   "canceled-with-wrong-code",
   "success-with-error",
   "failed-last-success",
+  "removed-smoke-phase",
   "missing-error-field",
 ];
 const decoder = new TextDecoder("utf-8", { fatal: true });

@@ -230,27 +230,6 @@ Shutdown SHALL first make readiness false and then close the published pool exac
 - **WHEN** the load context is canceled at the final file-check boundary or before the state publication gate
 - **THEN** the candidate SHALL close, return `ARCHIVE_CONTEXT_CANCELED`, and readiness SHALL remain false
 
-### Requirement: Candidate smoke SHALL be bounded and pointer-free
-
-`cmd/archive-smoke` SHALL require an absolute `-archive-root` and one
-`-data-version`, call the shared candidate loader, and close its returned store.
-Success SHALL emit exactly one bounded JSON object containing `ok`,
-`dataVersion`, `manifestDigest`, and `sqliteDigest`. Failure SHALL emit a
-sanitized stable code and exit non-zero without exposing paths, document
-content, or SQLite values. It SHALL never read or write `current.json`, mutate
-the candidate, or publish readiness. Failure to write the bounded result SHALL
-return non-zero and SHALL never be treated as a successful smoke.
-
-#### Scenario: A closed producer candidate is smoked
-
-- **WHEN** the fixed candidate layout passes the real Go loader
-- **THEN** the command SHALL return its computed identities, close all handles, and leave every candidate byte and path unchanged
-
-#### Scenario: Smoke output cannot be written
-
-- **WHEN** a deterministic rejecting writer fails the bounded result write
-- **THEN** the command SHALL return non-zero without reporting a false success
-
 ### Requirement: Acceptance SHALL reuse authority and stay in scope
 
 Tests SHALL consume every case group indexed by

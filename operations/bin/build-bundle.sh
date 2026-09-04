@@ -30,7 +30,7 @@ repository_root="$(
 )"
 # shellcheck source=../lib/common.sh
 source "$repository_root/operations/lib/common.sh"
-accepted_product_revision='20dbccba899accdce0248c599416161204497f39e'
+accepted_product_revision='2172a1067d26b819994a3dfa1e08cbad48f0aba3'
 accepted_ci_policy_sha256='0260babc76f71b1fb0730bb84894ce0f3c41c9df93591910f05ac9352ee98176'
 data_version='dv1-0a1fa3e9acdb06be34e3535b3c68e322e7d3f4cd87ac30cd4b608b2276ba3ca1'
 
@@ -183,9 +183,6 @@ install -m 0444 -- \
   "$updater_root/artifacts/updater-image-linux-amd64.oci.tar" \
   "$bundle_root/updater.oci.tar"
 install -m 0444 -- \
-  "$backend_root/backend-api-linux-amd64.tar.gz" \
-  "$bundle_root/backend-tools.tar.gz"
-install -m 0444 -- \
   "$frontend_root/artifacts/frontend-static-linux-amd64.tar" \
   "$bundle_root/frontend.tar"
 install -m 0444 -- \
@@ -223,7 +220,6 @@ NODE
 
 payload_paths=(
   'api.oci.tar'
-  'backend-tools.tar.gz'
   'build.json'
   'frontend.tar'
   'minimal-archive/current.json'
