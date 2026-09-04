@@ -27,6 +27,7 @@ App.vue
   -> features/catalog/store.ts (catalog lifecycle)
   -> features/query/store.ts (Draft / Applied / revision)
   -> features/query/coordinator.ts (operation transactions)
+  -> features/query/session.ts (validated same-tab recovery intent)
   -> features/ranking (view state and result presentation)
   -> features/person-detail (one coordinated adaptive inspector)
   -> features/co-star (candidate, partner, pair, and group analysis)
@@ -44,6 +45,9 @@ coordinator owns cancellation, latest-response admission, stable rollback, and
 the atomic Applied/revision commit. Ranking view requests reuse that transaction
 sequence without committing Applied Query or advancing revision. Production
 injects no result fixture: unavailable result capabilities fail closed.
+The query session owner stores only canonical share-compatible recovery intent
+in tab-scoped storage and replays it through the coordinator; it never stores a
+response or becomes another Applied Query or result authority.
 
 The shared OpenAPI and JSON Schemas under `../contracts` are read-only
 authorities. Generated catalog values cross `api/adapters/catalog.ts`; generated
