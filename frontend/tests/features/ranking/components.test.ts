@@ -104,7 +104,24 @@ describe('ranked person list', () => {
     expect(rows[0]!.text()).toContain('林明');
     expect(rows[0]!.text()).toContain('+0.27');
     expect(rows[1]!.text()).toContain('—');
+    expect(
+      rows.map((row) => [
+        row.get('.ranked-person-row__identity strong').text(),
+        row.get('.ranked-person-row__identity small').text(),
+      ]),
+    ).toEqual([
+      ['林明', 'Hayashi Akira'],
+      ['No Ratings', 'No Ratings'],
+    ]);
+    expect(
+      rows.map((row) =>
+        row.get('.ranked-person-row__identity').attributes('title'),
+      ),
+    ).toEqual(['林明\nHayashi Akira', 'No Ratings\nNo Ratings']);
     expect(rows[0]!.attributes('aria-label')).toContain('综合分 6.77');
+    expect(rows[1]!.attributes('aria-label')).toContain(
+      '8. No Ratings，No Ratings',
+    );
     expect(rows[0]!.get('img').attributes('src')).toBe(
       '/api/v1/images/bangumi/persons/12?type=small',
     );

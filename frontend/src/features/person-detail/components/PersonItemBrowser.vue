@@ -15,6 +15,7 @@ import {
   characterImageCandidates,
   subjectImageCandidates,
 } from '../../../shared/media/bangumiImage';
+import { bilingualNameTitle } from '../../../shared/names/bilingualName';
 import {
   formatHundredths,
   primaryEntityName,
@@ -437,12 +438,14 @@ onBeforeUnmount(clearSearchTimer);
                   :href="`https://bgm.tv/subject/${item.subject.id}`"
                   target="_blank"
                   rel="noopener noreferrer"
+                  :title="bilingualNameTitle(item.subject)"
                 >
                   <strong>{{ primaryEntityName(item.subject) }}</strong>
                 </a>
                 <small
                   v-if="secondaryEntityName(item.subject)"
                   class="subject-work-row__secondary"
+                  :title="bilingualNameTitle(item.subject)"
                 >
                   {{ secondaryEntityName(item.subject) }}
                 </small>
@@ -483,6 +486,7 @@ onBeforeUnmount(clearSearchTimer);
                     :href="`https://bgm.tv/subject/${item.subject.id}`"
                     target="_blank"
                     rel="noopener noreferrer"
+                    :title="bilingualNameTitle(item.subject)"
                   >
                     <strong>{{ primaryEntityName(item.subject) }}</strong>
                   </a>
@@ -490,6 +494,7 @@ onBeforeUnmount(clearSearchTimer);
                 <small
                   v-if="secondaryEntityName(item.subject)"
                   class="subject-work-row__secondary"
+                  :title="bilingualNameTitle(item.subject)"
                 >
                   {{ secondaryEntityName(item.subject) }}
                 </small>
@@ -585,12 +590,14 @@ onBeforeUnmount(clearSearchTimer);
                   :href="`https://bgm.tv/subject/${item.representative.id}`"
                   target="_blank"
                   rel="noopener noreferrer"
+                  :title="bilingualNameTitle(item.representative)"
                 >
                   <strong>{{ primaryEntityName(item.representative) }}</strong>
                 </a>
                 <small
                   v-if="secondaryEntityName(item.representative)"
                   class="subject-work-row__secondary"
+                  :title="bilingualNameTitle(item.representative)"
                 >
                   {{ secondaryEntityName(item.representative) }}
                 </small>
@@ -631,6 +638,7 @@ onBeforeUnmount(clearSearchTimer);
                     :href="`https://bgm.tv/subject/${item.representative.id}`"
                     target="_blank"
                     rel="noopener noreferrer"
+                    :title="bilingualNameTitle(item.representative)"
                   >
                     <strong>{{ primaryEntityName(item.representative) }}</strong>
                   </a>
@@ -638,6 +646,7 @@ onBeforeUnmount(clearSearchTimer);
                 <small
                   v-if="secondaryEntityName(item.representative)"
                   class="subject-work-row__secondary"
+                  :title="bilingualNameTitle(item.representative)"
                 >
                   {{ secondaryEntityName(item.representative) }}
                 </small>
@@ -724,6 +733,7 @@ onBeforeUnmount(clearSearchTimer);
                       :href="`https://bgm.tv/subject/${member.id}`"
                       target="_blank"
                       rel="noopener noreferrer"
+                      :title="bilingualNameTitle(member)"
                     >
                       <safe-image
                         class="subject-work-row__series-member-cover"
@@ -771,7 +781,10 @@ onBeforeUnmount(clearSearchTimer);
               :width="density === 'compact' ? 36 : 80"
             />
             <div class="character-role-card__content">
-              <div class="character-role-card__names">
+              <div
+                class="character-role-card__names"
+                :title="bilingualNameTitle(item.character)"
+              >
                 <a
                   v-if="item.character.id"
                   class="character-role-card__name-link"

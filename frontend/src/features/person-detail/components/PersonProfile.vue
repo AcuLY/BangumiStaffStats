@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 
 import SafeImage from '../../../shared/components/SafeImage.vue';
 import { personImageCandidates } from '../../../shared/media/bangumiImage';
+import { bilingualNameTitle } from '../../../shared/names/bilingualName';
 import {
   primaryPersonName,
   secondaryPersonName,
@@ -107,7 +108,11 @@ watch(
           class="person-profile__career"
           :title="careerLine"
         >{{ careerLine }}</span>
-        <p v-if="secondaryName" class="person-profile__secondary-name">
+        <p
+          v-if="secondaryName"
+          class="person-profile__secondary-name"
+          :title="bilingualNameTitle(payload.person)"
+        >
           {{ secondaryName }}
         </p>
       </div>

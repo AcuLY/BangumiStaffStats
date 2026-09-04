@@ -4,6 +4,10 @@ import { computed } from 'vue';
 import SafeImage from '../../../shared/components/SafeImage.vue';
 import { personImageCandidates } from '../../../shared/media/bangumiImage';
 import {
+  bilingualNameTitle,
+  resolveBilingualName,
+} from '../../../shared/names/bilingualName';
+import {
   formatHundredths,
   formatRational,
   rankingProgress,
@@ -38,13 +42,11 @@ const emit = defineEmits<{
 const metricColumns = computed(() => (props.personal ? 4 : 3));
 
 function primaryName(item: RankingItem): string {
-  return item.person.nameCN ?? item.person.name;
+  return resolveBilingualName(item.person).primary;
 }
 
 function secondaryName(item: RankingItem): string {
-  return item.person.nameCN && item.person.nameCN !== item.person.name
-    ? item.person.name
-    : '人物资料';
+  return resolveBilingualName(item.person).secondary;
 }
 
 function preference(item: RankingItem): string {
@@ -158,7 +160,7 @@ function activate(personId: number, event: MouseEvent): void {
       />
       <span
         class="ranked-person-row__identity person-row__identity"
-        :title="`${primaryName(item)}\n${secondaryName(item)}`"
+        :title="bilingualNameTitle(item.person)"
       >
         <strong>{{ primaryName(item) }}</strong>
         <small>{{ secondaryName(item) }}</small>

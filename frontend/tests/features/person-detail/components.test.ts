@@ -162,6 +162,53 @@ describe('person inspector production presentation', () => {
     );
   });
 
+  it('repeats equal or missing bilingual names and exposes their full title', () => {
+    const detail = payload('global.json');
+    const firstItem = detail.items[0];
+    if (!firstItem || !('subject' in firstItem)) {
+      throw new Error('global golden must start with a subject item');
+    }
+    const patchedDetail = Object.freeze({
+      ...detail,
+      person: Object.freeze({
+        ...detail.person,
+        name: '石原立也',
+        nameCN: '石原立也',
+      }),
+      items: Object.freeze([
+        Object.freeze({
+          ...firstItem,
+          subject: Object.freeze({
+            ...firstItem.subject,
+            name: 'AIR',
+            nameCN: null,
+          }),
+        }),
+      ]),
+    }) as PersonDetailPayload;
+    const wrapper = mount(PersonInspector, {
+      props: {
+        executeView: vi.fn(async () => true),
+        positionLabel,
+        resource: resource(patchedDetail),
+        retry: vi.fn(async () => true),
+      },
+    });
+    wrappers.push(wrapper);
+
+    expect(wrapper.get('.person-profile__secondary-name').text()).toBe(
+      '石原立也',
+    );
+    expect(
+      wrapper.get('.person-profile__secondary-name').attributes('title'),
+    ).toBe('石原立也\n石原立也');
+    expect(wrapper.get('.subject-work-row__primary-link').text()).toBe('AIR');
+    expect(wrapper.get('.subject-work-row__secondary').text()).toBe('AIR');
+    expect(
+      wrapper.get('.subject-work-row__primary-link').attributes('title'),
+    ).toBe('AIR\nAIR');
+  });
+
   it('renders personal calculation evidence with shared signed formatting and preserves identity during view pending', async () => {
     const personal = payload('personal.json');
     const wrapper = mount(PersonInspector, {

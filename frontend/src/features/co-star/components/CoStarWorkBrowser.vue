@@ -19,6 +19,10 @@ import {
 import AppIcon from '../../../shared/components/AppIcon.vue';
 import SafeImage from '../../../shared/components/SafeImage.vue';
 import { subjectImageCandidates } from '../../../shared/media/bangumiImage';
+import {
+  bilingualNameTitle,
+  resolveBilingualName,
+} from '../../../shared/names/bilingualName';
 import { useCompactLayout } from '../../query/composables/useCompactLayout';
 import AdaptivePagination from '../../ranking/components/AdaptivePagination.vue';
 import SortDirectionButton from '../../ranking/components/SortDirectionButton.vue';
@@ -110,16 +114,14 @@ function primaryName(entity: {
   readonly name: string;
   readonly nameCN: string | null;
 }): string {
-  return entity.nameCN ?? entity.name;
+  return resolveBilingualName(entity).primary;
 }
 
 function secondaryName(entity: {
   readonly name: string;
   readonly nameCN: string | null;
-}): string | null {
-  return entity.nameCN && entity.nameCN !== entity.name
-    ? entity.name
-    : null;
+}): string {
+  return resolveBilingualName(entity).secondary;
 }
 
 function request(patch: Partial<CoStarView>): void {
@@ -428,7 +430,7 @@ defineExpose({ focusUnit });
                 :href="`https://bgm.tv/subject/${entityFor(item).id}`"
                 target="_blank"
                 rel="noopener noreferrer"
-                :title="primaryName(entityFor(item))"
+                :title="bilingualNameTitle(entityFor(item))"
                 :aria-label="`打开${primaryName(entityFor(item))}`"
               >
                 <strong>{{ primaryName(entityFor(item)) }}</strong>
@@ -436,7 +438,7 @@ defineExpose({ focusUnit });
               <small
                 v-if="secondaryName(entityFor(item))"
                 class="subject-work-row__secondary"
-                :title="secondaryName(entityFor(item)) ?? undefined"
+                :title="bilingualNameTitle(entityFor(item))"
               >
                 {{ secondaryName(entityFor(item)) }}
               </small>
@@ -481,7 +483,7 @@ defineExpose({ focusUnit });
                     :href="`https://bgm.tv/subject/${entityFor(item).id}`"
                     target="_blank"
                     rel="noopener noreferrer"
-                    :title="primaryName(entityFor(item))"
+                    :title="bilingualNameTitle(entityFor(item))"
                     :aria-label="`打开${primaryName(entityFor(item))}`"
                   >
                     <strong>{{ primaryName(entityFor(item)) }}</strong>
@@ -498,7 +500,7 @@ defineExpose({ focusUnit });
                 <small
                   v-if="secondaryName(entityFor(item))"
                   class="subject-work-row__secondary"
-                  :title="secondaryName(entityFor(item)) ?? undefined"
+                  :title="bilingualNameTitle(entityFor(item))"
                 >
                   {{ secondaryName(entityFor(item)) }}
                 </small>
@@ -673,7 +675,7 @@ defineExpose({ focusUnit });
                     :href="`https://bgm.tv/subject/${member.id}`"
                     target="_blank"
                     rel="noopener noreferrer"
-                    :title="primaryName(member)"
+                    :title="bilingualNameTitle(member)"
                   >
                     <safe-image
                       class="subject-work-row__series-member-cover"

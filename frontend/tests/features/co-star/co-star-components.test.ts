@@ -739,7 +739,11 @@ describe('co-star contribution copy', () => {
       kind: 'subject',
       metaTags: Object.freeze([]),
       participants: Object.freeze(subjectParticipants),
-      subject: seriesItem.representative,
+      subject: Object.freeze({
+        ...seriesItem.representative,
+        name: 'One Name Work',
+        nameCN: null,
+      }),
     }) as unknown as CoStarWorkItem;
     const wrapper = mount(CoStarWorkBrowser, {
       props: {
@@ -765,6 +769,15 @@ describe('co-star contribution copy', () => {
     expect(wrapper.text()).toContain('声优：未知角色');
     expect(wrapper.text()).not.toContain('声优（主角）：主角 · 1 部');
     expect(wrapper.text()).not.toContain('声优：未知角色 ·');
+    expect(wrapper.get('.subject-work-row__primary-link').text()).toBe(
+      'One Name Work',
+    );
+    expect(wrapper.get('.subject-work-row__secondary').text()).toBe(
+      'One Name Work',
+    );
+    expect(
+      wrapper.get('.subject-work-row__primary-link').attributes('title'),
+    ).toBe('One Name Work\nOne Name Work');
   });
 });
 
