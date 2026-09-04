@@ -210,8 +210,6 @@ type RuntimeStats struct {
 // RuntimeStatsProvider samples the sole process-owned query runtime.
 type RuntimeStatsProvider func() (RuntimeStats, error)
 
-type updateStatusProvider func() (UpdateStatusSnapshot, error)
-
 // BuildInfo contains process-controlled build facts. These values are never
 // populated from a request.
 type BuildInfo struct {
@@ -273,7 +271,7 @@ type Registry struct {
 	upstreamTimes map[dependencyKey]*histogram
 
 	runtimeStats RuntimeStatsProvider
-	updateStatus updateStatusProvider
+	updateStatus UpdateStatusProvider
 }
 
 var (
@@ -348,17 +346,13 @@ func (r *Registry) SetRuntimeStatsProvider(provider RuntimeStatsProvider) error 
 	return nil
 }
 
-// SetUpdateStatusReader replaces the optional read-only updater-status source.
-func (r *Registry) SetUpdateStatusReader(reader *UpdateStatusReader) error {
+// SetUpdateStatusProvider replaces the in-process update-state sampler.
+func (r *Registry) SetUpdateStatusProvider(provider UpdateStatusProvider) error {
 	if r == nil {
 		return errors.New("observability: nil registry")
 	}
 	r.mu.Lock()
-	if reader == nil {
-		r.updateStatus = nil
-	} else {
-		r.updateStatus = reader.Read
-	}
+	r.updateStatus = provider
 	r.mu.Unlock()
 	return nil
 }
@@ -746,7 +740,7 @@ type metricSnapshot struct {
 	upstreams     map[dependencyKey]uint64
 	upstreamTimes map[dependencyKey]histogram
 	runtimeStats  RuntimeStatsProvider
-	updateStatus  updateStatusProvider
+	updateStatus  UpdateStatusProvider
 }
 
 func (r *Registry) snapshot() (metricSnapshot, error) {
@@ -1038,7 +1032,7 @@ func validRuntimeStats(stats RuntimeStats) bool {
 }
 
 func sampleUpdateStatus(
-	provider updateStatusProvider,
+	provider UpdateStatusProvider,
 ) (status UpdateStatusSnapshot, configured bool, valid bool) {
 	if provider == nil {
 		return UpdateStatusSnapshot{}, false, false
@@ -1051,10 +1045,35 @@ func sampleUpdateStatus(
 		}
 	}()
 	sampled, err := provider()
-	if err != nil {
+	if err != nil || !validUpdateStatusSnapshot(sampled) {
 		return UpdateStatusSnapshot{}, true, false
 	}
 	return sampled, true, true
+}
+
+func validUpdateStatusSnapshot(status UpdateStatusSnapshot) bool {
+	if status.Running != (status.Phase != "") {
+		return false
+	}
+	if status.Phase != "" && !validUpdatePhase(status.Phase) {
+		return false
+	}
+	for _, terminal := range []*UpdateTerminalSnapshot{
+		status.LastAttempt,
+		status.LastSuccess,
+	} {
+		if terminal == nil {
+			continue
+		}
+		if terminal.Time.IsZero() || terminal.Duration < 0 ||
+			!validUpdateStatus(terminal.Status) ||
+			!validUpdatePhase(terminal.Phase) {
+			return false
+		}
+	}
+	return status.LastSuccess == nil ||
+		status.LastSuccess.Status == UpdateStatusNoChange ||
+		status.LastSuccess.Status == UpdateStatusActivated
 }
 
 func writeRuntimeMetrics(
@@ -1255,30 +1274,56 @@ func writeUpdateStatusMetrics(
 ) {
 	writeMetricHeader(
 		output,
-		"bgmss_updater_status_configured",
-		"Whether a read-only updater status source is configured.",
+		"bgmss_archive_update_state_configured",
+		"Whether the in-process Archive update sampler is configured.",
 		"gauge",
 	)
 	fmt.Fprintf(
 		output,
-		"bgmss_updater_status_configured %d\n",
+		"bgmss_archive_update_state_configured %d\n",
 		boolMetric(configured),
 	)
 	writeMetricHeader(
 		output,
-		"bgmss_updater_status_valid",
-		"Whether the current updater status source is valid.",
+		"bgmss_archive_update_state_valid",
+		"Whether the in-process Archive update snapshot is valid.",
 		"gauge",
 	)
 	fmt.Fprintf(
 		output,
-		"bgmss_updater_status_valid %d\n",
+		"bgmss_archive_update_state_valid %d\n",
 		boolMetric(valid),
 	)
 	if !valid {
 		return
 	}
-	writeUpdateTerminalMetrics(output, "last_attempt", status.LastAttempt)
+	writeMetricHeader(
+		output,
+		"bgmss_archive_update_running",
+		"Whether one embedded Archive update is running.",
+		"gauge",
+	)
+	fmt.Fprintf(
+		output,
+		"bgmss_archive_update_running %d\n",
+		boolMetric(status.Running),
+	)
+	if status.Running {
+		writeMetricHeader(
+			output,
+			"bgmss_archive_update_phase_info",
+			"Current embedded Archive update phase.",
+			"gauge",
+		)
+		fmt.Fprintf(
+			output,
+			"bgmss_archive_update_phase_info{phase=%s} 1\n",
+			strconv.Quote(string(status.Phase)),
+		)
+	}
+	if status.LastAttempt != nil {
+		writeUpdateTerminalMetrics(output, "last_attempt", *status.LastAttempt)
+	}
 	if status.LastSuccess != nil {
 		writeUpdateTerminalMetrics(output, "last_success", *status.LastSuccess)
 	}
@@ -1289,11 +1334,11 @@ func writeUpdateTerminalMetrics(
 	prefix string,
 	terminal UpdateTerminalSnapshot,
 ) {
-	infoName := "bgmss_updater_" + prefix + "_info"
+	infoName := "bgmss_archive_update_" + prefix + "_info"
 	writeMetricHeader(
 		output,
 		infoName,
-		"Closed updater terminal status and phase.",
+		"Closed embedded Archive update status and phase.",
 		"gauge",
 	)
 	fmt.Fprintf(
@@ -1303,11 +1348,11 @@ func writeUpdateTerminalMetrics(
 		strconv.Quote(string(terminal.Phase)),
 		strconv.Quote(string(terminal.Status)),
 	)
-	timeName := "bgmss_updater_" + prefix + "_time_seconds"
+	timeName := "bgmss_archive_update_" + prefix + "_time_seconds"
 	writeMetricHeader(
 		output,
 		timeName,
-		"Updater terminal time in Unix seconds.",
+		"Embedded Archive update terminal time in Unix seconds.",
 		"gauge",
 	)
 	fmt.Fprintf(
@@ -1319,18 +1364,18 @@ func writeUpdateTerminalMetrics(
 				float64(terminal.Time.Nanosecond())/float64(time.Second),
 		),
 	)
-	durationName := "bgmss_updater_" + prefix + "_duration_seconds"
+	durationName := "bgmss_archive_update_" + prefix + "_duration_seconds"
 	writeMetricHeader(
 		output,
 		durationName,
-		"Updater terminal duration in seconds.",
+		"Embedded Archive update terminal duration in seconds.",
 		"gauge",
 	)
 	fmt.Fprintf(
 		output,
 		"%s %s\n",
 		durationName,
-		formatFloat(terminal.DurationSeconds),
+		formatFloat(terminal.Duration.Seconds()),
 	)
 }
 

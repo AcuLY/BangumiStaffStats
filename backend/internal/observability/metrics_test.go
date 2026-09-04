@@ -3,8 +3,6 @@ package observability
 import (
 	"errors"
 	"math"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -306,27 +304,22 @@ func TestMetricsRuntimeProviderIsSampledExactlyOnceAndNotMultiplied(
 	assertPrometheusText(t, string(rendered))
 }
 
-func TestMetricsUpdaterStatusIsCurrentBoundedAndDoesNotRetainInvalidState(
+func TestMetricsUpdateStateIsCurrentBoundedAndDoesNotRetainInvalidState(
 	t *testing.T,
 ) {
-	directory := t.TempDir()
-	path := filepath.Join(directory, "update-status.json")
-	if err := os.WriteFile(
-		path,
-		readUpdateStatusGolden(t, "canceled.json"),
-		0o600,
-	); err != nil {
+	tracker := NewUpdateTracker()
+	start := time.Date(2026, 9, 2, 4, 15, 0, 0, time.UTC)
+	if err := tracker.Start(start); err != nil {
 		t.Fatal(err)
 	}
-	reader, err := NewUpdateStatusReader(path)
-	if err != nil {
+	if err := tracker.SetPhase(UpdatePhaseBuild); err != nil {
 		t.Fatal(err)
 	}
 	registry, err := NewRegistry(BuildInfo{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := registry.SetUpdateStatusReader(reader); err != nil {
+	if err := registry.SetUpdateStatusProvider(tracker.Snapshot); err != nil {
 		t.Fatal(err)
 	}
 	rendered, err := registry.RenderPrometheus()
@@ -335,27 +328,26 @@ func TestMetricsUpdaterStatusIsCurrentBoundedAndDoesNotRetainInvalidState(
 	}
 	text := string(rendered)
 	for _, want := range []string{
-		"bgmss_updater_status_configured 1",
-		"bgmss_updater_status_valid 1",
-		`bgmss_updater_last_attempt_info{phase="build",status="canceled"} 1`,
-		`bgmss_updater_last_success_info{phase="complete",status="published"} 1`,
-		"bgmss_updater_last_attempt_duration_seconds 2.5",
+		"bgmss_archive_update_state_configured 1",
+		"bgmss_archive_update_state_valid 1",
+		"bgmss_archive_update_running 1",
+		`bgmss_archive_update_phase_info{phase="build"} 1`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("metric lacks %q:\n%s", want, text)
 		}
 	}
 	for _, forbidden := range []string{
-		"dv1-", "CANCELED", path, "error_code", "data_version",
+		"dv1-", "CANCELED", "update-status.json", "error_code", "data_version",
 	} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("updater metric contains %q:\n%s", forbidden, text)
 		}
 	}
-	if err := os.WriteFile(
-		path,
-		[]byte(`{"secret":"do-not-retain"}`),
-		0o600,
+	if _, err := tracker.Finish(
+		start.Add(2500*time.Millisecond),
+		UpdateStatusCanceled,
+		UpdatePhaseBuild,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -364,26 +356,30 @@ func TestMetricsUpdaterStatusIsCurrentBoundedAndDoesNotRetainInvalidState(
 		t.Fatal(err)
 	}
 	text = string(rendered)
-	if !strings.Contains(text, "bgmss_updater_status_valid 0") ||
-		strings.Contains(text, `status="canceled"`) ||
-		strings.Contains(text, "do-not-retain") {
-		t.Fatalf("invalid status was retained:\n%s", text)
+	for _, want := range []string{
+		`bgmss_archive_update_last_attempt_info{phase="build",status="canceled"} 1`,
+		"bgmss_archive_update_last_attempt_duration_seconds 2.5",
+		"bgmss_archive_update_running 0",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("terminal metric lacks %q:\n%s", want, text)
+		}
 	}
 	assertPrometheusText(t, text)
 
 	registry.mu.Lock()
 	registry.updateStatus = func() (UpdateStatusSnapshot, error) {
-		panic("reader panic secret")
+		panic("provider panic secret")
 	}
 	registry.mu.Unlock()
 	rendered, err = registry.RenderPrometheus()
 	if err != nil ||
 		!strings.Contains(
 			string(rendered),
-			"bgmss_updater_status_valid 0",
+			"bgmss_archive_update_state_valid 0",
 		) ||
 		strings.Contains(string(rendered), "panic secret") {
-		t.Fatalf("panicking reader broke metrics: %v\n%s", err, rendered)
+		t.Fatalf("panicking provider broke metrics: %v\n%s", err, rendered)
 	}
 	assertPrometheusText(t, string(rendered))
 }

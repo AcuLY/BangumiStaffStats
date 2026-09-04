@@ -108,6 +108,45 @@ func TestIsRootUserAcceptsNonzeroOrNamedUsers(t *testing.T) {
 	}
 }
 
+func TestPackageOptionsRequireEmbeddedProducerAuthority(t *testing.T) {
+	requiredPaths := []string{
+		producerRuntimeInputPath,
+		archiveSchemaAssetInputPath,
+		displayCatalogAssetInputPath,
+		staffSetsAssetInputPath,
+	}
+	for _, missingPath := range requiredPaths {
+		t.Run(missingPath, func(t *testing.T) {
+			options := fixtureOptions(t)
+			options.APIBinaryPath = "api"
+			options.ImageArchivePath = "image"
+			options.OutputPath = "output"
+			options.Inputs = slices.DeleteFunc(
+				append(inputFlags(nil), options.Inputs...),
+				func(input inputFact) bool { return input.Path == missingPath },
+			)
+			if err := validatePackageOptions(options); err == nil ||
+				!strings.Contains(err.Error(), "producer authority") {
+				t.Fatalf("validatePackageOptions() error = %v, want producer authority failure", err)
+			}
+		})
+	}
+
+	options := fixtureOptions(t)
+	options.APIBinaryPath = "api"
+	options.ImageArchivePath = "image"
+	options.OutputPath = "output"
+	for index := range options.Inputs {
+		if options.Inputs[index].Path == displayCatalogAssetInputPath {
+			options.Inputs[index].SHA256 = "sha256:" + strings.Repeat("f", 64)
+		}
+	}
+	if err := validatePackageOptions(options); err == nil ||
+		!strings.Contains(err.Error(), displayCatalogAssetInputPath) {
+		t.Fatalf("validatePackageOptions() error = %v, want catalog digest failure", err)
+	}
+}
+
 func TestNormalizedDirectoryTarIsStable(t *testing.T) {
 	t.Parallel()
 
@@ -840,6 +879,10 @@ func fixtureOptions(t *testing.T) packageOptions {
 		Inputs: inputFlags{
 			{Path: applicationVersionInputPath, SHA256: applicationVersionInputDigest},
 			{Path: "backend/go.mod", SHA256: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			{Path: displayCatalogAssetInputPath, SHA256: displayCatalogAssetDigest},
+			{Path: archiveSchemaAssetInputPath, SHA256: "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0"},
+			{Path: staffSetsAssetInputPath, SHA256: staffSetsAssetDigest},
+			{Path: producerRuntimeInputPath, SHA256: producerRuntimeInputDigest},
 			{Path: compatibilityMatrixInputPath, SHA256: compatibilityMatrixDigest},
 			{Path: requiredBuildkitImageInputPath, SHA256: requiredBuildkitImageDigest},
 		},

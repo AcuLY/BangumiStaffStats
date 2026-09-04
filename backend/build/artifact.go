@@ -45,6 +45,13 @@ const (
 	requiredBuildxVersion          = "0.34.1"
 	requiredBuildkitImageDigest    = "sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368"
 	requiredBuildkitImageInputPath = "toolchain/buildkit-image"
+	producerRuntimeInputPath       = "contracts/producer-runtime-inputs-v1"
+	producerRuntimeInputDigest     = "sha256:56adbccc4c83432ae02d9bf985ea1b9281d2836e96e389e84dae97bd8cacac52"
+	archiveSchemaAssetInputPath    = "backend/internal/archivebuild/assets/schema.sql"
+	displayCatalogAssetInputPath   = "backend/internal/archivebuild/assets/display-v1.yaml"
+	staffSetsAssetInputPath        = "backend/internal/archivebuild/assets/staff-sets-v1.yaml"
+	displayCatalogAssetDigest      = "sha256:4297791381d106c85f2e78c07aeabe7f05146bc766f3c67cdb5308b958e40fe8"
+	staffSetsAssetDigest           = "sha256:df2ad5c80add8898ebf61a0eced86f608374e528b34b881c3fe741b177be8dae"
 	requiredGoVersion              = "go1.26.5"
 	apiModulePath                  = "github.com/AcuLY/BangumiStaffStats/backend/cmd/api"
 	apiBundlePath                  = "bin/bgmss-api"
@@ -696,6 +703,12 @@ func validatePackageOptions(options packageOptions) error {
 	foundBuildkitImage := false
 	foundVersion := false
 	foundCompatibilityMatrix := false
+	requiredProducerInputs := map[string]string{
+		producerRuntimeInputPath:     producerRuntimeInputDigest,
+		archiveSchemaAssetInputPath:  options.ArchiveSchemaSQLDigest,
+		displayCatalogAssetInputPath: displayCatalogAssetDigest,
+		staffSetsAssetInputPath:      staffSetsAssetDigest,
+	}
 	for index, input := range options.Inputs {
 		if index > 0 && options.Inputs[index-1].Path == input.Path {
 			return fmt.Errorf("duplicate declared input %q", input.Path)
@@ -726,6 +739,12 @@ func validatePackageOptions(options packageOptions) error {
 				)
 			}
 		}
+		if requiredDigest, required := requiredProducerInputs[input.Path]; required {
+			if input.SHA256 != requiredDigest {
+				return fmt.Errorf("producer input %q digest = %q, want %q", input.Path, input.SHA256, requiredDigest)
+			}
+			delete(requiredProducerInputs, input.Path)
+		}
 	}
 	if !foundBuildkitImage {
 		return fmt.Errorf("declared inputs omit %q", requiredBuildkitImageInputPath)
@@ -735,6 +754,14 @@ func validatePackageOptions(options packageOptions) error {
 	}
 	if !foundCompatibilityMatrix {
 		return fmt.Errorf("declared inputs omit %q", compatibilityMatrixInputPath)
+	}
+	if len(requiredProducerInputs) != 0 {
+		missing := make([]string, 0, len(requiredProducerInputs))
+		for inputPath := range requiredProducerInputs {
+			missing = append(missing, inputPath)
+		}
+		sort.Strings(missing)
+		return fmt.Errorf("declared inputs omit producer authority: %s", strings.Join(missing, ", "))
 	}
 	if options.CompatibilityMatrixDigest != compatibilityMatrixDigest {
 		return fmt.Errorf(
@@ -2165,6 +2192,13 @@ func verifyStatement(
 	foundBuildkitImage := false
 	foundVersion := false
 	foundCompatibilityMatrix := false
+	compatibility := statement.Compatibility
+	requiredProducerInputs := map[string]string{
+		producerRuntimeInputPath:     producerRuntimeInputDigest,
+		archiveSchemaAssetInputPath:  compatibility.Archive.SchemaSQLDigest,
+		displayCatalogAssetInputPath: displayCatalogAssetDigest,
+		staffSetsAssetInputPath:      staffSetsAssetDigest,
+	}
 	for _, input := range statement.Inputs {
 		if !safeRelativePath(input.Path) || !digestPattern.MatchString(input.SHA256) ||
 			input.Path <= previous {
@@ -2182,6 +2216,12 @@ func verifyStatement(
 		if input.Path == compatibilityMatrixInputPath {
 			foundCompatibilityMatrix = input.SHA256 == compatibilityMatrixDigest
 		}
+		if requiredDigest, required := requiredProducerInputs[input.Path]; required {
+			if input.SHA256 != requiredDigest {
+				return fmt.Errorf("component statement producer input %q digest is invalid", input.Path)
+			}
+			delete(requiredProducerInputs, input.Path)
+		}
 		previous = input.Path
 	}
 	if !foundBuildkitImage {
@@ -2190,7 +2230,9 @@ func verifyStatement(
 	if !foundVersion || !foundCompatibilityMatrix {
 		return errors.New("component statement omits a release authority input")
 	}
-	compatibility := statement.Compatibility
+	if len(requiredProducerInputs) != 0 {
+		return errors.New("component statement omits a producer authority input")
+	}
 	if compatibility.Archive.ManifestSchemaVersion != (versionRange{Minimum: 1, Maximum: 1}) ||
 		compatibility.Archive.SQLiteSchemaVersion != (versionRange{Minimum: 1, Maximum: 1}) ||
 		!digestPattern.MatchString(compatibility.Archive.ManifestSchemaDigest) ||

@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -67,7 +66,7 @@ func TestHealthRoutesHaveExactBodiesAndDoNotShareProbeWork(t *testing.T) {
 	}
 }
 
-func TestMetricsRouteSurvivesPanickingStatsAndUnreadableUpdaterSource(
+func TestMetricsRouteSurvivesPanickingStatsWithInProcessUpdateState(
 	t *testing.T,
 ) {
 	runtimeObservability, err := NewRuntimeObservability(io.Discard)
@@ -81,11 +80,6 @@ func TestMetricsRouteSurvivesPanickingStatsAndUnreadableUpdaterSource(
 	); err != nil {
 		t.Fatal(err)
 	}
-	if err := runtimeObservability.SetUpdateStatusPath(
-		filepath.Join(t.TempDir(), "update-status.json"),
-	); err != nil {
-		t.Fatal(err)
-	}
 	handler := runtimeObservability.Handler(nil)
 	metricsResponse := performRequest(handler, http.MethodGet, routeMetrics)
 	if metricsResponse.Code != http.StatusOK ||
@@ -95,7 +89,7 @@ func TestMetricsRouteSurvivesPanickingStatsAndUnreadableUpdaterSource(
 		) ||
 		!strings.Contains(
 			metricsResponse.Body.String(),
-			"bgmss_updater_status_valid 0",
+			"bgmss_archive_update_state_valid 1",
 		) ||
 		strings.Contains(metricsResponse.Body.String(), "private stats panic") {
 		t.Fatalf(

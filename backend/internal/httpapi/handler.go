@@ -50,6 +50,7 @@ type routeHandler struct {
 type RuntimeObservability struct {
 	metrics *observability.Registry
 	events  *observability.EventSink
+	updates *observability.UpdateTracker
 	images  imageFetcher
 }
 
@@ -84,9 +85,14 @@ func NewRuntimeObservabilityWithImageHTTPSProxy(
 	if err != nil {
 		return nil, err
 	}
+	updates := observability.NewUpdateTracker()
+	if err := metrics.SetUpdateStatusProvider(updates.Snapshot); err != nil {
+		return nil, err
+	}
 	return &RuntimeObservability{
 		metrics: metrics,
 		events:  observability.NewEventSink(eventWriter),
+		updates: updates,
 		images:  images,
 	}, nil
 }
@@ -238,18 +244,6 @@ func (r *RuntimeObservability) SetRuntimeStatsProvider(
 	return r.metrics.SetRuntimeStatsProvider(provider)
 }
 
-// SetUpdateStatusPath configures one explicit read-only updater status source.
-func (r *RuntimeObservability) SetUpdateStatusPath(path string) error {
-	if r == nil {
-		return errors.New("httpapi: nil runtime observability")
-	}
-	reader, err := observability.NewUpdateStatusReader(path)
-	if err != nil {
-		return err
-	}
-	return r.metrics.SetUpdateStatusReader(reader)
-}
-
 // EmitArchiveLoadFailed emits at most one bounded startup event. Unknown
 // values collapse to INTERNAL_ERROR rather than entering the event.
 func (r *RuntimeObservability) EmitArchiveLoadFailed(stableCode string) error {
@@ -261,6 +255,47 @@ func (r *RuntimeObservability) EmitArchiveLoadFailed(stableCode string) error {
 		code = observability.ArchiveErrorInternal
 	}
 	return r.events.EmitArchiveLoadFailed(code)
+}
+
+// BeginArchiveUpdate records and emits one process-local update start.
+func (r *RuntimeObservability) BeginArchiveUpdate(
+	runID string,
+	startedAt time.Time,
+) error {
+	if r == nil || r.updates == nil || r.events == nil {
+		return errors.New("httpapi: nil runtime observability")
+	}
+	if err := r.updates.Start(startedAt); err != nil {
+		return err
+	}
+	return r.events.EmitArchiveUpdateStarted(runID)
+}
+
+// SetArchiveUpdatePhase replaces the current embedded-update phase.
+func (r *RuntimeObservability) SetArchiveUpdatePhase(
+	phase observability.UpdatePhase,
+) error {
+	if r == nil || r.updates == nil {
+		return errors.New("httpapi: nil runtime observability")
+	}
+	return r.updates.SetPhase(phase)
+}
+
+// FinishArchiveUpdate records and emits one process-local terminal outcome.
+func (r *RuntimeObservability) FinishArchiveUpdate(
+	runID string,
+	finishedAt time.Time,
+	status observability.UpdateStatus,
+	phase observability.UpdatePhase,
+) error {
+	if r == nil || r.updates == nil || r.events == nil {
+		return errors.New("httpapi: nil runtime observability")
+	}
+	terminal, err := r.updates.Finish(finishedAt, status, phase)
+	if err != nil {
+		return err
+	}
+	return r.events.EmitArchiveUpdateTerminal(runID, terminal)
 }
 
 // RenderPrometheus returns an atomic metric snapshot for lifecycle tests and

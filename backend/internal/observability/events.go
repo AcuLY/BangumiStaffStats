@@ -123,6 +123,23 @@ type archiveLoadFailedPayload struct {
 	ErrorCode string `json:"error_code"`
 }
 
+type archiveUpdateStartedPayload struct {
+	Event   string `json:"event"`
+	Channel string `json:"channel"`
+	RunID   string `json:"run_id"`
+	Phase   string `json:"phase"`
+}
+
+type archiveUpdateTerminalPayload struct {
+	Event      string `json:"event"`
+	Channel    string `json:"channel"`
+	RunID      string `json:"run_id"`
+	Phase      string `json:"phase"`
+	Status     string `json:"status"`
+	DurationMS int64  `json:"duration_ms"`
+	ErrorCode  string `json:"error_code,omitempty"`
+}
+
 type queryCompletedPayload struct {
 	Event                string   `json:"event"`
 	Channel              string   `json:"channel"`
@@ -207,6 +224,58 @@ func archiveLoadFailedEvent(code ArchiveErrorCode) (Event, error) {
 			Channel:   "app",
 			Phase:     "startup",
 			ErrorCode: string(code),
+		},
+		emitted: new(atomic.Bool),
+	}, nil
+}
+
+func archiveUpdateStartedEvent(runID string) (Event, error) {
+	if !validUpdateRunID(runID) {
+		return Event{}, errors.New("observability: invalid update run ID")
+	}
+	return Event{
+		payload: archiveUpdateStartedPayload{
+			Event:   "archive_update_started",
+			Channel: "app",
+			RunID:   runID,
+			Phase:   string(UpdatePhaseFreshness),
+		},
+		emitted: new(atomic.Bool),
+	}, nil
+}
+
+func archiveUpdateTerminalEvent(
+	runID string,
+	terminal UpdateTerminalSnapshot,
+) (Event, error) {
+	if !validUpdateRunID(runID) || terminal.Duration < 0 ||
+		!validUpdateStatus(terminal.Status) ||
+		!validUpdatePhase(terminal.Phase) {
+		return Event{}, errors.New("observability: invalid update terminal")
+	}
+	eventName := ""
+	errorCode := ""
+	switch terminal.Status {
+	case UpdateStatusNoChange:
+		eventName = "archive_update_no_change"
+	case UpdateStatusActivated:
+		eventName = "archive_update_activated"
+	case UpdateStatusCanceled:
+		eventName = "archive_update_failed"
+		errorCode = "CANCELED"
+	case UpdateStatusFailed:
+		eventName = "archive_update_failed"
+		errorCode = "INTERNAL_ERROR"
+	}
+	return Event{
+		payload: archiveUpdateTerminalPayload{
+			Event:      eventName,
+			Channel:    "app",
+			RunID:      runID,
+			Phase:      string(terminal.Phase),
+			Status:     string(terminal.Status),
+			DurationMS: terminal.Duration.Milliseconds(),
+			ErrorCode:  errorCode,
 		},
 		emitted: new(atomic.Bool),
 	}, nil
@@ -527,6 +596,27 @@ func (s *EventSink) EmitArchiveLoadFailed(code ArchiveErrorCode) error {
 	return writeEvent(s.writer, event)
 }
 
+// EmitArchiveUpdateStarted emits one bounded embedded-update start event.
+func (s *EventSink) EmitArchiveUpdateStarted(runID string) error {
+	event, err := archiveUpdateStartedEvent(runID)
+	if err != nil {
+		return err
+	}
+	return s.Emit(event)
+}
+
+// EmitArchiveUpdateTerminal emits one bounded embedded-update terminal event.
+func (s *EventSink) EmitArchiveUpdateTerminal(
+	runID string,
+	terminal UpdateTerminalSnapshot,
+) error {
+	event, err := archiveUpdateTerminalEvent(runID, terminal)
+	if err != nil {
+		return err
+	}
+	return s.Emit(event)
+}
+
 // Emit emits one allowlisted query event.
 func (s *EventSink) Emit(event Event) error {
 	if s == nil || s.writer == nil {
@@ -569,6 +659,22 @@ func (s *EventSink) EmitImage(observation ImageObservation) error {
 		emitted: new(atomic.Bool),
 	}
 	return s.Emit(event)
+}
+
+func validUpdateRunID(value string) bool {
+	if len(value) < 1 || len(value) > 64 {
+		return false
+	}
+	for _, character := range value {
+		if character >= 'a' && character <= 'z' ||
+			character >= 'A' && character <= 'Z' ||
+			character >= '0' && character <= '9' ||
+			character == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func validImageOutcomeStatus(outcome ImageOutcome, status int) bool {
