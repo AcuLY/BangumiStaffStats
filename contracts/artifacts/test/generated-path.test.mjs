@@ -56,6 +56,17 @@ function options(value, label) {
   };
 }
 
+test('host-native generated paths remain inside the declared temporary root', () => {
+  reset();
+  const candidate = path.join(TEST_ROOT, 'native-path', 'output');
+  const resolved = ensureGeneratedDirectory(
+    candidate,
+    actualOptions('native generated path'),
+  );
+  assert.equal(resolved, path.resolve(candidate));
+  assert.equal(fs.lstatSync(resolved).isDirectory(), true);
+});
+
 test('tmp-root symlink is rejected before recursive creation or external writes', () => {
   reset();
   const value = fixture('tmp-root-symlink');
@@ -109,6 +120,14 @@ test('parent traversal and absolute escape are rejected without touching sentine
       ensureGeneratedDirectory(
         `${value.temporary}/../escaped`,
         options(value, 'parent traversal output'),
+      ),
+    /parent traversal/,
+  );
+  assert.throws(
+    () =>
+      ensureGeneratedDirectory(
+        `${value.temporary}\\..\\escaped-by-backslash`,
+        options(value, 'backslash parent traversal output'),
       ),
     /parent traversal/,
   );

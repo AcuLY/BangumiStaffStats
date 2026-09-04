@@ -267,7 +267,10 @@ function readVerifiedTrackedFile(repositoryRoot, revision, entry) {
   );
   const expectedExecutable = entry.mode === '100755';
   const actualExecutable = (information.mode & 0o111) !== 0;
-  if (actualExecutable !== expectedExecutable) {
+  if (
+    process.platform !== 'win32' &&
+    actualExecutable !== expectedExecutable
+  ) {
     fail(`tracked executable mode differs from HEAD: ${entry.path}`);
   }
   const bytes = fs.readFileSync(absolute);

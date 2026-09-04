@@ -275,12 +275,27 @@ test('acceptance source identity rejects staged, tracked, untracked, and supplie
       },
       expected: /raw tracked bytes differ/,
     },
+    ...(process.platform === 'win32'
+      ? []
+      : [
+          {
+            name: 'git-executable-mode',
+            prepare(fixture) {
+              fs.chmodSync(path.join(fixture.root, 'tracked.txt'), 0o755);
+            },
+            expected: /tracked executable mode differs/,
+          },
+        ]),
     {
-      name: 'git-executable-mode',
+      name: 'git-index-executable-mode',
       prepare(fixture) {
-        fs.chmodSync(path.join(fixture.root, 'tracked.txt'), 0o755);
+        runGit(fixture.root, [
+          'update-index',
+          '--chmod=+x',
+          'tracked.txt',
+        ]);
       },
-      expected: /tracked executable mode differs/,
+      expected: /index differs from HEAD/,
     },
     {
       name: 'git-untracked',

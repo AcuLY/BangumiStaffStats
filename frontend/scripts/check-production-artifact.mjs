@@ -22,7 +22,12 @@ function walk(root) {
   return fs
     .readdirSync(root, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
-    .map((entry) => path.relative(root, path.join(entry.parentPath, entry.name)))
+    .map((entry) =>
+      path
+        .relative(root, path.join(entry.parentPath, entry.name))
+        .split(path.sep)
+        .join(path.posix.sep),
+    )
     .sort();
 }
 
