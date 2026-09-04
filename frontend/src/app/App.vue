@@ -66,7 +66,6 @@ import {
   type PersonPositionDisplay,
 } from '../features/person-detail/model';
 import PersonDetailSkeleton from '../features/person-detail/components/PersonDetailSkeleton.vue';
-import RankingResults from '../features/ranking/components/RankingResults.vue';
 import AppHeader from '../features/query/components/AppHeader.vue';
 import QueryIcon from '../features/query/components/QueryIcon.vue';
 import QueryWorkspace from '../features/query/components/QueryWorkspace.vue';
@@ -96,12 +95,16 @@ import { createThemeOwner } from './theme';
 
 type SurfaceModule = Readonly<{ default: Component }>;
 type SurfaceLoader = () => Promise<SurfaceModule>;
+const defaultRankingSurfaceModule = import(
+  '../features/ranking/components/RankingResults.vue'
+);
 
 interface AppSurfaceLoaders {
   readonly coStar: SurfaceLoader;
   readonly coStarWorkspace: SurfaceLoader;
   readonly partners: SurfaceLoader;
   readonly personDetail: SurfaceLoader;
+  readonly ranking: SurfaceLoader;
 }
 
 const defaultSurfaceLoaders: AppSurfaceLoaders = {
@@ -114,6 +117,7 @@ const defaultSurfaceLoaders: AppSurfaceLoaders = {
     import(
       '../features/person-detail/components/PersonDetailSurface.vue'
     ),
+  ranking: () => defaultRankingSurfaceModule,
 };
 
 function createDeferredSurface(
@@ -235,6 +239,17 @@ const {
     ? undefined
     : recoverDeferredSurface,
 );
+const {
+  component: RankingResultsComponent,
+  failed: rankingSurfaceLoadFailed,
+  load: loadRankingSurface,
+} = createDeferredSurface(
+  surfaceLoaders.ranking,
+  props.services?.surfaceLoaders?.ranking
+    ? undefined
+    : recoverDeferredSurface,
+);
+void loadRankingSurface();
 const runtime = useRuntimeStore();
 const catalogStore = useCatalogStore();
 const queryStore = useQueryStore();
@@ -1682,7 +1697,9 @@ onBeforeUnmount(() => {
                   selectedPersonId === null,
               }"
             >
-              <ranking-results
+              <component
+                :is="RankingResultsComponent"
+                v-if="RankingResultsComponent"
                 :device-pixel-ratio="targetWindow.devicePixelRatio"
                 :expanded-person-id="expandedPersonId"
                 :execute-view="coordinator.executeRankingView"
@@ -1692,6 +1709,13 @@ onBeforeUnmount(() => {
                 :selected-person-id="selectedPersonId"
                 :suppress-error-message="editorOwnsRankingError"
                 @activate="activatePerson"
+              />
+              <deferred-surface-state
+                v-else
+                :error="rankingSurfaceLoadFailed"
+                error-title="人物排行界面加载失败"
+                loading-title="正在加载人物排行界面"
+                @retry="loadRankingSurface"
               />
               <aside
                 v-if="desktopRankingCompanionPending"

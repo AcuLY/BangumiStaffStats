@@ -1,6 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia';
 import { NSelect } from 'naive-ui';
-import { flushPromises, mount } from '@vue/test-utils';
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -22,6 +22,14 @@ import { useQueryStore } from '../../src/features/query/store';
 import { catalogFixture } from '../features/query/fixtures';
 
 const rankingDataVersion = `dv1-${'d'.repeat(64)}`;
+
+async function waitForRankingSurface(wrapper: VueWrapper): Promise<void> {
+  await vi.waitFor(() => {
+    expect(
+      wrapper.find('.ranking-surface, .ranking-page-empty-state').exists(),
+    ).toBe(true);
+  });
+}
 
 function rankingPayload(
   requestId: string,
@@ -302,6 +310,7 @@ describe('App ranking production slice', () => {
       },
     });
     await flushPromises();
+    await waitForRankingSurface(wrapper);
 
     expect(rankingExecute).toHaveBeenCalledOnce();
     expect(rankingExecute.mock.calls[0]![0].view).toEqual(
@@ -428,6 +437,7 @@ describe('App ranking production slice', () => {
       },
     });
     await flushPromises();
+    await waitForRankingSurface(wrapper);
 
     expect(detailExecute).not.toHaveBeenCalled();
     expect(wrapper.find('.query-editor-overlay').exists()).toBe(false);
@@ -487,6 +497,7 @@ describe('App ranking production slice', () => {
     await flushPromises();
     await wrapper.get('#query-editor').trigger('submit');
     await nextTick();
+    await waitForRankingSurface(wrapper);
 
     expect(wrapper.find('.ranking-surface--loading').exists()).toBe(true);
     expect(wrapper.get('#person-detail-panel').attributes('aria-hidden')).toBe(
@@ -593,6 +604,7 @@ describe('App ranking production slice', () => {
     await flushPromises();
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
+    await waitForRankingSurface(wrapper);
 
     expect(wrapper.get('.ranking-workspace').classes()).toContain(
       'ranking-workspace--single',
@@ -658,6 +670,7 @@ describe('App ranking production slice', () => {
     await flushPromises();
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
+    await waitForRankingSurface(wrapper);
     await wrapper.get('.ranked-person-row').trigger('click');
     await nextTick();
 
@@ -823,6 +836,7 @@ describe('App ranking production slice', () => {
 
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
+    await waitForRankingSurface(wrapper);
 
     expect(wrapper.find('.ranking-surface').exists()).toBe(true);
     expect(wrapper.findAll('.ranked-person-row')).toHaveLength(1);
@@ -908,6 +922,7 @@ describe('App ranking production slice', () => {
     await flushPromises();
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
+    await waitForRankingSurface(wrapper);
     const row = wrapper.get<HTMLButtonElement>('.ranked-person-row');
 
     expect(personExecute).toHaveBeenCalledOnce();
@@ -1048,6 +1063,7 @@ describe('App ranking production slice', () => {
     await flushPromises();
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
+    await waitForRankingSurface(wrapper);
 
     expect(personExecute).toHaveBeenCalledTimes(1);
     expect(
@@ -1062,6 +1078,7 @@ describe('App ranking production slice', () => {
 
     await wrapper.get('#mode-tab-ranking').trigger('click');
     await flushPromises();
+    await waitForRankingSurface(wrapper);
     let row = wrapper.get('.ranked-person-row');
     expect(row.attributes('aria-current')).toBe('true');
     expect(row.attributes('aria-expanded')).toBeUndefined();

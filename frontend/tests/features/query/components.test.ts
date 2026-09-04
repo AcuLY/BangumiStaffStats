@@ -1307,6 +1307,9 @@ describe('query shell components', () => {
 
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
+    await vi.waitFor(() => {
+      expect(wrapper.find('.ranking-surface--state').exists()).toBe(true);
+    });
 
     expect(wrapper.get('.query-request-feedback').text()).toBe(
       '查询暂时无法完成，请稍后重试',
@@ -1351,6 +1354,9 @@ describe('query shell components', () => {
     await flushPromises();
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
+    await vi.waitFor(() => {
+      expect(wrapper.find('.ranking-page-empty-state').exists()).toBe(true);
+    });
     expect(wrapper.find('.ranking-page-empty-state').exists()).toBe(true);
 
     await wrapper.get('.query-summary').trigger('click');
