@@ -56,7 +56,6 @@ jobs:
             'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
             'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
             'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020'
-            'astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9'
             'docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c'
             'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
           )
@@ -66,17 +65,15 @@ jobs:
           done
 
           test "$(grep -Fc 'backend/build/build.sh' "$script")" -eq 1
-          test "$(grep -Fc 'updater/build/artifact.py" build' "$script")" -eq 1
+          test "$(grep -Fc 'contracts/producer-runtime-inputs-v1' "$script")" -eq 1
           test "$(grep -Ec '^  npm ci ' "$script")" -eq 1
           test "$(grep -Ec '^  npm run build$' "$script")" -eq 1
           test "$(grep -Ec '^  npm run check:artifact$' "$script")" -eq 1
           test "$(grep -Fc 'expected_bundle_inventory=' "$script")" -eq 1
           test "$(grep -Fc 'actual_bundle_inventory=' "$script")" -eq 1
           test "$(grep -Fc 'assembled bundle inventory is not closed' "$script")" -eq 1
-          test "$(
-            grep -Fc '"${accepted_product_revision}:.github/workflows/ci.yml"' "$script"
-          )" -eq 1
-          test "$(grep -Fc 'if ! cmp -s' "$script")" -eq 1
+          test "$(grep -Fc "components: ['backend', 'frontend']" "$script")" -eq 1
+          ! grep -Eiq 'updater[.]oci|BGMSS_UPDATER|setup-uv|[.]venv/bin/python' "$script"
 
           forbidden_authority='docker[[:space:]]+login|docker[[:space:]]+push'
           forbidden_authority+='|gh[[:space:]]+rele''ase|kube''ctl|helm[[:space:]]'
@@ -99,12 +96,6 @@ jobs:
       - name: Install exact npm
         shell: bash
         run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
-
-      - name: Install exact uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          version: 0.11.32
-          enable-cache: false
 
       - name: Create a local-only BuildKit builder
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
