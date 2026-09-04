@@ -40,6 +40,29 @@ func TestBuildUsesIndependentPositionMembership(t *testing.T) {
 	}
 }
 
+func TestBuildAllPositionsUnionsPeopleWorksAndIdentityOrder(t *testing.T) {
+	request := independentBuildRequest()
+	request.PositionKey = ""
+
+	core, err := Build(context.Background(), request)
+	if err != nil {
+		t.Fatalf("Build all: %v", err)
+	}
+	if core.PositionKey != "" || len(core.Rows) != 3 {
+		t.Fatalf("all core = %+v", core)
+	}
+	if !slices.Equal(core.Rows[1].PositionKeys, []string{
+		"staff:anime:2",
+		"staff:anime:74",
+	}) || core.Rows[1].Person.ID != 2 || core.Rows[1].WorkCount != 1 {
+		t.Fatalf("overlapping person = %+v", core.Rows[1])
+	}
+	if !slices.Equal(core.Rows[0].PositionKeys, []string{"staff:anime:2"}) ||
+		!slices.Equal(core.Rows[2].PositionKeys, []string{"staff:anime:74"}) {
+		t.Fatalf("identity order = %+v", core.Rows)
+	}
+}
+
 func TestBuildSeriesCountsParticipatingSeries(t *testing.T) {
 	request := independentBuildRequest()
 	request.Query.EffectiveQuery.PositionKeys = []string{"staff:anime:2"}

@@ -7,9 +7,25 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
 )
+
+type factSetCacheKey struct {
+	store       *archive.Store
+	subjectType string
+}
+
+type factSetCacheEntry struct {
+	done  chan struct{}
+	facts FactSet
+	err   error
+}
+
+type factSetLoader func(context.Context, *archive.Store, string) (FactSet, error)
+
+var factSets sync.Map
 
 const (
 	selectSubjects = `SELECT subject_id, nsfw, air_date, air_date_precision, score
@@ -47,7 +63,62 @@ ORDER BY member.position_key, member.member_key`
 // LoadFactSet reads one subject-type universe through Store's immutable,
 // single-SELECT boundary. It returns no partial snapshot on any error.
 func LoadFactSet(ctx context.Context, store *archive.Store, subjectType string) (FactSet, error) {
-	return loadFactSet(ctx, store, subjectType, loadFactSetHooks{})
+	return loadCachedFactSet(ctx, store, subjectType, func(
+		ctx context.Context,
+		store *archive.Store,
+		subjectType string,
+	) (FactSet, error) {
+		return loadFactSet(ctx, store, subjectType, loadFactSetHooks{})
+	})
+}
+
+func loadCachedFactSet(
+	ctx context.Context,
+	store *archive.Store,
+	subjectType string,
+	loader factSetLoader,
+) (FactSet, error) {
+	if err := contextCause(ctx); err != nil {
+		return FactSet{}, err
+	}
+	if store == nil {
+		return FactSet{}, errors.New("query: nil archive store")
+	}
+
+	key := factSetCacheKey{store: store, subjectType: subjectType}
+	entry := &factSetCacheEntry{done: make(chan struct{})}
+	actual, loaded := factSets.LoadOrStore(key, entry)
+	if loaded {
+		entry = actual.(*factSetCacheEntry)
+		select {
+		case <-entry.done:
+			if err := contextCause(ctx); err != nil {
+				return FactSet{}, err
+			}
+			if entry.err != nil {
+				return FactSet{}, entry.err
+			}
+			return entry.facts, nil
+		case <-ctx.Done():
+			return FactSet{}, contextCause(ctx)
+		}
+	}
+
+	facts, err := loader(ctx, store, subjectType)
+	if err == nil {
+		err = contextCause(ctx)
+	}
+	if err == nil {
+		entry.facts = facts
+	} else {
+		entry.err = err
+		factSets.Delete(key)
+	}
+	close(entry.done)
+	if err != nil {
+		return FactSet{}, err
+	}
+	return facts, nil
 }
 
 type loadFactSetHooks struct {

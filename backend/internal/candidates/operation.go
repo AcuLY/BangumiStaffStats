@@ -26,7 +26,7 @@ func NormalizeOperation(
 	effective query.EffectiveQuery,
 	input OperationInput,
 ) (Operation, error) {
-	if input.PositionKey == "" ||
+	if input.PositionKey != "" &&
 		!slices.Contains(effective.PositionKeys, input.PositionKey) {
 		return Operation{}, fieldError("/input/positionKey")
 	}

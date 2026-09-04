@@ -8,12 +8,17 @@ import (
 )
 
 type candidatesSummary struct {
-	PositionCounts []PositionCount `json:"positionCounts"`
+	PositionCounts []candidatePositionCount `json:"positionCounts"`
+}
+
+type candidatePositionCount struct {
+	PositionKey string `json:"positionKey"`
+	Count       int    `json:"count"`
 }
 
 type candidatesData struct {
 	Summary     candidatesSummary `json:"summary"`
-	PositionKey string            `json:"positionKey"`
+	PositionKey *string           `json:"positionKey"`
 	WorkUnit    string            `json:"workUnit"`
 	Items       []candidateItem   `json:"items"`
 }
@@ -25,9 +30,10 @@ type candidatePerson struct {
 }
 
 type candidateItem struct {
-	Rank      int             `json:"rank"`
-	Person    candidatePerson `json:"person"`
-	WorkCount int             `json:"workCount"`
+	Rank         int             `json:"rank"`
+	Person       candidatePerson `json:"person"`
+	PositionKeys []string        `json:"positionKeys"`
+	WorkCount    int             `json:"workCount"`
 }
 
 type globalCandidatesMeta struct {
@@ -81,7 +87,7 @@ func NewProjection(
 	scope string,
 	collection *CollectionFreshness,
 ) (Projection, error) {
-	if dataVersion == "" || page.PositionKey == "" ||
+	if dataVersion == "" ||
 		page.Page < 1 || page.PageSize < 1 ||
 		(scope != "global" && scope != "personal") ||
 		(scope == "global" && collection != nil) ||
@@ -106,17 +112,34 @@ func NewProjection(
 // MarshalEnvelope creates deterministic scope-specific JSON with collection
 // omission by construction.
 func (projection Projection) MarshalEnvelope(requestID string) ([]byte, error) {
+	positionCounts := make(
+		[]candidatePositionCount,
+		0,
+		len(projection.page.PositionCounts),
+	)
+	for _, count := range projection.page.PositionCounts {
+		positionCounts = append(positionCounts, candidatePositionCount{
+			PositionKey: count.PositionKey,
+			Count:       count.Count,
+		})
+	}
+	var positionKey *string
+	if projection.page.PositionKey != "" {
+		value := projection.page.PositionKey
+		positionKey = &value
+	}
 	data := candidatesData{
 		Summary: candidatesSummary{
-			PositionCounts: append([]PositionCount{}, projection.page.PositionCounts...),
+			PositionCounts: positionCounts,
 		},
-		PositionKey: projection.page.PositionKey,
+		PositionKey: positionKey,
 		WorkUnit:    string(projection.page.WorkUnit),
 		Items:       make([]candidateItem, 0, len(projection.page.Items)),
 	}
 	for _, item := range projection.page.Items {
 		data.Items = append(data.Items, candidateItem{
-			Rank: item.Rank,
+			Rank:         item.Rank,
+			PositionKeys: append([]string{}, item.PositionKeys...),
 			Person: candidatePerson{
 				ID:     item.Person.ID,
 				Name:   item.Person.Name,
@@ -159,6 +182,7 @@ func clonePage(value Page) Page {
 	value.Items = append([]Item{}, value.Items...)
 	for index := range value.Items {
 		value.Items[index].Person = clonePerson(value.Items[index].Person)
+		value.Items[index].PositionKeys = append([]string(nil), value.Items[index].PositionKeys...)
 	}
 	return value
 }

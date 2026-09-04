@@ -1279,8 +1279,8 @@
       "externalOrDefaultHomeWrites": 0
     },
     "bundle": {
-      "bytes": 1230774,
-      "sha256": "aa777d0c6b620b8b746e6cebd8cb979a020c06a338067a29d2b038206c0150a1",
+      "bytes": 1242338,
+      "sha256": "a4fcecb7a4dc8cb72363992209d97f50e817ff4f6259595c5d1704b040fd34e9",
       "byteIdentical": true,
       "forbiddenKeywordCounts": {
         "$anchor": 0,

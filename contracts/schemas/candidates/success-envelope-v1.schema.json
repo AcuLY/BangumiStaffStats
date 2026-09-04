@@ -102,6 +102,7 @@
       "required": [
         "rank",
         "person",
+        "positionKeys",
         "workCount"
       ],
       "properties": {
@@ -110,6 +111,15 @@
         },
         "person": {
           "$ref": "#/$defs/PersonReferenceV1"
+        },
+        "positionKeys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/PositionKeyV1"
+          }
         },
         "workCount": {
           "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
@@ -130,7 +140,14 @@
           "$ref": "#/$defs/CandidatesSummaryV1"
         },
         "positionKey": {
-          "$ref": "#/$defs/PositionKeyV1"
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PositionKeyV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "workUnit": {
           "type": "string",

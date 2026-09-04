@@ -6452,13 +6452,13 @@ func (e UnsupportedMediaTypeErrorV1ErrorFieldErrors) Valid() bool {
 
 // CandidatesInputV1 defines model for CandidatesInputV1.
 type CandidatesInputV1 struct {
-	PositionKey string `json:"positionKey"`
+	PositionKey *string `json:"positionKey"`
 }
 
 // CandidatesStateV1 defines model for CandidatesStateV1.
 type CandidatesStateV1 struct {
 	Input struct {
-		PositionKey string `json:"positionKey"`
+		PositionKey *string `json:"positionKey"`
 	} `json:"input"`
 	View struct {
 		Order    *CandidatesStateV1ViewOrder    `json:"order,omitempty"`
@@ -6538,7 +6538,7 @@ type CoStarAnalysisV1ViewSort string
 type CoStarAnalysisWorkspaceV1 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *CoStarAnalysisWorkspaceV1CandidatesViewOrder    `json:"order,omitempty"`
@@ -6589,7 +6589,7 @@ type CoStarAnalysisWorkspaceV1CoStarViewSort string
 type CoStarEmptyWorkspaceV1 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *CoStarEmptyWorkspaceV1CandidatesViewOrder    `json:"order,omitempty"`
@@ -6624,7 +6624,7 @@ type CoStarInputV1 struct {
 type CoStarPartnersWorkspaceV1 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *CoStarPartnersWorkspaceV1CandidatesViewOrder    `json:"order,omitempty"`
@@ -6772,7 +6772,7 @@ type CoStarSharePayloadV1_Query struct {
 type CoStarSharePayloadV1Workspace0 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *CoStarSharePayloadV1Workspace0CandidatesViewOrder    `json:"order,omitempty"`
@@ -6799,7 +6799,7 @@ type CoStarSharePayloadV1Workspace0CandidatesViewSort string
 type CoStarSharePayloadV1Workspace1 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *CoStarSharePayloadV1Workspace1CandidatesViewOrder    `json:"order,omitempty"`
@@ -6851,7 +6851,7 @@ type CoStarSharePayloadV1Workspace1PartnersViewSort string
 type CoStarSharePayloadV1Workspace2 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *CoStarSharePayloadV1Workspace2CandidatesViewOrder    `json:"order,omitempty"`
@@ -6912,7 +6912,7 @@ type CoStarShareWorkspaceV1 struct {
 type CoStarShareWorkspaceV10 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *CoStarShareWorkspaceV10CandidatesViewOrder    `json:"order,omitempty"`
@@ -6939,7 +6939,7 @@ type CoStarShareWorkspaceV10CandidatesViewSort string
 type CoStarShareWorkspaceV11 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *CoStarShareWorkspaceV11CandidatesViewOrder    `json:"order,omitempty"`
@@ -6991,7 +6991,7 @@ type CoStarShareWorkspaceV11PartnersViewSort string
 type CoStarShareWorkspaceV12 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *CoStarShareWorkspaceV12CandidatesViewOrder    `json:"order,omitempty"`
@@ -7065,7 +7065,7 @@ type CoStarWorkspaceV1 struct {
 type CoStarWorkspaceV10 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *CoStarWorkspaceV10CandidatesViewOrder    `json:"order,omitempty"`
@@ -7092,7 +7092,7 @@ type CoStarWorkspaceV10CandidatesViewSort string
 type CoStarWorkspaceV11 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *CoStarWorkspaceV11CandidatesViewOrder    `json:"order,omitempty"`
@@ -7144,7 +7144,7 @@ type CoStarWorkspaceV11PartnersViewSort string
 type CoStarWorkspaceV12 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *CoStarWorkspaceV12CandidatesViewOrder    `json:"order,omitempty"`
@@ -8461,7 +8461,7 @@ type SharePayloadV1_1_Query struct {
 type SharePayloadV11Workspace0 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *SharePayloadV11Workspace0CandidatesViewOrder    `json:"order,omitempty"`
@@ -8488,7 +8488,7 @@ type SharePayloadV11Workspace0CandidatesViewSort string
 type SharePayloadV11Workspace1 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *SharePayloadV11Workspace1CandidatesViewOrder    `json:"order,omitempty"`
@@ -8540,7 +8540,7 @@ type SharePayloadV11Workspace1PartnersViewSort string
 type SharePayloadV11Workspace2 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *SharePayloadV11Workspace2CandidatesViewOrder    `json:"order,omitempty"`
@@ -9166,7 +9166,7 @@ type SharePayloadV1Schema_1_Query struct {
 type SharePayloadV1Schema1Workspace0 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *SharePayloadV1Schema1Workspace0CandidatesViewOrder    `json:"order,omitempty"`
@@ -9193,7 +9193,7 @@ type SharePayloadV1Schema1Workspace0CandidatesViewSort string
 type SharePayloadV1Schema1Workspace1 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *SharePayloadV1Schema1Workspace1CandidatesViewOrder    `json:"order,omitempty"`
@@ -9245,7 +9245,7 @@ type SharePayloadV1Schema1Workspace1PartnersViewSort string
 type SharePayloadV1Schema1Workspace2 struct {
 	Candidates struct {
 		Input struct {
-			PositionKey string `json:"positionKey"`
+			PositionKey *string `json:"positionKey"`
 		} `json:"input"`
 		View struct {
 			Order    *SharePayloadV1Schema1Workspace2CandidatesViewOrder    `json:"order,omitempty"`

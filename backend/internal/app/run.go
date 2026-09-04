@@ -20,6 +20,7 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/publiccollection"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/ranking"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/statistics"
 )
 
 const readinessQuery = "SELECT data_version FROM archive_meta WHERE singleton = 1"
@@ -203,6 +204,9 @@ func runListener(
 		_ = dependencies.runtime.SetReadiness(false, "")
 		return serveRuntime(ctx, listener, dependencies, nil)
 	}
+	go func() {
+		_, _ = statistics.LoadSeriesIndex(ctx, store)
+	}()
 	return serveRuntime(ctx, listener, dependencies, probe)
 }
 

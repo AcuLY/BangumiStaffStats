@@ -14,7 +14,7 @@
           ]
         },
         "input": {
-          "positionKey": "cast:anime:all"
+          "positionKey": null
         }
       },
       "expected": {
@@ -38,7 +38,7 @@
                 }
               ]
             },
-            "positionKey": "cast:anime:all",
+            "positionKey": null,
             "workUnit": "subject",
             "items": [
               {
@@ -48,7 +48,10 @@
                   "name": "Only Cast",
                   "nameCN": null
                 },
-                "workCount": 4
+                "workCount": 4,
+                "positionKeys": [
+                  "cast:anime:all"
+                ]
               },
               {
                 "rank": 2,
@@ -57,7 +60,11 @@
                   "name": "Both",
                   "nameCN": "共同"
                 },
-                "workCount": 2
+                "workCount": 2,
+                "positionKeys": [
+                  "staff:anime:2",
+                  "cast:anime:all"
+                ]
               },
               {
                 "rank": 3,
@@ -66,7 +73,10 @@
                   "name": "Supporting",
                   "nameCN": null
                 },
-                "workCount": 1
+                "workCount": 1,
+                "positionKeys": [
+                  "cast:anime:all"
+                ]
               }
             ]
           },
@@ -137,7 +147,10 @@
                   "name": "First Match",
                   "nameCN": null
                 },
-                "workCount": 7
+                "workCount": 7,
+                "positionKeys": [
+                  "staff:anime:2"
+                ]
               },
               {
                 "rank": 8,
@@ -146,7 +159,10 @@
                   "name": "Last Match",
                   "nameCN": null
                 },
-                "workCount": 1
+                "workCount": 1,
+                "positionKeys": [
+                  "staff:anime:2"
+                ]
               }
             ]
           },
@@ -216,7 +232,10 @@
                   "name": "Low",
                   "nameCN": null
                 },
-                "workCount": 1
+                "workCount": 1,
+                "positionKeys": [
+                  "staff:anime:2"
+                ]
               },
               {
                 "rank": 2,
@@ -225,7 +244,10 @@
                   "name": "High",
                   "nameCN": null
                 },
-                "workCount": 1
+                "workCount": 1,
+                "positionKeys": [
+                  "staff:anime:2"
+                ]
               },
               {
                 "rank": 3,
@@ -234,7 +256,10 @@
                   "name": "Missing",
                   "nameCN": null
                 },
-                "workCount": 2
+                "workCount": 2,
+                "positionKeys": [
+                  "staff:anime:2"
+                ]
               }
             ]
           },

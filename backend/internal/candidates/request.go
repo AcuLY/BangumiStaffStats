@@ -23,7 +23,7 @@ func normalizeOperationRequest(
 	if err != nil {
 		return Operation{}, err
 	}
-	if !containsPosition(effective.PositionKeys, positionKey) {
+	if positionKey != "" && !containsPosition(effective.PositionKeys, positionKey) {
 		return Operation{}, requestFailure(
 			"the candidate position is not selected by the query",
 			"/input/positionKey",
@@ -88,6 +88,9 @@ func parsePositionInput(raw json.RawMessage) (string, error) {
 			"/input/positionKey",
 			"REQUIRED",
 		)
+	}
+	if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+		return "", nil
 	}
 	var positionKey string
 	if err := json.Unmarshal(value, &positionKey); err != nil {

@@ -385,7 +385,9 @@ function assertSuccessSemantics(item) {
   const { query, input } = item.request;
   const { data, meta } = item.expected.body;
   assert.equal(data.positionKey, input.positionKey);
-  assert(query.positionKeys.includes(input.positionKey));
+  if (input.positionKey !== null) {
+    assert(query.positionKeys.includes(input.positionKey));
+  }
   assert.deepEqual(
     data.summary.positionCounts.map(({ positionKey }) => positionKey),
     query.positionKeys,
@@ -396,6 +398,20 @@ function assertSuccessSemantics(item) {
     query.positionKeys.length,
   );
   assert.equal(data.workUnit, query.mergeSeries === true ? "series" : "subject");
+  const people = new Set();
+  for (const candidate of data.items) {
+    assert(candidate.positionKeys.length > 0);
+    assert.deepEqual(
+      candidate.positionKeys,
+      query.positionKeys.filter((key) => candidate.positionKeys.includes(key)),
+    );
+    if (input.positionKey === null) {
+      assert(!people.has(candidate.person.id), `${item.id}: duplicate person`);
+      people.add(candidate.person.id);
+    } else {
+      assert.deepEqual(candidate.positionKeys, [input.positionKey]);
+    }
+  }
   assertNoFrontendState(data);
   if (query.scope === "global") {
     assert(!Object.hasOwn(meta, "collection"), `${item.id}: collection`);
