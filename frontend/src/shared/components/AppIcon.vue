@@ -1,13 +1,17 @@
 <script setup lang="ts">
+import InfoIcon from './InfoIcon.vue';
+
 withDefaults(
   defineProps<{
     name:
+      | 'arrow-down'
       | 'chevron-down'
       | 'chevron-left'
       | 'chevron-right'
       | 'close'
       | 'external-link'
       | 'image'
+      | 'info'
       | 'person'
       | 'refresh'
       | 'search';
@@ -20,7 +24,13 @@ withDefaults(
 </script>
 
 <template>
+  <info-icon
+    v-if="name === 'info'"
+    class="app-icon"
+    :size="size"
+  />
   <svg
+    v-else
     class="app-icon"
     :width="size"
     :height="size"
@@ -55,6 +65,10 @@ withDefaults(
     <template v-else-if="name === 'external-link'">
       <path d="M14 5h5v5M19 5l-8 8" />
       <path d="M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+    </template>
+    <template v-else-if="name === 'arrow-down'">
+      <path d="M12 4v16" />
+      <path d="m6.5 14.5 5.5 5.5 5.5-5.5" />
     </template>
     <path
       v-else-if="name === 'chevron-left'"

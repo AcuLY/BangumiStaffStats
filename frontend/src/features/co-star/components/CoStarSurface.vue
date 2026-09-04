@@ -187,8 +187,8 @@ function itemName(item: CoStarPreferenceItem): string {
   return primaryName(item.unit);
 }
 
-function focusPreferenceItem(item: CoStarPreferenceItem): void {
-  void workBrowser.value?.focusUnit(itemName(item));
+async function focusPreferenceItem(item: CoStarPreferenceItem): Promise<void> {
+  await workBrowser.value?.focusUnit(itemName(item));
 }
 
 function matrixCellLabel(cell: CoStarMatrixCell): string {

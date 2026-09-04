@@ -32,8 +32,10 @@ const editing = ref(props.queryStore.applied === null);
 const compact = useCompactLayout(props.targetWindow);
 const expandedQuerySections = ref<string[]>([]);
 const queryEditor = ref<InstanceType<typeof QueryEditor> | null>(null);
+const workspace = ref<HTMLElement | null>(null);
 const summaryButton = ref<HTMLButtonElement | null>(null);
-const overlayTop = ref(0);
+const attention = ref(false);
+let attentionTimer: number | undefined;
 let restoreSummaryFocus = true;
 let summaryPointerActivated = false;
 
@@ -67,13 +69,6 @@ const mergeSeriesAvailable = computed(() => {
   );
 });
 
-function syncOverlayTop(): void {
-  const bottom = summaryButton.value?.getBoundingClientRect().bottom;
-  if (bottom !== undefined) {
-    overlayTop.value = Math.ceil(bottom);
-  }
-}
-
 function focusEditorTarget(selector: string): void {
   props.targetWindow.document
     .querySelector<HTMLElement>(`#query-editor ${selector}`)
@@ -92,10 +87,44 @@ function canAutoFocusEditor(): boolean {
     .matches;
 }
 
-async function openEditor(): Promise<void> {
-  syncOverlayTop();
+interface OpenEditorOptions {
+  reveal?: boolean;
+}
+
+function reducedMotion(): boolean {
+  return (
+    typeof props.targetWindow.matchMedia === 'function' &&
+    props.targetWindow.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
+function clearAttention(): void {
+  attention.value = false;
+  if (attentionTimer !== undefined) {
+    props.targetWindow.clearTimeout(attentionTimer);
+    attentionTimer = undefined;
+  }
+}
+
+function revealWorkspace(): void {
+  clearAttention();
+  attention.value = true;
+  props.targetWindow.scrollTo({
+    behavior: reducedMotion() ? 'auto' : 'smooth',
+    top: 0,
+  });
+  attentionTimer = props.targetWindow.setTimeout(clearAttention, 900);
+}
+
+async function openEditor(options: OpenEditorOptions = {}): Promise<void> {
+  if (options.reveal) {
+    revealWorkspace();
+  }
   editing.value = true;
   await nextTick();
+  if (options.reveal) {
+    workspace.value?.focus({ preventScroll: true });
+  }
   if (canAutoFocusEditor()) {
     focusEditorTarget('[name="userId"]');
   }
@@ -142,6 +171,13 @@ function toggleEditor(event: MouseEvent): void {
 }
 
 async function execute(refreshCollection = false): Promise<void> {
+  if (
+    !refreshCollection &&
+    props.queryStore.applied !== null &&
+    !props.queryStore.dirty
+  ) {
+    return;
+  }
   const accepted = await props.coordinator.execute({
     catalog: props.catalogStore.snapshot,
     mode: props.mode,
@@ -161,7 +197,6 @@ watch(
   async (isEditing) => {
     await nextTick();
     if (isEditing) {
-      syncOverlayTop();
       return;
     }
     if (
@@ -197,17 +232,13 @@ watch(
 );
 
 onMounted(async () => {
-  props.targetWindow.addEventListener('resize', syncOverlayTop);
   await nextTick();
-  syncOverlayTop();
   if (editing.value && canAutoFocusEditor()) {
     focusEditorTarget('[name="userId"]');
   }
 });
 
-onBeforeUnmount(() => {
-  props.targetWindow.removeEventListener('resize', syncOverlayTop);
-});
+onBeforeUnmount(clearAttention);
 
 defineExpose({
   closeForExternalAction,
@@ -218,11 +249,14 @@ defineExpose({
 
 <template>
   <section
+    ref="workspace"
     class="query-workspace"
-    :aria-labelledby="editing ? 'query-editor-title' : 'query-title'"
+    :class="{ 'is-attention': attention }"
+    aria-labelledby="query-title"
+    tabindex="-1"
   >
-    <h1 v-if="!editing" id="query-title" class="sr-only">
-      {{ queryStore.applied ? '当前查询' : '查询设置' }}
+    <h1 id="query-title" class="sr-only">
+      {{ editing ? '编辑查询参数' : queryStore.applied ? '当前查询' : '查询设置' }}
     </h1>
     <button
       ref="summaryButton"
@@ -286,38 +320,32 @@ defineExpose({
       </template>
     </button>
 
-    <teleport to="body" :disabled="compact">
-      <transition name="query-panel">
-        <div
-          v-if="editing"
-          class="query-editor-overlay"
-          :style="{ '--query-overlay-top': `${overlayTop}px` }"
-          >
-            <query-editor
-              ref="queryEditor"
-              v-model:expanded-sections="expandedQuerySections"
-            :catalog-phase="catalogStore.phase"
-            :compact="compact"
-            :dirty="queryStore.dirty"
-            :disabled="coordinator.pending.value"
-            :draft="queryStore.draft"
-            :errors="queryStore.fieldErrors"
-            :groups="catalogStore.snapshot?.groups ?? []"
-            :has-applied-query="Boolean(queryStore.applied)"
-            :merge-series-available="mergeSeriesAvailable"
-            :mode="mode"
-            :positions="catalogStore.positions"
-            :status-message="resource.error ?? resource.feedback"
-            :subject-types="catalogStore.subjectTypes"
-            @cancel="coordinator.cancelPending()"
-            @close="closeEditor()"
-            @refresh="execute(true)"
-            @restore="queryStore.restoreDraft"
-            @retry-catalog="retryCatalog"
-            @submit="execute(false)"
-          />
-        </div>
-      </transition>
-    </teleport>
+    <transition name="query-panel">
+      <div v-if="editing" class="query-editor-panel">
+        <query-editor
+          ref="queryEditor"
+          v-model:expanded-sections="expandedQuerySections"
+          :catalog-phase="catalogStore.phase"
+          :compact="compact"
+          :dirty="queryStore.dirty"
+          :disabled="coordinator.pending.value"
+          :draft="queryStore.draft"
+          :errors="queryStore.fieldErrors"
+          :groups="catalogStore.snapshot?.groups ?? []"
+          :has-applied-query="Boolean(queryStore.applied)"
+          :merge-series-available="mergeSeriesAvailable"
+          :mode="mode"
+          :positions="catalogStore.positions"
+          :status-message="resource.error ?? resource.feedback"
+          :subject-types="catalogStore.subjectTypes"
+          @cancel="coordinator.cancelPending()"
+          @close="closeEditor()"
+          @refresh="execute(true)"
+          @restore="queryStore.restoreDraft"
+          @retry-catalog="retryCatalog"
+          @submit="execute(false)"
+        />
+      </div>
+    </transition>
   </section>
 </template>

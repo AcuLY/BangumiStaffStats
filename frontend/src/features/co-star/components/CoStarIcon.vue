@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import InfoIcon from '../../../shared/components/InfoIcon.vue';
+
 withDefaults(
   defineProps<{
     name: 'check' | 'edit' | 'info' | 'people' | 'warning';
@@ -11,7 +13,13 @@ withDefaults(
 </script>
 
 <template>
+  <info-icon
+    v-if="name === 'info'"
+    class="co-star-icon"
+    :size="size"
+  />
   <svg
+    v-else
     class="co-star-icon"
     :width="size"
     :height="size"
@@ -29,11 +37,6 @@ withDefaults(
     <template v-else-if="name === 'edit'">
       <path d="m4 20 4.2-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.2 16Z" />
       <path d="m14.8 6.4 2.8 2.8" />
-    </template>
-    <template v-else-if="name === 'info'">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 10.5v6" />
-      <path d="M12 7.4h.01" />
     </template>
     <template v-else-if="name === 'warning'">
       <path d="M12 3 2.8 20h18.4Z" />

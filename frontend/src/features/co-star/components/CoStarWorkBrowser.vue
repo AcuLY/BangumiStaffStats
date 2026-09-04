@@ -10,13 +10,13 @@ import {
 import type { InputInst } from 'naive-ui';
 import {
   computed,
-  nextTick,
   onBeforeUnmount,
   ref,
   watch,
 } from 'vue';
 
 import AppIcon from '../../../shared/components/AppIcon.vue';
+import { useResultReveal } from '../../../shared/composables/useResultReveal';
 import SafeImage from '../../../shared/components/SafeImage.vue';
 import { subjectImageCandidates } from '../../../shared/media/bangumiImage';
 import { useCompactLayout } from '../../query/composables/useCompactLayout';
@@ -64,6 +64,11 @@ const controlSize = computed(() =>
 const densityMode = ref<'compact' | 'detailed'>('detailed');
 const search = ref(props.view.search);
 const searchInput = ref<InputInst | null>(null);
+const {
+  attention: resultAttention,
+  reveal: revealResults,
+  target: resultTarget,
+} = useResultReveal(props.targetWindow);
 const visibleSeriesInfoKey = ref<string | null>(null);
 const CAST_ROLE_LABELS: Readonly<Record<string, string>> = Object.freeze({
   主役: '主角',
@@ -122,8 +127,14 @@ function secondaryName(entity: {
     : null;
 }
 
-function request(patch: Partial<CoStarView>): void {
-  void props.executeView(updateCoStarView(props.view, patch));
+function request(patch: Partial<CoStarView>): Promise<boolean> {
+  return props.executeView(updateCoStarView(props.view, patch));
+}
+
+async function requestPage(patch: Partial<CoStarView>): Promise<void> {
+  if (await request(patch)) {
+    await revealResults();
+  }
 }
 
 function clearSearchTimer(): void {
@@ -135,7 +146,7 @@ function clearSearchTimer(): void {
 
 function requestSearch(): void {
   clearSearchTimer();
-  request({ search: search.value });
+  void request({ search: search.value });
 }
 
 function scheduleSearch(value: string): void {
@@ -147,9 +158,9 @@ function scheduleSearch(value: string): void {
 async function focusUnit(unitName: string): Promise<void> {
   clearSearchTimer();
   search.value = unitName;
-  request({ search: unitName });
-  await nextTick();
-  searchInput.value?.focus();
+  if (await request({ search: unitName })) {
+    await revealResults({ focus: searchInput.value?.inputElRef ?? null });
+  }
 }
 
 function entityFor(item: CoStarWorkItem) {
@@ -256,8 +267,13 @@ defineExpose({ focusUnit });
 
 <template>
   <div
-    class="subject-work-browser co-star-work-browser"
+    ref="resultTarget"
+    class="subject-work-browser co-star-work-browser result-reveal-target"
+    :class="{ 'is-reveal-attention': resultAttention }"
+    role="region"
+    aria-labelledby="co-star-common-works-title"
     :aria-busy="pending ? 'true' : undefined"
+    tabindex="-1"
   >
     <div
       class="section-heading co-star-section-heading subject-work-browser__heading"
@@ -518,7 +534,7 @@ defineExpose({ focusUnit });
                   >
                     <template #trigger>
                       <button
-                        class="subject-work-row__series-info"
+                        class="subject-work-row__series-info info-trigger"
                         type="button"
                         aria-label="系列参与身份数量说明：参与身份标签末尾的数字表示该人物以此身份参与的系列内作品数"
                         :aria-expanded="
@@ -727,8 +743,8 @@ defineExpose({ focusUnit });
       :page-size-unit="workUnit === 'series' ? '个系列' : '部'"
       :pending="pending"
       :total="total"
-      @page="request({ page: $event })"
-      @page-size="request({ pageSize: $event })"
+      @page="requestPage({ page: $event })"
+      @page-size="requestPage({ pageSize: $event })"
     />
   </div>
 </template>

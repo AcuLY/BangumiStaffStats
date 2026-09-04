@@ -248,13 +248,11 @@ const visibleGroups = computed(() =>
     (group) => group.subjectType === props.draft.subjectType,
   ),
 );
-const positionStageTitle = computed(() =>
-  props.mode === 'ranking' ? '排行职位' : '参与职位',
-);
+const positionStageTitle = '职位';
 const positionStageHelp = computed(() =>
   props.mode === 'ranking'
     ? '仅统计同时具备全部已选职位的人物；参与作品按已选职位合并并去重'
-    : '每个职位分别生成候选人物；第一项作为默认浏览职位',
+    : '按所选职位生成候选人物；默认在“全部职位”中混合展示候选结果',
 );
 const submitLabel = computed(() =>
   props.disabled
@@ -484,26 +482,6 @@ function updateSubjectType(value: SubjectType): void {
   );
 }
 
-function containQueryWheel(event: WheelEvent): void {
-  if (!event.deltaY) {
-    return;
-  }
-  const scrollContainer = event.currentTarget;
-  if (!(scrollContainer instanceof HTMLElement)) {
-    return;
-  }
-  const maxScrollTop =
-    scrollContainer.scrollHeight - scrollContainer.clientHeight;
-  const canScroll =
-    event.deltaY < 0
-      ? scrollContainer.scrollTop > 0
-      : scrollContainer.scrollTop < maxScrollTop - 1;
-  if (!canScroll) {
-    event.preventDefault();
-  }
-  event.stopPropagation();
-}
-
 async function focusFirstInvalidField(): Promise<void> {
   const fieldOrder: readonly QueryField[] = [
     'uid',
@@ -625,7 +603,7 @@ defineExpose({ focusFirstInvalidField });
     @submit.prevent="emit('submit')"
     @keydown.esc.stop.prevent="emit('close')"
   >
-    <div class="query-editor__scroll" @wheel="containQueryWheel">
+    <div class="query-editor__content">
       <div class="query-editor__stages">
         <section
           class="query-stage query-stage--scope"
@@ -683,7 +661,7 @@ defineExpose({ focusFirstInvalidField });
                 >
                   <template #trigger>
                     <button
-                      class="field-help-trigger"
+                      class="field-help-trigger info-trigger"
                       type="button"
                       :aria-expanded="uidHelpVisible"
                       aria-label="什么是 UID？进入 Bangumi 个人主页，取网址 /user/ 后的一段"
@@ -864,7 +842,7 @@ defineExpose({ focusFirstInvalidField });
                         >
                           <template #trigger>
                             <button
-                              class="query-option-help"
+                              class="query-option-help info-trigger"
                               type="button"
                               :aria-expanded="visibleHelp === option.key"
                               :aria-label="`${optionTitle(option)}说明：${option.help}`"
@@ -1091,7 +1069,7 @@ defineExpose({ focusFirstInvalidField });
                 >
                   <template #trigger>
                     <button
-                      class="query-option-help"
+                      class="query-option-help info-trigger"
                       type="button"
                       :aria-expanded="visibleHelp === 'positions'"
                       :aria-label="`${positionStageTitle}说明：${positionStageHelp}`"
@@ -1114,13 +1092,6 @@ defineExpose({ focusFirstInvalidField });
             class="field field--positions"
             :class="{ 'is-error': Boolean(error('positionKeys')) }"
           >
-            <span id="query-position-control-label" class="query-position-hint">
-              {{
-                mode === 'ranking'
-                  ? '可多选；仅保留同时具备全部所选职位的人物'
-                  : '可多选；选择参与共演分析的职位'
-              }}
-            </span>
             <position-selector
               ref="positionInput"
               v-model="draft.positionKeys"
@@ -1130,9 +1101,7 @@ defineExpose({ focusFirstInvalidField });
               :groups="visibleGroups"
               :phase="catalogPhase"
               :positions="visiblePositions"
-              :placeholder="
-                mode === 'ranking' ? '选择排行职位' : '选择参与职位'
-              "
+              placeholder="选择职位"
               @retry="emit('retryCatalog')"
             />
           </div>
@@ -1144,9 +1113,6 @@ defineExpose({ focusFirstInvalidField });
       </p>
 
       <footer class="query-editor__footer">
-        <span class="query-editor__status" role="status" aria-live="polite">
-          {{ disabled ? '查询中' : '' }}
-        </span>
         <n-space class="query-editor__actions" :size="8" justify="end" wrap>
           <n-button
             :size="controlSize"

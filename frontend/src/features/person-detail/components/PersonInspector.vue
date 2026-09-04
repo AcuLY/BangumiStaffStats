@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick } from 'vue';
+import { computed, ref } from 'vue';
 
 import AppIcon from '../../../shared/components/AppIcon.vue';
 import SafeImage from '../../../shared/components/SafeImage.vue';
@@ -15,6 +15,7 @@ import {
   type PersonPositionLabelResolver,
 } from '../model';
 import PersonItemBrowser from './PersonItemBrowser.vue';
+import PersonDetailSkeleton from './PersonDetailSkeleton.vue';
 import PersonProfile from './PersonProfile.vue';
 import RatingEvidence from './RatingEvidence.vue';
 import StatEvidencePopover from './StatEvidencePopover.vue';
@@ -46,6 +47,7 @@ const props = withDefaults(
 );
 
 const payload = computed(() => props.resource.payload);
+const itemBrowser = ref<InstanceType<typeof PersonItemBrowser> | null>(null);
 const acceptedPositionKeys = computed(() =>
   (props.resource.acceptedQuery?.positionKeys ?? []).map(String),
 );
@@ -102,7 +104,7 @@ async function focusPreference(
     PersonDetailPayload['preference']
   >['preferred'][number]['unit'],
 ): Promise<void> {
-  await props.executeView(
+  const accepted = await props.executeView(
     updatePersonDetailView(props.resource.view, {
       search: primaryEntityName(unit),
       section: 'works',
@@ -112,39 +114,17 @@ async function focusPreference(
           : props.resource.view.sort,
     }),
   );
-  await nextTick();
-  document
-    .querySelector<HTMLInputElement>(
-      'input[aria-label="搜索参与作品"], input[aria-label="搜索参与系列或系列内作品"]',
-    )
-    ?.focus();
+  if (accepted) {
+    await itemBrowser.value?.revealSearch();
+  }
 }
 </script>
 
 <template>
   <article class="person-inspector">
-    <div
+    <person-detail-skeleton
       v-if="resource.phase === 'pending' && !payload"
-      class="person-inspector__identity-pending"
-      aria-busy="true"
-      aria-live="polite"
-    >
-      <span class="sr-only">正在加载人物详情</span>
-      <div class="person-profile-skeleton" aria-hidden="true">
-        <i />
-        <span>
-          <b />
-          <b />
-          <b />
-        </span>
-      </div>
-      <div class="person-metrics-skeleton" aria-hidden="true">
-        <i v-for="index in 4" :key="index" />
-      </div>
-      <div class="person-section-skeleton" aria-hidden="true">
-        <i v-for="index in 5" :key="index" />
-      </div>
-    </div>
+    />
 
     <section
       v-else-if="!payload && resource.error"
@@ -488,12 +468,13 @@ async function focusPreference(
       </section>
 
       <person-item-browser
+        ref="itemBrowser"
         :device-pixel-ratio="devicePixelRatio"
+        :execute-view="executeView"
         :payload="payload"
         :pending="resource.viewPending"
         :position-label="positionLabel"
         :view="resource.view"
-        @view="executeView"
       />
     </template>
   </article>

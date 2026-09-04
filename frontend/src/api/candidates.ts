@@ -97,8 +97,10 @@ export function candidateErrorMessage(code: ErrorCodeV1): string {
   if (code === 'NOT_READY' || code === 'SERVER_BUSY') {
     return '候选人物服务正在准备，请稍后重试';
   }
+  if (code === 'UPSTREAM_TIMEOUT') {
+    return '候选人物查询超时，请重试';
+  }
   if (
-    code === 'UPSTREAM_TIMEOUT' ||
     code === 'UPSTREAM_UNAVAILABLE' ||
     code === 'UPSTREAM_PROTOCOL_ERROR'
   ) {
@@ -200,9 +202,25 @@ export function createCandidatesDriver(client: ApiClient): CandidatesDriver {
       const expectedPage = request.view.page ?? 1;
       const expectedPageSize = request.view.pageSize ?? 10;
       const expectedPositionKeys = request.query.positionKeys.map(String);
+      const expectedPositionKey =
+        request.input.positionKey === null
+          ? null
+          : String(request.input.positionKey);
+      const invalidItemPositions = payload.items.some((item) => {
+        const ordered = expectedPositionKeys.filter((key) =>
+          item.positionKeys.includes(key),
+        );
+        return (
+          ordered.length !== item.positionKeys.length ||
+          ordered.some((key, index) => key !== item.positionKeys[index]) ||
+          (expectedPositionKey !== null &&
+            (item.positionKeys.length !== 1 ||
+              item.positionKeys[0] !== expectedPositionKey))
+        );
+      });
       if (
         payload.scope !== request.query.scope ||
-        payload.positionKey !== String(request.input.positionKey) ||
+        payload.positionKey !== expectedPositionKey ||
         payload.workUnit !==
           (request.query.mergeSeries === true ? 'series' : 'subject') ||
         payload.pagination.page !== expectedPage ||
@@ -211,7 +229,8 @@ export function createCandidatesDriver(client: ApiClient): CandidatesDriver {
         payload.positionCounts.some(
           (entry, index) =>
             entry.positionKey !== expectedPositionKeys[index],
-        )
+        ) ||
+        invalidItemPositions
       ) {
         return projectionMismatch();
       }

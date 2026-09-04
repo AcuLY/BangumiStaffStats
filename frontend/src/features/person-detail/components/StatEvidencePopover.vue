@@ -7,6 +7,8 @@ import {
   useId,
 } from 'vue';
 
+import AppIcon from '../../../shared/components/AppIcon.vue';
+
 const props = defineProps<{
   label: string;
 }>();
@@ -48,7 +50,7 @@ onBeforeUnmount(() => {
     >
       <template #trigger>
         <button
-          class="stat-evidence__trigger"
+          class="stat-evidence__trigger info-trigger"
           type="button"
           :aria-label="label"
           :aria-controls="panelId"
@@ -60,7 +62,7 @@ onBeforeUnmount(() => {
           @click.stop="open = true"
           @keydown.esc.stop.prevent="close"
         >
-          i
+          <app-icon name="info" :size="16" />
         </button>
       </template>
       <span :id="panelId" class="stat-evidence__panel" role="status">

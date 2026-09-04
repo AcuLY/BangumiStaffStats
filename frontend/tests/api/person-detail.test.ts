@@ -188,6 +188,16 @@ describe('person-detail native-fetch driver', () => {
       '该人物已不在当前查询结果中，请重新选择',
     );
     expect(accepted.message).not.toContain('backend display text');
+    expect(
+      decodePersonDetailApiError(errorEnvelope('UPSTREAM_TIMEOUT'), 504)
+        .message,
+    ).toBe('人物详情查询超时，请重试');
+    expect(
+      decodePersonDetailApiError(
+        errorEnvelope('UPSTREAM_UNAVAILABLE'),
+        503,
+      ).message,
+    ).toBe('收藏数据暂时不可用，请稍后重试');
 
     expect(() =>
       decodePersonDetailApiError(errorEnvelope('INTERNAL_ERROR'), 400),

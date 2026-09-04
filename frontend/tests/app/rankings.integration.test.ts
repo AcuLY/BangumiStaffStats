@@ -70,6 +70,27 @@ function rankingPayload(
   });
 }
 
+function emptyRankingPayload(): RankingPayload {
+  const payload = rankingPayload('server-ranking-empty', 'count');
+  return Object.freeze({
+    ...payload,
+    items: Object.freeze([]),
+    metricScale: Object.freeze({
+      ...payload.metricScale,
+      max: null,
+    }),
+    pagination: Object.freeze({
+      ...payload.pagination,
+      total: 0,
+    }),
+    summary: Object.freeze({
+      ...payload.summary,
+      personCount: 0,
+      workCount: 0,
+    }),
+  });
+}
+
 function detailPayload(
   dataVersion = rankingDataVersion,
   fetchedAt = '2026-07-25T00:00:00Z',
@@ -298,8 +319,34 @@ describe('App ranking production slice', () => {
       expect(wrapper.find('.person-detail-surface').exists()).toBe(true);
     });
     expect(wrapper.find('.person-detail-surface').exists()).toBe(true);
+    const main = wrapper.get('.app-main');
+    const queryWorkspace = wrapper.get('.query-workspace');
+    expect(main.element.firstElementChild).toBe(queryWorkspace.element);
+    expect(wrapper.find('.app-header .query-workspace').exists()).toBe(false);
+    expect(wrapper.find('.query-editor-panel').exists()).toBe(false);
     expect(wrapper.find('.query-editor-overlay').exists()).toBe(false);
     expect(window.location.hash).toBe('');
+
+    await queryWorkspace.get('.query-summary').trigger('click');
+    await nextTick();
+    expect(queryWorkspace.find('.query-editor-panel').exists()).toBe(true);
+    expect(queryWorkspace.attributes('aria-labelledby')).toBe('query-title');
+    expect(queryWorkspace.get('#query-title').text()).toBe('编辑查询参数');
+    expect(wrapper.find('.query-editor-overlay').exists()).toBe(false);
+    const wheelEvent = new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      deltaY: 120,
+    });
+    expect(
+      queryWorkspace.get('.query-editor__content').element.dispatchEvent(
+        wheelEvent,
+      ),
+    ).toBe(true);
+    expect(wheelEvent.defaultPrevented).toBe(false);
+    await queryWorkspace.get('.query-summary').trigger('click');
+    await nextTick();
+    expect(queryWorkspace.find('.query-editor-panel').exists()).toBe(false);
 
     await wrapper
       .get('button[aria-label="复制当前查询链接"]')
@@ -389,7 +436,7 @@ describe('App ranking production slice', () => {
     wrapper.unmount();
   });
 
-  it('keeps deferred Inspector state invisible until a person is selected', async () => {
+  it('shows the companion detail skeleton and auto-selects first while the surface loads', async () => {
     installCompactLayout(false);
     window.history.replaceState({}, '', '/ranking?user=luca');
     const pinia = createPinia();
@@ -398,11 +445,120 @@ describe('App ranking production slice', () => {
     store.draft.uid = 'luca';
     store.draft.positionKeys = ['staff:anime:2'];
     const personDetailModule = deferred<never>();
-    const detailExecute = vi.fn(async (request) => ({
+    const rankingRequest = deferred<OperationResponse<RankingPayload>>();
+    const detailRequest = deferred<OperationResponse<PersonDetailPayload>>();
+    let rankingTransactionId = '';
+    let detailTransactionId = '';
+    const detailExecute = vi.fn((request) => {
+      detailTransactionId = request.transactionId;
+      return detailRequest.promise;
+    });
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: {
+            async load() {
+              return catalogFixture();
+            },
+          },
+          drivers: {
+            candidates: {
+              async execute(): Promise<never> {
+                throw new Error('not part of this test');
+              },
+            },
+            personDetail: { execute: detailExecute },
+            rankings: {
+              execute(request) {
+                rankingTransactionId = request.transactionId;
+                return rankingRequest.promise;
+              },
+            },
+          },
+          surfaceLoaders: {
+            personDetail: () => personDetailModule.promise,
+          },
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+    await wrapper.get('#query-editor').trigger('submit');
+    await nextTick();
+
+    expect(wrapper.find('.ranking-surface--loading').exists()).toBe(true);
+    expect(wrapper.get('#person-detail-panel').attributes('aria-hidden')).toBe(
+      'true',
+    );
+    expect(
+      wrapper
+        .get('.ranking-workspace')
+        .findAll('[aria-live="polite"]')
+        .filter(
+          (node) =>
+            node.element.closest('[aria-hidden="true"]') === null &&
+            node.text().startsWith('正在加载'),
+        )
+        .map((node) => node.text()),
+    ).toEqual(['正在加载人物排行']);
+    expect(wrapper.text()).not.toContain('选择人物查看详情');
+    expect(detailExecute).not.toHaveBeenCalled();
+
+    rankingRequest.resolve({
+      payload: rankingPayload('server-ranking', 'count'),
+      requestId: 'server-ranking',
+      transactionId: rankingTransactionId,
+    });
+    await flushPromises();
+
+    expect(detailExecute).toHaveBeenCalledOnce();
+    expect(detailExecute.mock.calls[0]![0].input).toEqual({ personId: 12 });
+    expect(wrapper.get('.ranked-person-row').attributes('aria-current')).toBe(
+      'true',
+    );
+    expect(
+      wrapper
+        .get('.ranking-workspace')
+        .findAll('[aria-live="polite"]')
+        .filter(
+          (node) =>
+            node.element.closest('[aria-hidden="true"]') === null &&
+            node.text().startsWith('正在加载'),
+        )
+        .map((node) => node.text()),
+    ).toEqual(['正在加载人物详情']);
+    expect(wrapper.get('.ranking-workspace').classes()).not.toContain(
+      'ranking-workspace--single',
+    );
+
+    detailRequest.resolve({
       payload: detailPayload(),
       requestId: 'server-detail',
-      transactionId: request.transactionId,
-    }));
+      transactionId: detailTransactionId,
+    });
+    await flushPromises();
+
+    personDetailModule.reject(new Error('module unavailable'));
+    await flushPromises();
+    expect(wrapper.text()).toContain('人物详情加载失败');
+    expect(wrapper.find('.person-detail-placeholder').exists()).toBe(
+      false,
+    );
+    wrapper.unmount();
+    vi.unstubAllGlobals();
+  });
+
+  it('uses the full ranking width when an accepted query has no people', async () => {
+    installCompactLayout(false);
+    window.history.replaceState({}, '', '/ranking?user=luca');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = useQueryStore();
+    store.draft.uid = 'luca';
+    store.draft.positionKeys = ['staff:anime:2'];
+    const detailExecute = vi.fn();
     const wrapper = mount(App, {
       attachTo: document.body,
       global: { plugins: [pinia], stubs: { teleport: true } },
@@ -423,18 +579,12 @@ describe('App ranking production slice', () => {
             rankings: {
               async execute(request) {
                 return {
-                  payload: rankingPayload(
-                    'server-ranking',
-                    'count',
-                  ),
-                  requestId: 'server-ranking',
+                  payload: emptyRankingPayload(),
+                  requestId: 'server-ranking-empty',
                   transactionId: request.transactionId,
                 };
               },
             },
-          },
-          surfaceLoaders: {
-            personDetail: () => personDetailModule.promise,
           },
           targetWindow: window,
         },
@@ -444,28 +594,18 @@ describe('App ranking production slice', () => {
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
 
-    const placeholder = wrapper.get('.person-detail-placeholder');
-    expect(placeholder.get('h2').text()).toBe('选择人物查看详情');
-    expect(placeholder.get('p').text()).toBe(
-      '从左侧排行中选择一位人物，查看评分、证据和参与作品。',
+    expect(wrapper.get('.ranking-workspace').classes()).toContain(
+      'ranking-workspace--single',
     );
-    expect(wrapper.text()).not.toContain('正在加载人物详情');
-    expect(wrapper.text()).not.toContain('人物详情加载失败');
-
-    personDetailModule.reject(new Error('module unavailable'));
-    await flushPromises();
-    expect(wrapper.get('.person-detail-placeholder').text()).toContain(
-      '选择人物查看详情',
-    );
-    expect(wrapper.text()).not.toContain('人物详情加载失败');
-
-    await wrapper.get('.ranked-person-row').trigger('click');
-    await flushPromises();
-    expect(detailExecute).toHaveBeenCalledOnce();
-    expect(wrapper.text()).toContain('人物详情加载失败');
-    expect(wrapper.find('.person-detail-placeholder').exists()).toBe(
-      false,
-    );
+    expect(wrapper.find('#person-detail-panel').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('选择人物查看详情');
+    expect(wrapper.text()).toContain('没有符合查询条件的人物');
+    expect(wrapper.find('.ranking-controls').exists()).toBe(false);
+    expect(wrapper.find('input[name="ranking-search"]').exists()).toBe(false);
+    expect(wrapper.find('.ranking-surface__footer').exists()).toBe(false);
+    expect(wrapper.find('.ranking-pagination').exists()).toBe(false);
+    expect(wrapper.text()).not.toMatch(/共统计到|0 个人物|0 个条目/);
+    expect(detailExecute).not.toHaveBeenCalled();
     wrapper.unmount();
     vi.unstubAllGlobals();
   });
@@ -860,6 +1000,18 @@ describe('App ranking production slice', () => {
     expect(wrapper.get('.person-inspector__state').text()).toContain(
       '人物详情加载失败',
     );
+    expect(wrapper.get('.app-query-feedback').attributes()).toMatchObject({
+      'data-operation': 'person-detail',
+      role: 'status',
+    });
+    await wrapper.get('.query-summary').trigger('click');
+    await nextTick();
+    expect(wrapper.find('.query-editor-panel').exists()).toBe(true);
+    expect(wrapper.find('.query-request-feedback').exists()).toBe(false);
+    expect(wrapper.get('.app-query-feedback').attributes()).toMatchObject({
+      'data-operation': 'person-detail',
+      role: 'status',
+    });
     expect(share.attributes('disabled')).toBeUndefined();
 
     await wrapper.get('.person-inspector__state button').trigger('click');
@@ -974,8 +1126,6 @@ describe('App ranking production slice', () => {
     });
     await flushPromises();
     await wrapper.get('#query-editor').trigger('submit');
-    await flushPromises();
-    await wrapper.get('.ranked-person-row').trigger('click');
     await flushPromises();
     expect(detailExecute).toHaveBeenCalledOnce();
 
@@ -1116,7 +1266,7 @@ describe('App ranking production slice', () => {
     wrapper.unmount();
   });
 
-  it('closes only the compact drawer while preserving the selected person and accepted detail', async () => {
+  it('keeps compact automatic selection closed and opens detail only from a ranking row', async () => {
     const media = installCompactLayout(true);
     window.history.replaceState({}, '', '/ranking?user=luca');
     const pinia = createPinia();
@@ -1171,26 +1321,32 @@ describe('App ranking production slice', () => {
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
     const row = wrapper.get<HTMLButtonElement>('.ranked-person-row');
+
+    expect(personExecute).toHaveBeenCalledOnce();
+    expect(row.attributes('aria-current')).toBe('true');
+    expect(row.attributes('aria-controls')).toBeUndefined();
+    expect(row.attributes('aria-expanded')).toBeUndefined();
+    expect(
+      document.body.querySelector('.person-detail-drawer'),
+    ).toBeNull();
+    expect(
+      wrapper.get('[data-app-root]').attributes('inert'),
+    ).toBeUndefined();
+    expect(
+      wrapper.get('[data-app-root]').attributes('aria-hidden'),
+    ).toBeUndefined();
     row.element.focus();
     await row.trigger('click');
     await flushPromises();
 
-    expect(personExecute).toHaveBeenCalledOnce();
-    expect(row.attributes('aria-current')).toBe('true');
-    expect(row.attributes('aria-controls')).toBe('person-detail-panel');
-    expect(row.attributes('aria-expanded')).toBe('true');
-    expect(
-      wrapper.get('[data-app-root]').attributes(),
-    ).toMatchObject({
-      'aria-hidden': 'true',
-      inert: 'true',
-    });
-    const close = document.body.querySelector<HTMLButtonElement>(
+    const manualClose = document.body.querySelector<HTMLButtonElement>(
       '.person-detail-drawer__bar button',
     )!;
-    expect(close).not.toBeNull();
-    expect(document.activeElement).toBe(close);
-    close.click();
+    expect(manualClose).not.toBeNull();
+    expect(document.activeElement).toBe(
+      document.body.querySelector('.person-detail-drawer'),
+    );
+    manualClose.click();
     await flushPromises();
 
     expect(document.activeElement).toBe(row.element);
@@ -1253,7 +1409,7 @@ describe('App ranking production slice', () => {
     vi.unstubAllGlobals();
   });
 
-  it('preserves accepted Inspector state across modes and clears it only for a successful changed query', async () => {
+  it('preserves accepted Inspector state across modes and reselects first after a successful changed query', async () => {
     installCompactLayout(true);
     window.history.replaceState({}, '', '/ranking?user=luca');
     const pinia = createPinia();
@@ -1305,17 +1461,10 @@ describe('App ranking production slice', () => {
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
 
-    await wrapper.get('.ranked-person-row').trigger('click');
-    await flushPromises();
     expect(personExecute).toHaveBeenCalledTimes(1);
-    await vi.waitFor(() => {
-      expect(
-        document.body.querySelector('.person-detail-drawer'),
-      ).not.toBeNull();
-    });
     expect(
       document.body.querySelector('.person-detail-drawer'),
-    ).not.toBeNull();
+    ).toBeNull();
 
     await wrapper.get('#mode-tab-co-star').trigger('click');
     await flushPromises();
@@ -1350,16 +1499,13 @@ describe('App ranking production slice', () => {
       );
     await flushPromises();
     expect(rankingExecute).toHaveBeenCalledTimes(2);
+    expect(personExecute).toHaveBeenCalledTimes(2);
     expect(
       document.body.querySelector('.person-detail-drawer'),
     ).toBeNull();
     row = wrapper.get('.ranked-person-row');
-    expect(row.attributes('aria-current')).toBeUndefined();
+    expect(row.attributes('aria-current')).toBe('true');
     expect(row.attributes('aria-expanded')).toBeUndefined();
-
-    await row.trigger('click');
-    await flushPromises();
-    expect(personExecute).toHaveBeenCalledTimes(2);
     wrapper.unmount();
     vi.unstubAllGlobals();
   });

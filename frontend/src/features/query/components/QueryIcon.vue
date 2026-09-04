@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import InfoIcon from '../../../shared/components/InfoIcon.vue';
+
 defineProps<{
   name:
     | 'check'
@@ -15,7 +17,13 @@ defineProps<{
 </script>
 
 <template>
+  <info-icon
+    v-if="name === 'info'"
+    class="query-icon"
+    :size="size ?? 18"
+  />
   <svg
+    v-else
     class="query-icon"
     :width="size ?? 18"
     :height="size ?? 18"
@@ -45,11 +53,6 @@ defineProps<{
     </template>
     <template v-else-if="name === 'plus'">
       <path d="M12 6v12M6 12h12" />
-    </template>
-    <template v-else-if="name === 'info'">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 11v6" />
-      <circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none" />
     </template>
     <template v-else-if="name === 'chevron'">
       <path d="m7 9.5 5 5 5-5" />

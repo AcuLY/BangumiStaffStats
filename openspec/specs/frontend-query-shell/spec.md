@@ -178,13 +178,25 @@ flow. Controls SHALL meet DESIGN focus, keyboard, target-size, contrast,
 status-announcement, and reduced-motion requirements.
 
 The Header SHALL contain brand, the two-mode control, share action, and one
-theme action in the DESIGN order. One app-level owner SHALL expose only
-`light|dark`, persist only versioned localStorage key `bgmss-theme-v1`, and
-drive the Naive provider and semantic CSS tokens through public APIs. Invalid
-or unavailable storage SHALL fall back to Light without failure. Theme SHALL
-not enter query Draft/Applied state, URL parameters, share payload, resource
-state, or Skeleton behavior; the prototype `bgmss-workbench-theme` key SHALL
-not be read or written.
+theme action in the DESIGN order. One app-level owner SHALL expose only the
+resolved `light|dark` theme and SHALL drive the Naive provider plus semantic
+CSS tokens through public APIs. With no valid preference or with
+`bgmss-theme-preference-v3=auto`, it SHALL initialize from
+`prefers-color-scheme: dark` and follow system changes while the page is open.
+Activating the Header theme action SHALL immediately toggle to the opposite
+resolved Light/Dark theme. When that result matches the current system theme,
+the owner SHALL persist `auto`; otherwise it SHALL persist the explicit
+`light` or `dark`. The same one-click action SHALL be the only theme control;
+activation SHALL NOT open a Popover, menu, settings surface, fixed-state copy,
+or secondary reset action. Valid `auto|light|dark` writes and key removal in
+another same-browser tab SHALL update the open page without reload.
+
+Invalid, inaccessible, or unavailable storage SHALL fail safely to system
+following; unavailable matchMedia SHALL fall back to Light. Disposal SHALL
+remove media and storage listeners. Theme SHALL not enter query Draft/Applied
+state, URL parameters, share payload, resource state, or Skeleton behavior;
+the prototype `bgmss-workbench-theme` and superseded `bgmss-theme-v1` and
+`bgmss-theme-override-v2` keys SHALL not be read or written.
 
 The brand SHALL reuse the project's exact 64×64 RGBA mark from
 `frontend/public/bgmss.png` at oracle
@@ -199,10 +211,32 @@ the production artifact.
 - **THEN** desktop SHALL use the anchored overlay and mobile SHALL use document flow
 - **AND** close/apply/cancel SHALL preserve the specified focus and Draft behavior without overflow
 
-#### Scenario: Theme is toggled and restored
-- **WHEN** the user toggles the Header theme action and reloads the document
-- **THEN** the same Light or Dark theme SHALL be restored from `bgmss-theme-v1` and applied through the provider plus semantic document marker
+#### Scenario: Page follows the system theme
+- **WHEN** a page opens without a valid manual preference and the system theme
+  is Dark or changes between Light and Dark
+- **THEN** the resolved theme SHALL immediately match the current system theme
+  through the provider plus semantic document marker
+- **AND** no theme preference SHALL be written merely because the system changed
+
+#### Scenario: Theme is toggled away from the system appearance
+- **WHEN** the user activates the Header theme action
+- **AND** the opposite resolved theme differs from the current system theme
+- **THEN** it SHALL apply in one click and one non-expiring explicit Light/Dark
+  value SHALL be stored
+- **AND** later system changes SHALL NOT override it
+
+#### Scenario: Toggle returns to the system appearance
+- **WHEN** the user activates the same Header theme action
+- **AND** the opposite resolved theme matches the current system theme
+- **THEN** that theme SHALL apply, `auto` SHALL be stored, and live system
+  following SHALL resume without another control or contextual surface
 - **AND** no request, query revision, share value, route change, or loading state SHALL be produced
+
+#### Scenario: Another tab changes the theme preference
+- **WHEN** a same-browser tab stores valid `auto|light|dark` or removes the key
+- **THEN** the open page SHALL converge to that explicit preference or current
+  system-following `auto` state without reload
+- **AND** disposal SHALL prevent later media or storage events from changing it
 
 #### Scenario: Production artifact is inspected
 - **WHEN** the built artifact and source inventory are checked

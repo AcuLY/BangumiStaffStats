@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import App from '../../src/app/App.vue';
 import type { CandidatePayload } from '../../src/api/adapters/candidates';
+import type { RankingPayload } from '../../src/api/adapters/rankings';
 import {
   decodeCoStarPayload,
   type CoStarPayload,
@@ -40,7 +41,7 @@ const originalClipboard = Object.getOwnPropertyDescriptor(
 );
 
 type CoStarDrivers = QueryDrivers<
-  never,
+  RankingPayload,
   CandidatePayload,
   never,
   PartnersPayload,
@@ -48,6 +49,9 @@ type CoStarDrivers = QueryDrivers<
 >;
 type CandidateRequest = Parameters<
   CoStarDrivers['candidates']['execute']
+>[0];
+type RankingRequest = Parameters<
+  CoStarDrivers['rankings']['execute']
 >[0];
 type CoStarRequest = Parameters<
   NonNullable<CoStarDrivers['coStar']>['execute']
@@ -58,6 +62,23 @@ type PartnersRequest = Parameters<
 
 const primaryDataVersion = `dv1-${'a'.repeat(64)}`;
 const primaryFetchedAt = '2026-07-25T00:00:00Z';
+
+function emptyRankingPayload(requestId: string): RankingPayload {
+  return Object.freeze({
+    collection: Object.freeze({
+      fetchedAt: primaryFetchedAt,
+      stale: false,
+      warningCodes: Object.freeze([]),
+    }),
+    dataVersion: primaryDataVersion,
+    items: Object.freeze([]),
+    metricScale: Object.freeze({ kind: 'linear', max: null, metric: 'count' }),
+    pagination: Object.freeze({ page: 1, pageSize: 10, total: 0 }),
+    requestId,
+    scope: 'personal',
+    summary: Object.freeze({ personCount: 0, workCount: 0, workUnit: 'subject' }),
+  });
+}
 
 function readGoldenBody(relativePath: string): unknown {
   const golden = JSON.parse(
@@ -164,11 +185,12 @@ function coStarPayloadWithWork(
 }
 
 function candidatePayload(
-  positionKey: string,
+  positionKey: string | null,
   requestId: string,
   dataVersion = primaryDataVersion,
   fetchedAt = primaryFetchedAt,
 ): CandidatePayload {
+  const itemPositionKeys = Object.freeze([positionKey ?? 'staff:anime:2']);
   return Object.freeze({
     collection: Object.freeze({
       fetchedAt,
@@ -184,6 +206,7 @@ function candidatePayload(
           nameCN: '候选一',
         }),
         rank: 1,
+        positionKeys: itemPositionKeys,
         workCount: 12,
       }),
       Object.freeze({
@@ -193,6 +216,7 @@ function candidatePayload(
           nameCN: '候选二',
         }),
         rank: 2,
+        positionKeys: itemPositionKeys,
         workCount: 8,
       }),
     ]),
@@ -202,7 +226,7 @@ function candidatePayload(
       total: 2,
     }),
     positionCounts: Object.freeze([
-      Object.freeze({ count: 2, positionKey }),
+      Object.freeze({ count: 2, positionKey: 'staff:anime:2' }),
     ]),
     positionKey,
     requestId,
@@ -228,7 +252,7 @@ function defaultDrivers(
         const requestId = `server-${request.transactionId}`;
         return {
           payload: candidatePayload(
-            String(request.input.positionKey),
+            request.input.positionKey,
             requestId,
           ),
           requestId,
@@ -287,6 +311,54 @@ function installCompactLayout(): void {
   );
 }
 
+function installResponsiveLayout(
+  initialCompact: boolean,
+): (compact: boolean) => void {
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
+  let compact = initialCompact;
+  const compactMedia = {
+    addEventListener: vi.fn(
+      (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+        listeners.add(listener);
+      },
+    ),
+    dispatchEvent: vi.fn(() => true),
+    get matches() {
+      return compact;
+    },
+    media: '(width < 780px)',
+    onchange: null,
+    removeEventListener: vi.fn(
+      (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+        listeners.delete(listener);
+      },
+    ),
+  } as unknown as MediaQueryList;
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn((query: string) =>
+      query === '(width < 780px)'
+        ? compactMedia
+        : ({
+            addEventListener: vi.fn(),
+            dispatchEvent: vi.fn(() => true),
+            matches: false,
+            media: query,
+            onchange: null,
+            removeEventListener: vi.fn(),
+          } as unknown as MediaQueryList),
+    ),
+  );
+  return (nextCompact: boolean) => {
+    compact = nextCompact;
+    const event = Object.assign(new Event('change'), {
+      matches: compact,
+      media: compactMedia.media,
+    }) as MediaQueryListEvent;
+    listeners.forEach((listener) => listener(event));
+  };
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (error: unknown) => void;
@@ -342,13 +414,78 @@ afterEach(() => {
 });
 
 describe('App co-star production slice', () => {
+  it('loads the other mode from Applied Query and reuses current mode resources', async () => {
+    window.history.replaceState({}, '', '/ranking?user=luca');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = seedPersonalQuery();
+    const ranking = vi.fn(async (request: RankingRequest) => ({
+      payload: emptyRankingPayload('server-ranking'),
+      requestId: 'server-ranking',
+      transactionId: request.transactionId,
+    }));
+    const candidates = vi.fn(defaultDrivers().candidates.execute);
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          drivers: defaultDrivers({
+            candidates: { execute: candidates },
+            rankings: { execute: ranking },
+          }),
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+    await wrapper.get('#query-editor').trigger('submit');
+    await flushPromises();
+    expect(ranking).toHaveBeenCalledOnce();
+
+    store.draft.includeNSFW = true;
+    await wrapper.get('#mode-tab-co-star').trigger('click');
+    await flushPromises();
+
+    expect(candidates).toHaveBeenCalledOnce();
+    expect(candidates.mock.calls[0]![0].query.includeNSFW).toBe(false);
+    expect(store.draft.includeNSFW).toBe(true);
+    expect(store.dirty).toBe(true);
+    expect(wrapper.text()).not.toContain('查询条件已应用');
+    await vi.waitFor(() => {
+      expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(2);
+    });
+
+    await wrapper.get('#mode-tab-ranking').trigger('click');
+    await flushPromises();
+    expect(ranking).toHaveBeenCalledOnce();
+    wrapper.unmount();
+  });
+
   it('runs candidates, partners, and analysis through one persistent topology owner', async () => {
     window.history.replaceState({}, '', '/co-star?user=luca');
     const pinia = createPinia();
     setActivePinia(pinia);
     const store = seedPersonalQuery();
     const candidates = vi.fn(defaultDrivers().candidates.execute);
-    const partners = vi.fn(defaultDrivers().partners!.execute);
+    const partners = vi.fn(async (request: PartnersRequest) => {
+      const result = await defaultDrivers().partners!.execute(request);
+      return {
+        ...result,
+        payload: Object.freeze({
+          ...result.payload,
+          items: Object.freeze(
+            result.payload.items.map((item) =>
+              Object.freeze({
+                ...item,
+                positionKeys: Object.freeze(['staff:anime:2']),
+              }),
+            ),
+          ),
+        }),
+      };
+    });
     const coStar = vi.fn(defaultDrivers().coStar!.execute);
     const wrapper = mount(App, {
       attachTo: document.body,
@@ -384,8 +521,11 @@ describe('App co-star production slice', () => {
         wrapper.findAll('button.candidate-row'),
       ).toHaveLength(2);
     });
-    const rows = wrapper.findAll<HTMLButtonElement>('button.candidate-row');
-    await rows[0]!.trigger('click');
+    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(2);
+    await vi.waitFor(() => {
+      expect(coStar).toHaveBeenCalledOnce();
+    });
+    await wrapper.findAll('button.candidate-row')[1]!.trigger('click');
     await flushPromises();
     await vi.waitFor(() => {
       expect(partners).toHaveBeenCalledOnce();
@@ -401,16 +541,24 @@ describe('App co-star production slice', () => {
       expect(wrapper.find('.partners-surface').exists()).toBe(true);
     });
     expect(wrapper.find('.partners-surface').exists()).toBe(true);
-    expect(
-      wrapper
-        .get('button[aria-label="复制当前查询链接"]')
-        .attributes('disabled'),
-    ).toBeUndefined();
+    await vi.waitFor(() => {
+      expect(
+        wrapper
+          .get('button[aria-label="复制当前查询链接"]')
+          .attributes('disabled'),
+      ).toBeUndefined();
+    });
 
-    await rows[1]!.trigger('click');
+    const analysisRegion = wrapper.get('.co-star-analysis-main');
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(analysisRegion.element, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    await wrapper.get('.partners-person-row').trigger('click');
     await flushPromises();
     await vi.waitFor(() => {
-      expect(coStar).toHaveBeenCalledOnce();
+      expect(wrapper.find('.co-star-surface').exists()).toBe(true);
     });
     expect(coStar).toHaveBeenCalledOnce();
     expect(coStar.mock.calls[0]![0].input).toEqual({
@@ -423,11 +571,16 @@ describe('App co-star production slice', () => {
       expect(wrapper.find('.co-star-surface').exists()).toBe(true);
     });
     expect(wrapper.find('.co-star-surface').exists()).toBe(true);
-    expect(
-      wrapper
-        .get('button[aria-label="复制当前查询链接"]')
-        .attributes('disabled'),
-    ).toBeUndefined();
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+    expect(document.activeElement).toBe(analysisRegion.element);
+    expect(analysisRegion.classes()).toContain('is-reveal-attention');
+    await vi.waitFor(() => {
+      expect(
+        wrapper
+          .get('button[aria-label="复制当前查询链接"]')
+          .attributes('disabled'),
+      ).toBeUndefined();
+    });
 
     await wrapper.get('#mode-tab-ranking').trigger('click');
     await nextTick();
@@ -448,7 +601,8 @@ describe('App co-star production slice', () => {
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
     expect(candidates).toHaveBeenCalledTimes(2);
-    expect(wrapper.find('.co-star-empty').exists()).toBe(true);
+    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(2);
+    expect(wrapper.find('.co-star-empty').exists()).toBe(false);
     wrapper.unmount();
   });
 
@@ -488,8 +642,11 @@ describe('App co-star production slice', () => {
         wrapper.findAll('button.candidate-row'),
       ).toHaveLength(2);
     });
+    await vi.waitFor(() => {
+      expect(coStar).toHaveBeenCalledOnce();
+    });
     const rows = wrapper.findAll<HTMLButtonElement>('button.candidate-row');
-    await rows[0]!.trigger('click');
+    await rows[1]!.trigger('click');
     await nextTick();
     await vi.waitFor(() => {
       expect(partners).toHaveBeenCalledOnce();
@@ -507,9 +664,9 @@ describe('App co-star production slice', () => {
     await rows[1]!.trigger('click');
     await nextTick();
     await vi.waitFor(() => {
-      expect(coStar).toHaveBeenCalledOnce();
+      expect(coStar).toHaveBeenCalledTimes(2);
     });
-    expect(coStar).toHaveBeenCalledOnce();
+    expect(coStar).toHaveBeenCalledTimes(2);
     expect(share.attributes('disabled')).toBeDefined();
     wrapper.unmount();
   });
@@ -526,7 +683,7 @@ describe('App co-star production slice', () => {
       const requestId = `server-${request.transactionId}`;
       return {
         payload: candidatePayload(
-          String(request.input.positionKey),
+          request.input.positionKey,
           requestId,
           reproducedPrimaryDataVersion,
           reproducedPrimaryFetchedAt,
@@ -573,12 +730,7 @@ describe('App co-star production slice', () => {
     await vi.waitFor(() => {
       expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
     });
-    const rows = wrapper.findAll('button.candidate-row');
-    await rows[0]!.trigger('click');
-    await flushPromises();
-    await rows[1]!.trigger('click');
-    await flushPromises();
-
+    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(2);
     expect(coStar).toHaveBeenCalledOnce();
     expect(wrapper.get('.co-star-initial-error').text()).toContain(
       '结果数据版本已变化，请重新查询后重试',
@@ -648,13 +800,17 @@ describe('App co-star production slice', () => {
     await vi.waitFor(() => {
       expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
     });
-    const rows = wrapper.findAll('button.candidate-row');
-    await rows[0]!.trigger('click');
-    await flushPromises();
-    await rows[1]!.trigger('click');
-    await flushPromises();
-    expect(partners).toHaveBeenCalledOnce();
+    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(2);
+    expect(partners).not.toHaveBeenCalled();
     expect(coStar).toHaveBeenCalledOnce();
+
+    await wrapper
+      .get('button[aria-label="移除候选二的全部身份"]')
+      .trigger('click');
+    await flushPromises();
+    await vi.waitFor(() => {
+      expect(partners).toHaveBeenCalledOnce();
+    });
 
     await wrapper.get('.query-summary').trigger('click');
     await nextTick();
@@ -666,12 +822,6 @@ describe('App co-star production slice', () => {
     await nextTick();
     expect(candidates).toHaveBeenCalledTimes(2);
 
-    await wrapper
-      .get(
-        'button[aria-label="移除候选二的全部身份"]',
-      )
-      .trigger('click');
-    await flushPromises();
     expect(
       wrapper.findAll('button.candidate-selected-person__remove'),
     ).toHaveLength(1);
@@ -693,7 +843,7 @@ describe('App co-star production slice', () => {
     const candidateRequest = candidates.mock.calls[1]![0]!;
     candidateRefresh.resolve({
       payload: candidatePayload(
-        String(candidateRequest.input.positionKey),
+        candidateRequest.input.positionKey,
         'server-candidates-refreshed',
         refreshedDataVersion,
         refreshedFetchedAt,
@@ -792,11 +942,7 @@ describe('App co-star production slice', () => {
     await vi.waitFor(() => {
       expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
     });
-    const rows = wrapper.findAll('button.candidate-row');
-    await rows[0]!.trigger('click');
-    await flushPromises();
-    await rows[1]!.trigger('click');
-    await flushPromises();
+    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(2);
     expect(coStar).toHaveBeenCalledOnce();
 
     await wrapper.get('.query-summary').trigger('click');
@@ -827,7 +973,7 @@ describe('App co-star production slice', () => {
     const candidateRequest = candidates.mock.calls[1]![0];
     candidateRefresh.resolve({
       payload: candidatePayload(
-        String(candidateRequest.input.positionKey),
+        candidateRequest.input.positionKey,
         'server-candidates-refreshed',
         refreshedDataVersion,
         refreshedFetchedAt,
@@ -934,7 +1080,7 @@ describe('App co-star production slice', () => {
     const refreshRequest = candidates.mock.calls[1]![0];
     candidateRefresh.resolve({
       payload: candidatePayload(
-        String(refreshRequest.input.positionKey),
+        refreshRequest.input.positionKey,
         'server-candidates-refreshed',
         refreshedDataVersion,
         refreshedFetchedAt,
@@ -953,7 +1099,7 @@ describe('App co-star production slice', () => {
     });
     candidateReplay.resolve({
       payload: candidatePayload(
-        String(replayRequest.input.positionKey),
+        replayRequest.input.positionKey,
         'server-candidates-final-view',
         refreshedDataVersion,
         refreshedFetchedAt,
@@ -1042,8 +1188,8 @@ describe('App co-star production slice', () => {
         expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
       });
       const rows = wrapper.findAll('button.candidate-row');
-      for (let index = 0; index < selectedCount; index += 1) {
-        await rows[index]!.trigger('click');
+      if (selectedCount === 1) {
+        await rows[1]!.trigger('click');
         await flushPromises();
       }
       const operation = child === 'partners' ? partners : coStar;
@@ -1066,7 +1212,7 @@ describe('App co-star production slice', () => {
       const refreshRequest = candidates.mock.calls[1]![0];
       candidateRefresh.resolve({
         payload: candidatePayload(
-          String(refreshRequest.input.positionKey),
+          refreshRequest.input.positionKey,
           'server-candidates-refreshed',
           refreshedDataVersion,
           refreshedFetchedAt,
@@ -1221,7 +1367,7 @@ describe('App co-star production slice', () => {
     },
   );
 
-  it('keeps the Header opener authoritative and isolates the app while its Drawer is open', async () => {
+  it('keeps the content opener authoritative while its in-flow accordion is open', async () => {
     installCompactLayout();
     window.history.replaceState({}, '', '/co-star?user=luca');
     const pinia = createPinia();
@@ -1244,56 +1390,98 @@ describe('App co-star production slice', () => {
 
     await vi.waitFor(() => {
       expect(
-        wrapper.find(
-          '.app-header__mobile-context .co-star-mobile-entry',
-        ).exists(),
+        wrapper.find('#mode-panel-co-star > .co-star-mobile-entry').exists(),
       ).toBe(true);
     });
     let opener = wrapper.get<HTMLButtonElement>(
-      '.app-header__mobile-context .co-star-mobile-entry',
+      '#mode-panel-co-star > .co-star-mobile-entry',
     );
     await wrapper.get('.query-summary').trigger('click');
     await nextTick();
     expect(
-      wrapper.find('.app-header__mobile-context').exists(),
-    ).toBe(false);
+      wrapper.find('#mode-panel-co-star > .co-star-mobile-entry').exists(),
+    ).toBe(true);
     await wrapper.get('#query-editor').trigger('keydown', { key: 'Escape' });
     await nextTick();
 
     opener = wrapper.get(
-      '.app-header__mobile-context .co-star-mobile-entry',
+      '#mode-panel-co-star > .co-star-mobile-entry',
     );
     opener.element.focus();
     await opener.trigger('click');
     await flushPromises();
     const appRoot = wrapper.get('[data-app-root]');
-    expect(appRoot.attributes()).toMatchObject({
-      'aria-hidden': 'true',
-      inert: 'true',
-    });
-    const drawer = document.body.querySelector<HTMLElement>(
-      '#co-star-mobile-picker',
+    expect(appRoot.attributes('inert')).toBeUndefined();
+    expect(appRoot.attributes('aria-hidden')).toBeUndefined();
+    expect(opener.attributes('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(opener.element);
+    expect(document.body.querySelector('.n-drawer-container')).toBeNull();
+    const panel = wrapper.get<HTMLElement>(
+      '#co-star-mobile-picker-panel',
     );
-    expect(drawer).not.toBeNull();
-    expect(drawer!.closest('[inert]')).toBeNull();
-
-    const drawerClose = document.body.querySelector<HTMLButtonElement>(
-      'button[aria-label="关闭人物选择"]',
+    expect(wrapper.get('#mode-panel-co-star').element.contains(panel.element)).toBe(
+      true,
     );
-    expect(drawerClose).not.toBeNull();
-    drawerClose!.focus();
-    drawerClose!.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        bubbles: true,
-        code: 'Escape',
-        key: 'Escape',
-      }),
+    expect(panel.attributes('aria-hidden')).toBeUndefined();
+    const search = panel.get<HTMLInputElement>(
+      'input[name="candidateSearch"]',
     );
-    await new Promise((resolve) => window.setTimeout(resolve, 400));
+    search.element.focus();
+    await search.trigger('keydown', { key: 'Escape' });
     await nextTick();
     expect(appRoot.attributes('inert')).toBeUndefined();
     expect(appRoot.attributes('aria-hidden')).toBeUndefined();
+    expect(opener.attributes('aria-expanded')).toBe('false');
+    expect(panel.attributes()).toMatchObject({
+      'aria-hidden': 'true',
+      inert: 'true',
+    });
     expect(document.activeElement).toBe(opener.element);
+    wrapper.unmount();
+  });
+
+  it('keeps the external entry mounted and transfers rail focus while editing across 779px', async () => {
+    const setCompact = installResponsiveLayout(false);
+    window.history.replaceState({}, '', '/co-star?user=luca');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    seedPersonalQuery();
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia] },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          drivers: defaultDrivers(),
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+    await wrapper.get('#query-editor').trigger('submit');
+    await flushPromises();
+    await vi.waitFor(() => {
+      expect(wrapper.find('.co-star-candidate-rail').exists()).toBe(true);
+    });
+
+    await wrapper.get('.query-summary').trigger('click');
+    await nextTick();
+    expect(wrapper.find('#query-editor').exists()).toBe(true);
+    const entry = wrapper.get<HTMLButtonElement>(
+      '#mode-panel-co-star > .co-star-mobile-entry',
+    );
+    const search = wrapper.get<HTMLInputElement>(
+      '.co-star-candidate-rail input[name="candidateSearch"]',
+    );
+    search.element.focus();
+
+    setCompact(true);
+    await nextTick();
+
+    expect(entry.element.isConnected).toBe(true);
+    expect(entry.attributes('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(entry.element);
+    expect(document.activeElement).not.toBe(document.body);
     wrapper.unmount();
   });
 
@@ -1338,9 +1526,7 @@ describe('App co-star production slice', () => {
       '正在加载候选人物',
     );
     expect(
-      wrapper.find(
-        '.app-header__mobile-context .co-star-mobile-entry',
-      ).exists(),
+      wrapper.find('#mode-panel-co-star > .co-star-mobile-entry').exists(),
     ).toBe(true);
 
     firstLoad.reject(new Error('chunk unavailable'));
@@ -1349,9 +1535,7 @@ describe('App co-star production slice', () => {
       '候选人物加载失败',
     );
     expect(
-      wrapper.find(
-        '.app-header__mobile-context .co-star-mobile-entry',
-      ).exists(),
+      wrapper.find('#mode-panel-co-star > .co-star-mobile-entry').exists(),
     ).toBe(true);
 
     await wrapper

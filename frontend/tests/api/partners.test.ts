@@ -218,6 +218,16 @@ describe('partners native-fetch driver', () => {
     });
     expect(busy.message).toBe('合作人物服务正在准备，请稍后重试');
     expect(busy.message).not.toContain('backend display text');
+    expect(
+      decodePartnersApiError(errorEnvelope('UPSTREAM_TIMEOUT', true), 504)
+        .message,
+    ).toBe('合作人物查询超时，请重试');
+    expect(
+      decodePartnersApiError(
+        errorEnvelope('UPSTREAM_UNAVAILABLE', true),
+        503,
+      ).message,
+    ).toBe('收藏数据暂时不可用，请稍后重试');
 
     const missing = decodePartnersApiError(
       errorEnvelope('PERSON_NOT_IN_QUERY_RESULT'),

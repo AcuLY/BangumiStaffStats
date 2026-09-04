@@ -28,12 +28,13 @@ export type SuccessEnvelopeV1Schema = PersonalCandidatesSuccessEnvelopeV1 | Glob
 export type CandidateItemV1 = {
     rank: JsonSafePositiveIntegerV1;
     person: PersonReferenceV1;
+    positionKeys: Array<PositionKeyV1>;
     workCount: JsonSafeNonNegativeIntegerV1;
 };
 
 export type CandidatesDataV1 = {
     summary: CandidatesSummaryV1;
-    positionKey: PositionKeyV1;
+    positionKey: PositionKeyV1 | null;
     workUnit: 'subject' | 'series';
     items: Array<CandidateItemV1>;
 };
@@ -97,7 +98,7 @@ export type PositionCountV1 = {
 };
 
 export type CandidatesInputV1 = {
-    positionKey: PositionKeyV1;
+    positionKey: PositionKeyV1 | null;
 };
 
 export type CandidatesViewV1 = {

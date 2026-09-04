@@ -1,19 +1,46 @@
 import { readonly, ref, type Ref } from 'vue';
 
 export type AppTheme = 'dark' | 'light';
+type ThemePreference = AppTheme | 'auto';
 
-export const THEME_STORAGE_KEY = 'bgmss-theme-v1';
+export const THEME_STORAGE_KEY = 'bgmss-theme-preference-v3';
 
-function storedTheme(storage: Pick<Storage, 'getItem'> | undefined): AppTheme {
-  if (!storage) {
-    return 'light';
-  }
+type ThemeStorage = Pick<Storage, 'getItem' | 'removeItem' | 'setItem'>;
+
+function isThemePreference(value: unknown): value is ThemePreference {
+  return value === 'auto' || value === 'dark' || value === 'light';
+}
+
+function removeStoredPreference(storage: ThemeStorage | undefined): void {
   try {
-    const value = storage.getItem(THEME_STORAGE_KEY);
-    return value === 'dark' || value === 'light' ? value : 'light';
+    storage?.removeItem(THEME_STORAGE_KEY);
   } catch {
-    return 'light';
+    // System following remains usable when storage is unavailable.
   }
+}
+
+function storedPreference(storage: ThemeStorage | undefined): ThemePreference {
+  if (!storage) {
+    return 'auto';
+  }
+  let raw: string | null;
+  try {
+    raw = storage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    return 'auto';
+  }
+  if (raw === null) {
+    return 'auto';
+  }
+  if (!isThemePreference(raw)) {
+    removeStoredPreference(storage);
+    return 'auto';
+  }
+  return raw;
+}
+
+function systemTheme(media: MediaQueryList | null): AppTheme {
+  return media?.matches ? 'dark' : 'light';
 }
 
 export interface ThemeOwner {
@@ -25,17 +52,34 @@ export interface ThemeOwner {
 
 export function createThemeOwner(
   target: Document = document,
-  suppliedStorage?: Pick<Storage, 'getItem' | 'setItem'>,
+  suppliedStorage?: ThemeStorage,
 ): ThemeOwner {
+  const targetWindow = target.defaultView;
   let storage = suppliedStorage;
   if (!storage) {
     try {
-      storage = target.defaultView?.localStorage;
+      storage = targetWindow?.localStorage;
     } catch {
       storage = undefined;
     }
   }
-  const theme = ref<AppTheme>(storedTheme(storage));
+
+  let media: MediaQueryList | null = null;
+  if (typeof targetWindow?.matchMedia === 'function') {
+    try {
+      media = targetWindow.matchMedia('(prefers-color-scheme: dark)');
+    } catch {
+      media = null;
+    }
+  }
+
+  let preference = storedPreference(storage);
+  const theme = ref<AppTheme>(
+    preference === 'auto' ? systemTheme(media) : preference,
+  );
+  let disposed = false;
+  let mediaListening = false;
+  let storageListening = false;
 
   function apply(): void {
     target.documentElement.dataset.theme = theme.value;
@@ -45,25 +89,117 @@ export function createThemeOwner(
       ?.setAttribute('content', theme.value === 'dark' ? '#0e0e10' : '#f4f4f6');
   }
 
-  function toggle(): void {
-    theme.value = theme.value === 'dark' ? 'light' : 'dark';
+  function onSystemThemeChange(event: MediaQueryListEvent): void {
+    if (disposed || preference !== 'auto') {
+      return;
+    }
+    theme.value = event.matches ? 'dark' : 'light';
     apply();
+  }
+
+  function startSystemListening(): void {
+    if (!media || mediaListening || disposed) {
+      return;
+    }
     try {
-      storage?.setItem(THEME_STORAGE_KEY, theme.value);
+      media.addEventListener('change', onSystemThemeChange);
+      mediaListening = true;
     } catch {
-      // The in-memory theme remains usable when storage is unavailable.
+      mediaListening = false;
     }
   }
 
+  function stopSystemListening(): void {
+    if (!media || !mediaListening) {
+      return;
+    }
+    try {
+      media.removeEventListener('change', onSystemThemeChange);
+    } catch {
+      // Disposal still prevents the retained callback from changing state.
+    }
+    mediaListening = false;
+  }
+
+  function setPreference(
+    nextPreference: ThemePreference,
+    persist: boolean,
+  ): void {
+    if (disposed) {
+      return;
+    }
+    preference = nextPreference;
+    theme.value =
+      nextPreference === 'auto' ? systemTheme(media) : nextPreference;
+    apply();
+    if (!persist) {
+      return;
+    }
+    try {
+      storage?.setItem(THEME_STORAGE_KEY, nextPreference);
+    } catch {
+      // The in-memory preference remains usable.
+    }
+  }
+
+  function onStorageChange(event: StorageEvent): void {
+    if (disposed || event.key !== THEME_STORAGE_KEY) {
+      return;
+    }
+    if (event.newValue === null) {
+      setPreference('auto', false);
+    } else if (isThemePreference(event.newValue)) {
+      setPreference(event.newValue, false);
+    } else {
+      removeStoredPreference(storage);
+      setPreference('auto', false);
+    }
+  }
+
+  function startStorageListening(): void {
+    if (!targetWindow || storageListening || disposed) {
+      return;
+    }
+    try {
+      targetWindow.addEventListener('storage', onStorageChange);
+      storageListening = true;
+    } catch {
+      storageListening = false;
+    }
+  }
+
+  function stopStorageListening(): void {
+    if (!targetWindow || !storageListening) {
+      return;
+    }
+    try {
+      targetWindow.removeEventListener('storage', onStorageChange);
+    } catch {
+      // Disposal still prevents the retained callback from changing state.
+    }
+    storageListening = false;
+  }
+
   apply();
+  startSystemListening();
+  startStorageListening();
 
   return {
     apply,
     dispose() {
+      disposed = true;
+      stopSystemListening();
+      stopStorageListening();
       target.documentElement.removeAttribute('data-theme');
       target.documentElement.style.removeProperty('color-scheme');
     },
     theme: readonly(theme),
-    toggle,
+    toggle() {
+      const nextTheme = theme.value === 'dark' ? 'light' : 'dark';
+      setPreference(
+        nextTheme === systemTheme(media) ? 'auto' : nextTheme,
+        true,
+      );
+    },
   };
 }

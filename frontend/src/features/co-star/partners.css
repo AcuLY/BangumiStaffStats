@@ -339,18 +339,6 @@
   gap: var(--space-1);
 }
 
-.partners-metric-info {
-  display: grid;
-  width: var(--touch-target);
-  height: var(--touch-target);
-  margin: -12px;
-  place-items: center;
-  border: 0;
-  color: var(--text-tertiary);
-  background: transparent;
-  cursor: help;
-}
-
 .partners-metric-help {
   display: block;
   max-width: min(360px, 80vw);

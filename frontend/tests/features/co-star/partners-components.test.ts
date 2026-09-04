@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { NSelect, NTooltip } from 'naive-ui';
 import { nextTick } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -14,6 +14,7 @@ import type {
   PartnersView,
 } from '../../../src/features/co-star/partners';
 import { createCoStarSelection } from '../../../src/features/co-star/selection';
+import AdaptivePagination from '../../../src/features/ranking/components/AdaptivePagination.vue';
 
 const sourcePerson = Object.freeze({
   id: 1,
@@ -106,6 +107,7 @@ const positionLabel = (positionKey: string) =>
 function setup(
   patch: Partial<PartnersResource> = {},
   candidatePositionKey?: string,
+  attachTo?: HTMLElement,
 ) {
   const selection = createCoStarSelection([
     {
@@ -141,6 +143,7 @@ function setup(
     async (_view: Readonly<PartnersView>) => true,
   );
   const wrapper = mount(PartnersSurface, {
+    ...(attachTo ? { attachTo } : {}),
     props: {
       cancel: vi.fn(),
       execute,
@@ -190,8 +193,9 @@ describe('one-person partners surface', () => {
 
   it('adds a row target using only its actual returned contributing identities', async () => {
     const { selection, wrapper } = setup();
+    const row = wrapper.get('.partners-person-row');
 
-    await wrapper.get('.partners-person-row').trigger('click');
+    await row.trigger('click');
 
     expect(
       selection.people.value.map((person) => ({
@@ -210,6 +214,38 @@ describe('one-person partners surface', () => {
     expect(wrapper.emitted('partnerActivated')?.[0]?.[0]).toMatchObject(
       partner,
     );
+    expect(wrapper.emitted('partnerActivated')?.[0]?.[1]).toBe(row.element);
+  });
+
+  it('reveals partner results only after accepted pagination and retains focus', async () => {
+    vi.useFakeTimers();
+    const { executeView, wrapper } = setup({}, undefined, document.body);
+    executeView
+      .mockReset()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const results = wrapper.get('.partners-results-boundary');
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(results.element, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    const pagination = wrapper.findComponent(AdaptivePagination);
+
+    pagination.vm.$emit('page', 2);
+    await flushPromises();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    pagination.vm.$emit('page-size', 20);
+    await flushPromises();
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+    expect(document.activeElement).toBe(results.element);
+    expect(results.classes()).toContain('is-reveal-attention');
+
+    await vi.advanceTimersByTimeAsync(900);
+    expect(document.activeElement).toBe(results.element);
+    expect(results.classes()).not.toContain('is-reveal-attention');
+    wrapper.unmount();
   });
 
   it('uses view-only debounce for search and a full boundary for candidate-position filtering', async () => {
@@ -303,6 +339,7 @@ describe('one-person partners surface', () => {
   it('marks only list results busy and exposes the server-authority metric explanation', async () => {
     const pending = setup({ viewPending: true });
     const info = pending.wrapper.get('.partners-metric-info');
+    expect(info.classes()).toContain('info-trigger');
 
     expect(pending.wrapper.attributes('aria-busy')).toBeUndefined();
     expect(

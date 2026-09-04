@@ -46,20 +46,26 @@ const partnersSource = fs.readFileSync(
 );
 
 describe('oracle scrollbar system', () => {
-  it('keeps the viewport and Query Editor on the 10px shell tier', () => {
+  it('keeps the viewport as the sole 10px shell scroll owner', () => {
     expect(baseCss).toContain('--scrollbar-shell-size: 10px;');
     expect(baseCss).toMatch(
       /html\s*\{[^}]*overflow-y:\s*scroll;[^}]*scrollbar-gutter:\s*auto;/s,
     );
     expect(baseCss).toMatch(
-      /:where\(html, \.query-editor__scroll\)::\-webkit-scrollbar\s*\{[^}]*width:\s*var\(--scrollbar-shell-size\);[^}]*height:\s*var\(--scrollbar-shell-size\);/s,
+      /html\s*\{[^}]*min-width:\s*min\(320px, 100%\);/s,
     );
     expect(baseCss).toMatch(
-      /@media \(width >= 780px\)\s*\{\s*html\s*\{[^}]*scrollbar-gutter:\s*stable both-edges;/s,
+      /body\s*\{[^}]*min-width:\s*min\(320px, 100%\);/s,
     );
     expect(baseCss).toMatch(
-      /\.query-editor__scroll\s*\{[^}]*overflow-y:\s*auto;[^}]*scrollbar-gutter:\s*auto;/s,
+      /html::\-webkit-scrollbar\s*\{[^}]*width:\s*var\(--scrollbar-shell-size\);[^}]*height:\s*var\(--scrollbar-shell-size\);/s,
     );
+    expect(baseCss).not.toContain('scrollbar-gutter: stable both-edges');
+    expect(baseCss).toMatch(
+      /\.query-editor__content\s*\{[^}]*overflow:\s*visible;[^}]*overscroll-behavior-y:\s*auto;/s,
+    );
+    expect(scrollbarCss).not.toContain('.query-editor__content');
+    expect(scrollbarCss).not.toContain('.query-editor__scroll');
   });
 
   it('keeps lists, matrices, tooltips, and popovers on the 6px tier', () => {
