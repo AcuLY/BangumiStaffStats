@@ -12,7 +12,6 @@ import {
   parseGoVersion,
   parseNodeVersion,
   parseNpmVersion,
-  parseUvVersionJson,
 } from '../bin/ci-toolchain-identity.mjs';
 
 const VALID_NODE = Object.freeze({
@@ -86,55 +85,6 @@ test('plain-text version parsers reject malformed, wrong, or ambiguous evidence'
     ],
   ]) {
     rejects(parser, source, pattern);
-  }
-});
-
-test('uv JSON admits semantic identity with informational build metadata', () => {
-  assert.deepEqual(
-    parseUvVersionJson(
-      JSON.stringify({
-        package_name: 'uv',
-        version: '0.11.32',
-        commit_info: {
-          short_commit_hash: '3010295ae',
-          commit_hash: '3010295ae7ff572de459987ad70db315a62ecd61',
-          commit_date: '2026-07-23',
-          last_tag: null,
-          commits_since_last_tag: 0,
-        },
-        target_triple: 'x86_64-unknown-linux-gnu',
-      }),
-    ),
-    {
-      packageName: 'uv',
-      targetTriple: 'x86_64-unknown-linux-gnu',
-      version: '0.11.32',
-    },
-  );
-});
-
-test('uv parser rejects human presentation, malformed, ambiguous, and wrong identity', () => {
-  for (const [source, pattern] of [
-    ['', /bounded text/],
-    ['uv 0.11.32 (3010295ae 2026-07-23)\n', /malformed/],
-    ['{"package_name":"uv"', /malformed/],
-    [
-      '{"package_name":"uv","version":"0.11.32","version":"0.11.31"}',
-      /duplicate object key/,
-    ],
-    ['{"package_name":"uvx","version":"0.11.32"}', /package_name/],
-    ['{"package_name":"uv","version":"0.11.31"}', /must equal 0\.11\.32/],
-    ['{"package_name":"uv"}', /semantic version string/],
-    [
-      '{"package_name":"uv","version":"0.11.32","target_triple":""}',
-      /target_triple/,
-    ],
-    [
-      '{"package_name":"uv","version":"0.11.32","commit_info":"unknown"}',
-      /commit_info/,
-    ],
-  ]) {
-    rejects(parseUvVersionJson, source, pattern);
   }
 });
 
@@ -245,10 +195,6 @@ test('collector executes only the fixed commands and feeds every pure parser', (
     ['npm\u0000--version', '11.16.0\n'],
     ['go\u0000version', 'go version go1.26.5 linux/amd64\n'],
     [
-      'uv\u0000self\u0000version\u0000--output-format\u0000json',
-      '{"package_name":"uv","version":"0.11.32","target_triple":"x86_64-unknown-linux-gnu"}\n',
-    ],
-    [
       'docker\u0000buildx\u0000version',
       'github.com/docker/buildx v0.34.1 release\n',
     ],
@@ -270,14 +216,12 @@ test('collector executes only the fixed commands and feeds every pure parser', (
   assert.deepEqual(calls, [
     ['npm', ['--version']],
     ['go', ['version']],
-    ['uv', ['self', 'version', '--output-format', 'json']],
     ['docker', ['buildx', 'version']],
     ['docker', ['buildx', 'ls', '--format', '{{json .}}']],
   ]);
   assert.equal(result.node, '24.18.0');
   assert.equal(result.npm, '11.16.0');
   assert.equal(result.go.version, '1.26.5');
-  assert.equal(result.uv.version, '0.11.32');
   assert.equal(result.buildx, '0.34.1');
   assert.equal(result.builder.nodes[0].version, '0.27.1');
 });

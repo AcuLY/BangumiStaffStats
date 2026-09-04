@@ -27,7 +27,7 @@
       "$ref": "#/$defs/applicationVersion"
     },
     "component": {
-      "enum": ["backend", "updater", "frontend"]
+      "enum": ["backend", "frontend"]
     },
     "source": {
       "$ref": "#/$defs/source"
@@ -205,49 +205,80 @@
       },
       "then": {
         "properties": {
-          "compatibility": {
-            "type": "object",
-            "properties": {
-              "openapiDigest": {
-                "$ref": "#/$defs/digest"
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "component": {
-            "const": "updater"
-          }
-        }
-      },
-      "then": {
-        "properties": {
           "inputs": {
             "type": "array",
-            "contains": {
-              "type": "object",
-              "required": ["path", "sha256"],
-              "properties": {
-                "path": {
-                  "const": "contracts/producer-runtime-inputs-v1"
+            "allOf": [
+              {
+                "contains": {
+                  "type": "object",
+                  "required": ["path", "sha256"],
+                  "properties": {
+                    "path": {
+                      "const": "contracts/producer-runtime-inputs-v1"
+                    },
+                    "sha256": {
+                      "const": "sha256:56adbccc4c83432ae02d9bf985ea1b9281d2836e96e389e84dae97bd8cacac52"
+                    }
+                  }
                 },
-                "sha256": {
-                  "const": "sha256:56adbccc4c83432ae02d9bf985ea1b9281d2836e96e389e84dae97bd8cacac52"
-                }
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "type": "object",
+                  "required": ["path", "sha256"],
+                  "properties": {
+                    "path": {
+                      "const": "backend/internal/archivebuild/assets/schema.sql"
+                    },
+                    "sha256": {
+                      "const": "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0"
+                    }
+                  }
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "type": "object",
+                  "required": ["path", "sha256"],
+                  "properties": {
+                    "path": {
+                      "const": "backend/internal/archivebuild/assets/display-v1.yaml"
+                    },
+                    "sha256": {
+                      "const": "sha256:4297791381d106c85f2e78c07aeabe7f05146bc766f3c67cdb5308b958e40fe8"
+                    }
+                  }
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "type": "object",
+                  "required": ["path", "sha256"],
+                  "properties": {
+                    "path": {
+                      "const": "backend/internal/archivebuild/assets/staff-sets-v1.yaml"
+                    },
+                    "sha256": {
+                      "const": "sha256:df2ad5c80add8898ebf61a0eced86f608374e528b34b881c3fe741b177be8dae"
+                    }
+                  }
+                },
+                "minContains": 1,
+                "maxContains": 1
               }
-            },
-            "minContains": 1,
-            "maxContains": 1
+            ]
           },
           "compatibility": {
             "type": "object",
             "properties": {
               "openapiDigest": {
-                "type": "null"
+                "$ref": "#/$defs/digest"
               }
             }
           }
@@ -465,7 +496,7 @@
         },
         "documentNamespace": {
           "type": "string",
-          "pattern": "^https://spdx\\.bangumi-staff-stats\\.invalid/(backend|updater|frontend)/sha256-[0-9a-f]{64}$"
+          "pattern": "^https://spdx\\.bangumi-staff-stats\\.invalid/(backend|frontend)/sha256-[0-9a-f]{64}$"
         },
         "packageCount": {
           "type": "integer",

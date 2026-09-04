@@ -85,7 +85,7 @@ function attestedCheckout(name) {
 function statementRoots(name, source) {
   const base = path.join(TEST_ROOT, name, 'components');
   const roots = {};
-  for (const component of ['backend', 'frontend', 'updater']) {
+  for (const component of ['backend', 'frontend']) {
     const root = path.join(base, component);
     ensureGeneratedDirectory(root, generatedOptions(`${component} statement root`));
     writeGenerated(
@@ -125,14 +125,13 @@ test('coordinator validates all owners before immutable canonical assembly', () 
   const accepted = assembleArtifactSet({
     backend: path.join(POSITIVE, 'backend'),
     frontend: path.join(POSITIVE, 'frontend'),
-    updater: path.join(POSITIVE, 'updater'),
   });
   assert.match(accepted.digest, /^sha256:[0-9a-f]{64}$/);
   assert.deepEqual(
     accepted.manifest.components.map((entry) => entry.component),
-    ['backend', 'frontend', 'updater'],
+    ['backend', 'frontend'],
   );
-  for (const component of ['backend', 'frontend', 'updater']) {
+  for (const component of ['backend', 'frontend']) {
     assert.equal(
       verifyComponentDirectory(path.join(POSITIVE, component), component).statement.component,
       component,
@@ -158,68 +157,17 @@ test('smoke subprocess environment removes source and startup fallback hooks', (
     'ENV',
     'NODE_OPTIONS',
     'NODE_PATH',
-    'PYTHONHOME',
-    'PYTHONINSPECT',
-    'PYTHONPATH',
-    'PYTHONSTARTUP',
   ];
   const previous = new Map(names.map((name) => [name, process.env[name]]));
   try {
     for (const name of names) process.env[name] = `/substituted/${name}`;
-    const environment = controlPlaneEnvironment('/generated/pycache');
+    const environment = controlPlaneEnvironment();
     for (const name of names) assert.equal(Object.hasOwn(environment, name), false);
-    assert.equal(environment.PYTHONDONTWRITEBYTECODE, '1');
-    assert.equal(environment.PYTHONNOUSERSITE, '1');
-    assert.equal(environment.PYTHONPYCACHEPREFIX, '/generated/pycache');
-    assert.equal(environment.PYTHONSAFEPATH, '1');
   } finally {
     for (const [name, value] of previous) {
       if (value === undefined) delete process.env[name];
       else process.env[name] = value;
     }
-  }
-});
-
-test('coordinator sanitized environment launches the updater helper from a disposable cwd', () => {
-  resetTestRoot();
-  const runRoot = path.join(TEST_ROOT, 'sanitized-updater-helper');
-  const pycache = path.join(runRoot, 'pycache');
-  ensureGeneratedDirectory(
-    runRoot,
-    generatedOptions('sanitized updater helper cwd'),
-  );
-  writeGenerated(
-    path.join(runRoot, 'artifact.py'),
-    "raise RuntimeError('ambient cwd artifact module was imported')\n",
-  );
-  writeGenerated(
-    path.join(runRoot, 'runtime_prune.py'),
-    "raise RuntimeError('ambient cwd runtime_prune module was imported')\n",
-  );
-  const environment = controlPlaneEnvironment(pycache);
-  const helper = path.join(REPOSITORY_ROOT, 'updater', 'build', 'smoke.py');
-  const python =
-    process.env.BGMSS_TEST_PYTHON ??
-    path.join(REPOSITORY_ROOT, 'updater', '.venv', 'bin', 'python');
-  const result = spawnSync(python, [helper, '--help'], {
-    cwd: runRoot,
-    env: environment,
-    encoding: 'utf8',
-  });
-  assert.equal(
-    result.status,
-    0,
-    `sanitized helper launch failed:\n${result.stdout}\n${result.stderr}`,
-  );
-  assert.match(result.stdout, /usage: smoke\.py/);
-  assert.equal(Object.hasOwn(environment, 'PYTHONPATH'), false);
-  assert.equal(environment.PYTHONSAFEPATH, '1');
-  for (const forbidden of [
-    'ambient cwd artifact module was imported',
-    'ambient cwd runtime_prune module was imported',
-    'ModuleNotFoundError',
-  ]) {
-    assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, new RegExp(forbidden));
   }
 });
 

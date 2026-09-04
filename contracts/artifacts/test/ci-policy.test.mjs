@@ -59,7 +59,6 @@ const EXPECTED_EXTERNAL_ACTION_REFERENCES = [
   'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
   'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e',
   'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
-  'astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9',
   'docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c',
 ];
 const EXPECTED_LOCAL_WORKFLOW_REFERENCE =
@@ -203,7 +202,7 @@ test('CI has exactly read-only repository permission', () => {
   assert.doesNotMatch(source, /:\s*write\s*$/m);
 });
 
-test('CI uses five immutable Actions and one same-revision workflow', () => {
+test('CI uses four immutable Actions and one same-revision workflow', () => {
   const source = workflow();
   const uses = [...source.matchAll(/^\s*uses:\s*([^\s]+)\s*$/gm)].map((match) => match[1]);
   const immutableActionPattern =
@@ -299,14 +298,10 @@ test('CI runs exact component gates, reproducibility, assembly, and local smoke'
     'GOTOOLCHAIN: go1.26.5+auto',
     'node-version: 24.18.0',
     'npm install --global npm@11.16.0',
-    'version: 0.11.32',
     'version: v0.34.1',
     'driver-opts: image=docker.io/moby/buildkit:v0.27.1@sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368',
-    'uv python install 3.14.6',
     TOOLCHAIN_VALIDATOR,
     'backend/build/check.sh --target-arch amd64',
-    'uv run --frozen pytest',
-    '.venv/bin/python build/check.py',
     'npm run check',
     'npm run artifact:check -- --target-arch amd64',
     'node --test contracts/artifacts/test/*.test.mjs',
@@ -320,7 +315,7 @@ test('CI runs exact component gates, reproducibility, assembly, and local smoke'
   assert.match(source, /--output|build\/check/);
 });
 
-test('CI residue gate closes all four build roots and rejects non-tmp residue', () => {
+test('CI residue gate closes the three active build roots and rejects non-tmp residue', () => {
   const source = workflow();
   assert.match(
     source,
@@ -332,7 +327,6 @@ test('CI residue gate closes all four build roots and rejects non-tmp residue', 
   );
   for (const root of [
     'backend/build',
-    'updater/build',
     'frontend/build',
     'contracts/artifacts',
   ]) {

@@ -30,7 +30,7 @@
     },
     "documentNamespace": {
       "type": "string",
-      "pattern": "^https://spdx\\.bangumi-staff-stats\\.invalid/(backend|updater|frontend)/sha256-[0-9a-f]{64}$"
+      "pattern": "^https://spdx\\.bangumi-staff-stats\\.invalid/(backend|frontend)/sha256-[0-9a-f]{64}$"
     },
     "creationInfo": {
       "type": "object",
