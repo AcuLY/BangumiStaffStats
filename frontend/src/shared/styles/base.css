@@ -2291,7 +2291,7 @@ select:focus-visible {
 
 .ranking-workspace .ranking-columns,
 .ranking-workspace .ranked-person-row {
-  --ranking-columns: 22px 36px minmax(0, 1fr) minmax(144px, 40%);
+  --ranking-columns: 22px 36px minmax(0, 1fr) minmax(180px, 40%);
   display: grid;
   min-width: 0;
   padding: var(--space-2) var(--space-3);
@@ -2332,6 +2332,25 @@ select:focus-visible {
 .ranking-columns__metrics.is-global,
 .ranked-person-row__metrics.is-global {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ranking-workspace .ranking-columns__metrics,
+.ranking-workspace .ranked-person-row__metrics {
+  --ranking-count-track: 24px;
+  --ranking-score-track: 40px;
+  --ranking-preference-track: 48px;
+  grid-template-columns:
+    minmax(var(--ranking-count-track), 1fr)
+    repeat(2, minmax(var(--ranking-score-track), 1fr))
+    minmax(var(--ranking-preference-track), 1fr);
+  column-gap: var(--space-2);
+}
+
+.ranking-workspace .ranking-columns__metrics.is-global,
+.ranking-workspace .ranked-person-row__metrics.is-global {
+  grid-template-columns:
+    minmax(var(--ranking-count-track), 1fr)
+    repeat(2, minmax(var(--ranking-score-track), 1fr));
 }
 
 .ranking-columns__metrics > span {
@@ -2533,7 +2552,13 @@ select:focus-visible {
   flex-wrap: nowrap;
 }
 
-@container ranking-pane (max-width: 340px) {
+@container ranking-pane (width > 380px) {
+  .ranking-workspace .ranked-person-row {
+    grid-template-areas: "rank avatar identity metrics";
+  }
+}
+
+@container ranking-pane (max-width: 380px) {
   .ranking-workspace .ranking-columns {
     grid-template-areas:
       "rank avatar identity"
