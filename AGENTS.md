@@ -158,10 +158,13 @@ subagent report is evidence to inspect, not proof by itself.
 - `contracts/` owns public schemas, OpenAPI, golden fixtures, and artifact
   contracts. Change contracts before consumers and regenerate every generated
   consumer rather than hand-editing generated files.
-- `backend/` is the sole authority for statistical computation and query
-  semantics.
-- `updater/` is an immutable Archive producer. It does not serve public query
-  traffic or become a second statistics implementation.
+- `backend/` is the sole authority for statistical computation, query
+  semantics, and the embedded Go Archive builder/scheduler. Archive production
+  must preserve the shared immutable schema, manifest, dataVersion, catalog,
+  and golden contracts and must not run in request handlers.
+- The retired `updater/` Python producer is historical Git evidence only after
+  the Go builder parity gate. It is not a production runtime, release
+  component, or active source directory.
 - `frontend/` presents backend results. It must not recreate statistical
   formulas, filtering authority, or hidden data semantics in the browser.
 - `operations/` consumes accepted build artifacts and configures the minimal
@@ -214,16 +217,6 @@ cd backend
 cd frontend
 npm ci --ignore-scripts --no-audit --no-fund
 npm run check
-
-# Updater
-cd updater
-uv python install 3.14.6
-uv sync --frozen --python 3.14.6
-PYTHONDONTWRITEBYTECODE=1 uv run --frozen pytest
-PYTHONDONTWRITEBYTECODE=1 uv run --frozen mypy src tests
-PYTHONDONTWRITEBYTECODE=1 uv run --frozen ruff check .
-PYTHONDONTWRITEBYTECODE=1 uv run --frozen ruff format --check .
-uv lock --check --offline
 
 # Contract artifacts
 node --test contracts/artifacts/test/*.test.mjs

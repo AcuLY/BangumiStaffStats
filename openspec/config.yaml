@@ -41,9 +41,10 @@ context: |
   Capability ids must start with exactly one ownership prefix:
   contracts-, backend-, updater-, frontend-, or operations-. Contracts owns
   cross-language wire schemas, manifests, shared fixtures, and goldens; backend
-  owns the Go read-only API and statistical authority; updater owns the Python
-  one-shot Archive producer; frontend owns Vue presentation and interaction
-  state; operations owns repository deployment definitions, immutable release
+  owns the Go API, statistical authority, and embedded Go Archive
+  builder/scheduler; updater prefixes are retained only to retire previously
+  accepted Python producer capabilities; frontend owns Vue presentation and
+  interaction state; operations owns repository deployment definitions, immutable release
   assembly, secret interfaces, observability configuration, recovery
   procedures, and isolated deployment validation. Operations consumes accepted
   product artifacts and contracts and must not change their semantics.
@@ -53,9 +54,10 @@ context: |
   ownership, and verification gate. Do not add a duplicate state layer,
   request layer, statistical implementation, or speculative abstraction.
 
-  The Go backend is the sole statistical authority. Python is a one-shot
-  immutable Archive producer, Go is a read-only consumer, and Python/Go/TypeScript
-  share versioned contracts and goldens without sharing runtime business code.
+  The Go backend is the sole statistical and Archive-production authority. Its
+  embedded builder writes new immutable versions outside request handling and
+  its consumer reads the selected Store. Go and TypeScript share versioned
+  contracts and goldens without duplicating statistical authority.
 
   The main agent owns decisions, coordination, specification audit, and final
   acceptance. Subagents own concrete implementation blocks when parallel

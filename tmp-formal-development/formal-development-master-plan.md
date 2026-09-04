@@ -11,7 +11,7 @@
 - 对用户可见的外观、交互、文案、状态边界和响应式行为，以固定 oracle 和现行产品、设计文档为证据，保持一致；
 - 在一致性之外实现现行文档已经定义、但原型尚未具备的正式 API、真实数据、分享查询、渐进加载、错误恢复和可观测性；
 - 使用 clean-room architecture。旧代码只能作为行为证据、golden 来源和差异定位线索，不复用其目录、状态机、请求层、计算边界或部署结构；
-- Go 后端是统计计算唯一权威，Python updater 只生成不可变 Archive，Vue 前端只负责交互状态、展示和可视化；
+- Go 后端是统计计算与不可变 Archive 构建的唯一权威，后台定时构建不进入请求处理；Vue 前端只负责交互状态、展示和可视化；
 - 先完成可在开发环境内完整验收的产品与制品，生产运维、发布、迁移和切换另立后续 OpenSpec。
 
 “正式开发完成”只表示本文的开发验收门全部通过，不表示已经发布、部署或完成生产迁移。
@@ -147,10 +147,10 @@ cleanup commit 之后，归档工具输出发生了一次最终且可重现的 E
 ### 4.1 固定基线
 
 - 前端：Vue 3、Vite、TypeScript、Pinia、Naive UI、native `fetch`。
-- 后端：Go 1.26，标准库 `net/http` 为 HTTP 基线。
-- Updater：Python one-shot process，生成不可变 SQLite Archive。
+- 后端：Go 1.26，标准库 `net/http` 为 HTTP 基线；同一进程以后台任务构建并热替换不可变 SQLite Archive。
+- Updater：不再作为独立 Python 运行时或发布组件；原实现仅在 Go parity 通过前作为只读迁移证据。
 - 契约：版本化 OpenAPI、JSON Schema、manifest、golden 和跨语言 contract tests。
-- 数据边界：Python 写新 Archive；Go 只读；前端不读取 Archive、不复制统计算法。
+- 数据边界：Go 后台 builder 写新版本，Go Store 只读查询当前版本；前端不读取 Archive、不复制统计算法。
 
 ### 4.2 质量库准入
 
@@ -167,13 +167,18 @@ cleanup commit 之后，归档工具输出发生了一次最终且可重现的 E
 
 ## 5. OpenSpec 与角色纪律
 
+> 2026-09 架构修订：`backend-embed-go-archive-builder` 在严格验证后取代
+> 下方历史 DAG 中独立 Python updater、三组件制品和 systemd 激活职责。
+> 历史行保留为完成顺序证据，不再控制当前生产实现；当前权威为 Go
+> `backend-archive-builder`、两组件制品和进程内热替换 delta。
+
 ### 5.1 单根治理
 
 - 主仓只允许根 `openspec/`；禁止 `frontend/openspec/`、`backend/openspec/`、`updater/openspec/` 等嵌套 root。
 - 主仓 capability 必须且只能使用一个所有权前缀：
   - `contracts-`：跨语言 wire、manifest、共享 fixtures/goldens 和集成契约；
-  - `backend-`：Go 只读 API、统计权威、缓存和上游 adapter；
-  - `updater-`：Python Archive producer；
+  - `backend-`：Go API、统计权威、Archive builder/scheduler、缓存和上游 adapter；
+  - `updater-`：仅用于退休既有 Python Archive producer capability；
   - `frontend-`：Vue UI、交互状态和可视化。
 - 一个 change 可以包含多个跨层 capability，但每个 capability 必须分别声明 Owner 和 Owned paths；`backend-`、`updater-` 或 `frontend-` owner 不得以“schema/golden/API 增量”为由直接写入 `contracts/**`。共享契约、golden、OpenAPI 和跨语言验收路径始终由同一 change 中显式列出的 `contracts-*` capability 与 Contracts owner 负责。
 - `/Users/luca/dev/bangumi-collection-go` 是独立仓库，使用自己的 OpenSpec、分支和 capability 命名，不写入主仓 change。
@@ -459,7 +464,7 @@ Wave 5 图中列出的 19 个 ID 是 `produce-development-artifacts` 的确切�
 
 - `/livez`、`/readyz`、`/metrics`；
 - 低基数指标、结构化 application/query/updater events；
-- `update-status.json`、Archive manifest、compatibility manifest 和 `current.json` 的 schema/reader/local fixture；
+- 进程内 Archive update state、Archive manifest、compatibility manifest 和 `current.json` 的 schema/reader/local fixture；
 - updater 的不可变输出、自校验和失败安全；
 - Dockerfile 或等价不可变本地构建定义、checksums、SBOM、local smoke；
 - test/build CI，且不推镜像、不发布、不部署；
