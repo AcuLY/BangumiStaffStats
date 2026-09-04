@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NSkeleton } from 'naive-ui';
 import {
   computed,
   onMounted,
@@ -710,11 +711,25 @@ onMounted(ensureAnalysis);
       aria-hidden="true"
     >
       <div class="co-star-participant-skeletons">
-        <span v-for="index in people.length" :key="index" />
+        <n-skeleton
+          v-for="index in people.length"
+          :key="index"
+          class="app-skeleton"
+          :sharp="false"
+        />
       </div>
-      <span class="co-star-summary-skeleton" />
-      <span class="co-star-section-skeleton" />
-      <span class="co-star-section-skeleton" />
+      <n-skeleton
+        class="app-skeleton co-star-summary-skeleton"
+        :sharp="false"
+      />
+      <n-skeleton
+        class="app-skeleton co-star-section-skeleton"
+        :sharp="false"
+      />
+      <n-skeleton
+        class="app-skeleton co-star-section-skeleton"
+        :sharp="false"
+      />
     </section>
 
     <section

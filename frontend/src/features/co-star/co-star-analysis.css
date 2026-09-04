@@ -972,24 +972,8 @@
   gap: var(--space-2);
 }
 
-.co-star-work-skeletons > span,
-.co-star-participant-skeletons > span,
-.co-star-summary-skeleton,
-.co-star-section-skeleton {
-  background:
-    linear-gradient(
-      105deg,
-      transparent 35%,
-      color-mix(in oklab, var(--surface-raised) 72%, transparent) 50%,
-      transparent 65%
-    )
-    var(--surface-sunken);
-  background-size: 220% 100%;
-}
-
-.co-star-work-skeletons > span {
+.co-star-work-skeletons > .app-skeleton {
   height: 136px;
-  border-radius: var(--radius-control);
 }
 
 .co-star-full-skeleton {
@@ -1003,19 +987,16 @@
   gap: var(--space-3);
 }
 
-.co-star-participant-skeletons > span {
+.co-star-participant-skeletons > .app-skeleton {
   height: 112px;
-  border-radius: var(--radius-card);
 }
 
-.co-star-summary-skeleton {
+.co-star-summary-skeleton.app-skeleton {
   height: 150px;
-  border-radius: var(--radius-card);
 }
 
-.co-star-section-skeleton {
+.co-star-section-skeleton.app-skeleton {
   height: 220px;
-  border-radius: var(--radius-card);
 }
 
 .co-star-surface button:focus-visible,
@@ -1161,14 +1142,5 @@
   .co-star-rating-bar,
   .co-star-participant-card__ordinal {
     forced-color-adjust: none;
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .co-star-work-skeletons > span,
-  .co-star-participant-skeletons > span,
-  .co-star-summary-skeleton,
-  .co-star-section-skeleton {
-    animation: ranking-shimmer 1.4s linear infinite;
   }
 }

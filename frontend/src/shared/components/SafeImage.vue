@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NSkeleton } from 'naive-ui';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import AppIcon from './AppIcon.vue';
@@ -125,7 +126,17 @@ onBeforeUnmount(clearSourceTimeout);
       :aria-label="decorative ? undefined : fallbackLabel"
       :aria-hidden="decorative ? 'true' : undefined"
     >
-      <app-icon name="person" :size="Math.min(24, width * 0.56)" />
+      <n-skeleton
+        v-if="state === 'loading'"
+        class="app-skeleton safe-image__loading-skeleton"
+        :sharp="false"
+        aria-hidden="true"
+      />
+      <app-icon
+        v-else
+        name="person"
+        :size="Math.min(24, width * 0.56)"
+      />
     </span>
     <img
       v-if="currentSource"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NSkeleton } from 'naive-ui';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import AppIcon from '../../../shared/components/AppIcon.vue';
@@ -29,6 +30,7 @@ const props = withDefaults(
     devicePixelRatio?: number;
     expandedPersonId?: number | null;
     executeView: (view: Readonly<RankingView>) => Promise<boolean>;
+    pendingPersonal?: boolean;
     resource: RankingResource;
     retry: () => Promise<boolean>;
     selectedPersonId?: number | null;
@@ -36,6 +38,7 @@ const props = withDefaults(
   {
     devicePixelRatio: 1,
     expandedPersonId: null,
+    pendingPersonal: false,
     selectedPersonId: null,
   },
 );
@@ -107,17 +110,115 @@ onBeforeUnmount(clearSearchTimer);
 <template>
   <section
     v-if="corePending"
-    class="ranking-surface surface-panel ranking-surface--loading"
+    class="ranking-surface ranking-pane surface-panel ranking-surface--loading"
     aria-busy="true"
-    aria-live="polite"
   >
-    <div class="ranking-surface__loading-copy">
-      <app-icon name="search" :size="24" />
-      <strong>正在加载人物排行</strong>
+    <span class="sr-only" role="status" aria-live="polite">
+      正在加载人物排行
+    </span>
+
+    <header
+      class="ranking-surface__header ranking-controls"
+      aria-hidden="true"
+    >
+      <div class="ranking-result-stats ranking-skeleton__summary">
+        <n-skeleton
+          class="app-skeleton ranking-skeleton__summary-label"
+          :sharp="false"
+        />
+        <n-skeleton
+          class="app-skeleton ranking-skeleton__summary-values"
+          :sharp="false"
+        />
+      </div>
+      <div class="ranking-toolbar ranking-skeleton__toolbar">
+        <n-skeleton
+          class="app-skeleton ranking-skeleton__control"
+          :sharp="false"
+        />
+        <n-skeleton
+          class="app-skeleton ranking-skeleton__control"
+          :sharp="false"
+        />
+        <n-skeleton
+          class="app-skeleton ranking-skeleton__control ranking-skeleton__control--order"
+          :sharp="false"
+        />
+      </div>
+    </header>
+
+    <div
+      class="ranking-surface__body ranking-list-scroll"
+      aria-hidden="true"
+    >
+      <div
+        class="ranking-columns list-columns list-columns--ranking"
+        :class="{ 'is-global': !pendingPersonal }"
+      >
+        <span>#</span>
+        <span />
+        <span>人物</span>
+        <span
+          class="ranking-columns__metrics list-columns__metrics"
+          :class="{ 'is-global': !pendingPersonal }"
+          :style="{
+            '--ranking-metric-columns': pendingPersonal ? 4 : 3,
+          }"
+        >
+          <span>
+            <n-skeleton
+              class="app-skeleton ranking-skeleton__column-label"
+              :sharp="false"
+            />
+          </span>
+          <span>均分</span>
+          <span>综合</span>
+          <span v-if="pendingPersonal">偏好</span>
+        </span>
+      </div>
+
+      <div class="ranking-row-skeletons">
+        <div
+          v-for="index in resource.view.pageSize"
+          :key="index"
+          class="ranking-row-skeleton"
+        >
+          <n-skeleton
+            class="app-skeleton ranked-person-row__rank ranking-row-skeleton__rank"
+            :sharp="false"
+          />
+          <n-skeleton
+            class="app-skeleton ranked-person-row__avatar ranking-row-skeleton__avatar"
+            :sharp="false"
+          />
+          <span class="ranked-person-row__identity ranking-row-skeleton__identity">
+            <n-skeleton class="app-skeleton" :sharp="false" />
+            <n-skeleton class="app-skeleton" :sharp="false" />
+          </span>
+          <span
+            class="ranked-person-row__metrics ranking-row-skeleton__metrics"
+            :class="{ 'is-global': !pendingPersonal }"
+            :style="{
+              '--ranking-metric-columns': pendingPersonal ? 4 : 3,
+            }"
+          >
+            <span><n-skeleton class="app-skeleton" :sharp="false" /></span>
+            <span><n-skeleton class="app-skeleton" :sharp="false" /></span>
+            <span><n-skeleton class="app-skeleton" :sharp="false" /></span>
+            <span v-if="pendingPersonal">
+              <n-skeleton class="app-skeleton" :sharp="false" />
+            </span>
+          </span>
+        </div>
+      </div>
     </div>
-    <div class="ranking-row-skeletons" aria-hidden="true">
-      <span v-for="index in 6" :key="index" />
-    </div>
+
+    <footer class="ranking-surface__footer" aria-hidden="true">
+      <n-skeleton
+        class="app-skeleton ranking-pagination-skeleton"
+        :sharp="false"
+      />
+    </footer>
   </section>
 
   <section
@@ -167,7 +268,13 @@ onBeforeUnmount(clearSearchTimer);
         aria-live="polite"
       >
         <span class="sr-only">正在更新排行结果</span>
-        <span v-for="index in 5" :key="index" aria-hidden="true" />
+        <n-skeleton
+          v-for="index in 5"
+          :key="index"
+          class="app-skeleton"
+          :sharp="false"
+          aria-hidden="true"
+        />
       </div>
       <template v-else>
         <ranked-person-list
@@ -200,7 +307,12 @@ onBeforeUnmount(clearSearchTimer);
         @page="requestView({ page: $event })"
         @page-size="requestView({ pageSize: $event })"
       />
-      <div v-else class="ranking-pagination-skeleton" aria-hidden="true" />
+      <n-skeleton
+        v-else
+        class="app-skeleton ranking-pagination-skeleton"
+        :sharp="false"
+        aria-hidden="true"
+      />
     </footer>
   </section>
 </template>

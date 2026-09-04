@@ -3,6 +3,7 @@ import {
   NButton,
   NInput,
   NSelect,
+  NSkeleton,
   NTooltip,
 } from 'naive-ui';
 import {
@@ -472,9 +473,10 @@ onBeforeUnmount(clearSearchTimer);
             <dl class="selected-person-card__metrics">
               <div>
                 <dd>
-                  <span
+                  <n-skeleton
                     v-if="fullPending && !currentPayload"
-                    class="partners-inline-skeleton"
+                    class="app-skeleton partners-inline-skeleton"
+                    :sharp="false"
                     aria-hidden="true"
                   />
                   <template v-else>
@@ -485,9 +487,10 @@ onBeforeUnmount(clearSearchTimer);
               </div>
               <div>
                 <dd>
-                  <span
+                  <n-skeleton
                     v-if="fullPending && !currentPayload"
-                    class="partners-inline-skeleton"
+                    class="app-skeleton partners-inline-skeleton"
+                    :sharp="false"
                     aria-hidden="true"
                   />
                   <template v-else>
@@ -510,7 +513,12 @@ onBeforeUnmount(clearSearchTimer);
             class="single-cooperation__summary-grid partners-summary-skeleton"
             aria-hidden="true"
           >
-            <span v-for="index in personal ? 5 : 4" :key="index" />
+            <n-skeleton
+              v-for="index in personal ? 5 : 4"
+              :key="index"
+              class="app-skeleton"
+              :sharp="false"
+            />
           </div>
           <div
             v-else-if="!currentPayload && !resource.error"
@@ -741,7 +749,12 @@ onBeforeUnmount(clearSearchTimer);
           class="partners-row-skeletons"
           aria-hidden="true"
         >
-          <span v-for="index in view.pageSize" :key="index" />
+          <n-skeleton
+            v-for="index in view.pageSize"
+            :key="index"
+            class="app-skeleton"
+            :sharp="false"
+          />
         </div>
         <div
           v-else-if="resource.error && !currentPayload"
@@ -852,7 +865,12 @@ onBeforeUnmount(clearSearchTimer);
         </div>
 
         <div class="partners-pagination">
-          <div v-if="listPending" class="ranking-pagination-skeleton" />
+          <n-skeleton
+            v-if="listPending"
+            class="app-skeleton ranking-pagination-skeleton"
+            :sharp="false"
+            aria-hidden="true"
+          />
           <adaptive-pagination
             v-else-if="currentPayload"
             aria-label="合作人物分页"

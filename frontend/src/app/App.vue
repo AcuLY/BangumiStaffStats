@@ -1469,6 +1469,7 @@ onBeforeUnmount(() => {
                 :device-pixel-ratio="targetWindow.devicePixelRatio"
                 :expanded-person-id="expandedPersonId"
                 :execute-view="coordinator.executeRankingView"
+                :pending-personal="queryStore.draft.scope === 'personal'"
                 :resource="coordinator.rankings"
                 :retry="retryRanking"
                 :selected-person-id="selectedPersonId"
@@ -1645,7 +1646,7 @@ onBeforeUnmount(() => {
               </span>
               <h1>正在应用查询</h1>
               <div class="query-result-skeleton" aria-hidden="true">
-                <n-skeleton text :repeat="4" />
+                <n-skeleton class="app-skeleton" text :repeat="4" />
               </div>
             </section>
 

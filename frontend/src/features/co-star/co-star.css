@@ -620,8 +620,6 @@
 .candidate-pagination-skeleton {
   width: 100%;
   height: var(--touch-target);
-  border-radius: var(--radius-control);
-  background: var(--surface-sunken);
 }
 
 .candidate-cancel {

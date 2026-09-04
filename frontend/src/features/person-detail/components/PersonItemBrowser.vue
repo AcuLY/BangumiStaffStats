@@ -4,6 +4,7 @@ import {
   NRadioButton,
   NRadioGroup,
   NSelect,
+  NSkeleton,
 } from 'naive-ui';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
@@ -383,7 +384,13 @@ onBeforeUnmount(clearSearchTimer);
     >
       <div v-if="pending" class="person-item-skeletons" aria-live="polite">
         <span class="sr-only">正在更新{{ sectionLabel }}列表</span>
-        <i v-for="index in 5" :key="index" aria-hidden="true" />
+        <n-skeleton
+          v-for="index in 5"
+          :key="index"
+          class="app-skeleton"
+          :sharp="false"
+          aria-hidden="true"
+        />
       </div>
       <ul
         v-else-if="payload.items.length"

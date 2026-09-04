@@ -5,6 +5,7 @@ import {
   NRadioButton,
   NRadioGroup,
   NSelect,
+  NSkeleton,
   NTooltip,
 } from 'naive-ui';
 import type { InputInst } from 'naive-ui';
@@ -395,7 +396,12 @@ defineExpose({ focusUnit });
         class="co-star-work-skeletons"
         aria-hidden="true"
       >
-        <span v-for="index in Math.min(pageSize, 5)" :key="index" />
+        <n-skeleton
+          v-for="index in Math.min(pageSize, 5)"
+          :key="index"
+          class="app-skeleton"
+          :sharp="false"
+        />
       </div>
 
       <ul

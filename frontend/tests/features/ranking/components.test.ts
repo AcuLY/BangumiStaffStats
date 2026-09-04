@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils';
-import { NNumberAnimation, NPagination } from 'naive-ui';
+import { NNumberAnimation, NPagination, NSkeleton } from 'naive-ui';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { RankingPayload } from '../../../src/api/adapters/rankings';
@@ -152,6 +152,74 @@ describe('ranked person list', () => {
 });
 
 describe('ranking result surface', () => {
+  it('mirrors the personal ranking regions with NSkeleton while the first page is pending', () => {
+    const wrapper = mount(RankingResults, {
+      props: {
+        executeView: vi.fn(async () => true),
+        pendingPersonal: true,
+        resource: {
+          error: null,
+          payload: null,
+          phase: 'pending',
+          view: defaultView,
+          viewPending: false,
+        },
+        retry: vi.fn(async () => true),
+      },
+    });
+
+    const pending = wrapper.get('.ranking-surface--loading');
+    expect(pending.attributes('aria-busy')).toBe('true');
+    expect(pending.get('[role="status"]').text()).toBe('正在加载人物排行');
+    expect(wrapper.findAll('[role="status"]')).toHaveLength(1);
+    expect(wrapper.find('.ranking-controls').exists()).toBe(true);
+    expect(wrapper.find('.ranking-list-scroll').exists()).toBe(true);
+    expect(wrapper.find('.ranking-surface__footer').exists()).toBe(true);
+    expect(wrapper.findAll('.ranking-row-skeleton')).toHaveLength(
+      defaultView.pageSize,
+    );
+    expect(
+      wrapper.get('.ranking-columns__metrics').findAll(':scope > span'),
+    ).toHaveLength(4);
+    expect(wrapper.findAll('button, input, select')).toHaveLength(0);
+    expect(wrapper.text()).not.toMatch(/共统计到|林明|\b21\b/);
+    expect(wrapper.get('.ranking-controls').attributes('aria-hidden')).toBe(
+      'true',
+    );
+    expect(wrapper.get('.ranking-list-scroll').attributes('aria-hidden')).toBe(
+      'true',
+    );
+    expect(wrapper.findAllComponents(NSkeleton).length).toBeGreaterThan(0);
+    for (const skeleton of wrapper.findAllComponents(NSkeleton)) {
+      expect(skeleton.classes()).toContain('app-skeleton');
+    }
+  });
+
+  it('omits the personal preference skeleton column for a global query', () => {
+    const wrapper = mount(RankingResults, {
+      props: {
+        executeView: vi.fn(async () => true),
+        pendingPersonal: false,
+        resource: {
+          error: null,
+          payload: null,
+          phase: 'pending',
+          view: Object.freeze({ ...defaultView, sort: 'count' }),
+          viewPending: false,
+        },
+        retry: vi.fn(async () => true),
+      },
+    });
+
+    expect(
+      wrapper.get('.ranking-columns__metrics').findAll(':scope > span'),
+    ).toHaveLength(3);
+    expect(
+      wrapper.get('.ranking-row-skeleton__metrics').findAll(':scope > span'),
+    ).toHaveLength(3);
+    expect(wrapper.text()).not.toContain('偏好');
+  });
+
   it('preserves summary and toolbar while a view request is pending', () => {
     const wrapper = mount(RankingResults, {
       props: {
