@@ -1,6 +1,6 @@
 ## Context
 
-Current accepted production revision is 31e35d6, with schema 2 data dv1-e0d052a68237aa9d145aca8edf2d86dc60c16644bedd2c467ac71f383e191778. Local master is 080e8db with authorized uncommitted career/separator UI changes. Legacy HTML references root /assets/ and /bgmss.png, so preserving /old requires retaining those static references without rewriting legacy bundles.
+Pre-cutover accepted production revision was 31e35d6, with schema 2 data dv1-e0d052a68237aa9d145aca8edf2d86dc60c16644bedd2c467ac71f383e191778. Preflight local master was 080e8db with authorized uncommitted career/separator UI changes. Legacy HTML references root /assets/ and /bgmss.png, so preserving /old requires retaining those static references without rewriting legacy bundles.
 
 ## Goals / Non-Goals
 
@@ -10,7 +10,7 @@ Root navigation and a working legacy entry, exact-artifact deployment, bounded r
 
 | Field | Scope |
 |---|---|
-| Status | Explicitly authorized root cutover; implementation pending |
+| Status | Implemented and deployed; live verification passed on 2026-09-11 |
 | Owner | Primary: Operations/specs/Git/live activation; root_frontend: frontend build and packaging |
 | Writable paths | frontend/vite.config.ts; frontend/build/{smoke,test}.mjs; frontend/scripts/check-production-artifact.mjs; frontend/tests/shared/base-path.test.ts; operations/nginx/bgmss.conf; operations/test/{runtime,root-routing}.sh; operations/bin/validate-isolated (template placeholder only); operations/README.md; PRODUCT.md; this change; openspec/specs/{frontend-query-shell,operations-single-host-deployment}/spec.md; existing requested career/separator UI diff; myserver:/etc/nginx/nginx.conf plus its named same-directory candidate; /srv/bgmss-v2/{releases,state,current-frontend,previous-frontend,config/nginx,incoming/root-promotion-20260911,backups/root-promotion-20260911}; run-owned /tmp/bgmss-root-routing.* test fixtures |
 | Read-only protected inputs | Contracts, Backend, current Archive, existing legacy dist, unrelated host services and Nginx servers |
