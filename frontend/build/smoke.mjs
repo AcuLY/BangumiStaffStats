@@ -15,7 +15,7 @@ import {
 } from './artifact.mjs';
 
 const SMOKE_ROOT = path.join(TMP_ROOT, 'smoke');
-const STATIC_BASE_PATH = '/v2/';
+const STATIC_BASE_PATH = '/';
 
 function fail(message) {
   throw new Error(message);

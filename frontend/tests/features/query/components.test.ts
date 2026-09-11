@@ -373,7 +373,7 @@ describe('query shell components', () => {
       /\.query-summary__copy\s*\{[^}]*font-weight:\s*600;/s,
     );
     expect(baseCss).toMatch(
-      /\.query-summary__value:not\(:last-child\)::after\s*\{[^}]*content:\s*" ·";[^}]*font-weight:\s*400;/s,
+      /\.query-summary__value:not\(:last-child\)::after\s*\{[^}]*content:\s*attr\(data-separator\);[^}]*font-weight:\s*400;/s,
     );
     expect(catalogBrowser).toMatch(
       /\.position-catalog-browser__positions\s*\{[^}]*gap:\s*0;[^}]*padding:\s*0;/s,

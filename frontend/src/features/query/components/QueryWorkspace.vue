@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { displaySeparator, joinDisplayText } from '../../../shared/text/separators';
+
 import ContentDivider from '../../../shared/components/ContentDivider.vue';
 import {
   computed,
@@ -57,7 +59,7 @@ const summary = computed(() =>
 );
 const dirty = computed(() => props.queryStore.dirty ||
   (props.mode === 'co-star' && props.queryStore.coStarScopeDirty));
-const summaryText = computed(() => summary.value.join(' · '));
+const summaryText = computed(() => joinDisplayText(summary.value, ' · '));
 const mergeSeriesAvailable = computed(() => {
   const operation = props.mode === 'ranking' ? 'rankings' : 'candidates';
   return (
@@ -315,6 +317,8 @@ defineExpose({
                   v-for="(part, index) in summary"
                   :key="`${index}-${part}`"
                   class="query-summary__value"
+                  :class="{ 'query-summary__value--tight-end': /^[（）]/u.test(summary[index + 1] ?? '') }"
+                  :data-separator="displaySeparator(part, summary[index + 1] ?? '', ' ·')"
                 >
                   {{ part }}
                 </span>

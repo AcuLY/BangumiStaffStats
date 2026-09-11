@@ -9,8 +9,8 @@ theme behavior, and the responsive accessible Query Workspace.
 ### Requirement: One query shell SHALL own routes and shared query state
 
 The formal SPA SHALL expose logical `/ranking` and `/co-star` shell modes at
-the configured production base, currently public `/v2/ranking` and
-`/v2/co-star`, with one `QueryDraft`, one immutable last-successful
+the configured production base, currently public `/ranking` and
+`/co-star`, with one `QueryDraft`, one immutable last-successful
 `AppliedQuery`, one ordered `positionKeys` array, and one monotonic
 `queryRevision`. Operation/logical-path/deployment-base SHALL not enter the
 shared query signature. Editing Draft or switching modes SHALL not apply,
@@ -41,8 +41,8 @@ request. The Header SHALL contain an always available same-tab link labeled â€œå
 
 #### Scenario: Draft changes and mode changes
 
-- **WHEN** the user edits Draft and switches between ranking and co-star below `/v2/`
-- **THEN** the browser path SHALL switch only between `/v2/ranking` and `/v2/co-star`
+- **WHEN** the user edits Draft and switches between ranking and co-star at the root production base
+- **THEN** the browser path SHALL switch only between `/ranking` and `/co-star`
 - **AND** Applied Query, queryRevision, ordered PositionKeys, current-revision resources, and edited Draft SHALL remain unchanged
 
 #### Scenario: A new query succeeds
@@ -62,7 +62,7 @@ request. The Header SHALL contain an always available same-tab link labeled â€œå
 
 #### Scenario: A path outside the deployment base is loaded
 
-- **WHEN** the legacy root or another path outside `/v2/**` is requested
+- **WHEN** a path outside an explicitly configured nested application base is requested
 - **THEN** the new query shell SHALL not claim, redirect, or rewrite that path
 
 ### Requirement: Query input SHALL use the shared wire and dynamic catalog

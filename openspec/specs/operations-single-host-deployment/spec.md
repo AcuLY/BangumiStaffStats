@@ -353,42 +353,30 @@ SHALL NOT be treated as a rollback dependency.
 
 ### Requirement: Nginx cutover SHALL be atomic and reversible
 
-Path migration SHALL create one exact absent, change-specific backup without
-overwriting the historical
-`/etc/nginx/nginx.conf.pre-bgmss-v2`. It SHALL modify only the existing
-`search.bgmss.fun` TLS server so `/` and every path outside `/v2/**` again use
-the retained legacy frontend at `/srv/bgmss/frontend/dist`, exact `/v2`
-redirects to `/v2/`, `/v2/` serves
-`/srv/bgmss-v2/current-frontend` with base-aware SPA fallback, and
-`/v2/api/v1/` proxies to the unchanged `127.0.0.1:18080/api/v1/` backend
-path. Existing `/statistics`, `/timeline`, `/proxy`, per-site logs, TLS, and
-every unrelated location/server byte SHALL remain present and equivalent.
+The authorized root promotion SHALL serve the new application from /srv/bgmss-v2/current-frontend at / with canonical /ranking and /co-star routes, and SHALL proxy /api/v1/ to 127.0.0.1:18080/api/v1/ with the accepted 130s read timeout. Legacy SHALL remain running and reachable at /old/. Existing /statistics, /timeline, /proxy, TLS, logs and unrelated server/location bytes SHALL remain equivalent.
 
-The admitted candidate SHALL be retained at
-`/srv/bgmss-v2/config/nginx/nginx.conf`. Migration SHALL record and recheck the
-active preflight SHA-256 before the first write, require the new backup hash to
-equal it, and use a structure-aware transformation whose diff is bounded to
-the named TLS block and reviewed path locations. It SHALL copy through the
-exact same-directory temporary and atomic rename, run `nginx -t` before each
-reload, and verify the active hash equals the intended candidate or backup.
-It SHALL restore the new backup, revalidate, and reload if reload or any
-required content-aware public probe fails.
+Migration SHALL save an exact absent change-specific Nginx and release-state backup, verify the active preimage before writing, retain the candidate in /srv/bgmss-v2/config/nginx/nginx.conf, validate with nginx -t and use same-directory atomic replacement before reload. Failed activation SHALL restore the exact Nginx backup and prior application, revalidate/reload and verify recovered routes without switching Archive data.
 
-#### Scenario: Public path split succeeds
-- **WHEN** the candidate validates/reloads, `/` hashes exactly to the retained legacy `index.html`, `/v2/` hashes exactly to the deployed new `index.html`, new static/deferred assets resolve, both new SPA modes remain below `/v2/`, and `/v2/api/v1/catalog` reports the accepted real data version
-- **THEN** legacy SHALL own the root while the new stack receives only `/v2/**` traffic, with both serving stacks still running and the loader still intentionally stopped
+#### Scenario: Root promotion succeeds
+- **WHEN** the candidate is activated
+- **THEN** / SHALL serve the exact new index, canonical SPA modes and /api/v1/catalog SHALL work, and /old/ SHALL serve the unchanged legacy index with working legacy assets
 
-#### Scenario: Candidate configuration or public probe fails
-- **WHEN** syntax, reload, legacy-root content, new frontend/assets/routes, or new API acceptance fails
-- **THEN** the exact new backup SHALL be restored/reloaded and the previously active public state SHALL be required to recover before returning failure
+#### Scenario: Existing v2 links and cached clients
+- **WHEN** a client requests /v2/, /v2/ranking or /v2/co-star
+- **THEN** a no-store redirect SHALL preserve query parameters and lead to the corresponding root route
+- **AND** /v2/api/v1/ and /v2/assets/ SHALL remain compatible with current and retained prior new-client assets
 
-#### Scenario: Reserved prefix cannot fall through
-- **WHEN** a missing or malformed `/v2/**` static, SPA, or API request is made
-- **THEN** Nginx SHALL resolve it within the new-stack locations or return a new-stack error and SHALL NOT serve legacy HTML as a successful fallback
+#### Scenario: Missing static or API paths
+- **WHEN** an asset or API path does not exist
+- **THEN** it SHALL return its appropriate error and SHALL NOT return legacy or new SPA HTML as a successful fallback
 
-#### Scenario: Existing legacy auxiliary routes are probed
-- **WHEN** `/statistics`, `/timeline`, and `/proxy` are requested after the path split
-- **THEN** their existing upstream ownership and declared healthy or known-excluded status SHALL remain unchanged
+#### Scenario: Candidate fails or active configuration drifts
+- **WHEN** config identity, syntax, reload or required public probes fail
+- **THEN** activation SHALL stop and the verified prior routing/application state SHALL be restored
+
+#### Scenario: Unrelated service ownership
+- **WHEN** root promotion completes
+- **THEN** legacy auxiliary upstreams, Prometheus and unrelated containers SHALL retain their preflight ownership and availability
 
 ### Requirement: Production host integration SHALL remain minimal
 

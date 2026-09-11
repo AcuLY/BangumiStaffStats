@@ -41,7 +41,7 @@ function fixtureDist(name, reverse = false) {
   const root = path.join(TEST_ROOT, name);
   ensureUnderTmpDirectory(path.join(root, 'assets'), 'fixture assets directory');
   const entries = [
-    ['index.html', '<!doctype html><div id="app"></div><script type="module" src="/v2/assets/app-a1.js"></script>\n'],
+    ['index.html', '<!doctype html><div id="app"></div><script type="module" src="/assets/app-a1.js"></script>\n'],
     ['assets/app-a1.js', 'document.querySelector(\"#app\").textContent=\"fixture\";\n'],
     ['assets/style-a1.css', ':root{color:#111}\n'],
   ];
@@ -215,11 +215,11 @@ test('artifact verifier rejects post-package byte drift', () => {
   assert.throws(() => verifyComponentDirectory(output, 'frontend'), /size drift|digest drift/);
 });
 
-test('artifact smoke resolves the declared nested production base', async () => {
+test('artifact smoke resolves the root production base', async () => {
   reset();
   const output = packageStaticArtifact({
-    distRoot: fixtureDist('nested-base-dist'),
-    outputRoot: path.join(TEST_ROOT, 'nested-base-output'),
+    distRoot: fixtureDist('root-base-dist'),
+    outputRoot: path.join(TEST_ROOT, 'root-base-output'),
     sourceRevision: REVISION,
     sourceTree: TREE,
   });

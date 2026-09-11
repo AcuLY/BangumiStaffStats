@@ -94,9 +94,27 @@ the API. It never changes `current.json` or retains a previous data slot:
 /srv/bgmss-v2/operations/bin/rollback-app --root /srv/bgmss-v2
 ```
 
+## Public application routes
+
+The new frontend is built for `/`, with canonical `/ranking`, `/co-star` and
+`/api/v1/` paths. Legacy remains available at `/old/`; its immutable root asset
+references are served through a contained legacy static fallback. `/v2/` page
+links redirect to their root equivalents with query strings preserved and
+no-store responses. `/v2/api/v1/` remains a direct API compatibility path;
+`/v2/assets/` can use the retained previous frontend during cutover. Missing
+static files return 404, never SPA HTML. `/metrics` remains private.
+
+Only the existing `search.bgmss.fun` TLS application locations are replaced;
+`/statistics`, `/timeline`, `/proxy`, TLS and other sites remain intact. Save
+an exact, change-specific Nginx and release-state backup; verify the preimage,
+render and inspect the bounded candidate, run `nginx -t`, atomically install
+and reload, then probe root, legacy, redirects, assets and API content. Restore
+the exact config and prior application if acceptance fails. Never switch the
+Archive data pointer as part of this route rollback.
+
 ## Health and observability
 
-The repository Nginx template gives `/v2/api/v1/` a 130-second upstream read
+The repository Nginx template gives `/api/v1/` and `/v2/api/v1/` a 130-second upstream read
 timeout, exceeding the backend's 120-second request and 125-second HTTP write
 budgets. Existing deployments keep their current vhost settings until a
 separately authorized template rollout; a repository edit is not deployment.
