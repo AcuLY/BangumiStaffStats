@@ -103,7 +103,7 @@ verify_build_metadata "$bundle/build.json"
 
 cp "$bundle/build.json" "$test_root/invalid-build.json"
 jq '.components += ["updater"]' "$bundle/build.json" >"$test_root/invalid-build.json"
-if verify_build_metadata "$test_root/invalid-build.json" 2>/dev/null; then
+if (verify_build_metadata "$test_root/invalid-build.json" 2>/dev/null); then
   fail "build metadata accepted a third product component"
 fi
 
@@ -122,7 +122,7 @@ if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; 
       and .services.prometheus.read_only == true
       and ([.services.api.volumes[]
         | select(.target == "/var/lib/bgmss/archive")
-        | .read_only] == [false])
+        | (.read_only // false)] == [false])
       and ([.services.prometheus.volumes[]
         | select(.source | endswith("/data"))] | length) == 0
     ' >/dev/null || fail "Compose is not the exact API+Prometheus projection"
