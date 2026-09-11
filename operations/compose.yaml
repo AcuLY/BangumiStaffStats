@@ -28,6 +28,7 @@ services:
     pids_limit: ${BGMSS_API_PIDS_LIMIT:-256}
     environment:
       GOMEMLIMIT: ${BGMSS_API_GOMEMLIMIT:-1024MiB}
+      SQLITE_TMPDIR: /var/lib/bgmss/archive
     logging:
       driver: journald
       options:

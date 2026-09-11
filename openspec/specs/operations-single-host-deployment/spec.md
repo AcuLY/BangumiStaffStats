@@ -259,45 +259,24 @@ services, ports, data, and images SHALL remain unchanged.
 
 ### Requirement: Production updater SQLite temporary storage SHALL use the Archive disk
 
-The production updater SHALL set exactly
-`SQLITE_TMPDIR=/var/lib/bgmss/archive` so SQLite file-backed temporary tables
-and indices use the existing writable, disk-backed Archive bind mount instead
-of the bounded `/tmp` tmpfs. This input SHALL apply only to updater. API and
-Prometheus SHALL receive no `SQLITE_TMPDIR`; the updater's `/tmp` tmpfs,
-resource limits, security controls, Archive mount, project-only network, and
-publication transaction SHALL remain unchanged.
+The production API, which owns the embedded Go Archive updater, SHALL set exactly SQLITE_TMPDIR=/var/lib/bgmss/archive. SQLite file-backed temporary tables and indices SHALL use the existing writable disk-backed Archive bind instead of the 16 MiB /tmp tmpfs. Prometheus SHALL receive no SQLITE_TMPDIR or Archive mount. The API root filesystem, /tmp size, resource/security controls, network and Backend publication transaction SHALL remain unchanged.
 
-#### Scenario: Updater projection uses disk-backed SQLite temporary storage
+#### Scenario: Embedded updater projection
+- **WHEN** production or validation Compose is rendered
+- **THEN** API SHALL receive the fixed Archive-disk SQLITE_TMPDIR and Prometheus SHALL not receive it
+- **AND** both services SHALL retain their existing image, resource, mount and network boundaries
 
-- **WHEN** Compose renders an admitted updater release
-- **THEN** updater SHALL receive the exact fixed `SQLITE_TMPDIR`
-- **AND** API and Prometheus SHALL not receive it
-- **AND** all three services SHALL retain only their existing project network
-  and resource/security settings
+#### Scenario: Temporary work exceeds the tmpfs budget
+- **WHEN** SQLite writes file-backed temporary work larger than 16 MiB
+- **THEN** it SHALL use the Archive disk without exhausting the bounded /tmp mount
 
-#### Scenario: Direct updater projection uses disk-backed SQLite temporary storage
+#### Scenario: Configuration repair is activated
+- **WHEN** the authorized host receives the verified configuration
+- **THEN** only API SHALL be recreated using its current accepted image, health SHALL recover, and Nginx, frontend, unrelated services and manually selected Archive data SHALL remain unchanged
 
-- **WHEN** Compose renders an admitted updater release without host proxy
-  routing
-- **THEN** updater SHALL receive the exact fixed `SQLITE_TMPDIR`, API and
-  Prometheus SHALL not receive it, and all three services SHALL retain only
-  their project network and resource/security settings
-
-#### Scenario: Proxy updater projection uses the same disk-backed SQLite temporary storage
-
-- **WHEN** Compose renders an admitted updater release while host-transparent
-  rule egress is active
-- **THEN** updater SHALL receive the exact fixed `SQLITE_TMPDIR`
-- **AND** API, updater, and Prometheus SHALL receive no application proxy
-  input or proxy-network attachment
-
-#### Scenario: SQLite temporary storage authority widens
-
-- **WHEN** the value differs, resolves outside the Archive mount, appears on
-  API or Prometheus, replaces `/tmp`, changes a resource/security/mount/
-  network boundary, or becomes operator-controlled release state
-- **THEN** operations verification and deployment SHALL fail before another
-  production updater invocation
+#### Scenario: Configuration or acceptance fails
+- **WHEN** the live preimage drifts, rendered changes exceed the single environment entry, or health fails
+- **THEN** activation SHALL stop or restore the exact Compose preimage and API; it SHALL not change Archive data to force success
 
 ### Requirement: Live traffic SHALL require a real Archive
 
