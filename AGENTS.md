@@ -57,10 +57,6 @@ Before making changes:
 - State the intended scope and identify any external or live-system mutation
   before performing it.
 
-If an existing dirty worktree overlaps the required files, preserve it and ask
-for direction before creating another branch/worktree or changing the
-overlapping file. Do not hide, reset, or overwrite the overlap.
-
 ## OpenSpec is required for substantial product changes
 
 Use OpenSpec before implementation for complete new requirements and changes
@@ -309,5 +305,5 @@ A change is complete only when:
   deployed.
 
 Stop and surface the evidence when authority conflicts, required approval is
-missing, a concurrent edit overlaps the writable scope, acceptance fails, or
+missing, acceptance fails, or
 the necessary fix would materially expand scope.
