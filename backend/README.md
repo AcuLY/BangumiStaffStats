@@ -75,6 +75,22 @@ publication it returns the catalog-specific `NOT_READY` envelope.
 The module pins Go 1.26.5 and keeps downloaded toolchains, module/build caches,
 temporary files, and binaries below ignored backend-local directories.
 
+Public collections use the immutable `bangumi-collection-go` v0.1.2 release.
+Same-ID nested subject metadata may have a different supported subject type;
+the adapter preserves the top-level collection type and all collection fields.
+Statistical inclusion continues to use the existing Archive/query authority.
+
+Query timeout budgets are 10 seconds per outbound collection HTTP attempt,
+90 seconds for a complete collection load (pagination, rate-limiter waits and
+retries included), and 20 seconds for a shared result worker (executor queue,
+Archive reads and computation included). The outer API request has 120 seconds
+and the HTTP server write timeout is 125 seconds. The process-shared anonymous
+collection client uses five requests per second with burst ten. These limits
+preserve existing retry, cancellation, singleflight and cache-TTL behavior;
+they do not guarantee that an upstream response is valid or available. The
+repository Nginx template waits 130 seconds; an existing deployed vhost needs
+its own authorized rollout to receive that setting.
+
 `internal/query` is the production, pre-statistics query authority. It
 normalizes preserved raw `SharedQueryV1` JSON into the accepted Effective Query
 and `q1:` digest, loads corrected facts through fixed argument-bound reads on

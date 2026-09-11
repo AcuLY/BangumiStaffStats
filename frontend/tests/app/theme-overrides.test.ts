@@ -55,9 +55,10 @@ describe('application oracle theme overrides', () => {
       borderRadius: 'var(--scrollbar-radius)',
       color: 'var(--scrollbar-thumb)',
       colorHover: 'var(--scrollbar-thumb-hover)',
-      height: 'var(--scrollbar-shell-size)',
+      height: '10px',
       railColor: 'var(--scrollbar-track)',
-      width: 'var(--scrollbar-shell-size)',
+      width: '10px',
+      railInsetVerticalRight: '0 0 0 auto',
     });
   });
 });

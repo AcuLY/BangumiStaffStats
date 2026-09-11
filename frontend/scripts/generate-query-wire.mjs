@@ -72,7 +72,7 @@ function assertGeneratedContract() {
     ),
   );
   const missing = names.filter((name) => !exports.has(name));
-  if (names.length !== 17 || missing.length > 0) {
+  if (names.length !== 14 || missing.length > 0) {
     fail(`generated component mismatch: missing ${missing.join(', ')}`);
   }
   if (

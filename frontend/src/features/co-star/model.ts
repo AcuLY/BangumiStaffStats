@@ -2,6 +2,7 @@ import type { CandidatePayload } from '../../api/adapters/candidates';
 import type { CandidatesViewState } from '../query/coordinator';
 
 export interface CandidateInput {
+  readonly positionScope?: 'query' | 'all';
   readonly positionKey: string | null;
 }
 

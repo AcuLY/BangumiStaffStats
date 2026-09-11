@@ -10,6 +10,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for PostCandidatesV1JSONBodyInputPositionScope.
+const (
+	PostCandidatesV1JSONBodyInputPositionScopeAll   PostCandidatesV1JSONBodyInputPositionScope = "all"
+	PostCandidatesV1JSONBodyInputPositionScopeQuery PostCandidatesV1JSONBodyInputPositionScope = "query"
+)
+
+// Valid indicates whether the value is a known member of the PostCandidatesV1JSONBodyInputPositionScope enum.
+func (e PostCandidatesV1JSONBodyInputPositionScope) Valid() bool {
+	switch e {
+	case PostCandidatesV1JSONBodyInputPositionScopeAll:
+		return true
+	case PostCandidatesV1JSONBodyInputPositionScopeQuery:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PostCandidatesV1JSONBodyQuery0CollectionStatuses.
 const (
 	PostCandidatesV1JSONBodyQuery0CollectionStatusesCompleted  PostCandidatesV1JSONBodyQuery0CollectionStatuses = "completed"
@@ -1847,7 +1865,12 @@ func (e PostCandidatesV1504JSONResponseBodyErrorFieldErrors) Valid() bool {
 type PostCandidatesV1JSONBody struct {
 	Input struct {
 		PositionKey *string `json:"positionKey"`
+
+		// PositionScope Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+		PositionScope *PostCandidatesV1JSONBodyInputPositionScope `json:"positionScope,omitempty"`
 	} `json:"input"`
+
+	// Query Query body for an explicitly all-position operation. Empty positionKeys is permitted only when the containing operation requires positionScope=all; all other query validation is unchanged.
 	Query PostCandidatesV1JSONBody_Query `json:"query"`
 	View  *struct {
 		Order    *PostCandidatesV1JSONBodyViewOrder    `json:"order,omitempty"`
@@ -1857,6 +1880,9 @@ type PostCandidatesV1JSONBody struct {
 		Sort     *PostCandidatesV1JSONBodyViewSort     `json:"sort,omitempty"`
 	} `json:"view,omitempty"`
 }
+
+// PostCandidatesV1JSONBodyInputPositionScope defines parameters for PostCandidatesV1.
+type PostCandidatesV1JSONBodyInputPositionScope string
 
 // PostCandidatesV1JSONBodyQuery0 defines parameters for PostCandidatesV1.
 type PostCandidatesV1JSONBodyQuery0 struct {
@@ -1966,12 +1992,15 @@ type PostCandidatesV1200JSONResponseBody0 struct {
 				Name   string  `json:"name"`
 				NameCN *string `json:"nameCN"`
 			} `json:"person"`
+
+			// PositionKeys Bounded by CatalogDataV1.positions; every identity belongs to the resolved operation position scope.
 			PositionKeys []string `json:"positionKeys"`
 			Rank         int      `json:"rank"`
 			WorkCount    int      `json:"workCount"`
 		} `json:"items"`
 		PositionKey *string `json:"positionKey"`
 		Summary     struct {
+			// PositionCounts Bounded by CatalogDataV1.positions; every identity belongs to the resolved operation position scope.
 			PositionCounts []struct {
 				Count       int    `json:"count"`
 				PositionKey string `json:"positionKey"`
@@ -2010,12 +2039,15 @@ type PostCandidatesV1200JSONResponseBody1 struct {
 				Name   string  `json:"name"`
 				NameCN *string `json:"nameCN"`
 			} `json:"person"`
+
+			// PositionKeys Bounded by CatalogDataV1.positions; every identity belongs to the resolved operation position scope.
 			PositionKeys []string `json:"positionKeys"`
 			Rank         int      `json:"rank"`
 			WorkCount    int      `json:"workCount"`
 		} `json:"items"`
 		PositionKey *string `json:"positionKey"`
 		Summary     struct {
+			// PositionCounts Bounded by CatalogDataV1.positions; every identity belongs to the resolved operation position scope.
 			PositionCounts []struct {
 				Count       int    `json:"count"`
 				PositionKey string `json:"positionKey"`

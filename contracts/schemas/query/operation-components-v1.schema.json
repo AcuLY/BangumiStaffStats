@@ -61,6 +61,9 @@
         },
         "pageSize": {
           "$ref": "#/$defs/PageSizeV1"
+        },
+        "locatePersonId": {
+          "$ref": "shared-query-v1.schema.json#/$defs/JsonSafePositiveIntegerV1"
         }
       }
     },
@@ -80,6 +83,15 @@
               "type": "null"
             }
           ]
+        },
+        "positionScope": {
+          "type": "string",
+          "enum": [
+            "query",
+            "all"
+          ],
+          "default": "query",
+          "description": "Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array."
         }
       }
     },
@@ -119,6 +131,24 @@
       "properties": {
         "personId": {
           "$ref": "shared-query-v1.schema.json#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "positionKeys": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
+          },
+          "description": "Optional explicit identity scope within positionScope. Omission retains full ranking membership."
+        },
+        "positionScope": {
+          "type": "string",
+          "enum": [
+            "query",
+            "all"
+          ],
+          "default": "query",
+          "description": "Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array only with explicit nonempty input.positionKeys."
         }
       }
     },
@@ -193,6 +223,15 @@
         },
         "candidatePositionKey": {
           "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
+        },
+        "positionScope": {
+          "type": "string",
+          "enum": [
+            "query",
+            "all"
+          ],
+          "default": "query",
+          "description": "Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array."
         }
       }
     },
@@ -239,6 +278,15 @@
           "items": {
             "$ref": "#/$defs/PersonIdentityV1"
           }
+        },
+        "positionScope": {
+          "type": "string",
+          "enum": [
+            "query",
+            "all"
+          ],
+          "default": "query",
+          "description": "Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array."
         }
       }
     },

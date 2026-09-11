@@ -16,9 +16,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RankingPayload } from '../../../src/api/adapters/rankings';
 import AdaptivePagination from '../../../src/features/ranking/components/AdaptivePagination.vue';
 import RankedPersonList from '../../../src/features/ranking/components/RankedPersonList.vue';
+import RankingColumns from '../../../src/features/ranking/components/RankingColumns.vue';
+import RankingListSkeleton from '../../../src/features/ranking/components/RankingListSkeleton.vue';
 import RankingResults from '../../../src/features/ranking/components/RankingResults.vue';
+import RankingResultsSkeleton from '../../../src/features/ranking/components/RankingResultsSkeleton.vue';
 import RankingToolbar from '../../../src/features/ranking/components/RankingToolbar.vue';
-import SortDirectionButton from '../../../src/features/ranking/components/SortDirectionButton.vue';
+import SortDirectionButton from '../../../src/shared/components/SortDirectionButton.vue';
 import type { RankingView } from '../../../src/features/ranking/model';
 import AppIcon from '../../../src/shared/components/AppIcon.vue';
 
@@ -170,7 +173,37 @@ describe('ranked person list', () => {
     );
   });
 
-  it('shares compact one-line tracks and preserves the narrow two-line map', () => {
+  it('shows contextual identities and emits the original activation trigger', async () => {
+    const wrapper = mount(RankedPersonList, {
+      props: {
+        activationLabel: '选择为合作人物',
+        identityLabels: { 12: '声优 / 导演' },
+        items: personalPayload.items,
+        metricScale: personalPayload.metricScale,
+        personal: true,
+        selectedPersonId: 12,
+        sort: 'preference',
+        workUnit: 'subject',
+      },
+    });
+    const rows = wrapper.findAll('button.ranked-person-row');
+    const selected = rows[0]!;
+
+    expect(selected.findAll('.ranked-person-row__identity small').map((line) => line.text())).toEqual(['Hayashi Akira', '声优 / 导演']);
+    expect(selected.get('.ranked-person-row__identity').attributes('title')).toBe('林明\nHayashi Akira\n声优 / 导演');
+    expect(selected.attributes('aria-label')).toContain('林明，Hayashi Akira，声优 / 导演，');
+    expect(selected.attributes('aria-label')).toContain('；选择为合作人物');
+    expect(selected.attributes('aria-current')).toBe('true');
+    expect(selected.classes()).toContain('is-selected');
+    expect(rows[1]!.get('.ranked-person-row__identity small').text()).toBe('No Ratings');
+
+    await selected.trigger('click');
+
+    expect(wrapper.emitted('activate')).toEqual([[12, selected.element]]);
+    wrapper.unmount();
+  });
+
+  it('shares compact tracks and hides the avatar in the narrow one-line map', () => {
     const baseCss = fs.readFileSync(
       path.join(repositoryRoot, 'frontend/src/shared/styles/base.css'),
       'utf8',
@@ -180,30 +213,48 @@ describe('ranked person list', () => {
       /\.ranking-workspace \.ranked-person-row,\s*\.ranking-workspace \.ranking-row-skeleton\s*\{[^}]*grid-template-areas:\s*"rank avatar identity metrics";/s,
     );
     expect(baseCss).toMatch(
-      /@container ranking-pane \(max-width: 380px\)[\s\S]*?\.ranking-workspace \.ranked-person-row,\s*\.ranking-workspace \.ranking-row-skeleton\s*\{[^}]*grid-template-areas:\s*"rank avatar identity"\s*"\. metrics metrics";[^}]*grid-template-columns:\s*22px 36px minmax\(0, 1fr\);/,
+      /@container ranking-pane \(max-width: 380px\)[\s\S]*?\.ranking-workspace \.ranked-person-row,\s*\.ranking-workspace \.ranking-row-skeleton\s*\{[^}]*grid-template-areas:\s*"rank identity metrics";[^}]*grid-template-columns:\s*22px minmax\(0, 1fr\) minmax\(196px, 40%\);/,
     );
   });
 });
 
 describe('ranking result surface', () => {
+  it('keeps the submitted character-count summary while its values load', () => {
+    const wrapper = mount(RankingResults, {
+      props: {
+        executeView: vi.fn(async () => true), retry: vi.fn(async () => true),
+        pendingPersonal: true, pendingHasCharacterCount: true, pendingWorkUnit: 'series',
+        resource: { phase: 'pending', payload: null, error: null, view: defaultView, viewPending: false },
+      },
+    });
+    const summary = wrapper.get('.ranking-result-stats');
+    expect(summary.text()).toContain('个系列');
+    expect(summary.text()).toContain('个角色');
+    expect(summary.findAllComponents(NSkeleton)).toHaveLength(3);
+    expect(wrapper.getComponent(RankingResultsSkeleton).props('hasCharacterCount')).toBe(true);
+    wrapper.unmount();
+  });
   it.each([
     {
       label: 'personal subject',
       metricCount: 4,
       pendingPersonal: true,
+      pendingWorkUnit: 'subject',
     },
     {
       label: 'global series',
       metricCount: 3,
       pendingPersonal: false,
+      pendingWorkUnit: 'series',
     },
   ] as const)(
     'mirrors the $label ready regions with direct NSkeleton leaves while core pending',
-    ({ pendingPersonal, metricCount }) => {
+    ({ pendingPersonal, pendingWorkUnit, metricCount }) => {
       const wrapper = mount(RankingResults, {
         props: {
           executeView: vi.fn(async () => true),
           pendingPersonal,
+          pendingWorkUnit,
           resource: {
             error: null,
             payload: null,
@@ -225,28 +276,71 @@ describe('ranking result surface', () => {
       );
       expect(wrapper.findAll('[role="status"]')).toHaveLength(1);
       expect(wrapper.find('.ranking-skeleton__summary').exists()).toBe(true);
-      expect(wrapper.find('.ranking-skeleton__toolbar').exists()).toBe(true);
+      expect(wrapper.findComponent(RankingToolbar).exists()).toBe(true);
       expect(wrapper.find('.ranking-columns').exists()).toBe(true);
       expect(wrapper.findAll('.ranking-row-skeleton')).toHaveLength(
         defaultView.pageSize,
       );
-      expect(wrapper.find('.ranking-pagination-skeleton').exists()).toBe(true);
+      expect(wrapper.find('.ranking-surface__footer').exists()).toBe(false);
+      expect(wrapper.getComponent(RankingResultsSkeleton).props()).toEqual({
+        pageSize: defaultView.pageSize,
+        personal: pendingPersonal,
+        hasCharacterCount: false,
+        view: {
+          ...defaultView,
+          sort: pendingPersonal ? 'preference' : 'count',
+        },
+        workUnit: pendingWorkUnit,
+      });
+      expect(wrapper.getComponent(RankingListSkeleton).props()).toEqual({
+      showPositions: false,
+        pageSize: defaultView.pageSize,
+        personal: pendingPersonal,
+        workUnit: pendingWorkUnit,
+      });
+      expect(wrapper.getComponent(RankingColumns).props()).toEqual({
+        personal: pendingPersonal,
+        workUnit: pendingWorkUnit,
+      });
       expect(
         wrapper.get('.ranking-columns__metrics').findAll(':scope > span'),
       ).toHaveLength(metricCount);
-      expect(wrapper.find('.ranking-skeleton__column-label').exists()).toBe(true);
+      expect(
+        wrapper.get('.ranking-columns__metrics > span:first-child').text(),
+      ).toBe(pendingWorkUnit === 'series' ? '系列' : '作品');
+      expect(
+        wrapper.get('.ranking-columns').findAllComponents(NSkeleton),
+      ).toHaveLength(0);
+      expect(wrapper.get('.ranking-columns').attributes('aria-hidden')).toBe(
+        'true',
+      );
       expect(
         wrapper.get('.ranking-row-skeleton__metrics').findAll(':scope > span'),
       ).toHaveLength(metricCount);
-      expect(wrapper.findAll('button, input, select')).toHaveLength(0);
-      expect(wrapper.findComponent(RankingToolbar).exists()).toBe(false);
+      const toolbar = wrapper.getComponent(RankingToolbar);
+      expect(toolbar.props('disabled')).toBe(true);
+      expect(toolbar.findAllComponents(NSkeleton)).toHaveLength(0);
+      expect(toolbar.getComponent(NInput).props('disabled')).toBe(true);
+      expect(toolbar.getComponent(NSelect).props('disabled')).toBe(true);
+      expect(
+        toolbar.getComponent(SortDirectionButton).getComponent(NButton).props('disabled'),
+      ).toBe(true);
+      expect(toolbar.find('input[name="ranking-search"]').exists()).toBe(true);
       expect(wrapper.findComponent(AdaptivePagination).exists()).toBe(false);
       expect(wrapper.findAllComponents(NNumberAnimation)).toHaveLength(0);
       expect(wrapper.find('.ranked-person-row').exists()).toBe(false);
-      expect(wrapper.text()).not.toMatch(/共统计到|林明|0 个人物|0 个条目/);
-      expect(wrapper.get('.ranking-controls').attributes('aria-hidden')).toBe(
-        'true',
+      expect(wrapper.text()).toContain('共统计到');
+      expect(wrapper.text()).toContain('个人物，');
+      expect(wrapper.text()).toContain(
+        pendingWorkUnit === 'series' ? '个系列' : '个条目',
       );
+      expect(wrapper.text()).not.toMatch(/林明|0 个人物|0 个条目/);
+      expect(
+        wrapper.get('.ranking-result-stats').findAllComponents(NSkeleton),
+      ).toHaveLength(2);
+      expect(
+        wrapper.get('.ranking-controls').attributes('aria-hidden'),
+      ).toBeUndefined();
       expect(
         wrapper.get('.ranking-list-scroll').attributes('aria-hidden'),
       ).toBe('true');
@@ -259,18 +353,29 @@ describe('ranking result surface', () => {
     },
   );
 
-  it('preserves summary and toolbar while a view request is pending', () => {
+  it('preserves summary, toolbar and disabled pagination while sharing the initial list skeleton during a view request', async () => {
+    const resource = {
+      error: null,
+      payload: personalPayload,
+      phase: 'ready' as const,
+      view: defaultView,
+      viewPending: false,
+    };
     const wrapper = mount(RankingResults, {
       props: {
         executeView: vi.fn(async () => true),
-        resource: {
-          error: null,
-          payload: personalPayload,
-          phase: 'ready',
-          view: defaultView,
-          viewPending: true,
-        },
+        resource,
         retry: vi.fn(async () => true),
+      },
+    });
+    const search = wrapper.get('input[name="ranking-search"]').element;
+    const pagination = wrapper.getComponent(AdaptivePagination).element;
+    const readyColumns = wrapper.get('.ranking-columns').html();
+    await wrapper.setProps({
+      resource: {
+        ...resource,
+        view: Object.freeze({ ...defaultView, pageSize: 20 }),
+        viewPending: true,
       },
     });
 
@@ -280,11 +385,36 @@ describe('ranking result surface', () => {
         .findAllComponents(NNumberAnimation)
         .map((statistic) => statistic.props('to')),
     ).toEqual([8, 21]);
-    expect(wrapper.find('input[name="ranking-search"]').exists()).toBe(true);
-    expect(wrapper.find('.ranking-view-pending').exists()).toBe(true);
+    expect(wrapper.get('input[name="ranking-search"]').element).toBe(search);
+    expect(wrapper.get('.ranking-columns').html()).toBe(readyColumns);
+    expect(wrapper.getComponent(RankingListSkeleton).props()).toEqual({
+      showPositions: false,
+      pageSize: 20,
+      personal: true,
+      workUnit: personalPayload.summary.workUnit,
+    });
+    expect(wrapper.findAll('.ranking-row-skeleton')).toHaveLength(20);
+    expect(
+      wrapper.get('.ranking-list-scroll [role="status"]').text(),
+    ).toBe('正在更新排行结果');
+    expect(wrapper.get('.ranking-surface').attributes('aria-busy')).toBe('true');
     expect(wrapper.find('.ranked-person-row').exists()).toBe(false);
-    expect(wrapper.find('.ranking-pagination-skeleton').exists()).toBe(true);
+    expect(wrapper.getComponent(AdaptivePagination).element).toBe(pagination);
+    expect(wrapper.getComponent(AdaptivePagination).props()).toMatchObject({
+      page: personalPayload.pagination.page,
+      pageSize: personalPayload.pagination.pageSize,
+      pending: true,
+      total: personalPayload.pagination.total,
+    });
+    for (const button of wrapper.findAll('.ranking-surface__footer button')) {
+      expect(button.attributes('disabled')).toBeDefined();
+    }
+    expect(wrapper.find('.ranking-pagination-skeleton').exists()).toBe(false);
     expect(wrapper.findAllComponents(NSkeleton).length).toBeGreaterThan(0);
+
+    await wrapper.setProps({ resource });
+    expect(wrapper.get('.ranking-columns').html()).toBe(readyColumns);
+    expect(wrapper.findComponent(RankingListSkeleton).exists()).toBe(false);
   });
 
   it('debounces search as a server view request and resets page to one', async () => {
@@ -505,7 +635,7 @@ describe('adaptive pagination', () => {
       /\.ranking-workspace \.adaptive-pagination__control--tools\s*\{[^}]*grid-column:\s*1 \/ -1;[^}]*grid-row:\s*2;[^}]*max-width:\s*100%;[^}]*flex-wrap:\s*wrap;/s,
     );
     expect(personCss).toMatch(
-      /@container ranking-pane \(max-width: 340px\)[\s\S]*?\.ranking-workspace \.ranking-pagination\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);[\s\S]*?\.ranking-workspace \.ranking-pagination__pages\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*2;[\s\S]*?\.ranking-workspace \.adaptive-pagination__control--tools\s*\{[^}]*grid-row:\s*3;/,
+      /\.ranking-workspace \.ranking-pagination__pages\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*1;/s,
     );
   });
 
@@ -529,9 +659,7 @@ describe('adaptive pagination', () => {
       'utf8',
     );
 
-    expect(baseCss).toMatch(
-      /\.adaptive-pagination__summary\s*\{[^}]*grid-column:\s*auto;[^}]*grid-row:\s*auto;/s,
-    );
+    expect(baseCss).not.toContain('.adaptive-pagination__summary');
     expect(baseCss).toMatch(
       /\.adaptive-pagination__pages\s*\{[^}]*grid-column:\s*auto;[^}]*grid-row:\s*auto;/s,
     );
@@ -552,24 +680,23 @@ describe('adaptive pagination', () => {
   it('emits backend page and page-size choices without deriving totals', async () => {
     const wrapper = mount(AdaptivePagination, {
       props: {
-        itemCount: 10,
         page: 2,
         pageSize: 10,
         total: 98,
       },
     });
 
-    expect(wrapper.text()).toContain('11—20 / 98');
+    expect(wrapper.text()).not.toContain('11—20 / 98');
+    expect(wrapper.get('.sr-only').text()).toBe('2 / 10');
     const navigation = wrapper.get('.adaptive-pagination').element;
     expect(
       [
-        wrapper.get('.adaptive-pagination__summary').element,
         wrapper.get('.adaptive-pagination__pages').element,
         wrapper.get('.adaptive-pagination__control--tools').element,
       ].map((element) =>
         Array.from(navigation.children).indexOf(element),
       ),
-    ).toEqual([0, 1, 2]);
+    ).toEqual([0, 1]);
     const paginations = wrapper.findAllComponents(NPagination);
     expect(paginations).toHaveLength(2);
     paginations[0]!.vm.$emit('update:page', 3);
@@ -583,7 +710,6 @@ describe('adaptive pagination', () => {
   it('renders native named page actions with current and disabled state', async () => {
     const wrapper = mount(AdaptivePagination, {
       props: {
-        itemCount: 10,
         page: 50,
         pageSize: 10,
         total: 1_000,
@@ -654,7 +780,6 @@ describe('adaptive pagination', () => {
     );
     const wrapper = mount(AdaptivePagination, {
       props: {
-        itemCount: 10,
         page: 5,
         pageSize: 10,
         total: 1_000,
@@ -687,7 +812,6 @@ describe('adaptive pagination', () => {
   it('disables boundaries and every page action while pending', async () => {
     const wrapper = mount(AdaptivePagination, {
       props: {
-        itemCount: 10,
         page: 1,
         pageSize: 10,
         total: 20,

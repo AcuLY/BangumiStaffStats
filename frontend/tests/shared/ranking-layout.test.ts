@@ -24,6 +24,32 @@ function ruleBody(selector: string, afterIndex = 0): string {
 }
 
 describe('ranking metric layout', () => {
+  it('shares complete row geometry with contextual lists without sharing workspace layout', () => {
+    const contexts = ['.ranked-person-results', '.ranking-workspace'];
+    for (const descendant of [
+      '.ranking-columns,',
+      '.ranking-columns__metrics,',
+      '.ranking-columns__metrics.is-global,',
+      '.ranked-person-list,',
+      '.ranked-person-row__progress.is-signed',
+      '.ranked-person-row__identity',
+    ]) {
+      expect(ruleBody(`${contexts[0]} ${descendant}`)).toBe(
+        ruleBody(`${contexts[1]} ${descendant}`),
+      );
+    }
+
+    const narrowQuery = baseCss.indexOf('@container ranking-pane (max-width: 380px)');
+    expect(ruleBody('.ranked-person-results .ranking-columns,', narrowQuery)).toContain(
+      'grid-template-areas: "rank identity metrics";',
+    );
+    expect(ruleBody('.ranked-person-results .ranked-person-row__avatar', narrowQuery)).toContain(
+      'display: none;',
+    );
+    expect(baseCss).not.toContain('.ranked-person-results > .ranking-surface');
+    expect(baseCss).not.toContain('.ranked-person-results .ranking-toolbar');
+  });
+
   it('reserves the complete personal metric reference width', () => {
     const outerGrid = ruleBody(
       '.ranking-workspace .ranking-columns,\n' +
@@ -31,7 +57,7 @@ describe('ranking metric layout', () => {
     );
 
     expect(outerGrid).toContain(
-      '--ranking-columns: 22px 36px minmax(0, 1fr) minmax(180px, 40%);',
+      '--ranking-columns: 22px 36px minmax(0, 1fr) minmax(196px, 40%);',
     );
   });
 
@@ -41,7 +67,7 @@ describe('ranking metric layout', () => {
         '.ranking-workspace .ranked-person-row__metrics',
     );
 
-    expect(rankingMetrics).toContain('--ranking-count-track: 24px;');
+    expect(rankingMetrics).toContain('--ranking-count-track: 40px;');
     expect(rankingMetrics).toContain('--ranking-score-track: 40px;');
     expect(rankingMetrics).toContain('--ranking-preference-track: 48px;');
     expect(rankingMetrics).toContain(
@@ -76,7 +102,7 @@ describe('ranking metric layout', () => {
     expect(sharedBase).toContain('gap: 0;');
   });
 
-  it('reflows the complete metric group before narrow identities collapse', () => {
+  it('hides avatars on narrow rows while keeping names and metrics on one line', () => {
     const wideQueryStart = baseCss.indexOf(
       '@container ranking-pane (width > 380px)',
     );
@@ -96,5 +122,19 @@ describe('ranking metric layout', () => {
     expect(baseCss).not.toContain(
       '@container ranking-pane (max-width: 340px)',
     );
+    const narrowGrid = ruleBody(
+      '.ranking-workspace .ranking-columns,',
+      narrowQueryStart,
+    );
+    expect(narrowGrid).toContain('grid-template-areas: "rank identity metrics";');
+    expect(narrowGrid).toContain(
+      'grid-template-columns: 22px minmax(0, 1fr) minmax(196px, 40%);',
+    );
+    expect(
+      ruleBody('.ranking-workspace .ranked-person-row__avatar', narrowQueryStart),
+    ).toContain('display: none;');
+    expect(
+      ruleBody('.ranking-columns > :nth-child(2)', narrowQueryStart),
+    ).toContain('display: none;');
   });
 });

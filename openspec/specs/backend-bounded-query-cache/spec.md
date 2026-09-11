@@ -75,6 +75,11 @@ SHALL fail promptly with typed `SERVER_BUSY` and retry guidance. Production
 SHALL NOT construct one executor per service. All computation and loading SHALL
 occur outside cache locks.
 
+The production collection worker SHALL have a 90-second timeout including
+all pagination, limiter waits and retries. Every shared result worker SHALL
+have a 20-second timeout starting before executor admission, including queue
+waiting, Archive reads and computation. Cache TTLs SHALL remain unchanged.
+
 #### Scenario: One of two same-key waiters cancels
 - **WHEN** two callers share a load and one caller cancels
 - **THEN** the cancelled caller SHALL return its context cause while the other caller may receive the shared result
@@ -90,6 +95,14 @@ occur outside cache locks.
 #### Scenario: Isolated package test constructs a service
 - **WHEN** a focused service test uses the compatibility constructor without app assembly
 - **THEN** it SHALL receive one valid private owner with the same timeout, cancellation, queue, and cache semantics
+
+#### Scenario: Collection pagination outlasts thirty seconds
+- **WHEN** a complete collection load requires more than 30 but less than 90 seconds and no other failure occurs
+- **THEN** its worker SHALL remain eligible to return a complete snapshot within the 120-second request budget
+
+#### Scenario: A result worker exhausts its budget while queued
+- **WHEN** executor waiting consumes a result worker's full 20-second budget
+- **THEN** the worker SHALL fail with the existing timeout classification without starting computation or caching a partial result
 
 ### Requirement: Collection cache SHALL implement exact freshness semantics
 

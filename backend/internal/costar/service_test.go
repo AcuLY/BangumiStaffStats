@@ -456,3 +456,52 @@ func failureCause(failure *Error) error {
 	}
 	return failure.cause
 }
+
+func TestAllPositionPairKeepsDirectorAndCastIdentities(t *testing.T) {
+	service := newCoStarService(t, loadCoStarArchive(t), nil)
+	request := Request{Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`), Input: json.RawMessage(`{"participants":[{"personId":100,"positionKeys":["staff:anime:2"]},{"personId":101,"positionKeys":["cast:anime:main"]}],"positionScope":"all"}`)}
+	result, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := result.MarshalEnvelope("cross-role")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"cast:anime:main"`) {
+		t.Fatal(string(data))
+	}
+	request.Input = json.RawMessage(`{"participants":[{"personId":100,"positionKeys":["staff:anime:2"]},{"personId":101,"positionKeys":["cast:anime:main"]}]}`)
+	if _, err = service.Execute(context.Background(), request); err == nil {
+		t.Fatal("query scope accepted cross-role pair")
+	}
+}
+
+func TestAllPositionCoStarAcceptsEmptyQuerySelection(t *testing.T) {
+	service := newCoStarService(t, loadCoStarArchive(t), nil)
+	request := Request{Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`), Input: json.RawMessage(`{"participants":[{"personId":100,"positionKeys":["staff:anime:2"]},{"personId":101,"positionKeys":["cast:anime:main"]}],"positionScope":"all"}`)}
+	prior, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := prior.MarshalEnvelope("all-empty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Query = json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":[]}`)
+	result, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := result.MarshalEnvelope("all-empty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("empty all query changed operation result:\n%s\nwant:\n%s", got, want)
+	}
+	request.Input = json.RawMessage(`{"participants":[{"personId":100,"positionKeys":["staff:anime:2"]},{"personId":101,"positionKeys":["cast:anime:main"]}]}`)
+	if _, err := service.Execute(context.Background(), request); err == nil {
+		t.Fatal("query scope accepted empty positions")
+	}
+}

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ContentDivider from '../../../shared/components/ContentDivider.vue';
 import {
   NButton,
   NCheckbox,
@@ -42,6 +43,7 @@ import QueryIcon from './QueryIcon.vue';
 import QueryNumericRange from './QueryNumericRange.vue';
 
 const props = defineProps<{
+  coStarPositionScope?: 'query' | 'all';
   catalogPhase: CatalogPhase;
   compact: boolean;
   dirty: boolean;
@@ -58,6 +60,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  'update:coStarPositionScope': [value: 'query' | 'all'];
   cancel: [];
   close: [];
   retryCatalog: [];
@@ -251,7 +254,7 @@ const positionStageTitle = '职位';
 const positionStageHelp = computed(() =>
   props.mode === 'ranking'
     ? '仅统计同时具备全部已选职位的人物；参与作品按已选职位合并并去重'
-    : '按所选职位生成候选人物；默认在“全部职位”中混合展示候选结果',
+    : '选择“全部”可从所有可用职位中选择人物；选择具体职位用于确定初始候选人物；实际参与身份在“已选人物”中管理',
 );
 const submitLabel = computed(() =>
   props.disabled
@@ -1047,6 +1050,7 @@ defineExpose({ focusFirstInvalidField });
               </div>
             </n-collapse-item>
           </n-collapse>
+          <content-divider class="query-stage-divider" :vertical="!compact" />
         </section>
 
         <section
@@ -1094,6 +1098,9 @@ defineExpose({ focusFirstInvalidField });
             <position-selector
               ref="positionInput"
               v-model="draft.positionKeys"
+              :allow-all="mode === 'co-star'"
+              :all-selected="mode === 'co-star' && coStarPositionScope === 'all'"
+              @update:all-selected="emit('update:coStarPositionScope', $event ? 'all' : 'query')"
               :control-size="controlSize"
               :disabled="disabled"
               :error="error('positionKeys')"
@@ -1112,6 +1119,7 @@ defineExpose({ focusFirstInvalidField });
       </p>
 
       <footer class="query-editor__footer">
+        <content-divider class="query-editor-footer-divider" />
         <n-space class="query-editor__actions" :size="8" justify="end" wrap>
           <n-button
             :size="controlSize"

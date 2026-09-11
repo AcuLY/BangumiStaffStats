@@ -27,21 +27,21 @@ export const APPLICATION_VERSION_DIGEST =
 export const ARCHIVE_DOMAIN_RULES_VERSION = 'domain-raw-v1';
 export const ARCHIVE_CAST_RULES_VERSION = 'cast-exact-v1';
 export const ARCHIVE_COMPATIBILITY_MATRIX_DIGEST =
-  'sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac';
+  'sha256:7677bf83d62f38e9ac9d7af5eab2e37342a110533b63ce6f6a940d8607b84bd9';
 export const OPENAPI_DIGEST =
-  'sha256:e7aba7c34b0d6f74e533e8e9fd31c8f0aa40ed15c440669ec87a7204c963cf11';
+  'sha256:999272f4fcd204c1dfecbe1948c77abcf29230dc1e8a76eb7549c386cab09260';
 export const ARCHIVE_MANIFEST_SCHEMA_DIGEST =
   'sha256:5a2b0cd7294312e9dcbdd413a1b01c4218652c4c39fd7472b74e40622e7a3e73';
 export const ARCHIVE_SCHEMA_SQL_DIGEST =
-  'sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0';
+  'sha256:04fde49cb4ab9984ed20c675db850484dd2f4ec084e9ab4c219754e7033a3255';
 export const BUILDKIT_VERSION = '0.27.1';
 export const DOCKER_BUILDX_VERSION = '0.34.1';
 export const BUILDKIT_IMAGE_DIGEST =
   'sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368';
 export const PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST =
-  'sha256:56adbccc4c83432ae02d9bf985ea1b9281d2836e96e389e84dae97bd8cacac52';
+  'sha256:aaffa81b36992189c991f2de2158d2baa45335b11d679e087f1c82567889993d';
 export const SUPPORTED_ARCHIVE_MANIFEST_SCHEMA = 1;
-export const SUPPORTED_ARCHIVE_SQLITE_SCHEMA = 1;
+export const SUPPORTED_ARCHIVE_SQLITE_SCHEMA = 2;
 
 const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
 const GIT_OBJECT_RE = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
@@ -71,7 +71,7 @@ const BACKEND_PRODUCER_INPUTS = Object.freeze(
     ],
     [
       'backend/internal/archivebuild/assets/schema.sql',
-      'sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0',
+      ARCHIVE_SCHEMA_SQL_DIGEST,
     ],
     [
       'backend/internal/archivebuild/assets/staff-sets-v1.yaml',

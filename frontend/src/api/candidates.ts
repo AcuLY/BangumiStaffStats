@@ -10,6 +10,10 @@ import type {
 import type { ApiClient } from './client';
 import { ApiDecodeError } from './errors';
 import {
+  decodeCandidatesInput,
+  decodeSharedQueryForOperation,
+} from './adapters/queryWire';
+import {
   type CandidatePayload,
   decodeCandidatePayload,
   decodeCandidatesError,
@@ -173,6 +177,8 @@ function projectionMismatch(): never {
 export function createCandidatesDriver(client: ApiClient): CandidatesDriver {
   return {
     async execute(request): Promise<CandidatesDriverResponse> {
+      const input = decodeCandidatesInput(request.input);
+      decodeSharedQueryForOperation(request.query, input.positionScope);
       const body: CandidatesRequestV1 = {
         input: structuredClone(request.input),
         query: structuredClone(request.query) as SharedQueryV1Schema,
@@ -196,7 +202,9 @@ export function createCandidatesDriver(client: ApiClient): CandidatesDriver {
 
       const expectedPage = request.view.page ?? 1;
       const expectedPageSize = request.view.pageSize ?? 10;
-      const expectedPositionKeys = request.query.positionKeys.map(String);
+      const expectedPositionKeys = request.input.positionScope === 'all'
+        ? payload.positionCounts.map((entry) => entry.positionKey)
+        : request.query.positionKeys.map(String);
       const expectedPositionKey =
         request.input.positionKey === null
           ? null
@@ -220,6 +228,7 @@ export function createCandidatesDriver(client: ApiClient): CandidatesDriver {
           (request.query.mergeSeries === true ? 'series' : 'subject') ||
         payload.pagination.page !== expectedPage ||
         payload.pagination.pageSize !== expectedPageSize ||
+        new Set(expectedPositionKeys).size !== expectedPositionKeys.length ||
         payload.positionCounts.length !== expectedPositionKeys.length ||
         payload.positionCounts.some(
           (entry, index) =>

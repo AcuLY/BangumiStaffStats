@@ -753,7 +753,8 @@ func buildWorks(
 			return nil, fieldError("")
 		}
 		representative, found := subjects[component.RepresentativeID]
-		if !found {
+		representativeFact, factFound := facts[component.RepresentativeID]
+		if !found || !factFound {
 			return nil, fail(
 				CodeReferenceMissing,
 				"co-star representative reference is missing",
@@ -785,6 +786,7 @@ func buildWorks(
 				Key:                       seriesKey(unit.UnitID),
 				SeriesID:                  unit.UnitID,
 				Representative:            cloneSubject(representative),
+				MetaTags:                  sortedTagNames(representativeFact.Tags, "meta"),
 				MatchedWorkCount:          len(unit.MatchedMemberIDs),
 				MemberCount:               len(component.MemberIDs),
 				Members:                   members,

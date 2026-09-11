@@ -10,7 +10,7 @@
   ],
   "properties": {
     "query": {
-      "$ref": "../query/shared-query-v1.schema.json"
+      "$ref": "../query/shared-query-v1.schema.json#/$defs/OperationSharedQueryV1"
     },
     "input": {
       "$ref": "../query/operation-components-v1.schema.json#/$defs/CoStarInputV1"
@@ -18,5 +18,34 @@
     "view": {
       "$ref": "../query/operation-components-v1.schema.json#/$defs/CoStarViewV1"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "object",
+            "required": [
+              "positionScope"
+            ],
+            "properties": {
+              "positionScope": {
+                "const": "all"
+              }
+            }
+          }
+        }
+      },
+      "then": {},
+      "else": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "$ref": "../query/shared-query-v1.schema.json"
+          }
+        }
+      }
+    }
+  ]
 }

@@ -1,86 +1,63 @@
 <script setup lang="ts">
+import {
+  AddOutline,
+  ArrowDownOutline,
+  CheckmarkOutline,
+  ChevronBackOutline,
+  ChevronDownOutline,
+  ChevronForwardOutline,
+  CloseOutline,
+  CreateOutline,
+  ImageOutline,
+  MoonOutline,
+  OpenOutline,
+  PeopleOutline,
+  PersonOutline,
+  RefreshOutline,
+  SearchOutline,
+  SunnyOutline,
+  WarningOutline,
+} from '@vicons/ionicons5';
 import InfoIcon from './InfoIcon.vue';
+
+const icons = {
+  'arrow-down': ArrowDownOutline,
+  check: CheckmarkOutline,
+  'chevron-down': ChevronDownOutline,
+  'chevron-left': ChevronBackOutline,
+  'chevron-right': ChevronForwardOutline,
+  close: CloseOutline,
+  edit: CreateOutline,
+  'external-link': OpenOutline,
+  image: ImageOutline,
+  moon: MoonOutline,
+  people: PeopleOutline,
+  person: PersonOutline,
+  plus: AddOutline,
+  refresh: RefreshOutline,
+  search: SearchOutline,
+  sun: SunnyOutline,
+  warning: WarningOutline,
+} as const;
 
 withDefaults(
   defineProps<{
-    name:
-      | 'arrow-down'
-      | 'chevron-down'
-      | 'chevron-left'
-      | 'chevron-right'
-      | 'close'
-      | 'external-link'
-      | 'image'
-      | 'info'
-      | 'person'
-      | 'refresh'
-      | 'search';
+    name: keyof typeof icons | 'info';
     size?: number;
   }>(),
-  {
-    size: 18,
-  },
+  { size: 18 },
 );
 </script>
 
 <template>
-  <info-icon
-    v-if="name === 'info'"
-    class="app-icon"
-    :size="size"
-  />
-  <svg
+  <info-icon v-if="name === 'info'" class="app-icon" :size="size" />
+  <component
     v-else
     class="app-icon"
+    :is="icons[name]"
     :width="size"
     :height="size"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.8"
-    stroke-linecap="round"
-    stroke-linejoin="round"
+    fill="currentColor"
     aria-hidden="true"
-  >
-    <template v-if="name === 'search'">
-      <circle cx="10.8" cy="10.8" r="6.3" />
-      <path d="m16 16 4 4" />
-    </template>
-    <template v-else-if="name === 'person'">
-      <circle cx="12" cy="8" r="3.5" />
-      <path d="M5.5 20c.6-4 2.8-6 6.5-6s5.9 2 6.5 6" />
-    </template>
-    <template v-else-if="name === 'image'">
-      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
-      <circle cx="9" cy="10" r="1.5" />
-      <path d="m5 18 4.5-4 3 2.5 2.5-2 4 3.5" />
-    </template>
-    <template v-else-if="name === 'refresh'">
-      <path d="M19 7v5h-5" />
-      <path d="M18 12a6.5 6.5 0 1 0-1.4 4" />
-    </template>
-    <template v-else-if="name === 'close'">
-      <path d="m6 6 12 12M18 6 6 18" />
-    </template>
-    <template v-else-if="name === 'external-link'">
-      <path d="M14 5h5v5M19 5l-8 8" />
-      <path d="M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
-    </template>
-    <template v-else-if="name === 'arrow-down'">
-      <path d="M12 4v16" />
-      <path d="m6.5 14.5 5.5 5.5 5.5-5.5" />
-    </template>
-    <path
-      v-else-if="name === 'chevron-left'"
-      d="m14.5 5-7 7 7 7"
-    />
-    <path
-      v-else-if="name === 'chevron-right'"
-      d="m9.5 5 7 7-7 7"
-    />
-    <path
-      v-else-if="name === 'chevron-down'"
-      d="m6 9 6 6 6-6"
-    />
-  </svg>
+  />
 </template>

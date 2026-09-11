@@ -16,7 +16,7 @@ const DefaultShutdownTimeout = 5 * time.Second
 const (
 	defaultReadHeaderTimeout = 5 * time.Second
 	defaultReadTimeout       = 10 * time.Second
-	defaultWriteTimeout      = 35 * time.Second
+	defaultWriteTimeout      = 125 * time.Second
 	defaultIdleTimeout       = 60 * time.Second
 	defaultMaxHeaderBytes    = 64 * 1024
 )

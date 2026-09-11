@@ -3,6 +3,7 @@ package persondetail
 import (
 	"context"
 	"encoding/json"
+	"sort"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/statistics"
@@ -52,12 +53,14 @@ func NewSharedStore(queryRuntime *runtimecache.QueryRuntime) (*Store, error) {
 	return &Store{values: values}, nil
 }
 
-// InputDigest returns the versioned canonical digest for exactly personId.
-func InputDigest(personID int64) (string, error) {
+// InputDigest includes the optional canonical identity scope.
+func InputDigest(personID int64, positionKeys ...string) (string, error) {
 	if personID <= 0 || personID > maxJSONSafeInteger {
 		return "", fieldError("/input/personId")
 	}
-	canonical, err := json.Marshal(Input{PersonID: personID})
+	keys := append([]string(nil), positionKeys...)
+	sort.Strings(keys)
+	canonical, err := json.Marshal(Input{PersonID: personID, PositionKeys: keys})
 	if err != nil {
 		return "", fieldError("/input/personId")
 	}
@@ -71,8 +74,23 @@ func ResultKey(
 	queryDigest string,
 	personID int64,
 	collectionDigest string,
+	positionKeys ...string,
 ) (runtimecache.ResultKey, error) {
-	inputDigest, err := InputDigest(personID)
+	return resultKeyForInput(scope, dataVersion, queryDigest, Input{PersonID: personID, PositionKeys: positionKeys}, collectionDigest)
+}
+
+func resultKeyForInput(scope, dataVersion, queryDigest string, input Input, collectionDigest string) (runtimecache.ResultKey, error) {
+	inputDigest, err := InputDigest(input.PersonID, input.PositionKeys...)
+	if input.PositionScope == "all" {
+		keys := append([]string(nil), input.PositionKeys...)
+		sort.Strings(keys)
+		input.PositionKeys = keys
+		canonical, marshalErr := json.Marshal(input)
+		if marshalErr != nil {
+			return runtimecache.ResultKey{}, marshalErr
+		}
+		inputDigest = runtimecache.DigestInput(canonical)
+	}
 	if err != nil {
 		return runtimecache.ResultKey{}, err
 	}
@@ -178,8 +196,11 @@ func workCost(value WorkItem) int64 {
 		cost += contributionCost(value.Subject.Contributions)
 	}
 	if value.Series != nil {
-		cost += 192 + stringCost(value.Series.Key)
+		cost += 216 + stringCost(value.Series.Key)
 		cost += subjectReferenceCost(value.Series.Representative)
+		for _, tag := range value.Series.MetaTags {
+			cost += stringCost(tag)
+		}
 		cost += optionalScalarCost(value.Series.GlobalScore != nil)
 		cost += optionalScalarCost(value.Series.PersonalScore != nil)
 		cost += optionalStringCost(value.Series.LatestCollectionUpdatedAt)
@@ -246,7 +267,12 @@ func ratingDistributionCost(value RatingDistribution) int64 {
 			cost += ratingExampleCost(example)
 		}
 	}
-	cost += int64(len(value.Timeline)) * 48
+	for _, point := range value.Timeline {
+		cost += 72
+		for _, work := range point.Works {
+			cost += 32 + subjectReferenceCost(work.Subject)
+		}
+	}
 	return cost
 }
 

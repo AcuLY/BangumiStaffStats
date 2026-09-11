@@ -9,6 +9,10 @@ import type {
   ApiErrorResponseMetadata,
 } from './client';
 import { ApiDecodeError } from './errors';
+import {
+  decodeCoStarInput,
+  decodeSharedQueryForOperation,
+} from './adapters/queryWire';
 import type {
   CoStarInputV1,
   CoStarRequestV1,
@@ -306,6 +310,8 @@ export function createCoStarDriver(
   const wait = runtime.wait ?? waitForRetry;
   return {
     async execute(request): Promise<CoStarDriverResponse> {
+      const input = decodeCoStarInput(request.input);
+      decodeSharedQueryForOperation(request.query, input.positionScope);
       const body: CoStarRequestV1 = {
         input: structuredClone(request.input) as CoStarInputV1,
         query: structuredClone(request.query) as SharedQueryV1Schema,

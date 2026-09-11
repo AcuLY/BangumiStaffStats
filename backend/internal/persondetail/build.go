@@ -370,7 +370,8 @@ func buildWorks(
 			return nil, fieldError("")
 		}
 		representative, found := subjects[component.RepresentativeID]
-		if !found {
+		representativeFact, factFound := facts[component.RepresentativeID]
+		if !found || !factFound {
 			return nil, fieldError("")
 		}
 		matched := make(map[int64]struct{}, len(unit.MatchedMemberIDs))
@@ -395,6 +396,7 @@ func buildWorks(
 				Key:                       seriesKey(unit.UnitID),
 				SeriesID:                  unit.UnitID,
 				Representative:            cloneSubjectReference(representative),
+				MetaTags:                  sortedTagNames(representativeFact.Tags, "meta"),
 				MatchedWorkCount:          len(unit.MatchedMemberIDs),
 				MemberCount:               len(component.MemberIDs),
 				Members:                   members,
@@ -737,17 +739,22 @@ func buildRatings(
 		return Ratings{}, fieldError("")
 	}
 	references := make(map[int64]RatingExample, len(works))
+	subjects := make(map[int64]SubjectReference, len(works))
 	for _, work := range works {
 		example, err := workExample(work)
 		if err != nil {
 			return Ratings{}, err
 		}
 		references[example.ID] = example
+		if work.Subject != nil {
+			subjects[example.ID] = work.Subject.Subject
+		}
 	}
 	global, err := ratingDistribution(
 		evaluated.Units,
 		evaluated.Global,
 		references,
+		subjects,
 		func(unit statistics.Unit) *float64 { return unit.GlobalScore },
 	)
 	if err != nil {
@@ -759,6 +766,7 @@ func buildRatings(
 			evaluated.Units,
 			*evaluated.Personal,
 			references,
+			subjects,
 			func(unit statistics.Unit) *float64 { return unit.PersonalScore },
 		)
 		if err != nil {
@@ -773,6 +781,7 @@ func ratingDistribution(
 	units []statistics.Unit,
 	summary statistics.RatingSummary,
 	references map[int64]RatingExample,
+	subjects map[int64]SubjectReference,
 	scoreOf func(statistics.Unit) *float64,
 ) (RatingDistribution, error) {
 	buckets := make([]RatingBucket, 10)
@@ -782,7 +791,13 @@ func ratingDistribution(
 			Examples: make([]RatingExample, 0),
 		}
 	}
+	quarterWorks := make(map[[2]int][]RatingTimelineWork)
+	seen := make(map[int64]struct{}, len(units))
 	for _, unit := range units {
+		if _, duplicate := seen[unit.UnitID]; duplicate {
+			return RatingDistribution{}, fieldError("")
+		}
+		seen[unit.UnitID] = struct{}{}
 		score := scoreOf(unit)
 		if score == nil || *score == 0 {
 			continue
@@ -802,18 +817,53 @@ func ratingDistribution(
 		} else {
 			value.HiddenCount++
 		}
+		if unit.Kind == statistics.UnitSubject {
+			year, quarter, dated, err := statistics.RatingQuarter(unit.AirDate)
+			if err != nil {
+				return RatingDistribution{}, err
+			}
+			if dated {
+				subject, found := subjects[unit.UnitID]
+				hundredths := scoreHundredths(score)
+				if !found || hundredths == nil {
+					return RatingDistribution{}, fieldError("")
+				}
+				subject = cloneSubjectReference(subject)
+				subject.Date = cloneString(unit.AirDate)
+				key := [2]int{year, quarter}
+				quarterWorks[key] = append(quarterWorks[key], RatingTimelineWork{
+					Subject: subject, Score: *hundredths,
+				})
+			}
+		}
 	}
 	if summary.RatedUnitCount != sumBucketCounts(buckets) {
 		return RatingDistribution{}, fieldError("")
 	}
 	timeline := make([]RatingTimelinePoint, len(summary.Timeline))
 	for index, point := range summary.Timeline {
+		key := [2]int{point.Year, point.Quarter}
+		works := quarterWorks[key]
+		if len(works) == 0 || len(works) != point.RatedUnitCount {
+			return RatingDistribution{}, fieldError("")
+		}
+		sort.Slice(works, func(left, right int) bool {
+			if *works[left].Subject.Date != *works[right].Subject.Date {
+				return *works[left].Subject.Date < *works[right].Subject.Date
+			}
+			return works[left].Subject.ID < works[right].Subject.ID
+		})
 		timeline[index] = RatingTimelinePoint{
 			Year:    point.Year,
 			Quarter: point.Quarter,
 			Average: point.AverageHundredths,
 			Count:   point.RatedUnitCount,
+			Works:   works,
 		}
+		delete(quarterWorks, key)
+	}
+	if len(quarterWorks) != 0 {
+		return RatingDistribution{}, fieldError("")
 	}
 	return RatingDistribution{
 		ValidCount: summary.RatedUnitCount,

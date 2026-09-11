@@ -1,3 +1,5 @@
+> Supersession (2026-09-08): `contracts-remove-query-sharing` retires the query-sharing feature and overrides the sharing-specific requirements, preservation clauses, and acceptance assumptions below. URL fragments are cleared without parsing or replay. Header now has an always available same-tab “回到旧版” link to `https://search.bgmss.fun/old/` immediately left of theme. Exact accepted workspace recovery remains frontend-local through validated v2 JSON session storage; v1 fragment-based storage is discarded. Completed evidence below remains historical, and unrelated requirements are unchanged.
+
 ## Context
 
 The existing query coordinator commits the accepted ranking payload and starts exactly one first-person detail request. App currently shows the companion `PersonDetailSkeleton` only while the primary ranking resource is `pending`. When ranking becomes `ready`, that branch disappears immediately; if the selected detail is still pending or its lazy surface is not ready, the right column changes owner before actual detail can render. Focused tests call `flushPromises()` after ranking resolution and therefore skip this visible bridge.

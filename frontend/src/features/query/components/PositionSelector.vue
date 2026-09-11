@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NButton, NDynamicInput, NPopover, NSkeleton } from 'naive-ui';
+import { NButton, NDynamicInput, NPopover, NSelect } from 'naive-ui';
 import { computed, nextTick, ref, watch } from 'vue';
 
 import type {
@@ -9,12 +9,14 @@ import type {
 } from '../../../api/adapters/catalog';
 import AppIcon from '../../../shared/components/AppIcon.vue';
 import type { CatalogPhase } from '../../catalog/store';
-import { useCompactLayout } from '../composables/useCompactLayout';
+import { useCompactLayout } from '../../../shared/composables/useCompactLayout';
 import PositionCatalogBrowser from './PositionCatalogBrowser.vue';
 import QueryIcon from './QueryIcon.vue';
 import type { QueryControlSize } from './controlTheme';
 
 const props = defineProps<{
+  allowAll?: boolean;
+  allSelected?: boolean;
   controlSize: QueryControlSize;
   disabled?: boolean;
   error?: string;
@@ -26,6 +28,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  'update:allSelected': [value: boolean];
   retry: [];
   'update:modelValue': [value: PositionKey[]];
 }>();
@@ -94,6 +97,9 @@ const selectorRoot = ref<HTMLElement | null>(null);
 const selectorRows = ref<PositionSelectorRow[]>(
   rowsFromModel(props.modelValue),
 );
+const visibleRows = computed(() => props.allSelected
+  ? [Object.freeze({ ...selectorRows.value[0]!, positionKey: null })]
+  : selectorRows.value);
 const activeRowId = ref<number | null>(null);
 const searchDraft = ref('');
 const catalogBrowser = ref<{
@@ -139,17 +145,18 @@ function rowInputValue(row: PositionSelectorRow): string {
   if (activeRowId.value === row.id) {
     return searchDraft.value;
   }
-  return selectedPosition(row)?.label ?? row.positionKey ?? '';
+  return props.allSelected ? '全部' : selectedPosition(row)?.label ?? row.positionKey ?? '';
 }
 
 function rowAriaLabel(row: PositionSelectorRow, index: number): string {
-  const label = selectedPosition(row)?.label ?? row.positionKey;
+  const label = props.allSelected ? '全部' : selectedPosition(row)?.label ?? row.positionKey;
   return label
     ? `第 ${index + 1} 个职位，当前为${label}`
     : `第 ${index + 1} 个职位，尚未选择`;
 }
 
 function unavailableKeysFor(rowId: number): PositionKey[] {
+  if (props.allSelected) return [];
   const unavailable = new Set<PositionKey>();
   const exclusiveGroups = new Set<string>();
   for (const row of selectorRows.value) {
@@ -284,13 +291,20 @@ function replacePosition(rowId: number, key: PositionKey): void {
   ) {
     return;
   }
-  const rows = selectorRows.value.map((row) =>
+  const rows = props.allSelected ? [Object.freeze({ id: rowId, positionKey: key })] : selectorRows.value.map((row) =>
     row.id === rowId
       ? Object.freeze({ ...row, positionKey: key })
       : row,
   );
   selectorRows.value = rows;
+  emit('update:allSelected', false);
   publishRows(rows);
+  void closeCatalog();
+}
+
+function selectAll(): void {
+  if (props.disabled || !props.allowAll) return;
+  emit('update:allSelected', true);
   void closeCatalog();
 }
 
@@ -380,6 +394,8 @@ watch(
   },
 );
 
+watch(() => props.allSelected, () => { void closeCatalog(false); });
+
 watch(
   compact,
   (isCompact, wasCompact) => {
@@ -420,11 +436,18 @@ defineExpose({
   >
     <div
       v-if="phase === 'pending' || phase === 'idle'"
-      class="position-selector__loading"
+      class="position-selector__pending"
       aria-busy="true"
       aria-live="polite"
     >
-      <n-skeleton class="app-skeleton" text :repeat="2" />
+      <n-select
+        :size="controlSize"
+        :options="[]"
+        loading
+        disabled
+        placeholder="正在加载职位目录"
+        aria-label="职位目录加载中"
+      />
       <span class="sr-only">正在加载职位目录</span>
     </div>
     <div
@@ -459,7 +482,7 @@ defineExpose({
           display: 'flex',
           justifyContent: 'flex-start',
         }"
-        :value="selectorRows"
+        :value="visibleRows"
         :min="1"
         :disabled="disabled"
         :on-create="() => createRow()"
@@ -547,16 +570,19 @@ defineExpose({
               ref="catalogBrowser"
               :id="panelId"
               :compact="compact"
+              :allow-all="allowAll"
+              :all-selected="allSelected"
               :disabled="disabled"
               :groups="groups"
               :model-value="
-                row.positionKey ? [row.positionKey] : []
+                !allSelected && row.positionKey ? [row.positionKey] : []
               "
               :positions="positions"
               :search-query="searchDraft"
               :unavailable-keys="unavailableKeysFor(row.id)"
               @close="closeCatalog()"
               @toggle="replacePosition(row.id, $event)"
+              @select-all="selectAll"
             />
           </n-popover>
         </template>
@@ -571,7 +597,7 @@ defineExpose({
                 class="position-selector__action-button"
                 :size="controlSize"
                 attr-type="button"
-                :disabled="disabled || selectorRows.length <= 1"
+                :disabled="disabled || allSelected || selectorRows.length <= 1"
                 :aria-label="`移除第 ${index + 1} 个职位选择器`"
                 @click="removePositionRow(index, remove)"
               >
@@ -585,7 +611,7 @@ defineExpose({
                 class="position-selector__action-button"
                 :size="controlSize"
                 attr-type="button"
-                :disabled="disabled"
+                :disabled="disabled || allSelected"
                 :aria-label="`在第 ${index + 1} 行后添加职位选择器`"
                 @click="createPositionRow(index, create)"
               >

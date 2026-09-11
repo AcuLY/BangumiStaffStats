@@ -66,7 +66,7 @@ const expectedCatalogComponents = [
   "CatalogSuccessEnvelopeV1",
 ];
 const expectedQueryComponentSeal =
-  "58f20d1c145c50215839d8dc781d147c46dcdd35ee68698e84fa6d662016d6db";
+  "9b51a51975873993d5ee2c93236246660c9b3352c6e7a9ce4fa087a78dca7eed";
 const expectedCatalogResponseSeal =
   "b9e8ccdc7f42acb695818ee080d34668d0b82189d033bf77349f3475abdcfa44";
 const expectedCompileModule = Object.freeze({
@@ -90,7 +90,6 @@ const queryComponentNames = [
   "CandidatesViewV1",
   "CatalogContextV1",
   "CoStarInputV1",
-  "CoStarShareWorkspaceV1",
   "CoStarViewV1",
   "EffectiveQueryV1",
   "ErrorEnvelopeV1",
@@ -99,9 +98,7 @@ const queryComponentNames = [
   "PersonDetailInputV1",
   "PersonDetailViewV1",
   "QueryDigestProjectionV1",
-  "RankingShareWorkspaceV1",
   "RankingsViewV1",
-  "SharePayloadV1",
   "SharedQueryV1",
 ];
 

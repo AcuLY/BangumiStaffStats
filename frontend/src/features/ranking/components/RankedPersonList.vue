@@ -17,11 +17,14 @@ import type {
   RankingMetricScale,
   RankingSort,
 } from '../model';
+import RankingColumns from './RankingColumns.vue';
 
 const props = withDefaults(
   defineProps<{
+    activationLabel?: string;
     devicePixelRatio?: number;
     expandedPersonId?: number | null;
+    identityLabels?: Readonly<Record<number, string>>;
     items: readonly RankingItem[];
     metricScale: RankingMetricScale;
     personal: boolean;
@@ -47,6 +50,19 @@ function primaryName(item: RankingItem): string {
 
 function secondaryName(item: RankingItem): string {
   return resolveBilingualName(item.person).secondary;
+}
+
+function identityTitle(item: RankingItem): string {
+  const identityLabel = props.identityLabels?.[item.person.id];
+  return identityLabel === undefined
+    ? bilingualNameTitle(item.person)
+    : `${bilingualNameTitle(item.person)}\n${identityLabel}`;
+}
+
+function activationSummary(item: RankingItem): string {
+  const positions = props.identityLabels?.[item.person.id];
+  const summary = `${item.rank}. ${primaryName(item)}，${secondaryName(item)}，${positions ? `${positions}，` : ''}${metricSummary(item)}`;
+  return props.activationLabel ? `${summary}；${props.activationLabel}` : summary;
 }
 
 function preference(item: RankingItem): string {
@@ -89,28 +105,11 @@ function activate(personId: number, event: MouseEvent): void {
     emit('activate', personId, event.currentTarget);
   }
 }
+
 </script>
 
 <template>
-  <div
-    class="ranking-columns list-columns list-columns--ranking"
-    :class="{ 'is-global': !personal }"
-    aria-hidden="true"
-  >
-    <span>#</span>
-    <span />
-    <span>人物</span>
-    <span
-      class="ranking-columns__metrics list-columns__metrics"
-      :class="{ 'is-global': !personal }"
-      :style="{ '--ranking-metric-columns': metricColumns }"
-    >
-      <span>{{ workUnit === 'series' ? '系列' : '作品' }}</span>
-      <span>均分</span>
-      <span>综合</span>
-      <span v-if="personal">偏好</span>
-    </span>
-  </div>
+  <ranking-columns :personal="personal" :work-unit="workUnit" />
 
   <div class="ranked-person-list">
     <button
@@ -140,7 +139,7 @@ function activate(personId: number, event: MouseEvent): void {
       :aria-expanded="
         expandedPersonId === item.person.id ? 'true' : undefined
       "
-      :aria-label="`${item.rank}. ${primaryName(item)}，${secondaryName(item)}，${metricSummary(item)}`"
+      :aria-label="activationSummary(item)"
       @click="activate(item.person.id, $event)"
     >
       <span
@@ -160,10 +159,12 @@ function activate(personId: number, event: MouseEvent): void {
       />
       <span
         class="ranked-person-row__identity person-row__identity"
-        :title="bilingualNameTitle(item.person)"
+        :class="{ 'person-row__identity--positions': identityLabels?.[item.person.id] }"
+        :title="identityTitle(item)"
       >
         <strong>{{ primaryName(item) }}</strong>
         <small>{{ secondaryName(item) }}</small>
+        <small v-if="identityLabels?.[item.person.id]" class="person-row__positions">{{ identityLabels[item.person.id] }}</small>
       </span>
       <span
         class="ranked-person-row__metrics person-row__metrics"
@@ -203,3 +204,14 @@ function activate(personId: number, event: MouseEvent): void {
     </button>
   </div>
 </template>
+
+<style>
+.ranked-person-results .person-row__identity--positions {
+  grid-template-rows: 22px 20px 18px;
+}
+
+.ranked-person-results .person-row__identity--positions .person-row__positions {
+  font-size: 12px;
+  line-height: 18px;
+}
+</style>

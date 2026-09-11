@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/statistics"
 )
 
 type sourceWire struct {
@@ -57,17 +58,19 @@ type personalSummaryWire struct {
 }
 
 type globalDataWire struct {
-	WorkUnit string            `json:"workUnit"`
-	Source   sourceWire        `json:"source"`
-	Summary  globalSummaryWire `json:"summary"`
-	Items    []globalItemWire  `json:"items"`
+	MetricScale statistics.MetricScale `json:"metricScale"`
+	WorkUnit    string                 `json:"workUnit"`
+	Source      sourceWire             `json:"source"`
+	Summary     globalSummaryWire      `json:"summary"`
+	Items       []globalItemWire       `json:"items"`
 }
 
 type personalDataWire struct {
-	WorkUnit string              `json:"workUnit"`
-	Source   sourceWire          `json:"source"`
-	Summary  personalSummaryWire `json:"summary"`
-	Items    []personalItemWire  `json:"items"`
+	MetricScale statistics.MetricScale `json:"metricScale"`
+	WorkUnit    string                 `json:"workUnit"`
+	Source      sourceWire             `json:"source"`
+	Summary     personalSummaryWire    `json:"summary"`
+	Items       []personalItemWire     `json:"items"`
 }
 
 type globalMetaWire struct {
@@ -211,8 +214,9 @@ func globalData(page Page, source sourceWire) (globalDataWire, error) {
 		})
 	}
 	return globalDataWire{
-		WorkUnit: string(page.WorkUnit),
-		Source:   source,
+		MetricScale: page.MetricScale,
+		WorkUnit:    string(page.WorkUnit),
+		Source:      source,
 		Summary: globalSummaryWire{
 			PartnerCount: page.Summary.PartnerCount,
 			Leaders:      leaders,
@@ -246,8 +250,9 @@ func personalData(page Page, source sourceWire) (personalDataWire, error) {
 		})
 	}
 	return personalDataWire{
-		WorkUnit: string(page.WorkUnit),
-		Source:   source,
+		MetricScale: page.MetricScale,
+		WorkUnit:    string(page.WorkUnit),
+		Source:      source,
 		Summary: personalSummaryWire{
 			PartnerCount: page.Summary.PartnerCount,
 			Leaders:      leaders,

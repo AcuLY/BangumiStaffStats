@@ -16,7 +16,8 @@ import { CoStarApiError } from '../../api/coStar';
 import { PartnersApiError } from '../../api/partners';
 import { RankingsApiError } from '../../api/rankings';
 import { PersonDetailApiError } from '../../api/personDetail';
-import type { CatalogSnapshot } from '../../api/adapters/catalog';
+import type { CatalogOperation, CatalogSnapshot } from '../../api/adapters/catalog';
+import { decodeEffectiveQueryForOperation } from '../../api/adapters/queryWire';
 import {
   type AppliedQuery,
   querySignature,
@@ -37,7 +38,7 @@ export type CandidatesInputV1 = Omit<
   'positionKey'
 > & { readonly positionKey: string | null };
 export type ResourcePhase = 'error' | 'idle' | 'pending' | 'ready';
-export type RankingsViewState = Required<RankingsViewV1>;
+export type RankingsViewState = Required<Omit<RankingsViewV1, 'locatePersonId'>>;
 export type CandidatesViewState = Required<CandidatesViewV1>;
 export type CoStarViewState = Required<CoStarViewV1>;
 export type PersonDetailViewState = Required<PersonDetailViewV1>;
@@ -331,11 +332,42 @@ function defaultCoStarView(query: AppliedQuery): CoStarViewState {
   });
 }
 
+/** Operation scopes never change the shared ranking Query. */
+export function operationPositionAllowed(
+  query: AppliedQuery,
+  positionScope: 'query' | 'all' | undefined,
+  positionKey: string,
+  catalog: CatalogSnapshot | null,
+  capability: CatalogOperation,
+): boolean {
+  if (positionScope !== undefined && positionScope !== 'query' && positionScope !== 'all') return false;
+  if (positionScope !== 'all' && !query.positionKeys.includes(positionKey)) return false;
+  if (!catalog) return query.positionKeys.includes(positionKey);
+  const position = catalog.positionsByKey.get(positionKey);
+  return position?.selectable === true && position.subjectType === query.subjectType
+    && position.capabilities.includes(capability);
+}
+
+function assertCandidatePositions(
+  payload: unknown,
+  query: AppliedQuery,
+  input: Readonly<CandidatesInputV1>,
+  catalog: CatalogSnapshot | null,
+): void {
+  if (!payload || typeof payload !== 'object') return;
+  const data = payload as { items?: readonly { positionKeys: readonly string[] }[]; positionCounts?: readonly { positionKey: string }[] };
+  const keys = [...(data.positionCounts ?? []).map((entry) => entry.positionKey),
+    ...(data.items ?? []).flatMap((item) => item.positionKeys)];
+  if (keys.some((key) => !operationPositionAllowed(query, input.positionScope, key, catalog, 'candidates'))) {
+    throw new Error('Candidate response contains unsupported positions');
+  }
+}
+
 function canonicalCoStarInput(
   query: AppliedQuery,
   input: Readonly<CoStarInputV1>,
+  catalog: CatalogSnapshot | null,
 ): Readonly<CoStarInputV1> | null {
-  const queryPositions = new Set(query.positionKeys.map(String));
   if (
     input.participants.length < 2 ||
     input.participants.length > 10
@@ -354,7 +386,7 @@ function canonicalCoStarInput(
       people.has(personId) ||
       positionKeys.length === 0 ||
       new Set(positionKeys).size !== positionKeys.length ||
-      positionKeys.some((positionKey) => !queryPositions.has(positionKey))
+      positionKeys.some((positionKey) => !operationPositionAllowed(query, input.positionScope, positionKey, catalog, 'coStar'))
     ) {
       return null;
     }
@@ -368,6 +400,7 @@ function canonicalCoStarInput(
     return null;
   }
   return Object.freeze({
+    ...(input.positionScope === undefined ? {} : { positionScope: input.positionScope }),
     participants: Object.freeze([...participants]),
   }) as Readonly<CoStarInputV1>;
 }
@@ -377,6 +410,7 @@ function coStarInputEquals(
   right: Readonly<CoStarInputV1>,
 ): boolean {
   return (
+    (left.positionScope ?? 'query') === (right.positionScope ?? 'query') &&
     left.participants.length === right.participants.length &&
     left.participants.every((participant, index) => {
       const compared = right.participants[index];
@@ -425,10 +459,10 @@ function validPartnersView(
 function canonicalPartnersInput(
   query: AppliedQuery,
   input: Readonly<PartnersInputV1>,
+  catalog: CatalogSnapshot | null,
 ): Readonly<PartnersInputV1> | null {
   const personId = input.source.personId;
   const positionKeys = input.source.positionKeys.map(String);
-  const queryPositions = new Set(query.positionKeys.map(String));
   const candidatePositionKey =
     input.candidatePositionKey === undefined
       ? undefined
@@ -437,14 +471,16 @@ function canonicalPartnersInput(
     !Number.isSafeInteger(personId) ||
     personId < 1 ||
     positionKeys.length === 0 ||
+    positionKeys.length > 20 ||
     new Set(positionKeys).size !== positionKeys.length ||
-    positionKeys.some((positionKey) => !queryPositions.has(positionKey)) ||
+    positionKeys.some((positionKey) => !operationPositionAllowed(query, input.positionScope, positionKey, catalog, 'partners')) ||
     (candidatePositionKey !== undefined &&
-      !queryPositions.has(candidatePositionKey))
+      !operationPositionAllowed(query, input.positionScope, candidatePositionKey, catalog, 'partners'))
   ) {
     return null;
   }
   return Object.freeze({
+    ...(input.positionScope === undefined ? {} : { positionScope: input.positionScope }),
     source: Object.freeze({
       personId,
       positionKeys: Object.freeze([...positionKeys]),
@@ -462,6 +498,7 @@ function partnersInputEquals(
   const leftKeys = left.source.positionKeys.map(String);
   const rightKeys = right.source.positionKeys.map(String);
   return (
+    (left.positionScope ?? 'query') === (right.positionScope ?? 'query') &&
     left.source.personId === right.source.personId &&
     String(left.candidatePositionKey ?? '') ===
       String(right.candidatePositionKey ?? '') &&
@@ -575,6 +612,8 @@ export interface QueryCoordinator<
     mode: QueryMode;
   }): Promise<boolean>;
   executeApplied(options: {
+    candidateInput?: Readonly<CandidatesInputV1>;
+    candidateView?: Readonly<CandidatesViewState>;
     catalog: CatalogSnapshot | null;
     mode: QueryMode;
   }): Promise<boolean>;
@@ -651,6 +690,7 @@ export function createQueryCoordinator<
     query: AppliedQuery,
     context: SuccessfulQueryContext,
   ) => void,
+  options: { readonly getCatalog?: () => CatalogSnapshot | null } = {},
 ): QueryCoordinator<
   RankingPayload,
   CandidatePayload,
@@ -658,6 +698,8 @@ export function createQueryCoordinator<
   PartnersPayload,
   CoStarPayload
 > {
+  let acceptedCatalog: CatalogSnapshot | null = null;
+  const currentCatalog = () => options.getCatalog ? options.getCatalog() : acceptedCatalog;
   const lastOperationFeedback = ref<OperationFeedback | null>(null);
   const pending = ref(false);
   const pendingOperation = ref<QueryOperation | null>(null);
@@ -1050,27 +1092,44 @@ export function createQueryCoordinator<
     catalog: CatalogSnapshot | null;
     mode: QueryMode;
   }): Promise<boolean> {
+    const candidateInput = options.candidateInput ?? {
+      positionKey: null,
+      ...(store.coStarPositionScope === 'all'
+        ? { positionScope: 'all' as const }
+        : {}),
+    };
     const validation = validateDraft(
       store.draft,
       options.mode,
       options.catalog,
+      candidateInput.positionScope,
     );
     if (!validation.query) {
       store.setErrors(validation.errors);
       return false;
     }
 
-    return executeQuery(validation.query, options);
+    return executeQuery(validation.query, { ...options, candidateInput });
   }
 
   async function executeApplied(options: {
+    candidateInput?: Readonly<CandidatesInputV1>;
+    candidateView?: Readonly<CandidatesViewState>;
     catalog: CatalogSnapshot | null;
     mode: QueryMode;
   }): Promise<boolean> {
     if (!store.applied) {
       return false;
     }
-    return executeQuery(store.applied, options);
+    return executeQuery(store.applied, {
+      ...options,
+      candidateInput: options.candidateInput ?? {
+        positionKey: null,
+        ...(store.appliedCoStarPositionScope === 'all'
+          ? { positionScope: 'all' as const }
+          : {}),
+      },
+    });
   }
 
   async function executeQuery(
@@ -1083,7 +1142,17 @@ export function createQueryCoordinator<
       refreshCollection?: boolean;
     },
   ): Promise<boolean> {
+    acceptedCatalog = options.catalog;
     const operation = operationFor(options.mode);
+    const candidateScope = options.candidateInput?.positionScope ?? 'query';
+    try {
+      decodeEffectiveQueryForOperation(
+        query, operation === 'candidates' ? candidateScope : 'query',
+      );
+    } catch {
+      store.setErrors({ positionKeys: '至少选择一个适用于当前查询的职位' });
+      return false;
+    }
     const otherOperation: PrimaryQueryOperation =
       operation === 'rankings' ? 'candidates' : 'rankings';
     cancelOperation(otherOperation, '查询已由其他模式替代');
@@ -1091,17 +1160,10 @@ export function createQueryCoordinator<
     let nextCandidateInput: Readonly<CandidatesInputV1> | null = null;
     if (operation === 'candidates') {
       const requestedPosition = options.candidateInput?.positionKey ?? null;
-      const candidatePosition =
-        requestedPosition === null
-          ? null
-          : options.catalog?.positionsByKey.get(requestedPosition);
       if (
         requestedPosition !== null &&
-        (!query.positionKeys.includes(requestedPosition) ||
-          !candidatePosition ||
-          !candidatePosition.selectable ||
-          candidatePosition.subjectType !== query.subjectType ||
-          !candidatePosition.capabilities.includes('candidates'))
+        !operationPositionAllowed(query, options.candidateInput?.positionScope,
+          requestedPosition, options.catalog, 'candidates')
       ) {
         candidates.error = '查询暂时无法完成，请稍后重试';
         publishFeedback('candidates', candidates.error, 'error');
@@ -1109,11 +1171,14 @@ export function createQueryCoordinator<
       }
       nextCandidateInput = Object.freeze({
         positionKey: requestedPosition,
+        ...(options.candidateInput?.positionScope === undefined ? {} : { positionScope: options.candidateInput.positionScope }),
       }) as Readonly<CandidatesInputV1>;
     }
     const sameQuery =
       store.applied !== null &&
       querySignature(store.applied) === querySignature(query);
+    const scopeChanged = operation === 'candidates' &&
+      store.appliedCoStarPositionScope !== candidateScope;
     let nextCandidateView: Readonly<CandidatesViewState> | null = null;
     if (operation === 'candidates') {
       const priorScope = candidates.acceptedQuery?.scope;
@@ -1157,10 +1222,12 @@ export function createQueryCoordinator<
     }
     if (
       sameQuery &&
+      !scopeChanged &&
       resource.revision === store.revision &&
       resource.phase === 'ready' &&
       (operation !== 'candidates' ||
-        candidates.input.positionKey === nextCandidateInput?.positionKey)
+        (candidates.input.positionKey === nextCandidateInput?.positionKey &&
+          (candidates.input.positionScope ?? 'query') === (nextCandidateInput?.positionScope ?? 'query')))
     ) {
       resource.feedback = null;
       if (lastOperationFeedback.value?.operation === operation) {
@@ -1272,6 +1339,7 @@ export function createQueryCoordinator<
         if (response.transactionId !== transaction) {
           throw new Error('Response transaction ID does not match the request');
         }
+        assertCandidatePositions(response.payload, query, input, currentCatalog());
         nextSnapshotIdentity = acceptedSnapshotIdentity(
           operation,
           response,
@@ -1322,7 +1390,10 @@ export function createQueryCoordinator<
         invalidateChildOperation('partners');
       }
       snapshotIdentity.value = nextSnapshotIdentity;
-      store.commit(query, nextRevision);
+      store.commit(
+        query, nextRevision,
+        operation === 'candidates' ? candidateScope : undefined,
+      );
       try {
         onSuccessfulQuery?.(
           query,
@@ -1392,7 +1463,7 @@ export function createQueryCoordinator<
     }
     if (
       input.positionKey !== null &&
-      !query.positionKeys.includes(input.positionKey)
+      !operationPositionAllowed(query, input.positionScope, input.positionKey, currentCatalog(), 'candidates')
     ) {
       candidates.error = '候选职位不在已应用查询中';
       publishFeedback('candidates', candidates.error, 'error');
@@ -1406,6 +1477,7 @@ export function createQueryCoordinator<
     if (
       !candidates.viewPending &&
       String(candidates.input.positionKey) === String(input.positionKey) &&
+      (candidates.input.positionScope ?? 'query') === (input.positionScope ?? 'query') &&
       candidateViewEquals(
         candidates.view as Readonly<CandidatesViewState>,
         view,
@@ -1466,6 +1538,7 @@ export function createQueryCoordinator<
       }
       assertResponseUsesSnapshot(response, snapshotIdentity.value);
 
+      assertCandidatePositions(response.payload, query, nextInput, currentCatalog());
       candidates.payload = response.payload;
       candidates.requestId = response.requestId;
       candidates.acceptedInput = nextInput;
@@ -1534,7 +1607,7 @@ export function createQueryCoordinator<
       publishFeedback('co-star', coStar.error, 'error');
       return false;
     }
-    const input = canonicalCoStarInput(query, requestedInput);
+    const input = canonicalCoStarInput(query, requestedInput, currentCatalog());
     if (!input) {
       coStar.error = '共演人物身份无效';
       coStar.phase = coStar.payload ? coStar.phase : 'error';
@@ -1818,7 +1891,7 @@ export function createQueryCoordinator<
       publishFeedback('partners', partners.error, 'error');
       return false;
     }
-    const input = canonicalPartnersInput(query, requestedInput);
+    const input = canonicalPartnersInput(query, requestedInput, currentCatalog());
     if (!input) {
       partners.error = '合作人物来源身份无效';
       partners.phase = partners.payload ? partners.phase : 'error';
@@ -1838,6 +1911,7 @@ export function createQueryCoordinator<
 
     const priorInput = partners.input;
     const sameSource =
+      (priorInput.positionScope ?? 'query') === (input.positionScope ?? 'query') &&
       priorInput.source.personId === input.source.personId &&
       priorInput.source.positionKeys.length ===
         input.source.positionKeys.length &&

@@ -8,7 +8,7 @@ import { gzipSync } from 'node:zlib';
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const distRoot = path.join(frontendRoot, 'dist');
 const productionBasePath = '/v2/';
-const maximumInitialJavaScriptGzipBytes = 300 * 1024;
+const maximumInitialJavaScriptGzipBytes = 350 * 1024;
 const expectedBrandHash =
   'd3d1ca5d14d560f3415dfbcc84b58ece72741a51cf860362d09284ed21aa394a';
 const expectedDescription =

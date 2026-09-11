@@ -35,7 +35,7 @@ function toggle(event: MouseEvent): void {
             )
             .join('；')}`
         : '尚未选择人物'
-    }`"
+    }${!expanded && selection.personCount.value === 1 ? '。可继续选择人物，进行多人共演分析' : ''}`"
     @click="toggle"
   >
     <span class="co-star-mobile-entry__copy" aria-hidden="true">
@@ -59,6 +59,7 @@ function toggle(event: MouseEvent): void {
         </span>
       </span>
       <small v-else>尚未选择人物</small>
+      <small v-if="!expanded && selection.personCount.value === 1" class="co-star-multi-person-hint">可继续选择人物，进行多人共演分析</small>
     </span>
     <span class="co-star-mobile-entry__action" aria-hidden="true">
       <app-icon name="chevron-down" :size="18" />

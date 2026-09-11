@@ -103,6 +103,7 @@ func TestPartnersGeneratedWireDecodesSuccessGoldens(t *testing.T) {
 							len(envelope.Data.Summary.Leaders) != 3 {
 							t.Fatalf("generated global response = %#v, %v", envelope, err)
 						}
+						assertGeneratedPartnersRoundTrip(t, selected.Expected.Body, envelope)
 					case "personal":
 						envelope, err := response.AsPostPartnersV1200JSONResponseBody0()
 						if err != nil || envelope.Meta.RequestId == "" ||
@@ -111,6 +112,7 @@ func TestPartnersGeneratedWireDecodesSuccessGoldens(t *testing.T) {
 							len(envelope.Data.Summary.Leaders) != 4 {
 							t.Fatalf("generated personal response = %#v, %v", envelope, err)
 						}
+						assertGeneratedPartnersRoundTrip(t, selected.Expected.Body, envelope)
 					}
 					assertGeneratedPartnersRoundTrip(t, selected.Expected.Body, response)
 				})

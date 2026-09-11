@@ -40,7 +40,7 @@ distinct from missing values.
 
 #### Scenario: A page contains ranks and complete evidence
 - **WHEN** a valid response page is rendered
-- **THEN** its server rank, complete summary/evidence, nullable values, and searched pagination total SHALL be displayed unchanged
+- **THEN** its server rank, complete summary/evidence, and nullable values SHALL be displayed unchanged, and its searched pagination total SHALL drive pagination without a separate item-range/total hint
 - **AND** no page-derived rank, leader, summary, tag, rating, preference, matrix, or work aggregate SHALL be created
 
 ### Requirement: Co-star state SHALL be revision-bound, cancelable, and latest-only
@@ -75,7 +75,8 @@ partners/co-star view changes SHALL not advance queryRevision.
 ### Requirement: Candidate picker and tray SHALL provide one complete identity owner
 
 At 780px and above, `/co-star` SHALL show the candidate picker as a desktop rail
-with the DESIGN 348/320/300px responsive widths and approved collapsed state.
+with the DESIGN 348/320/300px responsive widths. The desktop rail SHALL remain
+visible and SHALL NOT expose a whole-rail collapse control.
 Below 780px, the Header selection entry and the 0-person action SHALL open one
 bottom picker Drawer. The same panel SHALL show selected people and identity
 counts, ordered removable identities, whole-person removal, ordered
@@ -148,39 +149,6 @@ retain accepted participants/summary/tags/ratings/preference/matrix.
 - **THEN** participants, summary, tags, ratings, personal preference, and group matrix SHALL remain visible
 - **AND** only work rows and pagination SHALL enter pending
 
-### Requirement: Co-star sharing SHALL restore accepted query intent safely
-
-The existing v1 `/co-star#q=` share payload SHALL encode the last successful
-Applied Query, current candidates/partners/co-star operation view, and the
-ordered finite selected identities needed to restore the visible topology. It
-SHALL exclude Draft, responses, request/sequence/revision/data/digest values,
-refresh flags, theme, Drawer, focus, scroll, and loading state.
-
-Initial restore SHALL validate version, encoded/decoded size, query,
-position membership, uniqueness, 10-person/20-identity limits, and view unions;
-then it SHALL execute at most once through the ordinary query coordinator and
-remove the fragment after that one attempt, including when replay defers or
-fails. A second consume call SHALL observe no share. The empty, partners, or
-analysis intent SHALL be serialized without response bodies or person names;
-restored people SHALL come from authoritative operation responses.
-Invalid payload SHALL start no business request, remove the fragment, preserve
-the safe initial page, and expose a stable error.
-
-#### Scenario: A valid pair share is opened
-- **WHEN** a valid pair payload and an unrelated `?user=` are present on first load
-- **THEN** the shared query and ordered identities SHALL restore through the ordinary coordinator at most once
-- **AND** candidates and pair analysis SHALL load for one revision while `?user=` starts no extra request
-
-#### Scenario: A share exceeds an identity limit
-- **WHEN** a payload contains more than 10 people or 20 identities
-- **THEN** no candidates, partners, or co-star request SHALL start
-- **AND** the fragment SHALL be removed and an accessible stable share error SHALL be shown
-
-#### Scenario: A valid share cannot be applied
-- **WHEN** the one ordinary replay attempt returns false or throws
-- **THEN** the fragment SHALL still be removed and consumed
-- **AND** a second consume call SHALL be absent rather than replaying the same request
-
 ### Requirement: Co-star presentation SHALL preserve oracle hierarchy and DESIGN access
 
 The production page SHALL preserve the oracle's approved candidate
@@ -218,3 +186,35 @@ the bottom Drawer, and restore focus to that exact opener when it survives.
 - **WHEN** Light and Dark are browser-checked at 360, 390, 768, 779, 780, 781, 917, 1024, 1185, and 1440px
 - **THEN** the header/main content line, rail/drawer, charts, matrix, work browser, focus rings, image states, and copy SHALL remain readable and oracle-consistent
 - **AND** there SHALL be no duplicate ID, console error, failed resource, direct upstream request, or page overflow
+
+### Requirement: Common series cards SHALL show the returned representative metadata
+Detailed common-series cards SHALL render API metaTags through the current subject-card NTag metadata layout. The frontend SHALL NOT derive tags from members or statistical summaries. Empty tags SHALL omit the metadata row, and current role, date visibility, xicons, divider and selection behavior SHALL be preserved.
+
+#### Scenario: Representative and member tags differ
+- **WHEN** a series representative has tags different from another member
+- **THEN** the series card metadata SHALL contain only the representative's tags
+
+#### Scenario: Representative metadata is empty
+- **WHEN** the representative has no meta tags
+- **THEN** an empty array SHALL remain empty through projection and display
+
+### Requirement: Cooperation rows SHALL render server-scaled sorting progress
+
+Cooperation rows SHALL consume the accepted response metricScale and existing row values, reuse current ranking progress arithmetic, and follow DESIGN.md:416. Count/average/overall SHALL fill from the start; personal preference SHALL share ranking's zero-centered positive/right and negative/left display with visible sign and current semantic colors. Null or zero scale SHALL show no spurious fill, and a valid zero score SHALL remain 0.00. Progress SHALL be decorative and SHALL not replace actual metric text or accessible row descriptions.
+
+The adapter SHALL retain immutable exact scale values and the driver SHALL reject a metric discriminator that mismatches the normalized requested sort. The frontend SHALL not compute a population maximum from current items or leaders, issue supplementary requests, or approximate a missing scale. Existing current typography, widths, padding, focus, selection, NTag/xicons/AppViewport and C1/C2 fixes SHALL remain unchanged.
+
+#### Scenario: Positive and larger negative scores share a scale
+- **WHEN** the server returns max 4/5 and the visible scores are +1/5 and -4/5
+- **THEN** the positive progress SHALL occupy one quarter of its half-track and negative progress its complete half-track
+- **AND** both SHALL retain their signed textual values using the current ranking formatter
+
+#### Scenario: Search or pagination changes visible rows
+- **WHEN** the same person appears after a search/page/order change with the same server scale
+- **THEN** that person's progress length SHALL remain identical
+- **AND** the existing pending rows SHALL retain the last accepted rows/scale together after failure or cancellation
+
+#### Scenario: Strict response is missing or mismatched
+- **WHEN** metricScale is absent, invalid or names another metric
+- **THEN** the existing decode/error path SHALL handle the failed response
+- **AND** no locally inferred progress SHALL be displayed as accepted evidence

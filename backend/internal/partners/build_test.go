@@ -352,3 +352,57 @@ func partnerSubject(id int64, score *float64) query.Subject {
 		RatingBuckets: buckets,
 	}
 }
+
+func TestAllPositionPartnersSeparateSourceMainFromCandidateAll(t *testing.T) {
+	catalog := query.CatalogContext{Positions: []query.CatalogPosition{
+		{Key: "staff:anime:2", SubjectType: "anime", Selectable: true}, {Key: "staff:anime:3", SubjectType: "anime", Selectable: true},
+		{Key: "cast:anime:main", SubjectType: "anime", Selectable: true}, {Key: "cast:anime:all", SubjectType: "anime", Selectable: true},
+	}}
+	capabilities := map[string]bool{"staff:anime:2": true, "staff:anime:3": true, "cast:anime:main": true, "cast:anime:all": true}
+	facts := query.FactSet{Subjects: []query.Subject{{SubjectID: 1, SubjectType: "anime"}, {SubjectID: 2, SubjectType: "anime"}}, Plans: []query.SelectionPlan{
+		{PositionKey: "staff:anime:2", RuleKind: "exactStaff", PositionID: 2}, {PositionKey: "staff:anime:3", RuleKind: "exactStaff", PositionID: 3},
+		{PositionKey: "cast:anime:main", RuleKind: "exactCast", RoleTypes: []int64{1}}, {PositionKey: "cast:anime:all", RuleKind: "exactCast", RoleTypes: []int64{1, 2}},
+	}, StaffCredits: []query.StaffCredit{{SubjectID: 1, PersonID: 20, PositionID: 2}, {SubjectID: 1, PersonID: 21, PositionID: 3}}, CastCredits: []query.CastCredit{
+		{SubjectID: 1, PersonID: 10, CharacterID: 100, RoleType: 1, SortOrder: 1}, {SubjectID: 2, PersonID: 10, CharacterID: 100, RoleType: 2, SortOrder: 1}, {SubjectID: 1, PersonID: 11, CharacterID: 101, RoleType: 2, SortOrder: 2}, {SubjectID: 2, PersonID: 12, CharacterID: 102, RoleType: 2, SortOrder: 2},
+	}}
+	for _, scenario := range []struct {
+		source     int64
+		key        string
+		partner    int64
+		partnerKey string
+	}{{10, "cast:anime:main", 11, "cast:anime:all"}, {20, "staff:anime:2", 21, "staff:anime:3"}} {
+		raw := []byte(fmt.Sprintf(`{"scope":"global","subjectType":"anime","positionKeys":[%q]}`, scenario.key))
+		normalized, err := query.Normalize(raw, catalog)
+		if err != nil {
+			t.Fatal(err)
+		}
+		candidates := query.OperationPositions(normalized.Effective, catalog, capabilities, "all", true)
+		evaluated := query.OperationEvaluation(normalized, append(append([]string{}, candidates...), scenario.key))
+		result, err := query.Evaluate(context.Background(), evaluated, facts, nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		core, err := Build(context.Background(), BuildRequest{DataVersion: testDataVersion, Query: *result, Facts: facts, Input: Input{PositionScope: "all", Source: SourceInput{PersonID: scenario.source, PositionKeys: []string{scenario.key}}, CandidatePositionKeys: candidates}, People: []PersonReference{{ID: 10, Name: "Source"}, {ID: 11, Name: "Partner"}, {ID: 12, Name: "Unrelated"}, {ID: 20, Name: "Director"}, {ID: 21, Name: "Script"}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, partner := range core.Partners {
+			if partner.Person.ID == 12 {
+				t.Fatal("source supporting-only work widened source scope")
+			}
+			if partner.Person.ID == scenario.partner {
+				found = true
+				if !slices.Equal(partner.PositionKeys, []string{scenario.partnerKey}) || partner.Metrics.WorkCount != 1 {
+					t.Fatalf("partner=%+v", partner)
+				}
+			}
+			if slices.Contains(partner.PositionKeys, "cast:anime:main") {
+				t.Fatal("source main leaked into default candidate identities")
+			}
+		}
+		if !found || core.Source.Metrics.WorkCount != 1 {
+			t.Fatalf("core=%+v", core)
+		}
+	}
+}

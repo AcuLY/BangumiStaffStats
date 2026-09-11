@@ -1,7 +1,7 @@
 PRAGMA encoding = 'UTF-8';
 PRAGMA foreign_keys = ON;
 PRAGMA application_id = 1111969107;
-PRAGMA user_version = 1;
+PRAGMA user_version = 2;
 
 CREATE TABLE archive_meta (
   singleton INTEGER NOT NULL PRIMARY KEY CHECK (singleton = 1),
@@ -11,7 +11,7 @@ CREATE TABLE archive_meta (
     AND substr(data_version, 5) NOT GLOB '*[^0-9a-f]*'
   ),
   manifest_schema_version INTEGER NOT NULL CHECK (manifest_schema_version = 1),
-  sqlite_schema_version INTEGER NOT NULL CHECK (sqlite_schema_version = 1),
+  sqlite_schema_version INTEGER NOT NULL CHECK (sqlite_schema_version = 2),
   data_version_algorithm TEXT NOT NULL CHECK (data_version_algorithm = 'bgmss-archive-data-version-v1'),
   domain_rules_version TEXT NOT NULL CHECK (length(domain_rules_version) BETWEEN 1 AND 128),
   cast_rules_version TEXT NOT NULL CHECK (length(cast_rules_version) BETWEEN 1 AND 128),
@@ -115,7 +115,13 @@ CREATE TABLE person (
   person_id INTEGER NOT NULL PRIMARY KEY CHECK (person_id > 0),
   name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 4096),
   name_cn TEXT CHECK (name_cn IS NULL OR length(name_cn) BETWEEN 1 AND 4096),
-  name_jp TEXT CHECK (name_jp IS NULL OR length(name_jp) BETWEEN 1 AND 4096)
+  name_jp TEXT CHECK (name_jp IS NULL OR length(name_jp) BETWEEN 1 AND 4096),
+  summary TEXT CHECK (
+    summary IS NULL OR (
+      instr(summary, char(0)) = 0
+      AND length(summary) BETWEEN 1 AND 8192
+    )
+  )
 ) STRICT;
 
 CREATE TABLE person_career (

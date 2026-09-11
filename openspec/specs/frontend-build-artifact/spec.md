@@ -67,7 +67,7 @@ from that exact candidate.
 ### Requirement: Packaging SHALL preserve the accepted frontend behavior
 
 This capability SHALL configure the production artifact for the approved
-`/v2/` deployment base and make only the minimum browser-boundary route, share,
+`/v2/` deployment base and make only the minimum browser-boundary route,
 API, and image URL changes needed for that base. It SHALL make no change to
 CSS, visual assets, copy, product dependencies, statistical/API semantics, or
 application state behavior. Package/Vite and source edits SHALL preserve the
@@ -77,8 +77,10 @@ behavior of oracle
 PRODUCT/DESIGN additions. The only intentional product delta is the
 user-authorized public path.
 
-Every production-owned static asset, dynamic import, History API destination,
-share URL, native API request, and same-origin image request SHALL stay below
+The fixed same-tab legacy-navigation link `https://search.bgmss.fun/old/` is
+an explicit Header destination outside the SPA base; it SHALL not carry query
+state or change deployment routing. Every production-owned static asset, dynamic import, History API destination,
+native API request, and same-origin image request SHALL stay below
 `/v2/**`. API adapters SHALL retain logical `/api/v1/**` references, and the
 browser boundary SHALL map those to `/v2/api/v1/**` without changing request
 method, body, query, response, or error behavior. Dev/test with root base SHALL
@@ -91,8 +93,8 @@ retain the existing logical paths.
 
 #### Scenario: Production artifact is inspected
 
-- **WHEN** the exact production index, assets, deferred imports, route/share URLs, API calls, and image requests are inspected
-- **THEN** every new-stack browser-owned same-origin URL SHALL remain below `/v2/**` and no request SHALL escape to a legacy root path
+- **WHEN** the exact production index, assets, deferred imports, route URLs, API calls, and image requests are inspected
+- **THEN** all application asset, mode-navigation, API and image URLs SHALL remain below `/v2/**`; only the explicit legacy-navigation link SHALL point to `https://search.bgmss.fun/old/`
 
 #### Scenario: Root-base test environment runs
 

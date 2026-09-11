@@ -13,6 +13,10 @@ import type {
 } from './client';
 import { ApiDecodeError } from './errors';
 import {
+  decodePartnersInput,
+  decodeSharedQueryForOperation,
+} from './adapters/queryWire';
+import {
   decodePartnersError,
   decodePartnersPayload,
   type PartnersPayload,
@@ -274,6 +278,8 @@ export function createPartnersDriver(
   const wait = runtime.wait ?? waitForRetry;
   return {
     async execute(request): Promise<PartnersDriverResponse> {
+      const input = decodePartnersInput(request.input);
+      decodeSharedQueryForOperation(request.query, input.positionScope);
       const body: PartnersRequestV1 = {
         input: structuredClone(request.input) as PartnersInputV1,
         query: structuredClone(request.query) as SharedQueryV1Schema,
@@ -329,6 +335,7 @@ export function createPartnersDriver(
       const expectedSourceKeys = request.input.source.positionKeys.map(String);
       if (
         payload.scope !== request.query.scope ||
+        payload.metricScale.metric !== (request.view.sort ?? 'count') ||
         payload.source.person.id !== request.input.source.personId ||
         payload.source.positionKeys.length !== expectedSourceKeys.length ||
         payload.source.positionKeys.some(

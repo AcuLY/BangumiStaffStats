@@ -14,8 +14,9 @@ type OperationInput struct {
 
 // Operation is a fully validated candidate operation.
 type Operation struct {
-	PositionKey string
-	View        View
+	PositionScope string
+	PositionKey   string
+	View          View
 }
 
 // NormalizeOperation validates current-position membership and scope-specific

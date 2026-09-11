@@ -9,7 +9,7 @@
 本轮工作的目标是在新分支中从零建立新版 Bangumi Staff Statistics：
 
 - 对用户可见的外观、交互、文案、状态边界和响应式行为，以固定 oracle 和现行产品、设计文档为证据，保持一致；
-- 在一致性之外实现现行文档已经定义、但原型尚未具备的正式 API、真实数据、分享查询、渐进加载、错误恢复和可观测性；
+- 在一致性之外实现现行文档已经定义、但原型尚未具备的正式 API、真实数据、标签页恢复、渐进加载、错误恢复和可观测性；
 - 使用 clean-room architecture。旧代码只能作为行为证据、golden 来源和差异定位线索，不复用其目录、状态机、请求层、计算边界或部署结构；
 - Go 后端是统计计算与不可变 Archive 构建的唯一权威，后台定时构建不进入请求处理；Vue 前端只负责交互状态、展示和可视化；
 - 先完成可在开发环境内完整验收的产品与制品，生产运维、发布、迁移和切换另立后续 OpenSpec。
@@ -45,7 +45,7 @@
 - 人物排行与共演分析的整体信息架构；
 - Query Draft、Applied Query、query revision、取消和错误后的状态连续性；
 - 排行、候选、人物详情、合作人物和共演分析的分区加载边界；
-- Light/Dark、桌面 inspector、移动 drawer、职位 selector、selected tray 和分享入口的交互语义；
+- Light/Dark、桌面 inspector、移动 drawer、职位 selector、selected tray 和旧版入口的交互语义；
 - `360 / 390 / 768 / 779 / 780 / 781 / 917 / 1024 / 1185 / 1440px` 的响应式结构；
 - PRODUCT 与 DESIGN 中已经确认的文案、指标名、空状态、错误状态和无障碍行为。
 
@@ -392,7 +392,7 @@ Wave 5 图中列出的 19 个 ID 是 `produce-development-artifacts` 的确切�
 
 | Change | Owner / capability | Owned paths | Depends | Deliverables | Acceptance | Non-goals | Exit |
 |---|---|---|---|---|---|---|---|
-| `define-shared-query-wire` | Contracts / `contracts-query-wire` | `contracts/openapi/**`, `contracts/schemas/query/**`, `contracts/goldens/query/**` | `establish-formal-rewrite-baseline` | personal/global 判别联合；PositionKey；tag 逻辑；sort/page/search；error envelope；share fragment v1；语言无关正反例 | schema lint、示例校验和正反例 golden 通过；规范化期望输出稳定；Go/TS codegen 输入可生成且无 schema-level error | 不要求尚未存在的 Go/TS runtime 执行 consumer test；不实现 endpoint、store 或统计 | versioned schema、goldens 和生成可行性证据齐全，实际 consumer tests 明确移交 backend/frontend foundation |
+| `define-shared-query-wire` | Contracts / `contracts-query-wire` | `contracts/openapi/**`, `contracts/schemas/query/**`, `contracts/goldens/query/**` | `establish-formal-rewrite-baseline` | personal/global 判别联合；PositionKey；tag 逻辑；sort/page/search；error envelope；语言无关正反例 | schema lint、示例校验和正反例 golden 通过；规范化期望输出稳定；Go/TS codegen 输入可生成且无 schema-level error | 不要求尚未存在的 Go/TS runtime 执行 consumer test；不实现 endpoint、store 或统计 | versioned schema、goldens 和生成可行性证据齐全，实际 consumer tests 明确移交 backend/frontend foundation |
 | `define-archive-manifest-contract` | Contracts / `contracts-archive-manifest` | `contracts/schemas/archive/**`, `contracts/goldens/archive/**` | `establish-formal-rewrite-baseline` | SQLite schema version、manifest、dataVersion、digest、兼容性和最小有效/损坏 fixtures；语言无关校验向量 | schema lint、正反例 fixture 和 dataVersion/digest 向量自洽；Python/Go codegen或解析模型输入可生成且无 schema-level error | 不要求尚未存在的 Python/Go runtime 执行 consumer test；不下载数据、不建完整 Archive、不激活版本 | contract bundle 与生成可行性证据齐全，实际 producer/consumer tests 明确移交 updater/backend foundation |
 | `bootstrap-backend-runtime` | Backend / `backend-runtime-foundation` | `backend/**`, 仅其必要根级 toolchain 文件 | `define-shared-query-wire`, `define-archive-manifest-contract` | Go 1.26 module、依赖方向、空 API process、生成契约接入、基础测试命令；Go 对 query/archive 最小正反例的 consumer contract tests | build/test/vet 通过；Go 生成模型无 drift；Go 能接受最小合法 query/archive contract 并拒绝指定错误版本/结构；业务包不反向依赖 transport | 不实现查询、缓存、图片代理、Docker | 空 process 可启动/停止，Go consumer contract tests 和生成检查通过 |
 | `bootstrap-updater-runtime` | Updater / `updater-runtime-foundation` | `updater/**` | `define-archive-manifest-contract` | Python package、one-shot CLI 外壳、契约读取、测试和类型/静态检查入口；Python 对 archive 正反例的 producer-side contract tests | clean environment 可安装并运行空命令；Python 能接受最小合法 archive contract 并拒绝指定错误版本/结构；无 daemon、scheduler 或激活逻辑 | 不抓取/构建完整 Archive，不写 `current.json` | updater 质量命令和 Python archive contract tests 稳定通过 |
@@ -446,7 +446,7 @@ Wave 5 图中列出的 19 个 ID 是 `produce-development-artifacts` 的确切�
 
 | Change | Owner / capability | Owned paths | Depends | Deliverables | Acceptance | Non-goals | Exit |
 |---|---|---|---|---|---|---|---|
-| `implement-frontend-query-shell` | Frontend / `frontend-query-shell` | `frontend/**` | `bootstrap-frontend-foundation`, `expose-dynamic-catalog`, `define-shared-query-wire` | 单 SPA；`/ranking`、`/co-star`；Header/Query Workspace；Draft/Applied/revision；Catalog/Query/Resource stores；share fragment | mode switch 不自动 apply；失败/取消保留 Draft 和旧结果；apply 原子提交；catalog pending 只占 selector；无 Applied Query 时分享禁用 | 不放 production fixture；不实现统计 | 状态机 unit tests、真实 catalog integration 和基础浏览器验收通过 |
+| `implement-frontend-query-shell` | Frontend / `frontend-query-shell` | `frontend/**` | `bootstrap-frontend-foundation`, `expose-dynamic-catalog`, `define-shared-query-wire` | 单 SPA；`/ranking`、`/co-star`；Header/Query Workspace；Draft/Applied/revision；Catalog/Query/Resource stores；本地标签页恢复；旧版固定入口 | mode switch 不自动 apply；失败/取消保留 Draft 和旧结果；apply 原子提交；catalog pending 只占 selector；旧版入口始终可用；URL fragment 不回放 | 不放 production fixture；不实现统计 | 状态机 unit tests、真实 catalog integration 和基础浏览器验收通过 |
 | `implement-frontend-ranking-vertical` | Frontend / `frontend-ranking-workspace` | `frontend/**` | `implement-frontend-query-shell`, `expose-rankings`, `expose-person-detail`, `implement-image-proxy` | 排行、人行、inspector/drawer、详情 operation、搜索排序分页和局部 loading | 排行先显示、详情独立等待；旧响应不能覆盖新人；本地交互无伪 Skeleton；刷新保留摘要、工具栏和焦点 | 不实现共演 tray/analysis | 桌面/移动真实 API vertical E2E 通过 |
 | `implement-frontend-co-star-vertical` | Frontend / `frontend-co-star-workspace` | `frontend/**` | `implement-frontend-query-shell`, `implement-frontend-ranking-vertical`, `expose-candidates`, `expose-partners`, `expose-co-star` | 复用已验收的 person/entity/detail/media primitives，建立 candidate rail/drawer、唯一 selected tray、单人合作、多人共演和 identity 管理 | 不复制或分叉 ranking vertical 的 person/detail primitives；selected 只由前端叠加；tray 是唯一修改入口；分析区只读；1/2/3+ 人 operation 正确；只接受最新响应 | 不与 ranking vertical 并行 apply；不建立第二套 person primitive、selector 或 selected owner | ranking vertical 已退出后，全 operation E2E、复用边界、取消与快速切换测试通过 |
 | `harden-frontend-design-and-accessibility` | Frontend / `frontend-design-system`, `frontend-accessibility` | `frontend/**`；唯一获准实际写入和再生成 `.impeccable/design.json` 的 change | `implement-frontend-ranking-vertical`, `implement-frontend-co-star-vertical` | DESIGN token 映射、SafeImage 四态、响应式重排、tooltip/focus/scroll、统一词表、生产 bundle denylist；按 foundation handoff 的 contract/timing 重新生成 Impeccable sidecar | 两模式 × Light/Dark × 全 viewport；无横向溢出、重复 ID、console error；44px target；图片 3:4 四态无位移；网络不直连 `api.bgm.tv`；sidecar 与最终 frontend 结构一致 | 不在两个 vertical 退出前修改 sidecar；不以装饰改版替代 fidelity；不依赖组件库私有 DOM | 视觉、交互、状态、响应式和 a11y matrix 全绿，sidecar regeneration 已由其唯一 owner 验收 |

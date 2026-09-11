@@ -7,7 +7,7 @@
 > 范围：新版 `frontend/src/workbench`、旧生产入口、构建公开资源、前端测试及与现有后端的接口边界。
 > 本文只制定清理和迁移计划，不执行删除，也不代表已经接入、发布或部署。
 
-配套记录：[`data-logic-implementation-guide.md`](./data-logic-implementation-guide.md) 负责数据口径；[`backend-development-implementation-guide.md`](./backend-development-implementation-guide.md) 负责 catalog、API、路由、分享和请求状态契约；[`backend-operations-implementation-guide.md`](./backend-operations-implementation-guide.md) 负责部署与迁移；[`prototype-data-logic-audit.md`](./decisions/prototype-data-logic-audit.md) 保留原型数据审计。
+配套记录：[`data-logic-implementation-guide.md`](./data-logic-implementation-guide.md) 负责数据口径；[`backend-development-implementation-guide.md`](./backend-development-implementation-guide.md) 负责 catalog、API、路由和请求状态契约；[`backend-operations-implementation-guide.md`](./backend-operations-implementation-guide.md) 负责部署与迁移；[`prototype-data-logic-audit.md`](./decisions/prototype-data-logic-audit.md) 保留原型数据审计。
 
 ## 1. 结论
 
@@ -98,7 +98,7 @@ URL 与持久化边界固定为：
 - 成功 personal 查询用 effective UID 更新 `?user=`；global 查询移除 URL 中的 user；
 - 完整筛选、职位、人物、搜索、排序和分页不自动写入普通 query 或 Web Storage；
 - 主题只写入版本化 localStorage key；
-- 分享查询使用版本化 URL fragment，首次进入最多消费一次，不能用 requestId 或服务端 session 恢复。
+- 查询恢复只使用前端验证的标签页 sessionStorage 状态，走普通查询重新取数，不使用 requestId 或服务端 session。URL fragment 在初始规范化时清除且不触发回放；`?user=` 只预填 UID。Header 主题按钮左侧保留同页固定链接“回到旧版”：`https://search.bgmss.fun/old/`。
 
 路由和 URL 同步集中在 app shell，支持 `popstate`，不能散落在页面 watch 中。
 

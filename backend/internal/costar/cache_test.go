@@ -11,6 +11,20 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/statistics"
 )
 
+func TestSeriesMetaTagsOwnTheirSliceAndRetainedCost(t *testing.T) {
+	core := Core{Works: []WorkItem{{Kind: "series", Series: &SeriesWork{MetaTags: []string{}}}}}
+	baseCost := coreCost(core)
+	core.Works[0].Series.MetaTags = []string{strings.Repeat("tag", 255)}
+	if delta := coreCost(core) - baseCost; delta < int64(len(core.Works[0].Series.MetaTags[0])) {
+		t.Fatalf("series metadata not charged: delta=%d", delta)
+	}
+	copy := CloneCore(core)
+	copy.Works[0].Series.MetaTags[0] = "mutated"
+	if core.Works[0].Series.MetaTags[0] == "mutated" {
+		t.Fatal("series metadata aliases cached core")
+	}
+}
+
 func TestResultKeyPreservesOrderedInputAndExcludesView(t *testing.T) {
 	input := Input{Participants: []ParticipantInput{
 		{PersonID: 1, PositionKeys: []string{"staff:anime:1"}},
@@ -197,5 +211,21 @@ func TestStoreRejectsOversizeNestedDynamicPayload(t *testing.T) {
 	stats := store.Stats()
 	if calls.Load() != 2 || stats.Items != 0 || stats.Oversize != 2 {
 		t.Fatalf("oversize calls=%d stats=%+v", calls.Load(), stats)
+	}
+}
+
+func TestAllPositionScopeSeparatesIdenticalInputCacheKeys(t *testing.T) {
+	input := Input{Participants: []ParticipantInput{{PersonID: 1, PositionKeys: []string{"staff:anime:2"}}, {PersonID: 2, PositionKeys: []string{"staff:anime:2"}}}}
+	legacy, err := ResultKey("global", testDataVersion, testQueryDigest, input, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	input.PositionScope = "all"
+	broad, err := ResultKey("global", testDataVersion, testQueryDigest, input, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy == broad {
+		t.Fatal("operation scopes share a result key")
 	}
 }

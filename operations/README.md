@@ -96,6 +96,11 @@ the API. It never changes `current.json` or retains a previous data slot:
 
 ## Health and observability
 
+The repository Nginx template gives `/v2/api/v1/` a 130-second upstream read
+timeout, exceeding the backend's 120-second request and 125-second HTTP write
+budgets. Existing deployments keep their current vhost settings until a
+separately authorized template rollout; a repository edit is not deployment.
+
 ```sh
 /srv/bgmss-v2/operations/bin/check --root /srv/bgmss-v2
 ```

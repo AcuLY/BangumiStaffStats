@@ -18,7 +18,7 @@ const (
 	DomainRulesVersion    = "domain-raw-v1"
 	CastRulesVersion      = "cast-exact-v1"
 	ManifestSchemaVersion = 1
-	SQLiteSchemaVersion   = 1
+	SQLiteSchemaVersion   = 2
 	SQLiteApplicationID   = 1111969107
 	SQLiteFilename        = "bangumi.sqlite"
 	ManifestFilename      = "manifest.json"

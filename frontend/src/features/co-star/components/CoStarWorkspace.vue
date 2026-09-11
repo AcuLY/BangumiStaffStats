@@ -8,7 +8,7 @@ import {
 } from 'vue';
 
 import { useResultReveal } from '../../../shared/composables/useResultReveal';
-import { useCompactLayout } from '../../query/composables/useCompactLayout';
+import { useCompactLayout } from '../../../shared/composables/useCompactLayout';
 import type {
   CandidateInput,
   CandidateResource,
@@ -22,6 +22,7 @@ import MobileCandidateEntry from './MobileCandidateEntry.vue';
 const props = withDefaults(
   defineProps<{
     beforeOpenPicker?: (trigger: HTMLElement) => boolean | Promise<boolean>;
+    analysisPending?: boolean;
     cancel: () => void;
     devicePixelRatio?: number;
     executeView: (
@@ -38,6 +39,7 @@ const props = withDefaults(
   }>(),
   {
     devicePixelRatio: 1,
+    analysisPending: false,
     externalOwnsMobileEntry: false,
     suppressErrorMessage: false,
     targetWindow: () => window,
@@ -333,8 +335,9 @@ defineExpose({ closePicker, openPicker, revealAnalysis });
         aria-label="共演分析"
         tabindex="-1"
       >
+        <slot v-if="analysisPending" name="analysis-loading" />
         <co-star-empty-state
-          v-if="selection.personCount.value === 0"
+          v-else-if="selection.personCount.value === 0"
           @select="openPicker"
         />
         <slot v-else name="analysis" />

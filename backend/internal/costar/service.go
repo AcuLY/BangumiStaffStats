@@ -115,7 +115,11 @@ func (service *Service) Execute(
 	if err != nil {
 		return Projection{}, internalOrContext(ctx, err)
 	}
-	normalized, err := query.Normalize(request.Query, authority.Context)
+	positionScope, err := query.OperationPositionScope(request.Input)
+	if err != nil {
+		return Projection{}, requestFailure("invalid position scope", "/input/positionScope", "UNSUPPORTED_VALUE")
+	}
+	normalized, err := query.NormalizeOperation(request.Query, authority.Context, positionScope)
 	if err != nil {
 		return Projection{}, mapQueryError(err)
 	}
@@ -123,7 +127,9 @@ func (service *Service) Execute(
 		ctx,
 		querytiming.Scope(normalized.Effective.Scope),
 	)
-	operation, err := normalizeOperationRequest(normalized.Effective, request)
+	membership := normalized.Effective
+	membership.PositionKeys = query.OperationPositions(normalized.Effective, authority.Context, authority.CoStarByPosition, positionScope, false)
+	operation, err := normalizeOperationRequest(membership, request)
 	if err != nil {
 		return Projection{}, err
 	}
@@ -164,6 +170,14 @@ func (service *Service) Execute(
 			),
 			identity.DataVersion,
 		)
+	}
+
+	if positionScope == "all" {
+		keys := make([]string, 0)
+		for _, participant := range operation.Input.Participants {
+			keys = append(keys, participant.PositionKeys...)
+		}
+		normalized = query.OperationEvaluation(normalized, keys)
 	}
 
 	var access *runtimecache.CollectionAccess

@@ -1,3 +1,5 @@
+> Supersession (2026-09-08): `contracts-remove-query-sharing` retires the query-sharing feature and overrides the sharing-specific requirements, preservation clauses, and acceptance assumptions below. URL fragments are cleared without parsing or replay. Header now has an always available same-tab “回到旧版” link to `https://search.bgmss.fun/old/` immediately left of theme. Exact accepted workspace recovery remains frontend-local through validated v2 JSON session storage; v1 fragment-based storage is discarded. Completed evidence below remains historical, and unrelated requirements are unchanged.
+
 ## Why
 
 Two rendered gaps remain after the accepted ranking/detail and responsive residual work: when a changed ranking query succeeds, the left result can replace its skeleton before the right detail is ready, briefly exposing a one-column/full-width ranking layout; at 320–328px, the root `320px` minimum combines with the reserved viewport scrollbar to force horizontal scrolling. Both are visible continuity failures in states and widths the product claims to support.

@@ -540,3 +540,15 @@ SPA-entry policy.
   root, API, or browser acceptance fails
 - **THEN** the exact repair backup SHALL be restored and reloaded
 - **AND** no unrelated vhost or application state SHALL be changed
+
+### Requirement: The repository proxy template SHALL accommodate query budgets
+
+The repository Nginx location for `/v2/api/v1/` SHALL use a 130-second
+`proxy_read_timeout`, leaving room for the backend's 120-second request and
+125-second HTTP write bounds. Connection timeout and the accepted legacy-root
+and `/v2/` route contract SHALL remain unchanged. Updating this template SHALL
+NOT imply that a production vhost has been modified or deployed.
+
+#### Scenario: A valid query takes longer than the old proxy wait
+- **WHEN** an operator later deploys this reviewed template and an otherwise valid API response takes longer than 35 seconds but less than the backend request budget
+- **THEN** the proxy SHALL not interrupt it because of the old 35-second upstream read timeout

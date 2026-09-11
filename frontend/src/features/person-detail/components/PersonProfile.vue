@@ -83,16 +83,16 @@ watch(
       <safe-image
         class="person-profile__portrait"
         :sources="
-          personImageCandidates(payload.person.id, 160, devicePixelRatio)
+          personImageCandidates(payload.person.id, 96, devicePixelRatio)
         "
         :alt="name"
         loading="eager"
-        :width="160"
+        :width="96"
       />
       <div class="person-profile__copy">
-        <div class="person-profile__content">
+        <div class="person-profile__content" :class="{ 'person-profile__content--action': $slots.action }">
           <div class="person-profile__name-row">
-            <h2 id="person-inspector-title">
+            <h2>
               <a
                 class="person-profile__name-link"
                 :href="`https://bgm.tv/person/${payload.person.id}`"
@@ -116,10 +116,11 @@ watch(
           >
             {{ secondaryName }}
           </p>
+          <div v-if="$slots.action" class="person-profile__action"><slot name="action" /></div>
         </div>
         <section
           class="person-profile__summary person-profile__bio"
-          :class="{ 'is-expanded': expanded }"
+          :class="{ 'is-expanded': expanded, 'has-toggle': hasLongSummary }"
           aria-label="人物简介"
         >
           <p>

@@ -1,14 +1,16 @@
 <!--
 THESIS: 查询是正式应用的唯一入口，拒绝用假数据或结果卡片掩盖尚未接入的垂直能力。
 OWN-WORLD: Bangumi 粉色、冷灰单层表面、固定 Header 与正文内高密度两阶段查询编辑器。
-STORY: 用户选择数据范围与动态职位，清楚地应用、取消、恢复或分享最后一次成功查询。
+STORY: 用户选择数据范围与动态职位，清楚地应用、取消、恢复最后一次成功查询。
 FIRST VIEWPORT: 品牌与双模式操作在 Header，完整查询 disclosure 位于正文首位，结果区保留可信空态。
 FORM: 已建立的 Operate 世界；所有视口均使用正文内可折叠查询面板。
 -->
 <script setup lang="ts">
-import { NSkeleton } from 'naive-ui';
+import AppViewport from './AppViewport.vue';
+import { NButton } from 'naive-ui';
 import {
   computed,
+  defineAsyncComponent,
   nextTick,
   onBeforeUnmount,
   onMounted,
@@ -60,16 +62,19 @@ import {
   type CoStarSelection,
 } from '../features/co-star/selection';
 import MobileCandidateEntry from '../features/co-star/components/MobileCandidateEntry.vue';
+import CandidateWorkspaceSkeleton from '../features/co-star/components/CandidateWorkspaceSkeleton.vue';
+import RankingResultsSkeleton from '../features/ranking/components/RankingResultsSkeleton.vue';
 import {
   defaultPersonDetailView,
   type PersonDetailView,
   type PersonPositionDisplay,
 } from '../features/person-detail/model';
 import PersonDetailSkeleton from '../features/person-detail/components/PersonDetailSkeleton.vue';
+import { createPersonWorkspaceLinks, type LinkedPerson } from '../features/person-detail/workspaceLinks';
 import AppHeader from '../features/query/components/AppHeader.vue';
 import QueryIcon from '../features/query/components/QueryIcon.vue';
 import QueryWorkspace from '../features/query/components/QueryWorkspace.vue';
-import { useCompactLayout } from '../features/query/composables/useCompactLayout';
+import { useCompactLayout } from '../shared/composables/useCompactLayout';
 import {
   createQueryCoordinator,
   type QueryDrivers,
@@ -80,10 +85,9 @@ import {
   type AppliedQuery,
 } from '../features/query/model';
 import type {
-  SharePayload,
-  ShareWorkspace,
-} from '../features/query/share';
-import { createShareUrl } from '../features/query/share';
+  RecoveryPayload,
+  RecoveryWorkspace,
+} from '../features/query/recovery';
 import { createQuerySessionOwner } from '../features/query/session';
 import { useQueryStore } from '../features/query/store';
 import AppIcon from '../shared/components/AppIcon.vue';
@@ -92,6 +96,12 @@ import AppProviders from './AppProviders.vue';
 import { createRouteOwner } from './routes';
 import { useRuntimeStore } from './store/runtime';
 import { createThemeOwner } from './theme';
+
+// These analysis layouts are only needed in co-star mode, after candidate loading.
+const loadPartnersSkeleton = () => import('../features/co-star/components/PartnersSkeleton.vue');
+const loadCoStarSkeleton = () => import('../features/co-star/components/CoStarAnalysisSkeleton.vue');
+const PartnersSkeleton = defineAsyncComponent(loadPartnersSkeleton);
+const CoStarAnalysisSkeleton = defineAsyncComponent(loadCoStarSkeleton);
 
 type SurfaceModule = Readonly<{ default: Component }>;
 type SurfaceLoader = () => Promise<SurfaceModule>;
@@ -254,6 +264,14 @@ const runtime = useRuntimeStore();
 const catalogStore = useCatalogStore();
 const queryStore = useQueryStore();
 const route = createRouteOwner(targetWindow);
+watch(() => route.mode.value, (mode) => {
+  if (mode === 'co-star') {
+    // Warm the small analysis layouts while the catalog/candidate requests run.
+    // Actual surface loaders retain their existing error and retry ownership.
+    void loadPartnersSkeleton().catch(() => {});
+    void loadCoStarSkeleton().catch(() => {});
+  }
+}, { immediate: true });
 const querySession = createQuerySessionOwner(targetWindow);
 const themeOwner = createThemeOwner(targetWindow.document);
 const routeError = ref<string | null>(null);
@@ -265,6 +283,8 @@ const queryEditing = ref(queryStore.applied === null);
 const coStarWorkspaceHandle = ref<CoStarWorkspaceHandle | null>(null);
 const coStarPickerExpanded = ref(false);
 const selection: CoStarSelection = createCoStarSelection();
+const candidateExpansionRequested = ref(-1);
+let expandedCandidateRevision = -1;
 const selectedPersonId = ref<number | null>(null);
 const partnersIntent = shallowRef<Readonly<{
   input: Readonly<PartnersInput>;
@@ -282,9 +302,10 @@ let replayingRankingWorkspace = false;
 let replayingCoStarWorkspace = false;
 const drawerOpen = ref(false);
 const compact = useCompactLayout(targetWindow);
+const detailDrawerLayout = useCompactLayout(targetWindow, 960);
 const expandedPersonId = computed(() =>
   selectedPersonId.value !== null &&
-  (!compact.value || drawerOpen.value)
+  (!detailDrawerLayout.value || drawerOpen.value)
     ? selectedPersonId.value
     : null,
 );
@@ -327,9 +348,27 @@ const drivers: QueryDrivers<
     personDetail: createPersonDetailDriver(apiClient),
     rankings: createRankingsDriver(apiClient),
   };
+// Capture the actual request input so later Draft edits cannot relabel its loading view.
+const pendingRankingsQuery = shallowRef<AppliedQuery | null>(null);
+const pendingCandidatesQuery = shallowRef<AppliedQuery | null>(null);
+const presentationDrivers: typeof drivers = {
+  ...drivers,
+  rankings: {
+    execute(request) {
+      pendingRankingsQuery.value = request.query;
+      return drivers.rankings.execute(request);
+    },
+  },
+  candidates: {
+    execute(request) {
+      pendingCandidatesQuery.value = request.query;
+      return drivers.candidates.execute(request);
+    },
+  },
+};
 const coordinator = createQueryCoordinator(
   queryStore,
-  drivers,
+  presentationDrivers,
   (query, context) => {
     if (context.changed) {
       selection.clear();
@@ -354,6 +393,9 @@ const coordinator = createQueryCoordinator(
     ) {
       activateDefaultCandidates();
     }
+    if (context.operation === 'candidates' && !replayingCoStarWorkspace) {
+      candidateExpansionRequested.value = queryStore.revision;
+    }
     route.updateSuccessfulQuery(query);
     routeError.value = null;
     if (initializationFinished && querySessionWriteBlocked) {
@@ -361,11 +403,132 @@ const coordinator = createQueryCoordinator(
       querySessionReady.value = true;
     }
   },
+  { getCatalog: () => catalogStore.snapshot },
 );
+
+const personLinks = createPersonWorkspaceLinks({
+  getCatalog: () => catalogStore.snapshot,
+  drivers,
+  query: () => queryStore.applied,
+  revision: () => queryStore.revision,
+  snapshot: () => coordinator.snapshotIdentity.value,
+  rankingView: () => coordinator.rankings.view,
+});
+const inspectedPerson = personLinks.person;
+const linkedRank = personLinks.location;
+const linkedRankPending = personLinks.rankPending;
+const linkedRankError = personLinks.rankError;
+const linkError = ref<string | null>(null);
+const linkNavigationPending = ref(false);
+type ScrollPosition = { element: HTMLElement; top: number; left: number };
+let detailOriginScroll: ScrollPosition[] = [];
+let detailOriginTrigger: HTMLElement | null = null;
+let navigationSequence = 0;
+let navigationExpectedMode: 'ranking' | 'co-star' | null = null;
+
+function captureScroll(trigger: HTMLElement): ScrollPosition[] {
+  const positions: ScrollPosition[] = [];
+  for (let element: HTMLElement | null = trigger; element; element = element.parentElement) {
+    if (element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth) {
+      positions.push({ element, top: element.scrollTop, left: element.scrollLeft });
+    }
+  }
+  return positions;
+}
+
+async function restoreScroll(positions: ScrollPosition[], trigger?: HTMLElement | null): Promise<void> {
+  await nextTick();
+  for (const { element, top, left } of positions) {
+    if (element.isConnected) { element.scrollTop = top; element.scrollLeft = left; }
+  }
+  if (trigger?.isConnected && !trigger.closest('[hidden], [inert]')) trigger.focus({ preventScroll: true });
+}
+
+async function inspectCoStarPerson(person: LinkedPerson, identities: readonly string[], trigger: HTMLElement): Promise<void> {
+  if (!queryStore.applied || route.mode.value !== 'co-star') return;
+  detailOriginScroll = captureScroll(trigger);
+  detailOriginTrigger = trigger;
+  linkError.value = null;
+  personLinks.inspect(person, identities);
+  await loadPersonDetailSurface();
+  await nextTick();
+  if (inspectedPerson.value && !detailDrawerLayout.value) {
+    const panel = targetWindow.document.getElementById('co-star-person-detail-panel');
+    panel?.scrollIntoView({ block: 'start' });
+    panel?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+  }
+}
+
+function closeCoStarPerson(restore = true): void {
+  const wasOpen = inspectedPerson.value !== null;
+  personLinks.close();
+  if (wasOpen && restore) void restoreScroll(detailOriginScroll, detailOriginTrigger);
+}
+
+async function followRankingPerson(): Promise<void> {
+  const payload = coordinator.personDetail.payload;
+  const query = queryStore.applied;
+  if (!query || !payload || linkNavigationPending.value) return;
+  const next = selectedIdentities(payload.person, query.positionKeys.map(String));
+  if (next.length > MAX_SELECTED_IDENTITIES) { linkError.value = `最多选择 ${MAX_SELECTED_IDENTITIES} 个身份`; return; }
+  coordinator.cancelPartners();
+  coordinator.cancelCoStar();
+  const result = selection.replace(next);
+  if (!result.ok) { linkError.value = result.message; return; }
+  queryStore.setCoStarPositionScope('all', true);
+  candidateExpansionRequested.value = queryStore.revision;
+  drawerOpen.value = false;
+  route.navigate('co-star');
+  await nextTick();
+  await revealCoStarAnalysis();
+}
+
+async function locateInspectedPerson(): Promise<void> {
+  const person = inspectedPerson.value;
+  const location = linkedRank.value;
+  const query = queryStore.applied;
+  if (!person || !location?.page || !query || linkNavigationPending.value) return;
+  const view = { ...personLinks.rankingView.value, page: location.page, search: '' };
+  const revision = queryStore.revision;
+  const sequence = ++navigationSequence;
+  linkNavigationPending.value = true;
+  navigationExpectedMode = 'ranking';
+  linkError.value = null;
+  closeCoStarPerson(false);
+  selectedPersonId.value = person.id;
+  route.navigate('ranking');
+  try {
+    const ready = await coordinator.executeApplied({ catalog: catalogStore.snapshot, mode: 'ranking' });
+    if (!ready || sequence !== navigationSequence || revision !== queryStore.revision || route.mode.value !== 'ranking') return;
+    const loaded = await coordinator.executeRankingView(view);
+    if (!loaded || sequence !== navigationSequence || revision !== queryStore.revision || route.mode.value !== 'ranking') return;
+    const trigger = targetWindow.document.querySelector<HTMLElement>(`#mode-panel-ranking [data-person-id="${person.id}"]`);
+    activatePerson(person.id, trigger ?? targetWindow.document.body);
+    await nextTick();
+    trigger?.scrollIntoView({ block: 'nearest' });
+    if (!detailDrawerLayout.value) trigger?.focus({ preventScroll: true });
+  } finally {
+    if (sequence === navigationSequence) {
+      linkNavigationPending.value = false;
+      navigationExpectedMode = null;
+    }
+  }
+}
+
+const linkedDetailHasCharacters = computed(() => personLinks.positionKeys.value.some(
+  (key) => catalogStore.snapshot?.positionsByKey.get(key)?.kind === 'cast',
+));
+watch(() => selection.identities.value, () => closeCoStarPerson(), { flush: 'sync' });
+watch(() => queryStore.revision, () => {
+  closeCoStarPerson(false);
+  navigationSequence += 1;
+  linkNavigationPending.value = false;
+  navigationExpectedMode = null;
+});
 
 const desktopRankingCompanionPending = computed(
   () =>
-    !compact.value &&
+    !detailDrawerLayout.value &&
     ((coordinator.rankings.phase === 'pending' &&
       (selectedPersonId.value === null || queryStore.dirty)) ||
       (selectedPersonId.value !== null &&
@@ -431,40 +594,95 @@ const compactCandidateEntryVisible = computed(
     route.mode.value === 'co-star' &&
     coStarWorkspaceReady.value,
 );
-const personDetailDrawerMounted = computed(
-  () =>
-    drawerOpen.value &&
-    PersonDetailSurfaceComponent.value !== null,
-);
 const coStarScope = computed(
   () =>
-    coordinator.candidates.payload?.scope ??
+    (coordinator.candidates.phase === 'pending' && !coordinator.candidates.viewPending
+      ? pendingCandidatesQuery.value?.scope
+      : coordinator.candidates.payload?.scope) ??
     queryStore.applied?.scope ??
     'global',
 );
 const coStarWorkUnit = computed(
   () =>
-    coordinator.candidates.payload?.workUnit ??
+    (coordinator.candidates.phase === 'pending' && !coordinator.candidates.viewPending
+      ? (pendingCandidatesQuery.value?.mergeSeries ? 'series' : 'subject')
+      : coordinator.candidates.payload?.workUnit) ??
     (queryStore.applied?.mergeSeries ? 'series' : 'subject'),
 );
-const appliedPositionKeys = computed(
-  () => queryStore.applied?.positionKeys.map(String) ?? [],
+const cooperationPositionKeys = computed(() => {
+  const query = queryStore.applied;
+  if (!query) return [];
+  return (catalogStore.snapshot?.positions ?? [])
+    .filter((position) => position.subjectType === query.subjectType && position.selectable
+      && position.capabilities.includes('partners'))
+    .map((position) => position.key);
+});
+const candidatesCorePending = computed(
+  () => coordinator.candidates.phase === 'pending' && !coordinator.candidates.viewPending,
 );
+const pendingCoStarAnalysis = computed(() => {
+  const shared = {
+    scope: coStarScope.value,
+    workUnit: coStarWorkUnit.value,
+    positionLabel,
+  };
+  return selection.personCount.value === 1
+    ? {
+        component: PartnersSkeleton,
+        props: {
+          ...shared,
+          source: selection.people.value[0]!,
+          positionKeys: cooperationPositionKeys.value,
+          pageSize: coordinator.partners.view.pageSize,
+        },
+      }
+    : {
+        component: CoStarAnalysisSkeleton,
+        props: {
+          ...shared,
+          people: selection.people.value,
+          pageSize: coordinator.coStar.view.pageSize,
+        },
+      };
+});
 const candidateResource = computed<CandidateResource>(() => ({
   error: coordinator.candidates.error,
   feedback: coordinator.candidates.feedback,
   input: Object.freeze({
     positionKey: coordinator.candidates.input.positionKey,
+    positionScope: coordinator.candidates.input.positionScope,
   }),
   payload: coordinator.candidates.payload,
   phase: coordinator.candidates.phase,
   view: coordinator.candidates.view,
   viewPending: coordinator.candidates.viewPending,
 }));
+watch(
+  () => [candidateExpansionRequested.value, route.mode.value, coordinator.candidates.phase,
+    coordinator.candidates.viewPending, selection.personCount.value] as const,
+  () => {
+    const revision = queryStore.revision;
+    if (candidateExpansionRequested.value !== revision || expandedCandidateRevision === revision
+      || route.mode.value !== 'co-star' || replayingCoStarWorkspace
+      || coordinator.candidates.phase !== 'ready' || coordinator.candidates.viewPending
+      || selection.personCount.value === 0) return;
+    expandedCandidateRevision = revision;
+    if (coordinator.candidates.input.positionScope === 'all') return;
+    const draftScopeAtStart = queryStore.coStarScopeDirty ? undefined : queryStore.coStarPositionScope;
+    void executeCandidateView({ positionKey: null }, { ...defaultCandidateView, ...coordinator.candidates.view, page: 1, search: '' })
+      .then((accepted) => {
+        if (accepted && queryStore.revision === revision) {
+          queryStore.acceptCoStarPositionScope('all', draftScopeAtStart);
+        }
+      });
+  },
+  { flush: 'post' },
+);
 const partnersResource = computed<PartnersResource>(() => ({
   error: coordinator.partners.error,
   feedback: coordinator.partners.feedback,
   input: Object.freeze({
+    positionScope: coordinator.partners.input.positionScope,
     ...(typeof coordinator.partners.input.candidatePositionKey === 'string'
       ? {
           candidatePositionKey:
@@ -488,6 +706,7 @@ const coStarResource = computed<CoStarResource>(() => ({
   error: coordinator.coStar.error,
   feedback: coordinator.coStar.feedback,
   input: Object.freeze({
+    positionScope: coordinator.coStar.input.positionScope,
     participants: Object.freeze(
       coordinator.coStar.input.participants.map((participant) =>
         Object.freeze({
@@ -511,7 +730,7 @@ function executeCandidateView(
   view: Readonly<CandidateView>,
 ): Promise<boolean> {
   return coordinator.executeCandidateView(
-    { positionKey: input.positionKey },
+    { positionKey: input.positionKey, positionScope: 'all' },
     view,
   );
 }
@@ -521,6 +740,7 @@ function executePartners(
   view: Readonly<PartnersView>,
 ): Promise<boolean> {
   const normalizedInput: Readonly<PartnersInput> = Object.freeze({
+    positionScope: input.positionScope ?? 'all',
     source: Object.freeze({
       personId: input.source.personId,
       positionKeys: Object.freeze([...input.source.positionKeys]),
@@ -536,6 +756,7 @@ function executePartners(
   });
   return coordinator.executePartners(
     {
+      positionScope: normalizedInput.positionScope,
       source: {
         personId: normalizedInput.source.personId,
         positionKeys: [...normalizedInput.source.positionKeys],
@@ -569,6 +790,7 @@ function executeCoStar(
   view: Readonly<CoStarView>,
 ): Promise<boolean> {
   const normalizedInput: Readonly<CoStarInput> = Object.freeze({
+    positionScope: input.positionScope ?? 'all',
     participants: Object.freeze(
       input.participants.map((participant) =>
         Object.freeze({
@@ -587,6 +809,7 @@ function executeCoStar(
   });
   return coordinator.executeCoStar(
     {
+      positionScope: normalizedInput.positionScope,
       participants: normalizedInput.participants.map(
         (participant) => ({
           personId: participant.personId,
@@ -610,6 +833,17 @@ function executeCoStarView(
   }
   return coordinator.executeCoStarView(view);
 }
+
+const pendingDetailQuery = computed(() =>
+  coordinator.rankings.phase === 'pending'
+    ? pendingRankingsQuery.value ?? queryStore.draft
+    : coordinator.personDetail.acceptedQuery ?? queryStore.applied ?? queryStore.draft,
+);
+const pendingDetailHasCharacters = computed(() =>
+  pendingDetailQuery.value.positionKeys.some(
+    (key) => catalogStore.snapshot?.positionsByKey.get(String(key))?.kind === 'cast',
+  ),
+);
 
 function executePersonDetail(
   personId: number,
@@ -673,6 +907,7 @@ function rerunCurrentChild(
         ? partnersIntent.value
         : null;
     const currentInput: PartnersInput = {
+      positionScope: coordinator.partners.input.positionScope,
       ...(typeof coordinator.partners.input.candidatePositionKey ===
       'string'
         ? {
@@ -691,6 +926,7 @@ function rerunCurrentChild(
     const replayInput = currentMatches ? currentInput : intent?.input;
     void executePartners(
       {
+        positionScope: replayInput?.positionScope ?? 'all',
         ...(typeof replayInput?.candidatePositionKey === 'string'
           ? {
               candidatePositionKey:
@@ -720,6 +956,7 @@ function rerunCurrentChild(
         ? coStarIntent.value
         : null;
     const currentInput: CoStarInput = {
+      positionScope: coordinator.coStar.input.positionScope,
       participants: coordinator.coStar.input.participants.map(
         (participant) => ({
           personId: participant.personId,
@@ -733,6 +970,7 @@ function rerunCurrentChild(
     );
     void executeCoStar(
       {
+        positionScope: currentMatches ? currentInput.positionScope : intent?.input.positionScope,
         participants: people.map((person) => ({
           personId: person.person.id,
           positionKeys: person.identities.map(
@@ -768,6 +1006,10 @@ function loadAppliedMode(mode: 'ranking' | 'co-star'): void {
   if (!queryStore.applied) {
     return;
   }
+  if (mode === 'ranking' && queryStore.applied.positionKeys.length === 0) {
+    void queryWorkspace.value?.openEditor();
+    return;
+  }
   const resource =
     mode === 'ranking' ? coordinator.rankings : coordinator.candidates;
   if (resourceMatchesApplied(resource) || resource.phase === 'pending') {
@@ -779,7 +1021,7 @@ function loadAppliedMode(mode: 'ranking' | 'co-star'): void {
   });
 }
 
-const shareWorkspace = computed<ShareWorkspace | null>(() => {
+const acceptedRecoveryWorkspace = computed<RecoveryWorkspace | null>(() => {
   if (!queryStore.applied) {
     return null;
   }
@@ -824,6 +1066,7 @@ const shareWorkspace = computed<ShareWorkspace | null>(() => {
   const candidates = {
       input: {
         positionKey: acceptedCandidateInput.positionKey,
+        ...(acceptedCandidateInput.positionScope ? { positionScope: acceptedCandidateInput.positionScope } : {}),
     },
     view: structuredClone(acceptedCandidateView),
   };
@@ -841,6 +1084,7 @@ const shareWorkspace = computed<ShareWorkspace | null>(() => {
     const acceptedView = coordinator.partners.acceptedView;
     const normalizedInput: PartnersInput | null = acceptedInput
       ? {
+          positionScope: acceptedInput.positionScope,
           ...(typeof acceptedInput.candidatePositionKey === 'string'
             ? {
                 candidatePositionKey:
@@ -864,6 +1108,7 @@ const shareWorkspace = computed<ShareWorkspace | null>(() => {
         kind: 'co-star',
         partners: {
           input: {
+            ...(normalizedInput.positionScope ? { positionScope: normalizedInput.positionScope } : {}),
             source: {
               personId: normalizedInput.source.personId,
               positionKeys: [...normalizedInput.source.positionKeys],
@@ -886,6 +1131,7 @@ const shareWorkspace = computed<ShareWorkspace | null>(() => {
   const acceptedView = coordinator.coStar.acceptedView;
   const normalizedInput: CoStarInput | null = acceptedInput
     ? {
+        positionScope: acceptedInput.positionScope,
         participants: acceptedInput.participants.map((participant) => ({
           personId: participant.personId,
           positionKeys: participant.positionKeys.map(String),
@@ -902,6 +1148,7 @@ const shareWorkspace = computed<ShareWorkspace | null>(() => {
       candidates,
       coStar: {
         input: {
+          ...(normalizedInput.positionScope ? { positionScope: normalizedInput.positionScope } : {}),
           participants: normalizedInput.participants.map(
             (participant) => ({
               personId: participant.personId,
@@ -918,12 +1165,12 @@ const shareWorkspace = computed<ShareWorkspace | null>(() => {
   return null;
 });
 
-const currentSharePath = computed<'/co-star' | '/ranking'>(() =>
+const currentRecoveryPath = computed<'/co-star' | '/ranking'>(() =>
   route.mode.value === 'ranking' ? '/ranking' : '/co-star',
 );
 
 watch(
-  [querySessionReady, currentSharePath, shareWorkspace],
+  [querySessionReady, currentRecoveryPath, acceptedRecoveryWorkspace],
   ([ready, path, workspace]) => {
     if (!ready || !workspace || !queryStore.applied) {
       return;
@@ -933,14 +1180,20 @@ watch(
       selectedPersonId.value !== null &&
       coordinator.personDetail.phase === 'pending'
     ) {
-      return;
+      const saved = querySession.read(path);
+      if (
+        saved?.workspace.kind === 'ranking' && saved.workspace.detail &&
+        querySignature(saved.query) === querySignature(queryStore.applied)
+      ) {
+        return;
+      }
     }
     querySession.write(path, queryStore.applied, workspace);
   },
   { flush: 'post' },
 );
 
-function primaryRecoveryWorkspace(): ShareWorkspace | null {
+function primaryRecoveryWorkspace(): RecoveryWorkspace | null {
   if (!queryStore.applied) {
     return null;
   }
@@ -969,6 +1222,7 @@ function primaryRecoveryWorkspace(): ShareWorkspace | null {
     candidates: {
       input: {
         positionKey: coordinator.candidates.input.positionKey,
+        ...(coordinator.candidates.input.positionScope ? { positionScope: coordinator.candidates.input.positionScope } : {}),
       },
       view: structuredClone(coordinator.candidates.view),
     },
@@ -977,7 +1231,7 @@ function primaryRecoveryWorkspace(): ShareWorkspace | null {
   };
 }
 
-function intentRecoveryWorkspace(): ShareWorkspace | null {
+function intentRecoveryWorkspace(): RecoveryWorkspace | null {
   const primary = primaryRecoveryWorkspace();
   if (!primary) {
     return null;
@@ -1016,6 +1270,7 @@ function intentRecoveryWorkspace(): ShareWorkspace | null {
         ? partnersIntent.value
         : null;
     const currentInput: PartnersInput = {
+      positionScope: coordinator.partners.input.positionScope,
       ...(typeof coordinator.partners.input.candidatePositionKey ===
       'string'
         ? {
@@ -1039,6 +1294,7 @@ function intentRecoveryWorkspace(): ShareWorkspace | null {
       kind: 'co-star',
       partners: {
         input: {
+          positionScope: recoveryInput?.positionScope ?? 'all',
           ...(recoveryInput?.candidatePositionKey
             ? {
                 candidatePositionKey:
@@ -1068,6 +1324,7 @@ function intentRecoveryWorkspace(): ShareWorkspace | null {
       ? coStarIntent.value
       : null;
   const currentInput: CoStarInput = {
+      positionScope: coordinator.coStar.input.positionScope,
     participants: coordinator.coStar.input.participants.map(
       (participant) => ({
         personId: participant.personId,
@@ -1086,6 +1343,7 @@ function intentRecoveryWorkspace(): ShareWorkspace | null {
     candidates: primary.candidates,
     coStar: {
       input: {
+        positionScope: recoveryInput?.positionScope ?? 'all',
         participants: (
           recoveryInput?.participants ??
           people.map((person) => ({
@@ -1117,36 +1375,24 @@ function recoverDeferredSurface(): boolean {
   }
   const path =
     route.mode.value === 'ranking' ? '/ranking' : '/co-star';
-  let recoveryUrl: string | null = null;
+  let recoverySaved = false;
   for (const workspace of [
     intentRecoveryWorkspace(),
-    shareWorkspace.value,
+    acceptedRecoveryWorkspace.value,
     primaryRecoveryWorkspace(),
   ]) {
     if (!workspace) {
       continue;
     }
-    try {
-      recoveryUrl = createShareUrl(
-        new URL(targetWindow.location.href),
-        path,
-        queryStore.applied,
-        workspace,
-      );
+    if (querySession.write(path, queryStore.applied, workspace)) {
+      recoverySaved = true;
       break;
-    } catch {
-      recoveryUrl = null;
     }
   }
-  if (!recoveryUrl) {
+  if (!recoverySaved) {
     return false;
   }
   try {
-    targetWindow.history.replaceState(
-      targetWindow.history.state,
-      '',
-      recoveryUrl,
-    );
     targetWindow.document.documentElement.dataset.deferredSurfaceRecovery =
       'deferred-surface-reload-v1';
     targetWindow.location.reload();
@@ -1193,7 +1439,7 @@ function collectBoundedCandidateIdentities(
   let selectedPeople = 0;
 
   for (const item of items) {
-    if (selectedPeople >= 2) {
+    if (selectedPeople >= 1) {
       break;
     }
     const itemIdentities = selectedIdentities(item.person, item.positionKeys);
@@ -1221,16 +1467,17 @@ function activateDefaultCandidates(): void {
   }
 }
 
-function shareCandidateInput(
-  input: Readonly<{ positionKey: unknown }>,
+function recoveryCandidateInput(
+  input: Readonly<{ positionKey: unknown; positionScope?: 'query' | 'all' }>,
 ): Readonly<CandidateInput> {
   return Object.freeze({
+    ...(input.positionScope ? { positionScope: input.positionScope } : {}),
     positionKey:
       input.positionKey === null ? null : String(input.positionKey),
   });
 }
 
-function installShareWorkspace(payload: SharePayload): void {
+function installRecoveryWorkspace(payload: RecoveryPayload): void {
   if (payload.workspace.kind === 'ranking') {
     coordinator.rankings.view = Object.freeze({
       order: payload.workspace.rankingsView.order ?? 'desc',
@@ -1241,7 +1488,7 @@ function installShareWorkspace(payload: SharePayload): void {
     });
     return;
   }
-  coordinator.candidates.input = shareCandidateInput(
+  coordinator.candidates.input = recoveryCandidateInput(
     payload.workspace.candidates.input,
   );
   coordinator.candidates.view = Object.freeze(
@@ -1249,9 +1496,9 @@ function installShareWorkspace(payload: SharePayload): void {
   );
 }
 
-async function replayShare(payload: SharePayload): Promise<boolean> {
+async function replayRecovery(payload: RecoveryPayload): Promise<boolean> {
   queryStore.replaceDraft(draftFromEffective(payload.query));
-  installShareWorkspace(payload);
+  installRecoveryWorkspace(payload);
   const suppressAutomaticRankingDetail =
     payload.workspace.kind === 'ranking';
   const suppressAutomaticCoStarSelection =
@@ -1267,7 +1514,7 @@ async function replayShare(payload: SharePayload): Promise<boolean> {
     primaryAccepted = await coordinator.execute({
       candidateInput:
         payload.workspace.kind === 'co-star'
-          ? shareCandidateInput(payload.workspace.candidates.input)
+          ? recoveryCandidateInput(payload.workspace.candidates.input)
           : undefined,
       candidateView:
         payload.workspace.kind === 'co-star'
@@ -1289,6 +1536,9 @@ async function replayShare(payload: SharePayload): Promise<boolean> {
   }
   if (!primaryAccepted) {
     return false;
+  }
+  if (payload.workspace.kind === 'co-star') {
+    queryStore.setCoStarPositionScope(payload.workspace.candidates.input.positionScope ?? 'query', true);
   }
   if (payload.workspace.kind === 'ranking') {
     const detail = payload.workspace.detail;
@@ -1313,7 +1563,7 @@ async function replayShare(payload: SharePayload): Promise<boolean> {
         return false;
       }
       selectedPersonId.value = detail.input.personId;
-      drawerOpen.value = compact.value;
+      drawerOpen.value = detailDrawerLayout.value;
     }
     queryWorkspace.value?.closeForExternalAction();
     await nextTick();
@@ -1332,6 +1582,7 @@ async function replayShare(payload: SharePayload): Promise<boolean> {
     });
     const accepted = await executePartners(
       {
+        positionScope: payload.workspace.partners.input.positionScope ?? 'query',
         ...(typeof payload.workspace.partners.input
           .candidatePositionKey === 'string'
           ? {
@@ -1370,6 +1621,7 @@ async function replayShare(payload: SharePayload): Promise<boolean> {
   });
   const accepted = await executeCoStar(
     {
+      positionScope: payload.workspace.coStar.input.positionScope ?? 'query',
       participants:
         payload.workspace.coStar.input.participants.map(
           (participant) => ({
@@ -1411,6 +1663,9 @@ async function retryRanking(): Promise<boolean> {
 }
 
 async function retryCandidates(): Promise<boolean> {
+  if (queryStore.applied && coordinator.candidates.phase === 'ready' && selection.personCount.value > 0) {
+    return executeCandidateView({ positionKey: null }, { ...defaultCandidateView, ...coordinator.candidates.view, page: 1, search: '' });
+  }
   return coordinator.execute({
     candidateInput: coordinator.candidates.input,
     catalog: catalogStore.snapshot,
@@ -1476,7 +1731,7 @@ function activatePerson(
 ): void {
   selectedPersonId.value = personId;
   void loadPersonDetailSurface();
-  if (compact.value) {
+  if (detailDrawerLayout.value) {
     drawerOpen.value = true;
   }
   void executePersonDetail(personId);
@@ -1504,29 +1759,17 @@ function resetPersonDetailSelection(): void {
 
 async function initialize(): Promise<void> {
   runtime.markReady();
-  const sessionPath = currentSharePath.value;
-  const hadFragment = targetWindow.location.hash.length > 0;
-  const savedSession = hadFragment
-    ? null
-    : querySession.read(sessionPath);
-  if (!hadFragment && !savedSession) {
+  const sessionPath = currentRecoveryPath.value;
+  const savedSession = querySession.read(sessionPath);
+  if (!savedSession) {
     queryStore.draft.uid = route.prefilledUser();
   }
   try {
     await loadCatalog();
-    const shareResult = await route.consumeInitialShare(replayShare);
-    if (shareResult === 'invalid') {
-      routeError.value = '分享查询无效或已不受支持';
-    } else if (shareResult === 'deferred') {
-      routeError.value = '分享查询已读取，但暂时无法应用；可重试后再次查询';
-    } else if (
-      shareResult === 'absent' &&
-      savedSession &&
-      currentSharePath.value === sessionPath
-    ) {
+    if (savedSession && currentRecoveryPath.value === sessionPath) {
       let restored = false;
       try {
-        restored = await replayShare(savedSession);
+        restored = await replayRecovery(savedSession);
       } catch {
         restored = false;
       }
@@ -1552,7 +1795,7 @@ watch(
     }
   },
 );
-watch(compact, (isCompact) => {
+watch(detailDrawerLayout, (isCompact) => {
   if (!isCompact) {
     drawerOpen.value = false;
   }
@@ -1598,17 +1841,27 @@ watch(
 watch(
   () => route.mode.value,
   (mode) => {
+    closeCoStarPerson(false);
+    if (navigationExpectedMode && mode !== navigationExpectedMode) {
+      navigationSequence += 1;
+      linkNavigationPending.value = false;
+      navigationExpectedMode = null;
+    }
     if (mode !== 'co-star') {
       coStarWorkspaceHandle.value?.closePicker();
     }
     if (mode !== 'ranking' && drawerOpen.value) {
       drawerOpen.value = false;
+      void nextTick().then(() => {
+        targetWindow.document.getElementById(`mode-tab-${mode}`)?.focus();
+      });
     }
-    loadAppliedMode(mode);
+    if (!linkNavigationPending.value) loadAppliedMode(mode);
   },
 );
 
 onBeforeUnmount(() => {
+  personLinks.close();
   coordinator.clearPersonDetail();
   coordinator.cancel('ranking');
   coordinator.cancel('co-star');
@@ -1622,32 +1875,22 @@ onBeforeUnmount(() => {
 
 <template>
   <app-providers :theme="themeOwner.theme.value">
-    <div
-      class="app-shell"
+    <app-viewport
+      :target-window="targetWindow"
       data-app-root
       :data-app-ready="runtime.isReady ? 'true' : 'false'"
       :data-runtime-phase="runtime.phase"
-      :aria-hidden="
-        personDetailDrawerMounted ? 'true' : undefined
-      "
-      :inert="
-        personDetailDrawerMounted ? true : undefined
-      "
     >
-      <header class="app-header">
+      <template #header>
         <app-header
-          :coordinator="coordinator"
           :mode="route.mode.value"
           :navigate="route.navigate"
-          :query-store="queryStore"
-          :share-workspace="shareWorkspace"
           :target-window="targetWindow"
           :theme="themeOwner.theme.value"
           :toggle-theme="themeOwner.toggle"
         />
-      </header>
+      </template>
 
-      <div class="app-page-scroll">
         <main id="main-content" class="app-main">
           <query-workspace
             ref="queryWorkspace"
@@ -1675,6 +1918,7 @@ onBeforeUnmount(() => {
           <p v-if="routeError" class="app-local-error" role="alert">
             {{ routeError }}
           </p>
+          <p v-if="linkError" class="app-local-error" role="alert">{{ linkError }}</p>
 
           <section
             id="mode-panel-ranking"
@@ -1693,6 +1937,7 @@ onBeforeUnmount(() => {
               class="ranking-workspace"
               :class="{
                 'ranking-workspace--single':
+                  detailDrawerLayout ||
                   coordinator.rankings.phase !== 'pending' &&
                   selectedPersonId === null,
               }"
@@ -1703,7 +1948,9 @@ onBeforeUnmount(() => {
                 :device-pixel-ratio="targetWindow.devicePixelRatio"
                 :expanded-person-id="expandedPersonId"
                 :execute-view="coordinator.executeRankingView"
-                :pending-personal="queryStore.draft.scope === 'personal'"
+                :pending-personal="pendingDetailQuery.scope === 'personal'"
+                :pending-has-character-count="pendingDetailHasCharacters"
+                :pending-work-unit="pendingDetailQuery.mergeSeries ? 'series' : 'subject'"
                 :resource="coordinator.rankings"
                 :retry="retryRanking"
                 :selected-person-id="selectedPersonId"
@@ -1716,7 +1963,17 @@ onBeforeUnmount(() => {
                 error-title="人物排行界面加载失败"
                 loading-title="正在加载人物排行界面"
                 @retry="loadRankingSurface"
-              />
+              >
+                <template #loading>
+                  <ranking-results-skeleton
+                    :personal="pendingDetailQuery.scope === 'personal'"
+                    :has-character-count="pendingDetailHasCharacters"
+                    :work-unit="pendingDetailQuery.mergeSeries ? 'series' : 'subject'"
+                    :view="coordinator.rankings.view"
+                    :page-size="coordinator.rankings.view.pageSize"
+                  />
+                </template>
+              </deferred-surface-state>
               <aside
                 v-if="desktopRankingCompanionPending"
                 id="person-detail-panel"
@@ -1726,33 +1983,57 @@ onBeforeUnmount(() => {
                   coordinator.rankings.phase === 'pending' ? 'true' : undefined
                 "
               >
-                <person-detail-skeleton />
+                <person-detail-skeleton
+                  :personal="pendingDetailQuery.scope === 'personal'"
+                  :has-character-count="pendingDetailHasCharacters"
+                  :work-unit="pendingDetailQuery.mergeSeries ? 'series' : 'subject'"
+                  :section="coordinator.personDetail.view.section"
+                  :page-size="coordinator.personDetail.view.pageSize"
+                />
               </aside>
               <component
                 :is="PersonDetailSurfaceComponent"
                 v-else-if="
                   PersonDetailSurfaceComponent && selectedPersonId !== null
                 "
-                :compact="compact"
+                :compact="detailDrawerLayout"
                 :device-pixel-ratio="targetWindow.devicePixelRatio"
                 :execute-view="executePersonDetailView"
                 :open="selectedPersonId !== null && drawerOpen"
                 :position-label="positionDisplay"
                 :resource="coordinator.personDetail"
+                :has-character-count="pendingDetailHasCharacters"
                 :retry="executePersonDetail"
                 :target-window="targetWindow"
                 @close="closePersonDrawer"
-              />
+              >
+                <template #profile-action>
+                  <n-button :size="compact ? 'small' : 'medium'" :disabled="coordinator.personDetail.phase !== 'ready'" icon-placement="right" @click="followRankingPerson">
+                    查看共演
+                    <template #icon><app-icon name="chevron-right" :size="16" /></template>
+                  </n-button>
+                </template>
+              </component>
               <deferred-surface-state
                 v-else-if="
                   selectedPersonId !== null &&
-                  (!compact || drawerOpen)
+                  (!detailDrawerLayout || drawerOpen)
                 "
                 :error="personDetailSurfaceLoadFailed"
                 error-title="人物详情加载失败"
                 loading-title="正在加载人物详情"
                 @retry="loadPersonDetailSurface"
-              />
+              >
+                <template #loading>
+                  <person-detail-skeleton
+                    :personal="pendingDetailQuery.scope === 'personal'"
+                    :has-character-count="pendingDetailHasCharacters"
+                    :work-unit="pendingDetailQuery.mergeSeries ? 'series' : 'subject'"
+                    :section="coordinator.personDetail.view.section"
+                    :page-size="coordinator.personDetail.view.pageSize"
+                  />
+                </template>
+              </deferred-surface-state>
             </div>
 
             <section
@@ -1790,6 +2071,7 @@ onBeforeUnmount(() => {
               "
               ref="coStarWorkspaceHandle"
               :before-open-picker="closeQueryBeforePicker"
+              :analysis-pending="candidatesCorePending"
               :cancel="() => coordinator.cancel('co-star')"
               :device-pixel-ratio="targetWindow.devicePixelRatio"
               :execute-view="executeCandidateView"
@@ -1802,7 +2084,45 @@ onBeforeUnmount(() => {
               :target-window="targetWindow"
               @picker-open-change="coStarPickerExpanded = $event"
             >
+              <template #analysis-loading>
+                <component
+                  :is="pendingCoStarAnalysis.component"
+                  v-bind="pendingCoStarAnalysis.props"
+                />
+              </template>
               <template #analysis>
+                <component
+                  :is="PersonDetailSurfaceComponent"
+                  v-if="(inspectedPerson || detailDrawerLayout) && PersonDetailSurfaceComponent"
+                  panel-id="co-star-person-detail-panel"
+                  :return-focus="detailOriginTrigger"
+                  inline
+                  :compact="detailDrawerLayout"
+                  :open="Boolean(inspectedPerson) && route.mode.value === 'co-star'"
+                  :device-pixel-ratio="targetWindow.devicePixelRatio"
+                  :execute-view="personLinks.loadDetail"
+                  :position-label="positionDisplay"
+                  :resource="personLinks.detail"
+                  :has-character-count="linkedDetailHasCharacters"
+                  :retry="() => personLinks.loadDetail()"
+                  :target-window="targetWindow"
+                  @close="closeCoStarPerson()"
+                >
+                  <template #actions>
+                    <n-button v-if="!detailDrawerLayout" :size="compact ? 'small' : 'medium'" @click="closeCoStarPerson()">返回共演分析</n-button>
+                    <n-button
+                      :size="compact ? 'small' : 'medium'"
+                      :loading="linkedRankPending || linkNavigationPending"
+                      :disabled="!linkedRankError && !linkedRankPending && linkedRank?.page == null"
+                      @click="linkedRankError ? personLinks.loadRank() : locateInspectedPerson()"
+                    >{{ linkedRankError ? '重试排名' : '在排行中查看' }}</n-button>
+                    <span v-if="linkedRankError || (linkedRank && linkedRank.rank === null)" class="person-workspace-notice" role="status">{{ linkedRankError || '未进入当前榜单：不满足当前查询的全部职位条件' }}</span>
+                  </template>
+                </component>
+                <deferred-surface-state v-else-if="inspectedPerson" :error="personDetailSurfaceLoadFailed" error-title="人物详情加载失败" loading-title="正在加载人物详情" @retry="loadPersonDetailSurface">
+                  <template #loading><person-detail-skeleton :personal="coStarScope === 'personal'" :has-character-count="linkedDetailHasCharacters" :work-unit="coStarWorkUnit" :section="personLinks.detail.view.section" :page-size="personLinks.detail.view.pageSize" /></template>
+                </deferred-surface-state>
+                <div :hidden="Boolean(inspectedPerson && !detailDrawerLayout)" :inert="inspectedPerson && !detailDrawerLayout ? true : undefined">
                 <template v-if="selection.personCount.value === 1">
                   <component
                     :is="PartnersSurfaceComponent"
@@ -1811,7 +2131,7 @@ onBeforeUnmount(() => {
                     :device-pixel-ratio="targetWindow.devicePixelRatio"
                     :execute="executePartners"
                     :execute-view="executePartnersView"
-                    :position-keys="appliedPositionKeys"
+                    :position-keys="cooperationPositionKeys"
                     :position-label="positionLabel"
                     :resource="partnersResource"
                     :scope="coStarScope"
@@ -1820,6 +2140,7 @@ onBeforeUnmount(() => {
                      :target-window="targetWindow"
                      :work-unit="coStarWorkUnit"
                      @partner-activated="revealCoStarAnalysis"
+                     @inspect-person="inspectCoStarPerson"
                    />
                   <deferred-surface-state
                     v-else
@@ -1827,7 +2148,18 @@ onBeforeUnmount(() => {
                     error-title="合作人物加载失败"
                     loading-title="正在加载合作人物分析"
                     @retry="loadPartnersSurface"
-                  />
+                  >
+                    <template #loading>
+                      <partners-skeleton
+                        :source="selection.people.value[0]!"
+                        :scope="coStarScope"
+                        :work-unit="coStarWorkUnit"
+                        :page-size="coordinator.partners.view.pageSize"
+                        :position-label="positionLabel"
+                        :position-keys="cooperationPositionKeys"
+                      />
+                    </template>
+                  </deferred-surface-state>
                 </template>
                 <template
                   v-else-if="selection.personCount.value >= 2"
@@ -1844,6 +2176,7 @@ onBeforeUnmount(() => {
                     :scope="coStarScope"
                     :selection="selection"
                     :work-unit="coStarWorkUnit"
+                    @inspect-person="inspectCoStarPerson"
                   />
                   <deferred-surface-state
                     v-else
@@ -1852,8 +2185,19 @@ onBeforeUnmount(() => {
                     :loading-title="`正在加载 ${selection.personCount.value} 人共演分析`"
                     retry-label="重新加载"
                     @retry="loadCoStarSurface"
-                  />
+                  >
+                    <template #loading>
+                      <co-star-analysis-skeleton
+                        :people="selection.people.value"
+                        :scope="coStarScope"
+                        :work-unit="coStarWorkUnit"
+                        :page-size="coordinator.coStar.view.pageSize"
+                        :position-label="positionLabel"
+                      />
+                    </template>
+                  </deferred-surface-state>
                 </template>
+                </div>
               </template>
             </component>
 
@@ -1863,22 +2207,36 @@ onBeforeUnmount(() => {
               error-title="候选人物加载失败"
               loading-title="正在加载候选人物"
               @retry="loadCoStarWorkspace"
-            />
-
-            <section
-              v-else-if="coordinator.candidates.phase === 'pending'"
-              class="query-result-state surface-panel"
-              aria-busy="true"
-              aria-live="polite"
             >
-              <span class="state-icon state-icon--loading">
-                <query-icon name="search" :size="28" />
-              </span>
-              <h1>正在应用查询</h1>
-              <div class="query-result-skeleton" aria-hidden="true">
-                <n-skeleton class="app-skeleton" text :repeat="4" />
-              </div>
-            </section>
+              <template #loading>
+                <candidate-workspace-skeleton
+                  :compact="compact"
+                  :work-unit="coStarWorkUnit"
+                  :page-size="coordinator.candidates.view.pageSize"
+                >
+                  <template #analysis>
+                    <component
+                      :is="pendingCoStarAnalysis.component"
+                      v-bind="pendingCoStarAnalysis.props"
+                    />
+                  </template>
+                </candidate-workspace-skeleton>
+              </template>
+            </deferred-surface-state>
+
+            <candidate-workspace-skeleton
+              v-else-if="coordinator.candidates.phase === 'pending'"
+              :compact="compact"
+              :work-unit="coStarWorkUnit"
+              :page-size="coordinator.candidates.view.pageSize"
+            >
+              <template #analysis>
+                <component
+                  :is="pendingCoStarAnalysis.component"
+                  v-bind="pendingCoStarAnalysis.props"
+                />
+              </template>
+            </candidate-workspace-skeleton>
 
             <section
               v-else-if="!queryStore.applied"
@@ -1922,7 +2280,6 @@ onBeforeUnmount(() => {
             </nav>
           </div>
         </footer>
-      </div>
-    </div>
+    </app-viewport>
   </app-providers>
 </template>

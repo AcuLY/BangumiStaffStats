@@ -3,9 +3,8 @@ import {
   NButton,
   NCollapse,
   NCollapseItem,
-  NInput,
   NSelect,
-  NSkeleton,
+  NTag,
 } from 'naive-ui';
 import {
   computed,
@@ -19,9 +18,9 @@ import SafeImage from '../../../shared/components/SafeImage.vue';
 import AppIcon from '../../../shared/components/AppIcon.vue';
 import { useResultReveal } from '../../../shared/composables/useResultReveal';
 import { personImageCandidates } from '../../../shared/media/bangumiImage';
-import { useCompactLayout } from '../../query/composables/useCompactLayout';
+import { useCompactLayout } from '../../../shared/composables/useCompactLayout';
 import AdaptivePagination from '../../ranking/components/AdaptivePagination.vue';
-import SortDirectionButton from '../../ranking/components/SortDirectionButton.vue';
+import SearchSortToolbar from '../../../shared/components/SearchSortToolbar.vue';
 import {
   candidateInput,
   candidateSortOptions,
@@ -34,6 +33,7 @@ import {
 } from '../model';
 import type { CoStarSelection } from '../selection';
 import CoStarIcon from './CoStarIcon.vue';
+import CandidateRowsSkeleton from './CandidateRowsSkeleton.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -66,10 +66,30 @@ const selectedTrayExpandedNames = ref<Array<string | number>>(
   props.drawer ? [] : ['selected-people'],
 );
 const compactLayout = useCompactLayout();
+const selectedList = ref<HTMLElement | null>(null);
+const selectedCanScrollUp = ref(false);
+const selectedCanScrollDown = ref(false);
+let selectedResizeObserver: ResizeObserver | undefined;
+
+function updateSelectedScrollEdges(): void {
+  const list = selectedList.value;
+  selectedCanScrollUp.value = Boolean(list && list.scrollTop > 1);
+  selectedCanScrollDown.value = Boolean(list && list.scrollHeight - list.clientHeight - list.scrollTop > 1);
+}
+
+watch([selectedList, () => props.selection.people.value], () => {
+  selectedResizeObserver?.disconnect();
+  const list = selectedList.value;
+  if (list && typeof ResizeObserver === 'function') {
+    selectedResizeObserver = new ResizeObserver(updateSelectedScrollEdges);
+    selectedResizeObserver.observe(list);
+    for (const item of list.children) selectedResizeObserver.observe(item);
+  }
+  updateSelectedScrollEdges();
+}, { flush: 'post' });
 const controlSize = computed(() =>
   compactLayout.value ? 'small' : 'medium',
 );
-const toolbarControlSize = 'small' as const;
 const allPositionsValue = '__all-positions__';
 const searchDraft = ref(props.resource.view.search ?? '');
 const picker = ref<HTMLElement | null>(null);
@@ -102,35 +122,6 @@ const positionOptions = computed(() =>
 const currentPositionLabel = computed(() =>
   positionKey.value === null ? '全部职位' : props.positionLabel(positionKey.value),
 );
-const payloadMatchesPosition = computed(
-  () => payload.value?.positionKey === positionKey.value,
-);
-const currentPositionCount = computed(
-  () =>
-    !payloadMatchesPosition.value
-      ? null
-      : positionKey.value === null
-      ? payload.value?.pagination.total ?? 0
-      : payload.value?.positionCounts.find(
-          (entry) => entry.positionKey === positionKey.value,
-        )?.count ?? 0,
-);
-const range = computed(() => {
-  const current = payload.value;
-  if (
-    !current ||
-    !payloadMatchesPosition.value ||
-    current.items.length === 0
-  ) {
-    return { end: 0, start: 0 };
-  }
-  const start =
-    (current.pagination.page - 1) * current.pagination.pageSize + 1;
-  return {
-    end: start + current.items.length - 1,
-    start,
-  };
-});
 const sortOptions = computed(() =>
   [
     ...candidateSortOptions(
@@ -155,6 +146,20 @@ const itemSelected = (
   item: NonNullable<CandidateResource['payload']>['items'][number],
 ) =>
   item.positionKeys.every((key) => props.selection.has(item.person.id, key));
+
+const itemPartiallySelected = (
+  item: NonNullable<CandidateResource['payload']>['items'][number],
+) => !itemSelected(item) && item.positionKeys.some((key) => props.selection.has(item.person.id, key));
+
+function candidateActionLabel(item: NonNullable<CandidateResource['payload']>['items'][number]): string {
+  const name = primaryPersonName(item.person);
+  if (itemPartiallySelected(item)) {
+    const selected = props.selection.identitiesFor(item.person.id).map((identity) => identity.positionLabel).join('、');
+    const missing = item.positionKeys.filter((key) => !props.selection.has(item.person.id, key)).map(props.positionLabel).join('、');
+    return `${name}已选${selected}身份；补选${missing}身份`;
+  }
+  return `${itemSelected(item) ? '移除' : '选择'}${name}的${item.positionKeys.map(props.positionLabel).join('、')}身份`;
+}
 
 function clearSearchTimer(): void {
   if (searchTimer !== undefined) {
@@ -266,10 +271,9 @@ async function restoreSelectionFocus(
   }
 
   const trayHeader = selectedTray.value?.querySelector<HTMLElement>(
-    '.n-collapse-item__header-main',
+    '.candidate-selected-tray-toggle',
   ) ?? null;
   if (!focusTarget && trayHeader) {
-    trayHeader.tabIndex = -1;
     focusTarget = trayHeader;
   }
   focusTarget ??= picker.value?.querySelector<HTMLInputElement>(
@@ -315,7 +319,10 @@ watch(
   },
 );
 
-onBeforeUnmount(clearSearchTimer);
+onBeforeUnmount(() => {
+  clearSearchTimer();
+  selectedResizeObserver?.disconnect();
+});
 </script>
 
 <template>
@@ -351,7 +358,15 @@ onBeforeUnmount(clearSearchTimer);
         display-directive="show"
       >
         <n-collapse-item name="selected-people">
-          <template #header>已选人物</template>
+          <template #header>
+            <button
+              class="candidate-selected-tray-toggle"
+              type="button"
+              :aria-expanded="selectedTrayExpandedNames.includes('selected-people')"
+              aria-controls="co-star-selected-people-list"
+              @click.stop="selectedTrayExpandedNames = selectedTrayExpandedNames.includes('selected-people') ? [] : ['selected-people']"
+            >已选人物</button>
+          </template>
           <template #header-extra>
             <span
               class="candidate-selection-summary"
@@ -368,9 +383,18 @@ onBeforeUnmount(clearSearchTimer);
             </span>
           </template>
 
+          <div class="candidate-selected-content">
+          <div
+            class="candidate-selected-scroll-boundary"
+            :inert="!selectedTrayExpandedNames.includes('selected-people') || undefined"
+            :aria-hidden="!selectedTrayExpandedNames.includes('selected-people')"
+            :class="{ 'can-scroll-up': selectedCanScrollUp, 'can-scroll-down': selectedCanScrollDown }"
+          >
           <ol
+            ref="selectedList"
             id="co-star-selected-people-list"
             class="candidate-selected-people"
+            @scroll.passive="updateSelectedScrollEdges"
           >
             <li
               v-for="(item, index) in selection.people.value"
@@ -405,12 +429,14 @@ onBeforeUnmount(clearSearchTimer);
                     identityIndex,
                   )"
                 >
-                  <span class="candidate-selected-position__surface">
-                    <span :title="identity.positionLabel">
-                      {{ identity.positionLabel }}
+                  <n-tag class="candidate-selected-position__surface" type="primary" size="small">
+                    <span class="candidate-selected-position__content">
+                      <span :title="identity.positionLabel">
+                        {{ identity.positionLabel }}
+                      </span>
+                      <app-icon name="close" :size="12" />
                     </span>
-                    <app-icon name="close" :size="12" />
-                  </span>
+                  </n-tag>
                 </button>
               </span>
               <button
@@ -426,6 +452,12 @@ onBeforeUnmount(clearSearchTimer);
               </button>
             </li>
           </ol>
+          </div>
+          <p v-if="selection.personCount.value === 1" class="co-star-multi-person-hint">
+            <app-icon name="people" :size="20" />
+            <span>点选下方候选人物，查看与已选人物的共演情况</span>
+          </p>
+          </div>
         </n-collapse-item>
       </n-collapse>
       <p
@@ -440,22 +472,6 @@ onBeforeUnmount(clearSearchTimer);
     <section class="candidate-browser" aria-labelledby="candidate-title">
       <div class="candidate-browser__heading">
         <strong id="candidate-title">候选人物</strong>
-        <span>
-          {{ currentPositionLabel }} · {{ range.start }}—{{ range.end }} /
-          {{ currentPositionCount ?? '…' }}
-        </span>
-      </div>
-
-      <div class="candidate-position-browser">
-        <n-select
-          :size="controlSize"
-          :menu-size="controlSize"
-          :value="positionKey ?? allPositionsValue"
-          :options="positionOptions"
-          aria-label="候选职位范围"
-          :input-props="{ name: 'candidatePosition' }"
-          @update:value="changePosition"
-        />
       </div>
 
       <div
@@ -470,41 +486,36 @@ onBeforeUnmount(clearSearchTimer);
         :aria-label="`${currentPositionLabel}候选人物`"
         :aria-busy="rowsPending"
       >
-        <div class="candidate-toolbar">
-          <n-input
-            :size="toolbarControlSize"
-            :value="searchDraft"
-            :clearable="Boolean(searchDraft)"
-            autocomplete="off"
-            placeholder="搜索人物"
-            :aria-label="`搜索${currentPositionLabel}候选人物`"
-            :input-props="{
-              name: 'candidateSearch',
-              spellcheck: 'false',
-            }"
-            @update:value="changeSearch"
-          >
-            <template #prefix>
-              <app-icon name="search" :size="16" />
-            </template>
-          </n-input>
-          <n-select
-            class="candidate-sort-select"
-            :size="toolbarControlSize"
-            :menu-size="toolbarControlSize"
-            :value="view.sort"
-            :options="sortOptions"
-            :consistent-menu-width="false"
-            aria-label="候选人物排序规则"
-            @update:value="changeSort"
-          />
-          <sort-direction-button
-            class="candidate-sort-direction"
-            :size="toolbarControlSize"
-            :order="view.order"
-            @change="changeOrder"
-          />
-        </div>
+        <search-sort-toolbar
+          class="candidate-toolbar"
+          :search="searchDraft"
+          :sort="view.sort"
+          :order="view.order"
+          :options="sortOptions"
+          :search-label="`搜索${currentPositionLabel}候选人物`"
+          search-name="candidateSearch"
+          search-class=""
+          sort-label="候选人物排序规则"
+          sort-class="candidate-sort-select"
+          order-class="candidate-sort-direction"
+          search-icon
+          @search="changeSearch"
+          @sort="changeSort"
+          @order="changeOrder"
+        >
+          <template #filters="{ size }">
+            <n-select
+              :size="size"
+              :menu-size="size"
+              :value="positionKey ?? allPositionsValue"
+              :options="positionOptions"
+              :consistent-menu-width="false"
+              aria-label="候选职位范围"
+              :input-props="{ name: 'candidatePosition' }"
+              @update:value="changePosition"
+            />
+          </template>
+        </search-sort-toolbar>
 
         <p
           v-if="resource.error && payload"
@@ -526,19 +537,12 @@ onBeforeUnmount(clearSearchTimer);
           </n-button>
         </p>
 
-        <div v-if="rowsPending" class="candidate-row-skeletons">
+        <template v-if="rowsPending">
           <span class="sr-only" role="status" aria-live="polite">
             正在加载候选人物
           </span>
-          <n-skeleton
-            v-for="index in view.pageSize"
-            :key="index"
-            class="app-skeleton"
-            height="60px"
-            :sharp="false"
-            aria-hidden="true"
-          />
-        </div>
+          <candidate-rows-skeleton :count="view.pageSize" :show-positions="positionKey === null" />
+        </template>
 
         <div
           v-else-if="!payload && resource.error"
@@ -565,9 +569,10 @@ onBeforeUnmount(clearSearchTimer);
             type="button"
             :class="{
               'is-selected': itemSelected(item),
+              'is-partially-selected': itemPartiallySelected(item),
             }"
-            :aria-pressed="itemSelected(item)"
-            :aria-label="`${itemSelected(item) ? '移除' : '选择'}${primaryPersonName(item.person)}的${item.positionKeys.map(positionLabel).join('、')}身份`"
+            :aria-pressed="itemPartiallySelected(item) ? 'mixed' : itemSelected(item)"
+            :aria-label="candidateActionLabel(item)"
             @click="toggleCandidate(item)"
           >
             <span class="candidate-row__portrait">
@@ -586,12 +591,13 @@ onBeforeUnmount(clearSearchTimer);
               />
               <span
                 v-if="
-                  itemSelected(item)
+                  itemSelected(item) || itemPartiallySelected(item)
                 "
                 class="candidate-row__selected-state"
                 aria-hidden="true"
               >
-                <co-star-icon name="check" :size="11" />
+                <span v-if="itemPartiallySelected(item)" class="candidate-row__partial-mark" />
+                <co-star-icon v-else name="check" :size="11" />
               </span>
             </span>
             <span class="candidate-row__identity">
@@ -611,7 +617,7 @@ onBeforeUnmount(clearSearchTimer);
                 class="candidate-row__positions"
                 :title="item.positionKeys.map(positionLabel).join(' / ')"
               >
-                {{ item.positionKeys.map(positionLabel).join(' · ') }}
+                {{ itemPartiallySelected(item) ? '已选部分身份 · ' : '' }}{{ item.positionKeys.map(positionLabel).join(' · ') }}
               </span>
               <span
                 v-if="otherSelectedIdentityLabels(item.person.id, item.positionKeys).length"
@@ -642,18 +648,11 @@ onBeforeUnmount(clearSearchTimer);
           </div>
         </div>
 
-        <footer class="candidate-footer">
-          <n-skeleton
-            v-if="rowsPending"
-            class="app-skeleton candidate-pagination-skeleton"
-            :sharp="false"
-            aria-hidden="true"
-          />
+        <footer v-if="payload" class="candidate-footer">
           <adaptive-pagination
-            v-else-if="payload"
+            :pending="rowsPending"
             :page="payload.pagination.page"
             :page-size="payload.pagination.pageSize"
-            :item-count="payload.items.length"
             :total="payload.pagination.total"
             aria-label="候选人物分页"
             page-size-label="每页人数"

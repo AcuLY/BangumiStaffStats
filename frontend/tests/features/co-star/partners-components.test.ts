@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { NSelect, NTooltip } from 'naive-ui';
+import { NSelect } from 'naive-ui';
 import { nextTick } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -15,6 +15,8 @@ import type {
 } from '../../../src/features/co-star/partners';
 import { createCoStarSelection } from '../../../src/features/co-star/selection';
 import AdaptivePagination from '../../../src/features/ranking/components/AdaptivePagination.vue';
+import RankedPersonList from '../../../src/features/ranking/components/RankedPersonList.vue';
+import CoStarParticipants from '../../../src/features/co-star/components/CoStarParticipants.vue';
 
 const sourcePerson = Object.freeze({
   id: 1,
@@ -57,6 +59,7 @@ const view: Readonly<PartnersView> = Object.freeze({
   sort: 'count',
 });
 const payload: PartnersPayload = Object.freeze({
+  metricScale: Object.freeze({ kind: 'linear', metric: 'count', max: 3 }),
   collection: Object.freeze({
     fetchedAt: '2026-07-25T08:00:00Z',
     stale: false,
@@ -165,10 +168,30 @@ afterEach(() => {
 });
 
 describe('one-person partners surface', () => {
-  it('preserves oracle hierarchy while displaying server summary, leaders, rank, metrics, and pagination', () => {
+  it('uses the complete signed scale when a maximum is outside the displayed page', async () => {
+    const positive = { ...payload.items[0]!, preference: { ...partner.preference!, score: { numerator: '1', denominator: '5' } } };
+    const negative = { ...positive, person: { ...positive.person, id: 3 }, rank: 9, preference: { ...positive.preference, score: { numerator: '-4', denominator: '5' } } };
+    const signedPayload: PartnersPayload = { ...payload, metricScale: { kind: 'linear', metric: 'preference', max: { numerator: '4', denominator: '5' } }, items: [positive, negative] };
+    const { wrapper, resource: current } = setup({ payload: signedPayload, view: { ...view, sort: 'preference' } });
+    const rows = wrapper.findAll('.ranked-person-row');
+    expect(rows[0]!.classes()).toContain('is-signed');
+    expect(rows[0]!.classes()).toContain('is-positive');
+    expect(rows[0]!.attributes('style')).toContain('--ranking-progress: 25%');
+    expect(rows[1]!.classes()).toContain('is-negative');
+    expect(rows[1]!.attributes('style')).toContain('--ranking-progress: 100%');
+    await wrapper.setProps({ resource: { ...current, payload: { ...signedPayload, items: [positive] } } });
+    expect(wrapper.get('.ranked-person-row').attributes('style')).toContain('--ranking-progress: 25%');
+    expect(wrapper.get('.ranked-person-row__progress').attributes('aria-hidden')).toBe('true');
+    wrapper.unmount();
+  });
+
+  it('uses ranking rows while displaying server summary, leaders, identities, and pagination', () => {
     const { execute, wrapper } = setup();
 
     expect(execute).not.toHaveBeenCalled();
+    expect(wrapper.findComponent(RankedPersonList).exists()).toBe(true);
+    expect(wrapper.findAll('.selected-person-card__metrics > div')).toHaveLength(3);
+    expect(wrapper.get('.ranked-person-row__identity').text()).toContain('导演 · 主要声优');
     expect(wrapper.get('article').attributes('aria-label')).toBe(
       '单人物共演分析',
     );
@@ -178,22 +201,25 @@ describe('one-person partners surface', () => {
     expect(wrapper.text()).toContain('合作人物');
     expect(wrapper.text()).toContain('12');
     expect(wrapper.text()).toContain('偏好分最高');
-    expect(wrapper.get('.partners-person-row').text()).toContain('8');
-    expect(wrapper.get('.partners-person-row').text()).toContain('合作方');
-    expect(wrapper.get('.partners-person-row').text()).toContain('+0.17');
-    expect(wrapper.get('.partners-person-row').attributes('aria-label')).toContain(
+    expect(wrapper.get('.ranked-person-row').text()).toContain('8');
+    expect(wrapper.get('.ranked-person-row').text()).toContain('合作方');
+    expect(wrapper.get('.ranked-person-row__identity').text()).toContain('Partner');
+    expect(wrapper.findAll('.ranked-person-list button')).toHaveLength(1);
+    expect(wrapper.get('.ranked-person-row').text()).toContain('+0.17');
+    expect(wrapper.get('.ranked-person-row').attributes('aria-label')).toContain(
+      '2 个作品',
+    );
+    expect(wrapper.get('.ranked-person-row').attributes('aria-label')).not.toContain(
       '2 部作品',
     );
-    expect(wrapper.get('.partners-person-row').attributes('aria-label')).not.toContain(
-      '个作品',
-    );
-    expect(wrapper.text()).toContain('1—1 / 12');
+    expect(wrapper.text()).not.toContain('1—1 / 12');
+    expect(wrapper.get('.single-cooperation__heading').text()).toBe('合作人物');
     expect(wrapper.find('.single-cooperation__works').exists()).toBe(false);
   });
 
   it('adds a row target using only its actual returned contributing identities', async () => {
     const { selection, wrapper } = setup();
-    const row = wrapper.get('.partners-person-row');
+    const row = wrapper.get('.ranked-person-row');
 
     await row.trigger('click');
 
@@ -289,7 +315,7 @@ describe('one-person partners surface', () => {
       viewPending.wrapper.find('input[name="partners-search"]').exists(),
     ).toBe(true);
     expect(
-      viewPending.wrapper.find('.partners-person-row').exists(),
+      viewPending.wrapper.find('button.ranked-person-row').exists(),
     ).toBe(false);
     expect(
       viewPending.wrapper.find('.partners-row-skeletons').exists(),
@@ -303,12 +329,25 @@ describe('one-person partners surface', () => {
     expect(
       fullPending.wrapper.find('.partners-summary-skeleton').exists(),
     ).toBe(true);
-    expect(fullPending.wrapper.text()).not.toContain('偏好分最高');
+    expect(fullPending.wrapper.text()).toContain('偏好分最高');
+    expect(fullPending.wrapper.findAll('.partners-summary-skeleton .single-cooperation__leader')).toHaveLength(4);
+    expect(viewPending.wrapper.findComponent(AdaptivePagination).props('pending')).toBe(true);
+    expect(fullPending.wrapper.findComponent(AdaptivePagination).props('pending')).toBe(true);
     expect(
       fullPending.wrapper
         .get('.partners-results-boundary')
         .attributes('aria-busy'),
     ).toBe('true');
+  });
+
+  it('keeps known source identity and metric labels while unknown partner rows load without pagination', () => {
+    const { wrapper } = setup({ payload: null, phase: 'pending' });
+    expect(wrapper.text()).toContain('来源');
+    expect(wrapper.text()).toContain('合作人物');
+    expect(wrapper.findAll('.ranking-row-skeleton')).toHaveLength(view.pageSize);
+    expect(wrapper.findAll('.ranking-row-skeleton .ranked-person-row__avatar')).toHaveLength(view.pageSize);
+    expect(wrapper.find('button.ranked-person-row').exists()).toBe(false);
+    expect(wrapper.findComponent(AdaptivePagination).exists()).toBe(false);
   });
 
   it('shows one initial error boundary without a simultaneous empty summary', () => {
@@ -333,29 +372,23 @@ describe('one-person partners surface', () => {
     );
   });
 
-  it('marks only list results busy and exposes the server-authority metric explanation', async () => {
+  it('keeps list loading local and omits the removed metric explanation', () => {
     const pending = setup({ viewPending: true });
-    const info = pending.wrapper.get('.partners-metric-info');
-    expect(info.classes()).toContain('info-trigger');
-
     expect(pending.wrapper.attributes('aria-busy')).toBeUndefined();
-    expect(
-      pending.wrapper
-        .get('.partners-results-boundary')
-        .attributes('aria-busy'),
-    ).toBe('true');
-    expect(info.attributes('aria-label')).toContain('均由服务端返回');
-    expect(info.attributes('aria-label')).toContain('不会从当前列表重新计算');
+    expect(pending.wrapper.get('.partners-results-boundary').attributes('aria-busy')).toBe('true');
+    expect(pending.wrapper.find('.partners-metric-info').exists()).toBe(false);
+    expect(pending.wrapper.text()).not.toContain('均由服务端返回');
+  });
 
-    await info.trigger('focus');
-    const tooltip = pending.wrapper.findComponent(NTooltip);
-    expect(
-      pending.wrapper
-        .get('.partners-metric-info')
-        .attributes('aria-expanded'),
-    ).toBe('true');
-    expect(tooltip.props('contentClass')).toBe(
-      'workbench-tooltip-content',
-    );
+  it('reuses the participant card and opens source details from a keyboard-operable text entry', async () => {
+    const { wrapper } = setup();
+    expect(wrapper.findComponent(CoStarParticipants).exists()).toBe(true);
+    const entry = wrapper.get('.selected-person-card .co-star-person-inspect');
+    expect(entry.element.tagName).toBe('SPAN');
+    expect(entry.attributes('role')).toBe('button');
+    expect(entry.attributes('tabindex')).toBe('0');
+    for (const key of ['Enter', ' ']) await entry.trigger('keydown', { key });
+    expect(wrapper.emitted('inspectPerson')).toHaveLength(2);
+    expect(wrapper.emitted('inspectPerson')?.[0]).toEqual([sourcePerson, ['staff:anime:2'], entry.element]);
   });
 });

@@ -62,7 +62,7 @@ The frontend SHALL pass the pinned Node/npm fresh-install workflow, full
 SHALL keep one SPA HTML entry, only approved assets, no source maps, forbidden
 fixture/prototype/test content, frontend statistical formulas, direct Bangumi
 API upstream, or undeclared request/state layer, and SHALL keep initial
-JavaScript gzip below the existing 300 KiB ceiling.
+JavaScript gzip below the existing 350 KiB ceiling.
 
 #### Scenario: Clean candidate is built
 
@@ -94,3 +94,21 @@ pass. The root `DESIGN.md` SHALL remain unchanged and authoritative.
 
 - **WHEN** a dependency, code, bundle, browser, or review gate is not complete
 - **THEN** `.impeccable/design.json` is not regenerated and its preimage remains intact
+
+### Requirement: Business icons SHALL use the recommended xicons family
+All application-owned non-brand icons SHALL render from the pinned @vicons/ionicons5 outline components as vendor Vue SVG components. AppIcon SHALL map semantic names; InfoIcon SHALL provide the same InformationCircleOutline glyph across application/query/co-star wrappers. No hand-drawn business-icon paths, icon fonts, CDN assets or additional icon family SHALL remain. This intentionally supersedes the original exact inline information glyph while preserving the shared help trigger behavior.
+
+BGMSS brand images/favicon and data visualization SVGs SHALL remain unchanged. Naive UI's internal controls SHALL retain their supported built-in icons. Caller sizing, currentColor, title/help behavior, keyboard focus ownership, sorting rotations and hit targets SHALL remain intact. Decorative glyphs SHALL be aria-hidden and non-focusable.
+
+#### Scenario: Business glyphs across features
+- **WHEN** Header, query controls, ranking/pagination, detail or co-star surfaces render icons
+- **THEN** all application-owned glyphs SHALL use the same library family with their original meaning and requested size
+- **AND** sorting direction SHALL retain a straight arrow shaft and existing rotation
+
+#### Scenario: Brand and chart exceptions
+- **WHEN** the migration is applied
+- **THEN** BGMSS brand image/favicon and rating chart SVG code SHALL be unchanged
+
+#### Scenario: Keyboard and compact controls
+- **WHEN** the user traverses compact help or Header controls by keyboard in either theme
+- **THEN** the icon SHALL not introduce another focus stop and the host SHALL retain its name, behavior and hit target

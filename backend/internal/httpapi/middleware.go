@@ -16,7 +16,7 @@ import (
 )
 
 // DefaultRequestTimeout bounds downstream request work.
-const DefaultRequestTimeout = 30 * time.Second
+const DefaultRequestTimeout = 120 * time.Second
 
 const requestIDHeader = "X-Request-ID"
 

@@ -72,6 +72,9 @@ func Build(ctx context.Context, request BuildRequest) (Core, error) {
 	}
 
 	candidateKeys := positionOrder
+	if request.Input.CandidatePositionKeys != nil {
+		candidateKeys = request.Input.CandidatePositionKeys
+	}
 	if request.Input.CandidatePositionKey != nil {
 		candidateKeys = []string{*request.Input.CandidatePositionKey}
 	}

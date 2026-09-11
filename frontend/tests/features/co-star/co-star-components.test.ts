@@ -236,6 +236,37 @@ afterEach(() => {
 });
 
 describe('pair and group co-star surface', () => {
+  it('shows scroll-edge cues only where more work-list content remains', async () => {
+    const { wrapper } = setup('global', 'global');
+    const list = wrapper.get('.co-star-work-list');
+    const element = list.element as HTMLElement;
+    Object.defineProperties(element, {
+      clientHeight: { configurable: true, value: 200 },
+      scrollHeight: { configurable: true, value: 600 },
+    });
+    const boundary = wrapper.get('.co-star-work-list-boundary');
+    vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({ right: 500 } as DOMRect);
+    vi.spyOn(element.children[0]!, 'getBoundingClientRect').mockReturnValue({ right: 482 } as DOMRect);
+    await list.trigger('scroll');
+    expect(boundary.attributes('style')).toContain('--scroll-edge-inset: 18px');
+    expect(boundary.classes()).not.toContain('can-scroll-up');
+    expect(boundary.classes()).toContain('can-scroll-down');
+    element.scrollTop = 100;
+    await list.trigger('scroll');
+    expect(boundary.classes()).toContain('can-scroll-up');
+    expect(boundary.classes()).toContain('can-scroll-down');
+    element.scrollTop = 400;
+    await list.trigger('scroll');
+    expect(boundary.classes()).toContain('can-scroll-up');
+    expect(boundary.classes()).not.toContain('can-scroll-down');
+    element.scrollTop = 0;
+    Object.defineProperty(element, 'scrollHeight', { configurable: true, value: 200 });
+    await list.trigger('scroll');
+    expect(boundary.classes()).not.toContain('can-scroll-up');
+    expect(boundary.classes()).not.toContain('can-scroll-down');
+    wrapper.unmount();
+  });
+
   it('renders the oracle pair hierarchy from complete server evidence without local statistics', () => {
     const { execute, payload: accepted, wrapper } = setup(
       'global',
@@ -290,6 +321,9 @@ describe('pair and group co-star surface', () => {
     expect(wrapper.findAll('.co-star-participant-card')).toHaveLength(3);
     expect(wrapper.text()).toContain('没有共同作品');
     expect(wrapper.find('.co-star-matrix-table').exists()).toBe(true);
+    expect(wrapper.get('.co-star-matrix-block').element.compareDocumentPosition(
+      wrapper.get('.co-star-common-empty').element,
+    ) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(wrapper.get('.co-star-matrix-block').classes()).toContain(
       'co-star-matrix-block--standalone',
     );
@@ -374,7 +408,7 @@ describe('co-star local request boundaries', () => {
     expect(wrapper.find('.co-star-summary-grid').exists()).toBe(true);
     expect(wrapper.find('.co-star-tag-groups').exists()).toBe(true);
     expect(wrapper.find('.horizontal-distribution').exists()).toBe(true);
-    expect(wrapper.find('.co-star-work-row').exists()).toBe(false);
+    expect(wrapper.find('.co-star-work-row a').exists()).toBe(false);
     expect(wrapper.find('.co-star-work-skeletons').exists()).toBe(true);
     expect(wrapper.get('article').attributes('aria-busy')).toBeUndefined();
     expect(
@@ -435,14 +469,25 @@ describe('co-star local request boundaries', () => {
       requestId: null,
     });
     expect(
-      pending.wrapper.findAll('.co-star-participant-skeletons > .n-skeleton'),
+      pending.wrapper.findAll('.selected-people-grid .selected-person-card'),
     ).toHaveLength(2);
     expect(pending.wrapper.get('article').attributes('aria-busy')).toBe(
       'true',
     );
     expect(pending.wrapper.find('.co-star-work-skeletons').exists()).toBe(
-      false,
+      true,
     );
+    expect(pending.wrapper.findAll('.co-star-summary-grid > div')).toHaveLength(4);
+    const distribution = pending.wrapper.get('.co-star-loading-chart');
+    expect(distribution.findAll('.co-star-loading-chart__axis .app-skeleton')).toHaveLength(3);
+    expect(distribution.findAll('.co-star-loading-chart__column')).toHaveLength(10);
+    expect(distribution.findAll('.co-star-loading-chart__column > small').map(node => node.text())).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
+    expect(distribution.find('.horizontal-score-bar').exists()).toBe(false);
+    expect(distribution.find('[tabindex]').exists()).toBe(false);
+    expect(pending.wrapper.find('.preference-domain').exists()).toBe(false);
+    expect(pending.wrapper.find('.co-star-matrix-block').exists()).toBe(false);
+    expect(pending.wrapper.findComponent(AdaptivePagination).exists()).toBe(false);
+    expect(pending.wrapper.find('.subject-work-row__series-members').exists()).toBe(true);
 
     const failed = setup('global', 'global', {
       error: '共演分析暂时无法加载，请稍后重试',
@@ -463,6 +508,21 @@ describe('co-star local request boundaries', () => {
       failed.input,
       failed.view,
     );
+  });
+
+  it('preserves personal and group loading topology with known participants and no fabricated statistics', () => {
+    const group = setup('group', 'global', { payload: null, phase: 'pending', requestId: null });
+    expect(group.wrapper.findAll('.co-star-matrix-table tbody tr')).toHaveLength(group.payload.data.participants.length);
+    expect(group.wrapper.findAll('.work-cards-skeleton > li')[0]!.findAll('.shared-work-participant')).toHaveLength(group.payload.data.participants.length);
+    expect(group.wrapper.findAll('.work-cards-skeleton > li')[0]!.findAll('.shared-work-participant-row')).toHaveLength(Math.ceil(group.payload.data.participants.length / 2));
+    expect(group.wrapper.findAll('.co-star-summary-grid > div')).toHaveLength(4);
+
+    const personal = setup('personal', 'personal', { payload: null, phase: 'pending', requestId: null });
+    expect(personal.wrapper.findAll('.co-star-summary-grid > div')).toHaveLength(8);
+    expect(personal.wrapper.find('.preference-domain').exists()).toBe(true);
+    expect(personal.wrapper.findAll('.tag-row')).toHaveLength(3);
+    expect(personal.wrapper.find('.co-star-full-skeleton').text()).toContain('我的评分');
+    expect(personal.wrapper.findAll('.selected-person-card__name').map(node => node.text())).toEqual(personal.payload.data.participants.map(person => person.person.nameCN ?? person.person.name));
   });
 
   it('debounces work search as a view-only request and resets server page', async () => {
@@ -528,7 +588,8 @@ describe('co-star local request boundaries', () => {
   });
 
   it('switches the server work list between detailed and compact oracle rows without a new request', async () => {
-    const { executeView, wrapper } = setup('global', 'global');
+    const context = setup('global', 'global');
+    const { executeView, wrapper } = context;
     const density = wrapper
       .findAllComponents(NRadioGroup)
       .find((control) =>
@@ -550,6 +611,11 @@ describe('co-star local request boundaries', () => {
       false,
     );
     expect(executeView).not.toHaveBeenCalled();
+    await wrapper.setProps({ resource: { ...context.resource, viewPending: true } });
+    expect(wrapper.get('.work-cards-skeleton').classes()).toContain('subject-work-list--compact');
+    expect(wrapper.findAll('.work-cards-skeleton > li')).toHaveLength(context.view.pageSize);
+    expect(wrapper.find('.work-cards-skeleton .subject-work-row__participants').exists()).toBe(false);
+    expect(wrapper.find('.work-cards-skeleton .subject-work-row__compact-score .n-skeleton').exists()).toBe(true);
   });
 });
 
@@ -709,7 +775,7 @@ describe('co-star rating comparison interactions', () => {
 });
 
 describe('co-star contribution copy', () => {
-  it('maps server cast roles and appends work counts only for series credits', () => {
+  it('maps server cast roles and keeps overflowed identities available in the complete list', async () => {
     const accepted = payload('global', 'global');
     const seriesItem = accepted.data.items[0];
     if (!seriesItem || seriesItem.kind !== 'series') {
@@ -780,7 +846,7 @@ describe('co-star contribution copy', () => {
       globalScore: seriesItem.globalScore,
       key: `subject:${seriesItem.representative.id}`,
       kind: 'subject',
-      metaTags: Object.freeze([]),
+      metaTags: Object.freeze(['TV', '日本']),
       participants: Object.freeze(subjectParticipants),
       subject: Object.freeze({
         ...seriesItem.representative,
@@ -807,9 +873,23 @@ describe('co-star contribution copy', () => {
     });
 
     expect(wrapper.text()).toContain('声优（主角）：主角');
+    expect(wrapper.findAll('.subject-work-row__meta > li > .n-tag').map(tag => tag.text())).toEqual(['TV', '日本']);
+    expect(wrapper.findAll('.subject-work-row__meta > li > .n-tag--round')).toHaveLength(2);
     expect(wrapper.text()).toContain('声优（配角）：配角角色');
-    expect(wrapper.text()).toContain('声优（客串）：客串角色');
-    expect(wrapper.text()).toContain('声优：未知角色');
+    const credits = wrapper.findAll('.credit-list').find((list) =>
+      list.attributes('aria-label')?.includes('声优（客串）：客串角色'),
+    )!;
+    expect(credits.attributes('aria-label')).toContain('声优：未知角色');
+    expect(credits.text()).toContain('… +');
+    await credits.trigger('focus');
+    await credits.trigger('click');
+    await vi.waitFor(() => {
+      const full = document.querySelector('.credit-list__full')?.textContent;
+      expect(full).toContain('声优（客串）：客串角色');
+      expect(full).toContain('声优：未知角色');
+      expect(full).not.toContain('声优：未知角色 ·');
+    });
+    await credits.trigger('keydown', { key: 'Escape' });
     expect(wrapper.text()).not.toContain('声优（主角）：主角 · 1 部');
     expect(wrapper.text()).not.toContain('声优：未知角色 ·');
     expect(wrapper.get('.subject-work-row__primary-link').text()).toBe(
@@ -821,6 +901,7 @@ describe('co-star contribution copy', () => {
     expect(
       wrapper.get('.subject-work-row__primary-link').attributes('title'),
     ).toBe('One Name Work\nOne Name Work');
+    wrapper.unmount();
   });
 });
 
@@ -861,18 +942,15 @@ describe('co-star oracle layout contracts', () => {
       /\.co-star-candidate-rail\.is-attention::after\s*\{[^}]*border-color:\s*var\(--focus\);/s,
     );
     expect(pickerCss).toMatch(
-      /\.candidate-toolbar\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) minmax\(112px, 0\.72fr\) 80px;[^}]*align-items:\s*center;/s,
-    );
-    expect(pickerCss).toMatch(
       /\.candidate-toolbar \.ranking-order-button\s*\{[^}]*width:\s*100%;[^}]*min-height:\s*0;/s,
     );
     expect(pickerCss).not.toMatch(
       /\.candidate-toolbar[\s\S]*?\.ranking-order-button__content\s*> span\s*\{/,
     );
-    expect(pickerCss).toMatch(
+    expect(pickerCss).not.toMatch(
       /@media \(width < 520px\)[\s\S]*?\.candidate-toolbar\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) 80px;/,
     );
-    expect(baseCss).toMatch(
+    expect(baseCss).not.toMatch(
       /@media \(width < 780px\)[\s\S]*?\.ranking-workspace \.ranking-order-button__content > span\s*\{[^}]*position:\s*absolute;[^}]*clip:\s*rect\(0, 0, 0, 0\);/s,
     );
     expect(baseCss).not.toContain('.ranking-order-button span');
@@ -920,7 +998,7 @@ describe('co-star oracle layout contracts', () => {
       /\.co-star-picker-panel-enter-active\s*\{[^}]*grid-template-rows 160ms ease-out,[^}]*opacity 160ms ease-out;/s,
     );
     expect(analysisCss).toMatch(
-      /\.co-star-surface > \.analysis-section\.selected-people-panel\s*\{[^}]*padding:\s*0;/s,
+      /\.co-star-surface > \.analysis-section\.selected-people-panel\s*\{[^}]*padding:\s*var\(--space-3\) var\(--analysis-section-inline\) var\(--space-4\);/s,
     );
     expect(baseCss).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.safe-image img,[\s\S]*?transition-duration:\s*0s;[\s\S]*?\.state-icon--loading,[\s\S]*?\.app-skeleton\.app-skeleton[\s\S]*?animation:\s*none;/,

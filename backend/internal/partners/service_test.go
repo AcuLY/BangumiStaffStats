@@ -343,6 +343,20 @@ func TestServicePersonalCachesCollectionAndCoreAcrossViews(t *testing.T) {
 		!strings.Contains(string(secondBytes), `"items":[]`) {
 		t.Fatalf("personal projections first=%s second=%s", firstBytes, secondBytes)
 	}
+	var firstWire, secondWire struct {
+		Data struct {
+			MetricScale json.RawMessage `json:"metricScale"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(firstBytes, &firstWire); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(secondBytes, &secondWire); err != nil {
+		t.Fatal(err)
+	}
+	if len(firstWire.Data.MetricScale) == 0 || string(firstWire.Data.MetricScale) != string(secondWire.Data.MetricScale) {
+		t.Fatalf("cached core view changed scale: %s / %s", firstWire.Data.MetricScale, secondWire.Data.MetricScale)
+	}
 }
 
 func newPartnerService(
@@ -484,5 +498,65 @@ func rewritePartnerFixture(
 	}
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestAllPositionPartnersIncludeCastUnderDirectorQuery(t *testing.T) {
+	service := newPartnerService(t, loadPartnerArchive(t), nil)
+	request := Request{Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`), Input: json.RawMessage(`{"source":{"personId":100,"positionKeys":["staff:anime:2"]},"positionScope":"all"}`)}
+	result, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := result.MarshalEnvelope("cross-role")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"cast:anime:all"`) {
+		t.Fatal(string(data))
+	}
+	request.Input = json.RawMessage(`{"source":{"personId":100,"positionKeys":["staff:anime:2"]}}`)
+	legacy, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err = legacy.MarshalEnvelope("query-role")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), `"cast:anime:all"`) {
+		t.Fatal("query scope reused all cache")
+	}
+	if service.results.Stats().Items != 2 {
+		t.Fatal("scope cache collision")
+	}
+}
+
+func TestAllPositionPartnersAcceptsEmptyQuerySelection(t *testing.T) {
+	service := newPartnerService(t, loadPartnerArchive(t), nil)
+	request := Request{Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`), Input: json.RawMessage(`{"source":{"personId":100,"positionKeys":["staff:anime:2"]},"positionScope":"all"}`)}
+	prior, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := prior.MarshalEnvelope("all-empty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Query = json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":[]}`)
+	result, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := result.MarshalEnvelope("all-empty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("empty all query changed operation result:\n%s\nwant:\n%s", got, want)
+	}
+	request.Input = json.RawMessage(`{"source":{"personId":100,"positionKeys":["staff:anime:2"]}}`)
+	if _, err := service.Execute(context.Background(), request); err == nil {
+		t.Fatal("query scope accepted empty positions")
 	}
 }

@@ -3,6 +3,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+import { mount } from '@vue/test-utils';
+import { ArrowDownOutline, InformationCircleOutline, OpenOutline } from '@vicons/ionicons5';
+import AppIcon from '../../src/shared/components/AppIcon.vue';
+import InfoIcon from '../../src/shared/components/InfoIcon.vue';
+import QueryIcon from '../../src/features/query/components/QueryIcon.vue';
+import CoStarIcon from '../../src/features/co-star/components/CoStarIcon.vue';
 
 const frontendRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -38,24 +44,44 @@ const partnersCss = source('src/features/co-star/partners.css');
 const coStarOracleCss = source('src/features/co-star/co-star-oracle.css');
 
 describe('shared info trigger', () => {
-  it('owns the exact query-reference glyph once', () => {
-    expect(infoIconSource).toContain('stroke-width="1.9"');
-    expect(infoIconSource).toContain('<circle cx="12" cy="12" r="9" />');
-    expect(infoIconSource).toContain('<path d="M12 11v6" />');
-    expect(infoIconSource).toContain(
-      '<circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none" />',
-    );
-
-    for (const wrapperSource of [
-      appIconSource,
-      queryIconSource,
-      coStarIconSource,
-    ]) {
-      expect(wrapperSource).toContain("import InfoIcon from");
-      expect(wrapperSource).toContain('v-if="name === \'info\'"');
-      expect(wrapperSource).not.toContain('<circle cx="12" cy="12" r="9"');
-      expect(wrapperSource).not.toMatch(/M12 1(?:0\.5|1)v/);
+  it('uses one library information glyph at every wrapper boundary', () => {
+    for (const component of [AppIcon, QueryIcon, CoStarIcon]) {
+      const wrapper = mount(component, { props: { name: 'info', size: 16 } });
+      expect(wrapper.findComponent(InfoIcon).exists()).toBe(true);
+      expect(wrapper.findComponent(InformationCircleOutline).exists()).toBe(true);
+      expect(wrapper.get('.info-icon').attributes('aria-hidden')).toBe('true');
+      expect(wrapper.get('.info-icon').attributes('width')).toBe('16');
+      expect(wrapper.get('.info-icon').attributes('height')).toBe('16');
+      expect(wrapper.findAll('svg')).toHaveLength(1);
+      expect(wrapper.find('[tabindex]').exists()).toBe(false);
+      wrapper.unmount();
     }
+    for (const source of [infoIconSource, appIconSource, queryIconSource, coStarIconSource]) {
+      expect(source).not.toMatch(/<(?:svg|path|circle)\b/);
+    }
+  });
+
+  it.each([
+    'arrow-down', 'check', 'chevron-down', 'chevron-left', 'chevron-right',
+    'close', 'edit', 'external-link', 'image', 'moon', 'people', 'person',
+    'plus', 'refresh', 'search', 'sun', 'warning',
+  ] as const)('renders the %s library icon at the requested size', (name) => {
+    const wrapper = mount(AppIcon, { props: { name, size: 28 } });
+    expect(wrapper.get('.app-icon').attributes('width')).toBe('28');
+    expect(wrapper.get('.app-icon').attributes('height')).toBe('28');
+    expect(wrapper.get('.app-icon').attributes('aria-hidden')).toBe('true');
+    expect(wrapper.get('svg').attributes('viewBox')).toBe('0 0 512 512');
+    expect(wrapper.find('[tabindex]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('keeps a straight sorting arrow and external navigation glyph', () => {
+    const arrow = mount(AppIcon, { props: { name: 'arrow-down' } });
+    expect(arrow.findComponent(ArrowDownOutline).exists()).toBe(true);
+    arrow.unmount();
+    const external = mount(QueryIcon, { props: { name: 'external-link' } });
+    expect(external.findComponent(OpenOutline).exists()).toBe(true);
+    external.unmount();
   });
 
   it('applies one visible and effective target contract to every trigger', () => {
@@ -76,7 +102,7 @@ describe('shared info trigger', () => {
     expect(statEvidenceSource).toContain(
       'class="stat-evidence__trigger info-trigger"',
     );
-    expect(partnersSource).toContain(
+    expect(partnersSource).not.toContain(
       'class="partners-metric-info info-trigger"',
     );
     expect(coStarWorksSource).toContain(

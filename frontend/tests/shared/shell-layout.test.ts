@@ -19,7 +19,7 @@ describe('app shell layout', () => {
       /\.app-shell\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/s,
     );
     expect(baseCss).toMatch(
-      /\.app-page-scroll\s*\{[^}]*display:\s*flex;[^}]*min-height:\s*0;[^}]*flex:\s*1 0 auto;[^}]*flex-direction:\s*column;/s,
+      /\.app-page-content\s*\{[^}]*display:\s*flex;[^}]*min-height:\s*100%;[^}]*flex-direction:\s*column;/s,
     );
     expect(baseCss).toMatch(
       /\.app-footer\s*\{[^}]*margin-top:\s*auto;/s,

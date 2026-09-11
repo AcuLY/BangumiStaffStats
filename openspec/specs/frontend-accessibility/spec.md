@@ -8,7 +8,7 @@ Define production-browser accessibility acceptance for ranking and co-star acros
 The production preview SHALL pass ranking and co-star modes in Light and Dark
 themes at 360, 390, 768, 779, 780, 781, 917, 1024, 1185, and 1440 CSS pixels.
 The matrix SHALL also cover applicable loading, error, empty, retry, search,
-sort, pagination, share, query-editor, person-Drawer, candidate-Drawer, and
+sort, pagination, legacy navigation, query-editor, person-Drawer, candidate-Drawer, and
 SafeImage states using deterministic production-shaped data.
 
 #### Scenario: Base matrix is executed
@@ -31,7 +31,7 @@ the focus, inertness, dismissal, and focus-return behavior defined by
 #### Scenario: Drawer lifecycle is keyboard-operated
 
 - **WHEN** a keyboard user opens and closes a person or candidate Drawer by its controls or Escape
-- **THEN** focus enters the intended control, remains in the active modal surface, hidden content is inert and absent from Tab order, and focus returns to the logical opener
+- **THEN** focus enters the intended control, remains in the active drawer and its permitted persistent Header navigation, covered content is inert and absent from Tab order, and focus returns to the visible logical opener unless Header navigation retains focus
 
 #### Scenario: Tooltip is used without a pointer
 
@@ -121,3 +121,46 @@ focused regression coverage and SHALL survive the full frontend check.
 
 - **WHEN** a read-only Impeccable reviewer examines the exact final production candidate, oracle, delta list, and evidence
 - **THEN** zero P0/P1 findings are required before main-agent acceptance
+
+### Requirement: Loading presentation SHALL preserve known content topology
+
+Business loading surfaces SHALL use the same responsive columns, card grouping, portrait geometry and meaningful field locations as their corresponding ready surfaces. Every visual placeholder leaf SHALL be NSkeleton with the app-owned motion class. Existing independent operation boundaries, polite status and aria-busy semantics SHALL remain. Only unresolved backend dynamic information SHALL use Skeleton. Components, fixed labels, known query text and accepted selected identities SHALL remain real; pagination SHALL remain the actual pending control when accepted data exists and be hidden without data. Whole Tag placeholders SHALL cover the full tag dimensions including border/padding, without retaining a real shell around a text-only skeleton.
+
+#### Scenario: Module and result waiting share the target layout
+- **WHEN** a ranking, candidate, partner or co-star module or its initial data is waiting
+- **THEN** the corresponding target layout SHALL appear rather than a generic centered four-line loader
+- **AND** unresolved candidates SHALL NOT fabricate selected people or an analysis result
+
+#### Scenario: Cards wait for list data
+- **WHEN** works, series, characters, candidates or partners are awaiting a list response
+- **THEN** each card SHALL preserve its actual portrait, name, identity and metric/content grouping rather than one whole-card rectangle
+- **AND** compact, personal/global and participant-count variations SHALL use only their applicable structure
+
+#### Scenario: A view update preserves accepted controls
+- **WHEN** a list search, sort or page request is pending
+- **THEN** headings, controls, values and input focus SHALL remain while only unresolved backend list information is replaced
+- **AND** the same row skeleton as initial loading SHALL be used when the ready row structure is the same
+- **AND** existing pagination SHALL remain real and pending without NSkeleton, with no fabricated first-load total
+
+#### Scenario: Responsive review is delivered
+- **WHEN** the user reviews the corrected loading layouts
+- **THEN** screenshots SHALL report viewport and actual component/container widths and preserve sufficient parent context to assess gutters
+- **AND** shared skeleton frameworks, including detail with/without a character count, SHALL be documented as aliases rather than repeated screenshot families
+
+### Requirement: Person drawer focus includes persistent Header
+As an exception to modal-only Drawer focus, the person-detail drawer SHALL permit keyboard access to its visible persistent Header while page content remains inert and aria-hidden. Escape/close SHALL restore a visible opener; Header navigation SHALL retain focus in Header rather than a hidden ranking row.
+#### Scenario: Keyboard reaches Header
+- **WHEN** a user tabs backward from the person drawer's first control
+- **THEN** focus can reach the persistent Header controls without entering covered page content
+
+### Requirement: Tags use the component-library primitive
+All live content tags, including grouped evidence, work metadata, cast roles and selected identity chips, SHALL use Naive UI NTag or a Naive UI owner such as NDynamicTags. Public size/round/type/close APIs SHALL own visual states; obsolete manual pill styling SHALL be removed. Loading placeholders SHALL remain NSkeleton with corresponding geometry. Group labels SHALL be vertically centered with their associated tags without manual top offsets.
+#### Scenario: Role tags wrap or overflow
+- **WHEN** role evidence exceeds the available row width
+- **THEN** visible, measured and tooltip entries use identical NTag geometry and every role remains accessible
+#### Scenario: Selected identity is removed
+- **WHEN** a pointer or keyboard user activates identity removal
+- **THEN** the exact identity is removed and logical focus is preserved without nested interactive controls
+#### Scenario: Grouped evidence wraps on mobile
+- **WHEN** tag values wrap onto multiple lines
+- **THEN** the label stays vertically centered with its tag block and content does not overflow horizontally

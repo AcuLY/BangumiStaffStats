@@ -35,7 +35,7 @@ func normalizeView(raw json.RawMessage, scope string) (View, error) {
 	}
 	for name := range fields {
 		switch name {
-		case "search", "sort", "order", "page", "pageSize":
+		case "search", "sort", "order", "page", "pageSize", "locatePersonId":
 		default:
 			return View{}, fail(
 				CodeInvalidRequest,
@@ -102,6 +102,13 @@ func normalizeView(raw json.RawMessage, scope string) (View, error) {
 		default:
 			return View{}, viewFailure("/view/pageSize", "UNSUPPORTED_VALUE")
 		}
+	}
+	if value, found := fields["locatePersonId"]; found {
+		personID, parseErr := exactPositiveInteger(value)
+		if parseErr != nil {
+			return View{}, viewFailure("/view/locatePersonId", "OUT_OF_RANGE")
+		}
+		result.LocatePersonID = &personID
 	}
 	result.Search = normalizeSearch(result.Search)
 	return result, nil
@@ -203,21 +210,37 @@ func project(
 		ranked = append(ranked, rankedRow{rank: index + 1, row: row})
 	}
 
-	scale, err := metricScale(value.Rows, view.Sort)
+	scale, err := statistics.PersonMetricScale(ctx, view.Sort, sortEntries)
 	if err != nil {
 		return Projection{}, err
+	}
+	var location *Location
+	if view.LocatePersonID != nil {
+		location = &Location{PersonID: *view.LocatePersonID}
+		for _, item := range ranked {
+			if item.row.Person.ID == location.PersonID {
+				rank := item.rank
+				location.Rank = &rank
+				break
+			}
+		}
 	}
 	filtered := ranked[:0]
 	for _, item := range ranked {
 		if view.Search == "" ||
 			strings.Contains(item.row.SearchName, view.Search) ||
 			strings.Contains(item.row.SearchNameCN, view.Search) {
+			if location != nil && item.row.Person.ID == location.PersonID {
+				page := int64(len(filtered)/view.PageSize + 1)
+				location.Page = &page
+			}
 			filtered = append(filtered, item)
 		}
 	}
 	total := len(filtered)
 	page := checkedPage(filtered, view.Page, view.PageSize)
 	result := Projection{
+		location:    location,
 		scope:       value.Scope,
 		dataVersion: value.DataVersion,
 		summary:     cloneSummary(value.Summary),
@@ -284,81 +307,4 @@ func checkedPage(values []rankedRow, page int64, pageSize int) []rankedRow {
 		end = len(values)
 	}
 	return append([]rankedRow(nil), values[start:end]...)
-}
-
-func metricScale(rows []rowCore, metric string) (MetricScale, error) {
-	result := MetricScale{Metric: metric, Kind: "linear"}
-	switch metric {
-	case "count":
-		if len(rows) == 0 {
-			return result, nil
-		}
-		var maximum int64
-		for _, row := range rows {
-			if int64(row.WorkCount) > maximum {
-				maximum = int64(row.WorkCount)
-			}
-		}
-		result.Max = maximum
-	case "average", "overall":
-		var maximum *int64
-		for _, row := range rows {
-			value := row.Average
-			if metric == "overall" {
-				value = row.Overall
-			}
-			if value != nil && (maximum == nil || *value > *maximum) {
-				maximum = cloneInt64(value)
-			}
-		}
-		if maximum != nil {
-			result.Max = *maximum
-		}
-	case "preference":
-		var maximum *statistics.Rational
-		for _, row := range rows {
-			if row.Preference == nil {
-				continue
-			}
-			absolute, err := absoluteRational(row.Preference.Score)
-			if err != nil {
-				return MetricScale{}, err
-			}
-			if maximum == nil {
-				copy := absolute
-				maximum = &copy
-				continue
-			}
-			compared, err := absolute.Compare(*maximum)
-			if err != nil {
-				return MetricScale{}, err
-			}
-			if compared > 0 {
-				copy := absolute
-				maximum = &copy
-			}
-		}
-		if maximum != nil {
-			result.Max = *maximum
-		}
-	default:
-		return MetricScale{}, errors.New("ranking: unsupported metric")
-	}
-	return result, nil
-}
-
-func absoluteRational(value statistics.Rational) (statistics.Rational, error) {
-	numerator, ok := new(big.Int).SetString(value.Numerator, 10)
-	if !ok {
-		return statistics.Rational{}, errors.New("ranking: invalid rational numerator")
-	}
-	numerator.Abs(numerator)
-	result := statistics.Rational{
-		Numerator:   numerator.String(),
-		Denominator: value.Denominator,
-	}
-	if _, err := result.Compare(result); err != nil {
-		return statistics.Rational{}, err
-	}
-	return result, nil
 }

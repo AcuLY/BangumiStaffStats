@@ -199,7 +199,7 @@ fi
 
 collection_version="$("$go_command" list -m -f '{{.Version}}' github.com/AcuLY/bangumi-collection-go)"
 time_version="$("$go_command" list -m -f '{{.Version}}' golang.org/x/time)"
-if [[ "$collection_version" != "v0.1.1" || "$time_version" != "v0.15.0" ]]; then
+if [[ "$collection_version" != "v0.1.2" || "$time_version" != "v0.15.0" ]]; then
   echo "unexpected public collection dependency versions: collection=$collection_version time=$time_version" >&2
   exit 1
 fi
@@ -269,6 +269,7 @@ internal/archivebuild/manifest.go
 internal/archivebuild/records.go
 internal/archivebuild/run_test.go
 internal/archivebuild/staging.go
+internal/archivebuild/summary_test.go
 internal/archivebuild/types.go
 internal/candidates/archive.go
 internal/candidates/build.go
@@ -364,6 +365,7 @@ internal/partners/types.go
 internal/partners/view.go
 internal/partners/view_test.go
 internal/persondetail/archive.go
+internal/persondetail/archive_summary_test.go
 internal/persondetail/build.go
 internal/persondetail/build_test.go
 internal/persondetail/cache.go
@@ -420,6 +422,8 @@ internal/statistics/errors.go
 internal/statistics/evaluator.go
 internal/statistics/evaluator_test.go
 internal/statistics/golden_test.go
+internal/statistics/metric_scale.go
+internal/statistics/metric_scale_test.go
 internal/statistics/preference.go
 internal/statistics/preference_test.go
 internal/statistics/property_test.go

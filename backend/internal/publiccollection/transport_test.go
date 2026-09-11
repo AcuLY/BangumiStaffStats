@@ -3,11 +3,13 @@ package publiccollection
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,6 +24,71 @@ type requestObservation struct {
 	cookie        string
 	userAgent     string
 	accept        string
+}
+
+type deadlineTransport func(*http.Request) (*http.Response, error)
+
+func (transport deadlineTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	return transport(request)
+}
+
+func TestProductionSourceBoundsEachPageAttempt(t *testing.T) {
+	// Exercise New itself without sending public requests. This test is serial
+	// because the production client's default transport is process-wide.
+	previous := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = previous })
+	var observed time.Duration
+	http.DefaultTransport = deadlineTransport(func(request *http.Request) (*http.Response, error) {
+		deadline, ok := request.Context().Deadline()
+		if !ok {
+			return nil, fmt.Errorf("page attempt has no deadline")
+		}
+		observed = time.Until(deadline)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"data":[],"total":0,"limit":50,"offset":0}`)),
+		}, nil
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	if _, err := New().Fetch(ctx, "Alice", "anime", []string{"completed"}); err != nil {
+		t.Fatal(err)
+	}
+	if observed <= 9*time.Second || observed > 10*time.Second {
+		t.Fatalf("outbound attempt budget = %s, want at most 10s independent of the 90s load", observed)
+	}
+}
+
+func TestAnonymousSourcePreservesCollectionTypeWhenMetadataDiffers(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(writer, `{
+			"data": [{
+				"subject_id": 631949, "subject_type": 2, "type": 2,
+				"rate": 8, "comment": null, "tags": [],
+				"updated_at": "2026-09-07T01:02:03Z",
+				"vol_status": 0, "ep_status": 7, "private": false,
+				"subject": {"id": 631949, "type": 6, "name": "fixture", "name_cn": "fixture"}
+			}], "total": 1, "limit": 50, "offset": 0
+		}`)
+	}))
+	defer server.Close()
+	source := newAnonymousSource(collection.WithEndpoint(server.URL))
+	snapshot, err := source.Fetch(context.Background(), "fixture-user", "anime", []string{"completed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Items) != 1 {
+		t.Fatalf("item count = %d", len(snapshot.Items))
+	}
+	item := snapshot.Items[0]
+	if item.SubjectID != 631949 || item.SubjectType != "anime" ||
+		item.Status != "completed" || item.Rate != 8 || item.EpisodeProgress != 7 ||
+		item.Comment != "" || item.Tags == nil || len(item.Tags) != 0 {
+		t.Fatalf("collection record changed: %+v", item)
+	}
 }
 
 func TestAnonymousSourceUsesLoopbackWithoutCredentials(t *testing.T) {

@@ -87,6 +87,41 @@ function errorEnvelope(
 }
 
 describe('partners response adapter', () => {
+  it('sends empty query positions only for an explicit all-scope source', async () => {
+    const fixture = golden('global.json').cases[0]!;
+    const fetchImplementation = vi.fn<FetchImplementation>(async () => jsonResponse(fixture.expected.body));
+    const driver = createPartnersDriver(createApiClient(fetchImplementation));
+    const request = {
+      ...fixture.request,
+      input: { ...fixture.request.input, positionScope: 'all' },
+      query: { ...fixture.request.query, positionKeys: [] },
+      signal: new AbortController().signal, transactionId: 'all-partners',
+      view: fixture.request.view ?? {},
+    };
+    await driver.execute(request as never);
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+    for (const positionScope of ['query', undefined]) {
+      await expect(driver.execute({ ...request,
+        input: { ...request.input, positionScope },
+      } as never)).rejects.toBeInstanceOf(ApiDecodeError);
+    }
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+  });
+
+  it('requires a scope-valid metric scale and freezes its rational maximum', () => {
+    const success = structuredClone(golden('personal.json').cases[1]!.expected.body) as { data: Record<string, unknown> };
+    success.data.metricScale = { kind: 'linear', metric: 'preference', max: { numerator: '4', denominator: '5' } };
+    const decoded = decodePartnersPayload(success, 'personal');
+    expect(decoded.metricScale).toEqual(success.data.metricScale);
+    expect(Object.isFrozen(decoded.metricScale)).toBe(true);
+    expect(Object.isFrozen(decoded.metricScale.max)).toBe(true);
+    delete success.data.metricScale;
+    expect(() => decodePartnersPayload(success, 'personal')).toThrow(ApiDecodeError);
+    const global = structuredClone(golden('global.json').cases[0]!.expected.body) as { data: Record<string, unknown> };
+    global.data.metricScale = { kind: 'linear', metric: 'preference', max: { numerator: '1', denominator: '1' } };
+    expect(() => decodePartnersPayload(global, 'global')).toThrow(ApiDecodeError);
+  });
+
   it('preserves fixed leaders, server ranks, nullable evidence, and scope omission', () => {
     const globalEnvelope = decodePartnersSuccess(
       golden('global.json').cases[0]!.expected.body,
@@ -161,6 +196,20 @@ describe('partners response adapter', () => {
 });
 
 describe('partners native-fetch driver', () => {
+  it('rejects a scale for a different requested sort', async () => {
+    const fixture = golden('personal.json').cases[0]!;
+    const body = structuredClone(fixture.expected.body) as { data: Record<string, unknown> };
+    body.data.metricScale = { kind: 'linear', metric: 'average', max: 850 };
+    const driver = createPartnersDriver(createApiClient(vi.fn<FetchImplementation>(async () => jsonResponse(body))));
+    await expect(driver.execute({
+      input: fixture.request.input,
+      query: fixture.request.query as never,
+      signal: new AbortController().signal,
+      transactionId: 'wrong-scale',
+      view: { ...fixture.request.view, sort: 'count' },
+    })).rejects.toBeInstanceOf(ApiDecodeError);
+  });
+
   it('uses the same-origin client and correlates the projection', async () => {
     const fixture = golden('personal.json').cases[0]!;
     const fetchImplementation = vi.fn<FetchImplementation>(async () =>

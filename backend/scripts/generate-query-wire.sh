@@ -94,7 +94,6 @@ public_components=(
   CandidatesViewV1
   CatalogContextV1
   CoStarInputV1
-  CoStarShareWorkspaceV1
   CoStarViewV1
   EffectiveQueryV1
   ErrorEnvelopeV1
@@ -103,9 +102,7 @@ public_components=(
   PersonDetailInputV1
   PersonDetailViewV1
   QueryDigestProjectionV1
-  RankingShareWorkspaceV1
   RankingsViewV1
-  SharePayloadV1
   SharedQueryV1
 )
 
@@ -144,8 +141,7 @@ build_projection() {
   (
     cd "$backend_root"
     "$go_command" tool oapi-codegen \
-      -generate models,skip-prune \
-      -package wire \
+      -config "$current_projection/oapi-codegen.yaml" \
       -o "$current_generated" \
       "$current_projection/query.bundle.json"
   )

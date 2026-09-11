@@ -6,11 +6,13 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/observability"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 )
 
 func TestServerServesRuntimeAndShutsDown(t *testing.T) {
@@ -161,7 +163,7 @@ func TestHTTPServerHasExactBoundsAndProcessContext(t *testing.T) {
 	if server.ReadTimeout != 10*time.Second {
 		t.Errorf("ReadTimeout = %s", server.ReadTimeout)
 	}
-	if server.WriteTimeout != 35*time.Second {
+	if server.WriteTimeout != 125*time.Second {
 		t.Errorf("WriteTimeout = %s", server.WriteTimeout)
 	}
 	if server.IdleTimeout != 60*time.Second {
@@ -176,6 +178,32 @@ func TestHTTPServerHasExactBoundsAndProcessContext(t *testing.T) {
 	case <-baseContext.Done():
 	case <-time.After(time.Second):
 		t.Fatal("base context did not inherit process cancellation")
+	}
+}
+
+func TestDefaultQueryBudgetsFitHTTPDeadline(t *testing.T) {
+	collection := runtimecache.DefaultCollectionConfig().LoadTimeout
+	compute := runtimecache.DefaultResultConfig().LoadTimeout
+	if collection != 90*time.Second || compute != 20*time.Second {
+		t.Fatalf("worker budgets = collection:%s compute:%s", collection, compute)
+	}
+	var remaining time.Duration
+	handler := runtimeMiddleware(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		deadline, ok := request.Context().Deadline()
+		if !ok {
+			writer.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		remaining = time.Until(deadline)
+		writer.WriteHeader(http.StatusNoContent)
+	}), middlewareOptions{metrics: newTestMetrics(t)})
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/livez", nil))
+	if response.Code != http.StatusNoContent || remaining <= 119*time.Second || remaining > 120*time.Second {
+		t.Fatalf("outer request budget = %s, status=%d", remaining, response.Code)
+	}
+	if collection+compute >= DefaultRequestTimeout || defaultWriteTimeout <= DefaultRequestTimeout {
+		t.Fatal("HTTP transport must leave room for collection, queued computation and response handling")
 	}
 }
 

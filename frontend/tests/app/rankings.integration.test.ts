@@ -13,11 +13,8 @@ import type {
   QueryDrivers,
 } from '../../src/features/query/coordinator';
 import type { AppliedQuery } from '../../src/features/query/model';
-import {
-  createShareUrl,
-  readShare,
-  type ShareWorkspace,
-} from '../../src/features/query/share';
+import { createQuerySessionOwner, QUERY_SESSION_STORAGE_KEY } from '../../src/features/query/session';
+import type { RecoveryWorkspace } from '../../src/features/query/recovery';
 import { useQueryStore } from '../../src/features/query/store';
 import { catalogFixture } from '../features/query/fixtures';
 
@@ -26,9 +23,10 @@ const rankingDataVersion = `dv1-${'d'.repeat(64)}`;
 async function waitForRankingSurface(wrapper: VueWrapper): Promise<void> {
   await vi.waitFor(() => {
     expect(
-      wrapper.find('.ranking-surface, .ranking-page-empty-state').exists(),
+      wrapper.findComponent({ name: 'RankingResults' }).exists() ||
+      wrapper.find('.ranking-page-empty-state').exists(),
     ).toBe(true);
-  });
+  }, { timeout: 10000 });
 }
 
 function rankingPayload(
@@ -155,7 +153,7 @@ function detailPayload(
   });
 }
 
-function installCompactLayout(initialMatches: boolean): {
+function installCompactLayout(initialMatches: boolean, wideControls = false): {
   setMatches: (matches: boolean) => void;
 } {
   let matches = initialMatches;
@@ -179,7 +177,11 @@ function installCompactLayout(initialMatches: boolean): {
       listeners.delete(listener);
     },
   } as unknown as MediaQueryList;
-  vi.stubGlobal('matchMedia', vi.fn(() => media));
+  vi.stubGlobal('matchMedia', vi.fn((query: string) =>
+    wideControls && query === '(width < 780px)'
+      ? { ...media, matches: false, addEventListener() {}, removeEventListener() {} }
+      : media,
+  ));
   return {
     setMatches(nextMatches: boolean) {
       matches = nextMatches;
@@ -198,39 +200,46 @@ function deferred<T>() {
   return { promise, reject, resolve };
 }
 
-function canonicalJson(value: unknown): string {
-  if (
-    value === null ||
-    typeof value === 'boolean' ||
-    typeof value === 'number' ||
-    typeof value === 'string'
-  ) {
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map(canonicalJson).join(',')}]`;
-  }
-  const record = value as Record<string, unknown>;
-  return `{${Object.keys(record)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
-    .join(',')}}`;
-}
-
-function uncheckedFragment(payload: unknown): string {
-  const bytes = new TextEncoder().encode(canonicalJson(payload));
-  let binary = '';
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return `#q=v1.${btoa(binary)
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replace(/=+$/u, '')}`;
-}
-
 describe('App ranking production slice', () => {
-  it('replays and re-shares one authoritative detail with its exact view', async () => {
+  it.each([false, true])('keeps submitted labels in a deferred ranking shell (mergeSeries=%s)', async (mergeSeries) => {
+    installCompactLayout(false);
+    const query: AppliedQuery = {
+      scope: 'personal', uid: 'luca', collectionStatuses: ['completed'],
+      subjectType: 'anime', positionKeys: ['staff:anime:2'],
+      includeNSFW: false, mergeSeries,
+    };
+    window.history.replaceState({}, '', '/ranking');
+    expect(createQuerySessionOwner(window).write('/ranking', query,
+      { kind: 'ranking', rankingsView: { order: 'desc', page: 1, pageSize: 5, search: '', sort: 'count' } },
+    )).toBe(true);
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const execute = vi.fn(() => new Promise<never>(() => {}));
+    const wrapper = mount(App, {
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: { services: {
+        catalogApi: { async load() { return catalogFixture(); } },
+        drivers: { rankings: { execute }, candidates: { execute } },
+        surfaceLoaders: { ranking: () => new Promise(() => {}) },
+        targetWindow: window,
+      } },
+    });
+    try {
+      await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
+      expect(wrapper.findAll('.ranking-row-skeleton')).toHaveLength(5);
+      expect(wrapper.get('.ranking-columns').text()).toContain(mergeSeries ? '系列' : '作品');
+      expect(wrapper.find('.person-detail-skeleton').exists()).toBe(true);
+      const store = useQueryStore(pinia);
+      store.draft.mergeSeries = !mergeSeries;
+      store.draft.scope = 'global';
+      await nextTick();
+      expect(wrapper.get('.ranking-columns').text()).toContain(mergeSeries ? '系列' : '作品');
+      expect(wrapper.get('.ranking-columns').text()).toContain('偏好');
+      expect(wrapper.find('.ranking-pagination-skeleton').exists()).toBe(false);
+    } finally { wrapper.unmount(); }
+  });
+
+  it('replays and persists one authoritative detail with its exact view', async () => {
     const query: AppliedQuery = {
       scope: 'personal',
       uid: 'luca',
@@ -240,7 +249,7 @@ describe('App ranking production slice', () => {
       includeNSFW: false,
       mergeSeries: false,
     };
-    const workspace: ShareWorkspace = {
+    const workspace: RecoveryWorkspace = {
       detail: {
         input: { personId: 12 },
         view: {
@@ -261,26 +270,18 @@ describe('App ranking production slice', () => {
         sort: 'average',
       },
     };
-    window.history.replaceState(
-      {},
-      '',
-      createShareUrl(
-        new URL(`${window.location.origin}/ranking`),
-        '/ranking',
-        query,
-        workspace,
-      ),
-    );
+    window.history.replaceState({}, '', '/ranking');
+    expect(createQuerySessionOwner(window).write('/ranking', query, workspace)).toBe(true);
     const pinia = createPinia();
     setActivePinia(pinia);
     const rankingExecute = vi.fn(async (request) => ({
-      payload: rankingPayload('server-ranking-share', 'average'),
-      requestId: 'server-ranking-share',
+      payload: rankingPayload('server-ranking-recovery', 'average'),
+      requestId: 'server-ranking-recovery',
       transactionId: request.transactionId,
     }));
     const detailExecute = vi.fn(async (request) => ({
       payload: detailPayload(),
-      requestId: 'server-detail-share',
+      requestId: 'server-detail-recovery',
       transactionId: request.transactionId,
     }));
     const wrapper = mount(App, {
@@ -357,22 +358,11 @@ describe('App ranking production slice', () => {
     await nextTick();
     expect(queryWorkspace.find('.query-editor-panel').exists()).toBe(false);
 
-    await wrapper
-      .get('button[aria-label="复制当前查询链接"]')
-      .trigger('click');
-    await flushPromises();
-    const link = (
-      wrapper.get(
-      '.share-fallback__content input',
-      ).element as HTMLInputElement
-    ).value;
-    expect(readShare('/ranking', new URL(link).hash).workspace).toEqual(
-      workspace,
-    );
+    expect(createQuerySessionOwner(window).read('/ranking')?.workspace).toEqual(workspace);
     wrapper.unmount();
   });
 
-  it('replays a ranking share without detail without starting an Inspector request', async () => {
+  it('replays a ranking session without detail without starting an Inspector request', async () => {
     const query: AppliedQuery = {
       scope: 'personal',
       uid: 'luca',
@@ -382,7 +372,7 @@ describe('App ranking production slice', () => {
       includeNSFW: false,
       mergeSeries: false,
     };
-    const workspace: ShareWorkspace = {
+    const workspace: RecoveryWorkspace = {
       kind: 'ranking',
       rankingsView: {
         order: 'desc',
@@ -392,16 +382,8 @@ describe('App ranking production slice', () => {
         sort: 'count',
       },
     };
-    window.history.replaceState(
-      {},
-      '',
-      createShareUrl(
-        new URL(`${window.location.origin}/ranking`),
-        '/ranking',
-        query,
-        workspace,
-      ),
-    );
+    window.history.replaceState({}, '', '/ranking');
+    expect(createQuerySessionOwner(window).write('/ranking', query, workspace)).toBe(true);
     const pinia = createPinia();
     setActivePinia(pinia);
     const detailExecute = vi.fn();
@@ -622,7 +604,7 @@ describe('App ranking production slice', () => {
     vi.unstubAllGlobals();
   });
 
-  it('omits pending and failed unaccepted detail attempts from an otherwise shareable ranking', async () => {
+  it('omits pending and failed unaccepted detail attempts from a saved ranking', async () => {
     window.history.replaceState({}, '', '/ranking?user=luca');
     const pinia = createPinia();
     setActivePinia(pinia);
@@ -674,44 +656,16 @@ describe('App ranking production slice', () => {
     await wrapper.get('.ranked-person-row').trigger('click');
     await nextTick();
 
-    await wrapper
-      .get('button[aria-label="复制当前查询链接"]')
-      .trigger('click');
-    await flushPromises();
-    let link = (
-      wrapper.get(
-      '.share-fallback__content input',
-      ).element as HTMLInputElement
-    ).value;
-    let shared = readShare('/ranking', new URL(link).hash);
-    expect(
-      shared.workspace.kind === 'ranking'
-        ? shared.workspace.detail
-        : null,
-    ).toBeUndefined();
-
+    const session = createQuerySessionOwner(window);
+    expect(session.read('/ranking')?.workspace).not.toHaveProperty('detail');
     rejectDetail(new Error('offline'));
     await flushPromises();
-    await wrapper
-      .get('button[aria-label="复制当前查询链接"]')
-      .trigger('click');
-    await flushPromises();
-    link = (
-      wrapper.get(
-      '.share-fallback__content input',
-      ).element as HTMLInputElement
-    ).value;
-    shared = readShare('/ranking', new URL(link).hash);
-    expect(
-      shared.workspace.kind === 'ranking'
-        ? shared.workspace.detail
-        : null,
-    ).toBeUndefined();
+    expect(session.read('/ranking')?.workspace).not.toHaveProperty('detail');
     wrapper.unmount();
   });
 
   it('rejects an invalid detail section/sort union before rankings or Inspector requests', async () => {
-    const fragment = uncheckedFragment({
+    const invalidPayload = {
       query: {
         scope: 'personal',
         uid: 'luca',
@@ -742,12 +696,9 @@ describe('App ranking production slice', () => {
           sort: 'count',
         },
       },
-    });
-    window.history.replaceState(
-      {},
-      '',
-      `${window.location.origin}/ranking${fragment}`,
-    );
+    };
+    window.sessionStorage.setItem(QUERY_SESSION_STORAGE_KEY, JSON.stringify({version: 2, ranking: invalidPayload}));
+    window.history.replaceState({}, '', '/ranking');
     const pinia = createPinia();
     setActivePinia(pinia);
     const rankingExecute = vi.fn();
@@ -780,9 +731,8 @@ describe('App ranking production slice', () => {
     expect(rankingExecute).not.toHaveBeenCalled();
     expect(detailExecute).not.toHaveBeenCalled();
     expect(window.location.hash).toBe('');
-    expect(wrapper.get('.app-local-error').text()).toContain(
-      '分享查询无效',
-    );
+    expect(wrapper.find('.app-local-error').exists()).toBe(false);
+    expect(window.sessionStorage.getItem(QUERY_SESSION_STORAGE_KEY)).toBeNull();
     wrapper.unmount();
   });
 
@@ -868,8 +818,8 @@ describe('App ranking production slice', () => {
     wrapper.unmount();
   });
 
-  it('closes only the compact drawer while preserving the selected person and accepted detail', async () => {
-    const media = installCompactLayout(true);
+  it.each([false, true])('closes only the drawer while preserving selection and detail (wide controls: %s)', async (wideControls) => {
+    const media = installCompactLayout(true, wideControls);
     window.history.replaceState({}, '', '/ranking?user=luca');
     const pinia = createPinia();
     setActivePinia(pinia);
@@ -906,6 +856,7 @@ describe('App ranking production slice', () => {
       attachTo: document.body,
       global: {
         plugins: [pinia],
+        stubs: { transition: false },
       },
       props: {
         services: {
@@ -926,6 +877,7 @@ describe('App ranking production slice', () => {
     const row = wrapper.get<HTMLButtonElement>('.ranked-person-row');
 
     expect(personExecute).toHaveBeenCalledOnce();
+    expect(wrapper.get('.ranking-workspace').classes()).toContain('ranking-workspace--single');
     expect(row.attributes('aria-current')).toBe('true');
     expect(row.attributes('aria-controls')).toBeUndefined();
     expect(row.attributes('aria-expanded')).toBeUndefined();
@@ -952,6 +904,10 @@ describe('App ranking production slice', () => {
     manualClose.click();
     await flushPromises();
 
+    await vi.waitFor(() => {
+      expect(document.body.querySelector('.person-detail-drawer')).toBeNull();
+      expect(document.activeElement).toBe(row.element);
+    });
     expect(document.activeElement).toBe(row.element);
     expect(row.attributes('aria-current')).toBe('true');
     expect(row.attributes('aria-controls')).toBeUndefined();
@@ -977,9 +933,7 @@ describe('App ranking production slice', () => {
     expect(
       document.body.querySelector('.person-detail-drawer'),
     ).not.toBeNull();
-    expect(
-      wrapper.get('[data-app-root]').attributes('inert'),
-    ).toBe('true');
+    expect((wrapper.get('.app-page-scroll').element as HTMLElement).inert).toBe(true);
 
     media.setMatches(false);
     await flushPromises();
@@ -1047,6 +1001,7 @@ describe('App ranking production slice', () => {
       attachTo: document.body,
       global: {
         plugins: [pinia],
+        stubs: { transition: false },
       },
       props: {
         services: {
@@ -1088,6 +1043,20 @@ describe('App ranking production slice', () => {
     await flushPromises();
     expect(personExecute).toHaveBeenCalledTimes(1);
 
+    await vi.waitFor(() => expect(document.body.querySelector('.person-detail-drawer')).not.toBeNull());
+    expect(wrapper.get('.app-header').element.closest('[inert], [aria-hidden="true"]')).toBeNull();
+    expect((wrapper.get('.app-page-scroll').element as HTMLElement).inert).toBe(true);
+    await wrapper.get('#mode-tab-co-star').trigger('click');
+    await vi.waitFor(() => {
+      expect(document.body.querySelector('.person-detail-drawer')).toBeNull();
+      expect(document.activeElement).toBe(wrapper.get('#mode-tab-co-star').element);
+      expect((wrapper.get('.app-page-scroll').element as HTMLElement).inert).toBe(false);
+    });
+    await wrapper.get('#mode-tab-ranking').trigger('click');
+    await flushPromises();
+    await wrapper.get('.ranked-person-row').trigger('click');
+    await vi.waitFor(() => expect(document.body.querySelector('.person-detail-drawer__bar button')).not.toBeNull());
+
     document.body
       .querySelector<HTMLButtonElement>(
         '.person-detail-drawer__bar button',
@@ -1114,4 +1083,66 @@ describe('App ranking production slice', () => {
     wrapper.unmount();
     vi.unstubAllGlobals();
   });
+  it.each([true, false])('retries a failed chunk only after preserving recovery intent (storage=%s)', async (storageAvailable) => {
+    installCompactLayout(false);
+    window.history.replaceState({}, '', '/ranking?user=luca');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = useQueryStore(pinia);
+    store.draft.uid = 'luca';
+    store.draft.positionKeys = ['staff:anime:2'];
+    const reload = vi.fn(() => createQuerySessionOwner(window).read('/ranking'));
+    const targetWindow = new Proxy(window, {
+      get(target, property) {
+        if (property === 'location') return {
+          href: window.location.href, pathname: window.location.pathname, reload,
+        };
+        const value = Reflect.get(target, property, target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    vi.doMock('../../src/features/person-detail/components/PersonDetailSurface.vue', () => {
+      throw new Error('chunk unavailable');
+    });
+    const wrapper = mount(App, {
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: { services: {
+        catalogApi: { async load() { return catalogFixture(); } },
+        drivers: {
+          rankings: { async execute(request) { return {
+            payload: rankingPayload('server-ranking', 'count'),
+            requestId: 'server-ranking', transactionId: request.transactionId,
+          }; } },
+          candidates: { async execute(): Promise<never> { throw new Error('not used'); } },
+          personDetail: { async execute(request) { return {
+            payload: detailPayload(), requestId: 'server-detail', transactionId: request.transactionId,
+          }; } },
+        },
+        targetWindow,
+      } },
+    });
+    try {
+      await flushPromises();
+      await wrapper.get('#query-editor').trigger('submit');
+      await vi.waitFor(() => expect(wrapper.find('#mode-panel-ranking [data-deferred-surface] button').exists()).toBe(true));
+      const retry = wrapper.get('#mode-panel-ranking [data-deferred-surface] button');
+      if (!storageAvailable) vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('quota', 'QuotaExceededError');
+      });
+      await retry.trigger('click');
+      await flushPromises();
+      expect(reload).toHaveBeenCalledTimes(storageAvailable ? 1 : 0);
+      if (storageAvailable) expect(reload.mock.results[0]?.value?.workspace).toMatchObject({
+        kind: 'ranking', detail: { input: { personId: 12 } },
+      });
+      expect(store.applied).toMatchObject({ scope: 'personal', uid: 'luca' });
+      expect(window.location.hash).toBe('');
+    } finally {
+      wrapper.unmount();
+      vi.doUnmock('../../src/features/person-detail/components/PersonDetailSurface.vue');
+      vi.unstubAllGlobals();
+      delete document.documentElement.dataset.deferredSurfaceRecovery;
+    }
+  });
+
 });

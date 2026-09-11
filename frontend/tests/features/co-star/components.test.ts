@@ -1,11 +1,14 @@
 import { flushPromises, mount } from '@vue/test-utils';
+import { NInput, NSelect } from 'naive-ui';
 import { nextTick } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { CandidatePayload } from '../../../src/api/adapters/candidates';
 import CandidatePicker from '../../../src/features/co-star/components/CandidatePicker.vue';
+import CandidateWorkspaceSkeleton from '../../../src/features/co-star/components/CandidateWorkspaceSkeleton.vue';
 import CoStarEmptyState from '../../../src/features/co-star/components/CoStarEmptyState.vue';
 import CoStarWorkspace from '../../../src/features/co-star/components/CoStarWorkspace.vue';
+import MobileCandidateEntry from '../../../src/features/co-star/components/MobileCandidateEntry.vue';
 import type {
   CandidateResource,
   CandidateView,
@@ -147,6 +150,83 @@ afterEach(() => {
 });
 
 describe('candidate picker', () => {
+  it('shows the multi-person hint for one person in the tray and accessible mobile entry, then hides it for a pair', async () => {
+    const selection = createCoStarSelection([{ person: candidatePayload.items[0]!.person, positionKey: 'staff:anime:2', positionLabel: '导演' }]);
+    const hint = '可继续选择人物，进行多人共演分析';
+    const picker = mount(CandidatePicker, { props: {
+      cancel: vi.fn(), executeView: vi.fn(async () => true), positionLabel, resource: resource(), retry: vi.fn(async () => true), selection,
+    } });
+    const entry = mount(MobileCandidateEntry, { props: { expanded: false, selection } });
+    try {
+      expect(picker.text()).toContain('点选下方候选人物，查看与已选人物的共演情况');
+      expect(entry.text()).toContain(hint);
+      expect(entry.get('button').attributes('aria-label')).toContain(hint);
+      await entry.setProps({ expanded: true });
+      expect(entry.text()).not.toContain(hint);
+      expect(entry.get('button').attributes('aria-label')).not.toContain(hint);
+      await entry.setProps({ expanded: false });
+      expect(entry.text()).toContain(hint);
+      await picker.findAll('button.candidate-row')[1]!.trigger('click');
+      await nextTick();
+      expect(selection.personCount.value).toBe(2);
+      expect(picker.find('.co-star-multi-person-hint').exists()).toBe(false);
+      expect(entry.text()).not.toContain(hint);
+      expect(entry.get('button').attributes('aria-label')).not.toContain(hint);
+    } finally {
+      picker.unmount();
+      entry.unmount();
+    }
+  });
+
+  it('keeps the selected tray keyboard-operable without losing identities', async () => {
+    const selection = createCoStarSelection([{ person: candidatePayload.items[0]!.person, positionKey: 'staff:anime:2', positionLabel: '导演' }]);
+    const wrapper = mount(CandidatePicker, { props: {
+      cancel: vi.fn(), executeView: vi.fn(async () => true), positionLabel, resource: resource(), retry: vi.fn(async () => true), selection,
+    } });
+    const toggle = wrapper.get('button.candidate-selected-tray-toggle');
+    const content = wrapper.get('.candidate-selected-scroll-boundary');
+    await toggle.trigger('click');
+    expect(toggle.attributes('aria-expanded')).toBe('false');
+    expect(content.element.hasAttribute('inert')).toBe(true);
+    await toggle.trigger('click');
+    expect(toggle.attributes('aria-expanded')).toBe('true');
+    expect(content.element.hasAttribute('inert')).toBe(false);
+    expect(selection.personCount.value).toBe(1);
+    wrapper.unmount();
+  });
+
+  it('tracks remaining content at both selected-list edges', async () => {
+    const wrapper = mount(CandidatePicker, { props: {
+      cancel: vi.fn(), executeView: vi.fn(async () => true), positionLabel,
+      resource: resource(), retry: vi.fn(), selection: createCoStarSelection(),
+    } });
+    await nextTick();
+    const list = wrapper.get('.candidate-selected-people');
+    const element = list.element as HTMLElement;
+    Object.defineProperties(element, {
+      clientHeight: { configurable: true, value: 166 },
+      scrollHeight: { configurable: true, value: 400 },
+    });
+    const boundary = wrapper.get('.candidate-selected-scroll-boundary');
+    await list.trigger('scroll');
+    expect(boundary.classes()).not.toContain('can-scroll-up');
+    expect(boundary.classes()).toContain('can-scroll-down');
+    element.scrollTop = 100;
+    await list.trigger('scroll');
+    expect(boundary.classes()).toContain('can-scroll-up');
+    expect(boundary.classes()).toContain('can-scroll-down');
+    element.scrollTop = 234;
+    await list.trigger('scroll');
+    expect(boundary.classes()).toContain('can-scroll-up');
+    expect(boundary.classes()).not.toContain('can-scroll-down');
+    element.scrollTop = 0;
+    Object.defineProperty(element, 'scrollHeight', { configurable: true, value: 166 });
+    await list.trigger('scroll');
+    expect(boundary.classes()).not.toContain('can-scroll-up');
+    expect(boundary.classes()).not.toContain('can-scroll-down');
+    wrapper.unmount();
+  });
+
   it('defaults to all positions and atomically toggles a mixed identity set', async () => {
     const mixedPayload: CandidatePayload = Object.freeze({
       ...candidatePayload,
@@ -187,8 +267,18 @@ describe('candidate picker', () => {
       'staff:anime:2',
       'cast:anime:all',
     ]);
+    await wrapper.get('[aria-label="移除共同的声优身份"]').trigger('click');
+    expect(wrapper.get('.candidate-row').attributes('aria-pressed')).toBe('mixed');
+    expect(wrapper.get('.candidate-row').attributes('aria-label')).toBe('共同已选导演身份；补选声优身份');
+    expect(wrapper.get('.candidate-row').text()).toContain('已选部分身份');
+    expect(wrapper.get('.co-star-multi-person-hint').text()).toContain('点选下方候选人物');
+    await wrapper.get('.candidate-row').trigger('click');
+    expect(selection.personCount.value).toBe(1);
+    expect(selection.identityCount.value).toBe(2);
+    expect(wrapper.get('.candidate-row').attributes('aria-pressed')).toBe('true');
     await wrapper.get('.candidate-row').trigger('click');
     expect(selection.identityCount.value).toBe(0);
+    expect(wrapper.find('.co-star-multi-person-hint').exists()).toBe(false);
   });
 
   it('keeps an explicit all-position input ahead of a stale pending payload', async () => {
@@ -214,9 +304,7 @@ describe('candidate picker', () => {
     expect(
       wrapper.get('.candidate-position-results').attributes('aria-label'),
     ).toBe('全部职位候选人物');
-    expect(wrapper.get('.candidate-browser__heading').text()).toContain(
-      '全部职位 · 0—0 / …',
-    );
+    expect(wrapper.get('.candidate-browser__heading').text()).toBe('候选人物');
     expect(wrapper.get('.candidate-browser__heading').text()).not.toContain(
       '/ 8',
     );
@@ -286,12 +374,28 @@ describe('candidate picker', () => {
     expect(wrapper.text()).toContain('已选人物');
     expect(wrapper.text()).toContain('共同');
     expect(wrapper.find('input[name="candidateSearch"]').exists()).toBe(true);
-    expect(wrapper.find('.candidate-row').exists()).toBe(false);
+    expect(wrapper.find('button.candidate-row').exists()).toBe(false);
     expect(wrapper.find('.candidate-row-skeletons').exists()).toBe(true);
-    expect(wrapper.find('.candidate-pagination-skeleton').exists()).toBe(true);
+    expect(wrapper.findAll('.candidate-row--skeleton')).toHaveLength(candidateView.pageSize);
+    expect(wrapper.findComponent(AdaptivePagination).props('pending')).toBe(true);
+    expect(wrapper.find('.candidate-pagination-skeleton').exists()).toBe(false);
     expect(wrapper.get('.candidate-position-results').attributes('aria-busy')).toBe(
       'true',
     );
+  });
+
+  it('uses the same candidate card structure for first load and hides unknown pagination', () => {
+    const wrapper = mount(CandidatePicker, {
+      props: {
+        cancel: vi.fn(), executeView: vi.fn(async () => true), positionLabel,
+        resource: resource({ payload: null, phase: 'pending' }),
+        retry: vi.fn(async () => true), selection: createCoStarSelection([]),
+      },
+    });
+    expect(wrapper.findAll('.candidate-row--skeleton')).toHaveLength(candidateView.pageSize);
+    expect(wrapper.find('.candidate-row__portrait .n-skeleton').exists()).toBe(true);
+    expect(wrapper.find('button.candidate-row').exists()).toBe(false);
+    expect(wrapper.findComponent(AdaptivePagination).exists()).toBe(false);
   });
 
   it('debounces search as a view-only request and resets page', async () => {
@@ -324,6 +428,55 @@ describe('candidate picker', () => {
       }),
     );
     expect(executeView.mock.calls[0]![0]).not.toHaveProperty('selection');
+  });
+
+  it('keeps the position filter with the toolbar controls and preserves position changes', async () => {
+    vi.useFakeTimers();
+    const setCompact = installResponsiveMatchMedia(window, false);
+    const executeView = vi.fn(async (_input: unknown, _view: unknown) => true);
+    const wrapper = mount(CandidatePicker, {
+      props: {
+        cancel: vi.fn(), executeView, positionLabel,
+        resource: resource({ view: { ...candidateView, page: 4, search: '林' } }),
+        retry: vi.fn(), selection: createCoStarSelection(),
+      },
+    });
+    const toolbar = wrapper.get('.candidate-toolbar');
+    const position = toolbar.get('.search-sort-toolbar__filters').getComponent(NSelect);
+
+    expect(wrapper.find('.candidate-position-browser').exists()).toBe(false);
+    expect(toolbar.getComponent(NInput).props('size')).toBe('medium');
+    expect(position.props()).toMatchObject({ size: 'medium', menuSize: 'medium' });
+
+    setCompact(true);
+    await nextTick();
+    expect(toolbar.getComponent(NInput).props('size')).toBe('small');
+    expect(position.props()).toMatchObject({ size: 'small', menuSize: 'small' });
+
+    await toolbar.get('input[name="candidateSearch"]').setValue('旧搜索');
+    position.vm.$emit('update:value', 'cast:anime:all');
+    await nextTick();
+    await vi.advanceTimersByTimeAsync(240);
+    expect(executeView).toHaveBeenCalledOnce();
+    expect(executeView).toHaveBeenCalledWith(
+      { positionKey: 'cast:anime:all' },
+      expect.objectContaining({ page: 1, search: '' }),
+    );
+    expect(toolbar.get<HTMLInputElement>('input[name="candidateSearch"]').element.value).toBe('');
+    wrapper.unmount();
+  });
+
+  it('uses the same filter slot and compact size in the initial candidate skeleton', async () => {
+    installCompactMatchMedia(window);
+    const wrapper = mount(CandidateWorkspaceSkeleton);
+    await nextTick();
+    const toolbar = wrapper.get('.candidate-toolbar');
+    const position = toolbar.get('.search-sort-toolbar__filters').getComponent(NSelect);
+
+    expect(wrapper.find('.candidate-position-browser').exists()).toBe(false);
+    expect(toolbar.getComponent(NInput).props()).toMatchObject({ size: 'small', disabled: true });
+    expect(position.props()).toMatchObject({ size: 'small', menuSize: 'small', disabled: true, loading: true });
+    wrapper.unmount();
   });
 
   it('drops a pending search debounce when a primary query starts', async () => {
@@ -467,6 +620,10 @@ describe('candidate picker', () => {
     const firstIdentity = wrapper.findAll<HTMLButtonElement>(
       '.candidate-selected-position',
     )[0]!;
+    expect(firstIdentity.element.tagName).toBe('BUTTON');
+    expect(firstIdentity.attributes('aria-label')).toBe('移除共同的导演身份');
+    expect(firstIdentity.get('.n-tag').text()).toBe('导演');
+    expect(firstIdentity.find('button, [role="button"], [tabindex]').exists()).toBe(false);
     firstIdentity.element.focus();
     await firstIdentity.trigger('click');
 
@@ -481,7 +638,7 @@ describe('candidate picker', () => {
     finalPersonRemove.element.focus();
     await finalPersonRemove.trigger('click');
     expect(document.activeElement).toBe(
-      wrapper.get('.n-collapse-item__header-main').element,
+      wrapper.get('.candidate-selected-tray-toggle').element,
     );
     expect(document.activeElement).not.toBe(document.body);
     wrapper.unmount();

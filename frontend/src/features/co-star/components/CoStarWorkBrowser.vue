@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import {
   NButton,
-  NInput,
   NRadioButton,
   NRadioGroup,
-  NSelect,
-  NSkeleton,
+  NTag,
   NTooltip,
 } from 'naive-ui';
-import type { InputInst } from 'naive-ui';
 import {
   computed,
   onBeforeUnmount,
@@ -16,27 +13,30 @@ import {
   watch,
 } from 'vue';
 
-import AppIcon from '../../../shared/components/AppIcon.vue';
+import SearchSortToolbar from '../../../shared/components/SearchSortToolbar.vue';
+import WorkCardsSkeleton from '../../../shared/components/WorkCardsSkeleton.vue';
 import { useResultReveal } from '../../../shared/composables/useResultReveal';
+import { useTruncatedTooltip } from '../../../shared/composables/useTruncatedTooltip';
 import SafeImage from '../../../shared/components/SafeImage.vue';
 import { subjectImageCandidates } from '../../../shared/media/bangumiImage';
 import {
   bilingualNameTitle,
   resolveBilingualName,
 } from '../../../shared/names/bilingualName';
-import { useCompactLayout } from '../../query/composables/useCompactLayout';
+import { useCompactLayout } from '../../../shared/composables/useCompactLayout';
 import AdaptivePagination from '../../ranking/components/AdaptivePagination.vue';
-import SortDirectionButton from '../../ranking/components/SortDirectionButton.vue';
 import { formatHundredths } from '../../ranking/format';
 import {
   coStarSortOptions,
   type CoStarParticipant,
-  type CoStarSort,
   type CoStarView,
   type CoStarWorkItem,
   updateCoStarView,
 } from '../coStar';
 import CoStarIcon from './CoStarIcon.vue';
+import AdaptiveCreditList from './AdaptiveCreditList.vue';
+
+const memberTooltip = useTruncatedTooltip();
 
 const props = withDefaults(
   defineProps<{
@@ -67,8 +67,36 @@ const controlSize = computed(() =>
   compactLayout.value ? 'small' : 'medium',
 );
 const densityMode = ref<'compact' | 'detailed'>('detailed');
+const workList = ref<HTMLElement | null>(null);
+const canScrollUp = ref(false);
+const canScrollDown = ref(false);
+const scrollEdgeInset = ref(0);
+let listResizeObserver: ResizeObserver | undefined;
+
+function updateScrollEdges(): void {
+  const list = workList.value;
+  canScrollUp.value = Boolean(list && list.scrollTop > 1);
+  canScrollDown.value = Boolean(list && list.scrollHeight - list.clientHeight - list.scrollTop > 1);
+  const cardRight = list?.children.length
+    ? Math.max(...Array.from(list.children, (card) => card.getBoundingClientRect().right))
+    : undefined;
+  scrollEdgeInset.value = list && cardRight !== undefined
+    ? Math.max(0, list.getBoundingClientRect().right - cardRight)
+    : 0;
+}
+
+watch([workList, () => props.items, densityMode], () => {
+  listResizeObserver?.disconnect();
+  const list = workList.value;
+  if (list && typeof ResizeObserver === 'function') {
+    listResizeObserver = new ResizeObserver(updateScrollEdges);
+    listResizeObserver.observe(list);
+    for (const item of list.children) listResizeObserver.observe(item);
+  }
+  updateScrollEdges();
+}, { flush: 'post' });
 const search = ref(props.view.search);
-const searchInput = ref<InputInst | null>(null);
+const searchInput = ref<{ inputElRef: HTMLInputElement | null } | null>(null);
 const {
   attention: resultAttention,
   reveal: revealResults,
@@ -263,7 +291,10 @@ watch(
     }
   },
 );
-onBeforeUnmount(clearSearchTimer);
+onBeforeUnmount(() => {
+  clearSearchTimer();
+  listResizeObserver?.disconnect();
+});
 
 defineExpose({ focusUnit });
 </script>
@@ -328,64 +359,42 @@ defineExpose({ focusUnit });
       </div>
     </div>
 
-    <form
+    <search-sort-toolbar
+      ref="searchInput"
       class="work-list-toolbar co-star-work-toolbar"
-      role="search"
-      @submit.prevent="requestSearch"
-    >
-      <n-input
-        ref="searchInput"
-        :size="controlSize"
-        :value="search"
-        :clearable="Boolean(search)"
-        :placeholder="
-          workUnit === 'series'
-            ? '搜索系列或系列内作品'
-            : '搜索作品'
-        "
-        autocomplete="off"
-        :aria-label="
-          workUnit === 'series'
-            ? '搜索共同系列或系列内作品'
-            : '搜索共同作品'
-        "
-        :input-props="{
-          'aria-label':
-            workUnit === 'series'
-              ? '搜索共同系列或系列内作品'
-              : '搜索共同作品',
-          name: 'sharedWorkSearch',
-          spellcheck: 'false',
-        }"
-        @update:value="scheduleSearch"
-      >
-        <template #prefix><app-icon name="search" :size="16" /></template>
-      </n-input>
-
-      <n-select
-        :size="controlSize"
-        :menu-size="controlSize"
-        :value="view.sort"
-        :options="sortOptions"
-        :consistent-menu-width="false"
-        :aria-label="
-          workUnit === 'series'
-            ? '共同系列排序依据'
-            : '共同作品排序依据'
-        "
-        @update:value="request({ sort: $event as CoStarSort })"
-      />
-
-      <sort-direction-button
-        :order="view.order"
-        :context-label="
-          workUnit === 'series'
-            ? '共同系列排序方向'
-            : '共同作品排序方向'
-        "
-        @change="request({ order: $event })"
-      />
-    </form>
+      :search="search"
+      :sort="view.sort"
+      :order="view.order"
+      :options="sortOptions"
+      :placeholder="
+        workUnit === 'series'
+          ? '搜索系列或系列内作品'
+          : '搜索作品'
+      "
+      :search-label="
+        workUnit === 'series'
+          ? '搜索共同系列或系列内作品'
+          : '搜索共同作品'
+      "
+      :sort-label="
+        workUnit === 'series'
+          ? '共同系列排序依据'
+          : '共同作品排序依据'
+      "
+      :order-label="
+        workUnit === 'series'
+          ? '共同系列排序方向'
+          : '共同作品排序方向'
+      "
+      search-name="sharedWorkSearch"
+      search-class=""
+      sort-class=""
+      search-icon
+      @search="scheduleSearch"
+      @sort="request({ sort: $event })"
+      @order="request({ order: $event })"
+      @submit="requestSearch"
+    />
 
     <div
       v-if="error"
@@ -405,26 +414,27 @@ defineExpose({ focusUnit });
 
     <div
       class="co-star-work-list-boundary"
+      :class="{ 'can-scroll-up': canScrollUp, 'can-scroll-down': canScrollDown }"
+      :style="{ '--scroll-edge-inset': `${scrollEdgeInset}px` }"
       :aria-busy="pending ? 'true' : undefined"
     >
-      <div
+      <work-cards-skeleton
         v-if="pending"
         class="co-star-work-skeletons"
-        aria-hidden="true"
-      >
-        <n-skeleton
-          v-for="index in Math.min(pageSize, 5)"
-          :key="index"
-          class="app-skeleton"
-          :sharp="false"
-        />
-      </div>
+        :count="pageSize"
+        :compact="compact"
+        :personal="scope === 'personal'"
+        :kind="workUnit"
+        :participant-count="participants.length"
+      />
 
       <ul
         v-else
+        ref="workList"
         class="subject-work-list person-work-list co-star-work-list"
         :class="{ 'subject-work-list--compact': compact }"
         :aria-label="headingLabel"
+        @scroll.passive="updateScrollEdges"
       >
         <li
           v-for="(item, index) in items"
@@ -511,7 +521,7 @@ defineExpose({ focusUnit });
                     <strong>{{ primaryName(entityFor(item)) }}</strong>
                   </a>
                   <time
-                    v-if="formattedCollectionDate(item)"
+                    v-if="item.kind === 'subject' && formattedCollectionDate(item)"
                     class="subject-work-row__collection-time"
                     :datetime="collectionUpdatedAt(item) ?? undefined"
                     :title="`收藏于 ${formattedCollectionDate(item)}`"
@@ -566,7 +576,7 @@ defineExpose({ focusUnit });
                   </n-tooltip>
                 </small>
                 <ul
-                  v-if="item.kind === 'subject' && item.metaTags.length"
+                  v-if="item.metaTags.length"
                   class="subject-work-row__meta"
                   aria-label="条目属性"
                 >
@@ -574,7 +584,7 @@ defineExpose({ focusUnit });
                     v-for="tag in item.metaTags.slice(0, 5)"
                     :key="tag"
                   >
-                    {{ tag }}
+                    <n-tag size="small" round>{{ tag }}</n-tag>
                   </li>
                 </ul>
               </div>
@@ -663,16 +673,7 @@ defineExpose({ focusUnit });
                         </small>
                       </div>
                       <div class="shared-work-participant__roles">
-                        <span
-                          v-for="(credit, creditIndex) in participant.credits"
-                          :key="`${credit.kind}-${String(
-                            credit.positionKey,
-                          )}-${creditIndex}`"
-                          class="co-star-participant-credit"
-                          data-provenance="exact"
-                        >
-                          {{ contributionLabel(credit) }}
-                        </span>
+                        <adaptive-credit-list :labels="participant.credits.map(contributionLabel)" />
                       </div>
                     </div>
                   </div>
@@ -692,12 +693,25 @@ defineExpose({ focusUnit });
               </strong>
               <ul class="subject-work-row__series-member-list">
                 <li v-for="member in item.members" :key="member.id">
+                  <n-tooltip
+                    :show="memberTooltip.activeKey.value === `${item.key}/${member.id}`"
+                    trigger="manual"
+                    placement="top"
+                    :animated="false"
+                    style="max-width: min(336px, calc(100dvw - 24px));"
+                    content-class="workbench-tooltip-content"
+                  >
+                  <template #trigger>
                   <a
                     class="subject-work-row__series-member"
                     :href="`https://bgm.tv/subject/${member.id}`"
                     target="_blank"
                     rel="noopener noreferrer"
-                    :title="bilingualNameTitle(member)"
+                    @mouseenter="memberTooltip.show(`${item.key}/${member.id}`, $event)"
+                    @focus="memberTooltip.show(`${item.key}/${member.id}`, $event)"
+                    @mouseleave="memberTooltip.leave(`${item.key}/${member.id}`)"
+                    @blur="memberTooltip.hide(`${item.key}/${member.id}`)"
+                    @keydown.esc.stop.prevent="memberTooltip.hide(`${item.key}/${member.id}`)"
                   >
                     <safe-image
                       class="subject-work-row__series-member-cover"
@@ -713,17 +727,21 @@ defineExpose({ focusUnit });
                       :width="28"
                     />
                     <span class="subject-work-row__series-member-copy">
-                      <span class="subject-work-row__series-member-name">
+                      <span class="subject-work-row__series-member-name" data-truncated-text>
                         {{ primaryName(member) }}
                       </span>
                       <small
                         v-if="secondaryName(member)"
                         class="subject-work-row__series-member-original"
+                        data-truncated-text
                       >
                         {{ secondaryName(member) }}
                       </small>
                     </span>
                   </a>
+                  </template>
+                  <span style="white-space: pre-line" @mouseenter="memberTooltip.keepOpen" @mouseleave="memberTooltip.leave(`${item.key}/${member.id}`)">{{ bilingualNameTitle(member) }}</span>
+                  </n-tooltip>
                 </li>
               </ul>
             </section>
@@ -745,7 +763,6 @@ defineExpose({ focusUnit });
       :aria-label="
         workUnit === 'series' ? '共同系列分页' : '共同作品分页'
       "
-      :item-count="items.length"
       :page="page"
       :page-size="pageSize"
       :page-size-unit="workUnit === 'series' ? '个系列' : '部'"

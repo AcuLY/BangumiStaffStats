@@ -125,3 +125,19 @@ func TestClonePreferenceOwnsNullableRationals(t *testing.T) {
 		t.Fatalf("preference pointer aliased: %+v", value)
 	}
 }
+
+func TestAllPositionScopeSeparatesIdenticalInputCacheKeys(t *testing.T) {
+	input := Input{Source: SourceInput{PersonID: 1, PositionKeys: []string{"staff:anime:2"}}}
+	legacy, err := ResultKey("global", testDataVersion, testQueryDigest, input, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	input.PositionScope = "all"
+	broad, err := ResultKey("global", testDataVersion, testQueryDigest, input, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy == broad {
+		t.Fatal("operation scopes share a result key")
+	}
+}

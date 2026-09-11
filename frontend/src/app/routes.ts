@@ -1,7 +1,6 @@
 import { ref, readonly, type Ref } from 'vue';
 
 import type { AppliedQuery, QueryMode } from '../features/query/model';
-import { readShare, type SharePayload } from '../features/query/share';
 import {
   toLogicalAppPath,
   toPublicAppPath,
@@ -23,9 +22,6 @@ function pathFor(mode: QueryMode): AppPath {
 }
 
 export interface RouteOwner {
-  consumeInitialShare(
-    replay: (payload: SharePayload) => Promise<boolean>,
-  ): Promise<'absent' | 'applied' | 'deferred' | 'invalid'>;
   dispose(): void;
   readonly mode: Readonly<Ref<QueryMode>>;
   navigate(mode: QueryMode): void;
@@ -43,8 +39,11 @@ export function createRouteOwner(target: Window = window): RouteOwner {
     initial.pathname = toPublicAppPath('/ranking');
     target.history.replaceState({}, '', localHistoryHref(initial));
   }
+  if (initial.hash) {
+    initial.hash = '';
+    target.history.replaceState({}, '', localHistoryHref(initial));
+  }
   const mode = ref<QueryMode>(modeFor(initial.pathname));
-  let shareConsumed = false;
 
   const onPopState = () => {
     mode.value = modeFor(target.location.pathname);
@@ -77,42 +76,7 @@ export function createRouteOwner(target: Window = window): RouteOwner {
     target.history.replaceState({}, '', localHistoryHref(url));
   }
 
-  async function consumeInitialShare(
-    replay: (payload: SharePayload) => Promise<boolean>,
-  ): Promise<'absent' | 'applied' | 'deferred' | 'invalid'> {
-    if (shareConsumed) {
-      return 'absent';
-    }
-    shareConsumed = true;
-    const url = new URL(target.location.href);
-    if (!url.hash) {
-      return 'absent';
-    }
-    const path = pathFor(mode.value);
-    let payload: SharePayload;
-    try {
-      payload = readShare(path, url.hash);
-    } catch {
-      const current = new URL(target.location.href);
-      current.hash = '';
-      target.history.replaceState({}, '', localHistoryHref(current));
-      return 'invalid';
-    }
-    let applied = false;
-    try {
-      applied = await replay(payload);
-    } catch {
-      applied = false;
-    } finally {
-      const current = new URL(target.location.href);
-      current.hash = '';
-      target.history.replaceState({}, '', localHistoryHref(current));
-    }
-    return applied ? 'applied' : 'deferred';
-  }
-
   return {
-    consumeInitialShare,
     dispose() {
       target.removeEventListener('popstate', onPopState);
     },

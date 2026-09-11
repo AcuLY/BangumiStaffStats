@@ -16,9 +16,13 @@ Run commands from this directory with Node `24.18.0` and npm `11.16.0`.
 - `npm run check:architecture` enforces ownership and dependency boundaries.
 - `npm run test` runs mount, transport, and shared-contract tests.
 - `npm run build` runs Vue TypeScript project checks and the production build.
-- `npm run check:artifact` checks the built artifact and gzip budget.
+- `npm run check:artifact` checks the built artifact and requires initial JavaScript gzip below 350 KiB (358400 bytes).
 - `npm run cleanup` removes only the declared disposable frontend roots.
 
 `/` and `/index.html` canonically replace to `/ranking`; `/ranking` and
-`/co-star` are the two production modes of the same SPA. History, share,
+`/co-star` are the two production modes of the same SPA. History, local query-session recovery,
 theme, Draft/Applied Query, and latest-response behavior each have one owner.
+Query sharing is removed: URL fragments are cleared without query replay.
+The Header's “回到旧版” link always opens `https://search.bgmss.fun/old/` in the
+same tab. Hosting that path and moving the new application to the root remain
+separate deployment work; current production routing is unchanged.

@@ -11,6 +11,9 @@ fail() {
   exit 1
 }
 
+grep -Eq '^[[:space:]]*proxy_read_timeout 130s;' "$operations_root/nginx/bgmss.conf" ||
+  fail 'Nginx must wait beyond the 120s API request and 125s HTTP write budgets'
+
 for script in \
   "$operations_root/bin/build-bundle.sh" \
   "$operations_root/bin/check" \

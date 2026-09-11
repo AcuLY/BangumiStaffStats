@@ -10,6 +10,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for PostPersonDetailV1JSONBodyInputPositionScope.
+const (
+	PostPersonDetailV1JSONBodyInputPositionScopeAll   PostPersonDetailV1JSONBodyInputPositionScope = "all"
+	PostPersonDetailV1JSONBodyInputPositionScopeQuery PostPersonDetailV1JSONBodyInputPositionScope = "query"
+)
+
+// Valid indicates whether the value is a known member of the PostPersonDetailV1JSONBodyInputPositionScope enum.
+func (e PostPersonDetailV1JSONBodyInputPositionScope) Valid() bool {
+	switch e {
+	case PostPersonDetailV1JSONBodyInputPositionScopeAll:
+		return true
+	case PostPersonDetailV1JSONBodyInputPositionScopeQuery:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PostPersonDetailV1JSONBodyQuery0CollectionStatuses.
 const (
 	PostPersonDetailV1JSONBodyQuery0CollectionStatusesCompleted  PostPersonDetailV1JSONBodyQuery0CollectionStatuses = "completed"
@@ -2327,7 +2345,15 @@ func (e PostPersonDetailV1504JSONResponseBodyErrorFieldErrors) Valid() bool {
 type PostPersonDetailV1JSONBody struct {
 	Input struct {
 		PersonId int `json:"personId"`
+
+		// PositionKeys Optional explicit identity scope within positionScope. Omission retains full ranking membership.
+		PositionKeys *[]string `json:"positionKeys,omitempty"`
+
+		// PositionScope Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array only with explicit nonempty input.positionKeys.
+		PositionScope *PostPersonDetailV1JSONBodyInputPositionScope `json:"positionScope,omitempty"`
 	} `json:"input"`
+
+	// Query Query body for an explicitly all-position operation. Empty positionKeys is permitted only when the containing operation requires positionScope=all; all other query validation is unchanged.
 	Query PostPersonDetailV1JSONBody_Query `json:"query"`
 	View  *struct {
 		Order    *PostPersonDetailV1JSONBodyViewOrder    `json:"order,omitempty"`
@@ -2338,6 +2364,9 @@ type PostPersonDetailV1JSONBody struct {
 		Sort     *PostPersonDetailV1JSONBodyViewSort     `json:"sort,omitempty"`
 	} `json:"view,omitempty"`
 }
+
+// PostPersonDetailV1JSONBodyInputPositionScope defines parameters for PostPersonDetailV1.
+type PostPersonDetailV1JSONBodyInputPositionScope string
 
 // PostPersonDetailV1JSONBodyQuery0 defines parameters for PostPersonDetailV1.
 type PostPersonDetailV1JSONBodyQuery0 struct {
@@ -2476,7 +2505,16 @@ type PostPersonDetailV1200JSONResponseBody0 struct {
 					Average int `json:"average"`
 					Count   int `json:"count"`
 					Quarter int `json:"quarter"`
-					Year    int `json:"year"`
+					Works   []struct {
+						Score   int `json:"score"`
+						Subject struct {
+							Date   *string `json:"date"`
+							Id     int     `json:"id"`
+							Name   string  `json:"name"`
+							NameCN *string `json:"nameCN"`
+						} `json:"subject"`
+					} `json:"works"`
+					Year int `json:"year"`
 				} `json:"timeline"`
 				ValidCount int `json:"validCount"`
 			} `json:"global"`
@@ -2570,6 +2608,7 @@ type PostPersonDetailV1200JSONResponseBody0DataItems1 struct {
 		Name    string  `json:"name"`
 		NameCN  *string `json:"nameCN"`
 	} `json:"members"`
+	MetaTags       []string `json:"metaTags"`
 	Representative struct {
 		Date   *string `json:"date"`
 		Id     int     `json:"id"`
@@ -2685,7 +2724,16 @@ type PostPersonDetailV1200JSONResponseBody1 struct {
 					Average int `json:"average"`
 					Count   int `json:"count"`
 					Quarter int `json:"quarter"`
-					Year    int `json:"year"`
+					Works   []struct {
+						Score   int `json:"score"`
+						Subject struct {
+							Date   *string `json:"date"`
+							Id     int     `json:"id"`
+							Name   string  `json:"name"`
+							NameCN *string `json:"nameCN"`
+						} `json:"subject"`
+					} `json:"works"`
+					Year int `json:"year"`
 				} `json:"timeline"`
 				ValidCount int `json:"validCount"`
 			} `json:"global"`
@@ -2815,7 +2863,16 @@ type PostPersonDetailV1200JSONResponseBody2 struct {
 					Average int `json:"average"`
 					Count   int `json:"count"`
 					Quarter int `json:"quarter"`
-					Year    int `json:"year"`
+					Works   []struct {
+						Score   int `json:"score"`
+						Subject struct {
+							Date   *string `json:"date"`
+							Id     int     `json:"id"`
+							Name   string  `json:"name"`
+							NameCN *string `json:"nameCN"`
+						} `json:"subject"`
+					} `json:"works"`
+					Year int `json:"year"`
 				} `json:"timeline"`
 				ValidCount int `json:"validCount"`
 			} `json:"global"`
@@ -2837,7 +2894,16 @@ type PostPersonDetailV1200JSONResponseBody2 struct {
 					Average int `json:"average"`
 					Count   int `json:"count"`
 					Quarter int `json:"quarter"`
-					Year    int `json:"year"`
+					Works   []struct {
+						Score   int `json:"score"`
+						Subject struct {
+							Date   *string `json:"date"`
+							Id     int     `json:"id"`
+							Name   string  `json:"name"`
+							NameCN *string `json:"nameCN"`
+						} `json:"subject"`
+					} `json:"works"`
+					Year int `json:"year"`
 				} `json:"timeline"`
 				ValidCount int `json:"validCount"`
 			} `json:"personal"`
@@ -2945,7 +3011,8 @@ type PostPersonDetailV1200JSONResponseBody2DataItems1 struct {
 		Name    string  `json:"name"`
 		NameCN  *string `json:"nameCN"`
 	} `json:"members"`
-	PersonalScore  *int `json:"personalScore"`
+	MetaTags       []string `json:"metaTags"`
+	PersonalScore  *int     `json:"personalScore"`
 	Representative struct {
 		Date   *string `json:"date"`
 		Id     int     `json:"id"`
@@ -3114,7 +3181,16 @@ type PostPersonDetailV1200JSONResponseBody3 struct {
 					Average int `json:"average"`
 					Count   int `json:"count"`
 					Quarter int `json:"quarter"`
-					Year    int `json:"year"`
+					Works   []struct {
+						Score   int `json:"score"`
+						Subject struct {
+							Date   *string `json:"date"`
+							Id     int     `json:"id"`
+							Name   string  `json:"name"`
+							NameCN *string `json:"nameCN"`
+						} `json:"subject"`
+					} `json:"works"`
+					Year int `json:"year"`
 				} `json:"timeline"`
 				ValidCount int `json:"validCount"`
 			} `json:"global"`
@@ -3136,7 +3212,16 @@ type PostPersonDetailV1200JSONResponseBody3 struct {
 					Average int `json:"average"`
 					Count   int `json:"count"`
 					Quarter int `json:"quarter"`
-					Year    int `json:"year"`
+					Works   []struct {
+						Score   int `json:"score"`
+						Subject struct {
+							Date   *string `json:"date"`
+							Id     int     `json:"id"`
+							Name   string  `json:"name"`
+							NameCN *string `json:"nameCN"`
+						} `json:"subject"`
+					} `json:"works"`
+					Year int `json:"year"`
 				} `json:"timeline"`
 				ValidCount int `json:"validCount"`
 			} `json:"personal"`

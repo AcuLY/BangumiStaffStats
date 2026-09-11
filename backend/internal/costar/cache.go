@@ -60,7 +60,8 @@ func ResultKey(
 		return runtimecache.ResultKey{}, fieldError("/input/participants")
 	}
 	canonicalInput := Input{
-		Participants: make([]ParticipantInput, len(input.Participants)),
+		PositionScope: input.PositionScope,
+		Participants:  make([]ParticipantInput, len(input.Participants)),
 	}
 	for index, participant := range input.Participants {
 		if participant.PersonID <= 0 || len(participant.PositionKeys) == 0 {
@@ -204,7 +205,7 @@ func workCost(value WorkItem) int64 {
 	if value.Series != nil {
 		addRetainedCost(
 			&cost,
-			192,
+			216,
 			stringRetainedCost(value.Series.Key),
 			subjectReferenceRetainedCost(value.Series.Representative),
 			optionalScalarRetainedCost(value.Series.GlobalScore != nil),
@@ -213,6 +214,9 @@ func workCost(value WorkItem) int64 {
 				value.Series.LatestCollectionUpdatedAt,
 			),
 		)
+		for _, tag := range value.Series.MetaTags {
+			addRetainedCost(&cost, stringRetainedCost(tag))
+		}
 		for _, member := range value.Series.Members {
 			addRetainedCost(
 				&cost,

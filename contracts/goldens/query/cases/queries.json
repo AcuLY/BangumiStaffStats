@@ -1405,8 +1405,6 @@
         "operation",
         "input",
         "view",
-        "sharePath",
-        "shareWorkspace",
         "search",
         "sort",
         "order",
@@ -1430,8 +1428,6 @@
         "view": {
           "sort": "count"
         },
-        "sharePath": "/ranking",
-        "shareWorkspace": "ranking",
         "search": "",
         "sort": "count",
         "order": "desc",
@@ -1455,8 +1451,6 @@
         "view": {
           "sort": "average"
         },
-        "sharePath": "/co-star",
-        "shareWorkspace": "co-star",
         "search": "creator",
         "sort": "average",
         "order": "asc",

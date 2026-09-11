@@ -1886,11 +1886,12 @@ func (e PostRankingsV1504JSONResponseBodyErrorFieldErrors) Valid() bool {
 type PostRankingsV1JSONBody struct {
 	Query PostRankingsV1JSONBody_Query `json:"query"`
 	View  *struct {
-		Order    *PostRankingsV1JSONBodyViewOrder    `json:"order,omitempty"`
-		Page     *int                                `json:"page,omitempty"`
-		PageSize *PostRankingsV1JSONBodyViewPageSize `json:"pageSize,omitempty"`
-		Search   *string                             `json:"search,omitempty"`
-		Sort     *PostRankingsV1JSONBodyViewSort     `json:"sort,omitempty"`
+		LocatePersonId *int                                `json:"locatePersonId,omitempty"`
+		Order          *PostRankingsV1JSONBodyViewOrder    `json:"order,omitempty"`
+		Page           *int                                `json:"page,omitempty"`
+		PageSize       *PostRankingsV1JSONBodyViewPageSize `json:"pageSize,omitempty"`
+		Search         *string                             `json:"search,omitempty"`
+		Sort           *PostRankingsV1JSONBodyViewSort     `json:"sort,omitempty"`
 	} `json:"view,omitempty"`
 }
 
@@ -1933,7 +1934,7 @@ type PostRankingsV1JSONBodyQuery0 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  *bool                                   `json:"includeNSFW,omitempty"`
 	MergeSeries  *bool                                   `json:"mergeSeries,omitempty"`
-	PositionKeys []string                                `json:"positionKeys"`
+	PositionKeys []interface{}                           `json:"positionKeys"`
 	Scope        interface{}                             `json:"scope"`
 	SubjectType  PostRankingsV1JSONBodyQuery0SubjectType `json:"subjectType"`
 	Uid          string                                  `json:"uid"`
@@ -1971,7 +1972,7 @@ type PostRankingsV1JSONBodyQuery1 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  *bool                                   `json:"includeNSFW,omitempty"`
 	MergeSeries  *bool                                   `json:"mergeSeries,omitempty"`
-	PositionKeys []string                                `json:"positionKeys"`
+	PositionKeys []interface{}                           `json:"positionKeys"`
 	Scope        interface{}                             `json:"scope"`
 	SubjectType  PostRankingsV1JSONBodyQuery1SubjectType `json:"subjectType"`
 }
@@ -2024,6 +2025,11 @@ type PostRankingsV1200JSONResponseBody0 struct {
 			Rank      int `json:"rank"`
 			WorkCount int `json:"workCount"`
 		} `json:"items"`
+		Location *struct {
+			Page     *int `json:"page"`
+			PersonId int  `json:"personId"`
+			Rank     *int `json:"rank"`
+		} `json:"location,omitempty"`
 		MetricScale PostRankingsV1200JSONResponseBody_0_Data_MetricScale `json:"metricScale"`
 		Summary     struct {
 			CharacterCount *int                                                  `json:"characterCount,omitempty"`
@@ -2115,6 +2121,11 @@ type PostRankingsV1200JSONResponseBody1 struct {
 			Rank      int `json:"rank"`
 			WorkCount int `json:"workCount"`
 		} `json:"items"`
+		Location *struct {
+			Page     *int `json:"page"`
+			PersonId int  `json:"personId"`
+			Rank     *int `json:"rank"`
+		} `json:"location,omitempty"`
 		MetricScale PostRankingsV1200JSONResponseBody_1_Data_MetricScale `json:"metricScale"`
 		Summary     struct {
 			CharacterCount *int                                                  `json:"characterCount,omitempty"`

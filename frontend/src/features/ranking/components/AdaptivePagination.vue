@@ -16,13 +16,12 @@ import {
 } from 'vue';
 
 import AppIcon from '../../../shared/components/AppIcon.vue';
-import { useCompactLayout } from '../../query/composables/useCompactLayout';
+import { useCompactLayout } from '../../../shared/composables/useCompactLayout';
 import type { RankingPageSize } from '../model';
 
 const props = withDefaults(
   defineProps<{
     ariaLabel?: string;
-    itemCount: number;
     page: number;
     pageSize: RankingPageSize;
     pageSizeLabel?: string;
@@ -44,6 +43,8 @@ const emit = defineEmits<{
 
 const compact = useCompactLayout();
 const controlSize = computed(() => (compact.value ? 'small' : 'medium'));
+// Naive Pagination renders its Select and Input one size below its own size.
+const toolsSize = computed(() => (compact.value ? 'medium' : 'large'));
 const pageThemeOverrides: NonNullable<
   PaginationProps['themeOverrides']
 > = {
@@ -69,13 +70,6 @@ const pageSizes = computed(() =>
     value,
   })),
 );
-const rangeSummary = computed(() => {
-  if (props.itemCount === 0 || props.total === 0) {
-    return `0—0 / ${props.total}`;
-  }
-  const start = (props.page - 1) * props.pageSize + 1;
-  return `${start}—${Math.min(start + props.itemCount - 1, props.total)} / ${props.total}`;
-});
 
 function renderPrevious(info: PaginationInfo) {
   const atFirstPage = info.page <= 1;
@@ -208,11 +202,6 @@ onBeforeUnmount(() => {
 
 <template>
   <nav class="ranking-pagination adaptive-pagination" :aria-label="ariaLabel">
-    <span
-      class="ranking-pagination__summary adaptive-pagination__summary"
-      role="status"
-      aria-live="polite"
-    >{{ rangeSummary }}</span>
     <div
       ref="pagesContainer"
       class="ranking-pagination__pages adaptive-pagination__pages"
@@ -235,7 +224,7 @@ onBeforeUnmount(() => {
     </div>
     <n-pagination
       class="adaptive-pagination__control adaptive-pagination__control--tools"
-      :size="controlSize"
+      :size="toolsSize"
       :page="page"
       :page-size="pageSize"
       :item-count="total"
@@ -255,3 +244,9 @@ onBeforeUnmount(() => {
     <span class="sr-only">{{ page }} / {{ pageCount }}</span>
   </nav>
 </template>
+
+<style scoped>
+.adaptive-pagination__pages {
+  padding-inline-end: 0;
+}
+</style>

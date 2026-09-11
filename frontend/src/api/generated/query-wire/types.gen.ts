@@ -32,12 +32,6 @@ export type CoStarViewV1 = OperationComponentsV1SchemaCoStarViewV1;
 
 export type ErrorEnvelopeV1 = ErrorEnvelopeV1Schema;
 
-export type SharePayloadV1 = SharePayloadV1Schema;
-
-export type RankingShareWorkspaceV1 = RankingWorkspaceV1;
-
-export type CoStarShareWorkspaceV1 = CoStarWorkspaceV1;
-
 /**
  * CatalogContextV1
  */
@@ -61,13 +55,17 @@ export type EffectiveCommonFiltersV1 = {
     tags?: NormalizedTagFilterV1;
 };
 
-export type EffectiveGlobalQueryV1 = {
+export type EffectiveGlobalQueryFieldsV1 = {
     scope: 'global';
     subjectType: SubjectTypeV1;
     positionKeys: Array<PositionKeyV1>;
     includeNSFW: boolean;
     mergeSeries: boolean;
     filters?: EffectiveCommonFiltersV1;
+};
+
+export type EffectiveGlobalQueryV1 = EffectiveGlobalQueryFieldsV1 & {
+    positionKeys?: Array<unknown>;
 };
 
 export type EffectivePersonalFiltersV1 = {
@@ -80,7 +78,7 @@ export type EffectivePersonalFiltersV1 = {
     tags?: NormalizedTagFilterV1;
 };
 
-export type EffectivePersonalQueryV1 = {
+export type EffectivePersonalQueryFieldsV1 = {
     scope: 'personal';
     uid: string;
     collectionStatuses: Array<CollectionStatusV1>;
@@ -89,6 +87,10 @@ export type EffectivePersonalQueryV1 = {
     includeNSFW: boolean;
     mergeSeries: boolean;
     filters?: EffectivePersonalFiltersV1;
+};
+
+export type EffectivePersonalQueryV1 = EffectivePersonalQueryFieldsV1 & {
+    positionKeys?: Array<unknown>;
 };
 
 export type NormalizedTagFilterV1 = {
@@ -134,6 +136,10 @@ export type OpaqueIdentifierV1 = string;
 
 export type OperationComponentsV1SchemaCandidatesInputV1 = {
     positionKey: PositionKeyV1 | null;
+    /**
+     * Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+     */
+    positionScope?: 'query' | 'all';
 };
 
 export type OperationComponentsV1SchemaCandidatesViewV1 = {
@@ -146,6 +152,10 @@ export type OperationComponentsV1SchemaCandidatesViewV1 = {
 
 export type OperationComponentsV1SchemaCoStarInputV1 = {
     participants: Array<PersonIdentityV1>;
+    /**
+     * Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+     */
+    positionScope?: 'query' | 'all';
 };
 
 export type OperationComponentsV1SchemaCoStarViewV1 = {
@@ -163,6 +173,10 @@ export type PageV1 = number;
 export type OperationComponentsV1SchemaPartnersInputV1 = {
     source: PersonIdentityV1;
     candidatePositionKey?: PositionKeyV1;
+    /**
+     * Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+     */
+    positionScope?: 'query' | 'all';
 };
 
 export type OperationComponentsV1SchemaPartnersViewV1 = {
@@ -175,6 +189,14 @@ export type OperationComponentsV1SchemaPartnersViewV1 = {
 
 export type OperationComponentsV1SchemaPersonDetailInputV1 = {
     personId: JsonSafePositiveIntegerV1;
+    /**
+     * Optional explicit identity scope within positionScope. Omission retains full ranking membership.
+     */
+    positionKeys?: Array<PositionKeyV1>;
+    /**
+     * Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array only with explicit nonempty input.positionKeys.
+     */
+    positionScope?: 'query' | 'all';
 };
 
 export type OperationComponentsV1SchemaPersonDetailViewV1 = {
@@ -197,6 +219,7 @@ export type OperationComponentsV1SchemaRankingsViewV1 = {
     order?: SortOrderV1;
     page?: PageV1;
     pageSize?: PageSizeV1;
+    locatePersonId?: JsonSafePositiveIntegerV1;
 };
 
 export type SearchTextV1 = string;
@@ -208,7 +231,7 @@ export type SortOrderV1 = 'asc' | 'desc';
  */
 export type QueryDigestProjectionV1Schema = PersonalProjectionV1 | GlobalProjectionV1;
 
-export type GlobalProjectionV1 = {
+export type GlobalProjectionFieldsV1 = {
     scope: 'global';
     subjectType: SubjectTypeV1;
     positionKeys: Array<PositionKeyV1>;
@@ -217,7 +240,11 @@ export type GlobalProjectionV1 = {
     filters?: EffectiveCommonFiltersV1;
 };
 
-export type PersonalProjectionV1 = {
+export type GlobalProjectionV1 = GlobalProjectionFieldsV1 & {
+    positionKeys?: Array<unknown>;
+};
+
+export type PersonalProjectionFieldsV1 = {
     scope: 'personal';
     collectionStatuses: Array<CollectionStatusV1>;
     subjectType: SubjectTypeV1;
@@ -227,67 +254,8 @@ export type PersonalProjectionV1 = {
     filters?: EffectivePersonalFiltersV1;
 };
 
-/**
- * SharePayloadV1
- */
-export type SharePayloadV1Schema = RankingSharePayloadV1 | CoStarSharePayloadV1;
-
-export type CandidatesStateV1 = {
-    input: OperationComponentsV1SchemaCandidatesInputV1;
-    view: OperationComponentsV1SchemaCandidatesViewV1;
-};
-
-export type CoStarAnalysisV1 = {
-    input: OperationComponentsV1SchemaCoStarInputV1;
-    view: OperationComponentsV1SchemaCoStarViewV1;
-};
-
-export type CoStarAnalysisWorkspaceV1 = {
-    kind: 'co-star';
-    state: 'analysis';
-    candidates: CandidatesStateV1;
-    coStar: CoStarAnalysisV1;
-};
-
-export type CoStarEmptyWorkspaceV1 = {
-    kind: 'co-star';
-    state: 'empty';
-    candidates: CandidatesStateV1;
-};
-
-export type CoStarPartnersWorkspaceV1 = {
-    kind: 'co-star';
-    state: 'partners';
-    candidates: CandidatesStateV1;
-    partners: PartnersStateV1;
-};
-
-export type CoStarSharePayloadV1 = {
-    query: EffectiveQueryV1Schema;
-    workspace: CoStarWorkspaceV1;
-};
-
-export type CoStarWorkspaceV1 = CoStarEmptyWorkspaceV1 | CoStarPartnersWorkspaceV1 | CoStarAnalysisWorkspaceV1;
-
-export type PartnersStateV1 = {
-    input: OperationComponentsV1SchemaPartnersInputV1;
-    view: OperationComponentsV1SchemaPartnersViewV1;
-};
-
-export type RankingDetailV1 = {
-    input: OperationComponentsV1SchemaPersonDetailInputV1;
-    view: OperationComponentsV1SchemaPersonDetailViewV1;
-};
-
-export type RankingSharePayloadV1 = {
-    query: EffectiveQueryV1Schema;
-    workspace: RankingWorkspaceV1;
-};
-
-export type RankingWorkspaceV1 = {
-    kind: 'ranking';
-    rankingsView: OperationComponentsV1SchemaRankingsViewV1;
-    detail?: RankingDetailV1;
+export type PersonalProjectionV1 = PersonalProjectionFieldsV1 & {
+    positionKeys?: Array<unknown>;
 };
 
 /**
@@ -304,13 +272,17 @@ export type CommonFiltersInputV1 = {
     tags?: TagFilterInputV1;
 };
 
-export type GlobalSharedQueryV1 = {
+export type GlobalSharedQueryFieldsV1 = {
     scope: 'global';
     subjectType: SubjectTypeV1;
     positionKeys: Array<PositionKeyV1>;
     includeNSFW?: boolean;
     mergeSeries?: boolean;
     filters?: CommonFiltersInputV1;
+};
+
+export type GlobalSharedQueryV1 = GlobalSharedQueryFieldsV1 & {
+    positionKeys?: Array<unknown>;
 };
 
 export type JsonSafePositiveIntegerV1 = number;
@@ -332,7 +304,7 @@ export type PersonalFiltersInputV1 = {
     tags?: TagFilterInputV1;
 };
 
-export type PersonalSharedQueryV1 = {
+export type PersonalSharedQueryFieldsV1 = {
     scope: 'personal';
     uid: string;
     collectionStatuses: Array<CollectionStatusV1>;
@@ -341,6 +313,10 @@ export type PersonalSharedQueryV1 = {
     includeNSFW?: boolean;
     mergeSeries?: boolean;
     filters?: PersonalFiltersInputV1;
+};
+
+export type PersonalSharedQueryV1 = PersonalSharedQueryFieldsV1 & {
+    positionKeys?: Array<unknown>;
 };
 
 export type PositionKeyV1 = unknown | unknown | unknown;

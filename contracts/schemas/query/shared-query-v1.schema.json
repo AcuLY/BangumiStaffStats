@@ -229,6 +229,38 @@
       }
     },
     "PersonalSharedQueryV1": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/PersonalSharedQueryFieldsV1"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "positionKeys": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        }
+      ]
+    },
+    "GlobalSharedQueryV1": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/GlobalSharedQueryFieldsV1"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "positionKeys": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        }
+      ]
+    },
+    "PersonalSharedQueryFieldsV1": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -260,7 +292,6 @@
         },
         "positionKeys": {
           "type": "array",
-          "minItems": 1,
           "items": {
             "$ref": "#/$defs/PositionKeyV1"
           }
@@ -278,7 +309,7 @@
         }
       }
     },
-    "GlobalSharedQueryV1": {
+    "GlobalSharedQueryFieldsV1": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -295,7 +326,6 @@
         },
         "positionKeys": {
           "type": "array",
-          "minItems": 1,
           "items": {
             "$ref": "#/$defs/PositionKeyV1"
           }
@@ -312,6 +342,17 @@
           "$ref": "#/$defs/CommonFiltersInputV1"
         }
       }
+    },
+    "OperationSharedQueryV1": {
+      "description": "Query body for an explicitly all-position operation. Empty positionKeys is permitted only when the containing operation requires positionScope=all; all other query validation is unchanged.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/PersonalSharedQueryFieldsV1"
+        },
+        {
+          "$ref": "#/$defs/GlobalSharedQueryFieldsV1"
+        }
+      ]
     }
   }
 }

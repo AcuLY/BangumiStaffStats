@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createPinia, setActivePinia } from 'pinia';
 import { flushPromises, mount } from '@vue/test-utils';
-import { NDynamicInput, NPopover } from 'naive-ui';
+import { NDivider, NDynamicInput, NPopover, NSelect } from 'naive-ui';
 import { nextTick } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -28,10 +28,7 @@ import {
 } from '../../../src/features/query/coordinator';
 import type { AppliedQuery } from '../../../src/features/query/model';
 import { createQuerySessionOwner } from '../../../src/features/query/session';
-import {
-  createShareUrl,
-  type ShareWorkspace,
-} from '../../../src/features/query/share';
+import type { RecoveryWorkspace } from '../../../src/features/query/recovery';
 import { useQueryStore } from '../../../src/features/query/store';
 import { catalogFixture } from './fixtures';
 
@@ -262,6 +259,10 @@ describe('query shell components', () => {
     expect(state!.classList).not.toContain('surface-panel');
     expect(state!.querySelector('button')).toBeNull();
     expect(state!.textContent).not.toContain('设置查询条件');
+    expect(wrapper.get('#query-position-title').text()).toBe('职位');
+    for (const name of ['query-editor-panel-divider', 'query-stage-divider', 'query-editor-footer-divider']) {
+      expect(wrapper.findAllComponents(NDivider).some((divider) => divider.classes().includes(name))).toBe(true);
+    }
     wrapper.unmount();
   });
 
@@ -273,9 +274,7 @@ describe('query shell components', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     validStore();
-    const scrollTo = vi
-      .spyOn(window, 'scrollTo')
-      .mockImplementation(() => undefined);
+    const scrollTo = vi.fn();
     const wrapper = mount(App, {
       attachTo: document.body,
       global: { plugins: [pinia], stubs: { teleport: true } },
@@ -294,10 +293,11 @@ describe('query shell components', () => {
     await flushPromises();
     vi.useFakeTimers();
 
+    wrapper.get('.app-main').element.scrollIntoView = scrollTo;
     await wrapper.get('#co-star-query-empty-title + button').trigger('click');
     await nextTick();
     const workspace = wrapper.get('.query-workspace');
-    expect(scrollTo).toHaveBeenCalledWith({ behavior: 'smooth', top: 0 });
+    expect(scrollTo).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
     expect(workspace.classes()).toContain('is-attention');
     expect((document.activeElement as HTMLInputElement).name).toBe('userId');
 
@@ -328,7 +328,7 @@ describe('query shell components', () => {
     );
 
     expect(workspaceSource).toMatch(
-      /queryStore\.applied !== null[\s\S]*?!props\.queryStore\.dirty[\s\S]*?return;/,
+      /queryStore\.applied !== null[\s\S]*?!dirty\.value[\s\S]*?return;/,
     );
     expect(workspaceSource).not.toContain('refreshCollection');
     expect(editorSource).not.toContain('query-editor__status');
@@ -380,7 +380,7 @@ describe('query shell components', () => {
     );
   });
 
-  it('keeps the last successful share enabled while a new query is pending', async () => {
+  it('keeps the legacy link available before the theme control while a query is pending', async () => {
     const store = validStore();
     let resolveQuery!: (response: OperationResponse<RankingPayload>) => void;
     let queryTransactionId = '';
@@ -411,10 +411,8 @@ describe('query shell components', () => {
     const wrapper = mount(AppHeader, {
       attachTo: document.body,
       props: {
-        coordinator,
         mode: 'ranking',
         navigate: vi.fn(),
-        queryStore: store,
         targetWindow: window,
         theme: 'light',
         toggleTheme,
@@ -423,10 +421,10 @@ describe('query shell components', () => {
 
     expect(coordinator.rankings.phase).toBe('pending');
     expect(
-      wrapper.get('button[aria-label="复制当前查询链接"]').attributes(
+      wrapper.get('a[href="https://search.bgmss.fun/old/"]').attributes(
         'disabled',
       ),
-    ).toBeUndefined();
+    ).not.toBe('true');
     expect(wrapper.get('.app-brand').attributes('aria-label')).toBe(
       'Bangumi Staff Statistics 人物工作台首页',
     );
@@ -443,12 +441,15 @@ describe('query shell components', () => {
     expect(
       wrapper.get('#mode-tab-co-star').attributes('aria-controls'),
     ).toBe('mode-panel-co-star');
-    expect(
-      (
-        wrapper.get('button[aria-label="复制当前查询链接"]')
-          .element as HTMLElement
-      ).style.getPropertyValue('--n-height'),
-    ).toBe('38px');
+    const legacy = wrapper.get('a[href="https://search.bgmss.fun/old/"]');
+    expect(legacy.text()).toBe('回到旧版');
+    expect(legacy.attributes('aria-label')).toBe('回到旧版');
+    expect(legacy.find('svg[aria-hidden="true"]').exists()).toBe(true);
+    expect(wrapper.get('.header-actions').find('a').element).toBe(legacy.element);
+    expect(wrapper.get('.header-actions').find('.theme-action').exists()).toBe(true);
+    expect(legacy.attributes('target')).toBeUndefined();
+    expect(legacy.element.compareDocumentPosition(wrapper.get('button[aria-label="切换到深色模式"]').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(wrapper.text()).not.toContain('分享');
     expect(document.querySelector('[aria-label="主题偏好"]')).toBeNull();
 
     await wrapper
@@ -687,7 +688,7 @@ describe('query shell components', () => {
         search: '',
         sort: 'count',
       },
-    } satisfies ShareWorkspace;
+    } satisfies RecoveryWorkspace;
     const session = createQuerySessionOwner(window);
     expect(session.write('/ranking', savedQuery, savedWorkspace)).toBe(true);
     const savedPayload = session.read('/ranking');
@@ -766,7 +767,7 @@ describe('query shell components', () => {
         search: '',
         sort: 'count',
       },
-    } satisfies ShareWorkspace;
+    } satisfies RecoveryWorkspace;
     const session = createQuerySessionOwner(window);
     expect(session.write('/ranking', savedQuery, savedWorkspace)).toBe(true);
     const savedPayload = session.read('/ranking');
@@ -811,7 +812,28 @@ describe('query shell components', () => {
     wrapper.unmount();
   });
 
-  it('does not fall back to a saved session when an explicit share is invalid', async () => {
+  it.each(['/ranking', '/co-star'] as const)(
+    'opens an old fragment at %s as an editable form without business requests', async (path) => {
+      window.history.replaceState({}, '', `${path}?user=other#q=v1.e30`);
+      const pinia = createPinia();
+      setActivePinia(pinia);
+      const execute = vi.fn();
+      const wrapper = mount(App, {
+        global: { plugins: [pinia], stubs: { teleport: true } },
+        props: { services: { catalogApi: catalogApi(), drivers: drivers(execute), targetWindow: window } },
+      });
+      await flushPromises();
+      expect(execute).not.toHaveBeenCalled();
+      expect(useQueryStore(pinia).draft.uid).toBe('other');
+      expect(useQueryStore(pinia).applied).toBeNull();
+      expect(wrapper.find('#query-editor').exists()).toBe(true);
+      expect(wrapper.find('.app-local-error').exists()).toBe(false);
+      expect(window.location.hash).toBe('');
+      wrapper.unmount();
+    },
+  );
+
+  it('restores an independent saved session while ignoring a retired URL fragment', async () => {
     const savedQuery: AppliedQuery = {
       scope: 'personal',
       uid: 'luca',
@@ -837,7 +859,10 @@ describe('query shell components', () => {
     window.history.replaceState({}, '', '/ranking?user=other#q=v9.invalid');
     const pinia = createPinia();
     setActivePinia(pinia);
-    const execute = vi.fn();
+    const execute = vi.fn(async (request) => ({
+      payload: rankingPayload(`server-${request.transactionId}`),
+      requestId: `server-${request.transactionId}`, transactionId: request.transactionId,
+    }));
     const wrapper = mount(App, {
       attachTo: document.body,
       global: { plugins: [pinia], stubs: { teleport: true } },
@@ -851,20 +876,19 @@ describe('query shell components', () => {
     });
     await flushPromises();
 
-    expect(execute).not.toHaveBeenCalled();
-    expect(wrapper.get('.app-local-error').text()).toContain(
-      '分享查询无效',
-    );
+    expect(execute).toHaveBeenCalledOnce();
+    expect(wrapper.find('.app-local-error').exists()).toBe(false);
+    expect(useQueryStore(pinia).applied).toEqual(savedQuery);
     expect(window.location.hash).toBe('');
     expect(session.read('/ranking')?.query).toEqual(savedQuery);
     wrapper.unmount();
   });
 
-  it.each(['share', 'session'] as const)(
-    'replays the candidate identity installed by a valid co-star %s',
-    async (source) => {
+  it(
+    'replays the candidate identity installed by a valid co-star session',
+    async () => {
     installMatchMedia((query) => query === '(width < 780px)');
-    const sharedQuery: AppliedQuery = {
+    const savedQuery: AppliedQuery = {
       scope: 'personal',
       uid: 'luca',
       collectionStatuses: ['completed'],
@@ -873,7 +897,7 @@ describe('query shell components', () => {
       includeNSFW: false,
       mergeSeries: false,
     };
-    const sharedWorkspace = {
+    const savedWorkspace = {
       kind: 'co-star' as const,
       state: 'empty' as const,
       candidates: {
@@ -887,24 +911,10 @@ describe('query shell components', () => {
         },
       },
     };
-    const sharedUrl = createShareUrl(
-      new URL(`${window.location.origin}/co-star`),
-      '/co-star',
-      sharedQuery,
-      sharedWorkspace,
-    );
-    if (source === 'share') {
-      window.history.replaceState({}, '', sharedUrl);
-    } else {
-      window.history.replaceState({}, '', '/co-star');
-      expect(
-        createQuerySessionOwner(window).write(
-          '/co-star',
-          sharedQuery,
-          sharedWorkspace,
-        ),
-      ).toBe(true);
-    }
+    window.history.replaceState({}, '', '/co-star');
+    expect(createQuerySessionOwner(window).write(
+      '/co-star', savedQuery, savedWorkspace,
+    )).toBe(true);
     const pinia = createPinia();
     setActivePinia(pinia);
     const store = useQueryStore();
@@ -1486,9 +1496,10 @@ describe('query shell components', () => {
         button.attributes('aria-label')?.startsWith('职位说明：'),
       );
     expect(help).toBeDefined();
+    expect(wrapper.get('#query-position-title').text()).toBe('职位');
     expect(help!.classes()).toContain('info-trigger');
     expect(help!.attributes('aria-label')).toContain(
-      '默认在“全部职位”中混合展示候选结果',
+      '选择“全部”可从所有可用职位中选择人物；选择具体职位用于确定初始候选人物；实际参与身份在“已选人物”中管理',
     );
     expect(help!.attributes('aria-label')).not.toContain('第一项');
 
@@ -1496,7 +1507,7 @@ describe('query shell components', () => {
     await flushPromises();
 
     await vi.waitFor(() => {
-      expect(wrapper.find('.candidate-browser').exists()).toBe(true);
+      expect(wrapper.findComponent({ name: 'CandidatePicker' }).exists()).toBe(true);
     });
     await wrapper.get('.query-summary').trigger('click');
     await nextTick();
@@ -1553,6 +1564,44 @@ describe('PositionSelector hierarchical catalog', () => {
       .trigger('click');
     await flushPromises();
   }
+
+  it('offers All as an exclusive co-star scope without inventing position keys', async () => {
+    const wrapper = mountSelector(['staff:anime:2']);
+    await wrapper.setProps({ allowAll: true });
+    await openCatalog(wrapper);
+    await wrapper.get('[data-position-all]').trigger('click');
+    expect(wrapper.emitted('update:allSelected')?.at(-1)).toEqual([true]);
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+    await wrapper.setProps({ allSelected: true });
+    await flushPromises();
+    expect(wrapper.findAll('.position-selector__filter')).toHaveLength(1);
+    expect((wrapper.get('.position-selector__filter').element as HTMLInputElement).value).toBe('全部');
+    expect(wrapper.get('[aria-label="在第 1 行后添加职位选择器"]').attributes('disabled')).toBeDefined();
+    await openCatalog(wrapper);
+    expect(wrapper.get('[data-position-all]').attributes('aria-pressed')).toBe('true');
+    await wrapper.get('[data-position-group="bangumi:anime:cast"]').trigger('click');
+    await wrapper.findAll('[data-position-key="cast:anime:all"]')[0]!.trigger('click');
+    expect(wrapper.emitted('update:allSelected')?.at(-1)).toEqual([false]);
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([['cast:anime:all']]);
+    await wrapper.setProps({ allSelected: false, allowAll: false, modelValue: ['cast:anime:all'] });
+    await openCatalog(wrapper);
+    expect(wrapper.find('[data-position-all]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('keeps a loading selector while catalog choices are unavailable', async () => {
+    const wrapper = mountSelector();
+    await wrapper.setProps({ phase: 'pending' });
+    const selector = wrapper.findComponent(NSelect);
+    expect(selector.props('loading')).toBe(true);
+    expect(selector.props('disabled')).toBe(true);
+    expect(selector.props('size')).toBe('small');
+    expect(wrapper.find('.app-skeleton').exists()).toBe(false);
+    expect(wrapper.get('.position-selector__pending').attributes('aria-busy')).toBe('true');
+    await wrapper.setProps({ phase: 'ready' });
+    expect(wrapper.find('.position-selector__filter').exists()).toBe(true);
+    wrapper.unmount();
+  });
 
   it('discloses categories without selecting them and synchronizes duplicate copies', async () => {
     const wrapper = mountSelector();
@@ -1748,6 +1797,9 @@ describe('PositionSelector hierarchical catalog', () => {
     await nextTick();
 
     expect(wrapper.findAll('[data-position-group]')).toHaveLength(0);
+    expect(
+      wrapper.find('#query-position-catalog-browser .content-divider').exists(),
+    ).toBe(false);
     const results = wrapper.findAll(
       '[data-position-key="staff:anime:2"]',
     );
@@ -1762,6 +1814,9 @@ describe('PositionSelector hierarchical catalog', () => {
     await openCatalog(wrapper);
 
     const panel = wrapper.get('#query-position-catalog-browser');
+    const groups = panel.findAll('.position-catalog-browser__group');
+    expect(panel.findAll('.content-divider')).toHaveLength(groups.length - 1);
+    expect(groups.at(-1)!.find('.content-divider').exists()).toBe(false);
     const toggle = wrapper.get<HTMLButtonElement>(
       '.position-selector__toggle',
     );

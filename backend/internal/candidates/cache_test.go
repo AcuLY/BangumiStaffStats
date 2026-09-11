@@ -174,3 +174,22 @@ func TestPersonalResultKeyRequiresCollectionDigest(t *testing.T) {
 		t.Fatalf("personal key: %v", err)
 	}
 }
+
+func TestAllPositionScopeSeparatesIdenticalInputCacheKeys(t *testing.T) {
+	digest := "q1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	legacy, err := ResultKey("global", testDataVersion, digest, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	broad, err := ResultKey("global", testDataVersion, digest, "", "", "all")
+	if err != nil {
+		t.Fatal(err)
+	}
+	explicit, err := ResultKey("global", testDataVersion, digest, "", "", "query")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy == broad || legacy != explicit {
+		t.Fatal("operation scope cache identity is incorrect")
+	}
+}

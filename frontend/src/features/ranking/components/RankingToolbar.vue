@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import { NInput, NSelect } from 'naive-ui';
 import { computed } from 'vue';
 
-import { useCompactLayout } from '../../query/composables/useCompactLayout';
+import SearchSortToolbar from '../../../shared/components/SearchSortToolbar.vue';
 import type {
   RankingOrder,
   RankingSort,
   RankingView,
 } from '../model';
-import SortDirectionButton from './SortDirectionButton.vue';
 
 const props = defineProps<{
+  disabled?: boolean;
   personal: boolean;
   search: string;
   view: Readonly<RankingView>;
@@ -23,8 +22,6 @@ const emit = defineEmits<{
   sort: [sort: RankingSort];
 }>();
 
-const compact = useCompactLayout();
-const controlSize = computed(() => (compact.value ? 'small' : 'medium'));
 const sortOptions = computed(() => [
   {
     label: props.workUnit === 'series' ? '系列数' : '作品数',
@@ -39,38 +36,20 @@ const sortOptions = computed(() => [
 </script>
 
 <template>
-  <form class="ranking-toolbar" role="search" @submit.prevent="emit('searchNow')">
-    <n-input
-      class="ranking-search-control"
-      :size="controlSize"
-      :value="search"
-      :clearable="Boolean(search)"
-      placeholder="搜索人物"
-      autocomplete="off"
-      aria-label="搜索排行人物"
-      :input-props="{
-        'aria-label': '搜索排行人物',
-        name: 'ranking-search',
-        spellcheck: 'false',
-      }"
-      @update:value="emit('search', $event)"
-    />
-
-    <n-select
-      class="ranking-sort-control"
-      :size="controlSize"
-      :menu-size="controlSize"
-      :value="view.sort"
-      :options="sortOptions"
-      :consistent-menu-width="false"
-      aria-label="人物排序规则"
-      @update:value="emit('sort', $event as RankingSort)"
-    />
-
-    <sort-direction-button
-      :order="view.order"
-      context-label="人物排行排序方向"
-      @change="emit('order', $event)"
-    />
-  </form>
+  <search-sort-toolbar
+    class="ranking-toolbar"
+    :disabled="disabled"
+    :search="search"
+    :sort="view.sort"
+    :order="view.order"
+    :options="sortOptions"
+    search-label="搜索排行人物"
+    search-name="ranking-search"
+    sort-label="人物排序规则"
+    order-label="人物排行排序方向"
+    @search="emit('search', $event)"
+    @sort="emit('sort', $event as RankingSort)"
+    @order="emit('order', $event)"
+    @submit="emit('searchNow')"
+  />
 </template>

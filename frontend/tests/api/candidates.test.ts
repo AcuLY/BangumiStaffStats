@@ -149,6 +149,30 @@ describe('candidates response adapter', () => {
 });
 
 describe('candidates native-fetch driver', () => {
+  it('sends empty query positions only with explicit all scope', async () => {
+    const fixture = golden('global.json').cases[0]!;
+    const fetchImplementation = vi.fn<FetchImplementation>(async () => jsonResponse(fixture.expected.body));
+    const driver = createCandidatesDriver(createApiClient(fetchImplementation));
+    const request = {
+      ...fixture.request,
+      input: { ...fixture.request.input, positionScope: 'all' },
+      query: { ...fixture.request.query, positionKeys: [] },
+      signal: new AbortController().signal, transactionId: 'all-candidates',
+      view: fixture.request.view ?? {},
+    };
+    await driver.execute(request as never);
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(fetchImplementation.mock.calls[0]![1]?.body))).toMatchObject({
+      query: { positionKeys: [] }, input: { positionScope: 'all' },
+    });
+    for (const positionScope of ['query', undefined]) {
+      await expect(driver.execute({ ...request,
+        input: { ...request.input, positionScope },
+      } as never)).rejects.toBeInstanceOf(ApiDecodeError);
+    }
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+  });
+
   it('uses same-origin fetch and correlates projection metadata', async () => {
     const fixture = golden('global.json').cases[1]!;
     const fetchImplementation = vi.fn<FetchImplementation>(async () =>
@@ -242,4 +266,17 @@ describe('candidates native-fetch driver', () => {
       name: 'ApiDecodeError',
     });
   });
+});
+
+
+it('accepts all-position response ordering independently of the original query and still enforces query scope', async () => {
+  const fixture = golden('global.json').cases[0]!;
+  const fetchImplementation = vi.fn<FetchImplementation>(async () => jsonResponse(fixture.expected.body));
+  const driver = createCandidatesDriver(createApiClient(fetchImplementation));
+  const query = { ...fixture.request.query, positionKeys: ['staff:anime:2'] };
+  const request = { query: query as never, input: { positionKey: null, positionScope: 'all' as const },
+    signal: new AbortController().signal, transactionId: 'broad-candidates', view: fixture.request.view ?? {} };
+  await expect(driver.execute(request)).resolves.toBeDefined();
+  expect(JSON.parse(String(fetchImplementation.mock.calls[0]![1]!.body))).toMatchObject({ input: { positionScope: 'all' }, query });
+  await expect(driver.execute({ ...request, input: { positionKey: null } })).rejects.toBeInstanceOf(ApiDecodeError);
 });

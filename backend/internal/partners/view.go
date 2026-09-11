@@ -32,6 +32,10 @@ func Project(ctx context.Context, core Core, view View) (Page, error) {
 		rows[partner.Person.ID] = clonePartner(partner)
 		entries = append(entries, sortEntry(partner))
 	}
+	scale, err := statistics.PersonMetricScale(ctx, string(view.Sort), entries)
+	if err != nil {
+		return Page{}, evaluationError(ctx, err)
+	}
 
 	leaders, err := buildLeaders(ctx, core.Scope, rows, entries)
 	if err != nil {
@@ -75,8 +79,9 @@ func Project(ctx context.Context, core Core, view View) (Page, error) {
 		items[index].PartnerCore = clonePartner(items[index].PartnerCore)
 	}
 	return Page{
-		WorkUnit: core.WorkUnit,
-		Source:   cloneSource(core.Source),
+		MetricScale: scale,
+		WorkUnit:    core.WorkUnit,
+		Source:      cloneSource(core.Source),
 		Summary: Summary{
 			PartnerCount: len(core.Partners),
 			Leaders:      cloneLeaders(leaders),

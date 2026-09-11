@@ -189,6 +189,7 @@ func cloneWork(value WorkItem) WorkItem {
 	if value.Series != nil {
 		series := *value.Series
 		series.Representative = cloneSubject(series.Representative)
+		series.MetaTags = cloneSlice(series.MetaTags)
 		series.Members = cloneSlice(series.Members)
 		for index := range series.Members {
 			series.Members[index].SubjectReference = cloneSubject(

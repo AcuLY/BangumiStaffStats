@@ -69,3 +69,14 @@ For every successful personal-scope `POST /api/v1/person-detail` response, the B
 #### Scenario: Global detail remains collection-free
 - **WHEN** a global-scope person-detail request succeeds
 - **THEN** the existing global envelope SHALL remain unchanged and SHALL NOT gain personal collection metadata
+
+### Requirement: Person-detail series metadata SHALL come from its displayed representative
+Both scope projections SHALL populate metaTags from the existing displayed representative's meta tag facts, using the stable bounded tag-name policy. Other series members SHALL NOT contribute tags to this card field. Cloning and cache cost accounting SHALL cover the new immutable slice. The service SHALL preserve summary, filtering, representative selection and metrics.
+
+#### Scenario: Representative and member tags differ
+- **WHEN** a series representative has tags different from another member
+- **THEN** the series card metadata SHALL contain only the representative's tags
+
+#### Scenario: Representative metadata is empty
+- **WHEN** the representative has no meta tags
+- **THEN** an empty array SHALL remain empty through projection and display

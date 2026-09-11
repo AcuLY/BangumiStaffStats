@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { NEmpty } from 'naive-ui';
 import { computed, ref, watch } from 'vue';
+import ContentDivider from '../../../shared/components/ContentDivider.vue';
 
 import type {
   CatalogGroup,
@@ -17,6 +18,8 @@ interface BrowserGroup {
 }
 
 const props = defineProps<{
+  allowAll?: boolean;
+  allSelected?: boolean;
   compact: boolean;
   disabled?: boolean;
   groups: readonly CatalogGroup[];
@@ -28,6 +31,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  selectAll: [];
   close: [];
   toggle: [positionKey: PositionKey];
 }>();
@@ -212,6 +216,11 @@ function setGroupExpanded(groupKey: string, expanded: boolean): void {
   expandedGroupKeys.value = next;
 }
 
+function setGroupContentHidden(element: Element, hidden: boolean): void {
+  element.toggleAttribute('inert', hidden);
+  element.setAttribute('aria-hidden', String(hidden));
+}
+
 function occurrenceKey(
   groupKey: string,
   positionKey: PositionKey,
@@ -239,7 +248,7 @@ function focusFirstCatalogControl(): void {
     return;
   }
   const firstControl = root.querySelector<HTMLButtonElement>(
-    '.position-catalog-browser__position--search:not(:disabled), .position-catalog-browser__group-button:not(:disabled)',
+    '.position-catalog-browser__position--all:not(:disabled), .position-catalog-browser__position--search:not(:disabled), .position-catalog-browser__group-button:not(:disabled)',
   );
   (firstControl ?? root).focus({ preventScroll: true });
 }
@@ -273,6 +282,22 @@ defineExpose({ reveal });
       class="position-catalog-browser__list"
       :aria-label="searching ? '职位搜索结果' : '职位分类'"
     >
+      <button
+        v-if="allowAll"
+        class="position-catalog-browser__position position-catalog-browser__position--all"
+        :class="{ 'is-selected': allSelected }"
+        type="button"
+        :disabled="disabled"
+        :aria-pressed="Boolean(allSelected)"
+        data-position-all
+        @click="emit('selectAll')"
+      >
+        <span class="position-catalog-browser__position-label">全部</span>
+        <span class="position-catalog-browser__selection-mark">
+          <query-icon v-if="allSelected" name="check" :size="16" />
+        </span>
+      </button>
+      <content-divider v-if="allowAll" />
       <template v-if="searching">
         <ul
           v-if="searchResults.length"
@@ -364,49 +389,60 @@ defineExpose({ reveal });
             </button>
           </h3>
 
-          <ul
-            v-if="expandedGroupKeys.has(group.key)"
-            :id="groupPanelId(groupIndex)"
-            class="position-catalog-browser__positions"
+          <transition
+            name="position-catalog-group"
+            @before-enter="setGroupContentHidden($event, false)"
+            @before-leave="setGroupContentHidden($event, true)"
           >
-            <li
-              v-for="position in group.positions"
-              :key="occurrenceKey(group.key, position.key)"
+            <div
+              v-if="expandedGroupKeys.has(group.key)"
+              class="position-catalog-browser__group-content"
             >
-              <button
-                class="position-catalog-browser__position"
-                :class="{
-                  'is-selected': isSelected(position.key),
-                  'is-unavailable': isUnavailable(position.key),
-                }"
-                type="button"
-                :disabled="disabled || isUnavailable(position.key)"
-                :aria-pressed="isSelected(position.key)"
-                :aria-label="
-                  isUnavailable(position.key)
-                    ? `${position.label}，已在其他行选择`
-                    : undefined
-                "
-                :data-position-key="position.key"
-                :data-position-unavailable="
-                  isUnavailable(position.key) ? 'true' : undefined
-                "
-                :data-occurrence-key="occurrenceKey(group.key, position.key)"
-                @click="togglePosition(position.key)"
+              <ul
+                :id="groupPanelId(groupIndex)"
+                class="position-catalog-browser__positions"
               >
-                <span class="position-catalog-browser__position-label">
-                  {{ position.label }}
-                </span>
-                <span class="position-catalog-browser__selection-mark">
-                  <query-icon
-                    v-if="isSelected(position.key)"
-                    name="check"
-                    :size="16"
-                  />
-                </span>
-              </button>
-            </li>
-          </ul>
+                <li
+                  v-for="position in group.positions"
+                  :key="occurrenceKey(group.key, position.key)"
+                >
+                  <button
+                    class="position-catalog-browser__position"
+                    :class="{
+                      'is-selected': isSelected(position.key),
+                      'is-unavailable': isUnavailable(position.key),
+                    }"
+                    type="button"
+                    :disabled="disabled || isUnavailable(position.key)"
+                    :aria-pressed="isSelected(position.key)"
+                    :aria-label="
+                      isUnavailable(position.key)
+                        ? `${position.label}，已在其他行选择`
+                        : undefined
+                    "
+                    :data-position-key="position.key"
+                    :data-position-unavailable="
+                      isUnavailable(position.key) ? 'true' : undefined
+                    "
+                    :data-occurrence-key="occurrenceKey(group.key, position.key)"
+                    @click="togglePosition(position.key)"
+                  >
+                    <span class="position-catalog-browser__position-label">
+                      {{ position.label }}
+                    </span>
+                    <span class="position-catalog-browser__selection-mark">
+                      <query-icon
+                        v-if="isSelected(position.key)"
+                        name="check"
+                        :size="16"
+                      />
+                    </span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </transition>
+          <content-divider v-if="groupIndex < browserGroups.length - 1" />
         </section>
       </div>
 
@@ -500,13 +536,38 @@ defineExpose({ reveal });
   min-width: 0;
 }
 
-.position-catalog-browser__group {
-  min-width: 0;
-  border-bottom: 1px solid var(--divider);
+.position-catalog-browser__list :deep(.content-divider) {
+  width: calc(100% - 8px);
+  margin-inline: 4px;
 }
 
-.position-catalog-browser__group:last-child {
-  border-bottom: 0;
+.position-catalog-browser__group-content {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.position-catalog-browser__group-content > .position-catalog-browser__positions {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.position-catalog-group-enter-active {
+  transition: grid-template-rows 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity 220ms ease-out;
+}
+
+.position-catalog-group-leave-active {
+  transition: grid-template-rows 160ms ease-in, opacity 160ms ease-in;
+}
+
+.position-catalog-group-enter-from,
+.position-catalog-group-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.position-catalog-browser__group {
+  min-width: 0;
 }
 
 .position-catalog-browser__group-heading {
@@ -698,6 +759,8 @@ defineExpose({ reveal });
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .position-catalog-group-enter-active,
+  .position-catalog-group-leave-active,
   .position-catalog-browser__group-arrow,
   .position-catalog-browser__group-button,
   .position-catalog-browser__position,

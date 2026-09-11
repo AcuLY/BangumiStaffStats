@@ -79,7 +79,7 @@ describe('reveal focus and default candidate bounds', () => {
     );
 
     expect(boundedHelper).toMatch(/for \(const item of items\)/);
-    expect(boundedHelper).toMatch(/selectedPeople >= 2/);
+    expect(boundedHelper).toMatch(/selectedPeople >= 1/);
     expect(boundedHelper).toMatch(
       /identities\.length \+ itemIdentities\.length > MAX_SELECTED_IDENTITIES/,
     );
@@ -90,13 +90,13 @@ describe('reveal focus and default candidate bounds', () => {
     );
     expect(activation).not.toContain('.slice(0, 2)');
 
-    const defaults = [candidate(1, 11), candidate(3, 9)].flatMap(identities);
+    const defaults = identities(candidate(1, 11));
 
     const selection = createCoStarSelection();
     expect(selection.replace(defaults)).toEqual({ ok: true });
-    expect(selection.identityCount.value).toBe(MAX_SELECTED_IDENTITIES);
+    expect(selection.identityCount.value).toBe(11);
     expect(selection.people.value.map((person) => person.person.id)).toEqual([
-      1, 3,
+      1,
     ]);
     expect(selection.limitError.value).toBeNull();
   });

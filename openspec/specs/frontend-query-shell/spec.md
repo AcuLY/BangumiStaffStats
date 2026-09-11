@@ -2,7 +2,7 @@
 
 ## Purpose
 Define the production SPA shell that owns ranking/co-star routes, catalog-backed
-query editing, immutable applied-query state, operation coordination, sharing,
+query editing, immutable applied-query state, operation coordination, local recovery,
 theme behavior, and the responsive accessible Query Workspace.
 
 ## Requirements
@@ -25,29 +25,12 @@ operation port without resubmitting Draft.
 The configured base root and its `index.html` SHALL replace to the public
 ranking path while preserving safe query parameters; root-domain paths outside
 the configured base SHALL not be claimed by this shell. `?user=` SHALL prefill
-only personal Draft. On first document load, the shell SHALL consume at most
-one valid v1 share fragment through the same ordinary application service and
-then remove the fragment by history replacement. Invalid share SHALL remove
-the fragment, show a structured local error, and start no request or automatic
-`?user=` fallback.
+only personal Draft. URL fragments SHALL NOT restore query state or trigger a business request; an initial fragment SHALL be cleared without decoding.
 
 Successful personal application SHALL replace `?user=` with the effective
 trimmed UID; successful global application SHALL remove `?user=`. These URL
 updates SHALL remain inside the configured base and SHALL not start another
-request. The Header SHALL retain one share action immediately beside the mode
-switch at every viewport. It SHALL remain visibly disabled when no Applied
-Query exists and otherwise serialize only the current mode's last-successful
-Applied Query plus accepted operation input/view into the existing versioned
-fragment wire. The generated share URL SHALL use the public base-aware path
-while the envelope retains its existing logical route identity. Dirty Draft,
-pending attempts, responses, request IDs, revision, dataVersion, digests,
-refresh flags, theme, and transient UI state SHALL not enter the link.
-
-The share action SHALL use the Clipboard API when available, temporarily show
-the DESIGN check feedback for approximately 1500ms, and announce success
-through a polite live region. Clipboard absence or failure SHALL expose the
-same generated read-only selectable link in a lightweight adjacent popover;
-it SHALL not discard the link or show a success modal.
+request. The Header SHALL contain an always available same-tab link labeled “回到旧版” immediately left of the theme button, with fixed href `https://search.bgmss.fun/old/`. No sharing or clipboard action SHALL remain. The legacy link and theme button SHALL share one right-aligned Header action container. The link SHALL include a jump icon and show “旧版” below 780px, while retaining “回到旧版” as its accessible name.
 
 #### Scenario: Draft changes and mode changes
 
@@ -60,23 +43,15 @@ it SHALL not discard the link or show a success modal.
 - **THEN** the operation resource, Applied Query, and next queryRevision SHALL commit atomically
 - **AND** no later feature may create a second Applied Query owner
 
-#### Scenario: A shared query is present on first load
+#### Scenario: An old query fragment is present
+- **WHEN** a document opens with an old query fragment and no valid tab session
+- **THEN** no query SHALL be decoded or automatically executed from that fragment
+- **AND** the fragment SHALL be cleared and the editable form SHALL remain available
 
-- **WHEN** one valid v1 share and `?user=other` are both present below `/v2/`
-- **THEN** the share SHALL be applied at most once through ordinary query application
-- **AND** the fragment SHALL be removed, `?user=` SHALL not trigger another request, and history SHALL remain below `/v2/`
-
-#### Scenario: The visible result is shared while Draft is dirty
-
-- **WHEN** an Applied Query exists and the user edits Draft or starts a newer pending attempt
-- **THEN** the share action SHALL encode the current visible result's last-successful Applied Query and accepted operation state at the matching `/v2/` public route
-- **AND** it SHALL exclude the dirty Draft and pending attempt from the generated link
-
-#### Scenario: Clipboard copying is unavailable
-
-- **WHEN** a valid share link is generated but Clipboard API copying is unavailable or fails
-- **THEN** the same `/v2/`-based read-only selectable link SHALL remain available in the adjacent fallback popover
-- **AND** the shell SHALL not report a successful copy or lose the generated link
+#### Scenario: Return to the old application
+- **WHEN** the Header is rendered in either mode, theme or viewport
+- **THEN** the legacy anchor (回到旧版 on desktop, 旧版 on mobile) SHALL precede the theme button and point exactly to https://search.bgmss.fun/old/
+- **AND** it SHALL remain keyboard accessible and available before any query succeeds
 
 #### Scenario: A path outside the deployment base is loaded
 
@@ -107,8 +82,7 @@ enum or infer behavior from a key prefix or label.
 
 #### Scenario: Catalog is pending or fails
 - **WHEN** catalog loading is pending or returns a retryable error
-- **THEN** only the position selector SHALL show its skeleton or local
-  error/retry state while the rest of the editor remains usable
+- **THEN** only the position selector SHALL retain its recognizable control with a loading indicator, or show its local error/retry state, while the rest of the editor remains usable
 - **AND** failure SHALL not be represented as an empty catalog
 
 ### Requirement: Query application SHALL be cancelable and latest-only
@@ -163,7 +137,8 @@ header without pushing content; below 780px it SHALL participate in document
 flow. Controls SHALL meet DESIGN focus, keyboard, target-size, contrast,
 status-announcement, and reduced-motion requirements.
 
-The Header SHALL contain brand, the two-mode control, share action, and one
+The Header SHALL contain brand, the two-mode control, the fixed same-tab
+“回到旧版” link to `https://search.bgmss.fun/old/` immediately left of one
 theme action in the DESIGN order. One app-level owner SHALL expose only the
 resolved `light|dark` theme and SHALL drive the Naive provider plus semantic
 CSS tokens through public APIs. With no valid preference or with
@@ -180,7 +155,7 @@ another same-browser tab SHALL update the open page without reload.
 Invalid, inaccessible, or unavailable storage SHALL fail safely to system
 following; unavailable matchMedia SHALL fall back to Light. Disposal SHALL
 remove media and storage listeners. Theme SHALL not enter query Draft/Applied
-state, URL parameters, share payload, resource state, or Skeleton behavior;
+state, URL parameters, local query-recovery state, resource state, or Skeleton behavior;
 the prototype `bgmss-workbench-theme` and superseded `bgmss-theme-v1` and
 `bgmss-theme-override-v2` keys SHALL not be read or written.
 
@@ -216,7 +191,7 @@ the production artifact.
 - **AND** the opposite resolved theme matches the current system theme
 - **THEN** that theme SHALL apply, `auto` SHALL be stored, and live system
   following SHALL resume without another control or contextual surface
-- **AND** no request, query revision, share value, route change, or loading state SHALL be produced
+- **AND** no request, query revision, recovery-state mutation, route change, or loading state SHALL be produced
 
 #### Scenario: Another tab changes the theme preference
 - **WHEN** a same-browser tab stores valid `auto|light|dark` or removes the key
@@ -228,3 +203,19 @@ the production artifact.
 - **WHEN** the built artifact and source inventory are checked
 - **THEN** they SHALL contain one formal SPA and no prototype entry, fixture
   path, bulk data, second request layer, second state system, or frontend statistic implementation
+
+### Requirement: Query recovery SHALL remain local to the current tab
+The frontend SHALL persist only validated successful query and accepted operation intent as versioned JSON in sessionStorage. It SHALL use frontend-owned recovery state composed from existing query and operation contracts, not a public sharing schema or URL codec. Normal refresh and failed-chunk retry SHALL replay ordinary operations and retain latest-only acceptance. Old fragment-based session entries SHALL be discarded; unavailable or invalid storage SHALL leave queries usable. Failed-chunk retry SHALL reload only after recovery intent is successfully stored. A failed replay SHALL retain editable intent and SHALL not overwrite the last complete saved state with a degraded workspace.
+
+#### Scenario: Refresh restores accepted analysis
+- **WHEN** a valid current-version session contains ranking detail, partners or co-star analysis
+- **THEN** refresh SHALL replay the exact accepted intent once and load current results using ordinary query operations
+- **AND** dirty Draft, responses, theme and transient state SHALL not be persisted
+
+#### Scenario: Storage cannot support reload recovery
+- **WHEN** session storage rejects writing the intended workspace
+- **THEN** failed-chunk recovery SHALL report failure without reloading the document
+
+#### Scenario: Old session or corrupt data
+- **WHEN** stored data is an old v1 fragment entry or an invalid v2 envelope
+- **THEN** it SHALL be discarded without any share decoding or business request

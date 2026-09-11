@@ -282,7 +282,7 @@
           "const": "common"
         },
         "global": {
-          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/RatingDistributionV1"
+          "$ref": "#/$defs/RatingDistributionV1"
         }
       }
     },
@@ -302,7 +302,7 @@
           "$ref": "#/$defs/JsonSafePositiveIntegerV1"
         },
         "global": {
-          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/RatingDistributionV1"
+          "$ref": "#/$defs/RatingDistributionV1"
         }
       }
     },
@@ -319,10 +319,10 @@
           "const": "common"
         },
         "personal": {
-          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/RatingDistributionV1"
+          "$ref": "#/$defs/RatingDistributionV1"
         },
         "global": {
-          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/RatingDistributionV1"
+          "$ref": "#/$defs/RatingDistributionV1"
         }
       }
     },
@@ -343,10 +343,10 @@
           "$ref": "#/$defs/JsonSafePositiveIntegerV1"
         },
         "personal": {
-          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/RatingDistributionV1"
+          "$ref": "#/$defs/RatingDistributionV1"
         },
         "global": {
-          "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/RatingDistributionV1"
+          "$ref": "#/$defs/RatingDistributionV1"
         }
       }
     },
@@ -579,6 +579,7 @@
         "key",
         "seriesId",
         "representative",
+        "metaTags",
         "matchedWorkCount",
         "memberCount",
         "members",
@@ -598,6 +599,16 @@
         },
         "representative": {
           "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/SubjectReferenceV1"
+        },
+        "metaTags": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
         },
         "matchedWorkCount": {
           "$ref": "#/$defs/JsonSafePositiveIntegerV1"
@@ -633,6 +644,7 @@
         "key",
         "seriesId",
         "representative",
+        "metaTags",
         "matchedWorkCount",
         "memberCount",
         "members",
@@ -654,6 +666,16 @@
         },
         "representative": {
           "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/SubjectReferenceV1"
+        },
+        "metaTags": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
         },
         "matchedWorkCount": {
           "$ref": "#/$defs/JsonSafePositiveIntegerV1"
@@ -976,6 +998,66 @@
         },
         "meta": {
           "$ref": "#/$defs/PersonalMetaV1"
+        }
+      }
+    },
+    "RatingTimelinePointV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "year",
+        "quarter",
+        "average",
+        "count"
+      ],
+      "properties": {
+        "year": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9999
+        },
+        "quarter": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "average": {
+          "$ref": "#/$defs/HundredthsV1"
+        },
+        "count": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        }
+      }
+    },
+    "RatingDistributionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "validCount",
+        "average",
+        "buckets",
+        "timeline"
+      ],
+      "properties": {
+        "validCount": {
+          "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
+        },
+        "average": {
+          "$ref": "#/$defs/NullableHundredthsV1"
+        },
+        "buckets": {
+          "type": "array",
+          "minItems": 10,
+          "maxItems": 10,
+          "items": {
+            "$ref": "../person-detail/success-envelope-v1.schema.json#/$defs/RatingBucketV1"
+          }
+        },
+        "timeline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RatingTimelinePointV1"
+          }
         }
       }
     }

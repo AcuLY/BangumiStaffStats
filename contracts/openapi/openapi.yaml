@@ -840,15 +840,6 @@
       "ResultErrorEnvelopeV1": {
         "$ref": "../schemas/rankings/result-error-envelope-v1.schema.json"
       },
-      "SharePayloadV1": {
-        "$ref": "../schemas/query/share-payload-v1.schema.json"
-      },
-      "RankingShareWorkspaceV1": {
-        "$ref": "../schemas/query/share-payload-v1.schema.json#/$defs/RankingWorkspaceV1"
-      },
-      "CoStarShareWorkspaceV1": {
-        "$ref": "../schemas/query/share-payload-v1.schema.json#/$defs/CoStarWorkspaceV1"
-      },
       "CatalogSubjectTypeKeyV1": {
         "type": "string",
         "enum": [

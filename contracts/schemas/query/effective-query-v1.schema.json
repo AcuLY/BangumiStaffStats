@@ -119,6 +119,38 @@
       }
     },
     "EffectivePersonalQueryV1": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/EffectivePersonalQueryFieldsV1"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "positionKeys": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        }
+      ]
+    },
+    "EffectiveGlobalQueryV1": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/EffectiveGlobalQueryFieldsV1"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "positionKeys": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        }
+      ]
+    },
+    "EffectivePersonalQueryFieldsV1": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -153,7 +185,6 @@
         },
         "positionKeys": {
           "type": "array",
-          "minItems": 1,
           "uniqueItems": true,
           "items": {
             "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
@@ -170,7 +201,7 @@
         }
       }
     },
-    "EffectiveGlobalQueryV1": {
+    "EffectiveGlobalQueryFieldsV1": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -189,7 +220,6 @@
         },
         "positionKeys": {
           "type": "array",
-          "minItems": 1,
           "uniqueItems": true,
           "items": {
             "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
@@ -205,6 +235,17 @@
           "$ref": "#/$defs/EffectiveCommonFiltersV1"
         }
       }
+    },
+    "OperationEffectiveQueryV1": {
+      "description": "Query body for an explicitly all-position operation. Empty positionKeys is permitted only when the containing operation requires positionScope=all; all other query validation is unchanged.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/EffectivePersonalQueryFieldsV1"
+        },
+        {
+          "$ref": "#/$defs/EffectiveGlobalQueryFieldsV1"
+        }
+      ]
     }
   }
 }

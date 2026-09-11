@@ -3,6 +3,7 @@ import { NSkeleton } from 'naive-ui';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import AppIcon from './AppIcon.vue';
+import { isBangumiImageProxyReference } from '../media/bangumiImage';
 
 export type SafeImageState = 'error' | 'loaded' | 'loading' | 'missing';
 
@@ -26,12 +27,10 @@ const props = withDefaults(
 const sourceIndex = ref(0);
 const loaded = ref(false);
 let timeoutId: number | undefined;
-const safeProxyReference =
-  /^\/api\/v1\/images\/bangumi\/(?:subjects|persons|characters)\/[1-9][0-9]*\?type=(?:small|grid|large|medium|common)$/;
 const sources = computed(() =>
   Object.freeze([
     ...new Set(
-      props.sources.filter((source) => safeProxyReference.test(source)),
+      props.sources.filter((source) => isBangumiImageProxyReference(source)),
     ),
   ]),
 );

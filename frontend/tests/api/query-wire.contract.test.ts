@@ -10,6 +10,7 @@ import {
   decodeCoStarInput,
   decodeCoStarView,
   decodeEffectiveQuery,
+  decodeEffectiveQueryForOperation,
   decodeErrorEnvelope,
   decodePartnersInput,
   decodePartnersView,
@@ -17,12 +18,10 @@ import {
   decodePersonDetailView,
   decodeQueryDigestProjection,
   decodeRankingsView,
-  decodeShareEnvelope,
-  decodeSharePayload,
   decodeSharedQuery,
+  decodeSharedQueryForOperation,
   parseWireJson,
   parseWireUtf8,
-  type SharePath,
 } from '../../src/api/adapters/queryWire';
 import { ApiDecodeError } from '../../src/api/errors';
 
@@ -45,13 +44,6 @@ interface QueryCase {
 interface ErrorCase {
   envelope: unknown;
   id: string;
-}
-
-interface ShareCase {
-  expectedFragment: string;
-  id: string;
-  path: SharePath;
-  payload: unknown;
 }
 
 interface ViewCase {
@@ -97,9 +89,6 @@ const errors = readCaseFile<{
   cases: ErrorCase[];
   negativeCases: ErrorCase[];
 }>('errors.json');
-const shares = readCaseFile<{
-  cases: ShareCase[];
-}>('shares.json');
 const views = readCaseFile<{
   cases: ViewCase[];
   negativeCases: Array<
@@ -116,7 +105,7 @@ const unknownFields = readCaseFile<{
     baseCase: string;
     id: string;
     pointer: string;
-    target: 'catalog' | 'error' | 'query' | 'share';
+    target: 'catalog' | 'error' | 'query';
   }>;
   injectedProperty: string;
   injectedValue: unknown;
@@ -185,7 +174,7 @@ function injectUnknown(
 }
 
 function unknownBase(
-  target: 'catalog' | 'error' | 'query' | 'share',
+  target: 'catalog' | 'error' | 'query',
   id: string,
 ): unknown {
   switch (target) {
@@ -198,14 +187,11 @@ function unknownBase(
     case 'error': {
       return findCase(errors.cases, id).envelope;
     }
-    case 'share': {
-      return findCase(shares.cases, id).payload;
-    }
   }
 }
 
 function unknownDecoder(
-  target: 'catalog' | 'error' | 'query' | 'share',
+  target: 'catalog' | 'error' | 'query',
 ): (value: unknown) => unknown {
   switch (target) {
     case 'query':
@@ -214,26 +200,27 @@ function unknownDecoder(
       return decodeCatalogContext;
     case 'error':
       return decodeErrorEnvelope;
-    case 'share':
-      return decodeSharePayload;
   }
-}
-
-function splitShareFragment(value: string): {
-  fragment: string;
-  path: SharePath;
-} {
-  const index = value.indexOf('#');
-  if (index < 0) {
-    throw new Error(`Invalid shared fragment ${value}`);
-  }
-  return {
-    fragment: value.slice(index),
-    path: value.slice(0, index) as SharePath,
-  };
 }
 
 describe('shared query wire positive cases', () => {
+  it('admits empty positions only through explicit all operation decoding', () => {
+    const submitted = {
+      scope: 'global', subjectType: 'anime', positionKeys: [],
+      includeNSFW: false, mergeSeries: false,
+    };
+    expect(decodeSharedQueryForOperation(submitted, 'all')).toEqual(submitted);
+    expect(decodeEffectiveQueryForOperation(submitted, 'all')).toEqual(submitted);
+    for (const decode of [decodeSharedQueryForOperation, decodeEffectiveQueryForOperation]) {
+      expectDecodeFailure(() => decode(submitted));
+      expectDecodeFailure(() => decode(submitted, 'query'));
+      expectDecodeFailure(() => decode({ ...submitted, hiddenPosition: true }, 'all'));
+      expectDecodeFailure(() => decode({ ...submitted, subjectType: 'unsupported' }, 'all'));
+    }
+    expectDecodeFailure(() => decodeSharedQuery(submitted));
+    expectDecodeFailure(() => decodeEffectiveQuery(submitted));
+  });
+
   it.each(queries.cases)('$id validates query, catalog, and effective output', (entry) => {
     expect(decodeSharedQuery(entry.submitted)).toBe(entry.submitted);
     expect(decodeCatalogContext(entry.catalog)).toBe(entry.catalog);
@@ -247,14 +234,6 @@ describe('shared query wire positive cases', () => {
 
   it.each(errors.cases)('$id validates the shared error envelope', (entry) => {
     expect(decodeErrorEnvelope(entry.envelope)).toBe(entry.envelope);
-  });
-
-  it.each(shares.cases)('$id validates payload and outer share envelope', (entry) => {
-    expect(decodeSharePayload(entry.payload)).toBe(entry.payload);
-    const envelope = splitShareFragment(entry.expectedFragment);
-    expect(
-      decodeShareEnvelope(envelope.path, envelope.fragment).payload,
-    ).toEqual(entry.payload);
   });
 
   it.each(views.cases)('$id validates submitted operation input and views', (entry) => {
@@ -344,52 +323,23 @@ describe('shared query wire structural negatives', () => {
     );
   });
 
-  it('rejects unsupported, malformed, oversized, and path-mismatched share envelopes', () => {
-    const ranking = splitShareFragment(
-      findCase(shares.cases, 'ranking-share').expectedFragment,
-    );
+});
 
-    expectDecodeFailure(() =>
-      decodeShareEnvelope(
-        ranking.path,
-        ranking.fragment.replace('#q=v1.', '#q=v2.'),
-      ),
-    );
-    expectDecodeFailure(() =>
-      decodeShareEnvelope(ranking.path, `${ranking.fragment}=`),
-    );
-    expectDecodeFailure(() =>
-      decodeShareEnvelope(ranking.path, ranking.fragment.replace(/.$/, '*')),
-    );
-    expectDecodeFailure(() =>
-      decodeShareEnvelope('/co-star', ranking.fragment),
-    );
-    expectDecodeFailure(() =>
-      decodeShareEnvelope('/ranking', '?q=v1.e30'),
-    );
-    expect(() =>
-      decodeShareEnvelope('/ranking', '#q=v1.bm90LWpzb24'),
-    ).toThrowError(expect.objectContaining({ kind: 'invalid-json' }));
-    expect(() =>
-      decodeShareEnvelope('/ranking', '#q=v1._w'),
-    ).toThrowError(expect.objectContaining({ kind: 'invalid-utf8' }));
-    expectDecodeFailure(() =>
-      decodeShareEnvelope('/ranking', `#q=v1.${'a'.repeat(16_385)}`),
-    );
-  });
 
-  it('rejects incompatible share workspace topology', () => {
-    const empty = cloneRecord(
-      findCase(shares.cases, 'co-star-empty-share').payload,
-    );
-    const partners = cloneRecord(
-      findCase(shares.cases, 'co-star-partners-share').payload,
-    );
-    const emptyWorkspace = cloneRecord(empty.workspace);
-    const partnersWorkspace = cloneRecord(partners.workspace);
-    emptyWorkspace.partners = partnersWorkspace.partners;
-    empty.workspace = emptyWorkspace;
-
-    expectDecodeFailure(() => decodeSharePayload(empty));
-  });
+it('preserves independent position scopes for all four operations and rejects unsupported scopes', () => {
+  const entries = [
+    { decode: decodeCandidatesInput, input: { positionKey: null } },
+    { decode: decodePartnersInput, input: { source: { personId: 1, positionKeys: ['staff:anime:2'] } } },
+    { decode: decodeCoStarInput, input: { participants: [
+      { personId: 1, positionKeys: ['staff:anime:2'] },
+      { personId: 2, positionKeys: ['staff:anime:3'] },
+    ] } },
+    { decode: decodePersonDetailInput, input: { personId: 2, positionKeys: ['staff:anime:3'] } },
+  ];
+  for (const { decode, input } of entries) {
+    for (const positionScope of ['query', 'all']) {
+      expect(decode({ ...input, positionScope })).toEqual({ ...input, positionScope });
+    }
+    expect(() => decode({ ...input, positionScope: 'other' })).toThrow(ApiDecodeError);
+  }
 });

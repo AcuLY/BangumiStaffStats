@@ -26,8 +26,10 @@ const scrollbarThemeBase = {
 
 export const shellScrollbarThemeOverrides = Object.freeze({
   ...scrollbarThemeBase,
-  height: 'var(--scrollbar-shell-size)',
-  width: 'var(--scrollbar-shell-size)',
+  // Naive UI parses these dimensions when calculating the thumb length.
+  height: '10px',
+  width: '10px',
+  railInsetVerticalRight: '0 0 0 auto',
 });
 
 export function appThemeOverrides(theme: AppTheme): GlobalThemeOverrides {

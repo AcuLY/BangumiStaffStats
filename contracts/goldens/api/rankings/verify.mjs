@@ -218,6 +218,26 @@ const fresh = preference.expected.body.meta.collection;
 assert.equal(fresh.stale, false);
 assert.deepEqual(fresh.warningCodes, []);
 
+// Additive exact-person lookup preserves ordinary envelopes and validates both
+// ranked and absent locations without granting client-side ranking authority.
+const locationCase = structuredClone(cases.get("global-average-missing-last"));
+locationCase.request.view = { ...locationCase.request.view, locatePersonId: 100 };
+assertValid(validateRequest, locationCase.request, "exact person lookup request");
+for (const location of [
+  { personId: 100, rank: 8, page: 2 },
+  { personId: 100, rank: 8, page: null },
+  { personId: 100, rank: null, page: null },
+]) {
+  locationCase.expected.body.data.location = location;
+  assertValid(validateSuccess, locationCase.expected.body, "exact person lookup location");
+}
+for (const locatePersonId of [null, 0, -1, 1.5, 9007199254740992, "100"]) {
+  locationCase.request.view.locatePersonId = locatePersonId;
+  assertInvalid(validateRequest, locationCase.request, "invalid lookup person ID");
+}
+locationCase.expected.body.data.location = { personId: 100, rank: 0, page: null };
+assertInvalid(validateSuccess, locationCase.expected.body, "zero lookup rank");
+
 const result = {
   schemaVersion: 1,
   cases: cases.size,

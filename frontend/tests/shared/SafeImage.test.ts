@@ -2,13 +2,26 @@ import { mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import SafeImage from '../../src/shared/components/SafeImage.vue';
-import { personImageCandidates } from '../../src/shared/media/bangumiImage';
+import { isBangumiImageProxyReference, personImageCandidates } from '../../src/shared/media/bangumiImage';
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
 describe('SafeImage', () => {
+  it('accepts only image proxy references under the configured deployment base', () => {
+    expect(isBangumiImageProxyReference('/v2/api/v1/images/bangumi/persons/19306?type=small', '/v2/')).toBe(true);
+    expect(isBangumiImageProxyReference('/api/v1/images/bangumi/persons/19306?type=small', '/')).toBe(true);
+    for (const reference of [
+      '/api/v1/images/bangumi/persons/19306?type=small',
+      'https://example.com/v2/api/v1/images/bangumi/persons/19306?type=small',
+      '//example.com/v2/api/v1/images/bangumi/persons/19306?type=small',
+      '/v2/api/v1/images/bangumi/persons/0?type=small',
+      '/v2/api/v1/images/bangumi/persons/1?type=small&url=https://example.com',
+      '/v2/api/v1/images/bangumi/persons/1?type=small#fragment',
+      '/v2/api/v1/images/bangumi/persons/%2e%2e?type=small',
+    ]) expect(isBangumiImageProxyReference(reference, '/v2/')).toBe(false);
+  });
   it('keeps a stable 3:4 box and distinguishes missing from loading', () => {
     const missing = mount(SafeImage, {
       props: {

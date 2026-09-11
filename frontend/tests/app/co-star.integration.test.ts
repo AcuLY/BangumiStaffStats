@@ -24,10 +24,8 @@ import type {
   QueryDrivers,
 } from '../../src/features/query/coordinator';
 import type { AppliedQuery } from '../../src/features/query/model';
-import {
-  createShareUrl,
-  type ShareWorkspace,
-} from '../../src/features/query/share';
+import { createQuerySessionOwner, QUERY_SESSION_STORAGE_KEY } from '../../src/features/query/session';
+import type { RecoveryWorkspace } from '../../src/features/query/recovery';
 import { useQueryStore } from '../../src/features/query/store';
 import { catalogFixture } from '../features/query/fixtures';
 
@@ -35,11 +33,6 @@ const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../..',
 );
-const originalClipboard = Object.getOwnPropertyDescriptor(
-  window.navigator,
-  'clipboard',
-);
-
 type CoStarDrivers = QueryDrivers<
   RankingPayload,
   CandidatePayload,
@@ -262,8 +255,14 @@ function defaultDrivers(
     },
     coStar: {
       async execute(request) {
+        const payload = coStarPayload();
         return {
-          payload: coStarPayload(),
+          payload: {
+            ...payload,
+            data: { ...payload.data, participants: payload.data.participants.map((participant, index) => ({
+              ...participant, positionKeys: request.input.participants[index]!.positionKeys,
+            })) },
+          },
           requestId: 'server-co-star',
           transactionId: request.transactionId,
         };
@@ -369,51 +368,80 @@ function deferred<T>() {
   return { promise, reject, resolve };
 }
 
-function canonicalJson(value: unknown): string {
-  if (
-    value === null ||
-    typeof value === 'boolean' ||
-    typeof value === 'number' ||
-    typeof value === 'string'
-  ) {
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map(canonicalJson).join(',')}]`;
-  }
-  const record = value as Record<string, unknown>;
-  return `{${Object.keys(record)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
-    .join(',')}}`;
-}
-
-function uncheckedFragment(payload: unknown): string {
-  const bytes = new TextEncoder().encode(canonicalJson(payload));
-  let binary = '';
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return `#q=v1.${btoa(binary)
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replace(/=+$/u, '')}`;
-}
-
 afterEach(() => {
   vi.unstubAllGlobals();
-  if (originalClipboard) {
-    Object.defineProperty(
-      window.navigator,
-      'clipboard',
-      originalClipboard,
-    );
-  } else {
-    Reflect.deleteProperty(window.navigator, 'clipboard');
-  }
 });
 
 describe('App co-star production slice', () => {
+  it.each([false, true])('keeps the analysis placeholder through candidate and analysis loading (compact=%s)', async (compact) => {
+    installResponsiveLayout(compact);
+    window.history.replaceState({}, '', '/co-star?user=luca');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = seedPersonalQuery();
+    let candidateGate = deferred<OperationResponse<CandidatePayload>>();
+    let analysisGate = deferred<OperationResponse<PartnersPayload>>();
+    const candidates = vi.fn((request: CandidateRequest) => defaultDrivers().candidates.execute(request))
+      .mockImplementationOnce(() => candidateGate.promise);
+    const analysis = vi.fn((_request: PartnersRequest) => analysisGate.promise);
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: { services: {
+        catalogApi: catalogApi(),
+        drivers: defaultDrivers({ candidates: { execute: candidates }, partners: { execute: analysis } }),
+        targetWindow: window,
+      } },
+    });
+    const resolveCandidates = async () => {
+      const request = candidates.mock.calls.at(-1)![0];
+      candidateGate.resolve(await defaultDrivers().candidates.execute(request));
+    };
+    const resolveAnalysis = async () => {
+      const request = analysis.mock.calls.at(-1)![0];
+      analysisGate.resolve(await defaultDrivers().partners!.execute(request));
+      await vi.waitFor(() => expect(wrapper.find('.partners-summary-skeleton').exists()).toBe(false));
+    };
+    try {
+      await flushPromises();
+      await wrapper.get('#query-editor').trigger('submit');
+      await vi.waitFor(() => expect(candidates).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(wrapper.find('.co-star-analysis-main .co-star-full-skeleton').exists()).toBe(true));
+      expect(wrapper.find('.co-star-full-skeleton [data-selected-person-id]').exists()).toBe(false);
+      expect(wrapper.get('.co-star-full-skeleton').text()).not.toContain('0 人共演');
+      expect(analysis).not.toHaveBeenCalled();
+      await resolveCandidates();
+      await vi.waitFor(() => expect(analysis).toHaveBeenCalledOnce(), { timeout: 10000 });
+      expect(wrapper.find('.co-star-analysis-main .partners-summary-skeleton').exists()).toBe(true);
+      await resolveAnalysis();
+
+      candidateGate = deferred<OperationResponse<CandidatePayload>>();
+      analysisGate = deferred<OperationResponse<PartnersPayload>>();
+      candidates.mockImplementationOnce(() => candidateGate.promise);
+      await wrapper.get('.query-summary').trigger('click');
+      await nextTick();
+      store.draft.includeNSFW = !store.draft.includeNSFW;
+      await wrapper.get('#query-editor').trigger('submit');
+      await vi.waitFor(() => expect(candidates).toHaveBeenCalledTimes(3));
+      expect(wrapper.find('.co-star-analysis-main .partners-summary-skeleton').exists()).toBe(true);
+      expect(analysis).toHaveBeenCalledOnce();
+      await resolveCandidates();
+      await vi.waitFor(() => expect(analysis).toHaveBeenCalledTimes(2));
+      await resolveAnalysis();
+
+      const filteredCandidates = deferred<OperationResponse<CandidatePayload>>();
+      candidates.mockImplementationOnce(() => filteredCandidates.promise);
+      await wrapper.get('input[name="candidateSearch"]').setValue('One');
+      await vi.waitFor(() => expect(candidates).toHaveBeenCalledTimes(4));
+      expect(wrapper.find('.candidate-row-skeletons').exists()).toBe(true);
+      expect(wrapper.find('.co-star-full-skeleton').exists()).toBe(false);
+      expect(analysis).toHaveBeenCalledTimes(2);
+      filteredCandidates.resolve(await defaultDrivers().candidates.execute(candidates.mock.calls.at(-1)![0]));
+      await flushPromises();
+      expect(analysis).toHaveBeenCalledTimes(2);
+    } finally { wrapper.unmount(); }
+  }, 15000);
+
   it('loads the other mode from Applied Query and reuses current mode resources', async () => {
     window.history.replaceState({}, '', '/ranking?user=luca');
     const pinia = createPinia();
@@ -448,13 +476,13 @@ describe('App co-star production slice', () => {
     await wrapper.get('#mode-tab-co-star').trigger('click');
     await flushPromises();
 
-    expect(candidates).toHaveBeenCalledOnce();
+    expect(candidates).toHaveBeenCalledTimes(2);
     expect(candidates.mock.calls[0]![0].query.includeNSFW).toBe(false);
     expect(store.draft.includeNSFW).toBe(true);
     expect(store.dirty).toBe(true);
     expect(wrapper.text()).not.toContain('查询条件已应用');
     await vi.waitFor(() => {
-      expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(2);
+      expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(1);
     });
 
     await wrapper.get('#mode-tab-ranking').trigger('click');
@@ -468,7 +496,15 @@ describe('App co-star production slice', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const store = seedPersonalQuery();
-    const candidates = vi.fn(defaultDrivers().candidates.execute);
+    const candidates = vi.fn(async (request: CandidateRequest) => {
+      const result = await defaultDrivers().candidates.execute(request);
+      return request.input.positionScope === 'all' ? {
+        ...result,
+        payload: { ...result.payload, items: [...result.payload.items].reverse().map((item) => ({
+          ...item, positionKeys: ['cast:anime:all'],
+        })) },
+      } : result;
+    });
     const partners = vi.fn(async (request: PartnersRequest) => {
       const result = await defaultDrivers().partners!.execute(request);
       return {
@@ -506,7 +542,9 @@ describe('App co-star production slice', () => {
 
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
-    expect(candidates).toHaveBeenCalledOnce();
+    expect(candidates).toHaveBeenCalledTimes(2);
+    expect(candidates.mock.calls.map(([request]) => request.input.positionScope ?? 'query')).toEqual(['query', 'all']);
+    expect(candidates.mock.calls.every(([request]) => request.query.positionKeys.join() === 'staff:anime:2')).toBe(true);
     expect(wrapper.findAll('[role="tabpanel"]')).toHaveLength(2);
     expect(wrapper.get('#mode-panel-ranking').attributes()).toMatchObject({
       hidden: '',
@@ -521,17 +559,16 @@ describe('App co-star production slice', () => {
         wrapper.findAll('button.candidate-row'),
       ).toHaveLength(2);
     });
-    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(2);
-    await vi.waitFor(() => {
-      expect(coStar).toHaveBeenCalledOnce();
-    });
-    await wrapper.findAll('button.candidate-row')[1]!.trigger('click');
-    await flushPromises();
+    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(1);
+    expect(wrapper.get('.candidate-selected-person').attributes('data-selected-person-id')).toBe('1');
+    expect(wrapper.text()).toContain('可继续选择人物，进行多人共演分析');
+    expect(coStar).not.toHaveBeenCalled();
     await vi.waitFor(() => {
       expect(partners).toHaveBeenCalledOnce();
     });
     expect(partners).toHaveBeenCalledOnce();
     expect(partners.mock.calls[0]![0].input).toEqual({
+      positionScope: 'all',
       source: {
         personId: 1,
         positionKeys: ['staff:anime:2'],
@@ -542,11 +579,7 @@ describe('App co-star production slice', () => {
     });
     expect(wrapper.find('.partners-surface').exists()).toBe(true);
     await vi.waitFor(() => {
-      expect(
-        wrapper
-          .get('button[aria-label="复制当前查询链接"]')
-          .attributes('disabled'),
-      ).toBeUndefined();
+      expect(createQuerySessionOwner(window).read('/co-star')?.workspace).toMatchObject({ state: 'partners' });
     });
 
     const analysisRegion = wrapper.get('.co-star-analysis-main');
@@ -555,13 +588,15 @@ describe('App co-star production slice', () => {
       configurable: true,
       value: scrollIntoView,
     });
-    await wrapper.get('.partners-person-row').trigger('click');
+    await wrapper.get('.partners-results-boundary .ranked-person-row').trigger('click');
     await flushPromises();
     await vi.waitFor(() => {
-      expect(wrapper.find('.co-star-surface').exists()).toBe(true);
+      expect(coStar).toHaveBeenCalledOnce();
+      expect(wrapper.find('.co-star-surface:not([aria-busy="true"])').exists()).toBe(true);
     });
     expect(coStar).toHaveBeenCalledOnce();
     expect(coStar.mock.calls[0]![0].input).toEqual({
+      positionScope: 'all',
       participants: [
         { personId: 1, positionKeys: ['staff:anime:2'] },
         { personId: 2, positionKeys: ['staff:anime:2'] },
@@ -571,15 +606,12 @@ describe('App co-star production slice', () => {
       expect(wrapper.find('.co-star-surface').exists()).toBe(true);
     });
     expect(wrapper.find('.co-star-surface').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('可继续选择人物，进行多人共演分析');
     expect(scrollIntoView).toHaveBeenCalledOnce();
     expect(document.activeElement).toBe(analysisRegion.element);
     expect(analysisRegion.classes()).toContain('is-reveal-attention');
     await vi.waitFor(() => {
-      expect(
-        wrapper
-          .get('button[aria-label="复制当前查询链接"]')
-          .attributes('disabled'),
-      ).toBeUndefined();
+      expect(createQuerySessionOwner(window).read('/co-star')?.workspace).toMatchObject({ state: 'analysis' });
     });
 
     await wrapper.get('#mode-tab-ranking').trigger('click');
@@ -600,13 +632,13 @@ describe('App co-star production slice', () => {
     store.draft.includeNSFW = true;
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
-    expect(candidates).toHaveBeenCalledTimes(2);
-    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(2);
+    expect(candidates).toHaveBeenCalledTimes(3);
+    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(1);
     expect(wrapper.find('.co-star-empty').exists()).toBe(false);
     wrapper.unmount();
   });
 
-  it('keeps sharing disabled until the visible child topology has an authoritative response', async () => {
+  it('keeps pending and failed child operations retryable after selection changes', async () => {
     window.history.replaceState({}, '', '/co-star?user=luca');
     const pinia = createPinia();
     setActivePinia(pinia);
@@ -643,23 +675,18 @@ describe('App co-star production slice', () => {
       ).toHaveLength(2);
     });
     await vi.waitFor(() => {
-      expect(coStar).toHaveBeenCalledOnce();
+      expect(partners).toHaveBeenCalledOnce();
     });
     const rows = wrapper.findAll<HTMLButtonElement>('button.candidate-row');
     await rows[1]!.trigger('click');
     await nextTick();
     await vi.waitFor(() => {
-      expect(partners).toHaveBeenCalledOnce();
+      expect(coStar).toHaveBeenCalledOnce();
     });
-    expect(partners).toHaveBeenCalledOnce();
-    const share = wrapper.get(
-      'button[aria-label="复制当前查询链接"]',
-    );
-    expect(share.attributes('disabled')).toBeDefined();
-
+    await rows[1]!.trigger('click');
+    await vi.waitFor(() => expect(partners).toHaveBeenCalledTimes(2));
     rejectPartners(new Error('offline'));
     await flushPromises();
-    expect(share.attributes('disabled')).toBeDefined();
 
     await rows[1]!.trigger('click');
     await nextTick();
@@ -667,7 +694,6 @@ describe('App co-star production slice', () => {
       expect(coStar).toHaveBeenCalledTimes(2);
     });
     expect(coStar).toHaveBeenCalledTimes(2);
-    expect(share.attributes('disabled')).toBeDefined();
     wrapper.unmount();
   });
 
@@ -730,16 +756,13 @@ describe('App co-star production slice', () => {
     await vi.waitFor(() => {
       expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
     });
+    await wrapper.findAll('button.candidate-row')[1]!.trigger('click');
+    await flushPromises();
     expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(2);
     expect(coStar).toHaveBeenCalledOnce();
     expect(wrapper.get('.co-star-initial-error').text()).toContain(
       '结果数据版本已变化，请重新查询后重试',
     );
-    expect(
-      wrapper
-        .get('button[aria-label="复制当前查询链接"]')
-        .attributes('disabled'),
-    ).toBeDefined();
 
     await wrapper
       .get('.co-star-initial-error__actions button')
@@ -748,11 +771,6 @@ describe('App co-star production slice', () => {
 
     expect(coStar).toHaveBeenCalledTimes(2);
     expect(wrapper.find('.co-star-initial-error').exists()).toBe(false);
-    expect(
-      wrapper
-        .get('button[aria-label="复制当前查询链接"]')
-        .attributes('disabled'),
-    ).toBeUndefined();
     wrapper.unmount();
   });
 
@@ -796,7 +814,7 @@ describe('App co-star production slice', () => {
       state: 'analysis' as const,
       workspace: {
         candidates: {
-          input: { positionKey: 'staff:anime:2' },
+          input: { positionKey: 'cast:anime:all', positionScope: 'all' as const },
           view: {
             order: 'asc' as const,
             page: 3,
@@ -807,9 +825,10 @@ describe('App co-star production slice', () => {
         },
         coStar: {
           input: {
+            positionScope: 'all' as const,
             participants: [
               { personId: 1, positionKeys: ['staff:anime:2'] },
-              { personId: 2, positionKeys: ['staff:anime:2'] },
+              { personId: 2, positionKeys: ['cast:anime:all'] },
             ],
           },
           view: {
@@ -825,7 +844,7 @@ describe('App co-star production slice', () => {
       },
     },
   ])(
-    'replays the exact $state views once and hydrates names from the authoritative response',
+    'replays the exact saved $state views once and hydrates names from the authoritative response',
     async ({ expectedName, state, workspace }) => {
       const query: AppliedQuery = {
         scope: 'personal',
@@ -836,13 +855,8 @@ describe('App co-star production slice', () => {
         includeNSFW: false,
         mergeSeries: false,
       };
-      const sharedUrl = createShareUrl(
-        new URL(`${window.location.origin}/co-star`),
-        '/co-star',
-        query,
-        workspace as ShareWorkspace,
-      );
-      window.history.replaceState({}, '', sharedUrl);
+      window.history.replaceState({}, '', '/co-star');
+      expect(createQuerySessionOwner(window).write('/co-star', query, workspace as RecoveryWorkspace)).toBe(true);
       const pinia = createPinia();
       setActivePinia(pinia);
       const candidates = vi.fn(defaultDrivers().candidates.execute);
@@ -870,11 +884,13 @@ describe('App co-star production slice', () => {
       expect(candidates.mock.calls[0]![0].view).toEqual(
         workspace.candidates.view,
       );
+      expect(candidates.mock.calls[0]![0].input).toMatchObject(workspace.candidates.input);
       const child = state === 'partners' ? partners : coStar;
       const expectedChild =
         state === 'partners' ? workspace.partners : workspace.coStar;
       expect(child).toHaveBeenCalledOnce();
       expect(child.mock.calls[0]![0].view).toEqual(expectedChild.view);
+      expect(child.mock.calls[0]![0].input).toMatchObject(expectedChild.input);
       expect(wrapper.find('.query-editor-overlay').exists()).toBe(false);
       await vi.waitFor(() => {
         expect(wrapper.text()).toContain(expectedName);
@@ -1040,6 +1056,9 @@ describe('App co-star production slice', () => {
     await flushPromises();
 
     expect(workspaceLoader).toHaveBeenCalledOnce();
+    await vi.waitFor(() => {
+      expect(wrapper.find('.candidate-workspace-skeleton .co-star-analysis-main .partners-surface[aria-busy="true"]').exists()).toBe(true);
+    });
     expect(wrapper.get('#mode-panel-co-star').text()).toContain(
       '正在加载候选人物',
     );
@@ -1267,14 +1286,10 @@ describe('App co-star production slice', () => {
       },
     },
   ])(
-    'rejects $label before any business request and consumes the fragment',
+    'rejects $label before any business request and discards invalid session data',
     async ({ payload }) => {
-      const fragment = uncheckedFragment(payload);
-      window.history.replaceState(
-        {},
-        '',
-        `${window.location.origin}/co-star${fragment}`,
-      );
+      window.sessionStorage.setItem(QUERY_SESSION_STORAGE_KEY, JSON.stringify({version: 2, coStar: payload}));
+      window.history.replaceState({}, '', '/co-star');
       const pinia = createPinia();
       setActivePinia(pinia);
       const candidates = vi.fn(defaultDrivers().candidates.execute);
@@ -1301,9 +1316,8 @@ describe('App co-star production slice', () => {
       expect(partners).not.toHaveBeenCalled();
       expect(coStar).not.toHaveBeenCalled();
       expect(window.location.hash).toBe('');
-      expect(wrapper.get('.app-local-error').text()).toContain(
-        '分享查询无效',
-      );
+      expect(wrapper.find('.app-local-error').exists()).toBe(false);
+      expect(window.sessionStorage.getItem(QUERY_SESSION_STORAGE_KEY)).toBeNull();
       wrapper.unmount();
     },
   );

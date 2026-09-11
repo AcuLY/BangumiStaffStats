@@ -58,14 +58,20 @@ func ResultKey(
 	queryDigest string,
 	positionKey string,
 	collectionDigest string,
+	positionScopes ...string,
 ) (runtimecache.ResultKey, error) {
 	var nullablePositionKey *string
 	if positionKey != "" {
 		nullablePositionKey = &positionKey
 	}
+	positionScope := ""
+	if len(positionScopes) > 0 && positionScopes[0] == "all" {
+		positionScope = "all"
+	}
 	canonical, err := json.Marshal(struct {
-		PositionKey *string `json:"positionKey"`
-	}{PositionKey: nullablePositionKey})
+		PositionScope string  `json:"positionScope,omitempty"`
+		PositionKey   *string `json:"positionKey"`
+	}{PositionKey: nullablePositionKey, PositionScope: positionScope})
 	if err != nil {
 		return runtimecache.ResultKey{}, fieldError("/input/positionKey")
 	}

@@ -160,6 +160,8 @@ test('two package runs emit byte-identical Contracts-valid component directories
   const verified = verifyComponentDirectory(first, 'frontend');
   assert.equal(verified.statement.component, 'frontend');
   assert.equal(verified.statement.applicationVersion, APPLICATION_VERSION);
+  assert.equal(verified.statement.compatibility.archive.sqliteSchemaVersion.minimum, 1);
+  assert.equal(verified.statement.compatibility.archive.sqliteSchemaVersion.maximum, 2);
   assert.equal(
     verified.statement.compatibility.archive.domainRulesVersion,
     ARCHIVE_DOMAIN_RULES_VERSION,

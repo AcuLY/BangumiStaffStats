@@ -206,7 +206,7 @@ describe('PositionSelector compact reveal and breakpoint ownership', () => {
       '仅统计同时具备全部已选职位的人物；参与作品按已选职位合并并去重',
     );
     expect(editorSource).toContain(
-      '按所选职位生成候选人物；默认在“全部职位”中混合展示候选结果',
+      '选择“全部”可从所有可用职位中选择人物；选择具体职位用于确定初始候选人物；实际参与身份在“已选人物”中管理',
     );
     expect(editorSource).not.toContain('query-position-hint');
     expect(editorSource).not.toContain('可多选；');

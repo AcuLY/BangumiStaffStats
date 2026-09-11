@@ -204,7 +204,7 @@ func logicalDigests(ctx context.Context, connection *sql.Conn, catalog compiledC
 		scan        func(*sql.Rows) (orderedObject, error)
 	}{
 		{"subject", "SELECT subject_type,subject_id,name,name_cn,nsfw,air_date,air_date_precision FROM subject ORDER BY subject_type COLLATE BINARY,subject_id", scanSubject},
-		{"person", "SELECT p.person_id,p.name,p.name_cn,COALESCE((SELECT group_concat(career,char(31)) FROM person_career pc WHERE pc.person_id=p.person_id ORDER BY career),'') FROM person p ORDER BY p.person_id", scanPerson},
+		{"person", "SELECT p.person_id,p.name,p.name_cn,COALESCE((SELECT group_concat(career,char(31)) FROM person_career pc WHERE pc.person_id=p.person_id ORDER BY career),''),p.summary FROM person p ORDER BY p.person_id", scanPerson},
 		{"character", "SELECT character_id,name,name_cn FROM character ORDER BY character_id", scanCharacter},
 		{"subjectRelation", "SELECT subject_type,subject_id,related_subject_type,related_subject_id,relation_type FROM subject_relation ORDER BY subject_type COLLATE BINARY,subject_id,related_subject_type COLLATE BINARY,related_subject_id,relation_type", scanRelation},
 		{"staffPosition", "SELECT subject_type,position_id,name_cn,name_en,name_jp,categories,sort_order,status FROM staff_position ORDER BY subject_type COLLATE BINARY,position_id", scanStaffPosition},
@@ -266,8 +266,8 @@ func scanSubject(rows *sql.Rows) (orderedObject, error) {
 func scanPerson(rows *sql.Rows) (orderedObject, error) {
 	var id int64
 	var name, careerText string
-	var nameCN sql.NullString
-	if err := rows.Scan(&id, &name, &nameCN, &careerText); err != nil {
+	var nameCN, summary sql.NullString
+	if err := rows.Scan(&id, &name, &nameCN, &careerText, &summary); err != nil {
 		return nil, failure("SQLITE_BUILD_FAILED", err)
 	}
 	careers := []string{}
@@ -275,7 +275,7 @@ func scanPerson(rows *sql.Rows) (orderedObject, error) {
 		careers = strings.Split(careerText, string(rune(31)))
 		sort.Strings(careers)
 	}
-	return orderedObject{{"personId", id}, {"name", name}, {"nameCn", nullString(nameCN)}, {"careers", careers}}, nil
+	return orderedObject{{"personId", id}, {"name", name}, {"nameCn", nullString(nameCN)}, {"careers", careers}, {"summary", nullString(summary)}}, nil
 }
 func scanCharacter(rows *sql.Rows) (orderedObject, error) {
 	var id int64

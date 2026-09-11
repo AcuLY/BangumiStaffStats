@@ -5,10 +5,7 @@ import {
   createQuerySessionOwner,
   QUERY_SESSION_STORAGE_KEY,
 } from '../../../src/features/query/session';
-import {
-  createShareFragment,
-  type ShareWorkspace,
-} from '../../../src/features/query/share';
+import type { RecoveryWorkspace } from '../../../src/features/query/recovery';
 
 const query: AppliedQuery = Object.freeze({
   collectionStatuses: Object.freeze(['completed'] as const),
@@ -20,7 +17,7 @@ const query: AppliedQuery = Object.freeze({
   uid: 'luca',
 });
 
-const rankingWorkspace: ShareWorkspace = Object.freeze({
+const rankingWorkspace: RecoveryWorkspace = Object.freeze({
   kind: 'ranking',
   rankingsView: Object.freeze({
     order: 'asc',
@@ -31,7 +28,7 @@ const rankingWorkspace: ShareWorkspace = Object.freeze({
   }),
 });
 
-const coStarWorkspace: ShareWorkspace = Object.freeze({
+const coStarWorkspace: RecoveryWorkspace = Object.freeze({
   candidates: Object.freeze({
     input: Object.freeze({ positionKey: 'staff:anime:101' }),
     view: Object.freeze({
@@ -65,9 +62,10 @@ describe('query session owner', () => {
       query,
       workspace: coStarWorkspace,
     });
-    expect(window.sessionStorage.getItem(QUERY_SESSION_STORAGE_KEY)).not.toContain(
-      'response',
-    );
+    expect(JSON.parse(window.sessionStorage.getItem(QUERY_SESSION_STORAGE_KEY)!)).toEqual({
+      version: 2, ranking: { query, workspace: rankingWorkspace },
+      coStar: { query, workspace: coStarWorkspace },
+    });
   });
 
   it('drops an older other-mode workspace when a new applied query is saved', () => {
@@ -89,8 +87,8 @@ describe('query session owner', () => {
 
   it.each([
     ['malformed JSON', '{'],
-    ['unsupported version', JSON.stringify({ version: 2 })],
-    ['unknown member', JSON.stringify({ response: {}, version: 1 })],
+    ['unsupported version', JSON.stringify({ version: 3 })],
+    ['unknown member', JSON.stringify({ response: {}, version: 2 })],
   ])('ignores and removes %s', (_label, stored) => {
     window.sessionStorage.setItem(QUERY_SESSION_STORAGE_KEY, stored);
     const owner = createQuerySessionOwner(window);
@@ -99,17 +97,27 @@ describe('query session owner', () => {
     expect(window.sessionStorage.getItem(QUERY_SESSION_STORAGE_KEY)).toBeNull();
   });
 
-  it('rejects a fragment stored under an incompatible route', () => {
+  it('rejects recovery state stored under an incompatible route', () => {
     window.sessionStorage.setItem(
       QUERY_SESSION_STORAGE_KEY,
       JSON.stringify({
-        ranking: createShareFragment('/co-star', query, coStarWorkspace),
-        version: 1,
+        ranking: { query, workspace: coStarWorkspace },
+        version: 2,
       }),
     );
     const owner = createQuerySessionOwner(window);
 
     expect(owner.read('/ranking')).toBeNull();
+    expect(window.sessionStorage.getItem(QUERY_SESSION_STORAGE_KEY)).toBeNull();
+  });
+
+  it('discards legacy session data without decoding its fragment', () => {
+    window.sessionStorage.setItem('bgmss-query-session-v1', JSON.stringify({
+      version: 1, ranking: '#q=v1.e30',
+    }));
+    const owner = createQuerySessionOwner(window);
+    expect(owner.read('/ranking')).toBeNull();
+    expect(window.sessionStorage.getItem('bgmss-query-session-v1')).toBeNull();
     expect(window.sessionStorage.getItem(QUERY_SESSION_STORAGE_KEY)).toBeNull();
   });
 
@@ -147,7 +155,7 @@ describe('query session owner', () => {
       ...rankingWorkspace,
       pending: true,
       response: { items: [] },
-    } as unknown as ShareWorkspace;
+    } as unknown as RecoveryWorkspace;
 
     expect(owner.write('/ranking', query, pollutedWorkspace)).toBe(false);
     expect(window.sessionStorage.getItem(QUERY_SESSION_STORAGE_KEY)).toBeNull();

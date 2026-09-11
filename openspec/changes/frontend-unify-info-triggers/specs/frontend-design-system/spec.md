@@ -1,3 +1,5 @@
+> Icon glyph source is superseded by `frontend-adopt-xicons`: InformationCircleOutline replaces the original hand-drawn paths. Existing help behavior, sizing and hit-target requirements remain.
+
 ## Capability Boundary
 
 - **Status:** local user-authorized shared info-trigger delta.

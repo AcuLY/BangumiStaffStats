@@ -605,7 +605,8 @@ func testPartnersProjection(t *testing.T, scope string) partners.Projection {
 	}
 	projection, err := partners.NewProjection(
 		partners.Page{
-			WorkUnit: statistics.UnitSubject,
+			MetricScale: statistics.MetricScale{Metric: "count", Kind: "linear", Max: int64(1)},
+			WorkUnit:    statistics.UnitSubject,
 			Source: partners.SourceCore{
 				Person:       partners.PersonReference{ID: 1, Name: "Source"},
 				PositionKeys: []string{"staff:anime:2"},

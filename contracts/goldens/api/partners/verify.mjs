@@ -21,6 +21,9 @@ const operationComponents = readJson(
 const sharedError = readJson(
   "contracts/schemas/rankings/result-error-envelope-v1.schema.json",
 );
+const rankingSuccessSchema = readJson(
+  "contracts/schemas/rankings/success-envelope-v1.schema.json",
+);
 const requestSchema = readJson(
   "contracts/schemas/partners/request-v1.schema.json",
 );
@@ -97,6 +100,7 @@ assert.deepEqual(Object.keys(projectionEvidence.externalSchemas), [
   "contracts/schemas/query/operation-components-v1.schema.json",
   "contracts/schemas/query/shared-query-v1.schema.json",
   "contracts/schemas/rankings/result-error-envelope-v1.schema.json",
+  "contracts/schemas/rankings/success-envelope-v1.schema.json",
 ]);
 const transitiveDependencyChange = structuredClone(projectionEvidence);
 transitiveDependencyChange.externalSchemas[
@@ -133,6 +137,7 @@ for (const schema of [
   sharedQuery,
   operationComponents,
   sharedError,
+  rankingSuccessSchema,
   requestSchema,
   successSchema,
   errorSchema,
@@ -170,6 +175,7 @@ for (const filename of files) {
         `${testCase.id} success: ${ajv.errorsText(validateSuccess.errors)}`,
       );
       const metrics = body.data.summary.leaders.map((leader) => leader.metric);
+      verifyMetricScale(testCase);
       if (testCase.request.query.scope === "global") {
         assert.deepEqual(metrics, ["count", "average", "overall"]);
         assert.equal(JSON.stringify(body).includes('"preference"'), false);
@@ -209,6 +215,33 @@ assert.equal(
   zeroEvidence.expected.body.data.summary.leaders[3].item,
   null,
 );
+
+const personalCases = readJson("contracts/goldens/api/partners/cases/personal.json").cases;
+const negativeMaximum = personalCases.find(value => value.id === "personal-preference-off-page-negative-maximum");
+assert.deepEqual(negativeMaximum.expected.body.data.metricScale.max, {numerator: "4", denominator: "5"});
+assert.equal(negativeMaximum.expected.body.data.items.some(item => item.person.id === 9), false);
+assert.deepEqual(personalCases.find(value => value.id === "personal-preference-valid-zero-scale").expected.body.data.metricScale.max, {numerator: "0", denominator: "1"});
+assert.equal(zeroEvidence.expected.body.data.metricScale.max, null);
+
+const globalExample = readJson("contracts/goldens/api/partners/cases/global.json").cases[0].expected.body;
+for (const mutate of [
+  body => { delete body.data.metricScale; },
+  body => { body.data.metricScale = {metric: "preference", kind: "linear", max: {numerator: "1", denominator: "5"}}; },
+  body => { body.data.metricScale = {metric: "count", kind: "linear", max: "1"}; },
+  body => { body.data.metricScale = {metric: "count", kind: "linear", max: -1}; },
+]) {
+  const invalid = structuredClone(globalExample);
+  mutate(invalid);
+  assert.equal(validateSuccess(invalid), false, "invalid global metric scale must be rejected");
+}
+const wrongMetric = structuredClone(negativeMaximum);
+wrongMetric.expected.body.data.metricScale = {metric: "count", kind: "linear", max: 2};
+assert.throws(() => verifyMetricScale(wrongMetric), /metric/);
+for (const maximum of [{numerator: "-4", denominator: "5"}, {numerator: "4", denominator: "0"}]) {
+  const invalid = structuredClone(negativeMaximum.expected.body);
+  invalid.data.metricScale.max = maximum;
+  assert.equal(validateSuccess(invalid), false, "invalid absolute rational maximum must be rejected");
+}
 
 console.log(
   JSON.stringify({
@@ -338,4 +371,59 @@ function canonical(value) {
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function verifyMetricScale(testCase) {
+  const scope = testCase.request.query.scope;
+  const metric = testCase.request.view?.sort ?? "count";
+  const actual = testCase.expected.body.data.metricScale;
+  assert.equal(actual.metric, metric, `${testCase.id} requested metric`);
+  const rows = testCase.assertions?.metricScalePopulation;
+  assert(Array.isArray(rows), `${testCase.id} complete metric population is required`);
+  assert.equal(rows.length, testCase.expected.body.data.summary.partnerCount);
+  const validateRow = ajv.getSchema(`${successSchema.$id}#/$defs/${scope === "global" ? "GlobalPartnerCoreV1" : "PersonalPartnerCoreV1"}`);
+  assert(validateRow);
+  let maximum = null;
+  const identities = new Set();
+  for (const row of rows) {
+    assert(validateRow(row), `${testCase.id} metric population: ${ajv.errorsText(validateRow.errors)}`);
+    assert(!identities.has(row.person.id), "metric population contains duplicate people");
+    identities.add(row.person.id);
+    let value = metric === "count" ? row.metrics.workCount : metric === "preference" ? row.preference?.score ?? null : row.metrics[metric];
+    if (value === null) continue;
+    if (metric === "preference") {
+      const numerator = BigInt(value.numerator);
+      value = {numerator: String(numerator < 0n ? -numerator : numerator), denominator: value.denominator};
+    }
+    const greater = maximum === null || (typeof value === "number"
+      ? value > maximum
+      : BigInt(value.numerator) * BigInt(maximum.denominator) > BigInt(maximum.numerator) * BigInt(value.denominator));
+    if (greater) maximum = value;
+  }
+  assert.deepEqual(actual, {metric, kind: "linear", max: maximum}, `${testCase.id} complete metric scale`);
+}
+
+// Independent operation scope is explicit, closed, and optional.
+const positionScopeRequest = {"query": {"scope": "global", "subjectType": "anime", "positionKeys": ["staff:anime:2"]}, "input": {"source": {"personId": 1, "positionKeys": ["staff:anime:2"]}}};
+for (const scope of [undefined, 'query', 'all']) {
+  const request = structuredClone(positionScopeRequest);
+  if (scope !== undefined) request.input.positionScope = scope;
+  assert(validateRequest(request), `positionScope ${scope}: ${ajv.errorsText(validateRequest.errors)}`);
+}
+for (const scope of [null, '', 'unknown', true, []]) {
+  const request = structuredClone(positionScopeRequest);
+  request.input.positionScope = scope;
+  assert.equal(validateRequest(request), false, `invalid positionScope ${JSON.stringify(scope)}`);
+}
+
+// Empty positions are an explicit operation scope, never an ordinary SharedQuery.
+for (const scope of [undefined, "query", "all"]) {
+  for (const queryScope of ["global", "personal"]) {
+    const request = structuredClone(positionScopeRequest);
+    request.query.positionKeys = [];
+    request.query.scope = queryScope;
+    if (queryScope === "personal") { request.query.uid = "lucay126"; request.query.collectionStatuses = ["completed"]; }
+    if (scope !== undefined) request.input.positionScope = scope;
+    assert.equal(validateRequest(request), scope === "all", `empty ${queryScope} query with ${scope}: ${ajv.errorsText(validateRequest.errors)}`);
+  }
 }

@@ -5,8 +5,8 @@ import type {
   SubjectTypeV1,
 } from '../../api/generated/query-wire/types.gen';
 import {
-  decodeEffectiveQuery,
-  decodeSharedQuery,
+  decodeEffectiveQueryForOperation,
+  decodeSharedQueryForOperation,
 } from '../../api/adapters/queryWire';
 import type {
   CatalogOperation,
@@ -21,6 +21,7 @@ import {
 
 export type QueryScope = 'global' | 'personal';
 export type QueryMode = 'co-star' | 'ranking';
+export type QueryPositionScope = 'query' | 'all';
 export type DeepReadonly<T> = T extends (...args: never[]) => unknown
   ? T
   : T extends readonly (infer Item)[]
@@ -444,6 +445,7 @@ export function validateDraft(
   draft: QueryDraft,
   mode: QueryMode,
   catalog: CatalogSnapshot | null,
+  positionScope: QueryPositionScope = 'query',
 ): QueryValidationResult {
   const errors: Partial<Record<QueryField, string>> = {};
   const positionKeys = orderedPositionKeys(draft.positionKeys);
@@ -454,12 +456,13 @@ export function validateDraft(
       : null;
 
   if (draft.scope === 'personal' && uid === null) {
-    errors.uid = 'UID 不能为空、包含控制字符或超过 256 字节';
+    errors.uid = 'UID 不能为空';
   }
   if (draft.scope === 'personal' && collectionStatuses === null) {
     errors.collectionStatuses = '至少选择一种有效收藏类型';
   }
-  if (positionKeys.length === 0) {
+  const operationScope = mode === 'co-star' ? positionScope : 'query';
+  if (positionKeys.length === 0 && operationScope !== 'all') {
     errors.positionKeys = '至少选择一个职位';
   } else if (!catalog) {
     errors.positionKeys = '职位目录尚未就绪';
@@ -621,8 +624,10 @@ export function validateDraft(
           ...(Object.keys(filters).length > 0 ? { filters } : {}),
         };
 
-  decodeSharedQuery(shared);
-  const effective = decodeEffectiveQuery(structuredClone(shared));
+  decodeSharedQueryForOperation(shared, operationScope);
+  const effective = decodeEffectiveQueryForOperation(
+    structuredClone(shared), operationScope,
+  );
   return {
     errors: Object.freeze({}),
     query: Object.freeze(structuredClone(effective)),
@@ -667,8 +672,12 @@ function isCanonicalTokenGroups(
   return { canonical: true, tokenCount };
 }
 
-export function isCanonicalAppliedQuery(query: AppliedQuery): boolean {
+export function isCanonicalAppliedQuery(
+  query: AppliedQuery,
+  positionScope: QueryPositionScope = 'query',
+): boolean {
   if (
+    (query.positionKeys.length === 0 && positionScope !== 'all') ||
     new Set(query.positionKeys).size !== query.positionKeys.length ||
     (query.mergeSeries && query.subjectType !== 'anime')
   ) {
@@ -811,6 +820,7 @@ export function draftFromEffective(
 export function summarizeQuery(
   query: AppliedQuery,
   catalog: CatalogSnapshot | null,
+  positionScope: QueryPositionScope = 'query',
 ): readonly string[] {
   const positions = query.positionKeys.map(
     (key) => catalog?.positionsByKey.get(String(key))?.label ?? String(key),
@@ -819,7 +829,7 @@ export function summarizeQuery(
     catalog?.subjectTypes.find((subject) => subject.key === query.subjectType)
       ?.label ?? query.subjectType;
   const parts = [
-    positions.join(' + ') || '未选择职位',
+    positionScope === 'all' ? '全部职位' : positions.join(' + ') || '未选择职位',
     query.scope === 'personal' ? query.uid : '全站数据',
     subjectLabel,
   ];

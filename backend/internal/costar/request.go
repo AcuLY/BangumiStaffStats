@@ -41,7 +41,7 @@ func parseInput(raw json.RawMessage) (Input, error) {
 		return Input{}, requestFailure("co-star input must be an object", "/input", "INVALID_TYPE")
 	}
 	for name := range fields {
-		if name != "participants" {
+		if name != "participants" && name != "positionScope" {
 			return Input{}, unknownFieldFailure("/input/" + escapePointerToken(name))
 		}
 	}
@@ -65,6 +65,10 @@ func parseInput(raw json.RawMessage) (Input, error) {
 		)
 	}
 	result := Input{Participants: make([]ParticipantInput, len(values))}
+	result.PositionScope, err = query.OperationPositionScope(raw)
+	if err != nil {
+		return Input{}, requestFailure("invalid position scope", "/input/positionScope", "UNSUPPORTED_VALUE")
+	}
 	seenPeople := make(map[int64]struct{}, len(values))
 	totalIdentities := 0
 	for index, rawParticipant := range values {

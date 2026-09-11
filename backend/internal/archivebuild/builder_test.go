@@ -343,7 +343,7 @@ func TestGovernedCatalogCastAndQuality(t *testing.T) {
 		digest := digestBytes(data)
 		sources = append(sources, SourceInput{Name: name, Path: location, Size: int64(len(data)), Digest: digest, DeclaredSize: int64(len(data)), DeclaredDigest: digest})
 	}
-	identity := BuildIdentity{ArchiveRelease: "catalog-derivation-v1", ArchiveDigest: "sha256:" + string(make([]byte, 0)), CommonCommit: DefaultCommonCommit, CommonDigest: digestBytes(commonBytes), ManifestSchemaVersion: 1, SQLiteSchemaVersion: 1, SchemaSQLDigest: digestBytes(embeddedSchemaSQL), DomainRulesVersion: DomainRulesVersion, CastRulesVersion: CastRulesVersion, CatalogConfigDigest: catalogDigest}
+	identity := BuildIdentity{ArchiveRelease: "catalog-derivation-v1", ArchiveDigest: "sha256:" + string(make([]byte, 0)), CommonCommit: DefaultCommonCommit, CommonDigest: digestBytes(commonBytes), ManifestSchemaVersion: ManifestSchemaVersion, SQLiteSchemaVersion: SQLiteSchemaVersion, SchemaSQLDigest: digestBytes(embeddedSchemaSQL), DomainRulesVersion: DomainRulesVersion, CastRulesVersion: CastRulesVersion, CatalogConfigDigest: catalogDigest}
 	identity.ArchiveDigest = "sha256:" + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	destination := filepath.Join(t.TempDir(), "catalog.sqlite")
 	result, err := BuildDatabase(context.Background(), BuildRequest{Destination: destination, Sources: sources, CommonBytes: commonBytes, CatalogBytes: catalogBytes, SchemaSQL: embeddedSchemaSQL, Identity: identity})

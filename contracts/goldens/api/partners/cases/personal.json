@@ -234,7 +234,15 @@
                   }
                 }
               }
-            ]
+            ],
+            "metricScale": {
+              "metric": "preference",
+              "kind": "linear",
+              "max": {
+                "numerator": "1",
+                "denominator": "6"
+              }
+            }
           },
           "meta": {
             "requestId": "req-partners-personal",
@@ -251,6 +259,43 @@
             }
           }
         }
+      },
+      "assertions": {
+        "metricScalePopulation": [
+          {
+            "person": {
+              "id": 2,
+              "name": "Partner",
+              "nameCN": "合作方"
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "1",
+                "denominator": "1"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "6"
+              }
+            }
+          }
+        ]
       }
     },
     {
@@ -375,7 +420,12 @@
                   "score": null
                 }
               }
-            ]
+            ],
+            "metricScale": {
+              "metric": "preference",
+              "kind": "linear",
+              "max": null
+            }
           },
           "meta": {
             "requestId": "req-partners-zero-evidence",
@@ -392,6 +442,2258 @@
             }
           }
         }
+      },
+      "assertions": {
+        "metricScalePopulation": [
+          {
+            "person": {
+              "id": 2,
+              "name": "Unrated",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "staff:anime:2"
+            ],
+            "metrics": {
+              "workCount": 1,
+              "ratedWorkCount": 0,
+              "average": null,
+              "overall": null
+            },
+            "preference": {
+              "comparableCount": 0,
+              "comparableSeriesCount": 0,
+              "effectiveEvidence": 0,
+              "mean": null,
+              "evidenceWeight": {
+                "numerator": "0",
+                "denominator": "1"
+              },
+              "score": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "personal-preference-off-page-negative-maximum",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:main"
+          ]
+        },
+        "input": {
+          "source": {
+            "personId": 1,
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          }
+        },
+        "view": {
+          "sort": "preference",
+          "page": 1,
+          "pageSize": 5
+        }
+      },
+      "expected": {
+        "status": 200,
+        "body": {
+          "data": {
+            "workUnit": "subject",
+            "source": {
+              "person": {
+                "id": 1,
+                "name": "Source",
+                "nameCN": null
+              },
+              "positionKeys": [
+                "staff:anime:2"
+              ],
+              "metrics": {
+                "workCount": 20,
+                "ratedWorkCount": 10,
+                "average": 700
+              }
+            },
+            "summary": {
+              "partnerCount": 8,
+              "leaders": [
+                {
+                  "metric": "count",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Visible 1",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "6",
+                        "denominator": "5"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "5"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "average",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Visible 1",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "6",
+                        "denominator": "5"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "5"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "overall",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Visible 1",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "6",
+                        "denominator": "5"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "5"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "preference",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Visible 1",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "6",
+                        "denominator": "5"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "5"
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "items": [
+              {
+                "rank": 1,
+                "person": {
+                  "id": 2,
+                  "name": "Visible 1",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "6",
+                    "denominator": "5"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "5"
+                  }
+                }
+              },
+              {
+                "rank": 2,
+                "person": {
+                  "id": 3,
+                  "name": "Visible 2",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "6",
+                    "denominator": "5"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "5"
+                  }
+                }
+              },
+              {
+                "rank": 3,
+                "person": {
+                  "id": 4,
+                  "name": "Visible 3",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "6",
+                    "denominator": "5"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "5"
+                  }
+                }
+              },
+              {
+                "rank": 4,
+                "person": {
+                  "id": 5,
+                  "name": "Visible 4",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "6",
+                    "denominator": "5"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "5"
+                  }
+                }
+              },
+              {
+                "rank": 5,
+                "person": {
+                  "id": 6,
+                  "name": "Visible 5",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "6",
+                    "denominator": "5"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "5"
+                  }
+                }
+              }
+            ],
+            "metricScale": {
+              "metric": "preference",
+              "kind": "linear",
+              "max": {
+                "numerator": "4",
+                "denominator": "5"
+              }
+            }
+          },
+          "meta": {
+            "requestId": "req-partners-personal",
+            "dataVersion": "dv1-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "pagination": {
+              "page": 1,
+              "pageSize": 5,
+              "total": 8
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T08:00:00Z",
+              "stale": false,
+              "warningCodes": []
+            }
+          }
+        }
+      },
+      "assertions": {
+        "metricScalePopulation": [
+          {
+            "person": {
+              "id": 2,
+              "name": "Visible 1",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 3,
+              "name": "Visible 2",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 4,
+              "name": "Visible 3",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 5,
+              "name": "Visible 4",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 6,
+              "name": "Visible 5",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 7,
+              "name": "Visible 6",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 8,
+              "name": "Visible 7",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 9,
+              "name": "Negative maximum",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 500,
+              "overall": 500
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "-24",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "-4",
+                "denominator": "5"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "personal-preference-search-preserves-scale",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:main"
+          ]
+        },
+        "input": {
+          "source": {
+            "personId": 1,
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          }
+        },
+        "view": {
+          "sort": "preference",
+          "search": "Visible",
+          "page": 1,
+          "pageSize": 5
+        }
+      },
+      "expected": {
+        "status": 200,
+        "body": {
+          "data": {
+            "workUnit": "subject",
+            "source": {
+              "person": {
+                "id": 1,
+                "name": "Source",
+                "nameCN": null
+              },
+              "positionKeys": [
+                "staff:anime:2"
+              ],
+              "metrics": {
+                "workCount": 20,
+                "ratedWorkCount": 10,
+                "average": 700
+              }
+            },
+            "summary": {
+              "partnerCount": 8,
+              "leaders": [
+                {
+                  "metric": "count",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Visible 1",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "6",
+                        "denominator": "5"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "5"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "average",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Visible 1",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "6",
+                        "denominator": "5"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "5"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "overall",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Visible 1",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "6",
+                        "denominator": "5"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "5"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "preference",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Visible 1",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "6",
+                        "denominator": "5"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "5"
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "items": [
+              {
+                "rank": 1,
+                "person": {
+                  "id": 2,
+                  "name": "Visible 1",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "6",
+                    "denominator": "5"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "5"
+                  }
+                }
+              },
+              {
+                "rank": 2,
+                "person": {
+                  "id": 3,
+                  "name": "Visible 2",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "6",
+                    "denominator": "5"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "5"
+                  }
+                }
+              },
+              {
+                "rank": 3,
+                "person": {
+                  "id": 4,
+                  "name": "Visible 3",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "6",
+                    "denominator": "5"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "5"
+                  }
+                }
+              },
+              {
+                "rank": 4,
+                "person": {
+                  "id": 5,
+                  "name": "Visible 4",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "6",
+                    "denominator": "5"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "5"
+                  }
+                }
+              },
+              {
+                "rank": 5,
+                "person": {
+                  "id": 6,
+                  "name": "Visible 5",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "6",
+                    "denominator": "5"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "5"
+                  }
+                }
+              }
+            ],
+            "metricScale": {
+              "metric": "preference",
+              "kind": "linear",
+              "max": {
+                "numerator": "4",
+                "denominator": "5"
+              }
+            }
+          },
+          "meta": {
+            "requestId": "req-partners-personal",
+            "dataVersion": "dv1-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "pagination": {
+              "page": 1,
+              "pageSize": 5,
+              "total": 7
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T08:00:00Z",
+              "stale": false,
+              "warningCodes": []
+            }
+          }
+        }
+      },
+      "assertions": {
+        "metricScalePopulation": [
+          {
+            "person": {
+              "id": 2,
+              "name": "Visible 1",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 3,
+              "name": "Visible 2",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 4,
+              "name": "Visible 3",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 5,
+              "name": "Visible 4",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 6,
+              "name": "Visible 5",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 7,
+              "name": "Visible 6",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 8,
+              "name": "Visible 7",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 9,
+              "name": "Negative maximum",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 500,
+              "overall": 500
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "-24",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "-4",
+                "denominator": "5"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "personal-preference-order-page-preserves-scale",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:main"
+          ]
+        },
+        "input": {
+          "source": {
+            "personId": 1,
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          }
+        },
+        "view": {
+          "sort": "preference",
+          "order": "asc",
+          "page": 2,
+          "pageSize": 5
+        }
+      },
+      "expected": {
+        "status": 200,
+        "body": {
+          "data": {
+            "workUnit": "subject",
+            "source": {
+              "person": {
+                "id": 1,
+                "name": "Source",
+                "nameCN": null
+              },
+              "positionKeys": [
+                "staff:anime:2"
+              ],
+              "metrics": {
+                "workCount": 20,
+                "ratedWorkCount": 10,
+                "average": 700
+              }
+            },
+            "summary": {
+              "partnerCount": 8,
+              "leaders": [
+                {
+                  "metric": "count",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Visible 1",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "6",
+                        "denominator": "5"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "5"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "average",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Visible 1",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "6",
+                        "denominator": "5"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "5"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "overall",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Visible 1",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "6",
+                        "denominator": "5"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "5"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "preference",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Visible 1",
+                      "nameCN": null
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "6",
+                        "denominator": "5"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "1",
+                        "denominator": "5"
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "items": [
+              {
+                "rank": 6,
+                "person": {
+                  "id": 6,
+                  "name": "Visible 5",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "6",
+                    "denominator": "5"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "5"
+                  }
+                }
+              },
+              {
+                "rank": 7,
+                "person": {
+                  "id": 7,
+                  "name": "Visible 6",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "6",
+                    "denominator": "5"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "5"
+                  }
+                }
+              },
+              {
+                "rank": 8,
+                "person": {
+                  "id": 8,
+                  "name": "Visible 7",
+                  "nameCN": null
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "6",
+                    "denominator": "5"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "1",
+                    "denominator": "5"
+                  }
+                }
+              }
+            ],
+            "metricScale": {
+              "metric": "preference",
+              "kind": "linear",
+              "max": {
+                "numerator": "4",
+                "denominator": "5"
+              }
+            }
+          },
+          "meta": {
+            "requestId": "req-partners-personal",
+            "dataVersion": "dv1-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "pagination": {
+              "page": 2,
+              "pageSize": 5,
+              "total": 8
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T08:00:00Z",
+              "stale": false,
+              "warningCodes": []
+            }
+          }
+        }
+      },
+      "assertions": {
+        "metricScalePopulation": [
+          {
+            "person": {
+              "id": 2,
+              "name": "Visible 1",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 3,
+              "name": "Visible 2",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 4,
+              "name": "Visible 3",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 5,
+              "name": "Visible 4",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 6,
+              "name": "Visible 5",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 7,
+              "name": "Visible 6",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 8,
+              "name": "Visible 7",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "6",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "1",
+                "denominator": "5"
+              }
+            }
+          },
+          {
+            "person": {
+              "id": 9,
+              "name": "Negative maximum",
+              "nameCN": null
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 500,
+              "overall": 500
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "-24",
+                "denominator": "5"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "-4",
+                "denominator": "5"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "personal-preference-valid-zero-scale",
+      "request": {
+        "query": {
+          "scope": "personal",
+          "uid": "Alice",
+          "collectionStatuses": [
+            "completed"
+          ],
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2",
+            "cast:anime:main"
+          ]
+        },
+        "input": {
+          "source": {
+            "personId": 1,
+            "positionKeys": [
+              "staff:anime:2"
+            ]
+          }
+        },
+        "view": {
+          "sort": "preference"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "body": {
+          "data": {
+            "workUnit": "subject",
+            "source": {
+              "person": {
+                "id": 1,
+                "name": "Source",
+                "nameCN": null
+              },
+              "positionKeys": [
+                "staff:anime:2"
+              ],
+              "metrics": {
+                "workCount": 2,
+                "ratedWorkCount": 1,
+                "average": 900
+              }
+            },
+            "summary": {
+              "partnerCount": 1,
+              "leaders": [
+                {
+                  "metric": "count",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Partner",
+                      "nameCN": "合作方"
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "0",
+                        "denominator": "1"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "0",
+                        "denominator": "1"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "average",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Partner",
+                      "nameCN": "合作方"
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "0",
+                        "denominator": "1"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "0",
+                        "denominator": "1"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "overall",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Partner",
+                      "nameCN": "合作方"
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "0",
+                        "denominator": "1"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "0",
+                        "denominator": "1"
+                      }
+                    }
+                  }
+                },
+                {
+                  "metric": "preference",
+                  "item": {
+                    "person": {
+                      "id": 2,
+                      "name": "Partner",
+                      "nameCN": "合作方"
+                    },
+                    "positionKeys": [
+                      "cast:anime:main"
+                    ],
+                    "metrics": {
+                      "workCount": 2,
+                      "ratedWorkCount": 1,
+                      "average": 900,
+                      "overall": 745
+                    },
+                    "preference": {
+                      "comparableCount": 1,
+                      "comparableSeriesCount": 1,
+                      "effectiveEvidence": 1,
+                      "mean": {
+                        "numerator": "0",
+                        "denominator": "1"
+                      },
+                      "evidenceWeight": {
+                        "numerator": "1",
+                        "denominator": "6"
+                      },
+                      "score": {
+                        "numerator": "0",
+                        "denominator": "1"
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "items": [
+              {
+                "rank": 1,
+                "person": {
+                  "id": 2,
+                  "name": "Partner",
+                  "nameCN": "合作方"
+                },
+                "positionKeys": [
+                  "cast:anime:main"
+                ],
+                "metrics": {
+                  "workCount": 2,
+                  "ratedWorkCount": 1,
+                  "average": 900,
+                  "overall": 745
+                },
+                "preference": {
+                  "comparableCount": 1,
+                  "comparableSeriesCount": 1,
+                  "effectiveEvidence": 1,
+                  "mean": {
+                    "numerator": "0",
+                    "denominator": "1"
+                  },
+                  "evidenceWeight": {
+                    "numerator": "1",
+                    "denominator": "6"
+                  },
+                  "score": {
+                    "numerator": "0",
+                    "denominator": "1"
+                  }
+                }
+              }
+            ],
+            "metricScale": {
+              "metric": "preference",
+              "kind": "linear",
+              "max": {
+                "numerator": "0",
+                "denominator": "1"
+              }
+            }
+          },
+          "meta": {
+            "requestId": "req-partners-personal",
+            "dataVersion": "dv1-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "pagination": {
+              "page": 1,
+              "pageSize": 10,
+              "total": 1
+            },
+            "collection": {
+              "fetchedAt": "2026-07-25T08:00:00Z",
+              "stale": false,
+              "warningCodes": []
+            }
+          }
+        }
+      },
+      "assertions": {
+        "metricScalePopulation": [
+          {
+            "person": {
+              "id": 2,
+              "name": "Partner",
+              "nameCN": "合作方"
+            },
+            "positionKeys": [
+              "cast:anime:main"
+            ],
+            "metrics": {
+              "workCount": 2,
+              "ratedWorkCount": 1,
+              "average": 900,
+              "overall": 745
+            },
+            "preference": {
+              "comparableCount": 1,
+              "comparableSeriesCount": 1,
+              "effectiveEvidence": 1,
+              "mean": {
+                "numerator": "0",
+                "denominator": "1"
+              },
+              "evidenceWeight": {
+                "numerator": "1",
+                "denominator": "6"
+              },
+              "score": {
+                "numerator": "0",
+                "denominator": "1"
+              }
+            }
+          }
+        ]
       }
     }
   ]

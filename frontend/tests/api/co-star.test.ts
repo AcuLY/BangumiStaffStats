@@ -114,6 +114,38 @@ function driverRequest(
 }
 
 describe('co-star response adapter', () => {
+  it('sends empty query positions only for explicit all-scope participants', async () => {
+    const base = driverRequest();
+    const fetchImplementation = vi.fn<FetchImplementation>(async () => jsonResponse(goldenBody('global')));
+    const driver = createCoStarDriver(createApiClient(fetchImplementation));
+    const request: CoStarDriverRequest = {
+      ...base,
+      input: { ...base.input, positionScope: 'all' },
+      query: { ...base.query, positionKeys: [] },
+    };
+    await driver.execute(request);
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+    for (const positionScope of ['query', undefined] as const) {
+      await expect(driver.execute({ ...request,
+        input: { ...request.input, positionScope },
+      } as never)).rejects.toBeInstanceOf(ApiDecodeError);
+    }
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+  });
+
+  it('accepts nonempty quarterly aggregates without person-detail work points', () => {
+    const body = structuredClone(goldenBody('global')) as {
+      data: { ratings: { datasets: Array<{ global: { timeline: unknown[] } }> } };
+    };
+    const quarter = { year: 2025, quarter: 4, average: 700, count: 1 };
+    body.data.ratings.datasets[0]!.global.timeline = [quarter];
+
+    const payload = decodeCoStarPayload(body, 'global');
+    expect(payload.data.ratings.datasets[0]).toMatchObject({
+      global: { timeline: [quarter] },
+    });
+  });
+
   it('preserves pair/group, nullable zero evidence, scope omission, and deep immutability', () => {
     const global = adaptCoStarSuccess(
       decodeCoStarSuccess(goldenBody('global')),

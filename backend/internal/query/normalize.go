@@ -221,6 +221,10 @@ func DecodeCatalog(raw []byte) (CatalogContext, error) {
 // Normalize strictly validates, normalizes, projects, canonicalizes, and
 // digests one raw SharedQueryV1 document.
 func Normalize(raw []byte, catalog CatalogContext) (NormalizedQuery, error) {
+	return normalize(raw, catalog, false)
+}
+
+func normalize(raw []byte, catalog CatalogContext, allowEmptyPositions bool) (NormalizedQuery, error) {
 	value, err := decodeJSON(raw, "")
 	if err != nil {
 		return NormalizedQuery{}, err
@@ -238,7 +242,7 @@ func Normalize(raw []byte, catalog CatalogContext) (NormalizedQuery, error) {
 	if !ok {
 		return NormalizedQuery{}, fieldError("", "query must be an object")
 	}
-	effective, err := normalizeQueryObject(object, catalog)
+	effective, err := normalizeQueryObject(object, catalog, allowEmptyPositions)
 	if err != nil {
 		return NormalizedQuery{}, err
 	}
@@ -287,7 +291,7 @@ func Canonicalize(value any) ([]byte, error) {
 	return CanonicalizeJSON(raw)
 }
 
-func normalizeQueryObject(object map[string]any, catalog CatalogContext) (EffectiveQuery, error) {
+func normalizeQueryObject(object map[string]any, catalog CatalogContext, allowEmptyPositions bool) (EffectiveQuery, error) {
 	scope, err := requiredString(object, "scope", "")
 	if err != nil {
 		return EffectiveQuery{}, err
@@ -331,7 +335,7 @@ func normalizeQueryObject(object map[string]any, catalog CatalogContext) (Effect
 	if !validSubjectType(subjectType) {
 		return EffectiveQuery{}, fieldError("/subjectType", "unsupported subject type")
 	}
-	positionKeys, err := parsePositionKeys(object["positionKeys"], "/positionKeys")
+	positionKeys, err := parsePositionKeys(object["positionKeys"], "/positionKeys", allowEmptyPositions)
 	if err != nil {
 		return EffectiveQuery{}, err
 	}
@@ -394,7 +398,7 @@ func projectQuery(effective EffectiveQuery) QueryDigestProjection {
 	projection := QueryDigestProjection{
 		Scope:        effective.Scope,
 		SubjectType:  effective.SubjectType,
-		PositionKeys: append([]string(nil), effective.PositionKeys...),
+		PositionKeys: append([]string{}, effective.PositionKeys...),
 		IncludeNSFW:  effective.IncludeNSFW,
 		MergeSeries:  effective.MergeSeries,
 		Filters:      cloneFilters(effective.Filters),
@@ -428,9 +432,9 @@ func parseCollectionStatuses(value any) ([]string, error) {
 	return result, nil
 }
 
-func parsePositionKeys(value any, path string) ([]string, error) {
+func parsePositionKeys(value any, path string, allowEmpty bool) ([]string, error) {
 	values, ok := value.([]any)
-	if !ok || len(values) == 0 {
+	if !ok || (!allowEmpty && len(values) == 0) {
 		return nil, fieldError(path, "positionKeys must be a non-empty array")
 	}
 	result := make([]string, 0, len(values))

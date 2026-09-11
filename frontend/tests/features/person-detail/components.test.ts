@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { mount } from '@vue/test-utils';
-import { NSelect } from 'naive-ui';
+import { NRadioGroup, NSelect, NTag } from 'naive-ui';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { decodePersonDetailPayload } from '../../../src/api/adapters/personDetail';
@@ -12,7 +12,9 @@ import AdaptiveAppearanceList from '../../../src/features/person-detail/componen
 import PersonDetailSurface from '../../../src/features/person-detail/components/PersonDetailSurface.vue';
 import PersonDetailSkeleton from '../../../src/features/person-detail/components/PersonDetailSkeleton.vue';
 import PersonInspector from '../../../src/features/person-detail/components/PersonInspector.vue';
+import PersonItemBrowser from '../../../src/features/person-detail/components/PersonItemBrowser.vue';
 import RatingEvidence from '../../../src/features/person-detail/components/RatingEvidence.vue';
+import AdaptivePagination from '../../../src/features/ranking/components/AdaptivePagination.vue';
 import type {
   PersonDetailPayload,
   PersonDetailRatingSet,
@@ -29,7 +31,7 @@ const repositoryRoot = path.resolve(
 );
 const wrappers: ReturnType<typeof mount>[] = [];
 
-function payload(filename: 'characters.json' | 'global.json' | 'personal.json') {
+function payload(filename: 'characters.json' | 'global.json' | 'personal.json', caseIndex = 0) {
   const document = JSON.parse(
     fs.readFileSync(
       path.join(
@@ -40,7 +42,7 @@ function payload(filename: 'characters.json' | 'global.json' | 'personal.json') 
       'utf8',
     ),
   ) as { cases: Array<{ expected: { body: unknown } }> };
-  return decodePersonDetailPayload(document.cases[0]!.expected.body);
+  return decodePersonDetailPayload(document.cases[caseIndex]!.expected.body);
 }
 
 function resource(
@@ -86,26 +88,6 @@ afterEach(() => {
   document.getElementById('app')?.remove();
 });
 
-function cssBlock(source: string, marker: string): string {
-  const markerIndex = source.indexOf(marker);
-  if (markerIndex < 0) {
-    throw new Error(`CSS block is missing: ${marker}`);
-  }
-  const open = source.indexOf('{', markerIndex);
-  let depth = 0;
-  for (let index = open; index < source.length; index += 1) {
-    if (source[index] === '{') {
-      depth += 1;
-    } else if (source[index] === '}') {
-      depth -= 1;
-      if (depth === 0) {
-        return source.slice(open + 1, index);
-      }
-    }
-  }
-  throw new Error(`CSS block is not closed: ${marker}`);
-}
-
 function mountSkeletonGeometry(
   layout: 'desktop' | 'drawer-wide' | 'drawer-compact',
 ) {
@@ -120,18 +102,13 @@ function mountSkeletonGeometry(
   if (!componentStyle) {
     throw new Error('PersonDetailSkeleton scoped style is missing');
   }
-  let effectiveStyle = componentStyle;
-  if (layout !== 'desktop') {
-    effectiveStyle += cssBlock(componentStyle, '@media (width < 780px)');
-  }
-  if (layout === 'drawer-compact') {
-    effectiveStyle += cssBlock(
-      componentStyle,
-      '@container person-detail-skeleton (max-width: 480px)',
-    );
-    effectiveStyle += cssBlock(componentStyle, '@media (max-width: 520px)');
-  }
+  // The placeholder now consumes the same production profile CSS as ready content.
+  const effectiveStyle = fs.readFileSync(
+    path.join(repositoryRoot, 'frontend/src/features/person-detail/person-detail.css'),
+    'utf8',
+  ) + '\n' + componentStyle;
   const resolvedStyle = effectiveStyle
+    .replaceAll('var(--person-detail-inline, 16px)', layout === 'desktop' ? '16px' : layout === 'drawer-compact' ? '12px' : '24px')
     .replace(/:global\(([^)]+)\)/g, '$1')
     .replaceAll('var(--divider)', '#d8d8de')
     .replaceAll('var(--radius-card)', '12px')
@@ -166,16 +143,33 @@ function pixels(value: string): number {
 }
 
 describe('person detail skeleton geometry', () => {
-  it('renders the desktop portrait flush and top-aligns both columns', () => {
+  it('keeps fixed labels and disabled controls while data and complete tags wait', () => {
+    const wrapper = mount(PersonDetailSkeleton, {
+      props: { personal: true, hasCharacterCount: true, workUnit: 'series', section: 'characters', pageSize: 5 },
+    });
+    wrappers.push(wrapper);
+    expect(wrapper.get('.detail-skeleton__metrics').text()).toContain('参与系列');
+    expect(wrapper.get('.detail-skeleton__metrics').text()).toContain('角色数');
+    expect(wrapper.get('.detail-skeleton__metrics').text()).toContain('我的均分');
+    expect(wrapper.findAll('.metric-unit__value .app-skeleton')).toHaveLength(9);
+    expect(wrapper.findAll('.metric-unit__label .app-skeleton')).toHaveLength(0);
+    expect(wrapper.text()).toContain('代表条目标签');
+    expect(wrapper.text()).toContain('系列均分分布');
+    expect(wrapper.findAll('.score-bar__track .app-skeleton')).toHaveLength(10);
+    expect(wrapper.findAllComponents(NRadioGroup).every(group => group.props('disabled'))).toBe(true);
+    expect(wrapper.findAll('.character-role-card')).toHaveLength(5);
+    expect(wrapper.findComponent(AdaptivePagination).exists()).toBe(false);
+  });
+  it('uses the same compact profile layout on desktop with section-aligned insets', () => {
     const fixture = mountSkeletonGeometry('desktop');
     try {
       const root = fixture.wrapper.get('.person-detail-skeleton').element;
-      const profile = fixture.wrapper.get('.person-profile-skeleton').element;
+      const profile = fixture.wrapper.get('.detail-skeleton__profile').element;
       const portrait = fixture.wrapper.get(
-        '.person-profile-skeleton > i',
+        '.detail-skeleton__portrait',
       ).element;
       const copy = fixture.wrapper.get(
-        '.person-profile-skeleton > span',
+        '.detail-skeleton__identity',
       ).element;
       const rootStyle = getComputedStyle(root);
       const profileStyle = getComputedStyle(profile);
@@ -187,54 +181,68 @@ describe('person detail skeleton geometry', () => {
       expect(profileStyle.display).toBe('grid');
       expect(profileStyle.alignContent).toBe('start');
       expect(profileStyle.alignItems).toBe('start');
-      expect(portraitStyle.width).toBe('160px');
-      expect(portraitStyle.height).toBe('213px');
+      expect(portraitStyle.width).toBe('96px');
+      expect(portraitStyle.height).toBe('128px');
+      expect(portraitStyle.borderRadius).toBe('12px');
+      expect(pixels(profileStyle.paddingLeft)).toBe(16);
+      const metricsStyle = getComputedStyle(
+        fixture.wrapper.get('.detail-skeleton__metrics').element,
+      );
+      expect(pixels(metricsStyle.marginLeft)).toBe(16);
+      expect(pixels(metricsStyle.marginRight)).toBe(16);
+      expect(getComputedStyle(
+        fixture.wrapper.get('.person-inspector__section').element,
+      ).getPropertyValue('--person-section-inline')).toBe('16px');
       expect(portraitStyle.alignSelf).toBe('start');
-      expect(copyStyle.padding).toBe('20px 24px 8px');
+      expect(copyStyle.padding).toBe('4px 0px');
       expect(copyStyle.alignContent).toBe('start');
       expect(copyStyle.alignItems).toBe('start');
+      expect(getComputedStyle(fixture.wrapper.get('.detail-skeleton__metrics').element).gridTemplateColumns)
+        .toBe('repeat(3, minmax(0, 1fr))');
     } finally {
       fixture.cleanup();
     }
   });
 
-  it('keeps the 636px Drawer on final-profile desktop geometry', () => {
+  it('uses mobile profile geometry in wider Drawers too', () => {
     const fixture = mountSkeletonGeometry('drawer-wide');
     try {
       const root = fixture.wrapper.get('.person-detail-skeleton').element;
-      const profile = fixture.wrapper.get('.person-profile-skeleton').element;
+      const profile = fixture.wrapper.get('.detail-skeleton__profile').element;
       const portrait = fixture.wrapper.get(
-        '.person-profile-skeleton > i',
+        '.detail-skeleton__portrait',
       ).element;
       const copy = fixture.wrapper.get(
-        '.person-profile-skeleton > span',
+        '.detail-skeleton__identity',
       ).element;
       const rootStyle = getComputedStyle(root);
       const profileStyle = getComputedStyle(profile);
       const portraitStyle = getComputedStyle(portrait);
       const copyStyle = getComputedStyle(copy);
 
-      expect(portraitStyle.width).toBe('160px');
-      expect(portraitStyle.height).toBe('213px');
-      expect(portraitStyle.borderRadius).toBe('0px');
+      expect(portraitStyle.width).toBe('96px');
+      expect(portraitStyle.height).toBe('128px');
+      expect(portraitStyle.borderRadius).toBe('12px');
       expect(pixels(rootStyle.paddingLeft)).toBe(0);
-      expect(pixels(profileStyle.paddingLeft)).toBe(0);
-      expect(copyStyle.padding).toBe('20px 24px 8px');
+      expect(pixels(profileStyle.paddingLeft)).toBe(24);
+      expect(copyStyle.padding).toBe('4px 0px');
+      expect(getComputedStyle(fixture.wrapper.get('.detail-skeleton__metrics').element).gridTemplateColumns)
+        .toBe('repeat(3, minmax(0, 1fr))');
     } finally {
       fixture.cleanup();
     }
   });
 
-  it('renders compact drawer geometry with a square 96 by 128 portrait and only the profile inset', () => {
+  it('renders compact drawer geometry with 12px insets and a rounded 96 by 128 portrait', () => {
     const fixture = mountSkeletonGeometry('drawer-compact');
     try {
       const root = fixture.wrapper.get('.person-detail-skeleton').element;
-      const profile = fixture.wrapper.get('.person-profile-skeleton').element;
+      const profile = fixture.wrapper.get('.detail-skeleton__profile').element;
       const portrait = fixture.wrapper.get(
-        '.person-profile-skeleton > i',
+        '.detail-skeleton__portrait',
       ).element;
       const copy = fixture.wrapper.get(
-        '.person-profile-skeleton > span',
+        '.detail-skeleton__identity',
       ).element;
       const rootStyle = getComputedStyle(root);
       const profileStyle = getComputedStyle(profile);
@@ -245,15 +253,23 @@ describe('person detail skeleton geometry', () => {
 
       expect(portraitStyle.width).toBe('96px');
       expect(portraitStyle.height).toBe('128px');
-      expect(portraitStyle.borderRadius).toBe('0px');
+      expect(portraitStyle.borderRadius).toBe('12px');
       expect(portraitStyle.alignSelf).toBe('start');
       expect(profileStyle.alignContent).toBe('start');
       expect(profileStyle.alignItems).toBe('start');
       expect(copyStyle.padding).toBe('4px 0px');
       expect(copyStyle.alignContent).toBe('start');
       expect(copyStyle.alignItems).toBe('start');
-      expect(portraitInlineStart).toBe(16);
-      expect(portraitInlineStart).not.toBe(20);
+      expect(portraitInlineStart).toBe(12);
+      expect(pixels(profileStyle.paddingTop)).toBe(12);
+      const metricsStyle = getComputedStyle(
+        fixture.wrapper.get('.detail-skeleton__metrics').element,
+      );
+      expect(pixels(metricsStyle.marginLeft)).toBe(12);
+      expect(pixels(metricsStyle.marginRight)).toBe(12);
+      expect(pixels(metricsStyle.marginBottom)).toBe(0);
+      expect(metricsStyle.borderRadius).toBe('12px');
+      expect(metricsStyle.backgroundColor).toBe('rgba(0, 0, 0, 0)');
     } finally {
       fixture.cleanup();
     }
@@ -261,6 +277,101 @@ describe('person detail skeleton geometry', () => {
 });
 
 describe('person inspector production presentation', () => {
+  it.each([
+    ['subject', 'global'],
+    ['subject', 'personal'],
+    ['series', 'global'],
+    ['series', 'personal'],
+    ['character', 'global'],
+  ] as const)('keeps %s %s loading cards on their detailed and compact content structure', async (kind, scope) => {
+    const initial = payload(kind === 'character' ? 'characters.json' : `${scope}.json`);
+    const detail = kind === 'series'
+      ? { ...initial, summary: { ...initial.summary, workUnit: 'series' as const } }
+      : initial;
+    const wrapper = mount(PersonItemBrowser, {
+      props: {
+        executeView: vi.fn(async () => true),
+        payload: detail,
+        pending: true,
+        positionLabel,
+        view: { ...resource(detail).view, pageSize: 10 },
+      },
+    });
+    wrappers.push(wrapper);
+
+    const skeleton = wrapper.get('.work-cards-skeleton');
+    expect(skeleton.attributes('aria-hidden')).toBe('true');
+    expect(skeleton.element.children).toHaveLength(10);
+    expect(skeleton.findAll('button, a, input, select')).toHaveLength(0);
+    expect(wrapper.get('.person-item-browser__body').attributes('aria-busy')).toBe('true');
+
+    const pagination = wrapper.getComponent(AdaptivePagination);
+    const paginationElement = pagination.element;
+    expect(pagination.props('pending')).toBe(true);
+    expect(pagination.props('pageSize')).toBe(detail.pagination.pageSize);
+    expect(pagination.findAll('.app-skeleton')).toHaveLength(0);
+    expect(pagination.findAll('button').every((button) => button.attributes('disabled') !== undefined)).toBe(true);
+
+    if (kind === 'character') {
+      expect(skeleton.findAll('.character-role-card__avatar .app-skeleton')).toHaveLength(10);
+      expect(skeleton.findAll('.character-role-card__appearance')).toHaveLength(20);
+      expect(skeleton.find('.subject-work-row__facts').exists()).toBe(false);
+    } else {
+      expect(skeleton.findAll('.subject-work-row__cover-media .app-skeleton')).toHaveLength(10);
+      expect(skeleton.findAll('.subject-work-row__role-fact')).toHaveLength(0);
+      expect(skeleton.findAll('.subject-work-row__score--mine')).toHaveLength(scope === 'personal' ? 10 : 0);
+      expect(skeleton.findAll('.subject-work-row__series-members')).toHaveLength(kind === 'series' ? 10 : 0);
+      expect(skeleton.findAll('.subject-work-row__meta')).toHaveLength(kind === 'subject' ? 10 : 0);
+    }
+
+    const densityControl = wrapper.findAllComponents(NRadioGroup).at(-1)!;
+    densityControl.vm.$emit('update:value', 'compact');
+    await wrapper.vm.$nextTick();
+
+    expect(skeleton.element.children).toHaveLength(10);
+    expect(skeleton.findAll('.subject-work-row__facts, .subject-work-row__series-members, .character-role-card__appearances')).toHaveLength(0);
+    if (kind === 'character') {
+      expect(skeleton.findAll('.character-role-card--compact')).toHaveLength(10);
+      expect(skeleton.findAll('.character-role-card__avatar')).toHaveLength(10);
+    } else {
+      expect(skeleton.findAll('.subject-work-row--compact')).toHaveLength(10);
+      expect(skeleton.findAll('.subject-work-row__compact-score')).toHaveLength(10);
+      expect(skeleton.findAll('.subject-work-row__cover-media')).toHaveLength(0);
+    }
+
+    await wrapper.setProps({ pending: false });
+    expect(wrapper.find('.work-cards-skeleton').exists()).toBe(false);
+    expect(wrapper.getComponent(AdaptivePagination).element).toBe(paginationElement);
+    expect(pagination.props('pending')).toBe(false);
+  });
+
+  it('reserves cast role names and whole tags only when the pending work query includes character statistics', async () => {
+    const detail = payload('personal.json', 1);
+    const wrapper = mount(PersonItemBrowser, {
+      props: {
+        executeView: vi.fn(async () => true),
+        payload: detail,
+        pending: true,
+        positionLabel,
+        view: resource(detail).view,
+      },
+    });
+    wrappers.push(wrapper);
+
+    const role = wrapper.get('.subject-work-row__role-fact');
+    expect(role.get('dt').text()).toBe('配音角色');
+    expect(role.findAll('.app-skeleton')).toHaveLength(2);
+    expect(role.find('.work-cards-skeleton__role-tag.n-skeleton').exists()).toBe(true);
+    expect(role.find('.character-role-tag').exists()).toBe(false);
+    expect(wrapper.get('.work-cards-skeleton').text()).not.toContain('参与职位');
+
+    const staff = payload('personal.json');
+    await wrapper.setProps({ payload: staff, view: resource(staff).view });
+    expect(wrapper.find('.subject-work-row__role-fact').exists()).toBe(false);
+    expect(wrapper.find('.subject-work-row__facts--with-role').exists()).toBe(false);
+    expect(wrapper.get('.subject-work-row__score--global dt').text()).toBe('全站评分');
+  });
+
   it('renders the global hierarchy, omits personal sections, and never exposes opaque staff keys', async () => {
     const wrapper = mount(PersonInspector, {
       props: {
@@ -300,7 +411,7 @@ describe('person inspector production presentation', () => {
     expect(document.body.textContent).toContain('最终综合分');
   });
 
-  it('keeps a long contribution summary inside the stretched role fact', () => {
+  it('omits ordinary staff positions and their empty role cell on subject cards', () => {
     const detail = payload('personal.json');
     const firstItem = detail.items[0];
     if (!firstItem || !('subject' in firstItem)) {
@@ -310,7 +421,6 @@ describe('person inspector production presentation', () => {
     if (!contribution) {
       throw new Error('personal golden must contain a contribution');
     }
-    const longLabel = '配音·配角与其他长名参与职位';
     const longDetail = Object.freeze({
       ...detail,
       items: Object.freeze([
@@ -326,15 +436,101 @@ describe('person inspector production presentation', () => {
     const wrapper = mount(PersonInspector, {
       props: {
         executeView: vi.fn(async () => true),
-        positionLabel: () => ({ label: longLabel }),
+        positionLabel,
         resource: resource(longDetail),
         retry: vi.fn(async () => true),
       },
     });
     wrappers.push(wrapper);
 
-    const role = wrapper.get('.subject-work-row__role-fact dd');
-    expect(role.text()).toBe(Array(4).fill(longLabel).join(' / '));
+    expect(wrapper.find('.subject-work-row__role-fact').exists()).toBe(false);
+    expect(wrapper.find('.subject-work-row__facts--with-role').exists()).toBe(false);
+    expect(wrapper.get('.person-profile__career').text()).toContain('导演');
+  });
+
+  it('preserves distinct cast characters sharing a role and falls back to original names', () => {
+    const detail = payload('personal.json');
+    const firstItem = detail.items[0];
+    if (!firstItem || !('subject' in firstItem)) {
+      throw new Error('personal golden must contain a subject item');
+    }
+    const characters = [
+      { key: 'character:31831', id: 31831, name: '斎藤葵', nameCN: '斋藤葵' },
+      { key: 'character:78511', id: 78511, name: '岩田慧菜', nameCN: null },
+    ];
+    const wrapper = mount(PersonInspector, {
+      props: {
+        executeView: vi.fn(async () => true),
+        positionLabel,
+        resource: resource({
+          ...detail,
+          items: [{
+            ...firstItem,
+            contributions: characters.map((character) => ({
+              kind: 'cast' as const,
+              positionKey: 'cast:anime:all',
+              character,
+              roleType: 2,
+              roleLabel: '配角' as const,
+              provenance: 'exact' as const,
+            })),
+          }],
+        }),
+        retry: vi.fn(async () => true),
+      },
+    });
+    wrappers.push(wrapper);
+
+    const role = wrapper.get('.subject-work-row__role-fact');
+    expect(role.get('dt').text()).toBe('配音角色');
+    expect(role.findAll('.adaptive-role-list__row .adaptive-role-list__name').map((name) => name.text()))
+      .toEqual(['斋藤葵', '岩田慧菜']);
+    expect(role.findAll('.adaptive-role-list__row .character-role-tag').map((tag) => tag.text()))
+      .toEqual(['配角', '配角']);
+    for (const entry of role.findAll('.adaptive-role-list__row .adaptive-role-list__item, [data-role-measure]')) {
+      const tag = entry.getComponent(NTag);
+      expect(tag.props('size')).toBe('small');
+      expect(tag.props('round')).toBe(true);
+      expect(tag.text()).toBe('配角');
+    }
+    for (const metadata of wrapper.findAll('.subject-work-row__meta li')) {
+      const tag = metadata.getComponent(NTag);
+      expect(tag.props('size')).toBe('small');
+      expect(tag.props('round')).toBe(true);
+    }
+    expect(role.find('.adaptive-role-list__count').exists()).toBe(false);
+    expect(role.text()).not.toContain(' / ');
+  });
+
+  it('keeps exact series cast counts while omitting staff-only series role cells', async () => {
+    const detail = payload('personal.json', 1);
+    const series = detail.items[0];
+    if (!series || !('kind' in series) || series.kind !== 'series') {
+      throw new Error('second personal golden must contain a series item');
+    }
+    const wrapper = mount(PersonInspector, {
+      props: {
+        executeView: vi.fn(async () => true),
+        positionLabel,
+        resource: resource(detail),
+        retry: vi.fn(async () => true),
+      },
+    });
+    wrappers.push(wrapper);
+
+    const role = wrapper.get('.subject-work-row__role-fact');
+    expect(role.get('dt').text()).toBe('配音角色');
+    expect(role.get('.adaptive-role-list__row .adaptive-role-list__name').text()).toBe('系列角色');
+    expect(role.get('.adaptive-role-list__row .adaptive-role-list__count').text()).toBe('1');
+    expect(role.text()).not.toContain('导演');
+    await wrapper.setProps({
+      resource: resource({
+        ...detail,
+        items: [{ ...series, contributions: series.contributions.filter((entry) => entry.kind === 'staff') }],
+      }),
+    });
+    expect(wrapper.find('.subject-work-row__role-fact').exists()).toBe(false);
+    expect(wrapper.find('.subject-work-row__facts--with-role').exists()).toBe(false);
   });
 
   it('keeps the profile position line on the accepted query across server work views', async () => {
@@ -442,7 +638,7 @@ describe('person inspector production presentation', () => {
 
     expect(wrapper.text()).toContain('金标导演');
     expect(wrapper.text()).toContain('+0.13');
-    expect(wrapper.text()).toContain('收藏标签');
+    expect(wrapper.text()).toContain('我的标签');
     expect(wrapper.find('.person-item-skeletons').exists()).toBe(true);
     expect(wrapper.find('.person-profile').exists()).toBe(true);
     await wrapper
@@ -545,7 +741,11 @@ describe('person inspector production presentation', () => {
     expect(styles).toMatch(
       /\.person-preference-work__copy strong\s*{[^}]*color: var\(--text-primary\);/s,
     );
-    expect(styles).toMatch(
+    const sharedStyles = fs.readFileSync(
+      path.join(repositoryRoot, 'frontend/src/shared/styles/base.css'),
+      'utf8',
+    );
+    expect(sharedStyles).toMatch(
       /\.score-distribution-tooltip li\s*{[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/s,
     );
   });
@@ -630,7 +830,15 @@ describe('person inspector production presentation', () => {
     const overflow = wrapper.get(
       'button.character-role-card__source-more',
     );
+    for (const entry of wrapper.findAll('.character-role-card__appearance')) {
+      const tag = entry.getComponent(NTag);
+      expect(tag.props('size')).toBe('small');
+      expect(tag.props('round')).toBe(true);
+      expect(tag.text()).toBe(appearance.roleLabel);
+    }
     expect(overflow.attributes('aria-expanded')).toBe('false');
+    await overflow.trigger('mouseenter');
+    await overflow.trigger('focus');
     await overflow.trigger('click');
     expect(overflow.attributes('aria-expanded')).toBe('true');
     await vi.waitFor(() => {
@@ -641,10 +849,61 @@ describe('person inspector production presentation', () => {
       ).toHaveLength(3);
     });
     expect(document.body.textContent).toContain('第三部作品');
+    expect(document.body.querySelectorAll('.character-role-source-tooltip .character-role-tag.n-tag'))
+      .toHaveLength(3);
     await overflow.trigger('keydown', { key: 'Escape' });
     expect(overflow.attributes('aria-expanded')).toBe('false');
     await overflow.trigger('focus');
     expect(overflow.attributes('aria-expanded')).toBe('true');
+  });
+
+  it('keeps an appearance popover in the drawer Tab path and restores its trigger on Escape', async () => {
+    const detail = payload('characters.json');
+    const item = detail.items[0];
+    if (!item || !('character' in item)) throw new Error('Expected a character');
+    const appearances = [1, 2, 3].map((id) => ({
+      ...item.appearances[0]!,
+      subject: { ...item.appearances[0]!.subject, id, name: `Work ${id}`, nameCN: null },
+    }));
+    const wrapper = mount(PersonDetailSurface, {
+      attachTo: document.body,
+      props: {
+        compact: true,
+        open: true,
+        resource: resource({ ...detail, items: [{ ...item, appearances, workCount: 3 }] } as PersonDetailPayload),
+        positionLabel,
+        executeView: vi.fn(async () => true),
+        retry: vi.fn(async () => true),
+        targetWindow: window,
+      },
+    });
+    wrappers.push(wrapper);
+    const trigger = document.body.querySelector<HTMLButtonElement>('.character-role-card__source-more')!;
+    const key = (element: Element, value: string, shiftKey = false) => element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: value, shiftKey, bubbles: true, cancelable: true }),
+    );
+    await vi.waitFor(() => expect(document.activeElement?.classList.contains('person-detail-drawer')).toBe(true));
+    trigger.focus();
+    await vi.waitFor(() => expect(document.querySelectorAll('[data-person-detail-popup] a')).toHaveLength(3));
+    const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-person-detail-popup] a'));
+    key(trigger, 'Tab');
+    expect(document.activeElement).toBe(links[0]);
+    key(links[0]!, 'Tab', true);
+    expect(document.activeElement).toBe(trigger);
+    key(trigger, 'Tab');
+    key(links[0]!, 'Escape');
+    await vi.waitFor(() => expect(trigger.getAttribute('aria-expanded')).toBe('false'));
+    expect(document.activeElement).toBe(trigger);
+    expect(wrapper.emitted('close')).toBeUndefined();
+    trigger.blur();
+    trigger.focus();
+    await vi.waitFor(() => expect(document.querySelectorAll('[data-person-detail-popup] a')).toHaveLength(3));
+    const last = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-person-detail-popup] a')).at(-1)!;
+    last.focus();
+    key(last, 'Tab');
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement?.closest('[data-person-detail-popup]')).toBeNull();
+    await vi.waitFor(() => expect(trigger.getAttribute('aria-expanded')).toBe('false'));
   });
 
   it('preserves 4-unit timeline dots while exposing real 44px hits and adjacent-point keys', async () => {
@@ -660,11 +919,15 @@ describe('person inspector production presentation', () => {
             global: Object.freeze({
               ...detail.ratings.global,
               timeline: Object.freeze([
-                firstPoint,
+                Object.freeze({ ...firstPoint, count: 1, works: [{
+                  subject: { id: 101, name: 'Winter work', nameCN: '冬季作品', date: '2024-01' }, score: 700,
+                }] }),
                 Object.freeze({
                   ...firstPoint,
                   quarter: 2,
                   average: 840,
+                  count: 1,
+                  works: [{ subject: { id: 102, name: 'Spring work', nameCN: '春季作品', date: '2024-04' }, score: 840 }],
                 }),
               ]),
             }),
@@ -689,6 +952,8 @@ describe('person inspector production presentation', () => {
     }
     await timeControl.trigger('click');
 
+    expect(wrapper.find('.rating-distribution-panel__empty').exists()).toBe(false);
+
     const dots = wrapper.findAll(
       'circle.rating-time-chart__visible-point',
     );
@@ -706,6 +971,12 @@ describe('person inspector production presentation', () => {
     await hits[0]!.trigger('keydown', { key: 'ArrowRight' });
     expect(focusNext).toHaveBeenCalledOnce();
 
+    await hits[0]!.trigger('focus');
+    expect(wrapper.get('[role="tooltip"]').text()).toContain('均分');
+    await hits[0]!.trigger('blur');
+    expect(wrapper.find('[role="tooltip"]').exists()).toBe(false);
+    expect(wrapper.find('.rating-distribution-panel__empty').exists()).toBe(false);
+
     const hitSize = timelineHitSizeInViewBox(330, 236);
     expect((hitSize.width * 330) / 440).toBeCloseTo(44);
     expect((hitSize.height * 236) / 236).toBeCloseTo(44);
@@ -722,16 +993,97 @@ describe('person inspector production presentation', () => {
     ).toBe(0);
   });
 
-  it('opens the compact surface as an isolated modal drawer and restores focus after Escape', async () => {
+  it('keeps same-quarter works separate from the mean line and uses Chinese seasons', async () => {
+    const detail = payload('global.json');
+    const quarter = detail.ratings.global.timeline[0]!;
+    const wrapper = mount(RatingEvidence, {
+      attachTo: document.body,
+      props: { payload: {
+        ...detail,
+        ratings: { ...detail.ratings, global: { ...detail.ratings.global, timeline: [
+          { ...quarter, year: 2024, quarter: 1, average: 666, count: 3, works: [
+            { subject: { id: 1, name: 'A', nameCN: '作品甲', date: '2024-01' }, score: 600 },
+            { subject: { id: 2, name: 'B', nameCN: '作品乙', date: '2024-02-02' }, score: 700 },
+            { subject: { id: 3, name: 'C', nameCN: '作品丙', date: '2024-03-03' }, score: 700 },
+          ] },
+          { ...quarter, year: 2024, quarter: 2, average: 800, count: 1, works: [
+            { subject: { id: 4, name: 'D', nameCN: '作品丁', date: '2024-04' }, score: 800 },
+          ] },
+        ] } },
+      } },
+    });
+    wrappers.push(wrapper);
+    await wrapper.findAll('.n-radio-button').find((control) => control.text() === '按时间')!.trigger('click');
+    const dots = wrapper.findAll('.rating-time-chart__visible-point');
+    expect(dots).toHaveLength(4);
+    expect(new Set(dots.map((dot) => dot.attributes('cx'))).size).toBe(4);
+    expect(dots[1]!.attributes('cy')).toBe(dots[2]!.attributes('cy'));
+    const linePoints = wrapper.get('polyline').attributes('points')!.split(' ');
+    expect(linePoints).toHaveLength(2);
+    expect(Number(linePoints[0]!.split(',')[1])).toBeCloseTo(18 + (1000 - 666) / 1000 * 176);
+    expect(wrapper.findAll('.rating-time-chart__quarter-label').map((label) => label.text())).toEqual(['冬季', '春季']);
+    const hits = wrapper.findAll('.rating-time-chart__hit-target');
+    await hits[1]!.trigger('focus');
+    expect(wrapper.get('[role="tooltip"]').text()).toContain('作品乙');
+    expect(wrapper.get('[role="tooltip"]').text()).toContain('7.00 分');
+    expect(wrapper.get('[role="tooltip"]').text()).toContain('2024-02-02');
+    expect(wrapper.get('[role="tooltip"]').text()).toContain('6.66');
+    expect(wrapper.text()).not.toMatch(/Q[1-4]/);
+    const focusNext = vi.spyOn(hits[2]!.element as SVGElement, 'focus');
+    await hits[1]!.trigger('keydown', { key: 'ArrowRight' });
+    expect(focusNext).toHaveBeenCalledOnce();
+  });
+
+  it('spaces sparse quarters by calendar time and thins long-range axis labels', async () => {
+    const detail = payload('global.json');
+    const first = detail.ratings.global.timeline[0]!;
+    const withTimeline = (timeline: typeof detail.ratings.global.timeline) => ({
+      ...detail,
+      ratings: { ...detail.ratings, global: { ...detail.ratings.global, timeline } },
+    });
+    const wrapper = mount(RatingEvidence, {
+      attachTo: document.body,
+      props: { payload: withTimeline([
+        { ...first, year: 2000, quarter: 1, count: 1, works: [{ subject: { id: 1, name: 'A', nameCN: null, date: '2000-01' }, score: 700 }] },
+        { ...first, year: 2000, quarter: 2, count: 1, works: [{ subject: { id: 2, name: 'B', nameCN: null, date: '2000-04' }, score: 700 }] },
+        { ...first, year: 2025, quarter: 4, count: 1, works: [{ subject: { id: 3, name: 'C', nameCN: null, date: '2025-10' }, score: 700 }] },
+      ]) },
+    });
+    wrappers.push(wrapper);
+    await wrapper.findAll('.n-radio-button').find((control) => control.text() === '按时间')!.trigger('click');
+    const dots = wrapper.findAll('.rating-time-chart__visible-point');
+    const positions = dots.map((dot) => Number(dot.attributes('cx')));
+    expect(positions[2]! - positions[1]!).toBeGreaterThan(100 * (positions[1]! - positions[0]!));
+    const labels = wrapper.findAll('.rating-time-chart__year-label');
+    expect(labels.length).toBeLessThanOrEqual(8);
+    expect(labels.at(-1)!.text()).toBe('2025');
+    expect(wrapper.find('.rating-time-chart__quarter-label').exists()).toBe(false);
+    const labelPositions = labels.map((label) => Number(label.attributes('x')));
+    expect(labelPositions.slice(1).every((x, index) => x - labelPositions[index]! >= 52)).toBe(true);
+    await wrapper.setProps({ payload: withTimeline([]) });
+    expect(wrapper.find('svg.rating-time-chart').exists()).toBe(false);
+    expect(wrapper.get('.rating-distribution-panel__empty').text()).toContain('没有同时具备时间');
+  });
+
+  it('isolates page content while keeping Header reachable and restores focus after Escape', async () => {
     const appRoot = document.createElement('div');
     appRoot.id = 'app';
+    const header = document.createElement('header');
+    header.className = 'app-header';
+    const modeButton = document.createElement('button');
+    modeButton.textContent = '共演分析';
+    header.append(modeButton);
+    const page = document.createElement('div');
+    page.className = 'app-page-scroll';
+    appRoot.append(header, page);
     const opener = document.createElement('button');
     opener.textContent = '打开人物详情';
-    appRoot.append(opener);
+    page.append(opener);
     document.body.append(appRoot);
     opener.focus();
     const wrapper = mount(PersonDetailSurface, {
-      attachTo: appRoot,
+      attachTo: page,
+      global: { stubs: { transition: false } },
       props: {
         compact: true,
         executeView: vi.fn(async () => true),
@@ -757,8 +1109,14 @@ describe('person inspector production presentation', () => {
     ).toBeNull();
     expect(document.body.style.overflow).toBe('');
     expect(document.documentElement.style.overflow).toBe('hidden');
-    expect(appRoot.inert).toBe(true);
-    expect(appRoot.getAttribute('aria-hidden')).toBe('true');
+    expect(Boolean(appRoot.inert)).toBe(false);
+    expect(page.inert).toBe(true);
+    expect(page.getAttribute('aria-hidden')).toBe('true');
+    expect(modeButton.closest('[inert], [aria-hidden="true"]')).toBeNull();
+    expect(dialog.hasAttribute('aria-modal')).toBe(false);
+    dialog.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Tab', shiftKey: true }));
+    expect(document.activeElement).toBe(modeButton);
+    dialog.focus();
     const backdrop = document.body.querySelector<HTMLButtonElement>(
       '.person-detail-drawer__backdrop',
     )!;
@@ -792,10 +1150,17 @@ describe('person inspector production presentation', () => {
       );
     expect(wrapper.emitted('close')).toHaveLength(2);
     await wrapper.setProps({ open: false });
+    expect(page.inert).toBe(true);
+    expect(document.body.querySelector('.person-detail-drawer')).not.toBeNull();
+    await vi.waitFor(() => {
+      expect(document.body.querySelector('.person-detail-drawer')).toBeNull();
+      expect(page.inert).toBe(false);
+      expect(document.activeElement).toBe(opener);
+    });
     expect(document.body.style.overflow).toBe('');
     expect(document.documentElement.style.overflow).toBe('');
-    expect(appRoot.inert).toBe(false);
-    expect(appRoot.hasAttribute('aria-hidden')).toBe(false);
+    expect(page.inert).toBe(false);
+    expect(page.hasAttribute('aria-hidden')).toBe(false);
     await vi.waitFor(() => {
       expect(document.activeElement).toBe(opener);
     });
@@ -803,6 +1168,42 @@ describe('person inspector production presentation', () => {
 });
 
 describe('person-detail oracle cascade guards', () => {
+  it('keeps workspace actions and a unique panel ID while moving focus across the drawer breakpoint', async () => {
+    const wrapper = mount(PersonDetailSurface, {
+      attachTo: document.body,
+      props: {
+        compact: true,
+        open: true,
+        inline: true,
+        panelId: 'co-star-person-detail-panel',
+        resource: resource(),
+        positionLabel,
+        executeView: vi.fn(async () => true),
+        retry: vi.fn(async () => true),
+        targetWindow: window,
+      },
+      slots: { actions: '<button class="test-return">返回共演分析</button>' },
+    });
+    wrappers.push(wrapper);
+    await vi.waitFor(() => expect(document.activeElement?.id).toBe('co-star-person-detail-panel'));
+    expect(document.querySelectorAll('#co-star-person-detail-panel')).toHaveLength(1);
+    expect(document.querySelector('#person-detail-panel')).toBeNull();
+    const action = document.querySelector<HTMLButtonElement>('.test-return')!;
+    action.focus();
+    await wrapper.setProps({ compact: false });
+    await vi.waitFor(() => {
+      expect(document.activeElement).toBe(wrapper.get('.person-detail-surface').element);
+      expect(document.querySelector('.person-detail-drawer')).toBeNull();
+    });
+    expect(document.querySelectorAll('#co-star-person-detail-panel')).toHaveLength(1);
+    expect(wrapper.get('.person-detail-surface--inline .test-return').text()).toBe('返回共演分析');
+    expect(document.documentElement.style.overflow).toBe('');
+    await wrapper.setProps({ compact: true });
+    await vi.waitFor(() => expect(document.activeElement).toBe(document.querySelector('.person-detail-drawer')));
+    expect(document.querySelectorAll('#co-star-person-detail-panel')).toHaveLength(1);
+    expect(document.querySelector('.test-return')?.textContent).toBe('返回共演分析');
+  });
+
   it('keeps compact portrait, narrow ranking, and drawer scroll ownership free of legacy overrides', () => {
     const personCss = fs.readFileSync(
       path.join(
@@ -847,13 +1248,6 @@ describe('person-detail oracle cascade guards', () => {
       ),
       'utf8',
     );
-    const directionSource = fs.readFileSync(
-      path.join(
-        repositoryRoot,
-        'frontend/src/features/ranking/components/SortDirectionButton.vue',
-      ),
-      'utf8',
-    );
 
     expect(personCss).not.toContain('width: 112px !important');
     expect(personCss).not.toContain('height: 149px !important');
@@ -873,10 +1267,7 @@ describe('person-detail oracle cascade guards', () => {
       /@container person-inspector \(max-width:\s*480px\)[\s\S]*?\.person-profile__portrait\s*\{[^}]*width:\s*96px;[^}]*height:\s*128px;[^}]*border-radius:\s*0;/,
     );
     expect(personCss).toMatch(
-      /@media \(width < 780px\)[\s\S]*?\.person-detail-drawer \.person-profile__portrait,\s*\.person-detail-drawer \.person-profile-skeleton__portrait\s*\{[^}]*border-radius:\s*0;/,
-    );
-    expect(personCss).toMatch(
-      /\.person-detail-drawer \.person-profile__portrait,\s*\.person-detail-drawer \.person-profile-skeleton__portrait\s*\{[^}]*width:\s*96px;[^}]*height:\s*128px;[^}]*border-radius:\s*0;/s,
+      /\.person-inspector \.person-profile__portrait\s*\{[^}]*width:\s*96px;[^}]*height:\s*128px;[^}]*border-radius:\s*var\(--radius-card\);/s,
     );
     expect(personCss).toMatch(
       /\.person-detail-drawer__scroll\s*\{[^}]*overflow:\s*hidden;/s,
@@ -907,14 +1298,6 @@ describe('person-detail oracle cascade guards', () => {
     expect(surfaceSource).toContain('aria-label="人物详情"');
     expect(baseCss).not.toContain('grid-template-areas: none');
     expect(browserSource).not.toContain('toolbarControlSize');
-    const workToolbarSource = browserSource.match(
-      /<form[\s\S]*?class="person-item-toolbar work-list-toolbar"[\s\S]*?<\/form>/,
-    )?.[0];
-    expect(workToolbarSource).toBeDefined();
-    expect(workToolbarSource?.match(/:size="controlSize"/g)).toHaveLength(3);
-    expect(workToolbarSource).toContain(':menu-size="controlSize"');
-    expect(directionSource).toContain("size?: 'small' | 'medium';");
-    expect(directionSource).toContain('props.size ??');
     expect(personCss).not.toMatch(
       /\.person-item-toolbar\s+:is\(input, select\)/,
     );

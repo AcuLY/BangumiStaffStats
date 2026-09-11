@@ -369,3 +369,52 @@ func rewriteCandidateFixture(t *testing.T, sqlitePath string) {
 		t.Fatal(err)
 	}
 }
+
+func TestAllPositionCandidatesAreIndependentOfDirectorQuery(t *testing.T) {
+	service := newCandidateService(t, loadCandidateArchive(t), nil)
+	request := Request{Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`), Input: json.RawMessage(`{"positionKey":"cast:anime:all","positionScope":"all"}`)}
+	result, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := result.MarshalEnvelope("cross-role")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"cast:anime:all"`) {
+		t.Fatal(string(data))
+	}
+	request.Input = json.RawMessage(`{"positionKey":"cast:anime:all"}`)
+	if _, err = service.Execute(context.Background(), request); err == nil {
+		t.Fatal("query scope accepted cast filter")
+	}
+}
+
+func TestAllPositionCandidatesAcceptsEmptyQuerySelection(t *testing.T) {
+	service := newCandidateService(t, loadCandidateArchive(t), nil)
+	request := Request{Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`), Input: json.RawMessage(`{"positionKey":null,"positionScope":"all"}`)}
+	prior, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := prior.MarshalEnvelope("all-empty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Query = json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":[]}`)
+	result, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := result.MarshalEnvelope("all-empty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("empty all query changed operation result:\n%s\nwant:\n%s", got, want)
+	}
+	request.Input = json.RawMessage(`{"positionKey":null}`)
+	if _, err := service.Execute(context.Background(), request); err == nil {
+		t.Fatal("query scope accepted empty positions")
+	}
+}

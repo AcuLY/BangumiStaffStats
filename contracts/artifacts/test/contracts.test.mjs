@@ -18,6 +18,7 @@ import {
   ARCHIVE_MANIFEST_SCHEMA_DIGEST,
   ARCHIVE_SCHEMA_SQL_DIGEST,
   ArtifactValidationError,
+  OPENAPI_DIGEST,
   PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
   assembleCompatibilityManifest,
   parseChecksumInventory,
@@ -116,6 +117,19 @@ test('all JSON schemas are strict parseable documents with closed top-level obje
     assert.equal(schema.type, 'object');
     assert.equal(schema.additionalProperties, false);
   }
+});
+
+test('accepted OpenAPI identity matches source bytes and the Backend packaging pin', () => {
+  const sourceDigest = sha256Bytes(
+    fs.readFileSync(path.join(REPOSITORY_ROOT, 'contracts/openapi/openapi.yaml')),
+  );
+  assert.equal(OPENAPI_DIGEST, sourceDigest);
+  const backendBuild = fs.readFileSync(
+    path.join(REPOSITORY_ROOT, 'backend/build/build.sh'),
+    'utf8',
+  );
+  const pin = backendBuild.match(/^accepted_openapi='([^']+)'$/mu);
+  assert.equal(pin?.[1], sourceDigest);
 });
 
 test('two complete positive component directories validate offline', () => {
@@ -289,7 +303,7 @@ test('application version and tracked Archive rule authority fail closed', () =>
         statement.compatibility.archive.compatibilityMatrixDigest =
           `sha256:${'f'.repeat(64)}`;
       },
-      expected: /compatibilityMatrixDigest.*must equal sha256:659121/u,
+      expected: /compatibilityMatrixDigest.*must equal sha256:7677bf/u,
     },
   ];
   for (const fixtureCase of cases) {

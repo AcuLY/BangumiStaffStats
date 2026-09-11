@@ -40,13 +40,13 @@ const (
 	domainRulesVersion             = "domain-raw-v1"
 	castRulesVersion               = "cast-exact-v1"
 	compatibilityMatrixInputPath   = "contracts/schemas/archive/compatibility-matrix.json"
-	compatibilityMatrixDigest      = "sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac"
+	compatibilityMatrixDigest      = "sha256:7677bf83d62f38e9ac9d7af5eab2e37342a110533b63ce6f6a940d8607b84bd9"
 	requiredBuildkitVersion        = "0.27.1"
 	requiredBuildxVersion          = "0.34.1"
 	requiredBuildkitImageDigest    = "sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368"
 	requiredBuildkitImageInputPath = "toolchain/buildkit-image"
 	producerRuntimeInputPath       = "contracts/producer-runtime-inputs-v1"
-	producerRuntimeInputDigest     = "sha256:56adbccc4c83432ae02d9bf985ea1b9281d2836e96e389e84dae97bd8cacac52"
+	producerRuntimeInputDigest     = "sha256:aaffa81b36992189c991f2de2158d2baa45335b11d679e087f1c82567889993d"
 	archiveSchemaAssetInputPath    = "backend/internal/archivebuild/assets/schema.sql"
 	displayCatalogAssetInputPath   = "backend/internal/archivebuild/assets/display-v1.yaml"
 	staffSetsAssetInputPath        = "backend/internal/archivebuild/assets/staff-sets-v1.yaml"
@@ -443,7 +443,7 @@ func packageCommand(arguments []string) error {
 		Compatibility: compatibilityFacts{
 			Archive: archiveCompatibility{
 				ManifestSchemaVersion:     versionRange{Minimum: 1, Maximum: 1},
-				SQLiteSchemaVersion:       versionRange{Minimum: 1, Maximum: 1},
+				SQLiteSchemaVersion:       versionRange{Minimum: 2, Maximum: 2},
 				ManifestSchemaDigest:      options.ArchiveManifestSchemaDigest,
 				SchemaSQLDigest:           options.ArchiveSchemaSQLDigest,
 				DomainRulesVersion:        options.ArchiveDomainRulesVersion,
@@ -522,7 +522,7 @@ func packageCommand(arguments []string) error {
 		Compatibility: compatibilityFacts{
 			Archive: archiveCompatibility{
 				ManifestSchemaVersion:     versionRange{Minimum: 1, Maximum: 1},
-				SQLiteSchemaVersion:       versionRange{Minimum: 1, Maximum: 1},
+				SQLiteSchemaVersion:       versionRange{Minimum: 2, Maximum: 2},
 				ManifestSchemaDigest:      options.ArchiveManifestSchemaDigest,
 				SchemaSQLDigest:           options.ArchiveSchemaSQLDigest,
 				DomainRulesVersion:        options.ArchiveDomainRulesVersion,
@@ -2234,7 +2234,7 @@ func verifyStatement(
 		return errors.New("component statement omits a producer authority input")
 	}
 	if compatibility.Archive.ManifestSchemaVersion != (versionRange{Minimum: 1, Maximum: 1}) ||
-		compatibility.Archive.SQLiteSchemaVersion != (versionRange{Minimum: 1, Maximum: 1}) ||
+		compatibility.Archive.SQLiteSchemaVersion != (versionRange{Minimum: 2, Maximum: 2}) ||
 		!digestPattern.MatchString(compatibility.Archive.ManifestSchemaDigest) ||
 		!digestPattern.MatchString(compatibility.Archive.SchemaSQLDigest) ||
 		compatibility.Archive.DomainRulesVersion != domainRulesVersion ||

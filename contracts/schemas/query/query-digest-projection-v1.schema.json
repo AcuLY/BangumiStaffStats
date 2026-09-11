@@ -12,6 +12,38 @@
   ],
   "$defs": {
     "PersonalProjectionV1": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/PersonalProjectionFieldsV1"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "positionKeys": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        }
+      ]
+    },
+    "GlobalProjectionV1": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/GlobalProjectionFieldsV1"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "positionKeys": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        }
+      ]
+    },
+    "PersonalProjectionFieldsV1": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -40,7 +72,6 @@
         },
         "positionKeys": {
           "type": "array",
-          "minItems": 1,
           "uniqueItems": true,
           "items": {
             "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
@@ -57,7 +88,7 @@
         }
       }
     },
-    "GlobalProjectionV1": {
+    "GlobalProjectionFieldsV1": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -76,7 +107,6 @@
         },
         "positionKeys": {
           "type": "array",
-          "minItems": 1,
           "uniqueItems": true,
           "items": {
             "$ref": "shared-query-v1.schema.json#/$defs/PositionKeyV1"
@@ -92,6 +122,17 @@
           "$ref": "effective-query-v1.schema.json#/$defs/EffectiveCommonFiltersV1"
         }
       }
+    },
+    "OperationQueryDigestProjectionV1": {
+      "description": "Query body for an explicitly all-position operation. Empty positionKeys is permitted only when the containing operation requires positionScope=all; all other query validation is unchanged.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/PersonalProjectionFieldsV1"
+        },
+        {
+          "$ref": "#/$defs/GlobalProjectionFieldsV1"
+        }
+      ]
     }
   }
 }

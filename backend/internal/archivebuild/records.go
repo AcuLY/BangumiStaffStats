@@ -14,6 +14,7 @@ import (
 	"math"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -271,7 +272,7 @@ func validateRecordShape(source string, record map[string]json.RawMessage, gover
 		if err := validateCareers(record["career"]); err != nil {
 			return err
 		}
-		if err := validateEntityOptional(record); err != nil {
+		if err := validateEntityOptional(record, true); err != nil {
 			return err
 		}
 	case "character.jsonlines":
@@ -281,7 +282,7 @@ func validateRecordShape(source string, record map[string]json.RawMessage, gover
 		if _, err := validatedText(record["name"], 4096, false, false); err != nil {
 			return failure("SOURCE_RECORD_MALFORMED", err)
 		}
-		if err := validateEntityOptional(record); err != nil {
+		if err := validateEntityOptional(record, false); err != nil {
 			return err
 		}
 	case "subject-characters.jsonlines":
@@ -400,7 +401,7 @@ func validateSubjectOptional(record map[string]json.RawMessage) error {
 	return nil
 }
 
-func validateEntityOptional(record map[string]json.RawMessage) error {
+func validateEntityOptional(record map[string]json.RawMessage, personSummary bool) error {
 	if raw, ok := record["name_cn"]; ok {
 		if _, err := validatedText(raw, 4096, true, false); err != nil {
 			return failure("SOURCE_RECORD_MALFORMED", err)
@@ -408,6 +409,12 @@ func validateEntityOptional(record map[string]json.RawMessage) error {
 	}
 	for _, key := range []string{"infobox", "summary"} {
 		if raw, ok := record[key]; ok {
+			if key == "summary" && personSummary {
+				if _, err := normalizedPersonSummary(raw); err != nil {
+					return failure("SOURCE_RECORD_MALFORMED", err)
+				}
+				continue
+			}
 			if _, err := validatedText(raw, maxSourceLineBytes, true, true); err != nil {
 				return failure("SOURCE_RECORD_MALFORMED", err)
 			}
@@ -710,7 +717,11 @@ func (p *sourceProcessor) insertPerson(record map[string]json.RawMessage) error 
 	id, _ := rawInt(record["id"], 1, maxJSONSafeInteger)
 	name, _ := validatedText(record["name"], 4096, false, false)
 	nameCN := entityNameCN(record)
-	if _, err := p.tx.ExecContext(p.ctx, "INSERT INTO person VALUES (?, ?, ?, NULL)", id, name, nullableString(nameCN)); err != nil {
+	summary, err := normalizedPersonSummary(record["summary"])
+	if err != nil {
+		return failure("SOURCE_RECORD_MALFORMED", err)
+	}
+	if _, err := p.tx.ExecContext(p.ctx, "INSERT INTO person (person_id, name, name_cn, summary) VALUES (?, ?, ?, ?)", id, name, nullableString(nameCN), nullableString(summary)); err != nil {
 		return failure("SOURCE_DUPLICATE_CONFLICT", err)
 	}
 	var values []string
@@ -728,6 +739,72 @@ func (p *sourceProcessor) insertPerson(record map[string]json.RawMessage) error 
 	}
 	return nil
 }
+
+func normalizedPersonSummary(raw json.RawMessage) (string, error) {
+	if len(raw) == 0 {
+		return "", nil
+	}
+	value, err := rawNullableString(raw)
+	if err != nil {
+		return "", err
+	}
+	if !validPersonSummaryUnicode(raw) {
+		return "", fmt.Errorf("summary Unicode")
+	}
+	value = strings.ReplaceAll(value, "\r\n", "\n")
+	value = strings.ReplaceAll(value, "\r", "\n")
+	value = strings.Map(func(character rune) rune {
+		if character < 0x20 && character != '\t' && character != '\n' {
+			return -1
+		}
+		return character
+	}, value)
+	value = strings.TrimSpace(value)
+	count := 0
+	for index := range value {
+		if count == 8192 {
+			value = value[:index]
+			break
+		}
+		count++
+	}
+	return strings.TrimSpace(value), nil
+}
+
+// encoding/json replaces malformed Unicode; summaries must retain valid source
+// scalars, so reject malformed bytes and unmatched surrogate escapes first.
+func validPersonSummaryUnicode(raw json.RawMessage) bool {
+	if !utf8.Valid(raw) {
+		return false
+	}
+	for index := 0; index < len(raw); index++ {
+		if raw[index] != '\\' {
+			continue
+		}
+		index++
+		if raw[index] != 'u' {
+			continue
+		}
+		value, _ := strconv.ParseUint(string(raw[index+1:index+5]), 16, 16)
+		switch {
+		case value >= 0xd800 && value <= 0xdbff:
+			if index+11 > len(raw) || raw[index+5] != '\\' || raw[index+6] != 'u' {
+				return false
+			}
+			low, err := strconv.ParseUint(string(raw[index+7:index+11]), 16, 16)
+			if err != nil || low < 0xdc00 || low > 0xdfff {
+				return false
+			}
+			index += 10
+		case value >= 0xdc00 && value <= 0xdfff:
+			return false
+		default:
+			index += 4
+		}
+	}
+	return true
+}
+
 func (p *sourceProcessor) insertCharacter(record map[string]json.RawMessage) error {
 	id, _ := rawInt(record["id"], 1, maxJSONSafeInteger)
 	name, _ := validatedText(record["name"], 4096, false, false)

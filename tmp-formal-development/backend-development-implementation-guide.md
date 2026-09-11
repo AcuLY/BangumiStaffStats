@@ -40,7 +40,7 @@
 - 图片代理和公开收藏 client；
 - typed query、六个 endpoint 和共享响应模型；
 - query/app 事件、健康端点和指标埋点；
-- 前端必须依赖的路由、分享和分区加载契约；
+- 前端必须依赖的路由和分区加载契约；
 - 开发阶段、金标和 CI 测试内容。
 
 宿主机命令、生产目录、timer、容器资源、日志保留、部署和迁移步骤只在运维实施稿中定义。
@@ -780,7 +780,7 @@ summary、metrics、tags、ratings、preference 基于完整人物集合，不�
 作品 item：
 
 - subject variant：稳定 key、Subject ref/date/metaTags、ratings、personal collection、匹配 credits；
-- series variant：seriesId、representative、matchedWorkCount、memberCount、完整 members、聚合 ratings、latestCollectionUpdatedAt、聚合 credits；
+- series variant：seriesId、representative、该代表条目的 metaTags（必填数组，无标签为 []）、matchedWorkCount、memberCount、完整 members、聚合 ratings、latestCollectionUpdatedAt、聚合 credits；
 - DTO 不返回任意图片 URL、alias、完整标签或关系图。
 
 角色 item：
@@ -817,6 +817,7 @@ input：
 - `source`：person、请求顺序的 positionKeys、`metrics {workCount,ratedWorkCount,average}`；
 - `summary.partnerCount`；
 - `summary.leaders[]`：personal 固定按 count、average、overall、preference 顺序各一项，global 固定前三项；
+- `metricScale {metric,kind,max}`：当前排序指标在完整合作集合上的刻度，复用 rankings 的判别联合，`kind="linear"`；count 为最大 workCount，average/overall 为非空值的最大整数百分制分数，personal preference 为精确 Rational score 的绝对最大值；无有效值为 null，有效零值保留为零；
 - 当前分页 `items[]`：rank 和 PartnerCore。
 
 PartnerCore 字段固定为：
@@ -840,7 +841,7 @@ preference?:
 
 每个 leader 为 `{metric,item}`；item 是不含 rank 的完整 PartnerCore。对应指标没有任何有效候选时 item 为 null，leader 即使不在当前页也不能省略。global 完全省略 PartnerCore.preference 和 `meta.collection`；average/overall 无评分证据时为 null，精确 preference 0 保留为 0。
 
-summary/leaders 基于 position filter 后完整未搜索集合；普通 search/sort/page 不改变，position filter 会重算。两人共同作品不在本响应返回；点击 item 后组合 source 和 target 实际贡献的 query identity 调用 co-star，staffset 必须保留 set key，不能降解为某个 raw member。
+summary/leaders 基于 position filter 后完整未搜索集合；普通 search/sort/page 不改变，position filter 会重算。metricScale 同样在搜索和分页前从完整集合投影：search/page/pageSize/order 不改变同一指标的刻度，sort 选择同一集合中另一指标的刻度，position filter 则与 summary/leaders 一起使用新集合。它复用 statistics 的既有排行精确最大值计算，不写入缓存 Core；不能用正向 leader 或当前页的最大值替代。两人共同作品不在本响应返回；点击 item 后组合 source 和 target 实际贡献的 query identity 调用 co-star，staffset 必须保留 set key，不能降解为某个 raw member。
 
 合作成立必须有真实共同 Subject；只参与同系列不同作品不算。人物排序使用数据实施稿的统一严格全序。
 
@@ -927,7 +928,7 @@ pair 只使用当前 scope 的评分来源；不返回全站/个人双份、对�
 
 matrix 每格是对应两人集合，不是全员集合；pair 不返回 matrix。无全员共同作品是合法 200：commonWorkCount=0、items=[]、pagination.total=0、各 tags 数组为空、ratings.datasets=[]；personal preference 仍返回零证据且 mean/score=null。participants 和 group matrix 仍返回。
 
-共同作品 item 复用 person-detail 的 subject/series 基础字段，用 participants.credits 表示每人的 exact contribution。系列 participant/credit 带 workCount；普通 Subject 不返回恒为 1 的 workCount。credit 使用 10.1 的 discriminated union，不得用旧职位 ID 补 credit。
+共同作品 item 复用 person-detail 的 subject/series 基础字段，用 participants.credits 表示每人的 exact contribution。系列卡的 metaTags 只取同一代表条目的 meta 标签，必填且无标签为 []，不取成员并集或标签摘要。系列 participant/credit 带 workCount；普通 Subject 不返回恒为 1 的 workCount。credit 使用 10.1 的 discriminated union，不得用旧职位 ID 补 credit。
 
 ## 10. 共享结果规则
 
@@ -973,7 +974,7 @@ CastContribution:
 - tags 在统计单元内去重计数，按 count desc + normalized name asc。
 - 每个 rating distribution 固定返回 `validCount`、`average`、1–10 十个桶和 timeline；无有效评分时 validCount=0、average=null。
 - 每个桶固定返回 `score/count/examples/hiddenCount`；example 只含统计单元 `{kind,key,id,name,nameCN}`，不复制完整作品 DTO；全站小数最近整数且 .5 向上，每桶最多 8 个 example，其余计入 hiddenCount。
-- timeline 项固定为 `year/quarter/average/count`；只有日期至少精确到月时产生，按季度聚合，series 模式返回空 timeline。
+- timeline 项包含 `year/quarter/average/count`；只有日期至少精确到月时产生，按季度聚合，series 模式返回空 timeline。人物详情的每个季度另须返回完整 `works: [{subject, score}]`：subject 保留作品 ID、双语名与原始日期，score 使用整数百分值；按日期、ID 排序，count 等于 works 长度，先于视图搜索和分页构造。前端用逐作品证据绘制散点、用 average 绘制均分折线，不得从当前作品页重建统计数据。共演 distribution 保持其现有独立契约。
 - preference 返回 comparableCount、comparableSeriesCount、effectiveEvidence、mean、evidenceWeight、score。
 - 精确差值 0 是有效中性证据；无证据时 mean/score 为 null。
 
@@ -985,7 +986,7 @@ CastContribution:
 - direction 只作用于主指标；缺失主指标始终置后；稳定实体 ID 是最终 tie-break。
 - summary、leaders、tags、ratings、preference、matrix 和 metricScale 基于完整 core，不随普通 search/page 变化。
 
-## 11. 前端状态、路由与分享契约
+## 11. 前端状态、路由与本地恢复契约
 
 ### 11.1 canonical path
 
@@ -1009,36 +1010,17 @@ CastContribution:
 - `/?user=` 与 `/index.html?user=` 跳到 `/ranking?user=`。
 - 模式切换保留允许 query。
 - personal 成功后用 effective UID 更新 user；global 成功后移除 URL user，但内存可保留。
-- user 是首版唯一普通 query 参数；其他筛选、职位、人物、搜索、分页不自动写 URL/Web Storage。
+- user 是首版唯一普通 query 参数；其他筛选、职位、人物、搜索、分页不自动写 URL；只有已接受的查询与 operation 状态进入标签页恢复存储。
 - access/query 日志不得记录原始 query string；设置明确 Referrer-Policy。
 
-### 11.4 分享查询
+### 11.4 标签页恢复与旧版入口
 
-入口固定在 Header 模式切换器右侧。无 Applied Query 时不可用；有脏 Draft 或新请求等待时仍分享当前可见结果对应的最后成功 Applied Query。
-
-```text
-/ranking#q=v1.<payload>
-/co-star#q=v1.<payload>
-```
-
-payload 只包含：
-
-- Effective Query；
-- 当前 operation input/view；
-- 恢复当前分析所需的有限 person identity/focus/section。
-
-排除 Draft、响应、requestId、queryRevision、dataVersion、digest、主题、Drawer、滚动、Skeleton 和 cache outcome。
-
-- fragment URL-safe、自包含、版本化；可使用确定压缩但保留 `v1` 外层。
-- 编码后上限 16 KiB，解码 JSON 上限 64 KiB，并继续服从 operation 业务上限。
-- 首次 document 最多消费一次；校验成功后走同一 Query Application Service。
-- 消费后 replaceState 移除 fragment，避免重复 mount/hashchange 重放。
-- 非法、超限、损坏或旧版本不发业务请求，移除 fragment并显示稳定错误。
-- share payload 与 `?user=` 同时存在时，成功 share 优先；share 失败不能静默退化成自动 user 查询。
-- 不建立 share API、短码表、服务端 session、requestId 映射或响应快照。
-- 重放必须走普通 normalization 和 typed operation；dataVersion、queryDigest、inputDigest 及 personal collectionDigest 未变时自然命中现有缓存，不建立分享专用 cache key。
-- 后端只记录普通 query_completed，不增加分享专用请求字段；原 fragment 和 payload digest 都不得进入 HTTP 日志或 metric label。
-- personal 分享包含公开 UID/筛选，用户点击即代表主动披露；它不是加密或可信输入。
+- 查询分享已移除：没有分享 URL 协议、分享 schema、分享 API、短码表、服务端分享记录或响应快照。
+- 初始路由规范化清除 URL fragment，不解析、预填或执行其中内容；普通 `?user=` UID 预填继续按 11.3 处理。
+- 前端使用 `bgmss-query-session-v2` 保存经过验证的 v2 JSON 恢复状态，只包含当前模式最后成功的 Applied Query、已接受的 operation input/view 和有限人物 identity。旧 v1 存储直接丢弃，不保留 fragment 兼容解码。
+- 不保存 Draft、响应、requestId、queryRevision、dataVersion、digest、主题、Drawer、滚动、Skeleton 或 cache outcome；恢复经过普通 normalization 和 typed operation，重新读取当前数据并遵守现有缓存规则。
+- 分包失败重试在刷新前把有效恢复状态存入 sessionStorage；存储不可用时不盲目刷新丢失状态。后端不增加恢复专用字段、索引或 cache key。
+- Header 在主题按钮左侧提供始终可用的“回到旧版”，同页固定跳转 `https://search.bgmss.fun/old/`，不附加当前查询。该路径线上承载和新版根路由切换另行部署；当前旧版根路径、新版 `/v2/` 不变。
 
 ## 12. 分区加载与 Skeleton
 
@@ -1173,7 +1155,7 @@ update_failed
 - strict total order、missing-last 和 stable ID；
 - collection fresh/expiry/stale、negative、singleflight 和 result-core reuse；
 - A→B 乱序、取消、组件卸载和 operation 并发；
-- share round-trip、超限/损坏/旧版、一次性消费和 cache hit；
+- 标签页恢复的有效/损坏/旧版存储、依赖请求失败、片段无效化和普通 cache hit；
 - 错误 envelope、request ID 和 query_completed exactly once。
 
 ### 14.3 跨语言与生成门
@@ -1227,7 +1209,7 @@ update_failed
 ### Phase 4：前端接入
 
 - [ ] 建立具名 fetch wrapper 和 DTO→ViewModel mapper。
-- [ ] 实现 `/ranking`、`/co-star`、共享 revision、`?user=` 和分享链接。
+- [ ] 实现 `/ranking`、`/co-star`、共享 revision、`?user=`、标签页恢复和旧版固定入口。
 - [ ] 按 surface 拆分 Skeleton、错误、retry 和 stale response guard。
 - [ ] 删除 fixture 统计权威、硬编码 position 和生产 `workbench` 命名。
 

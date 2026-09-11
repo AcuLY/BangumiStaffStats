@@ -225,7 +225,7 @@ func DefaultCollectionConfig() CollectionConfig {
 		StaleTTL:     30 * time.Minute,
 		NotFoundTTL:  2 * time.Minute,
 		ForbiddenTTL: 30 * time.Second,
-		LoadTimeout:  30 * time.Second,
+		LoadTimeout:  90 * time.Second,
 		Now:          time.Now,
 	}
 }

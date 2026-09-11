@@ -11,7 +11,7 @@ const repositoryRoot = path.resolve(goldenRoot, "../../../..");
 
 const authorityPath = path.join(repositoryRoot, "contracts/openapi/openapi.yaml");
 const schemaRoot = path.join(repositoryRoot, "contracts/schemas");
-const caseFiles = ["cases/errors.json", "cases/global.json", "cases/personal.json"];
+const caseFiles = ["cases/errors.json", "cases/global.json", "cases/personal.json", "cases/many-positions.json"];
 const schemaFiles = [
   "schemas/candidates/request-v1.schema.json",
   "schemas/candidates/success-envelope-v1.schema.json",
@@ -382,18 +382,19 @@ function assertCommonHeaders(item) {
 function assertSuccessSemantics(item) {
   const { query, input } = item.request;
   const { data, meta } = item.expected.body;
+  const positionKeys = input.positionScope === "all" ? item.assertions.operationPositionKeys : query.positionKeys;
   assert.equal(data.positionKey, input.positionKey);
   if (input.positionKey !== null) {
-    assert(query.positionKeys.includes(input.positionKey));
+    assert(positionKeys.includes(input.positionKey));
   }
   assert.deepEqual(
     data.summary.positionCounts.map(({ positionKey }) => positionKey),
-    query.positionKeys,
+    positionKeys,
   );
   assert.equal(
     new Set(data.summary.positionCounts.map(({ positionKey }) => positionKey))
       .size,
-    query.positionKeys.length,
+    positionKeys.length,
   );
   assert.equal(data.workUnit, query.mergeSeries === true ? "series" : "subject");
   const people = new Set();
@@ -401,7 +402,7 @@ function assertSuccessSemantics(item) {
     assert(candidate.positionKeys.length > 0);
     assert.deepEqual(
       candidate.positionKeys,
-      query.positionKeys.filter((key) => candidate.positionKeys.includes(key)),
+      positionKeys.filter((key) => candidate.positionKeys.includes(key)),
     );
     if (input.positionKey === null) {
       assert(!people.has(candidate.person.id), `${item.id}: duplicate person`);
@@ -472,4 +473,37 @@ function readRegular(filename) {
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+// Independent operation scope is explicit, closed, and optional.
+const positionScopeRequest = {"query": {"scope": "global", "subjectType": "anime", "positionKeys": ["staff:anime:2"]}, "input": {"positionKey": null}};
+for (const scope of [undefined, 'query', 'all']) {
+  const request = structuredClone(positionScopeRequest);
+  if (scope !== undefined) request.input.positionScope = scope;
+  assert(validateRequest(request), `positionScope ${scope}: ${ajv.errorsText(validateRequest.errors)}`);
+}
+for (const scope of [null, '', 'unknown', true, []]) {
+  const request = structuredClone(positionScopeRequest);
+  request.input.positionScope = scope;
+  assert.equal(validateRequest(request), false, `invalid positionScope ${JSON.stringify(scope)}`);
+}
+
+// Response size tracks the existing immutable catalog bound, not a UI selection limit.
+const catalogPositionLimit = JSON.parse(fs.readFileSync(authorityPath, 'utf8')).components.schemas.CatalogDataV1.properties.positions.maxItems;
+assert.equal(successSchema.$defs.CandidatesSummaryV1.properties.positionCounts.maxItems, catalogPositionLimit);
+assert.equal(successSchema.$defs.CandidateItemV1.properties.positionKeys.maxItems, catalogPositionLimit);
+const manyPositions = cases.get('global-all-more-than-sixteen-positions');
+assert(manyPositions.expected.body.data.summary.positionCounts.length > 16);
+assert(manyPositions.expected.body.data.items[0].positionKeys.length > 16);
+
+// Empty positions are an explicit operation scope, never an ordinary SharedQuery.
+for (const scope of [undefined, "query", "all"]) {
+  for (const queryScope of ["global", "personal"]) {
+    const request = structuredClone(positionScopeRequest);
+    request.query.positionKeys = [];
+    request.query.scope = queryScope;
+    if (queryScope === "personal") { request.query.uid = "lucay126"; request.query.collectionStatuses = ["completed"]; }
+    if (scope !== undefined) request.input.positionScope = scope;
+    assert.equal(validateRequest(request), scope === "all", `empty ${queryScope} query with ${scope}: ${ajv.errorsText(validateRequest.errors)}`);
+  }
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ContentDivider from '../../../shared/components/ContentDivider.vue';
 import {
   computed,
   nextTick,
@@ -12,7 +13,7 @@ import type { useCatalogStore } from '../../catalog/store';
 import type { QueryCoordinator } from '../coordinator';
 import { summarizeQuery, type QueryMode } from '../model';
 import type { useQueryStore } from '../store';
-import { useCompactLayout } from '../composables/useCompactLayout';
+import { useCompactLayout } from '../../../shared/composables/useCompactLayout';
 import QueryEditor from './QueryEditor.vue';
 import QueryIcon from './QueryIcon.vue';
 
@@ -50,9 +51,12 @@ const resource = computed(() =>
 );
 const summary = computed(() =>
   props.queryStore.applied
-    ? summarizeQuery(props.queryStore.applied, props.catalogStore.snapshot)
+    ? summarizeQuery(props.queryStore.applied, props.catalogStore.snapshot,
+      props.mode === 'co-star' ? props.queryStore.appliedCoStarPositionScope : 'query')
     : ['暂无查询'],
 );
+const dirty = computed(() => props.queryStore.dirty ||
+  (props.mode === 'co-star' && props.queryStore.coStarScopeDirty));
 const summaryText = computed(() => summary.value.join(' · '));
 const mergeSeriesAvailable = computed(() => {
   const operation = props.mode === 'ranking' ? 'rankings' : 'candidates';
@@ -109,9 +113,9 @@ function clearAttention(): void {
 function revealWorkspace(): void {
   clearAttention();
   attention.value = true;
-  props.targetWindow.scrollTo({
+  workspace.value?.closest('.app-main')?.scrollIntoView({
     behavior: reducedMotion() ? 'auto' : 'smooth',
-    top: 0,
+    block: 'start',
   });
   attentionTimer = props.targetWindow.setTimeout(clearAttention, 900);
 }
@@ -173,11 +177,15 @@ function toggleEditor(event: MouseEvent): void {
 async function execute(): Promise<void> {
   if (
     props.queryStore.applied !== null &&
-    !props.queryStore.dirty
+    !dirty.value
   ) {
     return;
   }
   const accepted = await props.coordinator.execute({
+    ...(props.mode === 'co-star' ? { candidateInput: {
+      positionKey: null,
+      positionScope: props.queryStore.coStarPositionScope,
+    } } : {}),
     catalog: props.catalogStore.snapshot,
     mode: props.mode,
   });
@@ -219,6 +227,11 @@ watch(
     }
   },
 );
+watch(() => props.mode, (mode) => {
+  if (mode === 'ranking' && props.queryStore.applied?.positionKeys.length === 0) {
+    editing.value = true;
+  }
+});
 watch(
   mergeSeriesAvailable,
   (available) => {
@@ -320,12 +333,15 @@ defineExpose({
 
     <transition name="query-panel">
       <div v-if="editing" class="query-editor-panel">
+        <content-divider class="query-editor-panel-divider" />
         <query-editor
           ref="queryEditor"
           v-model:expanded-sections="expandedQuerySections"
           :catalog-phase="catalogStore.phase"
           :compact="compact"
-          :dirty="queryStore.dirty"
+          :dirty="dirty"
+          :co-star-position-scope="queryStore.coStarPositionScope"
+          @update:co-star-position-scope="queryStore.setCoStarPositionScope($event)"
           :disabled="coordinator.pending.value"
           :draft="queryStore.draft"
           :errors="queryStore.fieldErrors"

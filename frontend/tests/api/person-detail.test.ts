@@ -72,6 +72,28 @@ function errorEnvelope(code: ErrorCodeV1): PersonDetailErrorEnvelopeV1 {
 }
 
 describe('person-detail response adapter', () => {
+  it('admits an empty all-scope query only when detail identities are explicit', async () => {
+    const fixture = golden('global.json').cases[0]!;
+    const fetchImplementation = vi.fn<FetchImplementation>(async () => jsonResponse(fixture.expected.body));
+    const driver = createPersonDetailDriver(createApiClient(fetchImplementation));
+    const request = {
+      ...fixture.request,
+      input: { ...fixture.request.input, positionKeys: ['staff:anime:2'], positionScope: 'all' },
+      query: { ...fixture.request.query, positionKeys: [] },
+      signal: new AbortController().signal, transactionId: 'all-detail',
+      view: fixture.request.view ?? {},
+    };
+    await driver.execute(request as never);
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+    for (const input of [
+      { ...request.input, positionScope: 'query' },
+      { ...fixture.request.input, positionScope: 'all' },
+    ]) {
+      await expect(driver.execute({ ...request, input } as never)).rejects.toBeInstanceOf(ApiDecodeError);
+    }
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+  });
+
   it('strictly adapts global, personal, and character projections without inventing personal fields', () => {
     const global = decodePersonDetailPayload(
       golden('global.json').cases[0]!.expected.body,

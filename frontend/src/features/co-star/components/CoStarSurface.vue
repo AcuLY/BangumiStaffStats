@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { NSkeleton } from 'naive-ui';
+import '../co-star-oracle.css';
+import { NTag } from 'naive-ui';
 import {
   computed,
   onMounted,
@@ -19,6 +20,7 @@ import {
   defaultCoStarView,
   projectCoStarMatrix,
   type CoStarInput,
+  type CoStarParticipant,
   type CoStarMatrixCell,
   type CoStarPersonalData,
   type CoStarPreferenceItem,
@@ -31,6 +33,7 @@ import CoStarParticipants from './CoStarParticipants.vue';
 import CoStarIcon from './CoStarIcon.vue';
 import CoStarRatings from './CoStarRatings.vue';
 import CoStarWorkBrowser from './CoStarWorkBrowser.vue';
+import CoStarAnalysisSkeleton from './CoStarAnalysisSkeleton.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -51,6 +54,9 @@ const props = withDefaults(
     devicePixelRatio: 1,
   },
 );
+const emit = defineEmits<{
+  inspectPerson: [person: CoStarParticipant['person'], positionKeys: readonly string[], trigger: HTMLElement];
+}>();
 
 const lastAttempt = shallowRef<
   | Readonly<{
@@ -143,7 +149,7 @@ const tagGroups = computed(() => {
   return [
     {
       key: 'meta',
-      label: '条目属性',
+      label: '官方标签',
       tags: value.tags.meta,
     },
     {
@@ -155,7 +161,7 @@ const tagGroups = computed(() => {
       ? [
           {
             key: 'personal',
-            label: '收藏标签',
+            label: '我的标签',
             tags: personalData.value.tags.personal,
           },
         ]
@@ -253,7 +259,16 @@ onMounted(ensureAnalysis);
 </script>
 
 <template>
+  <co-star-analysis-skeleton
+    v-if="fullPending && !currentPayload"
+    :people="people"
+    :scope="scope"
+    :work-unit="workUnit"
+    :page-size="view.pageSize"
+    :position-label="positionLabel"
+  />
   <article
+    v-else
     class="analysis-dashboard analysis-dashboard--unified co-star-surface surface-panel"
     aria-label="共演分析"
     :data-analysis-mode="people.length > 2 ? 'group' : 'pair'"
@@ -282,6 +297,7 @@ onMounted(ensureAnalysis);
           :participants="data.participants"
           :position-label="positionLabel"
           :work-unit="data.workUnit"
+          @inspect-person="(person, positionKeys, trigger) => emit('inspectPerson', person, positionKeys, trigger)"
         />
 
         <dl
@@ -373,16 +389,6 @@ onMounted(ensureAnalysis);
       </section>
 
       <section
-        v-if="data.summary.commonWorkCount === 0"
-        class="analysis-empty analysis-section analysis-empty--zero co-star-common-empty"
-      >
-        <span class="analysis-empty__icon">
-          <co-star-icon name="info" :size="28" />
-        </span>
-        <h2>没有共同{{ data.workUnit === 'series' ? '系列' : '作品' }}</h2>
-      </section>
-
-      <section
         v-if="data.summary.commonWorkCount > 0"
         class="analysis-section analysis-domain co-star-tag-domain"
         aria-labelledby="co-star-tags-title"
@@ -405,12 +411,12 @@ onMounted(ensureAnalysis);
           >
             <strong>{{ group.label }}</strong>
             <div>
-              <span v-for="tag in group.tags" :key="tag.name">
+              <n-tag v-for="tag in group.tags" :key="tag.name" size="small" round>
                 {{ tag.name }} · {{ tag.count }}
-              </span>
-              <span v-if="!group.tags.length">
+              </n-tag>
+              <n-tag v-if="!group.tags.length" size="small" round>
                 {{ group.key === 'personal' ? '未设置' : '无' }}
-              </span>
+              </n-tag>
             </div>
           </div>
         </div>
@@ -518,6 +524,16 @@ onMounted(ensureAnalysis);
             </div>
           </div>
         </div>
+      </section>
+
+      <section
+        v-if="data.summary.commonWorkCount === 0"
+        class="analysis-empty analysis-section analysis-empty--zero co-star-common-empty"
+      >
+        <span class="analysis-empty__icon">
+          <co-star-icon name="info" :size="28" />
+        </span>
+        <h2>没有共同{{ data.workUnit === 'series' ? '系列' : '作品' }}</h2>
       </section>
 
       <section
@@ -706,33 +722,6 @@ onMounted(ensureAnalysis);
     </template>
 
     <section
-      v-else-if="fullPending"
-      class="co-star-full-skeleton"
-      aria-hidden="true"
-    >
-      <div class="co-star-participant-skeletons">
-        <n-skeleton
-          v-for="index in people.length"
-          :key="index"
-          class="app-skeleton"
-          :sharp="false"
-        />
-      </div>
-      <n-skeleton
-        class="app-skeleton co-star-summary-skeleton"
-        :sharp="false"
-      />
-      <n-skeleton
-        class="app-skeleton co-star-section-skeleton"
-        :sharp="false"
-      />
-      <n-skeleton
-        class="app-skeleton co-star-section-skeleton"
-        :sharp="false"
-      />
-    </section>
-
-    <section
       v-else
       class="co-star-initial-error"
       :class="{ 'is-error': resource.phase === 'error' }"
@@ -760,4 +749,3 @@ onMounted(ensureAnalysis);
 </template>
 
 <style src="../co-star-analysis.css"></style>
-<style src="../co-star-oracle.css"></style>

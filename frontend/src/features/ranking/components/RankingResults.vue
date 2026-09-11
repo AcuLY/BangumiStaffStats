@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { NSkeleton } from 'naive-ui';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import AppIcon from '../../../shared/components/AppIcon.vue';
@@ -15,6 +14,8 @@ import {
 } from '../model';
 import AdaptivePagination from './AdaptivePagination.vue';
 import RankedPersonList from './RankedPersonList.vue';
+import RankingListSkeleton from './RankingListSkeleton.vue';
+import RankingResultsSkeleton from './RankingResultsSkeleton.vue';
 import RankingSummary from './RankingSummary.vue';
 import RankingToolbar from './RankingToolbar.vue';
 
@@ -32,6 +33,8 @@ const props = withDefaults(
     expandedPersonId?: number | null;
     executeView: (view: Readonly<RankingView>) => Promise<boolean>;
     pendingPersonal?: boolean;
+    pendingHasCharacterCount?: boolean;
+    pendingWorkUnit?: 'series' | 'subject';
     resource: RankingResource;
     retry: () => Promise<boolean>;
     selectedPersonId?: number | null;
@@ -41,6 +44,8 @@ const props = withDefaults(
     devicePixelRatio: 1,
     expandedPersonId: null,
     pendingPersonal: false,
+    pendingHasCharacterCount: false,
+    pendingWorkUnit: 'subject',
     selectedPersonId: null,
     suppressErrorMessage: false,
   },
@@ -126,118 +131,14 @@ onBeforeUnmount(clearSearchTimer);
 </script>
 
 <template>
-  <section
+  <ranking-results-skeleton
     v-if="corePending"
-    class="ranking-surface ranking-pane surface-panel ranking-surface--loading"
-    aria-busy="true"
-  >
-    <span class="sr-only" role="status" aria-live="polite">
-      正在加载人物排行
-    </span>
-
-    <header
-      class="ranking-surface__header ranking-controls"
-      aria-hidden="true"
-    >
-      <div class="ranking-result-stats ranking-skeleton__summary">
-        <n-skeleton
-          class="app-skeleton ranking-skeleton__summary-label"
-          :sharp="false"
-        />
-        <n-skeleton
-          class="app-skeleton ranking-skeleton__summary-values"
-          :sharp="false"
-        />
-      </div>
-      <div class="ranking-toolbar ranking-skeleton__toolbar">
-        <n-skeleton
-          class="app-skeleton ranking-skeleton__control"
-          :sharp="false"
-        />
-        <n-skeleton
-          class="app-skeleton ranking-skeleton__control"
-          :sharp="false"
-        />
-        <n-skeleton
-          class="app-skeleton ranking-skeleton__control ranking-skeleton__control--order"
-          :sharp="false"
-        />
-      </div>
-    </header>
-
-    <div
-      class="ranking-surface__body ranking-list-scroll"
-      aria-hidden="true"
-    >
-      <div
-        class="ranking-columns list-columns list-columns--ranking"
-        :class="{ 'is-global': !pendingPersonal }"
-      >
-        <span>#</span>
-        <span />
-        <span>人物</span>
-        <span
-          class="ranking-columns__metrics list-columns__metrics"
-          :class="{ 'is-global': !pendingPersonal }"
-          :style="{
-            '--ranking-metric-columns': pendingPersonal ? 4 : 3,
-          }"
-        >
-          <span>
-            <n-skeleton
-              class="app-skeleton ranking-skeleton__column-label"
-              :sharp="false"
-            />
-          </span>
-          <span>均分</span>
-          <span>综合</span>
-          <span v-if="pendingPersonal">偏好</span>
-        </span>
-      </div>
-
-      <div class="ranking-row-skeletons">
-        <div
-          v-for="index in resource.view.pageSize"
-          :key="index"
-          class="ranking-row-skeleton"
-        >
-          <n-skeleton
-            class="app-skeleton ranked-person-row__rank ranking-row-skeleton__rank"
-            :sharp="false"
-          />
-          <n-skeleton
-            class="app-skeleton ranked-person-row__avatar ranking-row-skeleton__avatar"
-            :sharp="false"
-          />
-          <span class="ranked-person-row__identity ranking-row-skeleton__identity">
-            <n-skeleton class="app-skeleton" :sharp="false" />
-            <n-skeleton class="app-skeleton" :sharp="false" />
-          </span>
-          <span
-            class="ranked-person-row__metrics ranking-row-skeleton__metrics"
-            :class="{ 'is-global': !pendingPersonal }"
-            :style="{
-              '--ranking-metric-columns': pendingPersonal ? 4 : 3,
-            }"
-          >
-            <span><n-skeleton class="app-skeleton" :sharp="false" /></span>
-            <span><n-skeleton class="app-skeleton" :sharp="false" /></span>
-            <span><n-skeleton class="app-skeleton" :sharp="false" /></span>
-            <span v-if="pendingPersonal">
-              <n-skeleton class="app-skeleton" :sharp="false" />
-            </span>
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <footer class="ranking-surface__footer" aria-hidden="true">
-      <n-skeleton
-        class="app-skeleton ranking-pagination-skeleton"
-        :sharp="false"
-      />
-    </footer>
-  </section>
+    :page-size="resource.view.pageSize"
+    :personal="pendingPersonal"
+    :has-character-count="pendingHasCharacterCount"
+    :view="resource.view"
+    :work-unit="pendingWorkUnit"
+  />
 
   <section
     v-else-if="!payload && resource.error"
@@ -295,20 +196,16 @@ onBeforeUnmount(clearSearchTimer);
     </p>
 
     <div class="ranking-surface__body ranking-list-scroll">
-      <div
-        v-if="resource.viewPending"
-        class="ranking-view-pending"
-        aria-live="polite"
-      >
-        <span class="sr-only">正在更新排行结果</span>
-        <n-skeleton
-          v-for="index in 5"
-          :key="index"
-          class="app-skeleton"
-          :sharp="false"
-          aria-hidden="true"
+      <template v-if="resource.viewPending">
+        <span class="sr-only" role="status" aria-live="polite">
+          正在更新排行结果
+        </span>
+        <ranking-list-skeleton
+          :page-size="resource.view.pageSize"
+          :personal="payload.scope === 'personal'"
+          :work-unit="payload.summary.workUnit"
         />
-      </div>
+      </template>
       <template v-else>
         <ranked-person-list
           v-if="payload.items.length"
@@ -331,20 +228,12 @@ onBeforeUnmount(clearSearchTimer);
 
     <footer class="ranking-surface__footer">
       <adaptive-pagination
-        v-if="!resource.viewPending"
-        :item-count="payload.items.length"
         :page="payload.pagination.page"
         :page-size="payload.pagination.pageSize"
         :pending="resource.viewPending"
         :total="payload.pagination.total"
         @page="requestPage({ page: $event })"
         @page-size="requestPage({ pageSize: $event })"
-      />
-      <n-skeleton
-        v-else
-        class="app-skeleton ranking-pagination-skeleton"
-        :sharp="false"
-        aria-hidden="true"
       />
     </footer>
   </section>

@@ -7,8 +7,8 @@ boundary on which separately owned exact business routes are composed.
 ## Requirements
 ### Requirement: The HTTP lifecycle SHALL be bounded and cancellation-safe
 
-The standard-library server SHALL enforce 5s read-header, 10s read, 35s write,
-60s idle, 64 KiB header, 30s request, and existing 5s graceful-shutdown
+The standard-library server SHALL enforce 5s read-header, 10s read, 125s write,
+60s idle, 64 KiB header, 120s request, and existing 5s graceful-shutdown
 bounds. It SHALL propagate client/process cancellation and the derived
 deadline to downstream work. If the deadline wins before response commit, it
 SHALL emit 504 `UPSTREAM_TIMEOUT`, `retryable=true`, initialized empty

@@ -53,8 +53,8 @@ production `workbench` naming SHALL be rejected.
 Exact `oapi-codegen/v2@v2.8.0` with `models,skip-prune` SHALL consume a
 backend-local deterministic projection of the shared OpenAPI authority and
 generate only `backend/internal/httpapi/wire/query_wire.gen.go`. The projector
-SHALL copy the OpenAPI document and seven schemas, delete only schema-root
-`$id`/`$schema`, prove all 17 components, and use locked Redocly `2.40.0` to
+SHALL copy the OpenAPI document and six schemas, delete only schema-root
+`$id`/`$schema`, prove all 14 components, and use locked Redocly `2.40.0` to
 fully dereference them below `backend/.tmp/`. It SHALL copy the accepted
 contract package metadata/lock into a backend-local temporary tool root and
 SHALL never install, write, or leave generated state below `contracts/**`.
@@ -64,7 +64,7 @@ stability against shared manifest evidence, and compare the committed file.
 #### Scenario: Generated query model is current
 
 - **WHEN** generation check runs against the unchanged shared contract and accepted lock
-- **THEN** the bundle SHALL match shared byte/hash evidence and the non-empty Go output SHALL contain all 17 components and match the committed file
+- **THEN** the bundle SHALL match shared byte/hash evidence and the non-empty Go output SHALL contain all 14 components and match the committed file
 
 #### Scenario: Generation drifts or expands scope
 
@@ -75,7 +75,7 @@ stability against shared manifest evidence, and compare the committed file.
 
 Tests SHALL decode shared positive and structural-negative query cases through
 generated DTOs and a strict one-value JSON decoder. They SHALL NOT implement
-normalization, digest, catalog, result, statistics, or share replay behavior.
+normalization, digest, catalog, result, or statistics.
 
 #### Scenario: Minimum positive cases are consumed
 

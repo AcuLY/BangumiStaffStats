@@ -47,42 +47,17 @@ describe('Naive UI Skeleton ownership', () => {
 
   it('uses NSkeleton for every former custom loading surface', () => {
     const expectations: Array<[string, RegExp]> = [
-      [
-        'src/features/ranking/components/RankingResults.vue',
-        /class="ranking-row-skeletons"[\s\S]*?<n-skeleton/,
-      ],
-      [
-        'src/features/ranking/components/RankingResults.vue',
-        /class="ranking-view-pending"[\s\S]*?<n-skeleton/,
-      ],
-      [
-        'src/features/person-detail/components/PersonInspector.vue',
-        /class="person-profile-skeleton"[\s\S]*?<n-skeleton/,
-      ],
-      [
-        'src/features/person-detail/components/PersonDetailSkeleton.vue',
-        /class="person-profile-skeleton"[\s\S]*?<n-skeleton/,
-      ],
-      [
-        'src/features/person-detail/components/PersonItemBrowser.vue',
-        /class="person-item-skeletons"[\s\S]*?<n-skeleton/,
-      ],
-      [
-        'src/features/co-star/components/PartnersSurface.vue',
-        /class="app-skeleton partners-inline-skeleton"/,
-      ],
-      [
-        'src/features/co-star/components/CoStarSurface.vue',
-        /class="app-skeleton co-star-summary-skeleton"/,
-      ],
-      [
-        'src/features/co-star/components/CoStarWorkBrowser.vue',
-        /class="co-star-work-skeletons"[\s\S]*?<n-skeleton/,
-      ],
-      [
-        'src/shared/components/SafeImage.vue',
-        /<n-skeleton[\s\S]*?v-if="state === 'loading'"/,
-      ],
+      ['src/features/ranking/components/RankingResults.vue', /<ranking-results-skeleton[\s\S]*?<ranking-list-skeleton/],
+      ['src/features/ranking/components/RankingListSkeleton.vue', /<n-skeleton/],
+      ['src/features/person-detail/components/PersonInspector.vue', /<person-detail-skeleton/],
+      ['src/features/person-detail/components/PersonDetailSkeleton.vue', /<n-skeleton/],
+      ['src/features/person-detail/components/PersonItemBrowser.vue', /<work-cards-skeleton/],
+      ['src/shared/components/WorkCardsSkeleton.vue', /<n-skeleton/],
+      ['src/features/co-star/components/CandidatePicker.vue', /<candidate-rows-skeleton/],
+      ['src/features/co-star/components/PartnersSurface.vue', /<partners-skeleton/],
+      ['src/features/co-star/components/CoStarSurface.vue', /<co-star-analysis-skeleton/],
+      ['src/features/co-star/components/CoStarWorkBrowser.vue', /<work-cards-skeleton/],
+      ['src/shared/components/SafeImage.vue', /<n-skeleton[\s\S]*?v-if="state === 'loading'"/],
     ];
 
     for (const [relativePath, pattern] of expectations) {

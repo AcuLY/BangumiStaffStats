@@ -1,8 +1,9 @@
-# Archive contract v1
+# Archive contract: SQLite v2
 
 This directory is the language-neutral authority for immutable Archive snapshots.
-Future Python producers and Go consumers must consume these tracked files rather
-than maintain private copies.
+The Backend Go producer and reader consume these tracked files; embedded resources
+are byte-identical derivatives. Python/Node tools remain development verification
+only, and no separate consumer admission pipeline is introduced.
 
 ## Authorities
 
@@ -12,9 +13,9 @@ than maintain private copies.
 - `fixture-index.schema.json` defines the closed golden inventory.
 - `producer-case.schema.json` defines one strict, compact producer-only case.
 - `producer-index.schema.json` defines the separately closed producer inventory.
-- `compatibility-matrix.json` fixes the only supported v1 compatibility tuple,
+- `compatibility-matrix.json` fixes the only supported SQLite v2 compatibility tuple,
   validation order, required SQLite objects, and sentinel queries.
-- `schema.sql` is the canonical SQLite v1 DDL.
+- `schema.sql` is the canonical SQLite v2 DDL.
 
 The verifier reads every manifest, pointer, index, vector, matrix, schema, and
 tool package JSON file as raw bytes and requires fatal UTF-8 decoding before
@@ -137,7 +138,7 @@ from independently claiming a different canonical schema.
 The actual-schema seal uses `bgmss-sqlite-schema-objects-v1`. It selects every
 non-reserved `sqlite_schema` row whose type is `table`, `index`, `view`, or
 `trigger` and whose `sql` is not null, ordered with SQLite `BINARY` collation by
-`(type, name, tbl_name)`. The corrected v1 contains exactly 35 such objects:
+`(type, name, tbl_name)`. SQLite v2 contains exactly 35 such objects:
 20 explicit tables and 15 explicit indexes. SQLite-created autoindexes are
 excluded because their definitions have null `sql` and their names are
 reserved.
@@ -157,14 +158,64 @@ ships no file named `current.json`; all `current-pointer.json` files under
 permissions, scheduling, switching, rollback, retention, and deployment remain
 outside this contract.
 
+## Person biographies and version transition
+
+The only current tuple uses pointer/manifest versions 1 and SQLite version 2.
+`bgmss-archive-data-version-v1` and its `dv1-` prefix remain unchanged; the
+SQLite version and canonical SQL digest already participate in that identity.
+The builder writes a fresh inactive immutable candidate from original inputs.
+Contract verification and production construction reject unsupported versions;
+Backend opening retains its existing minimal read-only/identity boundary.
+
+`person.summary` is nullable TEXT. Non-null values have 1..8192 Unicode scalar
+values and contain no NUL. The official person source is normalized in order:
+CRLF and remaining CR become LF; C0 controls except LF/TAB are removed; Unicode
+White_Space is trimmed; the first 8192 scalar values are retained and trimmed
+again. Missing/null/blank becomes NULL. White_Space is U+0009..U+000D, U+0020,
+U+0085, U+00A0, U+1680, U+2000..U+200A, U+2028, U+2029, U+202F, U+205F and U+3000.
+HTML/BBCode/entity-like text remains literal text; no markup parser, guessed
+stripping, network biography lookup or synthetic biography is added.
+
+The canonical fixture includes a synthetic biography for person 101 and NULL
+for person 100 and 102..106. The existing producer cases exercise literal text,
+line-ending/control normalization, null, missing and Unicode whitespace; their
+person logical projections append `summary` after `careers`.
+
+`tooling/refresh_derived_fixtures.py` is the bounded stdlib refresh for the
+existing canonical/producer paths, runtime-input manifest, embedded DDL and
+artifact identity bindings. It renders the canonical corpus through the existing
+SQLite fixture builder and checks the closed inventories before writing. Only
+write mode updates reviewed derivatives; check mode reports drift. Original
+contract JSON/SQL text is sealed with Git LF endings, independent of Windows
+checkout CRLF conversion. It never rewrites those unchanged source inputs.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 \
+  python3 contracts/schemas/archive/tooling/refresh_derived_fixtures.py --write
+PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 \
+  python3 contracts/schemas/archive/tooling/refresh_derived_fixtures.py --check
+PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 \
+  python3 contracts/schemas/archive/tooling/test_refresh_derived_fixtures.py
+```
+
+The current binary golden regeneration reference is Python 3.11.9 with SQLite
+3.45.1. Different SQLite library versions can produce different physical page
+layouts despite identical schema/dataVersion/logical evidence; use that reference
+for byte comparison. The semantic verifier can inspect the accepted files with
+other supported SQLite versions (also verified with SQLite 3.37.2).
+
+The normal fixture `--check` and shared verifier retain exact generated index
+seals. The explicit refresh renders a prospective corpus before resealing it;
+it does not weaken the regular checks or alter negative-fixture outcomes.
+
 ## Corrected subject semantics
 
-Archive v1 was corrected before its first formal snapshot. No produced,
-published, activated, released, or deployed v1 exists, so the manifest and
-SQLite schema versions remain 1 while the canonical `schemaSqlDigest`,
-`dataVersion`, SQLite/manifest/pointer identities, vector, and indexed golden
-bytes replace the earlier draft. The earlier draft is not a supported
-alternative. Any later semantic schema change requires a new version.
+Archive v1 was corrected before its first formal snapshot; that historical
+one-time correction retained version 1 and replaced all draft identities. Formal
+v1 snapshots now exist, so that exception has ended. The current person-summary
+change advances SQLite to version 2 and rebuilds a fresh candidate. Existing real
+v1 snapshots are never edited and require their matching old binary for rollback.
+Any later semantic schema change requires another explicit version/tuple.
 
 Every `subject` stores an authoritative `nsfw` integer constrained to 0 or 1.
 Producer input must be an actual boolean: missing, null, numeric, string, or

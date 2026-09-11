@@ -34,3 +34,14 @@ affect generated co-star bytes.
 #### Scenario: An unrelated operation changes
 - **WHEN** another OpenAPI path or the shared top-level description changes
 - **THEN** co-star projection hash and generated files SHALL remain unchanged
+
+### Requirement: Co-star series work SHALL expose representative metadata
+GlobalSeriesWorkV1 and PersonalSeriesWorkV1 SHALL contain required metaTags using the existing subject-work field constraints. The array SHALL contain at most 16 unique nonempty strings of at most 255 characters; when the representative has no tags, metaTags SHALL be []. Go and TypeScript producers/consumers SHALL agree through operation goldens and generated types.
+
+#### Scenario: Invalid metadata is rejected
+- **WHEN** a series work omits metaTags or contains null, duplicate, empty or oversized values
+- **THEN** the closed co-star schema SHALL reject it
+
+#### Scenario: Empty representative metadata
+- **WHEN** the representative has no meta tags
+- **THEN** the response SHALL contain an empty array

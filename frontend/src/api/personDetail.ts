@@ -10,6 +10,10 @@ import type {
 import type { ApiClient } from './client';
 import { ApiDecodeError } from './errors';
 import {
+  decodePersonDetailInput,
+  decodeSharedQueryForOperation,
+} from './adapters/queryWire';
+import {
   decodePersonDetailError,
   decodePersonDetailPayload,
   type PersonDetailPayload,
@@ -164,6 +168,11 @@ export function createPersonDetailDriver(
 ): PersonDetailDriver {
   return {
     async execute(request): Promise<PersonDetailDriverResponse> {
+      const input = decodePersonDetailInput(request.input);
+      decodeSharedQueryForOperation(
+        request.query,
+        input.positionKeys === undefined ? 'query' : input.positionScope,
+      );
       const body: PersonDetailRequestV1 = {
         input: structuredClone(request.input),
         query: structuredClone(request.query) as SharedQueryV1Schema,

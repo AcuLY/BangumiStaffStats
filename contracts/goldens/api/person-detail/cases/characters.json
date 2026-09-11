@@ -140,7 +140,18 @@
                     "year": 2024,
                     "quarter": 1,
                     "average": 820,
-                    "count": 1
+                    "count": 1,
+                    "works": [
+                      {
+                        "subject": {
+                          "id": 1,
+                          "name": "Golden Animation",
+                          "nameCN": "金标动画",
+                          "date": "2024-01-10"
+                        },
+                        "score": 820
+                      }
+                    ]
                   }
                 ]
               }

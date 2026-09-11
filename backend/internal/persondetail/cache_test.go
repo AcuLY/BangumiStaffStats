@@ -11,6 +11,20 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/statistics"
 )
 
+func TestSeriesMetaTagsOwnTheirSliceAndRetainedCost(t *testing.T) {
+	core := Core{Works: []WorkItem{{Kind: "series", Series: &SeriesWork{MetaTags: []string{}}}}}
+	baseCost := coreCost(core)
+	core.Works[0].Series.MetaTags = []string{strings.Repeat("tag", 255)}
+	if delta := coreCost(core) - baseCost; delta < int64(len(core.Works[0].Series.MetaTags[0])) {
+		t.Fatalf("series metadata not charged: delta=%d", delta)
+	}
+	copy := CloneCore(core)
+	copy.Works[0].Series.MetaTags[0] = "mutated"
+	if core.Works[0].Series.MetaTags[0] == "mutated" {
+		t.Fatal("series metadata aliases cached core")
+	}
+}
+
 func TestResultKeyUsesSemanticPersonInputAndScope(t *testing.T) {
 	global, err := ResultKey("global", testDataVersion, testQueryDigest, 10, "")
 	if err != nil {
@@ -34,6 +48,22 @@ func TestResultKeyUsesSemanticPersonInputAndScope(t *testing.T) {
 	}
 	if _, err := ResultKey("personal", testDataVersion, testQueryDigest, 10, ""); err == nil {
 		t.Fatal("personal key accepted missing collection digest")
+	}
+}
+
+func TestIdentityScopeCacheKeyIsCanonicalAndIsolated(t *testing.T) {
+	key := func(keys ...string) string {
+		value, err := ResultKey("global", testDataVersion, testQueryDigest, 100, "", keys...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return value.String()
+	}
+	if key("staff:anime:2", "cast:anime:main") != key("cast:anime:main", "staff:anime:2") {
+		t.Fatal("identity order fragmented cache")
+	}
+	if key() == key("staff:anime:2") || key("staff:anime:2") == key("cast:anime:main") {
+		t.Fatal("identity scopes collided")
 	}
 }
 
@@ -75,7 +105,15 @@ func TestStoreCachesCompleteCoreAcrossViewsAndClonesOwnership(t *testing.T) {
 				Community: []TagCount{},
 			},
 			Ratings: Ratings{
-				Global: RatingDistribution{Buckets: make([]RatingBucket, 10)},
+				Global: RatingDistribution{
+					Buckets: make([]RatingBucket, 10),
+					Timeline: []RatingTimelinePoint{{
+						Year: 2024, Quarter: 1, Average: 800, Count: 1,
+						Works: []RatingTimelineWork{{
+							Subject: SubjectReference{ID: 1, Name: "Work", NameCN: stringPointer("作品"), Date: stringPointer("2024-01")}, Score: 800,
+						}},
+					}},
+				},
 			},
 			Works:      []WorkItem{},
 			Characters: []CharacterItem{},
@@ -86,12 +124,18 @@ func TestStoreCachesCompleteCoreAcrossViewsAndClonesOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	first.Person.Name = "Mutated"
+	first.Ratings.Global.Timeline[0].Works[0].Score = 100
+	*first.Ratings.Global.Timeline[0].Works[0].Subject.NameCN = "Mutated"
+	*first.Ratings.Global.Timeline[0].Works[0].Subject.Date = "2025-04"
 	second, err := store.GetOrBuild(context.Background(), key, build)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if builds.Load() != 1 || second.Person.Name != "Original" {
 		t.Fatalf("cache ownership/builds: builds=%d second=%+v", builds.Load(), second)
+	}
+	if work := second.Ratings.Global.Timeline[0].Works[0]; work.Score != 800 || *work.Subject.NameCN != "作品" || *work.Subject.Date != "2024-01" {
+		t.Fatalf("cache leaked nested timeline ownership: %+v", work)
 	}
 }
 
@@ -259,5 +303,21 @@ func TestStoreDoesNotAdmitCoreWhoseEvidenceExceedsItemLimit(t *testing.T) {
 	stats := store.Stats()
 	if builds.Load() != 2 || stats.Items != 0 || stats.Oversize != 2 {
 		t.Fatalf("oversize admission: builds=%d stats=%+v", builds.Load(), stats)
+	}
+}
+
+func TestAllPositionScopeSeparatesIdenticalInputCacheKeys(t *testing.T) {
+	input := Input{PersonID: 1, PositionKeys: []string{"staff:anime:2"}}
+	legacy, err := resultKeyForInput("global", testDataVersion, testQueryDigest, input, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	input.PositionScope = "all"
+	broad, err := resultKeyForInput("global", testDataVersion, testQueryDigest, input, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy == broad {
+		t.Fatal("operation scopes share a result key")
 	}
 }

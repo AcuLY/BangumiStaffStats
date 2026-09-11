@@ -19,6 +19,10 @@ func normalizeOperationRequest(
 	if err != nil {
 		return Operation{}, err
 	}
+	positionScope, err := query.OperationPositionScope(request.Input)
+	if err != nil {
+		return Operation{}, requestFailure("invalid position scope", "/input/positionScope", "UNSUPPORTED_VALUE")
+	}
 	viewInput, err := parseViewInput(request.View)
 	if err != nil {
 		return Operation{}, err
@@ -47,8 +51,9 @@ func normalizeOperationRequest(
 		return Operation{}, err
 	}
 	return Operation{
-		PositionKey: positionKey,
-		View:        view,
+		PositionKey:   positionKey,
+		PositionScope: positionScope,
+		View:          view,
 	}, nil
 }
 
@@ -69,7 +74,7 @@ func parsePositionInput(raw json.RawMessage) (string, error) {
 		)
 	}
 	for name := range fields {
-		if name != "positionKey" {
+		if name != "positionKey" && name != "positionScope" {
 			return "", unknownFieldFailure("/input/" + escapePointerToken(name))
 		}
 	}

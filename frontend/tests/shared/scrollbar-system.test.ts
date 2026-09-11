@@ -12,6 +12,9 @@ const baseCss = fs.readFileSync(
   path.join(frontendRoot, 'src/shared/styles/base.css'),
   'utf8',
 );
+const viewportSource = fs.readFileSync(
+  path.join(frontendRoot, 'src/app/AppViewport.vue'), 'utf8',
+);
 const scrollbarCss = baseCss.slice(
   baseCss.indexOf('@supports not selector(::-webkit-scrollbar)'),
   baseCss.indexOf('.query-source-field'),
@@ -46,19 +49,16 @@ const partnersSource = fs.readFileSync(
 );
 
 describe('oracle scrollbar system', () => {
-  it('keeps the viewport as the sole 10px shell scroll owner', () => {
+  it('keeps the page scroll owner while starting the shell rail below the overlay header', () => {
     expect(baseCss).toContain('--scrollbar-shell-size: 10px;');
-    expect(baseCss).toMatch(
-      /html\s*\{[^}]*overflow-y:\s*scroll;[^}]*scrollbar-gutter:\s*auto;/s,
-    );
+    expect(viewportSource).toContain('class="app-page-scroll"');
+    expect(viewportSource).toContain('railInsetVerticalRight:');
+    expect(viewportSource).toContain('shellScrollbarThemeOverrides');
     expect(baseCss).toMatch(
       /html\s*\{[^}]*min-width:\s*min\(320px, 100%\);/s,
     );
     expect(baseCss).toMatch(
       /body\s*\{[^}]*min-width:\s*min\(320px, 100%\);/s,
-    );
-    expect(baseCss).toMatch(
-      /html::\-webkit-scrollbar\s*\{[^}]*width:\s*var\(--scrollbar-shell-size\);[^}]*height:\s*var\(--scrollbar-shell-size\);/s,
     );
     expect(baseCss).not.toContain('scrollbar-gutter: stable both-edges');
     expect(baseCss).toMatch(
@@ -88,13 +88,14 @@ describe('oracle scrollbar system', () => {
     );
   });
 
-  it('uses the public shell override only for the remaining detail Drawer', () => {
+  it('uses the public shell override for the page and detail Drawer', () => {
     expect(personDrawerSource).toContain(
-      ':theme-overrides="shellScrollbarThemeOverrides"',
+      ':theme-overrides="drawerScrollbarThemeOverrides"',
     );
     expect(personDrawerSource).toContain(
       'class="person-detail-drawer__scroll"',
     );
+    expect(personDrawerSource).toContain('trigger="none"');
     expect(candidateDrawerSource).toContain('class="co-star-picker-accordion"');
     expect(candidateDrawerSource).not.toContain('co-star-picker-drawer__scroll');
     expect(candidateDrawerSource).not.toContain('shellScrollbarThemeOverrides');

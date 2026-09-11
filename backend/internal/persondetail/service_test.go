@@ -57,6 +57,58 @@ func TestServiceConstructorsPreserveIsolationAndSharedRuntimeIdentity(t *testing
 	}
 }
 
+func TestScopedDetailRetainsAppliedQueryAndSeparatesRankingMembership(t *testing.T) {
+	store := loadPersonDetailArchive(t)
+	service := newPersonDetailService(t, store, nil)
+	request := Request{
+		Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2","cast:anime:main"]}`),
+		Input: json.RawMessage(`{"personId":100,"positionKeys":["staff:anime:2"]}`),
+	}
+	original := string(request.Query)
+	director, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if director.Core.Person.ID != 100 || len(director.Works) != 1 || director.Works[0].Subject.Subject.ID != 1 || director.Core.CastApplicable {
+		t.Fatalf("scoped director evidence = %+v", director)
+	}
+	request.View = json.RawMessage(`{"section":"characters"}`)
+	_, err = service.Execute(context.Background(), request)
+	assertFailure(t, err, CodeCapabilityNotAvailable, "/view/section")
+	request.Input = json.RawMessage(`{"personId":101,"positionKeys":["cast:anime:main"]}`)
+	cast, err := service.Execute(context.Background(), request)
+	if err != nil || len(cast.Characters) != 1 {
+		t.Fatalf("scoped cast evidence: %+v, %v", cast, err)
+	}
+	request.View = nil
+	request.Input = json.RawMessage(`{"personId":100,"positionKeys":["cast:anime:main"]}`)
+	_, err = service.Execute(context.Background(), request)
+	assertFailure(t, err, CodePersonNotInQueryResult, "/input/personId")
+	request.Input = json.RawMessage(`{"personId":100}`)
+	_, err = service.Execute(context.Background(), request)
+	assertFailure(t, err, CodePersonNotInQueryResult, "/input/personId")
+	if string(request.Query) != original {
+		t.Fatal("scoped detail mutated Applied Query")
+	}
+}
+
+func TestScopedDetailRejectsInvalidIdentitiesBeforeComputing(t *testing.T) {
+	store := loadPersonDetailArchive(t)
+	service := newPersonDetailService(t, store, nil)
+	for _, keys := range []string{`[]`, `null`, `"staff:anime:2"`, `["staff:anime:2","staff:anime:2"]`, `["cast:anime:main"]`, `[null]`} {
+		_, err := service.Execute(context.Background(), Request{
+			Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`),
+			Input: json.RawMessage(`{"personId":100,"positionKeys":` + keys + `}`),
+		})
+		if err == nil {
+			t.Fatalf("accepted invalid identity scope %s", keys)
+		}
+	}
+	if service.results.Stats().Items != 0 {
+		t.Fatal("invalid input reached expensive core")
+	}
+}
+
 func TestServiceExecutesArchiveBackedGlobalDetailWithoutCollection(t *testing.T) {
 	store := loadPersonDetailArchive(t)
 	var collectionCalls atomic.Int64
@@ -253,6 +305,12 @@ func TestServicePersonalUsesOneAdmittedCollectionAndEmitsCompleteEvidence(t *tes
 	if strings.Contains(string(data), `"warningCodes":null`) ||
 		!strings.Contains(string(data), `"warningCodes":[]`) {
 		t.Fatalf("fresh warning codes wire shape = %s", data)
+	}
+	request.Query = json.RawMessage(`{"scope":"personal","uid":"Alice","collectionStatuses":["completed"],"subjectType":"anime","positionKeys":["staff:anime:2","cast:anime:main"]}`)
+	request.Input = json.RawMessage(`{"personId":100,"positionKeys":["staff:anime:2"]}`)
+	scoped, err := service.Execute(context.Background(), request)
+	if err != nil || scoped.Collection == nil || scoped.Core.Metrics.Average == nil || *scoped.Core.Metrics.Average != 900 || scoped.Core.Preference == nil || collectionCalls.Load() != 1 {
+		t.Fatalf("scoped detail lost personal collection evidence: %+v, %v", scoped, err)
 	}
 }
 
@@ -522,5 +580,51 @@ func assertFailureWithFieldCode(
 			path,
 			fieldCode,
 		)
+	}
+}
+
+func TestAllPositionDetailAcceptsCrossRoleAndKeepsAppliedQuery(t *testing.T) {
+	service := newPersonDetailService(t, loadPersonDetailArchive(t), nil)
+	request := Request{Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`), Input: json.RawMessage(`{"personId":101,"positionKeys":["cast:anime:main"],"positionScope":"all"}`)}
+	result, err := service.Execute(context.Background(), request)
+	if err != nil || result.Core.Person.ID != 101 || !result.Core.CastApplicable {
+		t.Fatalf("cross-role detail: %+v %v", result, err)
+	}
+	request.Input = json.RawMessage(`{"personId":101,"positionKeys":["cast:anime:main"]}`)
+	if _, err = service.Execute(context.Background(), request); err == nil {
+		t.Fatal("query scope reused all result")
+	}
+}
+
+func TestAllPositionDetailAcceptsEmptyQuerySelection(t *testing.T) {
+	service := newPersonDetailService(t, loadPersonDetailArchive(t), nil)
+	request := Request{Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`), Input: json.RawMessage(`{"personId":101,"positionKeys":["cast:anime:main"],"positionScope":"all"}`)}
+	prior, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := prior.MarshalEnvelope("all-empty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Query = json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":[]}`)
+	result, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := result.MarshalEnvelope("all-empty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("empty all query changed operation result:\n%s\nwant:\n%s", got, want)
+	}
+	request.Input = json.RawMessage(`{"personId":101,"positionKeys":["cast:anime:main"]}`)
+	if _, err := service.Execute(context.Background(), request); err == nil {
+		t.Fatal("query scope accepted empty positions")
+	}
+	request.Input = json.RawMessage(`{"personId":101,"positionScope":"all"}`)
+	if _, err := service.Execute(context.Background(), request); err == nil {
+		t.Fatal("empty query detail accepted implicit identities")
 	}
 }

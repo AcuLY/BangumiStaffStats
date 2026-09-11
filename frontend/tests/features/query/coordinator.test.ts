@@ -83,6 +83,172 @@ beforeEach(() => {
 });
 
 describe('query coordinator', () => {
+  it('applies a first all-position query without a synthetic key and blocks ranking until positions are chosen', async () => {
+    const store = readyStore();
+    store.draft.positionKeys = [];
+    store.draft.includeNSFW = true;
+    store.setCoStarPositionScope('all');
+    const candidateExecute = vi.fn(async (request: CandidateRequest) => ({
+      payload: { id: 'all' }, requestId: 'server-all',
+      transactionId: request.transactionId,
+    }));
+    const rankingExecute = vi.fn();
+    const coordinator = createQueryCoordinator(store, {
+      candidates: { execute: candidateExecute },
+      rankings: { execute: rankingExecute },
+    });
+    const catalog = catalogFixture();
+
+    await expect(coordinator.execute({ catalog, mode: 'co-star' })).resolves.toBe(true);
+    expect(candidateExecute.mock.calls[0]![0]).toMatchObject({
+      input: { positionKey: null, positionScope: 'all' },
+      query: { uid: 'luca', positionKeys: [], includeNSFW: true },
+    });
+    expect(store.applied?.positionKeys).toEqual([]);
+    expect(store.appliedCoStarPositionScope).toBe('all');
+    expect(store.coStarScopeDirty).toBe(false);
+    expect(store.dirty).toBe(false);
+    await expect(coordinator.executeApplied({ catalog, mode: 'ranking' })).resolves.toBe(false);
+    await expect(coordinator.execute({ catalog, mode: 'ranking' })).resolves.toBe(false);
+    expect(rankingExecute).not.toHaveBeenCalled();
+    expect(coordinator.candidates.payload).toEqual({ id: 'all' });
+  });
+
+  it('executes a scope-only apply after view broadening and restores accepted scope on undo', async () => {
+    const store = readyStore();
+    const candidateExecute = vi.fn(async (request: CandidateRequest) => ({
+      payload: snapshotPayload('candidates', 'dv1-same', '2026-09-10T00:00:00Z'),
+      requestId: 'server-candidates', transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      candidates: { execute: candidateExecute }, rankings: { execute: vi.fn() },
+    });
+    const catalog = catalogFixture();
+    await coordinator.execute({ catalog, mode: 'co-star' });
+    await coordinator.executeCandidateView(
+      { positionKey: null, positionScope: 'all' },
+      { order: 'desc', page: 1, pageSize: 10, search: '', sort: 'count' },
+    );
+    expect(store.appliedCoStarPositionScope).toBe('query');
+    store.setCoStarPositionScope('all');
+    expect(store.dirty).toBe(false);
+    expect(store.coStarScopeDirty).toBe(true);
+
+    await expect(coordinator.execute({ catalog, mode: 'co-star' })).resolves.toBe(true);
+
+    expect(candidateExecute).toHaveBeenCalledTimes(3);
+    expect(store.appliedCoStarPositionScope).toBe('all');
+    expect(store.coStarScopeDirty).toBe(false);
+    expect(store.applied?.positionKeys).toEqual(['staff:anime:2']);
+    store.setCoStarPositionScope('query');
+    store.draft.includeNSFW = true;
+    store.restoreDraft();
+    expect(store.coStarPositionScope).toBe('all');
+    expect(store.coStarScopeDirty).toBe(false);
+    expect(store.draft.includeNSFW).toBe(false);
+    expect(store.dirty).toBe(false);
+  });
+
+  it.each(['failure', 'cancel'] as const)('keeps accepted scope and result on scope-only %s', async (outcome) => {
+    const store = readyStore();
+    const pending = deferred<OperationResponse<Payload>>();
+    const candidateExecute = vi.fn(async (request: CandidateRequest) => ({
+      payload: { id: 'prior' }, requestId: 'server-prior',
+      transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      candidates: { execute: candidateExecute }, rankings: { execute: vi.fn() },
+    });
+    const catalog = catalogFixture();
+    await coordinator.execute({ catalog, mode: 'co-star' });
+    candidateExecute.mockImplementationOnce(() => pending.promise);
+    store.setCoStarPositionScope('all');
+    const appliedBefore = store.applied;
+    const running = coordinator.execute({ catalog, mode: 'co-star' });
+    if (outcome === 'cancel') coordinator.cancel('co-star');
+    pending.reject(new Error('unavailable'));
+
+    await expect(running).resolves.toBe(false);
+    expect(store.applied).toEqual(appliedBefore);
+    expect(store.appliedCoStarPositionScope).toBe('query');
+    expect(store.coStarPositionScope).toBe('all');
+    expect(store.coStarScopeDirty).toBe(true);
+    expect(coordinator.candidates.payload).toEqual({ id: 'prior' });
+    expect(coordinator.candidates.acceptedInput).toEqual({ positionKey: null });
+    store.restoreDraft();
+    expect(store.coStarPositionScope).toBe('query');
+  });
+
+  it('preserves draft edits made while accepting all and during automatic scope promotion', async () => {
+    const store = readyStore();
+    const pending = deferred<OperationResponse<Payload>>();
+    const candidateExecute = vi.fn(async (request: CandidateRequest) => ({
+      payload: { id: 'prior' }, requestId: 'server-prior',
+      transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      candidates: { execute: candidateExecute }, rankings: { execute: vi.fn() },
+    });
+    const catalog = catalogFixture();
+    await coordinator.execute({ catalog, mode: 'co-star' });
+    candidateExecute.mockImplementationOnce(() => pending.promise);
+    store.setCoStarPositionScope('all');
+    const running = coordinator.execute({ catalog, mode: 'co-star' });
+    store.setCoStarPositionScope('query');
+    store.draft.includeNSFW = true;
+    pending.resolve({
+      payload: { id: 'all' }, requestId: 'server-all',
+      transactionId: candidateExecute.mock.calls[1]![0].transactionId,
+    });
+
+    await expect(running).resolves.toBe(true);
+    expect(store.appliedCoStarPositionScope).toBe('all');
+    expect(store.coStarPositionScope).toBe('query');
+    expect(store.coStarScopeDirty).toBe(true);
+    expect(store.applied?.includeNSFW).toBe(false);
+    expect(store.draft.includeNSFW).toBe(true);
+    expect(store.dirty).toBe(true);
+    store.acceptCoStarPositionScope('all', 'all');
+    expect(store.coStarPositionScope).toBe('query');
+    store.restoreDraft();
+    expect(store.coStarPositionScope).toBe('all');
+    store.setCoStarPositionScope('query', true);
+    store.acceptCoStarPositionScope('all', 'query');
+    expect(store.coStarPositionScope).toBe('all');
+    expect(store.coStarScopeDirty).toBe(false);
+  });
+
+  it('uses accepted all scope with Applied Query while preserving ranking keys and unrelated draft edits', async () => {
+    const store = readyStore();
+    const rankingExecute = vi.fn(async (request: RankingRequest) => ({
+      payload: { id: 'ranking' }, requestId: 'server-ranking',
+      transactionId: request.transactionId,
+    }));
+    const candidateExecute = vi.fn(async (request: CandidateRequest) => ({
+      payload: { id: 'candidates' }, requestId: 'server-candidates',
+      transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      candidates: { execute: candidateExecute }, rankings: { execute: rankingExecute },
+    });
+    const catalog = catalogFixture();
+    await coordinator.execute({ catalog, mode: 'ranking' });
+    const applied = store.applied;
+    store.draft.includeNSFW = true;
+    store.draft.uid = 'unapplied-user';
+    store.setCoStarPositionScope('all', true);
+
+    await expect(coordinator.executeApplied({ catalog, mode: 'co-star' })).resolves.toBe(true);
+
+    expect(candidateExecute.mock.calls[0]![0].input).toEqual({ positionKey: null, positionScope: 'all' });
+    expect(candidateExecute.mock.calls[0]![0].query).toEqual(applied);
+    expect(store.applied?.positionKeys).toEqual(['staff:anime:2']);
+    expect(store.draft.uid).toBe('unapplied-user');
+    expect(store.draft.includeNSFW).toBe(true);
+    expect(store.dirty).toBe(true);
+    expect(store.coStarScopeDirty).toBe(false);
+  });
+
   it('commits resource, applied query, and monotonic revision together', async () => {
     const store = readyStore();
     const execute = vi.fn(
@@ -1763,5 +1929,73 @@ describe('co-star coordinator resource', () => {
     ).resolves.toBe(false);
     expect(coordinator.coStar.error).toBe('共同作品视图参数无效');
     expect(execute).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('independent operation position scope', () => {
+  function harness() {
+    const store = readyStore();
+    const catalog = catalogFixture();
+    const execute = vi.fn(async (request: OperationRequest<unknown, unknown>) => ({
+      payload: { id: request.transactionId }, requestId: request.transactionId,
+      transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      rankings: { execute }, candidates: { execute },
+      partners: { execute }, coStar: { execute },
+    }, undefined, { getCatalog: () => catalog });
+    return { store, catalog, execute, coordinator };
+  }
+
+  it('isolates query/all candidate and partner reuse while keeping the ranking Query', async () => {
+    const h = harness();
+    await h.coordinator.execute({ catalog: h.catalog, mode: 'co-star' });
+    const query = h.store.applied;
+    const view = { search: '', sort: 'count', order: 'desc', page: 1, pageSize: 10 } as const;
+    expect(await h.coordinator.executeCandidateView({ positionKey: null, positionScope: 'all' }, view)).toBe(true);
+    expect(h.execute).toHaveBeenCalledTimes(2);
+    expect(await h.coordinator.executeCandidateView({ positionKey: null, positionScope: 'all' }, view)).toBe(true);
+    expect(h.execute).toHaveBeenCalledTimes(2);
+    expect(await h.coordinator.executeCandidateView({ positionKey: 'staff:anime:101', positionScope: 'all' }, view)).toBe(true);
+    expect(h.execute).toHaveBeenCalledTimes(3);
+    expect(await h.coordinator.executeCandidateView({ positionKey: 'staff:anime:101' }, view)).toBe(false);
+    const source = { personId: 1, positionKeys: ['staff:anime:2'] } as const;
+    expect(await h.coordinator.executePartners({ source } as never)).toBe(true);
+    expect(await h.coordinator.executePartners({ source, positionScope: 'all' } as never)).toBe(true);
+    expect(h.execute).toHaveBeenCalledTimes(5);
+    expect(h.coordinator.partners.acceptedInput?.positionScope).toBe('all');
+    expect(h.store.applied).toBe(query);
+  });
+
+  it('accepts exact cross-role identities only in all scope and refuses unknown/type/capability mismatches', async () => {
+    const h = harness();
+    await h.coordinator.execute({ catalog: h.catalog, mode: 'co-star' });
+    const participants = [
+      { personId: 1, positionKeys: ['staff:anime:2'] },
+      { personId: 2, positionKeys: ['staff:anime:101'] },
+    ];
+    expect(await h.coordinator.executeCoStar({ participants } as never)).toBe(false);
+    expect(await h.coordinator.executeCoStar({ participants, positionScope: 'all' } as never)).toBe(true);
+    expect(h.coordinator.coStar.acceptedInput).toEqual({ participants, positionScope: 'all' });
+    expect(await h.coordinator.executePartners({ source: participants[1], positionScope: 'all' } as never)).toBe(true);
+    for (const key of ['staff:anime:999999', 'staff:book:1']) {
+      expect(await h.coordinator.executeCoStar({ participants: [participants[0], { personId: 2, positionKeys: [key] }], positionScope: 'all' } as never)).toBe(false);
+    }
+    const position = h.catalog.positionsByKey.get('staff:anime:101')!;
+    (h.catalog.positionsByKey as Map<string, typeof position>).set(position.key, { ...position, capabilities: ['rankings'] });
+    expect(await h.coordinator.executeCoStar({ participants, positionScope: 'all' } as never)).toBe(false);
+  });
+
+  it('rejects unsupported positions returned by an all-position candidate response', async () => {
+    const store = readyStore();
+    const catalog = catalogFixture();
+    const execute = vi.fn(async (request: CandidateRequest) => ({
+      payload: { items: [{ positionKeys: ['staff:book:1'] }], positionCounts: [{ positionKey: 'staff:book:1' }] },
+      requestId: request.transactionId, transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, { candidates: { execute }, rankings: { execute: execute as never } });
+    expect(await coordinator.execute({ catalog, mode: 'co-star', candidateInput: { positionKey: null, positionScope: 'all' } })).toBe(false);
+    expect(store.applied).toBeNull();
   });
 });

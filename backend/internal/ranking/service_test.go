@@ -296,6 +296,9 @@ func TestProjectAssignsCompleteRanksBeforeSearchAndDoesNotMutateCore(t *testing.
 		result.pagination.Total != 1 {
 		t.Fatalf("rank-before-search result = %+v", result)
 	}
+	if result.metricScale != (MetricScale{Metric: "count", Kind: "linear", Max: int64(3)}) {
+		t.Fatalf("shared scale lost the searched-out maximum: %+v", result.metricScale)
+	}
 	after, err := json.Marshal(value)
 	if err != nil {
 		t.Fatal(err)

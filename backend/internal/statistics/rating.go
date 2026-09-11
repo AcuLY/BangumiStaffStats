@@ -60,18 +60,11 @@ func EvaluateRatings(
 		distribution[bucket-1]++
 
 		if kind == UnitSubject && unit.Date != nil {
-			date, precision, err := canonicalDate(unit.Date)
+			year, quarter, dated, err := RatingQuarter(unit.Date)
 			if err != nil {
 				return nil, err
 			}
-			if precision >= 2 {
-				year := 0
-				month := 0
-				for index := 0; index < 4; index++ {
-					year = year*10 + int(date[index]-'0')
-				}
-				month = int(date[5]-'0')*10 + int(date[6]-'0')
-				quarter := (month-1)/3 + 1
+			if dated {
 				timeline[[2]int{year, quarter}] = append(
 					timeline[[2]int{year, quarter}],
 					value,
@@ -129,6 +122,20 @@ func EvaluateRatings(
 		return nil, err
 	}
 	return result, nil
+}
+
+// RatingQuarter shares the rating timeline's canonical date eligibility with
+// evidence projections. Year-only and unknown dates have no quarter.
+func RatingQuarter(value *string) (year, quarter int, dated bool, err error) {
+	date, precision, err := canonicalDate(value)
+	if err != nil || precision < 2 {
+		return 0, 0, false, err
+	}
+	for index := 0; index < 4; index++ {
+		year = year*10 + int(date[index]-'0')
+	}
+	month := int(date[5]-'0')*10 + int(date[6]-'0')
+	return year, (month-1)/3 + 1, true, nil
 }
 
 // RatingCount validates and totals explicit 1..10 vote buckets.

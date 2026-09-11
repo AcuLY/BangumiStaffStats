@@ -6,6 +6,7 @@ import type { CoStarViewState } from '../query/coordinator';
 import type { SelectedPerson } from './model';
 
 export interface CoStarInput {
+  readonly positionScope?: 'query' | 'all';
   readonly participants: readonly Readonly<{
     personId: number;
     positionKeys: readonly string[];

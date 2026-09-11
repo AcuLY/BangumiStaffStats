@@ -236,6 +236,14 @@ test('canonical 42-file manifest validates deterministically and the CLI is boun
   assert.equal(cli.stderr, '');
 });
 
+test('a real subdirectory cannot substitute for the Git checkout root', () => {
+  const fixture = buildFixture('nested-root');
+  assert.throws(
+    () => validateProducerRuntimeInputs(path.join(fixture.root, 'contracts'), fixture.manifest),
+    /repository root is not the Git checkout root/u,
+  );
+});
+
 test('tracked authority manifest is canonical and bound to the accepted digest', () => {
   const manifestPath = path.join(
     REPOSITORY_ROOT,
@@ -249,9 +257,9 @@ test('tracked authority manifest is canonical and bound to the accepted digest',
     {
       manifestDigest: PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
       fileCount: 42,
-      totalSize: 1780037,
+      totalSize: 1780175,
       fileSetDigest:
-        'sha256:d019d832a16165a891ec94c282e0b9e365760e09e5a7d4334f3978a3f91237f9',
+        'sha256:8e9c49bed6e0d09ab1439c704ffe2af4dc6fd6eda54c41c888a76fc3c4715c52',
     },
   );
   const runtimeSchema = JSON.parse(
@@ -482,7 +490,7 @@ test('Archive index count, duplicate path, and indexed digest disagreement fail'
   );
 });
 
-test('missing, untracked, symlink, hard-link, special-file, and mode drift fail safely', () => {
+test('missing, untracked, symlink, hard-link, directory, and Git mode drift fail safely', () => {
   let fixture = buildFixture('missing-source');
   fs.unlinkSync(selectedFixturePath(fixture.root));
   assert.throws(
@@ -525,7 +533,31 @@ test('missing, untracked, symlink, hard-link, special-file, and mode drift fail 
     /exactly one hard link/u,
   );
 
-  fixture = buildFixture('special-source');
+  fixture = buildFixture('directory-source');
+  const directoryTarget = selectedFixturePath(fixture.root);
+  fs.unlinkSync(directoryTarget);
+  fs.mkdirSync(directoryTarget);
+  assert.throws(
+    () => validateProducerRuntimeInputs(fixture.root, fixture.manifest),
+    /not a regular file/u,
+  );
+
+  fixture = buildFixture('git-mode-drift');
+  const modePath = path.relative(
+    fixture.root,
+    selectedFixturePath(fixture.root),
+  );
+  runGit(fixture.root, ['update-index', '--chmod=+x', '--', modePath]);
+  assert.throws(
+    () => validateProducerRuntimeInputs(fixture.root, fixture.manifest),
+    /Git mode must be 100644/u,
+  );
+});
+
+test('POSIX special-file and filesystem executable mode drift fail safely', {
+  skip: process.platform === 'win32' ? 'Windows does not support POSIX FIFOs or executable permission bits' : false,
+}, () => {
+  let fixture = buildFixture('special-source');
   const specialTarget = selectedFixturePath(fixture.root);
   fs.unlinkSync(specialTarget);
   const fifo = spawnSync('mkfifo', [specialTarget], { encoding: 'utf8' });
@@ -540,16 +572,5 @@ test('missing, untracked, symlink, hard-link, special-file, and mode drift fail 
   assert.throws(
     () => validateProducerRuntimeInputs(fixture.root, fixture.manifest),
     /executable mode drift/u,
-  );
-
-  fixture = buildFixture('git-mode-drift');
-  const modePath = path.relative(
-    fixture.root,
-    selectedFixturePath(fixture.root),
-  );
-  runGit(fixture.root, ['update-index', '--chmod=+x', '--', modePath]);
-  assert.throws(
-    () => validateProducerRuntimeInputs(fixture.root, fixture.manifest),
-    /Git mode must be 100644/u,
   );
 });

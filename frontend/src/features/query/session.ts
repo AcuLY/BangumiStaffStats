@@ -1,28 +1,26 @@
-import type { SharePath } from '../../api/adapters/queryWire';
 import { querySignature, type AppliedQuery } from './model';
 import {
-  createShareFragment,
-  readShare,
-  type SharePayload,
-  type ShareWorkspace,
-} from './share';
+  decodeRecoveryPayload,
+  type RecoveryPath,
+  type RecoveryPayload,
+  type RecoveryWorkspace,
+} from './recovery';
 
-export const QUERY_SESSION_STORAGE_KEY = 'bgmss-query-session-v1';
+export const QUERY_SESSION_STORAGE_KEY = 'bgmss-query-session-v2';
 
 const MAX_SESSION_BYTES = 128 * 1024;
-const MAX_FRAGMENT_LENGTH = 64 * 1024;
 
-interface QuerySessionEnvelopeV1 {
-  readonly coStar?: string;
-  readonly ranking?: string;
-  readonly version: 1;
+interface QuerySessionEnvelopeV2 {
+  readonly coStar?: unknown;
+  readonly ranking?: unknown;
+  readonly version: 2;
 }
 
 interface ValidSessionEnvelope {
-  readonly envelope: QuerySessionEnvelopeV1;
+  readonly envelope: QuerySessionEnvelopeV2;
   readonly payloads: Readonly<{
-    coStar?: SharePayload;
-    ranking?: SharePayload;
+    coStar?: RecoveryPayload;
+    ranking?: RecoveryPayload;
   }>;
 }
 
@@ -31,21 +29,23 @@ interface SessionStorageTarget {
 }
 
 export interface QuerySessionOwner {
-  read(path: SharePath): SharePayload | null;
+  read(path: RecoveryPath): RecoveryPayload | null;
   write(
-    path: SharePath,
+    path: RecoveryPath,
     query: AppliedQuery,
-    workspace: ShareWorkspace,
+    workspace: RecoveryWorkspace,
   ): boolean;
 }
 
-function entryName(path: SharePath): 'coStar' | 'ranking' {
+function entryName(path: RecoveryPath): 'coStar' | 'ranking' {
   return path === '/co-star' ? 'coStar' : 'ranking';
 }
 
 function storageFor(target: SessionStorageTarget): Storage | null {
   try {
-    return target.sessionStorage;
+    const storage = target.sessionStorage;
+    storage.removeItem('bgmss-query-session-v1');
+    return storage;
   } catch {
     return null;
   }
@@ -59,7 +59,7 @@ function removeInvalid(storage: Storage): void {
   }
 }
 
-function parseEnvelope(raw: string): QuerySessionEnvelopeV1 {
+function parseEnvelope(raw: string): QuerySessionEnvelopeV2 {
   if (raw.length > MAX_SESSION_BYTES) {
     throw new TypeError('Query session is too large');
   }
@@ -69,36 +69,24 @@ function parseEnvelope(raw: string): QuerySessionEnvelopeV1 {
   }
   const record = value as Record<string, unknown>;
   if (
-    record.version !== 1 ||
-    Object.keys(record).some(
-      (key) => !['coStar', 'ranking', 'version'].includes(key),
-    ) ||
-    (record.coStar !== undefined && typeof record.coStar !== 'string') ||
-    (record.ranking !== undefined && typeof record.ranking !== 'string') ||
-    (typeof record.coStar === 'string' &&
-      record.coStar.length > MAX_FRAGMENT_LENGTH) ||
-    (typeof record.ranking === 'string' &&
-      record.ranking.length > MAX_FRAGMENT_LENGTH)
+    record.version !== 2 ||
+    Object.keys(record).some((key) => !['coStar', 'ranking', 'version'].includes(key))
   ) {
     throw new TypeError('Query session has an unsupported shape');
   }
   return {
-    ...(typeof record.coStar === 'string'
-      ? { coStar: record.coStar }
-      : {}),
-    ...(typeof record.ranking === 'string'
-      ? { ranking: record.ranking }
-      : {}),
-    version: 1,
+    ...(Object.hasOwn(record, 'coStar') ? { coStar: record.coStar } : {}),
+    ...(Object.hasOwn(record, 'ranking') ? { ranking: record.ranking } : {}),
+    version: 2,
   };
 }
 
-function validateEnvelope(envelope: QuerySessionEnvelopeV1): ValidSessionEnvelope {
-  const ranking = envelope.ranking
-    ? readShare('/ranking', envelope.ranking)
+function validateEnvelope(envelope: QuerySessionEnvelopeV2): ValidSessionEnvelope {
+  const ranking = Object.hasOwn(envelope, 'ranking')
+    ? decodeRecoveryPayload('/ranking', envelope.ranking)
     : undefined;
-  const coStar = envelope.coStar
-    ? readShare('/co-star', envelope.coStar)
+  const coStar = Object.hasOwn(envelope, 'coStar')
+    ? decodeRecoveryPayload('/co-star', envelope.coStar)
     : undefined;
   if (
     ranking &&
@@ -137,7 +125,7 @@ function readEnvelope(storage: Storage): ValidSessionEnvelope | null {
 export function createQuerySessionOwner(
   target: SessionStorageTarget,
 ): QuerySessionOwner {
-  function read(path: SharePath): SharePayload | null {
+  function read(path: RecoveryPath): RecoveryPayload | null {
     const storage = storageFor(target);
     if (!storage) {
       return null;
@@ -147,24 +135,24 @@ export function createQuerySessionOwner(
   }
 
   function write(
-    path: SharePath,
+    path: RecoveryPath,
     query: AppliedQuery,
-    workspace: ShareWorkspace,
+    workspace: RecoveryWorkspace,
   ): boolean {
     const storage = storageFor(target);
     if (!storage) {
       return false;
     }
-    let fragment: string;
+    let payload: RecoveryPayload;
     try {
-      fragment = createShareFragment(path, query, workspace);
+      payload = decodeRecoveryPayload(path, structuredClone({ query, workspace }));
     } catch {
       return false;
     }
 
     const currentSignature = querySignature(query);
     const existing = readEnvelope(storage);
-    const envelope: QuerySessionEnvelopeV1 = {
+    const envelope: QuerySessionEnvelopeV2 = {
       ...(existing?.payloads.coStar &&
       querySignature(existing.payloads.coStar.query) === currentSignature
         ? { coStar: existing.envelope.coStar }
@@ -173,11 +161,13 @@ export function createQuerySessionOwner(
       querySignature(existing.payloads.ranking.query) === currentSignature
         ? { ranking: existing.envelope.ranking }
         : {}),
-      [entryName(path)]: fragment,
-      version: 1,
+      [entryName(path)]: payload,
+      version: 2,
     };
     try {
-      storage.setItem(QUERY_SESSION_STORAGE_KEY, JSON.stringify(envelope));
+      const serialized = JSON.stringify(envelope);
+      if (serialized.length > MAX_SESSION_BYTES) return false;
+      storage.setItem(QUERY_SESSION_STORAGE_KEY, serialized);
       return true;
     } catch {
       return false;
