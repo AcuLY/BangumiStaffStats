@@ -96,6 +96,10 @@ function primaryName(
                   <span
                     v-if="identityIndex < participant.positionKeys.length - 1"
                     class="selected-person-card__identity-separator"
+                    :class="{
+                      'is-tight-before': /[（）]$/u.test(positionLabel(String(positionKey))),
+                      'is-tight-after': /^[（）]/u.test(positionLabel(String(participant.positionKeys[identityIndex + 1]))),
+                    }"
                     aria-hidden="true"
                   >·</span>
                 </template>

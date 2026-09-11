@@ -445,7 +445,7 @@ describe('person inspector production presentation', () => {
 
     expect(wrapper.find('.subject-work-row__role-fact').exists()).toBe(false);
     expect(wrapper.find('.subject-work-row__facts--with-role').exists()).toBe(false);
-    expect(wrapper.get('.person-profile__career').text()).toContain('导演');
+    expect(wrapper.get('.person-profile__career').text()).toBe('制作人');
   });
 
   it('preserves distinct cast characters sharing a role and falls back to original names', () => {
@@ -533,8 +533,12 @@ describe('person inspector production presentation', () => {
     expect(wrapper.find('.subject-work-row__facts--with-role').exists()).toBe(false);
   });
 
-  it('keeps the profile position line on the accepted query across server work views', async () => {
-    const detail = payload('global.json');
+  it('shows only profile careers across query positions and server work views', async () => {
+    const original = payload('global.json');
+    const detail = {
+      ...original,
+      person: { ...original.person, careers: ['artist', 'seiyu'] as const },
+    };
     const wrapper = mount(PersonInspector, {
       props: {
         executeView: vi.fn(async () => true),
@@ -549,9 +553,11 @@ describe('person inspector production presentation', () => {
     });
     wrappers.push(wrapper);
 
-    expect(wrapper.get('.person-profile__career').text()).toContain(
-      '导演集合',
+    expect(wrapper.get('.person-profile__career').text()).toBe(
+      '音乐人 / 声优',
     );
+    expect(wrapper.get('.person-profile__career').attributes('title')).toBe('音乐人 / 声优');
+    expect(wrapper.get('.person-profile__summary').text()).toContain('导演集合 / 音乐人 / 声优');
     await wrapper.setProps({
       resource: resource(
         Object.freeze({
@@ -570,8 +576,8 @@ describe('person inspector production presentation', () => {
         },
       ),
     });
-    expect(wrapper.get('.person-profile__career').text()).toContain(
-      '导演集合',
+    expect(wrapper.get('.person-profile__career').text()).toBe(
+      '音乐人 / 声优',
     );
   });
 

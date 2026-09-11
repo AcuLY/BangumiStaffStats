@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { joinDisplayText } from '../../../shared/text/separators';
+
 import AppIcon from '../../../shared/components/AppIcon.vue';
 import type { CoStarSelection } from '../selection';
 
@@ -51,9 +53,7 @@ function toggle(event: MouseEvent): void {
           <b>{{ item.person.nameCN ?? item.person.name }}</b>
           <span>
             {{
-              item.identities
-                .map((identity) => identity.positionLabel)
-                .join(' / ')
+              joinDisplayText(item.identities.map((identity) => identity.positionLabel), ' / ')
             }}
           </span>
         </span>

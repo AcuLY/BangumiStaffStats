@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { joinDisplayText } from '../../../shared/text/separators';
+
 import '../co-star-oracle.css';
 import { NCheckbox, NRadioButton, NRadioGroup, NSkeleton } from 'naive-ui';
 import { computed } from 'vue';
@@ -91,7 +93,7 @@ const chartColumnHeights = [38, 56, 44, 72, 62, 86, 54, 68, 46, 34];
           </span>
           <span v-for="(person, index) in people" :key="person.person.id">
             <n-checkbox :size="controlSize" checked disabled>
-              <span class="distribution-legend__checkbox-label"><b>{{ String(index + 1).padStart(2, '0') }} · {{ name(person) }}</b></span>
+              <span class="distribution-legend__checkbox-label"><b>{{ joinDisplayText([String(index + 1).padStart(2, '0'), name(person)], ' · ') }}</b></span>
             </n-checkbox>
           </span>
         </div>
@@ -114,9 +116,9 @@ const chartColumnHeights = [38, 56, 44, 72, 62, 86, 54, 68, 46, 34];
         <div class="matrix-details matrix-details--direct" :class="{ 'matrix-details--scrollable': people.length >= 5 }">
           <div class="co-star-matrix-scroll">
             <table class="matrix-table co-star-matrix-table" :style="{ '--matrix-size': people.length }" aria-label="组合评分正在加载">
-              <thead><tr><th scope="col">组合</th><th v-for="person in people" :key="person.person.id" scope="col">{{ name(person) }}<small>{{ person.identities.map(identity => positionLabel(identity.positionKey)).join(' / ') }}</small></th></tr></thead>
+              <thead><tr><th scope="col">组合</th><th v-for="person in people" :key="person.person.id" scope="col">{{ name(person) }}<small>{{ joinDisplayText(person.identities.map(identity => positionLabel(identity.positionKey)), ' / ') }}</small></th></tr></thead>
               <tbody><tr v-for="person in people" :key="person.person.id">
-                <th scope="row">{{ name(person) }}<small>{{ person.identities.map(identity => positionLabel(identity.positionKey)).join(' / ') }}</small></th>
+                <th scope="row">{{ name(person) }}<small>{{ joinDisplayText(person.identities.map(identity => positionLabel(identity.positionKey)), ' / ') }}</small></th>
                 <td v-for="other in people" :key="other.person.id" :class="{ 'is-diagonal': person.person.id === other.person.id }">
                   <n-skeleton class="app-skeleton" width="36px" height="18px" :sharp="false" aria-hidden="true" />
                   <n-skeleton class="app-skeleton co-star-loading-matrix-count" width="48px" height="12px" :sharp="false" aria-hidden="true" />

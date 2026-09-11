@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { joinDisplayText } from '../../../shared/text/separators';
+
 import '../co-star-oracle.css';
 import { NTag } from 'naive-ui';
 import {
@@ -412,7 +414,7 @@ onMounted(ensureAnalysis);
             <strong>{{ group.label }}</strong>
             <div>
               <n-tag v-for="tag in group.tags" :key="tag.name" size="small" round>
-                {{ tag.name }} · {{ tag.count }}
+                {{ joinDisplayText([tag.name, String(tag.count)], ' · ') }}
               </n-tag>
               <n-tag v-if="!group.tags.length" size="small" round>
                 {{ group.key === 'personal' ? '未设置' : '无' }}
@@ -477,9 +479,7 @@ onMounted(ensureAnalysis);
                       {{ primaryName(participant.person) }}
                       <small>
                         {{
-                          participant.positionKeys
-                            .map((key) => positionLabel(String(key)))
-                            .join(' / ')
+                          joinDisplayText(participant.positionKeys.map((key) => positionLabel(String(key))), ' / ')
                         }}
                       </small>
                     </th>
@@ -494,9 +494,7 @@ onMounted(ensureAnalysis);
                       {{ primaryName(row.participant.person) }}
                       <small>
                         {{
-                          row.participant.positionKeys
-                            .map((key) => positionLabel(String(key)))
-                            .join(' / ')
+                          joinDisplayText(row.participant.positionKeys.map((key) => positionLabel(String(key))), ' / ')
                         }}
                       </small>
                     </th>

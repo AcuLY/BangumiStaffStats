@@ -8,7 +8,7 @@ import {
 } from '../../src/shared/navigation/basePath';
 
 describe('shared application base path', () => {
-  it('keeps existing logical URLs at the root development base', () => {
+  it('keeps existing logical URLs at the root application base', () => {
     expect(toPublicAppPath('/ranking', '/')).toBe('/ranking');
     expect(toPublicApiReference('/api/v1/catalog', '/')).toBe(
       '/api/v1/catalog',
@@ -16,7 +16,7 @@ describe('shared application base path', () => {
     expect(toLogicalAppPath('/co-star', '/')).toBe('/co-star');
   });
 
-  it('projects every browser-owned URL below the production base', () => {
+  it('projects every browser-owned URL below an explicit nested application base', () => {
     expect(toPublicAppPath('/ranking', '/v2/')).toBe('/v2/ranking');
     expect(toPublicAppPath('/co-star', '/v2')).toBe('/v2/co-star');
     expect(

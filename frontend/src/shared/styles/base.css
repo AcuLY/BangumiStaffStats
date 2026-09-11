@@ -440,8 +440,12 @@ select:focus-visible {
 }
 
 .query-summary__value:not(:last-child)::after {
-  content: " ·";
+  content: attr(data-separator);
   font-weight: 400;
+}
+
+.query-summary__value.query-summary__value--tight-end {
+  margin-inline-end: 0;
 }
 
 .header-edit-card__action {

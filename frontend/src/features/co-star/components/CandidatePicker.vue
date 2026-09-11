@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { joinDisplayText } from '../../../shared/text/separators';
+
 import {
   NButton,
   NCollapse,
@@ -114,7 +116,7 @@ const positionOptions = computed(() =>
   [
     { label: '全部职位', value: allPositionsValue },
     ...(payload.value?.positionCounts ?? []).map((entry) => ({
-      label: `${props.positionLabel(entry.positionKey)} · ${entry.count} 人`,
+      label: joinDisplayText([props.positionLabel(entry.positionKey), `${entry.count} 人`], ' · '),
       value: entry.positionKey,
     })),
   ],
@@ -615,17 +617,17 @@ onBeforeUnmount(() => {
               <span
                 v-if="positionKey === null"
                 class="candidate-row__positions"
-                :title="item.positionKeys.map(positionLabel).join(' / ')"
+                :title="joinDisplayText(item.positionKeys.map(positionLabel), ' / ')"
               >
-                {{ itemPartiallySelected(item) ? '已选部分身份 · ' : '' }}{{ item.positionKeys.map(positionLabel).join(' · ') }}
+                {{ joinDisplayText([...(itemPartiallySelected(item) ? ['已选部分身份'] : []), ...item.positionKeys.map(positionLabel)], ' · ') }}
               </span>
               <span
                 v-if="otherSelectedIdentityLabels(item.person.id, item.positionKeys).length"
                 class="candidate-other-positions"
-                :title="`已选其他身份：${otherSelectedIdentityLabels(item.person.id, item.positionKeys).join(' / ')}`"
+                :title="`已选其他身份：${joinDisplayText(otherSelectedIdentityLabels(item.person.id, item.positionKeys), ' / ')}`"
               >
                 已选其他身份：{{
-                  otherSelectedIdentityLabels(item.person.id, item.positionKeys).join(' / ')
+                  joinDisplayText(otherSelectedIdentityLabels(item.person.id, item.positionKeys), ' / ')
                 }}
               </span>
             </span>

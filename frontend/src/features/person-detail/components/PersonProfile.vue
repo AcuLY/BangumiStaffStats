@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { joinDisplayText } from '../../../shared/text/separators';
+
 import { computed, ref, watch } from 'vue';
 
 import SafeImage from '../../../shared/components/SafeImage.vue';
@@ -51,12 +53,15 @@ const careers = computed(() =>
   props.payload.person.careers.map((career) => careerLabels[career]),
 );
 const careerLine = computed(() =>
-  [...new Set([...positionLabels.value, ...careers.value])].join(' · '),
+  joinDisplayText([...new Set(careers.value)], ' / '),
+);
+const summaryIdentityLine = computed(() =>
+  joinDisplayText([...new Set([...positionLabels.value, ...careers.value])], ' / '),
 );
 const profileSummary = computed(
   () =>
     props.payload.person.summary?.trim() ||
-    `${name.value}以“${careerLine.value || '当前查询职位'}”身份参与了 ${
+    `${name.value}以“${summaryIdentityLine.value || '当前查询职位'}”身份参与了 ${
       props.payload.summary.workCount
     } ${
       props.payload.summary.workUnit === 'series'

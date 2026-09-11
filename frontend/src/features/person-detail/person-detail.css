@@ -1111,9 +1111,9 @@
   overflow: hidden;
   grid-area: career;
   justify-self: end;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.45;
   text-align: right;
   text-overflow: ellipsis;

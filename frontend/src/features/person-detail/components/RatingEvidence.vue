@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { joinDisplayText } from '../../../shared/text/separators';
+
 import { NRadioButton, NRadioGroup, NTooltip } from 'naive-ui';
 import {
   computed,
@@ -517,9 +519,7 @@ onBeforeUnmount(() => {
             @keydown="moveTimelineFocus($event, pointIndex)"
           >
             <title>
-              {{ primaryEntityName(point.work.subject) }} ·
-              {{ formatHundredths(point.work.score) }} 分 ·
-              {{ point.work.subject.date }}
+              {{ joinDisplayText([primaryEntityName(point.work.subject), `${formatHundredths(point.work.score)} 分`, point.work.subject.date ?? ''], ' · ') }}
             </title>
           </rect>
           <circle

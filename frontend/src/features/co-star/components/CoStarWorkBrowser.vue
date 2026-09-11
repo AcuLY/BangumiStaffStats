@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { joinDisplayText } from '../../../shared/text/separators';
 import {
   NButton,
   NRadioButton,
@@ -248,15 +249,16 @@ function contributionLabel(
     const character = credit.character.nameCN ?? credit.character.name;
     const mappedRole = CAST_ROLE_LABELS[credit.roleLabel];
     const identity = mappedRole ? `声优（${mappedRole}）` : '声优';
-    return `${identity}：${character}${
-      'workCount' in credit ? ` · ${credit.workCount} 部` : ''
-    }`;
+    return joinDisplayText([`${identity}：${character}`, ...(
+      'workCount' in credit ? [`${credit.workCount} 部`] : []
+    )], ' · ');
   }
   const exact = props.positionLabel(String(credit.exactPositionKey));
   const selected = props.positionLabel(String(credit.positionKey));
-  return `${selected === exact ? exact : `${selected} · ${exact}`}${
-    'workCount' in credit ? ` · ${credit.workCount} 部` : ''
-  }`;
+  return joinDisplayText([
+    ...(selected === exact ? [exact] : [selected, exact]),
+    ...('workCount' in credit ? [`${credit.workCount} 部`] : []),
+  ], ' · ');
 }
 
 function participantRows(item: CoStarWorkItem) {

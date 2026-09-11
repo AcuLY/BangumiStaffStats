@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { joinDisplayText } from '../../../shared/text/separators';
+
 import {
   NButton,
   NSelect,
@@ -140,7 +142,7 @@ const rankingItems = computed<readonly RankingItem[]>(() =>
 );
 const identityLabels = computed(() => Object.fromEntries(
   (currentPayload.value?.items ?? []).map((item) => [
-    item.person.id, item.positionKeys.map(props.positionLabel).join(' · '),
+    item.person.id, joinDisplayText(item.positionKeys.map(props.positionLabel), ' · '),
   ]),
 ));
 const fullPending = computed(() => props.resource.phase === 'pending');

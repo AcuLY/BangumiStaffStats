@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { joinDisplayText } from '../../../shared/text/separators';
+
 import { NTag } from 'naive-ui';
 import { computed, ref, useId } from 'vue';
 
@@ -358,7 +360,7 @@ async function focusPreference(
             <h4>{{ group.label }}</h4>
             <ul>
               <li v-for="tag in group.values" :key="tag.name">
-                <n-tag size="small" round>{{ tag.name }} · {{ tag.count }}</n-tag>
+                <n-tag size="small" round>{{ joinDisplayText([tag.name, String(tag.count)], ' · ') }}</n-tag>
               </li>
               <li v-if="!group.values.length">
                 <n-tag size="small" round>{{ group.key === 'personal' ? '未设置' : '无' }}</n-tag>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { joinDisplayText } from '../../../shared/text/separators';
+
 import type { CheckboxProps } from 'naive-ui';
 import {
   NCheckbox,
@@ -302,7 +304,7 @@ const timeSeries = computed<readonly TimelineSeries[]>(() =>
           datasetKey: dataset.key,
           entry,
           key,
-          label: `${dataset.label} · ${entry.year} ${seasonLabel(entry.quarter)} · 均分 ${formatHundredths(entry.average)} · ${entry.count} ${resultUnit.value}`,
+          label: joinDisplayText([dataset.label, `${entry.year} ${seasonLabel(entry.quarter)}`, `均分 ${formatHundredths(entry.average)}`, `${entry.count} ${resultUnit.value}`], ' · '),
           x: timelineX(entry),
           y: timelineY(entry.average),
         };
@@ -667,10 +669,7 @@ onBeforeUnmount(() => timelineResizeObserver?.disconnect());
         >
           <span class="distribution-legend__checkbox-label">
             <b>
-              <template v-if="dataset.marker">
-                {{ dataset.marker }} ·
-              </template>
-              {{ dataset.label }}
+              {{ joinDisplayText(dataset.marker ? [dataset.marker, dataset.label] : [dataset.label], ' · ') }}
             </b>
           </span>
         </n-checkbox>
@@ -912,7 +911,7 @@ onBeforeUnmount(() => timelineResizeObserver?.disconnect());
           }"
           role="tooltip"
         >
-          <strong>{{ activeTimelinePoint.label.split(' · ')[0] }}</strong>
+          <strong>{{ displayDatasets.find(dataset => dataset.key === activeTimelinePoint?.datasetKey)?.label }}</strong>
           <span>
             {{ activeTimelinePoint.entry.year }}
             {{ seasonLabel(activeTimelinePoint.entry.quarter) }} · 均分

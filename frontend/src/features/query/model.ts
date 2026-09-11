@@ -1,3 +1,4 @@
+import { joinDisplayText } from '../../shared/text/separators';
 import type {
   CollectionStatusV1,
   EffectiveQueryV1,
@@ -829,7 +830,7 @@ export function summarizeQuery(
     catalog?.subjectTypes.find((subject) => subject.key === query.subjectType)
       ?.label ?? query.subjectType;
   const parts = [
-    positionScope === 'all' ? '全部职位' : positions.join(' + ') || '未选择职位',
+    positionScope === 'all' ? '全部职位' : joinDisplayText(positions, ' + ') || '未选择职位',
     query.scope === 'personal' ? query.uid : '全站数据',
     subjectLabel,
   ];
