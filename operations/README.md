@@ -35,6 +35,13 @@ with mode `0750`; `current.json` is `65532:65532` mode `0640`. This is the
 only product-data bind mounted writable into API. The API image root remains
 read-only. Prometheus has no Archive mount.
 
+API sets the fixed `SQLITE_TMPDIR=/var/lib/bgmss/archive` because it also owns
+the Go Archive builder. SQLite temporary tables and indices use this data disk;
+the unrelated `/tmp` tmpfs remains limited to 16 MiB. Prometheus receives no
+SQLite temporary-directory setting. Changing this environment requires API
+container recreation; a process restart inside an existing container is not
+enough to adopt an updated Compose environment.
+
 ## Deployment bundle
 
 The manual `operations-preview` workflow builds one `linux/amd64` bundle with:

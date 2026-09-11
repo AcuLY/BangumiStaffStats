@@ -120,6 +120,8 @@ if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; 
       (.services | keys | sort) == ["api", "prometheus"]
       and .services.api.read_only == true
       and .services.prometheus.read_only == true
+      and .services.api.environment.SQLITE_TMPDIR == "/var/lib/bgmss/archive"
+      and (.services.prometheus.environment // {} | has("SQLITE_TMPDIR") | not)
       and ([.services.api.volumes[]
         | select(.target == "/var/lib/bgmss/archive")
         | (.read_only // false)] == [false])
