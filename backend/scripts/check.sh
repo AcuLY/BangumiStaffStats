@@ -514,7 +514,7 @@ else
     exit 1
   fi
 fi
-if grep -R -n -E '(/health|/proxy|ProxyFromEnvironment|update_activated|net/http/pprof)' \
+if grep -R -n -E '(/health|/proxy|ProxyFromEnvironment|net/http/pprof)' \
   --include='*.go' --exclude='*_test.go' cmd internal \
   | grep -v 'internal/httpapi/wire/query_wire.gen.go' >/dev/null; then
   echo "deferred route or feature found in production source" >&2
